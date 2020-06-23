@@ -36,11 +36,11 @@ Installation
         cd src
         make all
 
-* Compile individual utility or module
+* Compile individual utility or module  
   E.g.
         make fch2inp
 
-* After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.
+* After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
   E.g. if MOKIT is installed in /home/$USER/mokit, the following should be set in ~/.bashrc:
 
         export MOKIT_ROOT=/home/$USER/mokit
