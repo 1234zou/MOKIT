@@ -38,6 +38,7 @@ Installation
 
 * Compile individual utility or module  
   E.g.
+
         make fch2inp
 
 * After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
