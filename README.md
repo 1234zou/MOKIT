@@ -52,10 +52,10 @@ Quick Start
 * Each utility is self-explanatory. For example, run `fch2inp` in Shell,
   you will find
 
-   ERROR in subroutine fch2inp: wrong command line arguments!
-   Example 1 (R(O)HF, CAS): fch2inp a.fch
-   Example 2 (UHF)        : fch2inp a.fch -uhf
-   Example 3 (GVB)        : fch2inp a.fch -gvb [npair]
+   ERROR in subroutine fch2inp: wrong command line arguments!  
+   Example 1 (R(O)HF, CAS): fch2inp a.fch  
+   Example 2 (UHF)        : fch2inp a.fch -uhf  
+   Example 3 (GVB)        : fch2inp a.fch -gvb [npair]  
    Example 4 (ROGVB)      : fch2inp a.fch -gvb [npair] -open [nopen]
 
 * For usages of modules in lib/, see examples/
