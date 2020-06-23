@@ -1,0 +1,6 @@
+%mem=2GB
+%nprocshared=4
+#p CASSCF/cc-pVQZ
+
+mokit{readrhf='01-N2_cc-pVQZ_6D10F_1.0_rhf.fchk',ist=3}
+
