@@ -6,11 +6,11 @@ run common multi-reference calculations in a block-box way.
 With MOKIT, one can perform multi-reference calculations in a quite simple way,
 and utilize the best modules of each program. E.g.
 
-  UHF(UNO) -> CASSCF -> CASPT2
-  Gaussian    PySCF     OpenMolcas
-or
-  UHF(UNO) -> GVB   -> CASSCF -> NEVPT2
-  Gaussian    GAMESS   PySCF     PySCF
+  UHF(UNO) -> CASSCF -> CASPT2  
+  Gaussian&emsp;&emsp;PySCF&emsp;&emsp;OpenMolcas  
+or  
+  UHF(UNO) -> GVB   -> CASSCF -> NEVPT2  
+  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;PySCF
 
 Negligible energy loss(usually<1e-6 a.u., for the same wave function method in two
 programs) are ensured during transferring MOs, since the basis order of angular
