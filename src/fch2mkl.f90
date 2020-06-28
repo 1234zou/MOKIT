@@ -23,8 +23,8 @@ program main
  i = iargc()
  if(i<1 .or. i>2) then
   write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line arguments.'
-  write(iout,'(/,A)')  ' Example 1 (R(O)HF, CAS): ./fch2mkl a.fch'
-  write(iout,'(/,A,/)')' Example 2 (UHF):         ./fch2mkl a.fch -uhf'
+  write(iout,'(/,A)')  ' Example 1 (R(O)HF, CAS): fch2mkl a.fch'
+  write(iout,'(/,A,/)')' Example 2 (UHF):         fch2mkl a.fch -uhf'
   stop
  end if
 
@@ -89,7 +89,7 @@ subroutine fch2mkl(fchname, uhf)
  end if
  ! check done
 
- ! find F+3 and F-3 functions, multiply them by -1
+ ! find F+3, G+3 and H+3 functions, multiply them by -1
  nf3mark = 0; ng3mark = 0; nh3mark = 0
  allocate(f3_mark(nbf), source=0)
  allocate(g3_mark(nbf), source=0)

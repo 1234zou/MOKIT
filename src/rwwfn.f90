@@ -1,5 +1,36 @@
 ! written by jxzou at 20200504: read/write basis, MOs or eigenvalues from/to given files
 
+! read the total charge and the spin mltiplicity from a given .fch(k) file
+subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'Charge') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no ''&
+                   & found in file "//TRIM(fchname)//'.'
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ read(fid,'(A49,2X,I10)') buf, charge
+ read(fid,'(A49,2X,I10)') buf, mult
+
+ close(fid)
+ return
+end subroutine read_charge_and_mult_from_fch
+
 ! read nalpha and nbeta from .fch(k) file
 subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
@@ -185,6 +216,66 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  close(fid)
  return
 end subroutine read_mo_from_orb
+
+! read Alpha/Beta MO coefficients from ORCA .mkl file
+subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
+ implicit none
+ integer :: i, j, k, fid, nbatch
+ integer, intent(in) :: nbf, nif
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: mo(nbf,nif)
+ character(len=240) :: buf
+ character(len=11) :: key
+ character(len=11), parameter :: key1 = '$COEFF_ALPH'
+ character(len=11), parameter :: key2 = '$COEFF_BETA'
+ character(len=1), intent(in) :: ab
+ character(len=240), intent(in) :: mklname
+
+ if(ab=='a' .or. ab=='A') then
+  key = key1
+ else if (ab=='b' .or. ab=='B') then
+  key = key2
+ else
+  write(iout,'(A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
+  write(iout,'(A)') 'ab = '//ab
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)&
+                    //"' found in file "//TRIM(mklname)//'.'
+  stop
+ end if
+
+ nbatch = nif/5
+ do i = 1, nbatch, 1
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+
+  do j = 1, nbf, 1
+   read(fid,*) mo(j,5*i-4:5*i)
+  end do ! for j
+ end do ! for i
+
+ k = nif - 5*nbatch
+ if(k > 0) then
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  do j = 1, nbf, 1
+   read(fid,*) mo(j,5*i-4:nif)
+  end do ! for j
+ end if
+
+ close(fid)
+ return
+end subroutine read_mo_from_mkl
 
 ! read Alpha/Beta eigenvalues in a given .fch(k) file
 ! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
@@ -877,7 +968,7 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg)
  case('openmolcas')
   call read_cas_energy_from_molcas_out(outname, e, scf)
  case('orca')
-  
+  call read_cas_energy_from_orca_out(outname, e, scf)
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
                    & cannot be identified.'
@@ -888,7 +979,7 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg)
  return
 end subroutine read_cas_energy_from_output
 
-! read CASCI/CASSCF energy from a Gaussian .log/.out file
+! read CASCI/CASSCF energy from a Gaussian .log file
 subroutine read_cas_energy_from_gaulog(outname, e, scf)
  implicit none
  integer :: i, fid
@@ -898,32 +989,36 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(13:22) == 'EIGENVALUE') exit
+  if(buf(13:22)=='EIGENVALUE' .or. buf(23:32)=='Eigenvalue') exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_gaulog: no&
-                   & 'EIGENVALUE' found in file "//TRIM(outname)
+   & 'EIGENVALUE' or 'Eigenvalue' found in file "//TRIM(outname)
   close(fid)
   stop
  end if
  close(fid)
 
+ i = index(buf,'lue')
+ if(i == 0) i = index(buf,'LUE')
+
  if(scf) then
-  read(buf(23:),*) e(2) ! CASSCF
+  read(buf(i+3:),*) e(2) ! CASSCF
  else
-  read(buf(23:),*) e(1) ! CASCI
+  read(buf(i+3:),*) e(1) ! CASCI
  end if
 
  if(scf) then ! read CASCI energy
   open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
   do while(.true.)
    read(fid,'(A)') buf
-   if(i /= 0) exit
    if(buf(2:8) == 'ITN=  1') exit
   end do ! for while
   close(fid)
@@ -1091,6 +1186,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+7:),*) e(1)   ! CASCI energy in the CASSCF job
   i = index(buf,'=',back=.true.)
   read(buf(i+1:),*) s_square
+  s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
                     & CASSCF job, the 0-th step, i.e., the CASCI'
@@ -1107,6 +1203,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+7:),*) e(2)   ! CASSCF energy
   i = index(buf,'S=')
   read(buf(i+2:),*) s_square
+  s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
                     & <S**2> deviates too much from the expectation value.'
@@ -1129,6 +1226,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
  
   i = index(buf,'=', back=.true.)
   read(buf(i+1:),*) s_square
+  s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
                     & <S**2> deviates too much from the expectation value.'
@@ -1206,6 +1304,59 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  close(fid)
  return
 end subroutine read_cas_energy_from_molcas_out
+
+! read CASCI/CASSCF energy from a given OpenMolcas/Molcas output file
+subroutine read_cas_energy_from_orca_out(outname, e, scf)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e(2)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ if(scf) then
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:19) == 'Final CASSCF energy') exit
+  end do ! for while
+ 
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_orca_out:'
+   write(iout,'(A)') "No 'Final CASSCF energy' found in file "//TRIM(outname)//'.'
+   close(fid)
+   stop
+  end if
+
+  i = index(buf,':')
+  read(buf(i+1:),*) e(2)
+ end if
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == 'ROOT   0') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_orca_out:'
+  write(iout,'(A)') "No 'ROOT   0' found in file "//TRIM(outname)//'.'
+  close(fid)
+  stop
+ end if
+ close(fid)
+
+ i = index(buf,'=')
+ read(buf(i+1:),*) e(1)
+ return
+end subroutine read_cas_energy_from_orca_out
 
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt2_energy_from_pyscf_out(outname, e)

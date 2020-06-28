@@ -19,7 +19,7 @@ F2_FLAGS = --fcompiler=intelem --compiler=intelem
 F2_MKL_FLAGS = --link-lapack_opt
 
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
-OBJ_automr = mr_keyword.o rwwfn.o automr.o
+OBJ_automr = mr_keyword.o rwwfn.o rwgeom.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = bas_fch2py.o rwwfn.o
 OBJ_bas_gms2molcas = bas_gms2molcas.o
@@ -36,6 +36,7 @@ OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = find_mc_pair.o
 OBJ_gvb_correct_pairs = rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_sort_pairs = gvb_sort_pairs.o
+OBJ_mkl2fch = rwwfn.o read_fch.o mkl2fch.o
 OBJ_py2fch = py2fch.f90
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = construct_vir.f90
@@ -50,7 +51,7 @@ OBJ_solve_ON_matrix = rwwfn.o solve_ON_matrix.o
 
 .PHONY: clean distclean align_orbitals automr bas_fch2py bas_gms2molcas bas_gms2py dat2fch \
         fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs \
-        gvb_sort_pairs mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
+        gvb_sort_pairs mkl2fch mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -132,6 +133,9 @@ gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)/gvb_sort_pairs $(FFLAGS)
 
+mkl2fch: $(OBJ_mkl2fch)
+	$(F90) $(OBJ_mkl2fch) -o $(BIN)/mkl2fch $(FFLAGS)
+
 pyuno: $(OBJ_pyuno)
 	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(F2_MKL_FLAGS)
 	@mv uno*.so ../lib/
@@ -179,7 +183,7 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 
 all: automr auto_pair bas_fch2py bas_gms2molcas bas_gms2py dat2fch fch2mkl \
      fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
-     gvb_sort_pairs py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop lo \
+     gvb_sort_pairs mkl2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop lo \
      mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 clean:

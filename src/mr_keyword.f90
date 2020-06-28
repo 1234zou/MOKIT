@@ -24,17 +24,22 @@ module mol
  ! nacte = nacta + nactb
  ! nacta = npair0 + nopen
  ! nactb = npair0
+ integer :: natom = 0    ! number of atoms
 
  logical :: lin_dep = .false. ! whether basis set linear dependence exists
  ! (1) nbf = nif, lin_dep = .False.;
  ! (2) nbf > nif, lin_dep = .True. ;
  ! (3) nbf < nif is impossible.
 
- real(kind=8) :: gvb_e    = 0.0d0 ! GVB (electronic) energy
+ real(kind=8) :: rhf_e    = 0.0d0 ! RHF (electronic) energy
+ real(kind=8) :: uhf_e    = 0.0d0 ! UHF energy
+ real(kind=8) :: gvb_e    = 0.0d0 ! GVB energy
  real(kind=8) :: casci_e  = 0.0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8), allocatable :: coor(:,:) ! Cartesian coordinates of this molecule
+ character(len=2), allocatable :: elem(:) ! element symbols
 end module mol
 
 ! keywords information (default values are set)
@@ -63,6 +68,7 @@ module mr_keyword
  ! Note: SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck in a saddle point/local minimum
  ! if crazywfn is .True., AutoMR will add more keywords (than hardwfn) to ensure convergence or correct spin
 
+ character(len=240) :: gjfname = ' ' ! filename of the input .gjf file
  character(len=240) :: hf_fch = ' '  ! filename of the given .fch(k) file
  character(len=240) :: datname = ' ' ! filename of GAMESS GVB .dat file
  character(len=240) :: casnofch = ' '! .fch(k) file of CASCI or CASSCF job
@@ -501,7 +507,7 @@ contains
   if(readrhf .or. readuhf .or. readno) then
    inquire(file=TRIM(hf_fch),exist=alive(1))
    if(.not. alive(1)) then
-    write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible: file '//TRIM(hf_fch)&
+    write(iout,'(A)') 'ERROR in subroutine parse_keyword: file '//TRIM(hf_fch)&
                      //' does not exist.'
     stop
    end if
@@ -528,7 +534,7 @@ contains
   case(5)
    gvb = .false.
   case default
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible: ist out of range.'
+   write(iout,'(A)') 'ERROR in subroutine parse_keyword: ist out of range.'
    stop
   end select
 
@@ -655,9 +661,35 @@ contains
   end if
 
   if(casscf_prog/='gaussian' .and. casscf_prog/='gamess' .and. casscf_prog/='openmolcas'&
-     .and. casscf_prog/='pyscf') then
+     .and. casscf_prog/='orca' .and. casscf_prog/='pyscf') then
    write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
+   stop
+  end if
+
+  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. gvb) then
+   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') 'ORCA and GAMESS (do GVB) both activated, but the former uses spherical functions,'
+   write(iout,'(A)') 'while the latter uses Cartesian functions. Conflict.'
+   write(iout,'(A)') 'You may try ist = 2, where GVB is skipped: UNO -> CASCI/CASSCF'
+   stop
+  end if
+
+  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
+   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') "ORCA is specified. But ORCA uses spherical functions, please also specify 'nocart'."
+   stop
+  end if
+
+  if((casci_prog=='gamess' .or. casscf_prog=='gamess') .and. (.not.cart)) then
+   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') "GAMESS is specified. But GAMESS uses Cartesian functions, do not specify 'nocart'."
+   stop
+  end if
+
+  if(casscf_prog=='openmolcas' .and. nevpt2) then
+   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') 'OpenMolcas doing CAS is not compatible with PySCF doing NEVPT2.'
    stop
   end if
 

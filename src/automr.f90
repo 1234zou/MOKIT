@@ -47,7 +47,7 @@ subroutine automr(fname)
  call parse_keyword(fname)
  call check_kywd_compatible()
 
- call do_hf()
+ call do_hf(fname)
  call get_paired_LMO()
  call do_gvb()
  call do_cas(.false.)! CASCI/DMRG-CASCI
@@ -61,12 +61,78 @@ subroutine automr(fname)
 end subroutine automr
 
 ! perform RHF/UHF computation
-subroutine do_hf()
- use mr_keyword, only: skiphf
+subroutine do_hf(fname)
+ use print_id, only: iout
+ use mol, only: natom, coor, elem, charge, mult, rhf_e, uhf_e
+ use mr_keyword, only: skiphf, mem, nproc, basis, cart, gau_path, hf_fch, ist, mo_rhf
  implicit none
+ integer :: i, system
+ real(kind=8) :: ssquare = 0.0d0
+ character(len=24) :: data_string = ' '
+ character(len=240) :: rhf_gjfname, uhf_gjfname, chkname
+ character(len=240), intent(in) :: fname
 
- if(skiphf) return
+ write(iout,'(//,A)') 'Enter subroutine do_hf...'
 
+ if(skiphf) then
+  write(iout,'(A)') 'Skip the RHF/UHF step...'
+  call read_charge_and_mult_from_fch(hf_fch, charge, mult)
+  call fdate(data_string)
+  write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
+  return
+ else
+  call read_natom_from_gjf(fname, natom)
+  allocate(coor(3,natom), elem(natom))
+  call read_elem_and_coor_from_gjf(fname, natom, elem, coor, charge, mult)
+ end if
+
+ i = index(fname, '.gjf', back=.true.)
+ rhf_gjfname = fname(1:i-1)//'_rhf.gjf'
+ uhf_gjfname = fname(1:i-1)//'_uhf.gjf'
+
+ if(mult == 1) then ! singlet, perform RHF and UHF
+  call generate_hf_gjf(rhf_gjfname, natom, elem, coor, charge, mult, basis,&
+                       .false., cart, mem, nproc)
+  call perform_hf_and_read_e(gau_path, rhf_gjfname, rhf_e, ssquare)
+
+  call generate_hf_gjf(uhf_gjfname, natom, elem, coor, charge, mult, basis,&
+                       .true., cart, mem, nproc)
+  call perform_hf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
+
+ else               ! not singlet, only perform UHF
+
+  call generate_hf_gjf(uhf_gjfname, natom, elem, coor, charge, mult, basis,&
+                       .true., cart, mem, nproc)
+  call perform_hf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
+ end if
+
+ if(mult == 1) then
+  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(RHF) = ', rhf_e, 'a.u., <S**2>=', 0.0
+  write(iout,'(A,F18.8,1X,A,F7.3)') 'E(UHF) = ', uhf_e, 'a.u., <S**2>=',ssquare
+ else
+  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ', uhf_e, 'a.u., <S**2>=',ssquare
+ end if
+
+ if(rhf_e - uhf_e > 1.0d-4) then
+  write(iout,'(/,A)') 'UHF energy is lower, choose UHF wave function.'
+  ist = 1
+  mo_rhf = .false.
+  i = index(fname, '.gjf', back=.true.)
+  chkname = fname(1:i-1)//'_uhf.chk'
+  hf_fch = fname(1:i-1)//'_uhf.fch'
+  i = system('formchk '//TRIM(chkname)//' '//TRIM(hf_fch)//' > /dev/null')
+ else
+  write(iout,'(/,A)') 'RHF/UHF is equal, or has little difference, choose RHF wave function.'
+  ist = 3
+  mo_rhf = .true.
+  i = index(fname, '.gjf', back=.true.)
+  chkname = fname(1:i-1)//'_rhf.chk'
+  hf_fch = fname(1:i-1)//'_rhf.fch'
+  i = system('formchk '//TRIM(chkname)//' '//TRIM(hf_fch)//' > /dev/null')
+ end if
+
+ call fdate(data_string)
+ write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
  return
 end subroutine do_hf
 
@@ -74,7 +140,8 @@ end subroutine do_hf
 subroutine get_paired_LMO()
  use print_id, only: iout
  use mr_keyword, only: mo_rhf, ist, hf_fch, delete_file
- use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen, lin_dep
+ use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
+                lin_dep
  implicit none
  integer :: i, j, fid, system, RENAME
  character(len=24) :: data_string = ' '
@@ -89,7 +156,7 @@ subroutine get_paired_LMO()
   stop
  end if
 
- i = index(hf_fch,'.fch')
+ i = index(hf_fch,'.fch',back=.true.)
  proname = hf_fch(1:i-1)
  chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
  fchname = hf_fch(1:i-1)//'_uno.fch'
@@ -145,7 +212,6 @@ subroutine get_paired_LMO()
 
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine get_paired_LMO at '//TRIM(data_string)
-
  return
 end subroutine get_paired_LMO
 
@@ -660,7 +726,7 @@ subroutine prt_cas_gjf(gjfname, mem, nproc, nacto, nacte, scf)
 end subroutine prt_cas_gjf
 
 subroutine prt_cas_gms_inp(inpname, ncore, scf)
- use mol, only: nacto, nacte
+ use mol, only: nacto, nacte, charge, mult
  use mr_keyword, only: mem, nproc, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -674,10 +740,11 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
  if(scf) then   ! CASSCF
-  write(fid2,'(A)') ' $CONTRL SCFTYP=MCSCF RUNTYP=ENERGY ICHARG=0 MULT=1 NOSYM=1'
+  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF RUNTYP=ENERGY ICHARG='
  else           ! CASCI
-  write(fid2,'(A)') ' $CONTRL SCFTYP=NONE CITYP=ALDET RUNTYP=ENERGY ICHARG=0 MULT=1 NOSYM=1'
+  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=NONE CITYP=ALDET RUNTYP=ENERGY ICHARG='
  end if
+ write(fid2,'(2(I0,A))') charge, ' MULT=', mult, ' NOSYM=1'
 
  write(fid2,'(A)') '  ICUT=10 $END'
  write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)), ' $END'
@@ -756,6 +823,51 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  close(fid)
  return
 end subroutine prt_cas_molcas_inp
+
+! print CASCI/CASSCF keywords in to a given Molcas/OpenMolcas input file
+subroutine prt_cas_orca_inp(inpname, scf)
+ use print_id, only: iout
+ use mol, only: nacte, nacto
+ use mr_keyword, only: mem, nproc
+ implicit none
+ integer :: i, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: scf
+
+ inpname1 = TRIM(inpname)//'.tmp'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ read(fid1,'(A)') buf   ! skip nproc
+ read(fid1,'(A)') buf   ! skip memory
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+
+ read(fid1,'(A)') buf   ! skip '!' line
+ if(scf) then
+  write(fid2,'(A)') '! TightSCF'
+ else
+  write(fid2,'(A)') '! TightSCF noiter'
+ end if
+ write(fid2,'(A)') '%casscf'
+ write(fid2,'(A,I0)') ' nel ', nacte
+ write(fid2,'(A,I0)') ' norb ', nacto
+ if(scf) write(fid2,'(A)') ' maxiter 200'
+ write(fid2,'(A,I0)') ' ActOrbs NatOrbs'
+ write(fid2,'(A)') 'end'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_cas_orca_inp
 
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
@@ -976,7 +1088,7 @@ subroutine do_cas(scf)
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, delete_file, copy_file
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
-                nactb, nacto, nacte, gvb_e
+                nactb, nacto, nacte, gvb_e, mult
  implicit none
  integer :: i, j, idx1, idx2, nvir, system, RENAME
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
@@ -1081,6 +1193,14 @@ subroutine do_cas(scf)
     stop
    end if
   end if
+
+ else ! npair0 <=7
+
+  if(scf) then
+   dmrgscf = .false.
+  else
+   dmrgci = .false.
+  end if
  end if
 
  if(ist<1 .or. ist>3) then
@@ -1132,19 +1252,26 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.gjf'
   outname = TRIM(proname)//'.log'
   call prt_cas_gjf(inpname, mem, nproc, nacto, nacte, scf)
-  i = system('unfchk '//TRIM(fchname)//' '//TRIM(proname)//'.chk >/dev/null')
+  i = system('unfchk '//TRIM(fchname)//' '//TRIM(proname)//'.chk > /dev/null')
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
    write(iout,'(A)') 'ERROR in subroutine do_cas: Gaussian CAS job failed!'
    write(iout,'(A)') 'Filename='//TRIM(inpname)
    stop
   end if
-  i = system('formchk '//TRIM(proname)//'.chk '//TRIM(casnofch)//' >/dev/null')
+  i = system('formchk '//TRIM(proname)//'.chk '//TRIM(casnofch)//' > /dev/null')
+
+  if(mult /= 1) i = system('fch_u2r '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  inpname = casnofch(1:i-1)//'_r.fch'
+  i = RENAME(inpname, casnofch)
+  inpname = TRIM(proname)//'.gjf'
 
  else if(cas_prog == 'gamess') then
   inpname = TRIM(proname)//'.dat'
   buf = TRIM(gms_scr_path)//'/'//TRIM(inpname) ! delete the possible .dat file
   call delete_file(buf)
+  ! do not use datname in the above three lines! because datname may be that of a GVB job
 
   i = system('fch2inp '//TRIM(fchname))
   i = index(fchname, '.fch', back=.true.)
@@ -1157,19 +1284,24 @@ subroutine do_cas(scf)
   i = system(TRIM(buf))
 
   ! make a copy of the .fch file to save NOs
-  i = index(datname,'.dat')
-  inpname = datname(1:i-1)//'.fch'
+  if(ist /= 2) then ! datname is a GVB job .dat file
+   i = index(datname,'.dat')
+   inpname = datname(1:i-1)//'.fch'
+  else              ! no GVB job
+   i = index(hf_fch, '.fch')
+   inpname = hf_fch(1:i-1)//'_uno.fch'
+  end if
   call copy_file(inpname, casnofch, .false.)
 
   ! move the .dat file into current directory
-  inpname = TRIM(proname)//'.dat'
-  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(inpname)//' .')
+  datname = TRIM(proname)//'.dat'   ! update datname
+  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
-  if(scf) i = system('dat2fch '//TRIM(inpname)//' '//TRIM(casnofch))
+  if(scf) i = system('dat2fch '//TRIM(datname)//' '//TRIM(casnofch))
 
   ! transfer NOs from .dat to .fch
-  write(buf,'(A,I0,1X,I0)') 'dat2fch '//TRIM(inpname)//' '//TRIM(casnofch)//' -no ',1,idx2
+  write(buf,'(A,I0,1X,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',1,idx2
   i = system(TRIM(buf))
 
  else if(cas_prog == 'openmolcas') then
@@ -1185,9 +1317,29 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.out'
   call prt_cas_molcas_inp(inpname, scf)
   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
  else if(cas_prog == 'orca') then
-  write(iout,'(A)') 'ERROR in subroutine do_cas: ORCA not supported currently.'
-  stop
+  i = system('fch2mkl '//TRIM(fchname))
+
+  i = index(fchname, '.fch', back=.true.)
+  outname = fchname(1:i-1)//'.mkl'
+  inpname = TRIM(proname)//'.mkl'
+  i = RENAME(TRIM(outname),TRIM(inpname))
+  i = system('orca_2mkl '//TRIM(proname)//' -gbw > /dev/null')
+  call delete_file(inpname)
+
+  i = index(fchname, '.fch', back=.true.)
+  outname = fchname(1:i-1)//'.inp'
+  inpname = TRIM(proname)//'.inp'
+  i = RENAME(TRIM(outname),TRIM(inpname))
+  outname = TRIM(proname)//'.out'
+  call prt_cas_orca_inp(inpname, scf)
+  i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+  ! make a copy of the .fch file to save NOs
+  call copy_file(fchname, casnofch, .false.)
+  i = system('orca_2mkl '//TRIM(proname)//' -mkl > /dev/null')
+  i = system('mkl2fch '//TRIM(proname)//'.mkl '//TRIM(casnofch))
  end if
 
  ! extract NOONs from the output file and print them into .fch file
@@ -1238,7 +1390,8 @@ end subroutine do_cas
 subroutine do_mrpt2()
  use print_id, only: iout
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2,&
-                       nevpt2, copy_file, delete_file, casnofch
+                       nevpt2, copy_file, delete_file, casnofch, casscf_prog, &
+                       casci_prog
  use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e
  implicit none
  integer :: i, RENAME, system
@@ -1251,6 +1404,14 @@ subroutine do_mrpt2()
  write(iout,'(//,A)') 'Enter subroutine do_mrpt2...'
 
  if(.not. CIonly) then
+  if(casscf_prog == 'orca') then
+   write(iout,'(A)') 'Attention: ORCA is used as the CASSCF solver,&
+                    & the NO coefficients in .mkl file are only 7-digits.'
+   write(iout,'(A)') 'This will affect the PT2 energy at about 10^-5 a.u.&
+                    & such small error is usually not important.'
+   write(iout,'(A)') 'If you care about the accuracy, please use another CASSCF solver.'
+  end if
+
   if(casscf) then
    if(caspt2) then
     data_string1 = 'CASPT2 based on optimized CASSCF orbitals.'
@@ -1264,7 +1425,16 @@ subroutine do_mrpt2()
     data_string1 = 'DMRG-NEVPT2 based on optimized DMRG-CASSCF orbitals.'
    end if
   end if
+
  else ! CIonly = .True.
+  if(casci_prog == 'orca') then
+   write(iout,'(A)') 'Attention: ORCA is used as the CASCI solver,&
+                    & the NO coefficients in .mkl file are only 7-digits.'
+   write(iout,'(A)') 'This will affect the PT2 energy at about 10^-5 a.u.&
+                    & such small error is usually not important.'
+   write(iout,'(A)') 'If you care about the accuracy, please use another CASCI solver.'
+  end if
+
   if(casci) then
    if(caspt2) then
     data_string1 = 'CASPT2 based on CASCI orbitals.'
@@ -1404,4 +1574,53 @@ subroutine modify_memory_in_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine modify_memory_in_inp
+
+subroutine perform_hf_and_read_e(gau_path, gjfname, e, ssquare)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid, system
+ real(kind=8), intent(out) :: e, ssquare
+ character(len=240) :: buf, logname
+ character(len=240), intent(in) :: gau_path
+ character(len=240), intent(in) :: gjfname
+
+ e = 0.0d0
+ ssquare = 1.0d0
+ i = index(gjfname, '.gjf', back=.true.)
+ logname = gjfname(1:i-1)//'.log'
+
+ i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+ if(i /= 0) then
+  write(fid,'(/,A)') 'ERROR in subroutine perform_hf_and_read_e: running Gaussian failed.'
+  write(fid,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(logname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,'SCF Done') /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine perform_hf_and_read_e: no 'SCF Done'&
+                   & found in file "//TRIM(logname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) e
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ i = index(buf, 'S**2')
+ if(i /= 0) read(buf(i+6:),*) ssquare
+
+ close(fid)
+ return
+end subroutine perform_hf_and_read_e
 

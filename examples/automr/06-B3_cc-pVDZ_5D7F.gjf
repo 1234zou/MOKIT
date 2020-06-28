@@ -1,0 +1,5 @@
+%mem=8GB
+%nprocshared=4
+#p CASPT2/cc-pVDZ
+
+mokit{readuhf='B3_cc-pVDZ_5D7F_uhf.fchk',ist=2,nocart,casscf_prog=orca,localm=pm}

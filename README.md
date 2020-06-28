@@ -21,7 +21,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine calculations in Gaussian). You are encouraged
 to learn how to use Gaussian first if you are a fresh hand.
 
-2020-06-23
+2020-06-28
 
 Installation
 ------------
@@ -71,10 +71,13 @@ Quick Start
 
         mokit{readuhf='N2_cc-pVQZ_6D10F_4.0_uhf.fchk',ist=1} 
 
-  There is no need to write Cartesian coordinates since they are already provided in .fchk file. Run
-  'automr N2_cc-pVQZ_6D10F_4.0.gjf >& N2_cc-pVQZ_6D10F_4.0.out' in SHELL. The automr
-  program will successively perform GVB, CASCI, CASSCF, NEVPT2 computations. See examples/
-  for more examples.
+  There is no need to write Cartesian coordinates since they are already provided in .fchk file.
+  Run
+
+  automr N2_cc-pVQZ_6D10F_4.0.gjf >& N2_cc-pVQZ_6D10F_4.0.out  
+
+  in SHELL. The automr program will successively perform GVB, CASSCF, NEVPT2 computations. See
+  examples/ for more examples.
 
 Some Tips
 ---------

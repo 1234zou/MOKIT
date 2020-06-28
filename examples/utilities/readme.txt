@@ -32,10 +32,12 @@ After Example 3 finished, you can run the following 2 steps
 The GVB(3) orbitals are in 03-ben_cc-pVDZ_6D10F_gvb3.fch file, which can be visualizied by GaussView.
 
 -------------------------------------------------
-Example 4: transfer UHF MOs from Gaussian to ORCA
+Example 4: transfer RHF MOs from Gaussian to ORCA
 -------------------------------------------------
-Run 'fch2mkl 04-bis.fchk -uhf' in Shell, two files(.mkl and .inp) would be generated.
-Then run 'orca_2mkl 04-bis -gbw' in Shell, you can obtain 04-bis.gbw file.
+Run 'fch2mkl 04-PhCOOH_def2TZVP_rhf.fchk' in Shell, two files(.mkl and .inp) would be generated.
+Then run 'orca_2mkl 04-PhCOOH_def2TZVP_rhf -gbw' in Shell, you can obtain 04-PhCOOH_def2TZVP_rhf.gbw file.
+Finally run 'orca 04-PhCOOH_def2TZVP_rhf.inp >& 04-PhCOOH_def2TZVP_rhf.out', you will find that the RHF energy
+can be exactly reproduced using the utility fch2mkl.
 
 --------------------------------------------------
 Example 5: transfer GVB NOs from Gaussian to PySCF

@@ -1,0 +1,11 @@
+%mem=16GB
+%nprocshared=16
+#p CASSCF(6,6)/cc-pVQZ
+
+mokit{}
+
+0 1
+N   0.0   0.0   0.0
+N   0.0   0.0   1.15
+
+

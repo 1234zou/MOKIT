@@ -20,10 +20,11 @@ program main
   write(iout,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong&
                       & command line arguments.'
   write(iout,'(A)') ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
-  write(iout,'(/,A)') ' Example1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
-  write(iout,'(/,A)') ' Example2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
-  write(iout,'(/,A)') ' Example3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
-  write(iout,'(/,A)') ' Example4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
+  write(iout,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
+  write(iout,'(/,A)') ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
+  write(iout,'(/,A)') ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
+  write(iout,'(/,A)') ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
+  write(iout,'(/,A,/)') ' Example 5 (ORCA): extract_noon2fch a.out a.fch 19 24'
   stop
  end if
 
@@ -91,6 +92,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  character(len=240), intent(in) :: outname, fchname
  real(kind=8), allocatable :: noon(:), ev(:)
  logical, intent(in) :: gau_order
+ logical :: pyscf
 
  nmo = idx2 - idx1 + 1
  ! Note: here nmo is 2*npair + nopen for GVB
@@ -101,7 +103,12 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  else if(index(outname,'.gms',back=.true.) /= 0) then
   call read_noon_from_gmsgms(idx1, nmo, noon, outname) ! CASCI/CASSCF NOONs
  else
-  call read_noon_from_pyout(nmo, noon, outname) ! CASCI/CASSCF NOONs
+  call identify_orca_or_pyscf(outname, pyscf)
+  if(pyscf) then
+   call read_noon_from_pyout(nmo, noon, outname) ! CASCI/CASSCF NOONs
+  else
+   call read_noon_from_orca_out(nmo, noon, outname) ! CASCI/CASSCF NOONs
+  end if
  end if
 
  ! read nif in file fchname, and copy into file fchname1 by the way
@@ -307,4 +314,59 @@ subroutine read_noon_from_pyout(nmo, noon, outname)
  close(fid)
  return
 end subroutine read_noon_from_pyout
+
+! read CASCI/CASSCF NOONs from ORCA .out file
+subroutine read_noon_from_orca_out(nmo, noon, outname)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nmo
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: noon(nmo)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ noon = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(4:10) == 'N(occ)=') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_noon_from_orca_out: no ''&
+                   & found in file "//TRIM(outname)//'.'
+  close(fid)
+  stop
+ end if
+ close(fid)
+
+ i = index(buf,'=')
+ read(buf(i+1:),*) (noon(i),i=1,nmo)
+ return
+end subroutine read_noon_from_orca_out
+
+! identify whether this is a ORCA or PySCF output file
+subroutine identify_orca_or_pyscf(outname, pyscf)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(out) :: pyscf
+
+ pyscf = .true.
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do i = 1, 5, 1
+  read(fid,'(A)') buf
+  if(index(buf,'O   R   C   A') /= 0) then
+   pyscf = .false.
+   return
+  end if
+ end do ! for i
+
+ return
+end subroutine identify_orca_or_pyscf
 
