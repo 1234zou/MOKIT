@@ -1,0 +1,8 @@
+%mem=8GB
+%nprocshared=4
+#p CASSCF(6,6)/cc-pVTZ
+
+mokit{readuhf='N2_cc-pVTZ_6D10F_charge_uhf.fchk',ist=1,charge}
+
+ 4.0  0.0  0.0  0.1
+-4.0  0.0  0.0  0.1

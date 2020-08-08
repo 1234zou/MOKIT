@@ -1,7 +1,15 @@
+MOKIT 1.1 alpha (2020-08-08)
+------------------------
+* support background point charges
+* fix the bug of keyword 'force'
+* add conditional compilation for Windows
+* add pre-compiled Windows executables for some utilities
+
 MOKIT 1.0 beta (2020-06-28)
 ------------------------
 * add program AutoMR
-* fix the bug in fch2mkl; add mkl2fch
+* fix the bug in fch2mkl
+* add utility mkl2fch
 * add the manual for MOKIT
 
 MOKIT 1.0 alpha (2020-05-05)

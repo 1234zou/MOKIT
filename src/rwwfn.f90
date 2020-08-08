@@ -949,13 +949,14 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
 end subroutine read_gvb_energy_from_gms
 
 ! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
-subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg)
+subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, ptchg_e, nuc_pt_e)
  implicit none
  integer, intent(in) :: spin
  integer, parameter :: iout = 6
+ real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
  real(kind=8), intent(out) :: e(2)
  character(len=10), intent(in) :: cas_prog
- character(len=10), intent(in) :: outname
+ character(len=240), intent(in) :: outname
  logical, intent(in) :: scf, dmrg
 
  select case(TRIM(cas_prog))
@@ -963,10 +964,13 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg)
   call read_cas_energy_from_gaulog(outname, e, scf)
  case('gamess')
   call read_cas_energy_from_gmsgms(outname, e, scf, spin)
+  e(1) = e(1) + ptchg_e + nuc_pt_e
  case('pyscf')
   call read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
+  e = e + ptchg_e
  case('openmolcas')
   call read_cas_energy_from_molcas_out(outname, e, scf)
+  e = e + ptchg_e
  case('orca')
   call read_cas_energy_from_orca_out(outname, e, scf)
  case default

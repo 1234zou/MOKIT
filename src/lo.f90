@@ -576,7 +576,7 @@ end subroutine mat_dsqrt
 ! perform immediate Boys localization by diagonalizing the DxDx+DyDy+DzDz
 subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
- integer :: i, j, lwork, liwork
+ integer :: i, lwork, liwork
  integer :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
  integer, parameter :: iout = 6

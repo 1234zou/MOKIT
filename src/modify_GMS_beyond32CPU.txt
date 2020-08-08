@@ -1,7 +1,9 @@
 (1) modify the variable MAXCPUS in ddi/compddi
 
-(2) ./compddi
-    mv ddikick.x ../
+(2) execute the following Shell commands
+     ./compddi
+     mv ddikick.x ../
 
-(3) cd ..
-    ./lked gamess 01
+(3) execute the following Shell commands
+     cd ..
+     ./lked gamess 01

@@ -41,6 +41,7 @@ end program main
 subroutine bas_fch2py(fchname, uhf)
  implicit none
  integer :: i, system
+ integer, parameter :: iout = 6
  character(len=240) :: inpname
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: uhf
@@ -52,15 +53,27 @@ subroutine bas_fch2py(fchname, uhf)
  inpname = fchname(1:i-1)//'.inp'
 
  if(uhf) then
-  i = system('fch2inp '//TRIM(fchname)//' -uhf >/dev/null')
+  i = system('fch2inp '//TRIM(fchname)//' -uhf')
  else ! RHF
-  i = system('fch2inp '//TRIM(fchname)//' >/dev/null')
+  i = system('fch2inp '//TRIM(fchname))
+ end if
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine bas_fch2py: call utility fch2inp failed.'
+  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  stop
  end if
 
  if(cart) then ! Cartesian functions
   i = system('bas_gms2py '//TRIM(inpname))
  else          ! sperical harmonic functions
   i = system('bas_gms2py '//TRIM(inpname)//' -sph')
+ end if
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py failed.'
+  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  stop
  end if
 
  ! delete the inpname

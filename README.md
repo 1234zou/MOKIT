@@ -16,18 +16,20 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 programs) are ensured during transferring MOs, since the basis order of angular
 momentum up to H(i.e. l=5) are considered.
 
+Pre-compiled `Windows OS` executables of some utilities in MOKIT are also provided.
+
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine calculations in Gaussian). You are encouraged
 to learn how to use Gaussian first if you are a fresh hand.
 
-2020-06-28
+2020-08-08
 
 Installation
 ------------
 
 * Prerequisites
-    - ifort (>=2015, recommended) or gfortran (>=4.8.5)
+    - ifort (>=2015, recommended) or gfortran (>=4.8.5 and <8.0)
     - Intel MKL (installing Intel compilers recommended)
     - f2py (installing Anaconda Python3 recommended)
 
@@ -113,6 +115,8 @@ Citation
 * If you use MOKIT in your work, please cite the gitlab page of MOKIT.
 
 * If you use MOKIT to peform calculations involving GVB, please also cite DOI: 10.1021/acs.jctc.8b00854.
+
+* Please read the manual.pdf for details of citation.
 
 Disclaimer
 ----------

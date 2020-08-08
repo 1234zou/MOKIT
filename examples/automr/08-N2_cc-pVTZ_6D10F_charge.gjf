@@ -1,0 +1,12 @@
+%mem=8GB
+%nprocshared=4
+#p CASSCF(6,6)/cc-pVTZ
+
+mokit{charge}
+
+0 1
+N  0.0   0.0  -0.6
+N  0.0   0.0   0.6
+
+ 4.0  0.0  0.0  0.1
+-4.0  0.0  0.0  0.1

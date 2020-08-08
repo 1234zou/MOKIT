@@ -3,6 +3,7 @@
 ! updated by jxzou at 20200304: Pople-type basis sets supported
 ! updated by jxzou at 20200322: move read_fch to read_fch.f90
 ! updated by jxzou at 20200622: fix the bug in F, G, H (some multiply by -1); add 1 more digit for MOs
+! updated by jxzou at 20200802: add $CHARGES section to .mkl file
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -168,7 +169,13 @@ subroutine fch2mkl(fchname, uhf)
  write(fid1,'(A)') '$COORD'
  do i = 1, natom, 1
   write(fid1,'(I3,1X,3F15.8)') ielem(i), (coor(j,i), j=1,3)
- end do
+ end do ! for i
+ write(fid1,'(A,/)') '$END'
+
+ write(fid1,'(A)') '$CHARGES'
+ do i = 1, natom, 1
+  write(fid1,'(1X,A3)') '0.0'
+ end do ! for i
  write(fid1,'(A,/)') '$END'
 
  ! print basis sets into .mkl file (Note: mkl file contains no ECP/PP data)
@@ -319,7 +326,7 @@ subroutine fch2mkl(fchname, uhf)
  end if         ! print ECP/PP data done
 
  write(fid2,'(1X,A)') 'end'  ! in accord with ' Coords'
- write(fid2,'(A)') 'end'     ! in accord with '%coords'
+ write(fid2,'(A,/)') 'end'   ! in accord with '%coords'
  close(fid2)
 
  deallocate(ielem, elem, coor)

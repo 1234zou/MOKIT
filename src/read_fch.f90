@@ -36,6 +36,21 @@ module fch_content
  real(kind=8), allocatable :: CLP(:), ZLP(:)             ! ECP-CLP1, ECP-ZLP, size LenNCZ
  character(len=2), allocatable :: elem(:)                ! elements ('H ', 'C ', etc)
 
+ integer, parameter :: period_nelem = 112
+ character(len=2), parameter :: period_elem(period_nelem) = &
+  ['H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
+   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
+   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
+   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
+   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
+   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
+   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
+   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
+   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
+   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
+   'Rg', 'Cn' ]
+
 contains
 
 ! read geometry, basis sets, ECP(if any) and MOs from .fch file (Gaussian)
@@ -96,7 +111,7 @@ subroutine read_fch(fchname, uhf)
  read(fid,'(6(1X,I11))') (ielem(i),i=1,natom)
  allocate(elem(natom))
  elem = ' '
- forall(i = 1:natom) elem(i) = elem_int2char(ielem(i))
+ forall(i = 1:natom) elem(i) = nuc2elem(ielem(i))
 
  ! find and read coordinates
  do while(.true.)
@@ -255,29 +270,29 @@ subroutine read_fch(fchname, uhf)
  return
 end subroutine read_fch
 
-! convert integer type element to character type (6->'C')
-! Note: only 1-112 elements are supported!
-pure function elem_int2char(i) result(s)
- implicit none
- integer, intent(in) :: i
- character(len=2) :: s
- character(len=2), parameter :: elem(112) = &
-  ['H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
-   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
-   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
-   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
-   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
-   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
-   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
-   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
-   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
-   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
-   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
-   'Rg', 'Cn' ]
+ ! map a nuclear charge to an element (e.g. 6->'C')
+ ! Note: only 1-112 elements are supported!
+ pure function nuc2elem(i) result(s)
+  implicit none
+  integer, intent(in) :: i
+  character(len=2) :: s
 
- s = elem(i)
- return
-end function elem_int2char
+  s = period_elem(i)
+  return
+ end function nuc2elem
+
+ ! map an element to a nuclear charge (e.g. 'C'->6)
+ ! Note: only 1-112 elements are supported!
+ pure function elem2nuc(s) result(i)
+  implicit none
+  integer :: i
+  character(len=2), intent(in) :: s
+
+  do i = 1, period_nelem, 1
+   if(period_elem(i) == s) return
+  end do
+  return
+ end function elem2nuc
 
 end module fch_content
 

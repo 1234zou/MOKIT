@@ -5,21 +5,23 @@ BIN = ../bin
 
 # --- gfortran ---
 #F90    = gfortran
-#FFLAGS = -O2
+#FFLAGS = -O2 -cpp
+#MKL_FLAGS = -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
 #F2_MKL_FLAGS = --link-lapack_opt
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -traceback
+FFLAGS = -O2 -fpp
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
 F2_MKL_FLAGS = --link-lapack_opt
 
+OBJ_add_bgcharge_to_inp = read_fch.o rwgeom.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
-OBJ_automr = mr_keyword.o rwwfn.o rwgeom.o automr.o
+OBJ_automr = mr_keyword.o rwwfn.o read_fch.o rwgeom.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = bas_fch2py.o rwwfn.o
 OBJ_bas_gms2molcas = bas_gms2molcas.o
@@ -49,8 +51,8 @@ OBJ_mo_svd = mo_svd.f90
 OBJ_mo_svd_format = rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = rwwfn.o solve_ON_matrix.o
 
-.PHONY: clean distclean align_orbitals automr bas_fch2py bas_gms2molcas bas_gms2py dat2fch \
-        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs \
+.PHONY: clean distclean add_bgcharge_to_inp align_orbitals automr bas_fch2py bas_gms2molcas \
+        bas_gms2py dat2fch fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs \
         gvb_sort_pairs mkl2fch mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 %.o: %.f90
@@ -64,17 +66,21 @@ help:
 	echo " automr    : automatically do multireference calculations" ;\
 	echo " fch2inp   : generate fch2inp" ;\
 	echo " fch2inporb: generate fch2inporb" ;\
+	echo " fch2mkl   : generate fch2mkl" ;\
 	echo " xx        : generate xx or xx.so (xx is any individual module)" ;\
 	echo " all       : all executables and *.so files" ;\
 	echo " clean     : delete *.mod *.o" ;\
 	echo " distclean : delete *.mod *.o and clean ../lib ../bin" ;\
 	echo
 
+add_bgcharge_to_inp: $(OBJ_add_bgcharge_to_inp)
+	$(F90) $(OBJ_add_bgcharge_to_inp) -o $(BIN)/add_bgcharge_to_inp $(FFLAGS)
+
 align_orbitals: $(OBJ_align_orbitals)
 	$(F90) $(OBJ_align_orbitals) -o $(BIN)/align_orbitals $(FFLAGS)
 
 automr: $(OBJ_automr)
-	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS)
+	$(F90) $(OBJ_automr) $(MFLAGS) -o $(BIN)/automr $(FFLAGS)
 	@echo ;\
 	echo "AutoMR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
@@ -103,7 +109,7 @@ fch2inp: $(OBJ_fch2inp)
 fch2inporb: $(OBJ_fch2inporb)
 	$(F90) $(OBJ_fch2inporb) -o $(BIN)/fch2inporb $(FFLAGS)
 	@echo ;\
-	echo "fch2inporb requires moduled fch2inp and bas_gms2molcas, so compile them if they haven't been compiled" ;\
+	echo "fch2inporb requires modules fch2inp and bas_gms2molcas, so compile them if they haven't been compiled" ;\
 	echo
 
 fch_u2r: $(OBJ_fch_u2r)
@@ -181,7 +187,7 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
 
-all: automr auto_pair bas_fch2py bas_gms2molcas bas_gms2py dat2fch fch2mkl \
+all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gms2molcas bas_gms2py dat2fch fch2mkl \
      fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
      gvb_sort_pairs mkl2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop lo \
      mo_svd mo_svd_format solve_ON_matrix extract_noon2fch

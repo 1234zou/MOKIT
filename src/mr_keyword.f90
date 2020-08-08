@@ -1,4 +1,6 @@
 ! written by jxzou at 20200510
+! updated by jxzou at 20200805: add background point charges related subroutines
+! updated by jxzou at 20200807: add formchk, unfchk, orca_2mkl wrappers
 
 ! file unit of printing
 module print_id
@@ -25,6 +27,8 @@ module mol
  ! nacta = npair0 + nopen
  ! nactb = npair0
  integer :: natom = 0    ! number of atoms
+ integer :: nbgchg = 0   ! number of background point charges
+ integer, allocatable :: nuc(:) ! nuclear charge number
 
  logical :: lin_dep = .false. ! whether basis set linear dependence exists
  ! (1) nbf = nif, lin_dep = .False.;
@@ -38,8 +42,13 @@ module mol
  real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
- real(kind=8), allocatable :: coor(:,:) ! Cartesian coordinates of this molecule
- character(len=2), allocatable :: elem(:) ! element symbols
+ real(kind=8) :: ptchg_e  = 0.0d0 ! Coulomb energy of background point charges
+ real(kind=8) :: nuc_pt_e = 0.0d0 ! nuclear-point_charge interaction energy
+ real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
+ real(kind=8), allocatable :: grad(:)       ! Cartesian gradient of this molecule, 3*natom
+ real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
+ character(len=2), allocatable :: elem(:)   ! element symbols
+
 end module mol
 
 ! keywords information (default values are set)
@@ -52,31 +61,6 @@ module mr_keyword
  integer :: nacto_wish = 0          ! number of active orbitals specified by user
  integer :: nacte_wish = 0          ! number of active electrons specified by user
 
- logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
- ! mo_rhf will be set as .True. in the follwing 3 cases:
- ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
- ! the rhf/uhf variable/flag will be used in utilities like fch2inp
-
- logical :: tencycle = .true.       ! whether to perform 10 cycles of HF after transferring MOs
- logical :: readrhf = .false.       ! read RHF MOs from a given .fch(k)
- logical :: readuhf = .false.       ! read UHF MOs from a given .fch(k)
- logical :: readno  = .false.       ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
- logical :: skiphf  = .false.       ! (readrhf .or. readuhf .or. readno)
- logical :: hardwfn = .false.       ! whether difficult wavefunction cases
- logical :: crazywfn  = .false.     ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
- ! if hardwfn is .True., AutoMR will add additional keywords to ensure convergence or correct spin
- ! Note: SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck in a saddle point/local minimum
- ! if crazywfn is .True., AutoMR will add more keywords (than hardwfn) to ensure convergence or correct spin
-
- character(len=240) :: gjfname = ' ' ! filename of the input .gjf file
- character(len=240) :: hf_fch = ' '  ! filename of the given .fch(k) file
- character(len=240) :: datname = ' ' ! filename of GAMESS GVB .dat file
- character(len=240) :: casnofch = ' '! .fch(k) file of CASCI or CASSCF job
-
- logical :: cart = .true.            ! Cartesian/spherical harmonic functions
-
- character(len=4) :: localm = 'boys' ! localization method: boys/pm
-
  integer :: ist = 0              ! the i-th strategy
  ! 0: if RHF wfn is stable, use strategy 3; otherwise use strategy 1
  ! 1: UHF -> UNO -> associated rotation -> GVB -> CASCI/CASSCF -> ...
@@ -84,6 +68,31 @@ module mr_keyword
  ! 3: RHF -> virtual orbital projection -> localization -> pairing -> GVB -> CASCI/CASSCF -> ...
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
+
+ logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
+ ! mo_rhf will be set as .True. in the follwing 3 cases:
+ ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
+ ! the rhf/uhf variable/flag will be used in utilities like fch2inp
+
+ logical :: cart     = .true.      ! Cartesian/spherical harmonic functions
+ logical :: bgchg    = .false.     ! wthether there is back ground charge(s)
+ logical :: tencycle = .true.      ! whether to perform 10 cycles of HF after transferring MOs
+ logical :: readrhf  = .false.     ! read RHF MOs from a given .fch(k)
+ logical :: readuhf  = .false.     ! read UHF MOs from a given .fch(k)
+ logical :: readno   = .false.     ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
+ logical :: skiphf   = .false.     ! (readrhf .or. readuhf .or. readno)
+ logical :: hardwfn  = .false.     ! whether difficult wavefunction cases
+ logical :: crazywfn = .false.     ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
+ ! if hardwfn is .True., AutoMR will add additional keywords to ensure convergence or correct spin
+ ! Note: SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck in a saddle point/local minimum
+ ! if crazywfn is .True., AutoMR will add more keywords (than hardwfn) to ensure convergence or correct spin
+
+ character(len=4)   :: localm = 'boys' ! localization method: boys/pm
+ character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
+ character(len=240) :: chgname = ' '   ! filename of the .chg file (background point charges)
+ character(len=240) :: hf_fch = ' '    ! filename of the given .fch(k) file
+ character(len=240) :: datname = ' '   ! filename of GAMESS GVB .dat file
+ character(len=240) :: casnofch = ' '  ! .fch(k) file of CASCI or CASSCF job
 
  integer :: maxM = 1000             ! bond-dimension in DMRG computation
  logical :: vir_proj = .false.      ! virtual orbitals projection onto those of STO-6G
@@ -97,8 +106,6 @@ module mr_keyword
  logical :: caspt2  = .false.
  logical :: nevpt2  = .false.
  logical :: CIonly  = .false.       ! whether to optimize orbitals before caspt2/nevpt2
- logical :: force_calc = .false.    ! whether to calculate force
- logical :: casci_force = .false.   ! whether to calculate CASCI force
  logical :: casscf_force = .false.  ! whether to calculate CASSCF force
 
  character(len=10) :: gvb_prog     = 'gamess'
@@ -228,16 +235,15 @@ contains
   return
  end subroutine read_program_path
 
- subroutine parse_keyword(fname)
+ subroutine parse_keyword()
   implicit none
   integer :: i, j, k, ifail, nblank, fid
   character(len=24) :: method0 = ' '
   character(len=240) :: buf = ' '
-  character(len=240), intent(in) :: fname
   character(len=1000) :: longbuf = ' '
   logical :: alive(2)
 
-  open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
   do while(.true.)
    read(fid,'(A)',iostat=ifail) buf
@@ -362,7 +368,7 @@ contains
   i = index(buf,'{')
   if(i == 0) then
    write(fid,'(A)') "ERROR in subroutine parse_keyword: 'mokit{}' not detected&
-                   & in input file "//TRIM(fname)//'.'
+                   & in input file "//TRIM(gjfname)//'.'
    stop
   end if
 
@@ -491,7 +497,9 @@ contains
    case('ic_mrcc_prog')
     read(longbuf(j+1:i-1),*) ic_mrcc_prog
    case('force')
-     force_calc = .true.
+    casscf_force = .true.
+   case('charge')
+    bgchg = .true.
    case default
     write(iout,'(A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                       //"' not recognized."
@@ -558,6 +566,8 @@ contains
   write(iout,'(3(A,L1,3X),A)') 'CASPT2  = ', caspt2, 'NEVPT2  = ', nevpt2 ,&
                                'CIonly  = ', CIonly, 'LocalM  = '//TRIM(localm)
 
+  write(iout,'(2(A,L1,3X))') 'BgCharge= ', bgchg, 'Ana_Grad= ', casscf_force
+
   if(skiphf) then
    write(iout,'(A)') 'HF_fch = '//TRIM(hf_fch)
   else
@@ -571,18 +581,17 @@ contains
   implicit none
   integer :: i
   logical :: alive(3)
+  character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
 
   write(iout,'(/,A)') 'Check if the keywords are compatible with each other...'
 
   if(hardwfn .and. crazywfn) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: only one of&
-                    & 'hardwfn' or 'crazywfn' can be specified."
+   write(iout,'(A)') error_warn//"only one of 'hardwfn' or 'crazywfn' can be specified."
    stop
   end if
 
   if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: only 'PM'&
-                      & or 'Boys' is supported."
+   write(iout,'(A)') error_warn//"only 'PM' or 'Boys' is supported."
    write(iout,'(A)') 'localm='//TRIM(localm)
    stop
   end if
@@ -590,131 +599,127 @@ contains
   alive = [readrhf, readuhf, readno]
   i = COUNT(alive .eqv. .true.)
   if(i > 1) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: more than one&
-                    & of 'readrhf', 'readuhf', and 'readno' are set .True."
+   write(iout,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'readno'&
+                   & are set .True."
    write(iout,'(A)') 'These three keywords are mutually exclusive.'
    stop
   end if
 
   if(readrhf .and. .not.(ist==3 .or. ist==4)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: 'readrhf' is&
-                    & only compatible with ist=3 or 4."
+   write(iout,'(A)') error_warn//"'readrhf' is only compatible with ist=3 or 4."
    stop
   end if
 
   if(.not.readrhf .and. (ist==3 .or. ist==4)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: ist=3 or 4&
-                    & found specified, it must be used combined with 'readrhf'."
+   write(iout,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined with 'readrhf'."
    stop
   end if
 
   if(readuhf .and. .not.(ist==1 .or. ist==2)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: 'readuhf' is&
-                    & only compatible with ist=1 or 2."
+   write(iout,'(A)') error_warn//"'readuhf' is only compatible with ist=1 or 2."
    stop
   end if
 
   if(.not.readuhf .and. (ist==1 .or. ist==2)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: ist=1 or 2&
-                    & found specified, it must be used combined with 'readuhf'."
+   write(iout,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined with 'readuhf'."
    stop
   end if
 
   if(readno .and. ist/=5) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: 'readno' is&
-                    & only compatible with ist=5."
+   write(iout,'(A)') error_warn//"'readno' is only compatible with ist=5."
    stop
   end if
 
   if(.not.readno .and. ist==5) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: ist=5 found&
-                    & specified, it must be used combined with 'readno'."
+   write(iout,'(A)') error_warn//"ist=5 specified, it must be used combined with 'readno'."
    stop
   end if
 
   if(gvb .and. (.not.cart)) then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible: GVB computations&
-                    & will be done using GAMESS.'
+   write(iout,'(A)') error_warn//'GVB computations will be done using GAMESS.'
    write(iout,'(A)') 'This is incompatible with cart=.false.'
    stop
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: keyword 'CIonly'&
-                    & can only be used in CASPT2 or NEVPT2 computations."
+   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in CASPT2 or NEVPT2 computations."
    write(iout,'(A)') 'But neither CASPT2 nor NEVPT2 is specified.'
    stop
   end if
 
   if(gvb_prog /= 'gamess') then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: only 'gamess'&
-                    & is supported for the GVB computation."
+   write(iout,'(A)') error_warn//"only 'gamess' is supported for the GVB computation."
    write(iout,'(A)') 'User specified GVB program cannot be identified: '//TRIM(gvb_prog)
    stop
   end if
 
   if(casci_prog/='gaussian' .and. casci_prog/='gamess' .and. casci_prog/='openmolcas'&
      .and. casci_prog/='orca' .and. casci_prog/='pyscf') then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
    stop
   end if
 
   if(casscf_prog/='gaussian' .and. casscf_prog/='gamess' .and. casscf_prog/='openmolcas'&
      .and. casscf_prog/='orca' .and. casscf_prog/='pyscf') then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
    stop
   end if
 
   if((casci_prog=='orca' .or. casscf_prog=='orca') .and. gvb) then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
-   write(iout,'(A)') 'ORCA and GAMESS (do GVB) both activated, but the former uses spherical functions,'
+   write(iout,'(A)') error_warn
+   write(iout,'(A)') 'ORCA and GAMESS both activated, but the former uses spherical functions,'
    write(iout,'(A)') 'while the latter uses Cartesian functions. Conflict.'
    write(iout,'(A)') 'You may try ist = 2, where GVB is skipped: UNO -> CASCI/CASSCF'
    stop
   end if
 
   if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') error_warn
    write(iout,'(A)') "ORCA is specified. But ORCA uses spherical functions, please also specify 'nocart'."
    stop
   end if
 
   if((casci_prog=='gamess' .or. casscf_prog=='gamess') .and. (.not.cart)) then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') error_warn
    write(iout,'(A)') "GAMESS is specified. But GAMESS uses Cartesian functions, do not specify 'nocart'."
    stop
   end if
 
   if(casscf_prog=='openmolcas' .and. nevpt2) then
-   write(iout,'(A)') 'ERROR in subroutine check_kywd_compatible:'
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'OpenMolcas doing CAS is not compatible with PySCF doing NEVPT2.'
    stop
   end if
 
   if(caspt2_prog /= 'openmolcas') then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible:"
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
    stop
   end if
 
   if(nevpt2_prog /= 'pyscf') then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible:"
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
    stop
   end if
 
   if(ic_mrcc_prog /= ' ') then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible:"
+   write(iout,'(A)') error_warn
    write(iout,'(A)') 'Currently AutoMR of MOKIT does not support the ic-MRCC method.'
    stop
   end if
 
-  if(force_calc .and. (.not.casci) .and. (.not.casscf)) then
-   write(iout,'(A)') "ERROR in subroutine check_kywd_compatible: 'force' keyword&
-                    & is only for CASCI/CASSCF method currently."
-   write(iout,'(A)') 'But neither of CASCI/CASSCF is activated.'
+  if(casscf_force .and. (.not.casscf)) then
+   write(iout,'(A)') error_warn//"'force' keyword is only avaible for CASSCF."
+   write(iout,'(A)') 'But CASSCF is not activated.'
+   stop
+  end if
+
+  if(casscf_force .and. cart .and. casscf_prog=='pyscf') then
+   write(iout,'(A)') error_warn//"current version of PySCF can only compute force"
+   write(iout,'(A)') 'using spherical harmonic basis fucntions.'
    stop
   end if
 
@@ -741,61 +746,378 @@ contains
   return
  end subroutine lower
 
- ! delete the specified file (if not exist, return)
- ! delete the specified file (if not exist, return)
- subroutine delete_file(fname)
-  implicit none
-  integer :: fid
-  character(len=240), intent(in) :: fname
-  logical :: alive
- 
-  inquire(file=TRIM(fname),exist=alive)
- 
-  if(.not. alive) then
-   return
-  else
-   open(newunit=fid,file=TRIM(fname),status='old')
-   close(fid,status='delete')
-  end if
- 
-  return
- end subroutine delete_file
- 
- ! copy file fname1 to fname2 (if delete=.True., delete fname1)
- subroutine copy_file(fname1, fname2, delete)
+ ! read background point charge(s) from .gjf file
+ subroutine read_bgchg_from_gjf(gjfname, no_coor)
   use print_id, only: iout
+  use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
   implicit none
-  integer :: i, fid1, fid2
+  integer :: i, fid, nblank, nblank0
   character(len=240) :: buf
-  character(len=240), intent(in) :: fname1, fname2
-  logical, intent(in) :: delete
-  logical :: alive
- 
-  inquire(file=TRIM(fname1),exist=alive)
-  if(.not. alive) then
-   write(iout,'(A)') 'ERROR in subroutine copy_file: fname1 does not exist.'
-   write(iout,'(A)') 'fname1: '//TRIM(fname1)
+  character(len=240), intent(in) :: gjfname
+  character(len=41), parameter :: error_warn='ERROR in subroutine read_bgchg_from_gjf: '
+  logical, intent(in) :: no_coor
+
+  nblank = 0
+  if(no_coor) then ! no Cartesian Coordinates
+   nblank0 = 2
+  else             ! there exists Cartesian Coordinates
+   nblank0 = 3
+  end if
+
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+   if(nblank == nblank0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') error_warn//'wrong format of background point charges.'
    stop
   end if
- 
-  open(newunit=fid1,file=TRIM(fname1),status='old',position='rewind')
-  open(newunit=fid2,file=TRIM(fname2),status='replace')
- 
+
+  nbgchg = 0
+
   do while(.true.)
-   read(fid1,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   write(fid2,'(A)') TRIM(buf)
+   read(fid,'(A)',iostat=i) buf
+   if(i/=0 .or. LEN_TRIM(buf)==0) exit
+   nbgchg = nbgchg + 1
   end do ! for while
- 
-  if(delete) then
-   close(fid1, status='delete')
-  else
-   close(fid1)
+
+  if(nbgchg == 0) then
+   write(iout,'(A)') error_warn//'no background point charge(s) found in'
+   write(iout,'(A)') 'file: '//TRIM(gjfname)
+   stop
   end if
- 
-  close(fid2)
+
+  write(iout,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
+  allocate(bgcharge(4,nbgchg), source=0.0d0)
+
+  rewind(fid)   ! jump to the 1st line of the file
+  nblank = 0
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+   if(nblank == nblank0) exit
+  end do ! for while
+
+  do i = 1, nbgchg, 1
+   read(fid,*) bgcharge(1:4,i)
+  end do ! for i
+
+  close(fid)
+
+  call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
+  write(iout,'(A,F18.8,A)') 'Coulomb interaction energy of background point&
+                           & charges:', ptchg_e, ' a.u.'
+  write(iout,'(A)') 'This energy are taken into account for all energies below.'
+
+  call write_charge_into_chg(nbgchg, bgcharge, gjfname)
+
+  call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
   return
- end subroutine copy_file
+ end subroutine read_bgchg_from_gjf
+
+ ! wrapper of the Gaussian utility formchk
+ subroutine formchk(chkname, fchname)
+  use print_id, only: iout
+  implicit none
+  integer :: i, system
+  character(len=240), intent(in) :: chkname
+  character(len=240), optional :: fchname
+
+  if(.not. present(fchname)) then
+   i = index(chkname, '.chk', back=.true.)
+   fchname = chkname(1:i-1)//'.fch'
+  end if
+
+#ifdef _WIN32
+  i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > NULL')
+#else
+  i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > /dev/null')
+#endif
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility formchk failed.'
+   write(iout,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
+                    & utility formchk does not exist.'
+   stop
+  end if
+
+  return
+ end subroutine formchk
+
+ ! wrapper of the Gaussian utility unfchk
+ subroutine unfchk(fchname, chkname)
+  use print_id, only: iout
+  implicit none
+  integer :: i, system
+  character(len=240), intent(in) :: fchname
+  character(len=240), optional :: chkname
+
+  if(.not. present(chkname)) then
+   i = index(fchname, '.fch', back=.true.)
+   chkname = fchname(1:i-1)//'.chk'
+  end if
+
+#ifdef _WIN32
+  i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > NULL')
+#else
+  i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > /dev/null')
+#endif
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility unfchk failed.'
+   write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
+                    & utility unfchk does not exist.'
+   stop
+  end if
+
+  return
+ end subroutine unfchk
+
+ ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
+ subroutine gbw2mkl(gbwname, mklname)
+  use print_id, only: iout
+  implicit none
+  integer :: i, k, system, RENAME
+  character(len=240), intent(in) :: gbwname
+  character(len=240), optional :: mklname
+
+  k = index(gbwname, '.gbw', back=.true.)
+#ifdef _WIN32
+  i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > NULL')
+#else
+  i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
+#endif
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine gbw2mkl: call ORCA utility orca_2mkl failed.'
+   write(iout,'(A)') 'The file '//TRIM(gbwname)//' may be incomplete, or ORCA utility&
+                    & orca_2mkl does not exist.'
+   stop
+  end if
+
+  if(present(mklname)) then
+   if(TRIM(mklname) /= gbwname(1:k-1)//'.mkl') then
+    i = RENAME(gbwname(1:k-1)//'.mkl', TRIM(mklname))
+   end if
+  end if
+
+  return
+ end subroutine gbw2mkl
+
+ ! wrapper of the ORCA utility orca_2mkl, only .mkl -> .gbw
+ subroutine mkl2gbw(mklname, gbwname)
+  use print_id, only: iout
+  implicit none
+  integer :: i, k, system, RENAME
+  character(len=240), intent(in) :: mklname
+  character(len=240), optional :: gbwname
+
+  k = index(mklname, '.mkl', back=.true.)
+#ifdef _WIN32
+  i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > NULL')
+#else
+  i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
+#endif
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine mkl2gbw: call ORCA utility orca_2mkl failed.'
+   write(iout,'(A)') 'The file '//TRIM(mklname)//' may be incomplete, or ORCA utility&
+                    & orca_2mkl does not exist.'
+   stop
+  end if
+
+  if(present(gbwname)) then
+   if(TRIM(gbwname) /= mklname(1:k-1)//'.gbw') then
+    i = RENAME(mklname(1:k-1)//'.gbw', TRIM(gbwname))
+   end if
+  end if
+
+  return
+ end subroutine mkl2gbw
 
 end module mr_keyword
+
+! delete the specified file (if not exist, return)
+subroutine delete_file(fname)
+ implicit none
+ integer :: fid
+ character(len=240), intent(in) :: fname
+ logical :: alive
+
+ inquire(file=TRIM(fname),exist=alive)
+
+ if(.not. alive) then
+  return
+ else
+  open(newunit=fid,file=TRIM(fname),status='old')
+  close(fid,status='delete')
+ end if
+
+ return
+end subroutine delete_file
+
+! copy file fname1 to fname2 (if delete=.True., delete fname1)
+subroutine copy_file(fname1, fname2, delete)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid1, fid2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fname1, fname2
+ logical, intent(in) :: delete
+ logical :: alive
+
+ inquire(file=TRIM(fname1),exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine copy_file: fname1 does not exist.'
+  write(iout,'(A)') 'fname1: '//TRIM(fname1)
+  stop
+ end if
+
+ open(newunit=fid1,file=TRIM(fname1),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(fname2),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(delete) then
+  close(fid1, status='delete')
+ else
+  close(fid1)
+ end if
+
+ close(fid2)
+ return
+end subroutine copy_file
+
+! calculate the Coulomb interaction energy of point charges
+subroutine calc_Coulomb_energy_of_charges(n, charge, e)
+ use print_id, only: iout
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8) :: q1, q2, rtmp1(3), rtmp2(3)
+ real(kind=8), intent(in) :: charge(4,n)
+ ! charge(1:3,i) is the Cartesian coordinates of the i-th point charge
+ ! charge(4,i) is the electronic charge of the i-th point charge
+ real(kind=8), intent(out) :: e
+ real(kind=8), parameter :: zero1 = 1.0d-2, zero2 = 1.0d-3
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ real(kind=8), allocatable :: r(:,:)
+
+ e = 0.0d0
+ allocate(r(n,n))
+
+ do i = 1, n-1, 1
+ rtmp1 = charge(1:3,i)
+
+  do j = i+1, n, 1
+   rtmp2 = (rtmp1 - charge(1:3,j))/Bohr_const
+
+   r(j,i) = DSQRT(DOT_PRODUCT(rtmp2, rtmp2))
+
+   if(r(j,i) < zero2) then
+    write(iout,'(A)') 'ERROR in subroutine calc_Coulomb_energy_of_charges:'
+    write(iout,'(2(A,I0))') 'There exists two point charges too close: i=',i,',j=',j
+    write(iout,'(A,F15.8)') 'r(j,i) = ', r(j,i)
+    stop
+   else if(r(j,i) < zero1) then
+    write(iout,'(A)') 'Warning in subroutine calc_Coulomb_energy_of_charges:'
+    write(iout,'(2(A,I0))') 'There exists two point charges very close: i=',i,',j=',j
+    write(iout,'(A,F15.8)') 'r(j,i) = ', r(j,i)
+   end if
+
+  end do ! for j
+ end do ! for i
+
+ do i = 1, n-1, 1
+  q1 = charge(4,i)
+
+  do j = i+1, n, 1
+   q2 = charge(4,j)
+
+   e = e + q1*q2/r(j,i)
+  end do ! for j
+ end do ! for i
+
+ deallocate(r)
+ return
+end subroutine calc_Coulomb_energy_of_charges
+
+! write point charges into a .chg file
+subroutine write_charge_into_chg(n, charge)
+ use mr_keyword, only: gjfname, chgname
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: charge(4,n)
+
+ i = index(gjfname, '.gjf', back=.true.)
+ chgname = gjfname(1:i-1)//'.chg'
+
+ open(newunit=fid,file=TRIM(chgname),status='replace')
+ write(fid,'(I0)') n
+
+ do i = 1, n, 1
+  write(fid,'(4(1X,F18.8))') charge(1:4,i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine write_charge_into_chg
+
+! calculate nuclear-point_charge interaction energy
+subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbgchg, natom
+ integer, intent(in) :: nuc(natom)
+ real(kind=8) :: rtmp1(3), rtmp2(3), dis, pt_e
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ real(kind=8), intent(in) :: bgcharge(4,nbgchg), coor(3,natom)
+ real(kind=8), intent(out) :: nuc_pt_e
+
+ nuc_pt_e = 0.0d0
+
+ do i = 1, nbgchg, 1
+  pt_e = bgcharge(4,i)
+  rtmp1 = bgcharge(1:3,i)
+
+  do j = 1, natom, 1
+   rtmp2 = (rtmp1 - coor(:,j))/Bohr_const
+   dis = DSQRT(DOT_PRODUCT(rtmp2, rtmp2))
+
+   nuc_pt_e = nuc_pt_e + pt_e*DBLE(nuc(j))/dis
+  end do ! for j
+ end do ! for i
+
+ return
+end subroutine calc_nuc_pt_e
+
+! read nuclear charge number from a given .fch file
+subroutine read_nuc_from_fch(natom, nuc, fchname)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, intent(out) :: nuc(natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:14) == 'Atomic numbers') exit
+ end do ! for while
+ read(fid,'(6(1X,I11))') (nuc(i),i=1,natom)
+
+ close(fid)
+ return
+end subroutine read_nuc_from_fch
 

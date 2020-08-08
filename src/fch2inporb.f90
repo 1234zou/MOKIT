@@ -50,9 +50,15 @@ program main
  call fch2inporb(fname, ab, sph, uhf)
 
  if(uhf) then
-  i = system('fch2inp '//TRIM(fname)//' -uhf >/dev/null')
+  i = system('fch2inp '//TRIM(fname)//' -uhf')
  else
-  i = system('fch2inp '//TRIM(fname)//' >/dev/null')
+  i = system('fch2inp '//TRIM(fname))
+ end if
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch2inporb: call utility fch2inp failed.'
+  write(iout,'(A)') 'The file '//TRIM(fname)//' may be incomplete.'
+  stop
  end if
 
  k = index(fname,'.fch', back=.true.)
@@ -60,6 +66,12 @@ program main
   i = system('bas_gms2molcas '//fname(1:k-1)//'.inp -sph')
  else
   i = system('bas_gms2molcas '//fname(1:k-1)//'.inp')
+ end if
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
+  write(iout,'(A)') 'The file '//TRIM(fname)//' may be incomplete.'
+  stop
  end if
 
  open(newunit=i,file=fname(1:k-1)//'.inp',status='old')

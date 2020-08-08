@@ -277,6 +277,14 @@ subroutine read_noon_from_pyout(nmo, noon, outname)
  real(kind=8), intent(out) :: noon(nmo)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+ logical :: alive
+
+ ! if the .out file is still opened, close it
+ inquire(file=TRIM(outname),opened=alive)
+ if(alive) then
+  inquire(file=TRIM(outname),number=fid)
+  close(fid)
+ end if
 
  ! Note: always read the last 'Natural occ'
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
