@@ -4,7 +4,8 @@
 ! updated by jxzou at 20180826: support Cartesian H functions
 ! updated by jxzou at 20190226: change data to parameter when declare constant arrays
 ! updated by jxzou at 20190624: able to transform UHF orbitals
-! updated by jxzou at 20200504: combine with rwwfn.f90
+! updated by jxzou at 20200504: combined with rwwfn.f90
+! updated by jxzou at 20200809: combined with util_wrapper.f90
 
 module root_parameter
  implicit none
@@ -17,11 +18,12 @@ module root_parameter
 end module
 
 program main
+ use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, k, system
  integer, parameter :: iout = 6
  character(len=3) :: ab
- character(len=240) :: fname
+ character(len=240) :: fname, inpname
  logical :: sph, uhf
 
  i = iargc()
@@ -48,24 +50,15 @@ program main
  end if
 
  call fch2inporb(fname, ab, sph, uhf)
-
- if(uhf) then
-  i = system('fch2inp '//TRIM(fname)//' -uhf')
- else
-  i = system('fch2inp '//TRIM(fname))
- end if
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inporb: call utility fch2inp failed.'
-  write(iout,'(A)') 'The file '//TRIM(fname)//' may be incomplete.'
-  stop
- end if
+ call fch2inp_wrap(fname, uhf, .false., 0, 0)
 
  k = index(fname,'.fch', back=.true.)
+ inpname = fname(1:k-1)//'.inp'
+
  if(sph) then
-  i = system('bas_gms2molcas '//fname(1:k-1)//'.inp -sph')
+  i = system('bas_gms2molcas '//TRIM(inpname)//' -sph')
  else
-  i = system('bas_gms2molcas '//fname(1:k-1)//'.inp')
+  i = system('bas_gms2molcas '//TRIM(inpname))
  end if
 
  if(i /= 0) then
@@ -74,7 +67,7 @@ program main
   stop
  end if
 
- open(newunit=i,file=fname(1:k-1)//'.inp',status='old')
+ open(newunit=i,file=TRIM(inpname),status='old')
  close(unit=i,status='delete')
  stop
 end program main

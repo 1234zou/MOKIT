@@ -1,5 +1,5 @@
-%mem=16GB
-%nprocshared=16
+%mem=8GB
+%nprocshared=8
 #p CASSCF(6,6)/cc-pVQZ
 
 mokit{}

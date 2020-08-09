@@ -66,7 +66,8 @@ subroutine do_hf()
  use print_id, only: iout
  use mol, only: natom, coor, elem, nuc, charge, mult, rhf_e, uhf_e
  use mr_keyword, only: skiphf, mem, nproc, basis, cart, gau_path, hf_fch, ist,&
-  mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, prt_strategy, formchk
+  mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, prt_strategy
+ use util_wrapper, only: formchk
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0.0d0
@@ -80,7 +81,7 @@ subroutine do_hf()
   call read_natom_from_fch(hf_fch, natom)
   allocate(coor(3,natom), elem(natom), nuc(natom))
   call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
-  if(bgchg) call read_bgchg_from_gjf(gjfname, .true.)
+  if(bgchg) call read_bgchg_from_gjf(.true.)
   call fdate(data_string)
   write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
   return
@@ -89,7 +90,7 @@ subroutine do_hf()
  call read_natom_from_gjf(gjfname, natom)
  allocate(coor(3,natom), elem(natom), nuc(natom))
  call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
- if(bgchg) call read_bgchg_from_gjf(gjfname, .false.)
+ if(bgchg) call read_bgchg_from_gjf(.false.)
 
  i = index(gjfname, '.gjf', back=.true.)
  rhf_gjfname = gjfname(1:i-1)//'_rhf.gjf'
@@ -127,7 +128,6 @@ subroutine do_hf()
   i = index(gjfname, '.gjf', back=.true.)
   chkname = gjfname(1:i-1)//'_uhf.chk'
   hf_fch = gjfname(1:i-1)//'_uhf.fch'
-  call formchk(chkname, hf_fch)
  else
   write(iout,'(/,A)') 'RHF/UHF is equal, or has little difference, choose RHF.'
   ist = 3
@@ -135,8 +135,9 @@ subroutine do_hf()
   i = index(gjfname, '.gjf', back=.true.)
   chkname = gjfname(1:i-1)//'_rhf.chk'
   hf_fch = gjfname(1:i-1)//'_rhf.fch'
-  call formchk(chkname, hf_fch)
  end if
+
+ call formchk(chkname, hf_fch)
 
  write(iout,'(A)') 'Strategy updated:'
  call prt_strategy()
@@ -1098,9 +1099,10 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, bgchg, chgname, casscf_force, formchk, unfchk, gbw2mkl, mkl2gbw
+  gms_scr_path, bgchg, chgname, casscf_force
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
                 nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
+ use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, system, RENAME
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
@@ -1257,16 +1259,17 @@ subroutine do_cas(scf)
  else if(cas_prog == 'gaussian') then
   inpname = TRIM(proname)//'.gjf'
   outname = TRIM(proname)//'.log'
+  mklname = TRIM(proname)//'.chk'
   call prt_cas_gjf(inpname, mem, nproc, nacto, nacte, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call unfchk(fchname, proname//'.chk')
+  call unfchk(fchname, mklname)
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_cas: Gaussian CAS job failed!'
+   write(iout,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CAS job failed!'
    write(iout,'(A)') 'Filename='//TRIM(inpname)
    stop
   end if
-  call formchk(TRIM(proname)//'.chk', casnofch)
+  call formchk(mklname, casnofch)
 
   if(mult /= 1) i = system('fch_u2r '//TRIM(casnofch))
   i = index(casnofch, '.fch', back=.true.)
@@ -1280,7 +1283,8 @@ subroutine do_cas(scf)
   call delete_file(buf)
   ! do not use datname in the above three lines! because datname may be that of a GVB job
 
-  i = system('fch2inp '//TRIM(fchname))
+  call fch2inp_wrap(fchname, .false., .false., 0, 0)
+
   i = index(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'
@@ -1345,7 +1349,7 @@ subroutine do_cas(scf)
   call prt_cas_orca_inp(inpname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
-  call mkl2gbw(TRIM(proname)//'.mkl')
+  call mkl2gbw(mklname)
   call delete_file(mklname)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
 
@@ -1354,8 +1358,10 @@ subroutine do_cas(scf)
 
   ! make a copy of the .fch file to save NOs
   call copy_file(fchname, casnofch, .false.)
-  call gbw2mkl(TRIM(proname)//'.gbw')
-  i = system('mkl2fch '//TRIM(proname)//'.mkl '//TRIM(casnofch))
+  mklname = TRIM(proname)//'.gbw'
+  call gbw2mkl(mklname)
+  mklname = TRIM(proname)//'.mkl'
+  i = system('mkl2fch '//TRIM(mklname)//' '//TRIM(casnofch))
  end if
 
  ! extract NOONs from the output file and print them into .fch file

@@ -1,4 +1,8 @@
-# written by jxzou at 20200808
+# written by jxzou at 20200808: Makefile under Windows
+#
+# To use this Makefile, you need to install
+#  (1) GNU Make for Windows; (2) Intel Parallel Studio
+#  and set corresponding environment variables properly
 
 BIN = ..\bin
 
@@ -8,22 +12,22 @@ BIN = ..\bin
 
 # --- ifort ----
 F90 = ifort
-FFLAGS = /O2 /libs:static
+FFLAGS = /O2 /fpp /libs:static
 
-OBJ_bas_fch2py = bas_fch2py.obj rwwfn.obj
+OBJ_bas_fch2py = rwwfn.obj util_wrapper.obj bas_fch2py.obj
 OBJ_bas_gms2molcas = bas_gms2molcas.obj
 OBJ_bas_gms2py = bas_gms2py.obj
 OBJ_dat2fch = rwwfn.obj dat2fch.obj
 OBJ_extract_noon2fch = extract_noon2fch.obj
 OBJ_fch2mkl = read_fch.obj fch2mkl.obj
 OBJ_fch2inp = read_fch.obj fch2inp.obj
-OBJ_fch2inporb = fch2inporb.obj rwwfn.obj
+OBJ_fch2inporb = rwwfn.obj util_wrapper.obj fch2inporb.obj
 OBJ_fch_u2r = fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
 OBJ_mkl2fch = rwwfn.obj read_fch.obj mkl2fch.obj
 
 .PHONY: clean distclean bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch \
-        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch
+        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS)
@@ -73,8 +77,13 @@ mkl2fch: $(OBJ_mkl2fch)
 extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)\extract_noon2fch
 
+solve_ON_matrix:
+	ifort /c rwwfn.f90 -o rwwfn.obj
+	ifort /c solve_ON_matrix.f90 /Qmkl:sequential -o solve_ON_matrix.obj
+	ifort rwwfn.obj solve_ON_matrix.obj /Qmkl:sequential -o $(BIN)\solve_ON_matrix
+
 all: bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch fch2mkl \
-     fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch
+     fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod

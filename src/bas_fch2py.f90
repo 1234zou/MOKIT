@@ -1,4 +1,5 @@
 ! written by jxzou at 20200512: generate PySCF format basis set (.py file) from Gaussian .fch(k) file
+! updated by jxzou at 20200809: combined with util_wrapper.f90
 
 ! Note: this subroutine is actually a wrapper of two utilities 'fch2inp' and 'bas_gms2py',
 !       thus 'fch2inp' and 'bas_gms2py' must be compiled as well.
@@ -39,6 +40,7 @@ end program main
 
 ! generate PySCF format basis set (.py file) from Gaussian .fch(k) file
 subroutine bas_fch2py(fchname, uhf)
+ use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system
  integer, parameter :: iout = 6
@@ -52,17 +54,7 @@ subroutine bas_fch2py(fchname, uhf)
  i = index(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
 
- if(uhf) then
-  i = system('fch2inp '//TRIM(fchname)//' -uhf')
- else ! RHF
-  i = system('fch2inp '//TRIM(fchname))
- end if
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_fch2py: call utility fch2inp failed.'
-  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
-  stop
- end if
+ call fch2inp_wrap(fchname, uhf, .false., 0, 0)
 
  if(cart) then ! Cartesian functions
   i = system('bas_gms2py '//TRIM(inpname))

@@ -747,13 +747,12 @@ contains
  end subroutine lower
 
  ! read background point charge(s) from .gjf file
- subroutine read_bgchg_from_gjf(gjfname, no_coor)
+ subroutine read_bgchg_from_gjf(no_coor)
   use print_id, only: iout
   use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
   implicit none
   integer :: i, fid, nblank, nblank0
   character(len=240) :: buf
-  character(len=240), intent(in) :: gjfname
   character(len=41), parameter :: error_warn='ERROR in subroutine read_bgchg_from_gjf: '
   logical, intent(in) :: no_coor
 
@@ -813,131 +812,13 @@ contains
                            & charges:', ptchg_e, ' a.u.'
   write(iout,'(A)') 'This energy are taken into account for all energies below.'
 
-  call write_charge_into_chg(nbgchg, bgcharge, gjfname)
+  i = index(gjfname, '.gjf', back=.true.)
+  chgname = gjfname(1:i-1)//'.chg'
+  call write_charge_into_chg(nbgchg, bgcharge, chgname)
 
   call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
   return
  end subroutine read_bgchg_from_gjf
-
- ! wrapper of the Gaussian utility formchk
- subroutine formchk(chkname, fchname)
-  use print_id, only: iout
-  implicit none
-  integer :: i, system
-  character(len=240), intent(in) :: chkname
-  character(len=240), optional :: fchname
-
-  if(.not. present(fchname)) then
-   i = index(chkname, '.chk', back=.true.)
-   fchname = chkname(1:i-1)//'.fch'
-  end if
-
-#ifdef _WIN32
-  i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > NULL')
-#else
-  i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > /dev/null')
-#endif
-
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility formchk failed.'
-   write(iout,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
-                    & utility formchk does not exist.'
-   stop
-  end if
-
-  return
- end subroutine formchk
-
- ! wrapper of the Gaussian utility unfchk
- subroutine unfchk(fchname, chkname)
-  use print_id, only: iout
-  implicit none
-  integer :: i, system
-  character(len=240), intent(in) :: fchname
-  character(len=240), optional :: chkname
-
-  if(.not. present(chkname)) then
-   i = index(fchname, '.fch', back=.true.)
-   chkname = fchname(1:i-1)//'.chk'
-  end if
-
-#ifdef _WIN32
-  i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > NULL')
-#else
-  i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > /dev/null')
-#endif
-
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility unfchk failed.'
-   write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
-                    & utility unfchk does not exist.'
-   stop
-  end if
-
-  return
- end subroutine unfchk
-
- ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
- subroutine gbw2mkl(gbwname, mklname)
-  use print_id, only: iout
-  implicit none
-  integer :: i, k, system, RENAME
-  character(len=240), intent(in) :: gbwname
-  character(len=240), optional :: mklname
-
-  k = index(gbwname, '.gbw', back=.true.)
-#ifdef _WIN32
-  i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > NULL')
-#else
-  i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
-#endif
-
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine gbw2mkl: call ORCA utility orca_2mkl failed.'
-   write(iout,'(A)') 'The file '//TRIM(gbwname)//' may be incomplete, or ORCA utility&
-                    & orca_2mkl does not exist.'
-   stop
-  end if
-
-  if(present(mklname)) then
-   if(TRIM(mklname) /= gbwname(1:k-1)//'.mkl') then
-    i = RENAME(gbwname(1:k-1)//'.mkl', TRIM(mklname))
-   end if
-  end if
-
-  return
- end subroutine gbw2mkl
-
- ! wrapper of the ORCA utility orca_2mkl, only .mkl -> .gbw
- subroutine mkl2gbw(mklname, gbwname)
-  use print_id, only: iout
-  implicit none
-  integer :: i, k, system, RENAME
-  character(len=240), intent(in) :: mklname
-  character(len=240), optional :: gbwname
-
-  k = index(mklname, '.mkl', back=.true.)
-#ifdef _WIN32
-  i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > NULL')
-#else
-  i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
-#endif
-
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine mkl2gbw: call ORCA utility orca_2mkl failed.'
-   write(iout,'(A)') 'The file '//TRIM(mklname)//' may be incomplete, or ORCA utility&
-                    & orca_2mkl does not exist.'
-   stop
-  end if
-
-  if(present(gbwname)) then
-   if(TRIM(gbwname) /= mklname(1:k-1)//'.gbw') then
-    i = RENAME(mklname(1:k-1)//'.gbw', TRIM(gbwname))
-   end if
-  end if
-
-  return
- end subroutine mkl2gbw
 
 end module mr_keyword
 
@@ -1051,15 +932,12 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
 end subroutine calc_Coulomb_energy_of_charges
 
 ! write point charges into a .chg file
-subroutine write_charge_into_chg(n, charge)
- use mr_keyword, only: gjfname, chgname
+subroutine write_charge_into_chg(n, charge, chgname)
  implicit none
  integer :: i, fid
  integer, intent(in) :: n
  real(kind=8), intent(in) :: charge(4,n)
-
- i = index(gjfname, '.gjf', back=.true.)
- chgname = gjfname(1:i-1)//'.chg'
+ character(len=240), intent(in) :: chgname
 
  open(newunit=fid,file=TRIM(chgname),status='replace')
  write(fid,'(I0)') n
