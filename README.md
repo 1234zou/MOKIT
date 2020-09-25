@@ -10,20 +10,23 @@ and utilize the best modules of each program. E.g.
   Gaussian&emsp;&emsp;PySCF&emsp;&emsp;OpenMolcas  
 or  
   UHF(UNO) -> GVB   -> CASSCF -> NEVPT2  
-  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;PySCF
+  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;PySCF  
+or   
+  RHF      -> GVB   -> CASSCF -> ic-MRCISD+Q  
+  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;OpenMolcas
 
 Negligible energy loss(usually<1e-6 a.u., for the same wave function method in two
 programs) are ensured during transferring MOs, since the basis order of angular
 momentum up to H(i.e. l=5) are considered.
 
-Pre-compiled `Windows OS` executables of 12 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases).
+Pre-compiled `Windows OS` executables of 13 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases).
 
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine calculations in Gaussian). You are encouraged
 to learn how to use Gaussian first if you are a fresh hand.
 
-2020-08-08
+2020-09-25
 
 Installation
 ------------
@@ -114,7 +117,8 @@ Citation
 --------
 * If you use MOKIT in your work, please cite the gitlab page of MOKIT.
 
-* If you use MOKIT to peform calculations involving GVB, please also cite DOI: 10.1021/acs.jctc.8b00854.
+* If you use MOKIT to peform calculations involving GVB, please also cite two papers
+  (1) DOI: 10.1021/acs.jctc.8b00854; (2) DOI: 10.1021/acs.jpca.0c05216.
 
 * Please read the manual.pdf for details of citation.
 

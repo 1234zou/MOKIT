@@ -25,9 +25,10 @@ OBJ_fch2inporb = rwwfn.obj util_wrapper.obj fch2inporb.obj
 OBJ_fch_u2r = fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
 OBJ_mkl2fch = rwwfn.obj read_fch.obj mkl2fch.obj
+OBJ_orb2fch = rwwfn.obj orb2fch.obj
 
 .PHONY: clean distclean bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch \
-        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch solve_ON_matrix
+        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch orb2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS)
@@ -75,7 +76,10 @@ mkl2fch: $(OBJ_mkl2fch)
 	$(F90) $(OBJ_mkl2fch) -o $(BIN)\mkl2fch $(FFLAGS)
 
 extract_noon2fch: $(OBJ_extract_noon2fch)
-	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)\extract_noon2fch
+	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)\extract_noon2fch $(FFLAGS)
+
+orb2fch: $(OBJ_orb2fch)
+	$(F90) $(OBJ_orb2fch) -o $(BIN)\orb2fch $(FFLAGS)
 
 solve_ON_matrix:
 	ifort /c rwwfn.f90 -o rwwfn.obj
@@ -83,10 +87,11 @@ solve_ON_matrix:
 	ifort rwwfn.obj solve_ON_matrix.obj /Qmkl:sequential -o $(BIN)\solve_ON_matrix
 
 all: bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch fch2mkl \
-     fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch solve_ON_matrix
+     fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch orb2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod
 
 distclean:
 	del *.obj *.mod ..\bin\*
+

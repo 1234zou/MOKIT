@@ -1,3 +1,10 @@
+MOKIT 1.1 beta (2020-09-25)
+------------------------
+* add interfaces for uc-/ic-/FIC-MRCISD
+* add utility orb2fch
+* fix bug: in fch2inp when gvb=True and nopen>3
+* fix bug: 1 pair case in gvb_sort_pairs
+
 MOKIT 1.1 alpha (2020-08-09)
 ------------------------
 * support background point charges

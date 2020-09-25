@@ -29,9 +29,9 @@ program main
  i = iargc()
  if(.not. (i==1 .or. i==2)) then
   write(iout,'(/,1X,A)') 'ERROR in subroutine fch2inporb: wrong command line arguments!'
-  write(iout,'(/,1X,A)') 'Example 1 (for RHF and CAS): fch2inporb a.fch'
-  write(iout,'(/,1X,A)') 'Example 2 (for CAS):         fch2inporb a.fch -no'
-  write(iout,'(/,1X,A,/)') 'Example 3 (for UHF):         fch2inporb a.fch -ab'
+  write(iout,'(1X,A)') 'Example 1 (for RHF, CAS): fch2inporb a.fch'
+  write(iout,'(1X,A)') 'Example 2 (for CAS NO)  : fch2inporb a.fch -no'
+  write(iout,'(1X,A,/)') 'Example 3 (for UHF)     : fch2inporb a.fch -ab'
   stop
  end if
 
@@ -97,7 +97,7 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
  character(len=240) :: orbfile
  ! orbfile is the INPORB file of Molcas/OpenMolcas
 
- real(kind=8), allocatable :: coeff(:,:), occ_num(:), noon(:)
+ real(kind=8), allocatable :: coeff(:,:), occ_num(:)
  logical, intent(out) :: sph, uhf
 
  sph = .true. ! default value
@@ -128,7 +128,12 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
  call read_ncontr_from_fch(fchname, k)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
- call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map, sph)
+ call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
+ if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
+  sph = .false.
+ else
+  sph = .true.
+ end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
  ! 1) split the 'L' into 'S' and 'P', this is to ensure that D comes after L functions
@@ -364,7 +369,7 @@ end subroutine fch2inporb
 ! move the 2nd, 3rd, ... Zeta basis functions forward
 subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  implicit none
- integer i, j, k, m
+ integer i, j, k
  integer, intent(in) :: i0, shell_type, length, nbf, nif
  integer, parameter :: iout = 6
  integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]

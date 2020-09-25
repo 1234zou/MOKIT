@@ -54,6 +54,7 @@ subroutine automr(fname)
  call do_cas(.false.)! CASCI/DMRG-CASCI
  call do_cas(.true.) ! CASSCF/DMRG-CASSCF
  call do_mrpt2()     ! CASPT2/NEVPT2
+ call do_mrcisd()    ! uncontracted/ic-/FIC- MRCISD
  call do_mrcc()      ! ic-MRCC
 
  call fdate(data_string)
@@ -150,7 +151,7 @@ end subroutine do_hf
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use print_id, only: iout
- use mr_keyword, only: mo_rhf, ist, hf_fch, bgchg, chgname
+ use mr_keyword, only: mo_rhf, ist, hf_fch, bgchg, chgname, cart
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
                 lin_dep
  implicit none
@@ -171,6 +172,7 @@ subroutine get_paired_LMO()
  proname = hf_fch(1:i-1)
  chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
  fchname = hf_fch(1:i-1)//'_uno.fch'
+ call read_shltyp_and_check_cart(hf_fch, cart)
 
  if(mo_rhf) then
   write(iout,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
@@ -980,6 +982,148 @@ subroutine prt_caspt2_script_into_input(inputname)
  return
 end subroutine prt_caspt2_script_into_input
 
+! print MRCISD keywords into OpenMolcas .input file
+subroutine prt_mrcisd_molcas_inp(inpname)
+ use print_id, only: iout
+ use mol, only: nif, ndb, nopen, nacta, nactb, npair, npair0, charge, mult
+ use mr_keyword, only: mem, nproc, CtrType
+ implicit none
+ integer :: i, idx, nvir, ne, fid
+ character(len=240), intent(in) :: inpname
+ character(len=240) :: buf, inporb
+
+ i = index(inpname, '.input', back=.true.)
+ inporb = inpname(1:i-1)//'.INPORB'
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(1:4) == "&SCF") exit
+ end do ! for while
+
+ BACKSPACE(fid)
+
+ write(fid,'(A)') "&RASSCF"
+ write(fid,'(A,I0)') 'Charge = ', charge
+ write(fid,'(A,I0)') 'Spin = ', mult
+ write(fid,'(A)') 'FILEORB = '//TRIM(inporb)
+
+ idx = ndb + npair - npair0 ! doubly occupied orbitals in CAS
+ nvir = nif - idx - 2*npair0 - nopen ! virtual orbitals in CAS
+ ne = 2*idx + nacta + nactb ! all electrons
+
+ if(CtrType == 1) then ! uncontracted MRCISD
+  write(fid,'(A,I0,A)') 'nActEl = ', ne, ' 2 2'
+  write(fid,'(A,I0)') 'RAS1 = ', idx
+  write(fid,'(A,I0)') 'RAS2 = ', 2*npair0+nopen
+  write(fid,'(A,I0)') 'RAS3 = ', nvir
+  write(fid,'(A,/)') 'CIonly'
+ else if(CtrType == 2) then ! ic-MRCISD
+  write(fid,'(A,I0,A)') 'nActEl = ', nacta+nactb, ' 0 0'
+  write(fid,'(A,I0)') 'RAS2 = ', 2*npair0+nopen
+  write(fid,'(A)') 'CIonly'
+  write(fid,'(/,A)') "&MOTRA"
+  write(fid,'(A)') 'LUMORB'
+  write(fid,'(A)') 'Frozen = 0'
+  write(fid,'(/,A)') "&GUGA"
+  write(fid,'(A,I0)') 'Spin = ', mult
+  write(fid,'(A,I0)') 'Inactive = ', idx
+  write(fid,'(A,I0)') 'Active = ', 2*npair0+nopen
+  write(fid,'(A,I0)') 'NACTel = ', nacta+nactb
+  write(fid,'(A,I0)') 'CIAll = 1'
+  write(fid,'(/,A)') "&MRCI"
+  write(fid,'(A,/)') 'MAXIterations = 49'
+ end if
+
+ close(fid)
+ return
+end subroutine prt_mrcisd_molcas_inp
+
+! print MRCISD keywords into ORCA .inp file
+subroutine prt_mrcisd_orca_inp(inpname1)
+ use print_id, only: iout
+ use mol, only: nopen, nacta, nactb, npair0, mult
+ use mr_keyword, only: mem, nproc, CtrType
+ implicit none
+ integer :: i, fid1, fid2
+ integer :: RENAME
+ character(len=240), intent(in) :: inpname1
+ character(len=240) :: buf, inpname2
+
+ inpname2 = TRIM(inpname1)//'.tmp'
+ open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname2),status='replace')
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A)') '! NoIter'
+
+ if(CtrType == 1) then ! uncontracted MRCISD
+  write(fid2,'(A)') '%mrci'
+  write(fid2,'(2(A,I0),A)') ' NewBlock 1 * nroots 1 refs cas(',nacta+nactb,',',&
+                             2*npair0+nopen,') end end'
+  write(fid2,'(A)') ' tsel 0.0'
+  write(fid2,'(A)') ' tpre 0.0'
+  write(fid2,'(A)') ' Etol 1e-7'
+  write(fid2,'(A)') ' Rtol 1e-7'
+ else if(CtrType == 3) then ! FIC-MRCISD
+  write(fid2,'(A)') '%autoci'
+  write(fid2,'(A)') ' CItype FICMRCI'
+  write(fid2,'(A,I0)') ' nel ',  nacta+nactb
+  write(fid2,'(A,I0)') ' norb ', 2*npair0+nopen
+  write(fid2,'(A,I0)') ' mult ', mult
+  write(fid2,'(A)') ' nroots 1'
+  write(fid2,'(A)') ' DavidsonOpt 1'
+ end if
+
+ write(fid2,'(A)') ' MaxIter 100'
+ write(fid2,'(A)') 'end'
+ write(fid2,'(A)') '%method'
+ write(fid2,'(A)') ' FrozenCore FC_NONE'
+ write(fid2,'(A)') 'end'
+ write(fid2,'(A)') '%coords'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:6) == '%coord') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname2), TRIM(inpname1))
+ return
+end subroutine prt_mrcisd_orca_inp
+
+! print MRCISD keywords into Gaussian .gjf file
+subroutine prt_mrcisd_gau_inp(gjfname)
+ use mol, only: nif, ndb, nopen, nacta, nactb, npair, npair0
+ use mr_keyword, only: mem, nproc
+ implicit none
+ integer :: i, ne, nvir, idx, fid
+ character(len=240), intent(in) :: gjfname
+
+ idx = ndb + npair - npair0 ! doubly occupied orbitals in CAS
+ nvir = nif - idx - 2*npair0 - nopen ! virtual orbitals in CAS
+ ne = 2*idx + nacta + nactb ! all electrons
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ i = index(gjfname, '.gjf', back=.true.)
+ write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
+ write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
+ write(fid,'(A,I0)') '%nprocshared=', nproc
+ write(fid,'(4(A,I0),A,/)') '#p CAS(',ne,',',nif,',ras(2,',idx,',2,',nvir,'))/chkbasis&
+               & nosymm guess=read geom=allcheck int=nobasistransform scf(maxcycle=-1)'
+ close(fid)
+ return
+end subroutine prt_mrcisd_gau_inp
+
 ! perform GVB computation (only in Strategy 1,3)
 subroutine do_gvb()
  use print_id, only: iout
@@ -1109,6 +1253,7 @@ subroutine do_cas(scf)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, fchname, pyname, inpname, outname, proname, mklname
+ character(len=240) :: orbname
  logical, intent(in) :: scf
 
  if(scf) then
@@ -1328,10 +1473,17 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.input'
   i = RENAME(TRIM(outname),TRIM(inpname))
   outname = TRIM(proname)//'.out'
+  orbname = TRIM(proname)//'.RasOrb.1'
   call prt_cas_molcas_inp(inpname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+  ! make a copy of the .fch file to save NOs
+  call copy_file(fchname, casnofch, .false.)
+
+  ! transfer NOs from .dat to .fch
+  i = system('orb2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
 
  else if(cas_prog == 'orca') then
   i = system('fch2mkl '//TRIM(fchname))
@@ -1443,7 +1595,7 @@ subroutine do_mrpt2()
  implicit none
  integer :: i, RENAME, system
  character(len=24) :: data_string
- character(len=240) :: data_string1, pyname, outname, inputname
+ character(len=240) :: string, pyname, outname, inputname
  character(len=240) :: fchname
  real(kind=8) :: e = 0.0d0
 
@@ -1454,22 +1606,22 @@ subroutine do_mrpt2()
   if(casscf_prog == 'orca') then
    write(iout,'(A)') 'Attention: ORCA is used as the CASSCF solver,&
                     & the NO coefficients in .mkl file are only 7-digits.'
-   write(iout,'(A)') 'This will affect the PT2 energy at about 10^-5 a.u.&
-                    & such small error is usually not important.'
+   write(iout,'(A)') 'This will affect the PT2 energy up to 10^-5 a.u.&
+                    & Such small error is usually not important.'
    write(iout,'(A)') 'If you care about the accuracy, please use another CASSCF solver.'
   end if
 
   if(casscf) then
    if(caspt2) then
-    data_string1 = 'CASPT2 based on optimized CASSCF orbitals.'
+    string = 'CASPT2 based on optimized CASSCF orbitals.'
    else
-    data_string1 = 'CASSCF-NEVPT2 based on optimized CASSCF orbitals.'
+    string = 'CASSCF-NEVPT2 based on optimized CASSCF orbitals.'
    end if
   else ! DMRG-CASSCF
    if(caspt2) then
-    data_string1 = 'DMRG-CASPT2 based on optimized DMRG-CASSCF orbitals.'
+    string = 'DMRG-CASPT2 based on optimized DMRG-CASSCF orbitals.'
    else
-    data_string1 = 'DMRG-NEVPT2 based on optimized DMRG-CASSCF orbitals.'
+    string = 'DMRG-NEVPT2 based on optimized DMRG-CASSCF orbitals.'
    end if
   end if
 
@@ -1477,29 +1629,29 @@ subroutine do_mrpt2()
   if(casci_prog == 'orca') then
    write(iout,'(A)') 'Attention: ORCA is used as the CASCI solver,&
                     & the NO coefficients in .mkl file are only 7-digits.'
-   write(iout,'(A)') 'This will affect the PT2 energy at about 10^-5 a.u.&
-                    & such small error is usually not important.'
+   write(iout,'(A)') 'This will affect the PT2 energy up to 10^-5 a.u.&
+                    & Such small error is usually not important.'
    write(iout,'(A)') 'If you care about the accuracy, please use another CASCI solver.'
   end if
 
   if(casci) then
    if(caspt2) then
-    data_string1 = 'CASPT2 based on CASCI orbitals.'
+    string = 'CASPT2 based on CASCI orbitals.'
    else
-    data_string1 = 'NEVPT2 based on CASCI orbitals.'
+    string = 'NEVPT2 based on CASCI orbitals.'
    end if
   else ! DMRG-CASCI
    if(caspt2) then
-    data_string1 = 'DMRG-CASPT2 based on DMRG-CASCI orbitals.'
+    string = 'DMRG-CASPT2 based on DMRG-CASCI orbitals.'
    else
-    data_string1 = 'DMRG-NEVPT2 based on DMRG-CASCI orbitals.'
+    string = 'DMRG-NEVPT2 based on DMRG-CASCI orbitals.'
    end if
   end if
   write(iout,'(A)') 'Attention: the CASSCF orbital optimization is strongly&
                      & recommended'
   write(iout,'(A)') 'to be performed before PT2, unless it is too time-consuming.'
  end if
- write(iout,'(A)') TRIM(data_string1)
+ write(iout,'(A)') TRIM(string)
 
  write(iout,'(A)') 'Frozen_core = F'
 
@@ -1568,15 +1720,170 @@ subroutine do_mrpt2()
  return
 end subroutine do_mrpt2
 
+! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
+subroutine do_mrcisd()
+ use print_id, only: iout
+ use mr_keyword, only: mem, nproc, casci, casscf, CIonly, ist, hf_fch, mrcisd,&
+  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, bgchg, chgname
+ use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, davidson_e,&
+  mrcisd_e, ptchg_e
+ use util_wrapper, only: unfchk, mkl2gbw
+ integer :: i, system
+ real(kind=8) :: e
+ character(len=24) :: data_string
+ character(len=240) :: string, chkname, inpname, outname, mklname
+ character(len=47) :: error_warn='ERROR in subroutine do_mrcisd: invalid CtrType='
+
+ if(.not. mrcisd) return
+ write(iout,'(//,A)') 'Enter subroutine do_mrcisd...'
+
+ if(.not. CIonly) then
+  if(casscf_prog == 'orca') then
+   write(iout,'(A)') 'Attention: ORCA is used as the CASSCF solver,&
+                    & the NO coefficients in .mkl file are only 7-digits.'
+   write(iout,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
+                    & Such small error is usually not important.'
+   write(iout,'(A)') 'If you care about the accuracy, please use another CASSCF solver.'
+  end if
+
+  string = 'MRCISD based on optimized CASSCF orbitals.'
+ else ! CIonly = .True.
+
+  if(casci_prog == 'orca') then
+   write(iout,'(A)') 'Attention: ORCA is used as the CASCI solver,&
+                    & the NO coefficients in .mkl file are only 7-digits.'
+   write(iout,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
+                    & Such small error is usually not important.'
+   write(iout,'(A)') 'If you care about the accuracy, please use another CASCI solver.'
+  end if
+
+  string = 'MRCISD based on CASCI orbitals.'
+  write(iout,'(A)') 'Attention: the CASSCF orbital optimization is strongly recommended'
+  write(iout,'(A)') 'to be performed before MRCI, unless it is too time-consuming.'
+ end if
+ write(iout,'(A)') TRIM(string)
+
+ write(iout,'(A)') 'Frozen_core = F'
+
+ select case(TRIM(mrcisd_prog))
+ case('openmolcas')
+  i = system('fch2inporb '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  chkname = casnofch(1:i-1)//'.INPORB'
+  string  = casnofch(1:i-1)//'.input'
+  i = index(casnofch, '_NO', back=.true.)
+  mklname = casnofch(1:i)//'MRCISD.INPORB'
+  inpname = casnofch(1:i)//'MRCISD.input'
+  outname = casnofch(1:i)//'MRCISD.out'
+  i = RENAME(TRIM(chkname), TRIM(mklname))
+  i = RENAME(TRIM(string), TRIM(inpname))
+  chkname = ' '
+  call prt_mrcisd_molcas_inp(inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+ case('orca')
+  i = system('fch2mkl '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  chkname = casnofch(1:i-1)//'.mkl'
+  string  = casnofch(1:i-1)//'.inp'
+  i = index(casnofch, '_NO', back=.true.)
+  mklname = casnofch(1:i)//'MRCISD.mkl'
+  inpname = casnofch(1:i)//'MRCISD.inp'
+  outname = casnofch(1:i)//'MRCISD.out'
+  i = RENAME(TRIM(chkname), TRIM(mklname))
+  i = RENAME(TRIM(string), TRIM(inpname))
+  chkname = ' '
+  call prt_mrcisd_orca_inp(inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  ! if bgchg = .True., .inp and .mkl file will be updated
+  call mkl2gbw(mklname)
+  call delete_file(mklname)
+  i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+ case('gaussian')
+  i = index(casnofch, '_NO', back=.true.)
+  chkname = casnofch(1:i)//'MRCISD.chk'
+  inpname = casnofch(1:i)//'MRCISD.gjf'
+  outname = casnofch(1:i)//'MRCISD.log'
+  call unfchk(casnofch, chkname)
+  call prt_mrcisd_gau_inp(inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = system(TRIM(gau_path)//' '//TRIM(inpname))
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine do_mrcisd: Gaussian MRCISD job failed!'
+   write(iout,'(A)') 'Filename='//TRIM(inpname)
+   stop
+  end if
+
+ case default
+  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: invalid mrcisd_prog='//TRIM(mrcisd_prog)
+  stop
+ end select
+
+ ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian output file
+ call read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e, davidson_e, e)
+ mrcisd_e = e + davidson_e ! E(MRCISD+Q)
+ if(CIonly) then   ! E(MRCISD) - (E(CASCI) or E(CASSCF))
+  e = e - casci_e
+ else
+  e = e - casscf_e
+ end if
+
+ select case(TRIM(mrcisd_prog))
+ case('openmolcas')
+  select case(CtrType)
+  case(1) ! uncontracted MRCISD
+   write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+  case(2) ! ic-MRCISD
+   write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E_corr(icMRCISD) =', e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E(icMRCISD+Q)    =', mrcisd_e, 'a.u.'
+  case default
+   write(iout,'(A,I0)') error_warn, CtrType
+   stop
+  end select
+ case('orca')
+  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  select case(CtrType)
+  case(1) ! uncontracted MRCISD
+   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
+  case(3) ! FIC-MRCISD
+   write(iout,'(A,F18.8,1X,A4)') 'E_corr(FIC-MRCISD) =', e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E(FIC-MRCISD+Q)    =', mrcisd_e, 'a.u.'
+  case default
+   write(iout,'(A,I0)') error_warn, CtrType
+   stop
+  end select
+ case('gaussian') ! only uncontracted MRCISD
+  if(CtrType /= 1) then
+   write(iout,'(A,I0)') error_warn, CtrType
+   stop
+  end if
+  write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+ end select
+
+ call fdate(data_string)
+ write(iout,'(A)') 'Leave subroutine do_mrcisd at '//TRIM(data_string)
+ return
+end subroutine do_mrcisd
+
 ! do ic-MRCC based on CASSCF, npair<=5
 subroutine do_mrcc()
  use print_id, only: iout
- use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly
+ use mr_keyword, only: mem, nproc, casci, casscf, CIonly
  implicit none
- integer :: i
+! integer :: i
+! character(len=24) :: data_string
 
+! if(.not. mrcc) return
+! write(iout,'(//,A)') 'Enter subroutine do_mrcc...'
 
 ! write(iout,'(/,A)') 'Enter subroutine do_mrcc...'
+! call fdate(data_string)
 ! write(iout,'(A)') 'ERROR in subroutine do_mrcc: not supported currently.'
  return
 end subroutine do_mrcc

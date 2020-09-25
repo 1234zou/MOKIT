@@ -23,9 +23,9 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line arguments.'
-  write(iout,'(/,A)')  ' Example 1 (R(O)HF, CAS): fch2mkl a.fch'
-  write(iout,'(/,A,/)')' Example 2 (UHF):         fch2mkl a.fch -uhf'
+  write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line arguments!'
+  write(iout,'(A)')  ' Example 1 (R(O)HF, CAS): fch2mkl a.fch'
+  write(iout,'(A,/)')' Example 2 (UHF):         fch2mkl a.fch -uhf'
   stop
  end if
 

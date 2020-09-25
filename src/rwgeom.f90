@@ -266,7 +266,7 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  integer, parameter :: iout = 6
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=2), intent(in) :: elem(natom)
- character(len=7), intent(in) :: basis
+ character(len=13), intent(in) :: basis
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: uhf, cart

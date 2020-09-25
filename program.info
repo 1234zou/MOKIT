@@ -7,4 +7,4 @@
 GAU=/opt/g16/g16 # Gaussian
 GMS=/home/jxzou/software/gamess/rungms  # GAMESS
 MOLCAS=/home/jxzou/software/OpenMolcas/bin/pymolcas # Molcas/OpenMolcas
-ORCA=/opt/orca_4_2_0/orca # ORCA
+ORCA=/opt/orca_4_2_1/orca # ORCA

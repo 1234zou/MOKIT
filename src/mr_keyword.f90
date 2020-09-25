@@ -42,6 +42,8 @@ module mol
  real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8) :: davidson_e=0.0d0 ! Davidson correction energy
+ real(kind=8) :: mrcisd_e = 0.0d0 ! MRCISD+Q energy
  real(kind=8) :: ptchg_e  = 0.0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e = 0.0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
@@ -68,6 +70,8 @@ module mr_keyword
  ! 3: RHF -> virtual orbital projection -> localization -> pairing -> GVB -> CASCI/CASSCF -> ...
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
+
+ integer :: CtrType = 0             ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
 
  logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
@@ -105,7 +109,8 @@ module mr_keyword
  logical :: dmrgscf = .false.
  logical :: caspt2  = .false.
  logical :: nevpt2  = .false.
- logical :: CIonly  = .false.       ! whether to optimize orbitals before caspt2/nevpt2
+ logical :: mrcisd  = .false.
+ logical :: CIonly  = .false.       ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: casscf_force = .false.  ! whether to calculate CASSCF force
 
  character(len=10) :: gvb_prog     = 'gamess'
@@ -115,6 +120,7 @@ module mr_keyword
  character(len=10) :: dmrgscf_prog = 'pyscf'
  character(len=10) :: caspt2_prog  = 'openmolcas'
  character(len=10) :: nevpt2_prog  = 'pyscf'
+ character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: ic_mrcc_prog = ' '
 
  character(len=240) :: gau_path = ' '
@@ -124,7 +130,7 @@ module mr_keyword
  character(len=240) :: orca_path = ' '
 
  character(len=7) :: method = ' '    ! model chemistry, theoretical method
- character(len=7) :: basis = ' '     ! basis set (gen and genecp supported)
+ character(len=13) :: basis = ' '     ! basis set (gen and genecp supported)
 
 contains
 
@@ -241,7 +247,7 @@ contains
   character(len=24) :: method0 = ' '
   character(len=240) :: buf = ' '
   character(len=1000) :: longbuf = ' '
-  logical :: alive(2)
+  logical :: alive(2), alive1(4)
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
@@ -327,7 +333,7 @@ contains
   end if
 
   select case(TRIM(method))
-  case('caspt2','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb')
+  case('mrcisd','caspt2','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
@@ -336,6 +342,9 @@ contains
   end select
 
   select case(TRIM(method))
+  case('mrcisd')
+   mrcisd = .true.
+   casscf = .true.
   case('caspt2')
    caspt2 = .true.
    casscf = .true.
@@ -355,7 +364,8 @@ contains
 
   i = index(buf,'/'); j = index(buf(i+1:),' ')
   if(j == 0) j = LEN_TRIM(buf)
-  read(buf(i+1:i+j),*) basis
+  basis = buf(i+1:i+j)
+  basis = ADJUSTL(basis)
   write(iout,'(A)') 'method/basis = '//TRIM(method)//'/'//TRIM(basis)
   if(npair_wish > 0) write(iout,'(A,I0)') 'User specified GVB npair = ', npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(iout,'(2(A,I0))') 'User specified&
@@ -422,15 +432,19 @@ contains
   write(iout,'(/,A)') 'The keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
+  alive1(1:3) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
+                 (index(longbuf,'mrcisd_prog')/=0)]
+  if(COUNT(alive1(1:3) .eqv. .true.) > 1) then
+   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword of&
+                      & 'caspt2_prog', 'nevpt2_prog', 'mrcisd_prog' are detected."
+   write(iout,'(A)') 'Only one can be specified in a job.'
+   stop
+  end if
+
   if(index(longbuf,'casci_prog')/=0 .and. index(longbuf,'casscf_prog')/=0) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both casci_prog and&
                     & casscf_prog are detected.'
    write(iout,'(A)') 'Only one can be specified in a job.'
-   stop
-  else if(index(longbuf,'caspt2_prog')/=0 .and. index(longbuf,'nevpt2_prog')/=0) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both caspt2_prog and&
-                    & nevpt2_prog are detected.'
-   write(iout,'(A)') 'Only one can be specified in a job..'
    stop
   else if(index(longbuf,'casci_prog')/=0 .and. index(longbuf,'cionly')==0 .and. casscf) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
@@ -468,6 +482,8 @@ contains
     localm = ADJUSTL(localm)
    case('ist')       ! the i-th strategy
     read(longbuf(j+1:i-1),*) ist
+   case('ctrtype')   ! unconctracted-/ic-/FIC- MRCI
+    read(longbuf(j+1:i-1),*) CtrType
    case('cionly')    ! do CASPT2/NEVPT2 after CASCI, skip CASSCF
     CIonly = .true.
     casscf = .false.; casci = .true.
@@ -494,6 +510,8 @@ contains
     read(longbuf(j+1:i-1),*) caspt2_prog
    case('nevpt2_prog')
     read(longbuf(j+1:i-1),*) nevpt2_prog
+   case('mrcisd_prog')
+    read(longbuf(j+1:i-1),*) mrcisd_prog
    case('ic_mrcc_prog')
     read(longbuf(j+1:i-1),*) ic_mrcc_prog
    case('force')
@@ -563,10 +581,11 @@ contains
   write(iout,'(4(A,L1,3X))') 'CASCI   = ', casci  , 'CASSCF  = ', casscf  ,&
                              'DMRGCI  = ', dmrgci , 'DMRGSCF = ', dmrgscf
 
-  write(iout,'(3(A,L1,3X),A)') 'CASPT2  = ', caspt2, 'NEVPT2  = ', nevpt2 ,&
-                               'CIonly  = ', CIonly, 'LocalM  = '//TRIM(localm)
+  write(iout,'(4(A,L1,3X))') 'CASPT2  = ', caspt2, 'NEVPT2  = ', nevpt2 ,&
+                             'MRCISD  = ', mrcisd, 'CIonly  = ', CIonly
 
-  write(iout,'(2(A,L1,3X))') 'BgCharge= ', bgchg, 'Ana_Grad= ', casscf_force
+  write(iout,'(2(A,L1,3X),A,I1,3X,A)') 'BgCharge= ', bgchg, 'Ana_Grad= ', casscf_force, &
+                                       'CtrType = ',CtrType,'LocalM  = '//TRIM(localm)
 
   if(skiphf) then
    write(iout,'(A)') 'HF_fch = '//TRIM(hf_fch)
@@ -641,9 +660,9 @@ contains
    stop
   end if
 
-  if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2)) then
-   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in CASPT2 or NEVPT2 computations."
-   write(iout,'(A)') 'But neither CASPT2 nor NEVPT2 is specified.'
+  if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd)) then
+   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in CASPT2/NEVPT2/MRCISD computations."
+   write(iout,'(A)') 'But none of CASPT2/NEVPT2/MRCISD is specified.'
    stop
   end if
 
@@ -667,29 +686,70 @@ contains
    stop
   end if
 
-  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. gvb) then
+  if(mrcisd_prog/='gaussian' .and. mrcisd_prog/='orca' .and. mrcisd_prog/='openmolcas') then
    write(iout,'(A)') error_warn
-   write(iout,'(A)') 'ORCA and GAMESS both activated, but the former uses spherical functions,'
-   write(iout,'(A)') 'while the latter uses Cartesian functions. Conflict.'
-   write(iout,'(A)') 'You may try ist = 2, where GVB is skipped: UNO -> CASCI/CASSCF'
+   write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
    stop
   end if
 
-  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') "ORCA is specified. But ORCA uses spherical functions, please also specify 'nocart'."
-   stop
+  if(mrcisd) then
+   select case(CtrType)
+   case(1) ! uncontracted MRCISD
+   case(2) ! ic-MRCISD
+    if(mrcisd_prog/='openmolcas') then
+     write(iout,'(A)') error_warn
+     write(iout,'(A)') 'The ic-MRCISD is only supported by OpenMolcas. But you&
+                      & specify mrcisd_prog='//TRIM(mrcisd_prog)
+     stop
+    end if
+   case(3) ! FIC-MRCISD
+    if(mrcisd_prog/='orca') then
+     write(iout,'(A)') error_warn
+     write(iout,'(A)') 'The FIC-MRCISD is only supported by ORCA. But you&
+                      & specify mrcisd_prog='//TRIM(mrcisd_prog)
+     stop
+    end if
+   case default
+    write(iout,'(A)') error_warn
+    write(iout,'(A)') 'You should specify a valid CtrType=1/2/3 for uncontracted/ic-/FIC- MRCISD.'
+    stop
+   end select
+
+   if(mrcisd_prog=='gaussian' .and. CtrType/=1) then
+    write(iout,'(A)') error_warn
+    write(iout,'(A,I0)') 'Gaussian can only perform uncontracted MRCISD. But you&
+                        & specify CtrType=', CtrType
+    stop
+   end if
+
+   if(mrcisd_prog=='orca' .and. cart) then
+    write(iout,'(A)') error_warn//'conflict settings.'
+    write(iout,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
+                     & harmonic functions,'
+    write(iout,'(A)') 'but Cartesian functions are used.'
+    stop
+   end if
+  end if
+
+  if(casci_prog=='orca' .or. casscf_prog=='orca') then
+   if(gvb .or. cart) then
+    write(iout,'(A)') error_warn
+    if(gvb) then
+     write(iout,'(A)') 'ORCA and GAMESS both activated, but the former uses spherical functions,'
+     write(iout,'(A)') 'while the latter uses Cartesian functions. Conflict.'
+     write(iout,'(A)') 'You may try ist = 2, where GVB is skipped: UNO -> CASCI/CASSCF'
+    end if
+    if(cart) then
+     write(iout,'(A)') "ORCA is specified. But ORCA uses spherical&
+                      & functions, please also specify 'nocart'."
+     stop
+    end if
+   end if
   end if
 
   if((casci_prog=='gamess' .or. casscf_prog=='gamess') .and. (.not.cart)) then
    write(iout,'(A)') error_warn
    write(iout,'(A)') "GAMESS is specified. But GAMESS uses Cartesian functions, do not specify 'nocart'."
-   stop
-  end if
-
-  if(casscf_prog=='openmolcas' .and. nevpt2) then
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'OpenMolcas doing CAS is not compatible with PySCF doing NEVPT2.'
    stop
   end if
 

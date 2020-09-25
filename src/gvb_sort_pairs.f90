@@ -1,5 +1,6 @@
 ! written by jxzou at 20191021: sort (part of) MOs in descending order of the pair coefficients
 !                               of the 1st natural orbital in each pair
+! updated by jxzou at 20200811: take the 1 pair case into consideration
 
 ! Note: the input file must be in GAMESS format, i.e., .dat or .inp
 
@@ -199,10 +200,12 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  ! print done
 
  ! skip the pair coefficients in .dat file
- do while(.true.)
-  read(datid,'(A)') buf
-  if(index(buf, '$END') /= 0) exit
- end do
+ if(npair > 1) then
+  do while(.true.)
+   read(datid,'(A)') buf
+   if(index(buf, '$END') /= 0) exit
+  end do ! for while
+ end if
 
  ! copy any information between '$END' and 'VEC'
  do while(.true.)

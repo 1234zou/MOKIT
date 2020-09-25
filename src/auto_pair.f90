@@ -409,33 +409,37 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  do j = 1, npair, 1
   used = .false.
   tmp_idx = 0
+
   do i = j, npair, 1
    tdm1 = tdm
    do while(.true.)
     tmp_idx = MAXLOC(tdm1(:,i))
     if(.not. used(tmp_idx(1))) exit
     tdm1(tmp_idx(1),i) = tempv
-   end do
+   end do ! for while
    pair_idx(i) = tmp_idx(1)
    used(tmp_idx(1)) = .true.
-  end do
+  end do ! for i
+
   do i = 1, j-1, 1
    tdm1 = tdm
    do while(.true.)
     tmp_idx = MAXLOC(tdm1(:,i))
     if(.not. used(tmp_idx(1))) exit
     tdm1(tmp_idx(1),i) = tempv
-   end do
+   end do ! for while
    pair_idx(i) = tmp_idx(1)
    used(tmp_idx(1)) = .true.
-  end do
+  end do ! for i
+
   sum_tdm = 0.0d0
   min_tdm = tdm(pair_idx(1),1) + 1.0d0
   do i = 1, npair, 1
    tempv1 = tdm(pair_idx(i),i)
    sum_tdm = sum_tdm + tempv1
    if(tempv1 < min_tdm) min_tdm = tempv1
-  end do
+  end do ! for i
+
   write(iout,'(A8,F16.5)') 'sum_tdm=', sum_tdm
   if(j == 1) then
    max_sum = sum_tdm
@@ -446,7 +450,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
     opt_pair_idx = pair_idx
    end if
   end if
- end do 
+ end do ! for j
 
  write(iout,'(A)') 'Final pairs:'
  do i = 1, npair, 1

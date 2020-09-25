@@ -5,7 +5,7 @@ BIN = ../bin
 
 # --- gfortran ---
 #F90    = gfortran
-#FFLAGS = -O2 -cpp
+#FFLAGS = -O2 -cpp -fbacktrace
 #MKL_FLAGS = -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
@@ -13,7 +13,7 @@ BIN = ../bin
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -fpp
+FFLAGS = -O2 -fpp -traceback
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
@@ -39,6 +39,7 @@ OBJ_find_mc_pair = find_mc_pair.o
 OBJ_gvb_correct_pairs = rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_sort_pairs = gvb_sort_pairs.o
 OBJ_mkl2fch = rwwfn.o read_fch.o mkl2fch.o
+OBJ_orb2fch = rwwfn.o orb2fch.o
 OBJ_py2fch = py2fch.f90
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = construct_vir.f90
@@ -129,6 +130,9 @@ fch2py: $(OBJ_fch2py)
 find_mc_pair: $(OBJ_find_mc_pair)
 	$(F90) $(OBJ_find_mc_pair) -o $(BIN)/find_mc_pair $(FFLAGS)
 
+orb2fch: $(OBJ_orb2fch)
+	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS)
+
 py2fch: $(OBJ_py2fch)
 	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS)
 	@mv py2fch*.so ../lib/
@@ -189,8 +193,8 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 
 all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gms2molcas bas_gms2py dat2fch fch2mkl \
      fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
-     gvb_sort_pairs mkl2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop lo \
-     mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
+     gvb_sort_pairs mkl2fch orb2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop \
+     lo mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 clean:
 	rm -f *.o *.mod
