@@ -3,9 +3,13 @@
 
 ! updated by jxzou at 20200325: add variable rtmp
 ! updated by jxzou at 20200326: move lower angular momentum (occurred 2nd time) forward
-!  This special case happens at, e.g. def2TZVP for Co. The MOs moved forward have been
-!  considered in fch2inporb. Here the basis sets should be adjusted correspondingly.
+!   This special case happens at, e.g. def2TZVP for Co. The MOs moved forward have been
+!   considered in fch2inporb. Here the basis sets should be adjusted correspondingly.
 ! updated by jxzou at 20200402: ECP/PP supported
+! updated by jxzou at 20201110: dealing with the extra primitive duplicate, e.g.
+!   cc-pVDZ for Co. The original way is to both extend column and row. Now the
+!   trick is to only extend column, thus will not generate the primitive duplicate.
+!   The primitive duplicate is not allowed in relativistic calculations.
 
 ! Note: Currently isotopes are not tested.
 
@@ -92,7 +96,7 @@ end program main
 subroutine bas_gms2molcas(fort7, spherical)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, rc
+ integer :: i, j, k, m, n, nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
  real(kind=8) :: rtmp
@@ -115,7 +119,7 @@ subroutine bas_gms2molcas(fort7, spherical)
 
  open(newunit=fid2,file=TRIM(input),status='replace')
  write(fid2,'(A)') "&GATEWAY"
- write(fid2,'(A)') 'Expert'
+! write(fid2,'(A)') 'Expert'
 
  open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
 
@@ -263,7 +267,7 @@ subroutine bas_gms2molcas(fort7, spherical)
   read(buf1,*) elem(natom), rtmp, coor(1:3,natom)
   ram(natom) = INT(rtmp)
   if(bohrs) coor(1:3,natom) = coor(1:3,natom)*Bohr_const
-  write(fid2,'(/,A)') 'Basis set'
+  write(fid2,'(A)') 'Basis set'
   if(ecp_exist) then
    if(all_ecp(natom)%ecp) write(fid2,'(A)') TRIM(elem(natom))//'.ECP....      / inline'
   else
@@ -280,7 +284,7 @@ subroutine bas_gms2molcas(fort7, spherical)
    if(stype0 == ' ') then
     !------------------------------------------------------
     ! the following 5 lines are added to determine whether
-    ! a angular momentum occurs more than once
+    ! an angular momentum occurs more than once
     call stype2itype(stype, k)
     if( allocated(prim_gau(k)%coeff) ) then
      stype0 = stype
@@ -320,6 +324,7 @@ subroutine bas_gms2molcas(fort7, spherical)
 
  if(allocated(all_ecp)) deallocate(all_ecp)
  close(fid1)
+
  if(natom==0 .or. rc/=0) then
   if(natom == 0) write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: zero atom found!'
   if(rc /= 0) write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA'&
@@ -329,6 +334,10 @@ subroutine bas_gms2molcas(fort7, spherical)
  end if
 
  write(fid2,'(/,A)') "&SEWARD"
+ call check_DKH_in_inp(fort7, rel)
+ if(rel > -1) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
+! if(rel > -1) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
+
  write(fid2,'(/,A)') "&SCF"
  if(uhf) write(fid2,'(A3)') 'UHF'
  write(fid2,'(A,I0)') 'Charge = ', charge
@@ -371,7 +380,6 @@ subroutine stype2itype(stype, itype)
  integer, intent(out) :: itype
  character(len=1), intent(in) :: stype
 
- itype = 0
  ! 'S', 'P', 'D', 'F', 'G', 'H', 'I'
  !  1 ,  2 ,  3 ,  4 ,  5 ,  6 ,  7
  select case(stype)
@@ -389,7 +397,8 @@ subroutine stype2itype(stype, itype)
   itype = 6
  case('I')
   itype = 7
- case('L')
+ case('L') ! 'L' is 'SP'
+  itype = 0
  case default
   write(iout,'(A)') 'ERROR in subroutine stype2itype: stype out of range.'
   write(iout,'(A)') 'stype= '//TRIM(stype)
@@ -502,18 +511,29 @@ subroutine read_prim_gau2(stype, nline, fid1, exp1)
     end do ! for i
    end if
   else ! > zero, enlarge the array prim_gau(k)%coeff
-   allocate(prim_gau(k)%coeff(nline0+nline,ncol+1), source=0.0d0)
-   prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
-   deallocate(coeff)
-   ncol = ncol + 1
-   prim_gau(k)%ncol = ncol
-   do i = 1, nline, 1
-    read(fid1,*) itmp, prim_gau(k)%coeff(nline0+i,1), rtmp
-    if(nline==1 .and. DABS(rtmp)<zero) rtmp = 1.0d0
-    prim_gau(k)%coeff(nline0+i,ncol) = rtmp
-   end do ! for i
-   nline0 = nline0 + nline
-   prim_gau(k)%nline = nline0
+   if(DABS(coeff(nline0,1) - exp1) < zero) then
+    allocate(prim_gau(k)%coeff(nline0,ncol+1), source=0.0d0)
+    prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
+    deallocate(coeff)
+    ncol = ncol + 1
+    prim_gau(k)%ncol = ncol
+    read(fid1,*)   ! skip one line
+    prim_gau(k)%coeff(nline0,1) = exp1
+    prim_gau(k)%coeff(nline0,ncol) = 1.0d0
+   else
+    allocate(prim_gau(k)%coeff(nline0+nline,ncol+1), source=0.0d0)
+    prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
+    deallocate(coeff)
+    ncol = ncol + 1
+    prim_gau(k)%ncol = ncol
+    do i = 1, nline, 1
+     read(fid1,*) itmp, prim_gau(k)%coeff(nline0+i,1), rtmp
+     if(nline==1 .and. DABS(rtmp)<zero) rtmp = 1.0d0
+     prim_gau(k)%coeff(nline0+i,ncol) = rtmp
+    end do ! for i
+    nline0 = nline0 + nline
+    prim_gau(k)%nline = nline0
+   end if
   end if
 
  else ! k == 0, this is 'L' for some Pople-type basis sets
@@ -653,4 +673,66 @@ subroutine update_ntimes()
  end do
  return
 end subroutine update_ntimes
+
+! check whether there exists DKH keywords in a given .inp file
+subroutine check_DKH_in_inp(inpname, order)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(out) :: order
+! -2: no DKH
+! -1: RESC
+!  0: DKH 0th-order
+!  2: DKH2
+!  4: DKH4 with SO
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ character(len=1200) :: longbuf
+ logical :: alive(6)
+
+ longbuf = ' '
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  longbuf = TRIM(longbuf)//TRIM(buf)
+  call lower(buf)
+  if(index(buf,'$end') /= 0) exit
+ end do ! for while
+ close(fid)
+
+ call lower(longbuf)
+
+ order = -2
+ if(index(longbuf,'relwfn') == 0) then
+  return
+ else
+  if(index(longbuf,'relwfn=dk') == 0) then
+   write(iout,'(A)') 'Warning in subroutine check_DKH_in_inp: unsupported&
+                    & relativistic method detected.'
+   write(iout,'(A)') 'Molcas/OpenMolcas does not support RELWFN=LUT-IOTC, IOTC,&
+                    & RESC, or NESC. Only RELWFN=DK is supported.'
+   write(iout,'(A)') 'The MO transferring will still be proceeded. But the result&
+                    & may be non-sense.'
+  end if
+ end if
+
+ order = 2
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call lower(buf)
+  if(index(buf,'$relwfn') /= 0) exit
+ end do ! for while
+ close(fid)
+
+ if(i == 0) then
+  k = index(buf,'norder=')
+  if(k /= 0) then
+   read(buf(k+7:),*) order
+  end if
+ end if
+
+ return
+end subroutine check_DKH_in_inp
 

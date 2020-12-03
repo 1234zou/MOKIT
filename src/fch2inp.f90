@@ -1,4 +1,4 @@
-! written by jxzou at 20171120
+! written by jxzou at 20171120: generate .inp file (GAMESS) from .fch(k) file (Gaussian)
 ! updated by jxzou at 20171224: use '-gvb npair' in command line to permute the active orbtials
 ! updated by jxzou at 20180211: support UHF type MOs
 ! updated by jxzou at 20180620: support open shell orbitals (doublet, triplet, ...)
@@ -6,8 +6,9 @@
 ! updated by jxzou at 20190226: change data to parameter when declare constant arrays
 ! updated by jxzou at 20200322: renamed as fch2inp; simplify code; support ECP/PP
 ! updated by jxzou at 20200811: add coupling cofficients for high spin GVB (MULT>3)
-
-! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
+! updated by jxzou at 20201113: support for spherical harmonic functions
+!                               (expand 5D,7F,9G,11H to 6D,10F,15G,21H)
+! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
 
 ! If '-gvb [npair]' is specified, the orbitals in active space will be permuted to the
 !  order of Gamess. In this case, you must specify the argument [npair] in command line.
@@ -20,6 +21,11 @@
 ! The order of Cartesian functions in Gaussian can be acquired by adding keyword
 ! 'pop=reg' in .gjf file. In GAMESS output files(.out, .gms), the order of Cartesian
 ! functions is printed without extra keyword needed.
+
+! When ISPHER=1 used in GAMESS, the resulting electronic energy is the same as '5D 7F'
+! in Gaussian, but the MO coefficients in .dat file are expanded on Cartesian functions.
+! So, if a '5D 7F' .fch(k) file is provided, this subroutine will expand the MO coefficients
+! from spherical harmonic functions to Cartesian functions.
 
 program main
  implicit none
@@ -73,14 +79,18 @@ end program main
 ! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
 subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  use fch_content
+ use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, k, m, n, n1, n2, nline, nleft, fid
+ integer :: rel     ! the order of DKH, or RESC
  integer :: ncore   ! the number of core MOs
- integer :: n10fmark, n15gmark, n21hmark
+ integer :: nif1    ! new nif, where nif is number of MOs
+ integer :: nbf1    ! new nbf, where nbf is number of basis functions
+ integer :: nd, nf, ng, nh
  integer, intent(in) :: npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
- ! mark the index where f, g, h functions begin
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ ! mark the index where d, f, g, h functions begin
  integer, allocatable :: order(:)
  ! six types of angular momentum
  character(len=1) :: str = ' '
@@ -101,9 +111,21 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  end if
  inpname = fchname(1:i-1)//'.inp'
 
+ call check_DKH_in_fch(fchname, rel)
+ if(rel == 4) then
+  write(iout,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
+  write(iout,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
+ end if
+
  uhf = .false.
  if(gvb_or_uhf == '-uhf') uhf = .true.
  call read_fch(fchname, uhf) ! read content in .fch(k) file
+
+ if(gvb_or_uhf == '-uhf') then
+  nif1 = 2*nif ! alpha, beta MOs
+ else
+  nif1 = nif
+ end if
 
  ncore = na - npair - nopen0
  ! arrays eigen_e_a and eigen_e_b is useless for GAMESS inp file
@@ -111,13 +133,25 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  if(allocated(eigen_e_b)) deallocate(eigen_e_b)
 
  ! check if any spherical functions
- sph = .false.
- if( ANY(shell_type < -1) ) then
-  write(iout,'(A)') 'Warning in subroutine fch2inp: spherical functions detected&
-                   & in file '//TRIM(fchname)//'.'
-  write(iout,'(A)') "GAMESS supports only Cartesian functions. You need to add&
-                  & '6D 10F' keywords in Gaussian."
+ if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
+  write(iout,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
+                   &Cartesian functions detected.'
+  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+                   & default setting is (6D,7F).'
+  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  stop
+ else if(ANY(shell_type<-1)) then
   sph = .true.
+ else
+  sph = .false.
+ end if
+
+ if(sph) then
+  nbf1 = nbf + COUNT(shell_type==-2) + 3*COUNT(shell_type==-3) + &
+           & 6*COUNT(shell_type==-4) + 10*COUNT(shell_type==-5)
+  ! [6D,10F,15G,21H] - [5D,7F,9G,11H] = [1,3,6,10]
+ else
+  nbf1 = nbf
  end if
 
  ! in GAMESS inp format file, the contr_coeff_sp is zero when there is no 'L'/'SP'
@@ -126,7 +160,8 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  ! create the GAMESS .inp file and print the keywords information
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
- call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, nbf, gvb_or_uhf, ecp)
+ call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif,&
+                            nbf, gvb_or_uhf, ecp, sph, rel)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! print basis sets into the .inp file
@@ -190,70 +225,79 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
  end if
 
- if(sph) then
-  write(iout,'(A)') 'Only the basis set and ECP(if any) are printed.'
-  deallocate(shell_type, alpha_coeff)
-  stop
+ ! record the indices of Cartesian f, g and h functions
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(temp_coeff(nbf1,nif1))
+
+ if(sph) then ! spherical harmonic functions, expanding
+  if(gvb_or_uhf == '-uhf') then
+   allocate(open_coeff(nbf,nif1))
+   open_coeff(:,1:nif) = alpha_coeff
+   open_coeff(:,nif+1:2*nif) = beta_coeff
+  else
+   open_coeff = alpha_coeff
+  end if
+
+  nbf = 0; j = 0
+  do i = 1, ncontr, 1
+   select case(shell_type(i))
+   case( 0) ! S
+    temp_coeff(nbf+1,:) = open_coeff(j+1,:)
+    nbf = nbf + 1; j= j + 1
+   case( 1) ! P
+    temp_coeff(nbf+1:nbf+3,:) = open_coeff(j+1:j+3,:)
+    nbf = nbf + 3; j = j + 3
+   case(-1) ! L
+    temp_coeff(nbf+1:nbf+4,:) = open_coeff(j+1:j+4,:)
+    nbf = nbf + 4; j = j + 4
+   case(-2) ! 5D
+    temp_coeff(nbf+1:nbf+6,:) = MATMUL(rd, open_coeff(j+1:j+5,:))
+    nbf = nbf + 6; j= j + 5
+    shell_type(i) = 2
+   case(-3) ! 7F
+    temp_coeff(nbf+1:nbf+10,:) = MATMUL(rf, open_coeff(j+1:j+7,:))
+    nbf = nbf + 10; j = j + 7
+    shell_type(i) = 3
+   case(-4) ! 9G
+    temp_coeff(nbf+1:nbf+15,:) = MATMUL(rg, open_coeff(j+1:j+9,:))
+    nbf = nbf + 15; j = j + 9
+    shell_type(i) = 4
+   case(-5) ! 11H
+    temp_coeff(nbf+1:nbf+21,:) = MATMUL(rh, open_coeff(j+1:j+11,:))
+    nbf = nbf + 21; j = j + 11
+    shell_type(i) = 5
+   end select
+  end do ! for i
+
+  deallocate(open_coeff)
+
+ else ! Cartesian functions
+  temp_coeff(:,1:nif) = alpha_coeff
+  if(gvb_or_uhf == '-uhf') temp_coeff(:,nif+1:nif1) = beta_coeff
  end if
 
- ! record the indices of Cartesian f, g and h functions
- n10fmark = 0
- n15gmark = 0
- n21hmark = 0
- allocate(f_mark(ncontr), source=0)
- allocate(g_mark(ncontr), source=0)
- allocate(h_mark(ncontr), source=0)
-
- nbf = 0
- do i = 1, ncontr, 1
-  if(shell_type(i) == 0) then       !'S'
-   nbf = nbf + 1
-  else if(shell_type(i) == 1) then  !'P'
-   nbf = nbf + 3
-  else if(shell_type(i) == -1) then !'SP' or 'L'
-   nbf = nbf + 4
-  else if(shell_type(i) == 2) then  ! 6D
-   nbf = nbf + 6
-  else if(shell_type(i) == 3) then  ! 10F
-   n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
-  else if(shell_type(i) == 4) then  ! 15G
-   n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
-  else if(shell_type(i) == 5) then  ! 21H
-   n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
-  end if
- end do
- deallocate(shell_type)
+ call read_mark_from_shltyp(.false.,ncontr,shell_type,nd,nf,ng,nh,d_mark,f_mark,g_mark,h_mark)
+ deallocate(d_mark, shell_type)
  ! done recording
 
  ! adjust the order of Cartesian f, g, h functions
- do i = 1,n10fmark,1
-  call fch2inp_permute_10f(nif,alpha_coeff(f_mark(i)+3:f_mark(i)+8,:))
+ do i = 1, nf, 1
+  call fch2inp_permute_10f(nif1,temp_coeff(f_mark(i)+3:f_mark(i)+8,:))
  end do
- do i = 1,n15gmark,1
-  call fch2inp_permute_15g(nif,alpha_coeff(g_mark(i):g_mark(i)+14,:))
+ do i = 1, ng, 1
+  call fch2inp_permute_15g(nif1,temp_coeff(g_mark(i):g_mark(i)+14,:))
  end do
- do i = 1,n21hmark,1
-  call fch2inp_permute_21h(nif,alpha_coeff(h_mark(i):h_mark(i)+20,:))
+ do i = 1, nh, 1
+  call fch2inp_permute_21h(nif1,temp_coeff(h_mark(i):h_mark(i)+20,:))
  end do
- if(gvb_or_uhf == '-uhf') then
-  do i = 1,n10fmark,1
-   call fch2inp_permute_10f(nif,beta_coeff(f_mark(i)+3:f_mark(i)+8,:))
-  end do
-  do i = 1,n15gmark,1
-   call fch2inp_permute_15g(nif,beta_coeff(g_mark(i):g_mark(i)+14,:))
-  end do
-  do i = 1,n21hmark,1
-   call fch2inp_permute_21h(nif,beta_coeff(h_mark(i):h_mark(i)+20,:))
-  end do
- end if
  deallocate(f_mark, g_mark, h_mark)
  ! adjustment finished
+
+ ! if nbf1 > nbf, the following two lines are auto-reallocation
+ alpha_coeff = temp_coeff(:,1:nif)
+ if(gvb_or_uhf == '-uhf') beta_coeff = temp_coeff(:,nif+1:2*nif)
+ deallocate(temp_coeff)
+ nbf = nbf1 ! update nbf
 
  ! if active orbitals in GAMESS order are required, permute them
  if(gvb_or_uhf == '-gvb') then
@@ -319,16 +363,17 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
 end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
-subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, nif, nbf, gvb_or_uhf, ecp)
+subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
+           nif, nbf, gvb_or_uhf, ecp, sph, rel)
  implicit none
  integer :: fid, i, ia
- integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf
+ integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel
  character(len=3), allocatable :: f(:), alpha(:)
  character(len=4), allocatable :: beta(:)
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: ecp
+ logical, intent(in) :: ecp, sph
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -345,13 +390,28 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, nif
  write(fid,'(2(A,I0))',advance='no') ' RUNTYP=ENERGY ICHARG=',charge,' MULT=',mult
  write(fid,'(A)',advance='no') ' NOSYM=1 ICUT=10'
  if(ecp) write(fid,'(A)',advance='no') ' PP=READ'
+
  select case(gvb_or_uhf)
  case('-gvb')
-  write(fid,'(/,A)') '  MAXIT=500 $END'
+  write(fid,'(/,A)',advance='no') '  MAXIT=500'
  case default
-  write(fid,'(/,A)') '  MAXIT=200 $END'
+  write(fid,'(/,A)',advance='no') '  MAXIT=200'
  end select
- write(fid,'(A)') ' $SYSTEM MWORDS=2000 $END'
+
+ if(rel == -1) then
+  write(fid,'(A)',advance='no') ' RELWFN=RESC'
+ else if(rel /= -2) then
+  write(fid,'(A)',advance='no') ' RELWFN=DK'
+ end if
+
+ if(sph) then
+  write(fid,'(A)') ' ISPHER=1 $END'
+ else
+  write(fid,'(A)') ' $END'
+ end if
+ write(fid,'(A)') ' $SYSTEM MWORDS=500 $END'
+
+ if(rel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
 
  select case(gvb_or_uhf)
  case('-gvb')
@@ -380,7 +440,11 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, nif
    deallocate(f, alpha, beta)
   end if
  case default
-  write(fid,'(A)') ' $SCF DIRSCF=.TRUE. $END'
+  if(rel==0 .or. rel==2 .or. rel==4) then
+   write(fid,'(A)') ' $SCF DIRSCF=.TRUE. DIIS=.T. SOSCF=.F. $END'
+  else
+   write(fid,'(A)') ' $SCF DIRSCF=.TRUE. $END'
+  end if
  end select
 
  write(fid,'(A,I0,A)') ' $GUESS GUESS=MOREAD NORB=', nif, ' $END'

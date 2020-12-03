@@ -26,13 +26,14 @@ OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gms2molcas = bas_gms2molcas.o
 OBJ_bas_gms2py = bas_gms2py.o
-OBJ_dat2fch = rwwfn.o dat2fch.o
+OBJ_dat2fch = read_fch.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = extract_noon2fch.o
 OBJ_fch2mkl = read_fch.o fch2mkl.o
 OBJ_fch2inp = read_fch.o fch2inp.o
 OBJ_fch2inporb = rwwfn.o util_wrapper.o fch2inporb.o
 OBJ_fch_u2r = fch_u2r.o
 OBJ_fch_mo_copy = rwwfn.o fch_mo_copy.o
+OBJ_frag_guess_wfn = read_fch.o rwgeom.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = find_mc_pair.o
@@ -81,7 +82,7 @@ align_orbitals: $(OBJ_align_orbitals)
 	$(F90) $(OBJ_align_orbitals) -o $(BIN)/align_orbitals $(FFLAGS)
 
 automr: $(OBJ_automr)
-	$(F90) $(OBJ_automr) $(MFLAGS) -o $(BIN)/automr $(FFLAGS)
+	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS)
 	@echo ;\
 	echo "AutoMR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
@@ -99,7 +100,7 @@ bas_gms2py: $(OBJ_bas_gms2py)
 	$(F90) $(OBJ_bas_gms2py) -o $(BIN)/bas_gms2py $(FFLAGS)
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) -o $(BIN)/dat2fch $(FFLAGS)
+	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS)
 
 fch2mkl: $(OBJ_fch2mkl)
 	$(F90) $(OBJ_fch2mkl) -o $(BIN)/fch2mkl $(FFLAGS)
@@ -129,6 +130,9 @@ fch2py: $(OBJ_fch2py)
 
 find_mc_pair: $(OBJ_find_mc_pair)
 	$(F90) $(OBJ_find_mc_pair) -o $(BIN)/find_mc_pair $(FFLAGS)
+
+frag_guess_wfn: $(OBJ_frag_guess_wfn)
+	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)/frag_guess_wfn $(FFLAGS)
 
 orb2fch: $(OBJ_orb2fch)
 	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS)

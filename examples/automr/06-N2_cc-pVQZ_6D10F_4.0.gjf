@@ -1,8 +1,8 @@
 %mem=4GB
 %nprocshared=4
-#p CASPT2/cc-pVQZ
+#p GVB(3)/cc-pVQZ
 
 mokit{readuhf='N2_cc-pVQZ_6D10F_4.0_uhf.fchk',ist=1,cart}
 
 # This example shows you how to read MOs from a given UHF .fch(k) file
-# and perform CASPT2 computation
+# and perform GVB computation

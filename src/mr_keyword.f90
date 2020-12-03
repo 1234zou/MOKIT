@@ -42,8 +42,10 @@ module mol
  real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8) :: mrmp2_e  = 0.0d0 ! MRMP2 energy
  real(kind=8) :: davidson_e=0.0d0 ! Davidson correction energy
  real(kind=8) :: mrcisd_e = 0.0d0 ! MRCISD+Q energy
+ real(kind=8) :: mcpdft_e = 0.0d0 ! MC-PDFT energy
  real(kind=8) :: ptchg_e  = 0.0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e = 0.0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
@@ -78,25 +80,29 @@ module mr_keyword
  ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
  ! the rhf/uhf variable/flag will be used in utilities like fch2inp
 
- logical :: cart     = .true.      ! Cartesian/spherical harmonic functions
- logical :: bgchg    = .false.     ! wthether there is back ground charge(s)
- logical :: tencycle = .true.      ! whether to perform 10 cycles of HF after transferring MOs
- logical :: readrhf  = .false.     ! read RHF MOs from a given .fch(k)
- logical :: readuhf  = .false.     ! read UHF MOs from a given .fch(k)
- logical :: readno   = .false.     ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
- logical :: skiphf   = .false.     ! (readrhf .or. readuhf .or. readno)
- logical :: hardwfn  = .false.     ! whether difficult wavefunction cases
- logical :: crazywfn = .false.     ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
+ logical :: cart     = .false.    ! Cartesian/spherical harmonic functions
+ logical :: DKH2     = .false.    ! scalar relativistic Douglas-Kroll-Hess 2nd order correction
+ logical :: X2C      = .false.    ! scalar relativistic eXact-Two-Component correction
+ logical :: dkh2_or_x2c = .false. ! (DKH2 .or. X2C)
+ logical :: bgchg    = .false.    ! wthether there is back ground charge(s)
+ logical :: tencycle = .true.     ! whether to perform 10 cycles of HF after transferring MOs
+ logical :: readrhf  = .false.    ! read RHF MOs from a given .fch(k)
+ logical :: readuhf  = .false.    ! read UHF MOs from a given .fch(k)
+ logical :: readno   = .false.    ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
+ logical :: skiphf   = .false.    ! (readrhf .or. readuhf .or. readno)
+ logical :: hardwfn  = .false.    ! whether difficult wavefunction cases
+ logical :: crazywfn = .false.    ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
  ! if hardwfn is .True., AutoMR will add additional keywords to ensure convergence or correct spin
  ! Note: SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck in a saddle point/local minimum
  ! if crazywfn is .True., AutoMR will add more keywords (than hardwfn) to ensure convergence or correct spin
 
- character(len=4)   :: localm = 'boys' ! localization method: boys/pm
+ character(len=4)   :: localm = 'pm'   ! localization method: boys/pm
  character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
  character(len=240) :: chgname = ' '   ! filename of the .chg file (background point charges)
  character(len=240) :: hf_fch = ' '    ! filename of the given .fch(k) file
  character(len=240) :: datname = ' '   ! filename of GAMESS GVB .dat file
  character(len=240) :: casnofch = ' '  ! .fch(k) file of CASCI or CASSCF job
+ character(len=8) :: otpdf = 'tPBE'    ! on-top pair density functional
 
  integer :: maxM = 1000             ! bond-dimension in DMRG computation
  logical :: vir_proj = .false.      ! virtual orbitals projection onto those of STO-6G
@@ -109,9 +115,12 @@ module mr_keyword
  logical :: dmrgscf = .false.
  logical :: caspt2  = .false.
  logical :: nevpt2  = .false.
+ logical :: mrmp2   = .false.
  logical :: mrcisd  = .false.
- logical :: CIonly  = .false.       ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
- logical :: casscf_force = .false.  ! whether to calculate CASSCF force
+ logical :: mcpdft  = .false.
+ logical :: CIonly  = .false.      ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
+ logical :: dyn_corr= .false.      ! dynamic correlation
+ logical :: casscf_force = .false. ! whether to calculate CASSCF force
 
  character(len=10) :: gvb_prog     = 'gamess'
  character(len=10) :: casci_prog   = 'pyscf'
@@ -120,6 +129,7 @@ module mr_keyword
  character(len=10) :: dmrgscf_prog = 'pyscf'
  character(len=10) :: caspt2_prog  = 'openmolcas'
  character(len=10) :: nevpt2_prog  = 'pyscf'
+ character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: ic_mrcc_prog = ' '
 
@@ -176,12 +186,17 @@ contains
   character(len=240) :: buf, path
   logical :: alive
 
-  write(iout,'(A)') 'Output information of AutoMR of MOKIT(Molecular Orbital Kit):'
+  write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
+  write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
+  write(iout,'(A)') '                    Author: jxzou'
+  write(iout,'(A)') '                   Version: 1.2.1'
+  write(iout,'(A)') '         (How to cite: read the file Citation.txt)'
+
   hostname = ' '
   data_string = ' '
   j = hostnm(hostname)
   call fdate(data_string)
-  write(iout,'(A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+  write(iout,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
   path = ' '
   call getenv('MOKIT_ROOT', path)
@@ -205,13 +220,31 @@ contains
    else if(buf(1:4) == 'ORCA') then
     orca_path = buf(i+1:j-1)
    end if
-  end do
+  end do ! for while
 
   close(fid)
+  call replace_env_in_path(gau_path)
+  call replace_env_in_path(gms_path)
+  call replace_env_in_path(molcas_path)
+  call replace_env_in_path(orca_path)
+  write(iout,'(/,A)') 'Read program paths from $MOKIT_ROOT/program.info:'
+  write(iout,'(A)') 'gau_path     = '//TRIM(gau_path)
+  write(iout,'(A)') 'gms_path     = '//TRIM(gms_path)
+  write(iout,'(A)') 'molcas_path  = '//TRIM(molcas_path)
+  write(iout,'(A)') 'orca_path    = '//TRIM(orca_path)
+  return
+ end subroutine read_program_path
+
+ ! check whether GAMESS path exists
+ subroutine check_gms_path()
+  implicit none
+  integer :: i, fid
+  character(len=240) :: buf
+  logical :: alive
 
   inquire(file=TRIM(gms_path),exist=alive)
   if(.not. alive) then
-   write(iout,'(A)') 'ERROR in subroutine read_scr_from_rungms: rungms does not exist.'
+   write(iout,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
    write(iout,'(A)') 'gms_path='//TRIM(gms_path)
    stop
   end if
@@ -226,20 +259,10 @@ contains
 
   i = index(buf,'=')
   gms_scr_path = buf(i+1:)
-
-  call replace_env_in_path(gau_path)
-  call replace_env_in_path(gms_path)
   call replace_env_in_path(gms_scr_path)
-  call replace_env_in_path(molcas_path)
-  call replace_env_in_path(orca_path)
-  write(iout,'(/,A)') 'Read program paths from $MOKIT_ROOT/program.info:'
-  write(iout,'(A)') 'gau_path     = '//TRIM(gau_path)
-  write(iout,'(A)') 'gms_path     = '//TRIM(gms_path)
-  write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
-  write(iout,'(A)') 'molcas_path  = '//TRIM(molcas_path)
-  write(iout,'(A)') 'orca_path    = '//TRIM(orca_path)
+!  write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
   return
- end subroutine read_program_path
+ end subroutine check_gms_path
 
  subroutine parse_keyword()
   implicit none
@@ -277,8 +300,6 @@ contains
    write(iout,'(A)') 'The provided .gjf file may be incomplete.'
    stop
   end if
-
-  write(iout,'(/,2(A,I0))') 'memory = ', mem, 'GB     nproc = ', nproc
 
   call lower(buf)
   i = index(buf,'/')
@@ -333,7 +354,8 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mrcisd','caspt2','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb')
+  case('mcpdft','mrcisd','mrmp2','caspt2','nevpt2','casscf','dmrgscf','casci',&
+       'dmrgci','gvb')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
@@ -342,8 +364,14 @@ contains
   end select
 
   select case(TRIM(method))
+  case('mcpdft')
+   mcpdft = .true.
+   casscf = .true.
   case('mrcisd')
    mrcisd = .true.
+   casscf = .true.
+  case('mrmp2')
+   mrmp2 = .true.
    casscf = .true.
   case('caspt2')
    caspt2 = .true.
@@ -364,9 +392,9 @@ contains
 
   i = index(buf,'/'); j = index(buf(i+1:),' ')
   if(j == 0) j = LEN_TRIM(buf)
-  basis = buf(i+1:i+j)
-  basis = ADJUSTL(basis)
-  write(iout,'(A)') 'method/basis = '//TRIM(method)//'/'//TRIM(basis)
+  basis = ADJUSTL(buf(i+1:i+j))
+  write(iout,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
+  write(iout,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
   if(npair_wish > 0) write(iout,'(A,I0)') 'User specified GVB npair = ', npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(iout,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
@@ -432,12 +460,12 @@ contains
   write(iout,'(/,A)') 'The keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
-  alive1(1:3) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
-                 (index(longbuf,'mrcisd_prog')/=0)]
-  if(COUNT(alive1(1:3) .eqv. .true.) > 1) then
+  alive1(1:4) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
+                 (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0)]
+  if(COUNT(alive1(1:4) .eqv. .true.) > 1) then
    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword of&
-                      & 'caspt2_prog', 'nevpt2_prog', 'mrcisd_prog' are detected."
-   write(iout,'(A)') 'Only one can be specified in a job.'
+                      & 'caspt2_prog', 'nevpt2_prog', 'mrmp2_prog', 'mrcisd_prog'"
+   write(iout,'(A)') 'are detected. Only one can be specified in a job.'
    stop
   end if
 
@@ -475,8 +503,12 @@ contains
     mo_rhf = .true.
     readno = .true.
     read(longbuf(j+1:i-1),*) hf_fch
-   case('nocart')    ! use spherical harmonic functions
-    cart = .false.
+   case('cart')      ! use Cartesian functions
+    cart = .true.
+   case('dkh2')
+    DKH2 = .true.
+   case('X2C')
+    X2C = .true.
    case('localm')    ! localization method
     read(longbuf(j+1:i-1),*) localm
     localm = ADJUSTL(localm)
@@ -510,6 +542,8 @@ contains
     read(longbuf(j+1:i-1),*) caspt2_prog
    case('nevpt2_prog')
     read(longbuf(j+1:i-1),*) nevpt2_prog
+   case('mrmp2_prog')
+    read(longbuf(j+1:i-1),*) mrmp2_prog
    case('mrcisd_prog')
     read(longbuf(j+1:i-1),*) mrcisd_prog
    case('ic_mrcc_prog')
@@ -518,6 +552,8 @@ contains
     casscf_force = .true.
    case('charge')
     bgchg = .true.
+   case('otpdf')
+    read(longbuf(j+1:i-1),*) otpdf
    case default
     write(iout,'(A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                       //"' not recognized."
@@ -529,6 +565,8 @@ contains
    longbuf = ADJUSTL(longbuf)
    if(LEN_TRIM(longbuf) == 0) exit
   end do ! for while
+
+  dkh2_or_x2c = (DKH2 .or. X2C)
 
   if(readrhf .or. readuhf .or. readno) then
    inquire(file=TRIM(hf_fch),exist=alive(1))
@@ -564,6 +602,8 @@ contains
    stop
   end select
 
+  if(.not. mcpdft) otpdf = ' '
+  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mcpdft)
   call prt_strategy()
   return
  end subroutine parse_keyword
@@ -572,17 +612,20 @@ contains
   implicit none
   write(iout,'(/,A,I0)') 'No. Strategy = ', ist
 
-  write(iout,'(4(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
-                             'readNO  = ', readno , 'skipHF  = ', skiphf
+  write(iout,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
+       'readNO  = ', readno, 'skipHF  = ',  skiphf, 'Cart    = ', cart
 
-  write(iout,'(4(A,L1,3X))') 'Cart    = ', cart   , 'Vir_Proj= ', vir_proj,&
-                             'UNO     = ', uno    , 'GVB     = ', gvb
+  write(iout,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
+       'GVB     = ', gvb   , 'CASCI   = ',   casci, 'CASSCF  = ', casscf
 
-  write(iout,'(4(A,L1,3X))') 'CASCI   = ', casci  , 'CASSCF  = ', casscf  ,&
-                             'DMRGCI  = ', dmrgci , 'DMRGSCF = ', dmrgscf
+  write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
+       'CASPT2  = ', caspt2, 'NEVPT2  = ',  nevpt2, 'MRMP2   = ', mrmp2
 
-  write(iout,'(4(A,L1,3X))') 'CASPT2  = ', caspt2, 'NEVPT2  = ', nevpt2 ,&
-                             'MRCISD  = ', mrcisd, 'CIonly  = ', CIonly
+  write(iout,'(3(A,L1,3X),A)') 'MRCISD  = ',mrcisd, 'MCPDFT  = ', mcpdft ,&
+       'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
+
+  write(iout,'(3(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2   ,&
+       'X2C     = ', X2C
 
   write(iout,'(2(A,L1,3X),A,I1,3X,A)') 'BgCharge= ', bgchg, 'Ana_Grad= ', casscf_force, &
                                        'CtrType = ',CtrType,'LocalM  = '//TRIM(localm)
@@ -603,6 +646,46 @@ contains
   character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
 
   write(iout,'(/,A)') 'Check if the keywords are compatible with each other...'
+
+  if(readrhf .or. readuhf .or. readno) then
+   call check_cart(hf_fch, cart)
+  else
+   if(TRIM(basis)=='gen' .or. TRIM(basis)=='genecp') then
+    write(iout,'(A)') 'ERROR in subroutine parse_keyword: gen or genecp is not&
+                     & supported currently.'
+    write(iout,'(A)') 'You can provide a pre-calculated .fch file and use keyword&
+                     & ist=1, 2 or 3.'
+    stop
+   end if
+  end if
+
+  if(DKH2 .and. X2C) then
+   write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot be both activated."
+   stop
+  end if
+
+  if(.not. dyn_corr) then
+   alive(1) = (casci_prog=='gaussian' .or. casci_prog=='gamess' .or. casci_prog=='orca')
+   alive(2) = (casscf_prog=='gaussian' .or. casscf_prog=='gamess' .or. casscf_prog=='orca')
+   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
+   if(X2C .and. alive(3)) then
+    write(iout,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
+                    & incompatible with X2C.'
+    stop
+   end if
+   alive(1) = (casci .and. casci_prog=='pyscf')
+   alive(2) = (casscf .and. casscf_prog=='pyscf')
+   alive(3) = (alive(1) .or. alive(2))
+   if(DKH2 .and. alive(3)) then
+    write(iout,'(A)') error_warn//'CASCI/CASSCF with PySCF is incompatible with DKH2.'
+    stop
+   end if
+   alive(1) = (.not.(casci .or. casscf) .and. gvb)
+   if(X2C .and. alive(1)) then
+    write(iout,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
+    stop
+   end if
+  end if
 
   if(hardwfn .and. crazywfn) then
    write(iout,'(A)') error_warn//"only one of 'hardwfn' or 'crazywfn' can be specified."
@@ -654,15 +737,9 @@ contains
    stop
   end if
 
-  if(gvb .and. (.not.cart)) then
-   write(iout,'(A)') error_warn//'GVB computations will be done using GAMESS.'
-   write(iout,'(A)') 'This is incompatible with cart=.false.'
-   stop
-  end if
-
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd)) then
-   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in CASPT2/NEVPT2/MRCISD computations."
-   write(iout,'(A)') 'But none of CASPT2/NEVPT2/MRCISD is specified.'
+   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in"
+   write(iout,'(A)') 'CASPT2/NEVPT2/MRCISD computations. But none of them is specified.'
    stop
   end if
 
@@ -695,6 +772,11 @@ contains
   if(mrcisd) then
    select case(CtrType)
    case(1) ! uncontracted MRCISD
+    if(mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca' .and. X2C) then
+     write(iout,'(A)') error_warn
+     write(iout,'(A)') 'MRCISD with Gaussian/ORCA incompatible with X2C.'
+     stop
+    end if
    case(2) ! ic-MRCISD
     if(mrcisd_prog/='openmolcas') then
      write(iout,'(A)') error_warn
@@ -709,9 +791,13 @@ contains
                       & specify mrcisd_prog='//TRIM(mrcisd_prog)
      stop
     end if
+    if(X2C) then
+     write(iout,'(A)') error_warn//'FIC-MRCISD with ORCA incompatible with X2C.'
+     stop
+    end if
    case default
-    write(iout,'(A)') error_warn
-    write(iout,'(A)') 'You should specify a valid CtrType=1/2/3 for uncontracted/ic-/FIC- MRCISD.'
+    write(iout,'(A)') error_warn//'invalid CtrType.'
+    write(iout,'(A)') 'Please specify a valid CtrType=1/2/3 for uncontracted/ic-/FIC- MRCISD.'
     stop
    end select
 
@@ -725,31 +811,18 @@ contains
    if(mrcisd_prog=='orca' .and. cart) then
     write(iout,'(A)') error_warn//'conflict settings.'
     write(iout,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
-                     & harmonic functions,'
-    write(iout,'(A)') 'but Cartesian functions are used.'
+                     & harmonic functions, but'
+    write(iout,'(A)') "Cart = True, you should delete the keyword 'cart', or&
+                     & provide a .fch file with spherical harmonic functions."
     stop
    end if
   end if
 
-  if(casci_prog=='orca' .or. casscf_prog=='orca') then
-   if(gvb .or. cart) then
-    write(iout,'(A)') error_warn
-    if(gvb) then
-     write(iout,'(A)') 'ORCA and GAMESS both activated, but the former uses spherical functions,'
-     write(iout,'(A)') 'while the latter uses Cartesian functions. Conflict.'
-     write(iout,'(A)') 'You may try ist = 2, where GVB is skipped: UNO -> CASCI/CASSCF'
-    end if
-    if(cart) then
-     write(iout,'(A)') "ORCA is specified. But ORCA uses spherical&
-                      & functions, please also specify 'nocart'."
-     stop
-    end if
-   end if
-  end if
-
-  if((casci_prog=='gamess' .or. casscf_prog=='gamess') .and. (.not.cart)) then
+  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
    write(iout,'(A)') error_warn
-   write(iout,'(A)') "GAMESS is specified. But GAMESS uses Cartesian functions, do not specify 'nocart'."
+   write(iout,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports&
+                    & spherical harmonic functions, but Cart = True.'
+   write(iout,'(A)') 'Use another program or provide a .fch file with spherical harmonic functions.'
    stop
   end if
 
@@ -762,6 +835,12 @@ contains
   if(nevpt2_prog /= 'pyscf') then
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
+   stop
+  end if
+
+  if(mrmp2_prog /= 'gamess') then
+   write(iout,'(A)') error_warn
+   write(iout,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
    stop
   end if
 
@@ -780,6 +859,23 @@ contains
   if(casscf_force .and. cart .and. casscf_prog=='pyscf') then
    write(iout,'(A)') error_warn//"current version of PySCF can only compute force"
    write(iout,'(A)') 'using spherical harmonic basis fucntions.'
+   stop
+  end if
+
+  if(mrmp2 .and. X2C) then
+   write(iout,'(A)') error_warn//'MRMP2 with GAEMSS is incompatible with X2C.'
+   stop
+  end if
+
+  if(nevpt2 .and. DKH2) then
+   write(iout,'(A)') error_warn//'NEVPT2 with PySCF is incompatible with DKH2.'
+   stop
+  end if
+
+  if((DKH2 .or. X2C) .and. cart) then
+   write(iout,'(A)') error_warn//'relativistic calculations using Cartesian'
+   write(iout,'(A)') 'functions may cause numerical instability. Please use&
+                    & spherical harmonic type basis.'
    stop
   end if
 
@@ -870,7 +966,7 @@ contains
   call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
   write(iout,'(A,F18.8,A)') 'Coulomb interaction energy of background point&
                            & charges:', ptchg_e, ' a.u.'
-  write(iout,'(A)') 'This energy are taken into account for all energies below.'
+  write(iout,'(A)') 'This energy is taken into account for all energies below.'
 
   i = index(gjfname, '.gjf', back=.true.)
   chgname = gjfname(1:i-1)//'.chg'
@@ -1058,4 +1154,20 @@ subroutine read_nuc_from_fch(natom, nuc, fchname)
  close(fid)
  return
 end subroutine read_nuc_from_fch
+
+! check whether a given binary file exists
+subroutine check_exe_exist(path)
+ use print_id, only: iout
+ implicit none
+ character(len=240), intent(in) :: path
+ logical :: alive
+
+ inquire(file=TRIM(path),exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file does not exist.'
+  write(iout,'(A)') 'path='//TRIM(path)
+  stop
+ end if
+ return
+end subroutine check_exe_exist
 

@@ -1,6 +1,0 @@
-%mem=4GB
-%nprocshared=4
-#p CASSCF/cc-pVQZ
-
-mokit{readuhf='N2_cc-pVQZ_6D10F_4.0_uhf.fchk',ist=1}
-

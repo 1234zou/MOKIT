@@ -18,8 +18,8 @@ program main
  i = iargc()
  if(i /= 6) then
   write(iout,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: wrong command line arguments!'
-  write(iout,'(/,A)') 'Format: gvb_sort_pairs a.dat nbf nif nocc nopen npair'
-  write(iout,'(/,A)') 'Example: gvb_sort_pairs a.dat 548 548 40 1 71'
+  write(iout,'(A)')   'Format : gvb_sort_pairs a.dat nbf nif nocc nopen npair'
+  write(iout,'(A,/)') 'Example: gvb_sort_pairs a.dat 548 548 40 1 71'
   stop
  end if
 

@@ -17,8 +17,8 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no ''&
-                   & found in file "//TRIM(fchname)//'.'
+  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no&
+                   & 'Charge' found in file "//TRIM(fchname)//'.'
   close(fid)
   stop
  end if
@@ -94,6 +94,48 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  close(fid)
  return
 end subroutine read_nbf_and_nif_from_orb
+
+! read nbf from a GAMESS .dat file
+subroutine read_nbf_from_dat(datname, nbf)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(out) :: nbf
+ integer, parameter :: iout = 6
+ real(kind=8) :: a(5)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:5)=='$VEC' .or. buf(2:5)=='$Vec' .or. buf(2:5)=='$vec') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found&
+                   & in file "//TRIM(datname)
+  stop
+ end if
+
+ j = 0
+ do while(.true.)
+  read(fid,*) i
+  if(i == 2) exit
+  j = j + 1
+ end do ! for while
+
+ nbf = (j-1)*5
+
+ BACKSPACE(fid)
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+ close(fid)
+
+ nbf = nbf + LEN_TRIM(buf(6:))/15
+ return
+end subroutine read_nbf_from_dat
 
 ! read Alpha/Beta MOs from a given .fch(k) file
 subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
@@ -1264,7 +1306,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
 
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molcas_out: no&
-                   & '' found in file "//TRIM(outname)//'.'
+                   & 'RASSCF root number  1' found in file "//TRIM(outname)//'.'
   stop
  end if
 
@@ -1424,6 +1466,37 @@ subroutine read_mrpt2_energy_from_molcas_out(outname, e)
  return
 end subroutine read_mrpt2_energy_from_molcas_out
 
+! read MRMP2 energy from GAMESS output file (.gms)
+subroutine read_mrpt2_energy_from_gms_gms(outname, e)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ e = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:12) == 'TOTAL MRPT2') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt2_energy_from_gms_gms:'
+  write(iout,'(A)') 'No MRMP2 energy found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) e
+ close(fid)
+
+ return
+end subroutine read_mrpt2_energy_from_gms_gms
+
 ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian output file
 subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e, davidson_e, e)
  implicit none
@@ -1496,9 +1569,11 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    BACKSPACE(fid)
    BACKSPACE(fid)
    read(fid,'(A)') buf
-   if(buf(17:27) == 'Final Eigen') exit
+   !               Davidson                           Lanczos
+   if(buf(17:32)=='Final Eigenvalue' .or. buf(20:29)=='EIGENVALUE') exit
   end do ! for while
   i = index(buf,'lue',back=.true.)
+  if(i == 0) i = index(buf,'LUE',back=.true.)
   read(buf(i+3:),*) e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
@@ -1509,6 +1584,38 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
  close(fid)
  return
 end subroutine read_mrcisd_energy_from_output
+
+! read MC-PDFT energy from a given OpenMolcas/Molcas output file
+subroutine read_mcpdft_e_from_output(outname, e)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ e = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,'Total MC-PDFT') /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                   & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+  stop
+ end if
+
+ read(buf(60:),*) e
+
+ close(fid)
+ return
+end subroutine read_mcpdft_e_from_output
 
 ! find npair0: the number of active pairs (|C2| > 0.1)
 ! (assuming that the pair coefficients haven been sorted)
@@ -1650,16 +1757,15 @@ subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb, na
  return
 end subroutine read_no_info_from_fch
 
-! read shell_type and check whether pure spherical harmonic or pure Cartesian
-subroutine read_shltyp_and_check_cart(fchname, cart)
+! check whether pure Cartesian functions
+subroutine check_cart(fchname, cart)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
  integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
- character(len=47), parameter :: error_warn = &
-  'ERROR in subroutine read_shltyp_and_check_cart:'
+ character(len=31), parameter :: error_warn='ERROR in subroutine check_cart:'
  logical, intent(in) :: cart
 
  open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -1686,32 +1792,36 @@ subroutine read_shltyp_and_check_cart(fchname, cart)
  close(fid)
 
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(iout,'(A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
+  write(iout,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
   write(iout,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
                    & default setting is (6D,7F).'
   write(iout,'(A)') 'AutoMR can deal only pure spherical harmonic or pure Cartesian&
-                   & functions currently.'
+                   & functions.'
   write(iout,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
- if(cart) then
-  if(ANY(shltyp<-1)) then
-   write(iout,'(A)') error_warn//' Cartesian functions required. But you'
-   write(iout,'(A)') 'provided a .fch(k) file which has spherical harmonic functions.'
-   write(iout,'(A)') 'fchname='//TRIM(fchname)
-   stop
-  end if
- else ! spherical harmonic
-  if(ANY(shltyp>1)) then
-   write(iout,'(A)') error_warn//' spherical harmonic functions required.'
-   write(iout,'(A)') 'But you provided a .fch(k) file which has Cartesian functions.'
-   write(iout,'(A)') 'fchname='//TRIM(fchname)
-   stop
-  end if
+ if(ANY(shltyp<-1) .and. cart) then
+  write(iout,'(/,A)') error_warn//' Cartesian functions required. But you provided'
+  write(iout,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
+                   & possible solutions:'
+  write(iout,'(A)') "1) delete keyword 'Cart'; 2) provide another .fch file which&
+                   & uses pure"
+  write(iout,'(A)') 'Cartesian functions. fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(ANY(shltyp>1) .and. (.not.cart)) then
+  write(iout,'(/,A)') error_warn//' spherical harmonic functions default. But you'
+  write(iout,'(A)') 'provided a .fch file which has Cartesian functions. Two&
+                   & possible solutions:'
+  write(iout,'(A)') "1) add keyword 'Cart'; 2) provide another .fch file which uses&
+                   & pure spherical"
+  write(iout,'(A)') 'harmonic functions. fchname='//TRIM(fchname)
+  stop
  end if
 
  deallocate(shltyp)
  return
-end subroutine read_shltyp_and_check_cart
+end subroutine check_cart
 

@@ -270,29 +270,225 @@ subroutine read_fch(fchname, uhf)
  return
 end subroutine read_fch
 
- ! map a nuclear charge to an element (e.g. 6->'C')
- ! Note: only 1-112 elements are supported!
- pure function nuc2elem(i) result(s)
-  implicit none
-  integer, intent(in) :: i
-  character(len=2) :: s
+! read the position marks of 5D,6D,etc from array shell_type
+subroutine read_mark_from_shltyp(sph, ncontr, shltyp, nd, nf, ng, nh, d_mark, f_mark, g_mark, h_mark)
+ implicit none
+ integer :: i, nbf
+ integer, intent(in) :: ncontr
+ integer, intent(in) :: shltyp(ncontr)
+ integer, intent(out) :: nd, nf, ng, nh
+ integer, intent(out) :: d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr)
+ logical, intent(in) :: sph
 
-  s = period_elem(i)
-  return
- end function nuc2elem
+ nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0
+ d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0
+!     Spherical      |     Cartesian
+! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
+!  I  H  G  F  D  L  S  P  D  F  G  H  I
 
- ! map an element to a nuclear charge (e.g. 'C'->6)
- ! Note: only 1-112 elements are supported!
- pure function elem2nuc(s) result(i)
-  implicit none
-  integer :: i
-  character(len=2), intent(in) :: s
+ if(sph) then ! spherical harmonic functions
+  do i = 1, ncontr, 1
+   select case(shltyp(i))
+   case( 0)   ! S
+    nbf = nbf + 1
+   case( 1)   ! 3P
+    nbf = nbf + 3
+   case(-1)   ! SP or L
+    nbf = nbf + 4
+   case(-2)   ! 5D
+    nd = nd + 1
+    d_mark(nd) = nbf + 1
+    nbf = nbf + 5
+   case(-3)   ! 7F
+    nf = nf + 1
+    f_mark(nf) = nbf + 1
+    nbf = nbf + 7
+   case(-4)   ! 9G
+    ng = ng + 1
+    g_mark(ng) = nbf + 1
+    nbf = nbf + 9
+   case(-5)   ! 11H
+    nh = nh + 1
+    h_mark(nh) = nbf + 1
+    nbf = nbf + 11
+   end select
+  end do ! for i
 
-  do i = 1, period_nelem, 1
-   if(period_elem(i) == s) return
-  end do
-  return
- end function elem2nuc
+ else ! Cartesian functions
+  do i = 1, ncontr, 1
+   select case(shltyp(i))
+   case( 0)   ! S
+    nbf = nbf + 1
+   case( 1)   ! 3P
+    nbf = nbf + 3
+   case(-1)   ! SP or L
+    nbf = nbf + 4
+   case( 2)   ! 6D
+    nd = nd + 1
+    d_mark(nd) = nbf + 1
+    nbf = nbf + 6
+   case( 3)   ! 10F
+    nf = nf + 1
+    f_mark(nf) = nbf + 1
+    nbf = nbf + 10
+   case( 4)   ! 15G
+    ng = ng + 1
+    g_mark(ng) = nbf + 1
+    nbf = nbf + 15
+   case( 5)   ! 21H
+    nh = nh + 1
+    h_mark(nh) = nbf + 1
+    nbf = nbf + 21
+   end select
+  end do ! for i
+ end if
+
+ return
+end subroutine read_mark_from_shltyp
+
+! map a nuclear charge to an element (e.g. 6->'C')
+! Note: only 1-112 elements are supported!
+pure function nuc2elem(i) result(s)
+ implicit none
+ integer, intent(in) :: i
+ character(len=2) :: s
+
+ s = period_elem(i)
+ return
+end function nuc2elem
+
+! map an element to a nuclear charge (e.g. 'C'->6)
+! Note: only 1-112 elements are supported!
+pure function elem2nuc(s) result(i)
+ implicit none
+ integer :: i
+ character(len=2), intent(in) :: s
+
+ do i = 1, period_nelem, 1
+  if(period_elem(i) == s) return
+ end do
+ return
+end function elem2nuc
 
 end module fch_content
+
+! expansion coefficients matrices of spherical harmonic -> Cartesian functions
+module r_5D_2_6D
+ implicit none
+ real(kind=8), parameter :: r1 = 0.5d0, r2 = 0.5d0*DSQRT(3d0), r3 = 1.5d0/DSQRT(5d0)
+ real(kind=8), parameter :: r4 = DSQRT(0.375d0), r5 = DSQRT(3d0/40d0), r6 = DSQRT(1.2d0)
+ real(kind=8), parameter :: r7 = DSQRT(0.625d0), r8 = 3d0/DSQRT(8d0), r9 = DSQRT(27d0/35d0)
+ real(kind=8), parameter :: r10= 3d0/8d0, r11 = 0.25d0*r9, r12 = DSQRT(10d0/7d0)
+ real(kind=8), parameter :: r13= DSQRT(9d0/56d0), r14 = DSQRT(45d0/56d0), r15 = DSQRT(27d0/28d0)
+ real(kind=8), parameter :: r16= 0.25*DSQRT(5d0), r17 = DSQRT(9d0/7d0), r18 = DSQRT(5d0/28d0)
+ real(kind=8), parameter :: r19= 0.125d0*DSQRT(35d0), r20 = 0.75d0*DSQRT(3d0), r21 = 2d0*r16
+ real(kind=8), parameter :: r22= DSQRT(25d0/21d0), r23 = 0.625d0, r24 = DSQRT(15d0/112d0)
+ real(kind=8), parameter :: r25= DSQRT(5d0/3d0), r26 = DSQRT(9d0/28d0), r27 = 0.125d0*r25
+ real(kind=8), parameter :: r28= DSQRT(45d0/28d0), r29= DSQRT(5d0/112d0), r30 = 0.125d0*DSQRT(15d0)
+ real(kind=8), parameter :: r31= DSQRT(35d0/48d0), r32 = DSQRT(5d0/12d0), r33 = DSQRT(1.5d0)
+ real(kind=8), parameter :: r34= DSQRT(35d0/128d0), r35 = DSQRT(5d0/6d0), r36 = 0.25d0*r35
+ real(kind=8), parameter :: r37= DSQRT(175d0/128d0), r38 = 1.25d0*r33, r39 = DSQRT(63d0/128d0)
+
+! This transformation table is taken from http://sobereva.com/97
+ real(kind=8), parameter :: rd(6,5) = RESHAPE([-r1, -r1, 1d0, 0d0, 0d0, 0d0,&
+                                               0d0, 0d0, 0d0, 0d0, 1d0, 0d0,&
+                                               0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
+                                                r2, -r2, 0d0, 0d0, 0d0, 0d0,&
+                                               0d0, 0d0, 0d0, 1d0, 0d0, 0d0],[6,5])
+ real(kind=8), parameter :: &
+  rf(10,7) = RESHAPE([0d0, 0d0, 1d0, 0d0, 0d0, -r3, 0d0, 0d0, -r3, 0d0,&
+                      -r4, 0d0, 0d0, -r5, 0d0, 0d0,  r6, 0d0, 0d0, 0d0,&
+                      0d0, -r4, 0d0, 0d0, -r5, 0d0, 0d0,  r6, 0d0, 0d0,&
+                      0d0, 0d0, 0d0, 0d0, 0d0,  r2, 0d0, 0d0, -r2, 0d0,&
+                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
+                       r7, 0d0, 0d0, -r8, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,&
+                      0d0, -r7, 0d0, 0d0,  r8, 0d0, 0d0, 0d0, 0d0, 0d0],[10,7])
+ real(kind=8), parameter :: &
+  rg(15,9) = RESHAPE([1d0, 0d0, -r9, 0d0, r10, 0d0, 0d0, 0d0, 0d0, -r9, 0d0, r11, 0d0, 0d0, r10,&
+                      0d0, 0d0, 0d0, 0d0, 0d0, r12, 0d0,-r13, 0d0, 0d0, 0d0, 0d0,-r14, 0d0, 0d0,&
+                      0d0, r12, 0d0,-r14, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r13, 0d0, 0d0, 0d0, 0d0,&
+                      0d0, 0d0,-r15, 0d0, r16, 0d0, 0d0, 0d0, 0d0, r15, 0d0, 0d0, 0d0, 0d0,-r16,&
+                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r17, 0d0,-r18, 0d0, 0d0, 0d0, 0d0,-r18, 0d0,&
+                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, -r8, 0d0, 0d0, 0d0, 0d0,  r7, 0d0, 0d0,&
+                      0d0, 0d0, 0d0, -r7, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,  r8, 0d0, 0d0, 0d0, 0d0,&
+                      0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r20, 0d0, 0d0, r19,&
+                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, r21, 0d0],[15,9])
+ real(kind=8), parameter :: &
+rh(21,11) = RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22, 0d0, r24, 0d0, 0d0, 0d0, 0d0, r23, 0d0, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r26, 0d0, r27, 0d0, 0d0, 0d0, 0d0, r28, 0d0, r29, 0d0, 0d0, r30,&
+                     0d0, r25, 0d0,-r26, 0d0, r30, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r26, 0d0, r29, 0d0, 0d0, 0d0, 0d0, r27, 0d0,&
+                     0d0, 0d0,-r21, 0d0, r31, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r31, 0d0, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r32, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r32, 0d0, 0d0, 0d0, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r33, 0d0, r34, 0d0, 0d0, 0d0, 0d0, r35, 0d0, r36, 0d0, 0d0,-r34,&
+                     0d0, 0d0, 0d0,-r35, 0d0, r34, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r33, 0d0,-r36, 0d0, 0d0, 0d0, 0d0,-r34, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r20, 0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r37, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, r39,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, r39, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, 0d0, 0d0, r37, 0d0],&
+                    [21,11])
+end module r_5D_2_6D
+
+! check whether there exists DKH keywords in a given .fch(k) file
+subroutine check_DKH_in_fch(fchname, order)
+ implicit none
+ integer :: i, k, n, fid
+ integer, intent(out) :: order
+! -2: no DKH
+! -1: RESC
+!  0: DKH 0th-order
+!  2: DKH2
+!  4: DKH4 with SO
+ integer, parameter :: iout = 6
+ character(len=61) :: buf
+ character(len=240), intent(in) :: fchname
+ character(len=610) :: longbuf
+ logical :: alive(6)
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(buf(1:5) == 'Route') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine check_DKH_in_fch: no 'Route' found&
+                   & in file "//TRIM(fchname)//'.'
+  write(iout,'(A)') 'This file seems to be incomplete.'
+  stop
+ end if
+
+ longbuf = ' '
+ do i = 1, 10
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'Charge') exit
+  longbuf = TRIM(longbuf)//TRIM(buf)
+ end do ! for i
+ close(fid)
+
+ n = LEN_TRIM(longbuf)
+ do i = 1, n, 1
+  k = IACHAR(longbuf(i:i))
+  if(k>64 .and. k<91) then ! 'A'-'Z'
+   longbuf(i:i) = ACHAR(k+32) ! 'a'-'z'
+  end if
+ end do ! for i
+
+ alive = [(index(longbuf,'dkh0')/=0), (index(longbuf,'dkhso')/=0), &
+          (index(longbuf,'dkh')/=0), (index(longbuf,'dkh2')/=0), &
+          (index(longbuf,'douglaskrollhess')/=0), (index(longbuf,'resc')/=0)]
+
+ if(alive(1)) then      ! DKH 0th order
+  order = 0
+ else if(alive(2)) then ! DKH 4th order
+  order = 4
+ else if(alive(6)) then ! RESC
+  order = -1
+ else if(alive(3) .or. alive(4) .or. alive(5)) then ! DKH 2nd order
+  order = 2
+ else
+  order = -2           ! no relativistic
+ end if
+
+ return
+end subroutine check_DKH_in_fch
 

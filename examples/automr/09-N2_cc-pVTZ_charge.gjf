@@ -10,3 +10,5 @@ N  0.0   0.0   0.6
 
  4.0  0.0  0.0  0.1
 -4.0  0.0  0.0  0.1
+
+# This example shows you how to perform CASSCF computation with background charges

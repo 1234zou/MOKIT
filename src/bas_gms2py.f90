@@ -21,8 +21,8 @@ program main
  i = iargc()
  if(.not. (i==1 .or. i==2)) then
   write(iout,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-  write(iout,'(/,A)') ' Example 1: ./bas_gms2py a.inp '
-  write(iout,'(/,A)') ' Example 2: ./bas_gms2py a.inp -sph'
+  write(iout,'(/,A)') ' Example 1: bas_gms2py a.inp '
+  write(iout,'(/,A)') ' Example 2: bas_gms2py a.inp -sph'
   stop
  end if
 

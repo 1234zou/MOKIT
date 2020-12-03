@@ -1,0 +1,8 @@
+%mem=8GB
+%nprocshared=4
+#p CASPT2/cc-pVDZ
+
+mokit{readuhf='B3_cc-pVDZ_5D7F_uhf.fchk',ist=2,casscf_prog=orca}
+
+# This example shows you how to (1) skip GVB, (2) perform CASSCF using ORCA,
+# (3) perform CASPT2 using OpenMolcas.

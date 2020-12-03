@@ -1,0 +1,7 @@
+%mem=4GB
+%nprocshared=4
+#p CASSCF/cc-pVDZ
+
+mokit{readrhf='N2_cc-pVDZ_1.0_rhf.fchk',ist=3}
+
+# This example shows you how to read MOs from a provided RHF .fch(k) file

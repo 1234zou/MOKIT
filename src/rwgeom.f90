@@ -137,7 +137,13 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   stop
  end if
 
- read(fid,*) charge, mult
+ read(fid,*,iostat=k) charge, mult
+ if(k /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: failed&
+                   & to read charge and mult.'
+  write(iout,'(A)') 'There exists syntax error in file '//TRIM(gjfname)
+  stop
+ end if
 
  do i = 1, natom, 1
   read(fid,*,iostat=k) elem(i), coor(1:3,i)
@@ -259,7 +265,7 @@ end subroutine read_elem_nuc_coor_from_gms_inp
 
 ! generate a RHF/UHF .gjf file
 subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
-                           uhf, cart, mem, nproc)
+                           uhf, cart, DKH2, mem, nproc)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom, charge, mult, mem, nproc
@@ -269,7 +275,7 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  character(len=13), intent(in) :: basis
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
- logical, intent(in) :: uhf, cart
+ logical, intent(in) :: uhf, cart, DKH2
 
  i = index(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
@@ -278,7 +284,11 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p nosymm int=nobasistransform '
+ if(DKH2) then
+  write(fid,'(A)',advance='no') '#p nosymm int(nobasistransform,DKH2) '
+ else
+  write(fid,'(A)',advance='no') '#p nosymm int=nobasistransform '
+ end if
 
  if(mult == 1) then ! singlet
   if(uhf) then
@@ -308,6 +318,24 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  do i = 1, natom, 1
   write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
  end do ! for i
+
+ ! Gaussian default    : Gaussian function distribution
+ ! Gaussian iop(3/93=1): point nuclei charge distribution
+ ! GAMESS default      : point nuclei charge distribution
+ if(DKH2) then
+  write(fid,'(/,A)') '--Link1--'
+  write(fid,'(A)') '%chk='//TRIM(chkname)
+  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
+  write(fid,'(A,I0)') '%nprocshared=', nproc
+  write(fid,'(A)',advance='no') '#p'
+  if(uhf) then
+   write(fid,'(A)',advance='no') ' UHF stable=opt'
+  else
+   write(fid,'(A)',advance='no') ' RHF'
+  end if
+  write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
+                   & int(nobasistransform,DKH2)'
+ end if
 
  write(fid,'(/)',advance='no')
  close(fid)
@@ -518,4 +546,68 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  close(fid)
  return
 end subroutine read_grad_from_orca_out
+
+! add DKH2 related keywords into a given GAMESS .inp file,
+! and switch the default SOSCF into DIIS
+subroutine add_DKH2_into_gms_inp_file(inpname)
+ implicit none
+ integer :: i, k, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.tmp'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ do i = 1, 3
+  read(fid1,'(A)') buf
+  k = index(buf,'$END')
+  if(k /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for i
+
+ write(fid2,'(A)') buf(1:k-1)//' RELWFN=DK $END'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  k = index(buf,'$END')
+  if(k /= 0) exit
+  if(index(buf,'$DATA') /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(k == 0) then
+  write(fid2,'(A)') '$SCF DIRSCF=.TRUE. DIIS=.T. SOSCF=.F. $END'
+ else
+  write(fid2,'(A)') buf(1:k-1)//' DIIS=.T. SOSCF=.F. $END'
+ end if
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine add_DKH2_into_gms_inp_file
+
+! detect the number of columns of data in a string buf
+function detect_ncol_in_buf(buf) result(ncol)
+ implicit none
+ integer :: i, ncol
+ character(len=24), allocatable :: sbuf(:)
+ character(len=240), intent(in) :: buf
+
+ ncol = 0
+ do while(.true.)
+  read(buf,*,iostat=i) 
+  if(i /= 0) exit
+  ncol = ncol + 1
+ end do ! for while
+
+ return
+end function detect_ncol_in_buf
 

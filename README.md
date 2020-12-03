@@ -3,6 +3,9 @@ MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
 run common multi-reference calculations in a block-box way.
 
+A list of important utilities along with their functions are shown below
+![MOKIT utilities with their functions](doc/orbital_transfer.png)
+
 With MOKIT, one can perform multi-reference calculations in a quite simple way,
 and utilize the best modules of each program. E.g.
 
@@ -23,10 +26,10 @@ Pre-compiled `Windows OS` executables of 13 utilities are provided in [Releases]
 
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
-computations (e.g. familiar with routine calculations in Gaussian). You are encouraged
-to learn how to use Gaussian first if you are a fresh hand.
+computations (e.g. familiar with routine DFT calculations in Gaussian). You are
+encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-09-25
+2020-12-03
 
 Installation
 ------------
@@ -36,7 +39,7 @@ Installation
     - Intel MKL (installing Intel compilers recommended)
     - f2py (installing Anaconda Python3 recommended)
 
-* Compile core module
+* Compile all modules
 
         cd src
         make all
@@ -67,37 +70,30 @@ Quick Start
 * For usages of modules in lib/, see examples/
 
 * The input syntax of the automr program is like Gaussian gjf. For example, the input
-  file 'N2_cc-pVQZ_6D10F_4.0.gjf' of the N2 molecule at d(N-N)=4.0A is shown below
-  (assuming a stable UHF wave function is hold in the Gaussian .fch(k) file 'N2_cc-pVQZ_6D10F_4.0_uhf.fchk'):
+  file '00-h2o_cc-pVDZ_1.5.gjf' of the water molecule at d(O-H) = 1.5 A is shown below
 
-        %mem=16GB
-        %nprocshared=16
-        #p NEVPT2/cc-pVQZ
+        %mem=4GB
+        %nprocshared=4
+        #p CASSCF/cc-pVDZ
+        
+        mokit{}
+        
+        0 1
+        O      -0.23497692    0.90193619   -0.068688
+        H       1.26502308    0.90193619   -0.068688
+        H      -0.73568721    2.31589843   -0.068688
 
-        mokit{readuhf='N2_cc-pVQZ_6D10F_4.0_uhf.fchk',ist=1} 
-
-  There is no need to write Cartesian coordinates since they are already provided in .fchk file.
   Run
 
-  automr N2_cc-pVQZ_6D10F_4.0.gjf >& N2_cc-pVQZ_6D10F_4.0.out  
+        automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
-  in SHELL. The automr program will successively perform GVB, CASSCF, NEVPT2 computations. See
-  examples/ for more examples.
+  in Shell. The automr program will successively perform HF, GVB, and CASSCF
+  computations. See examples/ for more examples.
 
 Some Tips
 ---------
-* To avoid unnecessary errors, it is strongly recommended to specify keyword
-  'nosymm int=nobasistransform' in Gaussian.
-
-* Since only spherical harmonic functions are supported in ORCA, one should specify
-  '5D 7F' keyword in Gaussian if he/she wants to call ORCA.
-
-* Since only Cartesian functions are supported in GAMESS, one should specify '6D 10F'
-  keyword in Gaussian if he/she wants to call GAMESS.
-
-* Both spherical harmonic/Cartesian functions are supported in OpenMolcas, thus
-  one can use either of them by specifying '5D 7F'/'6D 10F' in Gaussian (do not
-  use the default 6-31G(d,p) keyword in Gaussian since it corresponds to '6D 7F')
+* To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
+  in Gaussian .gjf file, if you want to provide a .fch(k) file to AutoMR.
 
 Bug Report
 ----------
@@ -107,20 +103,21 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among BAGEL, PSI4, NWCHEM
+* MOs trasferring among BAGEL, PSI4, NWCHEM, Dalton, etc.
 
-* Support more multireference methods like ic-MRCC, MS-CASPT2
+* Support more multireference methods like ic-MRCC
 
 * Develope/Implement black-box strategies of excited state calculations
 
 Citation
 --------
-* If you use MOKIT in your work, please cite the gitlab page of MOKIT.
+* If you use MOKIT in your work, please cite the gitlab page of MOKIT as
+  Molecular Orbital KIT (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
-* If you use MOKIT to peform calculations involving GVB, please also cite two papers
-  (1) DOI: 10.1021/acs.jctc.8b00854; (2) DOI: 10.1021/acs.jpca.0c05216.
+* If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
+  DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* Please read the manual.pdf for details of citation.
+* Please read the doc/manual.pdf for details of citation.
 
 Disclaimer
 ----------

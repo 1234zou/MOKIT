@@ -1,3 +1,11 @@
+MOKIT 1.2.1 (2020-12-04)
+------------------------
+* add interfaces for MRMP2, MC-PDFT and DMRG-PDFT
+* add keywords DKH2 and X2C
+* fix the bug of utility dat2fch when '-no' specified
+* update utilities fch2inp and dat2fch to support spherical harmonic functions for GAMESS
+* change the keyword 'nocart'->'cart', now default spherical harmonic functions
+
 MOKIT 1.1 beta (2020-09-25)
 ------------------------
 * add interfaces for uc-/ic-/FIC-MRCISD
@@ -10,7 +18,7 @@ MOKIT 1.1 alpha (2020-08-09)
 * support background point charges
 * fix the bug of keyword 'force'
 * add conditional compilation for Windows
-* add pre-compiled Windows executables for 12 utilities
+* add pre-compiled Windows executables
 
 MOKIT 1.0 beta (2020-06-28)
 ------------------------

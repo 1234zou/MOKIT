@@ -6,18 +6,15 @@
 
 BIN = ..\bin
 
-# --- gfortran ---
-#F90 = gfortran
-#FFLAGS = -O2
-
 # --- ifort ----
 F90 = ifort
 FFLAGS = /O2 /fpp /libs:static
+MKL_FLAGS = /Qmkl:sequential
 
 OBJ_bas_fch2py = rwwfn.obj util_wrapper.obj bas_fch2py.obj
 OBJ_bas_gms2molcas = bas_gms2molcas.obj
 OBJ_bas_gms2py = bas_gms2py.obj
-OBJ_dat2fch = rwwfn.obj dat2fch.obj
+OBJ_dat2fch = read_fch.obj rwwfn.obj dat2fch.obj
 OBJ_extract_noon2fch = extract_noon2fch.obj
 OBJ_fch2mkl = read_fch.obj fch2mkl.obj
 OBJ_fch2inp = read_fch.obj fch2inp.obj
@@ -54,7 +51,10 @@ bas_gms2py: $(OBJ_bas_gms2py)
 	$(F90) $(OBJ_bas_gms2py) -o $(BIN)\bas_gms2py $(FFLAGS)
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) -o $(BIN)\dat2fch $(FFLAGS)
+	ifort /c rwwfn.f90 -o rwwfn.obj $(FFLAGS)
+	ifort /c read_fch.f90 -o read_fch.obj $(FFLAGS)
+	ifort /c dat2fch.f90 -o dat2fch.obj $(FFLAGS) $(MKL_FLAGS)
+	ifort rwwfn.obj read_fch.obj dat2fch.obj -o $(BIN)\dat2fch $(FFLAGS) $(MKL_FLAGS)
 
 fch2mkl: $(OBJ_fch2mkl)
 	$(F90) $(OBJ_fch2mkl) -o $(BIN)\fch2mkl $(FFLAGS)
@@ -82,9 +82,9 @@ orb2fch: $(OBJ_orb2fch)
 	$(F90) $(OBJ_orb2fch) -o $(BIN)\orb2fch $(FFLAGS)
 
 solve_ON_matrix:
-	ifort /c rwwfn.f90 -o rwwfn.obj
-	ifort /c solve_ON_matrix.f90 /Qmkl:sequential -o solve_ON_matrix.obj
-	ifort rwwfn.obj solve_ON_matrix.obj /Qmkl:sequential -o $(BIN)\solve_ON_matrix
+	ifort /c rwwfn.f90 -o rwwfn.obj $(FFLAGS)
+	ifort /c solve_ON_matrix.f90 -o solve_ON_matrix.obj $(FFLAGS) $(MKL_FLAGS)
+	ifort rwwfn.obj solve_ON_matrix.obj -o $(BIN)\solve_ON_matrix $(FFLAGS) $(MKL_FLAGS)
 
 all: bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch fch2mkl \
      fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch orb2fch solve_ON_matrix

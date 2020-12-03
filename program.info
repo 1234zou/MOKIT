@@ -2,9 +2,9 @@
 # Please update these paths according to your local environment
 #
 # Note: the original GAMESS allows GVB computation for only 12 pairs. To go beyond
-#       that (which is routine now), you should run the script modify_GMS1.sh in src/
+#       that (which is routine now), you should use the script modify_GMS1.sh in src/
 
-GAU=/opt/g16/g16 # Gaussian
-GMS=/home/jxzou/software/gamess/rungms  # GAMESS
-MOLCAS=/home/jxzou/software/OpenMolcas/bin/pymolcas # Molcas/OpenMolcas
-ORCA=/opt/orca_4_2_1/orca # ORCA
+GAU=/public/software/apps/gaussian/g16/g16 # Gaussian
+GMS=/public/home/jxzou/software/gamess/rungms  # GAMESS
+MOLCAS=/public/home/jxzou/software/OpenMolcas/bin/pymolcas # Molcas/OpenMolcas
+ORCA=/public/software/apps/orca-4.2.1/orca # ORCA

@@ -1,7 +1,7 @@
 ---------------------------------------------------
 Example 1: transfer RHF MOs from Gaussian to GAMESS
 ---------------------------------------------------
-Run 'fch2inp 01-water_cc-pVTZ_6D10F.fch' in Shell, a file 01-water_cc-pVTZ_6D10F.fch.inp would be generated.
+Run 'fch2inp 01-water_cc-pVTZ_6D10F.fch' in Shell, a file 01-water_cc-pVTZ_6D10F.inp would be generated.
 
 (Usually the keywords in .inp file are already appropriate, but do check if advanced options are desired)
 

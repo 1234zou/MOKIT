@@ -1,6 +1,0 @@
-%mem=8GB
-%nprocshared=8
-#p CASSCF/cc-pVQZ
-
-mokit{readrhf='N2_cc-pVQZ_6D10F_1.0_rhf.fchk',ist=3}
-

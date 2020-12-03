@@ -4,6 +4,7 @@
 ! updated by jxzou at 20200322: move read_fch to read_fch.f90
 ! updated by jxzou at 20200622: fix the bug in F, G, H (some multiply by -1); add 1 more digit for MOs
 ! updated by jxzou at 20200802: add $CHARGES section to .mkl file
+! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -53,7 +54,8 @@ subroutine fch2mkl(fchname, uhf)
  implicit none
  integer :: i, j, k, m, n, n1, n2, am
  integer :: nf3mark, ng3mark, nh3mark
- integer :: fid1, fid2   ! file id of .mkl/.inp file
+ integer :: fid1, fid2 ! file id of .mkl/.inp file
+ integer :: rel        ! the order of DKH, or RESC
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
 
@@ -73,6 +75,7 @@ subroutine fch2mkl(fchname, uhf)
   stop
  end if
 
+ call check_DKH_in_fch(fchname, rel)
  call read_fch(fchname, uhf) ! read content in .fch(k) file
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
@@ -229,9 +232,27 @@ subroutine fch2mkl(fchname, uhf)
    write(fid2,'(A)') '! ROHF VeryTightSCF'
   end if
  end if
+
+ if(rel == -1) then
+  write(iout,'(A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in&
+                   & file '//TRIM(fchname)//'.'
+  write(iout,'(A)') 'But ORCA does not support RESC.'
+  stop
+ else if(rel == 2) then ! DKH2
+  write(fid2,'(A)') '%rel'
+  write(fid2,'(A)') ' method DKH'
+  write(fid2,'(A)') ' order 2'
+  write(fid2,'(A)') 'end'
+ else if(rel /= -2) then
+  write(iout,'(A)') 'ERROR in subroutine fch2mkl: DKH0/DKHSO detected in&
+                  & file '//TRIM(fchname)//'.'
+  write(iout,'(A)') 'But ORCA does not support DKH0/DKHSO.'
+  stop
+ end if
+
  write(fid2,'(A)') '%scf'
- write(fid2,'(A)') 'Thresh 1e-12'
- write(fid2,'(A)') 'Tcut 1e-14'
+ write(fid2,'(A)') ' Thresh 1e-12'
+ write(fid2,'(A)') ' Tcut 1e-14'
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%coords'
  write(fid2,'(A)') ' Units = angs'
