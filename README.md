@@ -112,10 +112,12 @@ TODO
 Citation
 --------
 * If you use MOKIT in your work, please cite the gitlab page of MOKIT as
-  Molecular Orbital KIT (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
+
+   Molecular Orbital KIT (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
 * If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
-  DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
+
+   DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
 * Please read the doc/manual.pdf for details of citation.
 
