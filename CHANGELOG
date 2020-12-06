@@ -1,5 +1,7 @@
-MOKIT 1.2.1 (2020-12-04)
+MOKIT 1.2.1 (2020-12-05)
 ------------------------
+* fix some Gfortran compiling incompatibility
+* remove file program.info, read $ORCA and $GMS from environment variables
 * add interfaces for MRMP2, MC-PDFT and DMRG-PDFT
 * add keywords DKH2 and X2C
 * fix the bug of utility dat2fch when '-no' specified

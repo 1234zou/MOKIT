@@ -21,11 +21,13 @@ OBJ_fch2inp = read_fch.obj fch2inp.obj
 OBJ_fch2inporb = rwwfn.obj util_wrapper.obj fch2inporb.obj
 OBJ_fch_u2r = fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
+OBJ_frag_guess_wfn = read_fch.obj rwgeom.obj rwwfn.obj mr_keyword.obj frag_guess_wfn.obj
 OBJ_mkl2fch = rwwfn.obj read_fch.obj mkl2fch.obj
 OBJ_orb2fch = rwwfn.obj orb2fch.obj
 
 .PHONY: clean distclean bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch \
-        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch orb2fch solve_ON_matrix
+        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn mkl2fch \
+        orb2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS)
@@ -35,6 +37,7 @@ help:
 	@echo  help      : print the current information
 	@echo  fch2inp   : generate fch2inp
 	@echo  fch2mkl   : generate fch2mkl
+	@echo  fch2inporb: generate fch2inporb
 	@echo  xx        : generate xx (xx is any utility)
 	@echo  all       : all executables
 	@echo  clean     : delete *.mod *.obj
@@ -72,6 +75,9 @@ fch_u2r: $(OBJ_fch_u2r)
 fch_mo_copy: $(OBJ_fch_mo_copy)
 	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)\fch_mo_copy $(FFLAGS)
 
+frag_guess_wfn: $(OBJ_frag_guess_wfn)
+	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)\frag_guess_wfn $(FFLAGS)
+
 mkl2fch: $(OBJ_mkl2fch)
 	$(F90) $(OBJ_mkl2fch) -o $(BIN)\mkl2fch $(FFLAGS)
 
@@ -87,7 +93,8 @@ solve_ON_matrix:
 	ifort rwwfn.obj solve_ON_matrix.obj -o $(BIN)\solve_ON_matrix $(FFLAGS) $(MKL_FLAGS)
 
 all: bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch fch2mkl \
-     fch2inp fch2inporb fch_u2r fch_mo_copy mkl2fch orb2fch solve_ON_matrix
+     fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn mkl2fch orb2fch \
+     solve_ON_matrix
 
 clean:
 	del *.obj *.mod

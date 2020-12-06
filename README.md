@@ -29,7 +29,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-12-03
+2020-12-05
 
 Installation
 ------------
@@ -50,11 +50,13 @@ Installation
         make fch2inp
 
 * After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
-  E.g. if MOKIT is installed in /home/$USER/mokit, the following should be set in ~/.bashrc:
+  E.g. if MOKIT is installed in /home/$USER/software/mokit, the following should be set in ~/.bashrc:
 
-        export MOKIT_ROOT=/home/$USER/mokit
+        export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+        export ORCA=/opt/orca-4.2.1/orca
+        export GMS=/home/$USER/software/gamess/rungms
 
 Quick Start
 -----------
@@ -113,13 +115,13 @@ Citation
 --------
 * If you use MOKIT in your work, please cite the gitlab page of MOKIT as
 
-   Molecular Orbital KIT (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
+   Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
 * If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* Please read the doc/manual.pdf for details of citation.
+* Please read the doc/MOKIT_manual.pdf for details of citation.
 
 Disclaimer
 ----------

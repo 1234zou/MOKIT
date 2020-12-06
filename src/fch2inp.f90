@@ -428,11 +428,14 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    write(fid,'(A)') ' DIRSCF=.TRUE. $END'
   else ! mult >=4, i.e. >=3 e-
    write(fid,'(A)') ' DIRSCF=.TRUE. COUPLE=.TRUE.'
-   allocate(f(nopen), source='0.5')
+   allocate(f(nopen))
+   f = '0.5'
    ia = nopen*(nopen+3)/2
-   allocate(alpha(ia),source='0.5')
+   allocate(alpha(ia))
+   alpha = '0.5'
    forall(i = 1:nopen) alpha(i*(i+1)/2) = '1.0'
-   allocate(beta(ia),source='-0.5')
+   allocate(beta(ia))
+   beta = '-0.5'
    write(fid,'(A,10(A1,A3))') '  F(1)=1.0', (',',f(i),i=1,nopen)
    write(fid,'(A,10(A1,A3))') '  ALPHA(1)=2.0', (',',alpha(i),i=1,ia)
    write(fid,'(A,10(A1,A4))') '  BETA(1)=-1.0', (',',beta(i),i=1,ia)

@@ -144,6 +144,18 @@ module mr_keyword
 
 contains
 
+ subroutine get_molcas_path()
+  implicit none
+  integer :: i, fid, system
+
+  i = system("which pymolcas >& mokit.pymolcas")
+  open(newunit=fid,file='mokit.pymolcas',status='old',position='rewind')
+  read(fid,'(A)') molcas_path
+  close(fid,status='delete')
+
+  return
+ end subroutine get_molcas_path
+
  ! repalce variables like '$USER' in path into real path
  subroutine replace_env_in_path(path)
   implicit none
@@ -179,12 +191,10 @@ contains
  ! read paths of programs in $MOKIT_ROOT/program.info
  subroutine read_program_path()
   implicit none
-  integer :: i, j, fid
+  integer :: i
   integer(kind=4) :: hostnm
   character(len=8) :: hostname
   character(len=24) :: data_string
-  character(len=240) :: buf, path
-  logical :: alive
 
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
@@ -194,44 +204,20 @@ contains
 
   hostname = ' '
   data_string = ' '
-  j = hostnm(hostname)
+  i = hostnm(hostname)
   call fdate(data_string)
   write(iout,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
-  path = ' '
-  call getenv('MOKIT_ROOT', path)
-  path = TRIM(path)//'/program.info'
-  open(newunit=fid,file=TRIM(path),status='old',position='rewind')
+  call get_gau_path(gau_path)
+  call get_molcas_path()
+  call getenv('GMS', gms_path)
+  call getenv('ORCA', orca_path)
 
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:1)=='#' .or. LEN_TRIM(buf)==0) cycle
-
-   i = index(buf,'='); j = index(buf,'#')
-   if(j == 0) j = LEN_TRIM(buf) + 1
-
-   if(buf(1:3) == 'GAU') then
-    gau_path = buf(i+1:j-1)
-   else if(buf(1:3) == 'GMS') then
-    gms_path = buf(i+1:j-1)
-   else if(buf(1:6) == 'MOLCAS') then
-    molcas_path = buf(i+1:j-1)
-   else if(buf(1:4) == 'ORCA') then
-    orca_path = buf(i+1:j-1)
-   end if
-  end do ! for while
-
-  close(fid)
-  call replace_env_in_path(gau_path)
-  call replace_env_in_path(gms_path)
-  call replace_env_in_path(molcas_path)
-  call replace_env_in_path(orca_path)
-  write(iout,'(/,A)') 'Read program paths from $MOKIT_ROOT/program.info:'
-  write(iout,'(A)') 'gau_path     = '//TRIM(gau_path)
-  write(iout,'(A)') 'gms_path     = '//TRIM(gms_path)
-  write(iout,'(A)') 'molcas_path  = '//TRIM(molcas_path)
-  write(iout,'(A)') 'orca_path    = '//TRIM(orca_path)
+  write(iout,'(/,A)') 'Read program paths from environment variables:'
+  write(iout,'(A)') 'gau_path    = '//TRIM(gau_path)
+  write(iout,'(A)') 'gms_path    = '//TRIM(gms_path)
+  write(iout,'(A)') 'orca_path   = '//TRIM(orca_path)
+  write(iout,'(A)') 'molcas_path = '//TRIM(molcas_path)
   return
  end subroutine read_program_path
 
@@ -260,7 +246,7 @@ contains
   i = index(buf,'=')
   gms_scr_path = buf(i+1:)
   call replace_env_in_path(gms_scr_path)
-!  write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
+  write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
   return
  end subroutine check_gms_path
 
@@ -405,7 +391,7 @@ contains
 
   i = index(buf,'{')
   if(i == 0) then
-   write(fid,'(A)') "ERROR in subroutine parse_keyword: 'mokit{}' not detected&
+   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'mokit{}' not detected&
                    & in input file "//TRIM(gjfname)//'.'
    stop
   end if
@@ -417,12 +403,18 @@ contains
    j = j - 1
   end if
   if(j == i) then ! {}, {
-   if(buf(i+1:i+1) == '}') return ! no keyword specified
+   if(buf(i+1:i+1) == '}') then ! no keyword specified
+    close(fid)
+    return
+   end if
   else if(j > i) then ! { }
-   if(LEN_TRIM(buf(i+1:j)) == 0) return ! no keyword specified
+   if(LEN_TRIM(buf(i+1:j)) == 0) then ! no keyword specified
+    close(fid)
+    return
+   end if
   else if(j < i) then
-   write(fid,'(A)') 'ERROR in subroutine parse_keyword: unexpected error j<i.'
-   write(fid,'(A)') "It seems that the '}' symbol is before '{'."
+   write(iout,'(A)') 'ERROR in subroutine parse_keyword: unexpected error j<i.'
+   write(iout,'(A)') "It seems that the '}' symbol is before '{'."
    stop
   end if
 
@@ -1170,4 +1162,95 @@ subroutine check_exe_exist(path)
  end if
  return
 end subroutine check_exe_exist
+
+! read the path of the Gaussian binary executable file 
+subroutine get_gau_path(gau_path)
+ use print_id, only: iout
+ implicit none
+ integer :: i
+ character(len=240), intent(out) :: gau_path
+
+ gau_path = ' '
+ call getenv('GAUSS_EXEDIR', gau_path)
+
+#ifdef _WIN32
+ i = index(gau_path, '\', back=.true.)
+ if(i == 0) then
+  write(iout,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in&
+                  & gau_path="//TRIM(gau_path)
+  stop
+ end if
+ gau_path = """"//TRIM(gau_path)//'\g'//gau_path(i+2:i+3)//".exe"""
+
+#else
+ i = index(gau_path, ':')
+ if(i == 0) then
+  write(iout,'(A)') "ERROR in subroutine get_gau_path: no ':' symbol found in&
+                  & gau_path="//TRIM(gau_path)
+  stop
+ end if
+
+ gau_path = gau_path(i+1:)
+ i = index(gau_path, '/', back=.true.)
+ gau_path = TRIM(gau_path)//'/'//TRIM(gau_path(i+1:))
+#endif
+
+ return
+end subroutine get_gau_path
+
+! perform SCF computaton using Gaussian, then read electronic energy and
+! spin square
+subroutine perform_scf_and_read_e(gau_path, gjfname, e, ssquare)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid, system
+ real(kind=8), intent(out) :: e, ssquare
+ character(len=240) :: buf, logname
+ character(len=240), intent(in) :: gau_path
+ character(len=240), intent(in) :: gjfname
+
+ e = 0.0d0
+ ssquare = 1.0d0
+
+ i = index(gjfname, '.gjf', back=.true.)
+#ifdef _WIN32
+ logname = gjfname(1:i-1)//'.out'
+#else
+ logname = gjfname(1:i-1)//'.log'
+#endif
+
+ i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+ if(i /= 0) then
+  write(fid,'(/,A)') 'ERROR in subroutine perform_hf_and_read_e: running Gaussian failed.'
+  write(fid,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(logname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,'SCF Done') /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine perform_hf_and_read_e: no 'SCF Done'&
+                   & found in file "//TRIM(logname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) e
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ i = index(buf, 'S**2')
+ if(i /= 0) read(buf(i+6:),*) ssquare
+
+ close(fid)
+ return
+end subroutine perform_scf_and_read_e
 

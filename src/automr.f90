@@ -26,8 +26,9 @@ program main
  i = index(fname, '.gjf', back=.true.)
  j = index(fname, '.fch', back=.true.)
  if(i/=0 .and. j/=0) then
-  write(iout,'(A)') "ERROR in subroutine automr: both '.gjf' and '.fch' key detected&
-                   & in filename "//TRIM(fname)
+  write(iout,'(A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys detected&
+                   & in filename "//TRIM(fname)//'.'
+  write(iout,'(A)') "Better to use a filename only with suffix '.gjf'."
   stop
  else if(i == 0) then
   write(iout,'(A)') "ERROR in subroutine automr: '.gjf' key not found in filename "//TRIM(fname)
@@ -41,11 +42,18 @@ end program main
 ! automatically do multireference calculations in a block-box way
 subroutine automr(fname)
  use print_id, only: iout
- use mr_keyword, only: gjfname, read_program_path, parse_keyword, check_kywd_compatible, prt_strategy
+ use mr_keyword, only: gjfname, read_program_path, parse_keyword, check_kywd_compatible
  implicit none
- integer :: i
  character(len=24) :: data_string
  character(len=240), intent(in) :: fname
+ logical :: alive
+
+ inquire(file=TRIM(fname), exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine automr: input file does not exist!'
+  write(iout,'(A)') 'Filename = '//TRIM(fname)
+  stop
+ end if
 
  gjfname = fname
  call read_program_path() ! read in paths in $MOKIT_ROOT/program.info
@@ -80,6 +88,7 @@ subroutine do_hf()
  real(kind=8) :: ssquare = 0.0d0
  character(len=24) :: data_string = ' '
  character(len=240) :: rhf_gjfname, uhf_gjfname, chkname
+ logical :: alive
 
  write(iout,'(//,A)') 'Enter subroutine do_hf...'
  call check_exe_exist(gau_path)
@@ -108,18 +117,18 @@ subroutine do_hf()
   call generate_hf_gjf(rhf_gjfname, natom, elem, coor, charge, mult, basis,&
                        .false., cart, dkh2_or_x2c, mem, nproc)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_gjfname))
-  call perform_hf_and_read_e(gau_path, rhf_gjfname, rhf_e, ssquare)
+  call perform_scf_and_read_e(gau_path, rhf_gjfname, rhf_e, ssquare)
 
   call generate_hf_gjf(uhf_gjfname, natom, elem, coor, charge, mult, basis,&
                        .true., cart, dkh2_or_x2c, mem, nproc)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
-  call perform_hf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
+  call perform_scf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
 
  else               ! not singlet, only perform UHF
 
   call generate_hf_gjf(uhf_gjfname, natom, elem, coor, charge, mult, basis,&
                        .true., cart, dkh2_or_x2c, mem, nproc)
-  call perform_hf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
+  call perform_scf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
  end if
 
  if(mult == 1) then
@@ -313,7 +322,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  close(fid1,status='delete')
  write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
- write(fid2,'(A)') "mol2.basis = 'sto-6g'"
+ write(fid2,'(A)') "mol2.basis = '3-21g'"
  write(fid2,'(A)') 'mol2.build()'
  write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
  write(fid2,'(A)') 'mf2.max_cycle = 150'
@@ -2017,7 +2026,8 @@ end subroutine do_mrpt2
 subroutine do_mrcisd()
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, casci, casscf, CIonly, ist, hf_fch, mrcisd,&
-  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, bgchg, chgname
+  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, bgchg, &
+  casci_prog, casscf_prog, chgname
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, davidson_e,&
   mrcisd_e, ptchg_e
  use util_wrapper, only: unfchk, mkl2gbw
@@ -2037,7 +2047,7 @@ subroutine do_mrcisd()
  end if
 
  if(.not. CIonly) then
-  if(casscf_prog == 'orca') then
+  if(TRIM(casscf_prog) == 'orca') then
    write(iout,'(A)') 'Warning: ORCA is used as the CASSCF solver,&
                     & the NO coefficients in .mkl file are only 7-digits.'
    write(iout,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
@@ -2048,7 +2058,7 @@ subroutine do_mrcisd()
   string = 'MRCISD based on optimized CASSCF orbitals.'
  else ! CIonly = .True.
 
-  if(casci_prog == 'orca') then
+  if(TRIM(casci_prog) == 'orca') then
    write(iout,'(A)') 'Warning: ORCA is used as the CASCI solver,&
                     & the NO coefficients in .mkl file are only 7-digits.'
    write(iout,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
@@ -2305,53 +2315,4 @@ subroutine modify_memory_in_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine modify_memory_in_inp
-
-subroutine perform_hf_and_read_e(gau_path, gjfname, e, ssquare)
- use print_id, only: iout
- implicit none
- integer :: i, fid, system
- real(kind=8), intent(out) :: e, ssquare
- character(len=240) :: buf, logname
- character(len=240), intent(in) :: gau_path
- character(len=240), intent(in) :: gjfname
-
- e = 0.0d0
- ssquare = 1.0d0
- i = index(gjfname, '.gjf', back=.true.)
- logname = gjfname(1:i-1)//'.log'
-
- i = system(TRIM(gau_path)//' '//TRIM(gjfname))
- if(i /= 0) then
-  write(fid,'(/,A)') 'ERROR in subroutine perform_hf_and_read_e: running Gaussian failed.'
-  write(fid,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
-  stop
- end if
-
- open(newunit=fid,file=TRIM(logname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(index(buf,'SCF Done') /= 0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine perform_hf_and_read_e: no 'SCF Done'&
-                   & found in file "//TRIM(logname)
-  close(fid)
-  stop
- end if
-
- i = index(buf, '=')
- read(buf(i+1:),*) e
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = index(buf, 'S**2')
- if(i /= 0) read(buf(i+6:),*) ssquare
-
- close(fid)
- return
-end subroutine perform_hf_and_read_e
 

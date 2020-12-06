@@ -1,0 +1,21 @@
+%mem=4GB
+%nprocshared=4
+%chk=water_dimer.chk
+#p UHF/STO-3G guess(fragment=2) nosymm int=nobasistransform
+
+Title Card Required
+
+0 1 0 1 0 1
+O(Fragment=1)     -2.26070530   -2.21662465    0.0 r
+H(Fragment=1)     -1.30070530   -2.21662465    0.0
+O(Fragment=2)      1.26574308    0.84382870    0.0 r
+H(Fragment=1)     -2.58115989   -1.31168882    0.0
+H(Fragment=2)      2.22574308    0.84382870    0.0
+H(Fragment=2)      0.94528850    1.74876453    0.0
+
+--Link1--
+%mem=4GB
+%nprocshared=4
+%chk=water_dimer.chk
+#p UHF/STO-3G guess=read geom=allcheck nosymm int=nobasistransform
+

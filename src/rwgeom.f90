@@ -119,6 +119,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  logical :: bohr
 
  charge = 0; mult = 1; coor = 0.0d0; bohr = .false.
+ nblank = 0
 
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
  do while(.true.)
