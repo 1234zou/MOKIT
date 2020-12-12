@@ -322,7 +322,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  close(fid1,status='delete')
  write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
- write(fid2,'(A)') "mol2.basis = '3-21g'"
+ write(fid2,'(A)') "mol2.basis = 'sto-6g'"
  write(fid2,'(A)') 'mol2.build()'
  write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
  write(fid2,'(A)') 'mf2.max_cycle = 150'
