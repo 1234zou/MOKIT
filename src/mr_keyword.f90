@@ -1,6 +1,7 @@
 ! written by jxzou at 20200510
 ! updated by jxzou at 20200805: add background point charges related subroutines
 ! updated by jxzou at 20200807: add formchk, unfchk, orca_2mkl wrappers
+! updated by jxzou at 20201211: add Molpro interfaces
 
 ! file unit of printing
 module print_id
@@ -137,6 +138,7 @@ module mr_keyword
  character(len=240) :: gms_path = ' '
  character(len=240) :: gms_scr_path = ' '
  character(len=240) :: molcas_path = ' '
+ character(len=240) :: molpro_path = ' '
  character(len=240) :: orca_path = ' '
 
  character(len=7) :: method = ' '    ! model chemistry, theoretical method
@@ -153,8 +155,22 @@ contains
   read(fid,'(A)') molcas_path
   close(fid,status='delete')
 
+  if(index(molcas_path,'no pymolcas') /= 0) molcas_path = 'NOT FOUND'
   return
  end subroutine get_molcas_path
+
+ subroutine get_molpro_path()
+  implicit none
+  integer :: i, fid, system
+
+  i = system("which molpro >& mokit.molpro")
+  open(newunit=fid,file='mokit.molpro',status='old',position='rewind')
+  read(fid,'(A)') molpro_path
+  close(fid,status='delete')
+
+  if(index(molpro_path,'no molpro') /= 0) molpro_path = 'NOT FOUND'
+  return
+ end subroutine get_molpro_path
 
  ! repalce variables like '$USER' in path into real path
  subroutine replace_env_in_path(path)
@@ -210,6 +226,7 @@ contains
 
   call get_gau_path(gau_path)
   call get_molcas_path()
+  call get_molpro_path()
   call getenv('GMS', gms_path)
   call getenv('ORCA', orca_path)
 
@@ -218,6 +235,7 @@ contains
   write(iout,'(A)') 'gms_path    = '//TRIM(gms_path)
   write(iout,'(A)') 'orca_path   = '//TRIM(orca_path)
   write(iout,'(A)') 'molcas_path = '//TRIM(molcas_path)
+  write(iout,'(A)') 'molpro_path = '//TRIM(molpro_path)
   return
  end subroutine read_program_path
 
@@ -283,7 +301,7 @@ contains
 
   if(ifail /= 0) then
    write(iout,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
-   write(iout,'(A)') 'The provided .gjf file may be incomplete.'
+   write(iout,'(A)') 'The input file may be incomplete. File='//TRIM(gjfname)
    stop
   end if
 
@@ -381,6 +399,7 @@ contains
   basis = ADJUSTL(buf(i+1:i+j))
   write(iout,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
   write(iout,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
+
   if(npair_wish > 0) write(iout,'(A,I0)') 'User specified GVB npair = ', npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(iout,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
@@ -685,7 +704,7 @@ contains
   end if
 
   if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
-   write(iout,'(A)') error_warn//"only 'PM' or 'Boys' is supported."
+   write(iout,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
    write(iout,'(A)') 'localm='//TRIM(localm)
    stop
   end if
@@ -741,43 +760,54 @@ contains
    stop
   end if
 
-  if(casci_prog/='gaussian' .and. casci_prog/='gamess' .and. casci_prog/='openmolcas'&
-     .and. casci_prog/='orca' .and. casci_prog/='pyscf') then
+  select case(TRIM(casci_prog))
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
+  case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
    stop
-  end if
+  end select
 
-  if(casscf_prog/='gaussian' .and. casscf_prog/='gamess' .and. casscf_prog/='openmolcas'&
-     .and. casscf_prog/='orca' .and. casscf_prog/='pyscf') then
+  select case(TRIM(casscf_prog))
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
+  case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
    stop
-  end if
+  end select
 
-  if(mrcisd_prog/='gaussian' .and. mrcisd_prog/='orca' .and. mrcisd_prog/='openmolcas') then
+  select case(TRIM(mrcisd_prog))
+  case('gaussian', 'orca', 'openmolcas', 'molpro')
+  case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
    stop
-  end if
+  end select
 
   if(mrcisd) then
    select case(CtrType)
    case(1) ! uncontracted MRCISD
-    if(mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca' .and. X2C) then
+    if(mrcisd_prog == 'molpro') then
+     write(iout,'(A)') error_warn
+     write(iout,'(A)') 'Currently MRCISD cannot be done with Molpro.'
+     stop
+    end if
+    if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca') .and. X2C) then
      write(iout,'(A)') error_warn
      write(iout,'(A)') 'MRCISD with Gaussian/ORCA incompatible with X2C.'
      stop
     end if
    case(2) ! ic-MRCISD
-    if(mrcisd_prog/='openmolcas') then
+    select case(TRIM(mrcisd_prog))
+    case('openmolcas', 'molpro')
+    case default
      write(iout,'(A)') error_warn
-     write(iout,'(A)') 'The ic-MRCISD is only supported by OpenMolcas. But you&
-                      & specify mrcisd_prog='//TRIM(mrcisd_prog)
+     write(iout,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
+                      & But you specify mrcisd_prog='//TRIM(mrcisd_prog)
      stop
-    end if
+    end select
    case(3) ! FIC-MRCISD
-    if(mrcisd_prog/='orca') then
+    if(mrcisd_prog /= 'orca') then
      write(iout,'(A)') error_warn
      write(iout,'(A)') 'The FIC-MRCISD is only supported by ORCA. But you&
                       & specify mrcisd_prog='//TRIM(mrcisd_prog)

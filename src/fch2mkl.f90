@@ -367,7 +367,8 @@ subroutine fch2mkl(fchname, uhf)
   write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
   write(fid1,'(5(F14.8,1X))') (eigen_e_a(i),i=k+1,j)
   do i = 1, nbf, 1
-   write(fid1,'(5(F13.8,1X))') (alpha_coeff(i,m),m=k+1,j)
+!   write(fid1,'(5(F14.9,1X))') (alpha_coeff(i,m),m=k+1,j)
+   write(fid1,'(5(ES15.8,1X))') (alpha_coeff(i,m),m=k+1,j)
   end do ! for i
   k = j
  end do ! for while
@@ -406,7 +407,8 @@ subroutine fch2mkl(fchname, uhf)
    write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
    write(fid1,'(5(F14.8,1X))') (eigen_e_b(i),i=k+1,j)
    do i = 1, nbf, 1
-    write(fid1,'(5(F13.8,1X))') (beta_coeff(i,m),m=k+1,j)
+!    write(fid1,'(5(F14.9,1X))') (beta_coeff(i,m),m=k+1,j)
+    write(fid1,'(5(ES15.8,1X))') (beta_coeff(i,m),m=k+1,j)
    end do ! for i
    k = j
   end do ! for while

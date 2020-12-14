@@ -12,22 +12,25 @@ FFLAGS = /O2 /fpp /libs:static
 MKL_FLAGS = /Qmkl:sequential
 
 OBJ_bas_fch2py = rwwfn.obj util_wrapper.obj bas_fch2py.obj
-OBJ_bas_gms2molcas = bas_gms2molcas.obj
-OBJ_bas_gms2py = bas_gms2py.obj
+OBJ_bas_gms2molcas = string_manipulate.obj read_gms_inp.obj bas_gms2molcas.obj
+OBJ_bas_gms2molpro = string_manipulate.obj read_fch.obj rwgeom.obj read_gms_inp.obj bas_gms2molpro.obj
+OBJ_bas_gms2py = string_manipulate.obj bas_gms2py.obj
 OBJ_dat2fch = read_fch.obj rwwfn.obj dat2fch.obj
 OBJ_extract_noon2fch = extract_noon2fch.obj
+OBJ_fch2com = rwwfn.obj util_wrapper.obj string_manipulate.obj fch2com.obj
 OBJ_fch2mkl = read_fch.obj fch2mkl.obj
 OBJ_fch2inp = read_fch.obj fch2inp.obj
 OBJ_fch2inporb = rwwfn.obj util_wrapper.obj fch2inporb.obj
 OBJ_fch_u2r = fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
-OBJ_frag_guess_wfn = read_fch.obj rwgeom.obj rwwfn.obj mr_keyword.obj frag_guess_wfn.obj
+OBJ_frag_guess_wfn = read_fch.obj rwgeom.obj rwwfn.obj string_manipulate.obj mr_keyword.obj frag_guess_wfn.obj
 OBJ_mkl2fch = rwwfn.obj read_fch.obj mkl2fch.obj
 OBJ_orb2fch = rwwfn.obj orb2fch.obj
+OBJ_xml2fch = rwwfn.obj xml2fch.obj
 
-.PHONY: clean distclean bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch \
-        fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn mkl2fch \
-        orb2fch solve_ON_matrix
+.PHONY: clean distclean bas_fch2py bas_gms2molcas bas_gms2molpro bas_gms2py \
+        dat2fch extract_noon2fch fch2com fch2mkl fch2inp fch2inporb fch_u2r \
+        fch_mo_copy frag_guess_wfn mkl2fch orb2fch xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS)
@@ -35,9 +38,10 @@ OBJ_orb2fch = rwwfn.obj orb2fch.obj
 help:
 	@echo  make [target], where the [target] could be
 	@echo  help      : print the current information
-	@echo  fch2inp   : generate fch2inp
-	@echo  fch2mkl   : generate fch2mkl
-	@echo  fch2inporb: generate fch2inporb
+	@echo  fch2com   : generate fch2com    (Gau->Molpro)
+	@echo  fch2inp   : generate fch2inp    (Gau->GAMESS)
+	@echo  fch2mkl   : generate fch2mkl    (Gau->ORCA)
+	@echo  fch2inporb: generate fch2inporb (Gau->OpenMolcas)
 	@echo  xx        : generate xx (xx is any utility)
 	@echo  all       : all executables
 	@echo  clean     : delete *.mod *.obj
@@ -45,10 +49,13 @@ help:
 
 bas_fch2py: $(OBJ_bas_fch2py)
 	$(F90) $(OBJ_bas_fch2py) -o $(BIN)\bas_fch2py $(FFLAGS)
-	@echo bas_fch2py requires modules fch2inp and bas_gms2py, so compile them if they haven't been compiled
+	@echo bas_fch2py requires utilities fch2inp and bas_gms2py, please also compile them
 
 bas_gms2molcas: $(OBJ_bas_gms2molcas)
 	$(F90) $(OBJ_bas_gms2molcas) -o $(BIN)\bas_gms2molcas $(FFLAGS)
+
+bas_gms2molpro: $(OBJ_bas_gms2molpro)
+	$(F90) $(OBJ_bas_gms2molpro) -o $(BIN)\bas_gms2molpro $(FFLAGS)
 
 bas_gms2py: $(OBJ_bas_gms2py)
 	$(F90) $(OBJ_bas_gms2py) -o $(BIN)\bas_gms2py $(FFLAGS)
@@ -59,6 +66,10 @@ dat2fch: $(OBJ_dat2fch)
 	ifort /c dat2fch.f90 -o dat2fch.obj $(FFLAGS) $(MKL_FLAGS)
 	ifort rwwfn.obj read_fch.obj dat2fch.obj -o $(BIN)\dat2fch $(FFLAGS) $(MKL_FLAGS)
 
+fch2com: $(OBJ_fch2com)
+	$(F90) $(OBJ_fch2com) -o $(BIN)\fch2com $(FFLAGS)
+	@echo fch2com requires utilities fch2inp and bas_gms2molpro, please also compile them
+
 fch2mkl: $(OBJ_fch2mkl)
 	$(F90) $(OBJ_fch2mkl) -o $(BIN)\fch2mkl $(FFLAGS)
 
@@ -67,7 +78,7 @@ fch2inp: $(OBJ_fch2inp)
 
 fch2inporb: $(OBJ_fch2inporb)
 	$(F90) $(OBJ_fch2inporb) -o $(BIN)\fch2inporb $(FFLAGS)
-	@echo fch2inporb requires modules fch2inp and bas_gms2molcas, so compile them if they haven't been compiled
+	@echo fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them
 
 fch_u2r: $(OBJ_fch_u2r)
 	$(F90) $(OBJ_fch_u2r) -o $(BIN)\fch_u2r $(FFLAGS)
@@ -87,14 +98,17 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 orb2fch: $(OBJ_orb2fch)
 	$(F90) $(OBJ_orb2fch) -o $(BIN)\orb2fch $(FFLAGS)
 
+xml2fch: $(OBJ_xml2fch)
+	$(F90) $(OBJ_xml2fch) -o $(BIN)\xml2fch $(FFLAGS)
+
 solve_ON_matrix:
 	ifort /c rwwfn.f90 -o rwwfn.obj $(FFLAGS)
 	ifort /c solve_ON_matrix.f90 -o solve_ON_matrix.obj $(FFLAGS) $(MKL_FLAGS)
 	ifort rwwfn.obj solve_ON_matrix.obj -o $(BIN)\solve_ON_matrix $(FFLAGS) $(MKL_FLAGS)
 
-all: bas_fch2py bas_gms2molcas bas_gms2py dat2fch extract_noon2fch fch2mkl \
-     fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn mkl2fch orb2fch \
-     solve_ON_matrix
+all: bas_fch2py bas_gms2molcas bas_gms2molpro bas_gms2py dat2fch extract_noon2fch \
+     fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn mkl2fch \
+     orb2fch xml2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod

@@ -413,27 +413,3 @@ subroutine bas_gms2py(inpname, cart)
  return
 end subroutine bas_gms2py
 
-subroutine upper(buf)
- implicit none
- integer :: i, k
- character(len=*), intent(inout) :: buf
-
- do i = 1, LEN(buf), 1
-  k = ICHAR(buf(i:i))
-  if(k>=97 .and. k<=122) buf(i:i) = CHAR(k-32)
- end do
- return
-end subroutine upper
-
-subroutine lower(buf)
- implicit none
- integer :: i, k
- character(len=*), intent(inout) :: buf
-
- do i = 1, LEN(buf), 1
-  k = ICHAR(buf(i:i))
-  if (k>=65 .and. k<=90) buf(i:i) = CHAR(k+32)
- end do
- return
-end subroutine lower
-

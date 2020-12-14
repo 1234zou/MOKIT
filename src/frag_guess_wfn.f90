@@ -67,8 +67,8 @@ end program main
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
 subroutine frag_guess_wfn(gau_path, gjfname)
+ use print_id, only: iout
  use frag_info, only: nfrag, frags
- use mr_keyword, only: iout, lower
  implicit none
  integer :: i, j, k, m, fid, ifrag, iatom
  integer :: charge, mult, natom
@@ -211,7 +211,7 @@ end subroutine frag_guess_wfn
 
 ! read memory and nprocshared from a given .gjf file
 subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
- use mr_keyword, only: iout, lower
+ use print_id, only: iout
  implicit none
  integer :: i, j, k, fid
  integer, intent(out) :: mem, np

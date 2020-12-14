@@ -1,5 +1,9 @@
-MOKIT 1.2.1 (2020-12-05)
+MOKIT 1.2.1 (2020-12-14)
 ------------------------
+* add utility xml2fch (Molpro -> Gaussian)
+* read more digits of NOONs in some cases
+* add interface for Molpro CASSCF
+* add utilities bas_gms2molpro and fch2com (Gaussian -> Molpro)
 * fix some Gfortran compiling incompatibility
 * remove file program.info, read $ORCA and $GMS from environment variables
 * add interfaces for MRMP2, MC-PDFT and DMRG-PDFT

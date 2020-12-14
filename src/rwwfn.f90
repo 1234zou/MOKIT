@@ -1,4 +1,7 @@
 ! written by jxzou at 20200504: read/write basis, MOs or eigenvalues from/to given files
+! updated by jxzou at 20201213: add subroutines for reading occupation numbers
+! updated by jxzou at 20201213: fix bug: read CASCI NOONs of ORCA
+! updated by jxzou at 20201214: add read MO subroutines related Molpro
 
 ! read the total charge and the spin mltiplicity from a given .fch(k) file
 subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
@@ -321,6 +324,63 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  return
 end subroutine read_mo_from_mkl
 
+! read Alpha/Beta MO coefficients from Molpro .xml file
+subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
+ implicit none
+ integer :: i, j, k, fid, nline
+ integer, intent(in) :: nbf, nif
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: mo(nbf,nif)
+ character(len=240) :: buf
+ character(len=1), intent(in) :: ab
+ character(len=240), intent(in) :: xmlname
+
+ open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
+
+ if(ab=='a' .or. ab=='A') then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,"type=""ALPH")/=0 .or. index(buf,"type=""CANO")/=0 .or. &
+      index(buf,"type=""NATU")/=0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH',&
+                   & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
+   stop
+  end if
+
+ else ! UHF
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,"type=""BETA") /= 0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
+                    & found in file "//TRIM(xmlname)//'.'
+   stop
+  end if
+ end if
+
+ nline = nif/10
+ if(nif-10*nline > 0) nline = nline + 1
+
+ do i = 1, nif, 1
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+
+  do j = 1, nline, 1
+   k = min(10*j,nif)
+   read(fid,*) mo(10*j-9:k,i)
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_mo_from_xml
+
 ! read Alpha/Beta eigenvalues in a given .fch(k) file
 ! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
 !       or NOONs, depending on the job type
@@ -404,6 +464,153 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  close(fid)
  return
 end subroutine read_on_from_orb
+
+! read $OCCNO from a given GAMESS .dat file
+subroutine read_on_from_dat(datname, nmo, on, alive)
+ implicit none
+ integer :: i, k, nline, fid
+ integer, intent(in) :: nmo
+ real(kind=8), intent(out) :: on(nmo)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+ logical, intent(out) :: alive ! whether $OCCNO exists
+
+ alive = .false.
+ on = 0d0
+
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:7) == '$OCCNO') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  return
+ end if
+
+ alive = .true.
+ nline = nmo/5
+ if(nmo-5*nline > 0) nline = nline + 1
+ do i = 1, nline, 1
+  k = min(5*i,nmo)
+  read(fid,*) on(5*i-4:k)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_on_from_dat
+
+! read occupation numbers from ORCA .mkl file
+subroutine read_on_from_mkl(mklname, nmo, on)
+ implicit none
+ integer :: i, k, nline, fid
+ integer, intent(in) :: nmo
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: on(nmo)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+
+ on = 0d0
+ open(newunit=fid,file=TRIM(mklname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == '$OCC_A') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_on_from_mkl: no '$OCC_A' found&
+                   & in file "//TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ nline = nmo/5
+ if(nmo-5*nline > 0) nline = nline + 1
+
+ do i = 1, nline, 1
+  k = min(5*i,nmo)
+  read(fid,*) on(5*i-4:k)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_on_from_mkl
+
+! read occupation numbers from Molpro .xml file
+subroutine read_on_from_xml(xmlname, nmo, ab, on)
+ implicit none
+ integer :: i, j, k, nline, fid
+ integer, intent(in) :: nmo
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: on(nmo)
+ character(len=240) :: buf
+ character(len=1), intent(in) :: ab
+ character(len=240), intent(in) :: xmlname
+
+ on = 0d0
+ nline = nmo/10
+ if(nmo-nline*10 > 0) nline = nline + 1
+
+ open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
+
+ if(ab=='a' .or. ab=='A') then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,"type=""ALPH")/=0 .or. index(buf,"type=""CANO")/=0 .or. &
+      index(buf,"type=""NATU")/=0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH',&
+                   & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
+   stop
+  end if
+
+ else ! UHF
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,"type=""BETA") /= 0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
+                    & found in file "//TRIM(xmlname)//'.'
+   stop
+  end if
+ end if
+
+ read(fid,'(A)') buf
+
+ do i = 1, nmo, 1
+  read(fid,'(A)',iostat=k) buf
+  if(k /= 0) exit
+  j = index(buf, """")
+  k = index(buf(j+1:), """")
+  read(buf(j+1:j+k-1),*) on(i)
+
+  do j = 1, nline+1, 1
+   read(fid,'(A)',iostat=k) buf
+   if(k /= 0) exit
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ if(k /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_on_from_xml: not all occupation&
+                   & numbers are found.'
+  write(iout,'(A)') "Did you forget to add '{put,xml}' in Molpro input file?"
+  write(iout,'(A)') 'Filname = '//TRIM(xmlname)
+  stop
+ end if
+
+ return
+end subroutine read_on_from_xml
 
 ! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
 subroutine read_ncontr_from_fch(fchname, ncontr)
@@ -1011,6 +1218,8 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
   e = e + ptchg_e
  case('orca')
   call read_cas_energy_from_orca_out(outname, e, scf)
+ case('molpro')
+  call read_cas_energy_from_molpro_out(outname, e, scf)
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
                    & cannot be identified.'
@@ -1353,52 +1562,115 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  integer :: i, fid
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
+ character(len=50), parameter :: error_warn = &
+  'ERROR in subroutine read_cas_energy_from_orca_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
  e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
- if(scf) then
+ if(scf) then ! CASSCF
   do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:8) == 'ROOT   0') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') error_warn//"'ROOT   0' not found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = index(buf,'=')
+  read(buf(i+1:),*) e(1)
+
+  do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
    if(buf(1:19) == 'Final CASSCF energy') exit
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_orca_out:'
-   write(iout,'(A)') "No 'Final CASSCF energy' found in file "//TRIM(outname)//'.'
+   write(iout,'(A)') error_warn//"'Final CASSCF energy' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if
-
   i = index(buf,':')
   read(buf(i+1:),*) e(2)
+
+ else ! CASCI
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:9) == 'STATE   0') exit
+  end do ! for while
+ 
+  if(i /= 0) then
+   write(iout,'(A)') error_warn//"'STATE   0' not found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = index(buf,'=')
+  read(buf(i+1:),*) e(1)
  end if
 
- rewind(fid)
+ close(fid)
+
+ return
+end subroutine read_cas_energy_from_orca_out
+
+! read CASCI/CASSCF energy from a given Molpro output file
+subroutine read_cas_energy_from_molpro_out(outname, e, scf)
+ implicit none
+ integer :: i, k, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e(2)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:8) == 'ROOT   0') exit
+  if(buf(2:8) == 'ITER. M') exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_orca_out:'
-  write(iout,'(A)') "No 'ROOT   0' found in file "//TRIM(outname)//'.'
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
+                    & 'ITER. M' not found in file "//TRIM(outname)
+  write(iout,'(A)') 'Error termination of the Molpro CASCI job.'
   close(fid)
   stop
  end if
- close(fid)
 
- i = index(buf,'=')
- read(buf(i+1:),*) e(1)
+ read(fid,'(A)') buf
+ read(fid,*) k,k,k,k, e(1) ! CASCI energy
+
+ if(scf) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:9) == '!MCSCF S') exit
+  end do ! for while
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
+                    & '!MCSCF S' not found in file "//TRIM(outname)
+   write(iout,'(A)') 'Error termination of the Molpro CASSCF job.'
+   close(fid)
+   stop
+  end if
+  i = index(buf, 'Energy')
+  read(buf(i+6:),*) e(2) ! CASSCF energy
+ end if
+
+ close(fid)
  return
-end subroutine read_cas_energy_from_orca_out
+end subroutine read_cas_energy_from_molpro_out
 
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt2_energy_from_pyscf_out(outname, e)
@@ -1497,7 +1769,8 @@ subroutine read_mrpt2_energy_from_gms_gms(outname, e)
  return
 end subroutine read_mrpt2_energy_from_gms_gms
 
-! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian output file
+! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
+! Molpro output file
 subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e, davidson_e, e)
  implicit none
  integer :: i, fid
@@ -1575,6 +1848,22 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   i = index(buf,'lue',back=.true.)
   if(i == 0) i = index(buf,'LUE',back=.true.)
   read(buf(i+3:),*) e
+
+ case('molpro')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(3:10) == '!Total e') exit
+  end do ! for while
+
+  i = index(buf,':')
+  read(buf(i+1:),*) e
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = index(buf,':')
+  read(buf(i+1:),*) davidson_e
+  davidson_e = davidson_e - e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
                    & mrcisd_prog='//TRIM(mrcisd_prog)
@@ -1805,9 +2094,8 @@ subroutine check_cart(fchname, cart)
   write(iout,'(/,A)') error_warn//' Cartesian functions required. But you provided'
   write(iout,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
                    & possible solutions:'
-  write(iout,'(A)') "1) delete keyword 'Cart'; 2) provide another .fch file which&
-                   & uses pure"
-  write(iout,'(A)') 'Cartesian functions. fchname='//TRIM(fchname)
+  write(iout,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch file which uses"
+  write(iout,'(A)') 'pure Cartesian functions. fchname='//TRIM(fchname)
   stop
  end if
 
@@ -1815,13 +2103,62 @@ subroutine check_cart(fchname, cart)
   write(iout,'(/,A)') error_warn//' spherical harmonic functions default. But you'
   write(iout,'(A)') 'provided a .fch file which has Cartesian functions. Two&
                    & possible solutions:'
-  write(iout,'(A)') "1) add keyword 'Cart'; 2) provide another .fch file which uses&
-                   & pure spherical"
-  write(iout,'(A)') 'harmonic functions. fchname='//TRIM(fchname)
+  write(iout,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch file which uses pure"
+  write(iout,'(A)') 'spherical harmonic functions. fchname='//TRIM(fchname)
   stop
  end if
 
  deallocate(shltyp)
  return
 end subroutine check_cart
+
+! return whether pure Cartesian or spherical harmonic
+subroutine check_sph(fchname, sph)
+ implicit none
+ integer :: i, k, fid
+ integer, allocatable :: shltyp(:)
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ character(len=30), parameter :: error_warn='ERROR in subroutine check_sph:'
+ logical, intent(out) :: sph
+
+ open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ ! find and read Shell types
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == 'Shell types') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
+  close(fid)
+  return
+ end if
+
+ i = index(buf, '=', back=.true.)
+ read(buf(i+1:),*) k
+ allocate(shltyp(k), source=0)
+ read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
+ ! read Shell types done
+
+ close(fid)
+
+ if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
+  write(iout,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
+  write(iout,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
+                   & default setting is (6D,7F).'
+  write(iout,'(A)') 'Only pure Cartesian or spherical harmonic is allowed'
+  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ else if(ANY(shltyp>1)) then
+  sph = .false.
+ else
+  sph = .true.
+ end if
+
+ return
+end subroutine check_sph
 

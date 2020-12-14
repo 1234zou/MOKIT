@@ -65,6 +65,7 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  implicit none
  integer :: i, fid, nline
  integer, intent(out) :: natom
+ integer, parameter :: iout = 6
  character(len=1) :: str
  character(len=240):: buf
  character(len=240), intent(in) :: inpname
@@ -75,14 +76,21 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
+  call upper(buf(2:6))
   if(buf(2:6) == '$DATA') exit
  end do ! for while
 
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
+                   & in file '//TRIM(inpname)
+  stop
+ end if
  read(fid,'(A)') buf
  read(fid,'(A)') buf
 
  do while(.true.)
   read(fid,'(A)') buf
+  call upper(buf(2:5))
   if(buf(2:5) == '$END') exit
 
   do while(.true.)
@@ -223,17 +231,32 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
  integer :: i, k, fid, nline
  integer, intent(in) :: natom
  integer, intent(out) :: nuc(natom)
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), allocatable :: nuc1(:)
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=1) :: str
  character(len=2), intent(out) :: elem(natom)
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
+ logical :: bohrs
 
  allocate(nuc1(natom), source=0.0d0)
  nuc = 0; coor = 0.0d0; elem = ' '
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ ! find in the first 6 lines whether the coordinates are in Angstrom or Bohr
+ bohrs = .false.
+ do i = 1, 6
+  read(fid,'(A)') buf
+  call upper(buf)
+  if(INDEX(buf,'UNITS=BOHR') /= 0) then
+   bohrs = .true.
+   exit
+  end if
+ end do ! for i
+ ! Angstrom/Bohr determined
+
+ rewind(fid)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:6) == '$DATA') exit
@@ -261,6 +284,7 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
 
  forall(i = 1:natom) nuc(i) = DNINT(nuc1(i))
  deallocate(nuc1)
+ if(bohrs) coor = coor*Bohr_const
  return
 end subroutine read_elem_nuc_coor_from_gms_inp
 

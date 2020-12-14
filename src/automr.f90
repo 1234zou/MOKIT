@@ -1,5 +1,6 @@
 ! written by jxzou at 20200420: black-box multireference calculations
 ! updated by jxzou at 20200511: framework of the program
+! updated by jxzou at 20201213: %casscf+noiter -> %mrci for correct CASCI NOONs in ORCA
 
 ! The input file is just like Gaussian .gjf format. MOKIT keywords should be
 !  specified in the Title Card line like 'mokit{}'.
@@ -322,7 +323,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  close(fid1,status='delete')
  write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
- write(fid2,'(A)') "mol2.basis = 'sto-6g'"
+ write(fid2,'(A)') "mol2.basis = 'STO-6G'"
  write(fid2,'(A)') 'mol2.build()'
  write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
  write(fid2,'(A)') 'mf2.max_cycle = 150'
@@ -952,12 +953,27 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A)') 'end'
  end if
 
- write(fid2,'(A)') '%casscf'
- write(fid2,'(A,I0)') ' nel ', nacte
- write(fid2,'(A,I0)') ' norb ', nacto
- if(scf) write(fid2,'(A)') ' maxiter 200'
- write(fid2,'(A,I0)') ' ActOrbs NatOrbs'
- write(fid2,'(A)') 'end'
+ if(scf) then ! CASSCF
+  write(fid2,'(A)') '%casscf'
+  write(fid2,'(A,I0)') ' nel ', nacte
+  write(fid2,'(A,I0)') ' norb ', nacto
+  write(fid2,'(A)') ' maxiter 200'
+  write(fid2,'(A)') ' ActOrbs NatOrbs'
+  write(fid2,'(A)') 'end'
+ else ! CASCI
+  write(fid2,'(A)') '%mrci'
+  write(fid2,'(A)') ' tsel 0.0'
+  write(fid2,'(A)') ' tpre 0.0'
+  write(fid2,'(A)') ' Etol 1e-7'
+  write(fid2,'(A)') ' Rtol 1e-7'
+  write(fid2,'(A)') ' MaxIter 100'
+  write(fid2,'(A)',advance='no') ' NewBlock 1 * nroots 1 excitations none refs cas('
+  write(fid2,'(2(I0,A))') nacte, ',', nacto, ') end end'
+  write(fid2,'(A)') ' doNatOrbs 2'
+  write(fid2,'(A)') 'end'
+ end if
+ ! Q: Why not use %casscf plus NoIter for CASCI?
+ ! A: The CASCI NOONs cannot be obtained in that way, so I have to use %mrci
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -970,6 +986,56 @@ subroutine prt_cas_orca_inp(inpname, scf)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine prt_cas_orca_inp
+
+! print CASCI/CASSCF keywords in to a given Molpro input file
+subroutine prt_cas_molpro_inp(inpname, scf)
+ use print_id, only: iout
+ use mol, only: ndb, npair, npair0, nacto
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c
+ implicit none
+ integer :: i, fid, nclosed, nocc
+ character(len=240) :: buf, orbfile, put
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: scf
+
+ orbfile = inpname
+ call convert2molpro_fname(orbfile, '.a')
+
+ put = ' '
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ BACKSPACE(fid)
+ read(fid,'(A)') put
+
+ if(put(1:4) /= '{put') then
+  close(fid)
+  write(iout,'(A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
+                   & in the final line of file '//TRIM(inpname)
+  stop
+ end if
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:2) == 'wf') exit
+ end do ! for while
+
+ write(fid,'(A)') '{matrop;'
+ write(fid,'(A)') 'read,mo,ORB,file='//TRIM(orbfile)//';'
+ write(fid,'(A)') 'save,mo,2140.2,ORBITALS}'
+
+ nclosed = ndb + npair - npair0
+ nocc = nclosed + nacto
+
+ if(scf) then
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,'}'
+ else
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';DONT,ORBITAL}'
+ end if
+
+ write(fid,'(A)') TRIM(put)
+ close(fid)
+ return
+end subroutine prt_cas_molpro_inp
 
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
@@ -1228,10 +1294,12 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
  write(fid2,'(A)') '! NoIter'
 
- write(fid2,'(A)') '%rel'
- write(fid2,'(A)') ' method DKH'
- write(fid2,'(A)') ' order 2'
- write(fid2,'(A)') 'end'
+ if(DKH2) then
+  write(fid2,'(A)') '%rel'
+  write(fid2,'(A)') ' method DKH'
+  write(fid2,'(A)') ' order 2'
+  write(fid2,'(A)') 'end'
+ end if
 
  if(CtrType == 1) then ! uncontracted MRCISD
   write(fid2,'(A)') '%mrci'
@@ -1303,6 +1371,21 @@ subroutine prt_mrcisd_gau_inp(gjfname)
  close(fid)
  return
 end subroutine prt_mrcisd_gau_inp
+
+! print MRCISD keywords Molpro .com file
+subroutine prt_mrcisd_molpro_inp(inpname)
+ implicit none
+ integer :: i, fid
+ character(len=240), intent(in) :: inpname
+
+ call prt_cas_molpro_inp(inpname, .false.)
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ BACKSPACE(fid)
+ write(fid,'(A)') '{MRCIC;CORE}'
+ close(fid)
+
+ return
+end subroutine prt_mrcisd_molpro_inp
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
@@ -1495,7 +1578,7 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, bgchg, chgname, casscf_force, dkh2_or_x2c, check_gms_path
+  gms_scr_path, molpro_path, bgchg, chgname, casscf_force, dkh2_or_x2c, check_gms_path
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
                 nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap
@@ -1505,7 +1588,7 @@ subroutine do_cas(scf)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, fchname, pyname, inpname, outname, proname, mklname
- character(len=240) :: orbname
+ character(len=240) :: orbname, xmlname
  logical, intent(in) :: scf
  logical :: rel
 
@@ -1578,7 +1661,7 @@ subroutine do_cas(scf)
  idx1 = ndb + npair - npair0 + 1
  idx2 = idx1 + 2*npair0 + nopen - 1
  nvir = nif - (idx1-1) - 2*npair0 - nopen
- write(iout,'(A,2(I0,A))') '(',i,',',i,')'
+ write(iout,'(A,2(I0,A))') '(',i,',',i,') using program '//TRIM(cas_prog)
  write(iout,'(A,I4,4X,A,I4)') 'doubly_occ=', idx1-1, 'nvir=', nvir
  write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
@@ -1643,7 +1726,8 @@ subroutine do_cas(scf)
  end if
  casnofch = TRIM(proname)//'_NO.fch'
 
- if(cas_prog == 'pyscf') then
+ select case(TRIM(cas_prog))
+ case('pyscf')
   i = system('bas_fch2py '//TRIM(fchname))
   inpname = TRIM(proname)//'.py'
   i = RENAME(TRIM(pyname), TRIM(inpname))
@@ -1654,7 +1738,11 @@ subroutine do_cas(scf)
   outname = inpname(1:j-1)//'.out'
   i = system('python '//TRIM(inpname)//' >& '//TRIM(outname))
 
- else if(cas_prog == 'gaussian') then
+  write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
+                             TRIM(casnofch), idx1, idx2
+  i = system(TRIM(buf))
+
+ case('gaussian')
   call check_exe_exist(gau_path)
 
   inpname = TRIM(proname)//'.gjf'
@@ -1663,6 +1751,7 @@ subroutine do_cas(scf)
   call prt_cas_gjf(inpname, nacto, nacte, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
+
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CAS job failed!'
@@ -1671,13 +1760,7 @@ subroutine do_cas(scf)
   end if
   call formchk(mklname, casnofch)
 
-  if(mult /= 1) i = system('fch_u2r '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  inpname = casnofch(1:i-1)//'_r.fch'
-  i = RENAME(inpname, casnofch)
-  inpname = TRIM(proname)//'.gjf'
-
- else if(cas_prog == 'gamess') then
+ case('gamess')
   call check_gms_path()
   inpname = TRIM(proname)//'.dat'
   buf = TRIM(gms_scr_path)//'/'//TRIM(inpname) ! delete the possible .dat file
@@ -1712,13 +1795,18 @@ subroutine do_cas(scf)
   i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
-  if(scf) i = system('dat2fch '//TRIM(datname)//' '//TRIM(casnofch))
+  if(scf) then
+   i = system('dat2fch '//TRIM(datname)//' '//TRIM(casnofch))
+   write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
+                              TRIM(casnofch), idx1, idx2
+   i = system(TRIM(buf))
+  end if
 
   ! transfer NOs from .dat to .fch
   write(buf,'(A,I0,1X,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',1,idx2
   i = system(TRIM(buf))
 
- else if(cas_prog == 'openmolcas') then
+ case('openmolcas')
   call check_exe_exist(molcas_path)
 
   i = system('fch2inporb '//TRIM(fchname))
@@ -1743,19 +1831,18 @@ subroutine do_cas(scf)
   ! transfer NOs from .dat to .fch
   i = system('orb2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
 
- else if(cas_prog == 'orca') then
+ case('orca')
   call check_exe_exist(orca_path)
   i = system('fch2mkl '//TRIM(fchname))
 
   i = index(fchname, '.fch', back=.true.)
-  outname = fchname(1:i-1)//'.mkl'
-  mklname = TRIM(proname)//'.mkl'
-  i = RENAME(TRIM(outname),TRIM(mklname))
-
-  i = index(fchname, '.fch', back=.true.)
-  outname = fchname(1:i-1)//'.inp'
+  pyname = fchname(1:i-1)//'.inp'
+  orbname = fchname(1:i-1)//'.mkl'
   inpname = TRIM(proname)//'.inp'
-  i = RENAME(TRIM(outname),TRIM(inpname))
+  mklname = TRIM(proname)//'.mkl'
+  outname = TRIM(proname)//'.out'
+  i = RENAME(TRIM(orbname),TRIM(mklname))
+  i = RENAME(TRIM(pyname),TRIM(inpname))
 
   call prt_cas_orca_inp(inpname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -1763,29 +1850,60 @@ subroutine do_cas(scf)
   call mkl2gbw(mklname)
   call delete_file(mklname)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
-
-  outname = TRIM(proname)//'.out'
   i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
 
-  ! make a copy of the .fch file to save NOs
-  call copy_file(fchname, casnofch, .false.)
-  mklname = TRIM(proname)//'.gbw'
-  call gbw2mkl(mklname)
-  mklname = TRIM(proname)//'.mkl'
-  i = system('mkl2fch '//TRIM(mklname)//' '//TRIM(casnofch))
- end if
+  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
+  if(scf) then ! CASSCF
+   orbname = TRIM(proname)//'.gbw'
+  else         ! CASCI
+   pyname = TRIM(proname)//'.b0_s0.nat'
+   orbname = TRIM(proname)//'.gbw'
+   i = RENAME(TRIM(pyname),TRIM(orbname))
+  end if
 
- ! extract NOONs from the output file and print them into .fch file
- ! If the CASCI_prog = Gaussian, the NOs are already in .fch(k) file
- if(.not. (cas_prog=='gaussian' .or. cas_prog=='openmolcas')) then
-  write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
-                             TRIM(casnofch), idx1, idx2
+  call gbw2mkl(orbname)
+  mklname = TRIM(proname)//'.mkl'
+  i = system('mkl2fch '//TRIM(mklname)//' '//TRIM(casnofch)//' -no')
+
+ case('molpro')
+  call check_exe_exist(molpro_path)
+
+  i = system('fch2com '//TRIM(fchname)) ! generate .com and .txt
+  i = index(fchname, '.fch', back=.true.)
+  mklname = fchname(1:i-1)//'.com'
+  pyname = fchname
+  call convert2molpro_fname(pyname, '.a')
+  inpname = TRIM(proname)//'.com'
+  orbname = proname
+  call convert2molpro_fname(orbname, '.a')
+  outname = TRIM(proname)//'.out'
+  xmlname = TRIM(proname)//'.xml'
+  i = RENAME(TRIM(mklname), TRIM(inpname))
+  i = RENAME(TRIM(pyname), TRIM(orbname))
+  call prt_cas_molpro_inp(inpname, scf)
+
+  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem*125,&
+                           'M '//TRIM(inpname)
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(A)') 'Warning in subroutine do_cas: extract_noon2fch failed.'
-   write(iout,'(A)') 'Filename = '//TRIM(outname)
-   write(iout,'(A)') 'This does not affect the energy. So continue.'
+   write(iout,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
+   stop
   end if
+  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
+  i = system('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
+
+ case default
+  write(iout,'(A)') 'ERROR in subroutine do_cas: invalid CAS_prog. Allowed&
+                   & programs are Gaussian, GAMESS, PySCF, ORCA, Molpro.'
+  write(iout,'(A)') 'CAS_prog='//TRIM(cas_prog)
+  stop
+ end select
+
+ ! i is 'extract NOONs from the output file and print them into .fch file'
+ if(i /= 0) then
+  write(iout,'(A)') 'Warning in subroutine do_cas: possibly extract_noon2fch failed.&
+                   & Filename = '//TRIM(outname)
+  write(iout,'(A)') 'This does not affect the CASCI/CASSCF energy. So continue.'
  end if
 
  if(ist == 2) then
@@ -1828,6 +1946,9 @@ subroutine do_cas(scf)
    call read_grad_from_molcas_out(outname, natom, grad)
   case('orca')
    call read_grad_from_orca_out(outname, natom, grad)
+  case('molpro')
+   write(iout,'(A)') 'ERROR in subroutine do_cas: not supported currently.'
+   stop
   case default
    write(iout,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
    write(iout,'(A)') 'cas_prog='//TRIM(cas_prog)
@@ -2026,8 +2147,8 @@ end subroutine do_mrpt2
 subroutine do_mrcisd()
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, casci, casscf, CIonly, ist, hf_fch, mrcisd,&
-  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, bgchg, &
-  casci_prog, casscf_prog, chgname
+  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, molpro_path,&
+  bgchg, casci_prog, casscf_prog, chgname
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, davidson_e,&
   mrcisd_e, ptchg_e
  use util_wrapper, only: unfchk, mkl2gbw
@@ -2072,7 +2193,7 @@ subroutine do_mrcisd()
  end if
  write(iout,'(A)') TRIM(string)
 
- write(iout,'(A)') 'Frozen_core = F'
+ write(iout,'(A)') 'Frozen_Core = F, MRCISD computation using program '//TRIM(mrcisd_prog)
 
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
@@ -2123,9 +2244,26 @@ subroutine do_mrcisd()
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
 
- case default
-  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: invalid mrcisd_prog='//TRIM(mrcisd_prog)
-  stop
+ case('molpro')
+  call check_exe_exist(molpro_path)
+
+  i = system('fch2com '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  string = casnofch(1:i-1)//'.com'
+  chkname = casnofch
+  call convert2molpro_fname(chkname, '.a')
+
+  i = index(casnofch, '_NO', back=.true.)
+  inpname = casnofch(1:i)//'MRCISD.com'
+  outname = casnofch(1:i)//'MRCISD.out'
+  mklname = inpname
+  call convert2molpro_fname(mklname, '.a')
+  i = RENAME(TRIM(string), TRIM(inpname))
+  i = RENAME(TRIM(chkname), TRIM(mklname))
+
+  call prt_mrcisd_molpro_inp(inpname)
+  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem*125,'M '//TRIM(inpname)
+  i = system(TRIM(string))
  end select
 
  if(i /= 0) then
@@ -2176,6 +2314,10 @@ subroutine do_mrcisd()
    stop
   end if
   write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+ case('molpro')
+  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
  end select
 

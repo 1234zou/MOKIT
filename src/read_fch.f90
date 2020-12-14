@@ -438,24 +438,21 @@ subroutine check_DKH_in_fch(fchname, order)
 !  0: DKH 0th-order
 !  2: DKH2
 !  4: DKH4 with SO
- integer, parameter :: iout = 6
  character(len=61) :: buf
  character(len=240), intent(in) :: fchname
  character(len=610) :: longbuf
  logical :: alive(6)
 
+ order = 0 ! default value
+
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:5) == 'Route') exit
  end do ! for while
 
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine check_DKH_in_fch: no 'Route' found&
-                   & in file "//TRIM(fchname)//'.'
-  write(iout,'(A)') 'This file seems to be incomplete.'
-  stop
- end if
+ if(i /= 0) return ! no 'Route' found
 
  longbuf = ' '
  do i = 1, 10

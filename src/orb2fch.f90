@@ -17,7 +17,7 @@ program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=3) :: ab
+ character(len=4) :: ab
  character(len=240) :: fchname, orbname
 
  i = iargc()
@@ -26,22 +26,21 @@ program main
   write(iout,'(1X,A)') 'Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
   write(iout,'(1X,A)') 'Example 2 (for CAS)   : orb2fch a.RasOrb a.fch'
   write(iout,'(1X,A)') 'Example 3 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
-  write(iout,'(1X,A)') 'Example 4 (for UHF)   : orb2fch a.UhfOrb a.fch -ab'
+  write(iout,'(1X,A)') 'Example 4 (for UHF)   : orb2fch a.UhfOrb a.fch -uhf'
   write(iout,'(1X,A,/)') 'Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
   stop
  end if
 
- fchname = ' '
- ab = '-a '   ! default is '-a '
+ ab = ' '; fchname = ' '
  call getarg(1,orbname)
  call getarg(2,fchname)
 
  if(i == 3) then
   call getarg(3, ab)
   ab = ADJUSTL(ab)
-  if(ab/='-a ' .and. ab/='-ab' .and. ab/='-no') then
+  if(ab/='-uhf' .and. ab/='-no') then
    write(iout,'(/,1X,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
-                         & wrong! Only '-a', '-ab' or '-no' is accepted."
+                         & wrong! Only '-uhf' or '-no' is accepted."
    stop
   end if
  end if
@@ -66,11 +65,9 @@ subroutine orb2fch(orbname, fchname, ab)
  integer, allocatable :: idx(:), idx2(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
-
- character(len=3), intent(in) :: ab
+ character(len=4), intent(in) :: ab
  character(len=240), intent(in) :: orbname, fchname
  ! orbname is one of .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, .UhfOrb file of OpenMolcas
-
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:), norm(:)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
@@ -80,7 +77,7 @@ subroutine orb2fch(orbname, fchname, ab)
  ! read MO Coefficients from .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, or .UhfOrb
  ! file of OpenMolcas
  select case(ab)
- case('-ab')
+ case('-uhf')
   allocate(coeff(nbf,2*nif))
   call read_mo_from_orb(orbname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_orb(orbname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
@@ -268,7 +265,7 @@ subroutine orb2fch(orbname, fchname, ab)
 
 ! print MOs into .fch(k) file
  select case(ab)
- case('-ab')
+ case('-uhf')
   nif = nif/2
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))

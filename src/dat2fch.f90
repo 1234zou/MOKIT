@@ -6,6 +6,7 @@
 ! updated by jxzou at 20200620: support CASCI/CASSCF NOs, simplify code
 ! updated by jxzou at 20201115: support for spherical harmonic functions
 !                               (expand 5D,7F,9G,11H to 6D,10F,15G,21H)
+! updated by jxzou at 20201212: if -no, read $OCCNO for CASCI, write to .fch
 
 ! The orders of Cartesian f, g and h functions in .dat file will be permuted.
 ! Note: an initial .fch(k) file must be provided, and MOs in it will be replaced.
@@ -94,12 +95,13 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  integer, allocatable :: order(:), shltyp(:), shl2atm(:)
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
  real(kind=8), allocatable :: all_coeff(:,:), temp_coeff(:,:)
+ real(kind=8), allocatable :: noon(:) ! Natural Orbital Occupation Number
  character(len=4), intent(in) :: gvb_or_uhf_or_cas
  character(len=5) :: str1
  character(len=30) :: str2
  character(len=240), intent(in) :: datname, fchname
  character(len=240) :: fchname1, buf
- logical :: sph
+ logical :: sph, noon_exist
 
  str1 = ' '   ! initialization
  str2 = ' '
@@ -183,6 +185,10 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
   ! only the doubly occupied MOs and active space NOs are held in .dat file,
   ! so we change nif to the number of NOs
   nif1 = idx2
+  allocate(noon(nif), source=0d0)
+  call read_on_from_dat(datname, nif1, noon(1:nif1), noon_exist)
+  if(.not. noon_exist) deallocate(noon)
+
   open(newunit=datid,file=TRIM(datname),status='old',position='rewind')
   do while(.true.)
    read(datid,'(A)',iostat=i) buf
@@ -347,6 +353,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
   beta_coeff(:,1:idx2) = alpha_coeff
   alpha_coeff = beta_coeff ! auto-reallocation
   deallocate(beta_coeff)
+  if(noon_exist) call write_eigenvalues_to_fch(fchname,nif,'a',noon,.true.)
  end if
 
  ! output the MOs to .fch(k) file

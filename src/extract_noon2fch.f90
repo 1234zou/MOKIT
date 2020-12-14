@@ -2,6 +2,7 @@
 !  from (1) .out file of PySCF or (2) .dat file of GAMESS, and write into a given .fch file
 
 ! updated by jxzou at 20200517: fix the bug(nmo=6*N) in subroutine read_noon_from_pyout
+! updated by jxzou at 20201212: modify read_noon_from_gmsgms to read more digits of NOONs
 
 ! Note: [idx1,idx2] contains the singly occupied MOs and GVB pairs, npair=(idx2-idx1+1-nopen)/2
 
@@ -21,10 +22,10 @@ program main
                       & command line arguments.'
   write(iout,'(A)') ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
   write(iout,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
-  write(iout,'(/,A)') ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
-  write(iout,'(/,A)') ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
-  write(iout,'(/,A)') ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
-  write(iout,'(/,A,/)') ' Example 5 (ORCA): extract_noon2fch a.out a.fch 19 24'
+  write(iout,'(A)') ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
+  write(iout,'(A)') ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
+  write(iout,'(A)') ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
+  write(iout,'(A,/)') ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
   stop
  end if
 
@@ -213,10 +214,11 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  return
 end subroutine read_noon_from_dat
 
-! read NOONs from .gms file of GAMESS
-subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname) ! CASCI/CASSCF NOONs
+! read CASSCF NOONs from .gms file of GAMESS
+! Note: CASCI NOONs are recorded in .dat file and no need to handle here
+subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  implicit none
- integer :: i, k, fid, n, nmo1
+ integer :: i, j, k, fid, n, nmo1
  integer, intent(in) :: idx1, nmo
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: noon(nmo)
@@ -225,21 +227,16 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname) ! CASCI/CASSCF NOONs
  character(len=240), intent(in) :: gmsname
  logical :: casci
 
- casci = .true.
  open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(11:26) == 'NATURAL ORBITALS') exit       ! CASCI
-  if(buf(11:32) == 'MCSCF NATURAL ORBITALS') then ! CASSCF
-   casci = .false.
-   exit
-  end if
+  if(buf(6:13) == 'ATOMIC M') exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_noon_from_gmsgms: no 'NATURAL&
-   & ORBITALS' or 'MCSCF NATURAL ORBITALS' found in file "//TRIM(gmsname)
+  write(iout,'(A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M'&
+                   & found in file "//TRIM(gmsname)
   stop
  end if
 
@@ -251,17 +248,17 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname) ! CASCI/CASSCF NOONs
  allocate(on(nmo1), source=0.0d0)
 
  do i = 1, n, 1
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
+  do j = 1, 3
+   read(fid,'(A)') buf
+  end do ! for j
   k = min(5*i,nmo1)
   read(buf,*) on(5*i-4:k)
 
+  read(fid,'(A)') buf
   do while(.true.)
    read(fid,'(A)') buf
    if(LEN_TRIM(buf) == 0) exit
-  end do
-  BACKSPACE(fid)
+  end do ! for while
  end do ! for i
 
  close(fid)

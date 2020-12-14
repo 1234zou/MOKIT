@@ -22,14 +22,14 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 programs) are ensured during transferring MOs, since the basis order of angular
 momentum up to H(i.e. l=5) are considered.
 
-Pre-compiled `Windows OS` executables of 13 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases).
+Pre-compiled `Windows OS` executables of 17 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases).
 
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-12-05
+2020-12-14
 
 Installation
 ------------

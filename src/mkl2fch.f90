@@ -1,4 +1,5 @@
 ! written by jxzou at 20200627: transfer MOs from .mkl to .fch(k)
+! updated by jxzou at 20201213: read NOONs from .mkl and save to .fch
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -14,13 +15,14 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: str = ' '
  character(len=240) :: mklname, fchname
- logical :: uhf
+ logical :: uhf, read_on
 
  i = iargc()
  if(i<1 .or. i>3) then
   write(iout,'(/,A)')  ' ERROR in subroutine mkl2fch: wrong command line arguments.'
-  write(iout,'(/,A)')  ' Example 1 (R(O)HF, CAS): mkl2fch a.mkl a.fch'
-  write(iout,'(/,A,/)')' Example 2 (UHF):         mkl2fch a.mkl a.fch -uhf'
+  write(iout,'(A)')  ' Example 1 (R(O)HF, CAS): mkl2fch a.mkl a.fch'
+  write(iout,'(A)')  ' Example 2 (CAS NO)     : mkl2fch a.mkl a.fch -no'
+  write(iout,'(A,/)')  ' Example 3 (UHF)        : mkl2fch a.mkl a.fch -uhf'
   stop
  end if
 
@@ -28,30 +30,38 @@ program main
  call getarg(1, mklname)
  call getarg(2, fchname)
 
- uhf = .false.
+ uhf = .false.; read_on = .false.
+
  if(i == 3) then
   call getarg(3, str)
-  if(str == '-uhf') then
+  str = ADJUSTL(str)
+
+  select case(TRIM(str))
+  case('-uhf')
    uhf = .true.
-  else
+  case('-no')
+   read_on = .true.
+  case default
    write(iout,'(A)') 'ERROR in subroutine mkl2fch: wrong command line arguments.'
-   write(iout,'(A)') "The 3rd input parameter is not '-uhf': "//str
+   write(iout,'(A)') "The 3rd input parameter can only be '-uhf' or '-no'. But&
+                    & you specify '"//TRIM(str)//"'"
    stop
-  end if
+  end select
  end if
 
- call mkl2fch(mklname, fchname, uhf)
+ call mkl2fch(mklname, fchname, uhf, read_on)
  stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine mkl2fch(mklname, fchname, uhf)
+subroutine mkl2fch(mklname, fchname, uhf, read_on)
  use fch_content
  implicit none
  integer :: i, j, k, nf3mark, ng3mark, nh3mark
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: mklname, fchname
- logical, intent(in) :: uhf
+ logical, intent(in) :: uhf, read_on
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -148,6 +158,13 @@ subroutine mkl2fch(mklname, fchname, uhf)
  if(uhf) then
   call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
   deallocate(beta_coeff)
+ end if
+
+ if(read_on) then
+  allocate(noon(nif))
+  call read_on_from_mkl(mklname, nif, noon)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  deallocate(noon)
  end if
  return
 end subroutine mkl2fch
