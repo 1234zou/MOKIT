@@ -1738,6 +1738,55 @@ subroutine read_mrpt2_energy_from_molcas_out(outname, e)
  return
 end subroutine read_mrpt2_energy_from_molcas_out
 
+! read CASPT2/CASPT3 energy from a Molpro output file
+subroutine read_caspt_energy_from_molpro_out(outname, order, e)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: order ! 2/3 for CASPT2/CASPT3
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e
+ character(len=8) :: key = ' '
+ character(len=8), parameter :: key1 = '!RSPT2 S'
+ character(len=8), parameter :: key2 = '!RSPT3 S'
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ e = 0d0
+ select case(order)
+ case(2)
+  key = key1
+ case(3)
+  key = key2
+ case default
+  write(iout,'(A)') 'ERROR in subroutine read_caspt_energy_from_molpro_out:'
+  write(iout,'(A,I0)') 'CASPT order out of range! order = ', order
+  stop
+ end select
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,key) /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_caspt_energy_from_molpro_out:'
+  write(iout,'(A)') "'"//key//"' not found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ close(fid)
+ i = index(buf,'ergy')
+ read(buf(i+4:),*) e
+
+ return
+end subroutine read_caspt_energy_from_molpro_out
+
 ! read MRMP2 energy from GAMESS output file (.gms)
 subroutine read_mrpt2_energy_from_gms_gms(outname, e)
  implicit none

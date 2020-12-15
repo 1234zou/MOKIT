@@ -760,6 +760,14 @@ contains
    stop
   end if
 
+  if(bgchg .and. (casci_prog=='molpro' .or. casscf_prog=='molpro' .or. &
+                  caspt2_prog=='molpro' .or. mrcisd_prog=='molpro')) then
+   write(iout,'(A)') error_warn
+   write(iout,'(A)') 'Currently, background charges are incompatible with Molpro.'
+   write(iout,'(A)') 'This will be fixed in the next version of AutoMR.'
+   stop
+  end if
+
   select case(TRIM(casci_prog))
   case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
   case default
@@ -848,11 +856,13 @@ contains
    stop
   end if
 
-  if(caspt2_prog /= 'openmolcas') then
+  select case(TRIM(caspt2_prog))
+  case('openmolcas', 'molpro')
+  case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
    stop
-  end if
+  end select
 
   if(nevpt2_prog /= 'pyscf') then
    write(iout,'(A)') error_warn

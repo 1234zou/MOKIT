@@ -987,7 +987,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
  return
 end subroutine prt_cas_orca_inp
 
-! print CASCI/CASSCF keywords in to a given Molpro input file
+! print CASCI/CASSCF keywords into a given Molpro input file
 subroutine prt_cas_molpro_inp(inpname, scf)
  use print_id, only: iout
  use mol, only: ndb, npair, npair0, nacto
@@ -1097,7 +1097,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
 end subroutine prt_nevpt2_script_into_py
 
 ! print CASTP2 keywords into MOLCAS/OpenMolcas .input file
-subroutine prt_caspt2_script_into_input(inputname)
+subroutine prt_caspt2_molcas_inp(inputname)
  use print_id, only: iout
  use mol, only: nacte, nacto, charge, mult
  use mr_keyword, only: DKH2, X2C
@@ -1117,7 +1117,7 @@ subroutine prt_caspt2_script_into_input(inputname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_caspt2_script_into_input: no 'SEWARD'&
+  write(iout,'(A)') "ERROR in subroutine prt_caspt2_molcas_inp: no 'SEWARD'&
                    & found in file "//TRIM(inputname)
   stop
  end if
@@ -1151,7 +1151,52 @@ subroutine prt_caspt2_script_into_input(inputname)
  close(fid2)
  i = RENAME(inputname1, inputname)
  return
-end subroutine prt_caspt2_script_into_input
+end subroutine prt_caspt2_molcas_inp
+
+! print CASPT2 keywords into Molpro input file
+subroutine prt_caspt2_molpro_inp(inpname)
+ use print_id, only: iout
+ use mol, only: ndb, npair, npair0, nacto
+ implicit none
+ integer :: i, fid, nclosed, nocc
+ character(len=240) :: put, buf, orbfile
+ character(len=240), intent(in) :: inpname
+
+ orbfile = inpname
+ call convert2molpro_fname(orbfile, '.a')
+
+ put = ' '
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ BACKSPACE(fid)
+ read(fid,'(A)') put
+
+ if(put(1:4) /= '{put') then
+  close(fid)
+  write(iout,'(A)') 'ERROR in subroutine prt_caspt2_molpro_inp: wrong content found&
+                   & in the final line of file '//TRIM(inpname)
+  stop
+ end if
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:2) == 'wf') exit
+ end do ! for while
+
+ write(fid,'(A)') '{matrop;'
+ write(fid,'(A)') 'read,mo,ORB,file='//TRIM(orbfile)//';'
+ write(fid,'(A)') 'save,mo,2140.2,ORBITALS}'
+
+ nclosed = ndb + npair - npair0
+ nocc = nclosed + nacto
+
+ write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';CANONICAL}'
+ write(fid,'(A)') TRIM(put)
+ write(fid,'(A)') '{RS2C,IPEA=0.25;CORE}'
+ close(fid)
+
+ return
+end subroutine prt_caspt2_molpro_inp
 
 ! print MRMP2 keywords into GAMESS .inp file
 subroutine prt_mrmp2_gms_inp(inpname)
@@ -1372,7 +1417,7 @@ subroutine prt_mrcisd_gau_inp(gjfname)
  return
 end subroutine prt_mrcisd_gau_inp
 
-! print MRCISD keywords Molpro .com file
+! print MRCISD keywords into Molpro input file
 subroutine prt_mrcisd_molpro_inp(inpname)
  implicit none
  integer :: i, fid
@@ -1881,8 +1926,9 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(orbname))
   call prt_cas_molpro_inp(inpname, scf)
+  i = CEILING(DBLE(mem*125)/DBLE(nproc))
 
-  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem*125,&
+  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,&
                            'M '//TRIM(inpname)
   i = system(TRIM(buf))
   if(i /= 0) then
@@ -1969,18 +2015,20 @@ end subroutine do_cas
 subroutine do_mrpt2()
  use print_id, only: iout
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, &
-  nevpt2, mrmp2, casnofch, casscf_prog, casci_prog, bgchg, chgname, nproc,&
-  gms_path, gms_scr_path, molcas_path, check_gms_path
+  nevpt2, mrmp2, casnofch, casscf_prog, casci_prog, nevpt2_prog, caspt2_prog, &
+  bgchg, chgname, mem, nproc, gms_path, gms_scr_path, molcas_path, molpro_path,&
+  check_gms_path
  use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e, mrmp2_e, ptchg_e
  implicit none
- integer :: i, RENAME, system
+ integer :: i, mem0, RENAME, system
  character(len=24) :: data_string
  character(len=240) :: string, pyname, outname, inpname, inporb
  character(len=240) :: fchname
- real(kind=8) :: e = 0.0d0
+ real(kind=8) :: e
 
  if((.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrmp2)) return
  write(iout,'(//,A)') 'Enter subroutine do_mrpt2...'
+ mem0 = CEILING(DBLE(mem*125)/DBLE(nproc))
 
  if((dmrgci .or. dmrgscf) .and. mrmp2) then
   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
@@ -2041,11 +2089,13 @@ subroutine do_mrpt2()
                      & recommended'
   write(iout,'(A)') 'to be performed before PT2, unless it is too time-consuming.'
  end if
- write(iout,'(A)') TRIM(string)
 
- write(iout,'(A)') 'Frozen_core = F'
+ write(iout,'(A)') TRIM(string)
+ write(iout,'(A)',advance='no') 'Frozen_core = F, '
 
  if(nevpt2) then
+  write(iout,'(A)') 'NEVPT2 using program '//TRIM(nevpt2_prog)
+
   i = system('bas_fch2py '//TRIM(casnofch))
   i = index(casnofch, '.fch')
   inpname = casnofch(1:i-1)//'.py'
@@ -2057,26 +2107,54 @@ subroutine do_mrpt2()
   i = system('python '//TRIM(pyname)//" >& "//TRIM(outname))
 
  else if(caspt2) then ! CASPT2
-  call check_exe_exist(molcas_path)
-  i = system('fch2inporb '//TRIM(casnofch)//' -no') ! generate .input and .INPORB
-  i = index(casnofch, '.fch', back=.true.)
-  pyname = casnofch(1:i-1)//'.input'
-  outname = casnofch(1:i-1)//'.INPORB'
-  i = index(casnofch, '_NO', back=.true.)
-  inpname = casnofch(1:i-1)//'_CASPT2.input'
-  inporb = casnofch(1:i-1)//'_CASPT2.INPORB'
-  i = RENAME(pyname, inpname)
-  i = RENAME(outname, inporb)
+  write(iout,'(A)') 'CASPT2 using program '//TRIM(caspt2_prog)
 
-  i = index(casnofch, '_NO', back=.true.)
-  outname = casnofch(1:i-1)//'_CASPT2.out'
-  call prt_caspt2_script_into_input(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  select case(TRIM(caspt2_prog))
+  case('openmolcas')
+   call check_exe_exist(molcas_path)
+   i = system('fch2inporb '//TRIM(casnofch)//' -no') ! generate .input and .INPORB
+   i = index(casnofch, '.fch', back=.true.)
+   pyname = casnofch(1:i-1)//'.input'
+   outname = casnofch(1:i-1)//'.INPORB'
+   i = index(casnofch, '_NO', back=.true.)
+   inpname = casnofch(1:i-1)//'_CASPT2.input'
+   inporb = casnofch(1:i-1)//'_CASPT2.INPORB'
+   i = RENAME(pyname, inpname)
+   i = RENAME(outname, inporb)
+ 
+   i = index(casnofch, '_NO', back=.true.)
+   outname = casnofch(1:i-1)//'_CASPT2.out'
+   call prt_caspt2_molcas_inp(inpname)
+   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
 
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+  case('molpro')
+   call check_exe_exist(molpro_path)
+
+   i = system('fch2com '//TRIM(casnofch))
+   i = index(casnofch, '.fch', back=.true.)
+   pyname = casnofch(1:i-1)//'.com'
+   string = casnofch
+   call convert2molpro_fname(string, '.a')
+   i = index(casnofch, '_NO', back=.true.)
+   inpname = casnofch(1:i-1)//'_CASPT2.com'
+   outname = casnofch(1:i-1)//'_CASPT2.out'
+   inporb = inpname
+   call convert2molpro_fname(inporb, '.a')
+   i = RENAME(TRIM(pyname), TRIM(inpname))
+   i = RENAME(TRIM(string), TRIM(inporb))
+
+   call prt_caspt2_molpro_inp(inpname)
+   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem0, &
+                            'M '//TRIM(inpname)
+   i = system(TRIM(string))
+  end select
 
  else ! CASSCF-MRMP2
+  write(iout,'(A)') 'MRMP2 using program gamess'
   call check_gms_path()
+
   i = system('fch2inp '//TRIM(casnofch))
   i = index(casnofch, '.fch')
   pyname = casnofch(1:i-1)//'.inp'
@@ -2100,8 +2178,6 @@ subroutine do_mrpt2()
    write(iout,'(A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
   else if(caspt2) then
    write(iout,'(A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
-!  else
-!   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: MRMP2 computation failed.'
   end if
   write(iout,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
@@ -2110,7 +2186,12 @@ subroutine do_mrpt2()
  if(nevpt2) then      ! read NEVPT2 correlation energy
   call read_mrpt2_energy_from_pyscf_out(outname, e)
  else if(caspt2) then ! read CASPT2 total energy
-  call read_mrpt2_energy_from_molcas_out(outname, e)
+  select case(TRIM(caspt2_prog))
+  case('openmolcas')
+   call read_mrpt2_energy_from_molcas_out(outname, e)
+  case('molpro')
+   call read_caspt_energy_from_molpro_out(outname, 2, e)
+  end select
  else                 ! read MRMP2 total energy
   call read_mrpt2_energy_from_gms_gms(outname, e)
  end if
@@ -2262,7 +2343,8 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(chkname), TRIM(mklname))
 
   call prt_mrcisd_molpro_inp(inpname)
-  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem*125,'M '//TRIM(inpname)
+  i = CEILING(DBLE(mem*125)/DBLE(nproc))
+  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,'M '//TRIM(inpname)
   i = system(TRIM(string))
  end select
 

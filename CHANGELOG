@@ -1,5 +1,6 @@
-MOKIT 1.2.1 (2020-12-14)
+MOKIT 1.2.1 (2020-12-15)
 ------------------------
+* add interfaces for Molpro CASPT2(RS2C) and MRCISD(MRCIC)
 * add utility xml2fch (Molpro -> Gaussian)
 * read more digits of NOONs in some cases
 * add interface for Molpro CASSCF
