@@ -104,7 +104,6 @@ subroutine read_nbf_from_dat(datname, nbf)
  integer :: i, j, fid
  integer, intent(out) :: nbf
  integer, parameter :: iout = 6
- real(kind=8) :: a(5)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
@@ -124,7 +123,8 @@ subroutine read_nbf_from_dat(datname, nbf)
 
  j = 0
  do while(.true.)
-  read(fid,*) i
+  read(fid,'(A)') buf
+  read(buf(1:2),*) i
   if(i == 2) exit
   j = j + 1
  end do ! for while

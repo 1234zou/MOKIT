@@ -61,8 +61,8 @@ subroutine stype2itype(stype, itype)
  return
 end subroutine stype2itype
 
-! check whether there exists DKH keywords in a given .inp file
-subroutine check_DKH_in_inp(inpname, order)
+! check whether there exists DKH keywords in a given GAMESS .inp file
+subroutine check_DKH_in_gms_inp(inpname, order)
  implicit none
  integer :: i, k, fid
  integer, intent(out) :: order
@@ -94,10 +94,10 @@ subroutine check_DKH_in_inp(inpname, order)
   return
  else
   if(index(longbuf,'RELWFN=DK') == 0) then
-   write(iout,'(A)') 'Warning in subroutine check_DKH_in_inp: unsupported&
+   write(iout,'(A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported&
                     & relativistic method detected.'
-   write(iout,'(A)') 'Molcas/OpenMolcas does not support RELWFN=LUT-IOTC, IOTC,&
-                    & RESC, or NESC. Only RELWFN=DK is supported.'
+   write(iout,'(A)') '(Open)Molcas does not support RELWFN=LUT-IOTC, IOTC,&
+                    & RESC, or NESC in GAMESS. Only RELWFN=DK is supported.'
    write(iout,'(A)') 'The MO transferring will still be proceeded. But the result&
                     & may be non-sense.'
   end if
@@ -121,7 +121,7 @@ subroutine check_DKH_in_inp(inpname, order)
  end if
 
  return
-end subroutine check_DKH_in_inp
+end subroutine check_DKH_in_gms_inp
 
 ! convert a filename into which molpro requires, i.e.
 ! length <32 and in lowercase
@@ -146,4 +146,152 @@ subroutine convert2molpro_fname(fname, suffix)
  call lower(fname(1:32))
  return
 end subroutine convert2molpro_fname
+
+! add DKH2 related keywords into a given GAMESS .inp file,
+! and switch the default SOSCF into DIIS
+subroutine add_DKH2_into_gms_inp(inpname)
+ implicit none
+ integer :: i, k, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.tmp'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ do i = 1, 3
+  read(fid1,'(A)') buf
+
+  if(index(buf, 'RELWFN=DK') /= 0) then
+   close(fid1)
+   close(fid2,status='delete')
+   return
+  end if
+
+  k = index(buf,'$END')
+  if(k /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for i
+
+ write(fid2,'(A)') buf(1:k-1)//' RELWFN=DK $END'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  k = index(buf,'$END')
+  if(k /= 0) exit
+  if(index(buf,'$DATA') /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(k == 0) then
+  write(fid2,'(A)') '$SCF DIRSCF=.TRUE. DIIS=.T. SOSCF=.F. $END'
+ else
+  write(fid2,'(A)') buf(1:k-1)//' DIIS=.T. SOSCF=.F. $END'
+ end if
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine add_DKH2_into_gms_inp
+
+! add DKH2 keyword into a given Gaussian .fch(k) file
+subroutine add_DKH2_into_fch(fchname)
+ implicit none
+ integer :: i, j, k, nline, nterm, fid, fid1, RENAME
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+ character(len=1200) :: longbuf, longbuf1
+ logical :: no_route, alive(3)
+
+ buf = ' '
+ fchname1 = ' '
+ longbuf = ' '
+ nterm = 0
+ i = index(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.tmp'
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ no_route = .false.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'Charge') then
+   no_route = .true.
+   exit
+  end if
+
+  if(buf(1:5) == 'Route') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(no_route) then
+  write(fid1,'(A5,38X,A)') 'Route','C   N=           3'
+  write(fid1,'(A)') '#p int(nobasistransform,DKH2) nosymm'
+ else
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k)  file.'
+   write(iout,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
+   close(fid)
+   close(fid1,status='delete')
+   stop
+  else
+   k = index(buf, '='); read(buf(k+1:),*) nterm
+   do while(.true.)
+    read(fid,'(A)',iostat=i) buf
+    if(i /= 0) exit
+    if(buf(1:6) == 'Charge') exit
+    longbuf = TRIM(longbuf)//TRIM(buf)
+   end do ! for while
+
+   if(i /= 0) then
+    write(iout,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k) file.'
+    write(iout,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
+    close(fid)
+    close(fid1,status='delete')
+    stop
+   else
+    longbuf1 = longbuf
+    call upper(longbuf1)
+    alive = [(index(longbuf1,'DKH2')/=0),(index(longbuf1,'DOUGLASKROLLHESS')/=0),&
+             (index(longbuf1,'DKH')/=0 .and. index(longbuf1,'DKH4')==0 .and. &
+              index(longbuf1,'NODKH')==0 .and. index(longbuf1,'DKHSO')==0)]
+    if(ALL(alive .eqv. .false.)) then
+     nterm = nterm + 1
+     longbuf = TRIM(longbuf)//' int=DKH2'
+    end if
+    write(fid1,'(A5,38X,A,I2)') 'Route','C   N=          ', nterm
+    k = LEN_TRIM(longbuf)
+    nline = k/60
+    if(k-60*nline > 0) nline = nline + 1
+    do i = 1, nline, 1
+     j = min(60*i,k)
+     write(fid1,'(A)') longbuf(60*i-59:j)
+    end do ! for i
+   end if
+  end if
+ end if
+
+ ! copy remaining content
+ BACKSPACE(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+ return
+end subroutine add_DKH2_into_fch
 

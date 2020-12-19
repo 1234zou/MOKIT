@@ -2,6 +2,7 @@
 ! updated by jxzou at 20200805: add background point charges related subroutines
 ! updated by jxzou at 20200807: add formchk, unfchk, orca_2mkl wrappers
 ! updated by jxzou at 20201211: add Molpro interfaces
+! updated by jxzou at 20201218: add 'back = .true.' for detecting GAUSS_EXEDIR
 
 ! file unit of printing
 module print_id
@@ -594,6 +595,7 @@ contains
     call copy_file(hf_fch, buf, .false.)
     hf_fch = buf
    end if
+   if(dkh2_or_x2c) call add_DKH2_into_fch(hf_fch)
   end if
 
   select case(ist)
@@ -1223,7 +1225,7 @@ subroutine get_gau_path(gau_path)
  gau_path = """"//TRIM(gau_path)//'\g'//gau_path(i+2:i+3)//".exe"""
 
 #else
- i = index(gau_path, ':')
+ i = index(gau_path, ':', back=.true.)
  if(i == 0) then
   write(iout,'(A)') "ERROR in subroutine get_gau_path: no ':' symbol found in&
                   & gau_path="//TRIM(gau_path)

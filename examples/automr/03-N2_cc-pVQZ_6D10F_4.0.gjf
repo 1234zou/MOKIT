@@ -7,3 +7,5 @@ mokit{readuhf='N2_cc-pVQZ_6D10F_4.0_uhf.fchk',ist=1,cart}
 # This example shows you how to read MOs from a given UHF .fch(k) file.
 # Why this is useful? Because sometimes there exist multiple UHF solutions,
 # you need to find the lowest UHF solution and provide that .fch(k) file.
+#
+# To run this example, you need to install PySCF and GAMESS

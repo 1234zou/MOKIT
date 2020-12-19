@@ -309,10 +309,12 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
+ write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128) nosymm '
+
  if(DKH2) then
-  write(fid,'(A)',advance='no') '#p nosymm int(nobasistransform,DKH2) '
+  write(fid,'(A)',advance='no') 'int(nobasistransform,DKH2) '
  else
-  write(fid,'(A)',advance='no') '#p nosymm int=nobasistransform '
+  write(fid,'(A)',advance='no') 'int=nobasistransform '
  end if
 
  if(mult == 1) then ! singlet
@@ -347,12 +349,14 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
  ! Gaussian default    : Gaussian function distribution
  ! Gaussian iop(3/93=1): point nuclei charge distribution
  ! GAMESS default      : point nuclei charge distribution
+ ! I found that if iop(3/93=1) is used initially, SCF sometimes converges slowly,
+ ! so I use a --Link1-- to add iop(3/93=1) later
  if(DKH2) then
   write(fid,'(/,A)') '--Link1--'
   write(fid,'(A)') '%chk='//TRIM(chkname)
   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
-  write(fid,'(A)',advance='no') '#p'
+  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128)'
   if(uhf) then
    write(fid,'(A)',advance='no') ' UHF stable=opt'
   else
@@ -571,53 +575,6 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  close(fid)
  return
 end subroutine read_grad_from_orca_out
-
-! add DKH2 related keywords into a given GAMESS .inp file,
-! and switch the default SOSCF into DIIS
-subroutine add_DKH2_into_gms_inp_file(inpname)
- implicit none
- integer :: i, k, fid1, fid2, RENAME
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.tmp'
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(inpname1),status='replace')
-
- do i = 1, 3
-  read(fid1,'(A)') buf
-  k = index(buf,'$END')
-  if(k /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for i
-
- write(fid2,'(A)') buf(1:k-1)//' RELWFN=DK $END'
-
- do while(.true.)
-  read(fid1,'(A)') buf
-  k = index(buf,'$END')
-  if(k /= 0) exit
-  if(index(buf,'$DATA') /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- if(k == 0) then
-  write(fid2,'(A)') '$SCF DIRSCF=.TRUE. DIIS=.T. SOSCF=.F. $END'
- else
-  write(fid2,'(A)') buf(1:k-1)//' DIIS=.T. SOSCF=.F. $END'
- end if
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- close(fid1,status='delete')
- close(fid2)
- i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine add_DKH2_into_gms_inp_file
 
 ! detect the number of columns of data in a string buf
 function detect_ncol_in_buf(buf) result(ncol)

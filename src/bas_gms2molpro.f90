@@ -243,6 +243,16 @@ subroutine bas_gms2molpro(fort7, spherical)
  end if
 
  write(fid2,'(A)') '}'
+
+ call check_DKH_in_gms_inp(fort7, rel)
+ if(rel>-1 .and. rel<2) then
+  write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not supported.'
+  write(iout,'(A)') 'Please use DKH2 at least.'
+  stop
+ else
+  write(fid2,'(A,I0)') 'SET,DKHO=', rel
+ end if
+
  write(fid2,'(2(A,I0))') 'wf,charge=',charge,',spin=',mult-1
  write(fid2,'(A)') '{matrop;'
  write(fid2,'(A)') 'read,mo,ORB,file='//TRIM(orbfile)//';'

@@ -298,7 +298,7 @@ subroutine bas_gms2molcas(fort7, spherical)
  end if
 
  write(fid2,'(/,A)') "&SEWARD"
- call check_DKH_in_inp(fort7, rel)
+ call check_DKH_in_gms_inp(fort7, rel)
  if(rel > -1) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
 ! if(rel > -1) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
 

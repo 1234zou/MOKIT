@@ -19,10 +19,11 @@ program main
  end if
 
  call getarg(1, fname)
- if(TRIM(fname)=='-V' .or. TRIM(fname)=='--version') then
-  write(iout,'(A)') 'AutoMR 1.2.1 :: MOKIT'
+ select case(TRIM(fname))
+ case('-v', '-V', '--version')
+  write(iout,'(A)') 'AutoMR 1.2.2 :: MOKIT'
   stop
- end if
+ end select
 
  i = index(fname, '.gjf', back=.true.)
  j = index(fname, '.fch', back=.true.)
@@ -1501,7 +1502,7 @@ end subroutine prt_mcpdft_molcas_inp
 subroutine do_gvb()
  use print_id, only: iout
  use mr_keyword, only: nproc, gms_path, gms_scr_path, mo_rhf, ist, hf_fch, gvb,&
-  datname, npair_wish, bgchg, chgname, cart, dkh2_or_x2c, check_gms_path
+  datname, npair_wish, bgchg, chgname, cart, check_gms_path
  use mol, only: nbf, nif, ndb, nopen, npair, lin_dep, gvb_e, nacto, nacta, &
                 nactb, nacte, npair0
  implicit none
@@ -1543,7 +1544,7 @@ subroutine do_gvb()
 
   if(npair_wish>0 .and. npair_wish/=npair) then
    write(iout,'(2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but&
-    & user specifies GVB(',npair_wish,'). Trying to fulfill...'
+    & user specifies GVB(',npair_wish,'). Try to fulfill...'
    if(npair_wish < npair) then
     ndb = ndb + npair - npair_wish
     npair = npair_wish
