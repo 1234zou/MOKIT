@@ -216,7 +216,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '                    Author: jxzou'
-  write(iout,'(A)') '                   Version: 1.2.1'
+  write(iout,'(A)') '                   Version: 1.2.2'
   write(iout,'(A)') '         (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -469,7 +469,7 @@ contains
   ! now all keywords are stored in longbuf
 
   longbuf = ADJUSTL(longbuf)
-  write(iout,'(/,A)') 'The keywords in MOKIT{} are merged and shown as follows:'
+  write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
   alive1(1:4) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
@@ -519,7 +519,7 @@ contains
     cart = .true.
    case('dkh2')
     DKH2 = .true.
-   case('X2C')
+   case('x2c')
     X2C = .true.
    case('localm')    ! localization method
     read(longbuf(j+1:i-1),*) localm
@@ -595,7 +595,38 @@ contains
     call copy_file(hf_fch, buf, .false.)
     hf_fch = buf
    end if
-   if(dkh2_or_x2c) call add_DKH2_into_fch(hf_fch)
+
+   if(DKH2) then
+    call add_DKH2_into_fch(hf_fch)
+   else if(X2C) then
+    call add_X2C_into_fch(hf_fch)
+   else
+    call check_X2C_in_fch(hf_fch, alive(1))
+    if(alive(1)) then
+     write(iout,'(/,A)') '-------------------------------------------------------'
+     write(iout,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword&
+                      & detected in file"
+     write(iout,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}.&
+                      & If you do"
+     write(iout,'(A)') 'not want to perform X2C computations, please kill this job&
+                      & immediately'
+     write(iout,'(A)') "and delete 'X2C' in .fch."
+     write(iout,'(A)') '-------------------------------------------------------'
+    end if
+
+    call check_DKH_in_fch(hf_fch, i)
+    if(i /= -2) then
+     write(iout,'(/,A)') '-------------------------------------------------------'
+     write(iout,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
+                      & detected in file'
+     write(iout,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}.&
+                      & If you do"
+     write(iout,'(A)') 'not want to perform DKH2 computations, please kill this job&
+                      & immediately'
+     write(iout,'(A)') 'and delete DKH related keywords in .fch.'
+     write(iout,'(A)') '-------------------------------------------------------'
+    end if
+   end if
   end if
 
   select case(ist)

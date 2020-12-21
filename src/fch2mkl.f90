@@ -5,6 +5,7 @@
 ! updated by jxzou at 20200622: fix the bug in F, G, H (some multiply by -1); add 1 more digit for MOs
 ! updated by jxzou at 20200802: add $CHARGES section to .mkl file
 ! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
+! updated by jxzou at 20201221: add 'DelGTO' for elements Rb~Rn
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -267,6 +268,7 @@ subroutine fch2mkl(fchname, uhf)
   if(m == 1) then
    if(i == 1) then
     write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//'(1)', coor(:,1)
+    if(ielem(1)>36 .and. ielem(1)<87) write(fid2,'(2X,A)') 'DelECP'
     write(fid2,'(2X,A)') 'NewGTO'
    end if
 
@@ -296,6 +298,7 @@ subroutine fch2mkl(fchname, uhf)
 
     ! print coordinates of the current atom
     write(fid2,'(1X,A,I0,A1,3(1X,F16.8))') TRIM(elem(m))//'(',m,')',coor(:,m)
+    if(ielem(m)>36 .and. ielem(m)<87) write(fid2,'(2X,A)') 'DelECP'
     write(fid2,'(2X,A)') 'NewGTO'
    end if
   end if

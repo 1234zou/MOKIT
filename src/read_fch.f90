@@ -462,17 +462,12 @@ subroutine check_DKH_in_fch(fchname, order)
  end do ! for i
  close(fid)
 
- n = LEN_TRIM(longbuf)
- do i = 1, n, 1
-  k = IACHAR(longbuf(i:i))
-  if(k>64 .and. k<91) then ! 'A'-'Z'
-   longbuf(i:i) = ACHAR(k+32) ! 'a'-'z'
-  end if
- end do ! for i
+ call upper(longbuf)
 
- alive = [(index(longbuf,'dkh0')/=0), (index(longbuf,'dkhso')/=0), &
-          (index(longbuf,'dkh')/=0), (index(longbuf,'dkh2')/=0), &
-          (index(longbuf,'douglaskrollhess')/=0), (index(longbuf,'resc')/=0)]
+ alive = [(index(longbuf,'DKH0')/=0), (index(longbuf,'DKHSO')/=0), &
+          (index(longbuf,'DKH')/=0 .and. index(longbuf,'NODKH')==0), &
+          (index(longbuf,'DKH2')/=0), &
+          (index(longbuf,'DOUGLASKROLLHESS')/=0), (index(longbuf,'RESC')/=0)]
 
  if(alive(1)) then      ! DKH 0th order
   order = 0
@@ -488,4 +483,48 @@ subroutine check_DKH_in_fch(fchname, order)
 
  return
 end subroutine check_DKH_in_fch
+
+! check whether there exists X2C keyword in a given .fch(k) file
+! Note: normally the 'X2C' keyword is not possbible to be written in the
+!  Gaussian .fch(k) file. This is merely because automr will write X2C into
+!  the .fch(k) file.
+subroutine check_X2C_in_fch(fchname, alive)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ character(len=61) :: buf
+ character(len=240), intent(in) :: fchname
+ character(len=610) :: longbuf
+ logical, intent(out) :: alive
+
+ alive = .false. ! default value
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5)=='Route' .or. buf(1:6)=='Charge') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine check_X2C_in_fch: neither 'Route'&
+                   & not 'Charge' is found in file "//TRIM(fchname)//'.'
+  stop
+ end if
+
+ if(buf(1:5)=='Route') then
+  longbuf = ' '
+  do i = 1, 5
+   read(fid,'(A)') buf
+   if(buf(1:6) == 'Charge') exit
+   longbuf = TRIM(longbuf)//TRIM(buf)
+  end do ! for i
+
+  call upper(longbuf)
+  if(index(longbuf,'X2C') /= 0) alive = .true.
+ end if
+
+ close(fid)
+ return
+end subroutine check_X2C_in_fch
 

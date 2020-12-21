@@ -100,7 +100,7 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ecp, sph
+ logical :: uhf, ecp, sph, X2C
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -111,10 +111,14 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  end if
  inpname = fchname(1:i-1)//'.inp'
 
+ X2C = .false. ! default
  call check_DKH_in_fch(fchname, rel)
  if(rel == 4) then
   write(iout,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
   write(iout,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
+ else if(rel == -2) then
+  call check_X2C_in_fch(fchname, X2C)
+  if(X2C) rel = 2 ! mimic X2C as DKH2
  end if
 
  uhf = .false.
@@ -161,7 +165,7 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif,&
-                            nbf, gvb_or_uhf, ecp, sph, rel)
+                            nbf, gvb_or_uhf, ecp, sph, rel, X2C)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! print basis sets into the .inp file
@@ -364,7 +368,7 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ecp, sph, rel)
+           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C)
  implicit none
  integer :: fid, i, ia
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel
@@ -373,7 +377,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: ecp, sph
+ logical, intent(in) :: ecp, sph, X2C
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -404,11 +408,14 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(A)',advance='no') ' RELWFN=DK'
  end if
 
- if(sph) then
-  write(fid,'(A)') ' ISPHER=1 $END'
+ if(sph) write(fid,'(A)',advance='no') ' ISPHER=1'
+
+ if(X2C) then
+  write(fid,'(A)') ' $END X2C'
  else
   write(fid,'(A)') ' $END'
  end if
+
  write(fid,'(A)') ' $SYSTEM MWORDS=500 $END'
 
  if(rel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th

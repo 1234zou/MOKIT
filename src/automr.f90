@@ -14,7 +14,7 @@ program main
  i = iargc()
  if(i /= 1) then
   write(iout,'(/,A)') ' ERROR in subroutine automr: wrong command line argument!'
-  write(iout,'(A,/)') ' Example: automr a.gjf'
+  write(iout,'(A,/)') " Example: automr a.gjf >& a.out &"
   stop
  end if
 
@@ -863,7 +863,6 @@ end subroutine prt_cas_gms_inp
 subroutine prt_cas_molcas_inp(inpname, scf)
  use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: DKH2, X2C
  implicit none
  integer :: i, fid1, fid2, RENAME
  logical, intent(in) :: scf
@@ -884,12 +883,6 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   write(iout,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD'&
                    & found in file "//TRIM(inpname)
   stop
- end if
-
- if(X2C) then
-  write(fid2,'(A)') ' RX2C'
- else if(DKH2) then
-  write(fid2,'(A)') ' Relativistic = R02O'
  end if
 
  do while(.true.)
@@ -1101,7 +1094,6 @@ end subroutine prt_nevpt2_script_into_py
 subroutine prt_caspt2_molcas_inp(inputname)
  use print_id, only: iout
  use mol, only: nacte, nacto, charge, mult
- use mr_keyword, only: DKH2, X2C
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inputname1
@@ -1123,21 +1115,15 @@ subroutine prt_caspt2_molcas_inp(inputname)
   stop
  end if
 
- if(DKH2) then
-  write(fid2,'(A)') ' Relativistic = R02O'
- else if(X2C) then
-  write(fid2,'(A)') ' RX2C'
- end if
-
- write(fid2,'(/,A)') "&RASSCF"
-
  do while(.true.)
   read(fid1,'(A)') buf
   if(LEN_TRIM(buf) == 0) exit
+  if(buf(1:4) == "&SCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
  close(fid1,status='delete')
 
+ write(fid2,'(/,A)') "&RASSCF"
  write(fid2,'(A,I0)') 'Charge = ', charge
  write(fid2,'(A,I0)') 'Spin = ', mult
  write(fid2,'(A,I0,A)') 'nActEl= ', nacte, ' 0 0'
@@ -1260,7 +1246,7 @@ end subroutine prt_mrmp2_gms_inp
 subroutine prt_mrcisd_molcas_inp(inpname)
  use print_id, only: iout
  use mol, only: nif, ndb, nopen, nacta, nactb, npair, npair0, charge, mult
- use mr_keyword, only: CtrType, DKH2, X2C
+ use mr_keyword, only: CtrType
  implicit none
  integer :: i, idx, nvir, ne, fid
  character(len=240), intent(in) :: inpname
@@ -1274,15 +1260,10 @@ subroutine prt_mrcisd_molcas_inp(inpname)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(2:7) == 'SEWARD') exit
+  if(buf(1:4)=="&SCF" .or. buf(1:7)=="&RASSCF") exit
  end do ! for while
 
- if(DKH2) then
-  write(fid,'(A)') ' Relativistic = R02O'
- else if(X2C) then
-  write(fid,'(A)') ' RX2C'
- end if
-
+ BACKSPACE(fid)
  write(fid,'(/,A)') "&RASSCF"
  write(fid,'(A,I0)') 'Charge = ', charge
  write(fid,'(A,I0)') 'Spin = ', mult
@@ -1437,7 +1418,7 @@ end subroutine prt_mrcisd_molpro_inp
 subroutine prt_mcpdft_molcas_inp(inpname)
  use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2, X2C
+ use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -1465,11 +1446,7 @@ subroutine prt_mcpdft_molcas_inp(inpname)
  write(fid2,'(A)') ' Grid input'
  write(fid2,'(A)') '  grid=ultrafine'
  write(fid2,'(A)') ' End of grid input'
- if(DKH2) then
-  write(fid2,'(A)') ' Relativistic = R02O'
- else if(X2C) then
-  write(fid2,'(A)') ' RX2C'
- end if
+ if(DKH2) write(fid2,'(A)') ' Relativistic = R02O'
 
  write(fid2,'(/,A)') "&RASSCF"
  write(fid2,'(A,I0)') 'Spin = ', mult
@@ -1579,6 +1556,10 @@ subroutine do_gvb()
 
  ! move the .dat file into current directory
  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine do_gvb: fail to move file. Possibly wrong gms_scr_path.'
+  stop
+ end if
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  if(cart) then ! Cartesian functions
@@ -1597,6 +1578,11 @@ subroutine do_gvb()
  write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
                              npair, ' -open ', nopen
  i = system(TRIM(longbuf))
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
+  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  stop
+ end if
 
  ! extract NOONs from the above .dat file and print them into .fch file
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&

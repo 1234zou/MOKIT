@@ -138,13 +138,15 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  close(datid)
 
  ! check the pair coefficients: if ABS(2nd NO) > ABS(1st NO), swap them
+ allocate(tmp_coeff1(2), source=0d0)
+ allocate(tmp_coeff2(nbf), source=0d0)
  do i = 1, npair, 1
-  tmp_coeff1 = DABS(pair_coeff(:,i)) ! auto-allocation
+  tmp_coeff1 = DABS(pair_coeff(:,i))
   if(tmp_coeff1(1) < tmp_coeff1(2)) then
    pair_coeff(1,i) = tmp_coeff1(2)
    pair_coeff(2,i) = -tmp_coeff1(1)
    k = nocc + nopen + 2*i - 1
-   tmp_coeff2 = mo_coeff(:,k) ! auto-allocation
+   tmp_coeff2 = mo_coeff(:,k)
    mo_coeff(:,k) = mo_coeff(:,k+1)
    mo_coeff(:,k+1) = tmp_coeff2
   end if

@@ -62,7 +62,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=240) :: orbfile, orbfile2 ! Molpro MOs, plain text file
  character(len=1) :: stype0, stype
  logical, intent(in) :: spherical
- logical :: bohrs, uhf
+ logical :: bohrs, uhf, X2C
 
  ! initialization
  buf = ' '
@@ -250,7 +250,12 @@ subroutine bas_gms2molpro(fort7, spherical)
   write(iout,'(A)') 'Please use DKH2 at least.'
   stop
  else
-  write(fid2,'(A,I0)') 'SET,DKHO=', rel
+  call check_X2C_in_gms_inp(fort7, X2C)
+  if(X2C) then
+   write(fid2,'(A)') 'SET,DKHO=101'
+  else
+   write(fid2,'(A,I0)') 'SET,DKHO=', rel
+  end if
  end if
 
  write(fid2,'(2(A,I0))') 'wf,charge=',charge,',spin=',mult-1

@@ -1,3 +1,4 @@
+*[简体中文](README_zh-CN.md)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
@@ -29,13 +30,13 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-12-19
+2020-12-21
 
 Installation
 ------------
 
 * Prerequisites
-    - ifort (>=2015, recommended) or gfortran (>=4.8.5 and <8.0)
+    - Fortran compiler: ifort(>=2015) or gfortran(>=4.8.5 and <8.0)
     - Intel MKL (installing Intel compilers recommended)
     - f2py (installing Anaconda Python3 recommended)
 
@@ -58,6 +59,12 @@ Installation
         export ORCA=/opt/orca-4.2.1/orca
         export GMS=/home/$USER/software/gamess/rungms
 
+  (Remember to modify the `ORCA` and `GMS` paths to suit your local environment)
+
+* The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can
+  do hundreds of pairs. To go beyond 12 pairs, please use the script src/modify_GMS1.sh
+  and file src/modify_GMS2.f90 to automatically modify the GAMESS code.
+
 Quick Start
 -----------
 * Each utility is self-explanatory. For example, run `fch2inp` in Shell,
@@ -69,7 +76,7 @@ Quick Start
    Example 3 (GVB)        : fch2inp a.fch -gvb [npair]  
    Example 4 (ROGVB)      : fch2inp a.fch -gvb [npair] -open [nopen]
 
-* For usages of modules in lib/, see examples/
+* For usages of modules in lib/, see examples/utilities/readme.txt
 
 * The input syntax of the automr program is like Gaussian gjf. For example, the input
   file '00-h2o_cc-pVDZ_1.5.gjf' of the water molecule at d(O-H) = 1.5 A is shown below
@@ -103,6 +110,8 @@ Bug Report
   with your .fch(k) file and output files attached. The author may not answer or update code
   frequently since he is being postponed due to his PhD program.
 
+* You can also open an issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
+
 TODO
 ----
 * MOs trasferring among BAGEL, PSI4, NWCHEM, Dalton, etc.
@@ -121,7 +130,8 @@ Citation
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* Please read the doc/MOKIT_manual.pdf for details of citation.
+* Please read the doc/MOKIT_manual.pdf for details of citation. Your proper citation
+  would be a great encouragement to developer.
 
 Disclaimer
 ----------

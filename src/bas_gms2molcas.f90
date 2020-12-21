@@ -71,7 +71,7 @@ subroutine bas_gms2molcas(fort7, spherical)
  character(len=240) :: buf1, buf2, input ! input is the Molcas .input file
  character(len=1) :: stype0, stype
  logical, intent(in) :: spherical
- logical :: bohrs, uhf
+ logical :: bohrs, uhf, X2C
 
  ! initialization
  buf1 = ' '
@@ -297,10 +297,15 @@ subroutine bas_gms2molcas(fort7, spherical)
   stop
  end if
 
+ call check_X2C_in_gms_inp(fort7, X2C)
+ if(X2C) write(fid2,'(A)') 'RX2C'
  write(fid2,'(/,A)') "&SEWARD"
+
  call check_DKH_in_gms_inp(fort7, rel)
- if(rel > -1) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
-! if(rel > -1) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
+ if(rel>-1 .and. (.not.X2C)) then
+  write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
+  !write(fid2,'(A,I2.2,A)') 'R',rel,'O'
+ end if
 
  write(fid2,'(/,A)') "&SCF"
  if(uhf) write(fid2,'(A3)') 'UHF'

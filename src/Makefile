@@ -4,20 +4,20 @@
 BIN = ../bin
 
 # --- gfortran ---
-#F90    = gfortran
-#FFLAGS = -O2 -cpp -fbacktrace
-#MKL_FLAGS = -lmkl_rt
-#F2PY   = f2py
-#F2_FLAGS =
-#F2_MKL_FLAGS = --link-lapack_opt
+F90    = gfortran
+FFLAGS = -O2 -cpp -fbacktrace
+MKL_FLAGS = -lmkl_rt
+F2PY   = f2py
+F2_FLAGS =
+F2_MKL_FLAGS = --link-lapack_opt
 
 # --- ifort ----
-F90    = ifort
-FFLAGS = -O2 -fpp -traceback
-MKL_FLAGS = -mkl
-F2PY   = f2py
-F2_FLAGS = --fcompiler=intelem --compiler=intelem
-F2_MKL_FLAGS = --link-lapack_opt
+#F90    = ifort
+#FFLAGS = -O2 -fpp -traceback
+#MKL_FLAGS = -mkl
+#F2PY   = f2py
+#F2_FLAGS = --fcompiler=intelem --compiler=intelem
+#F2_MKL_FLAGS = --link-lapack_opt
 
 OBJ_add_bgcharge_to_inp = string_manipulate.o read_fch.o rwgeom.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
@@ -27,21 +27,21 @@ OBJ_bas_fch2py = util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gms2molcas = string_manipulate.o read_gms_inp.o bas_gms2molcas.o
 OBJ_bas_gms2molpro = string_manipulate.o read_fch.o rwgeom.o read_gms_inp.o bas_gms2molpro.o
 OBJ_bas_gms2py = string_manipulate.o bas_gms2py.o
-OBJ_dat2fch = read_fch.o rwwfn.o dat2fch.o
+OBJ_dat2fch = string_manipulate.o read_fch.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = extract_noon2fch.o
 OBJ_fch2com = rwwfn.o util_wrapper.o string_manipulate.o fch2com.o
-OBJ_fch2mkl = read_fch.o fch2mkl.o
-OBJ_fch2inp = read_fch.o fch2inp.o
+OBJ_fch2mkl = string_manipulate.o read_fch.o fch2mkl.o
+OBJ_fch2inp = string_manipulate.o read_fch.o fch2inp.o
 OBJ_fch2inporb = rwwfn.o util_wrapper.o fch2inporb.o
 OBJ_fch_u2r = fch_u2r.o
 OBJ_fch_mo_copy = rwwfn.o fch_mo_copy.o
-OBJ_frag_guess_wfn = read_fch.o rwgeom.o rwwfn.o string_manipulate.o mr_keyword.o frag_guess_wfn.o
+OBJ_frag_guess_wfn = string_manipulate.o read_fch.o rwgeom.o rwwfn.o mr_keyword.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = find_mc_pair.o
 OBJ_gvb_correct_pairs = rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_sort_pairs = gvb_sort_pairs.o
-OBJ_mkl2fch = rwwfn.o read_fch.o mkl2fch.o
+OBJ_mkl2fch = string_manipulate.o rwwfn.o read_fch.o mkl2fch.o
 OBJ_orb2fch = rwwfn.o orb2fch.o
 OBJ_xml2fch = rwwfn.o xml2fch.o
 OBJ_py2fch = py2fch.f90

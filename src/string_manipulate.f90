@@ -123,6 +123,29 @@ subroutine check_DKH_in_gms_inp(inpname, order)
  return
 end subroutine check_DKH_in_gms_inp
 
+! check whether X2C appears in a given GAMESS .inp file
+! Note: GAMESS does not support X2C, this is just for the utility bas_gms2molcas
+!  to recognize X2C and pass it into (Open)Molcas .input file
+subroutine check_X2C_in_gms_inp(inpname, X2C)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical, intent(out) :: X2C
+
+ X2C = .false. ! default
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do i = 1, 5
+  read(fid,'(A)') buf
+  if(index(buf,'X2C') /= 0) X2C = .true.
+  if(index(buf,'$END') /= 0) exit
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine check_X2C_in_gms_inp
+
 ! convert a filename into which molpro requires, i.e.
 ! length <32 and in lowercase
 subroutine convert2molpro_fname(fname, suffix)
@@ -294,4 +317,101 @@ subroutine add_DKH2_into_fch(fchname)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
  return
 end subroutine add_DKH2_into_fch
+
+! add X2C keyword into a given Gaussian .fch(k) file
+! Note: Obviously, Gaussian cannot use X2C. This is just for other utilities to
+!  recognize the X2C keyword, so that other utilities can add related keywords
+!  when generating input files of other programs
+subroutine add_X2C_into_fch(fchname)
+ implicit none
+ integer :: i, j, k, nline, nterm, fid, fid1, RENAME
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+ character(len=1200) :: longbuf, longbuf1
+ logical :: no_route
+
+ buf = ' '
+ fchname1 = ' '
+ longbuf = ' '
+ nterm = 0
+ i = index(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.tmp'
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ no_route = .false.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'Charge') then
+   no_route = .true.
+   exit
+  end if
+
+  if(buf(1:5) == 'Route') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(no_route) then
+  write(fid1,'(A5,38X,A)') 'Route','C   N=           3'
+  write(fid1,'(A)') '#p int(nobasistransform,X2C) nosymm'
+ else
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k)  file.'
+   write(iout,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
+   close(fid)
+   close(fid1,status='delete')
+   stop
+  else
+   k = index(buf, '='); read(buf(k+1:),*) nterm
+   do while(.true.)
+    read(fid,'(A)',iostat=i) buf
+    if(i /= 0) exit
+    if(buf(1:6) == 'Charge') exit
+    longbuf = TRIM(longbuf)//TRIM(buf)
+   end do ! for while
+
+   if(i /= 0) then
+    write(iout,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k) file.'
+    write(iout,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
+    close(fid)
+    close(fid1,status='delete')
+    stop
+   else
+    longbuf1 = longbuf
+    call upper(longbuf1)
+    j = index(longbuf1, 'DKH'); k = index(longbuf1, 'NODKH')
+    if(j/=0 .and. k==0) then
+     longbuf(j:j+2) = 'X2C'
+    else
+     nterm = nterm + 1
+     longbuf = TRIM(longbuf)//' int=X2C'
+    end if
+    write(fid1,'(A5,38X,A,I2)') 'Route','C   N=          ', nterm
+    k = LEN_TRIM(longbuf)
+    nline = k/60
+    if(k-60*nline > 0) nline = nline + 1
+    do i = 1, nline, 1
+     j = min(60*i,k)
+     write(fid1,'(A)') longbuf(60*i-59:j)
+    end do ! for i
+   end if
+  end if
+ end if
+
+ ! copy remaining content
+ BACKSPACE(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+ return
+end subroutine add_X2C_into_fch
 
