@@ -1906,15 +1906,16 @@ subroutine do_cas(scf)
   pyname = fchname
   call convert2molpro_fname(pyname, '.a')
   inpname = TRIM(proname)//'.com'
-  orbname = proname
+  orbname = TRIM(proname)//'.fch'
   call convert2molpro_fname(orbname, '.a')
   outname = TRIM(proname)//'.out'
   xmlname = TRIM(proname)//'.xml'
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(orbname))
   call prt_cas_molpro_inp(inpname, scf)
-  i = CEILING(DBLE(mem*125)/DBLE(nproc))
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
+  i = CEILING(DBLE(mem*125)/DBLE(nproc))
   write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,&
                            'M '//TRIM(inpname)
   i = system(TRIM(buf))

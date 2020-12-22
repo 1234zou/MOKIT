@@ -1220,6 +1220,7 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
   call read_cas_energy_from_orca_out(outname, e, scf)
  case('molpro')
   call read_cas_energy_from_molpro_out(outname, e, scf)
+  e = e + ptchg_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
                    & cannot be identified.'
@@ -1913,6 +1914,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   i = index(buf,':')
   read(buf(i+1:),*) davidson_e
   davidson_e = davidson_e - e
+  e = e + ptchg_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
                    & mrcisd_prog='//TRIM(mrcisd_prog)

@@ -793,14 +793,6 @@ contains
    stop
   end if
 
-  if(bgchg .and. (casci_prog=='molpro' .or. casscf_prog=='molpro' .or. &
-                  caspt2_prog=='molpro' .or. mrcisd_prog=='molpro')) then
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'Currently, background charges are incompatible with Molpro.'
-   write(iout,'(A)') 'This will be fixed in the next version of AutoMR.'
-   stop
-  end if
-
   select case(TRIM(casci_prog))
   case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
   case default

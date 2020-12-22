@@ -151,8 +151,14 @@ end subroutine check_X2C_in_gms_inp
 subroutine convert2molpro_fname(fname, suffix)
  implicit none
  integer :: i, len1, len2
+ integer, parameter :: iout = 6
  character(len=240), intent(inout) :: fname
  character(len=*), intent(in) :: suffix
+
+ if(LEN_TRIM(fname) == 0) then
+  write(iout,'(A)') 'ERROR in subroutine convert2molpro_fname: input fname is NULL.'
+  stop
+ end if
 
  if(fname(1:1) == ' ') fname = ADJUSTL(fname)
 

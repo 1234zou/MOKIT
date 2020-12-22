@@ -249,7 +249,7 @@ subroutine bas_gms2molpro(fort7, spherical)
   write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not supported.'
   write(iout,'(A)') 'Please use DKH2 at least.'
   stop
- else
+ else if(rel > 1) then ! at least DKH2
   call check_X2C_in_gms_inp(fort7, X2C)
   if(X2C) then
    write(fid2,'(A)') 'SET,DKHO=101'
