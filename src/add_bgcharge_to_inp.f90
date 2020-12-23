@@ -445,7 +445,7 @@ end subroutine add_bgcharge_to_molcas_input
 ! add background charges into a Molpro .input file
 subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  implicit none
- integer :: i, fid, fid1
+ integer :: i, fid, fid1, RENAME
  integer, intent(in) :: n
  integer, parameter :: iout = 6
  real(kind=8), intent(in) :: charge(4,n)

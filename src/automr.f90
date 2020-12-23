@@ -1,6 +1,7 @@
 ! written by jxzou at 20200420: black-box multireference calculations
 ! updated by jxzou at 20200511: framework of the program
 ! updated by jxzou at 20201213: %casscf+noiter -> %mrci for correct CASCI NOONs in ORCA
+! updated by jxzou at 20201222: import grad for CASSCF force in PySCF; read CASSCF force for Molpro
 
 ! The input file is just like Gaussian .gjf format. MOKIT keywords should be
 !  specified in the Title Card line like 'mokit{}'.
@@ -982,7 +983,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
 end subroutine prt_cas_orca_inp
 
 ! print CASCI/CASSCF keywords into a given Molpro input file
-subroutine prt_cas_molpro_inp(inpname, scf)
+subroutine prt_cas_molpro_inp(inpname, scf, force)
  use print_id, only: iout
  use mol, only: ndb, npair, npair0, nacto
  use mr_keyword, only: mem, nproc, dkh2_or_x2c
@@ -990,7 +991,7 @@ subroutine prt_cas_molpro_inp(inpname, scf)
  integer :: i, fid, nclosed, nocc
  character(len=240) :: buf, orbfile, put
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: scf
+ logical, intent(in) :: scf, force
 
  orbfile = inpname
  call convert2molpro_fname(orbfile, '.a')
@@ -1020,12 +1021,16 @@ subroutine prt_cas_molpro_inp(inpname, scf)
  nclosed = ndb + npair - npair0
  nocc = nclosed + nacto
 
+ ! Note: we need 'NoExtra' to completely close symmetry.
+ ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,'}'
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';NoExtra}'
  else
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';DONT,ORBITAL}'
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,&
+                           ';DONT,ORBITAL;NoExtra}'
  end if
 
+ if(force) write(fid,'(A)') 'Forces'
  write(fid,'(A)') TRIM(put)
  close(fid)
  return
@@ -1177,7 +1182,8 @@ subroutine prt_caspt2_molpro_inp(inpname)
  nclosed = ndb + npair - npair0
  nocc = nclosed + nacto
 
- write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';CANONICAL}'
+ write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,&
+                          ';CANONICAL;NoExtra}'
  write(fid,'(A)') TRIM(put)
  write(fid,'(A)') '{RS2C,IPEA=0.25;CORE}'
  close(fid)
@@ -1405,7 +1411,7 @@ subroutine prt_mrcisd_molpro_inp(inpname)
  integer :: i, fid
  character(len=240), intent(in) :: inpname
 
- call prt_cas_molpro_inp(inpname, .false.)
+ call prt_cas_molpro_inp(inpname, .false., .false.)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
  BACKSPACE(fid)
  write(fid,'(A)') '{MRCIC;CORE}'
@@ -1765,7 +1771,10 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(inpname))
   call prt_cas_script_into_py(inpname, fchname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(casscf_force) i = system("echo 'mc.Gradients().kernel()' >> "//TRIM(inpname))
+  if(casscf_force) then
+   i = system("echo 'from pyscf import grad' >> "//TRIM(inpname))
+   i = system("echo 'mc.Gradients().kernel()' >> "//TRIM(inpname))
+  end if
   j = index(inpname, '.py', back=.true.)
   outname = inpname(1:j-1)//'.out'
   i = system('python '//TRIM(inpname)//' >& '//TRIM(outname))
@@ -1912,7 +1921,7 @@ subroutine do_cas(scf)
   xmlname = TRIM(proname)//'.xml'
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(orbname))
-  call prt_cas_molpro_inp(inpname, scf)
+  call prt_cas_molpro_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
@@ -1981,8 +1990,7 @@ subroutine do_cas(scf)
   case('orca')
    call read_grad_from_orca_out(outname, natom, grad)
   case('molpro')
-   write(iout,'(A)') 'ERROR in subroutine do_cas: not supported currently.'
-   stop
+   call read_grad_from_molpro_out(outname, natom, grad)
   case default
    write(iout,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
    write(iout,'(A)') 'cas_prog='//TRIM(cas_prog)

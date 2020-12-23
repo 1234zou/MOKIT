@@ -1,6 +1,9 @@
-MOKIT 1.2.2 (2020-12-19)
+MOKIT 1.2.2 (2020-12-22)
 ------------------------
 * add DKH2 and X2C interfaces of Molpro
+* add background point charge interface of Molpro
+* add CASSCF force interface of Molpro
+* allow specification of active space (m,m) in dynamic correlation
 
 MOKIT 1.2.1 (2020-12-15)
 ------------------------

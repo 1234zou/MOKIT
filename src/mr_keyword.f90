@@ -230,6 +230,8 @@ contains
   call get_molpro_path()
   call getenv('GMS', gms_path)
   call getenv('ORCA', orca_path)
+  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
+  if(LEN_TRIM(orca_path) == 0) orca_path = 'NOT FOUND'
 
   write(iout,'(/,A)') 'Read program paths from environment variables:'
   write(iout,'(A)') 'gau_path    = '//TRIM(gau_path)
@@ -334,26 +336,35 @@ contains
   if(i /= 0) then
    method = method0(1:i-1)
 
-   if(index(method,'cas')/=0 .or. index(method,'dmrg')/=0) then ! e.g. CAS(6,6) is specified
+   select case(TRIM(method))
+   case('mcpdft','mrcisd','mrmp2','caspt2','nevpt2','casscf','dmrgscf','casci',&
+        'dmrgci')   ! e.g. CAS(6,6) is specified
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
      write(iout,'(A)') 'ERROR in subroutine parse_keyword: wrong number of active&
                       & electrons/orbitals specified.'
      write(iout,'(2(A,I0))') 'nacte/nacto=', nacte_wish, '/', nacto_wish
+     write(iout,'(A)') 'Currently only NactE = NactO > 0 such as (6,6) supported.'
      stop
     end if
-   else if(index(method,'gvb') /= 0) then ! e.g. GVB(6) is specified
+   case('gvb')   ! e.g. GVB(6) is specified
+    if(j /= 0) then
+     write(iout,'(A)') 'ERROR in subroutine parse_keyword: GVB active space should&
+                      & be specified like GVB(3),'
+     write(iout,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like CAS?'
+     stop
+    end if
     read(method0(i+1:k-1),*) npair_wish
     if(npair_wish < 1) then
      write(iout,'(A)') 'ERROR in subroutine parse_keyword: wrong number of pairs specified.'
      write(iout,'(A,I0)') 'npair_wish=', npair_wish
      stop
     end if
-   else                                   ! not CAS, GVB or DMRG
+   case default
     write(iout,'(A)') 'ERROR in subroutine parse_keyword: unsupported method '//TRIM(method)
     stop
-   end if
+   end select
   else ! i = 0
    method = TRIM(method0)
   end if

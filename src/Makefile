@@ -4,20 +4,20 @@
 BIN = ../bin
 
 # --- gfortran ---
-F90    = gfortran
-FFLAGS = -O2 -cpp -fbacktrace
-MKL_FLAGS = -lmkl_rt
-F2PY   = f2py
-F2_FLAGS =
-F2_MKL_FLAGS = --link-lapack_opt
+#F90    = gfortran
+#FFLAGS = -O2 -cpp -fbacktrace
+#MKL_FLAGS = -lmkl_rt
+#F2PY   = f2py
+#F2_FLAGS =
+#F2_MKL_FLAGS = --link-lapack_opt
 
 # --- ifort ----
-#F90    = ifort
-#FFLAGS = -O2 -fpp -traceback
-#MKL_FLAGS = -mkl
-#F2PY   = f2py
-#F2_FLAGS = --fcompiler=intelem --compiler=intelem
-#F2_MKL_FLAGS = --link-lapack_opt
+F90    = ifort
+FFLAGS = -O2 -fpp -traceback
+MKL_FLAGS = -mkl
+F2PY   = f2py
+F2_FLAGS = --fcompiler=intelem --compiler=intelem
+F2_MKL_FLAGS = --link-lapack_opt
 
 OBJ_add_bgcharge_to_inp = string_manipulate.o read_fch.o rwgeom.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o

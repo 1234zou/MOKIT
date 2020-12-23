@@ -576,6 +576,36 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  return
 end subroutine read_grad_from_orca_out
 
+! read Cartesian gradient from a given Molpro .out file
+subroutine read_grad_from_molpro_out(outname, natom, grad)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: grad(3*natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ grad = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(2:8) == 'MC GRAD') exit
+ end do ! for while
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+ end do
+
+ do i = 1, natom, 1
+  read(fid,*) k, grad(3*i-2:3*i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_grad_from_molpro_out
+
 ! detect the number of columns of data in a string buf
 function detect_ncol_in_buf(buf) result(ncol)
  implicit none

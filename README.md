@@ -1,4 +1,4 @@
-*[中文版说明请点击](README_zh.md)*
+*[中文版说明请点击README_zh.md](README_zh.md)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
