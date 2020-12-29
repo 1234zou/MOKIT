@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-12-22
+2020-12-29
 
 Installation
 ------------
@@ -130,12 +130,12 @@ Citation
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* Please read the [manual](doc/) for details of
-  citation. Your proper citation would be a great encouragement to developer.
+* Please read the [manual](doc/) for details of citation. Your proper citation
+  would be a great encouragement to developer.
 
 Disclaimer
 ----------
-Copyright (c) 2020 jxzou
+Copyright (c) 2021 jxzou
 
 All rights reserved.
 

@@ -133,6 +133,7 @@ module mr_keyword
  character(len=10) :: nevpt2_prog  = 'pyscf'
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
+ character(len=10) :: mcpdft_prog  = 'openmolcas'
  character(len=10) :: ic_mrcc_prog = ' '
 
  character(len=240) :: gau_path = ' '
@@ -376,6 +377,8 @@ contains
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
                      TRIM(method)//"' not supported."
+   write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
+                      DMRGSCF, NEVPT2, CASPT2, MRMP2, MRCISD, MCPDFT.'
    stop
   end select
 
@@ -542,7 +545,7 @@ contains
    case('cionly')    ! do CASPT2/NEVPT2 after CASCI, skip CASSCF
     CIonly = .true.
     casscf = .false.; casci = .true.
-    dmrgscf = .false.; dmrgci = .true.
+    dmrgscf = .false.; dmrgci = .false.
    case('no10cycle') ! skip 10 cycle HF
     tencycle = .false.
    case('maxm')
@@ -569,6 +572,8 @@ contains
     read(longbuf(j+1:i-1),*) mrmp2_prog
    case('mrcisd_prog')
     read(longbuf(j+1:i-1),*) mrcisd_prog
+   case('mcpdft_prog')
+    read(longbuf(j+1:i-1),*) mcpdft_prog
    case('ic_mrcc_prog')
     read(longbuf(j+1:i-1),*) ic_mrcc_prog
    case('force')
@@ -715,35 +720,37 @@ contains
   end if
 
   if(DKH2 .and. X2C) then
-   write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot be both activated."
+   write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
    stop
   end if
 
-  if(.not. dyn_corr) then
-   alive(1) = (casci_prog=='gaussian' .or. casci_prog=='gamess' .or. casci_prog=='orca')
-   alive(2) = (casscf_prog=='gaussian' .or. casscf_prog=='gamess' .or. casscf_prog=='orca')
-   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
-   if(X2C .and. alive(3)) then
-    write(iout,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
-                    & incompatible with X2C.'
-    stop
-   end if
-   alive(1) = (casci .and. casci_prog=='pyscf')
-   alive(2) = (casscf .and. casscf_prog=='pyscf')
-   alive(3) = (alive(1) .or. alive(2))
-   if(DKH2 .and. alive(3)) then
-    write(iout,'(A)') error_warn//'CASCI/CASSCF with PySCF is incompatible with DKH2.'
-    stop
-   end if
-   alive(1) = (.not.(casci .or. casscf) .and. gvb)
-   if(X2C .and. alive(1)) then
-    write(iout,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
-    stop
-   end if
+  alive(1) = (casci_prog=='gaussian' .or. casci_prog=='gamess' .or. casci_prog=='orca')
+  alive(2) = (casscf_prog=='gaussian' .or. casscf_prog=='gamess' .or. casscf_prog=='orca')
+  alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
+  if(X2C .and. alive(3)) then
+   write(iout,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
+                   & incompatible with X2C.'
+   write(iout,'(A)') 'You can use Molpro or OpenMolcas.'
+   stop
+  end if
+
+  alive(1) = (casci .and. casci_prog=='pyscf')
+  alive(2) = (casscf .and. casscf_prog=='pyscf')
+  alive(3) = (alive(1) .or. alive(2))
+  if(DKH2 .and. alive(3)) then
+   write(iout,'(A)') error_warn//'CASCI/CASSCF with PySCF is incompatible with DKH2.'
+   write(iout,'(A)') 'You can use Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
+   stop
+  end if
+
+  alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
+  if(X2C .and. alive(1)) then
+   write(iout,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
+   stop
   end if
 
   if(hardwfn .and. crazywfn) then
-   write(iout,'(A)') error_warn//"only one of 'hardwfn' or 'crazywfn' can be specified."
+   write(iout,'(A)') error_warn//"'hardwfn' or 'crazywfn' cannot both be activated."
    stop
   end if
 
@@ -792,9 +799,10 @@ contains
    stop
   end if
 
-  if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd)) then
+  if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
+     (.not. mcpdft)) then
    write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in"
-   write(iout,'(A)') 'CASPT2/NEVPT2/MRCISD computations. But none of them is specified.'
+   write(iout,'(A)') 'CASPT2/NEVPT2/MRCISD/MC-PDFT computations. But none of them is specified.'
    stop
   end if
 
@@ -803,6 +811,21 @@ contains
    write(iout,'(A)') 'User specified GVB program cannot be identified: '//TRIM(gvb_prog)
    stop
   end if
+
+  if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
+   write(iout,'(A)') error_warn
+   write(iout,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
+   write(iout,'(A)') 'You can use OpenMolcas.'
+   stop
+  end if
+
+  select case(TRIM(mcpdft_prog))
+  case('openmolcas','gamess')
+  case default
+   write(iout,'(A)') error_warn
+   write(iout,'(A)') 'User specified MC-PDFT program cannot be identified: '&
+                     //TRIM(mcpdft_prog)
+  end select
 
   select case(TRIM(casci_prog))
   case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
@@ -833,7 +856,7 @@ contains
    case(1) ! uncontracted MRCISD
     if(mrcisd_prog == 'molpro') then
      write(iout,'(A)') error_warn
-     write(iout,'(A)') 'Currently MRCISD cannot be done with Molpro.'
+     write(iout,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
      stop
     end if
     if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca') .and. X2C) then
@@ -900,11 +923,13 @@ contains
    stop
   end select
 
-  if(nevpt2_prog /= 'pyscf') then
+  select case(TRIM(nevpt2_prog))
+  case('pyscf','molpro','openmolcas','orca')
+  case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
    stop
-  end if
+  end select
 
   if(mrmp2_prog /= 'gamess') then
    write(iout,'(A)') error_warn

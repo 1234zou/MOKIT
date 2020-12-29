@@ -1650,7 +1650,12 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  end if
 
  read(fid,'(A)') buf
- read(fid,*) k,k,k,k, e(1) ! CASCI energy
+ read(fid,'(A)') buf
+ if(LEN_TRIM(buf) == 0) then ! Multipassing in transformation
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+ end if
+ read(buf,*) k,k,k,k, e(1) ! CASCI energy
 
  if(scf) then
   do while(.true.)
@@ -1674,16 +1679,18 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
 end subroutine read_cas_energy_from_molpro_out
 
 ! read NEVPT2 energy from PySCF output file
-subroutine read_mrpt2_energy_from_pyscf_out(outname, e)
+subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
  integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: e
+ real(kind=8), intent(out) :: ref_e, corr_e
 
- e = 0.0d0
+ ref_e = 0.0d0
+ corr_e = 0.0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -1691,133 +1698,298 @@ subroutine read_mrpt2_energy_from_pyscf_out(outname, e)
   if(i /= 0) exit
   if(buf(1:13) == 'Nevpt2 Energy') exit
  end do ! for while
- close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt2_energy_from_pyscf_out:'
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
   write(iout,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+  close(fid)
   stop
  end if
 
  i = index(buf, '=')
- read(buf(i+1:),*) e
- write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(SC-NEVPT2) = ', e, 'a.u.'
- return
-end subroutine read_mrpt2_energy_from_pyscf_out
+ read(buf(i+1:),*) corr_e
 
-! read CASTP2 energy from OpenMolcas output file
-subroutine read_mrpt2_energy_from_molcas_out(outname, e)
- implicit none
- integer :: i, fid
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: e
-
- e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'Total CASPT2 energies:') /= 0) exit
+  if(buf(1:7) == 'CASCI E') exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt2_energy_from_molcas_out:'
-  write(iout,'(A)') 'No CASPT2 energy found in file '//TRIM(outname)
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
+  write(iout,'(A)') 'No CASCI energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
-
- read(fid,'(A)') buf
  close(fid)
 
- i = index(buf, ':', back=.true.)
- read(buf(i+1:),*) e
+ i = index(buf, '=')
+ read(buf(i+1:),*) ref_e
  return
-end subroutine read_mrpt2_energy_from_molcas_out
+end subroutine read_mrpt_energy_from_pyscf_out
 
-! read CASPT2/CASPT3 energy from a Molpro output file
-subroutine read_caspt_energy_from_molpro_out(outname, order, e)
+! read CASTP2 energy from OpenMolcas output file
+subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  implicit none
- integer :: i, fid
- integer, intent(in) :: order ! 2/3 for CASPT2/CASPT3
+ integer :: i, j, fid
  integer, parameter :: iout = 6
- real(kind=8), intent(out) :: e
- character(len=8) :: key = ' '
- character(len=8), parameter :: key1 = '!RSPT2 S'
- character(len=8), parameter :: key2 = '!RSPT3 S'
+ integer, intent(in) :: itype ! 1/2 for NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: ref_e, corr_e
 
- e = 0d0
- select case(order)
- case(2)
-  key = key1
- case(3)
-  key = key2
+ ref_e = 0d0
+ corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ select case(itype)
+ case(1) ! NEVPT2
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:30) == 'Energies of zeroth-order DMRG') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = index(buf, '=')
+  read(buf(i+1:),*) ref_e
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:18) == 'state number:   1') exit
+  end do ! for while
+ 
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(iout,'(A)') "No 'state number:   1' found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  do j = 1, 15
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:6) == 'Total') exit
+  end do ! for j
+
+  if(i/=0 .or. j==16) then
+   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(iout,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  read(buf(7:),*) rtmp, corr_e
+
+ case(2) ! CASPT2
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(7:23) == 'Reference energy:') exit
+  end do ! for while
+ 
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  i = index(buf,':')
+  read(buf(i+1:),*) ref_e
+
+  do i = 1, 3
+   read(fid,'(A)') buf
+  end do ! for i 
+
+  i = index(buf, ':')
+  read(buf(i+1:),*) corr_e
+  corr_e = corr_e - ref_e
+
  case default
-  write(iout,'(A)') 'ERROR in subroutine read_caspt_energy_from_molpro_out:'
-  write(iout,'(A,I0)') 'CASPT order out of range! order = ', order
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+  write(iout,'(A,I0)') 'Invalid itype=', itype
   stop
  end select
 
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(index(buf,key) /= 0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_caspt_energy_from_molpro_out:'
-  write(iout,'(A)') "'"//key//"' not found in file "//TRIM(outname)
-  close(fid)
-  stop
- end if
-
  close(fid)
- i = index(buf,'ergy')
- read(buf(i+4:),*) e
-
  return
-end subroutine read_caspt_energy_from_molpro_out
+end subroutine read_mrpt_energy_from_molcas_out
 
-! read MRMP2 energy from GAMESS output file (.gms)
-subroutine read_mrpt2_energy_from_gms_gms(outname, e)
+! read NEVPT2/CASPT2/CASPT3 energy from a Molpro output file
+subroutine read_mrpt_energy_from_molpro_out(outname, order, ref_e, corr_e)
  implicit none
  integer :: i, fid
+ integer, intent(in) :: order ! 1/2/3 for NEVPT2/CASPT2/CASPT3
  integer, parameter :: iout = 6
- real(kind=8), intent(out) :: e
+ real(kind=8), intent(out) :: ref_e, corr_e
+ character(len=8), parameter :: key(3)= ['Strongly','!RSPT2 S','!RSPT3 S']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- e = 0.0d0
+ ref_e = 0d0
+ corr_e = 0d0
+ if(order<1 .or. order>3) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: order&
+                   & out of range.'
+  write(iout,'(A,I0,A)') 'order=', order, ', outname='//TRIM(outname)
+  stop
+ end if
+
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:12) == 'TOTAL MRPT2') exit
+  if(buf(2:20) == '!MCSCF STATE  1.1 E') exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt2_energy_from_gms_gms:'
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
+  write(iout,'(A)') "'!MCSCF STATE  1.1 E' not found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf,'ergy')
+ read(buf(i+4:),*) ref_e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,key(order)) /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
+  write(iout,'(A)') "'"//key(order)//"' not found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+ close(fid)
+
+ i = index(buf,'ergy')
+ read(buf(i+4:),*) corr_e
+ corr_e = corr_e - ref_e
+ return
+end subroutine read_mrpt_energy_from_molpro_out
+
+! read NEVPT2/CASPT2 energy from a ORCA .out file
+subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ integer, intent(in) :: itype
+ ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: ref_e, corr_e
+
+ ref_e = 0d0
+ corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:9) =='Final CAS') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
+                    & 'Final CAS' found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, ':')
+ read(buf(i+1:),*) ref_e
+
+ select case(itype)
+ case(1)
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'Total Energy C') /=0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
+                    & 'Total Energy (' found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  i = index(buf, '=')
+  read(buf(i+1:),*) corr_e
+ case default
+  write(iout,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
+                      & invalid itype=', itype
+  stop
+ end select
+
+ close(fid)
+ return
+end subroutine read_mrpt_energy_from_orca_out
+
+! read MRMP2 energy from GAMESS output file (.gms)
+subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: ref_e, corr_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0
+ corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:16) == 'TOTAL   (MCSCF)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
+  write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) ref_e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(22:42) == '2ND ORDER ENERGY CORR') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
   write(iout,'(A)') 'No MRMP2 energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
 
  i = index(buf, '=')
- read(buf(i+1:),*) e
+ read(buf(i+1:),*) corr_e
  close(fid)
-
  return
-end subroutine read_mrpt2_energy_from_gms_gms
+end subroutine read_mrpt_energy_from_gms_out
 
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
@@ -1925,33 +2097,53 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
  return
 end subroutine read_mrcisd_energy_from_output
 
-! read MC-PDFT energy from a given OpenMolcas/Molcas output file
-subroutine read_mcpdft_e_from_output(outname, e)
+! read MC-PDFT energy from a given (Open)Molcas/GAMESS output file
+subroutine read_mcpdft_e_from_output(prog, outname, e)
  implicit none
  integer :: i, fid
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e
  character(len=240) :: buf
+ character(len=10), intent(in) :: prog
  character(len=240), intent(in) :: outname
 
- e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ e = 0d0
 
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(index(buf,'Total MC-PDFT') /= 0) exit
- end do ! for while
+ select case(TRIM(prog))
+ case('openmolcas')
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                   & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
-  stop
- end if
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'Total MC-PDFT') /= 0) exit
+  end do ! for while
 
- read(buf(60:),*) e
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                    & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   stop
+  end if
+  read(buf(60:),*) e
+ case('gamess')
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'TOTAL MC-PDFT') /= 0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                    & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   stop
+  end if
+  i = index(buf, '=', back=.true.)
+  read(buf(i+1:),*) e
+ end select
 
  close(fid)
  return

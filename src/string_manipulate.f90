@@ -421,3 +421,42 @@ subroutine add_X2C_into_fch(fchname)
  return
 end subroutine add_X2C_into_fch
 
+! add '.x2c()' into a given PySCF .py file
+subroutine add_X2C_into_py(pyname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, pyname1
+ character(len=240), intent(in) :: pyname
+
+ pyname1 = TRIM(pyname)//'.tmp'
+ open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(pyname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'mf =') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in&
+                   & file "//TRIM(pyname)
+  stop
+ end if
+
+ write(fid1,'(A)') TRIM(buf)//'.x2c()'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(pyname1), TRIM(pyname))
+ return
+end subroutine add_X2C_into_py
+

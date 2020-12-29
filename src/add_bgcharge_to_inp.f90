@@ -268,19 +268,19 @@ subroutine add_bgcharge_to_gms_inp(inpname, n, charge)
  write(fid2,'(A)') ' $FFDATA'
  write(fid2,'(A)') '  COORDINATES   NUC   X   Y   Z'
  do i = 1, natom, 1
-  write(fid2,'(3X,A2,1X,I3,3(1X,F17.8))') elem(i), nuc(i), coor(1:3,i)
+  write(fid2,'(3X,A2,1X,I0,A2,3(1X,F17.8))') elem(i), nuc(i),'.0', coor(1:3,i)
  end do ! for i
  do i = 1, n, 1
-  write(fid2,'(3X,A6,3(1X,F17.8))') 'Q    0',charge(1:3,i)
+  write(fid2,'(3X,A,3(1X,F17.8))') 'Q   0.0',charge(1:3,i)
  end do ! for i
  write(fid2,'(A)') '  STOP'
 
- write(fid2,'(A)') '  PARAMETERS  MASS    Q'
+ write(fid2,'(A)') '  PARAMETERS   MASS   Q   POL   RMIN/2  EPSILON  RMIN/2  EPSILON'
  do i = 1, natom, 1
-  write(fid2,'(3X,A2,9X,A)') elem(i), '0.0     0.0'
+  write(fid2,'(3X,A2,9X,A)') elem(i), '0.0     0.0      0.0 0.0 0.0 0.0 0.0'
  end do ! for i
  do i = 1, n, 1
-  write(fid2,'(3X,A,2X,F11.6)') 'Q          0.0', charge(4,i)
+  write(fid2,'(3X,A,2X,F11.6,A)') 'Q          0.0',charge(4,i),' 0.0 0.0 0.0 0.0 0.0'
  end do ! for i
  write(fid2,'(A)') '  STOP'
  write(fid2,'(A)') ' $END'

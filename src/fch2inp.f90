@@ -388,11 +388,15 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  case('-gvb')
   write(fid,'(A)',advance='no') 'GVB'
  case default
-  write(fid,'(A)',advance='no') 'RHF'
+  if(mult == 1) then
+   write(fid,'(A)',advance='no') 'RHF'
+  else
+   write(fid,'(A)',advance='no') 'ROHF'
+  end if
  end select
 
  write(fid,'(2(A,I0))',advance='no') ' RUNTYP=ENERGY ICHARG=',charge,' MULT=',mult
- write(fid,'(A)',advance='no') ' NOSYM=1 ICUT=10'
+ write(fid,'(A)',advance='no') ' NOSYM=1 ICUT=11'
  if(ecp) write(fid,'(A)',advance='no') ' PP=READ'
 
  select case(gvb_or_uhf)

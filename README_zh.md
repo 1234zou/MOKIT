@@ -30,7 +30,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2020-12-22
+2020-12-29
 
 安装
 ------------
@@ -134,7 +134,7 @@ or
 
 Disclaimer
 ----------
-Copyright (c) 2020 jxzou
+Copyright (c) 2021 jxzou
 
 All rights reserved.
 

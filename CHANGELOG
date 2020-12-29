@@ -1,5 +1,7 @@
-MOKIT 1.2.2 (2020-12-22)
+MOKIT 1.2.2 (2020-12-27)
 ------------------------
+* add MC-PDFT interface of GAMESS(>=2019R2)
+* add NEVPT2 interface of Molpro
 * add DKH2 and X2C interfaces of Molpro
 * add background point charge interface of Molpro
 * add CASSCF force interface of Molpro
