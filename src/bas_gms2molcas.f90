@@ -56,7 +56,7 @@ program main
  stop
 end program main
 
-! Transform the basis sets in GAMESS format to those in Molcas/OpenMolcas format
+! Transform the basis sets in GAMESS format to those in (Open)Molcas format
 subroutine bas_gms2molcas(fort7, spherical)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
@@ -68,7 +68,8 @@ subroutine bas_gms2molcas(fort7, spherical)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), allocatable :: coor2(:,:)
  character(len=240), intent(in) :: fort7
- character(len=240) :: buf1, buf2, input ! input is the Molcas .input file
+ character(len=240) :: buf1, buf2, input
+ ! input is the (Open)Molcas .input file
  character(len=1) :: stype0, stype
  logical, intent(in) :: spherical
  logical :: bohrs, uhf, X2C

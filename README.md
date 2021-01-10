@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2020-12-29
+2021-1-10
 
 Installation
 ------------
@@ -99,6 +99,16 @@ Quick Start
   in Shell. The automr program will successively perform HF, GVB, and CASSCF
   computations. See [examples/](examples/) for more examples.
 
+QC Packages can be called by AutoMR
+----------
+* [Gaussian](http://gaussian.com/)
+* [PySCF](https://github.com/pyscf/pyscf)
+* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
+* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
+* [Molpro](https://www.molpro.net/)
+* [ORCA](https://orcaforum.kofo.mpg.de)
+* [BDF](http://182.92.69.169:7226/Introduction)
+
 Some Tips
 ---------
 * To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
@@ -124,7 +134,7 @@ Citation
 --------
 * If you use MOKIT in your work, please cite the gitlab page of MOKIT as
 
-   Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
+   Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
 * If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
 

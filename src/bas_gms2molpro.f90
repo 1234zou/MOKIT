@@ -62,7 +62,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=240) :: orbfile, orbfile2 ! Molpro MOs, plain text file
  character(len=1) :: stype0, stype
  logical, intent(in) :: spherical
- logical :: bohrs, uhf, X2C
+ logical :: uhf, X2C
 
  ! initialization
  buf = ' '
@@ -230,7 +230,7 @@ subroutine bas_gms2molpro(fort7, spherical)
   call clear_prim_gau()
  end do ! for i
 
- deallocate(ram, ntimes)
+ deallocate(ram, ntimes, elem)
  if(allocated(all_ecp)) deallocate(all_ecp)
  close(fid1)
 

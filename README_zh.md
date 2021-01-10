@@ -30,10 +30,10 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2020-12-29
+2021-1-10
 
 安装
-------------
+----------
 
 * 前提（编译器和库要求）
     - Fortran编译器: ifort(推荐>=2015) 或 gfortran(>=4.8.5 且 <8.0)
@@ -64,7 +64,7 @@ or
   因此请阅读[手册](doc/)4.4.9部分使用提供的脚本自动修改GAMESS代码。
 
 快速开始
------------
+----------
 * 每个小程序的使用十分简单，直接运行即可在屏幕上打印出使用说明。例如在Shell中运行小程
   序`fch2inp`，输出如下
 
@@ -97,8 +97,18 @@ or
   命令，automr程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。更多例子
   请见[examples](examples/)。
 
+AutoMR支持调用的量子化学程序
+----------
+* [Gaussian](http://gaussian.com/)
+* [PySCF](https://github.com/pyscf/pyscf)
+* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
+* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
+* [Molpro](https://www.molpro.net/)
+* [ORCA](https://orcaforum.kofo.mpg.de)
+* [BDF](http://182.92.69.169:7226/Introduction)
+
 温馨提示
----------
+----------
 * 若您想提供.fch(k)文件给automr程序读入，请务必在计算前在Gaussian的输入文件中加上
   关键词nosymm int=nobasistransform，以避免后续产生不必要的、不可预见的错误。
 
@@ -113,7 +123,7 @@ or
 * 还可加入MOKIT用户交流QQ群，群号：470745084
 
 下一步计划（可能）
-----
+----------
 * 支持BAGEL, PSI4, NWCHEM, Dalton等软件间传轨道
 
 * 支持更多的多参考方法（如ic-MRCC）
@@ -121,10 +131,10 @@ or
 * 开发和实现多参考的激发态计算
 
 如何引用
---------
+----------
 * 若您在您的研究中使用了MOKIT的任何一个子程序，请务必按如下引用
 
-   Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
+   Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
 * 若您使用MOKIT进行了GVB方法的相关计算，请务必引用以下2篇文献
 

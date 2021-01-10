@@ -346,6 +346,7 @@ subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
   write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
  end do ! for i
 
+ ! If DKH Hamiltonian is used,
  ! Gaussian default    : Gaussian function distribution
  ! Gaussian iop(3/93=1): point nuclei charge distribution
  ! GAMESS default      : point nuclei charge distribution
@@ -605,6 +606,36 @@ subroutine read_grad_from_molpro_out(outname, natom, grad)
  close(fid)
  return
 end subroutine read_grad_from_molpro_out
+
+! read Cartesian gradient from a given BDF .out file
+subroutine read_grad_from_bdf_out(outname, natom, grad)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: grad(3*natom)
+ character(len=10) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ grad = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(index(buf,'Molecular gradient - Mol') /= 0) exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do i = 1, natom, 1
+  read(fid,*) str, grad(3*i-2:3*i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_grad_from_bdf_out
 
 ! detect the number of columns of data in a string buf
 function detect_ncol_in_buf(buf) result(ncol)

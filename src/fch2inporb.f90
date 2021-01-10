@@ -86,7 +86,7 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
  integer(kind=4) :: getpid, hostnm
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
- integer,allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=4), intent(in) :: ab
  character(len=8) :: hostname
  character(len=24) :: data_string

@@ -37,16 +37,25 @@ end subroutine read_charge_and_mult_from_fch
 ! read nalpha and nbeta from .fch(k) file
 subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
- integer :: fid
+ integer :: i, fid
  integer, intent(out) :: na, nb ! number of alpha/beta electrons
+ integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:15) == 'Number of alpha') exit
  end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
+                   & alpha' found in file "//TRIM(fchname)
+  close(fid)
+  stop
+ end if
 
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, na
@@ -225,7 +234,7 @@ subroutine read_mo_from_chk_txt(txtname, nbf, nif, ab, mo)
  return
 end subroutine read_mo_from_chk_txt
 
-! read Alpha/Beta MOs from .Orb file of MOLCAS/OpenMolcas
+! read Alpha/Beta MOs from .Orb file of (Open)Molcas
 subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, fid
@@ -381,6 +390,57 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  return
 end subroutine read_mo_from_xml
 
+! read Alpha/Beta MOs from orbital file of BDF
+subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
+ implicit none
+ integer :: i, j, k, nline, fid
+ integer, intent(in) :: nbf, nif
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: mo(nbf,nif)
+ character(len=1), intent(in) :: ab
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orbname
+ character(len=4) :: key
+ character(len=4), parameter :: key1 = 'ALPH', key2 = 'BETA'
+
+ if(ab=='a' .or. ab=='A') then
+  key = key1
+ else if (ab=='b' .or. ab=='B') then
+  key = key2
+ else
+  write(iout,'(A)') 'ERROR in subroutine read_mo_from_bdf_orb: invalid ab.'
+  write(iout,'(A)') 'ab = '//ab
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(24:27) == key) exit
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mo_from_bdf_orb: no '"//key//"'&
+                   & found in file "//TRIM(orbname)//'.'
+  stop
+ end if
+
+ mo = 0d0
+ nline = nbf/5
+ if(nbf-5*nline > 0) nline = nline + 1
+
+ do i = 1, nif, 1
+  do j = 1, nline, 1
+   k = min(5*j,nbf)
+   read(fid,*) mo(5*j-4:k,i)
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_mo_from_bdf_orb
+
 ! read Alpha/Beta eigenvalues in a given .fch(k) file
 ! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
 !       or NOONs, depending on the job type
@@ -427,7 +487,7 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  return
 end subroutine read_eigenvalues_from_fch
 
-! read Alpha/Beta occupation numbers from a given .orb file of MOLCAS/OpenMolcas
+! read Alpha/Beta occupation numbers from a given .orb file of (Open)Molcas
 subroutine read_on_from_orb(orbname, nif, ab, on)
  implicit none
  integer :: i, fid
@@ -611,6 +671,46 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
 
  return
 end subroutine read_on_from_xml
+
+! read Alpha/Beta occupation numbers from a given orbital file of BDF
+subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nif
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: on(nif)
+ character(len=1), intent(in) :: ab
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orbname
+
+ on = 0d0
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'OCCUPATION') exit
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "Warning in subroutine read_on_from_bdf_orb: no 'OCCUPATION'&
+                   & found in file "//TRIM(orbname)//'.'
+  write(iout,'(A)') 'Failed to read CAS NOONs. This does not affect the CASCI/CASSCF&
+                   & energy. So continue.'
+  write(iout,'(A)') 'To avoid this error, please use newer version of BDF.'
+  close(fid)
+  return
+ end if
+
+ read(fid,*) (on(i),i=1,nif)
+
+ if(ab=='b' .or. ab=='B') then
+  read(fid,'(A)') buf
+  read(fid,*) (on(i),i=1,nif)
+ end if
+
+ close(fid)
+ return
+end subroutine read_on_from_bdf_orb
 
 ! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
 subroutine read_ncontr_from_fch(fchname, ncontr)
@@ -1221,6 +1321,9 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
  case('molpro')
   call read_cas_energy_from_molpro_out(outname, e, scf)
   e = e + ptchg_e
+ case('bdf')
+  call read_cas_energy_from_bdf_out(outname, e, scf)
+  e = e + ptchg_e + nuc_pt_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
                    & cannot be identified.'
@@ -1678,6 +1781,66 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  return
 end subroutine read_cas_energy_from_molpro_out
 
+! read CASCI/CASSCF energy from a given BDF output file
+subroutine read_cas_energy_from_bdf_out(outname, e, scf)
+ implicit none
+ integer :: i, k, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e(2)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0.0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ if(scf) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:11) == 'mcscf_eneci') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
+                     & 'mcscf_eneci' not found in file "//TRIM(outname)
+   write(iout,'(A)') 'Error termination of the BDF CASSCF job.'
+   close(fid)
+   stop
+  end if
+
+  read(buf(15:),*) e(1) ! CASCI energy in CASSCF job
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == 'Print final') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
+                    & 'Print final' not found in file "//TRIM(outname)
+  write(iout,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 4
+  read(fid,'(A)') buf
+ end do
+
+ i = index(buf,'=')
+ if(scf) then
+  read(buf(i+1:),*) e(2) ! CASSCF energy in CASSCF job
+ else
+  read(buf(i+1:),*) e(1) ! CASCI energy in CASCI job
+ end if
+
+ close(fid)
+ return
+end subroutine read_cas_energy_from_bdf_out
+
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  implicit none
@@ -1990,6 +2153,78 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  close(fid)
  return
 end subroutine read_mrpt_energy_from_gms_out
+
+! read NEVPT2 energy from a BDF .out file
+subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ integer, intent(in) :: itype   ! 1/2 for FIC-NEVPT2/SDSPT2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8) :: rtmp(6)
+ real(kind=8), intent(out) :: ref_e, corr_e, dav_e
+ ! dav_e: Davidson correction energy for size-inconsistency error
+
+ ref_e = 0d0
+ corr_e = 0d0
+ dav_e = 0d0
+ if(.not. (itype==1 .or. itype==2)) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currently&
+                   & only reading NEVPT2/SDSPT2 energy is supported.'
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == 'Print final') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out:&
+                    & 'Print final' not found in file "//TRIM(outname)
+  write(iout,'(A)') 'Error termination of the BDF CASCI/CASSCF in NEVPT2 job.'
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 4
+  read(fid,'(A)') buf
+ end do ! for i
+ i = index(buf, '=')
+ read(buf(i+1:),*) ref_e ! CASCI/CASSCF energy
+
+ if(itype == 2) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:11) == 'MRPT2 calc') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(fid,*) i, rtmp(1:6), dav_e
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:13) == 'TARGET_XIANCI') exit
+ end do ! for while
+ close(fid)
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no&
+                    & 'TARGET_XIANCI' found in file "//TRIM(outname)
+  stop
+ end if
+
+ read(buf(26:),*) corr_e
+ if(itype == 2) dav_e = dav_e - corr_e
+ corr_e = corr_e - ref_e
+ return
+end subroutine read_mrpt_energy_from_bdf_out
 
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file

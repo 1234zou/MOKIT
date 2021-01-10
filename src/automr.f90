@@ -1052,6 +1052,53 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  return
 end subroutine prt_cas_molpro_inp
 
+! print CASCI/CASSCF keywords into a given BDF input file
+subroutine prt_cas_bdf_inp(inpname, scf, force)
+ use print_id, only: iout
+ use mol, only: charge, mult, ndb, npair, npair0, nacto, nacte
+ implicit none
+ integer :: i, nclosed, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: scf, force
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == '$SCF') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in&
+                  & file "//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ nclosed = ndb + npair - npair0
+ BACKSPACE(fid)
+ write(fid,'(A)') '$MCSCF'
+ write(fid,'(A,/,I0)') 'Charge', charge
+ write(fid,'(A,/,I0)') 'Spin', mult
+ write(fid,'(A,/,I0)') 'Close', nclosed
+ write(fid,'(A,/,I0)') 'Active', nacto
+ write(fid,'(A,/,I0)') 'Actel', nacte
+ write(fid,'(A)') 'Guess'
+ write(fid,'(A)') 'read'
+ if(.not. scf) write(fid,'(A)') 'CASCI'
+ write(fid,'(A)') '$END'
+
+ if(force) then
+  write(fid,'(/,A)') '$GRAD'
+  write(fid,'(A,/,A1)') 'nrootgrad','1'
+  write(fid,'(A)') '$END'
+ end if
+
+ close(fid)
+ return
+end subroutine prt_cas_bdf_inp
+
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
@@ -1284,6 +1331,68 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  i = RENAME(inpname1, inpname)
  return
 end subroutine prt_nevpt2_molcas_inp
+
+! print NEVPT2/SDSPT2 keywords in to a given BDF .inp file
+subroutine prt_mrpt_bdf_inp(inpname, itype)
+ use print_id, only: iout
+ use mol, only: charge, mult, nacte, nacto, npair, npair0, ndb
+ use mr_keyword, only: CIonly
+ implicit none
+ integer :: i, nclosed, fid
+ integer, intent(in) :: itype ! 1/2 for NEVPT2/SDSPT2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ nclosed = ndb + npair - npair0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == '$SCF') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(iout,'(A)') "ERROR in subroutine prt_mrpt_bdf_inp: no '$SCF' found&
+                   & in file "//TRIM(inpname)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ write(fid,'(A)') '$MCSCF'
+ write(fid,'(A,/,I0)') 'Charge', charge
+ write(fid,'(A,/,I0)') 'Spin', mult
+ write(fid,'(A,/,I0)') 'Close', nclosed
+ write(fid,'(A,/,I0)') 'Active', nacto
+ write(fid,'(A,/,I0)') 'Actel', nacte
+ write(fid,'(A)') 'Guess'
+ write(fid,'(A)') 'read'
+ if(CIonly) write(fid,'(A)') 'CASCI'
+ write(fid,'(A)') '$END'
+
+ write(fid,'(/,A)') '$TRAINT'
+ write(fid,'(A,/,A1)') 'Frozen', '0'
+ write(fid,'(A)') 'Orbital'
+ write(fid,'(A)') ' mcorb'
+ write(fid,'(A)') 'MRPT2'
+ write(fid,'(A)') '$END'
+
+ write(fid,'(/,A)') '$XIANCI'
+ select case(itype)
+ case(1)
+  write(fid,'(A)') 'NEVPT2'
+ case(2)
+  write(fid,'(A)') 'SDSPT2'
+ case default
+  write(iout,'(A,I0)') 'ERROR in subroutine prt_mrpt_bdf_inp: invalid itype=',itype
+  write(iout,'(A)') 'itype=1/2 for NEVPT2/SDSPT2.'
+  stop
+ end select
+ write(fid,'(A)') '$END'
+ close(fid)
+ return
+end subroutine prt_mrpt_bdf_inp
 
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
@@ -1881,7 +1990,7 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, molpro_path, bgchg, chgname, casscf_force, dkh2_or_x2c, &
+  gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force, dkh2_or_x2c,&
   check_gms_path, prt_strategy
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
                 nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
@@ -2000,6 +2109,13 @@ subroutine do_cas(scf)
  if(ist<1 .or. ist>3) then
   write(iout,'(A)') 'ERROR in subroutine do_cas: not supported currently.'
   write(iout,'(A,I0)') 'ist=', ist
+  stop
+ end if
+
+ if((dmrgci .or. dmrgscf) .and. cas_prog/='pyscf') then
+  write(iout,'(A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation&
+                   & is only supported by PySCF.'
+  write(iout,'(A)') 'Wrong casci_prog or casscf_prog: '//TRIM(cas_prog)
   stop
  end if
 
@@ -2204,6 +2320,30 @@ subroutine do_cas(scf)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   i = system('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
 
+ case('bdf')
+  call check_exe_exist(bdf_path)
+
+  i = system('fch2bdf '//TRIM(fchname)//' -no') ! generate _bdf.inp, .BAS, .inporb
+  i = index(fchname, '.fch', back=.true.)
+  mklname = fchname(1:i-1)//'_bdf.inp'
+  pyname  = fchname(1:i-1)//'_bdf.inporb'
+  inpname = TRIM(proname)//'.inp'
+  xmlname = TRIM(proname)//'.inporb'
+  orbname = TRIM(proname)//'.casorb'
+  outname = TRIM(proname)//'.out'
+  i = RENAME(TRIM(mklname), TRIM(inpname))
+  i = RENAME(TRIM(pyname), TRIM(xmlname))
+  call prt_cas_bdf_inp(inpname, scf, casscf_force)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+
+  i = system(TRIM(bdf_path)//' '//TRIM(proname))
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
+   stop
+  end if
+  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
+  i = system('bdf2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
+
  case default
   write(iout,'(A)') 'ERROR in subroutine do_cas: invalid CAS_prog. Allowed&
                    & programs are Gaussian, GAMESS, PySCF, ORCA, Molpro.'
@@ -2260,6 +2400,8 @@ subroutine do_cas(scf)
    call read_grad_from_orca_out(outname, natom, grad)
   case('molpro')
    call read_grad_from_molpro_out(outname, natom, grad)
+  case('bdf')
+   call read_grad_from_bdf_out(outname, natom, grad)
   case default
    write(iout,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
    write(iout,'(A)') 'cas_prog='//TRIM(cas_prog)
@@ -2280,10 +2422,11 @@ end subroutine do_cas
 subroutine do_mrpt2()
  use print_id, only: iout
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, &
-  nevpt2, mrmp2, casnofch, casscf_prog, casci_prog, nevpt2_prog, caspt2_prog, &
-  bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path, &
-  molcas_path, molpro_path, orca_path
- use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e, mrmp2_e, ptchg_e
+  nevpt2, mrmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
+  caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
+  molcas_path, molpro_path, orca_path, bdf_path
+ use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
+                davidson_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw
  implicit none
  integer :: i, mem0, RENAME, system
@@ -2291,14 +2434,20 @@ subroutine do_mrpt2()
  character(len=240) :: string, pyname, outname, inpname, inporb
  character(len=240) :: mklname, fchname, cmofch
  real(kind=8) :: ref_e, corr_e
+ logical :: alive(4)
 
- if((.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrmp2)) return
+ alive = [caspt2, nevpt2, mrmp2, sdspt2]
+ if(ALL(alive .eqv. .false.)) return
  write(iout,'(//,A)') 'Enter subroutine do_mrpt2...'
  mem0 = CEILING(DBLE(mem*125)/DBLE(nproc))
 
  if((dmrgci .or. dmrgscf)) then
   if(mrmp2) then
    write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
+   stop
+  end if
+  if(sdspt2) then
+   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-SDSPT2 not supported.'
    stop
   end if
   if(nevpt2 .and. (nevpt2_prog=='molpro' .or. nevpt2_prog=='orca')) then
@@ -2329,8 +2478,10 @@ subroutine do_mrpt2()
     string = 'CASPT2 based on optimized CASSCF orbitals.'
    else if(nevpt2) then
     string = 'CASSCF-NEVPT2 based on optimized CASSCF orbitals.'
-   else
+   else if(mrmp2) then
     string = 'MRMP2 based on optimized CASSCF orbitals.'
+   else
+    string = 'SDSMP2 based on optimized CASSCF orbitals.'
    end if
   else ! DMRG-CASSCF
    if(caspt2) then
@@ -2352,8 +2503,10 @@ subroutine do_mrpt2()
   if(casci) then
    if(caspt2) then
     string = 'CASPT2 based on CASCI orbitals.'
-   else
+   else if(nevpt2) then
     string = 'NEVPT2 based on CASCI orbitals.'
+   else
+    string = 'SDSPT2 based on CASCI orbitals.'
    end if
   else ! DMRG-CASCI
    if(caspt2) then
@@ -2385,9 +2538,9 @@ subroutine do_mrpt2()
    i = index(casnofch, '.fch', back=.true.)
    inpname = casnofch(1:i-1)//'.py'
    if(dmrgci .or. dmrgscf) then
-    i = index(casnofch, '_NO', back=.true.)
-   else
     i = index(casnofch, '_CMO', back=.true.)
+   else
+    i = index(casnofch, '_NO', back=.true.)
    end if
    pyname  = casnofch(1:i)//'NEVPT2.py'
    outname = casnofch(1:i)//'NEVPT2.out'
@@ -2454,6 +2607,25 @@ subroutine do_mrpt2()
    call mkl2gbw(mklname)
    call delete_file(mklname)
    i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+  case('bdf')
+   call check_exe_exist(bdf_path)
+   i = system('fch2bdf '//TRIM(casnofch)//' -no')
+   i = index(casnofch, '.fch', back=.true.)
+   inporb = casnofch(1:i-1)//'_bdf.inporb'
+   string = casnofch(1:i-1)//'_bdf.inp'
+   i = index(casnofch, '_NO', back=.true.)
+   mklname = casnofch(1:i)//'NEVPT2.inporb'
+   inpname = casnofch(1:i)//'NEVPT2.inp'
+   outname = casnofch(1:i)//'NEVPT2.out'
+   i = RENAME(TRIM(inporb), TRIM(mklname))
+   i = RENAME(TRIM(string), TRIM(inpname))
+
+   call prt_mrpt_bdf_inp(inpname, 1)
+   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   i = index(inpname, '.inp', back=.true.)
+   string = inpname(1:i-1)
+   i = system(TRIM(bdf_path)//' '//TRIM(string))
   end select
 
  else if(caspt2) then ! CASPT2
@@ -2501,7 +2673,7 @@ subroutine do_mrpt2()
    i = system(TRIM(string))
   end select
 
- else ! CASSCF-MRMP2
+ else if(mrmp2) then ! CASSCF-MRMP2
   write(iout,'(A)') 'MRMP2 using program gamess'
   call check_gms_path()
 
@@ -2523,6 +2695,27 @@ subroutine do_mrpt2()
   i = system(TRIM(string))
 
   i = system('mv '//TRIM(mklname)//' .')
+
+ else ! CASSCF-SDSPT2
+  write(iout,'(A)') 'SDSPT2 using program bdf'
+  call check_exe_exist(bdf_path)
+
+  i = system('fch2bdf '//TRIM(casnofch)//' -no')
+  i = index(casnofch, '.fch', back=.true.)
+  inporb = casnofch(1:i-1)//'_bdf.inporb'
+  string = casnofch(1:i-1)//'_bdf.inp'
+  i = index(casnofch, '_NO', back=.true.)
+  mklname = casnofch(1:i)//'SDSPT2.inporb'
+  inpname = casnofch(1:i)//'SDSPT2.inp'
+  outname = casnofch(1:i)//'SDSPT2.out'
+  i = RENAME(TRIM(inporb), TRIM(mklname))
+  i = RENAME(TRIM(string), TRIM(inpname))
+
+  call prt_mrpt_bdf_inp(inpname, 2)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = index(inpname, '.inp', back=.true.)
+  string = inpname(1:i-1)
+  i = system(TRIM(bdf_path)//' '//TRIM(string))
  end if
 
  if(i /= 0) then
@@ -2530,6 +2723,8 @@ subroutine do_mrpt2()
    write(iout,'(A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
   else if(caspt2) then
    write(iout,'(A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
+  else if(sdspt2) then
+   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: SDSPT2 computation failed.'
   end if
   write(iout,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
@@ -2548,8 +2743,12 @@ subroutine do_mrpt2()
    ref_e = ref_e + ptchg_e
   case('orca')
    call read_mrpt_energy_from_orca_out(outname, 1, ref_e, corr_e)
+  case('bdf')
+   call read_mrpt_energy_from_bdf_out(outname, 1, ref_e, corr_e, davidson_e)
+   ! here the parameter davidson_e is useless
+   ref_e = ref_e + ptchg_e + nuc_pt_e
   end select
- else if(caspt2) then ! read CASPT2 total energy
+ else if(caspt2) then ! read CASPT2 energy
   select case(TRIM(caspt2_prog))
   case('openmolcas')
    call read_mrpt_energy_from_molcas_out(outname, 2, ref_e, corr_e)
@@ -2557,25 +2756,36 @@ subroutine do_mrpt2()
    call read_mrpt_energy_from_molpro_out(outname, 2, ref_e, corr_e)
   end select
   ref_e = ref_e + ptchg_e
- else                 ! read MRMP2 total energy
+ else if(mrmp2) then  ! read MRMP2 energy
   call read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
+ else                 ! read SDSPT2 energy
+  call read_mrpt_energy_from_bdf_out(outname, 2, ref_e, corr_e, davidson_e)
  end if
 
  write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e, 'a.u.'
 
  if(caspt2) then
-  write(iout,'(A)') 'IP-EA shift  =         0.25 (default)'
+  write(iout,'(A)')             'IP-EA shift  =         0.25 (default)'
   caspt2_e = ref_e + corr_e
   write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2)    = ', caspt2_e, 'a.u.'
  else if(nevpt2) then ! NEVPT2
   nevpt2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(SC-NEVPT2) = ', nevpt2_e, 'a.u.'
- else ! MRMP2
+  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,   'a.u.'
+  if(nevpt2_prog == 'bdf') then
+   write(iout,'(A,F18.8,1X,A4)')'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
+  else
+   write(iout,'(A,F18.8,1X,A4)')'E(SC-NEVPT2) = ', nevpt2_e, 'a.u.'
+  end if
+ else if(mrmp2) then ! MRMP2
   mrmp2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(MRMP2)     = ', mrmp2_e, 'a.u.'
+ else           ! SDSPT2
+  sdspt2_e = ref_e + corr_e + davidson_e
+  write(iout,'(A,F18.8,1X,A4)') 'Davidson correction=',davidson_e,'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(SDSPT2)    = ', sdspt2_e, 'a.u.'
  end if
 
  call fdate(data_string)

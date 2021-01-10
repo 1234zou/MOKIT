@@ -45,6 +45,7 @@ module mol
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
  real(kind=8) :: mrmp2_e  = 0.0d0 ! MRMP2 energy
+ real(kind=8) :: sdspt2_e = 0.0d0 ! SDSPT2 energy
  real(kind=8) :: davidson_e=0.0d0 ! Davidson correction energy
  real(kind=8) :: mrcisd_e = 0.0d0 ! MRCISD+Q energy
  real(kind=8) :: mcpdft_e = 0.0d0 ! MC-PDFT energy
@@ -118,6 +119,7 @@ module mr_keyword
  logical :: caspt2  = .false.
  logical :: nevpt2  = .false.
  logical :: mrmp2   = .false.
+ logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
  logical :: mcpdft  = .false.
  logical :: CIonly  = .false.      ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
@@ -142,9 +144,10 @@ module mr_keyword
  character(len=240) :: molcas_path = ' '
  character(len=240) :: molpro_path = ' '
  character(len=240) :: orca_path = ' '
+ character(len=240) :: bdf_path = ' '
 
- character(len=7) :: method = ' '    ! model chemistry, theoretical method
- character(len=13) :: basis = ' '     ! basis set (gen and genecp supported)
+ character(len=7) :: method = ' '   ! model chemistry, theoretical method
+ character(len=13) :: basis = ' '   ! basis set (gen and genecp supported)
 
 contains
 
@@ -231,8 +234,10 @@ contains
   call get_molpro_path()
   call getenv('GMS', gms_path)
   call getenv('ORCA', orca_path)
+  call getenv('BDF', bdf_path)
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
   if(LEN_TRIM(orca_path) == 0) orca_path = 'NOT FOUND'
+  if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
   write(iout,'(/,A)') 'Read program paths from environment variables:'
   write(iout,'(A)') 'gau_path    = '//TRIM(gau_path)
@@ -240,6 +245,7 @@ contains
   write(iout,'(A)') 'orca_path   = '//TRIM(orca_path)
   write(iout,'(A)') 'molcas_path = '//TRIM(molcas_path)
   write(iout,'(A)') 'molpro_path = '//TRIM(molpro_path)
+  write(iout,'(A)') 'bdf_path    = '//TRIM(bdf_path)
   return
  end subroutine read_program_path
 
@@ -338,8 +344,8 @@ contains
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mrcisd','mrmp2','caspt2','nevpt2','casscf','dmrgscf','casci',&
-        'dmrgci')   ! e.g. CAS(6,6) is specified
+   case('mcpdft','mrcisd','sdspt2','mrmp2','caspt2','nevpt2','casscf','dmrgscf',&
+        'casci','dmrgci')   ! e.g. CAS(6,6) is specified
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
@@ -371,8 +377,8 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','mrmp2','caspt2','nevpt2','casscf','dmrgscf','casci',&
-       'dmrgci','gvb')
+  case('mcpdft','mrcisd','sdspt2','mrmp2','caspt2','nevpt2','casscf','dmrgscf',&
+       'casci','dmrgci','gvb')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
@@ -388,6 +394,9 @@ contains
    casscf = .true.
   case('mrcisd')
    mrcisd = .true.
+   casscf = .true.
+  case('sdspt2')
+   sdspt2 = .true.
    casscf = .true.
   case('mrmp2')
    mrmp2 = .true.
@@ -584,7 +593,7 @@ contains
     read(longbuf(j+1:i-1),*) otpdf
    case default
     write(iout,'(A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
-                      //"' not recognized."
+                      //"' not recognized in {}."
     stop
    end select
 
@@ -681,8 +690,8 @@ contains
   write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
        'CASPT2  = ', caspt2, 'NEVPT2  = ',  nevpt2, 'MRMP2   = ', mrmp2
 
-  write(iout,'(3(A,L1,3X),A)') 'MRCISD  = ',mrcisd, 'MCPDFT  = ', mcpdft ,&
-       'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
+  write(iout,'(4(A,L1,3X),A)') 'SDSPT2  = ',sdspt2, 'MRCISD  = ', mrcisd, &
+       'MCPDFT  = ', mcpdft, 'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
 
   write(iout,'(3(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2   ,&
        'X2C     = ', X2C
@@ -734,12 +743,25 @@ contains
    stop
   end if
 
-  alive(1) = (casci .and. casci_prog=='pyscf')
-  alive(2) = (casscf .and. casscf_prog=='pyscf')
-  alive(3) = (alive(1) .or. alive(2))
+  alive(1) = (casci_prog=='pyscf' .or. casci_prog=='bdf')
+  alive(2) = (casscf_prog=='pyscf' .or. casscf_prog=='bdf')
+  alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(DKH2 .and. alive(3)) then
-   write(iout,'(A)') error_warn//'CASCI/CASSCF with PySCF is incompatible with DKH2.'
-   write(iout,'(A)') 'You can use Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
+   write(iout,'(A)') error_warn//'CASCI/CASSCF with DKH2 is not supported by PySCF/BDF.'
+   write(iout,'(A)') 'For CASCI, you can use CASCI_prog=Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
+   write(iout,'(A)') 'For CASSCF, you can use CASSCF_prog=Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
+   stop
+  end if
+
+  if(dmrgci_prog /= 'pyscf') then
+   write(iout,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF.'
+   write(iout,'(A)') 'Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
+   stop
+  end if
+
+  if(dmrgscf_prog /= 'pyscf') then
+   write(iout,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF.'
+   write(iout,'(A)') 'Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
    stop
   end if
 
@@ -806,6 +828,12 @@ contains
    stop
   end if
 
+  if(CIonly .and. nevpt2_prog=='bdf') then
+   write(iout,'(A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF program.'
+   write(iout,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
+   stop
+  end if
+
   if(gvb_prog /= 'gamess') then
    write(iout,'(A)') error_warn//"only 'gamess' is supported for the GVB computation."
    write(iout,'(A)') 'User specified GVB program cannot be identified: '//TRIM(gvb_prog)
@@ -828,7 +856,7 @@ contains
   end select
 
   select case(TRIM(casci_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
@@ -836,7 +864,7 @@ contains
   end select
 
   select case(TRIM(casscf_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
@@ -924,7 +952,7 @@ contains
   end select
 
   select case(TRIM(nevpt2_prog))
-  case('pyscf','molpro','openmolcas','orca')
+  case('pyscf','molpro','openmolcas','orca','bdf')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
@@ -960,15 +988,33 @@ contains
    stop
   end if
 
-  if(nevpt2 .and. DKH2) then
-   write(iout,'(A)') error_warn//'NEVPT2 with PySCF is incompatible with DKH2.'
+  if(nevpt2) then
+   if(DKH2 .and. (nevpt2_prog=='pyscf' .or. nevpt2_prog=='bdf')) then
+    write(iout,'(A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
+    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
+    stop
+   else if(X2C .and. nevpt2_prog=='orca') then
+    write(iout,'(A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
+    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
+    stop
+   end if
+   if(nevpt2_prog=='bdf' .and. bgchg) then
+    write(iout,'(A)') error_warn//'NEVPT2 with BDF program is incompatible with'
+    write(iout,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
+    stop
+   end if
+  end if
+
+  if(sdspt2 .and. bgchg) then
+   write(iout,'(A)') error_warn//'SDSPT2 with BDF program is incompatible with'
+   write(iout,'(A)') 'background point charges.'
    stop
   end if
 
   if((DKH2 .or. X2C) .and. cart) then
    write(iout,'(A)') error_warn//'relativistic calculations using Cartesian'
-   write(iout,'(A)') 'functions may cause numerical instability. Please use&
-                    & spherical harmonic type basis.'
+   write(iout,'(A)') 'functions may cause severe numerical instability. Please&
+                    & use spherical harmonic type basis set.'
    stop
   end if
 
