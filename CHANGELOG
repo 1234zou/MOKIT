@@ -1,5 +1,8 @@
-MOKIT 1.2.2 (2020-1-10)
+MOKIT 1.2.2 (2020-1-12)
 ------------------------
+* add utility bdf2mkl (BDF -> ORCA)
+* read orbital energies in utilities fch2bdf, bdf2fch, mkl2fch
+* add CASPT3 and NEVPT3 interfaces
 * add CAS, NEVPT2 and SDSPT2 interfaces of BDF
 * add utility bdf2fch (BDF -> Gaussian)
 * add utilities bas_gms2bdf and fch2bdf (Gaussian -> BDF)

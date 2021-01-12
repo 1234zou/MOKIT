@@ -1,5 +1,6 @@
 ! written by jxzou at 20210107: adjust the orders of p,d,f,g, etc functions in
 !  BDF, to that in Gaussian .fch(k) file
+! updated by jxzou at 20210111: transfer orbital energies when transferring HF/DFT orbitals
 
 ! originally copied from bdf2fch.f90, some modifications are made
 
@@ -40,8 +41,8 @@ program main
   call getarg(3, ab)
   ab = ADJUSTL(ab)
   if(ab/='-uhf' .and. ab/='-no') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
-                         & wrong! Only '-uhf' or '-no' is accepted."
+   write(iout,'(A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
+                    & wrong! Only '-uhf' or '-no' is accepted."
    stop
   end if
  end if
@@ -65,7 +66,8 @@ subroutine bdf2fch(orbname, fchname, ab)
  character(len=4), intent(in) :: ab
  character(len=240), intent(in) :: orbname, fchname
  ! orbname is one of .scforb, .casorb, .casorb1, canorb, file of BDF
- real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:)
+ real(kind=8), allocatable :: coeff(:,:), coeff2(:,:)
+ real(kind=8), allocatable :: occ_num(:), ev(:)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -74,16 +76,19 @@ subroutine bdf2fch(orbname, fchname, ab)
  ! read MO Coefficients from orbital file of BDF
  select case(ab)
  case('-uhf')
-  allocate(coeff(nbf,2*nif))
+  allocate(coeff(nbf,2*nif), ev(2*nif))
+  call read_ev_from_bdf_orb(orbname, nif, 'a', ev(1:nif))
+  call read_ev_from_bdf_orb(orbname, nif, 'b', ev(nif+1:2*nif))
   call read_mo_from_bdf_orb(orbname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_bdf_orb(orbname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
  case('-no')
-  allocate(occ_num(nif), coeff(nbf,nif))
+  allocate(coeff(nbf,nif), occ_num(nif))
   call read_on_from_bdf_orb(orbname, nif, 'a', occ_num)
   call read_mo_from_bdf_orb(orbname, nbf, nif, 'a', coeff)
  case default
-  allocate(coeff(nbf,nif))
+  allocate(coeff(nbf,nif), ev(nif))
+  call read_ev_from_bdf_orb(orbname, nif, 'a', ev)
   call read_mo_from_bdf_orb(orbname, nbf, nif, 'a', coeff)
  end select
 
@@ -228,19 +233,21 @@ subroutine bdf2fch(orbname, fchname, ab)
  forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)
  deallocate(idx, idx2, coeff)
 
-! print MOs into .fch(k) file
+ ! print MOs and orbital energies/occupation numbers into .fch(k) file
  select case(ab)
  case('-uhf')
   nif = nif/2
+  call write_eigenvalues_to_fch(fchname, nif, 'a', ev(1:nif), .true.)
+  call write_eigenvalues_to_fch(fchname, nif, 'b', ev(nif+1:2*nif), .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
  case('-no')
   call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
  case default
+  call write_eigenvalues_to_fch(fchname, nif, 'a', ev, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
  end select
-! print done
 
  deallocate(coeff2)
  if(allocated(occ_num)) deallocate(occ_num)

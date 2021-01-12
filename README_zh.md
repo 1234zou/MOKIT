@@ -23,14 +23,14 @@ or
 （例如CASSCF）在不同量化程序中的电子能量可以很好地复现（误差通常小于10^-6 a.u.），且
 几乎1-2圈收敛。
 
-开发者还提供`Windows* 系统`下预编译好的16个小程序，下载处[Releases](https://gitlab.com/jxzou/mokit/-/releases).
+开发者还提供`Windows* 系统`下预编译好的20个小程序，下载处[Releases](https://gitlab.com/jxzou/mokit/-/releases).
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户
 仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021-1-10
+2021-1-12
 
 安装
 ----------

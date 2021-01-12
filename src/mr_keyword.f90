@@ -43,7 +43,9 @@ module mol
  real(kind=8) :: casci_e  = 0.0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
+ real(kind=8) :: caspt3_e = 0.0d0 ! CASPT3 energy
  real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8) :: nevpt3_e = 0.0d0 ! CASSCF-NEVPT3 energy
  real(kind=8) :: mrmp2_e  = 0.0d0 ! MRMP2 energy
  real(kind=8) :: sdspt2_e = 0.0d0 ! SDSPT2 energy
  real(kind=8) :: davidson_e=0.0d0 ! Davidson correction energy
@@ -117,7 +119,9 @@ module mr_keyword
  logical :: dmrgci  = .false.
  logical :: dmrgscf = .false.
  logical :: caspt2  = .false.
+ logical :: caspt3  = .false.
  logical :: nevpt2  = .false.
+ logical :: nevpt3  = .false.
  logical :: mrmp2   = .false.
  logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
@@ -344,8 +348,8 @@ contains
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mrcisd','sdspt2','mrmp2','caspt2','nevpt2','casscf','dmrgscf',&
-        'casci','dmrgci')   ! e.g. CAS(6,6) is specified
+   case('mcpdft','mrcisd','sdspt2','mrmp2','caspt3','caspt2','nevpt3','nevpt2',&
+        'casscf','dmrgscf','casci','dmrgci')   ! e.g. CAS(6,6) is specified
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
@@ -377,14 +381,15 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','sdspt2','mrmp2','caspt2','nevpt2','casscf','dmrgscf',&
-       'casci','dmrgci','gvb')
+  case('mcpdft','mrcisd','sdspt2','mrmp2','caspt3','caspt2','nevpt3','nevpt2',&
+       'casscf','dmrgscf','casci','dmrgci','gvb')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
                      TRIM(method)//"' not supported."
    write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                      DMRGSCF, NEVPT2, CASPT2, MRMP2, MRCISD, MCPDFT.'
+                      DMRGSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, MRCISD,&
+                      MCPDFT.'
    stop
   end select
 
@@ -404,8 +409,14 @@ contains
   case('caspt2')
    caspt2 = .true.
    casscf = .true.
+  case('caspt3')
+   caspt3 = .true.
+   casscf = .true.
   case('nevpt2')
    nevpt2 = .true.
+   casscf = .true.
+  case('nevpt3')
+   nevpt3 = .true.
    casscf = .true.
   case('casscf')
    casscf = .true.
@@ -690,8 +701,10 @@ contains
   write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
        'CASPT2  = ', caspt2, 'NEVPT2  = ',  nevpt2, 'MRMP2   = ', mrmp2
 
-  write(iout,'(4(A,L1,3X),A)') 'SDSPT2  = ',sdspt2, 'MRCISD  = ', mrcisd, &
-       'MCPDFT  = ', mcpdft, 'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
+  write(iout,'(5(A,L1,3X))') 'SDSPT2  = ',  sdspt2, 'MRCISD  = ', mrcisd, &
+       'MCPDFT  = ', mcpdft, 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3
+
+  write(iout,'(A,L1,3X,A)') 'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
 
   write(iout,'(3(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2   ,&
        'X2C     = ', X2C
@@ -822,9 +835,10 @@ contains
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-     (.not. mcpdft)) then
+     (.not. mcpdft) .and. (.not.caspt3)) then
    write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in"
-   write(iout,'(A)') 'CASPT2/NEVPT2/MRCISD/MC-PDFT computations. But none of them is specified.'
+   write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT computations. But none&
+                    & of them is specified.'
    stop
   end if
 
@@ -1005,9 +1019,9 @@ contains
    end if
   end if
 
-  if(sdspt2 .and. bgchg) then
-   write(iout,'(A)') error_warn//'SDSPT2 with BDF program is incompatible with'
-   write(iout,'(A)') 'background point charges.'
+  if((sdspt2.or.nevpt3) .and. bgchg) then
+   write(iout,'(A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompatible'
+   write(iout,'(A)') 'with background point charges.'
    stop
   end if
 

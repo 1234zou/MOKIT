@@ -563,27 +563,35 @@ subroutine read_on_from_dat(datname, nmo, on, alive)
 end subroutine read_on_from_dat
 
 ! read occupation numbers from ORCA .mkl file
-subroutine read_on_from_mkl(mklname, nmo, on)
+subroutine read_on_from_mkl(mklname, nmo, ab, on)
  implicit none
  integer :: i, k, nline, fid
  integer, intent(in) :: nmo
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: on(nmo)
+ character(len=1), intent(in) :: ab
+ character(len=6) :: key = ' '
+ character(len=6), parameter :: key1 = '$OCC_A'
+ character(len=6), parameter :: key2 = '$OCC_B'
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
  on = 0d0
- open(newunit=fid,file=TRIM(mklname),status='old',position='append')
+ if(ab=='b' .or. ab=='B') then
+  key = key2
+ else
+  key = key1
+ end if
+
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:6) == '$OCC_A') exit
+  if(buf(1:6) == key) exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_mkl: no '$OCC_A' found&
+  write(iout,'(A)') "ERROR in subroutine read_on_from_mkl: no '"//key//"' found&
                    & in file "//TRIM(mklname)
   close(fid)
   stop
@@ -600,6 +608,74 @@ subroutine read_on_from_mkl(mklname, nmo, on)
  close(fid)
  return
 end subroutine read_on_from_mkl
+
+! read orbital energies from an ORCA .mkl file
+subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
+ implicit none
+ integer :: i, k, rc, nline, fid
+ integer, intent(in) :: nmo
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: ev(nmo)
+ character(len=1), intent(in) :: ab
+ character(len=3) :: str = ' '
+ character(len=8) :: key = ' '
+ character(len=8), parameter :: key1 = '$COEFF_A'
+ character(len=8), parameter :: key2 = '$COEFF_B'
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+
+ ev = 0d0
+ if(ab=='b' .or. ab=='B') then
+  key = key2
+ else
+  key = key1
+ end if
+
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found&
+                   & in file "//TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ nline = nmo/5
+ if(nmo-5*nline > 0) nline = nline + 1
+ read(fid,'(A)') buf
+
+ do i = 1, nline, 1
+  k = min(5*i,nmo)
+  read(unit=fid,fmt=*,iostat=rc) ev(5*i-4:k)
+  if(rc /= 0) exit
+  if(i == nline) exit
+
+  do while(.true.)
+   read(fid,'(A)',iostat=rc) buf
+   if(rc /= 0) exit
+   read(buf,*,iostat=rc) str
+   if(rc == 0) then
+    if(str=='a1g' .or. str=='A1g') exit
+   end if
+  end do ! for while
+
+  if(rc /= 0) exit
+ end do ! for i
+
+ close(fid)
+ if(rc /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
+  write(iout,'(A)') 'Filename='//TRIM(mklname)
+  stop
+ end if
+
+ return
+end subroutine read_ev_from_mkl
 
 ! read occupation numbers from Molpro .xml file
 subroutine read_on_from_xml(xmlname, nmo, ab, on)
@@ -711,6 +787,45 @@ subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
  close(fid)
  return
 end subroutine read_on_from_bdf_orb
+
+! read Alpha/Beta eigenvalues (orbital energies) from a given orbital file of BDF
+subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nif
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: ev(nif)
+ character(len=1), intent(in) :: ab
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orbname
+
+ ev = 0d0
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:9) == 'ORBITAL E') exit
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "Warning in subroutine read_ev_from_bdf_orb: no 'ORBITAL E'&
+                   & found in file "//TRIM(orbname)//'.'
+  write(iout,'(A)') 'Failed to read orbital energies. Set all orbital energies&
+                   & to be zero. This does not affect'
+  write(iout,'(A)') 'subsequent computations in AutoMR of MOKIT. So continue. If&
+                   & you know your subsequent computations'
+  write(iout,'(A)') 'will explicitly use orbital energies in fch(k) file, &
+                   & please stop subsequent computations.'
+  close(fid)
+  return
+ end if
+
+ read(fid,*) (ev(i),i=1,nif)
+
+ if(ab=='b' .or. ab=='B') read(fid,*) (ev(i),i=1,nif)
+ close(fid)
+ return
+end subroutine read_ev_from_bdf_orb
 
 ! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
 subroutine read_ncontr_from_fch(fchname, ncontr)
@@ -1991,20 +2106,20 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  return
 end subroutine read_mrpt_energy_from_molcas_out
 
-! read NEVPT2/CASPT2/CASPT3 energy from a Molpro output file
+! read NEVPT2/CASPT2 energy from a Molpro output file
 subroutine read_mrpt_energy_from_molpro_out(outname, order, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, intent(in) :: order ! 1/2/3 for NEVPT2/CASPT2/CASPT3
+ integer, intent(in) :: order ! 1/2 for NEVPT2/CASPT2
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ref_e, corr_e
- character(len=8), parameter :: key(3)= ['Strongly','!RSPT2 S','!RSPT3 S']
+ character(len=8), parameter :: key(2)= ['Strongly','!RSPT2 S']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0
  corr_e = 0d0
- if(order<1 .or. order>3) then
+ if(order<1 .or. order>2) then
   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: order&
                    & out of range.'
   write(iout,'(A,I0,A)') 'order=', order, ', outname='//TRIM(outname)
@@ -2031,7 +2146,7 @@ subroutine read_mrpt_energy_from_molpro_out(outname, order, ref_e, corr_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,key(order)) /= 0) exit
+  if(buf(2:9) == key(order)) exit
  end do ! for while
 
  if(i /= 0) then
@@ -2159,7 +2274,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  implicit none
  integer :: i, fid
  integer, parameter :: iout = 6
- integer, intent(in) :: itype   ! 1/2 for FIC-NEVPT2/SDSPT2
+ integer, intent(in) :: itype   ! 1/2 for SDSPT2/FIC-NEVPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8) :: rtmp(6)
@@ -2171,7 +2286,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  dav_e = 0d0
  if(.not. (itype==1 .or. itype==2)) then
   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currently&
-                   & only reading NEVPT2/SDSPT2 energy is supported.'
+                   & only reading SDSPT2/NEVPT2 energy is supported.'
   stop
  end if
 
@@ -2185,7 +2300,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out:&
                     & 'Print final' not found in file "//TRIM(outname)
-  write(iout,'(A)') 'Error termination of the BDF CASCI/CASSCF in NEVPT2 job.'
+  write(iout,'(A)') 'Error termination of the BDF CASSCF in SDSPT2/NEVPT2 job.'
   close(fid)
   stop
  end if
@@ -2196,7 +2311,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  i = index(buf, '=')
  read(buf(i+1:),*) ref_e ! CASCI/CASSCF energy
 
- if(itype == 2) then
+ if(itype == 1) then
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -2221,7 +2336,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  end if
 
  read(buf(26:),*) corr_e
- if(itype == 2) dav_e = dav_e - corr_e
+ if(itype == 1) dav_e = dav_e - corr_e
  corr_e = corr_e - ref_e
  return
 end subroutine read_mrpt_energy_from_bdf_out

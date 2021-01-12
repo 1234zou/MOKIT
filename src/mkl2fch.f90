@@ -152,20 +152,24 @@ subroutine mkl2fch(mklname, fchname, uhf, read_on)
  end if
  deallocate(f3_mark, g3_mark, h3_mark)
 
+ allocate(noon(nif))
+ if(read_on) then
+  call read_on_from_mkl(mklname, nif, 'a', noon)
+ else
+  call read_ev_from_mkl(mklname, nif, 'a', noon)
+ end if
+ call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
  call write_mo_into_fch(fchname, nbf, nif, 'a', alpha_coeff)
  deallocate(alpha_coeff)
 
  if(uhf) then
+  call read_ev_from_mkl(mklname, nif, 'b', noon)
+  call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
   deallocate(beta_coeff)
  end if
 
- if(read_on) then
-  allocate(noon(nif))
-  call read_on_from_mkl(mklname, nif, noon)
-  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
-  deallocate(noon)
- end if
+ deallocate(noon)
  return
 end subroutine mkl2fch
 

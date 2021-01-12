@@ -21,7 +21,8 @@ F2_MKL_FLAGS = --link-lapack_opt
 
 OBJ_add_bgcharge_to_inp = string_manipulate.o read_fch.o rwgeom.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
-OBJ_automr = string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o read_fch.o rwgeom.o automr.o
+OBJ_automr = string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o read_fch.o \
+             rwgeom.o do_mrpt2.o do_mrpt3.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gms2bdf = string_manipulate.o read_gms_inp.o read_fch.o rwgeom.o bas_gms2bdf.o
@@ -29,6 +30,7 @@ OBJ_bas_gms2molcas = string_manipulate.o read_gms_inp.o bas_gms2molcas.o
 OBJ_bas_gms2molpro = string_manipulate.o read_fch.o rwgeom.o read_gms_inp.o bas_gms2molpro.o
 OBJ_bas_gms2py = string_manipulate.o bas_gms2py.o
 OBJ_bdf2fch = rwwfn.o bdf2fch.o
+OBJ_bdf2mkl = bdf2mkl.o
 OBJ_dat2fch = string_manipulate.o read_fch.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = extract_noon2fch.o
 OBJ_fch2bdf = rwwfn.o util_wrapper.o string_manipulate.o read_gms_inp.o read_fch.o rwgeom.o mr_keyword.o fch2bdf.o
@@ -60,8 +62,8 @@ OBJ_mo_svd_format = rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = rwwfn.o solve_ON_matrix.o
 
 .PHONY: clean distclean add_bgcharge_to_inp align_orbitals automr bas_fch2py \
-        bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch dat2fch \
-        fch2bdf fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy \
+        bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl \
+        dat2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy \
         find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch orb2fch xml2fch \
         mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
@@ -118,6 +120,12 @@ bas_gms2py: $(OBJ_bas_gms2py)
 
 bdf2fch: $(OBJ_bdf2fch)
 	$(F90) $(OBJ_bdf2fch) $(MKL_FLAGS) -o $(BIN)/bdf2fch $(FFLAGS)
+
+bdf2mkl: $(OBJ_bdf2mkl)
+	$(F90) $(OBJ_bdf2mkl) $(MKL_FLAGS) -o $(BIN)/bdf2mkl $(FFLAGS)
+	@echo ;\
+	echo "bdf2mkl requires utilities bdf2fch and fch2mkl, please also compile them" ;\
+	echo
 
 dat2fch: $(OBJ_dat2fch)
 	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS)
@@ -231,8 +239,8 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
 
 all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gms2bdf bas_gms2molcas \
-     bas_gms2molpro bas_gms2py bdf2fch dat2fch fch2bdf fch2com fch2mkl fch2inp \
-     fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
+     bas_gms2molpro bas_gms2py bdf2fch bdf2mkl dat2fch fch2bdf fch2com fch2mkl \
+     fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
      gvb_sort_pairs mkl2fch orb2fch xml2fch py2fch pyuno construct_vir ortho \
      assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
