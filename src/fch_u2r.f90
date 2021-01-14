@@ -24,6 +24,7 @@ program main
  end if
 
  call getarg(1,fchname)
+ call require_file_exist(fchname)
  call fch_u2r(fchname)
  stop
 end program main

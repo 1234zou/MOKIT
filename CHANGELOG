@@ -1,4 +1,4 @@
-MOKIT 1.2.2 (2020-1-12)
+MOKIT 1.2.2 (2020-1-14)
 ------------------------
 * add utility bdf2mkl (BDF -> ORCA)
 * read orbital energies in utilities fch2bdf, bdf2fch, mkl2fch

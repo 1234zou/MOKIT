@@ -6,7 +6,6 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: ab
  character(len=240) :: orbname, fchname
- logical :: alive
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
@@ -20,18 +19,10 @@ program main
 
  ab = ' '; fchname = ' '
  call getarg(1,orbname)
- inquire(file=TRIM(orbname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine bdf2mkl: file '//TRIM(orbname)//' does not exist.'
-  stop
- end if
+ call require_file_exist(orbname)
 
  call getarg(2,fchname)
- inquire(file=TRIM(fchname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine bdf2mkl: file '//TRIM(fchname)//' does not exist.'
-  stop
- end if
+ call require_file_exist(fchname)
 
  if(i == 3) then
   call getarg(3, ab)

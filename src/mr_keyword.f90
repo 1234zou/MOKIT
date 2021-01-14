@@ -7,6 +7,7 @@
 ! file unit of printing
 module print_id
  implicit none
+ integer :: cid ! file ID of Citation.txt
  integer, parameter :: iout = 6
 end module print_id
 

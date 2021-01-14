@@ -25,7 +25,7 @@ program main
  inquire(file=TRIM(fname),exist=alive)
  if(.not. alive) then
   write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: file does not exist!'
-  write(iout,'(A)') 'File='//TRIM(fname)
+  write(iout,'(A)') 'Filename='//TRIM(fname)
   stop
  end if
 
@@ -178,6 +178,9 @@ subroutine bas_gms2bdf(fort7, uhf)
 
  write(fid2,'(A)') '$END'
  write(fid2,'(/,A)') '$SCF'
+ write(fid2,'(A)') 'CheckLin'
+ write(fid2,'(A)') 'TolLin'
+ write(fid2,'(A)') '1.D-6'
  if(uhf) then
   write(fid2,'(A3)') 'UHF'
  else

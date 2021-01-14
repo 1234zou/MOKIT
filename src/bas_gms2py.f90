@@ -16,7 +16,7 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: buf
  character(len=240) :: fname = ' '
- logical :: cart
+ logical :: cart, alive
 
  i = iargc()
  if(.not. (i==1 .or. i==2)) then
@@ -27,6 +27,12 @@ program main
  end if
 
  call getarg(1, fname)
+ inquire(file=TRIM(fname),exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine bas_gms2py: file does not exist.'
+  write(iout,'(A)') 'Filename='//TRIM(fname)
+  stop
+ end if
 
  cart = .true.
  if(i == 2) then

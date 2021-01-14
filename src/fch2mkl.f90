@@ -32,6 +32,7 @@ program main
  end if
 
  call getarg(1, fchname)
+ call require_file_exist(fchname)
 
  uhf = .false.
  if(i == 2) then

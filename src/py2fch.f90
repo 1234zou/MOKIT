@@ -56,8 +56,15 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  character(len=7), parameter :: key4 = 'Beta Or'
  character(len=240) :: fchname, buffer, new_fchk
 !f2py intent(in) :: fchname
-
+ logical :: alive
  logical, allocatable :: eq1(:)
+
+ inquire(file=TRIM(fchname),exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine py2fch: file does not exist!'
+  write(iout,'(A)') 'Filename='//TRIM(fchname)
+  stop
+ end if
 
  ! normalize MO coefficients as Gaussian
  Sdiag = DSQRT(Sdiag)
@@ -278,6 +285,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
 
  close(fid1)
  close(fid,status='delete')
+
  i = RENAME(TRIM(new_fchk),TRIM(fchname))
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine py2fch: fail to rename file.'

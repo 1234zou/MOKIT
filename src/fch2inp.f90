@@ -50,6 +50,7 @@ program main
  end select
 
  call getarg(1,fchname)
+ call require_file_exist(fchname)
 
  if(i > 1) then
   call getarg(2,gvb_or_uhf)

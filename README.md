@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2021-1-12
+2021-1-14
 
 Installation
 ------------
@@ -128,7 +128,7 @@ TODO
 
 * Support more multireference methods like ic-MRCC
 
-* Develope/Implement black-box strategies of excited state calculations
+* Develop/Implement black-box strategies of excited state calculations
 
 Citation
 --------

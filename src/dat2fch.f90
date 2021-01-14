@@ -40,7 +40,10 @@ program main
  end if
 
  call getarg(1,datname)
+ call require_file_exist(datname)
+
  call getarg(2,fchname)
+ call require_file_exist(fchname)
 
  if(i > 2) then
   call getarg(3,gvb_or_uhf_or_cas)

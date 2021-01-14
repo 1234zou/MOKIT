@@ -30,7 +30,11 @@ program main
  end if
 
  call getarg(1, outname)
+ call require_file_exist(outname)
+
  call getarg(2, fchname)
+ call require_file_exist(fchname)
+
  call getarg(3, buf)
  read(buf,*) idx1
  call getarg(4, buf)

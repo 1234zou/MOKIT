@@ -1,5 +1,7 @@
-! written by jxzou at 20210404: generate BDF .inp file and tranfer MOs
-! from Gaussian to BDF
+! written by jxzou at 20210404: generate BDF .BAS, .inp, .scforb/.inporb files
+!  from Gaussian .fch(k) file
+! updated by jxzou at 20210114: enlarge coeff(nbf,nif) to coeff(nbf,nbf) for
+!  linear dependence usage
 
 program main
  use util_wrapper, only: fch2inp_wrap
@@ -23,7 +25,6 @@ program main
  inpname = ' '
  ab = ' '
  call getarg(1,fchname)
-
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
   write(iout,'(A)') 'ERROR in subroutine fch2bdf: file '//TRIM(fchname)//' does not exist!'
@@ -96,18 +97,23 @@ subroutine fch2bdf(fchname, ab)
  nbf0 = nbf   ! save a copy of the original nbf
 
  ! read MO Coefficients
+ ! The array size of occ_num is actually 2*nif or nif, and coeff is (nbf,nif)
+ ! or (nbf,2*nif). But BDF requires them to use nbf. If linear dependence
+ ! occurs, the extra elements are zero and must be printed into .scforb/.inporb.
  select case(ab)
  case('-uhf')
-  allocate(occ_num(2*nif), coeff(nbf,2*nif))
+  allocate(occ_num(2*nbf), source=0d0)
+  allocate(coeff(nbf,2*nbf), source=0d0)
   call read_eigenvalues_from_fch(fchname,nif,'a',occ_num(1:nif))
   call read_eigenvalues_from_fch(fchname,nif,'b',occ_num(nif+1:2*nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_fch(fchname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
  case default
-  allocate(occ_num(nif), coeff(nbf,nif))
+  allocate(occ_num(nbf), source=0d0)
+  allocate(coeff(nbf,nbf), source=0d0)
   call read_eigenvalues_from_fch(fchname, nif, 'a', occ_num)
-  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(1:nbf,1:nif))
  end select
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
@@ -246,36 +252,36 @@ subroutine fch2bdf(fchname, ab)
  end if
 
  if(ab == '-uhf') nif = nif/2
- write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nif, ' ALPHA'
- do i = 1, nif, 1
+ write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' ALPHA'
+ do i = 1, nbf0, 1
   write(orbid,'(5(2X,E23.16))') (coeff(j,i),j=1,nbf0)
  end do ! for i
 
  if(ab == '-uhf') then    ! UHF
-  write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nif, ' BETA'
-  do i = 1, nif, 1
-   write(orbid,'(5(2X,E23.16))') (coeff(j,i+nif),j=1,nbf0)
+  write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' BETA'
+  do i = 1, nbf0, 1
+   write(orbid,'(5(2X,E23.16))') (coeff(j,i+nbf0),j=1,nbf0)
   end do ! for i
  else if(mult/=1 .and. TRIM(ab)/='-no') then ! ROHF
-  write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nif, ' BETA'
-  do i = 1, nif, 1
+  write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' BETA'
+  do i = 1, nbf0, 1
    write(orbid,'(5(2X,E23.16))') (coeff(j,i),j=1,nbf0)
   end do ! for i
  end if
  deallocate(coeff)
 
  write(orbid,'(A)') 'ORBITAL ENERGY'
- write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nif)
+ write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nbf0)
 
  if(ab == '-uhf') then
-  write(orbid,'(5(2X,E23.16))') (occ_num(i),i=nif+1,2*nif)
+  write(orbid,'(5(2X,E23.16))') (occ_num(i),i=nbf0+1,2*nbf0)
  else if(mult/=1 .and. TRIM(ab)/='-no') then
-  write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nif)
+  write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nbf0)
  end if
 
  write(orbid,'(A)') 'OCCUPATION'
  if(TRIM(ab) == '-no') then
-  write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nif)
+  write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
   write(orbid,'(A)') '$END'
   close(orbid)
   return
@@ -283,12 +289,12 @@ subroutine fch2bdf(fchname, ab)
 
  occ_num = 0d0
  occ_num(1:na) = 1d0
- write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nif)
+ write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
 
  if(mult/=1 .or. ab=='-uhf') then
   if(nb < na) occ_num(nb+1:na) = 0d0
   write(orbid,'(A)') 'OCCUPATION'
-  write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nif)
+  write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
  end if
  deallocate(occ_num)
  write(orbid,'(A)') '$END'
@@ -310,9 +316,9 @@ subroutine fch2bdf(fchname, ab)
  write(orbid,'(A)') '$END'
 
  if(mult /= 1) then
-  write(orbid,'(A,2(1X,I8),A)') '$NBF', nbf0, nif, '   2'
+  write(orbid,'(A,2(1X,I8),A)') '$NBF', nbf0, nbf0, '   2'
  else
-  write(orbid,'(A,2(1X,I8),A)') '$NBF', nbf0, nif, '   1'
+  write(orbid,'(A,2(1X,I8),A)') '$NBF', nbf0, nbf0, '   1'
  end if
 
  write(orbid,'(A,2X,I7,1X,I7)') 'NOCC', na, nb

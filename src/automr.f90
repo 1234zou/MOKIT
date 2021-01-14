@@ -1081,6 +1081,9 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  nclosed = ndb + npair - npair0
  BACKSPACE(fid)
  write(fid,'(A)') '$MCSCF'
+ write(fid,'(A)') 'CheckLin'
+ write(fid,'(A)') 'TolLin'
+ write(fid,'(A)') '1.D-6'
  write(fid,'(A,/,I0)') 'Charge', charge
  write(fid,'(A,/,I0)') 'Spin', mult
  write(fid,'(A,/,I0)') 'Close', nclosed
@@ -1909,6 +1912,21 @@ subroutine do_cas(scf)
  idx2 = idx1 + 2*npair0 + nopen - 1
  nvir = nif - (idx1-1) - 2*npair0 - nopen
  write(iout,'(A,2(I0,A))') '(',i,',',i,') using program '//TRIM(cas_prog)
+
+ if(i == 0) then
+  write(iout,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
+  write(iout,'(A)') 'The reason is this molecule has no multi-configurational&
+                   & or multi-reference character.'
+  write(iout,'(A)') 'This molecule can be well described by single reference&
+                   & methods, e.g. MP2, CCSD(T).'
+  write(iout,'(A)') 'Thus no need for multi-reference computation. But if you&
+                   & have to do it, you can manually'
+  write(iout,'(A)') 'specify the size of acitve space in .gjf file. For example&
+                   & CASSCF(8,8) for methane(CH4).'
+  write(iout,'(A)') 'The maximum of active orbitals is 2*npair. You can find&
+                   & npair in GVB computations above.'
+  stop
+ end if
  write(iout,'(A,I4,4X,A,I4)') 'doubly_occ=', idx1-1, 'nvir=', nvir
  write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 

@@ -17,6 +17,7 @@ program main
  end if
 
  call getarg(1,gmsname)
+ call require_file_exist(gmsname)
  call find_mc_pair(gmsname)
  stop
 end program main

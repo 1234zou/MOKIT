@@ -24,6 +24,8 @@ program main
  end if
 
  call getarg(1, datname)
+ call require_file_exist(datname)
+
  call getarg(2, buf)
  read(buf,*) nbf
  call getarg(3, buf)

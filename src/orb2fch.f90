@@ -31,9 +31,14 @@ program main
   stop
  end if
 
- ab = ' '; fchname = ' '
+ ab = ' '
+ orbname = ' '
+ fchname = ' '
  call getarg(1,orbname)
+ call require_file_exist(orbname)
+
  call getarg(2,fchname)
+ call require_file_exist(fchname)
 
  if(i == 3) then
   call getarg(3, ab)

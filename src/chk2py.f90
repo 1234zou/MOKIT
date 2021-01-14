@@ -49,9 +49,15 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  character(len=7), parameter :: key2 = 'Beta MO'
  character(len=240) :: chkname, txtname, buffer
 !f2py intent(in) :: chkname
-
+ logical :: alive
  logical, allocatable :: eq1(:)
 
+ inquire(file=TRIM(chkname),exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine chk2py: file does not exist!'
+  write(iout,'(A)') 'Filename='//TRIM(chkname)
+  stop
+ end if
 
  i = index(chkname,'.chk')
  txtname = chkname(1:i-1)//'_chk.txt'

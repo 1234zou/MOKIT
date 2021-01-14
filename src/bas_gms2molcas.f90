@@ -35,7 +35,7 @@ program main
  inquire(file=TRIM(fname),exist=alive)
  if(.not. alive) then
   write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: file does not exist!'
-  write(iout,'(A)') 'File='//TRIM(fname)
+  write(iout,'(A)') 'Filename='//TRIM(fname)
   stop
  end if
 

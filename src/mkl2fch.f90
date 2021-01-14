@@ -15,7 +15,7 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: str = ' '
  character(len=240) :: mklname, fchname
- logical :: uhf, read_on
+ logical :: uhf, read_on, alive
 
  i = iargc()
  if(i<1 .or. i>3) then
@@ -28,7 +28,10 @@ program main
 
  mklname = ' '; fchname = ' '
  call getarg(1, mklname)
+ call require_file_exist(mklname)
+
  call getarg(2, fchname)
+ call require_file_exist(fchname)
 
  uhf = .false.; read_on = .false.
 
