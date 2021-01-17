@@ -15,7 +15,7 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: str = ' '
  character(len=240) :: mklname, fchname
- logical :: uhf, read_on, alive
+ logical :: uhf, read_on
 
  i = iargc()
  if(i<1 .or. i>3) then
@@ -59,6 +59,7 @@ end program main
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
 subroutine mkl2fch(mklname, fchname, uhf, read_on)
  use fch_content
+ use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
  integer :: i, j, k, nf3mark, ng3mark, nh3mark
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)

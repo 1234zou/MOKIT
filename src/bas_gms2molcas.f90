@@ -303,10 +303,20 @@ subroutine bas_gms2molcas(fort7, spherical)
  write(fid2,'(/,A)') "&SEWARD"
 
  call check_DKH_in_gms_inp(fort7, rel)
- if(rel>-1 .and. (.not.X2C)) then
-  write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
-  !write(fid2,'(A,I2.2,A)') 'R',rel,'O'
- end if
+ select case(rel)
+ case(-2) ! nothing
+ case(-1) ! RESC
+  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: RESC keywords detected.'
+  write(iout,'(A)') 'But RESC is not supported in (Open)Molcas.'
+  stop
+ case(0,1,2,4)  ! DKH0/1/2/4
+  if(.not. X2C) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
+  !if(.not. X2C) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
+ case default
+  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
+  write(iout,'(A,I0)') 'rel=', rel
+  stop
+ end select
 
  write(fid2,'(/,A)') "&SCF"
  if(uhf) write(fid2,'(A3)') 'UHF'

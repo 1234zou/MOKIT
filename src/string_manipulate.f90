@@ -460,3 +460,28 @@ subroutine add_X2C_into_py(pyname)
  return
 end subroutine add_X2C_into_py
 
+! detect the number of columns of data in a string buf
+function detect_ncol_in_buf(buf) result(ncol)
+ implicit none
+ integer :: i, ncol
+ character(len=24), allocatable :: sbuf(:)
+ character(len=240), intent(in) :: buf
+
+ if(LEN_TRIM(buf) == 0) then
+  ncol = 0
+  return
+ end if
+
+ ncol = 1
+ do while(.true.)
+  allocate(sbuf(ncol))
+  read(buf,*,iostat=i) sbuf(1:ncol)
+  deallocate(sbuf)
+  if(i /= 0) exit
+  ncol = ncol + 1
+ end do ! for while
+
+ ncol = ncol - 1
+ return
+end function detect_ncol_in_buf
+

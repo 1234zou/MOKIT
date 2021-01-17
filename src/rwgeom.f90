@@ -637,20 +637,3 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
  return
 end subroutine read_grad_from_bdf_out
 
-! detect the number of columns of data in a string buf
-function detect_ncol_in_buf(buf) result(ncol)
- implicit none
- integer :: i, ncol
- character(len=24), allocatable :: sbuf(:)
- character(len=240), intent(in) :: buf
-
- ncol = 0
- do while(.true.)
-  read(buf,*,iostat=i) 
-  if(i /= 0) exit
-  ncol = ncol + 1
- end do ! for while
-
- return
-end function detect_ncol_in_buf
-

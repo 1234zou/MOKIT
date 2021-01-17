@@ -114,13 +114,32 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
 
  X2C = .false. ! default
  call check_DKH_in_fch(fchname, rel)
- if(rel == 4) then
+ select case(rel)
+ case(-1) ! RESC
+ case(0)  ! DKH0
+  write(iout,'(A)') 'Warning in subroutine fch2inp: DKH0 detected.'
+  write(iout,'(A)') 'But GAMESS does not support this DKH 0-th order correction.'
+  write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+  rel = 2
+ case(2) ! DKH2
+ case(4) ! DKH4
   write(iout,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
   write(iout,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
- else if(rel == -2) then
+  write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+  rel = 2
+ case(-2) ! no, or X2C
   call check_X2C_in_fch(fchname, X2C)
-  if(X2C) rel = 2 ! mimic X2C as DKH2
- end if
+  if(X2C) then
+   write(iout,'(A)') 'Warning in subroutine fch2inp: X2C detected.'
+   write(iout,'(A)') 'But GAMESS does not support X2C.'
+   write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+   rel = 2 ! mimic X2C as DKH2
+  end if
+ case default
+  write(iout,'(A)') 'Warning in subroutine fch2inp: rel out of range.'
+  write(iout,'(A,I0)') 'rel=', rel
+  stop
+ end select
 
  uhf = .false.
  if(gvb_or_uhf == '-uhf') uhf = .true.

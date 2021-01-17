@@ -24,12 +24,12 @@ OBJ_align_orbitals = rwwfn.o align_orbitals.o
 OBJ_automr = string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o read_fch.o \
              rwgeom.o do_mrpt2.o do_mrpt3.o automr.o
 OBJ_auto_pair = auto_pair.f90
-OBJ_bas_fch2py = file_op.o util_wrapper.o rwwfn.o bas_fch2py.o
+OBJ_bas_fch2py = file_op.o util_wrapper.o string_manipulate.o rwwfn.o bas_fch2py.o
 OBJ_bas_gms2bdf = string_manipulate.o read_gms_inp.o read_fch.o rwgeom.o bas_gms2bdf.o
 OBJ_bas_gms2molcas = string_manipulate.o read_gms_inp.o bas_gms2molcas.o
 OBJ_bas_gms2molpro = string_manipulate.o read_fch.o rwgeom.o read_gms_inp.o bas_gms2molpro.o
 OBJ_bas_gms2py = string_manipulate.o bas_gms2py.o
-OBJ_bdf2fch = rwwfn.o file_op.o bdf2fch.o
+OBJ_bdf2fch = string_manipulate.o rwwfn.o file_op.o bdf2fch.o
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
 OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o
@@ -37,18 +37,19 @@ OBJ_fch2bdf = rwwfn.o util_wrapper.o string_manipulate.o read_gms_inp.o read_fch
 OBJ_fch2com = rwwfn.o util_wrapper.o string_manipulate.o fch2com.o
 OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o fch2mkl.o
 OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o fch2inp.o
-OBJ_fch2inporb = rwwfn.o util_wrapper.o fch2inporb.o
+OBJ_fch2inporb = string_manipulate.o rwwfn.o util_wrapper.o fch2inporb.o
 OBJ_fch_u2r = file_op.o fch_u2r.o
 OBJ_fch_mo_copy = rwwfn.o fch_mo_copy.o
 OBJ_frag_guess_wfn = string_manipulate.o read_fch.o rwgeom.o rwwfn.o mr_keyword.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
-OBJ_gvb_correct_pairs = rwwfn.o gvb_correct_pairs.o
+OBJ_gvb_correct_pairs = string_manipulate.o rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
-OBJ_mkl2fch = file_op.o string_manipulate.o rwwfn.o read_fch.o mkl2fch.o
-OBJ_orb2fch = file_op.o rwwfn.o orb2fch.o
-OBJ_xml2fch = file_op.o rwwfn.o xml2fch.o
+OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o rwwfn.o mkl2fch.o
+OBJ_mkl2gjf = file_op.o string_manipulate.o read_fch.o read_mkl.o mkl2gjf.o
+OBJ_orb2fch = file_op.o string_manipulate.o rwwfn.o orb2fch.o
+OBJ_xml2fch = file_op.o string_manipulate.o rwwfn.o xml2fch.o
 OBJ_py2fch = py2fch.f90
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = construct_vir.f90
@@ -58,14 +59,14 @@ OBJ_assoc_loc = assoc_loc.f90
 OBJ_pop = pop.f90
 OBJ_lo = lo.f90
 OBJ_mo_svd = mo_svd.f90
-OBJ_mo_svd_format = rwwfn.o mo_svd_format.o
-OBJ_solve_ON_matrix = rwwfn.o solve_ON_matrix.o
+OBJ_mo_svd_format = string_manipulate.o rwwfn.o mo_svd_format.o
+OBJ_solve_ON_matrix = string_manipulate.o rwwfn.o solve_ON_matrix.o
 
 .PHONY: clean distclean add_bgcharge_to_inp align_orbitals automr bas_fch2py \
         bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl \
         dat2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy \
-        find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch orb2fch xml2fch \
-        mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
+        find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf orb2fch \
+        xml2fch mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -190,6 +191,9 @@ gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 mkl2fch: $(OBJ_mkl2fch)
 	$(F90) $(OBJ_mkl2fch) -o $(BIN)/mkl2fch $(FFLAGS)
 
+mkl2gjf: $(OBJ_mkl2gjf)
+	$(F90) $(OBJ_mkl2gjf) -o $(BIN)/mkl2gjf $(FFLAGS)
+
 xml2fch: $(OBJ_xml2fch)
 	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS)
 
@@ -241,7 +245,7 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gms2bdf bas_gms2molcas \
      bas_gms2molpro bas_gms2py bdf2fch bdf2mkl dat2fch fch2bdf fch2com fch2mkl \
      fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
-     gvb_sort_pairs mkl2fch orb2fch xml2fch py2fch pyuno construct_vir ortho \
+     gvb_sort_pairs mkl2fch mkl2gjf orb2fch xml2fch py2fch pyuno construct_vir ortho \
      assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
 
 clean:

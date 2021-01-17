@@ -34,6 +34,34 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  return
 end subroutine read_charge_and_mult_from_fch
 
+! read the total charge and the spin mltiplicity from a given .mkl file
+subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == '$CHAR_M') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no&
+                   & '$CHAR_M' found in file "//TRIM(mklname)//'.'
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) charge, mult
+ close(fid)
+ return
+end subroutine read_charge_and_mult_from_mkl
+
 ! read nalpha and nbeta from .fch(k) file
 subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
@@ -273,66 +301,6 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  return
 end subroutine read_mo_from_orb
 
-! read Alpha/Beta MO coefficients from ORCA .mkl file
-subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
- implicit none
- integer :: i, j, k, fid, nbatch
- integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
- real(kind=8), intent(out) :: mo(nbf,nif)
- character(len=240) :: buf
- character(len=11) :: key
- character(len=11), parameter :: key1 = '$COEFF_ALPH'
- character(len=11), parameter :: key2 = '$COEFF_BETA'
- character(len=1), intent(in) :: ab
- character(len=240), intent(in) :: mklname
-
- if(ab=='a' .or. ab=='A') then
-  key = key1
- else if (ab=='b' .or. ab=='B') then
-  key = key2
- else
-  write(iout,'(A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
-  write(iout,'(A)') 'ab = '//ab
-  stop
- end if
-
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == key) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)&
-                    //"' found in file "//TRIM(mklname)//'.'
-  stop
- end if
-
- nbatch = nif/5
- do i = 1, nbatch, 1
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-
-  do j = 1, nbf, 1
-   read(fid,*) mo(j,5*i-4:5*i)
-  end do ! for j
- end do ! for i
-
- k = nif - 5*nbatch
- if(k > 0) then
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  do j = 1, nbf, 1
-   read(fid,*) mo(j,5*i-4:nif)
-  end do ! for j
- end if
-
- close(fid)
- return
-end subroutine read_mo_from_mkl
-
 ! read Alpha/Beta MO coefficients from Molpro .xml file
 subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  implicit none
@@ -561,121 +529,6 @@ subroutine read_on_from_dat(datname, nmo, on, alive)
  close(fid)
  return
 end subroutine read_on_from_dat
-
-! read occupation numbers from ORCA .mkl file
-subroutine read_on_from_mkl(mklname, nmo, ab, on)
- implicit none
- integer :: i, k, nline, fid
- integer, intent(in) :: nmo
- integer, parameter :: iout = 6
- real(kind=8), intent(out) :: on(nmo)
- character(len=1), intent(in) :: ab
- character(len=6) :: key = ' '
- character(len=6), parameter :: key1 = '$OCC_A'
- character(len=6), parameter :: key2 = '$OCC_B'
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- on = 0d0
- if(ab=='b' .or. ab=='B') then
-  key = key2
- else
-  key = key1
- end if
-
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:6) == key) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_mkl: no '"//key//"' found&
-                   & in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- nline = nmo/5
- if(nmo-5*nline > 0) nline = nline + 1
-
- do i = 1, nline, 1
-  k = min(5*i,nmo)
-  read(fid,*) on(5*i-4:k)
- end do ! for i
-
- close(fid)
- return
-end subroutine read_on_from_mkl
-
-! read orbital energies from an ORCA .mkl file
-subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
- implicit none
- integer :: i, k, rc, nline, fid
- integer, intent(in) :: nmo
- integer, parameter :: iout = 6
- real(kind=8), intent(out) :: ev(nmo)
- character(len=1), intent(in) :: ab
- character(len=3) :: str = ' '
- character(len=8) :: key = ' '
- character(len=8), parameter :: key1 = '$COEFF_A'
- character(len=8), parameter :: key2 = '$COEFF_B'
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- ev = 0d0
- if(ab=='b' .or. ab=='B') then
-  key = key2
- else
-  key = key1
- end if
-
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == key) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found&
-                   & in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- nline = nmo/5
- if(nmo-5*nline > 0) nline = nline + 1
- read(fid,'(A)') buf
-
- do i = 1, nline, 1
-  k = min(5*i,nmo)
-  read(unit=fid,fmt=*,iostat=rc) ev(5*i-4:k)
-  if(rc /= 0) exit
-  if(i == nline) exit
-
-  do while(.true.)
-   read(fid,'(A)',iostat=rc) buf
-   if(rc /= 0) exit
-   read(buf,*,iostat=rc) str
-   if(rc == 0) then
-    if(str=='a1g' .or. str=='A1g') exit
-   end if
-  end do ! for while
-
-  if(rc /= 0) exit
- end do ! for i
-
- close(fid)
- if(rc /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
-  write(iout,'(A)') 'Filename='//TRIM(mklname)
-  stop
- end if
-
- return
-end subroutine read_ev_from_mkl
 
 ! read occupation numbers from Molpro .xml file
 subroutine read_on_from_xml(xmlname, nmo, ab, on)
