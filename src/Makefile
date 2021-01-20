@@ -22,7 +22,7 @@ F2_MKL_FLAGS = --link-lapack_opt
 OBJ_add_bgcharge_to_inp = string_manipulate.o read_fch.o rwgeom.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
 OBJ_automr = string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o read_fch.o \
-             rwgeom.o do_mrpt2.o do_mrpt3.o automr.o
+             rwgeom.o do_mrpt2.o do_mrpt3.o do_mcpdft.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o util_wrapper.o string_manipulate.o rwwfn.o bas_fch2py.o
 OBJ_bas_gms2bdf = string_manipulate.o read_gms_inp.o read_fch.o rwgeom.o bas_gms2bdf.o

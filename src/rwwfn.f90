@@ -2301,24 +2301,36 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
 end subroutine read_mrcisd_energy_from_output
 
 ! read MC-PDFT energy from a given (Open)Molcas/GAMESS output file
-subroutine read_mcpdft_e_from_output(prog, outname, e)
+subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
  integer, parameter :: iout = 6
- real(kind=8), intent(out) :: e
+ real(kind=8), intent(out) :: ref_e, corr_e
  character(len=240) :: buf
+ character(len=9) :: str(3)
  character(len=10), intent(in) :: prog
  character(len=240), intent(in) :: outname
 
- e = 0d0
+ ref_e = 0d0; corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  select case(TRIM(prog))
  case('openmolcas')
-  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'MCSCF reference e') /= 0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                    & 'MCSCF reference e' found in file "//TRIM(outname)//'.'
+   close(fid)
+   stop
+  end if
+  read(buf,*) str(1), str(2), str(3), ref_e
 
   do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
    if(index(buf,'Total MC-PDFT') /= 0) exit
@@ -2327,12 +2339,12 @@ subroutine read_mcpdft_e_from_output(prog, outname, e)
   if(i /= 0) then
    write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                     & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   close(fid)
    stop
   end if
-  read(buf(60:),*) e
- case('gamess')
-  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  read(buf(60:),*) corr_e
 
+ case('gamess')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -2342,13 +2354,34 @@ subroutine read_mcpdft_e_from_output(prog, outname, e)
   if(i /= 0) then
    write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                     & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   close(fid)
    stop
   end if
   i = index(buf, '=', back=.true.)
-  read(buf(i+1:),*) e
+  read(buf(i+1:),*) corr_e
+
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:15) == 'STATE=   1   E') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                   & 'STATE=   1   E' found in file "//TRIM(outname)//'.'
+   close(fid)
+   stop
+  end if
+  i = index(buf, 'Y=', back=.true.)
+  read(buf(i+2:),*) ref_e
  end select
 
  close(fid)
+ corr_e = corr_e - ref_e
  return
 end subroutine read_mcpdft_e_from_output
 
@@ -2453,35 +2486,47 @@ end subroutine find_npair0_from_fch
 subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte)
  implicit none
  integer :: i, na, nb
- integer, intent(out) :: nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte
+ integer, intent(out) :: nbf, nif, nopen
+ integer, intent(out) :: ndb(2), nacta(2), nactb(2), nacto(2), nacte(2)
  integer, parameter :: iout = 6
- real(kind=8), parameter :: no_thres = 0.02d0
+ real(kind=8), parameter :: no_thres1 = 0.02d0, no_thres2 = 0.01d0
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: fchname
 
+ nacto = 0; nacta = 0; nactb = 0
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  call read_na_and_nb_from_fch(fchname, na, nb)
  nopen = na - nb
 
- allocate(noon(nif), source=0.0d0)
+ allocate(noon(nif), source=0d0)
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
- if( ANY(noon<0.0d0) ) then
+ if( ANY(noon < -1D-2) ) then
   write(iout,'(A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
                    & negative occupation number(s), this is not possible.'
   write(iout,'(A)') 'Do you mistake the energy levels for occupation numbers?'
   stop
  end if
 
- nacto = 0; nacta = 0; nactb = 0
+ do i = 1, nif, 1
+  if(noon(i)>no_thres1 .and. noon(i)<(2.0d0-no_thres1)) then
+   nacto(1) = nacto(1) + 1
+   if(i <= nb) then
+    nacta(1) = nacta(1) + 1
+    nactb(1) = nactb(1) + 1
+   else if(i <=na) then
+    nacta(1) = nacta(1) + 1
+   end if
+  end if
+ end do ! for i
 
  do i = 1, nif, 1
-  if(noon(i)>no_thres .and. noon(i)<(2.0d0-no_thres)) then
-   nacto = nacto + 1
+  if(noon(i)>no_thres2 .and. noon(i)<(2.0d0-no_thres2)) then
+   nacto(2) = nacto(2) + 1
    if(i <= nb) then
-    nacta = nacta + 1
-    nactb = nactb + 1
+    nacta(2) = nacta(2) + 1
+    nactb(2) = nactb(2) + 1
    else if(i <=na) then
-    nacta = nacta + 1
+    nacta(2) = nacta(2) + 1
    end if
   end if
  end do ! for i

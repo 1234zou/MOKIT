@@ -3,6 +3,7 @@
 ! updated by jxzou at 20201213: %casscf+noiter -> %mrci for correct CASCI NOONs in ORCA
 ! updated by jxzou at 20201222: import grad for CASSCF force in PySCF; read CASSCF force for Molpro
 ! updated by jxzou at 20210111: add subroutine do_mrpt3
+! updated by jxzou at 20210119: add OpenMolcas-QCMaquis, OpenMolcas-CheMPS2 interface
 
 ! The input file is just like Gaussian .gjf format. MOKIT keywords should be
 !  specified in the Title Card line like 'mokit{}'.
@@ -878,10 +879,11 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  return
 end subroutine prt_cas_gms_inp
 
-! print CASCI/CASSCF keywords in to a given Molcas/OpenMolcas input file
+! print CASCI/CASSCF keywords in to a given (Open)Molcas input file
 subroutine prt_cas_molcas_inp(inpname, scf)
  use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
+ use mr_keyword, only: maxM, dmrgci, dmrgscf
  implicit none
  integer :: i, fid1, fid2, RENAME
  logical, intent(in) :: scf
@@ -907,12 +909,12 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:4) == "&SCF") exit
+  if(buf(2:4) == "SCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no '&SCF'&
+  write(iout,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF'&
                    & found in file "//TRIM(inpname)
   stop
  end if
@@ -925,6 +927,15 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  if(.not. scf) write(fid2,'(A)') 'CIonly'
  i = index(inpname, '.input', back=.true.)
  write(fid2,'(A,/)') 'FILEORB = '//inpname(1:i-1)//'.INPORB'
+
+ if(dmrgci .or. dmrgscf) then
+  write(fid2,'(A)') 'DMRG'
+  write(fid2,'(A)') 'RGinput'
+  write(fid2,'(A)') ' conv_thresh = 1E-7'
+  write(fid2,'(A)') ' nsweeps = 5'
+  write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
+  write(fid2,'(A)') 'endRG'
+ end if
 
  close(fid1,status='delete')
  close(fid2)
@@ -1144,7 +1155,9 @@ subroutine prt_nevpt2_script_into_py(pyname)
  else
   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,'))'
  end if
+
  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*500, ' # MB'
+
  if(casci .or. casscf) then
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*500, ' # MB'
  else
@@ -1287,7 +1300,7 @@ end subroutine prt_nevpt2_molcas_inp
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
  use print_id, only: iout
- use mr_keyword, only: CIonly
+ use mr_keyword, only: CIonly, maxM, dmrgci, dmrgscf
  use mol, only: nacte, nacto, charge, mult
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -1325,11 +1338,28 @@ subroutine prt_caspt2_molcas_inp(inputname)
  write(fid2,'(A,I0)') 'RAS2 = ', nacto
  i = index(inputname,'.input',back=.true.)
  write(fid2,'(A)') 'FILEORB = '//inputname(1:i-1)//'.INPORB'
- if(CIonly) write(fid2,'(A)') 'CIonly'
+
+ if(CIonly) then
+  if(dmrgci) then
+   write(iout,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not&
+                    & allowed in DMRG-CASPT2.'
+   write(iout,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'   
+   stop
+  else
+   write(fid2,'(A)') 'CIonly'
+  end if
+ end if
+
+ if(dmrgscf) then
+  write(fid2,'(A,I0)') 'DMRG = ', maxM
+  write(fid2,'(A)') '3RDM'
+ end if
 
  write(fid2,'(/,A)') "&CASPT2"
  write(fid2,'(A)') 'MultiState= 1 1'
+ if(dmrgscf) write(fid2,'(A)') 'CheMPS2'
  write(fid2,'(A,/)') 'Frozen= 0'
+
  close(fid2)
  i = RENAME(inputname1, inputname)
  return
@@ -1610,7 +1640,7 @@ subroutine prt_mcpdft_molcas_inp(inpname)
   write(fid2,'(A)') 'DMRG'
   write(fid2,'(A)') 'RGinput'
   write(fid2,'(A)') ' conv_thresh = 1E-7'
-  write(fid2,'(A)') ' nsweeps = 4'
+  write(fid2,'(A)') ' nsweeps = 5'
   write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
   write(fid2,'(A)') 'endRG'
  end if
@@ -1834,6 +1864,7 @@ subroutine do_cas(scf)
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, system, RENAME
+ integer :: indb(2), inacta(2), inactb(2), inacto(2), inacte(2)
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
@@ -1850,11 +1881,17 @@ subroutine do_cas(scf)
 
  write(iout,'(//,A)') 'Enter subroutine do_cas...'
  if(ist == 5) then
-  call read_no_info_from_fch(hf_fch, nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte)
+  call read_no_info_from_fch(hf_fch,nbf,nif,indb,nopen,inacta,inactb,inacto,inacte)
   ! if ist=5, read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
-  i = nacte; j = nacto
+  i = inacte(1); j = inacto(1)
  else
   i = 2*npair0 + nopen; j = i
+ end if
+
+ if(nacte_wish==0 .and. ist==5) then
+  ndb = indb(1); nacta = inacta(1); nactb = inactb(1)
+  nacto = inacto(1); nacte = inacte(2)
+  npair0 = nactb; npair = npair0
  end if
 
  if(nacte_wish>0 .and. i/=nacte_wish) then
@@ -1862,9 +1899,17 @@ subroutine do_cas(scf)
    & user specifies CAS(',nacte_wish,'e,',nacto_wish, 'o). Trying to fulfill...'
 
   if(ist == 5) then
-   !if() then
-   !end if
-
+   if(nacte_wish > inacte(2)) then
+    write(iout,'(A)') 'ERROR in subroutine do_cas: too large active space required.'
+    write(iout,'(2(A,I0),A)') 'Maximum allowed: CAS(',inacte(2),',',inacte(2),')'
+    stop
+   else
+    i = nacte_wish; j = nacto_wish
+    npair0 = (nacte_wish-nopen)/2; npair = npair0
+    ndb = indb(1) + inactb(1) - npair
+    nacta = npair0 + nopen; nactb = npair0
+    nacto = nacto_wish; nacte = nacto_wish
+   end if
    write(iout,'(A)') 'OK, fulfilled.'
 
   else ! ist /= 5
@@ -1930,12 +1975,13 @@ subroutine do_cas(scf)
  write(iout,'(A,I4,4X,A,I4)') 'doubly_occ=', idx1-1, 'nvir=', nvir
  write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
- if(npair0 > 7) then
+ if(nopen+2*npair0 > 15) then
   if(scf) then
    casscf = .false.
    dmrgscf = .true.
+   cas_prog = dmrgscf_prog
    write(iout,'(A)') 'Warning: CASSCF is switched to DMRG-CASSCF due to active&
-                    & space larger than (14,14).'
+                    & space larger than (15,15).'
    if(casscf_prog /= 'pyscf') then
     write(iout,'(A)') 'ERROR in subroutine do_cas: DMRGSCF required. But&
                      & CASSCF_prog='//TRIM(casscf_prog)//'.'
@@ -1945,8 +1991,9 @@ subroutine do_cas(scf)
   else ! not scf
    casci = .false.
    dmrgci = .true.
+   cas_prog = dmrgci_prog
    write(iout,'(A)') 'Warning: CASCI is switched to DMRG-CASCI due to active&
-                    & space larger than (14,14).'
+                    & space larger than (15,15).'
    if(casci_prog /= 'pyscf') then
     write(iout,'(A)') 'ERROR in subroutine do_cas: DMRGCI required. But&
                      & CASCI_prog='//TRIM(casci_prog)//'.'
@@ -1958,8 +2005,8 @@ subroutine do_cas(scf)
   call prt_strategy()
  end if
 
- if(ist<1 .or. ist>3) then
-  write(iout,'(A)') 'ERROR in subroutine do_cas: not supported currently.'
+ if(ist<1 .or. ist>5) then
+  write(iout,'(A)') 'ERROR in subroutine do_cas: ist out of range.'
   write(iout,'(A,I0)') 'ist=', ist
   stop
  end if
@@ -1975,13 +2022,17 @@ subroutine do_cas(scf)
   i = index(datname, '.dat', back=.true.)
   fchname = datname(1:i-1)//'.fch'
   pyname = datname(1:i-1)//'.py'
- else ! ist=2, UHF -> UNO -> CASCI/CASSCF
+ else if(ist == 2) then ! UHF -> UNO -> CASCI/CASSCF
   i = index(hf_fch, '.fch', back=.true.)
   fchname = hf_fch(1:i-1)//'_uno.fch'
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
   i = RENAME(TRIM(pyname), TRIM(inpname))
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another filename
+ else if(ist == 5) then
+  i = index(hf_fch, '.fch', back=.true.)
+  fchname = hf_fch
+  pyname = hf_fch(1:i-1)//'.py'
  end if
 
  proname = ' '
@@ -2221,11 +2272,13 @@ subroutine do_cas(scf)
  call read_cas_energy_from_output(cas_prog, outname, e, scf, nacta-nactb, &
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
 
- if(gvb .and. 2*npair+nopen==nacto .and. gvb_e<e(1)) then
+ if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
   write(iout,'(A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
-   & are equal, but CASCI/CASSCF energy is higher than that of GVB.'
-  write(iout,'(A)') 'This is probably due to: (1) CASCI stucks in a higher energy&
-   & local minimum or not pure spin state; (2) GVB MOs are disordered (GAMESS bug).'
+                   & are equal, but CASCI/CASSCF energy'
+  write(iout,'(A)') 'is higher than that of GVB. This is probably due to: (1)&
+                   & CASCI stucks in a higher energy'
+  write(iout,'(A)') 'local minimum or not pure spin state; (2) GVB MOs are di&
+                   &sordered (GAMESS bug).'
   stop
  end if
 
@@ -2452,116 +2505,6 @@ subroutine do_mrcisd()
  write(iout,'(A)') 'Leave subroutine do_mrcisd at '//TRIM(data_string)
  return
 end subroutine do_mrcisd
-
-! do MC-PDFT for npair<=7, or <=CAS(14,14)
-subroutine do_mcpdft()
- use print_id, only: iout
- use mr_keyword, only: mem, nproc, casci, casscf, dmrgci, dmrgscf, mcpdft, &
-  mcpdft_prog, casnofch, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
-  gms_scr_path, CIonly
- use mol, only: casci_e, casscf_e, ptchg_e, mcpdft_e
- implicit none
- integer :: i, system, RENAME
- real(kind=8) :: e
- character(len=24) :: data_string
- character(len=240) :: fname(3), inpname, outname
- logical :: dmrg
-
- if(.not. mcpdft) return
- write(iout,'(//,A)') 'Enter subroutine do_mcpdft...'
-
- dmrg = (dmrgci .or. dmrgscf)
-
- if(dmrg) then
-  if(mcpdft_prog=='gamess') then
-   write(iout,'(A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT not supported&
-                    & with GAMESS.'
-   stop
-  end if
-  if(dmrgci) then
-   write(iout,'(A)') 'DMRG-PDFT based on DMRG-CASCI orbitals.'
-  else
-   write(iout,'(A)') 'DMRG-PDFT based on optimized DMRG-CASSCF orbitals.'
-  end if
-  write(iout,'(A)') 'DMRG-PDFT using program openmolcas'
- else
-  if(casci) then
-   write(iout,'(A)') 'MC-PDFT based on CASCI orbitals.'
-  else
-   write(iout,'(A)') 'MC-PDFT based on optimized CASSCF orbitals.'
-  end if
-  write(iout,'(A)') 'MC-PDFT using program '//TRIM(mcpdft_prog)
- end if
-
- if(dmrgci .or. casci) then
-  write(iout,'(A)') 'Warning: orbital optimization is strongly recommended to&
-                   & be performed'
-  write(iout,'(A)') 'before PDFT, unless it is too time-consuming.'
- end if
-
- select case(TRIM(mcpdft_prog))
- case('openmolcas')
-  call check_exe_exist(molcas_path)
-  i = system('fch2inporb '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  fname(1) = casnofch(1:i-1)//'.INPORB'
-  fname(2) = casnofch(1:i-1)//'.input'
-  i = index(casnofch, '_NO', back=.true.)
-  fname(3) = casnofch(1:i)//'MCPDFT.INPORB'
-  inpname  = casnofch(1:i)//'MCPDFT.input'
-  outname  = casnofch(1:i)//'MCPDFT.out'
-  i = RENAME(TRIM(fname(1)), TRIM(fname(3)))
-  i = RENAME(TRIM(fname(2)), TRIM(inpname))
- 
-  call prt_mcpdft_molcas_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
-
- case('gamess')
-  call check_gms_path()
-  i = system('fch2inp '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  fname(1) = casnofch(1:i-1)//'.inp'
-  i = index(casnofch, '_NO', back=.true.)
-  fname(2) = casnofch(1:i)//'MCPDFT.dat'
-  inpname = casnofch(1:i)//'MCPDFT.inp'
-  outname = casnofch(1:i)//'MCPDFT.gms'
-  i = RENAME(TRIM(fname(1)), TRIM(inpname))
-  fname(2) = TRIM(gms_scr_path)//'/'//TRIM(fname(2)) ! delete the possible .dat file
-  call delete_file(fname(2))
-
-  call prt_mcpdft_gms_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(fname(3),'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//" 01 1 >&"//TRIM(outname)
-  i = system(TRIM(fname(3)))
-  ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
-
-  ! move the .dat file into current directory
-  i = system('mv '//TRIM(fname(2))//' .')
- end select
-
- ! read MC-PDFT/DMRG-PDFT energy from OpenMolcas output file
- call read_mcpdft_e_from_output(mcpdft_prog, outname, e)
- if(TRIM(mcpdft_prog) == 'openmolcas') e = e + ptchg_e
- mcpdft_e = e
- if(CIonly) then
-  e = e - casci_e
- else
-  e = e - casscf_e
- end if
-
- if(dmrg) then
-  write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(DMRG-PDFT) =', e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(DMRG-PDFT)      =', mcpdft_e, 'a.u.'
- else
-  write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MC-PDFT) =', e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MC-PDFT)      =', mcpdft_e, 'a.u.'
- end if
-
- call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
- return
-end subroutine do_mcpdft
 
 ! do ic-MRCC based on CASSCF, npair<=5
 subroutine do_mrcc()

@@ -289,7 +289,7 @@ contains
   character(len=24) :: method0 = ' '
   character(len=240) :: buf = ' '
   character(len=1000) :: longbuf = ' '
-  logical :: alive(2), alive1(4)
+  logical :: alive(2), alive1(5)
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
@@ -496,6 +496,7 @@ contains
    if(ifail /= 0) then
     write(iout,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
     write(iout,'(A)') 'The provided .gjf file may be incomplete.'
+    close(fid)
     stop
    end if
   end if
@@ -507,27 +508,56 @@ contains
   write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
-  alive1(1:4) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
-                 (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0)]
-  if(COUNT(alive1(1:4) .eqv. .true.) > 1) then
-   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword of&
-                      & 'caspt2_prog', 'nevpt2_prog', 'mrmp2_prog', 'mrcisd_prog'"
-   write(iout,'(A)') 'are detected. Only one can be specified in a job.'
+  alive1(1:5) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
+                 (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0), &
+                 (index(longbuf,'mcpdft_prog')/=0)]
+  if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
+   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword&
+                      & of 'caspt2_prog', 'nevpt2_prog', 'mrmp2_prog'"
+   write(iout,'(A)') "'mrcisd_prog', 'mcpdft_prog' are detected. Only one can&
+                     & be specified in a job."
    stop
   end if
 
-  if(index(longbuf,'casci_prog')/=0 .and. index(longbuf,'casscf_prog')/=0) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both casci_prog and&
-                    & casscf_prog are detected.'
+  alive1(1:4)= [(index(longbuf,'casci_prog')/=0),(index(longbuf,'casscf_prog')/=0),&
+                (index(longbuf,'dmrgci_prog')/=0),(index(longbuf,'dmrgscf_prog')/=0)]
+  if(alive1(1) .and. alive1(2)) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and&
+                      & CASSCF_prog are detected.'
    write(iout,'(A)') 'Only one can be specified in a job.'
    stop
-  else if(index(longbuf,'casci_prog')/=0 .and. index(longbuf,'cionly')==0 .and. casscf) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
-                      & you specify the casci_prog.'
+  end if
+
+  if(alive1(3) .and. alive1(4)) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and&
+                      & DMRGSCF_prog are detected.'
+   write(iout,'(A)') 'Only one can be specified in a job.'
    stop
-  else if(index(longbuf,'casscf_prog')/=0 .and. casci) then
+  end if
+
+  if(casscf .and. (alive1(1).and.alive1(3))) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
+                      & you specify the CASCI_prog or DMRGCI_prog.'
+   write(iout,'(/,A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
+   stop
+  end if
+
+  if(casci .and. (alive1(2).and.alive1(4))) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but&
-                      & you specify the casscf_prog.'
+                      & you specify the CASSCF_prog or DMRGSCF_prog.'
+   write(iout,'(/,A)') 'You should specify CASCI_prog or DMRGCI_prog.'
+   stop
+  end if
+
+  if(dmrgscf .and. alive1(3)) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated,&
+                      & but you specify the DMRGCI_prog.'
+   stop
+  end if
+
+  if(dmrgci .and. alive1(4)) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated,&
+                      & but you specify the DMRGSCF_prog.'
    stop
   end if
 
@@ -684,7 +714,8 @@ contains
   end select
 
   if(.not. mcpdft) otpdf = ' '
-  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mcpdft)
+  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mcpdft .or. &
+              caspt3 .or. nevpt3)
   call prt_strategy()
   return
  end subroutine parse_keyword
@@ -767,17 +798,21 @@ contains
    stop
   end if
 
-  if(dmrgci_prog /= 'pyscf') then
-   write(iout,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF.'
-   write(iout,'(A)') 'Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
+  select case(dmrgci_prog)
+  case('pyscf', 'openmolcas')
+  case default
+   write(iout,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
+   write(iout,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
    stop
-  end if
+  end select
 
-  if(dmrgscf_prog /= 'pyscf') then
-   write(iout,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF.'
-   write(iout,'(A)') 'Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
+  select case(dmrgscf_prog)
+  case('pyscf', 'openmolcas')
+  case default
+   write(iout,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
+   write(iout,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
    stop
-  end if
+  end select
 
   alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
   if(X2C .and. alive(1)) then
@@ -792,7 +827,7 @@ contains
 
   if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
    write(iout,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
-   write(iout,'(A)') 'localm='//TRIM(localm)
+   write(iout,'(A)') 'Wrong localm='//TRIM(localm)
    stop
   end if
 
@@ -800,7 +835,7 @@ contains
   i = COUNT(alive .eqv. .true.)
   if(i > 1) then
    write(iout,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'readno'&
-                   & are set .True."
+                   & are set as .True."
    write(iout,'(A)') 'These three keywords are mutually exclusive.'
    stop
   end if

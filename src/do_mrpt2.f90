@@ -111,6 +111,7 @@ subroutine do_mrpt2()
 
   select case(TRIM(nevpt2_prog))
   case('pyscf')
+   ! For DMRG-NEVPT2, use CMOs rather than NOs
    if(dmrgci .or. dmrgscf) then
     i = index(casnofch, '_NO', back=.true.)
     cmofch = casnofch(1:i)//'CMO.fch'
@@ -217,18 +218,28 @@ subroutine do_mrpt2()
   select case(TRIM(caspt2_prog))
   case('openmolcas')
    call check_exe_exist(molcas_path)
+   ! For DMRG-CASPT2, use CMOs rather than NOs
+   if(dmrgci .or. dmrgscf) then
+    i = index(casnofch, '_NO', back=.true.)
+    cmofch = casnofch(1:i)//'CMO.fch'
+    casnofch = cmofch
+   end if
+
    i = system('fch2inporb '//TRIM(casnofch)//' -no') ! generate .input and .INPORB
    i = index(casnofch, '.fch', back=.true.)
    pyname = casnofch(1:i-1)//'.input'
-   outname = casnofch(1:i-1)//'.INPORB'
-   i = index(casnofch, '_NO', back=.true.)
+   string = casnofch(1:i-1)//'.INPORB'
+   if(dmrgci .or. dmrgscf) then
+    i = index(casnofch, '_CMO', back=.true.)
+   else
+    i = index(casnofch, '_NO', back=.true.)
+   end if
    inpname = casnofch(1:i-1)//'_CASPT2.input'
-   inporb = casnofch(1:i-1)//'_CASPT2.INPORB'
-   i = RENAME(pyname, inpname)
-   i = RENAME(outname, inporb)
- 
-   i = index(casnofch, '_NO', back=.true.)
+   inporb  = casnofch(1:i-1)//'_CASPT2.INPORB'
    outname = casnofch(1:i-1)//'_CASPT2.out'
+   i = RENAME(pyname, inpname)
+   i = RENAME(string, inporb)
+ 
    call prt_caspt2_molcas_inp(inpname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
