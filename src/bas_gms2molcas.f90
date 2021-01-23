@@ -136,6 +136,7 @@ subroutine bas_gms2molcas(fort7, spherical)
   end do ! for while
 
   allocate(all_ecp(natom))
+  all_ecp(:)%ecp = .false.
   rewind(fid1)
   do while(.true.)
    read(fid1,'(A)') buf1
@@ -159,8 +160,9 @@ subroutine bas_gms2molcas(fort7, spherical)
     if(j == 1) then
      k = index(buf1,'ul')
      if(k == 0) then
-      write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: ECP/PP not starts with '-ul potential'."
-      write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(fort7)//'.'
+      write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: ECP/PP does not&
+                       & starts with '-ul potential'."
+      write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(fort7)
       stop
      end if
     end if
@@ -234,7 +236,11 @@ subroutine bas_gms2molcas(fort7, spherical)
   if(bohrs) coor(1:3,natom) = coor(1:3,natom)*Bohr_const
   write(fid2,'(A)') 'Basis set'
   if(ecp_exist) then
-   if(all_ecp(natom)%ecp) write(fid2,'(A)') TRIM(elem(natom))//'.ECP....      / inline'
+   if(all_ecp(natom)%ecp) then
+    write(fid2,'(A)') TRIM(elem(natom))//'.ECP....      / inline'
+   else
+    write(fid2,'(A)') TRIM(elem(natom))//'.....      / inline'
+   end if
   else
    write(fid2,'(A)') TRIM(elem(natom))//'.....      / inline'
   end if
