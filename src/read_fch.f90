@@ -431,7 +431,7 @@ end module r_5D_2_6D
 ! check whether there exists DKH keywords in a given .fch(k) file
 subroutine check_DKH_in_fch(fchname, order)
  implicit none
- integer :: i, k, n, fid
+ integer :: i, fid
  integer, intent(out) :: order
 ! -2: no DKH
 ! -1: RESC

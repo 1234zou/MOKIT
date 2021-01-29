@@ -9,6 +9,7 @@
 ! updated by jxzou at 20190411: pass the Sdiag in
 ! updated by jxzou at 20200326: renamed as py2fch
 ! updated by jxzou at 20200425: add input arrays ev (for eigenvalues or NOONs)
+! updated by jxzou at 20210126: generate Total SCF Density using MOs and ONs
 
 ! This subroutine is designed to be imported as a module by Python.
 !  For INTEL compiler, use
@@ -25,15 +26,15 @@
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
-subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
+subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev, gen_density)
  implicit none
- integer :: i, k
- integer :: ncoeff, nbf, nif
+ integer :: i, j, k, fid, fid1
+ integer :: ncoeff, nbf, nif, nocc
 !f2py intent(in) :: nbf, nif
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
- integer, parameter :: iout = 6, fid = 11, fid1 = 12
+ integer, parameter :: iout = 6
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  integer :: RENAME
@@ -45,7 +46,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
 !f2py depend(nbf,nif) :: coeff2
 !f2py depend(nbf) :: Sdiag
 !f2py depend(nif) :: ev
- real(kind=8), allocatable :: coeff(:)
+ real(kind=8), allocatable :: coeff(:), den(:,:)
 
  character(len=1) :: ab
 !f2py intent(in) :: ab
@@ -54,9 +55,15 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  character(len=7), parameter :: key2 = 'Beta MO'
  character(len=8), parameter :: key3 = 'Alpha Or'
  character(len=7), parameter :: key4 = 'Beta Or'
- character(len=240) :: fchname, buffer, new_fchk
+ character(len=49) :: str
+ character(len=240) :: fchname, buf, new_fchk
 !f2py intent(in) :: fchname
- logical :: alive
+
+ logical :: alive,  gen_density
+!f2py intent(in) :: gen_density
+
+! If gen_density = .True., generate total density using input MOs and eigenvalues
+! In this case, the array ev should contain occupation numbers
  logical, allocatable :: eq1(:)
 
  inquire(file=TRIM(fchname),exist=alive)
@@ -70,20 +77,20 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  Sdiag = DSQRT(Sdiag)
  allocate(eq1(nbf), source=.false.)
  do i = 1, nbf, 1
-  if( DABS(Sdiag(i)-1.0d0) < diff) eq1(i) = .true.
+  if( DABS(Sdiag(i)-1d0) < diff) eq1(i) = .true.
  end do
 
  do i = 1, nif, 1
   do k = 1, nbf, 1
    if(.not. eq1(k)) coeff2(k,i) = coeff2(k,i)*Sdiag(k)
-  end do
- end do
+  end do ! for k
+ end do ! for i
  deallocate(eq1)
  ! normalize done
 
- buffer = ' '
- ncoeff = 0
+ buf = ' '
  new_fchk = ' '
+ ncoeff = 0
 
  key0 = key3
  key = key1
@@ -93,44 +100,39 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  end if
 
  i = index(fchname,'.fch')
- new_fchk = fchname(1:i-1)//'.p2f.tmp'
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ new_fchk = fchname(1:i-1)//'.p2f'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find and read Shell types
  do while(.true.)
-  read(fid,'(A)',iostat=i) buffer
-  if(buffer(1:11) == 'Shell types') exit
+  read(fid,'(A)',iostat=i) buf
+  if(buf(1:11) == 'Shell types') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine py2fch: missing the 'Shell types'&
-                   & section in .fchk file!"
-  write(iout,'(A)') TRIM(fchname)
+  write(iout,'(A)') "ERROR in subroutine py2fch: missing 'Shell types' section&
+                   & in file "//TRIM(fchname)
   close(fid)
   return
  end if
 
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buffer, k
- allocate(shell_type(2*k))
- shell_type = 0
+ read(buf,'(A49,2X,I10)') str, k
+ allocate(shell_type(2*k), source=0)
  read(fid,'(6(6X,I6))') (shell_type(i),i=1,k)
 ! read Shell types done
 
  ! find and read Shell to atom map
  do while(.true.)
-  read(fid,'(A)',iostat=i) buffer
-  if(buffer(1:13) == 'Shell to atom') exit
+  read(fid,'(A)',iostat=i) buf
+  if(buf(1:13) == 'Shell to atom') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine py2fch: missing the 'Shell to atom map'&
-                   & section in .fchk file!"
-  write(iout,'(A)') TRIM(fchname)
+  write(iout,'(A)') "ERROR in subroutine py2fch: missing 'Shell to atom map'&
+                   & section in file "//TRIM(fchname)
   close(fid)
   return
  end if
 
- allocate(shell_to_atom_map(2*k))
- shell_to_atom_map = 0
+ allocate(shell_to_atom_map(2*k), source=0)
  read(fid,'(6(6X,I6))') (shell_to_atom_map(i),i=1,k)
  ! read Shell to atom map done
 
@@ -140,24 +142,19 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  call unsort_shell_and_mo(k, shell_type, shell_to_atom_map, nbf, nif, coeff2)
  ! Note that k will be updated
  deallocate(shell_to_atom_map)
-
 ! adjust done
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
- n6dmark = 0
- n10fmark = 0
- n15gmark = 0
- n21hmark = 0
- n5dmark= 0
- n7fmark = 0
- n9gmark = 0
- n11hmark = 0
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
- d_mark = 0
- f_mark = 0
- g_mark = 0
- h_mark = 0
+ n5dmark  = 0 ; n6dmark  = 0
+ n7fmark  = 0 ; n10fmark = 0
+ n9gmark  = 0 ; n15gmark = 0
+ n11hmark = 0 ; n21hmark = 0
+ allocate(d_mark(k), source=0)
+ allocate(f_mark(k), source=0)
+ allocate(g_mark(k), source=0)
+ allocate(h_mark(k), source=0)
  nbf = 0
+
  do i = 1, k, 1
   select case(shell_type(i))
   case( 0)   !'S'
@@ -199,7 +196,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   end select
- end do
+ end do ! for i
  deallocate(shell_type)
 
  ! adjust the order of d, f, g etc. functions
@@ -231,75 +228,118 @@ subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev)
  ! adjustment finished
 
  ! write the MOs into the .fchk file
- open(unit=fid1,file=new_fchk,status='replace')
  rewind(fid)
+ open(newunit=fid1,file=TRIM(new_fchk),status='replace')
  do while(.true.)
-  read(fid,'(A)') buffer
-  write(fid1,'(A)') TRIM(buffer)
-  if(buffer(1:8) == key0) exit ! Alpha/Beta Orbital Energies
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:8) == key0) exit ! Alpha/Beta Orbital Energies
  end do
  write(fid1,'(5(1X,ES15.8))') (ev(i),i=1,nif)
 
  do while(.true.) ! skip the Orbital Energies in old fch(k)
-  read(fid,'(A)') buffer
-  if(index(buffer,'=') /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(49:49) == '=') exit
  end do
+ write(fid1,'(A)') TRIM(buf)
 
- BACKSPACE(fid)
- do while(.true.)
-  read(fid,'(A)') buffer
-  write(fid1,'(A)') TRIM(buffer)
-  if(buffer(1:8) == key) exit  ! Alpha/Beta MO
- end do
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buffer, ncoeff
+ if(buf(1:8) /= key) then
+  do while(.true.)
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:8) == key) exit  ! Alpha/Beta MO
+  end do ! for while
+ end if
+ read(buf,'(A49,2X,I10)') str, ncoeff
 
  if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: inconsistent basis sets in&
-                   & .fchk file and in PySCF script., ncoeff/=nbf*nif!'
-  write(iout,'(A)') TRIM(fchname)
+  write(iout,'(A)') 'ERROR in subroutine py2fch: inconsistent basis set in&
+                   & .fch(k) file and in PySCF script. ncoeff/=nbf*nif!'
+  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(iout,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
   close(fid)
   close(fid1,status='delete')
   return
  end if
 
- allocate(coeff(ncoeff), source=0.0d0)
+ allocate(coeff(ncoeff))
  coeff = RESHAPE(coeff2,(/ncoeff/))
  write(fid1,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
  deallocate(coeff)
 
  ! copy the rest of the .fchk file
  do while(.true.)
-  read(fid,'(A)') buffer
-  i = index(buffer, '=')
-  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(49:49) == '=') exit
  end do
+ ! here should be 'Orthonormal basis' or 'Total SCF Density'
  BACKSPACE(fid)
 
+ if(gen_density) then
+  if( ANY(ev<-0.1D0) ) then
+   write(iout,'(A)') 'ERROR in subroutine py2fch: occupation numbers of some&
+                    & orbitals < -0.1. Did you'
+   write(iout,'(A)') 'mistake orbital energies for occupation numbers?'
+   close(fid1)
+   close(fid,status='delete')
+   stop
+  end if
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:11) == 'Total SCF D') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
+                    & file "//TRIM(fchname)
+   close(fid1)
+   close(fid,status='delete')
+   stop
+  end if
+
+  allocate(den(nbf,nbf), source=0d0)
+  ! only den(j,i) j<=i will be assigned values
+  do i = 1, nbf, 1
+   do j = 1, i, 1
+    do k = 1, nif, 1
+     if(DABS(ev(k)) < 1D-7) cycle
+     den(j,i) = den(j,i) + ev(k)*coeff2(j,k)*coeff2(i,k)
+    end do ! for k
+   end do ! for j
+  end do ! for i
+
+  write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
+  deallocate(den)
+
+  do while(.true.) ! skip density in the original .fch(k) file
+   read(fid,'(A)') buf
+   if(buf(49:49) == '=') then
+    write(fid1,'(A)') TRIM(buf)
+    exit
+   end if
+  end do ! for while
+ end if
+
  do while(.true.)
-  read(fid,'(A)',iostat=i) buffer
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buffer)
- end do
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
  ! writing new fchk file done
 
  close(fid1)
- close(fid,status='delete')
-
+ close(fid, status='delete')
  i = RENAME(TRIM(new_fchk),TRIM(fchname))
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: fail to rename file.'
-  write(iout,'(A)') 'new_fchk='//TRIM(new_fchk)
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
  return
 end subroutine py2fch
 
 ! split the 'L' into 'S' and 'P'
 subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
  implicit none
- integer i, k0
+ integer :: i, k0
  integer,intent(in) :: k
  integer,intent(inout) :: shell_type(2*k), shell_to_atom_map(2*k)
  integer,intent(out) :: length
@@ -336,15 +376,14 @@ end subroutine split_L_func
 ! MOs will be adjusted accordingly
 subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coeff2)
  implicit none
- integer i, j, k
- integer length, natom
- integer ibegin, iend, jbegin, jend
+ integer :: i, j, k
+ integer :: length, natom
+ integer :: ibegin, iend, jbegin, jend
  integer, parameter :: ntype = 10
  integer, parameter :: num0(ntype) = (/0, 1, -2, 2, -3, 3, -4, 4, -5, 5/)
  integer, parameter :: num1(ntype) = (/1, 3, 5, 6, 7, 10, 9, 15, 11, 21/)
  !                                     S  P  5D 6D 7F 10F 9G 15G 11H 21H
- integer num(ntype)
-
+ integer :: num(ntype)
  integer,intent(inout) :: ilen
  integer,intent(in) :: nbf, nif
  ! Note that this 'ilen' is not identical to that in fchk2py.f90.
@@ -415,10 +454,10 @@ end subroutine unsort_shell_and_mo
 ! sort the shell_type within each atom
 subroutine sort_shell_type_in_each_atom2(ilen, shell_type)
  implicit none
- integer i, tmp_type
- integer,intent(in) :: ilen
- integer,intent(inout) :: shell_type(ilen)
- logical sort_done
+ integer :: i, tmp_type
+ integer, intent(in) :: ilen
+ integer, intent(inout) :: shell_type(ilen)
+ logical :: sort_done
 
  sort_done = .false.
  do while(.not. sort_done)
@@ -441,20 +480,20 @@ end subroutine sort_shell_type_in_each_atom2
 !  Gaussian: 1s, 2s, 2px, 2py, 2pz, 3s, 3px, 3py, 3pz
 subroutine unsort_mo_in_each_atom(ilen1, shell_type, new_shell_type, ilen2, nif, coeff2)
  implicit none
- integer i, j, k, m   ! temporary variables
- integer ibegin
- integer,parameter :: ntype = 10
- integer ith_shell(ntype)
- integer,parameter :: num0(ntype) = (/0, 1, -2, 2, -3, 3, -4, 4, -5, 5/)
- integer,parameter :: num1(ntype) = (/1, 3, 5, 6, 7, 10, 9, 15, 11, 21/)
+ integer :: i, j, k, m   ! temporary variables
+ integer :: ibegin
+ integer, parameter :: ntype = 10
+ integer :: ith_shell(ntype)
+ integer, parameter :: num0(ntype) = (/0, 1, -2, 2, -3, 3, -4, 4, -5, 5/)
+ integer, parameter :: num1(ntype) = (/1, 3, 5, 6, 7, 10, 9, 15, 11, 21/)
  !                                    S  P  5D 6D 7F 10F 9G 15G 11H 21H
- integer,parameter :: rnum(-5:5) = (/9, 7, 5, 3, 0, 1, 2, 4, 6, 8, 10/)
+ integer, parameter :: rnum(-5:5) = (/9, 7, 5, 3, 0, 1, 2, 4, 6, 8, 10/)
 
- integer,intent(in) :: ilen1, ilen2, nif
- integer,intent(in) :: shell_type(ilen1), new_shell_type(ilen1)
- integer,allocatable :: ith_bas(:)
- real(kind=8),intent(inout) :: coeff2(ilen2,nif)
- real(kind=8) new_coeff2(ilen2,nif)
+ integer, intent(in) :: ilen1, ilen2, nif
+ integer, intent(in) :: shell_type(ilen1), new_shell_type(ilen1)
+ integer, allocatable :: ith_bas(:)
+ real(kind=8), intent(inout) :: coeff2(ilen2,nif)
+ real(kind=8) :: new_coeff2(ilen2,nif)
 
  new_coeff2 = 0.0d0
  ! get the begin position of each type of basis functions within an atom
@@ -494,7 +533,7 @@ end subroutine unsort_mo_in_each_atom
 
 subroutine get_1st_loc(inum, loc, ilen, a)
  implicit none
- integer i
+ integer :: i
  integer, intent(out) :: loc
  integer, intent(in) :: inum, ilen
  integer, intent(in) :: a(ilen)
@@ -509,18 +548,18 @@ end subroutine get_1st_loc
 
 subroutine py2fch_permute_5d(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(5) = (/3, 4, 2, 5, 1/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(5,nif)
- real(kind=8) coeff2(5,nif)
+ real(kind=8) :: coeff2(5,nif)
 ! From: the order of spherical d functions in PySCF
 ! To: the order of spherical d functions in Gaussian
 ! 1    2    3    4    5
 ! d-2, d-1, d0 , d+1, d+2
 ! d0 , d+1, d-1, d+2, d-2
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:5)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -530,18 +569,18 @@ end subroutine py2fch_permute_5d
 
 subroutine py2fch_permute_6d(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(6) = (/1, 4, 6, 2, 3, 5/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(6,nif)
- real(kind=8) coeff2(6,nif)
+ real(kind=8) :: coeff2(6,nif)
 ! From: the order of Cartesian d functions in PySCF
 ! To: the order of Cartesian d functions in Gaussian
 ! 1  2  3  4  5  6
 ! XX,XY,XZ,YY,YZ,ZZ
 ! XX,YY,ZZ,XY,XZ,YZ
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:6)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -551,18 +590,18 @@ end subroutine py2fch_permute_6d
 
 subroutine py2fch_permute_7f(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(7) = (/4, 5, 3, 6, 2, 7, 1/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(7,nif)
- real(kind=8) coeff2(7,nif)
+ real(kind=8) :: coeff2(7,nif)
 ! From: the order of spherical f functions in PySCF
 ! To: the order of spherical f functions in Gaussian
 ! 1    2    3    4    5    6    7
 ! f-3, f-2, f-1, f0 , f+1, f+2, f+3
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:7)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -572,18 +611,18 @@ end subroutine py2fch_permute_7f
 
 subroutine py2fch_permute_10f(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(10) = (/1, 7, 10, 4, 2, 3, 6, 9, 8, 5/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(10,nif)
- real(kind=8) coeff2(10,nif)
+ real(kind=8) :: coeff2(10,nif)
 ! From: the order of Cartesian f functions in PySCF
 ! To: the order of Cartesian f functions in Gaussian
 ! 1   2   3   4   5   6   7   8   9   10
 ! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
 ! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:10)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -593,18 +632,18 @@ end subroutine py2fch_permute_10f
 
 subroutine py2fch_permute_9g(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(9) = (/5, 6, 4, 7, 3, 8, 2, 9, 1/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(9,nif)
- real(kind=8) coeff2(9,nif)
+ real(kind=8) :: coeff2(9,nif)
 ! From: the order of spherical g functions in PySCF
 ! To: the order of spherical g functions in Gaussian
 ! 1    2    3    4    5    6    7    8    9
 ! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:9)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -614,17 +653,17 @@ end subroutine py2fch_permute_9g
 
 subroutine py2fch_permute_15g(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(15,nif)
- real(kind=8) coeff2(15,nif)
+ real(kind=8) :: coeff2(15,nif)
 ! From: the order of Cartesian g functions in PySCF
 ! To: the order of Cartesian g functions in Gaussian
 ! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
 ! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:15)
   coeff2(i,:) = coeff(16-i,:)
  end forall
@@ -634,18 +673,18 @@ end subroutine py2fch_permute_15g
 
 subroutine py2fch_permute_11h(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, parameter :: order(11) = (/6, 7, 5, 8, 4, 9, 3, 10, 2, 11, 1/)
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(11,nif)
- real(kind=8) coeff2(11,nif)
+ real(kind=8) :: coeff2(11,nif)
 ! From: the order of Cartesian h functions in PySCF
 ! To: the order of Cartesian h functions in Gaussian
 ! 1    2    3    4    5    6    7    8    9    10   11
 ! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:11)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -655,17 +694,17 @@ end subroutine py2fch_permute_11h
 
 subroutine py2fch_permute_21h(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(21,nif)
- real(kind=8) coeff2(21,nif)
+ real(kind=8) :: coeff2(21,nif)
 ! From: the order of Cartesian h functions in PySCF
 ! To: the order of Cartesian h functions in Gaussian
 ! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
 ! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:21)
   coeff2(i,:) = coeff(22-i,:)
  end forall

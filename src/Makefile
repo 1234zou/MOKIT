@@ -61,12 +61,15 @@ OBJ_lo = lo.f90
 OBJ_mo_svd = mo_svd.f90
 OBJ_mo_svd_format = string_manipulate.o rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = string_manipulate.o rwwfn.o solve_ON_matrix.o
+OBJ_rwwfn = rwwfn.f90
+OBJ_excited = excited.f90
 
 .PHONY: clean distclean add_bgcharge_to_inp align_orbitals automr bas_fch2py \
         bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl \
-        dat2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy \
-        find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf orb2fch \
-        xml2fch mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
+        extract_noon2fch dat2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb \
+        fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs gvb_sort_pairs \
+        mkl2fch mkl2gjf orb2fch xml2fch mo_svd mo_svd_format solve_ON_matrix \
+        rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -130,6 +133,9 @@ bdf2mkl: $(OBJ_bdf2mkl)
 
 dat2fch: $(OBJ_dat2fch)
 	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS)
+
+extract_noon2fch: $(OBJ_extract_noon2fch)
+	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
 
 fch2bdf: $(OBJ_fch2bdf)
 	$(F90) $(OBJ_fch2bdf) -o $(BIN)/fch2bdf $(FFLAGS)
@@ -239,14 +245,20 @@ mo_svd_format: $(OBJ_mo_svd_format)
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
-extract_noon2fch: $(OBJ_extract_noon2fch)
-	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
+rwwfn: $(OBJ_rwwfn)
+	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS)
+	@mv rwwfn*.so ../lib/
+
+excited: $(OBJ_excited)
+	$(F2PY) -c $(OBJ_excited) -m excited $(F2_FLAGS) $(F2_MKL_FLAGS)
+	@mv excited*.so ../lib/
 
 all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gms2bdf bas_gms2molcas \
-     bas_gms2molpro bas_gms2py bdf2fch bdf2mkl dat2fch fch2bdf fch2com fch2mkl \
-     fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs \
-     gvb_sort_pairs mkl2fch mkl2gjf orb2fch xml2fch py2fch pyuno construct_vir ortho \
-     assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix extract_noon2fch
+     bas_gms2molpro bas_gms2py bdf2fch bdf2mkl dat2fch extract_noon2fch fch2bdf \
+     fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy chk2py fch2py \
+     find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf orb2fch \
+     xml2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc pop lo mo_svd \
+     mo_svd_format solve_ON_matrix rwwfn excited
 
 clean:
 	rm -f *.o *.mod

@@ -535,17 +535,17 @@ contains
    stop
   end if
 
-  if(casscf .and. (alive1(1).and.alive1(3))) then
+  if(casscf .and. (alive1(1).or.alive1(3))) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
                       & you specify the CASCI_prog or DMRGCI_prog.'
-   write(iout,'(/,A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
+   write(iout,'(A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
    stop
   end if
 
-  if(casci .and. (alive1(2).and.alive1(4))) then
+  if(casci .and. (alive1(2).or.alive1(4))) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but&
                       & you specify the CASSCF_prog or DMRGSCF_prog.'
-   write(iout,'(/,A)') 'You should specify CASCI_prog or DMRGCI_prog.'
+   write(iout,'(A)') 'You should specify CASCI_prog or DMRGCI_prog.'
    stop
   end if
 

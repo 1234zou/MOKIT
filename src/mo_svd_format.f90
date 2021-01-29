@@ -54,8 +54,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  i = index(fname1, '.txt', back=.true.)
  if(i /= 0) then ! Gaussian case
   gau = .true.
-!  call read_nbf_and_nif_from_fch(fname1, nbf, nif)
-  nbf = 400; nif = 400
+  call read_nbf_and_nif_from_fch(fname1, nbf, nif)
  else ! i == 0, OpenMolcas case
   gau = .false.
   call read_nbf_and_nif_from_orb(fname1, nbf, nif)
@@ -67,11 +66,11 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  allocate(S(nbf,nbf), source=0.0d0)
 
  if(gau) then ! Gaussian case
-!  call read_mo_from_fch(fname1, nbf, nif, 'a', coeff1)
-!  call read_mo_from_fch(fname2, nbf, nif, 'a', coeff2)
-  call read_mo_from_chk_txt(fname1, nbf, nif, 'a', coeff1)
-  call read_mo_from_chk_txt(fname2, nbf, nif, 'a', coeff2)
-  call read_ovlp_from_gau_log(ovlp_file, nbf, S)
+  call read_mo_from_fch(fname1, nbf, nif, 'a', coeff1)
+  call read_mo_from_fch(fname2, nbf, nif, 'a', coeff2)
+!  call read_mo_from_chk_txt(fname1, nbf, nif, 'a', coeff1)
+!  call read_mo_from_chk_txt(fname2, nbf, nif, 'a', coeff2)
+  call read_int1e_from_gau_log(ovlp_file, 1, nbf, S)
  else         ! OpenMolcas case
   call read_mo_from_orb(fname1, nbf, nif, 'a', coeff1)
   call read_mo_from_orb(fname2, nbf, nif, 'a', coeff2)

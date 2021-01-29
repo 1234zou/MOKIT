@@ -26,6 +26,23 @@ program main
  case('-v', '-V', '--version')
   write(iout,'(A)') 'AutoMR 1.2.2 :: MOKIT'
   stop
+ case('-h','-help','--help')
+  write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
+  write(iout,'(A)')    "  Example: automr a.gjf >& a.out &"
+  write(iout,'(/,A)')  'Options:'
+  write(iout,'(A)')    '  -h, -help, --help: Print this message and exit.'
+  write(iout,'(A)')    '  -v, -V, --version: Print the version number of automr and exit.'
+  write(iout,'(/,A)')  'Methods(#p ...):'
+  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, MRCISD,'
+  write(iout,'(A)')    '  MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
+  write(iout,'(/,A)')  'Keywords in MOKIT{}:'
+  write(iout,'(A)')    '  CASSCF_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF'
+  write(iout,'(A)')    '   CASCI_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF'
+  write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
+  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas, Molpro'
+  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas, Molpro, ORCA, Gaussian'
+  write(iout,'(A,/)')  '  MCPDFT_prog=OpenMolcas, GAMESS'
+  stop
  end select
 
  i = index(fname, '.gjf', back=.true.)
@@ -356,7 +373,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# save projected MOs into a new .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(proj_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"', nbf, nif, mf.mo_coeff, Sdiag, 'a', mf.mo_occ)"
+ write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_occ,False)"
  write(fid2,'(A)') '# save done'
 
  close(fid2)
@@ -420,12 +437,12 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(A)') 'vir_idx = range(idx2,idx3)'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') "occ_loc_orb = pm(mol.nbas, mol._bas[:,0], mol._bas[:,1], &
-                   & mol._bas[:,3], mol.cart, nbf, npair, mf.mo_coeff[:,occ_idx],&
-                   & S, 'mulliken')"
-  write(fid2,'(A)') "vir_loc_orb = pm(mol.nbas, mol._bas[:,0], mol._bas[:,1], &
-                   & mol._bas[:,3], mol.cart, nbf, npair, mf.mo_coeff[:,vir_idx],&
-                   & S, 'mulliken')"
+  write(fid2,'(A)') "occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+                   &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[:,occ_idx],&
+                   &S,'mulliken')"
+  write(fid2,'(A)') "vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+                   &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[:,vir_idx],&
+                   &S,'mulliken')"
  else ! Boys localization
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,occ_idx])'
   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, npair, mf.mo_coeff[:,occ_idx], mo_dipole)'
@@ -443,13 +460,14 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(A)') 'nopen = np.sum(mf.mo_occ==1)'
  write(fid2,'(A)') 'nalpha = np.sum(mf.mo_occ > 0)'
  write(fid2,'(A)') 'nvir_lmo = npair'
- write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, mf.mo_coeff, mo_dipole)'
+ write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo,&
+                   &nbf, nif, mf.mo_coeff, mo_dipole)'
  write(fid2,'(A)') 'mf.mo_coeff = alpha_coeff.copy()'
  write(fid2,'(A)') '# pair done'
 
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"', nbf, nif, mf.mo_coeff, Sdiag, 'a', mf.mo_occ)"
+ write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_occ,False)"
  write(fid2,'(A)') '# save done'
 
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
@@ -539,7 +557,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
  write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
- write(fid1,'(A)') 'idx, noon, alpha_coeff = uno(nbf, nif, na, nb, mf.mo_coeff[0], mf.mo_coeff[1], S)'
+ write(fid1,'(A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],mf.mo_coeff[1],S)'
  write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
  write(fid1,'(A)') '# done transform'
@@ -547,7 +565,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(/,A)') '# save the UNO into .fch file'
  write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//"')"
  write(fid1,'(A)') "os.rename('"//hf_fch(1:i-1)//"_r.fch', '"//TRIM(uno_fch)//"')"
- write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"', nbf, nif, mf.mo_coeff[0], Sdiag, 'a', noon)"
+ write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',noon,True)"
  write(fid1,'(A)') '# save done'
 
  close(fid1)
@@ -633,7 +651,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
  write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"', nbf, nif, mf.mo_coeff[0], Sdiag, 'a', noon)"
+ write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',noon,False)"
  close(fid1)
  return
 end subroutine prt_assoc_rot_script_into_py
@@ -730,11 +748,15 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  if(hardwfn) then
   write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 200'
  else if(crazywfn) then
   write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
   write(fid2,'(A)') 'mc.fcisolver.level_shift = 0.2'
   write(fid2,'(A)') 'mc.fcisolver.pspace_size = 1200'
   write(fid2,'(A)') 'mc.fcisolver.max_space = 100'
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 300'
+ else
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 100'
  end if
 
  ! For CASCI/CASSCF, NOs will be generated; but for DMRGCI/DMRGSCF, both
@@ -751,7 +773,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(/,A)') '# save CMOs into .fch file'
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
   write(fid2,'(A)') 'noon = np.zeros(nif)'
-  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',noon)"
+  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',noon,False)"
 
   write(fid2,'(/,A)') 'mc.natorb = True'
   write(fid2,'(A)') 'mc.kernel()'
@@ -759,8 +781,8 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  write(fid2,'(/,A)') '# save NOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(casnofch)//"')"
- write(fid2,'(A)') 'noon = np.zeros(nif)'
- write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',noon)"
+ write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',mc.mo_occ,True)"
+ ! mc.mo_occ only exists for PySCF >= 1.7.4
  close(fid2)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
@@ -781,12 +803,13 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(A,I0,A,I0,A)',advance='no') '#p CAS(',nacte,',',nacto,')'
+ write(fid,'(2(A,I0),A)',advance='no') '#p CAS(',nacte,',',nacto,')'
+ write(fid,'(A)',advance='no') ' chkbasis nosymm guess=read geom=allcheck'
+
  if(dkh2_or_x2c) then
-  write(fid,'(A)',advance='no') ' chkbasis nosymm guess=read geom=allcheck&
-                                  & int(nobasistransform,DKH2) iop(3/93=1)'
+  write(fid,'(A)',advance='no') ' int(nobasistransform,DKH2) iop(3/93=1)'
  else
-  write(fid,'(A)',advance='no') ' chkbasis nosymm guess=read geom=allcheck int=nobasistransform'
+  write(fid,'(A)',advance='no') ' int=nobasistransform'
  end if
  if(force) write(fid,'(A)',advance='no') ' force'
 
@@ -794,18 +817,19 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
   write(fid,'(A,/)') ' scf(maxcycle=128)'
  else         ! CASCI
   write(fid,'(A,/)') ' scf(maxcycle=-2)'
-  ! to obtain CASCI NOs, we need to use -2. Using -1 only calculates the CASCI energy.
+  ! to obtain CASCI NOs, we need to use -2, since -1 only calculates CASCI energy
  end if
 
  write(fid,'(A)') '--Link1--'
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(A)',advance='no') '#p chkbasis nosymm guess(read,only,save,NaturalOrbitals) geom=allcheck'
+ write(fid,'(A)',advance='no') '#p chkbasis nosymm guess(read,only,save,&
+                               &NaturalOrbitals) geom=allcheck'
  if(dkh2_or_x2c) then
-  write(fid,'(A)') ' int(nobasistransform,DKH2) iop(3/93=1)'
+  write(fid,'(A,/)') ' int(nobasistransform,DKH2) iop(3/93=1)'
  else
-  write(fid,'(A)') ' int=nobasistransform'
+  write(fid,'(A,/)') ' int=nobasistransform'
  end if
 
  close(fid)
@@ -1754,10 +1778,10 @@ subroutine do_gvb()
    write(iout,'(A)') 'ERROR in subroutine do_gvb: npair_wish cannot be assigned in this strategy.'
    stop
   end if
-  write(iout,'(A,I0,A1)') 'GVB(', npair, ')'
 
   pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
+  write(iout,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
   write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
@@ -1780,9 +1804,9 @@ subroutine do_gvb()
    end if
   end if
 
-  write(iout,'(A,I0,A1)') 'GVB(', npair, ')'
   pair_fch = TRIM(proname)//'_uno_asrot.fch'
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ', npair,' -open ',nopen
+  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
+  write(iout,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
   write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
@@ -1835,6 +1859,14 @@ subroutine do_gvb()
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  i = system(TRIM(longbuf))
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
+  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  stop
+ end if
+
+ ! update Total SCF Density in .fch(k) file
+ call update_density_using_no_and_on(inpname)
 
  ! find npair0: the number of active pairs (|C2| > 0.1)
  call find_npair0_from_dat(datname, npair, npair0)
@@ -2065,11 +2097,13 @@ subroutine do_cas(scf)
   end if
   j = index(inpname, '.py', back=.true.)
   outname = inpname(1:j-1)//'.out'
-  i = system('python '//TRIM(inpname)//' >& '//TRIM(outname))
 
-  write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
-                             TRIM(casnofch), idx1, idx2
+  write(buf,'(A)') 'python '//TRIM(inpname)//' >& '//TRIM(outname)
+  write(iout,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
+!  write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
+!                             TRIM(casnofch), idx1, idx2
+!  i = system(TRIM(buf))
 
  case('gaussian')
   call check_exe_exist(gau_path)
@@ -2081,6 +2115,7 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
 
+  write(iout,'(A)') '$'//TRIM(gau_path)//' '//TRIM(inpname)
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CAS job failed!'
@@ -2088,6 +2123,7 @@ subroutine do_cas(scf)
    stop
   end if
   call formchk(mklname, casnofch)
+  call modify_IROHF_in_fch(casnofch, 0)
 
  case('gamess')
   call check_gms_path()
@@ -2097,7 +2133,6 @@ subroutine do_cas(scf)
   ! do not use datname in the above three lines! because datname may be that of a GVB job
 
   call fch2inp_wrap(fchname, .false., .false., 0, 0)
-
   i = index(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'
@@ -2106,7 +2141,9 @@ subroutine do_cas(scf)
   call prt_cas_gms_inp(inpname, idx1-1, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("sed -i '1,1s/ENERGY/GRADIENT/' "//TRIM(inpname))
-  write(buf,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ', nproc, " >&"//TRIM(outname)
+
+  write(buf,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ',nproc," >& "//TRIM(outname)
+  write(iout,'(A,I0,A)') '$$GMS '//TRIM(inpname)//' 01 ',nproc," >& "//TRIM(outname)
   i = system(TRIM(buf))
 
   ! make a copy of the .fch file to save NOs
@@ -2119,8 +2156,8 @@ subroutine do_cas(scf)
   end if
   call copy_file(inpname, casnofch, .false.)
 
-  ! move the .dat file into current directory
-  datname = TRIM(proname)//'.dat'   ! update datname
+  ! move .dat file into current directory
+  datname = TRIM(proname)//'.dat'
   i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
@@ -2132,7 +2169,7 @@ subroutine do_cas(scf)
   end if
 
   ! transfer NOs from .dat to .fch
-  write(buf,'(A,I0,1X,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',1,idx2
+  write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no 1 ',idx2
   i = system(TRIM(buf))
 
  case('openmolcas')
@@ -2152,7 +2189,10 @@ subroutine do_cas(scf)
   call prt_cas_molcas_inp(inpname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+  write(buf,'(A)') 'pymolcas '//TRIM(inpname)//" >& "//TRIM(outname)
+  write(iout,'(A)') '$'//TRIM(buf)
+  i = system(TRIM(buf))
 
   ! make a copy of the .fch file to save NOs
   call copy_file(fchname, casnofch, .false.)
@@ -2179,7 +2219,10 @@ subroutine do_cas(scf)
   call mkl2gbw(mklname)
   call delete_file(mklname)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
-  i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+
+  write(buf,'(A)') TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname)
+  write(iout,'(A)') '$$ORCA '//TRIM(inpname)//" >& "//TRIM(outname)
+  i = system(TRIM(buf))
 
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   if(scf) then ! CASSCF
@@ -2215,6 +2258,7 @@ subroutine do_cas(scf)
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
   write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,&
                            'm '//TRIM(inpname)
+  write(iout,'(2(A,I0),A)') '$molpro -n ',nproc,' -m ', i, 'm '//TRIM(inpname)
   i = system(TRIM(buf))
   if(i /= 0) then
    write(iout,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
@@ -2239,6 +2283,7 @@ subroutine do_cas(scf)
   call prt_cas_bdf_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
+  write(iout,'(A)') '$$BDF '//TRIM(proname)
   i = system(TRIM(bdf_path)//' '//TRIM(proname))
   if(i /= 0) then
    write(iout,'(A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
@@ -2253,6 +2298,11 @@ subroutine do_cas(scf)
   write(iout,'(A)') 'CAS_prog='//TRIM(cas_prog)
   stop
  end select
+
+ ! generate CASCI/CASSCF density from NOs and NOONs
+ ! Note: density in .fch of Gaussian CASSCF job is wrong (Gaussian bug), I have
+ !  to re-generate density
+ if(TRIM(cas_prog) /= 'pyscf') call update_density_using_no_and_on(casnofch)
 
  ! i is 'extract NOONs from the output file and print them into .fch file'
  if(i /= 0) then

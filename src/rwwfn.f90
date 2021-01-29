@@ -1,7 +1,50 @@
 ! written by jxzou at 20200504: read/write basis, MOs or eigenvalues from/to given files
 ! updated by jxzou at 20201213: add subroutines for reading occupation numbers
 ! updated by jxzou at 20201213: fix bug: read CASCI NOONs of ORCA
-! updated by jxzou at 20201214: add read MO subroutines related Molpro
+! updated by jxzou at 20201214: add read MO subroutines of Molpro
+! updated by jxzou at 20210128: add read int1e subroutines of Gaussian log
+
+! modify the IROHF value in a given .fch(k) file
+subroutine modify_IROHF_in_fch(fchname, k)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: k
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+
+ buf = ' '
+ i = index(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.t'
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5) == 'IROHF') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  return
+ end if
+
+ write(fid1,'(A5,38X,A1,16X,I1)') 'IROHF', 'I', k
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+ return
+end subroutine modify_IROHF_in_fch
 
 ! read the total charge and the spin mltiplicity from a given .fch(k) file
 subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
@@ -758,58 +801,66 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  return
 end subroutine read_shltyp_and_shl2atm_from_fch
 
-! read AO-basis overlap matrix from an OpenMolcas output file
-subroutine read_ovlp_from_gau_log(logname, nbf, S)
+! read AO-basis 1-e integral matrix from a Gaussian output file
+! stype: overlap, kinetic, potential, core
+subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
  implicit none
- integer :: i, j, k, fid, nline
- integer, intent(in) :: nbf
+ integer :: i, j, k, m, n, p, fid
+ integer, intent(in) :: itype, nbf
  integer, parameter :: iout = 6
- real(kind=8), intent(out) :: S(nbf,nbf)
+ real(kind=8), intent(out) :: mat(nbf,nbf)
+ character(len=7), parameter :: key(4) = &
+  ['Overlap', 'Kinetic', '* Poten', '** Core']
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
 
- S = 0.0d0
+ if(itype<1 .or. itype>4) then
+  write(iout,'(A,I0)') 'ERROR in subroutine read_int1e_from_gau_log: invalid&
+                     & itype = ', itype
+  write(iout,'(A)') 'Allowed values are 1/2/3/4 for Overlap/Kinetic/Potential/&
+                   &Core Hamiltonian.'
+  stop
+ end if
+
+ mat = 0d0
 
  open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:16) == '*** Overlap ***') exit
+  if(buf(6:12) == key(itype)) exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ovlp_from_gau_log: no '***&
-                   & Overlap ***' found in file "//TRIM(logname)
+  write(iout,'(A)') "ERROR in subroutine read_int1e_from_gau_log: no key '"&
+                   & //key(itype)//"' found in file "//TRIM(logname)
+  close(fid)
   stop
  end if
 
- k = 1
- do while(k <= nbf)
-  read(fid,'(A)') buf
-  write(6,'(A)') TRIM(buf)//' '
+ n = nbf/5
+ if(nbf-5*n > 0) n = n + 1
 
-  do i = k, nbf, 1
-   read(fid,'(A)') buf
-   buf(1:7) = ' '
-   buf = ADJUSTL(buf)
-   j = i - k + 1
-   if(j > 4) j = 5
-   read(buf,*) S(k:k+j-1,i)
-   write(6,'(I7,1X,D19.12,4D20.12)') i, S(k:k+j-1,i)
-  end do ! for i
-  k = k + 5
- end do ! for while
+ do i = 1, n, 1
+  read(fid,'(A)') buf
+  k = 5*i - 4
+
+  do j = k, nbf, 1
+   m = min(4, j-k)
+   read(fid,*) p, mat(k:k+m,j)
+  end do ! for j
+ end do ! for i
 
  close(fid)
 
  do i = 1, nbf-1, 1
   do j = i+1, nbf, 1
-   S(j,i) = S(i,j)
+   mat(j,i) = mat(i,j)
   end do ! for j
  end do ! for i
 
  return
-end subroutine read_ovlp_from_gau_log
+end subroutine read_int1e_from_gau_log
 
 ! read AO-basis overlap matrix from an OpenMolcas output file
 ! Note: add
@@ -1364,10 +1415,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  real(kind=8), intent(out) :: e(2)
  logical, intent(in) :: scf, dmrg
 
- e = 0.0d0
+ e = 0d0
  i = 0; j = 0; k = 0
- expect = DBLE(spin)/2.0d0
- expect = expect*(expect + 1.0d0)
+ expect = DBLE(spin)/2d0
+ expect = expect*(expect + 1d0)
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  if(scf) then ! CASSCF/DMRG-CASSCF
@@ -1407,11 +1458,13 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  if(k /= 0) then
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
                    & incomplete file '//TRIM(outname)//'.'
+  close(fid)
   stop
  else ! k = 0
   if(j /= 0) then
    write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
                     & CASCI or CASSCF not converged.'
+   close(fid)
    stop
   end if
  end if
@@ -1426,6 +1479,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_out:&
                    & 'CASCI E' not found in "//TRIM(outname)
+  close(fid)
   stop
  end if
 
@@ -1438,15 +1492,17 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
 
  i = index(buf, '=', back=.true.)
  read(buf(i+1:),*) s_square
- if( DABS(expect - s_square) > 1.0D-3) then
+
+ if( DABS(expect - s_square) > 1D-3) then
   if(scf) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASSCF&
-                    & <S**2> deviates too much from expectation value.'
+   write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASSCF&
+                     & <S**2> deviates too much from expectation value.'
   else
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASCI&
-                    & <S**2> deviates too much from expectation value.'
+   write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASCI&
+                     & <S**2> deviates too much from expectation value.'
   end if
-  write(iout,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+  write(iout,'(2(A,F10.6))') 'expectation=', expect, ', s_square=', s_square
+  close(fid)
   stop
  end if
 
@@ -1462,13 +1518,20 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
 
   i = index(buf, '=', back=.true.)
   read(buf(i+1:),*) s_square
+
   if( DABS(expect - s_square) > 1.0D-3) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_pyout: in this&
-                    & CASSCF job, the 0-th step, i.e., the CASCI'
-   write(iout,'(A)') '<S**2> deviates too much from the expectation value.'
-   write(iout,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
-   stop
+   write(iout,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the&
+                      & 0-th step in this CASSCF job,'
+   write(iout,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expecta&
+                     &tion value.'
+   write(iout,'(2(A,F10.6))') 'expectation=', expect, ', s_square=', s_square
+   write(iout,'(A)') 'This is probably because Davidson iterative diagonalizat&
+                     &ion is unconverged.'
+   write(iout,'(A)') "You may try to add keyword HardWFN or CrazyWFN in mokit{}."
   end if
+
+ else
+  close(fid)
  end if
 
  return
@@ -1750,6 +1813,7 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
 end subroutine read_cas_energy_from_molpro_out
 
 ! read CASCI/CASSCF energy from a given BDF output file
+! Note: BDF changes output format frequently, one must frequently update this subroutine
 subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  implicit none
  integer :: i, k, fid
@@ -1776,29 +1840,24 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
    close(fid)
    stop
   end if
-
   read(buf(15:),*) e(1) ! CASCI energy in CASSCF job
  end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:11) == 'Print final') exit
+  if(buf(3:19) == 'CHECKDATA:MCSCF:M') exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
-                    & 'Print final' not found in file "//TRIM(outname)
+                    & 'CHECKDATA:MCSCF:M' not found in file "//TRIM(outname)
   write(iout,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
   close(fid)
   stop
  end if
 
- do i = 1, 4
-  read(fid,'(A)') buf
- end do
-
- i = index(buf,'=')
+ i = index(buf,':', back=.true.)
  if(scf) then
   read(buf(i+1:),*) e(2) ! CASSCF energy in CASSCF job
  else
@@ -2653,3 +2712,276 @@ subroutine check_sph(fchname, sph)
  return
 end subroutine check_sph
 
+! read various density matrix from a .fch(k) file
+subroutine read_density_from_fch(fchname, itype, nbf, dm)
+ implicit none
+ integer :: i, k, fid, ncoeff1, ncoeff2
+ integer, intent(in) :: itype, nbf
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: dm(nbf,nbf)
+ character(len=11), parameter :: key(10) = ['Total SCF D', 'Spin SCF De',&
+   'Total CI De', 'Spin CI Den', 'Total MP2 D', 'Spin MP2 De',&
+   'Total CC De', 'Spin CC Den', 'Total CI Rh', 'Spin CI Rho']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ dm = 0d0
+ if(itype<1 .or. itype>10) then
+  write(iout,'(A,I0)') 'ERROR in subroutine read_density_from_fch: invalid itype&
+                      & = ',itype
+  write(iout,'(A)') 'Allowed values are 1~10:'
+  do i = 1, 10, 1
+   write(iout,'(I2,A)') i,': '//key(i)
+  end do ! for i
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == key(itype)) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_density_from_fch: no key '"//&
+                   & key(itype)//"' found in file "//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ ncoeff2 = (nbf*nbf + nbf)/2
+ read(buf(50:),*) ncoeff1
+ if(ncoeff1 /= ncoeff2) then
+  write(iout,'(A)') 'ERROR in subroutine read_density_from_fch: inconsistent&
+                   & dimension between .fch(k) file and input nbf!'
+  write(iout,'(2(A,I0))') 'nbf=', nbf, ', ncoeff1=', ncoeff1
+  stop
+ end if
+
+ read(fid,'(5(1X,ES15.8))') ((dm(k,i),k=1,i),i=1,nbf)
+ close(fid)
+
+ ! make density matrix symmetric
+ do i = 1, nbf-1, 1
+  do k = i+1, nbf, 1
+   dm(k,i) = dm(i,k)
+  end do ! for k
+ end do ! for i
+
+ return
+end subroutine read_density_from_fch
+
+! write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file
+! Note: the dm(j,i) j<=i will be used
+subroutine write_density_into_fch(fchname, nbf, total, dm)
+ implicit none
+ integer :: i, j, fid, fid1, RENAME
+ integer, intent(in) :: nbf
+ integer, parameter :: iout = 6
+ real(kind=8), intent(in) :: dm(nbf,nbf)
+ character(len=11) :: key
+ character(len=11), parameter :: key1 = 'Total SCF D'
+ character(len=11), parameter :: key2 = 'Spin SCF De'
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+ logical, intent(in) :: total
+
+ key = key1
+ if(.not. total) key = key2
+
+ i = index(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:11) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine write_density_into_fch: no key '"&
+                   &//key//"' found in file "//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
+
+ do while(.true.) ! skip density in the original .fch file
+  read(fid,'(A)') buf
+  if(buf(49:49) == '=') then
+   write(fid1,'(A)') TRIM(buf)
+   exit
+  end if
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+ return
+end subroutine write_density_into_fch
+
+! update 'Total SCF Density' using natural orbitals and occupation numbers
+subroutine update_density_using_no_and_on(fchname)
+ implicit none
+ integer :: i, j, k, nbf, nif
+ real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:)
+ character(len=240), intent(in) :: fchname
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(noon(nif), source=0d0)
+ call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
+
+ allocate(coeff(nbf,nif), source=0d0)
+ call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+
+ allocate(dm(nbf,nbf), source=0d0)
+
+ do i = 1, nbf, 1
+  do j = 1, i, 1
+   do k = 1, nif, 1
+    if(DABS(noon(k)) < 1D-7) cycle
+    dm(j,i) = dm(j,i) + noon(k)*coeff(i,k)*coeff(j,k)
+   end do ! for m
+  end do ! for j
+ end do ! for i
+
+ deallocate(coeff, noon)
+ call write_density_into_fch(fchname, nbf, .true., dm)
+ deallocate(dm)
+ return
+end subroutine update_density_using_no_and_on
+
+! read Total/Alpha/Beta/Transition Density Matrix from Gaussian output
+! If some density matrix occurs more than one time, only the first will be read
+subroutine read_density_from_gau_log(logname, itype, nbf, dm)
+ implicit none
+ integer :: i, j, k, m, n, fid
+ integer, intent(in) :: itype, nbf
+ ! itype: 1/2/3 for Total/Alpha/Beta density matrix
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: dm(nbf,nbf)
+ character(len=7), parameter :: key(3) = ['Density','Alpha D','Beta De']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: logname
+
+ if(itype<1 .or. itype>3) then
+  write(iout,'(A,I0)') 'ERROR in subroutine read_density_from_gau_log: invalid&
+                      & itype = ', itype
+  write(iout,'(A)') 'Allowed values are 1/2/3 for Total/Alpha/Beta density.'
+  stop
+ end if
+
+ dm = 0d0
+ open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(6:12) == key(itype)) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_density_from_gau_log: no key '"&
+                    &//key(itype)//"' found in file "//TRIM(logname)
+  close(fid)
+  stop
+ end if
+
+ n = nbf/5
+ if(nbf-5*n > 0) n = n + 1
+
+ do i = 1, n, 1
+  read(fid,'(A)') buf
+  k = 5*i - 4
+
+  do j = k, nbf, 1
+   m = min(4, j-k)
+   read(fid,'(21X,5(2X,F8.5))') dm(k:k+m,j)
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+
+ ! make density matrix symmetric
+ do i = 1, nbf-1, 1
+  do j = i+1, nbf, 1
+   dm(j,i) = dm(i,j)
+  end do ! for j
+ end do ! for i
+
+ return
+end subroutine read_density_from_gau_log
+
+! export a square matrix into a plain .txt file
+subroutine export_mat_into_txt(txtname, n, mat, lower, label)
+ implicit none
+ integer :: i, j, k, m, na, fid
+ integer, intent(in) :: n
+ integer, allocatable :: a(:)
+ real(kind=8), intent(in) :: mat(n,n)
+ character(len=25), parameter :: star = '*************************'
+ character(len=25), intent(in) :: label
+ character(len=240), intent(in) :: txtname
+ logical, intent(in) :: lower ! True: lower triangle
+
+ open(newunit=fid,file=TRIM(txtname),status='replace')
+ write(fid,'(A,L1)') 'Lower_Triangle=',lower
+ write(fid,'(A,I0)') 'n=', n
+ write(fid,'(A)') ' '//star//' '//label//' '//star
+
+ m = n/5
+ if(n-5*m > 0) m = m + 1
+
+ if(lower) then ! lower triangle
+  do i = 1, m, 1
+   if(i < m) then
+    na = 5
+   else
+    na = n - 5*(m-1)
+   end if
+   allocate(a(na))
+   forall(j=1:na) a(j) = 5*i - 5 + j
+   write(fid,'(5I14)') a(1:na)
+   deallocate(a)
+
+   k = 5*i - 4
+   do j = k, n, 1
+    write(fid,'(I6,5(1X,ES15.8))') j, mat(k:min(k+4,j),j)
+   end do ! for j
+  end do ! for i
+
+ else           ! full matrix
+  do i = 1, m, 1
+   if(i < m) then
+    na = 5
+   else
+    na = n - 5*(m-1)
+   end if
+   allocate(a(na))
+   forall(j=1:na) a(j) = 5*i - 5 + j
+   write(fid,'(5I14)') a(1:na)
+   deallocate(a)
+
+   k = 5*i - 4
+   do j = 1, n, 1
+    write(fid,'(I6,5(1X,ES15.8))') j, mat(j,k:k+na-1)
+   end do ! for j
+  end do ! for i
+ end if
+
+ close(fid)
+ return
+end subroutine export_mat_into_txt
