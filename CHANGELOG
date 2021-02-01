@@ -1,5 +1,8 @@
-MOKIT 1.2.2 (2020-1-20)
+MOKIT 1.2.2 (2020-1-31)
 ------------------------
+* add RI, F12, DLPNO interfaces
+* add Python APIs
+* generate correct density in .fch for GVB and CAS
 * add utility mkl2gjf
 * add utility bdf2mkl (BDF -> ORCA)
 * read orbital energies in utilities fch2bdf, bdf2fch, mkl2fch

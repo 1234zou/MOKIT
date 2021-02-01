@@ -20,15 +20,16 @@ OBJ_bdf2fch = string_manipulate.obj rwwfn.obj file_op.obj bdf2fch.obj
 OBJ_bdf2mkl = file_op.obj bdf2mkl.obj
 OBJ_dat2fch = file_op.obj string_manipulate.obj read_fch.obj rwwfn.obj dat2fch.obj
 OBJ_extract_noon2fch = file_op.obj extract_noon2fch.obj
-OBJ_fch2bdf = rwwfn.obj util_wrapper.obj string_manipulate.obj read_gms_inp.obj \
-              read_fch.obj rwgeom.obj mr_keyword.obj fch2bdf.obj
-OBJ_fch2com = rwwfn.obj util_wrapper.obj string_manipulate.obj fch2com.obj
+OBJ_fch2bdf = file_op.obj string_manipulate.obj rwwfn.obj util_wrapper.obj read_fch.obj \
+              rwgeom.obj read_gms_inp.obj fch2bdf.obj
+OBJ_fch2com = string_manipulate.obj rwwfn.obj util_wrapper.obj fch2com.obj
 OBJ_fch2mkl = file_op.obj string_manipulate.obj read_fch.obj fch2mkl.obj
 OBJ_fch2inp = file_op.obj string_manipulate.obj read_fch.obj fch2inp.obj
 OBJ_fch2inporb = string_manipulate.obj rwwfn.obj util_wrapper.obj fch2inporb.obj
 OBJ_fch_u2r = file_op.obj fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
-OBJ_frag_guess_wfn = read_fch.obj rwgeom.obj rwwfn.obj string_manipulate.obj mr_keyword.obj frag_guess_wfn.obj
+OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
+                     rwwfn.obj rwgeom.obj frag_guess_wfn.obj
 OBJ_mkl2fch = file_op.obj string_manipulate.obj rwwfn.obj read_fch.obj read_mkl.obj mkl2fch.obj
 OBJ_mkl2gjf = file_op.obj string_manipulate.obj read_fch.obj read_mkl.obj mkl2gjf.obj
 OBJ_orb2fch = string_manipulate.obj file_op.obj rwwfn.obj orb2fch.obj

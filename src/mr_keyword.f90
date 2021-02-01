@@ -3,6 +3,7 @@
 ! updated by jxzou at 20200807: add formchk, unfchk, orca_2mkl wrappers
 ! updated by jxzou at 20201211: add Molpro interfaces
 ! updated by jxzou at 20201218: add 'back = .true.' for detecting GAUSS_EXEDIR
+! updated by jxzou at 20210129: add RI options and aux_basis sets auto-determination
 
 ! file unit of printing
 module print_id
@@ -130,6 +131,10 @@ module mr_keyword
  logical :: CIonly  = .false.      ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.      ! dynamic correlation
  logical :: casscf_force = .false. ! whether to calculate CASSCF force
+ logical :: FIC = .false.          ! False/True for FIC-/SC-NEVPT2
+ logical :: RI = .false.           ! whether to RI approximation in CASSCF, NEVPT2
+ logical :: F12 = .false.          ! whether F12 used in NEVPT2, MRCI
+ logical :: DLPNO = .false.        ! whether to turn on DLPNO-NEVPT2
 
  character(len=10) :: gvb_prog     = 'gamess'
  character(len=10) :: casci_prog   = 'pyscf'
@@ -152,8 +157,13 @@ module mr_keyword
  character(len=240) :: bdf_path = ' '
 
  character(len=7) :: method = ' '   ! model chemistry, theoretical method
- character(len=13) :: basis = ' '   ! basis set (gen and genecp supported)
-
+ character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
+ character(len=17) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
+ character(len=18) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
+ character(len=16) :: F12_cabs = 'NONE' ! F12 cabs
+ ! SARC2-DKH-QZVP/JK has length 17
+ ! aug-cc-pwCVQZ-PP/C has length 18
+ ! cc-pVQZ-F12-CABS has length 16
 contains
 
  subroutine get_molcas_path()
@@ -350,7 +360,7 @@ contains
 
    select case(TRIM(method))
    case('mcpdft','mrcisd','sdspt2','mrmp2','caspt3','caspt2','nevpt3','nevpt2',&
-        'casscf','dmrgscf','casci','dmrgci')   ! e.g. CAS(6,6) is specified
+        'casscf','dmrgscf','casci','dmrgci')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
@@ -619,6 +629,7 @@ contains
     read(longbuf(j+1:i-1),*) caspt2_prog
    case('nevpt2_prog')
     read(longbuf(j+1:i-1),*) nevpt2_prog
+    if(nevpt2_prog == 'bdf') FIC=.true.
    case('mrmp2_prog')
     read(longbuf(j+1:i-1),*) mrmp2_prog
    case('mrcisd_prog')
@@ -631,6 +642,20 @@ contains
     casscf_force = .true.
    case('charge')
     bgchg = .true.
+   case('ri')
+    RI = .true.
+   case('rijk_bas')
+    read(longbuf(j+1:i-1),*) RIJK_bas
+   case('ric_bas')
+    read(longbuf(j+1:i-1),*) RIC_bas
+   case('f12')
+    F12 = .true.; RI = .true.
+   case('f12_cabs')
+    read(longbuf(j+1:i-1),*) F12_cabs
+   case('dlpno')
+    DLPNO = .true.; RI = .true.; FIC = .true.
+   case('fic')
+    FIC = .true.
    case('otpdf')
     read(longbuf(j+1:i-1),*) otpdf
    case default
@@ -648,12 +673,7 @@ contains
   dkh2_or_x2c = (DKH2 .or. X2C)
 
   if(readrhf .or. readuhf .or. readno) then
-   inquire(file=TRIM(hf_fch),exist=alive(1))
-   if(.not. alive(1)) then
-    write(iout,'(A)') 'ERROR in subroutine parse_keyword: file '//TRIM(hf_fch)&
-                     //' does not exist.'
-    stop
-   end if
+   call require_file_exist(hf_fch)
 
    skiphf = .true.
    i = index(hf_fch, '.fchk', back=.true.)
@@ -713,9 +733,10 @@ contains
    stop
   end select
 
-  if(.not. mcpdft) otpdf = ' '
+  if(.not. mcpdft) otpdf = 'NONE'
   dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mcpdft .or. &
               caspt3 .or. nevpt3)
+  if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
   call prt_strategy()
   return
  end subroutine parse_keyword
@@ -736,13 +757,17 @@ contains
   write(iout,'(5(A,L1,3X))') 'SDSPT2  = ',  sdspt2, 'MRCISD  = ', mrcisd, &
        'MCPDFT  = ', mcpdft, 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3
 
-  write(iout,'(A,L1,3X,A)') 'CIonly  = ', CIonly, 'OtPDF   = '//TRIM(otpdf)
+  write(iout,'(5(A,L1,3X))') 'CIonly  = ',  CIonly, 'dyn_corr= ', dyn_corr,&
+       'DKH2    = ', DKH2  , 'X2C     = ',     X2C, 'RI      = ', RI
 
-  write(iout,'(3(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2   ,&
-       'X2C     = ', X2C
+  write(iout,'(5(A,L1,3X))') 'FIC     = ',     FIC, 'DLPNO   = ', DLPNO, &
+       'F12     = ',    F12, 'TenCycle= ',tencycle, 'HardWFN = ', hardwfn
 
-  write(iout,'(2(A,L1,3X),A,I1,3X,A)') 'BgCharge= ', bgchg, 'Ana_Grad= ', casscf_force, &
-                                       'CtrType = ',CtrType,'LocalM  = '//TRIM(localm)
+  write(iout,'(3(A,L1,3X),A,I1,3X,A,I0)') 'CrazyWFN= ',crazywfn,'BgCharge= ',bgchg,&
+       'Ana_Grad= ', casscf_force, 'CtrType = ', CtrType, 'MaxM    = ', maxM
+
+  write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
+       //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
 
   if(skiphf) then
    write(iout,'(A)') 'HF_fch = '//TRIM(hf_fch)
@@ -776,6 +801,54 @@ contains
   if(DKH2 .and. X2C) then
    write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
    stop
+  end if
+
+  if(RI) then
+   if((.not.casci) .and. (.not.casscf)) then
+    write(iout,'(A)') error_warn//'RI activated. But neither CASCI nor CASSCF is invoked.'
+    stop
+   end if
+   if(casci .and. casci_prog/='orca') then
+    write(iout,'(A)') error_warn//'CASCI with RI-JK is only supported in ORCA.'
+    write(iout,'(A)') 'You should specify CASCI_prog=ORCA.'
+    stop
+   end if
+   if(casscf .and. casscf_prog/='orca') then
+    write(iout,'(A)') error_warn//'CASSCF with RI-JK is only supported in ORCA.'
+    write(iout,'(A)') 'You should specify CASSCF_prog=ORCA.'
+    stop
+   end if
+  end if
+
+  if(F12) then
+   if(.not. RI) then
+    write(iout,'(A)') error_warn//'F12 must be combined with RI. But RI is set'
+    write(iout,'(A)') 'to be False. Impossible.'
+    stop
+   end if
+   if((.not.nevpt2) .and. (.not.mrcisd)) then
+    write(iout,'(A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
+    write(iout,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
+    stop
+   end if
+   if(nevpt2) then
+    if(nevpt2_prog /= 'orca') then
+     write(iout,'(A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
+     write(iout,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
+     stop
+    end if
+    if(.not. FIC) then
+     write(iout,'(A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
+     write(iout,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
+                     & keyword FIC in mokit{}.'
+     stop
+    end if
+   end if
+   if(mrcisd .and. mrcisd_prog/='molpro') then
+    write(iout,'(A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
+    write(iout,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
+    stop
+   end if
   end if
 
   alive(1) = (casci_prog=='gaussian' .or. casci_prog=='gamess' .or. casci_prog=='orca')
@@ -1053,6 +1126,11 @@ contains
     write(iout,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
     stop
    end if
+   if(FIC .and. nevpt2_prog=='pyscf') then
+    write(iout,'(A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
+    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
+    stop
+   end if
   end if
 
   if((sdspt2.or.nevpt3) .and. bgchg) then
@@ -1165,62 +1243,220 @@ contains
   return
  end subroutine read_bgchg_from_gjf
 
+
 end module mr_keyword
 
-! delete the specified file (if not exist, return)
-subroutine delete_file(fname)
- implicit none
- integer :: fid
- character(len=240), intent(in) :: fname
- logical :: alive
-
- inquire(file=TRIM(fname),exist=alive)
-
- if(.not. alive) then
-  return
- else
-  open(newunit=fid,file=TRIM(fname),status='old')
-  close(fid,status='delete')
- end if
-
- return
-end subroutine delete_file
-
-! copy file fname1 to fname2 (if delete=.True., delete fname1)
-subroutine copy_file(fname1, fname2, delete)
+! If RIJK_bas, RIC_bas and F12_cabs are given, check validity
+! If not given, automatically determine them
+subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  use print_id, only: iout
  implicit none
- integer :: i, fid1, fid2
- character(len=240) :: buf
- character(len=240), intent(in) :: fname1, fname2
- logical, intent(in) :: delete
- logical :: alive
+ integer :: i, j
+ character(len=20) :: basis1
+ character(len=21), intent(in) :: basis
+ character(len=17), intent(inout) :: RIJK_bas
+ character(len=18), intent(inout) :: RIC_bas
+ character(len=16), intent(inout) :: F12_cabs
+ logical, intent(in) :: dyn ! dynamic correlation
+ logical, intent(in) :: F12 ! F12
 
- inquire(file=TRIM(fname1),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine copy_file: fname1 does not exist.'
-  write(iout,'(A)') 'fname1: '//TRIM(fname1)
+ if(RIJK_bas /= 'NONE') then
+  call lower(RIJK_bas)
+  if(index(RIJK_bas, '/jk') == 0) then
+   write(iout,'(A)') "Warning in subroutine determine_auxbas: RI-JK auxiliary&
+                    & basis set does not contain key '/JK'."
+   write(iout,'(A)') 'Did you specify wrong auxiliary basis set? Caution!'
+  end if
+ end if
+
+ if(dyn) then
+  if(RIC_bas /= 'NONE') then
+   call lower(RIC_bas)
+   if(RIC_bas(1:5) == 'def2-') then
+    write(iout,'(A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix&
+                     & is not supported as Gaussian syntax."
+    write(iout,'(A)') "You should change it to 'def2' prefix."
+    stop
+   end if
+   if(index(RIC_bas, '/c') == 0) then
+    write(iout,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlat&
+                     & ion computations activated. But'
+    write(iout,'(A)') "your provided RIC_bas does not contain key '/C'. Caution!"
+   end if
+  end if
+ else   ! no dynamic correlation computation
+  if(RIC_bas /= 'NONE') then
+   write(iout,'(A)') 'ERROR in subroutine determine_auxbas: no dynamic correl&
+                     &ation computation is activated. But'
+   write(iout,'(A)') 'you provide RIC_bas='//TRIM(RIC_bas)//'.'
+   stop
+  end if
+ end if
+
+ if(F12) then
+  if(F12_cabs /= 'NONE') then
+   call lower(F12_cabs)
+   if(index(basis,'-f12') == 0) then
+    write(iout,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
+                     & activated. But your provided'
+    write(iout,'(A)') "basis set does not contain key '-F12'. Caution!"
+   end if
+   if(index(F12_cabs,'-cabs') == 0) then
+    write(iout,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
+                     & activated. But your provided'
+    write(iout,'(A)') "F12_cabs does not contain key '-cabs'. Caution!"
+   end if
+  end if
+ else
+  if(F12_cabs /= 'NONE') then
+   write(iout,'(A)') 'ERROR in subroutine determine_auxbas: F12 not activated,&
+                    & but you provide F12_cabs='//TRIM(F12_cabs)//'.'
+   stop
+  end if
+ end if
+
+ ! RI-J, RIJCOSX are not supported in AutoMR. Only RIJK for CASSCF
+ ! and RI for MRPT2/MRCISD is supported. These two are usually the
+ ! most accurate RI techniques
+ select case(basis)
+ case('def2sv(p)','def2svp','def2svpd','def2tzvp(-f)','def2tzvp','def2tzvpp',&
+      'def2tzvpd','def2tzvppd','def2qzvpp','def2qzvpd','def2qzvppd')
+  if(RIJK_bas == 'NONE') RIJK_bas = 'Def2/JK'
+  if(dyn .and. RIC_bas=='NONE') then
+   if(basis(5:5) == 's') then
+    RIC_bas = 'def2SVP/C'
+   else if(basis(5:5) == 'q') then
+    RIC_bas = 'def2QZVPP/C'
+   else if(basis(1:9) == 'def2tzvpp') then
+    RIC_bas = 'def2TZVPP/C'
+   else
+    RIC_bas = 'def2TZVP/C'
+   end if
+  end if
+
+ case('ma-def2sv(p)','ma-def2svp','ma-def2tzvp(-f)','ma-def2tzvp','ma-def2tzvpp',&
+      'ma-def2qzvpp')
+  if(RIJK_bas == 'NONE') RIJK_bas = 'Def2/JK'
+  if(dyn .and. RIC_bas=='NONE') then
+   if(basis(8:8) == 's') then
+    RIC_bas = 'def2SVP/C'
+   else if(basis(8:8) == 'q') then
+    RIC_bas = 'def2QZVPP/C'
+   else if(basis(1:12) == 'ma-def2tzvpp') then
+    RIC_bas = 'def2TZVPP/C'
+   else
+    RIC_bas = 'def2TZVP/C'
+   end if
+  end if
+
+ case('cc-pvtz','cc-pvqz','cc-pv5z','aug-cc-pvtz','aug-cc-pvqz','aug-cc-pv5z')
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(F12) then
+   if(basis(1:4) == 'aug-') then
+    F12_cabs = TRIM(basis(5:))//'-F12-CABS'
+   else
+    F12_cabs = TRIM(basis)//'-F12-CABS'
+   end if
+  end if
+
+ case('cc-pvdz','aug-cc-pvdz')
+  basis1 = basis
+  i = index(basis1, 'd')
+  basis1(i:i) = 't'
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis1)//'/C'
+  if(F12) F12_cabs = 'cc-pVDZ-F12-CABS'
+
+ case('cc-pwcvdz','cc-pwcvtz','cc-pwcvqz','cc-pwcv5z','aug-cc-pwcvdz',&
+      'aug-cc-pwcvtz','aug-cc-pwcvqz','aug-cc-pwcv5z')
+  i = index(basis, 'wc')
+  basis1(1:i-1) = basis(1:i-1)
+  basis1(i:) = basis(i+2:)
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(F12) then
+   if(basis1(1:4) == 'aug-') then
+    F12_cabs = TRIM(basis1(5:))//'-F12-CABS'
+   else
+    F12_cabs = TRIM(basis1)//'-F12-CABS'
+   end if
+  end if
+
+ case('cc-pvdz-pp','cc-pvtz-pp','cc-pvqz-pp','aug-cc-pvdz-pp','aug-cc-pvtz-pp',&
+      'aug-cc-pvqz-pp')
+  i = index(basis, '-pp')
+  basis1 = basis(1:i-1)
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+
+ case('cc-pwcvdz-pp','cc-pwcvtz-pp','cc-pwcvqz-pp','aug-cc-pwcvdz-pp',&
+      'aug-cc-pwcvtz-pp','aug-cc-pwcvqz-pp')
+  i = index(basis, 'wc'); j = index(basis, '-pp')
+  basis1(1:i-1) = basis(1:i-1)
+  basis1(i:) = basis(i+2:j-1)
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+
+ case('cc-pvdz-f12','cc-pvtz-f12','cc-pvqz-f12')
+  if(RIJK_bas == 'NONE') then
+   i = index(basis, '-f12', back=.true.)
+   RIJK_bas = basis(1:i-1)//'/JK'
+  end if
+  if(dyn .and. RIC_bas=='NONE') then
+   select case(basis)
+   case('cc-pvdz-f12')
+    RIC_bas = 'cc-pVTZ/C'
+   case('cc-pvtz-f12')
+    RIC_bas = 'cc-pVQZ/C'
+   case('cc-pvqz-f12')
+    RIC_bas = 'cc-pV5Z/C'
+   end select
+  end if
+  if(F12) F12_cabs = TRIM(basis)//'-CABS'
+
+ case('cc-pcvdz-f12','cc-pcvtz-f12','cc-pcvqz-f12')
+  i = index(basis, 'c'); j = index(basis, '-f12')
+  basis1(1:i-1) = basis(1:i-1)
+  basis1(i:) = basis(i+1:j-1)
+  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') then
+   select case(basis)
+   case('cc-pcvdz-f12')
+    RIC_bas = 'cc-pVTZ/C'
+   case('cc-pcvtz-f12')
+    RIC_bas = 'cc-pVQZ/C'
+   case('cc-pcvqz-f12')
+    RIC_bas = 'cc-pV5Z/C'
+   end select
+  end if
+  if(F12) F12_cabs = TRIM(basis1)//'-F12-CABS'
+
+ case('cc-pvdz-pp-f12','cc-pvtz-pp-f12','cc-pvqz-pp-f12')
+  i = index(basis, '-pp')
+  j = index(basis, '-f12')
+  if(RIJK_bas == 'NONE') RIJK_bas = basis(1:i-1)//'/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = basis(1:j-1)//'/C'
+  if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
+
+ case default
+  if(RIJK_bas=='NONE' .or. (dyn .and. RIC_bas=='NONE')) then
+   write(iout,'(A)') "ERROR in subroutine determine_auxbas: auxiliary basis&
+                    & '/JK' or '/C' cannot be automatically determined."
+   write(iout,'(A)') 'You should provide them in mokit{}.'
+   stop
+  end if
+ end select
+
+ if(F12 .and. F12_cabs=='NONE') then
+  write(iout,'(A)') 'ERROR in subroutine determine_auxbas: near-complete&
+                   & auxiliary basis set for F12 calculations'
+  write(iout,'(A)') "'-CABS' cannot be automatically determined. You should&
+                   & provide them in mokit{}."
   stop
  end if
-
- open(newunit=fid1,file=TRIM(fname1),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(fname2),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- if(delete) then
-  close(fid1, status='delete')
- else
-  close(fid1)
- end if
-
- close(fid2)
  return
-end subroutine copy_file
+end subroutine determine_auxbas
 
 ! calculate the Coulomb interaction energy of point charges
 subroutine calc_Coulomb_energy_of_charges(n, charge, e)

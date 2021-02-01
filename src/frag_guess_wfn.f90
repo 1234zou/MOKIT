@@ -272,7 +272,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis)
  integer :: i, j
  character(len=1200), intent(in) :: buf
  character(len=8), intent(out) :: method
- character(len=17), intent(out) :: basis
+ character(len=21), intent(out) :: basis
 
  j = index(buf, '/')
  if(j == 0) then
@@ -347,7 +347,7 @@ subroutine gen_frag_gjf(frag0, method, basis, mem, nproc)
  integer, intent(in) :: mem, nproc
  character(len=8) :: method0
  character(len=8), intent(in) :: method
- character(len=17), intent(in) :: basis ! 17 is for longest 6-311++G(3df,2pd)
+ character(len=21), intent(in) :: basis
  type(frag), intent(in) :: frag0
 
  if(index(method,'ro3lyp')/=0 .or. index(method,'roo3lyp')/=0) then

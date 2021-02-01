@@ -1925,7 +1925,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, j, fid
  integer, parameter :: iout = 6
- integer, intent(in) :: itype ! 1/2 for NEVPT2/CASPT2
+ integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8) :: rtmp
@@ -1933,10 +1933,17 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
 
  ref_e = 0d0
  corr_e = 0d0
+ if(itype<1 .or. itype>3) then
+  write(iout,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:&
+                      & invalid itype=', itype
+  write(iout,'(A)') 'Allowed values are 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2.'
+  stop
+ end if
+
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  select case(itype)
- case(1) ! NEVPT2
+ case(1,2) ! NEVPT2
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -1981,9 +1988,13 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
    stop
   end if
 
-  read(buf(7:),*) rtmp, corr_e
+  if(itype == 1) then ! SC-NEVPT2
+   read(buf(7:),*) rtmp, corr_e
+  else                ! FIC-NEVPT2
+   read(buf(7:),*) rtmp, rtmp, rtmp, corr_e
+  end if
 
- case(2) ! CASPT2
+ case(3) ! CASPT2
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -2019,22 +2030,22 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
 end subroutine read_mrpt_energy_from_molcas_out
 
 ! read NEVPT2/CASPT2 energy from a Molpro output file
-subroutine read_mrpt_energy_from_molpro_out(outname, order, ref_e, corr_e)
+subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, intent(in) :: order ! 1/2 for NEVPT2/CASPT2
+ integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ref_e, corr_e
- character(len=8), parameter :: key(2)= ['Strongly','!RSPT2 S']
+ character(len=8), parameter :: key(3)= ['Strongly','!NEVPT2 ','!RSPT2 S']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0
  corr_e = 0d0
- if(order<1 .or. order>2) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: order&
+ if(itype<1 .or. itype>3) then
+  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: itype&
                    & out of range.'
-  write(iout,'(A,I0,A)') 'order=', order, ', outname='//TRIM(outname)
+  write(iout,'(A,I0,A)') 'itype=', itype, ', outname='//TRIM(outname)
   stop
  end if
 
@@ -2058,12 +2069,12 @@ subroutine read_mrpt_energy_from_molpro_out(outname, order, ref_e, corr_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:9) == key(order)) exit
+  if(buf(2:9) == key(itype)) exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
-  write(iout,'(A)') "'"//key(order)//"' not found in file "//TRIM(outname)
+  write(iout,'(A)') "'"//key(itype)//"' not found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2090,24 +2101,8 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
  corr_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:9) =='Final CAS') exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
-                    & 'Final CAS' found in file "//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- i = index(buf, ':')
- read(buf(i+1:),*) ref_e
-
  select case(itype)
- case(1)
+ case(1,2)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -2123,6 +2118,10 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
 
   i = index(buf, '=')
   read(buf(i+1:),*) corr_e
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = index(buf, '=')
+  read(buf(i+1:),*) ref_e
  case default
   write(iout,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
                       & invalid itype=', itype

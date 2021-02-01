@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-2021-1-29
+Feb 1, 2021
 
 Installation
 ------------
