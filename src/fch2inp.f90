@@ -95,13 +95,14 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  integer, allocatable :: order(:)
  ! six types of angular momentum
  character(len=1) :: str = ' '
- character(len=1), parameter :: am_type(-1:5) = ['L','S','P','D','F','G','H']
- character(len=1), parameter :: am_type1(0:5) = ['s','p','d','f','g','h']
+ character(len=1),parameter::am_type(-1:6)=['L','S','P','D','F','G','H','I']
+ character(len=1),parameter::am_type1(0:6)=['s','p','d','f','g','h','i']
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ecp, sph, X2C
+ logical :: uhf, ecp, sph, X2C, notrans
+ logical, external :: nobasistransform_in_fch
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -111,6 +112,16 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
   stop
  end if
  inpname = fchname(1:i-1)//'.inp'
+
+ notrans = nobasistransform_in_fch(fchname)
+ if(.not. notrans) then
+  write(iout,'(/,A)') '--------------------------------------------------------'
+  write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
+                  & not detected in file "//TRIM(fchname)//'.'
+  write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+                  &cify this keyword in .gjf file.'
+  write(iout,'(A)') '--------------------------------------------------------'
+ end if
 
  X2C = .false. ! default
  call check_DKH_in_fch(fchname, rel)

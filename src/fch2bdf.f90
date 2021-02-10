@@ -10,7 +10,7 @@ program main
  integer, parameter :: iout = 6
  character(len=4) :: ab
  character(len=240) :: fchname, inpname
- logical :: uhf, alive
+ logical :: uhf
 
  i = iargc()
  if(i<1 .or. i>2) then
@@ -24,17 +24,13 @@ program main
  fchname = ' '
  inpname = ' '
  ab = ' '
- call getarg(1,fchname)
- inquire(file=TRIM(fchname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine fch2bdf: file '//TRIM(fchname)//' does not exist!'
-  stop
- end if
+ call getarg(1, fchname)
+ call require_file_exist(fchname)
 
  uhf = .false.
  if(i == 2) then
   call getarg(2, ab)
-  if(TRIM(ab)/='-no' .and. ab/='-uhf') then
+  if(ab/='-no' .and. ab/='-uhf') then
    write(iout,'(A)') 'ERROR in subroutine fch2bdf: wrong command line arguments!'
    write(iout,'(A)') "The 2nd argument can only be '-no' or '-uhf'."
    stop
@@ -52,6 +48,12 @@ program main
   i = system('bas_gms2bdf '//TRIM(inpname)//' -uhf')
  else
   i = system('bas_gms2bdf '//TRIM(inpname))
+ end if
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch2bdf: call utility bas_gms2bdf failed.'
+  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  stop
  end if
 
  call delete_file(inpname)

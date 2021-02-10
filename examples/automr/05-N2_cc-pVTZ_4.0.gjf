@@ -1,0 +1,15 @@
+%mem=4GB
+%nprocshared=4
+#p CASSCF/cc-pVTZ guess(fragment=2)
+
+mokit{}
+
+0 1 0 4 0 -4
+N(fragment=1)   0.0    0.0   0.0
+N(fragment=2)   0.0    0.0   4.0
+
+# If you think it is tedious in example 04-N2_cc-pVTZ_4.0, you can also specify
+# guess(fragment=N) and providing charges plus multiplicities of fragments.
+# The lowest UHF energy can be obtained via fragment guess.
+
+# To run this example, Gaussian, GAMESS, and PySCF should be installed

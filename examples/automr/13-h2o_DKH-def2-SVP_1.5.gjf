@@ -1,0 +1,16 @@
+%mem=4GB
+%nprocshared=4
+#p CASSCF/DKH-def2-SVP
+
+mokit{DKH2,casscf_prog=openmolcas}
+
+0 1
+O      -0.23497692    0.90193619   -0.068688
+H       1.26502308    0.90193619   -0.068688
+H      -0.73568721    2.31589843   -0.068688
+
+# DKH2 Hamiltonian can be applied in HF, GVB and CASSCF.
+# The all-electron basis set DKH-def2-SVP will be automatically replaced by
+# 'gen' in Gaussian SCF computations. This basis set is put in $MOKIT_ROOT/basis
+
+# To run this example, you need to install Gaussian, GAMESS, PySCF and OpenMolcas

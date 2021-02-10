@@ -2984,3 +2984,31 @@ subroutine export_mat_into_txt(txtname, n, mat, lower, label)
  close(fid)
  return
 end subroutine export_mat_into_txt
+
+! check whether UHF wave function in .fch(k) file is equivalent to RHF
+! (by checking the max and average difference between alpha/beta MO coefficients)
+subroutine check_if_uhf_equal_rhf(fchname, eq)
+ implicit none
+ integer :: i, nbf, nif
+ integer, parameter :: iout = 6
+ real(kind=8) :: max_diff, ave_diff
+ real(kind=8), parameter :: zero1 = 1D-2, zero2 = 1D-4
+ real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:), diff(:,:)
+ character(len=240), intent(in) :: fchname
+ logical, intent(out) :: eq
+
+ eq = .false.
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(alpha_coeff(nbf,nif), beta_coeff(nbf,nif), diff(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a',alpha_coeff)
+ call read_mo_from_fch(fchname, nbf, nif, 'b', beta_coeff)
+
+ diff = DABS(alpha_coeff - beta_coeff)
+ max_diff = MAXVAL(diff)
+ ave_diff = SUM(diff)/DBLE(nbf*nif)
+ write(iout,'(2(A,F12.6))') 'max_diff =', max_diff, ', ave_diff =', ave_diff
+ if(max_diff<zero1 .and. ave_diff<zero2) eq = .true.
+ deallocate(alpha_coeff, beta_coeff, diff)
+ return
+end subroutine check_if_uhf_equal_rhf
+

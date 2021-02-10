@@ -32,39 +32,44 @@ module mol
  ! nactb = npair0
  integer :: natom = 0    ! number of atoms
  integer :: nbgchg = 0   ! number of background point charges
+ integer :: nfrag = 0    ! number of fragments
  integer, allocatable :: nuc(:) ! nuclear charge number
 
- logical :: lin_dep = .false. ! whether basis set linear dependence exists
+ integer, allocatable :: frag_char_mult(:,:)
+ ! charge and spin multiplicity of each fragment, size (2,nfrag)
+ integer, allocatable :: atom2frag(:) ! atom to fragment map, size natom
+
+ logical :: lin_dep = .false.    ! whether basis set linear dependence exists
  ! (1) nbf = nif, lin_dep = .False.;
  ! (2) nbf > nif, lin_dep = .True. ;
  ! (3) nbf < nif is impossible.
 
- real(kind=8) :: rhf_e    = 0.0d0 ! RHF (electronic) energy
- real(kind=8) :: uhf_e    = 0.0d0 ! UHF energy
- real(kind=8) :: gvb_e    = 0.0d0 ! GVB energy
- real(kind=8) :: casci_e  = 0.0d0 ! CASCI/DMRG-CASCI energy
- real(kind=8) :: casscf_e = 0.0d0 ! CASSCF/DMRG-CASSCF energy
- real(kind=8) :: caspt2_e = 0.0d0 ! CASPT2/DMRG-CASPT2 energy
- real(kind=8) :: caspt3_e = 0.0d0 ! CASPT3 energy
- real(kind=8) :: nevpt2_e = 0.0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
- real(kind=8) :: nevpt3_e = 0.0d0 ! CASSCF-NEVPT3 energy
- real(kind=8) :: mrmp2_e  = 0.0d0 ! MRMP2 energy
- real(kind=8) :: sdspt2_e = 0.0d0 ! SDSPT2 energy
- real(kind=8) :: davidson_e=0.0d0 ! Davidson correction energy
- real(kind=8) :: mrcisd_e = 0.0d0 ! MRCISD+Q energy
- real(kind=8) :: mcpdft_e = 0.0d0 ! MC-PDFT energy
- real(kind=8) :: ptchg_e  = 0.0d0 ! Coulomb energy of background point charges
- real(kind=8) :: nuc_pt_e = 0.0d0 ! nuclear-point_charge interaction energy
+ real(kind=8) :: rhf_e    = 0d0 ! RHF (electronic) energy
+ real(kind=8) :: uhf_e    = 0d0 ! UHF energy
+ real(kind=8) :: gvb_e    = 0d0 ! GVB energy
+ real(kind=8) :: casci_e  = 0d0 ! CASCI/DMRG-CASCI energy
+ real(kind=8) :: casscf_e = 0d0 ! CASSCF/DMRG-CASSCF energy
+ real(kind=8) :: caspt2_e = 0d0 ! CASPT2/DMRG-CASPT2 energy
+ real(kind=8) :: caspt3_e = 0d0 ! CASPT3 energy
+ real(kind=8) :: nevpt2_e = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8) :: nevpt3_e = 0d0 ! CASSCF-NEVPT3 energy
+ real(kind=8) :: mrmp2_e  = 0d0 ! MRMP2 energy
+ real(kind=8) :: sdspt2_e = 0d0 ! SDSPT2 energy
+ real(kind=8) :: davidson_e=0d0 ! Davidson correction energy
+ real(kind=8) :: mrcisd_e = 0d0 ! MRCISD+Q energy
+ real(kind=8) :: mcpdft_e = 0d0 ! MC-PDFT energy
+ real(kind=8) :: ptchg_e  = 0d0 ! Coulomb energy of background point charges
+ real(kind=8) :: nuc_pt_e = 0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
  real(kind=8), allocatable :: grad(:)       ! Cartesian gradient of this molecule, 3*natom
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
  character(len=2), allocatable :: elem(:)   ! element symbols
-
 end module mol
 
 ! keywords information (default values are set)
 module mr_keyword
  use print_id, only: iout
+ use mol, only: nfrag
  implicit none
  integer :: mem = 4                 ! memory, default 4 GB
  integer :: nproc = 4               ! number of processors, default 4
@@ -99,9 +104,10 @@ module mr_keyword
  logical :: skiphf   = .false.    ! (readrhf .or. readuhf .or. readno)
  logical :: hardwfn  = .false.    ! whether difficult wavefunction cases
  logical :: crazywfn = .false.    ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
- ! if hardwfn is .True., AutoMR will add additional keywords to ensure convergence or correct spin
- ! Note: SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck in a saddle point/local minimum
- ! if crazywfn is .True., AutoMR will add more keywords (than hardwfn) to ensure convergence or correct spin
+ ! If hardwfn is .True., AutoMR will add additional keywords to ensure convergence
+ ! or correct spin. SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck
+ ! in a saddle point/local minimum. If crazywfn is .True., AutoMR will add more
+ ! keywords (than hardwfn)
 
  character(len=4)   :: localm = 'pm'   ! localization method: boys/pm
  character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
@@ -114,6 +120,8 @@ module mr_keyword
  integer :: maxM = 1000             ! bond-dimension in DMRG computation
  logical :: vir_proj = .false.      ! virtual orbitals projection onto those of STO-6G
  logical :: uno = .false.           ! generate UNOs
+ logical :: frag_guess = .false.
+ ! whether to perform uhf using initial guess constructed from fragments
 
  logical :: gvb     = .false.
  logical :: casci   = .false.
@@ -148,6 +156,7 @@ module mr_keyword
  character(len=10) :: mcpdft_prog  = 'openmolcas'
  character(len=10) :: ic_mrcc_prog = ' '
 
+ character(len=240) :: mokit_root = ' '
  character(len=240) :: gau_path = ' '
  character(len=240) :: gms_path = ' '
  character(len=240) :: gms_scr_path = ' '
@@ -158,12 +167,9 @@ module mr_keyword
 
  character(len=7) :: method = ' '   ! model chemistry, theoretical method
  character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
- character(len=17) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
- character(len=18) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
- character(len=16) :: F12_cabs = 'NONE' ! F12 cabs
- ! SARC2-DKH-QZVP/JK has length 17
- ! aug-cc-pwCVQZ-PP/C has length 18
- ! cc-pVQZ-F12-CABS has length 16
+ character(len=21) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
+ character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
+ character(len=21) :: F12_cabs = 'NONE' ! F12 cabs
 contains
 
  subroutine get_molcas_path()
@@ -224,7 +230,7 @@ contains
   return
  end subroutine replace_env_in_path
 
- ! read paths of programs in $MOKIT_ROOT/program.info
+ ! read paths of various programs from environment variables
  subroutine read_program_path()
   implicit none
   integer :: i
@@ -244,6 +250,7 @@ contains
   call fdate(data_string)
   write(iout,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
+  call getenv('MOKIT_ROOT', mokit_root)
   call get_gau_path(gau_path)
   call get_molcas_path()
   call get_molpro_path()
@@ -255,6 +262,7 @@ contains
   if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
   write(iout,'(/,A)') 'Read program paths from environment variables:'
+  write(iout,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
   write(iout,'(A)') 'gau_path    = '//TRIM(gau_path)
   write(iout,'(A)') 'gms_path    = '//TRIM(gms_path)
   write(iout,'(A)') 'orca_path   = '//TRIM(orca_path)
@@ -312,6 +320,12 @@ contains
    i = index(buf,'mem=')
    if(i /= 0) then
     j = index(buf,'gb')
+    if(j == 0) then
+     write(iout,'(A)') 'ERROR in subroutine parse_keyword: memory unit only GB&
+                      & is accepted.'
+     close(fid)
+     stop
+    end if
     read(buf(i+4:j-1),*) mem
     cycle
    end if
@@ -327,6 +341,7 @@ contains
   if(ifail /= 0) then
    write(iout,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
    write(iout,'(A)') 'The input file may be incomplete. File='//TRIM(gjfname)
+   close(fid)
    stop
   end if
 
@@ -336,13 +351,14 @@ contains
    write(iout,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected&
                     & in keyword line."
    write(iout,'(A)') 'The method and basis set must be specified via method/basis.'
+   close(fid)
    stop
   end if
 
   j = index(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in:'
-   write(iout,'(A)') "'"//TRIM(buf)//"'"
+   write(iout,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
+   write(iout,'(A)') "current line '"//TRIM(buf)//"'"
    stop
   end if
   method0 = buf(j+1:i-1)
@@ -440,54 +456,73 @@ contains
   case('gvb')
   end select
 
-  i = index(buf,'/'); j = index(buf(i+1:),' ')
+  i = index(buf,'/')
+  j = i - 1 + index(buf(i+1:),' ')
   if(j == 0) j = LEN_TRIM(buf)
-  basis = ADJUSTL(buf(i+1:i+j))
+  basis = buf(i+1:j)
   write(iout,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
   write(iout,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
+
+  if(basis(1:5) == 'def2-') then
+   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detec&
+                     &ted in given basis set."
+   write(iout,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP,&
+                     & not def2-TZVP.'
+   stop
+  end if
 
   if(npair_wish > 0) write(iout,'(A,I0)') 'User specified GVB npair = ', npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(iout,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
-  read(fid,'(A)') buf ! skip a black line
-  read(fid,'(A)') buf ! the 1st line of keywords
+  i = index(buf, 'guess=')
+  if(i > 0) then
+   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'guess=' syntax&
+                    & not supported in automr."
+   write(iout,'(A)') "You can use 'guess()' syntax instead."
+   stop
+  end if
+
+  i = index(buf, 'guess(')
+  if(i > 0) then
+   frag_guess = .true.
+   j = index(buf(i+6:),'='); k = index(buf(i+6:),')')
+   if(j*k == 0)then
+    write(iout,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)'&
+                     & syntax is wrong in file "//TRIM(gjfname)
+    close(fid)
+    stop
+   end if
+   read(buf(j+i+6:k+i+4),*) nfrag
+  end if
+
+  read(fid,'(A)') buf ! skip a blank line
+  read(fid,'(A)') buf ! Title Card, the 1st line of keywords
   call lower(buf)
 
-  i = index(buf,'{')
-  if(i == 0) then
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'mokit{}' not detected&
-                   & in input file "//TRIM(gjfname)//'.'
+  if(buf(1:6) /= 'mokit{') then
+   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected&
+                   & in file "//TRIM(gjfname)
+   write(iout,'(A)') "Syntax error. You must put 'mokit{' in leading position&
+                    & of the Title Card line."
    stop
   end if
 
   j = index(buf,'}')
-  if(j == 0) then
-   j = LEN_TRIM(buf)
-  else
-   j = j - 1
-  end if
-  if(j == i) then ! {}, {
-   if(buf(i+1:i+1) == '}') then ! no keyword specified
+  if(j == 7) then ! mokit{}
+   close(fid)
+   return
+  else if(j > 7) then ! mokit{ }
+   if(LEN_TRIM(buf(7:j)) == 0) then ! no keyword specified
     close(fid)
     return
    end if
-  else if(j > i) then ! { }
-   if(LEN_TRIM(buf(i+1:j)) == 0) then ! no keyword specified
-    close(fid)
-    return
-   end if
-  else if(j < i) then
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: unexpected error j<i.'
-   write(iout,'(A)') "It seems that the '}' symbol is before '{'."
-   stop
+  else ! j = 0, keywords written in more than 1 line
+   j = LEN_TRIM(buf) + 1
   end if
 
-  k = 1
-  if(j > i) then
-   longbuf(1:j-i) = buf(i+1:j) ! some keywords specified
-   k = j - i + 1 ! the beginning index for next keyword in longbuf
-  end if
+  longbuf(1:j-7) = buf(7:j-1) ! some keywords specified
+  k = j - 6 ! the beginning index for next keyword in longbuf
 
   if(index(buf,'}') == 0) then ! keywords are written in at least two lines
    do while(.true.)
@@ -496,11 +531,11 @@ contains
 
     call lower(buf)
     i = LEN_TRIM(buf)
-    if(index(buf,'}') /= 0) i = i - 1
+    if(index(buf,'}') > 0) i = i - 1
     longbuf(k:k+i-1) = buf(1:i)
     k = k + i
 
-    if(index(buf,'}') /= 0) exit
+    if(index(buf,'}') > 0) exit
    end do ! for while
 
    if(ifail /= 0) then
@@ -514,7 +549,6 @@ contains
   close(fid)
   ! now all keywords are stored in longbuf
 
-  longbuf = ADJUSTL(longbuf)
   write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
@@ -673,6 +707,11 @@ contains
   dkh2_or_x2c = (DKH2 .or. X2C)
 
   if(readrhf .or. readuhf .or. readno) then
+   if(frag_guess) then
+    write(iout,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
+                     & be used when none of readrhf/readuhf/readno is .True.'
+    stop
+   end if
    call require_file_exist(hf_fch)
 
    skiphf = .true.
@@ -782,6 +821,7 @@ contains
   implicit none
   integer :: i
   logical :: alive(3)
+  character(len=10) :: cas_prog
   character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
 
   write(iout,'(/,A)') 'Check if the keywords are compatible with each other...'
@@ -803,21 +843,34 @@ contains
    stop
   end if
 
+  if(casci .or. casscf) then
+   if(casci) then
+    cas_prog = casci_prog
+   else
+    cas_prog = casscf_prog
+   end if
+  end if
+
   if(RI) then
-   if((.not.casci) .and. (.not.casscf)) then
+   if(DKH2 .or. X2C) then
+    write(iout,'(A)') error_warn//'currently RI cannot be applied in DKH2/X2C&
+                    & computations.'
+    stop
+   end if
+
+   if(.not. (casci .or. casscf)) then
     write(iout,'(A)') error_warn//'RI activated. But neither CASCI nor CASSCF is invoked.'
     stop
    end if
-   if(casci .and. casci_prog/='orca') then
-    write(iout,'(A)') error_warn//'CASCI with RI-JK is only supported in ORCA.'
-    write(iout,'(A)') 'You should specify CASCI_prog=ORCA.'
+   select case(cas_prog)
+   case('pyscf','orca','openmolcas')
+   case default
+    write(iout,'(A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
+    write(iout,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
+    write(iout,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
+                      &ORCA/OpenMolcas.'
     stop
-   end if
-   if(casscf .and. casscf_prog/='orca') then
-    write(iout,'(A)') error_warn//'CASSCF with RI-JK is only supported in ORCA.'
-    write(iout,'(A)') 'You should specify CASSCF_prog=ORCA.'
-    stop
-   end if
+   end select
   end if
 
   if(F12) then
@@ -826,7 +879,7 @@ contains
     write(iout,'(A)') 'to be False. Impossible.'
     stop
    end if
-   if((.not.nevpt2) .and. (.not.mrcisd)) then
+   if(.not. (nevpt2 .or. mrcisd)) then
     write(iout,'(A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
     write(iout,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
     stop
@@ -1131,6 +1184,10 @@ contains
     write(iout,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
     stop
    end if
+   if(RI .and. nevpt2_prog=='openmolcas') then
+    write(iout,'(A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
+    stop
+   end if
   end if
 
   if((sdspt2.or.nevpt3) .and. bgchg) then
@@ -1214,7 +1271,7 @@ contains
   end if
 
   write(iout,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
-  allocate(bgcharge(4,nbgchg), source=0.0d0)
+  allocate(bgcharge(4,nbgchg), source=0d0)
 
   rewind(fid)   ! jump to the 1st line of the file
   nblank = 0
@@ -1252,11 +1309,11 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  use print_id, only: iout
  implicit none
  integer :: i, j
- character(len=20) :: basis1
+ character(len=21) :: basis1
  character(len=21), intent(in) :: basis
- character(len=17), intent(inout) :: RIJK_bas
- character(len=18), intent(inout) :: RIC_bas
- character(len=16), intent(inout) :: F12_cabs
+ character(len=21), intent(inout) :: RIJK_bas
+ character(len=21), intent(inout) :: RIC_bas
+ character(len=21), intent(inout) :: F12_cabs
  logical, intent(in) :: dyn ! dynamic correlation
  logical, intent(in) :: F12 ! F12
 
@@ -1349,7 +1406,10 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
    end if
   end if
 
- case('cc-pvtz','cc-pvqz','cc-pv5z','aug-cc-pvtz','aug-cc-pvqz','aug-cc-pv5z')
+ case('cc-pvdz','cc-pvtz','cc-pvqz','cc-pv5z','aug-cc-pvdz','aug-cc-pvtz',&
+      'aug-cc-pvqz','aug-cc-pv5z','mar-cc-pv5z','apr-cc-pvqz','apr-cc-pv5z',&
+      'may-cc-pvtz','may-cc-pvqz','may-cc-pv5z','jun-cc-pvdz','jun-cc-pvtz',&
+      'jun-cc-pvqz','jun-cc-pv5z')
   if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis)//'/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
   if(F12) then
@@ -1359,14 +1419,6 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
     F12_cabs = TRIM(basis)//'-F12-CABS'
    end if
   end if
-
- case('cc-pvdz','aug-cc-pvdz')
-  basis1 = basis
-  i = index(basis1, 'd')
-  basis1(i:i) = 't'
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis1)//'/C'
-  if(F12) F12_cabs = 'cc-pVDZ-F12-CABS'
 
  case('cc-pwcvdz','cc-pwcvtz','cc-pwcvqz','cc-pwcv5z','aug-cc-pwcvdz',&
       'aug-cc-pwcvtz','aug-cc-pwcvqz','aug-cc-pwcv5z')
@@ -1439,6 +1491,20 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(dyn .and. RIC_bas=='NONE') RIC_bas = basis(1:j-1)//'/C'
   if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
 
+ case('STO-3G','STO-6G','3-21G','6-31G','6-31G(d)','6-31G*','6-31G(d,p)','6-31G**')
+  write(iout,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
+                   & you want to use Pople-type basis set?'
+  write(iout,'(A)') 'This is less recommended. But automr will continue.'
+  RIJK_bas = 'def2/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2SVP/C'
+
+ case('6-311G','6-311G(d)','6-311G*','6-311G(d,p)','6-311G**')
+  write(iout,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
+                   & you want to use Pople-type basis set?'
+  write(iout,'(A)') 'This is less recommended. But automr will continue.'
+  RIJK_bas = 'def2/JK'
+  if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2TZVP/C'  
+
  case default
   if(RIJK_bas=='NONE' .or. (dyn .and. RIC_bas=='NONE')) then
    write(iout,'(A)') "ERROR in subroutine determine_auxbas: auxiliary basis&
@@ -1457,6 +1523,53 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  end if
  return
 end subroutine determine_auxbas
+
+! convert the name of auxiliary basis set from ORCA format to other format
+subroutine auxbas_convert(inbas, outbas, itype)
+ use print_id, only: iout
+ implicit none
+ integer :: i
+ integer, intent(in) :: itype ! 1 for PySCF
+ character(len=21) :: inbas1
+ character(len=21), intent(in) :: inbas
+ character(len=21), intent(out) :: outbas
+
+ outbas = ' '
+ inbas1 = inbas
+ call lower(inbas1)
+
+ select case(inbas1)
+ case('cc-pvdz/jk','cc-pvtz/jk','cc-pvqz/jk','cc-pv5z/jk','aug-cc-pvdz/jk',&
+      'aug-cc-pvtz/jk','aug-cc-pvqz/jk','aug-cc-pv5z/jk','mar-cc-pv5z/jk',&
+      'apr-cc-pvqz/jk','apr-cc-pv5z/jk','may-cc-pvtz/jk','may-cc-pvqz/jk',&
+      'may-cc-pv5z/jk','jun-cc-pvdz/jk','jun-cc-pvtz/jk','jun-cc-pvqz/jk',&
+      'jun-cc-pv5z/jk')
+  select case(itype)
+  case(1)
+   i = index(inbas1, '/jk')
+   outbas = inbas(1:i-1)//'-jkfit'
+  case default
+   write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   stop
+  end select
+ case('def2/jk')
+  select case(itype)
+  case(1)
+   outbas = 'def2-universal-jkfit'
+  case default
+   write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   stop
+  end select
+ case default
+  write(iout,'(A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
+  write(iout,'(A)') 'inbas1='//TRIM(inbas1)
+  stop
+ end select
+
+ return
+end subroutine auxbas_convert
 
 ! calculate the Coulomb interaction energy of point charges
 subroutine calc_Coulomb_energy_of_charges(n, charge, e)
@@ -1631,6 +1744,156 @@ subroutine get_gau_path(gau_path)
  return
 end subroutine get_gau_path
 
+! generate a RHF/UHF .gjf file (DKH, guess=fragment can be taken into account)
+subroutine generate_hf_gjf(gjfname, uhf)
+ use mol, only: charge, mult, natom, elem, coor, nfrag, atom2frag, frag_char_mult
+ use mr_keyword, only: iout, mem, nproc, basis, cart, dkh2_or_x2c, frag_guess,&
+  mokit_root
+ implicit none
+ integer :: i, fid
+ character(len=21) :: basis1
+ character(len=240) :: chkname
+ character(len=240), intent(in) :: gjfname
+ logical, intent(in) :: uhf
+ logical :: rel
+
+ call upper(basis)
+ i = index(basis, 'DEF')
+ if(i > 0) basis(i:i+2) = 'def'
+ i = index(basis, 'MA')
+ if(i > 0) basis(i:i+1) = 'ma'
+
+ rel = .false.
+ select case(TRIM(basis))
+ case('DKH-def2-SV(P)','DKH-def2-SVP','DKH-def2-TZVP','DKH-def2-TZVP(-f)',&
+      'DKH-def2-TZVPP','DKH-def2-QZVPP','ZORA-def2-SV(P)','ZORA-def2-SVP',&
+      'ZORA-def2-TZVP','ZORA-def2-TZVP(-f)','ZORA-def2-TZVPP','ZORA-def2-QZVPP',&
+      'ma-ma-DKH-def2-SV(P)','ma-DKH-def2-SVP','ma-DKH-def2-TZVP',&
+      'ma-DKH-def2-TZVP(-f)','ma-DKH-def2-TZVPP','ma-DKH-def2-QZVPP',&
+      'ma-ZORA-def2-SVP','ma-ZORA-def2-SV(P)','ma-ZORA-def2-TZVP',&
+      'ma-ZORA-def2-TZVP(-f)','ma-ZORA-def2-TZVPP','ma-ZORA-def2-QZVPP')
+  basis1 = 'gen'
+  rel = .true.
+ case default
+  basis1 = basis
+ end select
+
+ i = index(gjfname, '.gjf', back=.true.)
+ chkname = gjfname(1:i-1)//'.chk'
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
+ write(fid,'(A,I0,A)') '%mem=',mem,'GB'
+ write(fid,'(A,I0)') '%nprocshared=', nproc
+ write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128) nosymm int(nobasistransform'
+
+ if(dkh2_or_x2c) then
+  write(fid,'(A)',advance='no') ',DKH2)'
+ else
+  write(fid,'(A)',advance='no') ')'
+ end if
+
+ if(frag_guess) then
+  if(uhf) write(fid,'(A,I0,A)',advance='no') ' guess(fragment=',nfrag,')'
+  if(nfrag < 2) then
+   write(fid,'(A)') 'ERROR in subroutine generate_hf_gjf: frag_guess is acitva&
+                    &ted. But got nfrag < 2.'
+   write(fid,'(A,I0)') 'nfrag=', nfrag
+   close(fid)
+   stop
+  end if
+  if(.not. (allocated(atom2frag) .and. allocated(frag_char_mult))) then
+   write(fid,'(A)') 'ERROR in subroutine generate_hf_gjf: frag_guess is acitva&
+                    &ted. But arrays atom2frag'
+   write(fid,'(A)') 'and/or frag_char_mult are not allocated.'
+   close(fid)
+   stop
+  end if
+ end if
+
+ if(uhf) then
+  write(fid,'(A)',advance='no') ' UHF/'//TRIM(basis1)
+  if(frag_guess) then
+   write(fid,'(A)',advance='no') ' guess=mix'
+  else
+   if(mult == 1) write(fid,'(A)',advance='no') ' guess=mix'
+   write(fid,'(A)',advance='no') ' stable=opt'
+  end if
+ else
+  write(fid,'(A)',advance='no') ' RHF/'//TRIM(basis1)
+  if(mult /= 1) then
+   write(iout,'(A)') 'ERROR in subroutine generate_hf_gjf: this molecule is&
+                    & not spin singlet, but RHF is specified.'
+   close(fid)
+   stop
+  end if
+ end if
+
+ if(cart) then
+  write(fid,'(A)') ' 6D 10F'
+ else
+  write(fid,'(A)') ' 5D 7F'
+ end if
+
+ write(fid,'(/,A,/)') 'HF file generated by AutoMR of MOKIT'
+
+ if(frag_guess .and. uhf) then
+  write(fid,'(I0,1X,I0)',advance='no') charge, mult
+  do i = 1, nfrag-1, 1
+   write(fid,'(2(1X,I0))',advance='no') frag_char_mult(1,i), frag_char_mult(2,i)
+  end do ! for i
+  write(fid,'(2(1X,I0))') frag_char_mult(1,nfrag), frag_char_mult(2,nfrag)
+  do i = 1, natom, 1
+   write(fid,'(A,I0,A1,2X,3F15.8)') TRIM(elem(i))//'(fragment=',atom2frag(i),')', coor(1:3,i)
+  end do ! for i
+  deallocate(atom2frag, frag_char_mult)
+
+ else
+  write(fid,'(I0,1X,I0)') charge, mult
+  do i = 1, natom, 1
+   write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
+  end do ! for i
+ end if
+
+ if(rel .and. TRIM(basis1)=='gen') then
+  write(fid,'(/,A,/)') '@'//TRIM(mokit_root)//'/basis/'//TRIM(basis)
+ end if
+
+ ! If DKH Hamiltonian is used,
+ ! Gaussian default    : Gaussian function distribution
+ ! Gaussian iop(3/93=1): point nuclei charge distribution
+ ! GAMESS default      : point nuclei charge distribution
+ ! I found that if iop(3/93=1) is used initially, SCF sometimes converges slowly,
+ ! so I use a --Link1-- to add iop(3/93=1) later
+ if(dkh2_or_x2c) then
+  write(fid,'(/,A)') '--Link1--'
+  write(fid,'(A)') '%chk='//TRIM(chkname)
+  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
+  write(fid,'(A,I0)') '%nprocshared=', nproc
+  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128)'
+  if(uhf) then
+   write(fid,'(A)',advance='no') ' UHF stable=opt'
+  else
+   write(fid,'(A)',advance='no') ' RHF'
+  end if
+  write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
+                   & int(nobasistransform,DKH2)'
+ else
+  if(frag_guess .and. uhf) then
+   write(fid,'(/,A)') '--Link1--'
+   write(fid,'(A)') '%chk='//TRIM(chkname)
+   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
+   write(fid,'(A,I0)') '%nprocshared=', nproc
+   write(fid,'(A)') '#p scf(xqc,maxcycle=128) UHF chkbasis stable=opt nosymm&
+                   & guess=read geom=allcheck int(nobasistransform)'
+  end if
+ end if
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+ return
+end subroutine generate_hf_gjf
+
 ! perform SCF computaton using Gaussian, then read electronic energy and
 ! spin square
 subroutine perform_scf_and_read_e(gau_path, gjfname, e, ssquare)
@@ -1654,8 +1917,8 @@ subroutine perform_scf_and_read_e(gau_path, gjfname, e, ssquare)
 
  i = system(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(fid,'(/,A)') 'ERROR in subroutine perform_hf_and_read_e: running Gaussian failed.'
-  write(fid,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
+  write(iout,'(/,A)') 'ERROR in subroutine perform_hf_and_read_e: running Gaussian failed.'
+  write(iout,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
   stop
  end if
 

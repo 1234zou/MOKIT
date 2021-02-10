@@ -8,6 +8,7 @@ mokit{CtrType=2}
 N  0.0   0.0   0.0
 O  0.0   0.0   1.136
 
-# This example shows you how to perform ic-MRCISD computation
-#
-# To run this example, you need to install Gaussian, PySCF and OpenMolcas
+# This example shows you how to perform ic-MRCISD computation. CtrType=1/2/3
+# for uncontracted/ic-/FIC- type MRCISD.
+
+# To run this example, you need to install Gaussian, GAMESS, PySCF and OpenMolcas

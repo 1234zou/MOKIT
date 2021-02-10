@@ -10,4 +10,4 @@ O  0.0   0.0   1.136
 
 # This example shows you how to perform MC-PDFT computation
 #
-# To run this example, you need to install Gaussian, PySCF and OpenMolcas
+# To run this example, you need to install Gaussian, GAMESS, PySCF and OpenMolcas

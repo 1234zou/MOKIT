@@ -77,7 +77,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=8) :: method
- character(len=17) :: basis ! 17 is for longest 6-311++G(3df,2pd)
+ character(len=21) :: basis
  character(len=240) :: buf
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf

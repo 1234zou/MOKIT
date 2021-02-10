@@ -24,7 +24,6 @@ program main
  integer, parameter :: iout = 6
  character(len=38), parameter :: error_warn='ERROR in program add_bgcharge_to_inp: '
  character(len=240) :: chgname, inpname
- logical :: alive
 
  i = iargc()
  if(i /= 2) then
@@ -40,21 +39,9 @@ program main
  end if
 
  call getarg(1, chgname)
+ call require_file_exist(chgname)
  call getarg(2, inpname)
-
- inquire(file=TRIM(chgname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') error_warn//'file does not exist!'
-  write(iout,'(A)') 'File='//TRIM(chgname)
-  stop
- end if
-
- inquire(file=TRIM(inpname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') error_warn//'file does not exist!'
-  write(iout,'(A)') 'File='//TRIM(inpname)
-  stop
- end if
+ call require_file_exist(inpname)
 
  call add_bgcharge_to_inp(chgname, inpname)
  stop
@@ -66,7 +53,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  integer :: i, j, n, fid
  integer, parameter :: iout = 6
  real(kind=8), allocatable :: charge(:,:)
- character(len=41), parameter :: error_warn='ERROR in subroutine add_bgcharge_to_inp: '
+ character(len=41),parameter::error_warn='ERROR in subroutine add_bgcharge_to_inp: '
  character(len=240) :: buf
  character(len=240), intent(in) :: chgname, inpname
 
@@ -301,7 +288,6 @@ subroutine add_bgcharge_to_gms_inp(inpname, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-
  return
 end subroutine add_bgcharge_to_gms_inp
 

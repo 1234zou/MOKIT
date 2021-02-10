@@ -4,7 +4,7 @@
 program main
  use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, k, system
+ integer :: i, system
  integer, parameter :: iout = 6
  character(len=4) :: str
  character(len=240) :: fchname, inpname
@@ -22,7 +22,8 @@ program main
  fchname = ' '
  sph = .true.
  uhf = .false.
- call getarg(1,fchname)
+ call getarg(1, fchname)
+ call require_file_exist(fchname)
 
  if(i == 2) then
   call getarg(2,str)
@@ -36,13 +37,14 @@ program main
  end if
 
  call fch2inp_wrap(fchname, uhf, .false., 0, 0) ! generate GAMESS .inp file
- k = index(fchname,'.fch', back=.true.)
- if(k == 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2com: no '.fch' suffix in filename="//TRIM(fchname)
+
+ i = index(fchname,'.fch', back=.true.)
+ if(i == 0) then
+  write(iout,'(A)') "ERROR in subroutine fch2com: no '.fch' suffix in&
+                   & filename="//TRIM(fchname)
   stop
  end if
-
- inpname = fchname(1:k-1)//'.inp'
+ inpname = fchname(1:i-1)//'.inp'
 
  call check_sph(fchname, sph)
  if(sph) then
@@ -57,9 +59,7 @@ program main
   stop
  end if
 
- open(newunit=i,file=TRIM(inpname),status='old')
- close(unit=i,status='delete')
-
+ call delete_file(inpname)
  call fch2com(fchname, uhf)
  stop
 end program main

@@ -1,5 +1,4 @@
 ! written by jxzou at 20191030: transform basis sets in GAMESS format to (Open)Molcas format
-! updated by jxzou at 20200325: add variable rtmp
 ! updated by jxzou at 20200326: move lower angular momentum (occurred 2nd time) forward
 !   This special case happens at, e.g. def2TZVP for Co. The MOs moved forward have been
 !   considered in fch2inporb. Here the basis sets should be adjusted correspondingly.
@@ -9,6 +8,7 @@
 !   trick is to only extend column, thus will not generate the primitive duplicate.
 !   The primitive duplicate is not allowed in relativistic calculations.
 ! updated by jxzou at 20201209: move some subroutines to read_gms_inp.f90
+! updated by jxzou at 20210207: add contraction strings into '.....'
 
 ! Note: Currently isotopes are not tested.
 program main
@@ -18,11 +18,11 @@ program main
  character(len=4) :: str
  character(len=240) :: fname
  ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
- logical :: alive, spherical
+ logical :: spherical
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A,/)') 'Example1: bas_gms2molcas a.inp (generating an a.input file)'
+  write(iout,'(/,A,/)') 'Example1: bas_gms2molcas a.inp (generate an a.input file)'
   write(iout,'(A,/)') "Example2: bas_gms2molcas a.inp -sph (without 'Cartesian all')"
   stop
  end if
@@ -30,14 +30,8 @@ program main
  str = ' '
  fname = ' '
  spherical = .false.
- call getarg(1,fname)
-
- inquire(file=TRIM(fname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fname)
-  stop
- end if
+ call getarg(1, fname)
+ call require_file_exist(fname)
 
  if(i == 2) then
   call getarg(2,str)
@@ -46,10 +40,9 @@ program main
    spherical = .true.
   else
    write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: wrong command line arguments!'
-   write(iout,'(A)') 'str='//str
+   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
-
  end if
 
  call bas_gms2molcas(fname, spherical)
@@ -58,138 +51,47 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in (Open)Molcas format
 subroutine bas_gms2molcas(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
+ use pg, only: iout, natom, ram, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, rc, rel
+ integer :: i, k, nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: rtmp
  real(kind=8) :: exp1   ! the first exponent
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
- real(kind=8), allocatable :: coor2(:,:)
  character(len=240), intent(in) :: fort7
- character(len=240) :: buf1, buf2, input
+ character(len=240) :: buf, input
  ! input is the (Open)Molcas .input file
  character(len=1) :: stype0, stype
+ character(len=21) :: str1, str2
  logical, intent(in) :: spherical
- logical :: bohrs, uhf, X2C
+ logical :: uhf, X2C
 
  ! initialization
- buf1 = ' '
- buf2 = ' '
+ buf = ' '
  input = ' '
 
- k = INDEX(fort7, '.', .true.)
- input = fort7(1:k-1)//'.input'
+ i = index(fort7, '.', back=.true.)
+ input = fort7(1:i-1)//'.input'
 
- open(newunit=fid2,file=TRIM(input),status='replace')
- write(fid2,'(A)') "&GATEWAY"
-! write(fid2,'(A)') 'Expert'
+ call read_natom_from_gms_inp(fort7, natom)
+ allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
 
+ call calc_ntimes(natom, elem, ntimes)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
+ call read_all_ecp_from_gms_inp(fort7)
+
+ ! find the $DATA section
  open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
-
- uhf = .false.
- read(fid1,'(A)') buf1
- call upper(buf1)
- i = index(buf1,'UHF')
- if(i > 0) uhf = .true.
-
- charge = 0; mult = 1
- i = index(buf1,'ICHAR')
- if(i > 0) read(buf1(i+7:),*) charge
- i = index(buf1,'MULT')
- if(i > 0) read(buf1(i+5:),*) mult
- BACKSPACE(fid1)
-
- ! find in the first 3 lines whether the coordinates are in Angstrom or Bohr
- bohrs = .false.
- do i = 1, 3
-  read(fid1,'(A)') buf1
-  call upper(buf1)
-  if(INDEX(buf1,'UNITS=BOHR') /= 0) then
-   bohrs = .true.
-   exit
-  end if
- end do
- ! Angstrom/Bohr determined
-
- ! rewind and check if any ECP data exists
- rewind(fid1)
- ecp_exist = .false.
  do while(.true.)
-  read(fid1,'(A)',iostat=i) buf1
-  if(i /= 0) exit
-  call upper(buf1)
-  if(buf1(2:5) == '$ECP') then
-   ecp_exist = .true.
-   exit
-  end if
- end do
-
- natom = 0
- if(ecp_exist) then ! if exists, find natom
-  do while(.true.)
-   read(fid1,'(A)') buf1
-   call upper(buf1)
-   if(buf1(2:5) == '$END') exit
-   if(index(buf1,'ECP') /= 0) natom = natom + 1
-  end do ! for while
-
-  allocate(all_ecp(natom))
-  all_ecp(:)%ecp = .false.
-  rewind(fid1)
-  do while(.true.)
-   read(fid1,'(A)') buf1
-   call upper(buf1)
-   if(buf1(2:5) == '$ECP') exit
-  end do
-
-  do i = 1, natom, 1
-   read(fid1,'(A)') buf1
-   call upper(buf1)
-   if(index(buf1,'NONE') /= 0) cycle
-
-   all_ecp(i)%ecp = .true.
-   k = index(buf1,'GEN')
-   read(buf1(k+3:),*) all_ecp(i)%core_e, m
-   all_ecp(i)%highest = m
-   allocate(all_ecp(i)%potential(m+1))
-
-   do j = 1, m+1, 1
-    read(fid1,'(A)') buf1
-    if(j == 1) then
-     k = index(buf1,'ul')
-     if(k == 0) then
-      write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: ECP/PP does not&
-                       & starts with '-ul potential'."
-      write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(fort7)
-      stop
-     end if
-    end if
-
-    read(buf1,*) n
-    all_ecp(i)%potential(j)%n = n
-    allocate(all_ecp(i)%potential(j)%col1(n), source=0.0d0)
-    allocate(all_ecp(i)%potential(j)%col2(n), source=0)
-    allocate(all_ecp(i)%potential(j)%col3(n), source=0.0d0)
-    do k = 1, n, 1
-     read(fid1,*) all_ecp(i)%potential(j)%col1(k), all_ecp(i)%potential(j)%col2(k), &
-     all_ecp(i)%potential(j)%col3(k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
-
- end if
- ! read ECP/PP done
-
- ! rewind and find the $DATA section
- rewind(fid1)
- do while(.true.)
-  read(fid1,'(A)',iostat=rc) buf1
+  read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  call upper(buf1)
-  if(buf1(2:6) == '$DATA') exit
- end do
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6) == 'DATA') exit
+  end if
+ end do ! for while
+
  if(rc /= 0) then
   write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: No $DATA section found&
                    & in file '//TRIM(fort7)//'.'
@@ -198,60 +100,29 @@ subroutine bas_gms2molcas(fort7, spherical)
  end if
 
  ! skip 2 lines: the Title line and the Point Group line
- read(fid1,'(A)') buf1
- read(fid1,'(A)') buf1
+ read(fid1,'(A)') buf
+ read(fid1,'(A)') buf
+
+ open(newunit=fid2,file=TRIM(input),status='replace')
+ write(fid2,'(A)') "&GATEWAY"
+! write(fid2,'(A)') 'Expert'
 
  ! initialization: clear all primitive gaussians
  call clear_prim_gau()
 
- ! read the element, relative atomic mass (ram) and coordinates
- natom = 0
- do while(.true.) ! while 1
-  read(fid1,'(A)',iostat=rc) buf1
+ do i = 1, natom, 1
+  read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  ! 'buf1' contains the element, ram and coordinates
-  buf2 = buf1
-  call upper(buf2)
-  if(buf2(2:5) == '$END') exit
-
-  ! deal with the coordinates
-  natom = natom + 1
-  if(natom > 1) then ! enlarge the arrays
-   allocate(coor2(3,natom), source=0.0d0)
-   coor2(:,1:natom-1) = coor
-   coor = coor2   ! auto-reallocation
-   deallocate(coor2)
-   elem = [elem, ' ']
-   ram = [ram, 0]
-   ntimes = [ntimes, 1]
-  else ! natom = 1
-   allocate(elem(1))
-   elem(1) = ' '
-   allocate(ram(1), source=0)
-   allocate(ntimes(1), source=1)
-   allocate(coor(3,1), source=0.0d0)
-  end if
-  read(buf1,*) elem(natom), rtmp, coor(1:3,natom)
-  ram(natom) = INT(rtmp)
-  if(bohrs) coor(1:3,natom) = coor(1:3,natom)*Bohr_const
+  ! 'buf' contains the element, ram and coordinates
   write(fid2,'(A)') 'Basis set'
-  if(ecp_exist) then
-   if(all_ecp(natom)%ecp) then
-    write(fid2,'(A)') TRIM(elem(natom))//'.ECP....      / inline'
-   else
-    write(fid2,'(A)') TRIM(elem(natom))//'.....      / inline'
-   end if
-  else
-   write(fid2,'(A)') TRIM(elem(natom))//'.....      / inline'
-  end if
 
   ! deal with primitive gaussians
   stype0 = ' '
-  do while(.true.) ! while 2
-   read(fid1,'(A)') buf1
-   if(LEN_TRIM(buf1) == 0) exit
+  do while(.true.)
+   read(fid1,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
 
-   read(buf1,*) stype, nline
+   read(buf,*) stype, nline
    if(stype0 == ' ') then
     !------------------------------------------------------
     ! the following 5 lines are added to determine whether
@@ -267,8 +138,8 @@ subroutine bas_gms2molcas(fort7, spherical)
     end if
    else ! stype0 /= ' '
     if(stype == stype0) then
-     exp1 = 0.0d0
-     read(fid1,*) i, exp1
+     exp1 = 0d0
+     read(fid1,*) k, exp1
      BACKSPACE(fid1)
      call read_prim_gau2(stype, nline, fid1, exp1)
     else ! stype /= stype0
@@ -276,30 +147,35 @@ subroutine bas_gms2molcas(fort7, spherical)
      BACKSPACE(fid1)
     end if
    end if
-  end do ! for while 2
+  end do ! for while
+
+  if(all_ecp(i)%ecp) then
+   write(fid2,'(A)',advance='no') TRIM(elem(i))//'.ECP..'
+  else
+   write(fid2,'(A)',advance='no') TRIM(elem(i))//'...'
+  end if
+  call gen_contracted_string(prim_gau(:)%nline,prim_gau(:)%ncol,str1,str2)
+  write(fid2,'(A)') TRIM(str1)//'.'//TRIM(str2)//'.   / inline'
 
   ! print basis sets and ECP/PP (if any) of this atom in Molcas format
-  call prt_prim_gau(fid2)
-
-  ! print elem and coor
-  call update_ntimes()
-  write(fid2,'(A,I0,3(2X,F15.8),3X,A)') TRIM(elem(natom)), ntimes(natom), &
-                                        coor(1:3,natom),'Angstrom'
-
+  call prt_prim_gau(i, fid2)
+  write(fid2,'(A,I0,3(2X,F15.8),A)') TRIM(elem(i)), ntimes(i), &
+                                     coor(1:3,i),'   Angstrom'
   if(.not. spherical) write(fid2,'(A)') 'Cartesian all'
   write(fid2,'(A)') 'End of basis set'
 
   ! clear all primitive gaussians for next cycle
   call clear_prim_gau()
- end do ! for while 1
+ end do ! for i
 
- if(allocated(all_ecp)) deallocate(all_ecp)
  close(fid1)
+ ! now ram can be deallocated
+ deallocate(ram, elem, ntimes, coor, all_ecp)
 
- if(natom==0 .or. rc/=0) then
-  if(natom == 0) write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: zero atom found!'
-  if(rc /= 0) write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA'&
-                               & has no corresponding '$END'. EOF."
+ if(rc /= 0) then
+  write(iout,'(A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA'&
+                   & has no corresponding '$END'."
+  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if
@@ -321,16 +197,23 @@ subroutine bas_gms2molcas(fort7, spherical)
  case default
   write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
   write(iout,'(A,I0)') 'rel=', rel
+  close(fid2,status='delete')
   stop
  end select
 
  write(fid2,'(/,A)') "&SCF"
- if(uhf) write(fid2,'(A3)') 'UHF'
+ if(uhf) write(fid2,'(A)') 'UHF'
  write(fid2,'(A,I0)') 'Charge = ', charge
  write(fid2,'(A,I0)') 'Spin = ', mult
- k = INDEX(fort7, '.', .true.)
- input = fort7(1:k-1)//'.INPORB'
- write(fid2,'(A,/)') 'FILEORB = '//TRIM(input)
+ i = INDEX(fort7, '.', back=.true.)
+ input = fort7(1:i-1)//'.INPORB'
+ write(fid2,'(A)') 'FILEORB = '//TRIM(input)
+
+ if((.not.uhf) .and. (mult/=1)) then ! ROHF
+  write(fid2,'(A)') "* ROHF is not directly supported in (Open)Molcas. You&
+                    & need to write &RASSCF module to realize ROHF."
+ end if
+
  close(fid2)
  return
 end subroutine bas_gms2molcas

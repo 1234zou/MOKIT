@@ -8,26 +8,19 @@ program main
  character(len=4) :: str
  character(len=240) :: fname
  ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
- logical :: alive, uhf
+ logical :: uhf
 
  i = iargc()
  if(i<1 .or. i>2) then
   write(iout,'(/,A)') ' ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
-  write(iout,'(A)') ' Example 1: bas_gms2bdf a.inp (generating an a_bdf.inp file)'
+  write(iout,'(A)') ' Example 1: bas_gms2bdf a.inp (generate an a_bdf.inp file)'
   write(iout,'(A,/)') ' Example 2: bas_gms2bdf a.inp -uhf'
   stop
  end if
 
  fname = ' '
- call getarg(1,fname)
- fname = ADJUSTL(fname)
-
- inquire(file=TRIM(fname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fname)
-  stop
- end if
+ call getarg(1, fname)
+ call require_file_exist(fname)
 
  uhf = .false.
  if(i == 2) then
@@ -37,7 +30,7 @@ program main
    uhf = .true.
   else
    write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-uhf'."
+   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
  end if
@@ -50,10 +43,9 @@ end program main
 subroutine bas_gms2bdf(fort7, uhf)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, rc, rel
+ integer :: i, k, nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: rtmp
  real(kind=8) :: exp1   ! the first exponent
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
@@ -61,7 +53,7 @@ subroutine bas_gms2bdf(fort7, uhf)
  ! input is the BDF input file
  ! if you do not like the suffix .bdf, you can change it into .inp
  character(len=1) :: stype0, stype
- logical :: X2C
+ logical :: X2C, uhf1
  logical, intent(in) :: uhf
 
  ! initialization
@@ -72,73 +64,21 @@ subroutine bas_gms2bdf(fort7, uhf)
  k = index(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
  call read_natom_from_gms_inp(fort7, natom)
+ allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
- open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
- read(fid1,'(A)') buf
- call upper(buf)
+ call calc_ntimes(natom, elem, ntimes)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf1, ecp_exist)
+ call read_all_ecp_from_gms_inp(fort7)
 
- charge = 0; mult = 1
- i = index(buf,'ICHAR')
- if(i > 0) read(buf(i+7:),*) charge
- i = index(buf,'MULT')
- if(i > 0) read(buf(i+5:),*) mult
- BACKSPACE(fid1)
-
- ! check if any ECP data exists
- ecp_exist = .false.
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(3:5))
-  if(buf(2:5) == '$ECP') then
-   ecp_exist = .true.
-   exit
-  end if
- end do ! for while
-
- if(ecp_exist) then ! if exists, read ECP
+ if(ecp_exist) then
   basfile = 'ECP.'//fort7(1:k-1)//'.BAS'
-  allocate(all_ecp(natom))
-
-  do i = 1, natom, 1
-   read(fid1,'(A)') buf
-   call upper(buf)
-   if(index(buf,'NONE') /= 0) cycle
-
-   all_ecp(i)%ecp = .true.
-   k = index(buf,'GEN')
-   read(buf(k+3:),*) all_ecp(i)%core_e, m
-   all_ecp(i)%highest = m
-   allocate(all_ecp(i)%potential(m+1))
-
-   do j = 1, m+1, 1
-    read(fid1,'(A)') buf
-    if(j == 1) then
-     k = index(buf,'ul')
-     if(k == 0) then
-      write(iout,'(A)') "ERROR in subroutine bas_gms2bdf: ECP/PP not starts with '-ul potential'."
-      write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(fort7)//'.'
-      stop
-     end if
-    end if
-
-    read(buf,*) n
-    all_ecp(i)%potential(j)%n = n
-    allocate(all_ecp(i)%potential(j)%col1(n), source=0d0)
-    allocate(all_ecp(i)%potential(j)%col2(n), source=0)
-    allocate(all_ecp(i)%potential(j)%col3(n), source=0d0)
-    do k = 1, n, 1
-     read(fid1,*) all_ecp(i)%potential(j)%col1(k), all_ecp(i)%potential(j)%col2(k), &
-     all_ecp(i)%potential(j)%col3(k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
  else
   basfile = fort7(1:k-1)//'.BAS'
  end if
  ! read ECP/PP done
 
- close(fid1)
  call upper(basfile)
  open(newunit=fid2,file=TRIM(input),status='replace')
  write(fid2,'(A)') '$COMPASS'
@@ -146,9 +86,6 @@ subroutine bas_gms2bdf(fort7, uhf)
  write(fid2,'(A)') 'auto-generated file by the bas_gms2bdf utility of MOKIT'
  write(fid2,'(A)') 'Geometry'
 
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
- call calc_ntimes(natom, elem, ntimes)
  call check_X2C_in_gms_inp(fort7, X2C)
  call check_DKH_in_gms_inp(fort7, rel)
 
@@ -157,8 +94,8 @@ subroutine bas_gms2bdf(fort7, uhf)
   write(str,'(A,I0)') TRIM(elem(i)), ntimes(i)
   write(fid2,'(A7,1X,3F18.8)') str, coor(1:3,i)
  end do ! for i
-
  deallocate(coor)
+
  write(fid2,'(A)') 'End Geometry'
  write(fid2,'(A)') 'Basis'
  write(fid2,'(A)') TRIM(basfile)
@@ -170,9 +107,10 @@ subroutine bas_gms2bdf(fort7, uhf)
   write(fid2,'(A)') 'Scalar'
 
   if(rel>-1 .and. (.not.X2C)) then
-   write(iout,'(A)') 'Warning in subroutine bas_gms2bdf: the BDF program does&
+   write(iout,'(A)') 'Warning in subroutine bas_gms2bdf: BDF program does&
                     & not support DKH Hamiltonian.'
-   write(iout,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN instead."
+   write(iout,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN&
+                    & instead."
   end if
  end if
 
@@ -181,6 +119,7 @@ subroutine bas_gms2bdf(fort7, uhf)
  write(fid2,'(A)') 'CheckLin'
  write(fid2,'(A)') 'TolLin'
  write(fid2,'(A)') '1.D-6'
+
  if(uhf) then
   write(fid2,'(A3)') 'UHF'
  else
@@ -190,6 +129,7 @@ subroutine bas_gms2bdf(fort7, uhf)
    write(fid2,'(A3)') 'RHF'
   end if
  end if
+
  write(fid2,'(A,/,I0)') 'Charge', charge
  write(fid2,'(A,/,I0)') 'Spin', mult
  write(fid2,'(A)') 'Guess'
@@ -197,14 +137,17 @@ subroutine bas_gms2bdf(fort7, uhf)
  write(fid2,'(A)') '$END'
  close(fid2)
 
- ! reopen the .inp/.dat file and find the $DATA section
+ ! open the .inp/.dat file and find the $DATA section
  open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
  do while(.true.)
   read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  call upper(buf)
-  if(buf(2:6) == '$DATA') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6) == 'DATA') exit
+  end if
  end do ! for while
+
  if(rc /= 0) then
   write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: No $DATA section found&
                    & in file '//TRIM(fort7)//'.'
@@ -225,8 +168,10 @@ subroutine bas_gms2bdf(fort7, uhf)
   read(fid1,'(A)',iostat=rc) buf
   ! 'buf' contains the element, ram and coordinates
   if(rc /= 0) exit
-  if(buf(2:2) == '$') call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(3:5) == 'END') exit
+  end if
 
   ! deal with primitive gaussians
   stype0 = ' '
@@ -251,7 +196,7 @@ subroutine bas_gms2bdf(fort7, uhf)
    else ! stype0 /= ' '
     if(stype == stype0) then
      exp1 = 0.0d0
-     read(fid1,*) j, exp1
+     read(fid1,*) k, exp1
      BACKSPACE(fid1)
      call read_prim_gau2(stype, nline, fid1, exp1)
     else ! stype /= stype0
@@ -268,10 +213,18 @@ subroutine bas_gms2bdf(fort7, uhf)
   call clear_prim_gau()
  end do ! for i
 
+ deallocate(ram, ntimes, elem, all_ecp)
  close(fid1)
+
+ if(rc /= 0) then
+  write(iout,'(A)') "ERROR in subroutine bas_gms2bdf: it seems the '$DATA'&
+                   & has no corresponding '$END'."
+  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
+  close(fid2,status='delete')
+  stop
+ end if
+
  close(fid2)
- deallocate(ram, ntimes, elem)
- if(allocated(all_ecp)) deallocate(all_ecp)
  return
 end subroutine bas_gms2bdf
 

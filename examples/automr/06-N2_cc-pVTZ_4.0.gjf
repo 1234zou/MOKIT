@@ -1,0 +1,12 @@
+%mem=4GB
+%nprocshared=4
+#p NEVPT2/cc-pVTZ
+
+mokit{ist=1,readuhf='N2_cc-pVTZ_4.0_uhf.fchk'}
+
+# If you want to perform computations of any of NEVPT2/CASPT2/MRMP2/MRCISD/MCPDFT,
+# just write it in the Route Section (#p ...).
+
+# To run this example, GAMESS and PySCF need to be installed.
+# You can, of course , use another NEVPT2 program by specifying NEVPT2_prog=Molpro.
+# To find all valid NEVPT2_prog, please run 'automr -h' in Shell.

@@ -1,0 +1,12 @@
+%mem=4GB
+%nprocshared=4
+#p CASSCF/cc-pVTZ
+
+mokit{ist=1,readuhf='N2_cc-pVTZ_4.0_uhf.fchk'}
+
+# Of course, you can read in a truly UHF wave function. Initial guess constructed
+# from each fragment is used in the provided .fch file. Note that for d(N-N)=4.0A
+# there exists multiple UHF solutions. In this way the lowest UHF energy solution
+# can be obtained and provided.
+
+# To run this example, GAMESS and PySCF need to be installed

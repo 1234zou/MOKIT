@@ -9,11 +9,11 @@ program main
  character(len=4) :: str
  character(len=240) :: fname
  ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
- logical :: alive, spherical
+ logical :: spherical
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A,/)') 'Example1: bas_gms2molpro a.inp (generating a Molpro a.com file)'
+  write(iout,'(/,A,/)') 'Example1: bas_gms2molpro a.inp (generate a Molpro a.com file)'
   write(iout,'(A,/)') "Example2: bas_gms2molpro a.inp -sph (without 'Cartesian')"
   stop
  end if
@@ -22,13 +22,7 @@ program main
  fname = ' '
  spherical = .false.
  call getarg(1,fname)
-
- inquire(file=TRIM(fname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fname)
-  stop
- end if
+ call require_file_exist(fname)
 
  if(i == 2) then
   call getarg(2,str)
@@ -37,7 +31,7 @@ program main
    spherical = .true.
   else
    write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: wrong command line arguments!'
-   write(iout,'(A)') 'str='//str
+   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
 
@@ -51,10 +45,9 @@ end program main
 subroutine bas_gms2molpro(fort7, spherical)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, rc, rel
+ integer :: i, k, nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: rtmp
  real(kind=8) :: exp1   ! the first exponent
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
@@ -74,15 +67,19 @@ subroutine bas_gms2molpro(fort7, spherical)
  i = index(fort7, '.', back=.true.)
  input = fort7(1:i)//'com'
 
+ call read_natom_from_gms_inp(fort7, natom)
+ allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ ! ram cannot be deallocated here since subroutine prt_prim_gau_molpro will use it
+
+ call calc_ntimes(natom, elem, ntimes)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
+ call read_all_ecp_from_gms_inp(fort7)
+
  open(newunit=fid2,file=TRIM(input),status='replace')
  write(fid2,'(A)') '***,auto-generated file by bas_gms2molpro of MOKIT'
  write(fid2,'(A)') 'symmetry,nosym,noorient'
  write(fid2,'(A)') 'geometry={'
-
- call read_natom_from_gms_inp(fort7, natom)
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
- call calc_ntimes(natom, elem, ntimes)
 
  do i = 1, natom, 1
   str = ' '
@@ -95,78 +92,17 @@ subroutine bas_gms2molpro(fort7, spherical)
  if(.not. spherical) write(fid2,'(A)') 'Cartesian'
  write(fid2,'(A)') 'basis={'
 
- uhf = .false.
- charge = 0; mult = 1
-
- open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
- read(fid1,'(A)') buf
- call upper(buf)
- if(index(buf,'UHF') > 0) uhf = .true.
-
- i = index(buf,'ICHAR')
- if(i > 0) read(buf(i+7:),*) charge
- i = index(buf,'MULT')
- if(i > 0) read(buf(i+5:),*) mult
-
- ! check if any ECP data exists
- ecp_exist = .false.
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(3:5))
-  if(buf(2:5) == '$ECP') then
-   ecp_exist = .true.
-   exit
-  end if
- end do ! for while
-
- if(ecp_exist) then ! if exists, read
-  allocate(all_ecp(natom))
-
-  do i = 1, natom, 1
-   read(fid1,'(A)') buf
-   call upper(buf)
-   if(index(buf,'NONE') /= 0) cycle
-
-   all_ecp(i)%ecp = .true.
-   k = index(buf,'GEN')
-   read(buf(k+3:),*) all_ecp(i)%core_e, m
-   all_ecp(i)%highest = m
-   allocate(all_ecp(i)%potential(m+1))
-
-   do j = 1, m+1, 1
-    read(fid1,'(A)') buf
-    if(j == 1) then
-     k = index(buf,'ul')
-     if(k == 0) then
-      write(iout,'(A)') "ERROR in subroutine bas_gms2molpro: ECP/PP not starts with '-ul potential'."
-      write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(fort7)//'.'
-      stop
-     end if
-    end if
-
-    read(buf,*) n
-    all_ecp(i)%potential(j)%n = n
-    allocate(all_ecp(i)%potential(j)%col1(n), source=0.0d0)
-    allocate(all_ecp(i)%potential(j)%col2(n), source=0)
-    allocate(all_ecp(i)%potential(j)%col3(n), source=0.0d0)
-    do k = 1, n, 1
-     read(fid1,*) all_ecp(i)%potential(j)%col1(k), all_ecp(i)%potential(j)%col2(k), &
-     all_ecp(i)%potential(j)%col3(k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
- end if
- ! read ECP/PP done
-
  ! rewind and find the $DATA section
- rewind(fid1)
+ open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
  do while(.true.)
   read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  call upper(buf(3:6))
-  if(buf(2:6) == '$DATA') exit
- end do
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6) == 'DATA') exit
+  end if
+ end do ! for while
+
  if(rc /= 0) then
   write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found&
                    & in file '//TRIM(fort7)
@@ -186,8 +122,10 @@ subroutine bas_gms2molpro(fort7, spherical)
   read(fid1,'(A)',iostat=rc) buf
   ! 'buf' contains the element, ram and coordinates
   if(rc /= 0) exit
-  if(buf(2:2) == '$') call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(3:5) == 'END') exit
+  end if
   write(fid2,'(A)') '! '//TRIM(elem(i))
 
   ! deal with primitive gaussians
@@ -213,7 +151,7 @@ subroutine bas_gms2molpro(fort7, spherical)
    else ! stype0 /= ' '
     if(stype == stype0) then
      exp1 = 0.0d0
-     read(fid1,*) j, exp1
+     read(fid1,*) k, exp1
      BACKSPACE(fid1)
      call read_prim_gau2(stype, nline, fid1, exp1)
     else ! stype /= stype0
@@ -230,14 +168,13 @@ subroutine bas_gms2molpro(fort7, spherical)
   call clear_prim_gau()
  end do ! for i
 
- deallocate(ram, ntimes, elem)
- if(allocated(all_ecp)) deallocate(all_ecp)
+ deallocate(ram, ntimes, elem, all_ecp)
  close(fid1)
 
- if(natom==0 .or. rc/=0) then
-  if(natom == 0) write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: zero atom found!'
-  if(rc /= 0) write(iout,'(A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA'&
-                               & has no corresponding '$END'. EOF."
+ if(rc /= 0) then
+  write(iout,'(A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA'&
+                   & has no corresponding '$END'."
+  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if

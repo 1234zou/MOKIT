@@ -6,6 +6,7 @@ module pg
  integer :: highest   ! highest angular momentum
  integer, parameter :: iout = 6
  integer, allocatable :: ram(:), ntimes(:) ! ram: relative atomic mass
+ ! I made a mistake, ram should be interpreted as atomic order
  real(kind=8), parameter :: zero = 1.0d-7
  real(kind=8), allocatable :: coor(:,:)    ! Cartesian coordinates
  character(len=2), allocatable :: elem(:)  ! elements
@@ -40,6 +41,294 @@ module pg
  type(ecp4atom), allocatable :: all_ecp(:) ! size natom
  logical :: ecp_exist = .false.
 end module pg
+
+! find the number of atoms in GAMESS .inp file
+subroutine read_natom_from_gms_inp(inpname, natom)
+ implicit none
+ integer :: i, fid, nline
+ integer, intent(out) :: natom
+ integer, parameter :: iout = 6
+ character(len=1) :: str
+ character(len=240):: buf
+ character(len=240), intent(in) :: inpname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call upper(buf(2:6))
+  if(buf(2:6) == '$DATA') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
+                   & in file '//TRIM(inpname)
+  stop
+ end if
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  call upper(buf(3:5))
+  if(buf(2:5) == '$END') exit
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   read(buf,*,iostat=i) str, nline
+   if(i /= 0) exit
+
+   do i = 1, nline, 1
+    read(fid,'(A)') buf
+   end do ! for i
+  end do ! for while
+
+  natom = natom + 1
+ end do ! for while
+
+ close(fid)
+ if(natom == 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: zero atom&
+                   & found in file '//TRIM(inpname)
+  stop
+ end if
+
+ return
+end subroutine read_natom_from_gms_inp
+
+! read charge, spin multiplicity, uhf(bool) bohrs(bool) from a given GAMESS
+! .inp/.dat file
+subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=480) :: buf1
+ character(len=240), intent(in) :: inpname
+ logical, intent(out) :: uhf, ecp
+
+ charge = 0
+ mult = 1
+ uhf = .false.
+ ecp = .false.
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf1
+ buf1 = TRIM(buf)//' '//TRIM(buf1)
+ call upper(buf1)
+ if(index(buf1,'UHF') > 0) uhf = .true.
+
+ i = index(buf1,'ICHAR')
+ if(i > 0) read(buf1(i+7:),*) charge
+ i = index(buf1,'MULT')
+ if(i > 0) read(buf1(i+5:),*) mult
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(2:5) == '$ECP') then
+    ecp = .true.
+    exit
+   end if
+  end if
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine read_charge_and_mult_from_gms_inp
+
+! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file
+subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
+ implicit none
+ integer :: i, k, fid, nline
+ integer, intent(in) :: natom
+ integer, intent(out) :: nuc(natom)
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ real(kind=8), allocatable :: nuc1(:)
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=1) :: str
+ character(len=2), intent(out) :: elem(natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical :: bohrs
+
+ allocate(nuc1(natom), source=0.0d0)
+ nuc = 0; coor = 0d0; elem = ' '
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ ! find in the first 6 lines whether the coordinates are in Angstrom or Bohr
+ bohrs = .false.
+ do i = 1, 6
+  read(fid,'(A)') buf
+  call upper(buf)
+  if(index(buf,'UNITS=BOHR') /= 0) then
+   bohrs = .true.
+   exit
+  end if
+  if(index(buf,'$END') /= 0) exit
+ end do ! for i
+ ! Angstrom/Bohr determined
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:6) == '$DATA') exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do k = 1, natom, 1
+  read(fid,*) elem(k), nuc1(k), coor(1:3,k)
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   read(buf,*,iostat=i) str, nline
+   if(i /= 0) exit
+
+   do i = 1, nline, 1
+    read(fid,'(A)') buf
+   end do ! for do
+  end do ! for while
+
+ end do ! for k
+
+ close(fid)
+
+ forall(i = 1:natom) nuc(i) = DNINT(nuc1(i))
+ deallocate(nuc1)
+ if(bohrs) coor = coor*Bohr_const
+ return
+end subroutine read_elem_nuc_coor_from_gms_inp
+
+! read nbf and nif from a given GAMESS .inp/.dat file
+subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
+ implicit none
+ integer:: i, j, k, fid
+ integer, intent(out) :: nbf, nif
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ nbf = 0; nif = 0
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call upper(buf)
+  j = index(buf,'$GUESS'); k = index(buf,'NORB=')
+  if(j/=0 .and. k/=0) then
+   read(buf(k+5:),*) nif
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  return
+ end if
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call upper(buf(3:6))
+  if(buf(2:6)=='$DATA') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine bas_gms2py: No $DATA section found&
+                   & in file '//TRIM(inpname)//'.'
+  close(fid)
+  stop
+ end if
+
+ ! read the Title Card line, find nbf in it
+ read(fid,'(A)') buf
+ i = index(buf,'nbf=')
+ if(i == 0) then
+  nbf = nif
+ else
+  read(buf(i+4:),*) nbf
+ end if
+
+ close(fid)
+ return
+end subroutine read_nbf_and_nif_from_gms_inp
+
+! read type all_ecp from a given GAMESS .inp/.dat file
+subroutine read_all_ecp_from_gms_inp(inpname)
+ use pg, only: iout, natom, all_ecp, ecp_exist
+ implicit none
+ integer :: i, j, k, m, n, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ if(natom == 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: natom = 0.'
+  write(iout,'(A)') 'The variable natom should be initialized before calling&
+                   & this subroutine.'
+  stop
+ end if
+
+ allocate(all_ecp(natom))
+ all_ecp(:)%ecp = .false.
+ if(.not. ecp_exist) return
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(3:5) == 'ECP') exit
+  end if
+ end do ! for while
+
+ do i = 1, natom, 1
+  read(fid,'(A)') buf
+  call upper(buf)
+  if(index(buf,'NONE') /= 0) cycle
+
+  all_ecp(i)%ecp = .true.
+  k = index(buf,'GEN')
+  read(buf(k+3:),*) all_ecp(i)%core_e, m
+  all_ecp(i)%highest = m
+  allocate(all_ecp(i)%potential(m+1))
+
+  do j = 1, m+1, 1
+   read(fid,'(A)') buf
+   if(j == 1) then
+    k = index(buf,'ul')
+    if(k == 0) then
+     write(iout,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP&
+                      & does not start with '-ul potential'."
+     write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(inpname)
+     stop
+    end if
+   end if
+
+   read(buf,*) n
+   all_ecp(i)%potential(j)%n = n
+   allocate(all_ecp(i)%potential(j)%col1(n), source=0d0)
+   allocate(all_ecp(i)%potential(j)%col2(n), source=0)
+   allocate(all_ecp(i)%potential(j)%col3(n), source=0d0)
+   do k = 1, n, 1
+    read(fid,*) all_ecp(i)%potential(j)%col1(k), all_ecp(i)%potential(j)%col2(k), &
+    all_ecp(i)%potential(j)%col3(k)
+   end do ! for k
+  end do ! for j
+ end do ! for i
+
+ return
+end subroutine read_all_ecp_from_gms_inp
 
 ! deallocate the allocatable arrays in array prim_gau
 subroutine clear_prim_gau()
@@ -235,19 +524,19 @@ subroutine get_highest_am()
 end subroutine get_highest_am
 
 ! print primitive gaussians
-subroutine prt_prim_gau(fid)
- use pg, only: prim_gau, natom, ram, highest, all_ecp, elem, ecp_exist
+subroutine prt_prim_gau(iatom, fid)
+ use pg, only: prim_gau, ram, highest, all_ecp, elem, ecp_exist
  implicit none
  integer :: i, j, k, m, n, nline, ncol
- integer, intent(in) :: fid
+ integer, intent(in) :: iatom, fid
  integer, allocatable :: list(:)
- character(len=1), parameter :: am(0:5) = ['S','P','D','F','G','H']
+ character(len=1), parameter :: am(0:6) = ['S','P','D','F','G','H','I']
 
  call get_highest_am()
  if(ecp_exist) then
-  write(fid,'(5X,I0,A1,3X,I1)') ram(natom)-all_ecp(natom)%core_e, '.', highest
+  write(fid,'(5X,I0,A1,3X,I1)') ram(iatom)-all_ecp(iatom)%core_e,'.',highest
  else
-  write(fid,'(5X,I0,A1,3X,I1)') ram(natom), '.', highest
+  write(fid,'(5X,I0,A1,3X,I1)') ram(iatom), '.', highest
  end if
 
  do i = 1, 7, 1
@@ -257,23 +546,24 @@ subroutine prt_prim_gau(fid)
   ncol = prim_gau(i)%ncol
   write(fid,'(2(1X,I4))') nline, ncol-1
   do j = 1, nline, 1
-   write(fid,'(3X,E16.9)') prim_gau(i)%coeff(j,1)
+   write(fid,'(3X,ES16.9)') prim_gau(i)%coeff(j,1)
   end do ! for j
   do j = 1, nline, 1
-   write(fid,'(10(E16.9,3X))') (prim_gau(i)%coeff(j,k), k=2,ncol)
+   write(fid,'(10(ES16.9,2X))') (prim_gau(i)%coeff(j,k), k=2,ncol)
   end do ! for j
  end do ! for i
 
  if(.not. ecp_exist) return
 
- if(all_ecp(natom)%ecp) then
-  m = all_ecp(natom)%highest
-  write(fid,'(A2,1X,A2,1X,I0,1X,I0)') 'PP', elem(natom), all_ecp(natom)%core_e, m
+ if(all_ecp(iatom)%ecp) then
+  m = all_ecp(iatom)%highest
+  write(fid,'(A2,1X,A2,1X,I0,1X,I0)') 'PP', elem(iatom), all_ecp(iatom)%core_e, m
   allocate(list(m+1))
   list(1) = m
   forall(i=2:m+1) list(i) = i-2
+
   do i = 1, m+1, 1
-   n = all_ecp(natom)%potential(i)%n
+   n = all_ecp(iatom)%potential(i)%n
    if(i == 1) then
     write(fid,'(I0,A)') n,';!'//am(list(1))//' POTENTIAL'
    else ! i > 1
@@ -281,8 +571,8 @@ subroutine prt_prim_gau(fid)
    end if
 
    do j = 1, n, 1
-    write(fid,'(I0,2(1X,F16.8))') all_ecp(natom)%potential(i)%col2(j), all_ecp(natom)%potential(i)%col3(j), &
-                                  all_ecp(natom)%potential(i)%col1(j)
+    write(fid,'(I0,2(1X,F16.8))') all_ecp(iatom)%potential(i)%col2(j),&
+     all_ecp(iatom)%potential(i)%col3(j), all_ecp(iatom)%potential(i)%col1(j)
    end do ! for j
   end do ! for i
   write(fid,'(A1,/,A,/,A)') '*', 'Spectral', 'End of Spectral'
@@ -292,18 +582,22 @@ subroutine prt_prim_gau(fid)
 end subroutine prt_prim_gau
 
 ! update the number of times each atom occurred
-subroutine update_ntimes()
- use pg, only: natom, elem, ntimes
+subroutine update_ntimes(iatom)
+ use pg, only: elem, ntimes
  implicit none
  integer :: i
- character(len=2) :: ctemp
+ integer, intent(in) :: iatom
+ character(len=2) :: ctmp
 
- ctemp = ' '
- ctemp = elem(natom)
+ ctmp = elem(iatom)
 
- do i = 1, natom-1, 1
-  if(ctemp == elem(i)) ntimes = ntimes + 1
- end do
+ do i = iatom-1, 1, -1
+  if(ctmp == elem(i)) then
+   ntimes(iatom) = ntimes(i) + 1
+   exit
+  end if
+ end do ! for i
+
  return
 end subroutine update_ntimes
 
@@ -317,13 +611,43 @@ subroutine calc_ntimes(natom, elem, ntimes)
  character(len=2), intent(in) :: elem(natom)
 
  ntimes = 1
- do i = 1, natom, 1
+
+ do i = 2, natom, 1
   tmp = elem(i)
 
-  do j = 1, i-1, 1
-   if(tmp == elem(j)) ntimes(i) = ntimes(i) + 1
+  do j = i-1, 1, -1
+   if(tmp == elem(j)) then
+    ntimes(i) = ntimes(j) + 1
+    exit
+   end if
   end do ! for j
+
  end do ! for i
+
  return
 end subroutine calc_ntimes
+
+! generate contracted string, e.g. 5s3p1d -> 3s2p1d
+subroutine gen_contracted_string(nline, ncol, str1, str2)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nline(7), ncol(7)
+ character(len=1), parameter :: am(7) = ['s','p','d','f','g','h','i']
+ character(len=3) :: str
+ character(len=21), intent(out) :: str1, str2
+ !10s10p10d10f10g10h10i
+
+ str1 = ' '; str2 = ' '
+
+ do i = 1, 7, 1
+  if(nline(i) > 0) then
+   write(str,'(I0,A1)') nline(i), am(i)
+   str1 = TRIM(str1)//TRIM(str)
+   write(str,'(I0,A1)') ncol(i)-1,am(i)
+   str2 = TRIM(str2)//TRIM(str)
+  end if
+ end do ! for i
+
+ return
+end subroutine gen_contracted_string
 

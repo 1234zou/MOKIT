@@ -60,62 +60,12 @@ subroutine read_natom_from_fch(fchname, natom)
  return
 end subroutine read_natom_from_fch
 
-! find the number of atoms in GAMESS .inp file
-subroutine read_natom_from_gms_inp(inpname, natom)
- implicit none
- integer :: i, fid, nline
- integer, intent(out) :: natom
- integer, parameter :: iout = 6
- character(len=1) :: str
- character(len=240):: buf
- character(len=240), intent(in) :: inpname
-
- natom = 0
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(2:6))
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
-                   & in file '//TRIM(inpname)
-  stop
- end if
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do while(.true.)
-  read(fid,'(A)') buf
-  call upper(buf(2:5))
-  if(buf(2:5) == '$END') exit
-
-  do while(.true.)
-   read(fid,'(A)') buf
-   read(buf,*,iostat=i) str, nline
-   if(i /= 0) exit
-
-   do i = 1, nline, 1
-    read(fid,'(A)') buf
-   end do ! for i
-  end do ! for while
-
-  natom = natom + 1
- end do ! for while
-
- close(fid)
- return
-end subroutine read_natom_from_gms_inp
-
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, k, fid, nblank
+ integer :: i, j, k, fid, nblank
  integer, intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
  integer, parameter :: iout = 6
@@ -126,7 +76,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  character(len=240), intent(in) :: gjfname
  logical :: bohr
 
- charge = 0; mult = 1; coor = 0.0d0; bohr = .false.
+ charge = 0; mult = 1; coor = 0d0; bohr = .false.
  nblank = 0
 
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
@@ -155,7 +105,11 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  end if
 
  do i = 1, natom, 1
-  read(fid,*,iostat=k) elem(i), coor(1:3,i)
+  read(fid,'(A)') buf
+  j = index(buf,'('); k = index(buf,')') ! in case for the fragment guess wfn
+  if(j*k /= 0) buf(j:k) = ' '
+
+  read(buf,*,iostat=k) elem(i), coor(1:3,i)
   if(k /= 0) then
    write(iout,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-column&
                     & format is supported.'
@@ -173,6 +127,55 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  end forall
  return
 end subroutine read_elem_and_coor_from_gjf
+
+! read charge, spin multiplicities and atom2frag from a given .gjf file
+subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
+ implicit none
+ integer :: i, j, k, nblank, charge, mult, fid
+ integer, parameter :: iout = 6
+ integer, intent(in) :: natom, nfrag
+ integer, intent(out) :: atom2frag(natom), frag_char_mult(2,nfrag)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ atom2frag = 0; frag_char_mult = 0
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ nblank = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 2) exit
+ end do ! for while
+
+ read(fid,*,iostat=i) charge, mult, ((frag_char_mult(j,i),j=1,2),i=1,nfrag)
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
+                   & charges and spin multiplicities of fragments.'
+  write(iout,'(A)') 'Please check syntax in file '//TRIM(gjfname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, natom, 1
+  read(fid,'(A)') buf
+  j = index(buf,'='); k = index(buf,')')
+
+  if(j*k == 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
+                     & atom2frag.'
+   write(iout,'(A)') 'Problematic line: '//TRIM(buf)
+   write(iout,'(A)') 'Please check syntax in file '//TRIM(gjfname)
+   close(fid)
+   stop
+  end if
+
+  read(buf(j+1:k-1),*) atom2frag(i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_frag_guess_from_gjf
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .fch file
@@ -224,153 +227,6 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  forall(i=1:natom) elem(i) = nuc2elem(nuc(i))
  return
 end subroutine read_elem_and_coor_from_fch
-
-! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file
-subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
- implicit none
- integer :: i, k, fid, nline
- integer, intent(in) :: natom
- integer, intent(out) :: nuc(natom)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
- real(kind=8), allocatable :: nuc1(:)
- real(kind=8), intent(out) :: coor(3,natom)
- character(len=1) :: str
- character(len=2), intent(out) :: elem(natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: inpname
- logical :: bohrs
-
- allocate(nuc1(natom), source=0.0d0)
- nuc = 0; coor = 0.0d0; elem = ' '
-
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
- ! find in the first 6 lines whether the coordinates are in Angstrom or Bohr
- bohrs = .false.
- do i = 1, 6
-  read(fid,'(A)') buf
-  call upper(buf)
-  if(INDEX(buf,'UNITS=BOHR') /= 0) then
-   bohrs = .true.
-   exit
-  end if
- end do ! for i
- ! Angstrom/Bohr determined
-
- rewind(fid)
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do k = 1, natom, 1
-  read(fid,*) elem(k), nuc1(k), coor(1:3,k)
-
-  do while(.true.)
-   read(fid,'(A)') buf
-   read(buf,*,iostat=i) str, nline
-   if(i /= 0) exit
-
-   do i = 1, nline, 1
-    read(fid,'(A)') buf
-   end do ! for do
-  end do ! for while
-
- end do ! for k
-
- close(fid)
-
- forall(i = 1:natom) nuc(i) = DNINT(nuc1(i))
- deallocate(nuc1)
- if(bohrs) coor = coor*Bohr_const
- return
-end subroutine read_elem_nuc_coor_from_gms_inp
-
-! generate a RHF/UHF .gjf file
-subroutine generate_hf_gjf(gjfname, natom, elem, coor, charge, mult, basis,&
-                           uhf, cart, DKH2, mem, nproc)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom, charge, mult, mem, nproc
- integer, parameter :: iout = 6
- real(kind=8), intent(in) :: coor(3,natom)
- character(len=2), intent(in) :: elem(natom)
- character(len=21), intent(in) :: basis
- character(len=240) :: chkname
- character(len=240), intent(in) :: gjfname
- logical, intent(in) :: uhf, cart, DKH2
-
- i = index(gjfname, '.gjf', back=.true.)
- chkname = gjfname(1:i-1)//'.chk'
-
- open(newunit=fid,file=TRIM(gjfname),status='replace')
- write(fid,'(A)') '%chk='//TRIM(chkname)
- write(fid,'(A,I0,A)') '%mem=',mem,'GB'
- write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128) nosymm '
-
- if(DKH2) then
-  write(fid,'(A)',advance='no') 'int(nobasistransform,DKH2) '
- else
-  write(fid,'(A)',advance='no') 'int=nobasistransform '
- end if
-
- if(mult == 1) then ! singlet
-  if(uhf) then
-   write(fid,'(A)',advance='no') 'UHF/'//TRIM(basis)//' guess=mix stable=opt '
-  else
-   write(fid,'(A)',advance='no') 'RHF/'//TRIM(basis)//' '
-  end if
- else               ! not singlet
-  if(uhf) then
-   write(fid,'(A)',advance='no') 'UHF/'//TRIM(basis)//' stable=opt '
-  else
-   write(iout,'(A)') 'ERROR in subroutine generate_hf_gjf: this molecule is&
-                    & not singlet, but UHF is not specified.'
-   stop
-  end if
- end if
-
- if(cart) then
-  write(fid,'(A)') '6D 10F'
- else
-  write(fid,'(A)') '5D 7F'
- end if
-
- write(fid,'(/,A,/)') 'HF file generated by AutoMR of MOKIT'
- write(fid,'(I0,1X,I0)') charge, mult
-
- do i = 1, natom, 1
-  write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
- end do ! for i
-
- ! If DKH Hamiltonian is used,
- ! Gaussian default    : Gaussian function distribution
- ! Gaussian iop(3/93=1): point nuclei charge distribution
- ! GAMESS default      : point nuclei charge distribution
- ! I found that if iop(3/93=1) is used initially, SCF sometimes converges slowly,
- ! so I use a --Link1-- to add iop(3/93=1) later
- if(DKH2) then
-  write(fid,'(/,A)') '--Link1--'
-  write(fid,'(A)') '%chk='//TRIM(chkname)
-  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
-  write(fid,'(A,I0)') '%nprocshared=', nproc
-  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128)'
-  if(uhf) then
-   write(fid,'(A)',advance='no') ' UHF stable=opt'
-  else
-   write(fid,'(A)',advance='no') ' RHF'
-  end if
-  write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
-                   & int(nobasistransform,DKH2)'
- end if
-
- write(fid,'(/)',advance='no')
- close(fid)
- return
-end subroutine generate_hf_gjf
 
 ! read Cartesian gradient from a given PySCF output file
 subroutine read_grad_from_pyscf_out(outname, natom, grad)

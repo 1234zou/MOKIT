@@ -539,3 +539,45 @@ subroutine check_X2C_in_fch(fchname, alive)
  return
 end subroutine check_X2C_in_fch
 
+! check whether 
+function nobasistransform_in_fch(fchname) result(notrans)
+ implicit none
+ integer:: i, fid
+ character(len=240) :: buf
+ character(len=1200) :: longbuf
+ character(len=240), intent(in) :: fchname
+ logical :: notrans
+
+ notrans = .true.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'Route') exit
+
+  if(buf(1:5) == 'Charg') then
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ notrans = .false.
+
+ do i = 1, 5
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'Charg') exit
+
+  if(i == 1) then
+   longbuf = buf
+  else
+   longbuf = TRIM(longbuf)//TRIM(buf)
+  end if
+ end do ! for i
+
+ close(fid)
+ call lower(longbuf)
+ if(index(longbuf,'nobasistransform') > 0) notrans = .true.
+
+ return
+end function nobasistransform_in_fch
+

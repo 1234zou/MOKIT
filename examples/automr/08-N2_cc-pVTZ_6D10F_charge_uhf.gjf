@@ -7,7 +7,9 @@ mokit{readuhf='N2_cc-pVTZ_6D10F_charge_uhf.fchk',ist=1,charge,cart}
  4.0  0.0  0.0  0.1
 -4.0  0.0  0.0  0.1
 
-# This example shows you how to read MOs from a given UHF .fch(k) file
-# and perform CASSCF computation with background charges
+# This example shows you how to read MOs from a given UHF .fch(k) file and
+# perform CASSCF computation with background charges. The Gaussian .fch(k)
+# file has a defect that background charges are not stored in. Thus we have
+# to provide them in the input
 
 # To run this example, you need to install PySCF and GAMESS

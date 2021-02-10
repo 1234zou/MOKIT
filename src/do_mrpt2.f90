@@ -545,7 +545,6 @@ subroutine prt_nevpt2_orca_inp(inpname)
   F12, F12_cabs, FIC, DLPNO
  implicit none
  integer :: i, fid1, fid2, RENAME
- character(len=19) :: RIC_bas1
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
@@ -624,12 +623,15 @@ end subroutine prt_nevpt2_orca_inp
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casnofch, casci, casscf, maxM, X2C
+ use mr_keyword, only: mem, nproc, casnofch, casci, casscf, maxM, X2C, RI, &
+  RIJK_bas, RIC_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
+ character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1
  character(len=240), intent(in) :: pyname
 
+ if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  pyname1 = TRIM(pyname)//'.tmp'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -659,7 +661,12 @@ subroutine prt_nevpt2_script_into_py(pyname)
  if(X2C) then
   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,')).x2c()'
  else
-  write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,'))'
+  if(RI) then
+   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,&
+                             ")).density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+  else
+   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,'))'
+  end if
  end if
 
  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*500, ' # MB'
@@ -674,9 +681,9 @@ subroutine prt_nevpt2_script_into_py(pyname)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
  if(casci .or. casscf) then
-  write(fid2,'(A)') 'mrpt.NEVPT(mc).kernel()'
+  write(fid2,'(/,A)') 'mrpt.NEVPT(mc).kernel()'
  else
-  write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc).compress_approx(maxM=',maxM,').kernel()'
+  write(fid2,'(/,A,I0,A)') 'mrpt.NEVPT(mc).compress_approx(maxM=',maxM,').kernel()'
  end if
  close(fid2)
 
@@ -689,28 +696,55 @@ end subroutine prt_nevpt2_script_into_py
 ! DMRG-NEVPT2.
 subroutine prt_nevpt2_molcas_inp(inpname)
  use print_id, only: iout
- use mr_keyword, only: nproc, CIonly, maxM
+ use mr_keyword, only: nproc, CIonly, maxM, RI, RIJK_bas, RIC_bas
  use mol, only: nacte, nacto, charge, mult
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, j, fid1, fid2, RENAME
+ character(len=21) :: RIJK_bas1
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
+ if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  inpname1 = TRIM(inpname)//'.tmp'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:7) == 'SEWARD') exit
+  j = index(buf, '...')
+  if(j > 0) then
+   if(RI) then
+    j = index(buf, '.')
+    write(fid2,'(A)') buf(1:j)//TRIM(RIJK_bas1)//'..'//TRIM(buf(j+3:))
+   else
+    write(fid2,'(A)') TRIM(buf)
+   end if
+  else
+   write(fid2,'(A)') TRIM(buf)
+  end if
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SEWARD'&
+                   & found in file "//TRIM(inpname)
+  stop
+ end if
+
+ if(RI) write(fid2,'(A)') 'RIJK'
+ write(fid2,'(A)') "&SEWARD"
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:4) == "&SCF") exit
   write(fid2,'(A)') TRIM(buf)
- end do
+ end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no '&SCF'&
+  write(iout,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SCF'&
                    & found in file "//TRIM(inpname)
-  close(fid1)
-  close(fid2,status='delete')
   stop
  end if
  close(fid1,status='delete')

@@ -2,7 +2,7 @@
 %nprocshared=4
 #p CASSCF(6,6)/cc-pVTZ
 
-mokit{charge}
+mokit{charge,cart}
 
 0 1
 N  0.0   0.0  -0.6
