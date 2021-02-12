@@ -1,5 +1,6 @@
-MOKIT 1.2.2 (Feb 9, 2021)
+MOKIT 1.2.2 (Feb 12, 2021)
 ------------------------
+* add utilities bas_gms2psi and fch2psi
 * add guess(fragment=N) support for input gjf
 * add utilities bas_gau2molcas
 * create directory basis to hold jkfit and some relativistic basis sets

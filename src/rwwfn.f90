@@ -1086,7 +1086,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  return
 end subroutine write_on_to_orb
 
-! write Alpha/Beta MOs from a given .fch(k) file
+! write Alpha/Beta MOs into a given .fch(k) file
 subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  implicit none
  integer :: i, fid1, fid2, ncoeff, RENAME
@@ -1163,6 +1163,29 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  i = RENAME(fchname1, fchname)
  return
 end subroutine write_mo_into_fch
+
+! write Alpha/Beta MOs into a PSI4 Matrix file
+subroutine write_mo_into_psi_mat(matfile, nbf, nif, mo)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nbf, nif
+ character(len=240), intent(in) :: matfile
+ real(kind=8), intent(in) :: mo(nbf,nif)
+
+ open(newunit=fid,file=TRIM(matfile),status='replace')
+ write(fid,'(A)') 'MO coefficients (C)'
+ write(fid,'(A)') 'symmetry 0'
+ write(fid,'(I0)') nbf*nif
+
+ do i = 1, nbf, 1
+  do j = 1, nif, 1
+   write(fid,'(A,2(1X,I5),1X,ES15.8)') ' 0',i-1,j-1,mo(i,j)
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine write_mo_into_psi_mat
 
 ! determine whether sperical harmonic or Cartesian fucntions are used in .fch(k) file
 subroutine determine_sph_or_cart(fchname, cart)

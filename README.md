@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Feb 10, 2021
+Feb 12, 2021
 
 Installation
 ------------
@@ -108,6 +108,7 @@ QC Packages can be called by AutoMR
 * [Molpro](https://www.molpro.net/)
 * [ORCA](https://orcaforum.kofo.mpg.de)
 * [BDF](http://182.92.69.169:7226/Introduction)
+* [PSI4](https://github.com/psi4/psi4/)
 
 Some Tips
 ---------
@@ -124,7 +125,7 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among BAGEL, PSI4, NWCHEM, Dalton, etc.
+* MOs trasferring among BAGEL, NWCHEM, Dalton, etc.
 
 * Support more multireference methods like ic-MRCC
 

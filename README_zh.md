@@ -30,7 +30,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021年2月10号
+2021年2月12号
 
 安装
 ----------
@@ -106,6 +106,7 @@ AutoMR支持调用的量子化学程序
 * [Molpro](https://www.molpro.net/)
 * [ORCA](https://orcaforum.kofo.mpg.de)
 * [BDF](http://182.92.69.169:7226/Introduction)
+* [PSI4](https://github.com/psi4/psi4/)
 
 温馨提示
 ----------
@@ -124,7 +125,7 @@ AutoMR支持调用的量子化学程序
 
 下一步计划（可能）
 ----------
-* 支持BAGEL, PSI4, NWCHEM, Dalton等软件间传轨道
+* 支持BAGEL, NWCHEM, Dalton等软件间传轨道
 
 * 支持更多的多参考方法（如ic-MRCC）
 

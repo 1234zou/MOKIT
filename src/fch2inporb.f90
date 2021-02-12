@@ -62,7 +62,8 @@ program main
 
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
-  write(iout,'(A)') 'The file '//TRIM(fname)//' may be incomplete.'
+  write(iout,'(A)') 'Did you forget to compile bas_gms2molcas? Or the file '//&
+                     TRIM(fname)//' may be incomplete.'
   stop
  end if
 

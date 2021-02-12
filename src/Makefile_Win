@@ -16,6 +16,7 @@ OBJ_bas_gau2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj read_fch
 OBJ_bas_gms2bdf = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2bdf.obj
 OBJ_bas_gms2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2molcas.obj
 OBJ_bas_gms2molpro = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2molpro.obj
+OBJ_bas_gms2psi = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2psi.obj
 OBJ_bas_gms2py = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2py.obj
 OBJ_bdf2fch = file_op.obj string_manipulate.obj rwwfn.obj bdf2fch.obj
 OBJ_bdf2mkl = file_op.obj bdf2mkl.obj
@@ -27,6 +28,7 @@ OBJ_fch2com = file_op.obj string_manipulate.obj rwwfn.obj util_wrapper.obj fch2c
 OBJ_fch2mkl = file_op.obj string_manipulate.obj read_fch.obj fch2mkl.obj
 OBJ_fch2inp = file_op.obj string_manipulate.obj read_fch.obj fch2inp.obj
 OBJ_fch2inporb = string_manipulate.obj rwwfn.obj util_wrapper.obj fch2inporb.obj
+OBJ_fch2psi = file_op.obj string_manipulate.obj rwwfn.obj util_wrapper.obj fch2psi.obj
 OBJ_fch_u2r = file_op.obj fch_u2r.obj
 OBJ_fch_mo_copy = rwwfn.obj fch_mo_copy.obj
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
@@ -37,9 +39,9 @@ OBJ_orb2fch = string_manipulate.obj file_op.obj rwwfn.obj orb2fch.obj
 OBJ_xml2fch = string_manipulate.obj file_op.obj rwwfn.obj xml2fch.obj
 
 .PHONY: clean distclean bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2molcas \
-        bas_gms2molpro bas_gms2py bdf2fch bdf2mkl dat2fch extract_noon2fch \
-        fch2bdf fch2com fch2mkl fch2inp fch2inporb fch_u2r fch_mo_copy frag_guess_wfn \
-        mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
+        bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl dat2fch extract_noon2fch \
+        fch2bdf fch2com fch2mkl fch2inp fch2inporb fch2psi fch_u2r fch_mo_copy \
+        frag_guess_wfn mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS)
@@ -72,6 +74,9 @@ bas_gms2molcas: $(OBJ_bas_gms2molcas)
 
 bas_gms2molpro: $(OBJ_bas_gms2molpro)
 	$(F90) $(OBJ_bas_gms2molpro) -o $(BIN)\bas_gms2molpro $(FFLAGS)
+
+bas_gms2psi: $(OBJ_bas_gms2psi)
+	$(F90) $(OBJ_bas_gms2psi) -o $(BIN)\bas_gms2psi $(FFLAGS)
 
 bas_gms2py: $(OBJ_bas_gms2py)
 	$(F90) $(OBJ_bas_gms2py) -o $(BIN)\bas_gms2py $(FFLAGS)
@@ -108,6 +113,10 @@ fch2inporb: $(OBJ_fch2inporb)
 	$(F90) $(OBJ_fch2inporb) -o $(BIN)\fch2inporb $(FFLAGS)
 	@echo fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them
 
+fch2psi: $(OBJ_fch2psi)
+	$(F90) $(OBJ_fch2psi) -o $(BIN)\fch2psi $(FFLAGS)
+	@echo fch2psi requires utilities fch2inp and bas_gms2psi, please also compile them
+
 fch_u2r: $(OBJ_fch_u2r)
 	$(F90) $(OBJ_fch_u2r) -o $(BIN)\fch_u2r $(FFLAGS)
 
@@ -137,9 +146,10 @@ solve_ON_matrix:
 	ifort /c solve_ON_matrix.f90 -o solve_ON_matrix.obj $(FFLAGS) $(MKL_FLAGS)
 	ifort rwwfn.obj solve_ON_matrix.obj -o $(BIN)\solve_ON_matrix $(FFLAGS) $(MKL_FLAGS)
 
-all: bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch \
-     bdf2mkl dat2fch extract_noon2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb \
-     fch_u2r fch_mo_copy frag_guess_wfn mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
+all: bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2py \
+     bdf2fch bdf2mkl dat2fch extract_noon2fch fch2bdf fch2com fch2mkl fch2inp \
+     fch2inporb fch2psi fch_u2r fch_mo_copy frag_guess_wfn mkl2fch mkl2gjf orb2fch \
+     xml2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod
