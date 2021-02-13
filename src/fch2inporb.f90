@@ -674,7 +674,7 @@ subroutine fch2inporb_permute_15g(nif,coeff)
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 ! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
 
- forall(j=1:15 , i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
+ forall(j=1:15, i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
 
  allocate(coeff2(15,nif), source=0.0d0)
  forall(i = 1:15) coeff2(i,:) = coeff(16-i,:)
@@ -719,7 +719,7 @@ subroutine fch2inporb_permute_21h(nif,coeff)
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 ! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
 
- forall(j=1:21 , i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
+ forall(j=1:21, i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
 
  allocate(coeff2(21,nif), source=0.0d0)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)

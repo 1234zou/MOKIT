@@ -60,6 +60,68 @@ subroutine read_natom_from_fch(fchname, natom)
  return
 end subroutine read_natom_from_fch
 
+! read the number of atoms from a .xyz file
+subroutine read_natom_from_xyz(xyzname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+ integer, parameter :: iout = 6
+ character(len=240), intent(in) :: xyzname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ read(fid,*,iostat=i) natom
+ close(fid)
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read&
+                   & natom from file '//TRIM(xyzname)
+  stop
+ end if
+ return
+end subroutine read_natom_from_xyz
+
+! read the number of atoms from a (Open)Molcas output file
+subroutine read_natom_from_molcas_out(xyzname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: xyzname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:21) == '++    Molecular struc') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_natom_from_molcas_out: keywords&
+                   & '++    Molecular struc' not found"
+  write(iout,'(A)') 'in file '//TRIM(xyzname)
+  close(fid)
+  stop
+ end if
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(6:11) == 'Center') exit 
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  natom = natom + 1 
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine read_natom_from_molcas_out
+
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
@@ -492,4 +554,103 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
  close(fid)
  return
 end subroutine read_grad_from_bdf_out
+
+! read Cartesian xyz coordinates from a .xyz file
+! Note: 1) return array coor(3,natom) are in unit Angstrom
+!       2) if 'bohr' key is found in the 2nd line of the xyz file,
+!          coor will be 
+subroutine read_coor_from_xyz(xyzname, natom, coor)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: coor(3,natom)
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ character(len=3) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: xyzname
+ logical :: bohr
+
+ coor = 0d0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ bohr = .false.
+ call lower(buf)
+ if(index(buf,'bohr') > 0) then
+  if(index(buf,'angstrom') > 0) then
+   write(iout,'(A)') "ERROR in subroutine read_coor_from_xyz: it's confusing&
+                    & because both 'bohr' and 'angstrom'"
+   write(iout,'(A)') 'are detected in the 2nd line of file '//TRIM(xyzname)
+   close(fid)
+   stop
+  else
+   bohr = .true.
+  end if
+ end if
+
+ do i = 1, natom, 1
+  read(fid,*,iostat=k) elem, coor(1:3,i)
+  if(k /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_coor_from_xyz: insufficient&
+                    & number of atoms in file '//TRIM(xyzname)
+   write(iout,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
+   close(fid)
+   stop
+  end if
+ end do ! for i
+
+ close(fid)
+ if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
+ return
+end subroutine read_coor_from_xyz
+
+! read Cartesian coordinates from a (Open)Molcas output file
+subroutine read_coor_from_molcas_out(outname, natom, coor)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: natom
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=6) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ buf = ' '
+ coor = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(4:21) == 'This run of MOLCAS') then
+   write(iout,'(A)') "ERROR in subroutine read_coor_from_molcas_out: failed to&
+                    & find 'Cartesian coordinates in A'"
+   write(iout,'(A)') 'keywords in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  if(buf(7:32) == 'Cartesian coordinates in A') exit
+ end do ! for while
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+ end do
+
+ do i = 1, natom, 1
+  read(fid,*,iostat=j) k, str, coor(1:3,i)
+  if(j /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine read_coor_from_molcas_out: insufficient&
+                    & number of atoms in file '//TRIM(outname)
+   write(iout,'(2(A,I0))') 'natom=', natom, ', but broken at i=', i
+   close(fid)
+   stop
+  end if
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_coor_from_molcas_out
 

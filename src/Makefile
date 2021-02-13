@@ -54,6 +54,8 @@ OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o rwwfn.o mkl2fch.o
 OBJ_mkl2gjf = file_op.o string_manipulate.o read_fch.o read_mkl.o mkl2gjf.o
 OBJ_orb2fch = file_op.o string_manipulate.o rwwfn.o orb2fch.o
+OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o read_fch.o rwgeom.o \
+                         replace_xyz_in_inp.o
 OBJ_xml2fch = file_op.o string_manipulate.o rwwfn.o xml2fch.o
 OBJ_py2fch = py2fch.f90
 OBJ_pyuno  = pyuno.f90
@@ -73,8 +75,8 @@ OBJ_excited = excited.f90
         bas_gau2molcas bas_gms2bdf bas_gms2molcas bas_gms2molpro bas_gms2psi \
         bas_gms2py bdf2fch bdf2mkl extract_noon2fch dat2fch fch2bdf fch2com \
         fch2mkl fch2inp fch2inporb fch2psi fch_u2r fch_mo_copy find_mc_pair \
-        gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf orb2fch xml2fch mo_svd \
-        mo_svd_format solve_ON_matrix rwwfn excited
+        gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
+        xml2fch mo_svd mo_svd_format solve_ON_matrix rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -217,6 +219,9 @@ mkl2fch: $(OBJ_mkl2fch)
 mkl2gjf: $(OBJ_mkl2gjf)
 	$(F90) $(OBJ_mkl2gjf) -o $(BIN)/mkl2gjf $(FFLAGS)
 
+replace_xyz_in_inp: $(OBJ_replace_xyz_in_inp)
+	$(F90) $(OBJ_replace_xyz_in_inp) -o $(BIN)/replace_xyz_in_inp $(FFLAGS)
+
 xml2fch: $(OBJ_xml2fch)
 	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS)
 
@@ -274,8 +279,9 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl dat2fch \
      extract_noon2fch fch2bdf fch2com fch2mkl fch2inp fch2inporb fch2psi fch_u2r \
      fch_mo_copy chk2py fch2py find_mc_pair gvb_correct_pairs gvb_sort_pairs \
-     mkl2fch mkl2gjf orb2fch xml2fch py2fch pyuno construct_vir ortho assoc_rot \
-     assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwwfn excited
+     mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch pyuno construct_vir \
+     ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwwfn \
+     excited
 
 clean:
 	rm -f *.o *.mod
