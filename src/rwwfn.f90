@@ -1297,6 +1297,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  return
 end subroutine read_npair_from_uno_out
 
+! read GVB electronic energy from a given GAMESS .gms file
 subroutine read_gvb_energy_from_gms(gmsname, e)
  implicit none
  integer :: i, j, fid
@@ -1305,7 +1306,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
 
- e = 0.0d0
+ e = 0d0
  open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
 
  do while(.true.)
@@ -1315,8 +1316,12 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB energy&
-                   & found in file '//TRIM(gmsname)
+  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB&
+                     & energy found in'
+  write(iout,'(A)') 'file '//TRIM(gmsname)//'. You can open this file and check'
+  write(iout,'(A)') 'whether the SCF oscillates. If yes, reducing the number of&
+                   & processors and re-run'
+  write(iout,'(A)') 'may do dome help.'
   close(fid)
   stop
  end if
@@ -1326,8 +1331,9 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  read(buf(i+2:j-1),*) e
 
  if(DABS(e) < 1.0d-4) then
-  write(iout,'(A)') 'ERROR in subroutine read_gvb_energy_from_gms: GVB computation&
-                   & does not converge.'
+  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: GVB compu&
+                      &tation does not converge.'
+  write(iout,'(A)') 'You can try to reduce the number of processors and re-run.'
   stop
  end if
 
@@ -1365,6 +1371,9 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
   e = e + ptchg_e
  case('bdf')
   call read_cas_energy_from_bdf_out(outname, e, scf)
+  e = e + ptchg_e + nuc_pt_e
+ case('psi4')
+  call read_cas_energy_from_psi4_out(outname, e, scf)
   e = e + ptchg_e + nuc_pt_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
@@ -1434,7 +1443,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  integer, intent(in) :: spin ! na - nb
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- real(kind=8) :: s_square = 0.0d0, expect = 0.0d0
+ real(kind=8) :: s_square = 0d0, expect = 0d0
  real(kind=8), intent(out) :: e(2)
  logical, intent(in) :: scf, dmrg
 
@@ -1524,7 +1533,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
    write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASCI&
                      & <S**2> deviates too much from expectation value.'
   end if
-  write(iout,'(2(A,F10.6))') 'expectation=', expect, ', s_square=', s_square
+  write(iout,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
   close(fid)
   stop
  end if
@@ -1542,12 +1551,12 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   i = index(buf, '=', back=.true.)
   read(buf(i+1:),*) s_square
 
-  if( DABS(expect - s_square) > 1.0D-3) then
+  if( DABS(expect - s_square) > 1D-3) then
    write(iout,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the&
                       & 0-th step in this CASSCF job,'
    write(iout,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expecta&
                      &tion value.'
-   write(iout,'(2(A,F10.6))') 'expectation=', expect, ', s_square=', s_square
+   write(iout,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
    write(iout,'(A)') 'This is probably because Davidson iterative diagonalizat&
                      &ion is unconverged.'
    write(iout,'(A)') "You may try to add keyword HardWFN or CrazyWFN in mokit{}."
@@ -1890,6 +1899,74 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  close(fid)
  return
 end subroutine read_cas_energy_from_bdf_out
+
+! read CASCI/CASSCF energy from a given PSI4 output file
+subroutine read_cas_energy_from_psi4_out(outname, e, scf)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e(2)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(scf) then
+   if(buf(1:12) == '        Iter') exit
+  else
+   if(buf(5:19) == 'Total CI energy') exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
+                   &Iter' found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ if(.not. scf) then ! CASCI
+  close(fid)
+  i = index(buf,'=')
+  read(buf(i+1:),*) e(1)
+  return
+ end if
+
+ read(fid,'(A)') buf
+ ! sometimes there will be extra output in PSI4, e.g.
+ ! '(sem_iter): H0block_->H0b_diag'...
+ if(buf(5:13) /= 'MCSCF  1:') then
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(5:13) == 'MCSCF  1:') exit
+  end do ! for while
+ end if
+
+ i = index(buf,':')
+ read(buf(i+1:),*) e(1)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(4:17) == '@MCSCF Final E') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
+                   &@MCSCF Final E' found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf,':')
+ read(buf(i+1:),*) e(2)
+ close(fid)
+ return
+end subroutine read_cas_energy_from_psi4_out
 
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
@@ -2277,18 +2354,19 @@ end subroutine read_mrpt_energy_from_bdf_out
 
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
-subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e, davidson_e, e)
+subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
+           nuc_pt_e, davidson_e, e)
  implicit none
  integer :: i, fid
  integer, intent(in) :: CtrType
  integer, parameter :: iout = 6
- real(kind=8), intent(in) :: ptchg_e
+ real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
  real(kind=8), intent(out) :: davidson_e, e
  character(len=10), intent(in) :: mrcisd_prog
  character(len=240), intent(in) :: outname
  character(len=240) :: buf
 
- davidson_e = 0.0d0; e = 0.0d0
+ davidson_e = 0d0; e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  select case(TRIM(mrcisd_prog))
@@ -2316,6 +2394,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    read(buf(i+1:),*)  davidson_e
   end if
   e = e + ptchg_e
+
  case('orca')
   if(CtrType == 1) then ! uncontracted MRCISD
    do while(.true.)
@@ -2343,6 +2422,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    i = index(buf,'...',back=.true.)
    read(buf(i+3:),*) davidson_e
   end if
+
  case('gaussian') ! uncontracted MRCISD
   do while(.true.)
    BACKSPACE(fid)
@@ -2371,6 +2451,25 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   read(buf(i+1:),*) davidson_e
   davidson_e = davidson_e - e
   e = e + ptchg_e
+
+ case('psi4')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(5:19) == 'Total CI energy') exit
+
+   if(buf(11:23) == 'Psi4: An Open') then
+    write(iout,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(iout,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
+    close(fid)
+    stop
+   end if
+  end do ! for while
+
+  i = index(buf,'=')
+  read(buf(i+1:),*) e
+  e = e + ptchg_e + nuc_pt_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
                    & mrcisd_prog='//TRIM(mrcisd_prog)
@@ -2564,13 +2663,13 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
 end subroutine find_npair0_from_fch
 
 ! read variables nbf, nif, ndb, etc from a .fch(k) file containing NOs and NOONs
-subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte)
+subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb,&
+                                 nacto, nacte)
  implicit none
  integer :: i, na, nb
- integer, intent(out) :: nbf, nif, nopen
- integer, intent(out) :: ndb(2), nacta(2), nactb(2), nacto(2), nacte(2)
+ integer, intent(out) :: nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte
  integer, parameter :: iout = 6
- real(kind=8), parameter :: no_thres1 = 0.02d0, no_thres2 = 0.01d0
+ real(kind=8), parameter :: no_thres = 0.02d0
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: fchname
 
@@ -2581,33 +2680,23 @@ subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb, na
 
  allocate(noon(nif), source=0d0)
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
- if( ANY(noon < -1D-2) ) then
-  write(iout,'(A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
-                   & negative occupation number(s), this is not possible.'
-  write(iout,'(A)') 'Do you mistake the energy levels for occupation numbers?'
+ if( ANY(noon < -1d-2) ) then
+  write(iout,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
+                     & negative occupation number(s),'
+  write(iout,'(A)') 'this is not possible. Do you mistake the energy levels&
+                   & for occupation numbers?'
+  write(iout,'(A)') 'Or do you use relaxed density of MP2/CI/CC/TD- methods?'
   stop
  end if
 
  do i = 1, nif, 1
-  if(noon(i)>no_thres1 .and. noon(i)<(2.0d0-no_thres1)) then
-   nacto(1) = nacto(1) + 1
+  if(noon(i)>no_thres .and. noon(i)<(2d0-no_thres)) then
+   nacto = nacto + 1
    if(i <= nb) then
-    nacta(1) = nacta(1) + 1
-    nactb(1) = nactb(1) + 1
-   else if(i <=na) then
-    nacta(1) = nacta(1) + 1
-   end if
-  end if
- end do ! for i
-
- do i = 1, nif, 1
-  if(noon(i)>no_thres2 .and. noon(i)<(2.0d0-no_thres2)) then
-   nacto(2) = nacto(2) + 1
-   if(i <= nb) then
-    nacta(2) = nacta(2) + 1
-    nactb(2) = nactb(2) + 1
-   else if(i <=na) then
-    nacta(2) = nacta(2) + 1
+    nacta = nacta + 1
+    nactb = nactb + 1
+   else if(i <= na) then
+    nacta = nacta + 1
    end if
   end if
  end do ! for i

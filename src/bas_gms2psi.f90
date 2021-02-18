@@ -39,14 +39,15 @@ end program main
 
 ! convert a GAMESS .inp file into a PSI4 input file
 subroutine bas_gms2psi(inpname, sph)
- use pg, only: iout, natom, ram, elem, coor, ntimes
+ use pg, only: iout, natom, ram, elem, coor, ntimes, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, nline, rel, charge, mult, fid1, fid2
+ integer :: i, j, k, m, n, nline, rel, charge, mult, fid1, fid2
  real(kind=8) :: rtmp(3)
+ character(len=1), parameter :: am(0:6) = ['s','p','d','f','g','h','i']
  character(len=2) :: stype
  character(len=240) :: buf, inpname1, fileA, fileB
  character(len=240), intent(in) :: inpname
- logical :: uhf, ecp, X2C
+ logical :: uhf, X2C
  logical, intent(in) :: sph
 
  i = index(inpname, '.inp', back=.true.)
@@ -54,7 +55,7 @@ subroutine bas_gms2psi(inpname, sph)
  fileA = inpname(1:i-1)//'.A'
  fileB = inpname(1:i-1)//'.B'
 
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
+ call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
  allocate(elem(natom), coor(3,natom), ntimes(natom), ram(natom))
  call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, ram, coor)
@@ -82,7 +83,9 @@ subroutine bas_gms2psi(inpname, sph)
  end do ! for i
  deallocate(ntimes)
 
+ call read_all_ecp_from_gms_inp(inpname)
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -127,10 +130,32 @@ subroutine bas_gms2psi(inpname, sph)
     write(fid2,'(3(2X,ES16.9))') rtmp(1:k)
    end do ! for j
   end do ! for while
+
+  if(all_ecp(i)%ecp) then
+   write(fid2,'(A)') TRIM(elem(i))//'   0'
+   m = all_ecp(i)%highest
+   write(fid2,'(A,2(1X,I3))') TRIM(elem(i))//'-ECP', m, all_ecp(i)%core_e
+
+   do j = 0, m, 1
+    if(j == 0) then
+     write(fid2,'(A)') am(m)//' potential'
+    else
+     write(fid2,'(A)') am(j-1)//'-'//am(m)//' potential'
+    end if
+    n = all_ecp(i)%potential(j+1)%n
+    write(fid2,'(I3)') n
+    do k = 1, n, 1
+     write(fid2,'(I1,2(1X,ES16.9))') all_ecp(i)%potential(j+1)%col2(k), &
+      all_ecp(i)%potential(j+1)%col3(k), all_ecp(i)%potential(j+1)%col1(k)
+    end do ! for k
+   end do ! for j
+   write(fid2,'(A)') '****'
+  end if
+
  end do ! for i
 
  close(fid1)
- deallocate(elem)
+ deallocate(elem, all_ecp)
  write(fid2,'(A)') '}'
 
  call check_X2C_in_gms_inp(inpname, X2C)
@@ -176,12 +201,12 @@ subroutine bas_gms2psi(inpname, sph)
  end if
  write(fid2,'(A)') '}'
 
- write(fid2,'(/,A)') "scfenergy, wfn = energy('scf', return_wfn=True)"
+ write(fid2,'(/,A)') "scfenergy, scf_wfn = energy('scf', return_wfn=True)"
  write(fid2,'(A)') '# this scf makes every array allocated'
 
- write(fid2,'(/,A)') "wfn.Ca().load('"//TRIM(fileA)//"')"
- if(uhf) write(fid2,'(A)') "wfn.Cb().load('"//TRIM(fileB)//"')"
- write(fid2,'(A)') 'wfn.to_file(wfn.get_scratch_filename(180))'
+ write(fid2,'(/,A)') "scf_wfn.Ca().load('"//TRIM(fileA)//"')"
+ if(uhf) write(fid2,'(A)') "scf_wfn.Cb().load('"//TRIM(fileB)//"')"
+ write(fid2,'(A)') 'scf_wfn.to_file(scf_wfn.get_scratch_filename(180))'
 
  write(fid2,'(/,A)') 'set {'
  write(fid2,'(A)') ' guess read'
@@ -189,7 +214,6 @@ subroutine bas_gms2psi(inpname, sph)
  write(fid2,'(A)') ' d_convergence 1e-6'
  write(fid2,'(A)') '}'
  write(fid2,'(/,A)') "scfenergy = energy('scf')"
- close(fid1)
  close(fid2)
  return
 end subroutine bas_gms2psi

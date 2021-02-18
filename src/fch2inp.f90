@@ -270,6 +270,7 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
    open_coeff(:,1:nif) = alpha_coeff
    open_coeff(:,nif+1:2*nif) = beta_coeff
   else
+   allocate(open_coeff(nbf,nif))
    open_coeff = alpha_coeff
   end if
 

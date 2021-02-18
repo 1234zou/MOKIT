@@ -1,4 +1,5 @@
 ! moved by jxzou at 20200322 from fch2mkl.f90 to this new file
+! updated by jxzou at 20210215: add detection of 'Number of primitive s'
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -26,15 +27,17 @@ module fch_content
  integer, allocatable :: Lmax(:), LPSkip(:)  ! ECP-LMax, ECP-LPSkip, size natom
  integer, allocatable :: NLP(:)              ! ECP-NLP, size LenNCZ
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
- real(kind=8), allocatable :: coor(:,:)                  ! Cartesian coordinates
- real(kind=8), allocatable :: prim_exp(:)                ! Primitive exponents
- real(kind=8), allocatable :: contr_coeff(:)             ! Contraction coefficients
- real(kind=8), allocatable :: contr_coeff_sp(:)          ! (S=P) Contraction coefficients
- real(kind=8), allocatable :: eigen_e_a(:), eigen_e_b(:) ! Alpha/Beta energy levels
- real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:) ! Alpha/Beta MOs
- real(kind=8), allocatable :: RNFroz(:)                  ! ECP-RNFroz(core e), size natom
- real(kind=8), allocatable :: CLP(:), ZLP(:)             ! ECP-CLP1, ECP-ZLP, size LenNCZ
- character(len=2), allocatable :: elem(:)                ! elements ('H ', 'C ', etc)
+ real(kind=8), allocatable :: coor(:,:)         ! Cartesian coordinates
+ real(kind=8), allocatable :: prim_exp(:)       ! Primitive exponents
+ real(kind=8), allocatable :: contr_coeff(:)    ! Contraction coefficients
+ real(kind=8), allocatable :: contr_coeff_sp(:) ! (S=P) Contraction coefficients
+ real(kind=8), allocatable :: eigen_e_a(:)      ! Alpha energy levels
+ real(kind=8), allocatable :: eigen_e_b(:)      ! Beta energy levels
+ real(kind=8), allocatable :: alpha_coeff(:,:)  ! Alpha MOs
+ real(kind=8), allocatable :: beta_coeff(:,:)   ! Beta MOs
+ real(kind=8), allocatable :: RNFroz(:)         ! ECP-RNFroz(core e), size natom
+ real(kind=8), allocatable :: CLP(:), ZLP(:)    ! ECP-CLP1, ECP-ZLP, size LenNCZ
+ character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
  integer, parameter :: period_nelem = 112
  character(len=2), parameter :: period_elem(period_nelem) = &
@@ -126,13 +129,32 @@ subroutine read_fch(fchname, uhf)
  coor = coor*Bohr_const ! convert Bohr to Anstrom
 
  ! find and read variables ncontr, nprim
+ i = 0
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:18) == 'Number of contract') exit
- end do
+  if(buf(1:18) == 'Number of contract') then
+   i = 1
+   exit
+  end if
+  if(buf(1:21) == 'Number of primitive s') then
+   i = 2
+   exit
+  end if
+ end do ! for while
+
  BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, ncontr
- read(fid,'(A49,2X,I10)') buf, nprim
+ if(i == 1) then
+  read(fid,'(A49,2X,I10)') buf, ncontr
+  read(fid,'(A49,2X,I10)') buf, nprim
+ else if(i == 2) then
+  read(fid,'(A49,2X,I10)') buf, nprim
+  read(fid,'(A49,2X,I10)') buf, ncontr
+ else
+  write(iout,'(A,I0)') 'ERROR in subroutine read_fch: invalid i=',i
+  write(iout,'(A)') 'Unsupported file format, or file is incomplete. File='//TRIM(fchname)
+  close(fid)
+  stop
+ end if
 
  ! find and read Shell types, Number of primitives per shell, Shell to atom map,
  !  Primitive exponents, Contraction coefficients
@@ -152,16 +174,16 @@ subroutine read_fch(fchname, uhf)
  read(fid,'(6(1X,I11))') (shell2atom_map(i), i=1,ncontr)
 
  read(fid,'(A)') buf
- allocate(prim_exp(nprim), source=0.0d0)
+ allocate(prim_exp(nprim), source=0d0)
  read(fid,'(5(1X,ES15.8))') (prim_exp(i),i=1,nprim)
 
  read(fid,'(A)') buf
- allocate(contr_coeff(nprim), source=0.0d0)
+ allocate(contr_coeff(nprim), source=0d0)
  read(fid,'(5(1X,ES15.8))') (contr_coeff(i),i=1,nprim)
 
  read(fid,'(A)') buf
  if(buf(1:6) == 'P(S=P)') then
-  allocate(contr_coeff_sp(nprim), source=0.0d0)
+  allocate(contr_coeff_sp(nprim), source=0d0)
   read(fid,'(5(1X,ES15.8))') (contr_coeff_sp(i),i=1,nprim)
  end if
 
@@ -229,7 +251,7 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(A)') buf
   if(buf(1:13) == 'Alpha Orbital') exit
  end do
- allocate(eigen_e_a(nif), source=0.0d0)
+ allocate(eigen_e_a(nif), source=0d0)
  read(fid,'(5(1X,ES15.8))') (eigen_e_a(i),i=1,nif)
 
  ! if '-uhf' specified, read Beta Orbital Energies
@@ -241,7 +263,7 @@ subroutine read_fch(fchname, uhf)
    write(iout,'(A)') 'fchname='//TRIM(fchname)
    stop
   end if
-  allocate(eigen_e_b(nif), source=0.0d0)
+  allocate(eigen_e_b(nif), source=0d0)
   read(fid,'(5(1X,ES15.8))') (eigen_e_b(i),i=1,nif)
  end if
 
@@ -250,9 +272,9 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(A)') buf
   if(buf(1:8) == 'Alpha MO') exit
  end do
- allocate(coeff(ncoeff), source=0.0d0)
+ allocate(coeff(ncoeff), source=0d0)
  read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
- allocate(alpha_coeff(nbf,nif), source=0.0d0)
+ allocate(alpha_coeff(nbf,nif), source=0d0)
  alpha_coeff = RESHAPE(coeff,(/nbf,nif/))
  deallocate(coeff)
 

@@ -283,7 +283,6 @@ subroutine read_all_ecp_from_gms_inp(inpname)
  if(.not. ecp_exist) return
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:2) == '$') then

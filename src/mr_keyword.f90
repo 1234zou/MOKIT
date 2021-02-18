@@ -164,6 +164,7 @@ module mr_keyword
  character(len=240) :: molpro_path = ' '
  character(len=240) :: orca_path = ' '
  character(len=240) :: bdf_path = ' '
+ character(len=240) :: psi4_path = ' '
 
  character(len=7) :: method = ' '   ! model chemistry, theoretical method
  character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
@@ -176,12 +177,28 @@ contains
   implicit none
   integer :: i, fid, system
 
-  i = system("which pymolcas >& mokit.pymolcas")
+  i = system("which pymolcas >mokit.pymolcas 2>&1")
+  if(i /= 0) then
+   molcas_path = 'mokit.pymolcas'
+   call delete_file(molcas_path)
+   molcas_path = 'NOT FOUND'
+   return
+  end if
+
   open(newunit=fid,file='mokit.pymolcas',status='old',position='rewind')
-  read(fid,'(A)') molcas_path
+  read(fid,'(A)',iostat=i) molcas_path
   close(fid,status='delete')
 
-  if(index(molcas_path,'no pymolcas') /= 0) molcas_path = 'NOT FOUND'
+  if(i /= 0) then
+   molcas_path = 'NOT FOUND'
+  else
+   if(LEN_TRIM(molcas_path) == 0) then
+    molcas_path = 'NOT FOUND'
+   else if(index(molcas_path,'no pymolcas') > 0) then
+    molcas_path = 'NOT FOUND'
+   end if
+  end if
+
   return
  end subroutine get_molcas_path
 
@@ -189,14 +206,59 @@ contains
   implicit none
   integer :: i, fid, system
 
-  i = system("which molpro >& mokit.molpro")
+  i = system("which molpro >mokit.molpro 2>&1")
+  if(i /= 0) then
+   molpro_path = 'mokit.molpro'
+   call delete_file(molpro_path)
+   molpro_path = 'NOT FOUND'
+   return
+  end if
+
   open(newunit=fid,file='mokit.molpro',status='old',position='rewind')
-  read(fid,'(A)') molpro_path
+  read(fid,'(A)',iostat=i) molpro_path
   close(fid,status='delete')
 
-  if(index(molpro_path,'no molpro') /= 0) molpro_path = 'NOT FOUND'
+  if(i /= 0) then
+   molpro_path = 'NOT FOUND'
+  else
+   if(LEN_TRIM(molpro_path) == 0) then
+    molpro_path = 'NOT FOUND'
+   else if(index(molpro_path,'no molpro') > 0) then
+    molpro_path = 'NOT FOUND'
+   end if
+  end if
+
   return
  end subroutine get_molpro_path
+
+ subroutine get_psi4_path()
+  implicit none
+  integer :: i, fid, system
+
+  i = system("which psi4 >mokit.psi4 2>&1")
+  if(i /= 0) then
+   psi4_path = 'mokit.psi4'
+   call delete_file(psi4_path)
+   psi4_path = 'NOT FOUND'
+   return
+  end if
+
+  open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
+  read(fid,'(A)',iostat=i) psi4_path
+  close(fid,status='delete')
+
+  if(i /= 0) then
+   psi4_path = 'NOT FOUND'
+  else
+   if(LEN_TRIM(psi4_path) == 0) then
+    psi4_path = 'NOT FOUND'
+   else if(index(psi4_path,'no psi4') > 0) then
+    psi4_path = 'NOT FOUND'
+   end if
+  end if
+
+  return
+ end subroutine get_psi4_path
 
  ! repalce variables like '$USER' in path into real path
  subroutine replace_env_in_path(path)
@@ -254,6 +316,7 @@ contains
   call get_gau_path(gau_path)
   call get_molcas_path()
   call get_molpro_path()
+  call get_psi4_path()
   call getenv('GMS', gms_path)
   call getenv('ORCA', orca_path)
   call getenv('BDF', bdf_path)
@@ -269,6 +332,7 @@ contains
   write(iout,'(A)') 'molcas_path = '//TRIM(molcas_path)
   write(iout,'(A)') 'molpro_path = '//TRIM(molpro_path)
   write(iout,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+  write(iout,'(A)') 'psi4_path   = '//TRIM(psi4_path)
   return
  end subroutine read_program_path
 
@@ -709,7 +773,7 @@ contains
   if(readrhf .or. readuhf .or. readno) then
    if(frag_guess) then
     write(iout,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
-                     & be used when none of readrhf/readuhf/readno is .True.'
+                     & be used when none of readrhf/readuhf/readno is used.'
     stop
    end if
    call require_file_exist(hf_fch)
@@ -1032,7 +1096,7 @@ contains
   end select
 
   select case(TRIM(casci_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
@@ -1040,7 +1104,7 @@ contains
   end select
 
   select case(TRIM(casscf_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
@@ -1048,7 +1112,7 @@ contains
   end select
 
   select case(TRIM(mrcisd_prog))
-  case('gaussian', 'orca', 'openmolcas', 'molpro')
+  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
@@ -1089,7 +1153,7 @@ contains
      stop
     end if
    case default
-    write(iout,'(A)') error_warn//'invalid CtrType.'
+    write(iout,'(/,A)') error_warn//'invalid CtrType.'
     write(iout,'(A)') 'Please specify a valid CtrType=1/2/3 for uncontracted/ic-/FIC- MRCISD.'
     stop
    end select
@@ -1097,6 +1161,13 @@ contains
    if(mrcisd_prog=='gaussian' .and. CtrType/=1) then
     write(iout,'(A)') error_warn
     write(iout,'(A,I0)') 'Gaussian can only perform uncontracted MRCISD. But you&
+                        & specify CtrType=', CtrType
+    stop
+   end if
+
+   if(mrcisd_prog=='psi4' .and. CtrType/=1) then
+    write(iout,'(A)') error_warn
+    write(iout,'(A,I0)') 'PSI4 can only perform uncontracted MRCISD. But you&
                         & specify CtrType=', CtrType
     stop
    end if

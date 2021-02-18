@@ -1,4 +1,5 @@
 ! written by jxzou at 20210213: replace Cartesian coordinates in a input file
+! written by jxzou at 20210217: support Molpro
 
 program main
  implicit none
@@ -12,10 +13,13 @@ program main
   write(iout,'(/,A)')' ERROR in subroutine replace_xyz_in_inp: wrong command&
                      & line arguments!'
   write(iout,'(A)')  ' Example 1 (OpenMolcas): replace_xyz_in_inp a.xyz a.input -molcas'
-  write(iout,'(A,/)')' Example 2 (OpenMolcas): replace_xyz_in_inp a.out a.input -molcas'
+  write(iout,'(A)')  ' Example 2 (OpenMolcas): replace_xyz_in_inp a.out a.input -molcas'
+  write(iout,'(A)')  ' Example 3 (Molpro)    : replace_xyz_in_inp a.xyz a.com -molpro'
+  write(iout,'(A,/)')' Example 4 (Molpro)    : replace_xyz_in_inp a.out a.com -molpro'
   stop
  end if
 
+ str = ' '
  call getarg(1, xyzname)
  call getarg(2, inpname)
  call getarg(3, str)
@@ -25,14 +29,14 @@ program main
  select case(TRIM(str))
  case('-molcas','-openmolcas')
   itype = 1
- case('-gamess', '-gms')
+ case('-molpro')
   itype = 2
+ case('-gamess','-gms')
+  itype = 3
  case default
   itype = 0
   write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: wrong command&
-                   & line argument.'
-  write(iout,'(A)') "The 3rd argument can only be -molcas, -openmolcas, -gms,&
-                   & -gamess. But got argument="//TRIM(str)
+                   & line argument str='//TRIM(str)
   stop
  end select
 
@@ -44,7 +48,7 @@ end program main
 subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  implicit none
  integer :: i, natom
- integer, intent(in) :: itype ! 1/2 for Molcas/GAMESS
+ integer, intent(in) :: itype ! 1/2 for Molcas/Molpro/GAMESS
  integer, parameter :: iout = 6
  real(kind=8), allocatable :: coor(:,:)
  character(len=240), intent(in) :: xyzname, inpname
@@ -61,6 +65,10 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
    call read_natom_from_molcas_out(xyzname, natom)
    allocate(coor(3,natom))
    call read_coor_from_molcas_out(xyzname, natom, coor)
+  case(2)
+   call read_natom_from_molpro_out(xyzname, natom)
+   allocate(coor(3,natom))
+   call read_coor_from_molpro_out(xyzname, natom, coor)
   case default
    write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
                      & supported.'
@@ -72,6 +80,8 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  select case(itype)
  case(1)
   call replace_coor_in_molcas_inp(inpname, natom, coor)
+ case(2)
+  call replace_coor_in_molpro_inp(inpname, natom, coor)
  case default
   write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
                    & supported.'
@@ -83,7 +93,7 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  return
 end subroutine replace_xyz_in_inp
 
-! replace Cartesian coordinates in a (Open)Molcas .input file
+! replace Cartesian coordinates in a (Open)Molcas input file
 subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
  implicit none
  integer :: i, k, fid, fid1
@@ -139,4 +149,57 @@ subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
  close(fid1)
  return
 end subroutine replace_coor_in_molcas_inp
+
+! replace Cartesian coordinates in a Molpro input file
+subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
+ implicit none
+ integer :: i, fid, fid1
+ integer, intent(in) :: natom
+ integer, parameter :: iout = 6
+ real(kind=8), intent(in) :: coor(3,natom)
+ character(len=6) :: elem
+ character(len=8) :: key
+ character(len=240) :: buf0, buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.com', back=.true.)
+ inpname1 = inpname(1:i-1)//'_new.com'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+
+  key = buf(1:8)
+  call lower(key)
+  if(key == 'geometry') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine replace_coor_in_molcas_inp: insuffic&
+                    &ient number of atoms found'
+  write(iout,'(A)') 'in file '//TRIM(inpname)
+  close(fid1,status='delete')
+  close(fid)
+  stop
+ end if
+
+ do i = 1, natom, 1
+  elem = ' '
+  read(fid,*) elem
+  write(fid1,'(A,3(2X,F15.8))') TRIM(elem),coor(1:3,i)
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+ return
+end subroutine replace_coor_in_molpro_inp
 

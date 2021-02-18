@@ -202,7 +202,7 @@ subroutine do_mcpdft()
  
   call prt_mcpdft_molcas_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
 
  case('gamess')
   call check_gms_path()
@@ -219,7 +219,8 @@ subroutine do_mcpdft()
 
   call prt_mcpdft_gms_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(fname(3),'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//" 01 1 >&"//TRIM(outname)
+  write(fname(3),'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//" 01 1 >"//&
+                             TRIM(outname)//" 2>&1"
   i = system(TRIM(fname(3)))
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
 

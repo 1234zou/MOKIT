@@ -1,5 +1,6 @@
 ! written by jxzou at 20200729: add background point charges into input files of
 !  various programs (.py, .inp, .input, etc)
+! updated by jxzou at 20210216: add support of PSI4
 
 ! In the following comments, we use 'n' for nuclear, 'e' for background point charges,
 !  and n-e for nuclear-charge interactions, e-e for self energy of point charges
@@ -29,12 +30,13 @@ program main
  if(i /= 2) then
   write(iout,'(/,A)') error_warn//'wrong command line arguments!'
   write(iout,'(/,A)') 'Format: add_bgcharge_to_inp chgname inpname'
-  write(iout,'(A)') 'Example 1 (PySCF) : add_bgcharge_to_inp a.chg a.py'
-  write(iout,'(A)') 'Example 2 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
-  write(iout,'(A)') 'Example 3 (Molcas): add_bgcharge_to_inp a.chg a.input'
-  write(iout,'(A)') 'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
-  write(iout,'(A)') 'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
-  write(iout,'(A,/)') 'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
+  write(iout,'(A)')   'Example 1 (PySCF) : add_bgcharge_to_inp a.chg a.py'
+  write(iout,'(A)')   'Example 2 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
+  write(iout,'(A)')   'Example 3 (Molcas): add_bgcharge_to_inp a.chg a.input'
+  write(iout,'(A)')   'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
+  write(iout,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
+  write(iout,'(A)')   'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
+  write(iout,'(A,/)') 'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
   stop
  end if
 
@@ -69,7 +71,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   stop
  end if
 
- allocate(charge(4,n), source=0.0d0)
+ allocate(charge(4,n), source=0d0)
  do i = 1, n, 1
   read(fid,*,iostat=j) charge(1:4,i)
   if(j /= 0) exit
@@ -102,8 +104,10 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
    call add_bgcharge_to_molpro_inp(inpname, n, charge)
   else if(buf(1:8) == '$compass') then ! BDF .inp file
    call add_bgcharge_to_bdf_inp(inpname, n, charge)
-  else                            ! ORCA .inp file
+  else if(buf(1:4)=='%pal' .or. buf(1:8)=='%maxcore') then ! ORCA .inp file
    call add_bgcharge_to_orca_inp(inpname, n, charge)
+  else ! PSI4 .inp file
+   call add_bgcharge_to_psi4_inp(inpname, n, charge)
   end if
 
  case('com')
@@ -547,4 +551,44 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine add_bgcharge_to_bdf_inp
+
+subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: charge(4,n)
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == 'set') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A)') 'Chrgfield = QMMM()'
+ do i = 1, n, 1
+  write(fid1,'(A,F11.6,A,3(F16.8,A))') 'Chrgfield.extern.addCharge(',charge(4,i),&
+   ',',charge(1,i),',',charge(2,i),',',charge(3,i),')'
+ end do ! for i
+
+ write(fid1,'(A)') "psi4.set_global_option_python('EXTERN', Chrgfield.extern)"
+ write(fid1,'(/,A)') 'set {'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine add_bgcharge_to_psi4_inp
 

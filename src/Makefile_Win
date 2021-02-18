@@ -54,6 +54,7 @@ help:
 	@echo  fch2inp   : generate fch2inp    (Gau-^>GAMESS)
 	@echo  fch2mkl   : generate fch2mkl    (Gau-^>ORCA)
 	@echo  fch2inporb: generate fch2inporb (Gau-^>OpenMolcas)
+	@echo  fch2psi   : generate fch2psi    (Gau-^>PSI4)
 	@echo  xx        : generate xx (xx is any utility)
 	@echo  all       : all executables
 	@echo  clean     : delete *.mod *.obj

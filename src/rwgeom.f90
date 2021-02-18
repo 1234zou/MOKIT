@@ -82,16 +82,16 @@ subroutine read_natom_from_xyz(xyzname, natom)
 end subroutine read_natom_from_xyz
 
 ! read the number of atoms from a (Open)Molcas output file
-subroutine read_natom_from_molcas_out(xyzname, natom)
+subroutine read_natom_from_molcas_out(outname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
  integer, parameter :: iout = 6
  character(len=240) :: buf
- character(len=240), intent(in) :: xyzname
+ character(len=240), intent(in) :: outname
 
  natom = 0
- open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -102,7 +102,7 @@ subroutine read_natom_from_molcas_out(xyzname, natom)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_natom_from_molcas_out: keywords&
                    & '++    Molecular struc' not found"
-  write(iout,'(A)') 'in file '//TRIM(xyzname)
+  write(iout,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -121,6 +121,45 @@ subroutine read_natom_from_molcas_out(xyzname, natom)
  close(fid)
  return
 end subroutine read_natom_from_molcas_out
+
+! read the number of atoms from a Molpro output file
+subroutine read_natom_from_molpro_out(outname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:12) == 'ATOMIC COOR') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_natom_from_molpro_out: no '&
+                   &ATOMIC COOR' found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+ end do
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  natom = natom + 1
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine read_natom_from_molpro_out
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
@@ -653,4 +692,44 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  close(fid)
  return
 end subroutine read_coor_from_molcas_out
+
+! read Cartesian coordinates from a Molpro output file
+subroutine read_coor_from_molpro_out(outname, natom, coor)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=2) :: elem = ' '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ coor = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(2:13) == 'Current geom') exit
+
+  if(buf(2:13) == 'Primary work') then
+   write(iout,'(A)') "ERROR in subroutine read_coor_from_molpro_out: no '&
+                   &Current geom' found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+ end do ! for while
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+ end do
+
+ do i = 1, natom, 1
+  read(fid,*) elem, coor(1:3,i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_coor_from_molpro_out
 

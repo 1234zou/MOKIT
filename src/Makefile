@@ -22,7 +22,7 @@ F2_MKL_FLAGS = --link-lapack_opt
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o \
-             read_fch.o rwgeom.o do_mrpt2.o do_mrpt3.o do_mcpdft.o automr.o
+             read_fch.o rwgeom.o do_cas.o do_mrpt2.o do_mrpt3.o do_mcpdft.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
@@ -92,8 +92,15 @@ help:
 	echo " fch2inp   : generate fch2inp    (Gau->GAMESS)" ;\
 	echo " fch2inporb: generate fch2inporb (Gau->OpenMolcas)" ;\
 	echo " fch2mkl   : generate fch2mkl    (Gau->ORCA)" ;\
+	echo " fch2psi   : generate fch2psi    (Gau->PSI4)" ;\
 	echo " fch2py    : generate fch2py     (Gau->PySCF)" ;\
-	echo " xx        : generate xx or xx.so (xx is any individual module)" ;\
+	echo " bdf2fch   : generate bdf2fch    (BDF->Gau)" ;\
+	echo " dat2fch   : generate dat2fch    (GAMESS->Gau)" ;\
+	echo " mkl2gjf   : generate mkl2gjf    (ORCA->Gau)" ;\
+	echo " mkl2fch   : generate mkl2fch    (ORCA->Gau)" ;\
+	echo " orb2fch   : generate orb2fch    (OpenMolcas->Gau)" ;\
+	echo " xml2fch   : generate xml2fch    (Molpro->Gau)" ;\
+	echo " xxx       : generate xxx or xxx.so (xxx is any individual module)" ;\
 	echo " all       : all executables and *.so files" ;\
 	echo " clean     : delete *.mod *.o" ;\
 	echo " distclean : delete *.mod *.o and clean ../lib ../bin" ;\

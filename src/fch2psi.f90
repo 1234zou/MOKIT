@@ -1,4 +1,5 @@
 ! written by jxzou at 20210210: transfer MOs from Gaussian to Psi4
+! updated by jxzou at 20210215: supported ECP/PP
 
 ! This utility/subroutine will generate PSI4 input file from Gaussian .fch(k)
 ! file (with coordinates, basis sets and MOs written in)
@@ -11,7 +12,7 @@ module root_param_fch2psi
  real(kind=8), parameter :: root15 = DSQRT(15d0)
  real(kind=8), parameter :: root21 = DSQRT(21d0)
  real(kind=8), parameter :: root35 = DSQRT(35d0)
- real(kind=8), parameter :: root35_3 = root35/root3
+ real(kind=8), parameter :: root35_3 = DSQRT(35d0/3d0)
  real(kind=8), parameter :: root63 = 3d0*DSQRT(7d0)
  real(kind=8), parameter :: root105 = DSQRT(105d0)
 end module root_param_fch2psi
@@ -164,11 +165,6 @@ subroutine fch2psi(fchname, uhf)
   end select
  end do ! for i
  deallocate(shell_type)
- write(*,'(A,I0)') 'n3pmark=',  n3pmark
- write(*,'(A,I0)') 'n6dmark=',  n6dmark
- write(*,'(A,I0)') 'n10fmark=', n10fmark
- write(*,'(A,I0)') 'n15gmark=', n15gmark
- write(*,'(A,I0)') 'n21hmark=', n21hmark
 
  if(nbf0 /= nbf) then
   write(iout,'(A)') 'ERROR in subroutine fch2psi: inconsistent nbf.'

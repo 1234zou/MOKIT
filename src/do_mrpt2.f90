@@ -131,7 +131,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(inpname), TRIM(pyname))
    call prt_nevpt2_script_into_py(pyname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-   i = system('python '//TRIM(pyname)//" >& "//TRIM(outname))
+   i = system('python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1")
 
   case('molpro')
    call check_exe_exist(molpro_path)
@@ -170,7 +170,7 @@ subroutine do_mrpt2()
  
    call prt_nevpt2_molcas_inp(inpname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
 
   case('orca')
    call check_exe_exist(orca_path)
@@ -190,7 +190,7 @@ subroutine do_mrpt2()
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
-   i = system(TRIM(orca_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+   i = system(TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
 
   case('bdf')
    call check_exe_exist(bdf_path)
@@ -242,7 +242,7 @@ subroutine do_mrpt2()
  
    call prt_caspt2_molcas_inp(inpname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//" >& "//TRIM(outname))
+   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
 
   case('molpro')
    call check_exe_exist(molpro_path)
@@ -285,9 +285,9 @@ subroutine do_mrpt2()
   i = RENAME(pyname, inpname)
   call prt_mrmp2_gms_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(string,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ', nproc, " >&"//TRIM(outname)
+  write(string,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ',nproc,&
+                           ' >'//TRIM(outname)//" 2>&1"
   i = system(TRIM(string))
-
   i = system('mv '//TRIM(mklname)//' .')
 
  else ! CASSCF-SDSPT2

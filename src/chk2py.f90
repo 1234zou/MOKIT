@@ -99,7 +99,7 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  ! Step2: tranform .chk to _tmp.fchk using Gaussian utility formchk
  i = index(chkname,'.chk')
  txtname = chkname(1:i-1)//'_tmp.fchk'
- i = system('formchk '//TRIM(chkname)//' '//TRIM(txtname)//' >& junk_tmp')
+ i = system('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
                    & to _tmp.fchk file, using Gaussian utility formchk.'

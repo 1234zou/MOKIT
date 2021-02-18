@@ -18,14 +18,14 @@ program main
 
  i = iargc()
  if(i<4 .or. i>6) then
-  write(iout,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong&
-                      & command line arguments.'
-  write(iout,'(A)') ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
+  write(iout,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
+  write(iout,'(A)')   ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
   write(iout,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
-  write(iout,'(A)') ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
-  write(iout,'(A)') ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
-  write(iout,'(A)') ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
-  write(iout,'(A,/)') ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(iout,'(A)')   ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
+  write(iout,'(A)')   ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
+  write(iout,'(A)')   ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
+  write(iout,'(A)')   ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(iout,'(A,/)') ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
   stop
  end if
 
@@ -90,30 +90,36 @@ end program main
 ! extract NOONs from PySCF .out file, and print it into .fch(k) file
 subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  implicit none
- integer :: i, fid1, fid2, nmo, nif
- integer :: RENAME
+ integer :: i, fid1, fid2, nmo, nif, itype, RENAME
  integer, intent(in) :: idx1, idx2, nopen
+ integer, parameter :: iout = 6
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: outname, fchname
  real(kind=8), allocatable :: noon(:), ev(:)
  logical, intent(in) :: gau_order
  logical :: pyscf
 
- nmo = idx2 - idx1 + 1
- ! Note: here nmo is 2*npair + nopen for GVB
- allocate(noon(nmo), source=0.0d0)
+ nmo = idx2 - idx1 + 1   ! Note: here nmo is 2*npair + nopen for GVB
+ allocate(noon(nmo))
 
  if(index(outname,'.dat',back=.true.) /= 0) then
   call read_noon_from_dat(nmo, noon, outname, nopen, gau_order) ! GVB NOONs
  else if(index(outname,'.gms',back=.true.) /= 0) then
   call read_noon_from_gmsgms(idx1, nmo, noon, outname) ! CASCI/CASSCF NOONs
  else
-  call identify_orca_or_pyscf(outname, pyscf)
-  if(pyscf) then
-   call read_noon_from_pyout(nmo, noon, outname) ! CASCI/CASSCF NOONs
-  else
-   call read_noon_from_orca_out(nmo, noon, outname) ! CASCI/CASSCF NOONs
-  end if
+  call identify_itype_of_out(outname, itype)
+  select case(itype)
+  case(1)
+   call read_noon_from_pyout(nmo, noon, outname)
+  case(2)
+   call read_noon_from_orca_out(nmo, noon, outname)
+  case(3)
+   call read_noon_from_psi4_out(nmo, noon, outname)
+  case default
+   write(iout,'(A,I0)') 'ERROR in subroutine extract_noon2fch: invalid itype=',itype
+   write(iout,'(A)') TRIM(outname)
+   stop
+  end select
  end if
 
  ! read nif in file fchname, and copy into file fchname1 by the way
@@ -137,8 +143,8 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  end do
 
  ! print NOONs in to file fchname1
- allocate(ev(nif), source=0.0d0)
- if(idx1 > 1) ev(1:idx1-1) = 2.0d0
+ allocate(ev(nif), source=0d0)
+ if(idx1 > 1) ev(1:idx1-1) = 2d0
  ev(idx1:idx2) = noon
  deallocate(noon)
  write(fid2,'(5(1X,ES15.8))') (ev(i),i=1,nif)
@@ -177,7 +183,7 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  logical, intent(in) :: gau_order
 
  npair = (nmo - nopen)/2
- allocate(cicoeff(npair), source=0.0d0)
+ allocate(cicoeff(npair), source=0d0)
 
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
  do while(.true.)
@@ -200,17 +206,17 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  close(fid)
 
  ! turn GVB CICOEFF into NOONs
- forall(i = 1:npair) cicoeff(i) = 2.0d0*cicoeff(i)*cicoeff(i)
+ forall(i = 1:npair) cicoeff(i) = 2d0*cicoeff(i)*cicoeff(i)
 
  if(gau_order) then
   forall(i = 1:npair) noon(i) = cicoeff(i)
-  if(nopen > 0) noon(npair+1:npair+nopen) = 1.0d0
-  forall(i = 1:npair) noon(nmo-i+1) = 2.0d0 - cicoeff(i)
+  if(nopen > 0) noon(npair+1:npair+nopen) = 1d0
+  forall(i = 1:npair) noon(nmo-i+1) = 2d0 - cicoeff(i)
  else ! in GAMESS order
-  if(nopen > 0) noon(1:nopen) = 1.0d0
+  if(nopen > 0) noon(1:nopen) = 1d0
   forall(i = 1:npair)
    noon(nopen+2*i-1) = cicoeff(i)
-   noon(nopen+2*i) = 2.0d0 - cicoeff(i)
+   noon(nopen+2*i) = 2d0 - cicoeff(i)
   end forall
  end if
 
@@ -249,7 +255,7 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  nmo1 = idx1 - 1 + nmo
  n = nmo1/5
  if(nmo1-5*n > 0) n = n + 1
- allocate(on(nmo1), source=0.0d0)
+ allocate(on(nmo1), source=0d0)
 
  do i = 1, n, 1
   do j = 1, 3
@@ -334,7 +340,7 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- noon = 0.0d0
+ noon = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
@@ -357,25 +363,77 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
  return
 end subroutine read_noon_from_orca_out
 
-! identify whether this is a ORCA or PySCF output file
-subroutine identify_orca_or_pyscf(outname, pyscf)
+! read CASCI/CASSCF NOONs from a PSI4 .out file
+subroutine read_noon_from_psi4_out(nmo, noon, outname)
  implicit none
- integer :: i, fid
+ integer :: i, nline, fid
+ integer, intent(in) :: nmo
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: noon(nmo)
+ character(len=1) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- logical, intent(out) :: pyscf
 
- pyscf = .true.
+ noon = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(4:15) == 'Active Space') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_noon_from_psi4_out: no 'Active&
+                   & Space' found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ nline = nmo/3
+
+ do i = 1, nline, 1
+  read(fid,*) str,noon(3*i-2),str,noon(3*i-1),str,noon(3*i)
+ end do ! for i
+
+ if(nmo - 3*nline > 0) then
+  read(fid,'(A)') buf
+  i = index(buf,'A'); buf(i:i) = ' '
+  i = index(buf,'A')
+  if(i > 0) buf(i:i) = ' '
+  read(buf,*) noon(3*nline+1:nmo)
+ end if
+
+ close(fid)
+ return
+end subroutine read_noon_from_psi4_out
+
+! identify whether this is a ORCA or PySCF output file
+subroutine identify_itype_of_out(outname, itype)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: itype ! 1/2/3 for PySCF/ORCA/PSI4
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ itype = 1
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do i = 1, 5, 1
   read(fid,'(A)') buf
-  if(index(buf,'O   R   C   A') /= 0) then
-   pyscf = .false.
-   return
+
+  if(index(buf,'O   R   C   A') > 0) then
+   itype = 2
+   exit
+  else if(buf(11:23) == 'Psi4: An Open') then
+   itype = 3
+   exit
   end if
  end do ! for i
 
  return
-end subroutine identify_orca_or_pyscf
+end subroutine identify_itype_of_out
 
