@@ -781,7 +781,8 @@ end subroutine prt_cas_gms_inp
 subroutine prt_cas_molcas_inp(inpname, scf)
  use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: maxM, dmrgci, dmrgscf, RI, RIJK_bas, mokit_root
+ use mr_keyword, only: maxM, dmrgci, dmrgscf, RI, RIJK_bas, mokit_root,&
+  hardwfn, crazywfn
  implicit none
  integer :: i, j, fid1, fid2, RENAME, system
  logical, intent(in) :: scf
@@ -838,6 +839,13 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  write(fid2,'(A,I0)') 'Charge = ', charge
  write(fid2,'(A,I0)') 'nActEl = ', nacte
  write(fid2,'(A,I0)') 'RAS2 = ', nacto
+ write(fid2,'(A)') 'CIMX= 200'
+ write(fid2,'(A)') 'Tight= 5d-8 5d-6'
+ if(crazywfn) then
+  write(fid2,'(A)') 'SDav= 500'
+ else if(hardwfn) then
+  write(fid2,'(A)') 'SDav= 300'
+ end if
  if(.not. scf) write(fid2,'(A)') 'CIonly'
  i = index(inpname, '.input', back=.true.)
  write(fid2,'(A,/)') 'FILEORB = '//inpname(1:i-1)//'.INPORB'
@@ -947,9 +955,10 @@ end subroutine prt_cas_orca_inp
 subroutine prt_cas_molpro_inp(inpname, scf, force)
  use print_id, only: iout
  use mol, only: ndb, npair, npair0, nacto
- use mr_keyword, only: mem, nproc, dkh2_or_x2c
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI, RIJK_bas
  implicit none
  integer :: i, fid, nclosed, nocc
+ character(len=21) :: RIJK_bas1
  character(len=240) :: buf, orbfile, put
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
@@ -982,12 +991,21 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  nclosed = ndb + npair - npair0
  nocc = nclosed + nacto
 
+ write(fid,'(A)',advance='no') '{'
+ if(RI) write(fid,'(A)',advance='no') 'DF-'
+ write(fid,'(A)',advance='no') 'CASSCF'
+ if(RI) then
+  call auxbas_convert(RIJK_bas, RIJK_bas1, 2)
+  write(fid,'(A)',advance='no') ',df_basis='//TRIM(RIJK_bas1)//',df_basis_exch='&
+                                //TRIM(RIJK_bas1)
+ end if
+
  ! Note: we need 'NoExtra' to completely close symmetry.
  ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,';NoExtra}'
+  write(fid,'(2(A,I0),A)') ';closed,',nclosed,';occ,',nocc,';NoExtra}'
  else
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,&
+  write(fid,'(2(A,I0),A)') ';closed,',nclosed,';occ,',nocc,&
                            ';DONT,ORBITAL;NoExtra}'
  end if
 
@@ -1051,9 +1069,10 @@ end subroutine prt_cas_bdf_inp
 subroutine prt_cas_psi4_inp(inpname, scf, force)
  use print_id, only: iout
  use mol, only: charge, mult, ndb, npair, npair0, nacto, nacte
- use mr_keyword, only: mem, hardwfn, crazywfn
+ use mr_keyword, only: mem, hardwfn, crazywfn, RI, RIJK_bas
  implicit none
  integer :: i, nclosed, fid
+ character(len=21) :: RIJK_bas1
  character(len=240) :: buf, casnofch
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
@@ -1072,17 +1091,26 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
  end do ! for while
 
  BACKSPACE(fid)
+ if(RI) then
+  call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
+  write(fid,'(A)') ' scf_type df'
+  write(fid,'(A)') ' df_basis_scf '//TRIM(RIJK_bas1)
+  write(fid,'(A)') ' mcscf_type df'
+  write(fid,'(A)') ' df_basis_mcscf '//TRIM(RIJK_bas1)
+ end if
+
  if(crazywfn) then
   write(fid,'(A,I0)') ' ci_maxiter 500'
   write(fid,'(A)') ' H0_guess_size 1500'
   write(fid,'(A)') ' H0_blocksize 1500'
  else if(hardwfn) then
-  write(fid,'(A,I0)') ' ci_maxiter 200'
+  write(fid,'(A,I0)') ' ci_maxiter 300'
   write(fid,'(A)') ' H0_guess_size 1200'
   write(fid,'(A)') ' H0_blocksize 1200'
  else
-  write(fid,'(A,I0)') ' ci_maxiter 50'
+  write(fid,'(A,I0)') ' ci_maxiter 200'
  end if
+
  write(fid,'(A,I0,A)') ' restricted_docc [', nclosed, ']'
  write(fid,'(A,I0,A)') ' active [', nacte, ']'
  write(fid,'(A)') ' canonicalize_inactive_favg true'

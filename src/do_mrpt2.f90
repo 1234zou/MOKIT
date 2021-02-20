@@ -781,7 +781,7 @@ end subroutine prt_nevpt2_molcas_inp
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
  use print_id, only: iout
- use mr_keyword, only: CIonly, maxM, dmrgci, dmrgscf
+ use mr_keyword, only: CIonly, maxM, dmrgci, dmrgscf, hardwfn, crazywfn
  use mol, only: nacte, nacto, charge, mult
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -817,6 +817,13 @@ subroutine prt_caspt2_molcas_inp(inputname)
  write(fid2,'(A,I0)') 'Spin = ', mult
  write(fid2,'(A,I0,A)') 'nActEl= ', nacte, ' 0 0'
  write(fid2,'(A,I0)') 'RAS2 = ', nacto
+ write(fid2,'(A)') 'CIMX= 200'
+ write(fid2,'(A)') 'Tight= 5d-8 5d-6'
+ if(crazywfn) then
+  write(fid2,'(A)') 'SDav= 500'
+ else if(hardwfn) then
+  write(fid2,'(A)') 'SDav= 300'
+ end if
  i = index(inputname,'.input',back=.true.)
  write(fid2,'(A)') 'FILEORB = '//inputname(1:i-1)//'.INPORB'
 
@@ -839,7 +846,8 @@ subroutine prt_caspt2_molcas_inp(inputname)
  write(fid2,'(/,A)') "&CASPT2"
  write(fid2,'(A)') 'MultiState= 1 1'
  if(dmrgscf) write(fid2,'(A)') 'CheMPS2'
- write(fid2,'(A,/)') 'Frozen= 0'
+ write(fid2,'(A)') 'Frozen= 0'
+ write(fid2,'(A,/,A,/)') 'MaxIter','300'
 
  close(fid2)
  i = RENAME(inputname1, inputname)

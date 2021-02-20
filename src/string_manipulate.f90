@@ -166,13 +166,13 @@ subroutine convert2molpro_fname(fname, suffix)
  if(len1 == -1) len1 = LEN_TRIM(fname)
  len2 = LEN(suffix)
 
- if(len1+len2 > 31) then
-  fname = fname(1:32-len2)//suffix
+ if(len1+len2 > 15) then
+  fname = fname(1:16-len2)//suffix
  else
   fname = fname(1:len1)//suffix
  end if
 
- call lower(fname(1:32))
+ call lower(fname(1:16))
  return
 end subroutine convert2molpro_fname
 

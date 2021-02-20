@@ -968,7 +968,7 @@ subroutine do_gvb()
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
- write(iout,'(A)') '$$GMS '//TRIM(longbuf)
+! write(iout,'(A)') '$$GMS '//TRIM(longbuf)
  i = system(TRIM(gms_path)//' '//TRIM(longbuf))
  call read_gvb_energy_from_gms(gmsname, gvb_e)
 

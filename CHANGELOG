@@ -1,5 +1,6 @@
-MOKIT 1.2.2 (Feb 18, 2021)
+MOKIT 1.2.2 (Feb 20, 2021)
 ------------------------
+* add CASSCF RI-JK interfaces with Molpro and PSI4
 * add CAS and MRCISD interfaces between AutoMR and PSI4
 * add utilities bas_gms2psi, fch2psi and replace_xyz_in_inp
 * add guess(fragment=N) support for input gjf

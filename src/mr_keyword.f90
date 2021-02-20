@@ -927,12 +927,12 @@ contains
     stop
    end if
    select case(cas_prog)
-   case('pyscf','orca','openmolcas')
+   case('pyscf','orca','openmolcas','psi4','molpro')
    case default
-    write(iout,'(A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
+    write(iout,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
     write(iout,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
     write(iout,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
-                      &ORCA/OpenMolcas.'
+                      &ORCA/OpenMolcas/Molpro/PSI4.'
     stop
    end select
   end if
@@ -1600,7 +1600,7 @@ subroutine auxbas_convert(inbas, outbas, itype)
  use print_id, only: iout
  implicit none
  integer :: i
- integer, intent(in) :: itype ! 1 for PySCF
+ integer, intent(in) :: itype ! 1/2 for PySCF/Molpro
  character(len=21) :: inbas1
  character(len=21), intent(in) :: inbas
  character(len=21), intent(out) :: outbas
@@ -1616,9 +1616,11 @@ subroutine auxbas_convert(inbas, outbas, itype)
       'may-cc-pv5z/jk','jun-cc-pvdz/jk','jun-cc-pvtz/jk','jun-cc-pvqz/jk',&
       'jun-cc-pv5z/jk')
   select case(itype)
-  case(1)
+  case(1) ! PySCF
    i = index(inbas1, '/jk')
    outbas = inbas(1:i-1)//'-jkfit'
+  case(2) ! Molpro
+   outbas = TRIM(inbas)//'fit'
   case default
    write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
    write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
@@ -1626,8 +1628,10 @@ subroutine auxbas_convert(inbas, outbas, itype)
   end select
  case('def2/jk')
   select case(itype)
-  case(1)
+  case(1) ! PySCF
    outbas = 'def2-universal-jkfit'
+  case(2) ! Molpro
+   outbas = 'def2/jkfit'
   case default
    write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
    write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype

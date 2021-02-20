@@ -1916,7 +1916,7 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(scf) then
-   if(buf(1:12) == '        Iter') exit
+   if(buf(1:12)=='        Iter' .or. buf(1:15)=='           Iter') exit
   else
    if(buf(5:19) == 'Total CI energy') exit
   end if
@@ -1939,10 +1939,10 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  read(fid,'(A)') buf
  ! sometimes there will be extra output in PSI4, e.g.
  ! '(sem_iter): H0block_->H0b_diag'...
- if(buf(5:13) /= 'MCSCF  1:') then
+ if(index(buf,'MCSCF  1:') == 0) then
   do while(.true.)
    read(fid,'(A)') buf
-   if(buf(5:13) == 'MCSCF  1:') exit
+   if(index(buf,'MCSCF  1:') > 0) exit
   end do ! for while
  end if
 
@@ -1952,12 +1952,12 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(4:17) == '@MCSCF Final E') exit
+  if(index(buf,'MCSCF Final E') > 0) exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
-                   &@MCSCF Final E' found in file "//TRIM(outname)
+                   &MCSCF Final E' found in file "//TRIM(outname)
   close(fid)
   stop
  end if
