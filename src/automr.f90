@@ -42,7 +42,7 @@ program main
   write(iout,'(A)')    '  CASSCF_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4'
   write(iout,'(A)')    '   CASCI_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4'
   write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
-  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas, Molpro'
+  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas, Molpro, ORCA'
   write(iout,'(A)')    '  MCPDFT_prog=OpenMolcas, GAMESS'
   write(iout,'(A)')    '  MRCISD_prog=OpenMolcas, Molpro, ORCA, Gaussian, PSI4'
   write(iout,'(A,/)')  '  CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'

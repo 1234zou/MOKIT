@@ -2191,8 +2191,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, fid
  integer, parameter :: iout = 6
- integer, intent(in) :: itype
- ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
+ integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
@@ -2202,7 +2201,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  select case(itype)
- case(1,2)
+ case(1,2,3)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit

@@ -32,7 +32,7 @@ subroutine bas_gau2molcas(inpname)
  real(kind=8) :: exp1   ! the first exponent
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, outname, gmslike
- character(len=1) :: stype0, stype
+ character(len=1) :: stype
  character(len=21) :: str1, str2
 
  ! initialization
@@ -81,36 +81,12 @@ subroutine bas_gau2molcas(inpname)
   ram(1) = elem2nuc(elem(1))
 
   ! deal with primitive gaussians
-  stype0 = ' '
   do while(.true.)
    read(fid1,'(A)') buf
    if(LEN_TRIM(buf) == 0) exit
 
    read(buf,*) stype, nline
-   if(stype0 == ' ') then
-    !------------------------------------------------------
-    ! the following 5 lines are added to determine whether
-    ! an angular momentum occurs more than once
-    call stype2itype(stype, k)
-    if( allocated(prim_gau(k)%coeff) ) then
-     stype0 = stype
-     BACKSPACE(fid1)
-    else
-    !------------------------------------------------------
-     call read_prim_gau1(stype, nline, fid1)
-     stype0 = stype
-    end if
-   else ! stype0 /= ' '
-    if(stype == stype0) then
-     exp1 = 0d0
-     read(fid1,*) k, exp1
-     BACKSPACE(fid1)
-     call read_prim_gau2(stype, nline, fid1, exp1)
-    else ! stype /= stype0
-     stype0 = ' ' ! reset stype0
-     BACKSPACE(fid1)
-    end if
-   end if
+   call read_prim_gau(stype, nline, fid1)
   end do ! for while
 
   call gen_contracted_string(prim_gau(:)%nline,prim_gau(:)%ncol,str1,str2)

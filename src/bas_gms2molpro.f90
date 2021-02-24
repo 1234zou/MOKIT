@@ -53,7 +53,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input ! input is the Molpro .com file
  character(len=240) :: orbfile, orbfile2 ! Molpro MOs, plain text file
- character(len=1) :: stype0, stype
+ character(len=1) :: stype
  logical, intent(in) :: spherical
  logical :: uhf, X2C
 
@@ -122,44 +122,16 @@ subroutine bas_gms2molpro(fort7, spherical)
   read(fid1,'(A)',iostat=rc) buf
   ! 'buf' contains the element, ram and coordinates
   if(rc /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(3:5) == 'END') exit
-  end if
   write(fid2,'(A)') '! '//TRIM(elem(i))
 
   ! deal with primitive gaussians
-  stype0 = ' '
   do while(.true.)
    read(fid1,'(A)') buf
    if(LEN_TRIM(buf) == 0) exit
 
    read(buf,*) stype, nline
-   if(stype0 == ' ') then
-    !------------------------------------------------------
-    ! the following 5 lines are added to determine whether
-    ! an angular momentum occurs more than once
-    call stype2itype(stype, k)
-    if( allocated(prim_gau(k)%coeff) ) then
-     stype0 = stype
-     BACKSPACE(fid1)
-    else
-    !------------------------------------------------------
-     call read_prim_gau1(stype, nline, fid1)
-     stype0 = stype
-    end if
-   else ! stype0 /= ' '
-    if(stype == stype0) then
-     exp1 = 0.0d0
-     read(fid1,*) k, exp1
-     BACKSPACE(fid1)
-     call read_prim_gau2(stype, nline, fid1, exp1)
-    else ! stype /= stype0
-     stype0 = ' ' ! reset stype0
-     BACKSPACE(fid1)
-    end if
-   end if
-  end do ! for while 2
+   call read_prim_gau(stype, nline, fid1)
+  end do ! for while
 
   ! print basis sets and ECP/PP (if any) of this atom in Molcas format
   call prt_prim_gau_molpro(i, fid2)

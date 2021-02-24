@@ -1018,7 +1018,7 @@ end subroutine prt_cas_molpro_inp
 ! print CASCI/CASSCF keywords into a given BDF input file
 subroutine prt_cas_bdf_inp(inpname, scf, force)
  use print_id, only: iout
- use mol, only: charge, mult, ndb, npair, npair0, nacto, nacte
+ use mol, only: nbf, nif, charge, mult, ndb, npair, npair0, nacto, nacte
  implicit none
  integer :: i, nclosed, fid
  character(len=240) :: buf
@@ -1042,9 +1042,11 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  nclosed = ndb + npair - npair0
  BACKSPACE(fid)
  write(fid,'(A)') '$MCSCF'
- write(fid,'(A)') 'CheckLin'
- write(fid,'(A)') 'TolLin'
- write(fid,'(A)') '1.D-6'
+ if(nbf > nif) then
+  write(fid,'(A)') 'CheckLin'
+  write(fid,'(A)') 'TolLin'
+  write(fid,'(A)') '1.D-6'
+ end if
  write(fid,'(A,/,I0)') 'Charge', charge
  write(fid,'(A,/,I0)') 'Spin', mult
  write(fid,'(A,/,I0)') 'Close', nclosed

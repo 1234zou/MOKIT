@@ -8,7 +8,7 @@ subroutine require_file_exist(fname)
 
  inquire(file=TRIM(fname),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine require_file_exist: file does not exist!'
+  write(iout,'(/,A)') 'ERROR in subroutine require_file_exist: file does not exist!'
   write(iout,'(A)') 'Filename='//TRIM(fname)
   stop
  end if

@@ -55,7 +55,13 @@ help:
 	@echo  fch2mkl   : generate fch2mkl    (Gau-^>ORCA)
 	@echo  fch2inporb: generate fch2inporb (Gau-^>OpenMolcas)
 	@echo  fch2psi   : generate fch2psi    (Gau-^>PSI4)
-	@echo  xx        : generate xx (xx is any utility)
+	@echo  bdf2fch   : generate bdf2fch    (BDF-^>Gau)
+	@echo  dat2fch   : generate dat2fch    (GAMESS-^>Gau)
+	@echo  mkl2fch   : generate mkl2fch    (ORCA-^>Gau)
+	@echo  mkl2gjf   : generate mkl2gjf    (ORCA-^>Gau)
+	@echo  orb2fch   : generate orb2fch    (OpenMolcas-^>Gau)
+	@echo  xml2fch   : generate xml2fch    (Molpro-^>Gau)
+	@echo  xxx       : generate xxx (xxx is any utility)
 	@echo  all       : all executables
 	@echo  clean     : delete *.mod *.obj
 	@echo  distclean : delete *.mod *.obj and clean ..\bin

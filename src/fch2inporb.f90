@@ -15,7 +15,7 @@ module root_parameter
  real(kind=8), parameter :: root45  = DSQRT(45.0d0)    ! SQRT(45)
  real(kind=8), parameter :: root105 = DSQRT(105.0d0)   ! SQRT(105)
  real(kind=8), parameter :: root945 = DSQRT(945.0d0)   ! SQRT(945)
-end module
+end module root_parameter
 
 program main
  use util_wrapper, only: fch2inp_wrap
@@ -36,7 +36,8 @@ program main
  end if
 
  ab = ' '; fname = ' '
- call getarg(1,fname)
+ call getarg(1, fname)
+ call require_file_exist(fname)
 
  if(i == 2) then
   call getarg(2, ab)
@@ -61,14 +62,15 @@ program main
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
-  write(iout,'(A)') 'Did you forget to compile bas_gms2molcas? Or the file '//&
-                     TRIM(fname)//' may be incomplete.'
+  write(iout,'(/,A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
+  write(iout,'(A)') 'Three possible reasons:'
+  write(iout,'(A)') '(1) You forget to compile the utility bas_gms2molcas.'
+  write(iout,'(A)') '(2) This is a bug of the utility bas_gms2molcas.'
+  write(iout,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
   stop
  end if
 
- open(newunit=i,file=TRIM(inpname),status='old')
- close(unit=i,status='delete')
+ call delete_file(inpname)
  stop
 end program main
 
@@ -537,8 +539,8 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
     jbegin = ith_bas(i) + 1
     jend = ith_bas(i+1)
     allocate(tmp_coeff1(ibegin:iend,nif), tmp_coeff2(jbegin:jend,nif))
-    tmp_coeff1 = 0.0d0
-    tmp_coeff2 = 0.0d0
+    tmp_coeff1 = 0d0
+    tmp_coeff2 = 0d0
     tmp_coeff1 = coeff2(ibegin:iend,:)
     tmp_coeff2 = coeff2(jbegin:jend,:)
     ith_bas(i) = ibegin+jend-jbegin

@@ -1,4 +1,5 @@
 ! written by jxzou at 20210111: moved from subroutine do_mrpt2 in automr.f90
+! updated by jxzou at 20210224: add CASPT2 interface with ORCA
 
 ! do CASCI/CASPT2(npair<=7) or DMRG-CASCI/DMRG-NEVPT2 (npair>7) when scf=.False.
 ! do CASSCF/CASPT2(npair<=7) or DMRG-CASSCF/DMRG-NEVPT2 (npair>7) when scf=.True.
@@ -26,21 +27,21 @@ subroutine do_mrpt2()
 
  if((dmrgci .or. dmrgscf)) then
   if(mrmp2) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
    stop
   end if
   if(sdspt2) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-SDSPT2 not supported.'
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-SDSPT2 not supported.'
    stop
   end if
   if(nevpt2 .and. (nevpt2_prog=='molpro' .or. nevpt2_prog=='orca')) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-NEVPT2 is only supported&
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-NEVPT2 is only supported&
                     & with PySCF or OpenMolcas.'
    write(iout,'(A)') 'But you specify NEVPT2_prog='//TRIM(nevpt2_prog)
    stop
   end if
   if(caspt2 .and. caspt2_prog/='openmolcas') then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: DMRG-CASPT2 is only supported&
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-CASPT2 is only supported&
                     & with OpenMolcas.'
    write(iout,'(A)') 'But you specify CASPT2_prog='//TRIM(caspt2_prog)
    stop
@@ -265,6 +266,27 @@ subroutine do_mrpt2()
    write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem0, &
                             'm '//TRIM(inpname)
    i = system(TRIM(string))
+
+  case('orca')
+   call check_exe_exist(orca_path)
+
+   i = system('fch2mkl '//TRIM(casnofch))
+   i = index(casnofch, '.fch', back=.true.)
+   inporb = casnofch(1:i-1)//'.mkl'
+   string = casnofch(1:i-1)//'.inp'
+   i = index(casnofch, '_NO', back=.true.)
+   mklname = casnofch(1:i)//'CASPT2.mkl'
+   inpname = casnofch(1:i)//'CASPT2.inp'
+   outname = casnofch(1:i)//'CASPT2.out'
+   i = RENAME(TRIM(inporb), TRIM(mklname))
+   i = RENAME(TRIM(string), TRIM(inpname))
+
+   call prt_caspt2_orca_inp(inpname)
+   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   ! if bgchg = .True., .inp and .mkl file will be updated
+   call mkl2gbw(mklname)
+   call delete_file(mklname)
+   i = system(TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
   end select
 
  else if(mrmp2) then ! CASSCF-MRMP2
@@ -314,11 +336,11 @@ subroutine do_mrpt2()
 
  if(i /= 0) then
   if(nevpt2) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
   else if(caspt2) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
   else if(sdspt2) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrpt2: SDSPT2 computation failed.'
+   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: SDSPT2 computation failed.'
   end if
   write(iout,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
@@ -358,10 +380,13 @@ subroutine do_mrpt2()
   select case(TRIM(caspt2_prog))
   case('openmolcas')
    call read_mrpt_energy_from_molcas_out(outname, 3, ref_e, corr_e)
+   ref_e = ref_e + ptchg_e
   case('molpro')
    call read_mrpt_energy_from_molpro_out(outname, 3, ref_e, corr_e)
+   ref_e = ref_e + ptchg_e
+  case('orca')
+   call read_mrpt_energy_from_orca_out(outname, 3, ref_e, corr_e)
   end select
-  ref_e = ref_e + ptchg_e
  else if(mrmp2) then  ! read MRMP2 energy
   call read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  else                 ! read SDSPT2 energy
@@ -619,6 +644,74 @@ subroutine prt_nevpt2_orca_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine prt_nevpt2_orca_inp
+
+! print CASPT2 keywords in to a given ORCA .inp file
+subroutine prt_caspt2_orca_inp(inpname)
+ use print_id, only: iout
+ use mol, only: nacte, nacto
+ use mr_keyword, only: mem, nproc, DKH2, X2C, CIonly, basis, RI, RIJK_bas
+ implicit none
+ integer :: i, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ read(fid1,'(A)') buf   ! skip nproc
+ read(fid1,'(A)') buf   ! skip memory
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+
+ read(fid1,'(A)') buf   ! skip '!' line
+ write(fid2,'(A)',advance='no') '!'
+ if(CIonly) write(fid2,'(A)',advance='no') ' noiter'
+ if(RI) then
+  ! RIJK in CASSCF must be combined with CONVentional
+  ! /C basis set cannot be used with /JK in CASSCF
+  write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
+ end if
+ write(fid2,'(A)') ' TightSCF'
+
+ if(DKH2) then
+  write(fid2,'(A)') '%rel'
+  write(fid2,'(A)') ' method DKH'
+  write(fid2,'(A)') ' order 2'
+  write(fid2,'(A)') 'end'
+ else if(X2C) then
+  write(iout,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C&
+                   & is not supported in ORCA.'
+  write(iout,'(A)') 'You can specify CASPT2_prog=Molpro or OpenMolcas.'
+  close(fid2,status='delete')
+  close(fid1)
+  stop
+ end if
+
+ write(fid2,'(A)') '%casscf'
+ write(fid2,'(A,I0)') ' nel ', nacte
+ write(fid2,'(A,I0)') ' norb ', nacto
+ write(fid2,'(A)') ' PTMethod FIC_CASPT2'
+ write(fid2,'(A)') ' PTSettings'
+ write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
+ write(fid2,'(A)') '  MaxIter 200'
+ write(fid2,'(A)') ' end'
+ write(fid2,'(A)') 'end'
+ write(fid2,'(A)') '%method'
+ write(fid2,'(A)') ' FrozenCore FC_NONE'
+ write(fid2,'(A)') 'end'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_caspt2_orca_inp
 
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)

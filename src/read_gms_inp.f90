@@ -1,4 +1,5 @@
 ! written by jxzou at 20201209: move some subroutines from bas_gms2molcas.f90 to this file
+! updated by jxzou at 20210222: merge subroutine read_prim_gau1 and read_prim_gau2
 
 module pg
  implicit none
@@ -7,13 +8,12 @@ module pg
  integer, parameter :: iout = 6
  integer, allocatable :: ram(:), ntimes(:) ! ram: relative atomic mass
  ! I made a mistake, ram should be interpreted as atomic order
- real(kind=8), parameter :: zero = 1.0d-7
  real(kind=8), allocatable :: coor(:,:)    ! Cartesian coordinates
  character(len=2), allocatable :: elem(:)  ! elements
 
  ! 'L' will be divided into two parts: 'S' and 'P'
  type primitive_gaussian
-  character(len=1) :: stype = ' ' ! 'S', 'P', 'D', 'F', 'G', 'H', 'I'
+  character(len=1) :: stype = ' ' ! 'S','P','D','F','G','H','I'
   integer :: nline = 0
   integer :: ncol  = 0
   real(kind=8), allocatable :: coeff(:,:)
@@ -253,7 +253,7 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  ! read the Title Card line, find nbf in it
  read(fid,'(A)') buf
  i = index(buf,'nbf=')
- if(i == 0) then
+ if(i == 0) then ! if not found, set to nif
   nbf = nif
  else
   read(buf(i+4:),*) nbf
@@ -344,160 +344,148 @@ subroutine clear_prim_gau()
  return
 end subroutine clear_prim_gau
 
-! read this type of primitive gaussians in the 1st time
-! i.e., the 1st 'S', the 1st 'L', etc.
-subroutine read_prim_gau1(stype, nline, fid1)
- use pg, only: zero, prim_gau
+! read this type of primitive gaussians, i.e., 'S', 'L', etc.
+subroutine read_prim_gau(stype, nline, fid)
+ use pg, only: iout, prim_gau
  implicit none
- integer :: i, k, itmp, ncol, nline0
- integer, intent(in) :: nline, fid1
- real(kind=8) :: rtmp
+ integer :: i, j, k, itmp, ncol, ncol1, nline0, nline1
+ integer, intent(in) :: nline, fid
+ real(kind=8), parameter :: zero = 1d-6
+ real(kind=8) :: exp0, rtmp, rtmp1
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1), intent(in) :: stype
+ logical :: share
 
  call stype2itype(stype, k)
+ ! two cases: 'L', or not 'L'
 
- if(k /= 0) then
-  prim_gau(k)%stype = stype
-  prim_gau(k)%nline = nline
-  prim_gau(k)%ncol = 2
-  allocate(prim_gau(k)%coeff(nline,2), source=0.0d0)
-  do i = 1, nline, 1
-   read(fid1,*) itmp, prim_gau(k)%coeff(i,1), rtmp
-   if(nline==1 .and. DABS(rtmp)<zero) rtmp = 1.0d0
-   prim_gau(k)%coeff(i,2) = rtmp
-  end do ! for i
+ if(k /= 0) then ! 'S','P','D','F','G','H','I', not 'L'
 
- else ! k == 0, this is 'L' for some Pople-type basis sets
-  ncol = prim_gau(1)%ncol
-  nline0 = prim_gau(1)%nline
-  coeff = prim_gau(1)%coeff ! auto-allocation
-  deallocate(prim_gau(1)%coeff)
-  allocate(prim_gau(1)%coeff(nline0+nline,ncol+1), source=0.0d0) ! 'S'
-  prim_gau(1)%coeff(1:nline0,1:ncol) = coeff
-  deallocate(coeff)
-  ncol = ncol + 1
-  prim_gau(1)%ncol = ncol
+  ! two subcases: whether or not this angular momentum has occurred
+  if(allocated(prim_gau(k)%coeff)) then
+   read(fid,*) itmp, exp0, rtmp
+   BACKSPACE(fid)
 
-  prim_gau(2)%stype = 'P'
-  prim_gau(2)%nline = nline
-  prim_gau(2)%ncol = 2
-  allocate(prim_gau(2)%coeff(nline,2), source=0.0d0) ! 'P'
-  do i = 1, nline, 1
-   read(fid1,*) itmp, prim_gau(1)%coeff(nline0+i,1), prim_gau(1)%coeff(nline0+i,ncol), &
-                prim_gau(2)%coeff(i,2)
-  end do ! for i
-  forall(i = 1:nline) prim_gau(2)%coeff(i,1) = prim_gau(1)%coeff(nline0+i,1)
- end if
+   nline0 = prim_gau(k)%nline
+   ncol = prim_gau(k)%ncol
+   allocate(coeff(nline0,ncol), source=prim_gau(k)%coeff)
+   deallocate(prim_gau(k)%coeff)
 
- return
-end subroutine read_prim_gau1
+   ! further two sub-subcases: whether sharing the same exponents
+   share = .false. ! initialization
+   if(DABS(coeff(1,1)-exp0) < zero) then
+    nline1 = max(nline0,nline)
+    share = .true.
+   end if
+   if((.not.share) .and. nline==1 .and. DABS(coeff(nline0,1)-exp0)<zero) then
+    ! this rare case occurs in nobasistransform cc-pVDZ for Zn
+    nline1 = nline0
+    share = .true.
+   end if
+   if(.not. share) nline1 = nline0 + nline
 
-! read this type of primitive gaussians after the 1st time
-! i.e., the 2nd 'S', the 3rd 'S', the 2nd 'L', etc.
-subroutine read_prim_gau2(stype, nline, fid1, exp1)
- use pg, only: zero, iout, prim_gau
- implicit none
- integer :: i, k, itmp, ncol, nline0
- integer :: ncol2, nline2, dim1
- integer, intent(in) :: nline, fid1
- real(kind=8) :: rtmp
- real(kind=8), intent(in) :: exp1
- real(kind=8), allocatable :: coeff(:,:), coeff2(:,:)
- character(len=1), intent(in) :: stype
-
- call stype2itype(stype, k)
-
- if(k /= 0) then
-  nline0 = size(prim_gau(k)%coeff,1)
-  ncol = size(prim_gau(k)%coeff,2)
-  coeff = prim_gau(k)%coeff   ! auto-allocation
-  dim1 = size(coeff,dim=1)
-  deallocate(prim_gau(k)%coeff)
-
-  if(DABS(coeff(1,1) - exp1) < zero) then
-   ! For some strange basis set(e.g. LANL2DZ for Cu), nline>size(coeff,dim=1)
-   ! Normally nline = size(coeff,dim=1)
-   allocate(prim_gau(k)%coeff(MAX(nline,dim1),ncol+1), source=0.0d0)
-   prim_gau(k)%coeff(1:dim1,1:ncol) = coeff
+   allocate(prim_gau(k)%coeff(nline1,ncol+1),source=0d0)
+   prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
    deallocate(coeff)
    ncol = ncol + 1
    prim_gau(k)%ncol = ncol
-   do i = 1, MIN(nline,dim1), 1
-    read(fid1,*) itmp, rtmp, prim_gau(k)%coeff(i,ncol)
-   end do ! for i
-   if(nline > dim1) then
-    do i = dim1+1, nline, 1
-     read(fid1,*) itmp, prim_gau(k)%coeff(i,1), prim_gau(k)%coeff(i,ncol)
-    end do ! for i
-   end if
-  else ! > zero, enlarge the array prim_gau(k)%coeff
-   if(DABS(coeff(nline0,1) - exp1) < zero) then
-    allocate(prim_gau(k)%coeff(nline0,ncol+1), source=0.0d0)
-    prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
-    deallocate(coeff)
-    ncol = ncol + 1
-    prim_gau(k)%ncol = ncol
-    read(fid1,*)   ! skip one line
-    prim_gau(k)%coeff(nline0,1) = exp1
-    prim_gau(k)%coeff(nline0,ncol) = 1.0d0
-   else
-    allocate(prim_gau(k)%coeff(nline0+nline,ncol+1), source=0.0d0)
-    prim_gau(k)%coeff(1:nline0,1:ncol) = coeff
-    deallocate(coeff)
-    ncol = ncol + 1
-    prim_gau(k)%ncol = ncol
-    do i = 1, nline, 1
-     read(fid1,*) itmp, prim_gau(k)%coeff(nline0+i,1), rtmp
-     if(nline==1 .and. DABS(rtmp)<zero) rtmp = 1.0d0
+   prim_gau(k)%nline = nline1
+
+   do i = 1, nline, 1
+    read(fid,*) itmp, exp0, rtmp
+    if(nline == 1) rtmp = 1d0
+    if(share) then
+     if(i > nline0) then
+      prim_gau(k)%coeff(i,1) = exp0
+      prim_gau(k)%coeff(i,ncol) = rtmp
+     else ! i <= nline0
+      do j = 1, nline0, 1
+       if(DABS(prim_gau(k)%coeff(j,1)-exp0) < zero) then
+        prim_gau(k)%coeff(j,ncol) = rtmp
+        exit
+       end if
+      end do ! for j
+      if(j == nline0+1) then
+       write(iout,'(/,A)') "ERROR in subroutine read_prim_gau: I've never seen such basis."
+       write(iout,'(A)') "Did you forget to add 'int(nobasistransform)' in .gjf file?"
+       write(iout,'(3(A,I0))') 'stype='//stype//', i=',i,', nline=',nline,', nline0=',nline0
+       write(iout,'(2(A,E16.8))') 'exp0=', exp0, ', rtmp=', rtmp
+       stop
+      end if
+     end if
+    else ! not share
+     prim_gau(k)%coeff(nline0+i,1) = exp0
      prim_gau(k)%coeff(nline0+i,ncol) = rtmp
-    end do ! for i
-    nline0 = nline0 + nline
-    prim_gau(k)%nline = nline0
-   end if
+    end if
+   end do ! for i
+
+  else ! never occurs before, read first time
+   prim_gau(k)%stype = stype
+   prim_gau(k)%nline = nline
+   prim_gau(k)%ncol = 2
+   allocate(prim_gau(k)%coeff(nline,2), source=0d0)
+   do i = 1, nline, 1
+    read(fid,*) itmp, prim_gau(k)%coeff(i,1), rtmp
+    if(nline == 1) rtmp = 1d0
+    prim_gau(k)%coeff(i,2) = rtmp
+   end do ! for i
   end if
 
- else ! k == 0, this is 'L' for some Pople-type basis sets
-  if(DABS(prim_gau(2)%coeff(1,1) - exp1) < zero) then
-   write(iout,'(A)') "ERROR in subroutine read_prim_gau2: two sections of 'L'&
-                    & have identical gaussian exponents. Impossible."
-   write(iout,'(A)') 'Please check the input file.'
-   stop
-  else ! > zero, enlarge the array prim_gau(1)%coeff and prim_gau(2)%coeff
-   nline0 = size(prim_gau(1)%coeff,1)
-   ncol = size(prim_gau(1)%coeff,2)
-   coeff = prim_gau(1)%coeff   ! auto-allocation
+ else ! k == 0, this is 'L' for Pople-type basis sets
+  ! sharing exponents for 'L' is unlikely in Pople basis sets, don't consider
+
+  if(allocated(prim_gau(1)%coeff)) then ! 'S'
+   nline0 = prim_gau(1)%nline
+   ncol = prim_gau(1)%ncol
+   prim_gau(1)%nline = nline0 + nline
+   prim_gau(1)%ncol = ncol + 1
+   allocate(coeff(nline0,ncol), source=prim_gau(1)%coeff)
    deallocate(prim_gau(1)%coeff)
-   allocate(prim_gau(1)%coeff(nline0+nline,ncol+1), source=0.0d0)
+   allocate(prim_gau(1)%coeff(nline0+nline,ncol+1),source=0d0)
    prim_gau(1)%coeff(1:nline0,1:ncol) = coeff
    deallocate(coeff)
    ncol = ncol + 1
-   prim_gau(1)%ncol = ncol
-
-   nline2 = size(prim_gau(2)%coeff,1)
-   ncol2 = size(prim_gau(2)%coeff,2)
-   coeff2 = prim_gau(2)%coeff   ! auto-allocation
-   deallocate(prim_gau(2)%coeff)
-   allocate(prim_gau(2)%coeff(nline2+nline,ncol2+1), source=0.0d0)
-   prim_gau(2)%coeff(1:nline2,1:ncol2) = coeff2
-   deallocate(coeff2)
-   ncol2 = ncol2 + 1
-   prim_gau(2)%ncol = ncol2
-
-   do i = 1, nline, 1
-    read(fid1,*) itmp, rtmp, prim_gau(1)%coeff(nline0+i,ncol), prim_gau(2)%coeff(nline2+i,ncol2)
-    prim_gau(1)%coeff(nline0+i,1) = rtmp
-    prim_gau(2)%coeff(nline2+i,1) = rtmp
-   end do ! for i
-   nline0 = nline0 + nline
-   nline2 = nline2 + nline
-   prim_gau(1)%nline = nline0
-   prim_gau(2)%nline = nline2
+  else
+   prim_gau(1)%stype = 'S'
+   prim_gau(1)%nline = nline
+   prim_gau(1)%ncol = 2
+   allocate(prim_gau(1)%coeff(nline,2),source=0d0)
+   nline0 = 0; ncol = 2
   end if
+
+  if(allocated(prim_gau(2)%coeff)) then ! 'P'
+   nline1 = prim_gau(2)%nline
+   ncol1 = prim_gau(2)%ncol
+   prim_gau(2)%nline = nline1 + nline
+   prim_gau(2)%ncol = ncol1 + 1
+   allocate(coeff(nline1,ncol1), source=prim_gau(2)%coeff)
+   deallocate(prim_gau(2)%coeff)
+   allocate(prim_gau(2)%coeff(nline1+nline,ncol1+1),source=0d0)
+   prim_gau(2)%coeff(1:nline1,1:ncol1) = coeff
+   deallocate(coeff)
+   ncol1 = ncol1 + 1
+  else
+   prim_gau(2)%stype = 'P'
+   prim_gau(2)%nline = nline
+   prim_gau(2)%ncol = 2
+   allocate(prim_gau(2)%coeff(nline,2),source=0d0)
+   nline1 = 0; ncol1 = 2
+  end if
+
+  do i = 1, nline, 1
+   read(fid,*) itmp, exp0, rtmp, rtmp1
+   if(nline == 1) then
+    rtmp = 1d0; rtmp1 = 1d0
+   end if
+   prim_gau(1)%coeff(nline0+i,1) = exp0
+   prim_gau(1)%coeff(nline0+i,ncol) = rtmp
+   prim_gau(2)%coeff(nline1+i,1) = exp0
+   prim_gau(2)%coeff(nline1+i,ncol1) = rtmp1
+  end do ! for i
  end if
 
  return
-end subroutine read_prim_gau2
+end subroutine read_prim_gau
 
 ! determine the highest angular momentum quantum number
 subroutine get_highest_am()

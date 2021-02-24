@@ -1144,8 +1144,8 @@ contains
    case(3) ! FIC-MRCISD
     if(mrcisd_prog /= 'orca') then
      write(iout,'(A)') error_warn
-     write(iout,'(A)') 'The FIC-MRCISD is only supported by ORCA. But you&
-                      & specify mrcisd_prog='//TRIM(mrcisd_prog)
+     write(iout,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current&
+                      & mrcisd_prog='//TRIM(mrcisd_prog)
      stop
     end if
     if(X2C) then
@@ -1191,9 +1191,10 @@ contains
   end if
 
   select case(TRIM(caspt2_prog))
-  case('openmolcas', 'molpro')
+  case('openmolcas', 'molpro','orca')
   case default
-   write(iout,'(A)') error_warn
+   write(iout,'(/,A)') error_warn
+   write(iout,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
    write(iout,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
    stop
   end select
@@ -1201,13 +1202,15 @@ contains
   select case(TRIM(nevpt2_prog))
   case('pyscf','molpro','openmolcas','orca','bdf')
   case default
-   write(iout,'(A)') error_warn
+   write(iout,'(/,A)') error_warn
+   write(iout,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
    write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
    stop
   end select
 
   if(mrmp2_prog /= 'gamess') then
-   write(iout,'(A)') error_warn
+   write(iout,'(/,A)') error_warn
+   write(iout,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
    write(iout,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
    stop
   end if
@@ -1631,7 +1634,10 @@ subroutine auxbas_convert(inbas, outbas, itype)
   case(1) ! PySCF
    outbas = 'def2-universal-jkfit'
   case(2) ! Molpro
-   outbas = 'def2/jkfit'
+   outbas = 'qzvpp/jkfit'
+   ! In the future(maybe Molpro 2021), we better use 'univjkfit/jkfit'.
+   ! But so far there is a tiny bug for definition of def2-universal-JKFIT in
+   ! Molpro, thus we have to use 'qzvpp/jkfit'. And these two are identical in fact.
   case default
    write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
    write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype

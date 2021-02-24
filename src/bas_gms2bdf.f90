@@ -43,7 +43,7 @@ end program main
 subroutine bas_gms2bdf(fort7, uhf)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, k, nline, rc, rel
+ integer :: i, k, nline, rc, rel, nbf, nif
  integer :: fid1, fid2
  integer :: charge, mult
  real(kind=8) :: exp1   ! the first exponent
@@ -52,14 +52,21 @@ subroutine bas_gms2bdf(fort7, uhf)
  character(len=240) :: buf, input, basfile
  ! input is the BDF input file
  ! if you do not like the suffix .bdf, you can change it into .inp
- character(len=1) :: stype0, stype
- logical :: X2C, uhf1
+ character(len=1) :: stype
+ logical :: X2C, uhf1, lin
  logical, intent(in) :: uhf
 
  ! initialization
  buf = ' '
  input = ' '
  basfile = ' '
+
+ call read_nbf_and_nif_from_gms_inp(fort7, nbf, nif)
+ if(nbf > nif) then
+  lin = .true.  ! linear dependent
+ else
+  lin = .false. ! no linear dependence
+ end if
 
  k = index(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
@@ -116,9 +123,11 @@ subroutine bas_gms2bdf(fort7, uhf)
 
  write(fid2,'(A)') '$END'
  write(fid2,'(/,A)') '$SCF'
- write(fid2,'(A)') 'CheckLin'
- write(fid2,'(A)') 'TolLin'
- write(fid2,'(A)') '1.D-6'
+ if(lin) then
+  write(fid2,'(A)') 'CheckLin'
+  write(fid2,'(A)') 'TolLin'
+  write(fid2,'(A)') '1.D-6'
+ end if
 
  if(uhf) then
   write(fid2,'(A3)') 'UHF'
@@ -168,42 +177,14 @@ subroutine bas_gms2bdf(fort7, uhf)
   read(fid1,'(A)',iostat=rc) buf
   ! 'buf' contains the element, ram and coordinates
   if(rc /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(3:5) == 'END') exit
-  end if
 
   ! deal with primitive gaussians
-  stype0 = ' '
   do while(.true.)
    read(fid1,'(A)') buf
    if(LEN_TRIM(buf) == 0) exit
 
    read(buf,*) stype, nline
-   if(stype0 == ' ') then
-    !------------------------------------------------------
-    ! the following 5 lines are added to determine whether
-    ! an angular momentum occurs more than once
-    call stype2itype(stype, k)
-    if( allocated(prim_gau(k)%coeff) ) then
-     stype0 = stype
-     BACKSPACE(fid1)
-    else
-    !------------------------------------------------------
-     call read_prim_gau1(stype, nline, fid1)
-     stype0 = stype
-    end if
-   else ! stype0 /= ' '
-    if(stype == stype0) then
-     exp1 = 0.0d0
-     read(fid1,*) k, exp1
-     BACKSPACE(fid1)
-     call read_prim_gau2(stype, nline, fid1, exp1)
-    else ! stype /= stype0
-     stype0 = ' ' ! reset stype0
-     BACKSPACE(fid1)
-    end if
-   end if
+   call read_prim_gau(stype, nline, fid1)
   end do ! for while
 
   ! print basis sets and ECP/PP (if any) of this atom in BDF format
