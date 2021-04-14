@@ -45,8 +45,8 @@ subroutine prt_mcpdft_molcas_inp(inpname)
  if(dmrgci .or. dmrgscf) then
   write(fid2,'(A)') 'DMRG'
   write(fid2,'(A)') 'RGinput'
-  write(fid2,'(A)') ' conv_thresh = 1E-7'
-  write(fid2,'(A)') ' nsweeps = 5'
+  write(fid2,'(A)') ' conv_thresh = 1E-8'
+  write(fid2,'(A)') ' nsweeps = 20'
   write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
   write(fid2,'(A)') 'endRG'
  end if
@@ -135,6 +135,7 @@ subroutine do_mcpdft()
   mcpdft_prog, casnofch, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
   gms_scr_path
  use mol, only: casci_e, casscf_e, ptchg_e, mcpdft_e
+ use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: ref_e, corr_e
@@ -206,7 +207,7 @@ subroutine do_mcpdft()
 
  case('gamess')
   call check_gms_path()
-  i = system('fch2inp '//TRIM(casnofch))
+  call fch2inp_wrap(casnofch, .false., 0, 0)
   i = index(casnofch, '.fch', back=.true.)
   fname(1) = casnofch(1:i-1)//'.inp'
   i = index(casnofch, '_NO', back=.true.)

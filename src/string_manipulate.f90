@@ -146,6 +146,34 @@ subroutine check_X2C_in_gms_inp(inpname, X2C)
  return
 end subroutine check_X2C_in_gms_inp
 
+subroutine check_sph_in_gjf(gjfname, sph)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=1200) :: longbuf
+ character(len=240), intent(in) :: gjfname
+ logical, intent(out) :: sph
+
+ sph = .true.
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) == '#') exit
+ end do ! for while
+
+ longbuf = buf
+ do i = 1, 5
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  longbuf = TRIM(longbuf)//TRIM(buf)
+ end do ! for i
+
+ close(fid)
+ if(index(longbuf,'6D')>0 .or. index(longbuf,'6d')>0) sph = .false.
+ return
+end subroutine check_sph_in_gjf
+
 ! convert a filename into which molpro requires, i.e.
 ! length <32 and in lowercase
 subroutine convert2molpro_fname(fname, suffix)
@@ -484,4 +512,324 @@ function detect_ncol_in_buf(buf) result(ncol)
  ncol = ncol - 1
  return
 end function detect_ncol_in_buf
+
+! modify the memory in a given .inp file
+subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
+ implicit none
+ integer :: i, fid1, fid2, RENAME
+ integer, intent(in) :: mem, nproc
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.tmp'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,'MWORDS') /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS'&
+                   & found in file "//TRIM(inpname)
+  close(fid1)
+  close(fid2,status='delete')
+  stop
+ end if
+
+ write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1000.0d0/(8.0d0*DBLE(nproc))),' $END'
+
+ ! copy the remaining content
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine modify_memory_in_gms_inp
+
+! modify memory in a given PSI4 input file
+subroutine modify_memory_in_psi4_inp(inpname, mem)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)
+ read(fid,'(A)') buf
+ write(fid1,'(A,I0,A)') 'memory ', mem, ' GB'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine modify_memory_in_psi4_inp
+
+! modify memory in a ORCA .inp file
+subroutine modify_memory_in_orca_inp(inpname, mem, proc)
+ implicit none
+ integer :: fid, fid1
+ integer, intent(in) :: mem, proc
+ character(len=240) :: inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+ return
+end subroutine modify_memory_in_orca_inp
+
+! add given/specified RIJK basis set into a PSI4 input file
+subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=21), intent(in) :: RIJK_bas
+ character(len=240), intent(in) :: inpname
+
+ return
+end subroutine add_RIJK_bas_into_psi4_inp
+
+! add given/specified RIJK basis set into an ORCA input file
+subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=21), intent(in) :: RIJK_bas
+ character(len=240), intent(in) :: inpname
+
+ return
+end subroutine add_RIJK_bas_into_orca_inp
+
+! copy mixed/user-defined basis set in a given .gjf file to a .bas file
+subroutine record_gen_basis_in_gjf(gjfname, basname)
+ implicit none
+ integer :: i, nblank, fid1, fid2
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ character(len=240), intent(out) :: basname
+ logical :: nobasis
+
+ i = index(gjfname, '.gjf', back=.true.)
+ basname = gjfname(1:i-1)//'.bas'
+
+ open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 3) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: incomplete&
+                   & file: '//TRIM(gjfname)
+  close(fid1)
+  stop
+ end if
+
+ read(fid1,'(A)',iostat=i) buf
+ nobasis = .false.
+ if(i /= 0) nobasis = .true.
+ if((.not.nobasis) .and. LEN_TRIM(buf)==0) nobasis = .true.
+
+ if(nobasis) then
+  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: no mixed/user&
+                   &-defined basis set detected in file '//TRIM(gjfname)
+  close(fid1)
+  stop
+ end if
+
+ buf = ADJUSTL(buf)
+ if(buf(1:1) == '-') then
+  i = IACHAR(buf(2:2))
+ else
+  i = IACHAR(buf(1:1))
+ end if
+
+ if(.not. ((i>96 .and. i<123) .or. (i>64 .and. i<91))) then
+  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: the first&
+                   & character in mixed/user-defined'
+  write(iout,'(A)') 'basis set is neither a-z, nor A-Z. This is not an element&
+                   & symbol. This format of basis'
+  write(iout,'(A)') 'set cannot be recognized. Problematic file: '//TRIM(gjfname)
+  close(fid1)
+  stop
+ end if
+
+ open(newunit=fid2,file=TRIM(basname),status='replace')
+ write(fid2,'(A)') TRIM(buf)
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid2,'(/)')
+ close(fid1)
+ close(fid2)
+
+ call add_hyphen_for_elem_in_basfile(basname)
+ return
+end subroutine record_gen_basis_in_gjf
+
+! add '-' symbol before elements, in a .bas file
+subroutine add_hyphen_for_elem_in_basfile(basname)
+ implicit none
+ integer :: i, j, nbat1, nbat2, fid, fid1, RENAME
+ character(len=7) :: str
+ character(len=240) :: buf0, buf, basname1
+ character(len=240), intent(in) :: basname
+
+ basname1 = TRIM(basname)//'.t'
+ open(newunit=fid,file=TRIM(basname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(basname1),status='replace')
+ buf0 = '****'
+
+ ! deal with the basis set data
+ do while(.true.)
+  read(fid,'(A)') buf
+
+  if(buf0(1:4) == '****') then
+   if(LEN_TRIM(buf) == 0) exit
+   call add_hyphen_for_elem_in_buf(buf)
+   write(fid1,'(A)') TRIM(buf)
+  else
+   write(fid1,'(A)') TRIM(buf)
+  end if
+
+  buf0 = buf
+ end do ! for i
+
+ write(fid1,'(/)',advance='no')
+
+ ! deal with the pseudo potential data
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+
+  call add_hyphen_for_elem_in_buf(buf)
+  write(fid1,'(A)') TRIM(buf)
+
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  read(buf,*,iostat=i) str, nbat1
+
+  if(i == 0) then ! ECP/PP data, not name
+   nbat1 = nbat1 + 1
+   do i = 1, nbat1, 1
+    read(fid,'(A)') buf
+    write(fid1,'(A)') TRIM(buf)
+    read(fid,'(A)') buf
+    write(fid1,'(A)') TRIM(buf)
+    read(buf,*) nbat2
+    do j = 1, nbat2, 1
+     read(fid,'(A)') buf
+     write(fid1,'(A)') TRIM(buf)
+    end do ! for j
+   end do ! for i
+  end if
+ end do ! for while
+
+ write(fid1,'(/)')
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(basname1), TRIM(basname))
+ return
+end subroutine add_hyphen_for_elem_in_basfile
+
+! add '-' symbol for each element, in a buf
+subroutine add_hyphen_for_elem_in_buf(buf)
+ implicit none
+ integer :: i, j
+ integer, parameter :: max_nelem = 21
+ character(len=3) :: str(max_nelem)
+ character(len=240), intent(inout) :: buf
+
+ do i = 1, max_nelem, 1
+  read(buf,*,iostat=j) str(1:i)
+  if(j /= 0) exit
+ end do ! for i
+
+ i = i - 1
+ if(TRIM(str(i)) == '0') i = i - 1
+ forall(j=1:i, str(j)(1:1)/='-') str(j) = '-'//TRIM(str(j))
+
+ buf = TRIM(str(1))
+ do j = 2, i, 1
+  buf = TRIM(buf)//' '//TRIM(str(j))
+ end do ! for i
+
+ buf = TRIM(buf)//' 0'
+ return
+end subroutine add_hyphen_for_elem_in_buf
+
+! copy mixed/user-defined basis set content from file basname to gjfname
+subroutine copy_gen_basis_bas2gjf(basname, gjfname)
+ implicit none
+ integer :: i, nblank, fid1, fid2
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: basname, gjfname
+
+ if(LEN_TRIM(basname) == 0) return
+
+ open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 3) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine copy_gen_basis_bas2gjf: incomplete&
+                   & file: '//TRIM(gjfname)
+  close(fid1)
+  stop
+ end if
+
+ open(newunit=fid2,file=TRIM(basname),status='old',position='rewind')
+ do while(.true.)
+  read(fid2,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1)
+ close(fid2)
+ return
+end subroutine copy_gen_basis_bas2gjf
 

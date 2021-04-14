@@ -1,4 +1,5 @@
 ! written by jxzou at 20210104: copied from file bas_gms2molcas.f90 and modified
+! updated by jxzou at 20210407: remove '-uhf', add automatic determination
 
 ! Note: Currently isotopes are not tested.
 program main
@@ -8,39 +9,23 @@ program main
  character(len=4) :: str
  character(len=240) :: fname
  ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
- logical :: uhf
 
  i = iargc()
  if(i<1 .or. i>2) then
   write(iout,'(/,A)') ' ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
-  write(iout,'(A)') ' Example 1: bas_gms2bdf a.inp (generate an a_bdf.inp file)'
-  write(iout,'(A,/)') ' Example 2: bas_gms2bdf a.inp -uhf'
+  write(iout,'(A,/)') ' Example : bas_gms2bdf a.inp (generate an a_bdf.inp file)'
   stop
  end if
 
  fname = ' '
  call getarg(1, fname)
  call require_file_exist(fname)
-
- uhf = .false.
- if(i == 2) then
-  str = ' '
-  call getarg(2,str)
-  if(str == '-uhf') then
-   uhf = .true.
-  else
-   write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
-   stop
-  end if
- end if
-
- call bas_gms2bdf(fname, uhf)
+ call bas_gms2bdf(fname)
  stop
 end program main
 
 ! Transform the basis sets in GAMESS format to those in BDF format
-subroutine bas_gms2bdf(fort7, uhf)
+subroutine bas_gms2bdf(fort7)
  use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
  implicit none
  integer :: i, k, nline, rc, rel, nbf, nif
@@ -53,8 +38,7 @@ subroutine bas_gms2bdf(fort7, uhf)
  ! input is the BDF input file
  ! if you do not like the suffix .bdf, you can change it into .inp
  character(len=1) :: stype
- logical :: X2C, uhf1, lin
- logical, intent(in) :: uhf
+ logical :: X2C, uhf, lin
 
  ! initialization
  buf = ' '
@@ -76,7 +60,7 @@ subroutine bas_gms2bdf(fort7, uhf)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf1, ecp_exist)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
  call read_all_ecp_from_gms_inp(fort7)
 
  if(ecp_exist) then

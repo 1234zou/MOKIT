@@ -25,7 +25,7 @@ subroutine formchk(chkname, fchname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility formchk failed.'
+  write(iout,'(/,A)') 'ERROR in subroutine formchk: call Gaussian utility formchk failed.'
   write(iout,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
                    & utility formchk does not exist.'
   stop
@@ -126,43 +126,29 @@ subroutine mkl2gbw(mklname, gbwname)
 end subroutine mkl2gbw
 
 ! wrapper of the utility fch2inp
-subroutine fch2inp_wrap(fchname, uhf, gvb, npair, nopen)
+subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  implicit none
  integer :: i, system
  integer, parameter :: iout = 6
  integer, intent(in) :: npair, nopen
  character(len=240) :: buf = ' ', buf2 = ' '
  character(len=240), intent(in) :: fchname
- logical, intent(in) :: uhf, gvb
+ logical, intent(in) :: gvb
 
- if(uhf .and. gvb) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: both uhf and gvb are .True.'
-  write(iout,'(A)') 'This is not allowed. Filename = '//TRIM(fchname)
-  stop
- end if
-
- if(gvb .and. (npair<0 .or. nopen<0)) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0 or nopen<0.'
-  write(iout,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
-  stop
- end if
-
- if(uhf) then
-
-#ifdef _WIN32
-  i = system('fch2inp '//TRIM(fchname)//' -uhf > NUL')
-#else
-  i = system('fch2inp '//TRIM(fchname)//' -uhf > /dev/null')
-#endif
-
- else if(gvb) then
+ if(gvb) then
+  if(npair<0 .or. nopen<0) then
+   write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0&
+                    & and/or nopen<0.'
+   write(iout,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
+   stop
+  end if
 
   write(buf,'(A,I0)') 'fch2inp '//TRIM(fchname)//' -gvb ', npair
   buf = ADJUSTL(buf)
   if(nopen == 0) then
    buf2 = buf
-  else
-   write(buf2,'(A,I0)') ' -open ', nopen
+  else ! nopen > 0
+   write(buf2,'(A,I0)') ' -open ',nopen
    buf2 = ADJUSTL(buf2)
    buf2 = TRIM(buf)//TRIM(buf2)
   end if
@@ -173,21 +159,18 @@ subroutine fch2inp_wrap(fchname, uhf, gvb, npair, nopen)
   i = system(TRIM(buf2)//' > /dev/null')
 #endif
 
- else ! RHF, CAS
-
+ else ! R(O)HF, UHF, CAS
 #ifdef _WIN32
   i = system('fch2inp '//TRIM(fchname)//' > NUL')
 #else
   i = system('fch2inp '//TRIM(fchname)//' > /dev/null')
 #endif
-
  end if
 
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: failed to call utility fch2inp.'
   write(iout,'(A)') 'Filename = '//TRIM(fchname)
-  write(iout,'(2(A,L1))') 'gvb = ', gvb, ', uhf = ' , uhf
-  write(iout,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
+  write(iout,'(2(A,I0),A,L1)') 'npair= ',npair,', nopen= ',nopen,', gvb= ',gvb
   stop
  end if
 

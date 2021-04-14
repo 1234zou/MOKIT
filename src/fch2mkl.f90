@@ -6,6 +6,7 @@
 ! updated by jxzou at 20200802: add $CHARGES section to .mkl file
 ! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
 ! updated by jxzou at 20201221: add 'DelGTO' for elements Rb~Rn
+! updated by jxzou at 20210407: remove '-uhf', use automatic determination
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -16,42 +17,26 @@
 ! 'L' is 'SP' in Pople-type basis sets
 
 program main
+ use fch_content, only: iout
  implicit none
  integer :: i
- integer, parameter :: iout = 6
- character(len=4) :: str = ' '
  character(len=240) :: fchname = ' '
- logical :: uhf
 
  i = iargc()
- if(i<1 .or. i>2) then
-  write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line arguments!'
-  write(iout,'(A)')  ' Example 1 (R(O)HF, CAS): fch2mkl a.fch'
-  write(iout,'(A,/)')' Example 2 (UHF):         fch2mkl a.fch -uhf'
+ if(i /= 1) then
+  write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line argument!'
+  write(iout,'(A,/)')  ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
-
- uhf = .false.
- if(i == 2) then
-  call getarg(2, str)
-  if(str == '-uhf') then
-   uhf = .true.
-  else
-   write(iout,'(A)') 'ERROR in subroutine fch2mkl: wrong command line arguments.'
-   write(iout,'(A)') "The 2nd input parameter is not '-uhf': "//str
-   stop
-  end if
- end if
-
- call fch2mkl(fchname, uhf)
+ call fch2mkl(fchname)
  stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine fch2mkl(fchname, uhf)
+subroutine fch2mkl(fchname)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, am
@@ -66,8 +51,7 @@ subroutine fch2mkl(fchname, uhf)
  character(len=1), parameter :: am_type1(0:5) = ['s','p','d','f','g','h']
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical, intent(in) :: uhf
- logical :: ecp, X2C
+ logical :: uhf, ecp, X2C
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -78,6 +62,7 @@ subroutine fch2mkl(fchname, uhf)
  end if
 
  call check_DKH_in_fch(fchname, rel)
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.

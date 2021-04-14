@@ -8,54 +8,36 @@ program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=4) :: str
  character(len=240) :: fchname
- logical :: uhf
 
  i = iargc()
- if(i<1 .or. i>2) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line arguments!'
-  write(iout,'(/,A)') ' Example 1(RHF): bas_fch2py a.fch'
-  write(iout,'(/,A,/)') ' Example 2(UHF): bas_fch2py a.fch -uhf'
+ if(i /= 1) then
+  write(iout,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line argument!'
+  write(iout,'(A,/)') ' Example (R(O)HF, UHF): bas_fch2py a.fch'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
- uhf = .false.
-
- if(i == 2) then
-  str = ' '
-  call getarg(2, str)
-  if(str /= '-uhf') then
-   write(iout,'(A)') 'ERROR in subroutine bas_fch2py: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument(if provided) must be '-uhf'."
-   stop
-  end if
-  uhf = .true.
- end if
-
- call bas_fch2py(fchname, uhf)
+ call bas_fch2py(fchname)
  stop
 end program main
 
 ! generate PySCF format basis set (.py file) from Gaussian .fch(k) file
-subroutine bas_fch2py(fchname, uhf)
+subroutine bas_fch2py(fchname)
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system
  integer, parameter :: iout = 6
  character(len=240) :: inpname
  character(len=240), intent(in) :: fchname
- logical, intent(in) :: uhf
  logical :: cart
 
  call determine_sph_or_cart(fchname, cart) 
+ call fch2inp_wrap(fchname, .false., 0, 0)
 
  i = index(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
-
- call fch2inp_wrap(fchname, uhf, .false., 0, 0)
 
  if(cart) then ! Cartesian functions
   i = system('bas_gms2py '//TRIM(inpname))
@@ -72,7 +54,6 @@ subroutine bas_fch2py(fchname, uhf)
  ! delete the inpname
  open(newunit=i,file=TRIM(inpname),status='old')
  close(unit=i,status='delete')
-
  return
 end subroutine bas_fch2py
 

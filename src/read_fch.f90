@@ -56,6 +56,31 @@ module fch_content
 
 contains
 
+! check whether UHF-type MOs are hold in a given .fch(k) file
+subroutine check_uhf_in_fch(fchname, uhf)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ logical, intent(out) :: uhf
+
+ uhf = .false.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+
+  if(buf(1:7) == 'Beta MO') then
+   uhf = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine check_uhf_in_fch
+
 ! read geometry, basis sets, ECP(if any) and MOs from .fch file (Gaussian)
 subroutine read_fch(fchname, uhf)
  implicit none
@@ -561,7 +586,7 @@ subroutine check_X2C_in_fch(fchname, alive)
  return
 end subroutine check_X2C_in_fch
 
-! check whether 
+! check whether 'int=nobasistransform' exists in a given .fch(k) file
 function nobasistransform_in_fch(fchname) result(notrans)
  implicit none
  integer:: i, fid
@@ -602,4 +627,46 @@ function nobasistransform_in_fch(fchname) result(notrans)
 
  return
 end function nobasistransform_in_fch
+
+! check whether 'nosymm' exists in a given .fch(k) file
+function nosymm_in_fch(fchname) result(nosymm)
+ implicit none
+ integer:: i, fid
+ character(len=240) :: buf
+ character(len=1200) :: longbuf
+ character(len=240), intent(in) :: fchname
+ logical :: nosymm
+
+ nosymm = .true.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'Route') exit
+
+  if(buf(1:5) == 'Charg') then
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ nosymm = .false.
+
+ do i = 1, 5
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'Charg') exit
+
+  if(i == 1) then
+   longbuf = buf
+  else
+   longbuf = TRIM(longbuf)//TRIM(buf)
+  end if
+ end do ! for i
+
+ close(fid)
+ call lower(longbuf)
+ if(index(longbuf,'nosymm') > 0) nosymm = .true.
+
+ return
+end function nosymm_in_fch
 

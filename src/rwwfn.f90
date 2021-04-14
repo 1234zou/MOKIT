@@ -223,7 +223,7 @@ end subroutine read_nbf_from_dat
 ! read Alpha/Beta MOs from a given .fch(k) file
 subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  implicit none
- integer :: i, fid, ncoeff
+ integer :: i, j, fid, ncoeff
  integer, intent(in) :: nbf, nif
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
@@ -261,10 +261,17 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
   stop
  end if
 
- allocate(coeff(ncoeff), source=0.0d0)
- read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
- mo = RESHAPE(coeff,(/nbf,nif/))
+ allocate(coeff(ncoeff), source=0d0)
+ read(unit=fid,fmt='(5(1X,ES15.8))',iostat=j) (coeff(i),i=1,ncoeff)
 
+ if(j /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine read_mo_from_fch: failed to read MOs.'
+  write(iout,'(A)') 'This file seems problematic: '//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ mo = RESHAPE(coeff,(/nbf,nif/))
  deallocate(coeff)
  close(fid)
  return
@@ -288,7 +295,7 @@ subroutine read_mo_from_chk_txt(txtname, nbf, nif, ab, mo)
   key = key2//' '
  end if
 
- open(unit=chkid,file=TRIM(txtname),status='old',position='rewind')
+ open(newunit=chkid,file=TRIM(txtname),status='old',position='rewind')
  do while(.true.)
   read(chkid,'(A)') buf
   if(buf(7:14) == key) exit
@@ -732,7 +739,7 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -762,7 +769,7 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find and read Shell types
  do while(.true.)
@@ -1041,8 +1048,8 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
   read(fid1,'(A)') buf
  end do ! for i
 
- key = key3//'  '
- if(ab/='a' .and. ab/='A') key = key4//' '
+ key = key3//' '
+ if(ab/='a' .and. ab/='A') key = key4
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -1197,7 +1204,7 @@ subroutine determine_sph_or_cart(fchname, cart)
  character(len=240), intent(in) :: fchname
  logical, intent(out) :: cart
 
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find and read Shell types
  do while(.true.)
@@ -1729,7 +1736,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  integer :: i, fid
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
- character(len=50), parameter :: error_warn = &
+ character(len=51), parameter :: error_warn = &
   'ERROR in subroutine read_cas_energy_from_orca_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1848,7 +1855,7 @@ end subroutine read_cas_energy_from_molpro_out
 ! Note: BDF changes output format frequently, one must frequently update this subroutine
 subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  implicit none
- integer :: i, k, fid
+ integer :: i, fid
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
@@ -2717,7 +2724,7 @@ subroutine check_cart(fchname, cart)
  character(len=31), parameter :: error_warn='ERROR in subroutine check_cart:'
  logical, intent(in) :: cart
 
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find and read Shell types
  do while(.true.)
@@ -2783,7 +2790,7 @@ subroutine check_sph(fchname, sph)
  character(len=30), parameter :: error_warn='ERROR in subroutine check_sph:'
  logical, intent(out) :: sph
 
- open(unit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find and read Shell types
  do while(.true.)
@@ -3100,7 +3107,7 @@ end subroutine export_mat_into_txt
 ! (by checking the max and average difference between alpha/beta MO coefficients)
 subroutine check_if_uhf_equal_rhf(fchname, eq)
  implicit none
- integer :: i, nbf, nif
+ integer :: nbf, nif
  integer, parameter :: iout = 6
  real(kind=8) :: max_diff, ave_diff
  real(kind=8), parameter :: zero1 = 1D-2, zero2 = 1D-4

@@ -25,6 +25,9 @@ subroutine delete_file(fname)
  inquire(file=TRIM(fname),exist=alive)
 
  if(alive) then
+  inquire(file=TRIM(fname),opened=alive,number=fid)
+  if(alive) close(fid)
+
   open(newunit=fid,file=TRIM(fname),status='old')
   close(fid,status='delete')
  end if
@@ -60,4 +63,28 @@ subroutine copy_file(fname1, fname2, delete)
  close(fid2)
  return
 end subroutine copy_file
+
+! copy binary file (if delete=.True., delete fname1)
+subroutine copy_bin_file(fname1, fname2, delete)
+ implicit none
+ integer :: i, system
+ character(len=240), intent(in) :: fname1, fname2
+ logical, intent(in) :: delete
+
+#ifdef _WIN32
+ i = system('copy /Y '//TRIM(fname1)//' '//TRIM(fname2)//' > NUL')
+#else
+ i = system('cp '//TRIM(fname1)//' '//TRIM(fname2))
+#endif
+
+ if(delete) then
+#ifdef _WIN32
+ i = system('del '//TRIM(fname1))
+#else
+ i = system('rm -f '//TRIM(fname1))
+#endif
+ end if
+
+ return
+end subroutine copy_bin_file
 

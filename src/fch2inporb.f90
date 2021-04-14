@@ -6,51 +6,56 @@
 ! updated by jxzou at 20190624: able to transform UHF orbitals
 ! updated by jxzou at 20200504: combined with rwwfn.f90
 ! updated by jxzou at 20200809: combined with util_wrapper.f90
+! updated by jxzou at 20210407: remove '-uhf', add automatic determination
 
 module root_parameter
  implicit none
- real(kind=8), parameter :: root3   = DSQRT(3.0d0)     ! SQRT(3)
- real(kind=8), parameter :: root9   = 3.0d0            ! SQRT(9)
- real(kind=8), parameter :: root15  = DSQRT(15.0d0)    ! SQRT(15)
- real(kind=8), parameter :: root45  = DSQRT(45.0d0)    ! SQRT(45)
- real(kind=8), parameter :: root105 = DSQRT(105.0d0)   ! SQRT(105)
- real(kind=8), parameter :: root945 = DSQRT(945.0d0)   ! SQRT(945)
+ real(kind=8), parameter :: root3   = DSQRT(3d0)     ! SQRT(3)
+ real(kind=8), parameter :: root9   = 3d0            ! SQRT(9)
+ real(kind=8), parameter :: root15  = DSQRT(15d0)    ! SQRT(15)
+ real(kind=8), parameter :: root45  = DSQRT(45d0)    ! SQRT(45)
+ real(kind=8), parameter :: root105 = DSQRT(105d0)   ! SQRT(105)
+ real(kind=8), parameter :: root945 = DSQRT(945d0)   ! SQRT(945)
 end module root_parameter
 
 program main
+ use fch_content, only: iout
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, k, system
- integer, parameter :: iout = 6
- character(len=4) :: ab
+ character(len=3) :: str
  character(len=240) :: fname, inpname
- logical :: sph, uhf
+ logical :: sph, prt_no
 
  i = iargc()
- if(.not. (i==1 .or. i==2)) then
-  write(iout,'(/,1X,A)') 'ERROR in subroutine fch2inporb: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (for RHF, CAS): fch2inporb a.fch'
-  write(iout,'(1X,A)') 'Example 2 (for CAS NO)  : fch2inporb a.fch -no'
-  write(iout,'(1X,A,/)') 'Example 3 (for UHF)     : fch2inporb a.fch -uhf'
+ if(i<1 .or. i>2) then
+  write(iout,'(/,A)') ' ERROR in subroutine fch2inporb: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inporb a.fch'
+  write(iout,'(A,/)') ' Example 2 (for CAS NO)      : fch2inporb a.fch -no'
   stop
  end if
 
- ab = ' '; fname = ' '
+ fname = ' '
  call getarg(1, fname)
  call require_file_exist(fname)
 
  if(i == 2) then
-  call getarg(2, ab)
-  ab = ADJUSTL(ab)
-  if(ab/='-uhf' .and. ab/='-no') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine fch2inporb: the 2nd argument is&
-                         & wrong! Only '-uhf' or '-no' is accepted."
+  str = ' '
+  call getarg(2, str)
+  if(str /= '-no') then
+   write(iout,'(/,A)') " ERROR in subroutine fch2inporb: the 2nd argument is&
+                       & wrong! Only '-no' is accepted."
    stop
+  else ! str = '-no'
+   prt_no = .true.
   end if
+ else ! i = 1
+  prt_no = .false.
  end if
 
- call fch2inporb(fname, ab, sph, uhf)
- call fch2inp_wrap(fname, uhf, .false., 0, 0)
+ ! ->prt_no, <-sph
+ call fch2inporb(fname, prt_no, sph)
+ call fch2inp_wrap(fname, .false., 0, 0)
 
  k = index(fname,'.fch', back=.true.)
  inpname = fname(1:k-1)//'.inp'
@@ -65,8 +70,8 @@ program main
   write(iout,'(/,A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
   write(iout,'(A)') 'Three possible reasons:'
   write(iout,'(A)') '(1) You forget to compile the utility bas_gms2molcas.'
-  write(iout,'(A)') '(2) This is a bug of the utility bas_gms2molcas.'
-  write(iout,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
+  write(iout,'(A)') '(2) The file '//TRIM(fname)//' may be incomplete.'
+  write(iout,'(A)') '(3) This is a bug of the utility bas_gms2molcas.'
   stop
  end if
 
@@ -79,7 +84,8 @@ end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
-subroutine fch2inporb(fchname, ab, sph, uhf)
+subroutine fch2inporb(fchname, prt_no, sph)
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, orbid
  integer :: nalpha, nbeta, nbf, nif
@@ -90,49 +96,58 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- character(len=4), intent(in) :: ab
  character(len=8) :: hostname
  character(len=24) :: data_string
  character(len=240), intent(in) :: fchname
- character(len=240) :: orbfile
- ! orbfile is the INPORB file of Molcas/OpenMolcas
-
+ character(len=240) :: orbfile   ! INPORB file of (Open)Molcas
  real(kind=8), allocatable :: coeff(:,:), occ_num(:)
- logical, intent(out) :: sph, uhf
+ logical :: uhf
+ logical, intent(in) :: prt_no
+ logical, intent(out) :: sph
 
  sph = .true. ! default value
- uhf = .false.
  orbfile = ' '
 
  call read_na_and_nb_from_fch(fchname, nalpha, nbeta)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  nbf0 = nbf
 
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+
  ! read MO Coefficients
- select case(ab)
- case('-uhf')
-  uhf = .true.
+ if(uhf) then
   allocate(coeff(nbf,2*nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_fch(fchname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
- case('-no')
-  allocate(occ_num(nif), coeff(nbf,nif))
-  call read_eigenvalues_from_fch(fchname, nif, 'a', occ_num)
-  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
- case default
-  allocate(coeff(nbf,nif))
-  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
- end select
+ else   ! not UHF
+  if(prt_no) then
+   allocate(occ_num(nif), coeff(nbf,nif))
+   call read_eigenvalues_from_fch(fchname, nif, 'a', occ_num)
+   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+  else
+   allocate(coeff(nbf,nif))
+   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+  end if
+ end if
 
  call read_ncontr_from_fch(fchname, k)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
- if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
-  sph = .false.
- else
+
+ ! check if any spherical functions
+ if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
+  write(iout,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/&
+                   &Cartesian functions detected.'
+  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+                   & default setting is (6D,7F).'
+  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  stop
+ else if( ANY(shell_type<-1) ) then
   sph = .true.
+ else
+  sph = .false.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
@@ -200,8 +215,12 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
    n21hmark = n21hmark + 1
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
+  case default
+   write(iout,'(A)') 'ERROR in subroutine fch2inporb: shell_type(i) out of range.'
+   write(iout,'(2(A,I0))') 'k=', k, ', i=', i
+   stop
   end select
- end do
+ end do ! for i
 
  ! adjust the order of d, f, etc. functions
  do i = 1, n5dmark, 1
@@ -289,18 +308,19 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
 
  write(orbid,'(A,/,A)') '#INPORB 2.2', '#INFO'
 
- select case(ab)
- case('-uhf')
+ if(uhf) then
   write(orbid,'(A)') '* UHF orbitals'
   write(orbid,'(A)') '       1       1       4'
   nif = nif/2   ! change to original size
- case('-no')
-  write(orbid,'(A)') '* natural orbitals'
-  write(orbid,'(A)') '       0       1       0'
- case default ! '-a '
-  write(orbid,'(A)') '* SCF orbitals'
-  write(orbid,'(A)') '       0       1       2'
- end select
+ else
+  if(prt_no) then
+   write(orbid,'(A)') '* natural orbitals'
+   write(orbid,'(A)') '       0       1       0'
+  else
+   write(orbid,'(A)') '* SCF orbitals'
+   write(orbid,'(A)') '       0       1       2'
+  end if
+ end if
 
  write(orbid,'(2X,I6,/,2X,I6)') nbf0, nif
 
@@ -318,7 +338,7 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
   write(orbid,'(5(1X,ES21.14))') (coeff(j,i),j=1,nbf0)
  end do
 
- if(ab == '-uhf') then
+ if(uhf) then
   write(orbid,'(A)') '#UORB'
   do i = 1, nif, 1
    write(orbid,'(A14,I5)') '* ORBITAL    1', i
@@ -327,35 +347,34 @@ subroutine fch2inporb(fchname, ab, sph, uhf)
  end if
  deallocate(coeff)
 
- select case(ab)
- case('-uhf')
-  allocate(occ_num(2*nif), source=0.0d0)
-  occ_num(1:nalpha) = 1.0d0
-  occ_num(nif+1:nif+nbeta) = 1.0d0
+ if(uhf) then
+  allocate(occ_num(2*nif), source=0d0)
+  occ_num(1:nalpha) = 1d0
+  occ_num(nif+1:nif+nbeta) = 1d0
   write(orbid,'(A,/,A)') '#OCC', '* OCCUPATION NUMBERS'
   write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=1,nif)
   write(orbid,'(A,/,A)') '#UOCC', '* Beta OCCUPATION NUMBERS'
   write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=nif+1,2*nif)
-
- case('-no')
-  write(orbid,'(A,/,A)') '#OCC', '* OCCUPATION NUMBERS'
-  write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=1,nif)
-
- case default
-  allocate(occ_num(nif), source=0.0d0)
-  if(nbeta < nalpha) then
-   occ_num(1:nbeta) = 2.0d0
-   occ_num(nbeta+1:nalpha) = 1.0d0
-  else if(nbeta == nalpha) then
-   occ_num(1:nalpha) = 2.0d0
+ else
+  if(prt_no) then
+   write(orbid,'(A,/,A)') '#OCC', '* OCCUPATION NUMBERS'
+   write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=1,nif)
+  else
+   allocate(occ_num(nif), source=0d0)
+   if(nbeta < nalpha) then
+    occ_num(1:nbeta) = 2d0
+    occ_num(nbeta+1:nalpha) = 1d0
+   else if(nbeta == nalpha) then
+    occ_num(1:nalpha) = 2d0
+   end if
+   write(orbid,'(A,/,A)') '#OCC', '* OCCUPATION NUMBERS'
+   write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=1,nif)
   end if
-  write(orbid,'(A,/,A)') '#OCC', '* OCCUPATION NUMBERS'
-  write(orbid,'(5(1X,ES21.14))') (occ_num(i),i=1,nif)
- end select
+ end if
 
  write(orbid,'(A,/,A)') '#OCHR', '* OCCUPATION NUMBERS (HUMAN-READABLE)'
  write(orbid,'(10(1X,F7.4))') (occ_num(i),i=1,nif)
- if(ab == '-uhf') then
+ if(uhf) then
   write(orbid,'(A,/,A)') '#UOCHR', '* Beta OCCUPATION NUMBERS (HUMAN-READABLE)'
   write(orbid,'(10(1X,F7.4))') (occ_num(i),i=nif+1,2*nif)
  end if

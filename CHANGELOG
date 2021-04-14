@@ -1,3 +1,10 @@
+MOKIT 1.2.3 (Apr 14, 2021)
+------------------------
+* extend utility frag_guess_wfn to generate GAMESS .inp of various EDA
+* add utility fch2qm4d (Gaussian -> QM4D)
+* add DFT/MRCI interfaces
+* add keyword HF_prog (=Gaussian, PSI4, ORCA)
+
 MOKIT 1.2.2 (Feb 24, 2021)
 ------------------------
 * add CAS and MRCISD interfaces between AutoMR and PSI4

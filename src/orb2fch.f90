@@ -1,37 +1,37 @@
 ! written by jxzou at 20200907: adjust the orders of d,f,g, etc functions in
 !  OpenMolcas, to that in Gaussian .fch(k) file
-
-! originally copied from fch2inporb.f90, some modifications are made
+! Originally copied from fch2inporb.f90, some modifications are made
+! updated by jxzou at 20210413: remove '-uhf', add automatic determination
 
 module root_parameter
  implicit none
- real(kind=8), parameter :: root3   = DSQRT(3.0d0)     ! SQRT(3)
- real(kind=8), parameter :: root9   = 3.0d0            ! SQRT(9)
- real(kind=8), parameter :: root15  = DSQRT(15.0d0)    ! SQRT(15)
- real(kind=8), parameter :: root45  = DSQRT(45.0d0)    ! SQRT(45)
- real(kind=8), parameter :: root105 = DSQRT(105.0d0)   ! SQRT(105)
- real(kind=8), parameter :: root945 = DSQRT(945.0d0)   ! SQRT(945)
+ real(kind=8), parameter :: root3   = DSQRT(3d0)   ! SQRT(3)
+ real(kind=8), parameter :: root9   = 3d0          ! SQRT(9)
+ real(kind=8), parameter :: root15  = DSQRT(15d0)  ! SQRT(15)
+ real(kind=8), parameter :: root45  = DSQRT(45d0)  ! SQRT(45)
+ real(kind=8), parameter :: root105 = DSQRT(105d0) ! SQRT(105)
+ real(kind=8), parameter :: root945 = DSQRT(945d0) ! SQRT(945)
 end module
 
 program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=4) :: ab
+ character(len=3) :: str
  character(len=240) :: fchname, orbname
+ logical :: prt_no
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,1X,A)') 'ERROR in subroutine orb2fch: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
-  write(iout,'(1X,A)') 'Example 2 (for CAS)   : orb2fch a.RasOrb a.fch'
-  write(iout,'(1X,A)') 'Example 3 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
-  write(iout,'(1X,A)') 'Example 4 (for UHF)   : orb2fch a.UhfOrb a.fch -uhf'
-  write(iout,'(1X,A,/)') 'Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
+  write(iout,'(/,A)') ' ERROR in subroutine orb2fch: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
+  write(iout,'(A)')   ' Example 2 (for UHF)   : orb2fch a.UhfOrb a.fch'
+  write(iout,'(A)')   ' Example 3 (for CAS)   : orb2fch a.RasOrb a.fch'
+  write(iout,'(A)')   ' Example 4 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
+  write(iout,'(A,/)') ' Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
   stop
  end if
 
- ab = ' '
  orbname = ' '
  fchname = ' '
  call getarg(1,orbname)
@@ -39,62 +39,64 @@ program main
 
  call getarg(2,fchname)
  call require_file_exist(fchname)
+ prt_no = .false.
 
  if(i == 3) then
-  call getarg(3, ab)
-  ab = ADJUSTL(ab)
-  if(ab/='-uhf' .and. ab/='-no') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
-                         & wrong! Only '-uhf' or '-no' is accepted."
+  call getarg(3, str)
+  if(str /= '-no') then
+   write(iout,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
+                      & wrong! Only '-no' is accepted."
    stop
+  else
+   prt_no = .true.
   end if
  end if
 
- call orb2fch(orbname, fchname, ab)
+ call orb2fch(orbname, fchname, prt_no)
  stop
 end program main
 
-! nbf: the number of basis functions
-! nif: the number of independent functions, i.e., the number of MOs
-
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
 !  order to that of Gaussian
-subroutine orb2fch(orbname, fchname, ab)
+subroutine orb2fch(orbname, fchname, prt_no)
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
  integer :: n6dmark, n10fmark, n15gmark, n21hmark
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer, parameter :: iout = 6
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  integer, allocatable :: idx(:), idx2(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- character(len=4), intent(in) :: ab
  character(len=240), intent(in) :: orbname, fchname
  ! orbname is one of .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, .UhfOrb file of OpenMolcas
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:), norm(:)
+ logical :: uhf
+ logical, intent(in) :: prt_no
 
+ call check_uhf_in_fch(fchname, uhf)
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  nbf0 = nbf ! make a copy of nbf
 
  ! read MO Coefficients from .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, or .UhfOrb
  ! file of OpenMolcas
- select case(ab)
- case('-uhf')
+ if(uhf) then
   allocate(coeff(nbf,2*nif))
   call read_mo_from_orb(orbname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_orb(orbname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
- case('-no')
-  allocate(occ_num(nif), coeff(nbf,nif))
-  call read_on_from_orb(orbname, nif, 'a', occ_num)
-  call read_mo_from_orb(orbname, nbf, nif, 'a', coeff)
- case default
-  allocate(coeff(nbf,nif))
-  call read_mo_from_orb(orbname, nbf, nif, 'a', coeff)
- end select
+ else
+  if(prt_no) then
+   allocate(occ_num(nif), coeff(nbf,nif))
+   call read_on_from_orb(orbname, nif, 'a', occ_num)
+   call read_mo_from_orb(orbname, nbf, nif, 'a', coeff)
+  else
+   allocate(coeff(nbf,nif))
+   call read_mo_from_orb(orbname, nbf, nif, 'a', coeff)
+  end if
+ end if
 
  call read_ncontr_from_fch(fchname, k)
  allocate(shell_type(2*k), source=0)
@@ -269,17 +271,18 @@ subroutine orb2fch(orbname, fchname, ab)
  deallocate(idx, idx2, norm, coeff)
 
 ! print MOs into .fch(k) file
- select case(ab)
- case('-uhf')
+ if(uhf) then
   nif = nif/2
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
- case('-no')
-  call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
-  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
- case default
-  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
- end select
+ else
+  if(prt_no) then
+   call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
+   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+  else
+   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+  end if
+ end if
 ! print done
 
  deallocate(coeff2)

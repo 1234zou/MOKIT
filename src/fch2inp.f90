@@ -9,14 +9,13 @@
 ! updated by jxzou at 20201113: support for spherical harmonic functions
 !                               (expand 5D,7F,9G,11H to 6D,10F,15G,21H)
 ! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
+! updated by jxzou at 20210407: remove '-uhf', add automatic determination
 
 ! If '-gvb [npair]' is specified, the orbitals in active space will be permuted to the
 !  order of Gamess. In this case, you must specify the argument [npair] in command line.
 
 ! After '-gvb [npair]' is specified, you can also append '-open [nopen0]' if your system
 !  is truely open shell, i.e., doublet, triplet and so on.
-
-! If '-uhf' is specified, the .fch file must include the Beta MO part
 
 ! The order of Cartesian functions in Gaussian can be acquired by adding keyword
 ! 'pop=reg' in .gjf file. In GAMESS output files(.out, .gms), the order of Cartesian
@@ -28,24 +27,27 @@
 ! from spherical harmonic functions to Cartesian functions.
 
 program main
+ use fch_content, only: iout
  implicit none
  integer :: i, npair, nopen0
- integer, parameter :: iout = 6
- character(len=4) :: string, gvb_or_uhf
+ character(len=4) :: str1, string
+ character(len=5) :: str2
  character(len=240) :: fchname
+ logical :: gvb
 
  npair = 0; nopen0 = 0
- string = ' '; gvb_or_uhf = ' '
- i = iargc()
+ gvb = .false.
 
+ i = iargc()
  select case(i)
- case(1,2,3,5)
+ case(1)
+ case(3,5)
+  gvb = .true.
  case default
-  write(iout,'(/,1X,A)') 'ERROR in subroutine fch2inp: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (R(O)HF, CAS): fch2inp a.fch'
-  write(iout,'(1X,A)') 'Example 2 (UHF)        : fch2inp a.fch -uhf'
-  write(iout,'(1X,A)') 'Example 3 (GVB)        : fch2inp a.fch -gvb [npair]'
-  write(iout,'(1X,A,/)') 'Example 4 (ROGVB)      : fch2inp a.fch -gvb [npair] -open [nopen]'
+  write(iout,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch'
+  write(iout,'(A)')   ' Example 2 (GVB)             : fch2inp a.fch -gvb [npair]'
+  write(iout,'(A,/)') ' Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]'
   stop
  end select
 
@@ -53,32 +55,34 @@ program main
  call require_file_exist(fchname)
 
  if(i > 1) then
-  call getarg(2,gvb_or_uhf)
-  if(.not. (gvb_or_uhf=='-gvb' .or. gvb_or_uhf== '-uhf')) then
-   write(iout,'(A)') 'ERROR in subroutine fch2inp: the 2nd argument in command line is wrong!'
-   write(iout,'(A)') "It must be '-gvb' or '-uhf'."
+  call getarg(2, str1)
+  if(str1 /= '-gvb') then
+   write(iout,'(A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
+   write(iout,'(A)') "It can only be '-gvb'."
    stop
   end if
 
-  if(gvb_or_uhf == '-gvb') then
-   if(i == 3) then
-    call getarg(3,string)
-    read(string,*) npair
-   else
-    call getarg(3,string)
-    read(string,*) npair
-    call getarg(5,string)
-    read(string,*) nopen0
+  call getarg(3, string)
+  read(string,*) npair
+
+  if(i == 5) then
+   call getarg(4, str2)
+   if(str2 /= '-open') then
+    write(iout,'(A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
+    write(iout,'(A)') "It can only be '-open'."
+    stop
    end if
+   call getarg(5, string)
+   read(string,*) nopen0
   end if
  end if
 
- call fch2inp(fchname, gvb_or_uhf, npair, nopen0)
+ call fch2inp(fchname, gvb, npair, nopen0)
  stop
 end program main
 
 ! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
-subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
+subroutine fch2inp(fchname, gvb, npair, nopen0)
  use fch_content
  use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
@@ -93,16 +97,16 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: order(:)
- ! six types of angular momentum
  character(len=1) :: str = ' '
- character(len=1),parameter::am_type(-1:6)=['L','S','P','D','F','G','H','I']
- character(len=1),parameter::am_type1(0:6)=['s','p','d','f','g','h','i']
+ character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
+ character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
+ character(len=4) :: gvb_or_uhf
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
- character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ecp, sph, X2C, notrans
- logical, external :: nobasistransform_in_fch
+ logical :: uhf, ecp, sph, X2C
+ logical, intent(in) :: gvb
+ logical, external :: nobasistransform_in_fch, nosymm_in_fch
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -113,13 +117,21 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  end if
  inpname = fchname(1:i-1)//'.inp'
 
- notrans = nobasistransform_in_fch(fchname)
- if(.not. notrans) then
+ if(.not. nobasistransform_in_fch(fchname)) then
   write(iout,'(/,A)') '--------------------------------------------------------'
   write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
-                  & not detected in file "//TRIM(fchname)//'.'
+                   & not detected in file "//TRIM(fchname)//'.'
   write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
-                  &cify this keyword in .gjf file.'
+                   &cify this keyword in .gjf file.'
+  write(iout,'(A)') '--------------------------------------------------------'
+ end if
+
+ if(.not. nosymm_in_fch(fchname)) then
+  write(iout,'(/,A)') '--------------------------------------------------------'
+  write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nosymm' not detected&
+                   & in file "//TRIM(fchname)//'.'
+  write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+                   &cify this keyword in .gjf file.'
   write(iout,'(A)') '--------------------------------------------------------'
  end if
 
@@ -152,11 +164,19 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
   stop
  end select
 
- uhf = .false.
- if(gvb_or_uhf == '-uhf') uhf = .true.
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+ if(gvb) then
+  gvb_or_uhf = '-gvb'
+ else
+  if(uhf) then
+   gvb_or_uhf = '-uhf'
+  else
+   gvb_or_uhf = ' '
+  end if
+ end if
  call read_fch(fchname, uhf) ! read content in .fch(k) file
 
- if(gvb_or_uhf == '-uhf') then
+ if(uhf) then
   nif1 = 2*nif ! alpha, beta MOs
  else
   nif1 = nif
@@ -196,7 +216,7 @@ subroutine fch2inp(fchname, gvb_or_uhf, npair, nopen0)
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif,&
-                            nbf, gvb_or_uhf, ecp, sph, rel, X2C)
+                            nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! print basis sets into the .inp file
@@ -400,10 +420,10 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C)
+           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb)
  implicit none
  integer :: fid, i, ia
- integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel
+ integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel, na, nb
  character(len=3), allocatable :: f(:), alpha(:)
  character(len=4), allocatable :: beta(:)
  character(len=2), allocatable :: ideg(:)
@@ -495,7 +515,12 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  write(fid,'(A,I0,A)') ' $GUESS GUESS=MOREAD NORB=', nif, ' $END'
  write(fid,'(A)') ' $DATA'
- write(fid,'(A,I0)') 'GAMESS inp format file produced by MOKIT, nbf=', nbf
+ write(fid,'(A)',advance='no') 'GAMESS inp file produced by MOKIT'
+ if(gvb_or_uhf /= '-gvb') then
+  write(fid,'(A,I0)',advance='no') ',na=',na
+  write(fid,'(A,I0)',advance='no') ',nb=',nb
+ end if
+ write(fid,'(2(A,I0))') ',nif=',nif,',nbf=',nbf
  write(fid,'(A)') 'C1   1'
  close(fid)
  return

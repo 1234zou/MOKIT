@@ -42,6 +42,30 @@ module pg
  logical :: ecp_exist = .false.
 end module pg
 
+! check whether UHF in a given GAMESS .inp file
+subroutine check_uhf_in_gms_inp(inpname, uhf)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical, intent(out) :: uhf
+
+ uhf = .false.
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  call upper(buf)
+  if(index(buf,'SCFTYP=UHF') > 0) then
+   uhf = .true.
+   exit
+  end if
+  if(index(buf,'$END') > 0) exit
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine check_uhf_in_gms_inp
+
 ! find the number of atoms in GAMESS .inp file
 subroutine read_natom_from_gms_inp(inpname, natom)
  implicit none
@@ -262,6 +286,57 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  close(fid)
  return
 end subroutine read_nbf_and_nif_from_gms_inp
+
+! read na, nb, nif and nbf from a given GAMESS .inp file
+! Note: when spherical harmonic functions are used, the nbf here will <=
+!  the number of basis functions in $VEC (where MOs are always expanded
+!  on Cartesian functions)
+subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: na, nb, nif, nbf
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ na = 0; nb = 0; nif = 0; nbf = 0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call upper(buf(3:6))
+  if(buf(2:6)=='$DATA') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_na_nb_nif_nbf_from_gms_inp: No&
+                   & $DATA section found in'
+  write(iout,'(A)') 'file '//TRIM(inpname)//'.'
+  close(fid)
+  stop
+ end if
+
+ ! read the Title Card line
+ read(fid,'(A)') buf
+ close(fid)
+
+ i = index(buf,'nbf=')
+ read(buf(i+4:),*) nbf
+ buf(i-1:) = ' '
+
+ i = index(buf,'nif=')
+ read(buf(i+4:),*) nif
+ buf(i-1:) = ' '
+
+ i = index(buf,'nb=')
+ read(buf(i+3:),*) nb
+ buf(i-1:) = ' '
+
+ i = index(buf,'na=')
+ read(buf(i+3:),*) na
+ return
+end subroutine read_na_nb_nif_nbf_from_gms_inp
 
 ! read type all_ecp from a given GAMESS .inp/.dat file
 subroutine read_all_ecp_from_gms_inp(inpname)

@@ -1,5 +1,6 @@
 ! written by jxzou at 20200627: transfer MOs from .mkl to .fch(k)
 ! updated by jxzou at 20201213: read NOONs from .mkl and save to .fch
+! updated by jxzou at 20210413: remove '-uhf', add automatic determination
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -13,16 +14,15 @@ program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=4) :: str = ' '
+ character(len=3) :: str = ' '
  character(len=240) :: mklname, fchname
- logical :: uhf, read_on
+ logical :: prt_no
 
  i = iargc()
- if(i<1 .or. i>3) then
-  write(iout,'(/,A)')  ' ERROR in subroutine mkl2fch: wrong command line arguments.'
-  write(iout,'(A)')  ' Example 1 (R(O)HF, CAS): mkl2fch a.mkl a.fch'
-  write(iout,'(A)')  ' Example 2 (CAS NO)     : mkl2fch a.mkl a.fch -no'
-  write(iout,'(A,/)')  ' Example 3 (UHF)        : mkl2fch a.mkl a.fch -uhf'
+ if(.not. (i==2 .or. i==3)) then
+  write(iout,'(/,A)') ' ERROR in subroutine mkl2fch: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): mkl2fch a.mkl a.fch'
+  write(iout,'(A,/)') ' Example 2 (CAS NO)          : mkl2fch a.mkl a.fch -no'
   stop
  end if
 
@@ -32,32 +32,27 @@ program main
 
  call getarg(2, fchname)
  call require_file_exist(fchname)
-
- uhf = .false.; read_on = .false.
+ prt_no = .false.
 
  if(i == 3) then
   call getarg(3, str)
-  str = ADJUSTL(str)
 
-  select case(TRIM(str))
-  case('-uhf')
-   uhf = .true.
-  case('-no')
-   read_on = .true.
-  case default
-   write(iout,'(A)') 'ERROR in subroutine mkl2fch: wrong command line arguments.'
-   write(iout,'(A)') "The 3rd input parameter can only be '-uhf' or '-no'. But&
-                    & you specify '"//TRIM(str)//"'"
+  if(str /= '-no') then
+   write(iout,'(/,A)') 'ERROR in subroutine mkl2fch: wrong command line arguments!'
+   write(iout,'(A)') "The 3rd input parameter can only be '-no'. But you specify&
+                    & '"//TRIM(str)//"'"
    stop
-  end select
+  else
+   prt_no = .true.
+  end if
  end if
 
- call mkl2fch(mklname, fchname, uhf, read_on)
+ call mkl2fch(mklname, fchname, prt_no)
  stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine mkl2fch(mklname, fchname, uhf, read_on)
+subroutine mkl2fch(mklname, fchname, prt_no)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
@@ -65,7 +60,8 @@ subroutine mkl2fch(mklname, fchname, uhf, read_on)
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: mklname, fchname
- logical, intent(in) :: uhf, read_on
+ logical :: uhf
+ logical, intent(in) :: prt_no
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -75,6 +71,7 @@ subroutine mkl2fch(mklname, fchname, uhf, read_on)
   stop
  end if
 
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file
 
  ! check if any Cartesian functions
@@ -157,7 +154,7 @@ subroutine mkl2fch(mklname, fchname, uhf, read_on)
  deallocate(f3_mark, g3_mark, h3_mark)
 
  allocate(noon(nif))
- if(read_on) then
+ if(prt_no) then
   call read_on_from_mkl(mklname, nif, 'a', noon)
  else
   call read_ev_from_mkl(mklname, nif, 'a', noon)

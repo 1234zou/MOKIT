@@ -1,41 +1,43 @@
 ! written by jxzou at 20201214: adjust the orders of d,f,g, etc functions in
 !  Molpro, to that in Gaussian .fch(k) file
-
-! originally copied from orb2fch.f90, some modifications are made
+! Originally copied from orb2fch.f90, some modifications are made
+! updated by jxzou at 20210412: remove '-uhf', add automatic determination
 
 program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=4) :: ab
+ character(len=3) :: str
  character(len=240) :: fchname, xmlname
+ logical :: prt_no
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,1X,A)') 'ERROR in subroutine xml2fch: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (for RHF)   : xml2fch a.xml a.fch'
-  write(iout,'(1X,A)') 'Example 2 (for UHF)   : xml2fch a.xml a.fch -uhf'
-  write(iout,'(1X,A,/)') 'Example 3 (for CAS NO): xml2fch a.xml a.fch -no'
+  write(iout,'(/,A)') ' ERROR in subroutine xml2fch: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (for R(O)HF, UHF): xml2fch a.xml a.fch'
+  write(iout,'(A,/)') ' Example 2 (for CAS NO)     : xml2fch a.xml a.fch -no'
   stop
  end if
 
- ab = ' '; fchname = ' '
+ fchname = ' '
  call getarg(1,xmlname)
  call require_file_exist(xmlname)
  call getarg(2,fchname)
  call require_file_exist(fchname)
+ prt_no = .false.
 
  if(i == 3) then
-  call getarg(3, ab)
-  ab = ADJUSTL(ab)
-  if(ab/='-uhf' .and. ab/='-no') then
+  call getarg(3, str)
+  if(str /= '-no') then
    write(iout,'(/,1X,A)') "ERROR in subroutine xml2fch: the 3rd argument is&
-                         & wrong! Only '-uhf' or '-no' is accepted."
+                         & wrong! Only '-no' is accepted."
    stop
+  else
+   prt_no = .true.
   end if
  end if
 
- call xml2fch(xmlname, fchname, ab)
+ call xml2fch(xmlname, fchname, prt_no)
  stop
 end program main
 
@@ -44,40 +46,43 @@ end program main
 
 ! read the MOs in orbital file of Molpro and adjust its d,f,g,h functions
 !  order to that of Gaussian
-subroutine xml2fch(xmlname, fchname, ab)
+subroutine xml2fch(xmlname, fchname, prt_no)
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
  integer :: n10fmark, n15gmark, n21hmark
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer, parameter :: iout = 6
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  integer, allocatable :: idx(:), idx2(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- character(len=4), intent(in) :: ab
  character(len=240), intent(in) :: xmlname, fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:)
+ logical :: uhf
+ logical, intent(in) :: prt_no
 
+ call check_uhf_in_fch(fchname, uhf)
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  nbf0 = nbf ! make a copy of nbf
 
  ! read MO Coefficients from Molpro .xml file
- select case(ab)
- case('-uhf')
+ if(uhf) then
   allocate(coeff(nbf,2*nif))
   call read_mo_from_xml(xmlname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_xml(xmlname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
- case('-no')
-  allocate(occ_num(nif), coeff(nbf,nif))
-  call read_on_from_xml(xmlname, nif, 'a', occ_num)
-  call read_mo_from_xml(xmlname, nbf, nif, 'a', coeff)
- case default
-  allocate(coeff(nbf,nif))
-  call read_mo_from_xml(xmlname, nbf, nif, 'a', coeff)
- end select
+ else ! not UHF
+  if(prt_no) then
+   allocate(occ_num(nif), coeff(nbf,nif))
+   call read_on_from_xml(xmlname, nif, 'a', occ_num)
+   call read_mo_from_xml(xmlname, nbf, nif, 'a', coeff)
+  else
+   allocate(coeff(nbf,nif))
+   call read_mo_from_xml(xmlname, nbf, nif, 'a', coeff)
+  end if
+ end if
 
  call read_ncontr_from_fch(fchname, k)
  allocate(shell_type(2*k), source=0)
@@ -196,17 +201,18 @@ subroutine xml2fch(xmlname, fchname, ab)
  deallocate(idx, idx2, coeff)
 
 ! print MOs into .fch(k) file
- select case(ab)
- case('-uhf')
+ if(uhf) then
   nif = nif/2
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
- case('-no')
-  call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
-  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
- case default
-  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
- end select
+ else
+  if(prt_no) then
+   call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
+   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+  else
+   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+  end if
+ end if
 ! print done
 
  deallocate(coeff2)

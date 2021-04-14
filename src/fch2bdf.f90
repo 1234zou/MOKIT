@@ -2,56 +2,52 @@
 !  from Gaussian .fch(k) file
 ! updated by jxzou at 20210114: enlarge coeff(nbf,nif) to coeff(nbf,nbf) for
 !  linear dependence usage
+! updated by jxzou at 20210407: remove '-uhf' and add automatic determination
 
 program main
+ use fch_content, only: iout
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
- character(len=4) :: ab
+ character(len=3) :: str
  character(len=240) :: fchname, inpname
- logical :: uhf
+ logical :: prt_no
 
  i = iargc()
  if(i<1 .or. i>2) then
   write(iout,'(/,A)') ' ERROR in subroutine fch2bdf: wrong command line arguments!'
-  write(iout,'(A)') ' Example 1 (R(O)HF): fch2bdf a.fch      (-> a_bdf.inp a.scforb)'
-  write(iout,'(A)') ' Example 2 (CAS NO): fch2bdf a.fch -no  (-> a_bdf.inp a.inporb)'
-  write(iout,'(A,/)') ' Example 3 (UHF)   : fch2bdf a.fch -uhf (-> a_bdf.inp a.scforb)'
+  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
+  write(iout,'(A,/)') ' Example 2 (CAS NO)     : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
   stop
  end if
 
  fchname = ' '
  inpname = ' '
- ab = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
- uhf = .false.
  if(i == 2) then
-  call getarg(2, ab)
-  if(ab/='-no' .and. ab/='-uhf') then
+  call getarg(2, str)
+  if(str /= '-no') then
    write(iout,'(A)') 'ERROR in subroutine fch2bdf: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-no' or '-uhf'."
+   write(iout,'(A)') "The 2nd argument can only be '-no'."
    stop
-  else if(ab == '-uhf') then
-   uhf = .true.
+  else ! str = '-no'
+   prt_no = .true.
   end if
+ else ! i = 1
+  prt_no = .false.
  end if
 
- call fch2bdf(fchname, ab)
- call fch2inp_wrap(fchname, uhf, .false., 0, 0)
+ call fch2bdf(fchname, prt_no)
+ call fch2inp_wrap(fchname, .false., 0, 0)
 
  i = index(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
- if(uhf) then
-  i = system('bas_gms2bdf '//TRIM(inpname)//' -uhf')
- else
-  i = system('bas_gms2bdf '//TRIM(inpname))
- end if
+ i = system('bas_gms2bdf '//TRIM(inpname))
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2bdf: call utility bas_gms2bdf failed.'
+  write(iout,'(A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms2bdf.'
   write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if
@@ -62,12 +58,12 @@ end program main
 
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order
 !  of Gaussian to that of BDF
-subroutine fch2bdf(fchname, ab)
+subroutine fch2bdf(fchname, prt_no)
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, natom, orbid
  integer :: na, nb, nif, nbf, nbf0, nbf1, mult
  integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark
- integer, parameter :: iout = 6
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -76,8 +72,9 @@ subroutine fch2bdf(fchname, ab)
  real(kind=8), allocatable :: coeff(:,:), occ_num(:), coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: buf, orbfile
- character(len=4), intent(in) :: ab
  character(len=240), intent(in) :: fchname
+ logical, intent(in) :: prt_no
+ logical :: uhf
 
  orbfile = ' '
 
@@ -102,21 +99,19 @@ subroutine fch2bdf(fchname, ab)
  ! The array size of occ_num is actually 2*nif or nif, and coeff is (nbf,nif)
  ! or (nbf,2*nif). But BDF requires them to use nbf. If linear dependence
  ! occurs, the extra elements are zero and must be printed into .scforb/.inporb.
- select case(ab)
- case('-uhf')
-  allocate(occ_num(2*nbf), source=0d0)
-  allocate(coeff(nbf,2*nbf), source=0d0)
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+ if(uhf) then
+  allocate(occ_num(2*nbf), coeff(nbf,2*nbf))
   call read_eigenvalues_from_fch(fchname,nif,'a',occ_num(1:nif))
   call read_eigenvalues_from_fch(fchname,nif,'b',occ_num(nif+1:2*nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(:,1:nif))
   call read_mo_from_fch(fchname, nbf, nif, 'b', coeff(:,nif+1:2*nif))
   nif = 2*nif   ! double the size
- case default
-  allocate(occ_num(nbf), source=0d0)
-  allocate(coeff(nbf,nbf), source=0d0)
+ else
+  allocate(occ_num(nbf), coeff(nbf,nbf))
   call read_eigenvalues_from_fch(fchname, nif, 'a', occ_num)
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(1:nbf,1:nif))
- end select
+ end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
  ! 1) split the 'L' into 'S' and 'P', this is to ensure that D comes after L functions
@@ -169,8 +164,12 @@ subroutine fch2bdf(fchname, ab)
    n11hmark = n11hmark + 1
    h_mark(n11hmark) = nbf + 1
    nbf = nbf + 11
+  case default
+   write(iout,'(A)') 'ERROR in subroutine fch2bdf: shell_type(i) out of range.'
+   write(iout,'(2(A,I0))') 'i=', i, ', k=', k
+   stop
   end select
- end do
+ end do ! for i
 
  ! adjust the order of d, f, etc. functions
  do i = 1, n3pmark, 1
@@ -236,7 +235,7 @@ subroutine fch2bdf(fchname, ab)
 
 ! print MOs into BDF .scforb or .inporb
  i = index(fchname, '.fch', back=.true.)
- if(TRIM(ab) == '-no') then
+ if(prt_no) then
   orbfile = fchname(1:i-1)//'_bdf.inporb'
  else
   orbfile = fchname(1:i-1)//'_bdf.scforb'
@@ -247,24 +246,24 @@ subroutine fch2bdf(fchname, ab)
 
  call read_charge_and_mult_from_fch(fchname, i, mult)
 
- if((mult==1 .and. ab/='-uhf') .or. TRIM(ab)=='-no') then
+ if((mult==1 .and. (.not.uhf)) .or. prt_no) then
   write(orbid,'(A)') '$MOCOEF  1'  ! RHF/CAS
  else
   write(orbid,'(A)') '$MOCOEF  2'  ! ROHF, UHF
  end if
 
- if(ab == '-uhf') nif = nif/2
+ if(uhf) nif = nif/2
  write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' ALPHA'
  do i = 1, nbf0, 1
   write(orbid,'(5(2X,E23.16))') (coeff(j,i),j=1,nbf0)
  end do ! for i
 
- if(ab == '-uhf') then    ! UHF
+ if(uhf) then    ! UHF
   write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' BETA'
   do i = 1, nbf0, 1
    write(orbid,'(5(2X,E23.16))') (coeff(j,i+nbf0),j=1,nbf0)
   end do ! for i
- else if(mult/=1 .and. TRIM(ab)/='-no') then ! ROHF
+ else if(mult/=1 .and. (.not.prt_no)) then ! ROHF
   write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' BETA'
   do i = 1, nbf0, 1
    write(orbid,'(5(2X,E23.16))') (coeff(j,i),j=1,nbf0)
@@ -275,14 +274,14 @@ subroutine fch2bdf(fchname, ab)
  write(orbid,'(A)') 'ORBITAL ENERGY'
  write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nbf0)
 
- if(ab == '-uhf') then
+ if(uhf) then
   write(orbid,'(5(2X,E23.16))') (occ_num(i),i=nbf0+1,2*nbf0)
- else if(mult/=1 .and. TRIM(ab)/='-no') then
+ else if(mult/=1 .and. (.not.prt_no)) then
   write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nbf0)
  end if
 
  write(orbid,'(A)') 'OCCUPATION'
- if(TRIM(ab) == '-no') then
+ if(prt_no) then
   write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
   write(orbid,'(A)') '$END'
   close(orbid)
@@ -293,7 +292,7 @@ subroutine fch2bdf(fchname, ab)
  occ_num(1:na) = 1d0
  write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
 
- if(mult/=1 .or. ab=='-uhf') then
+ if(mult/=1 .or. uhf) then
   if(nb < na) occ_num(nb+1:na) = 0d0
   write(orbid,'(A)') 'OCCUPATION'
   write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)

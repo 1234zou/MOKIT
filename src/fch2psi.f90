@@ -21,42 +21,25 @@ program main
  implicit none
  integer :: i
  integer, parameter :: iout = 6
- character(len=4) :: str
  character(len=240) :: fchname = ' '
- logical :: uhf
 
  i = iargc()
- if(i<1 .or. i>2) then
+ if(i /= 1) then
   write(iout,'(/,A)') ' ERROR in subroutine fch2psi: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, CAS): fch2psi a.fch'
-  write(iout,'(A,/)') ' Example 2 (UHF)        : fch2psi a.fch -uhf'
+  write(iout,'(A,/)') ' Example (R(O)HF, UHF, CAS): fch2psi a.fch'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
-
- str = ' '
- uhf = .false.
-
- if(i == 2) then
-  call getarg(2, str)
-  if(str == '-uhf') then
-   uhf = .true.
-  else
-   write(iout,'(A)') 'ERROR in subroutine fch2psi: wrong command line arguments.'
-   write(iout,'(A)') "The 2nd argument can only be '-uhf'. But got '"//str//"'"
-   stop
-  end if
- end if
-
- call fch2psi(fchname, uhf)
+ call fch2psi(fchname)
  stop
 end program main
 
 ! transfer MOs from Gaussian to Psi4
-subroutine fch2psi(fchname, uhf)
+subroutine fch2psi(fchname)
  use util_wrapper, only: fch2inp_wrap
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, k, fid, system
  integer :: nbf0, nbf, nif, ncontr
@@ -67,10 +50,10 @@ subroutine fch2psi(fchname, uhf)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240) :: inpname, fileA, fileB
  character(len=240), intent(in) :: fchname
- logical, intent(in) :: uhf
- logical :: sph
+ logical :: sph, uhf
 
- call fch2inp_wrap(fchname, uhf, .false., 0, 0)
+ call check_uhf_in_fch(fchname, uhf)
+ call fch2inp_wrap(fchname, .false., 0, 0)
  call check_sph(fchname, sph)
 
  i = index(fchname,'.fch', back=.true.)

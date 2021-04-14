@@ -7,6 +7,7 @@
 ! updated by jxzou at 20201115: support for spherical harmonic functions
 !                               (expand 5D,7F,9G,11H to 6D,10F,15G,21H)
 ! updated by jxzou at 20201212: if -no, read $OCCNO for CASCI, write to .fch
+! updated by jxzou at 20210413: remove '-uhf', add automatic determination
 
 ! The orders of Cartesian f, g and h functions in .dat file will be permuted.
 ! Note: an initial .fch(k) file must be provided, and MOs in it will be replaced.
@@ -16,11 +17,12 @@
 !  extra keyword needed.
 
 program main
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, npair, nopen, idx1, idx2
- integer, parameter :: iout = 6
  character(len=4) :: gvb_or_uhf_or_cas, string
  character(len=240) :: datname, fchname
+ logical :: uhf
 
  npair = 0; nopen = 0; idx1 = 0; idx2 = 0
  gvb_or_uhf_or_cas = ' '
@@ -29,13 +31,12 @@ program main
  fchname = ' '
 
  i = iargc()
- if(i<1 .or. i>6) then
+ if(.not. (i==2 .or. i==4 .or. i==5 .or. i==6) ) then
   write(iout,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
-  write(iout,'(A)') ' Example 1 (for R(O)HF, CASSCF): dat2fch a.dat a.fch'
-  write(iout,'(A)') ' Example 2 (for GVB)           : dat2fch a.dat a.fch -gvb 4'
-  write(iout,'(A)') ' Example 3 (for ROGVB)         : dat2fch a.dat a.fch -gvb 4 -open 2'
-  write(iout,'(A)') ' Example 4 (for UHF)           : dat2fch a.dat a.fch -uhf'
-  write(iout,'(A,/)') ' Example 5 (for CAS NOs)       : dat2fch a.dat a.fch -no 5 10'
+  write(iout,'(A)')   ' Example 1 (for R(O)HF, UHF, CAS): dat2fch a.dat a.fch'
+  write(iout,'(A)')   ' Example 2 (for GVB)             : dat2fch a.dat a.fch -gvb 4'
+  write(iout,'(A)')   ' Example 3 (for ROGVB)           : dat2fch a.dat a.fch -gvb 4 -open 2'
+  write(iout,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 5 10'
   stop
  end if
 
@@ -44,18 +45,14 @@ program main
 
  call getarg(2,fchname)
  call require_file_exist(fchname)
+ call check_uhf_in_fch(fchname, uhf)
 
  if(i > 2) then
   call getarg(3,gvb_or_uhf_or_cas)
   gvb_or_uhf_or_cas = ADJUSTL(gvb_or_uhf_or_cas)
-  if(.not. (gvb_or_uhf_or_cas=='-gvb' .or. gvb_or_uhf_or_cas=='-uhf' &
-       .or. gvb_or_uhf_or_cas=='-no') ) then
-   write(iout,'(A)') 'ERROR in subroutine dat2fch: the 3rd argument is wrong!'
-   write(iout,'(A)') "It must be '-gvb', '-uhf' or '-no'."
-   stop
-  end if
 
-  if(gvb_or_uhf_or_cas == '-gvb') then
+  select case(TRIM(gvb_or_uhf_or_cas))
+  case('-gvb')
    call getarg(4,string)
    read(string,*) npair
    ! '-open' is only valid in GVB, means ROGVB
@@ -63,17 +60,23 @@ program main
     call getarg(6,string)
     read(string,*) nopen
    end if
-  else if(gvb_or_uhf_or_cas(1:3) == '-no') then
+  case('-no')
    call getarg(4,string)
    read(string,*) idx1
    call getarg(5,string)
    read(string,*) idx2
    if(idx1<1 .or. idx2<2) then
-    write(iout,'(A)') 'ERROR in subroutine dat2fch: invalid idx1 and/or idx2.'
+    write(iout,'(/,A)') 'ERROR in subroutine dat2fch: invalid idx1 and/or idx2.'
     write(iout,'(2(A,I0))') 'idx1=', idx1, ', idx2=', idx2
     stop
    end if
-  end if
+  case default
+   write(iout,'(/,A)') 'ERROR in subroutine dat2fch: the 3rd argument is wrong!'
+   write(iout,'(A)') "It must be '-gvb' or '-no'."
+   stop
+  end select
+ else
+  if(uhf) gvb_or_uhf_or_cas = '-uhf'
  end if
 
  call dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
@@ -83,7 +86,7 @@ end program main
 ! transform MOs in .dat file into .fchk file
 subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
- use fch_content, only: read_mark_from_shltyp
+ use fch_content, only: iout, read_mark_from_shltyp
  implicit none
  integer :: i, j, k, datid, nline, nleft, RENAME
  integer :: nbf, nif, na, nb
@@ -93,7 +96,6 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  integer :: nbf1, nif1, ncontr, nd, nf, ng, nh
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  ! mark the index where f,g,h functions begin
- integer, parameter :: iout = 6
  integer, intent(in) :: npair, nopen, idx1, idx2
  integer, allocatable :: order(:), shltyp(:), shl2atm(:)
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
@@ -117,9 +119,10 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
 
  ! check nopen ?= na - nb
  if(gvb_or_uhf_or_cas=='-gvb' .and. nopen/=na-nb) then
-  write(iout,'(A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
+  write(iout,'(/,A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
   write(iout,'(A)') 'You should check if anything is wrong in .fch(k) file&
                    & or your command line arguments.'
+  write(iout,'(3(A,I0))') 'nopen=', nopen, ', na=', na, ', nb=', nb
  end if
  ! check done
 
@@ -154,8 +157,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
 
  call read_nbf_from_dat(datname, i)
  if(i /= nbf1) then
-  write(iout,'(A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
-                  & .fch and .dat file.'
+  write(iout,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
+                     & .fch and .dat file.'
   write(iout,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
   stop
  end if

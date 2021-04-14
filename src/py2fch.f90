@@ -29,7 +29,7 @@
 subroutine py2fch(fchname, nbf, nif, coeff2, Sdiag, ab, ev, gen_density)
  implicit none
  integer :: i, j, k, fid, fid1
- integer :: ncoeff, nbf, nif, nocc
+ integer :: ncoeff, nbf, nif
 !f2py intent(in) :: nbf, nif
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark

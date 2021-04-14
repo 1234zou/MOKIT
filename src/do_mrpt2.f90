@@ -11,7 +11,7 @@ subroutine do_mrpt2()
   molcas_path, molpro_path, orca_path, bdf_path, FIC, F12
  use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
                 davidson_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: mkl2gbw
+ use util_wrapper, only: mkl2gbw, fch2inp_wrap
  implicit none
  integer :: i, mem0, RENAME, system
  character(len=24) :: data_string
@@ -293,7 +293,7 @@ subroutine do_mrpt2()
   write(iout,'(A)') 'MRMP2 using program gamess'
   call check_gms_path()
 
-  i = system('fch2inp '//TRIM(casnofch))
+  call fch2inp_wrap(casnofch, .false., 0, 0)
   i = index(casnofch, '.fch')
   pyname = casnofch(1:i-1)//'.inp'
   i = index(casnofch, '_NO', back=.true.)
@@ -716,8 +716,8 @@ end subroutine prt_caspt2_orca_inp
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casnofch, casci, casscf, maxM, X2C, RI, &
-  RIJK_bas, RIC_bas
+ use mr_keyword, only: mem, nproc, casnofch, casci, casscf, maxM, X2C, RI,&
+  RIJK_bas, RIC_bas, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -769,6 +769,19 @@ subroutine prt_nevpt2_script_into_py(pyname)
  else
   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2.0d0), ' # GB'
+ end if
+
+ if(hardwfn) then
+  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 200'
+ else if(crazywfn) then
+  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
+  write(fid2,'(A)') 'mc.fcisolver.level_shift = 0.2'
+  write(fid2,'(A)') 'mc.fcisolver.pspace_size = 1200'
+  write(fid2,'(A)') 'mc.fcisolver.max_space = 100'
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 300'
+ else
+  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 100'
  end if
 
  write(fid2,'(A)') 'mc.verbose = 5'
@@ -845,8 +858,9 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  write(fid2,'(/,A)') "&DMRGSCF"
  write(fid2,'(A)') 'ActiveSpaceOptimizer=QCMaquis'
  write(fid2,'(A)') 'DMRGSettings'
+ write(fid2,'(A)') ' conv_thresh = 1e-8'
  write(fid2,'(A,I0)') ' max_bond_dimension = ', maxM
- write(fid2,'(A)') ' nsweeps = 5'
+ write(fid2,'(A)') ' nsweeps = 20'
  write(fid2,'(A)') 'EndDMRGSettings'
  write(fid2,'(A)') 'OOptimizationSettings'
  write(fid2,'(A,I0)') 'Charge = ', charge

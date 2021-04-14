@@ -1,5 +1,84 @@
 ! written by jxzou at 20200623
 
+module periodic_table
+ implicit none
+ integer, parameter :: period_nelem = 112
+ character(len=2), parameter :: period_elem(period_nelem) = &
+  ['H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
+   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
+   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
+   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
+   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
+   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
+   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
+   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
+   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
+   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
+   'Rg', 'Cn' ]
+
+contains
+
+ ! map a nuclear charge to an element (e.g. 6->'C')
+ ! Note: only 1-112 elements are supported!
+ pure function nuc2elem(i) result(s)
+  implicit none
+  integer, intent(in) :: i
+  character(len=2) :: s
+ 
+  s = period_elem(i)
+  return
+ end function nuc2elem
+
+ ! read elements array from a given .gjf array
+ subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
+  implicit none
+  integer :: i, j, k, nblank, fid
+  integer, intent(in) :: natom
+  character(len=6) :: str
+  character(len=240) :: buf
+  character(len=240), intent(in) :: gjfname
+  character(len=2), intent(out) :: elem(natom)
+  logical, intent(out) :: ghost(natom)
+
+  elem = ' '
+  ghost = .false.
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+  nblank = 0
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+   if(nblank == 2) exit
+  end do ! for while
+
+  read(fid,'(A)') buf ! skip charge and mult
+  do i = 1, natom, 1
+   read(fid,*) str
+   str = ADJUSTL(str)
+   k = LEN_TRIM(str)
+   if(str(k-2:k) == '-Bq') then
+    elem(i) = str(1:k-3)
+    ghost(i) = .true.
+   else
+    k = IACHAR(str(1:1))
+    if((k>64 .and. k<91) .or. (k>96 .and. k<123)) then ! A-Z, a-z
+     if(k>96 .and. k<123) str(1:1) = ACHAR(k-32)
+     j = IACHAR(str(2:2))
+     if(j>64 .and. j<91) str(2:2) = ACHAR(j+32)
+     elem(i) = TRIM(str)
+    else
+     read(str,*) j
+     elem(i) = nuc2elem(j)
+    end if
+   end if
+  end do ! for natom
+
+  close(fid)
+  return
+ end subroutine read_elem_from_gjf
+end module periodic_table
+
 ! find the number of atoms in Gaussian .gjf file
 subroutine read_natom_from_gjf(gjfname, natom)
  implicit none
@@ -732,4 +811,25 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
  close(fid)
  return
 end subroutine read_coor_from_molpro_out
+
+! write/create a .xyz file
+subroutine write_xyzfile(natom, coor, elem, xyzname)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: coor(3,natom)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: xyzname
+
+ open(newunit=fid,file=TRIM(xyzname),status='replace')
+ write(fid,'(I0)') natom
+ write(fid,'(A)') 'xyz format file produced by MOKIT'
+
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine write_xyzfile
 

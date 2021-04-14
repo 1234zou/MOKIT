@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.2 :: MOKIT'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -39,6 +39,7 @@ program main
   write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, MRCISD,'
   write(iout,'(A)')    '  MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
   write(iout,'(/,A)')  'Keywords in MOKIT{}:'
+  write(iout,'(A)')    '      HF_prog=Gaussian, PySCF, PSI4, ORCA'
   write(iout,'(A)')    '  CASSCF_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4'
   write(iout,'(A)')    '   CASCI_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4'
   write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
@@ -80,132 +81,21 @@ subroutine automr(fname)
  call parse_keyword()
  call check_kywd_compatible()
 
- call do_hf()
+ call do_hf()         ! RHF and/or UHF
  call get_paired_LMO()
  call do_gvb()
- call do_cas(.false.)! CASCI/DMRG-CASCI
- call do_cas(.true.) ! CASSCF/DMRG-CASSCF
- call do_mrpt2()     ! CASPT2/NEVPT2/SDSPT2/MRMP2
- call do_mrpt3()     ! CASPT3/NEVPT3
- call do_mrcisd()    ! uncontracted/ic-/FIC- MRCISD
- call do_mcpdft()    ! MC-PDFT
- call do_mrcc()      ! ic-MRCC
+ call do_cas(.false.) ! CASCI/DMRG-CASCI
+ call do_cas(.true.)  ! CASSCF/DMRG-CASSCF
+ call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
+ call do_mrpt3()      ! CASPT3/NEVPT3
+ call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
+ call do_mcpdft()     ! MC-PDFT
+ call do_mrcc()       ! ic-MRCC
 
  call fdate(data_string)
  write(iout,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
  return
 end subroutine automr
-
-! perform RHF/UHF computation
-subroutine do_hf()
- use print_id, only: iout
- use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, charge,&
-  mult, rhf_e, uhf_e
- use mr_keyword, only: readuhf, readrhf, skiphf, mem, nproc, basis, cart, &
-  gau_path, hf_fch, ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname,&
-  uno, dkh2_or_x2c, vir_proj, prt_strategy, gau_path, frag_guess
- use util_wrapper, only: formchk
- implicit none
- integer :: i, system
- real(kind=8) :: ssquare = 0d0
- character(len=24) :: data_string = ' '
- character(len=240) :: rhf_gjfname, uhf_gjfname, chkname
- logical :: eq
-
- write(iout,'(//,A)') 'Enter subroutine do_hf...'
-
- if(skiphf) then
-  write(iout,'(A)') 'Provided .fch(k) file. Skip the RHF/UHF step...'
-  call read_natom_from_fch(hf_fch, natom)
-  allocate(coor(3,natom), elem(natom), nuc(natom))
-  call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
-
-  if(readuhf .and. mult==1) then
-   write(iout,'(A)') 'Check whether provided UHF is equivalent to RHF...'
-   call check_if_uhf_equal_rhf(hf_fch, eq)
-   if(eq) then
-    write(iout,'(A)') 'This is actually a RHF wave function. Alpha=Beta.&
-                     & Switching to ist=3.'
-    i = system('fch_u2r '//TRIM(hf_fch))
-    i = index(hf_fch, '.fch', back=.true.)
-    hf_fch = hf_fch(1:i-1)//'_r.fch'
-    readuhf = .false.; readrhf = .true.; ist = 3
-    vir_proj = .true.; mo_rhf = .true. ; uno = .false.
-    write(iout,'(A)') 'Strategy updated:'
-    call prt_strategy()
-   else
-    write(iout,'(A)') 'This seems a truly UHF wave function.'
-   end if
-  end if
-
-  if(bgchg) call read_bgchg_from_gjf(.true.)
-  call fdate(data_string)
-  write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
-  return
- end if
-
- call check_exe_exist(gau_path)
- call read_natom_from_gjf(gjfname, natom)
- allocate(coor(3,natom), elem(natom), nuc(natom))
- call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
- if(frag_guess) then
-  allocate(atom2frag(natom), frag_char_mult(2,nfrag))
-  call read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
- end if
- if(bgchg) call read_bgchg_from_gjf(.false.)
-
- i = index(gjfname, '.gjf', back=.true.)
- rhf_gjfname = gjfname(1:i-1)//'_rhf.gjf'
- uhf_gjfname = gjfname(1:i-1)//'_uhf.gjf'
-
- if(mult == 1) then ! singlet, perform RHF and UHF
-  call generate_hf_gjf(rhf_gjfname, .false.)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_gjfname))
-  call perform_scf_and_read_e(gau_path, rhf_gjfname, rhf_e, ssquare)
-
-  call generate_hf_gjf(uhf_gjfname, .true.)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
-  call perform_scf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
-
- else               ! not singlet, only perform UHF
-
-  call generate_hf_gjf(uhf_gjfname, .true.)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
-  call perform_scf_and_read_e(gau_path, uhf_gjfname, uhf_e, ssquare)
- end if
-
- if(mult == 1) then
-  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(RHF) = ',rhf_e,'a.u., <S**2>=',0.0
-  write(iout,'(A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
- else
-  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
- end if
-
- if(rhf_e - uhf_e > 1.0d-4) then
-  write(iout,'(A)') 'UHF energy is lower, choose UHF wave function.'
-  ist = 1
-  mo_rhf = .false.
-  i = index(gjfname, '.gjf', back=.true.)
-  chkname = gjfname(1:i-1)//'_uhf.chk'
-  hf_fch = gjfname(1:i-1)//'_uhf.fch'
- else
-  write(iout,'(A)') 'RHF/UHF energy is equal, or has little difference, choose RHF.'
-  ist = 3
-  vir_proj = .true.; mo_rhf = .true.; uno = .false.
-  i = index(gjfname, '.gjf', back=.true.)
-  chkname = gjfname(1:i-1)//'_rhf.chk'
-  hf_fch = gjfname(1:i-1)//'_rhf.fch'
- end if
-
- call formchk(chkname, hf_fch)
-
- write(iout,'(A)') 'Strategy updated:'
- call prt_strategy()
-
- call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
- return
-end subroutine do_hf
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
@@ -257,7 +147,7 @@ subroutine get_paired_LMO()
    write(iout,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
   end if
 
-  i = system('bas_fch2py '//TRIM(hf_fch)//' -uhf')
+  i = system('bas_fch2py '//TRIM(hf_fch))
   if(ist == 1) then
    pyname = TRIM(proname)//'_uno_asrot.py'
    outname = TRIM(proname)//'_uno_asrot.out'
@@ -1255,47 +1145,4 @@ subroutine do_mrcc()
 ! write(iout,'(A)') 'ERROR in subroutine do_mrcc: not supported currently.'
  return
 end subroutine do_mrcc
-
-! modify the memory in a given .inp file
-subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
- implicit none
- integer :: i, fid1, fid2, RENAME
- integer, intent(in) :: mem, nproc
- integer, parameter :: iout = 6
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.tmp'
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(inpname1),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(index(buf,'MWORDS') /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS'&
-                   & found in file "//TRIM(inpname)
-  close(fid1)
-  close(fid2,status='delete')
-  stop
- end if
-
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1000.0d0/(8.0d0*DBLE(nproc))),' $END'
-
- ! copy the remaining content
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
-
- close(fid1,status='delete')
- close(fid2)
- i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine modify_memory_in_gms_inp
 

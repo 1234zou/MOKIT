@@ -20,11 +20,11 @@ program main
  if(i<2 .or. i>4) then
   write(iout,'(/,A)') ' ERROR in subroutine fch_mo_copy: wrong command line arguments!'
   write(iout,'(A)')   ' Example 1: fch_mo_copy a.fch b.fch      (Alpha MOs in a.fch -> Alpha MOs in b.fch)'
-  write(iout,'(A)')   ' Example 2: fch_mo_copy a.fch b.fch -aa  (eqv. to Example1)'
+  write(iout,'(A)')   ' Example 2: fch_mo_copy a.fch b.fch -aa  (eqv. to Example 1)'
   write(iout,'(A)')   ' Example 3: fch_mo_copy a.fch b.fch -ab  (Alpha MOs in a.fch -> Beta  MOs in b.fch)'
   write(iout,'(A)')   ' Example 4: fch_mo_copy a.fch b.fch -ba  (Beta  MOs in a.fch -> Alpha MOs in b.fch)'
   write(iout,'(A)')   ' Example 5: fch_mo_copy a.fch b.fch -bb  (Beta  MOs in a.fch -> Beta  MOs in b.fch)'
-  write(iout,'(A,/)')   ' Example 6: fch_mo_copy a.fch b.fch 5 10 (copy 5-10 Alpha MOs in a.fch -> b.fch)'
+  write(iout,'(A,/)') ' Example 6: fch_mo_copy a.fch b.fch 5 10 (copy 5-10 Alpha MOs in a.fch -> b.fch)'
   stop
  end if
 

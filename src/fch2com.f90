@@ -1,50 +1,36 @@
 ! written by jxzou at 20201210: copy from fch2inporb.f90 and do modifications
 !  generate Molpro .com file from Gaussian .fch(k) file
+! updated by jxzou at 20210407: remove '-uhf' and add automatic determination
 
 program main
+ use fch_content, only: iout
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
- character(len=4) :: str
  character(len=240) :: fchname, inpname
- logical :: sph, uhf
+ logical :: sph
 
  i = iargc()
- if(.not. (i==1 .or. i==2)) then
-  write(iout,'(/,1X,A)') 'ERROR in subroutine fch2com: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (for R(O)HF): fch2com a.fch'
-  write(iout,'(1X,A,/)') 'Example 2 (for UHF)   : fch2com a.fch -uhf'
+ if(i /= 1) then
+  write(iout,'(/,A)') ' ERROR in subroutine fch2com: wrong command line argument!'
+  write(iout,'(A,/)') ' Example (R(O)HF, GVB, CAS): fch2com a.fch'
   stop
  end if
 
- str = ' '
  fchname = ' '
  sph = .true.
- uhf = .false.
+
  call getarg(1, fchname)
- call require_file_exist(fchname)
-
- if(i == 2) then
-  call getarg(2,str)
-  if(str /= '-uhf') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine fch2com: the 2nd argument is&
-                         & wrong! Only '-uhf' is accepted."
-   stop
-  else
-   uhf = .true.
-  end if
- end if
-
- call fch2inp_wrap(fchname, uhf, .false., 0, 0) ! generate GAMESS .inp file
-
- i = index(fchname,'.fch', back=.true.)
+ i = index(fchname, '.fch', back=.true.)
  if(i == 0) then
   write(iout,'(A)') "ERROR in subroutine fch2com: no '.fch' suffix in&
                    & filename="//TRIM(fchname)
   stop
  end if
  inpname = fchname(1:i-1)//'.inp'
+
+ call require_file_exist(fchname)
+ call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
 
  call check_sph(fchname, sph)
  if(sph) then
@@ -54,13 +40,15 @@ program main
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2com: call utility bas_gms2molpro failed.'
-  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  write(iout,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility&
+                     & bas_gms2molpro. Two possible reasons:'
+  write(iout,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
+  write(iout,'(A,/)') '(2) You forgot to compile the utility bas_gms2molpro.'
   stop
  end if
 
  call delete_file(inpname)
- call fch2com(fchname, uhf)
+ call fch2com(fchname)
  stop
 end program main
 
@@ -69,27 +57,28 @@ end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
-subroutine fch2com(fchname, uhf)
+subroutine fch2com(fchname)
+ use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, orbid
  integer :: nalpha, nbeta, nbf, nif
  integer :: nbf0, nbf1
- integer :: n10fmark,n15gmark,n21hmark
- integer :: n5dmark,n7fmark, n9gmark, n11hmark
+ integer :: n10fmark, n15gmark, n21hmark
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
- integer,allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=240) :: fileA, fileB
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:)
- logical, intent(in) :: uhf
- logical :: sph
+ logical :: uhf, sph
 
  call read_na_and_nb_from_fch(fchname, nalpha, nbeta)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  nbf0 = nbf
 
  ! read MO Coefficients
+ call check_uhf_in_fch(fchname, uhf)
  if(uhf) then
   allocate(coeff(nbf,2*nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff(:,1:nif))
@@ -104,10 +93,18 @@ subroutine fch2com(fchname, uhf)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
- if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
-  sph = .false.
- else
+
+ if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
+  write(iout,'(A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/&
+                   &Cartesian functions detected.'
+  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+                   & default setting is (6D,7F).'
+  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  stop
+ else if( ANY(shell_type<-1) ) then
   sph = .true.
+ else
+  sph = .false.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
@@ -174,8 +171,12 @@ subroutine fch2com(fchname, uhf)
    n21hmark = n21hmark + 1
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
+  case default
+   write(iout,'(A)') 'ERROR in subroutine fch2com: shell_type(i) out of range.'
+   write(iout,'(2(A,I0))') 'i=', i, ', k=', k
+   stop
   end select
- end do
+ end do ! for i
  deallocate(shell_type)
 
  ! adjust the order of d, f, etc. functions

@@ -251,7 +251,7 @@ subroutine do_cas(scf)
   call delete_file(buf)
   ! do not use datname in the above three lines! because datname may be that of a GVB job
 
-  call fch2inp_wrap(fchname, .false., .false., 0, 0)
+  call fch2inp_wrap(fchname, .false., 0, 0)
   i = index(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'
@@ -853,8 +853,8 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  if(dmrgci .or. dmrgscf) then
   write(fid2,'(A)') 'DMRG'
   write(fid2,'(A)') 'RGinput'
-  write(fid2,'(A)') ' conv_thresh = 1E-7'
-  write(fid2,'(A)') ' nsweeps = 5'
+  write(fid2,'(A)') ' conv_thresh = 1E-8'
+  write(fid2,'(A)') ' nsweeps = 20'
   write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
   write(fid2,'(A)') 'endRG'
  end if
@@ -1130,34 +1130,4 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
  write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
  return
 end subroutine prt_cas_psi4_inp
-
-! modify memory in a given PSI4 input file
-subroutine modify_memory_in_psi4_inp(inpname, mem)
- implicit none
- integer :: i, fid, fid1, RENAME
- integer, intent(in) :: mem
- integer, parameter :: iout = 6
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.t'
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(inpname1),status='replace')
-
- read(fid,'(A)') buf
- write(fid1,'(A)') TRIM(buf)
- read(fid,'(A)') buf
- write(fid1,'(A,I0,A)') 'memory ', mem, ' GB'
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- close(fid,status='delete')
- close(fid1)
- i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine modify_memory_in_psi4_inp
 
