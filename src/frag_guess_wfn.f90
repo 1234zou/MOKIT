@@ -1,5 +1,6 @@
 ! written by jxzou at 20201121: perform fragment-guess wavefunction calculations
 ! updated by jxzou at 20210409: add support of MOROKUMA-EDA and GKS-EDA
+! updated by jxzou at 20210414: automatically add $DFTTYP and $PCM into GAMESS .inp file
 
 ! The fragment-guess wavefunction calculation in Gaussian has the following
 ! shortcomings:
@@ -22,14 +23,14 @@ module frag_info
   integer :: mult = 0
   integer :: natom = 0
   integer :: wfn_type = 0            ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
-  integer, allocatable :: atm_map(:) ! map to parent system
+  integer, allocatable :: atm_map(:) ! map to parent system, i.e. supermolecule
   real(kind=8) :: e = 0d0            ! electronic energy
   real(kind=8) :: ssquare = 0d0      ! S(S+1)
   real(kind=8), allocatable :: coor(:,:)   ! size natom
   character(len=2), allocatable :: elem(:) ! size natom
   character(len=240) :: fname = ' '
-  logical :: noiter = .false.        ! .True./.False. for skipping SCF or not
-  logical, allocatable :: ghost(:)   ! True/False for ghost atoms or not, size natom
+  logical :: noiter = .false.      ! .True./.False. for skipping SCF or not
+  logical, allocatable :: ghost(:) ! True/False for ghost atoms or not, size natom
  end type frag
 
  type(frag), allocatable :: frags(:)
@@ -42,7 +43,7 @@ module theory_level
  character(len=21) :: basis = ' '
  character(len=40) :: scrf  = ' '
  character(len=20) :: solvent = ' '
- logical :: sph = .true.     ! .True./.False. for spherical harmonic/Cartesian functions
+ logical :: sph = .true.  ! .True./.False. for spherical harmonic/Cartesian functions
 end module theory_level
 
 program main
@@ -54,7 +55,7 @@ program main
  i = iargc()
  if(i /= 1) then
   write(iout,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
-                      & argument!'
+                      & arguments!'
   write(iout,'(/,A)') " Example 1 (in bash): frag_guess_wfn water_dimer.gjf >& water_dimer.out &"
   write(iout,'(A,/)') " Example 2 (in dash): frag_guess_wfn water_dimer.gjf >water_dimer.out 2>&1 &"
   stop
@@ -101,7 +102,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  if(sph .and. eda_type==2) then
   write(iout,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic&
                    & functions (5D 7F) cannot be'
-  write(iout,'(A)') 'used in MOROKUMA-EDA method in GAMESS. Automatically switch&
+  write(iout,'(A)') 'used in Morokuma-EDA method in GAMESS. Automatically switch&
                    & to Cartesian functions (6D 10F).'
   sph = .false.
  end if
@@ -130,7 +131,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  do while(.true.)
   read(fid,'(A)') buf
   if(LEN_TRIM(buf) == 0) exit
-  longbuf = TRIM(longbuf)//TRIM(buf)
+  longbuf = TRIM(longbuf)//' '//TRIM(buf)
  end do ! for while
 
  call lower(longbuf)
@@ -166,7 +167,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  write(iout,'(A,I0)') 'nfrag=', nfrag
 
  call read_method_and_basis_from_buf(longbuf, method, basis, wfn_type)
- write(iout,'(A)') 'method='//TRIM(method)//', basis='//TRIM(basis)
+ write(iout,'(A,I0)') 'method='//TRIM(method)//', basis='//TRIM(basis)//&
+                     &', wfn_type=', wfn_type
 
  if(index(basis,'gen') > 0) then
   call record_gen_basis_in_gjf(gjfname, basname)
@@ -190,7 +192,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  charge = cm(1); mult = cm(2)
 
  if(mult/=1 .and. eda_type==2) then
-  write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: MOROKUMA-EDA can only&
+  write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
                    & be applied to RHF. But'
   write(iout,'(A)') 'the total spin is not singlet.'
   close(fid)
@@ -212,7 +214,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  end if
 
  if(eda_type==2 .and. wfn_type/=1) then
-  write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: MOROKUMA-EDA can only&
+  write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
                    & be applied to RHF. But'
   write(iout,'(A,I0)') 'RHF-type wavefunction is not specified. wfn_type=',wfn_type
   close(fid)
@@ -230,6 +232,17 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   frags(i)%mult = cm(2*i+2)
  end forall
  deallocate(cm)
+
+ i = SUM(frags(1:nfrag0)%charge)
+ if(i /= charge) then
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: sum of fragment&
+                     & charges is not equal to total charge.'
+  write(iout,'(2(A,I0))') 'Total charge=', charge, ', sum(frag_charges)=', i
+  write(iout,'(A)') 'Wrong charges in file '//TRIM(gjfname)
+  deallocate(frags)
+  close(fid)
+  stop
+ end if
 
  allocate(coor(3,natom), source=0d0)
  allocate(elem(natom))
@@ -357,7 +370,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call formchk(chkname, fchname)
   call delete_file(chkname)
   call delete_file(buf)
-!  call delete_file(logname)
+  call delete_file(logname)
  end do ! for i
 
  return
@@ -491,10 +504,13 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
 
  if(method(1:1) == 'u') then
   wfn_type = 3 ! UHF
+  method = method(2:)
  else if(method(1:2) == 'ro') then
   wfn_type = 2 ! ROHF
+  method = method(3:)
  else if(method(1:1) == 'r') then
   wfn_type = 1 ! RHF
+  method = method(2:)
  else
   wfn_type = 0 ! undetermined
  end if
@@ -559,36 +575,30 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
  use print_id, only: iout
  use theory_level, only: method, basis, scrf, sph
  implicit none
- integer :: i, fid
+ integer :: i, k(3),fid
  integer, intent(in) :: mem, nproc
  character(len=9) :: method0
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
  logical, intent(in) :: guess_read
 
- if(index(method,'ro3lyp')>0 .or. index(method,'roo3lyp')>0) then
-  write(iout,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: R- and&
-                     & RO-type O3LYP functional is not'
-  write(iout,'(A)') 'supported. Because this functional name is confusing.'
+ k = [index(method,'o3lyp'),index(method,'ohse2pbe'),index(method,'ohse1pbe')]
+
+ if( ANY(k > 0) ) then
+  write(iout,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP,&
+                     & OHSE2PBE, and OHSE1PBE functionals'
+  write(iout,'(A)') 'are not supported. Because these functional names are confusing.'
   stop
  end if
 
  method0 = ' '
- if(method(1:1)=='u' .or. (method(1:1)=='r' .and. method(2:2)/='o')) then
-  method0 = method(2:)
- else if(method(1:2) == 'ro') then
-  method0 = method(3:)
- else
-  method0 = method
- end if
-
  select case(frag0%wfn_type)
  case(1)
-  method0 = 'R'//TRIM(method0)
+  method0 = 'R'//TRIM(method)
  case(2)
-  method0 = 'RO'//TRIM(method0)
+  method0 = 'RO'//TRIM(method)
  case(3)
-  method0 = 'U'//TRIM(method0)
+  method0 = 'U'//TRIM(method)
  case default
   write(iout,'(A,I0)') 'ERROR in subroutine gen_gjf_from_type_frag: invalid&
                       & wfn_type=', frag0%wfn_type
@@ -677,9 +687,10 @@ subroutine gen_inp_of_frags()
  use print_id, only: iout
  use frag_info, only: nfrag0, nfrag, frags
  use util_wrapper, only: fch2inp_wrap
- use theory_level, only: eda_type, scrf, solvent
+ use theory_level, only: eda_type, method, scrf, solvent
  implicit none
  integer :: i, j, k, fid1, fid2, system
+ character(len=9) :: dft_in_gms
  character(len=240) :: buf1, buf2, chkname, fchname
  character(len=240) :: inpname1, inpname2
 
@@ -705,10 +716,31 @@ subroutine gen_inp_of_frags()
  buf2 = buf1(1:i+6)//'EDA'//TRIM(buf1(i+13:))
  write(fid2,'(A)') TRIM(buf2)
 
+ call convert_dft_name_gau2gms(method, dft_in_gms)
+ read(fid1,'(A)') buf1
+
+ i = index(buf1, '$END')
+ if(i == 0) then
+  write(iout,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found&
+                   & in the 2nd line of file "//TRIM(inpname1)
+  close(fid1)
+  close(fid2,status='delete')
+  stop
+ end if
+
+ write(fid2,'(A)') buf1(1:i-1)//'DFTTYP='//TRIM(dft_in_gms)//' $END'
+ if(TRIM(dft_in_gms) /= 'NONE') write(fid2,'(A)') ' $DFT NRAD=99 NLEB=590 $END'
+
  do while(.true.)
   read(fid1,'(A)') buf1
   if(buf1(2:7) == '$GUESS') exit
-  if(eda_type==2 .and. buf1(2:5)=='$SCF') buf1 = ' $SCF DIRSCF=.F. $END'
+  if(buf1(2:5) == '$SCF') then
+   if(eda_type == 2) then
+    buf1 = ' $SCF DIRSCF=.F. $END'
+   else
+    if(TRIM(dft_in_gms) /= 'NONE') buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. $END'
+   end if
+  end if
   write(fid2,'(A)') TRIM(buf1)
  end do ! for while
 
@@ -757,7 +789,11 @@ subroutine gen_inp_of_frags()
   stop
  end select
 
- if(LEN_TRIM(scrf) > 0) write(fid2,'(A)') ' $PCM SOLVNT='//TRIM(solvent)//' $END'
+ if(LEN_TRIM(scrf) > 0) then
+  write(fid2,'(A)',advance='no') ' $PCM SOLVNT='//TRIM(solvent)
+  if(index(scrf,'smd') > 0) write(fid2,'(A)',advance='no') ' SMD=.T.'
+  write(fid2,'(A)') ' $END'
+ end if
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf1
@@ -788,6 +824,7 @@ subroutine gen_inp_of_frags()
  end do ! for i
 
  close(fid2)
+ deallocate(frags)
  return
 end subroutine gen_inp_of_frags
 
@@ -980,6 +1017,60 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
 
  return
 end subroutine determine_solvent_from_gau2gms
+
+! convert DFT name of Gaussian to that of GAMESS
+subroutine convert_dft_name_gau2gms(method, dft_in_gms)
+ use print_id, only: iout
+ implicit none
+ integer :: i
+ character(len=9), intent(in) :: method
+ character(len=9), intent(out) :: dft_in_gms
+
+ dft_in_gms = ' '
+
+ select case(TRIM(method))
+ case('b3lyp','blyp','x3lyp','b3p86','b3pw91','wB97','wB97X','b98','m05','m06',&
+      'm11','bmk','bp86','tpssh','revtpss')
+  dft_in_gms = method
+ case('m052x')
+  dft_in_gms = 'M05-2X'
+ case('m06hf')
+  dft_in_gms = 'M06-HF'
+ case('m062x')
+  dft_in_gms = 'M06-2X'
+ case('m06l')
+  dft_in_gms = 'M06-L'
+ case('m08hx')
+  dft_in_gms = 'M08-HX'
+ case('m11l')
+  dft_in_gms = 'M11-L'
+ case('wb97xd')
+  dft_in_gms = 'wB97X-D'
+ case('b971')
+  dft_in_gms = 'B97-1'
+ case('b972')
+  dft_in_gms = 'B97-2'
+ case('b97d')
+  dft_in_gms = 'B97-D'
+ case('pbepbe')
+  dft_in_gms = 'PBE'
+ case('pbe1pbe')
+  dft_in_gms = 'PBE0'
+ case('cam-b3lyp')
+  dft_in_gms = 'CAMB3LYP'
+ case('tpsstpss')
+  dft_in_gms = 'TPSS'
+ case('hf','rhf','rohf','uhf')
+  dft_in_gms = 'NONE'
+ case default
+  write(iout,'(A)') 'Warning in subroutine convert_dft_name_gau2gms: functional name&
+                   & cannot be recognized.'
+  write(iout,'(A)') 'DFTTYP=NONE will be set in .inp file. You can modify it by yourself.'
+  dft_in_gms = 'NONE'
+ end select
+
+ return
+end subroutine convert_dft_name_gau2gms
 
 ! delete ECP/PP of ghost atoms in a given .gjf file
 subroutine del_ecp_of_ghost_in_gjf(gjfname)
