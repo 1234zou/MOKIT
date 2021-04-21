@@ -372,11 +372,11 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
  integer, parameter :: iout = 6, niter_max = 9999
  ! niter_max: max number of iterations
 
- real(kind=8), parameter :: threshold1 = 1.0d-7, threshold2 = 1.0d-6
+ real(kind=8), parameter :: threshold1 = 1d-7, threshold2 = 1d-6
  ! threshold1: determine whether to rotate (and update MOs, dipole integrals)
  ! threshold2: determine whether rotation/localization converged
  ! if threshold2 is set to 1.0d-5, the localization is sometimes not thorough
- real(kind=8), parameter :: PI = 4.0d0*DATAN(1.0d0)
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
 
  real(kind=8), intent(inout) :: coeff(nbf,nif), mo_dipole(ncomp,nif,nif)
  ! for Boys, ncomp = 3

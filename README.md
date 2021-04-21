@@ -30,7 +30,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Apr 15, 2021
+Apr 21, 2021
 
 Installation
 ------------
@@ -71,10 +71,9 @@ Quick Start
   you will find
 
    ERROR in subroutine fch2inp: wrong command line arguments!  
-   Example 1 (R(O)HF, CAS): fch2inp a.fch  
-   Example 2 (UHF)        : fch2inp a.fch -uhf  
-   Example 3 (GVB)        : fch2inp a.fch -gvb [npair]  
-   Example 4 (ROGVB)      : fch2inp a.fch -gvb [npair] -open [nopen]
+   Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
+   Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
+   Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 
 * For usages of modules in lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
 

@@ -617,6 +617,26 @@ contains
   write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
 
+  alive1(1:4) = [(index(longbuf,'hf_prog')>0), (index(longbuf,'readrhf')>0), &
+                 (index(longbuf,'readuhf')>0), (index(longbuf,'readno')>0)]
+  if(alive1(1) .and. ANY(alive1(2:4) .eqv. .true.)) then
+   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog'&
+                      & cannot be used with any of"
+   write(iout,'(A)') "'readrhf', 'readuhf', 'readno'."
+   stop
+  end if
+
+  alive1(1:5) = [(index(longbuf,'nmr')>0), (index(longbuf,'opt')>0), (index(longbuf,'freq')>0),&
+               (index(longbuf,'scrf')>0), (index(longbuf,'iop')>0)]
+  if(COUNT(alive1(1:5) .eqv. .true.) > 0) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: invalid keyword(s) detected.'
+   write(iout,'(A)') "Currently none of 'opt', 'freq', 'scrf', 'nmr', 'iop' is&
+                    & supported. You can"
+   write(iout,'(A)') 'use the generated *_NO.fch file to perform further calculations&
+                    & with these keywords.'
+   stop
+  end if
+
   alive1(1:5) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
                  (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0), &
                  (index(longbuf,'mcpdft_prog')/=0)]
@@ -760,8 +780,8 @@ contains
    case('otpdf')
     read(longbuf(j+1:i-1),*) otpdf
    case default
-    write(iout,'(A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
-                      //"' not recognized in {}."
+    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
+                        //"' not recognized in {}."
     stop
    end select
 

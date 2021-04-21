@@ -1,6 +1,7 @@
 ! written by jxzou at 20201121: perform fragment-guess wavefunction calculations
 ! updated by jxzou at 20210409: add support of MOROKUMA-EDA and GKS-EDA
 ! updated by jxzou at 20210414: automatically add $DFTTYP and $PCM into GAMESS .inp file
+! updated by jxzou at 20210417: construct supermolecule MOs from direct sum of fragments MOs
 
 ! The fragment-guess wavefunction calculation in Gaussian has the following
 ! shortcomings:
@@ -13,10 +14,10 @@
 
 module frag_info
  implicit none
- integer :: nfrag0 ! number of fragments in .gjf file
- integer :: nfrag  ! number of fragments to be calculated
- ! For none-EDA calculations, nfrag = nfrag0
- ! For EDA calculations, nfrag > nfrag0
+ integer :: nfrag0 ! No. of fragments in .gjf file
+ integer :: nfrag  ! No. of fragments (including total system) to be calculated
+ ! For none-EDA and Morokuma-EDA calculations, nfrag = nfrag0
+ ! For GKS-EDA calculations, nfrag = 2*nfrag0 + 1
 
  type :: frag
   integer :: charge = 0
@@ -28,9 +29,9 @@ module frag_info
   real(kind=8) :: ssquare = 0d0      ! S(S+1)
   real(kind=8), allocatable :: coor(:,:)   ! size natom
   character(len=2), allocatable :: elem(:) ! size natom
-  character(len=240) :: fname = ' '
-  logical :: noiter = .false.      ! .True./.False. for skipping SCF or not
-  logical, allocatable :: ghost(:) ! True/False for ghost atoms or not, size natom
+  character(len=240) :: fname = ' '        ! gjf filename
+  logical :: noiter = .false.        ! .True./.False. for skipping SCF or not
+  logical, allocatable :: ghost(:)   ! .True./.False. for ghost atoms or not, size natom
  end type frag
 
  type(frag), allocatable :: frags(:)
@@ -38,6 +39,7 @@ end module frag_info
 
 module theory_level
  implicit none
+ integer :: wfn_type = 0   ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer :: eda_type = 0   ! 0/1/2 for none/GKS-EDA/Morokuma-EDA
  character(len=9) :: method = ' '
  character(len=21) :: basis = ' '
@@ -86,7 +88,6 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  integer :: i, j, k, m, fid, ifrag, iatom
  integer :: charge, mult, natom, maxfrag
  integer :: mem, nproc
- integer :: wfn_type   ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer, allocatable :: cm(:), nuc(:)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
@@ -210,7 +211,15 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    stop
   end if
  else ! mult /= 1
-  if(wfn_type == 0) wfn_type = 3 ! UHF
+  if(wfn_type == 0) then
+   wfn_type = 3 ! UHF
+  else
+   if(wfn_type == 1) then
+    write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: total spin is non-singlet.&
+                     & But you specify RHF/RDFT.'
+    stop
+   end if
+  end if
  end if
 
  if(eda_type==2 .and. wfn_type/=1) then
@@ -261,6 +270,14 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   end if
   read(buf(1:j-1),*) elem(i)
   read(buf(k+1:m-1),*) ifrag
+
+  if(i==1 .and. eda_type/=0 .and. ifrag/=1) then
+   write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fragment number.'
+   write(iout,'(A)') 'EDA input file required. This task requires definition&
+                    & of fragment number'
+   write(iout,'(A)') 'monomer1, monomer2, monomer3,...'
+   stop
+  end if
 
   if(ifrag > nfrag0) then
    write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: the number of fragments&
@@ -322,7 +339,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   frags(i)%ghost = .false.
  end do ! for i
 
- ! this is the total system
+ ! this is the super molecule/total system
  frags(nfrag)%natom = natom
  allocate(frags(nfrag)%elem(natom), frags(nfrag)%coor(3,natom), nuc(natom), &
           frags(nfrag)%atm_map(natom))
@@ -333,7 +350,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  iatom = frags(nfrag)%natom
  allocate(frags(nfrag)%ghost(iatom))
  frags(nfrag)%ghost = .false.
- if(eda_type==0 .or. eda_type==2) frags(nfrag)%noiter = .true.
+ frags(nfrag)%noiter = .true.
 
  if(eda_type == 1) then ! GKS-EDA
   do i = 1, nfrag0, 1
@@ -361,18 +378,31 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 !  end if
   call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
                          frags(i)%e, frags(i)%ssquare)
-  write(iout,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
-                                      ', frags(i)%ssquare=', frags(i)%ssquare
+  if(i < nfrag) then
+   write(iout,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
+                                       ', frags(i)%ssquare=', frags(i)%ssquare
+  end if
   chkname = frags(i)%fname(1:j-1)//'.chk'
   fchname = frags(i)%fname(1:j-1)//'.fch'
   buf     = frags(i)%fname(1:j-1)//'.gjf'
   logname = frags(i)%fname(1:j-1)//'.log'
-  call formchk(chkname, fchname)
-  call delete_file(chkname)
-  call delete_file(buf)
   call delete_file(logname)
+  if(i < nfrag) call delete_file(buf)
  end do ! for i
 
+ ! For GKS-EDA, construct supermolecule MOs from direct sum of fragment MOs
+ if(eda_type == 1) then
+  i = nfrag
+  call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
+        frags(1:nfrag0)%wfn_type, frags(i)%fname, frags(i)%wfn_type)
+  frags(i)%noiter = .false.
+  call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
+                         frags(i)%e, frags(i)%ssquare)
+  write(iout,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
+                                      ', frags(i)%ssquare=', frags(i)%ssquare
+ end if
+
+ write(iout,'(A)') 'All SCF computations finished. Generating GAMESS input file ...'
  return
 end subroutine frag_guess_wfn
 
@@ -606,16 +636,35 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
  end select
 
  open(newunit=fid,file=TRIM(frag0%fname),status='replace')
-
  i = index(frag0%fname, '.gjf', back=.true.)
  write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p '//TRIM(method0)//'/'//TRIM(basis)//&
-  ' nosymm int=nobasistransform scf(xqc,maxcycle=200)'
+ write(fid,'(A)',advance='no') '#p '//TRIM(method0)//'/'//TRIM(basis)//' nosymm'
 
- i = LEN_TRIM(scrf)
- if(i > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
+ call lower(method0)
+ select case(TRIM(method0))
+ case('rhf','rohf','uhf')
+  write(fid,'(A)',advance='no') ' int=nobasistransform'
+ case default
+  write(fid,'(A)',advance='no') ' int(nobasistransform,ultrafine)'
+ end select
+
+ select case(frag0%wfn_type)
+ case(1) ! RHF
+  write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=300)'
+ case(2) ! ROHF
+  write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc)'
+ case(3) ! UHF
+  write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc,conver=7)'
+ case default
+  write(iout,'(A)') 'ERROR in subroutine gen_gjf_from_type_frag: wfn_type&
+                   & out of range.'
+  write(iout,'(A,I0)') 'frag0%wfn_type=', frag0%wfn_type
+  stop
+ end select
+
+ if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
 
  if(sph) then
   write(fid,'(A)',advance='no') ' 5D 7F'
@@ -629,11 +678,11 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
   if(frag0%noiter) then
    write(fid,'(A)') ' guess(only,save)'
   else
-   if(frag0%wfn_type == 3) then
-    write(fid,'(A)',advance='no') ' stable=opt'
-    if(frag0%mult == 1) write(fid,'(A)',advance='no') ' guess=mix'
+   if(frag0%wfn_type==3 .and. frag0%mult==1) then
+    write(fid,'(A)') ' guess=mix'
+   else
+    write(fid,'(/)',advance='no')
    end if
-   write(fid,'(/)',advance='no')
   end if
  end if
 
@@ -653,6 +702,27 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
 
  if(ANY(frag0%ghost .eqv. .true.) .and. index(basis,'genecp')>0) &
   call del_ecp_of_ghost_in_gjf(frag0%fname)
+
+ if((.not.guess_read) .and. (.not.frag0%noiter) .and. frag0%wfn_type==3) then
+  open(newunit=fid,file=TRIM(frag0%fname),status='old',position='append')
+  write(fid,'(/,A)') '--Link1--'
+  i = index(frag0%fname, '.gjf', back=.true.)
+  write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
+  write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
+  write(fid,'(A,I0)') '%nprocshared=', nproc
+  write(fid,'(A)',advance='no') '#p '//TRIM(method0)//' chkbasis guess=read&
+   & geom=allcheck nosymm stable=opt scf(xqc,maxcycle=500,NoIncFock,NoVarAcc)'
+
+  if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
+
+  select case(TRIM(method0))
+  case('rhf','rohf','uhf')
+   write(fid,'(A,/)') ' int=nobasistransform'
+  case default
+   write(fid,'(A,/)') ' int(nobasistransform,ultrafine)'
+  end select
+  close(fid)
+ end if
 
  return
 end subroutine gen_gjf_from_type_frag
@@ -687,12 +757,19 @@ subroutine gen_inp_of_frags()
  use print_id, only: iout
  use frag_info, only: nfrag0, nfrag, frags
  use util_wrapper, only: fch2inp_wrap
- use theory_level, only: eda_type, method, scrf, solvent
+ use theory_level, only: wfn_type, eda_type, method, scrf, solvent
+ use periodic_table, only: read_elem_from_gjf, elem2vdw_radii
  implicit none
- integer :: i, j, k, fid1, fid2, system
+ integer :: i, j, k, m, fid1, fid2, system
+ integer :: natom  ! No. of atoms
+ integer :: na, nb ! No. of alpha/beta electrons
+ real(kind=8), allocatable :: radii(:)
+ character(len=2), allocatable :: elem(:)
  character(len=9) :: dft_in_gms
  character(len=240) :: buf1, buf2, chkname, fchname
  character(len=240) :: inpname1, inpname2
+ logical :: r2u
+ logical, allocatable :: ghost(:)
 
  if(eda_type == 0) return
  k = index(frags(1)%fname, '.gjf', back=.true.)
@@ -708,6 +785,18 @@ subroutine gen_inp_of_frags()
  j = index(frags(nfrag)%fname, '.gjf', back=.true.)
  inpname1 = frags(nfrag)%fname(1:j-1)//'.inp'
  inpname2 = frags(nfrag)%fname(i+1:j-1)//'.inp'
+
+ if(LEN_TRIM(scrf) > 0) then
+  if(index(scrf,'smd') == 0) then
+   call read_natom_from_gjf(frags(nfrag)%fname(i+1:j+3), natom)
+   allocate(elem(natom), ghost(natom), radii(natom))
+   call read_elem_from_gjf(frags(nfrag)%fname(i+1:j+3), natom, elem, ghost)
+   deallocate(ghost)
+   forall(i = 1:natom) radii(i) = elem2vdw_radii(elem(i))
+   deallocate(elem)
+  end if
+ end if
+
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
@@ -790,9 +879,25 @@ subroutine gen_inp_of_frags()
  end select
 
  if(LEN_TRIM(scrf) > 0) then
-  write(fid2,'(A)',advance='no') ' $PCM SOLVNT='//TRIM(solvent)
-  if(index(scrf,'smd') > 0) write(fid2,'(A)',advance='no') ' SMD=.T.'
-  write(fid2,'(A)') ' $END'
+  write(fid2,'(A)',advance='no') ' $PCM IEF=3 SOLVNT='//TRIM(solvent)
+  if(index(scrf,'smd') > 0) then
+   write(fid2,'(A)',advance='no') ' SMD=.T. $END'
+   write(iout,'(/,A)') 'Warning from subroutine gen_inp_of_frags: scrf=SMD detected.'
+   write(iout,'(A)') 'If you encounter SCF convergence problems later in GAMESS,&
+                    & you can change'
+   write(iout,'(A)') 'to scrf=PCM or remove scrf=SMD (i.e. gas phase computation).'
+  else
+   write(fid2,'(A,/,A)') ' $END',' $PCMCAV ALPHA(1)=1.1'
+   j = natom/8
+   do i = 1, j, 1
+    write(fid2,'(A,I0,A,F6.4,7(A1,F6.4))') '  RIN(',8*i-7,')=',radii(8*i-7),(',',radii(m),m=8*i-6,8*i)
+   end do ! for i
+   if(natom-8*j > 0) then
+    write(fid2,'(A,I0,A,F6.4,7(A1,F6.4))') '  RIN(',8*j+1,')=',radii(8*j+1),(',',radii(m),m=8*j+2,natom)
+   end if
+   deallocate(radii)
+   write(fid2,'(A)') ' $END'
+  end if
  end if
 
  do while(.true.)
@@ -811,25 +916,29 @@ subroutine gen_inp_of_frags()
  end if
 
  if(eda_type == 1) &
-  call copy_vec_to_append_another_inp(inpname1, inpname2, 0, .false., .true., .true.)
+  call copy_vec_to_append_another_inp(inpname1, inpname2, 0, .false., .true., .true., .false.)
 
  do i = 1, nfrag0, 1
+  r2u = .false.
+  if(wfn_type==3 .and. frags(i)%wfn_type/=3) r2u = .true.
   inpname1 = frags(i)%fname(1:k-1)//'.inp'
-  call copy_vec_to_append_another_inp(inpname1, inpname2, i, .false., .true., .true.)
+  call copy_vec_to_append_another_inp(inpname1, inpname2, i, .false., .true., .true., r2u)
 
   if(eda_type == 1) then
    inpname1 = frags(i+nfrag0)%fname(1:k-1)//'.inp'
-   call copy_vec_to_append_another_inp(inpname1, inpname2, i, .true., .true., .true.)
+   call copy_vec_to_append_another_inp(inpname1, inpname2, i, .true., .true., .true., r2u)
   end if
  end do ! for i
 
  close(fid2)
  deallocate(frags)
+ write(iout,'(/,A)') 'Done. Now you can submit file '//TRIM(inpname2)//' to GAMESS.'
  return
 end subroutine gen_inp_of_frags
 
-! copy $VEC from a .inp file into another .inp file, by appending
-subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, deleted, occ)
+! copy $VEC from file inpname1 into inpname2, by appending
+subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
+                                          deleted, occ, r2u)
  use print_id, only: iout
  implicit none
  integer :: i, nline, fid1, fid2
@@ -843,8 +952,17 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, de
  logical, intent(in) :: extended ! $VEC or $VEA
  logical, intent(in) :: deleted  ! whether to delete inpname1
  logical, intent(in) :: occ      ! whether to copy only occupied orbitals or all orbitals
+ logical, intent(in) :: r2u      ! whether to copy nb orbitals from Alpha MOs
 
  call check_uhf_in_gms_inp(inpname1, uhf)
+ if(uhf .and. r2u) then
+  write(iout,'(A)') "ERROR in subroutine copy_vec_to_append_another_inp: both&
+                   & logical variables 'uhf' and"
+  write(iout,'(A)') "'r2u' are .True. This is not allowed."
+  write(iout,'(A)') 'inpname1='//TRIM(inpname1)//', inpname2='//TRIM(inpname2)
+  stop
+ end if
+
  if(occ) then
   call read_na_nb_nif_nbf_from_gms_inp(inpname1, na, nb, nif, nbf)
   call read_nbf_from_dat(inpname1, nbf1)
@@ -886,7 +1004,7 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, de
   end if
  end if
 
- if(occ) then
+ if(occ) then ! only copy occupied MOs of a fragment
   nline = nbf1/5
   if(nbf1-5*nline > 0) nline = nline + 1
 
@@ -905,15 +1023,43 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, de
    end do ! for i
   end if
 
-  write(fid2,'(A)') ' $END'
- else
+  if(r2u) then ! copy beta MOs from alpha MOs
+   do while(.true.)
+    BACKSPACE(fid1)
+    BACKSPACE(fid1)
+    read(fid1,'(A)') buf
+    if(buf(2:5) == '$VEC') exit
+   end do ! for while
+   do i = 1, nline*nb, 1
+    read(fid1,'(A)') buf
+    write(fid2,'(A)') TRIM(buf)
+   end do ! for i
+  end if
+
+ else ! copy all MOs of a fragment
+
   do while(.true.)
    read(fid1,'(A)') buf
-   write(fid2,'(A)') TRIM(buf)
    if(buf(2:5) == '$END') exit
+   write(fid2,'(A)') TRIM(buf)
   end do ! for while
+
+  if(r2u) then ! copy beta MOs from alpha MOs
+   do while(.true.)
+    BACKSPACE(fid1)
+    BACKSPACE(fid1)
+    read(fid1,'(A)') buf
+    if(buf(2:5) == '$VEC') exit
+   end do ! for while
+   do while(.true.)
+    read(fid1,'(A)') buf
+    if(buf(2:5) == '$END') exit
+    write(fid2,'(A)') TRIM(buf)
+   end do ! for while
+  end if
  end if
 
+ write(fid2,'(A)') ' $END'
  if(deleted) then
   close(fid1,status='delete')
  else
@@ -1171,4 +1317,147 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
  i = RENAME(TRIM(gjfname1), TRIM(gjfname))
  return
 end subroutine del_ecp_of_ghost_in_gjf
+
+! construct supermolecule occ MOs from direct sum of fragment occ MOs
+! construct supermolecule vir MOs from direct sum of fragment vir MOs
+subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type)
+ use print_id, only: iout
+ use util_wrapper, only: formchk, unfchk
+ implicit none
+ integer :: i, j, fid0, fid, RENAME
+ integer :: k1, k2, k3, k4, k5, k6, k7
+ integer :: nbf0, nif0, nbf, nif
+ integer :: na0, nb0, na, nb   ! No. of alpha/beta electrons
+ integer, intent(in) :: n
+ integer, intent(in) :: wfn_type0(n), wfn_type ! 1/2/3 for RHF/ROHF/UHF
+ character(len=240) :: buf, fchname0, fchname, chkname
+ character(len=240), intent(in) :: gjfname0(n), gjfname
+ real(kind=8), allocatable :: mo_a0(:,:), mo_b0(:,:) ! fragment MOs
+ real(kind=8), allocatable :: mo_a(:,:), mo_b(:,:)   ! supermolecule MOs
+ logical :: alive
+
+ i = index(gjfname, '.gjf', back=.true.)
+ if(i == 0) then
+  write(iout,'(A)') "ERROR in subroutine direct_sum_frag_mo2super_mo: no '.gjf'&
+                  & string found in file "//TRIM(gjfname)
+  stop
+ end if
+
+ if(ANY(wfn_type0 == 0) .or. wfn_type==0) then
+  write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: there exists&
+                   & at least one file'
+  write(iout,'(A)') 'whose wfn_type is 0. Not allowed.'
+
+  do i = 1, n, 1
+   write(iout,'(2(A,I0))') 'i=',i,','//TRIM(gjfname0(i))//',wfn_type0(i)=',wfn_type0(i)
+  end do ! for i
+  write(iout,'(A,I0)') 'wfn_type=', wfn_type
+  stop
+ end if
+
+ ! modify 'guess(only,save)' in gjf file into 'guess=read geom=allcheck'
+ fchname = TRIM(gjfname)//'.t'
+ open(newunit=fid0,file=TRIM(gjfname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='replace')
+ do while(.true.)
+  read(fid0,'(A)') buf
+  i = index(buf,'guess')
+  if(i > 0) then
+   buf = buf(1:i+4)//'=read geom=allcheck'
+   i = index(buf,'/')
+   j = index(buf(i+1:),' ')
+   buf = buf(1:i)//'chkbasis'//buf(i+j:)
+
+   i = index(buf,',conver=')
+   if(i > 0) then
+    j = index(buf(i+1:),')')
+    buf = buf(1:i-1)//')'//buf(i+j+1:)
+   end if
+
+   if(wfn_type == 3) buf = TRIM(buf)//' stable=opt'
+  end if
+  write(fid,'(A)') TRIM(buf)
+  if(LEN_TRIM(buf) == 0) exit
+ end do ! for while
+ close(fid0,status='delete')
+ close(fid)
+ i = RENAME(TRIM(fchname), TRIM(gjfname))
+ ! modify done
+
+ i = index(gjfname, '.gjf', back=.true.)
+ fchname = gjfname(1:i-1)//'.fch'
+ chkname = gjfname(1:i-1)//'.chk'
+ inquire(file=TRIM(fchname), exist=alive)
+ if(.not. alive) call formchk(chkname)
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo_a(nbf,nif), source=0d0)
+ if(wfn_type == 3) allocate(mo_b(nbf,nif), source=0d0)
+ k1 = 0; k2 = 0; k3 = na; k4 = 0; k5 = 0; k6 = nb; k7 = 0
+
+ do i = 1, n, 1
+  j = index(gjfname0(i), '.gjf', back=.true.)
+  fchname0 = gjfname0(i)(1:j-1)//'.fch'
+  call read_na_and_nb_from_fch(fchname0, na0, nb0)
+  call read_nbf_and_nif_from_fch(fchname0, nbf0, nif0)
+  allocate(mo_a0(nbf0,nif0))
+  call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_a0)
+
+  if(k1+nbf0 > nbf) then
+   write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 1st&
+                    & dimension of array mo_a out of range!'
+   write(iout,'(5(A,I0))') 'k1=',k1,',nbf0=',nbf0,',nbf=',nbf,',i=',i,',n=',n
+   stop
+  end if
+  k4 = k3 + nif0 - na0
+  if(k4 > nif) then
+   write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 2nd&
+                    & dimension of array mo_a out of range!'
+   write(iout,'(3(A,I0))') 'k3=',k3,',nif0=',nif0,',na0=',na0
+   write(iout,'(4(A,I0))') 'k4=',k4,',nif=',nif,',i=',i,',n=',n
+   stop
+  end if
+  mo_a(k1+1:k1+nbf0, k2+1:k2+na0) = mo_a0(:,1:na0)
+  mo_a(k1+1:k1+nbf0, k3+1:k4) = mo_a0(:,na0+1:nif0)
+
+  if(wfn_type == 3) then ! UHF
+   k7 = k6 + nif0 - nb0
+   if(k7 > nif) then
+    write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 2nd&
+                     & dimension of array mo_b out of range!'
+    write(iout,'(3(A,I0))') 'k6=',k6,',nif0=',nif0,',nb0=',nb0
+    write(iout,'(4(A,I0))') 'k7=',k7,',nif=',nif,',i=',i,',n=',n
+    stop
+   end if
+   if(wfn_type0(i) == 3) then
+    allocate(mo_b0(nbf0,nif0))
+    call read_mo_from_fch(fchname0, nbf0, nif0, 'b', mo_b0)
+    mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_b0(:,1:nb0)
+    mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_b0(:,nb0+1:nif0)
+    deallocate(mo_b0)
+   else
+    mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_a0(:,1:nb0)
+    mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_a0(:,nb0+1:nif0)
+   end if
+   k5 = k5 + nb0
+   k6 = k7
+  end if
+
+  deallocate(mo_a0)
+  k1 = k1 + nbf0
+  k2 = k2 + na0
+  k3 = k4
+ end do ! for i
+
+ call write_mo_into_fch(fchname, nbf, nif, 'a', mo_a)
+ deallocate(mo_a)
+
+ if(wfn_type == 3) then
+  call write_mo_into_fch(fchname, nbf, nif, 'b', mo_b)
+  deallocate(mo_b)
+ end if
+
+ call unfchk(fchname, chkname)
+ return
+end subroutine direct_sum_frag_mo2super_mo
 

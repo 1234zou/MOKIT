@@ -18,7 +18,8 @@ program main
  if(i /= 1) then
   write(iout,'(/,A)') ' ERROR in subroutine automr: wrong command line argument!'
   write(iout,'(A)')   " Example 1 (in bash): automr a.gjf >& a.out &"
-  write(iout,'(A,/)') " Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(iout,'(A)')   " Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(iout,'(A,/)') ' See help: automr -h'
   stop
  end if
 

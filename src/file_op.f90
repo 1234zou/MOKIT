@@ -26,14 +26,26 @@ subroutine delete_file(fname)
 
  if(alive) then
   inquire(file=TRIM(fname),opened=alive,number=fid)
-  if(alive) close(fid)
-
-  open(newunit=fid,file=TRIM(fname),status='old')
+  if(.not. alive) open(newunit=fid,file=TRIM(fname),status='old')
   close(fid,status='delete')
  end if
 
  return
 end subroutine delete_file
+
+! delete a set of files
+subroutine delete_files(n, fname)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ character(len=240), intent(in) :: fname(n)
+
+ do i = 1, n, 1
+  call delete_file(fname(i))
+ end do ! for i
+
+ return
+end subroutine delete_files
 
 ! copy file fname1 to fname2 (if delete=.True., delete fname1)
 subroutine copy_file(fname1, fname2, delete)

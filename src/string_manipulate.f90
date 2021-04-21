@@ -541,7 +541,7 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
   stop
  end if
 
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1000.0d0/(8.0d0*DBLE(nproc))),' $END'
+ write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1000d0/(8d0*DBLE(nproc))),' $END'
 
  ! copy the remaining content
  do while(.true.)
@@ -561,7 +561,6 @@ subroutine modify_memory_in_psi4_inp(inpname, mem)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: mem
- integer, parameter :: iout = 6
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
@@ -586,46 +585,49 @@ subroutine modify_memory_in_psi4_inp(inpname, mem)
  return
 end subroutine modify_memory_in_psi4_inp
 
-! modify memory in a ORCA .inp file
-subroutine modify_memory_in_orca_inp(inpname, mem, proc)
- implicit none
- integer :: fid, fid1
- integer, intent(in) :: mem, proc
- character(len=240) :: inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.t'
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(inpname1),status='replace')
-
- do while(.true.)
-
- end do ! for while
-
- close(fid)
- close(fid1)
- return
-end subroutine modify_memory_in_orca_inp
-
 ! add given/specified RIJK basis set into a PSI4 input file
 subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  implicit none
- integer :: i, fid
- character(len=240) :: buf
+ integer :: i, fid, fid1, RENAME
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
+ if(LEN_TRIM(RIJK_bas) == 0) then
+  write(iout,'(A)') 'ERROR in subroutine add_RIJK_bas_into_psi4_inp:'
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine add_RIJK_bas_into_psi4_inp
 
 ! add given/specified RIJK basis set into an ORCA input file
 subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  implicit none
- integer :: i, fid
- character(len=240) :: buf
+ integer :: i, fid, fid1, RENAME
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
+ if(LEN_TRIM(RIJK_bas) == 0) then
+  write(iout,'(A)') 'ERROR in subroutine add_RIJK_bas_into_orca_inp: input RI&
+                   & basis set is null string.'
+  stop
+ end if
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine add_RIJK_bas_into_orca_inp
 

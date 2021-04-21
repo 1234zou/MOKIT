@@ -16,7 +16,31 @@ module periodic_table
    'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
    'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
    'Rg', 'Cn' ]
-
+ ! the radii below are read from Gaussian output file
+ real(kind=8), parameter :: vdw_radii(period_nelem) = &
+  [1.4430d0, 1.1810d0, 1.2255d0, 1.3725d0, 2.0415d0, &
+   1.9255d0, 1.8300d0, 1.7500d0, 1.6820d0, 1.6215d0, &
+   1.4915d0, 1.5105d0, 2.2495d0, 2.1475d0, 2.0735d0, &
+   2.0175d0, 1.9735d0, 1.9340d0, 1.9060d0, 1.6995d0, &
+   1.6475d0, 1.5875d0, 1.5720d0, 1.5115d0, 1.4805d0, &
+   1.4560d0, 1.4360d0, 1.4170d0, 1.7475d0, 1.3815d0, &
+   2.1915d0, 2.1400d0, 2.1150d0, 2.1025d0, 2.0945d0, &
+   2.0705d0, 2.0570d0, 1.8205d0, 1.6725d0, 1.5620d0, &
+   1.5825d0, 1.5260d0, 1.4990d0, 1.4815d0, 1.4645d0, &
+   1.4495d0, 1.5740d0, 1.4240d0, 2.2315d0, 2.1960d0, &
+   2.2100d0, 2.2350d0, 2.2500d0, 2.2020d0, 2.2585d0, &
+   1.8515d0, 1.7610d0, 1.7780d0, 1.8030d0, 1.7875d0, &
+   1.7735d0, 1.7600d0, 1.7465d0, 1.6840d0, 1.7255d0, &
+   1.7140d0, 1.7045d0, 1.6955d0, 1.6870d0, 1.6775d0, &
+   1.8200d0, 1.5705d0, 1.5850d0, 1.5345d0, 1.4770d0, &
+   1.5600d0, 1.4200d0, 1.3770d0, 1.6465d0, 1.3525d0, &
+   2.1735d0, 2.1485d0, 2.1850d0, 2.3545d0, 2.3750d0, &
+   2.3825d0, 2.4500d0, 1.8385d0, 1.7390d0, 1.6980d0, &
+   1.7120d0, 1.6975d0, 1.7120d0, 1.7120d0, 1.6905d0, &
+   1.6630d0, 1.6695d0, 1.6565d0, 1.6495d0, 1.6430d0, &
+   1.6370d0, 1.6240d0, 1.6180d0, 1.7500d0, 1.7500d0, &
+   1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, &
+   1.7500d0, 1.7500d0]
 contains
 
  ! map a nuclear charge to an element (e.g. 6->'C')
@@ -29,6 +53,28 @@ contains
   s = period_elem(i)
   return
  end function nuc2elem
+
+ pure function elem2vdw_radii(elem) result(radii)
+  implicit none
+  real(kind=8) :: radii
+  character(len=2), intent(in) :: elem
+
+  radii = vdw_radii(elem2nuc(elem))
+  return
+ end function elem2vdw_radii
+
+ ! map an element to a nuclear charge (e.g. 'C'->6)
+ ! Note: only 1-112 elements are supported!
+ pure function elem2nuc(s) result(i)
+  implicit none
+  integer :: i
+  character(len=2), intent(in) :: s
+
+  do i = 1, period_nelem, 1
+   if(period_elem(i) == s) return
+  end do ! for i
+  return
+ end function elem2nuc
 
  ! read elements array from a given .gjf array
  subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
@@ -60,6 +106,13 @@ contains
    if(str(k-2:k) == '-Bq') then
     elem(i) = str(1:k-3)
     ghost(i) = .true.
+   else if(str(2:3)=='(f' .or. str(2:3)=='(F') then
+    call upper(str(1:1))
+    elem(i) = str(1:1)//' '
+   else if(str(3:4)=='(f' .or. str(3:4)=='(F') then
+    call upper(str(1:1))
+    call lower(str(2:2))
+    elem(i) = str(1:2)
    else
     k = IACHAR(str(1:1))
     if((k>64 .and. k<91) .or. (k>96 .and. k<123)) then ! A-Z, a-z

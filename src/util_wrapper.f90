@@ -10,18 +10,36 @@ subroutine formchk(chkname, fchname)
  implicit none
  integer :: i, system
  integer, parameter :: iout = 6
+ character(len=240) :: fchname0
+ character(len=500) :: buf
  character(len=240), intent(in) :: chkname
  character(len=240), optional :: fchname
+ logical :: alive
 
- if(.not. present(fchname)) then
-  i = index(chkname, '.chk', back=.true.)
-  fchname = chkname(1:i-1)//'.fch'
+ inquire(file=TRIM(chkname), exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine formchk: file does not exist!'
+  write(iout,'(A)') 'chkname='//TRIM(chkname)
+  stop
  end if
 
+ if(present(fchname)) then
+  fchname0 = fchname
+ else
+  i = index(chkname, '.chk', back=.true.)
+  if(i == 0) then
+   write(iout,'(A)') 'ERROR in subroutine formchk: .chk suffix not found!'
+   write(iout,'(A)') 'chkname='//TRIM(chkname)
+   stop
+  end if
+  fchname0 = chkname(1:i-1)//'.fch'
+ end if
+ buf = 'formchk '//TRIM(chkname)//' '//TRIM(fchname0)
+
 #ifdef _WIN32
- i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > NUL')
+ i = system(TRIM(buf)//' > NUL')
 #else
- i = system('formchk '//TRIM(chkname)//' '//TRIM(fchname)//' > /dev/null')
+ i = system(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then
@@ -39,18 +57,23 @@ subroutine unfchk(fchname, chkname)
  implicit none
  integer :: i, system
  integer, parameter :: iout = 6
+ character(len=240) :: chkname0
+ character(len=500) :: buf
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: chkname
 
- if(.not. present(chkname)) then
+ if(present(chkname)) then
+  chkname0 = chkname
+ else
   i = index(fchname, '.fch', back=.true.)
-  chkname = fchname(1:i-1)//'.chk'
+  chkname0 = fchname(1:i-1)//'.chk'
  end if
+ buf = 'unfchk '//TRIM(fchname)//' '//TRIM(chkname0)
 
 #ifdef _WIN32
- i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > NUL')
+ i = system(TRIM(buf)//' > NUL')
 #else
- i = system('unfchk '//TRIM(fchname)//' '//TRIM(chkname)//' > /dev/null')
+ i = system(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then
@@ -176,6 +199,32 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
 
  return
 end subroutine fch2inp_wrap
+
+subroutine mkl2fch_wrap(mklname, fchname, prt_no)
+ implicit none
+ integer :: i, system
+ integer, parameter :: iout = 6
+ character(len=240), intent(in) :: mklname, fchname
+ character(len=500) :: buf
+ logical, intent(in) :: prt_no
+
+ buf = 'mkl2fch '//TRIM(mklname)//' '//TRIM(fchname)
+ if(prt_no) buf = TRIM(buf)//' -no'
+
+#ifdef _WIN32
+ i = system(TRIM(buf)//' > NUL')
+#else
+ i = system(TRIM(buf)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine mkl2fch_wrap: failed to call utility mkl2fch.'
+  write(iout,'(A)') 'mklname='//TRIM(mklname)//', fchname='//TRIM(fchname)
+  write(iout,'(A,L1)') 'prt_no=', prt_no
+  stop
+ end if
+ return
+end subroutine mkl2fch_wrap
 
 end module util_wrapper
 

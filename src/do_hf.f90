@@ -10,13 +10,12 @@ subroutine do_hf()
   cart, gau_path, hf_fch, ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, &
   chgname, uno, dkh2_or_x2c, vir_proj, prt_strategy, gau_path, orca_path, &
   psi4_path, frag_guess
- use util_wrapper, only: formchk
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0d0
  character(len=24) :: data_string = ' '
- character(len=240) :: rhf_gjfname, uhf_gjfname, chkname, hf_prog_path
- logical :: eq
+ character(len=240) :: rhf_gjfname, uhf_gjfname, hf_prog_path
+ logical :: eq, noiter
 
  write(iout,'(//,A)') 'Enter subroutine do_hf...'
 
@@ -56,6 +55,7 @@ subroutine do_hf()
  if(frag_guess) then
   allocate(atom2frag(natom), frag_char_mult(2,nfrag))
   call read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
+  if(mult == 1) write(iout,'(A)') 'Fragment guess required. Only UHF will be performed.'
  end if
  if(bgchg) call read_bgchg_from_gjf(.false.)
 
@@ -63,9 +63,12 @@ subroutine do_hf()
  rhf_gjfname = gjfname(1:i-1)//'_rhf.gjf'
  uhf_gjfname = gjfname(1:i-1)//'_uhf.gjf'
 
+ noiter = .true. ! For HF_prog=PySCF/PSI4/ORCA, we need Gaussian .fch file to
+                 ! generate PySCF/PSI4/ORCA input file
  select case(TRIM(hf_prog))
  case('gaussian')
   hf_prog_path = gau_path
+  noiter = .false.
  case('pyscf')
   hf_prog_path = 'python'
  case('psi4')
@@ -78,6 +81,7 @@ subroutine do_hf()
   stop
  end select
 
+ write(iout,'(A)') 'HF using program '//TRIM(hf_prog)
  if(TRIM(hf_prog) /= 'pyscf') call check_exe_exist(hf_prog_path)
 
  ! 1) If HF_prog /= 'Gaussian', in the three 'call do_scf_and_read_e' below,
@@ -86,45 +90,42 @@ subroutine do_hf()
  !  guess .fch file.
  ! 3) Then the input file will be submitted to PySCF/PSI4/ORCA, respectively
 
- if(mult == 1) then ! singlet, perform RHF and UHF
-  call generate_hf_gjf(rhf_gjfname, .false.)
+ if(mult==1 .and. (.not.frag_guess)) then
+  call generate_hf_gjf(rhf_gjfname, .false., noiter)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_gjfname))
   call do_scf_and_read_e(gau_path, hf_prog_path, rhf_gjfname, .false., rhf_e, ssquare)
-
-  call generate_hf_gjf(uhf_gjfname, .true.)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
-  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
-
- else               ! not singlet, only perform UHF
-  call generate_hf_gjf(uhf_gjfname, .true.)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
-  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
- end if
-
- if(mult == 1) then
   write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(RHF) = ',rhf_e,'a.u., <S**2>=',0.0
-  write(iout,'(A,F18.8,1X,A,F7.3)')   'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
- else
-  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
- end if
 
- if(rhf_e - uhf_e > 1D-4) then
-  write(iout,'(A)') 'UHF energy is lower, choose UHF wave function.'
+  call generate_hf_gjf(uhf_gjfname, .true., noiter)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
+  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
+  write(iout,'(A,F18.8,1X,A,F7.3)')   'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
+
+  if(rhf_e - uhf_e > 1D-4) then
+   write(iout,'(A)') 'UHF energy is lower, choose UHF wave function.'
+   ist = 1
+   mo_rhf = .false.
+   i = index(gjfname, '.gjf', back=.true.)
+   hf_fch = gjfname(1:i-1)//'_uhf.fch'
+  else
+   write(iout,'(A)') 'RHF/UHF energy is equal, or has little difference, choose RHF.'
+   ist = 3
+   vir_proj = .true.; mo_rhf = .true.; uno = .false.
+   i = index(gjfname, '.gjf', back=.true.)
+   hf_fch = gjfname(1:i-1)//'_rhf.fch'
+  end if
+
+ else ! only perform UHF
+
+  call generate_hf_gjf(uhf_gjfname, .true., noiter)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
+  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
+  write(iout,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
   ist = 1
   mo_rhf = .false.
   i = index(gjfname, '.gjf', back=.true.)
-  chkname = gjfname(1:i-1)//'_uhf.chk'
   hf_fch = gjfname(1:i-1)//'_uhf.fch'
- else
-  write(iout,'(A)') 'RHF/UHF energy is equal, or has little difference, choose RHF.'
-  ist = 3
-  vir_proj = .true.; mo_rhf = .true.; uno = .false.
-  i = index(gjfname, '.gjf', back=.true.)
-  chkname = gjfname(1:i-1)//'_rhf.chk'
-  hf_fch = gjfname(1:i-1)//'_rhf.fch'
  end if
-
- call formchk(chkname, hf_fch)
 
  write(iout,'(A)') 'Strategy updated:'
  call prt_strategy()
@@ -135,7 +136,7 @@ subroutine do_hf()
 end subroutine do_hf
 
 ! generate a RHF/UHF .gjf file (DKH, guess=fragment can be taken into account)
-subroutine generate_hf_gjf(gjfname, uhf)
+subroutine generate_hf_gjf(gjfname, uhf, noiter)
  use mol, only: charge, mult, natom, elem, coor, nfrag, atom2frag, frag_char_mult
  use mr_keyword, only: iout, mem, nproc, basis, cart, dkh2_or_x2c, frag_guess,&
   mokit_root
@@ -144,8 +145,15 @@ subroutine generate_hf_gjf(gjfname, uhf)
  character(len=21) :: basis1
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
- logical, intent(in) :: uhf
+ logical, intent(in) :: uhf, noiter
  logical :: rel
+
+ if(frag_guess .and. (.not.uhf)) then
+  write(iout,'(A)') 'ERROR in subroutine generate_hf_gjf: both frag_guess and&
+                   & RHF are .True.'
+  write(iout,'(A)') 'Fragment guess can only be used with UHF wave function.'
+  stop
+ end if
 
  call upper(basis)
  i = index(basis, 'DEF')
@@ -175,7 +183,7 @@ subroutine generate_hf_gjf(gjfname, uhf)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128) nosymm int(nobasistransform'
+ write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=256) nosymm int(nobasistransform'
 
  if(dkh2_or_x2c) then
   write(fid,'(A)',advance='no') ',DKH2)'
@@ -203,14 +211,24 @@ subroutine generate_hf_gjf(gjfname, uhf)
 
  if(uhf) then
   write(fid,'(A)',advance='no') ' UHF/'//TRIM(basis1)
-  if(frag_guess) then
-   write(fid,'(A)',advance='no') ' guess=mix'
-  else
-   if(mult == 1) write(fid,'(A)',advance='no') ' guess=mix'
-   write(fid,'(A)',advance='no') ' stable=opt'
+  if(.not. frag_guess) then
+   if(mult == 1) then
+    if(noiter) then
+     write(fid,'(A)',advance='no') ' guess(mix,only,save)'
+    else
+     write(fid,'(A)',advance='no') ' guess=mix stable=opt'
+    end if
+   else ! mult /= 1
+    if(noiter) then
+     write(fid,'(A)',advance='no') ' guess(only,save)'
+    else
+     write(fid,'(A)',advance='no') ' stable=opt'
+    end if
+   end if
   end if
- else
+ else ! RHF
   write(fid,'(A)',advance='no') ' RHF/'//TRIM(basis1)
+  if(noiter) write(fid,'(A)',advance='no') ' guess(only,save)'
   if(mult /= 1) then
    write(iout,'(A)') 'ERROR in subroutine generate_hf_gjf: this molecule is&
                     & not spin singlet, but RHF is specified.'
@@ -260,21 +278,21 @@ subroutine generate_hf_gjf(gjfname, uhf)
   write(fid,'(A)') '%chk='//TRIM(chkname)
   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
-  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=128)'
+  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=256)'
   if(uhf) then
-   write(fid,'(A)',advance='no') ' UHF stable=opt'
+   write(fid,'(A)',advance='no') ' UHF'
   else
    write(fid,'(A)',advance='no') ' RHF'
   end if
   write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
                    & int(nobasistransform,DKH2)'
  else
-  if(frag_guess .and. uhf) then
+  if(frag_guess .and. (.not. noiter)) then
    write(fid,'(/,A)') '--Link1--'
    write(fid,'(A)') '%chk='//TRIM(chkname)
    write(fid,'(A,I0,A)') '%mem=',mem,'GB'
    write(fid,'(A,I0)') '%nprocshared=', nproc
-   write(fid,'(A)') '#p scf(xqc,maxcycle=128) UHF chkbasis stable=opt nosymm&
+   write(fid,'(A)') '#p scf(xqc,maxcycle=256) UHF chkbasis stable=opt nosymm&
                    & guess=read geom=allcheck int(nobasistransform)'
   end if
  end if
@@ -291,12 +309,13 @@ end subroutine generate_hf_gjf
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, RI, RIJK_bas, bgchg, chgname
- use util_wrapper, only: formchk
+ use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
- integer :: i, j, system, RENAME
+ integer :: i, j, hf_type, system, RENAME
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
  character(len=240) :: buf, chkname, fchname, inpname, outname1, outname2
+ character(len=240) :: mklname, gbwname, prpname1, prpname2
  character(len=240), intent(in) :: gau_path, hf_prog_path, gjfname
  ! gau_path is always the path of Gaussian
  ! when Gaussian is used to compute SCF, gau_path = hf_prog_path
@@ -308,6 +327,10 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  i = index(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
  fchname = gjfname(1:i-1)//'.fch'
+ mklname = gjfname(1:i-1)//'.mkl'
+ gbwname = gjfname(1:i-1)//'.gbw'
+ prpname1 = gjfname(1:i-1)//'.prop'
+ prpname2 = gjfname(1:i-1)//'_property.txt'
  inpname = gjfname(1:i-1)//'.inp'
  outname2 = gjfname(1:i-1)//'.out' ! PySCF/PSI4/ORCA output file
 #ifdef _WIN32
@@ -323,79 +346,88 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   stop
  end if
 
- if(noiter) return
+ if(noiter) return ! no energy read
+
+ call formchk(chkname, fchname)
+ call delete_file(chkname)
  if(TRIM(hf_prog_path) == TRIM(gau_path)) then
   call read_hf_e_and_ss_from_gau_out(outname1, e, ssquare)
+!  call delete_file(gjfname)
   return
  end if
+ call delete_files(2, [gjfname, outname1])
 
- i = index(hf_prog_path, '/', back=.true.)
- prog_name = TRIM(hf_prog_path(i+1:))
+ if(TRIM(hf_prog_path) == 'python') then
+  prog_name = 'pyscf'
+  i = index(gjfname, '.gjf', back=.true.)
+  inpname = gjfname(1:i-1)//'.py'
+ else
+  i = index(hf_prog_path, '/', back=.true.)
+  if(i == 0) then
+   write(iout,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol&
+                    & found in string '"//TRIM(hf_prog_path)//"'."
+   stop
+  end if
+  prog_name = TRIM(hf_prog_path(i+1:))
+ end if
 
  select case(prog_name)
  case('pyscf')
-  call formchk(chkname, fchname)
   i = system('bas_fch2py '//TRIM(fchname))
 
+  call read_hf_type_from_pyscf_inp(inpname, hf_type)
+  call prt_hf_pyscf_inp(inpname, hf_type)
   buf = 'python '//TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
-  write(iout,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PySCF SCF job failed.'
    write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
    stop
   end if
-
-  call read_hf_e_and_ss_from_pyscf_out(outname2, e, ssquare)
+  call read_hf_e_and_ss_from_pyscf_out(outname2, hf_type, e, ssquare)
 
  case('psi4')
-  call formchk(chkname, fchname)
   i = system('fch2psi '//TRIM(fchname))
+  i = index(fchname, '.fch', back=.true.)
+  prpname1 = gjfname(1:i-1)//'_psi.inp'
+  i = RENAME(TRIM(prpname1), TRIM(inpname))
 
-  call modify_memory_in_psi4_inp(inpname, mem)
-  call add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
+  call read_hf_type_from_psi4_inp(inpname, hf_type)
+  call prt_hf_psi4_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  i = LEN_TRIM(outname1)
-  if(outname1(i-3:i) == '.out') then
-   j = RENAME(TRIM(outname1), outname1(1:i-3)//'out1')
-  end if
-
   write(buf,'(A,I0)') TRIM(hf_prog_path)//' '//TRIM(inpname)//' '//TRIM(outname2)//' -n ',nproc
-  write(iout,'(A)') '$'//TRIM(buf)
-
   i = system(TRIM(buf))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PSI4 SCF job failed.'
    write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
    stop
   end if
-  call read_hf_e_and_ss_from_psi4_out(outname2, e, ssquare)
+  call read_hf_e_and_ss_from_psi4_out(outname2, hf_type, e, ssquare)
+  call delete_file(inpname)
+  i = index(fchname, '.fch', back=.true.)
+  prpname1 = fchname(1:i-1)//'2.fch'
+  call copy_orb_and_den_in_fch(prpname1, fchname, .true.)
 
  case('orca')
-  call formchk(chkname, fchname)
   i = system('fch2mkl '//TRIM(fchname))
-
-  call modify_memory_in_orca_inp(inpname, mem)
-  call add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
+  call mkl2gbw(mklname)
+  call read_hf_type_from_orca_inp(inpname, hf_type)
+  call prt_hf_orca_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  i = LEN_TRIM(outname1)
-  if(outname1(i-3:i) == '.out') then
-   j = RENAME(TRIM(outname1), outname1(1:i-3)//'out1')
-  end if
-
   write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
-  write(iout,'(A)') '$$ORCA '//TRIM(buf)
-
   i = system(TRIM(hf_prog_path)//' '//TRIM(buf))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: ORCA SCF job failed.'
    write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
    stop
   end if
-  call read_hf_e_and_ss_from_orca_out(outname2, e, ssquare)
-
+  call read_hf_e_and_ss_from_orca_out(outname2, hf_type, e, ssquare)
+  call gbw2mkl(gbwname)
+  call mkl2fch_wrap(mklname, fchname, .false.)
+  call update_density_using_mo_in_fch(fchname)
+  call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
   write(iout,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name&
                    & = '//TRIM(prog_name)
@@ -418,15 +450,16 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  open(newunit=fid,file=TRIM(logname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
+  BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
   if(buf(2:18) == 'Entering Gaussian') then
    i = -1
    exit
   end if
-  if(index(buf,'SCF Done') /= 0) exit
+  if(index(buf,'SCF Done') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -450,98 +483,137 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
 end subroutine read_hf_e_and_ss_from_gau_out
 
 ! read HF electronic energy from a PySCF .out file
-subroutine read_hf_e_and_ss_from_pyscf_out(outname, e, ss)
+subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
  use print_id, only: iout
  implicit none
- integer :: i, fid
+ integer :: i, mult, fid
+ integer, intent(in) :: wfn_type
  real(kind=8), intent(out) :: e, ss
- character(len=240) :: buf
+ character(len=240) :: buf, inpname
  character(len=240), intent(in) :: outname
 
  e = 0d0; ss = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ write(fid,'(/)',advance='no')
+ ! add a blank line, in case 'converged SCF e' is already in the last line
 
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
+  BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
-  if(buf(2:18) == 'Entering Gaussian') then
-   i = -1
-   exit
-  end if
-  if(index(buf,'SCF Done') /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:15) == 'converged SCF e') exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: no&
-                     & 'SCF Done' found in"
-  write(iout,'(A)') 'file '//TRIM(outname)
+                     & 'converged SCF e' found"
+  write(iout,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
 
  i = index(buf, '=')
  read(buf(i+1:),*) e
+ close(fid)
 
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = index(buf, 'S**2')
- if(i /= 0) read(buf(i+6:),*) ss
+ select case(wfn_type)
+ case(1,2) ! R(O)HF
+  i = index(outname, '.out', back=.true.)
+  inpname = outname(1:i-1)//'.py'
+  call read_mult_from_pyscf_inp(inpname, mult)
+  ss = DBLE(mult*(mult+1))
+ case(3)   ! UHF
+  i = index(buf,'=')
+  buf(i:i) = ' '
+  i = index(buf,'=')
+  read(buf(i+1:),*) ss
+ case default
+  write(iout,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_pyscf_out:&
+                      & invalid wfn_type=', wfn_type
+  close(fid)
+  stop
+ end select
 
  close(fid)
  return
 end subroutine read_hf_e_and_ss_from_pyscf_out
 
 ! read HF electronic energy from a PSI4 .out file
-subroutine read_hf_e_and_ss_from_psi4_out(outname, e, ss)
+subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
  use print_id, only: iout
  implicit none
- integer :: i, fid
+ integer :: i, mult, fid
+ integer, intent(in) :: hf_type
  real(kind=8), intent(out) :: e, ss
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  e = 0d0; ss = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
+ ! There are two HF energies in this file, we should begin from the end of file
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
+  BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
-  if(buf(2:18) == 'Entering Gaussian') then
-   i = -1
-   exit
-  end if
-  if(index(buf,'SCF Done') /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(5:14) == 'HF Final E') exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_psi4_out: no&
-                     & 'SCF Done' found in"
+                     & 'HF Final E' found in"
   write(iout,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
 
- i = index(buf, '=')
+ i = index(buf, ':')
  read(buf(i+1:),*) e
 
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = index(buf, 'S**2')
- if(i /= 0) read(buf(i+6:),*) ss
+ select case(hf_type)
+ case(1) ! RHF
+  close(fid)
+  call read_mult_from_psi4_out(outname, mult)
+  ss = DBLE(mult*(mult+1))
 
- close(fid)
+ case(3)   ! UHF
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(5:16) == 'S^2 Observed') exit
+  end do ! for while
+
+  close(fid)
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_hf_e_and_ss_from_psi4_out: no&
+                    & 'S^2 Observed' found in"
+   write(iout,'(A)') 'file '//TRIM(outname)
+   stop
+  end if
+  i = index(buf, ':', back=.true.)
+  read(buf(i+1:),*) ss
+
+ case default
+  write(iout,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_psi4_out:&
+                      & invalid hf_type=', hf_type
+  stop
+ end select
+
  return
 end subroutine read_hf_e_and_ss_from_psi4_out
 
 ! read HF electronic energy from a ORCA .out file
-subroutine read_hf_e_and_ss_from_orca_out(outname, e, ss)
+subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  use print_id, only: iout
  implicit none
- integer :: i, fid
+ integer :: i, mult, fid
+ integer, intent(in) :: hf_type
  real(kind=8), intent(out) :: e, ss
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -550,34 +622,464 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, e, ss)
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
+  BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
-  if(buf(2:18) == 'Entering Gaussian') then
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:12) == 'Total Energy') exit
+  if(buf(2:12) == 'With contri') then
    i = -1
    exit
   end if
-  if(index(buf,'SCF Done') /= 0) exit
  end do ! for while
 
  if(i /= 0) then
   write(iout,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no&
-                     & 'SCF Done' found in"
+                     & 'Total Energy' found in"
   write(iout,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
 
- i = index(buf, '=')
+ i = index(buf, ':')
  read(buf(i+1:),*) e
 
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = index(buf, 'S**2')
- if(i /= 0) read(buf(i+6:),*) ss
+ select case(hf_type)
+ case(1,2) ! R(O)HF
+  close(fid)
+  call read_mult_from_orca_out(outname, mult)
+  ss = DBLE(mult*(mult+1))
 
- close(fid)
+ case(3)   ! UHF
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:15) == 'Expectation val') exit
+  end do ! for while
+
+  close(fid)
+  if(i /= 0) then
+   write(iout,'(A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no&
+                    & 'Expectation val' found in"
+   write(iout,'(A)') 'file '//TRIM(outname)
+   stop
+  end if
+  i = index(buf, ':', back=.true.)
+  read(buf(i+1:),*) ss
+
+ case default
+  write(iout,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_orca_out:&
+                      & invalid hf_type=', hf_type
+  write(iout,'(A)') 'outname='//TRIM(outname)
+  stop
+ end select
+
  return
 end subroutine read_hf_e_and_ss_from_orca_out
+
+! read spin multiplicity from a PySCF .py file
+subroutine read_mult_from_pyscf_inp(inpname, mult)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == 'mol.spin') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mult_from_pyscf_inp: no 'mol.spin'&
+                   & found in"
+  write(iout,'(A)') 'file '//TRIM(inpname)
+  stop
+ end if
+
+ i = index(buf,'=')
+ read(buf(i+1:),*) mult ! this is No.(alpha-beta)
+ mult = mult + 1
+ return
+end subroutine read_mult_from_pyscf_inp
+
+! read spin multiplicity from a PSI4 output file
+subroutine read_mult_from_psi4_out(outname, mult)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(3:14) == 'Multiplicity') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mult_from_psi4_out: no 'Multip&
+                    &licity' found in file "//TRIM(outname)
+  stop
+ end if
+ i = index(buf,'=',back=.true.)
+ read(buf(i+1:),*) mult
+ return
+end subroutine read_mult_from_psi4_out
+
+! read spin multiplicity from an ORCA output file
+subroutine read_mult_from_orca_out(outname, mult)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'Multiplicity') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mult_from_orca_out: no 'Multip&
+                    &licity' found in file "//TRIM(outname)
+  stop
+ end if
+ i = index(buf,'.',back=.true.)
+ read(buf(i+1:),*) mult
+ return
+end subroutine read_mult_from_orca_out
+
+! print HF job of PySCF input file
+subroutine prt_hf_pyscf_inp(inpname, hf_type)
+ use print_id, only: iout
+ use mr_keyword, only: mem, nproc
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: hf_type
+ character(len=240) :: buf, inpname1, fchname
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.py', back=.true.)
+ fchname = inpname(1:i-1)//'.fch'
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no blank line &
+                   & found in file "//TRIM(inpname)
+  stop
+  close(fid)
+  close(fid1,status='delete')
+ end if
+
+ write(fid1,'(A)') 'from pyscf import lib'
+ write(fid1,'(A)') 'from rwwfn import update_density_using_mo_in_fch'
+ write(fid1,'(A)') 'from py2fch import py2fch'
+ write(fid1,'(A,I0,A,/)') 'lib.num_threads(',nproc,')'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:8) == 'mf = scf') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no 'mf = scf'&
+                   & found in file "//TRIM(inpname)
+  stop
+  close(fid)
+  close(fid1,status='delete')
+ end if
+ write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == '#dm') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no '#dm' found&
+                   & in file "//TRIM(inpname)
+  stop
+  close(fid)
+  close(fid1,status='delete')
+ end if
+ write(fid1,'(A)') 'dm = mf.make_rdm1()'
+ write(fid1,'(A)') 'mf.max_cycle = 500'
+ write(fid1,'(A,/)') 'mf.kernel(dm)'
+
+ select case(hf_type)
+ case(1,2)
+  write(fid1,'(A)') '# save R(O)HF MOs into .fch file'
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_energy,False)"
+  write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
+ case(3)
+  write(fid1,'(A)') 'mo1 = mf.stability()[0]'
+  write(fid1,'(A)') 'dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
+  write(fid1,'(A)') 'mf = mf.run(dm1)'
+  write(fid1,'(A,/)') 'mf.stability()'
+  write(fid1,'(A)') '# save UHF MOs into .fch file'
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',mf.mo_energy[0],False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],Sdiag,'b',mf.mo_energy[1],False)"
+  write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
+ case default
+  write(iout,'(A)') 'ERROR in subroutine prt_hf_pyscf_inp: hf_type out of range!'
+  write(iout,'(A,I0)') 'hf_type=', hf_type
+  stop
+ end select
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_hf_pyscf_inp
+
+! print HF job of PSI4 input file
+subroutine prt_hf_psi4_inp(inpname, hf_type)
+ use mr_keyword, only: mem
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: hf_type
+ character(len=240) :: buf, inpname1, fchname
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ i = index(inpname, '.inp', back=.true.)
+ fchname = inpname(1:i-1)//'2.fch'
+ ! Why append '2' in the filename: the generated .fch file will not be directly
+ ! used. The utility fch_mo_copy will be called to copy alpha (and beta) MOs
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)
+ read(fid,'(A)') buf
+ write(fid1,'(A,I0,A)') 'memory ',mem,' GB'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(2:11) == 'guess read') exit
+ end do ! for while
+
+ ! UHF wfn stability check
+ if(hf_type == 3) then
+  write(fid1,'(A)') ' stability_analysis follow'
+  write(fid1,'(A)') ' max_attempts 5'
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ BACKSPACE(fid1)
+ write(fid1,'(A)') "scfenergy, scf_wfn = energy('scf', return_wfn=True)"
+ write(fid1,'(A)') "fchk(scf_wfn,'"//TRIM(fchname)//"')"
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_hf_psi4_inp
+
+! print HF job of ORCA input file
+subroutine prt_hf_orca_inp(inpname, hf_type)
+ use print_id, only: iout
+ use mr_keyword, only: mem, nproc, RI, RIJK_bas
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: hf_type
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ read(fid,'(A)') buf
+ write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
+ read(fid,'(A)') buf
+ write(fid1,'(A,I0)') '%maxcore ',CEILING(DBLE(1000*mem)/DBLE(nproc))
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:4) == '%scf') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in&
+                   & file "//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ if(hf_type == 3) then
+  write(fid1,'(A)') ' STABPerform true'
+  write(fid1,'(A)') ' STABRestartUHFifUnstable true'
+  write(fid1,'(A)') ' STABMaxIter 500'
+  write(fid1,'(A)') ' STABDTol 1e-5'
+  write(fid1,'(A)') ' STABRTol 1e-5'
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_hf_orca_inp
+
+! read hf_type from a PySCF .inp file
+subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: hf_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(i /= 0) exit
+  if(buf(1:2) == 'mf') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'mf'&
+                   & found in file "//TRIM(inpname)
+  stop
+ end if
+
+ if(index(buf,'RHF') > 0) then
+  hf_type = 1
+ else if(index(buf,'ROHF') > 0) then
+  hf_type = 2
+ else if(index(buf,'HF') > 0) then
+  hf_type = 3
+ else 
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'HF'&
+                   & found in file "//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ return
+end subroutine read_hf_type_from_pyscf_inp
+
+! read hf_type from a PSI4 .inp file
+subroutine read_hf_type_from_psi4_inp(inpname, hf_type)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: hf_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(i /= 0) exit
+  if(buf(2:10) == 'reference') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'refe&
+                    &rence' found in file "//TRIM(inpname)
+  stop
+ end if
+
+ if(index(buf,'rhf') > 0) then
+  hf_type = 1
+ else if(index(buf,'rohf') > 0) then
+  hf_type = 2
+ else if(index(buf,'uhf') > 0) then
+  hf_type = 3
+ else if(index(buf,'hf') > 0) then
+  hf_type = 0
+ else 
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'hf'&
+                   & found in file "//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ return
+end subroutine read_hf_type_from_psi4_inp
+
+! read hf_type from an ORCA .inp file
+subroutine read_hf_type_from_orca_inp(inpname, hf_type)
+ use print_id, only: iout
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: hf_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(i /= 0) exit
+  if(buf(1:1) == '!') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no '!'&
+                   & found in file "//TRIM(inpname)
+  stop
+ end if
+
+ if(index(buf,'RHF') > 0) then
+  hf_type = 1
+ else if(index(buf,'ROHF') > 0) then
+  hf_type = 2
+ else if(index(buf,'UHF') > 0) then
+  hf_type = 3
+ else if(index(buf,'HF') > 0) then
+  hf_type = 0
+ else 
+  write(iout,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no 'HF'&
+                   & found in file "//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ return
+end subroutine read_hf_type_from_orca_inp
 

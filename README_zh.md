@@ -30,7 +30,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021年4月15号
+2021年4月21号
 
 安装
 ----------
@@ -69,10 +69,9 @@ or
   序`fch2inp`，输出如下
 
    ERROR in subroutine fch2inp: wrong command line arguments!  
-   Example 1 (R(O)HF, CAS): fch2inp a.fch  
-   Example 2 (UHF)        : fch2inp a.fch -uhf  
-   Example 3 (GVB)        : fch2inp a.fch -gvb [npair]  
-   Example 4 (ROGVB)      : fch2inp a.fch -gvb [npair] -open [nopen]
+   Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
+   Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
+   Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 
 * 对于lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的readme.txt
 

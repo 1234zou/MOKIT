@@ -12,7 +12,8 @@ subroutine do_cas(scf)
   dkh2_or_x2c, check_gms_path, prt_strategy, RI
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
- use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap
+ use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
+  mkl2fch_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, system, RENAME
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
@@ -354,7 +355,7 @@ subroutine do_cas(scf)
 
   call gbw2mkl(orbname)
   mklname = TRIM(proname)//'.mkl'
-  i = system('mkl2fch '//TRIM(mklname)//' '//TRIM(casnofch)//' -no')
+  call mkl2fch_wrap(mklname, casnofch, .true.)
 
  case('molpro')
   call check_exe_exist(molpro_path)

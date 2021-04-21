@@ -107,7 +107,7 @@ subroutine prt_mcpdft_gms_inp(inpname)
   write(fid2,'(A)',advance='no') ' NSTATE=10'
  end if
  write(fid2,'(A)') ' ITERMX=500 $END'
- write(fid2,'(A)') ' $DFT NRAD=99 $END'
+ write(fid2,'(A)') ' $DFT NRAD=99 NLEB=590 $END'
 
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  do while(.true.)

@@ -1,6 +1,6 @@
-MOKIT 1.2.3 (Apr 15, 2021)
+MOKIT 1.2.3 (Apr 21, 2021)
 ------------------------
-* extend utility frag_guess_wfn to generate GAMESS .inp of various EDA
+* extend utility frag_guess_wfn to generate GAMESS EDA input
 * add utility fch2qm4d (Gaussian -> QM4D)
 * add DFT/MRCI interfaces
 * add keyword HF_prog (=Gaussian, PSI4, ORCA)

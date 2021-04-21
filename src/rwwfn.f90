@@ -2950,6 +2950,169 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  return
 end subroutine write_density_into_fch
 
+! add a given density string into a .fch(k) file
+subroutine add_density_str_into_fch(fchname, itype)
+ implicit none
+ integer :: i, nbf, fid, fid1, RENAME
+ integer, intent(in) :: itype ! 1/2 for 'Total SCF Density'/'Spin SCF Density'
+ integer, parameter :: iout = 6
+ character(len=17), parameter :: str(2) = ['Total SCF Density','Spin SCF Density ']
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+
+ if(itype<1 .or. itype>2) then
+  write(iout,'(A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid&
+                      & itype=', itype
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:17) == str(itype)) exit
+  if(buf(1:15) == 'Number of basis') read(buf(50:),*) nbf
+ end do ! for while
+
+ if(i /= 0) then
+  rewind(fid)
+  fchname1 = TRIM(fchname)//'.t'
+  open(newunit=fid1,file=TRIM(fchname1),status='replace')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+   if(itype == 1) then
+    if(buf(1:7) == 'Beta MO') exit
+   else
+    if(buf(1:7) == 'Total S') exit
+   end if
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine add_density_str_into_fch: key not&
+                    & found in file '//TRIM(fchname)
+   write(iout,'(A,I0)') 'itype=', itype
+   close(fid)
+   close(fid1,status='delete')
+   stop
+  end if
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(49:49) == '=') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  write(fid1,'(A,I12)') str(itype)//'                          R   N=',nbf*(nbf+1)/2
+  write(fid1,'(A)') TRIM(buf)
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  close(fid,status='delete')
+  close(fid1)
+  i = RENAME(TRIM(fchname1), TRIM(fchname))
+ else
+  close(fid)
+ end if
+
+ return
+end subroutine add_density_str_into_fch
+
+! update 'Total SCF Density' (and 'Spin SCF Density') using Alpha(and Beta) MOs
+! in a Gaussian .fch(k) file
+subroutine update_density_using_mo_in_fch(fchname)
+ implicit none
+ integer :: i, j, k, fid, nbf, nif, na, nb
+ real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
+ real(kind=8), allocatable :: dm_a(:,:), dm_b(:,:), total_dm(:,:), spin_dm(:,:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ logical :: uhf
+
+ uhf = .false.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'Beta O') then
+   uhf = .true.
+   exit
+  end if
+ end do ! for while
+ close(fid)
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(alpha_coeff(nbf,nif), total_dm(nbf,nbf))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', alpha_coeff)
+ call add_density_str_into_fch(fchname, 1)
+
+ if(uhf) then
+  allocate(dm_a(nbf,nbf))
+
+  do i = 1, nbf, 1
+   do j = i, nbf, 1
+    do k = 1, na, 1
+     dm_a(j,i) = dm_a(j,i) + alpha_coeff(j,k)*alpha_coeff(i,k)
+    end do ! for k
+    dm_a(i,j) = dm_a(j,i)
+   end do ! for j
+  end do ! for i
+  deallocate(alpha_coeff)
+
+  allocate(beta_coeff(nbf,nif), dm_b(nbf,nbf))
+  call read_mo_from_fch(fchname, nbf, nif, 'b', beta_coeff)
+  do i = 1, nbf, 1
+   do j = i, nbf, 1
+    do k = 1, nb, 1
+     dm_b(j,i) = dm_b(j,i) + beta_coeff(j,k)*beta_coeff(i,k)
+    end do ! for k
+    dm_b(i,j) = dm_b(j,i)
+   end do ! for j
+  end do ! for i
+  deallocate(beta_coeff)
+
+  allocate(spin_dm(nbf,nbf))
+  total_dm = dm_a + dm_b
+  spin_dm = dm_a - dm_b
+  deallocate(dm_a, dm_b)
+  call add_density_str_into_fch(fchname, 2)
+  call write_density_into_fch(fchname, nbf, .false., spin_dm)
+  deallocate(spin_dm)
+
+ else ! R(O)HF
+
+  do i = 1, nbf, 1
+   do j = i, nbf, 1
+    do k = 1, nb, 1
+     total_dm(j,i) = total_dm(j,i) + 2d0*alpha_coeff(j,k)*alpha_coeff(i,k)
+    end do ! for k
+    total_dm(i,j) = total_dm(j,i)
+   end do ! for j
+  end do ! for i
+
+  if(na > nb) then
+   do i = 1, nbf, 1
+    do j = i, nbf, 1
+     do k = 1, na-nb, 1
+      total_dm(j,i) = total_dm(j,i) + alpha_coeff(j,k)*alpha_coeff(i,k)
+     end do ! for k
+     total_dm(i,j) = total_dm(j,i)
+    end do ! for j
+   end do ! for i
+  end if
+ end if
+
+ call write_density_into_fch(fchname, nbf, .true., total_dm)
+ deallocate(total_dm)
+ return
+end subroutine update_density_using_mo_in_fch
+
 ! update 'Total SCF Density' using natural orbitals and occupation numbers
 subroutine update_density_using_no_and_on(fchname)
  implicit none
@@ -3129,4 +3292,63 @@ subroutine check_if_uhf_equal_rhf(fchname, eq)
  deallocate(alpha_coeff, beta_coeff, diff)
  return
 end subroutine check_if_uhf_equal_rhf
+
+! copy alpha(and beta) orbital energies, alpha(and beta) MOs, Total SCF Density,
+! and Spin SCF Density from a .fch(k) file into another one
+subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
+ implicit none
+ integer :: i, fid, nbf, nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname1, fchname2
+ real(kind=8), allocatable :: ev(:), mo(:,:), dm(:,:)
+ logical :: uhf
+ logical, intent(in) :: deleted
+
+ open(newunit=fid,file=TRIM(fchname1),status='old',position='rewind')
+ uhf = .false.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'Beta') then
+   uhf = .true.; exit
+  end if
+ end do ! for while
+ close(fid)
+
+ call read_nbf_and_nif_from_fch(fchname1, nbf, nif)
+ allocate(ev(nif))
+ call read_eigenvalues_from_fch(fchname1, nif, 'a', ev)
+ call write_eigenvalues_to_fch(fchname2, nif, 'a', ev, .true.)
+ if(uhf) then
+  call read_eigenvalues_from_fch(fchname1, nif, 'b', ev)
+  call write_eigenvalues_to_fch(fchname2, nif, 'b', ev, .true.)
+ end if
+ deallocate(ev)
+
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname1, nbf, nif, 'a', mo)
+ call write_mo_into_fch(fchname2, nbf, nif, 'a', mo)
+ if(uhf) then
+  call read_mo_from_fch(fchname1, nbf, nif, 'b', mo)
+  call write_mo_into_fch(fchname2, nbf, nif, 'b', mo)
+ end if
+ deallocate(mo)
+
+ call add_density_str_into_fch(fchname2, 1)
+ allocate(dm(nbf,nbf))
+ call read_density_from_fch(fchname1, 1, nbf, dm)
+ call write_density_into_fch(fchname2, nbf, .true., dm)
+ if(uhf) then
+  call add_density_str_into_fch(fchname2, 2)
+  call read_density_from_fch(fchname1, 2, nbf, dm)
+  call write_density_into_fch(fchname2, nbf, .false., dm)
+ end if
+ deallocate(dm)
+
+ if(deleted) then
+  open(newunit=fid,file=TRIM(fchname1),status='old')
+  close(fid,status='delete')
+ end if
+ return
+end subroutine copy_orb_and_den_in_fch
 
