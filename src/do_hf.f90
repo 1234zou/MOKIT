@@ -26,7 +26,7 @@ subroutine do_hf()
   call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
 
   if(readuhf .and. mult==1) then
-   write(iout,'(A)') 'Check whether provided UHF is equivalent to RHF...'
+   write(iout,'(A)') 'Check whether provided UHF wavefunction is equivalent to RHF...'
    call check_if_uhf_equal_rhf(hf_fch, eq)
    if(eq) then
     write(iout,'(A)') 'This is actually a RHF wave function. Alpha=Beta.&
@@ -411,6 +411,12 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  case('orca')
   i = system('fch2mkl '//TRIM(fchname))
+  j = index(gjfname, '.gjf', back=.true.)
+  buf = gjfname(1:j-1)//'_o.inp'
+  i = RENAME(TRIM(buf), TRIM(inpname))
+  buf = gjfname(1:j-1)//'_o.mkl'
+  i = RENAME(TRIM(buf), TRIM(mklname))
+
   call mkl2gbw(mklname)
   call read_hf_type_from_orca_inp(inpname, hf_type)
   call prt_hf_orca_inp(inpname, hf_type)

@@ -85,7 +85,17 @@ module mr_keyword
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
 
- integer :: CtrType = 0             ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
+ integer :: CtrType = 0              ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
+ integer :: maxM = 1000              ! bond-dimension in DMRG computation
+ real(kind=8) :: ON_thres = 0.99999d0! Occupation Number threshold for UNO
+
+ character(len=4)   :: localm = 'pm'   ! localization method: boys/pm
+ character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
+ character(len=240) :: chgname = ' '   ! filename of the .chg file (background point charges)
+ character(len=240) :: hf_fch = ' '    ! filename of the given .fch(k) file
+ character(len=240) :: datname = ' '   ! filename of GAMESS GVB .dat file
+ character(len=240) :: casnofch = ' '  ! .fch(k) file of CASCI or CASSCF job
+ character(len=8) :: otpdf = 'tPBE'    ! on-top pair density functional
 
  logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
@@ -109,15 +119,6 @@ module mr_keyword
  ! in a saddle point/local minimum. If crazywfn is .True., AutoMR will add more
  ! keywords (than hardwfn)
 
- character(len=4)   :: localm = 'pm'   ! localization method: boys/pm
- character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
- character(len=240) :: chgname = ' '   ! filename of the .chg file (background point charges)
- character(len=240) :: hf_fch = ' '    ! filename of the given .fch(k) file
- character(len=240) :: datname = ' '   ! filename of GAMESS GVB .dat file
- character(len=240) :: casnofch = ' '  ! .fch(k) file of CASCI or CASSCF job
- character(len=8) :: otpdf = 'tPBE'    ! on-top pair density functional
-
- integer :: maxM = 1000             ! bond-dimension in DMRG computation
  logical :: vir_proj = .false.      ! virtual orbitals projection onto those of STO-6G
  logical :: uno = .false.           ! generate UNOs
  logical :: frag_guess = .false.
@@ -779,6 +780,8 @@ contains
     FIC = .true.
    case('otpdf')
     read(longbuf(j+1:i-1),*) otpdf
+   case('on_thres')
+    read(longbuf(j+1:i-1),*) ON_thres
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."

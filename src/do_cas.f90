@@ -325,8 +325,8 @@ subroutine do_cas(scf)
   i = system('fch2mkl '//TRIM(fchname))
 
   i = index(fchname, '.fch', back=.true.)
-  pyname = fchname(1:i-1)//'.inp'
-  orbname = fchname(1:i-1)//'.mkl'
+  pyname  = fchname(1:i-1)//'_o.inp'
+  orbname = fchname(1:i-1)//'_o.mkl'
   inpname = TRIM(proname)//'.inp'
   mklname = TRIM(proname)//'.mkl'
   outname = TRIM(proname)//'.out'

@@ -1261,7 +1261,11 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
   stop
  end if
 
+ close(fid)
+ open(newunit=fid,file='uno.out',status='old',position='append')
  do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:3) == 'ndb') exit

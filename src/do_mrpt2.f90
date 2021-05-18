@@ -177,8 +177,8 @@ subroutine do_mrpt2()
    call check_exe_exist(orca_path)
    i = system('fch2mkl '//TRIM(casnofch))
    i = index(casnofch, '.fch', back=.true.)
-   inporb = casnofch(1:i-1)//'.mkl'
-   string = casnofch(1:i-1)//'.inp'
+   inporb = casnofch(1:i-1)//'_o.mkl'
+   string = casnofch(1:i-1)//'_o.inp'
    i = index(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'NEVPT2.mkl'
    inpname = casnofch(1:i)//'NEVPT2.inp'
@@ -272,8 +272,8 @@ subroutine do_mrpt2()
 
    i = system('fch2mkl '//TRIM(casnofch))
    i = index(casnofch, '.fch', back=.true.)
-   inporb = casnofch(1:i-1)//'.mkl'
-   string = casnofch(1:i-1)//'.inp'
+   inporb = casnofch(1:i-1)//'_o.mkl'
+   string = casnofch(1:i-1)//'_o.inp'
    i = index(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'CASPT2.mkl'
    inpname = casnofch(1:i)//'CASPT2.inp'

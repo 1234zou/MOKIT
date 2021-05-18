@@ -879,7 +879,7 @@ subroutine gen_inp_of_frags()
  end select
 
  if(LEN_TRIM(scrf) > 0) then
-  write(fid2,'(A)',advance='no') ' $PCM IEF=3 SOLVNT='//TRIM(solvent)
+  write(fid2,'(A)',advance='no') ' $PCM IEF=-3 SOLVNT='//TRIM(solvent)
   if(index(scrf,'smd') > 0) then
    write(fid2,'(A)',advance='no') ' SMD=.T. $END'
    write(iout,'(/,A)') 'Warning from subroutine gen_inp_of_frags: scrf=SMD detected.'

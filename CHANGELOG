@@ -1,5 +1,6 @@
-MOKIT 1.2.3 (Apr 21, 2021)
+MOKIT 1.2.3 (May 19, 2021)
 ------------------------
+* change generated files of fch2mkl to *_o.inp and *_o.mkl
 * extend utility frag_guess_wfn to generate GAMESS EDA input
 * add utility fch2qm4d (Gaussian -> QM4D)
 * add DFT/MRCI interfaces

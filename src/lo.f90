@@ -43,11 +43,11 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
 
- allocate(PS12(nbf,nbf), source=0.0d0)
+ allocate(PS12(nbf,nbf), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', nbf, nbf, 1.0d0, sqrt_S, nbf, P, nbf, 0.0d0, PS12, nbf)
+ call dsymm('R', 'L', nbf, nbf, 1d0, sqrt_S, nbf, P, nbf, 0d0, PS12, nbf)
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'N', nbf, nbf, nbf, 1.0d0, sqrt_S, nbf, PS12, nbf, 0.0d0, S, nbf)
+ call dgemm('N', 'N', nbf, nbf, nbf, 1d0, sqrt_S, nbf, PS12, nbf, 0d0, S, nbf)
  ! use S to store (S^1/2)P(S^1/2)
 
  deallocate(PS12, sqrt_S)
@@ -57,25 +57,25 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  lwork = -1
  liwork = -1
  allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0.0d0, 0.0d0, 0, 0, 1.0d-8, i, e, &
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
              U, nbf, isuppz, work, lwork, iwork, liwork, j)
  lwork = CEILING(work(1))
  liwork = iwork(1)
  deallocate(work, iwork)
  allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0.0d0, 0.0d0, 0, 0, 1.0d-8, i, e, &
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
              U, nbf, isuppz, work, lwork, iwork, liwork, j)
  deallocate(isuppz, work, iwork)
  ! eigenvalues in array e are in ascending order
 
- noon = 0.0d0
- forall(i = 1:nif, e(nbf-i+1)>0.0d0) noon(i) = e(nbf-i+1)
+ noon = 0d0
+ forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
  write(iout,'(A)') 'Natural Orbital Occupancy Numbers (NOON):'
  write(iout,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  deallocate(e)
 
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'N', nbf, nif, nbf, 1.0d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0.0d0, new_coeff, nbf)
+ call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0d0, new_coeff, nbf)
  deallocate(n_sqrt_S, U)
 
  ! reverse the order of MOs
@@ -103,15 +103,15 @@ subroutine get_mo_based_dm(nbf, nif, coeff, S, P, dm)
 !f2py depend(nif) :: dm
  real(kind=8), allocatable :: SC(:,:), PSC(:,:)
 
- allocate(SC(nbf,nif), source=0.0d0)
+ allocate(SC(nbf,nif), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('L', 'L', nbf, nif, 1.0d0, S, nbf, coeff, nbf, 0.0d0, SC, nbf)
+ call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, coeff, nbf, 0d0, SC, nbf)
 
- allocate(PSC(nbf,nif), source=0.0d0)
- call dsymm('L', 'L', nbf, nif, 1.0d0, P, nbf, SC, nbf, 0.0d0, PSC, nbf)
+ allocate(PSC(nbf,nif), source=0d0)
+ call dsymm('L', 'L', nbf, nif, 1d0, P, nbf, SC, nbf, 0d0, PSC, nbf)
 
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('T', 'N', nif, nif, nbf, 1.0d0, SC, nbf, PSC, nbf, 0.0d0, dm, nif)
+ call dgemm('T', 'N', nif, nif, nbf, 1d0, SC, nbf, PSC, nbf, 0d0, dm, nif)
 
  write(iout,'(A)') 'MO-based density matrix (Final one electron symbolic density matrix):'
  do i = 1, nif, 1
@@ -147,8 +147,8 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
   stop
  end if
 
- allocate(P(nbf,nbf), source=0.0d0)
- call dgemm('N', 'T', nbf, nbf, nif, 1.0d0, coeff, nbf, coeff, nbf, 0.0d0, P, nbf)
+ allocate(P(nbf,nbf), source=0d0)
+ call dgemm('N', 'T', nbf, nbf, nif, 1d0, coeff, nbf, coeff, nbf, 0d0, P, nbf)
 
  do i = 1, nif, 1
   rtmp1 = P(i,i) - ddot(i-1, new_coeff(i,1:i-1), 1, new_coeff(i,1:i-1), 1)
@@ -287,9 +287,9 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  end do ! for i
 
  if(pop == 'mulliken') then
-  allocate(SC(nbf,nif), source=0.0d0)
-  call dsymm('L', 'L', nbf, nif, 1.0d0, S, nbf, coeff, nbf, 0.0d0, SC, nbf)
-  allocate(gross(natom,nif,nif), source=0.0d0)
+  allocate(SC(nbf,nif), source=0d0)
+  call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, coeff, nbf, 0d0, SC, nbf)
+  allocate(gross(natom,nif,nif), source=0d0)
  
   do i = 1, nif, 1
    do j = i, nif, 1
@@ -314,28 +314,28 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
   lwork = -1
   liwork = -1
   allocate(work(1), iwork(1))
-  call dsyevr('V', 'A', 'L', nbf, SC, nbf, 0.0d0, 0.0d0, 0, 0, 1.0d-8, k, e, &
+  call dsyevr('V', 'A', 'L', nbf, SC, nbf, 0d0, 0d0, 0, 0, 1d-8, k, e, &
               ev, nbf, isuppz, work, lwork, iwork, liwork, i)
   lwork = CEILING(work(1))
   liwork = iwork(1)
   deallocate(work, iwork)
   allocate(work(lwork), iwork(liwork))
-  call dsyevr('V', 'A', 'L', nbf, SC, nbf, 0.0d0, 0.0d0, 0, 0, 1.0d-8, k, e, &
+  call dsyevr('V', 'A', 'L', nbf, SC, nbf, 0d0, 0d0, 0, 0, 1d-8, k, e, &
               ev, nbf, isuppz, work, lwork, iwork, liwork, i)
   deallocate(SC, isuppz, work, iwork)
 
-  allocate(rootS(nbf,nbf), source=0.0d0)
+  allocate(rootS(nbf,nbf), source=0d0)
   forall(i=1:nbf) rootS(i,i) = DSQRT(DABS(e(i)))
   deallocate(e)
   allocate(SC(nbf,nbf)) ! use SC to temporarily store US^1/2
-  call dsymm('R', 'L', nbf, nbf, 1.0d0, rootS, nbf, ev, nbf, 0.0d0, SC, nbf)
-  call dgemm('N', 'T', nbf, nbf, nbf, 1.0d0, SC, nbf, ev, nbf, 0.0d0, rootS, nbf)
+  call dsymm('R', 'L', nbf, nbf, 1d0, rootS, nbf, ev, nbf, 0d0, SC, nbf)
+  call dgemm('N', 'T', nbf, nbf, nbf, 1d0, SC, nbf, ev, nbf, 0d0, rootS, nbf)
   deallocate(ev, SC)
-  allocate(SC(nbf,nif), source=0.0d0) ! use SC to temporarily store (S^-1/2)C
-  call dsymm('L', 'L', nbf, nif, 1.0d0, rootS, nbf, coeff, nbf, 0.0d0, SC, nbf)
+  allocate(SC(nbf,nif), source=0d0) ! use SC to temporarily store (S^-1/2)C
+  call dsymm('L', 'L', nbf, nif, 1d0, rootS, nbf, coeff, nbf, 0d0, SC, nbf)
   deallocate(rootS)
 
-  allocate(gross(natom,nif,nif), source=0.0d0)
+  allocate(gross(natom,nif,nif), source=0d0)
 
   do i = 1, nif, 1
    do j = i, nif, 1
@@ -397,7 +397,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
  ! perform 2*2 rotation
  niter = 0
  do while(niter <= niter_max)
-  sum_change = 0.0d0
+  sum_change = 0d0
 
   do i = 1, nif-1, 1
    do j = i+1, nif, 1
@@ -409,12 +409,12 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
     Bij = ddot(ncomp, vdiff, 1, vtmp(:,2), 1)
     rtmp = HYPOT(Aij, Bij)
     sin_4a = Bij/rtmp
-    sin_4a = MAX(-1.0d0, MIN(sin_4a, 1.0d0)) ! in case of numerical error
+    sin_4a = MAX(-1d0, MIN(sin_4a, 1d0)) ! in case of numerical error
     alpha = DASIN(sin_4a) ! [-PI/2,PI/2]
-    if(Aij > 0.0d0) then
+    if(Aij > 0d0) then
      alpha = PI - alpha
-    else if(Aij<0.0d0 .and. Bij<0.0d0) then
-     alpha = 2.0d0*PI + alpha
+    else if(Aij<0d0 .and. Bij<0d0) then
+     alpha = 2d0*PI + alpha
     end if
     alpha = 0.25d0*alpha
     ! if theta/alpha is very close to zero or PI/2, not to rotate
@@ -433,7 +433,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
     ! update corresponding dipole integrals, only indices in range to be updated
     cc = cos_a*cos_a
     ss = sin_a*sin_a
-    sin_2a = 2.0d0*sin_a*cos_a
+    sin_2a = 2d0*sin_a*cos_a
     cos_2a = cc - ss
     dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
     dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
@@ -483,7 +483,7 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
 
  nocc = ncore + npair + nopen
 
- fBoys = 0.0d0
+ fBoys = 0d0
  j = ncore + npair
  do i = 1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -491,7 +491,7 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
  write(iout,'(A,F13.6)') 'In occ, Modified f(Boys)=', fBoys
- fBoys = 0.0d0
+ fBoys = 0d0
  j = nocc + npair
  do i = nocc+1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -511,7 +511,7 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  integer, intent(in) :: n
  integer, allocatable :: iwork(:), isuppz(:)
 
- real(kind=8), parameter :: lin_dep = 1.0d-6
+ real(kind=8), parameter :: lin_dep = 1d-6
  ! 1.0D-6 is the default threshold of linear dependence in Gaussian and GAMESS
  ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
  real(kind=8), intent(in) :: a0(n,n)
@@ -530,13 +530,13 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  lwork = -1
  liwork = -1
  allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
- call dsyevr('V', 'A', 'L', n, a, n, 0.0d0, 0.0d0, 0, 0, 1.0d-8, m, e, U, n, &
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
              isuppz, work, lwork, iwork, liwork, i)
  lwork = CEILING(work(1))
  liwork = iwork(1)
  deallocate(work, iwork)
  allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A', 'L', n, a, n, 0.0d0, 0.0d0, 0, 0, 1.0d-8, m, e, U, n, &
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
              isuppz, work, lwork, iwork, liwork, i)
 
  deallocate(a, work, iwork, isuppz)
@@ -546,28 +546,28 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
   stop
  end if
 
- if(e(1) < -1.0d-6) then
+ if(e(1) < -1d-6) then
   write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
   write(iout,'(A,F16.9)') 'e(1)=', e(1)
   stop
  end if
 
- allocate(e1(n,n), source=0.0d0)
- allocate(Ue(n,n), source=0.0d0)
- sqrt_a = 0.0d0
- forall(i=1:n, e(i)>0.0d0) e1(i,i) = DSQRT(e(i))
+ allocate(e1(n,n), source=0d0)
+ allocate(Ue(n,n), source=0d0)
+ sqrt_a = 0d0
+ forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1.0d0, e1, n, U, n, 0.0d0, Ue, n)
+ call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1.0d0, Ue, n, U, n, 0.0d0, sqrt_a, n)
+ call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
 
- e1 = 0.0d0
- n_sqrt_a = 0.0d0
- forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1.0d0/DSQRT(e(i))
+ e1 = 0d0
+ n_sqrt_a = 0d0
+ forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1.0d0, e1, n, U, n, 0.0d0, Ue, n)
+ call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1.0d0, Ue, n, U, n, 0.0d0, n_sqrt_a, n)
+ call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
 
  deallocate(e, e1, U, Ue)
  return
@@ -589,11 +589,11 @@ subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  real(kind=8), allocatable :: f(:,:)
  real(kind=8), allocatable :: w(:), work(:)
 
- allocate(f(nmo,nmo), source=0.0d0)
+ allocate(f(nmo,nmo), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0.0d0,f,nmo)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1.0d0,f,nmo)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1.0d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
 
  ! call dsyevd(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info)
  allocate(work(1), iwork(1))
@@ -613,7 +613,7 @@ subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
   stop
  end if
 
- call dgemm('N','N',nbf,nmo,nmo, 1.0d0,mo_coeff,nbf, f,nmo, 0.0d0,new_coeff,nbf)
+ call dgemm('N','N',nbf,nmo,nmo, 1d0,mo_coeff,nbf, f,nmo, 0d0,new_coeff,nbf)
  deallocate(f)
  return
 end subroutine boys_diag
@@ -630,20 +630,20 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
 !f2py depend(nmo) ::  mo_dipole
  real(kind=8), allocatable :: f(:,:), U(:,:), fU(:,:), lamda(:,:)
 
- allocate(f(nmo,nmo), source=0.0d0)
+ allocate(f(nmo,nmo), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0.0d0,f,nmo)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1.0d0,f,nmo)
- call dsymm('L','L',nmo,nmo, 1.0d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1.0d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
+ call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
 
- allocate(U(nmo,nmo), source=0.0d0)
+ allocate(U(nmo,nmo), source=0d0)
  call get_u(nbf, nmo, coeff, lo_coeff, U) 
- allocate(fU(nmo,nmo), source=0.0d0)
- call dsymm('L','L',nmo,nmo, 1.0d0,f,nmo, U,nmo, 0.0d0,fU,nmo)
+ allocate(fU(nmo,nmo), source=0d0)
+ call dsymm('L','L',nmo,nmo, 1d0,f,nmo, U,nmo, 0d0,fU,nmo)
  deallocate(f)
- allocate(lamda(nmo,nmo), source=0.0d0)
+ allocate(lamda(nmo,nmo), source=0d0)
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('T', 'N', nmo,nmo,nmo, -4.0d0, U,nmo, fU,nmo, 0.0d0, lamda,nmo)
+ call dgemm('T', 'N', nmo,nmo,nmo, -4d0, U,nmo, fU,nmo, 0d0, lamda,nmo)
  deallocate(fU, U)
 
  do i = 1, nmo, 1

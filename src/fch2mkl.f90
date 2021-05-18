@@ -24,8 +24,9 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)')  ' ERROR in subroutine fch2mkl: wrong command line argument!'
-  write(iout,'(A,/)')  ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
+  write(iout,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line argument!'
+  write(iout,'(/,A)') ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
+  write(iout,'(A,/)') ' (a_o.inp and a_o.mkl files will be generated)'
   stop
  end if
 
@@ -60,6 +61,8 @@ subroutine fch2mkl(fchname)
   write(iout,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
+ mklname = fchname(1:i-1)//'_o.mkl'
+ inpname = fchname(1:i-1)//'_o.inp'
 
  call check_DKH_in_fch(fchname, rel)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
@@ -141,10 +144,6 @@ subroutine fch2mkl(fchname)
   end do ! for i
  end if
  deallocate(f3_mark, g3_mark, h3_mark)
-
- i = INDEX(fchname,'.fch',back=.true.)
- mklname = fchname(1:i-1)//'.mkl'
- inpname = fchname(1:i-1)//'.inp'
 
  ! print elements and coordinates into .mkl file
  open(newunit=fid1,file=TRIM(mklname),status='replace')
@@ -388,15 +387,15 @@ subroutine fch2mkl(fchname)
 
  ! print Alpha orbital occupation numbers into .mkl file
  write(fid1,'(A)') '$OCC_ALPHA'
- allocate(eigen_e_a(nif), source=0.0d0)
+ allocate(eigen_e_a(nif), source=0d0)
  if(uhf) then
-  forall(i = 1:na) eigen_e_a(i) = 1.0d0
+  forall(i = 1:na) eigen_e_a(i) = 1d0
  else ! .not. uhf
   if(nopen == 0) then
-   forall(i = 1:na) eigen_e_a(i) = 2.0d0
+   forall(i = 1:na) eigen_e_a(i) = 2d0
   else ! nopen > 0
-   forall(i = 1:nb)    eigen_e_a(i) = 2.0d0
-   forall(i = nb+1:na) eigen_e_a(i) = 1.0d0
+   forall(i = 1:nb)    eigen_e_a(i) = 2d0
+   forall(i = nb+1:na) eigen_e_a(i) = 1d0
   end if
  end if
  write(fid1,'(5(F12.7,1X))') (eigen_e_a(i), i=1,nif)
@@ -417,7 +416,6 @@ subroutine fch2mkl(fchname)
    write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
    write(fid1,'(5(F14.8,1X))') (eigen_e_b(i),i=k+1,j)
    do i = 1, nbf, 1
-!    write(fid1,'(5(F14.9,1X))') (beta_coeff(i,m),m=k+1,j)
     write(fid1,'(5(ES15.8,1X))') (beta_coeff(i,m),m=k+1,j)
    end do ! for i
    k = j
@@ -427,8 +425,8 @@ subroutine fch2mkl(fchname)
 
   ! print Beta orbital occupation numbers (if any) into .mkl file
   write(fid1,'(A)') '$OCC_BETA'
-  allocate(eigen_e_b(nif), source=0.0d0)
-  forall(i = 1:nb) eigen_e_b(i) = 1.0d0
+  allocate(eigen_e_b(nif), source=0d0)
+  forall(i = 1:nb) eigen_e_b(i) = 1d0
   write(fid1,'(5(F12.7,1X))') (eigen_e_b(i), i=1,nif)
   deallocate(eigen_e_b)
   write(fid1,'(A,/)') '$END'

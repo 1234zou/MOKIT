@@ -401,7 +401,7 @@ end subroutine prt_auto_pair_script_into_py
 ! print UNO script into a given .py file
 subroutine prt_uno_script_into_py(pyname)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, hf_fch, tencycle
+ use mr_keyword, only: mem, nproc, hf_fch, tencycle, ON_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, uno_fch
@@ -473,7 +473,8 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
  write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
- write(fid1,'(A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],mf.mo_coeff[1],S)'
+ write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&
+                           &mf.mo_coeff[1],S,',ON_thres,')'
  write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
  write(fid1,'(A)') '# done transform'
@@ -483,7 +484,6 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') "os.rename('"//hf_fch(1:i-1)//"_r.fch', '"//TRIM(uno_fch)//"')"
  write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',noon,True)"
  write(fid1,'(A)') '# save done'
-
  close(fid1)
  return
 end subroutine prt_uno_script_into_py
@@ -550,9 +550,9 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') 'print(idx1, idx2, idx3, idx4)'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid1,'(A)') "occ_loc_orb = pm(mol.nbas, mol._bas[:,0], mol._bas[:,1], &
-                    & mol._bas[:,3], mol.cart, nbf, npair, mf.mo_coeff[0][:,occ_idx],&
-                    & S, 'mulliken')"
+  write(fid1,'(A)') "occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+                    &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[0][:,occ_idx],&
+                    &S,'mulliken')"
  else ! Boys localization
   write(fid1,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
   write(fid1,'(A)') 'occ_loc_orb = boys(nbf, npair, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
@@ -996,8 +996,8 @@ subroutine do_mrcisd()
   call check_exe_exist(orca_path)
   i = system('fch2mkl '//TRIM(casnofch))
   i = index(casnofch, '.fch', back=.true.)
-  chkname = casnofch(1:i-1)//'.mkl'
-  string  = casnofch(1:i-1)//'.inp'
+  chkname = casnofch(1:i-1)//'_o.mkl'
+  string  = casnofch(1:i-1)//'_o.inp'
   i = index(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD.mkl'
   inpname = casnofch(1:i)//'MRCISD.inp'

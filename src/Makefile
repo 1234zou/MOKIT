@@ -5,7 +5,7 @@ BIN = ../bin
 
 # --- gfortran ---
 #F90    = gfortran
-#FFLAGS = -O2 -cpp
+#FFLAGS = -O2 -cpp -fbacktrace
 #MKL_FLAGS = -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
