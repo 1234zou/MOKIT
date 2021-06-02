@@ -289,7 +289,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# save projected MOs into a new .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(proj_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_occ,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
  write(fid2,'(A)') '# save done'
 
  close(fid2)
@@ -383,7 +383,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_occ,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
  write(fid2,'(A)') '# save done'
 
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
@@ -482,7 +482,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(/,A)') '# save the UNO into .fch file'
  write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//"')"
  write(fid1,'(A)') "os.rename('"//hf_fch(1:i-1)//"_r.fch', '"//TRIM(uno_fch)//"')"
- write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',noon,True)"
+ write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
  return
@@ -567,7 +567,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
  write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',noon,False)"
+ write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,False)"
  close(fid1)
  return
 end subroutine prt_assoc_rot_script_into_py
@@ -789,7 +789,7 @@ subroutine do_gvb()
  use mr_keyword, only: mem, nproc, gms_path, gms_scr_path, mo_rhf, ist, hf_fch,&
   gvb, datname, npair_wish, bgchg, chgname, cart, check_gms_path
  use mol, only: nbf, nif, ndb, nopen, npair, lin_dep, gvb_e, nacto, nacta, &
-                nactb, nacte, npair0
+  nactb, nacte, npair0
  implicit none
  integer :: i, j, system, RENAME
  character(len=24) :: data_string = ' '
@@ -861,7 +861,9 @@ subroutine do_gvb()
  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
 ! write(iout,'(A)') '$$GMS '//TRIM(longbuf)
  i = system(TRIM(gms_path)//' '//TRIM(longbuf))
+
  call read_gvb_energy_from_gms(gmsname, gvb_e)
+ write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  ! move the .dat file into current directory
  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
@@ -874,10 +876,10 @@ subroutine do_gvb()
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  if(cart) then ! Cartesian functions
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname), nbf, nif, ndb, nopen, npair
+  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
  else          ! spherical harmonic functions
   call read_nbf_from_dat(datname, i)
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname), i, nif, ndb, nopen, npair
+  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
  i = system(TRIM(longbuf))
 
@@ -890,7 +892,7 @@ subroutine do_gvb()
                              npair, ' -open ', nopen
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
@@ -900,7 +902,7 @@ subroutine do_gvb()
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if

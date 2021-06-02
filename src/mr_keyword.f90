@@ -819,7 +819,7 @@ contains
    else
     call check_X2C_in_fch(hf_fch, alive(1))
     if(alive(1)) then
-     write(iout,'(/,A)') '-------------------------------------------------------'
+     write(iout,'(/,A)') REPEAT('-',55)
      write(iout,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword&
                       & detected in file"
      write(iout,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}.&
@@ -827,12 +827,12 @@ contains
      write(iout,'(A)') 'not want to perform X2C computations, please kill this job&
                       & immediately'
      write(iout,'(A)') "and delete 'X2C' in .fch."
-     write(iout,'(A)') '-------------------------------------------------------'
+     write(iout,'(A)') REPEAT('-',55)
     end if
 
     call check_DKH_in_fch(hf_fch, i)
     if(i /= -2) then
-     write(iout,'(/,A)') '-------------------------------------------------------'
+     write(iout,'(/,A)') REPEAT('-',55)
      write(iout,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
                       & detected in file'
      write(iout,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}.&
@@ -840,7 +840,7 @@ contains
      write(iout,'(A)') 'not want to perform DKH2 computations, please kill this job&
                       & immediately'
      write(iout,'(A)') 'and delete DKH related keywords in .fch.'
-     write(iout,'(A)') '-------------------------------------------------------'
+     write(iout,'(A)') REPEAT('-',55)
     end if
    end if
   end if
@@ -930,6 +930,13 @@ contains
 
   if(DKH2 .and. X2C) then
    write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
+   stop
+  end if
+
+  if(DKH2 .and. hf_prog=='pyscf') then
+   write(iout,'(A)') error_warn//"'DKH2' is not supported in PySCF."
+   write(iout,'(A)') 'You can use another HF_prog (PSI4 or ORCA), or you can&
+                    & change DKH2 to X2C.'
    stop
   end if
 
@@ -1838,8 +1845,19 @@ subroutine get_gau_path(gau_path)
 #else
  i = index(gau_path, ':', back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine get_gau_path: no ':' symbol found in&
-                  & gau_path="//TRIM(gau_path)
+  write(iout,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
+                     & in gau_path="//TRIM(gau_path)
+  write(iout,'(/,A)') 'This error often occurs when your machine has no (or has&
+                     & incorrect) Gaussian'
+  write(iout,'(A)') 'environment variables. Here I offer an example:'
+  write(iout,'(A)') REPEAT('-',45)
+  write(iout,'(A)') ' export g16root=/opt'
+  write(iout,'(A)') ' source $g16root/g16/bsd/g16.profile'
+  write(iout,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
+  write(iout,'(A)') REPEAT('-',45)
+  write(iout,'(A)') 'Please check your Gaussian environment variables according&
+                   & to the example shown above.'
+  write(iout,'(A)') "Also: do not write 'export GAUSS_EXEDIR', it is useless."
   stop
  end if
 

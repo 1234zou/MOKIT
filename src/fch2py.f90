@@ -8,6 +8,7 @@
 ! updated by jxzou at 20190226: change data to parameter when declare constant arrays
 ! updated by jxzou at 20190411: pass the Sdiag in
 ! updated by jxzou at 20200324: renamed from fch2py as fch2py, simplify code
+! updated by jxzou at 20210527: remove intent(in) parameter Sdiag, use parameter array
 
 ! This subroutine is designed to be called as a module by Python.
 !  For INTEL compiler, use
@@ -22,9 +23,33 @@
 !  to compile this file (a fch2py.so file will be generated). Then in
 !  Python you can import the fch2py module.
 
-! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
+! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
+module Sdiag_parameter
+ implicit none
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
+ real(kind=8), parameter :: p2 = 2d0*DSQRT(PI/5d0)
+ real(kind=8), parameter :: p3 = 2d0*DSQRT(PI/7d0)
+ real(kind=8), parameter :: p4 = 2d0*DSQRT(PI/35d0)
+ real(kind=8), parameter :: p5 = 2d0*DSQRT(PI/105d0)
+ real(kind=8), parameter :: p6 = (2d0/3d0)*DSQRT(PI)
+ real(kind=8), parameter :: p7 = (2d0/3d0)*DSQRT(PI/7d0)
+ real(kind=8), parameter :: p8 = (2d0/3d0)*DSQRT(PI/35d0)
+ real(kind=8), parameter :: p9 = 2d0*DSQRT(PI/11d0)
+ real(kind=8), parameter :: p10 = (2d0/3d0)*DSQRT(PI/11d0)
+ real(kind=8), parameter :: p11 = 2d0*DSQRT(PI/231d0)
+ real(kind=8), parameter :: p12 = (2d0/3d0)*DSQRT(PI/77d0)
+ real(kind=8), parameter :: p13 = 2d0*DSQRT(PI/1155d0)
+ real(kind=8), parameter :: Sdiag_d(6)  = [p2,p1,p1,p2,p1,p2]
+ real(kind=8), parameter :: Sdiag_f(10) = [p3,p4,p4,p4,p5,p4,p3,p4,p4,p3]
+ real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
+ real(kind=8), parameter :: Sdiag_h(21) = &
+  [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
+end module Sdiag_parameter
+
+! read the MOs in .fch(k) file and adjust its d,f,g,h functions order
 !  of Gaussian to that of PySCF
-subroutine fch2py(fchname, nbf, nif, Sdiag, ab, coeff2)
+subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  implicit none
  integer :: i, k, length, fchid
  integer :: ncoeff, nbf, nif
@@ -36,11 +61,8 @@ subroutine fch2py(fchname, nbf, nif, Sdiag, ab, coeff2)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
 
- real(kind=8), parameter :: diff = 1.0d-6
- real(kind=8) :: coeff2(nbf,nif), Sdiag(nbf)
+ real(kind=8) :: coeff2(nbf,nif)
 !f2py depend(nbf,nif) :: coeff2
-!f2py depend(nbf) :: Sdiag
-!f2py intent(in,copy) :: Sdiag
 !f2py intent(out) :: coeff2
  real(kind=8), allocatable :: coeff(:)
 
@@ -51,8 +73,6 @@ subroutine fch2py(fchname, nbf, nif, Sdiag, ab, coeff2)
  character(len=7), parameter :: key2 = 'Beta MO'
  character(len=240) :: fchname, buffer
 !f2py intent(in) :: fchname
-
- logical, allocatable :: eq1(:)
 
  key = ' '
  buffer = ' '
@@ -135,6 +155,7 @@ subroutine fch2py(fchname, nbf, nif, Sdiag, ab, coeff2)
  ! sort the shell_type, shell_to_atom_map by ascending order
  ! MOs will be adjusted accordingly
  call sort_shell_and_mo(length, shell_type, shell_to_atom_map, nbf, nif, coeff2)
+ deallocate(shell_to_atom_map)
 ! adjust done
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
@@ -224,20 +245,7 @@ subroutine fch2py(fchname, nbf, nif, Sdiag, ab, coeff2)
  end do
 ! adjustment finished
 
- ! normalize MO coefficients as PySCF
- Sdiag = DSQRT(Sdiag)
- allocate(eq1(nbf), source=.false.)
- do i = 1, nbf, 1
-  if( DABS(Sdiag(i)-1.0d0) < diff) eq1(i) = .true.
- end do
-
- do i = 1, nif, 1
-  do k = 1, nbf, 1
-   if(.not. eq1(k)) coeff2(k,i) = coeff2(k,i)/Sdiag(k)
-  end do
- end do
-
- deallocate(d_mark, f_mark, g_mark, h_mark, eq1)
+ deallocate(d_mark, f_mark, g_mark, h_mark)
  return
 end subroutine fch2py
 
@@ -409,7 +417,7 @@ subroutine fch2py_permute_5d(nif,coeff)
 ! d0 , d+1, d-1, d+2, d-2
 ! d-2, d-1, d0 , d+1, d+2
 
- allocate(coeff2(5,nif), source=0.0d0)
+ allocate(coeff2(5,nif), source=0d0)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -417,6 +425,7 @@ subroutine fch2py_permute_5d(nif,coeff)
 end subroutine fch2py_permute_5d
 
 subroutine fch2py_permute_6d(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_d
  implicit none
  integer :: i
  integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
@@ -429,9 +438,8 @@ subroutine fch2py_permute_6d(nif,coeff)
 ! XX,YY,ZZ,XY,XZ,YZ
 ! XX,XY,XZ,YY,YZ,ZZ
 
- allocate(coeff2(6,nif), source=0.0d0)
- forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(6,nif), source=coeff)
+ forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)/Sdiag_d(i)
  deallocate(coeff2)
  return
 end subroutine fch2py_permute_6d
@@ -449,7 +457,7 @@ subroutine fch2py_permute_7f(nif,coeff)
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 ! f-3, f-2, f-1, f0 , f+1, f+2, f+3
 
- allocate(coeff2(7,nif), source=0.0d0)
+ allocate(coeff2(7,nif), source=0d0)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -457,6 +465,7 @@ subroutine fch2py_permute_7f(nif,coeff)
 end subroutine fch2py_permute_7f
 
 subroutine fch2py_permute_10f(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_f
  implicit none
  integer :: i
  integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
@@ -469,9 +478,8 @@ subroutine fch2py_permute_10f(nif,coeff)
 ! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 ! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
 
- allocate(coeff2(10,nif), source=0.0d0)
- forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(10,nif), source=coeff)
+ forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)/Sdiag_f(i)
  deallocate(coeff2)
  return
 end subroutine fch2py_permute_10f
@@ -489,7 +497,7 @@ subroutine fch2py_permute_9g(nif,coeff)
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 ! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
 
- allocate(coeff2(9,nif), source=0.0d0)
+ allocate(coeff2(9,nif), source=0d0)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -497,6 +505,7 @@ subroutine fch2py_permute_9g(nif,coeff)
 end subroutine fch2py_permute_9g
 
 subroutine fch2py_permute_15g(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_g
  implicit none
  integer :: i
  integer, intent(in) :: nif
@@ -508,9 +517,8 @@ subroutine fch2py_permute_15g(nif,coeff)
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 ! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
 
- allocate(coeff2(15,nif), source=0.0d0)
- forall(i = 1:15) coeff2(i,:) = coeff(16-i,:)
- coeff = coeff2
+ allocate(coeff2(15,nif), source=coeff)
+ forall(i = 1:15) coeff(i,:) = coeff2(16-i,:)/Sdiag_g(i)
  deallocate(coeff2)
  return
 end subroutine fch2py_permute_15g
@@ -528,7 +536,7 @@ subroutine fch2py_permute_11h(nif,coeff)
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 ! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
 
- allocate(coeff2(11,nif), source=0.0d0)
+ allocate(coeff2(11,nif), source=0d0)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -536,6 +544,7 @@ subroutine fch2py_permute_11h(nif,coeff)
 end subroutine fch2py_permute_11h
 
 subroutine fch2py_permute_21h(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_h
  implicit none
  integer :: i
  integer, intent(in) :: nif
@@ -547,9 +556,8 @@ subroutine fch2py_permute_21h(nif,coeff)
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 ! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
 
- allocate(coeff2(21,nif), source=0.0d0)
- forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
- coeff = coeff2
+ allocate(coeff2(21,nif), source=coeff)
+ forall(i = 1:21) coeff(i,:) = coeff2(22-i,:)/Sdiag_h(i)
  deallocate(coeff2)
  return
 end subroutine fch2py_permute_21h

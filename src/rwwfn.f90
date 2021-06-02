@@ -739,6 +739,7 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
+ ncontr = 0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1319,7 +1320,6 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
 
  e = 0d0
  open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1341,14 +1341,13 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  i = index(buf,'IS'); j = index(buf,'AFTER')
  read(buf(i+2:j-1),*) e
 
- if(DABS(e) < 1.0d-4) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: GVB compu&
-                      &tation does not converge.'
-  write(iout,'(A)') 'You can try to reduce the number of processors and re-run.'
+ if(DABS(e) < 1d-5) then
+  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems&
+                     & that GVB computation does not'
+  write(iout,'(A)') 'converge. You can try to reduce the number of processors&
+                   & and re-run.'
   stop
  end if
-
- write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', e, 'a.u.'
  return
 end subroutine read_gvb_energy_from_gms
 
@@ -2650,13 +2649,13 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
 
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, nif
- allocate(noon(nif), source=0.0d0)
+ allocate(noon(nif), source=0d0)
  read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  close(fid)
 
  npair0 = 0
  do i = 1, nif, 1
-  if(noon(i)>no_thres .and. noon(i)<(2.0d0-no_thres)) npair0 = npair0 + 1
+  if(noon(i)>no_thres .and. noon(i)<(2d0-no_thres)) npair0 = npair0 + 1
  end do
  deallocate(noon)
 

@@ -13,6 +13,30 @@
 !  to compile this file (a chk2py.so file will be generated). Then in
 !  Python you can import the chk2py module.
 
+! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
+module Sdiag_parameter
+ implicit none
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
+ real(kind=8), parameter :: p2 = 2d0*DSQRT(PI/5d0)
+ real(kind=8), parameter :: p3 = 2d0*DSQRT(PI/7d0)
+ real(kind=8), parameter :: p4 = 2d0*DSQRT(PI/35d0)
+ real(kind=8), parameter :: p5 = 2d0*DSQRT(PI/105d0)
+ real(kind=8), parameter :: p6 = (2d0/3d0)*DSQRT(PI)
+ real(kind=8), parameter :: p7 = (2d0/3d0)*DSQRT(PI/7d0)
+ real(kind=8), parameter :: p8 = (2d0/3d0)*DSQRT(PI/35d0)
+ real(kind=8), parameter :: p9 = 2d0*DSQRT(PI/11d0)
+ real(kind=8), parameter :: p10 = (2d0/3d0)*DSQRT(PI/11d0)
+ real(kind=8), parameter :: p11 = 2d0*DSQRT(PI/231d0)
+ real(kind=8), parameter :: p12 = (2d0/3d0)*DSQRT(PI/77d0)
+ real(kind=8), parameter :: p13 = 2d0*DSQRT(PI/1155d0)
+ real(kind=8), parameter :: Sdiag_d(6)  = [p2,p1,p1,p2,p1,p2]
+ real(kind=8), parameter :: Sdiag_f(10) = [p3,p4,p4,p4,p5,p4,p3,p4,p4,p3]
+ real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
+ real(kind=8), parameter :: Sdiag_h(21) = &
+  [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
+end module Sdiag_parameter
+
 ! Step1:
 !  tranform the .chk file to _chk.txt file using Gaussian utility chkchk,
 !  and read the MOs from _chk.txt
@@ -22,24 +46,22 @@
 !  (The _chk.txt and _tmp.fchk file will be deleted after reading)
 ! Step3:
 !  adjust its d,f,g, etc. functions order of Gaussian to that of PySCF
-subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
+subroutine chk2py(chkname, nbf, nif, ab, coeff)
  implicit none
- integer :: i, k, length
+ integer :: i, k, length, chkid
  integer :: ncoeff, nbf, nif
 !f2py intent(in) :: nbf, nif
  integer :: system
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
- integer, parameter :: iout = 6, chkid = 11
+ integer, parameter :: iout = 6
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
 
- real(kind=8), parameter :: diff = 1.0d-6
- real(kind=8) :: coeff(nbf,nif), Sdiag(nbf)
+ real(kind=8), parameter :: diff = 1d-6
+ real(kind=8) :: coeff(nbf,nif)
 !f2py depend(nbf,nif) :: coeff
-!f2py depend(nbf) :: Sdiag
-!f2py intent(in,copy) :: Sdiag
 !f2py intent(out) :: coeff
 
  character(len=1) :: ab
@@ -50,7 +72,6 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  character(len=240) :: chkname, txtname, buffer
 !f2py intent(in) :: chkname
  logical :: alive
- logical, allocatable :: eq1(:)
 
  inquire(file=TRIM(chkname),exist=alive)
  if(.not. alive) then
@@ -67,7 +88,7 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
                    & to _chk.txt file, using Gaussian utility chkchk.'
-  write(iout,'(A)') TRIM(chkname)
+  write(iout,'(A)') 'File: '//TRIM(chkname)
   write(iout,'(A)') "You can use 'which chkchk' to check if this command exists."
   stop
  end if
@@ -80,7 +101,7 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
   key = key2//' '
  end if
 
- open(unit=chkid,file=TRIM(txtname),status='old',position='rewind')
+ open(newunit=chkid,file=TRIM(txtname),status='old',position='rewind')
  do while(.true.)
   read(chkid,'(A)') buffer
   if(buffer(7:14) == key) exit
@@ -112,10 +133,10 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  ! ' Read checkpoint file xxx.chk'
  ! ' Write formatted file xxx.fchk'
  ! delete the file junk_tmp
- open(unit=chkid,file='junk_tmp',status='old')
+ open(newunit=chkid,file='junk_tmp',status='old')
  close(chkid,status='delete')
 
- open(unit=chkid,file=TRIM(txtname),status='old',position='rewind')
+ open(newunit=chkid,file=TRIM(txtname),status='old',position='rewind')
  do while(.true.)
   read(chkid,'(A)') buffer
   if(buffer(1:17) == 'Number of basis f') exit
@@ -279,20 +300,7 @@ subroutine chk2py(chkname, nbf, nif, Sdiag, ab, coeff)
  end do
 ! adjustment finished
 
- ! normalize MO coefficients as PySCF
- Sdiag = DSQRT(Sdiag)
- allocate(eq1(nbf), source=.false.)
- do i = 1, nbf, 1
-  if( DABS(Sdiag(i)-1.0d0) < diff) eq1(i) = .true.
- end do
-
- do i = 1, nif, 1
-  do k = 1, nbf, 1
-   if(.not. eq1(k)) coeff(k,i) = coeff(k,i)/Sdiag(k)
-  end do
- end do
-
- deallocate(d_mark, f_mark, g_mark, h_mark, eq1)
+ deallocate(d_mark, f_mark, g_mark, h_mark)
  return
 end subroutine chk2py
 
@@ -457,39 +465,37 @@ subroutine chk2py_permute_5d(nif,coeff)
  integer, parameter :: order(5) = [5, 3, 1, 2, 4]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(5,nif)
- real(kind=8) :: coeff2(5,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of spherical d functions in Gaussian
 ! To: the order of spherical d functions in PySCF
 ! 1    2    3    4    5
 ! d0 , d+1, d-1, d+2, d-2
 ! d-2, d-1, d0 , d+1, d+2
 
- coeff2 = 0.0d0
- forall(i = 1:5)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ allocate(coeff2(5,nif), source=0d0)
+ forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_5d
 
 subroutine chk2py_permute_6d(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_d
  implicit none
  integer :: i
  integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(6,nif)
- real(kind=8) :: coeff2(6,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian d functions in Gaussian
 ! To: the order of Cartesian d functions in PySCF
 ! 1  2  3  4  5  6
 ! XX,YY,ZZ,XY,XZ,YZ
 ! XX,XY,XZ,YY,YZ,ZZ
 
- coeff2 = 0.0d0
- forall(i = 1:6)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
- coeff = coeff2
+ allocate(coeff2(6,nif), source=coeff)
+ forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)/Sdiag_d(i)
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_6d
 
@@ -499,39 +505,37 @@ subroutine chk2py_permute_7f(nif,coeff)
  integer, parameter :: order(7) = [7, 5, 3, 1, 2, 4, 6]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(7,nif)
- real(kind=8) :: coeff2(7,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of spherical f functions in Gaussian
 ! To: the order of spherical f functions in PySCF
 ! 1    2    3    4    5    6    7
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 ! f-3, f-2, f-1, f0 , f+1, f+2, f+3
 
- coeff2 = 0.0d0
- forall(i = 1:7)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ allocate(coeff2(7,nif), source=0d0)
+ forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_7f
 
 subroutine chk2py_permute_10f(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_f
  implicit none
  integer :: i
  integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(10,nif)
- real(kind=8) :: coeff2(10,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian f functions in Gaussian
 ! To: the order of Cartesian f functions in PySCF
 ! 1   2   3   4   5   6   7   8   9   10
 ! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 ! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
 
- coeff2 = 0.0d0
- forall(i = 1:10)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
- coeff = coeff2
+ allocate(coeff2(10,nif), source=coeff)
+ forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)/Sdiag_f(i)
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_10f
 
@@ -541,38 +545,36 @@ subroutine chk2py_permute_9g(nif,coeff)
  integer, parameter :: order(9) = [9, 7, 5, 3, 1, 2, 4, 6, 8]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(9,nif)
- real(kind=8) :: coeff2(9,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of spherical g functions in Gaussian
 ! To: the order of spherical g functions in PySCF
 ! 1    2    3    4    5    6    7    8    9
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 ! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
 
- coeff2 = 0.0d0
- forall(i = 1:9)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ allocate(coeff2(9,nif), source=0d0)
+ forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_9g
 
 subroutine chk2py_permute_15g(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_g
  implicit none
  integer :: i
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(15,nif)
- real(kind=8) :: coeff2(15,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian g functions in Gaussian
 ! To: the order of Cartesian g functions in PySCF
 ! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 ! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
 
- coeff2 = 0.0d0
- forall(i = 1:15)
-  coeff2(i,:) = coeff(16-i,:)
- end forall
- coeff = coeff2
+ allocate(coeff2(15,nif), source=coeff)
+ forall(i = 1:15) coeff(i,:) = coeff2(16-i,:)/Sdiag_g(i)
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_15g
 
@@ -582,38 +584,36 @@ subroutine chk2py_permute_11h(nif,coeff)
  integer, parameter :: order(11) = [11, 9, 7, 5, 3, 1, 2, 4, 6, 8, 10]
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(11,nif)
- real(kind=8) :: coeff2(11,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of spherical h functions in Gaussian
 ! To: the order of spherical h functions in PySCF
 ! 1    2    3    4    5    6    7    8    9    10   11
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 ! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
 
- coeff2 = 0.0d0
- forall(i = 1:11)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ allocate(coeff2(11,nif), source=0d0)
+ forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_11h
 
 subroutine chk2py_permute_21h(nif,coeff)
+ use Sdiag_parameter, only: Sdiag_h
  implicit none
  integer :: i
  integer, intent(in) :: nif
  real(kind=8), intent(inout) :: coeff(21,nif)
- real(kind=8) :: coeff2(21,nif)
+ real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian h functions in Gaussian
 ! To: the order of Cartesian h functions in PySCF
 ! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 ! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
 
- coeff2 = 0.0d0
- forall(i = 1:21)
-  coeff2(i,:) = coeff(22-i,:)
- end forall
- coeff = coeff2
+ allocate(coeff2(21,nif), source=coeff)
+ forall(i = 1:21) coeff(i,:) = coeff2(22-i,:)/Sdiag_h(i)
+ deallocate(coeff2)
  return
 end subroutine chk2py_permute_21h
 

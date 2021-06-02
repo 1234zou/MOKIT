@@ -118,21 +118,21 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  inpname = fchname(1:i-1)//'.inp'
 
  if(.not. nobasistransform_in_fch(fchname)) then
-  write(iout,'(/,A)') '--------------------------------------------------------'
+  write(iout,'(/,A)') REPEAT('-',56)
   write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
                    & not detected in file "//TRIM(fchname)//'.'
   write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
                    &cify this keyword in .gjf file.'
-  write(iout,'(A)') '--------------------------------------------------------'
+  write(iout,'(A)') REPEAT('-',56)
  end if
 
  if(.not. nosymm_in_fch(fchname)) then
-  write(iout,'(/,A)') '--------------------------------------------------------'
+  write(iout,'(/,A)') REPEAT('-',56)
   write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nosymm' not detected&
                    & in file "//TRIM(fchname)//'.'
   write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
                    &cify this keyword in .gjf file.'
-  write(iout,'(A)') '--------------------------------------------------------'
+  write(iout,'(A)') REPEAT('-',56)
  end if
 
  X2C = .false. ! default

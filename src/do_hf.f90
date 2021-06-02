@@ -137,7 +137,7 @@ end subroutine do_hf
 
 ! generate a RHF/UHF .gjf file (DKH, guess=fragment can be taken into account)
 subroutine generate_hf_gjf(gjfname, uhf, noiter)
- use mol, only: charge, mult, natom, elem, coor, nfrag, atom2frag, frag_char_mult
+ use mol, only: charge, mult, natom, nuc, elem, coor, nfrag, atom2frag, frag_char_mult
  use mr_keyword, only: iout, mem, nproc, basis, cart, dkh2_or_x2c, frag_guess,&
   mokit_root
  implicit none
@@ -172,9 +172,39 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
       'ma-ZORA-def2-TZVP(-f)','ma-ZORA-def2-TZVPP','ma-ZORA-def2-QZVPP')
   basis1 = 'gen'
   rel = .true.
+
+  do i = 1, natom, 1
+   if(nuc(i) > 36) then
+    write(iout,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets DKH-def2-&
+                       & or ZORA-def2- series'
+    write(iout,'(A)') "have no definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+
+ case('ANO-RCC-VDZP','ANO-RCC-VTZP','ANO-RCC-VQZP') 
+  basis1 = 'gen'
+  rel = .true.
+
+  do i = 1, natom, 1
+   if(nuc(i) > 96) then
+    write(iout,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets ANO-RCC-VnZP&
+                       & series have no'
+    write(iout,'(A)') "definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+
  case default
   basis1 = basis
  end select
+
+ if(rel .and. (.not. dkh2_or_x2c)) then
+  write(iout,'(/,A61)') REPEAT('-',61)
+  write(iout,'(A)') ' Warning: you are using relativistic all-electron basis set.'
+  write(iout,'(A)') " But you did not specify 'DKH2' keyword in mokit{}."
+  write(iout,'(A61)') REPEAT('-',61)
+ end if
 
  i = index(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
@@ -183,7 +213,7 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=256) nosymm int(nobasistransform'
+ write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=512) nosymm int(nobasistransform'
 
  if(dkh2_or_x2c) then
   write(fid,'(A)',advance='no') ',DKH2)'
@@ -274,25 +304,27 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  ! I found that if iop(3/93=1) is used initially, SCF sometimes converges slowly,
  ! so I use a --Link1-- to add iop(3/93=1) later
  if(dkh2_or_x2c) then
-  write(fid,'(/,A)') '--Link1--'
-  write(fid,'(A)') '%chk='//TRIM(chkname)
-  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
-  write(fid,'(A,I0)') '%nprocshared=', nproc
-  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=256)'
-  if(uhf) then
-   write(fid,'(A)',advance='no') ' UHF'
-  else
-   write(fid,'(A)',advance='no') ' RHF'
+  if(.not. noiter) then
+   write(fid,'(/,A)') '--Link1--'
+   write(fid,'(A)') '%chk='//TRIM(chkname)
+   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
+   write(fid,'(A,I0)') '%nprocshared=', nproc
+   write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=512)'
+   if(uhf) then
+    write(fid,'(A)',advance='no') ' UHF'
+   else
+    write(fid,'(A)',advance='no') ' RHF'
+   end if
+   write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
+                    & int(nobasistransform,DKH2)'
   end if
-  write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
-                   & int(nobasistransform,DKH2)'
  else
   if(frag_guess .and. (.not. noiter)) then
    write(fid,'(/,A)') '--Link1--'
    write(fid,'(A)') '%chk='//TRIM(chkname)
    write(fid,'(A,I0,A)') '%mem=',mem,'GB'
    write(fid,'(A,I0)') '%nprocshared=', nproc
-   write(fid,'(A)') '#p scf(xqc,maxcycle=256) UHF chkbasis stable=opt nosymm&
+   write(fid,'(A)') '#p scf(xqc,maxcycle=512) UHF chkbasis stable=opt nosymm&
                    & guess=read geom=allcheck int(nobasistransform)'
   end if
  end if
@@ -771,7 +803,7 @@ end subroutine read_mult_from_orca_out
 ! print HF job of PySCF input file
 subroutine prt_hf_pyscf_inp(inpname, hf_type)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: hf_type
@@ -806,8 +838,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
   if(buf(1:8) == 'mf = scf') exit
+  write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
  if(i /= 0) then
@@ -816,6 +848,12 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   stop
   close(fid)
   close(fid1,status='delete')
+ end if
+
+ if(dkh2_or_x2c) then
+  write(fid1,'(A)') TRIM(buf)//'.x2c()'
+ else
+  write(fid1,'(A)') TRIM(buf)
  end if
  write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
 
@@ -840,7 +878,7 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  select case(hf_type)
  case(1,2)
   write(fid1,'(A)') '# save R(O)HF MOs into .fch file'
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,Sdiag,'a',mf.mo_energy,False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_energy,False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
  case(3)
   write(fid1,'(A)') 'mo1 = mf.stability()[0]'
@@ -848,8 +886,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   write(fid1,'(A)') 'mf = mf.run(dm1)'
   write(fid1,'(A,/)') 'mf.stability()'
   write(fid1,'(A)') '# save UHF MOs into .fch file'
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],Sdiag,'a',mf.mo_energy[0],False)"
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],Sdiag,'b',mf.mo_energy[1],False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf.mo_energy[0],False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],'b',mf.mo_energy[1],False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
  case default
   write(iout,'(A)') 'ERROR in subroutine prt_hf_pyscf_inp: hf_type out of range!'
@@ -917,7 +955,7 @@ end subroutine prt_hf_psi4_inp
 ! print HF job of ORCA input file
 subroutine prt_hf_orca_inp(inpname, hf_type)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, RI, RIJK_bas
+ use mr_keyword, only: mem, nproc, RI, RIJK_bas, dkh2_or_x2c
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: hf_type
@@ -932,6 +970,17 @@ subroutine prt_hf_orca_inp(inpname, hf_type)
  write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
  read(fid,'(A)') buf
  write(fid1,'(A,I0)') '%maxcore ',CEILING(DBLE(1000*mem)/DBLE(nproc))
+
+ if(dkh2_or_x2c .and. hf_type==3) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:3) == 'end') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  write(fid1,'(A)') ' OneCenter True'
+  write(fid1,'(A)') 'end'
+ end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

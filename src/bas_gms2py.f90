@@ -7,6 +7,7 @@
 ! updated by jxzou at 20200324: simplify code
 ! updated by jxzou at 20200506: fix the bug of user-defined basis set; add content of fch2py
 ! updated by jxzou at 20210207: simplify code
+! updated by jxzou at 20210527: remove string Sdiag
 
 ! Note: 1) Only basis set data and ECP data in GAMESS format are supported!
 !       2) Isotopes are not supported so far!
@@ -235,13 +236,12 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') 'nbf = mf.mo_coeff[0].shape[0]'
   write(pyid,'(A)') 'nif = mf.mo_coeff[0].shape[1]'
-  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
-  write(pyid,'(A)') 'Sdiag = S.diagonal()'
-  write(pyid,'(A)') "alpha_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, Sdiag, 'a')"
-  write(pyid,'(A)') "beta_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, Sdiag, 'b')"
+  write(pyid,'(A)') "alpha_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'a')"
+  write(pyid,'(A)') "beta_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'b')"
   write(pyid,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
+  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[0], S)'
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[1], S)'
  else ! using RHF/ROHF format
@@ -265,11 +265,10 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') 'nbf = mf.mo_coeff.shape[0]'
   write(pyid,'(A)') 'nif = mf.mo_coeff.shape[1]'
-  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
-  write(pyid,'(A)') 'Sdiag = S.diagonal()'
-  write(pyid,'(A)') "mf.mo_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, Sdiag, 'a')"
+  write(pyid,'(A)') "mf.mo_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'a')"
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
+  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff, S)'
  end if
 

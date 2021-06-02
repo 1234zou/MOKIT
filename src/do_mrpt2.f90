@@ -593,12 +593,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  if(F12) write(fid2,'(A)',advance='no') ' '//TRIM(F12_cabs)
  write(fid2,'(A)') ' TightSCF'
 
- if(DKH2) then
-  write(fid2,'(A)') '%rel'
-  write(fid2,'(A)') ' method DKH'
-  write(fid2,'(A)') ' order 2'
-  write(fid2,'(A)') 'end'
- else if(X2C) then
+ if(X2C) then
   write(iout,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C&
                    & is not supported in ORCA.'
   write(iout,'(A)') 'You can specify NEVPT2_prog=Molpro or OpenMolcas.'

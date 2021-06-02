@@ -468,12 +468,12 @@ subroutine do_cas(scf)
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
 
  if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
-  write(iout,'(A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
-                   & are equal, but CASCI/CASSCF energy'
-  write(iout,'(A)') 'is higher than that of GVB. This is probably due to: (1)&
-                   & CASCI stucks in a higher energy'
-  write(iout,'(A)') 'local minimum or not pure spin state; (2) GVB MOs are di&
-                   &sordered (GAMESS bug).'
+  write(iout,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
+                     & are equal, but CASCI/CASSCF'
+  write(iout,'(A)') 'energy is higher than that of GVB. This is probably due to:&
+                   & (1) CASCI stucks in a higher'
+  write(iout,'(A)') 'energy local minimum or not pure spin state; (2) GVB MOs are&
+                   & disordered (GAMESS bug).'
   stop
  end if
 
@@ -648,7 +648,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(/,A)') '# save CMOs into .fch file'
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
   write(fid2,'(A)') 'noon = np.zeros(nif)'
-  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',noon,False)"
+  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False)"
 
   write(fid2,'(/,A)') 'mc.natorb = True'
   write(fid2,'(A)') 'mc.kernel()'
@@ -656,7 +656,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  write(fid2,'(/,A)') '# save NOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(casnofch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,Sdiag,'a',mc.mo_occ,True)"
+ write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True)"
  ! mc.mo_occ only exists for PySCF >= 1.7.4
  close(fid2)
 

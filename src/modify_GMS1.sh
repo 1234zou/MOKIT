@@ -40,6 +40,7 @@ do
  sed -i 's/\<CIHAM(91)/CIHAM(125250)/g'    $fname.src
 done
 sed -i 's/9148 FORMAT(1X,I2/9148 FORMAT(I3/g' gvb.src
+sed -i "s/CICOEF(',I2,')=',F12.8,',',F12.8/CICOEF(',I3,')=',E17.10,',',E17.10/" gvb.src
 sed -i 's/NHAMX\ =\ 25/NHAMX\ =\ 999/g'    scflib.src
 sed -i 's/NPAIRX\ =\ 12/NPAIRX\ =\ 499/g'  scflib.src
 sed -i 's/200) T/500) T/g' inputa.src
