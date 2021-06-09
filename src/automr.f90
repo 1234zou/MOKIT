@@ -540,28 +540,29 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') '# associated rotation'
  write(fid1,'(A)') 'npair = np.int64((idx[1]-idx[0]-idx[2])/2)'
- write(fid1,'(A)') 'idx2 = idx[0] + npair - 1'
- write(fid1,'(A)') 'idx3 = idx2 + idx[2]'
- if(npair_wish > 0) write(fid1,'(A,I0,A1)') 'npair = min(npair,', npair_wish, ')'
- write(fid1,'(A)') 'idx1 = idx2 - npair'
- write(fid1,'(A)') 'idx4 = idx3 + npair'
- write(fid1,'(A)') 'occ_idx = range(idx1,idx2)'
- write(fid1,'(A)') 'vir_idx = range(idx3,idx4)'
- write(fid1,'(A)') 'print(idx1, idx2, idx3, idx4)'
+ write(fid1,'(A)') 'if(npair > 0):'
+ write(fid1,'(A)') '  idx2 = idx[0] + npair - 1'
+ write(fid1,'(A)') '  idx3 = idx2 + idx[2]'
+ if(npair_wish > 0) write(fid1,'(A,I0,A1)') '  npair = min(npair,', npair_wish, ')'
+ write(fid1,'(A)') '  idx1 = idx2 - npair'
+ write(fid1,'(A)') '  idx4 = idx3 + npair'
+ write(fid1,'(A)') '  occ_idx = range(idx1,idx2)'
+ write(fid1,'(A)') '  vir_idx = range(idx3,idx4)'
+ write(fid1,'(A)') '  print(idx1, idx2, idx3, idx4)'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid1,'(A)') "occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+  write(fid1,'(A)') "  occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
                     &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[0][:,occ_idx],&
                     &S,'mulliken')"
  else ! Boys localization
-  write(fid1,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
-  write(fid1,'(A)') 'occ_loc_orb = boys(nbf, npair, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
+  write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
+  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
  end if
 
- write(fid1,'(A)')  'vir_loc_orb = assoc_rot(nbf, npair, mf.mo_coeff[0][:,occ_idx],&
+ write(fid1,'(A)')  '  vir_loc_orb = assoc_rot(nbf, npair, mf.mo_coeff[0][:,occ_idx],&
                    & occ_loc_orb, mf.mo_coeff[0][:,vir_idx])'
- write(fid1,'(A)') 'mf.mo_coeff[0][:,occ_idx] = occ_loc_orb.copy()'
- write(fid1,'(A)') 'mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
+ write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = occ_loc_orb.copy()'
+ write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
  write(fid1,'(A)') '# localization done'
 
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
@@ -717,12 +718,13 @@ subroutine prt_mrcisd_gau_inp(gjfname)
  write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(4(A,I0),A,/)') '#p CAS(',ne,',',nif,',ras(2,',idx,',2,',nvir,'))/chkbasis&
-                           & nosymm guess=read geom=allcheck scf(maxcycle=-1)'
+ write(fid,'(4(A,I0),A)',advance='no') '#p CAS(',ne,',',nif,',ras(2,',idx,',2,',&
+  nvir,'))/chkbasis nosymm guess=read geom=allcheck scf(maxcycle=-1)'
+
  if(DKH2) then
-  write(fid,'(A)') 'int(nobasistransform,DKH2) iop(3/93=1)'
+  write(fid,'(A,/)') ' int(nobasistransform,DKH2) iop(3/93=1)'
  else
-  write(fid,'(A)') 'int=nobasistransform'
+  write(fid,'(A,/)') ' int=nobasistransform'
  end if
 
  close(fid)
@@ -882,6 +884,12 @@ subroutine do_gvb()
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
  i = system(TRIM(longbuf))
+ if(i /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility gvb_sort_pairs.'
+  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  write(iout,'(A)') 'Or maybe there is some unexpected error.'
+  stop
+ end if
 
  ! generate corresponding .fch file from _s.dat file
  i = index(datname, '.dat')

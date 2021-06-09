@@ -106,8 +106,8 @@ subroutine do_cas(scf)
 
  if(i == 0) then
   write(iout,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
-  write(iout,'(A)') 'The reason is this molecule has no multi-configurational&
-                   & or multi-reference character.'
+  write(iout,'(/,A)') 'The reason is this molecule has no multi-configurational&
+                     & or multi-reference character.'
   write(iout,'(A)') 'This molecule can be well described by single reference&
                    & methods, e.g. MP2, CCSD(T).'
   write(iout,'(A)') 'Thus no need for multi-reference computation. But if you&

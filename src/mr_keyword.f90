@@ -460,7 +460,7 @@ contains
      stop
     end if
     read(method0(i+1:k-1),*) npair_wish
-    if(npair_wish < 1) then
+    if(npair_wish < 0) then
      write(iout,'(A)') 'ERROR in subroutine parse_keyword: wrong number of pairs specified.'
      write(iout,'(A,I0)') 'npair_wish=', npair_wish
      stop
@@ -920,12 +920,17 @@ contains
    call check_cart(hf_fch, cart)
   else
    if(TRIM(basis)=='gen' .or. TRIM(basis)=='genecp') then
-    write(iout,'(A)') 'ERROR in subroutine parse_keyword: gen or genecp is not&
-                     & supported currently.'
+    write(iout,'(A)') error_warn//'gen or genecp is not supported currently.'
     write(iout,'(A)') 'You can provide a pre-calculated .fch file and use keyword&
-                     & ist=1, 2 or 3.'
+                     & ist=1, 2 or 3 to read it.'
     stop
    end if
+  end if
+
+  if(ON_thres < 0d0) then
+   write(iout,'(A)') error_warn//'ON_thres must be positive.'
+   write(iout,'(A,E12.5)') 'Your input ON_thres=', ON_thres
+   stop
   end if
 
   if(DKH2 .and. X2C) then
@@ -1187,7 +1192,10 @@ contains
     end if
    case default
     write(iout,'(/,A)') error_warn//'invalid CtrType.'
-    write(iout,'(A)') 'Please specify a valid CtrType=1/2/3 for uncontracted/ic-/FIC- MRCISD.'
+    write(iout,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17&
+                       & MRCISD_prog in MOKIT manual.'
+    write(iout,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
+                     & MRCISD, respectively.'
     stop
    end select
 

@@ -41,8 +41,9 @@ program main
   write(iout,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: nif>nbf. Impossible!'
   stop
  end if
- if(npair == 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: npair=0. Not allowed!'
+ if(npair <= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: npair<=0. Not allowed!'
+  write(iout,'(A,I0)') 'npair=', npair
   stop
  end if
 

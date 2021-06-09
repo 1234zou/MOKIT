@@ -1,4 +1,4 @@
-MOKIT 1.2.3 (Jun 2, 2021)
+MOKIT 1.2.3 (Jun 7, 2021)
 ------------------------
 * put basis sets ANO-RCC-VDZP, ANO-RCC-VTZP and ANO-RCC-VQZP into basis/
 * remove Sdiag in fch2py and py2fch, add write_pyscf_dm_into_fch

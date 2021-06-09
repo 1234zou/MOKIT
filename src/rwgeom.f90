@@ -298,7 +298,7 @@ end subroutine read_natom_from_molpro_out
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, j, k, fid, nblank
+ integer :: i, j, k, fid, nblank, ne
  integer, intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
  integer, parameter :: iout = 6
@@ -358,6 +358,15 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   elem(i) = ADJUSTL(elem(i))
   nuc(i) = elem2nuc(elem(i))
  end forall
+
+ ne = SUM(nuc) - charge
+ if(MOD(ne,2) /= MOD(mult-1,2)) then
+  write(iout,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf:'
+  write(iout,'(2(A,I0),A)') 'The combination of multiplicity ',mult,' and ',&
+                             ne,' electrons is impossible.'
+  stop
+ end if
+
  return
 end subroutine read_elem_and_coor_from_gjf
 
