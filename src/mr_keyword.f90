@@ -144,6 +144,7 @@ module mr_keyword
  logical :: RI = .false.           ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.          ! whether F12 used in NEVPT2, MRCI
  logical :: DLPNO = .false.        ! whether to turn on DLPNO-NEVPT2
+ logical :: nmr = .false.          ! whether to calcuate nuclear shielding
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -627,14 +628,14 @@ contains
    stop
   end if
 
-  alive1(1:5) = [(index(longbuf,'nmr')>0), (index(longbuf,'opt')>0), (index(longbuf,'freq')>0),&
-               (index(longbuf,'scrf')>0), (index(longbuf,'iop')>0)]
-  if(COUNT(alive1(1:5) .eqv. .true.) > 0) then
+  alive1(1:4) = [(index(longbuf,'opt')>0), (index(longbuf,'freq')>0),&
+                 (index(longbuf,'scrf')>0), (index(longbuf,'iop')>0)]
+  if(COUNT(alive1(1:4) .eqv. .true.) > 0) then
    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: invalid keyword(s) detected.'
-   write(iout,'(A)') "Currently none of 'opt', 'freq', 'scrf', 'nmr', 'iop' is&
-                    & supported. You can"
-   write(iout,'(A)') 'use the generated *_NO.fch file to perform further calculations&
-                    & with these keywords.'
+   write(iout,'(A)') "Currently none of 'opt', 'freq', 'scrf', 'iop' is suppo&
+                     &rted. You can use the"
+   write(iout,'(A)') 'generated *_NO.fch file to perform further calculations with&
+                    & these keywords in corresponding files.'
    stop
   end if
 
@@ -782,6 +783,8 @@ contains
     read(longbuf(j+1:i-1),*) otpdf
    case('on_thres')
     read(longbuf(j+1:i-1),*) ON_thres
+   case('nmr')
+    nmr = .true.
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."
@@ -895,6 +898,7 @@ contains
   write(iout,'(3(A,L1,3X),A,I1,3X,A,I0)') 'CrazyWFN= ',crazywfn,'BgCharge= ',bgchg,&
        'Ana_Grad= ', casscf_force, 'CtrType = ', CtrType, 'MaxM    = ', maxM
 
+  write(iout,'(A,L1,3X,A,F7.5)') 'NMR     = ', nmr, 'ON_thres= ', ON_thres
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
 
@@ -931,6 +935,29 @@ contains
    write(iout,'(A)') error_warn//'ON_thres must be positive.'
    write(iout,'(A,E12.5)') 'Your input ON_thres=', ON_thres
    stop
+  end if
+
+  if(nmr) then
+   if(.not. (casci .or. casscf .or. mrcisd)) then
+    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR is supposed to&
+                       & be used with one of CASCI/CASSCF/MRCISD'
+    write(iout,'(A)') 'methods. But none of them is requested.'
+    stop
+   end if
+   if(casci) then
+    cas_prog = casci_prog
+   else if(casscf) then
+    cas_prog = casscf_prog
+   else
+    cas_prog = mrcisd_prog
+   end if
+   if(TRIM(cas_prog) /= 'dalton') then
+    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR can only be&
+                       & calcualted using Dalton program.'
+    write(iout,'(A)') "But it seems currently '"//TRIM(cas_prog)//"' is specified."
+    stop
+   end if
+   cas_prog = ' '
   end if
 
   if(DKH2 .and. X2C) then
@@ -1134,7 +1161,7 @@ contains
   end select
 
   select case(TRIM(casci_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
@@ -1142,7 +1169,7 @@ contains
   end select
 
   select case(TRIM(casscf_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4')
+  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
@@ -1150,7 +1177,7 @@ contains
   end select
 
   select case(TRIM(mrcisd_prog))
-  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4')
+  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)

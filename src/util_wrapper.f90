@@ -43,7 +43,7 @@ subroutine formchk(chkname, fchname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine formchk: call Gaussian utility formchk failed.'
+  write(iout,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utility formchk.'
   write(iout,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
                    & utility formchk does not exist.'
   stop
@@ -77,7 +77,7 @@ subroutine unfchk(fchname, chkname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine formchk: call Gaussian utility unfchk failed.'
+  write(iout,'(A)') 'ERROR in subroutine formchk: failed to call Gaussian utility unfchk.'
   write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
                    & utility unfchk does not exist.'
   stop
@@ -90,7 +90,6 @@ end subroutine unfchk
 subroutine gbw2mkl(gbwname, mklname)
  implicit none
  integer :: i, k, system, RENAME
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: gbwname
  character(len=240), optional :: mklname
 
@@ -101,12 +100,7 @@ subroutine gbw2mkl(gbwname, mklname)
  i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine gbw2mkl: call ORCA utility orca_2mkl failed.'
-  write(iout,'(A)') 'The file '//TRIM(gbwname)//' may be incomplete, or ORCA utility&
-                   & orca_2mkl does not exist.'
-  stop
- end if
+ if(i /= 0) call prt_orca_2mkl_error(gbwname)
 
  if(present(mklname)) then
   if(TRIM(mklname) /= gbwname(1:k-1)//'.mkl') then
@@ -121,7 +115,6 @@ end subroutine gbw2mkl
 subroutine mkl2gbw(mklname, gbwname)
  implicit none
  integer :: i, k, system, RENAME
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: mklname
  character(len=240), optional :: gbwname
 
@@ -132,12 +125,7 @@ subroutine mkl2gbw(mklname, gbwname)
  i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2gbw: call ORCA utility orca_2mkl failed.'
-  write(iout,'(A)') 'The file '//TRIM(mklname)//' may be incomplete, or ORCA utility&
-                   & orca_2mkl does not exist.'
-  stop
- end if
+ if(i /= 0) call prt_orca_2mkl_error(mklname)
 
  if(present(gbwname)) then
   if(TRIM(gbwname) /= mklname(1:k-1)//'.gbw') then
@@ -147,6 +135,19 @@ subroutine mkl2gbw(mklname, gbwname)
 
  return
 end subroutine mkl2gbw
+
+subroutine prt_orca_2mkl_error(fname)
+ implicit none
+ integer, parameter :: iout = 6
+ character(len=240), intent(in) :: fname
+
+ write(iout,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. Three&
+                    & possible reasons:'
+ write(iout,'(A)') '(1) Your ORCA environment variables are incorrect.'
+ write(iout,'(A)') '(2) ORCA utility orca_2mkl does not exist.'
+ write(iout,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
+ stop
+end subroutine prt_orca_2mkl_error
 
 ! wrapper of the utility fch2inp
 subroutine fch2inp_wrap(fchname, gvb, npair, nopen)

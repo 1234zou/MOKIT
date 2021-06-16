@@ -1,0 +1,11 @@
+%mem=16GB
+%nprocshared=8
+#p CASSCF/pcSseg-2
+
+mokit{CASSCF_prog=Dalton,NMR,ist=3,readrhf='acetone_pcSseg-2_rhf.fch'}
+
+# This example shows how to perform NMR calculations at CASSCF/pcSseg-2 level.
+# Since Gaussian does not have built-in pcSseg-2 basis set, we calculate and
+# provide one .fch file.
+
+# To run this example, you need to install Gaussian, GAMESS, PySCF and Dalton.

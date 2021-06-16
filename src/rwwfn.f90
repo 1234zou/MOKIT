@@ -198,6 +198,7 @@ subroutine read_nbf_from_dat(datname, nbf)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found&
                    & in file "//TRIM(datname)
+  close(fid)
   stop
  end if
 
@@ -458,6 +459,47 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
  close(fid)
  return
 end subroutine read_mo_from_bdf_orb
+
+! read Alpha MOs from a DALTON.MOPUN format file
+subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
+ implicit none
+ integer :: i, j, k, nline, fid
+ integer, intent(in) :: nbf, nif
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orbname
+ real(kind=8), intent(out) :: coeff(nbf,nif)
+
+ coeff = 0d0
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ read(fid,'(A)') buf
+
+ do i = 1, nif, 1
+  nline = nbf/4
+
+  do j = 1, nline, 1
+   read(fid,*,iostat=k) coeff(4*j-3:4*j,i)
+   if(k /= 0) exit
+  end do ! for j
+
+  if(nbf - 4*nline > 0) then
+   read(fid,*,iostat=k) coeff(4*nline+1:nbf,i)
+   if(k /= 0) exit
+  end if
+ end do ! for i
+
+ close(fid)
+ if(k /= 0) then
+  write(iout,'(/,A)') 'ERROR in subrouine read_mo_from_dalton_mopun: failed&
+                     & to read MOs from'
+  write(iout,'(A)') 'file '//TRIM(orbname)//'.'
+  write(iout,'(4(A,I0))') 'nbf=',nbf,',nif=',nif,',i=',i,',j=',j
+  close(fid)
+  stop
+ end if
+
+ return
+end subroutine read_mo_from_dalton_mopun
 
 ! read Alpha/Beta eigenvalues in a given .fch(k) file
 ! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
@@ -729,6 +771,42 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  close(fid)
  return
 end subroutine read_ev_from_bdf_orb
+
+! read CAS NOONs from a given .fch(k) file
+subroutine read_on_from_dalton_mopun(orbname, nif, on)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: nif
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orbname
+ real(kind=8), intent(out) :: on(nif)
+
+ on = 0d0
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == '**NATOCC') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC'&
+                   & found in file "//TRIM(orbname)//'.'
+  close(fid)
+  stop
+ end if
+
+ read(fid,*,iostat=k) (on(i),i=1,nif)
+ close(fid)
+
+ if(k /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_on_from_dalton_mopun: failed to&
+                   & read occupation numbers from file '//TRIM(orbname)
+  stop
+ end if
+ return
+end subroutine read_on_from_dalton_mopun
 
 ! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
 subroutine read_ncontr_from_fch(fchname, ncontr)
@@ -1385,6 +1463,9 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
  case('psi4')
   call read_cas_energy_from_psi4_out(outname, e, scf)
   e = e + ptchg_e + nuc_pt_e
+ case('dalton')
+  call read_cas_energy_from_dalton_out(outname, e, scf)
+  e = e + ptchg_e
  case default
   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
                    & cannot be identified.'
@@ -1977,6 +2058,59 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  close(fid)
  return
 end subroutine read_cas_energy_from_psi4_out
+
+! read CASCI/CASSCF energy from a given Dalton output file
+subroutine read_cas_energy_from_dalton_out(outname, e, scf)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: e(2)
+ character(len=1) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:19) == '@ Final CI energies') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
+                   &@ Final CI energies' found in"
+  write(iout,'(A)') 'file '//TRIM(outname)//'.'
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) str, i, e(1) ! CASCI energy
+ if(.not. scf) then
+  close(fid)
+  return
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:19) == '@    Final MCSCF en') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
+                   &@    Final MCSCF en' found in"
+  write(iout,'(A)') 'file '//TRIM(outname)//'.'
+  close(fid)
+  stop
+ end if
+
+ i = index(buf,':')
+ read(buf(i+1:),*) e(2)
+ close(fid)
+ return
+end subroutine read_cas_energy_from_dalton_out
 
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)

@@ -1,4 +1,5 @@
 *[中文版说明请点击README_zh.md](README_zh.md)*
+*[Download](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
@@ -30,7 +31,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jun 9, 2021
+Jun 16, 2021
 
 Installation
 ------------
@@ -62,7 +63,7 @@ Installation
   (Remember to modify the `ORCA` and `GMS` paths to suit your local environment)
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
-  can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.9 in
+  can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in
   [manual](doc/).
 
 Quick Start
@@ -108,6 +109,7 @@ QC Packages can be called by AutoMR
 * [ORCA](https://orcaforum.kofo.mpg.de)
 * [BDF](http://182.92.69.169:7226/Introduction)
 * [PSI4](https://github.com/psi4/psi4/)
+* [Dalton](https://gitlab.com/dalton/dalton)
 
 Some Tips
 ---------
@@ -124,7 +126,7 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among BAGEL, NWCHEM, Dalton, etc.
+* MOs trasferring among BAGEL, CFOUR, NWCHEM, etc.
 
 * Support more multireference methods like ic-MRCC
 

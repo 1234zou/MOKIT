@@ -1,33 +1,8 @@
-! written by jxzou at 20171218: adjust the orders of d, f, g, h functions etc.
-!  in the input file of PySCF, to the oeders of .fch(k) file in Gaussian
-
-! updated by jxzou at 20180317: add a input parameter 'a' or 'b' to write the MO into the Alpha or Beta part in .fchk file
-! updated by jxzou at 20180404: support the case that D functions preceding L functions
-! updated by jxzou at 20180406: code optimization
-! updated by jxzou at 20180520: support linear dependence
-! updated by jxzou at 20190226: change data to parameter when declare constant arrays
-! updated by jxzou at 20190411: pass the Sdiag in
-! updated by jxzou at 20200326: renamed as py2fch
-! updated by jxzou at 20200425: add input arrays ev (for eigenvalues or NOONs)
-! updated by jxzou at 20210126: generate Total SCF Density using MOs and ONs
-! updated by jxzou at 20210527: remove intent(in) parameter Sdiag, use parameter array
-! updated by jxzou at 20210601: add subroutine get_permute_idx_from_shell
-
-! This subroutine is designed to be imported as a module by Python.
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------
-!  f2py -m py2fch -c py2fch.f90 --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------
-!  For GNU compiler, use
-! ------------------------------
-!  f2py -m py2fch -c py2fch.f90
-! ------------------------------
-
-!  to compile this file (a py2fch.so file will be generated). Then in
-!  Python you can import the py2fch module.
+! written by jxzou at 20210615: adjust the orders of d, f, g, h functions etc.
+!  in the input file of Dalton, to the oeders of .fch(k) file in Gaussian
 
 ! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
-module Sdiag_parameter
+module Sdiag_dalton
  implicit none
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
  real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
@@ -48,283 +23,74 @@ module Sdiag_parameter
  real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
  real(kind=8), parameter :: Sdiag_h(21) = &
   [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
-end module Sdiag_parameter
+end module Sdiag_dalton
 
-! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
-!  of PySCF to that of Gaussian
-subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
+program main
  implicit none
- integer :: i, j, k, ncoeff, fid, fid1, RENAME
- integer :: nbf, nif
-!f2py intent(in) :: nbf, nif
+ integer :: i
  integer, parameter :: iout = 6
- integer, allocatable :: idx(:)
+ character(len=3) :: str
+ character(len=240) :: orbname, fchname
+ logical :: prt_no
 
- real(kind=8) :: coeff2(nbf,nif), ev(nif)
-!f2py intent(in,copy) :: coeff2
-!f2py intent(in) :: ev
-!f2py depend(nbf,nif) :: coeff2
-!f2py depend(nif) :: ev
- real(kind=8), allocatable :: coeff(:), den(:,:), norm(:)
-
- character(len=1) :: ab
-!f2py intent(in) :: ab
- character(len=8) :: key0, key
- character(len=8), parameter :: key1 = 'Alpha MO'
- character(len=7), parameter :: key2 = 'Beta MO'
- character(len=8), parameter :: key3 = 'Alpha Or'
- character(len=7), parameter :: key4 = 'Beta Or'
- character(len=49) :: str
- character(len=240) :: fchname, fchname1, buf
-!f2py intent(in) :: fchname
-
- logical :: alive,  gen_density
-!f2py intent(in) :: gen_density
-
-! If gen_density = .True., generate total density using input MOs and eigenvalues
-! In this case, the array ev should contain occupation numbers
-
- inquire(file=TRIM(fchname),exist=alive)
- if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fchname)
+ i = iargc()
+ if(i<2 .or. i>3) then
+  write(iout,'(/,A)') ' ERROR in subroutine dal2fch: wrong command line arguments!'
+  write(iout,'(A)')   ' Example 1 (R(O)HF, CAS): dal2fch DALTON.MOPUN a.fch'
+  write(iout,'(A,/)') ' Example 2 (CAS NO)     : dal2fch DALTON.MOPUN a.fch -no'
   stop
  end if
 
- buf = ' '
- ncoeff = 0
- fchname1 = TRIM(fchname)//'.t'
+ call getarg(1, orbname)
+ call require_file_exist(orbname)
+ call getarg(2, fchname)
+ call require_file_exist(fchname)
 
- key0 = key3
- key = key1
- if(ab/='a' .and. ab/='A') then
-  key = key2//' '
-  key0 = key4//'b'
+ prt_no = .false.
+ if(i == 3) then
+  call getarg(3, str)
+  if(str /= '-no') then
+   write(iout,'(/,1X,A)') "ERROR in subroutine dal2fch: the 3rd argument is&
+                         & wrong! Only '-no' is accepted."
+   stop
+  else
+   prt_no = .true.
+  end if
  end if
 
- allocate(idx(nbf), norm(nbf))
+ call dal2fch(orbname, fchname, prt_no)
+ stop
+end program main
+
+! transfer MOs from Dalton DALTON.MOPUN file to Gaussian .fch(k) file
+subroutine dal2fch(orbname, fchname, prt_no)
+ implicit none
+ integer :: i, j, nbf, nif
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:), coeff(:,:), coeff2(:,:)
+ character(len=240), intent(in) :: orbname, fchname
+ logical, intent(in) :: prt_no
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(idx(nbf), norm(nbf), coeff(nbf,nif))
  call get_permute_idx_from_fch(fchname, nbf, idx, norm)
 
- ! write the MOs into the .fchk file
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(fchname1),status='replace')
- do while(.true.)
-  read(fid,'(A)') buf
-  write(fid1,'(A)') TRIM(buf)
-  if(buf(1:8) == key0) exit ! Alpha/Beta Orbital Energies
- end do
- write(fid1,'(5(1X,ES15.8))') (ev(i),i=1,nif)
+ call read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
+ allocate(coeff2(nbf,nif), source=coeff)
+ forall(i=1:nbf,j=1:nif) coeff(i,j) = coeff2(idx(i),j)*norm(i)
+ deallocate(coeff2, norm, idx)
 
- do while(.true.) ! skip the Orbital Energies in old fch(k)
-  read(fid,'(A)') buf
-  if(buf(49:49) == '=') exit
- end do
- write(fid1,'(A)') TRIM(buf)
-
- if(buf(1:8) /= key) then
-  do while(.true.)
-   read(fid,'(A)') buf
-   write(fid1,'(A)') TRIM(buf)
-   if(buf(1:8) == key) exit  ! Alpha/Beta MO
-  end do ! for while
- end if
- read(buf,'(A49,2X,I10)') str, ncoeff
-
- if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: inconsistent basis set in&
-                   & .fch(k) file and in PySCF script. ncoeff/=nbf*nif!'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
-  write(iout,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
-  close(fid)
-  close(fid1,status='delete')
-  return
- end if
-
- allocate(den(nbf,nif), source=coeff2)
- forall(i=1:nbf,j=1:nif) coeff2(i,j) = den(idx(i),j)*norm(i)
- deallocate(den, norm, idx)
- allocate(coeff(ncoeff))
- coeff = RESHAPE(coeff2,(/ncoeff/))
- write(fid1,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
+ call write_mo_into_fch(fchname, nbf, nif, 'a', coeff)
  deallocate(coeff)
 
- ! copy the rest of the .fchk file
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(49:49) == '=') exit
- end do
- ! here should be 'Orthonormal basis' or 'Total SCF Density'
- BACKSPACE(fid)
-
- if(gen_density) then
-  if( ANY(ev<-0.1D0) ) then
-   write(iout,'(A)') 'ERROR in subroutine py2fch: occupation numbers of some&
-                    & orbitals < -0.1. Did you'
-   write(iout,'(A)') 'mistake orbital energies for occupation numbers?'
-   close(fid1)
-   close(fid,status='delete')
-   stop
-  end if
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   write(fid1,'(A)') TRIM(buf)
-   if(buf(1:11) == 'Total SCF D') exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
-                    & file "//TRIM(fchname)
-   close(fid1)
-   close(fid,status='delete')
-   stop
-  end if
-
-  allocate(den(nbf,nbf), source=0d0)
-  ! only den(j,i) j<=i will be assigned values
-  do i = 1, nbf, 1
-   do j = 1, i, 1
-    do k = 1, nif, 1
-     if(DABS(ev(k)) < 1D-7) cycle
-     den(j,i) = den(j,i) + ev(k)*coeff2(j,k)*coeff2(i,k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
-
-  write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
-  deallocate(den)
-
-  do while(.true.) ! skip density in the original .fch(k) file
-   read(fid,'(A)') buf
-   if(buf(49:49) == '=') then
-    write(fid1,'(A)') TRIM(buf)
-    exit
-   end if
-  end do ! for while
+ if(prt_no) then
+  allocate(norm(nif))
+  call read_on_from_dalton_mopun(orbname, nif, norm)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', norm, .true.)
+  deallocate(norm)
  end if
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
- ! writing new fchk file done
-
- close(fid1)
- close(fid, status='delete')
- i = RENAME(TRIM(fchname1),TRIM(fchname))
  return
-end subroutine py2fch
-
-! read nbf from .fch(k) file
-subroutine read_nbf_from_fch(fchname, nbf)
- implicit none
- integer :: i, fid
- integer, parameter :: iout = 6
- integer, intent(out) :: nbf
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- nbf = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:17) == 'Number of basis f') exit
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_nbf_from_fch: no&
-                   & 'Number of basis f' found in file "//TRIM(fchname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, nbf
- close(fid)
- return
-end subroutine read_nbf_from_fch
-
-! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_ncontr_from_fch(fchname, ncontr)
- implicit none
- integer :: i, fid
- integer, intent(out) :: ncontr
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- ncontr = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:18) == 'Number of contract') exit
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                   & 'Number of contract' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, ncontr
- close(fid)
- return
-end subroutine read_ncontr_from_fch
-
-! read shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
- implicit none
- integer :: i, fid
- integer, intent(in) :: k
- integer, intent(out) :: shltyp(k), shl2atm(k)
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- ! find and read Shell types
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == 'Shell types') exit
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                   & missing 'Shell types' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shltyp = 0
- read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- ! read Shell types done
-
- ! find and read Shell to atom map
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:13) == 'Shell to atom') exit
- end do
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                   & missing 'Shell to atom map' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shl2atm = 0
- read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
- close(fid)
- return
-end subroutine read_shltyp_and_shl2atm_from_fch
+end subroutine dal2fch
 
 ! get permutation index list from a given .fch(k) file
 subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
@@ -347,7 +113,7 @@ end subroutine get_permute_idx_from_fch
 
 ! get permutation index list from two arrays (shell_type and shell_to_atom_map)
 subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, nbf0, idx, norm)
- use Sdiag_parameter, only: Sdiag_d, Sdiag_f, Sdiag_g, Sdiag_h
+ use Sdiag_dalton, only: Sdiag_d, Sdiag_f, Sdiag_g, Sdiag_h
  implicit none
  integer :: i, j, k, nbf
  integer, intent(in) :: ncontr, nbf0
@@ -430,8 +196,7 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell:&
-                    & shell_type(i) out of range!'
+   write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: shell_type(i) out of range!'
    write(iout,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
    stop
   end select
@@ -445,28 +210,28 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  end if
 
  do i = 1,n5dmark,1
-  call py2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
+  call dal2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
  end do
  do i = 1,n6dmark,1
-  call py2fch_permute_6d(idx(d_mark(i):d_mark(i)+5),norm(d_mark(i):d_mark(i)+5))
+  call dal2fch_permute_6d(idx(d_mark(i):d_mark(i)+5),norm(d_mark(i):d_mark(i)+5))
  end do
  do i = 1,n7fmark,1
-  call py2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
+  call dal2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
  end do
  do i = 1,n10fmark,1
-  call py2fch_permute_10f(idx(f_mark(i):f_mark(i)+9),norm(f_mark(i):f_mark(i)+9))
+  call dal2fch_permute_10f(idx(f_mark(i):f_mark(i)+9),norm(f_mark(i):f_mark(i)+9))
  end do
  do i = 1,n9gmark,1
-  call py2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
+  call dal2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
  end do
  do i = 1,n15gmark,1
-  call py2fch_permute_15g(idx(g_mark(i):g_mark(i)+14),norm(g_mark(i):g_mark(i)+14))
+  call dal2fch_permute_15g(idx(g_mark(i):g_mark(i)+14),norm(g_mark(i):g_mark(i)+14))
  end do
  do i = 1,n11hmark,1
-  call py2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
+  call dal2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
  end do
  do i = 1,n21hmark,1
-  call py2fch_permute_21h(idx(h_mark(i):h_mark(i)+20),norm(h_mark(i):h_mark(i)+20))
+  call dal2fch_permute_21h(idx(h_mark(i):h_mark(i)+20),norm(h_mark(i):h_mark(i)+20))
  end do
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
@@ -677,7 +442,7 @@ subroutine get_1st_loc(inum, loc, ilen, a)
  return
 end subroutine get_1st_loc
 
-subroutine py2fch_permute_5d(idx)
+subroutine dal2fch_permute_5d(idx)
  implicit none
  integer :: i, idx0(5)
  integer, parameter :: order(5) = [3, 4, 2, 5, 1]
@@ -691,10 +456,10 @@ subroutine py2fch_permute_5d(idx)
  idx0 = idx
  forall(i = 1:5) idx(i) = idx0(order(i))
  return
-end subroutine py2fch_permute_5d
+end subroutine dal2fch_permute_5d
 
-subroutine py2fch_permute_6d(idx, norm)
- use Sdiag_parameter, only: Sdiag_d
+subroutine dal2fch_permute_6d(idx, norm)
+ use Sdiag_dalton, only: Sdiag_d
  implicit none
  integer :: i, idx0(6)
  integer, parameter :: order(6) = [1, 4, 6, 2, 3, 5]
@@ -712,9 +477,9 @@ subroutine py2fch_permute_6d(idx, norm)
   norm(i) = Sdiag_d(order(i))
  end forall
  return
-end subroutine py2fch_permute_6d
+end subroutine dal2fch_permute_6d
 
-subroutine py2fch_permute_7f(idx)
+subroutine dal2fch_permute_7f(idx)
  implicit none
  integer :: i, idx0(7)
  integer, parameter :: order(7) = [4, 5, 3, 6, 2, 7, 1]
@@ -728,10 +493,10 @@ subroutine py2fch_permute_7f(idx)
  idx0 = idx
  forall(i = 1:7) idx(i) = idx0(order(i))
  return
-end subroutine py2fch_permute_7f
+end subroutine dal2fch_permute_7f
 
-subroutine py2fch_permute_10f(idx, norm)
- use Sdiag_parameter, only: Sdiag_f
+subroutine dal2fch_permute_10f(idx, norm)
+ use Sdiag_dalton, only: Sdiag_f
  implicit none
  integer :: i, idx0(10)
  integer, parameter :: order(10) = [1, 7, 10, 4, 2, 3, 6, 9, 8, 5]
@@ -749,9 +514,9 @@ subroutine py2fch_permute_10f(idx, norm)
   norm(i) = Sdiag_f(order(i))
  end forall
  return
-end subroutine py2fch_permute_10f
+end subroutine dal2fch_permute_10f
 
-subroutine py2fch_permute_9g(idx)
+subroutine dal2fch_permute_9g(idx)
  implicit none
  integer :: i, idx0(9)
  integer, parameter :: order(9) = [5, 6, 4, 7, 3, 8, 2, 9, 1]
@@ -765,10 +530,10 @@ subroutine py2fch_permute_9g(idx)
  idx0 = idx
  forall(i = 1:9) idx(i) = idx0(order(i))
  return
-end subroutine py2fch_permute_9g
+end subroutine dal2fch_permute_9g
 
-subroutine py2fch_permute_15g(idx, norm)
- use Sdiag_parameter, only: Sdiag_g
+subroutine dal2fch_permute_15g(idx, norm)
+ use Sdiag_dalton, only: Sdiag_g
  implicit none
  integer :: i, idx0(15)
  integer, intent(inout) :: idx(15)
@@ -785,9 +550,9 @@ subroutine py2fch_permute_15g(idx, norm)
   norm(i) = Sdiag_g(16-i)
  end forall
  return
-end subroutine py2fch_permute_15g
+end subroutine dal2fch_permute_15g
 
-subroutine py2fch_permute_11h(idx)
+subroutine dal2fch_permute_11h(idx)
  implicit none
  integer :: i, idx0(11)
  integer, parameter :: order(11) = [6, 7, 5, 8, 4, 9, 3, 10, 2, 11, 1]
@@ -801,10 +566,10 @@ subroutine py2fch_permute_11h(idx)
  idx0 = idx
  forall(i = 1:11) idx(i) = idx0(order(i))
  return
-end subroutine py2fch_permute_11h
+end subroutine dal2fch_permute_11h
 
-subroutine py2fch_permute_21h(idx, norm)
- use Sdiag_parameter, only: Sdiag_h
+subroutine dal2fch_permute_21h(idx, norm)
+ use Sdiag_dalton, only: Sdiag_h
  implicit none
  integer :: i, idx0(21)
  integer, intent(inout) :: idx(21)
@@ -821,119 +586,5 @@ subroutine py2fch_permute_21h(idx, norm)
   norm(i) = Sdiag_h(22-i)
  end forall
  return
-end subroutine py2fch_permute_21h
-
-! write density (in PySCF format) into a given Gaussian .fch(k) file
-subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
- implicit none
- integer :: i, j, fid, fid1, RENAME
- integer, parameter :: iout = 6
- integer :: nbf, itype
-!f2py intent(in) :: nbf, itype
-
- integer, allocatable :: idx(:)
- real(kind=8) :: dm(nbf,nbf)
-!f2py intent(in,copy) :: dm
-!f2py depend(nbf) :: dm
-
- real(kind=8), allocatable :: norm(:), den(:,:)
- character(len=23), parameter :: key(10) = ['Total SCF Density      ',&
-  'Spin SCF Density       ','Total CI Density       ','Spin CI Density        ',&
-  'Total MP2 Density      ','Spin MP2 Density       ','Total CC Density       ',&
-  'Spin CC Density        ','Total CI Rho(1) Density','Spin CI Rho(1) Density ']
- character(len=23), parameter :: endkey(3) = ['Mulliken Charges       ',&
-  'Anisotropic Hyperfine t','QEq coupling tensors   ']
- character(len=23) :: key0, key1
- character(len=240) :: buf, fchname, fchname1
-!f2py intent(in) :: fchname
-
- logical :: force
-!f2py intent(in) :: force
-
- if(itype<1 .or. itype>10) then
-  write(iout,'(A,I0)') 'ERROR in subroutine write_pyscf_dm_into_fch: invalid itype&
-                      & = ',itype
-  write(iout,'(A)') 'Allowed values are 1~10:'
-  do i = 1, 10, 1
-   write(iout,'(A,I2,A)') 'i=', i,': '//key(i)
-  end do ! for i
-  stop
- end if
-
- key0 = key(itype)
-! The key0 string will be searched in the given .fch(k) file. If found, the
-! variable 'force' is useless. But if not found,
-!  when force = .True. , key0 will be added into .fch file;
-!  when force = .False., signal errors immediately.
-
- call read_nbf_from_fch(fchname, i)
- if(i /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsis&
-                    &ent nbf in fchname and input dm.'
-  write(iout,'(2(A,I0))') 'i=', i, ', nbf=', nbf
-  write(iout,'(A)') 'Related file: '//TRIM(fchname)
-  stop
- end if
-
- ! first we need to adjust the order of basis functions in density matrix
- allocate(idx(nbf), norm(nbf))
- call get_permute_idx_from_fch(fchname, nbf, idx, norm)
- allocate(den(nbf,nbf), source=dm)
- forall(i=1:nbf,j=1:nbf) dm(i,j) = den(idx(i),idx(j))*norm(i)*norm(j)
- deallocate(den, norm, idx)
-
- ! then we can write this density matrix into the given .fch(k) file
- i = index(fchname, '.fch', back=.true.)
- fchname1 = fchname(1:i-1)//'.t'
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(fchname1),status='replace')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  key1 = buf(1:23)
-  if(key1==key0 .or. ANY(endkey == key1)) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: all required&
-                   & strings are not found.'
-  write(iout,'(A)') 'File '//TRIM(fchname)//' may be incomplete.'
-  close(fid)
-  close(fid1,status='delete')
-  stop
- end if
-
- if((key1/=key0) .and. (.not.force)) then
-  write(iout,'(A)') "ERROR in subroutine write_pyscf_dm_into_fch: required&
-                   & string '"//key0//"' is"
-  write(iout,'(A)') 'not found in file '//TRIM(fchname)//'.'
-  close(fid)
-  close(fid1,status='delete')
-  stop
- end if
-
- write(fid1,'(A,20X,A,2X,I10)') key0, 'R   N=', nbf*(nbf+1)/2
- write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
-
- if(key1 == key0) then
-  do while(.true.) ! skip density in the original .fch file
-   read(fid,'(A)') buf
-   if(buf(49:49) == '=') exit
-  end do ! for while
- end if
- BACKSPACE(fid)
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do
-
- close(fid,status='delete')
- close(fid1)
- i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
-end subroutine write_pyscf_dm_into_fch
+end subroutine dal2fch_permute_21h
 

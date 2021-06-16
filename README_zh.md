@@ -1,4 +1,5 @@
 *[English](README.md)*
+*[下载](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外。
 MOKIT中的automr程序可以进行多参考（态）方法的自动化、黑箱式计算。
@@ -23,14 +24,15 @@ or
 （例如CASSCF）在不同量化程序中的电子能量可以很好地复现（误差通常小于10^-6 a.u.），且
 几乎1-2圈收敛。
 
-开发者还提供`Windows* 系统`下预编译好的20个小程序，下载处[Releases](https://gitlab.com/jxzou/mokit/-/releases).
+开发者还提供`Windows* 系统`下预编译好的约20个小程序，下载处[Releases](https://gitlab.com/jxzou/mokit/-/releases).
+但请注意这些小程序的版本会滞后于master主分支代码，因此仍建议下载源码到Linux下自行编译。
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户
 仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021年6月9号
+2021年6月16号
 
 安装
 ----------
@@ -61,7 +63,7 @@ or
         export GMS=/home/$USER/software/gamess/rungms
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
-  因此请阅读[手册](doc/)4.4.9部分使用提供的脚本自动修改GAMESS代码。
+  因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
 
 快速开始
 ----------
@@ -106,6 +108,7 @@ AutoMR支持调用的量子化学程序
 * [ORCA](https://orcaforum.kofo.mpg.de)
 * [BDF](http://182.92.69.169:7226/Introduction)
 * [PSI4](https://github.com/psi4/psi4/)
+* [Dalton](https://gitlab.com/dalton/dalton)
 
 温馨提示
 ----------

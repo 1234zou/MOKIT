@@ -1,5 +1,5 @@
 %mem=4GB
-%nprocshared=4
+%nprocshared=2
 #p CASSCF/cc-pVDZ
 
 mokit{}
