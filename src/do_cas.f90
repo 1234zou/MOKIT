@@ -9,7 +9,7 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
-  dkh2_or_x2c, check_gms_path, prt_strategy, RI
+  dkh2_or_x2c, check_gms_path, prt_strategy, RI, nmr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -474,7 +474,7 @@ subroutine do_cas(scf)
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  write(buf,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' '//TRIM(proname)&
+  write(buf,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' -ow '//TRIM(proname)&
                            //' >'//TRIM(proname)//".sout 2>&1"
   write(iout,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
@@ -484,7 +484,7 @@ subroutine do_cas(scf)
   end if
 
   ! untar/unzip the compressed package
-  i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
+  i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN SIRIUS.RST')
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   i = system('dal2fch DALTON.MOPUN '//TRIM(casnofch)//' -no')
   if(i /= 0) then
@@ -495,6 +495,18 @@ subroutine do_cas(scf)
   end if
   orbname = 'DALTON.MOPUN'
   call delete_file(orbname)
+
+  if(nmr) then
+   call prt_cas_dalton_nmr_inp(inpname, scf)
+   write(buf,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc," -put ""SIRIUS.RST""&
+    & -ow "//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
+   write(iout,'(A)') '$'//TRIM(buf)
+   i = system(TRIM(buf))
+   if(i /= 0) then
+    write(iout,'(A)') 'ERROR in subroutine do_cas: Dalton CASSCF NMR job failed.'
+    stop
+   end if
+  end if
 
  case default
   write(iout,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian&
@@ -1187,11 +1199,9 @@ end subroutine prt_cas_psi4_inp
 ! print CASCI/CASSCF keywords into a given Dalton input file
 subroutine prt_cas_dalton_inp(inpname, scf, force)
  use print_id, only: iout
- use mol, only: charge, mult, ndb, npair, npair0, nacto, nacte
- use mr_keyword, only: hardwfn, crazywfn, RI, RIJK_bas, nmr
+ use mol, only: mult, ndb, npair, npair0, nacto, nacte
  implicit none
  integer :: i, nclosed, fid, fid1, RENAME
- character(len=21) :: RIJK_bas1
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
@@ -1201,23 +1211,29 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
 
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
- if(nmr) then
-  write(fid1,'(A)') '.RUN PROPERTIES'
- else
-  write(fid1,'(A)') '.RUN WAVE FUNCTION'
- end if
- write(fid1,'(A)') '**WAVE FUNCTIONS'
+ write(fid1,'(A)') '.RUN WAVE FUNCTION'
+ write(fid1,'(A,/,A)') '**WAVE FUNCTIONS','.HF'
  if(scf) then
   write(fid1,'(A)') '.MCSCF'
  else
   write(fid1,'(A)') '.CI'
  end if
- write(fid1,'(A,/,A,/,A)') '*CI INPUT', '.MAX ITERATIONS','500'
+ write(fid1,'(A,/,A)') '*SCF INPUT','.NODIIS'
+ write(fid1,'(A,/,A)') '.NOQCSCF','.NONCANONICAL'
  write(fid1,'(A,/,A)') '*CONFIGURATION INPUT', '.SPIN MULTIPLICITY'
  write(fid1,'(I0)') mult
  write(fid1,'(A,/,I0)') '.INACTIVE ORBITALS', nclosed
  write(fid1,'(A,/,I0)') '.CAS SPACE', nacto
  write(fid1,'(A,/,I0)') '.ELECTRONS', nacte
+ if(scf) then
+  write(fid1,'(A)') '*OPTIMIZATION'
+  write(fid1,'(A,/,A)') '.MAX CI','500'
+  write(fid1,'(A,/,A)') '.MAX MACRO ITERATIONS','50'
+  write(fid1,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+ else
+  write(fid1,'(A)') '*CI INPUT'
+  write(fid1,'(A,/,A)') '.MAX ITERATIONS','500'
+ end if
  write(fid1,'(A,/,A)') '*PRINT LEVELS', '.CANONI'
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -1243,11 +1259,52 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
   stop
  end if
 
- if(nmr) write(fid1,'(A,/,A)') '**PROPERTIES','.SHIELD'
  write(fid1,'(A)') '**END OF INPUT'
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine prt_cas_dalton_inp
+
+! print CASSCF NMR keywords into a given Dalton input file
+subroutine prt_cas_dalton_nmr_inp(inpname, scf)
+ use print_id, only: iout
+ use mol, only: mult, ndb, npair, npair0, nacto, nacte
+ use mr_keyword, only: nmr
+ implicit none
+ integer :: i, nclosed, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: scf
+
+ if(.not. nmr) then
+  write(iout,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR=.F.'
+  stop
+ end if
+ if(.not. scf) then
+  write(iout,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR under&
+                   & CASCI not supported currently.'
+  stop
+ end if
+
+ nclosed = ndb + npair - npair0
+ open(newunit=fid,file=TRIM(inpname),status='replace')
+ write(fid,'(A)') '**DALTON INPUT'
+ write(fid,'(A)') '.RUN PROPERTIES'
+ write(fid,'(A,/,A)') '**WAVE FUNCTIONS','.MCSCF'
+ write(fid,'(A,/,A)') '*CONFIGURATION INPUT', '.SPIN MULTIPLICITY'
+ write(fid,'(I0)') mult
+ write(fid,'(A,/,I0)') '.INACTIVE ORBITALS', nclosed
+ write(fid,'(A,/,I0)') '.CAS SPACE', nacto
+ write(fid,'(A,/,I0)') '.ELECTRONS', nacte
+ write(fid,'(A)') '*OPTIMIZATION'
+ write(fid,'(A,/,A)') '.MAX CI','500'
+ write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+ write(fid,'(A)') '*ORBITAL INPUT'
+ write(fid,'(A,/,A)') '.MOSTART','NEWORB'
+ write(fid,'(A,/,A)') '**PROPERTIES','.SHIELD'
+ write(fid,'(A)') '**END OF INPUT'
+ close(fid)
+ return
+end subroutine prt_cas_dalton_nmr_inp
 

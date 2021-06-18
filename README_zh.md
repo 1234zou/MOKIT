@@ -1,10 +1,10 @@
-*[English](README.md)*
+*[English](README.md)*  
 *[下载](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外。
 MOKIT中的automr程序可以进行多参考（态）方法的自动化、黑箱式计算。
 
-MOKIT中重要的小程序及其功能请见下图
+MOKIT中重要的小程序及其功能请见下图  
 ![MOKIT utilities with their functions](doc/orbital_transfer_CN.png)
 
 利用MOKIT中的automr程序（结合上图中的各个小程序），您可以十分简单地（即像DFT计算
@@ -24,7 +24,7 @@ or
 （例如CASSCF）在不同量化程序中的电子能量可以很好地复现（误差通常小于10^-6 a.u.），且
 几乎1-2圈收敛。
 
-开发者还提供`Windows* 系统`下预编译好的约20个小程序，下载处[Releases](https://gitlab.com/jxzou/mokit/-/releases).
+开发者还提供`Windows* 系统`下预编译好的约20个小程序，[下载处](https://gitlab.com/jxzou/mokit/-/releases).
 但请注意这些小程序的版本会滞后于master主分支代码，因此仍建议下载源码到Linux下自行编译。
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户
@@ -32,7 +32,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021年6月16号
+2021年6月18号
 
 安装
 ----------
@@ -47,7 +47,7 @@ or
         cd src
         make all
 
-* 若仅想使用单个子程序，可仅编译单个子程序或模块
+* 若仅想使用单个子程序，可仅编译单个子程序或模块  
   例如执行
 
         make fch2inp
@@ -127,7 +127,7 @@ AutoMR支持调用的量子化学程序
 
 下一步计划（可能）
 ----------
-* 支持BAGEL, NWCHEM, Dalton等软件间传轨道
+* 支持BAGEL, CFOUR, NWCHEM等软件间传轨道
 
 * 支持更多的多参考方法（如ic-MRCC）
 

@@ -172,7 +172,13 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                      &', wfn_type=', wfn_type
 
  if(index(basis,'gen') > 0) then
+  close(fid)
   call record_gen_basis_in_gjf(gjfname, basname)
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+  end do ! for while
  else
   basname = ' '
  end if
@@ -182,11 +188,12 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   if(LEN_TRIM(buf) == 0) exit
  end do ! for while
  allocate(cm(2+2*nfrag0),source=0)
- read(fid,*,iostat=i) cm
 
+ read(fid,*,iostat=i) cm
  if(i /= 0) then
   write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: incomplete charges and&
                    & multiplicities in file '//TRIM(gjfname)
+  close(fid)
   stop
  end if
 
