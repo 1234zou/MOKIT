@@ -75,7 +75,7 @@ subroutine bas_gms2dal(fort7, spherical)
 
  open(newunit=fid1,file=TRIM(dalfile),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
- write(fid1,'(A)') '.RUN WAVE FUNCTION'
+ write(fid1,'(A)') '.RUN WAVE FUNCTIONS'
  write(fid1,'(A)') '**WAVE FUNCTIONS'
  write(fid1,'(A)') '.HF'
  if(mult > 1) then

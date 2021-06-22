@@ -2613,6 +2613,26 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   i = index(buf,'=')
   read(buf(i+1:),*) e
   e = e + ptchg_e + nuc_pt_e
+
+ case('dalton')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:19) == '@ Final CI energies') exit
+
+   if(buf(22:32) == 'Dalton - An') then
+    write(iout,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(iout,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
+    close(fid)
+    stop
+   end if
+  end do ! for while
+
+  read(fid,'(A)') buf
+  read(buf(7:),*) e
+  e = e + ptchg_e
+
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
                    & mrcisd_prog='//TRIM(mrcisd_prog)

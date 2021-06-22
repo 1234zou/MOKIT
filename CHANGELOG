@@ -1,4 +1,4 @@
-MOKIT 1.2.3 (Jun 18, 2021)
+MOKIT 1.2.3 (Jun 22, 2021)
 ------------------------
 * add keyword NMR for calculating nuclear shielding constants using Dalton
 * add utilities bas_gms2dal, fch2dal and dal2fch (Gaussian <-> Dalton)

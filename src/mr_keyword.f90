@@ -1226,17 +1226,11 @@ contains
     stop
    end select
 
-   if(mrcisd_prog=='gaussian' .and. CtrType/=1) then
+   if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='psi4' .or. mrcisd_prog=='dalton')&
+      .and. (CtrType/=1)) then
     write(iout,'(A)') error_warn
-    write(iout,'(A,I0)') 'Gaussian can only perform uncontracted MRCISD. But you&
-                        & specify CtrType=', CtrType
-    stop
-   end if
-
-   if(mrcisd_prog=='psi4' .and. CtrType/=1) then
-    write(iout,'(A)') error_warn
-    write(iout,'(A,I0)') 'PSI4 can only perform uncontracted MRCISD. But you&
-                        & specify CtrType=', CtrType
+    write(iout,'(A)') 'Gaussian, PSI4 and Dalton only supports uncontracted MRCISD.'
+    write(iout,'(A,I0)') 'But you specify CtrType=',CtrType
     stop
    end if
 
