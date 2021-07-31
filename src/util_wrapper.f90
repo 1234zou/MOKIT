@@ -149,6 +149,31 @@ subroutine prt_orca_2mkl_error(fname)
  stop
 end subroutine prt_orca_2mkl_error
 
+! wrapper of the utility fch2psi
+subroutine fch2psi_wrap(fchname)
+ implicit none
+ integer :: i, system
+ integer, parameter :: iout = 6
+ character(len=240), intent(in) :: fchname
+
+#ifdef _WIN32
+ i = system('fch2psi '//TRIM(fchname)//' > NUL')
+#else
+ i = system('fch2psi '//TRIM(fchname)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine fch2psi_wrap: failed to call utility&
+                     & fch2psi. Two possible reasons:'
+  write(iout,'(A)') '(1) You might forget to compile the utility fch2psi.'
+  write(iout,'(A)') '(2) The file '//TRIM(fchname)//' may be incomplete.'
+  write(iout,'(A)') '(3) There might exist a bug in the utility fch2psi.'
+  stop
+ end if
+
+ return
+end subroutine fch2psi_wrap
+
 ! wrapper of the utility fch2inp
 subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  implicit none

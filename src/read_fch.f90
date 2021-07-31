@@ -56,6 +56,33 @@ module fch_content
 
 contains
 
+! read the number of electrons from a given .fch file
+subroutine read_ne_from_fch(fchname, ne)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: ne
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ ne = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:14) == 'Number of elec') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec'&
+                   & found in file "//TRIM(fchname)
+  stop
+ end if
+
+ read(buf(50:),*) ne
+ return
+end subroutine read_ne_from_fch
+
 ! check whether UHF-type MOs are hold in a given .fch(k) file
 subroutine check_uhf_in_fch(fchname, uhf)
  implicit none

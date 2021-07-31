@@ -306,7 +306,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
  write(fid2,'(A)') '! NoIter'
 
  if(DKH2) then

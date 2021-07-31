@@ -557,6 +557,7 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
 end subroutine modify_memory_in_gms_inp
 
 ! modify memory in a given PSI4 input file
+! Note: input mem is in unit GB
 subroutine modify_memory_in_psi4_inp(inpname, mem)
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -834,4 +835,38 @@ subroutine copy_gen_basis_bas2gjf(basname, gjfname)
  close(fid2)
  return
 end subroutine copy_gen_basis_bas2gjf
+
+! read the version of dispersion correction from a .gjf file
+subroutine read_disp_ver_from_gjf(gjfname, itype)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: itype
+ integer, parameter :: iout = 6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ itype = 0
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:1) == '#') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_disp_ver_from_gjf: no '#' symbol&
+                   & found in file "//TRIM(gjfname)
+  stop
+ end if
+
+ call lower(buf)
+ if(index(buf,'em=gd3bj')>0 .or. index(buf,'empiricaldispersion=gd3bj')>0) then
+  itype = 2
+ else if(index(buf,'em=gd3')>0 .or. index(buf,'empiricaldispersion=gd3')>0) then
+  itype = 1
+ end if
+
+ return
+end subroutine read_disp_ver_from_gjf
 

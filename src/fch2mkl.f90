@@ -7,6 +7,7 @@
 ! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
 ! updated by jxzou at 20201221: add 'DelGTO' for elements Rb~Rn
 ! updated by jxzou at 20210407: remove '-uhf', use automatic determination
+! updated by jxzou at 20210730: add 'sthresh 1e-6' in %scf, in case of linear dependence
 
 ! The 'Shell types' array in Gaussian .fch file:
 !
@@ -260,6 +261,7 @@ subroutine fch2mkl(fchname)
  write(fid2,'(A)') '%scf'
  write(fid2,'(A)') ' Thresh 1e-12'
  write(fid2,'(A)') ' Tcut 1e-14'
+ if(nif < nbf)  write(fid2,'(A)') ' sthresh 1e-6'
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%coords'
  write(fid2,'(A)') ' Units = angs'

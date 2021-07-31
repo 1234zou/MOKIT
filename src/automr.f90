@@ -37,10 +37,11 @@ program main
   write(iout,'(A)')    '  -h, -help, --help: Print this message and exit.'
   write(iout,'(A)')    '  -v, -V, --version: Print the version number of automr and exit.'
   write(iout,'(/,A)')  'Methods(#p ...):'
-  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, MRCISD,'
-  write(iout,'(A)')    '  MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
+  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, OVBMP2,'
+  write(iout,'(A)')    '  MRCISD, MRCC, MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
   write(iout,'(/,A)')  'Frequently used keywords in MOKIT{}:'
   write(iout,'(A)')    '      HF_prog=Gaussian, PySCF, PSI4, ORCA'
+  write(iout,'(A)')    '     GVB_prog=GAMESS, Gaussian'
   write(iout,'(A)')    '  CASSCF_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4, Dalton'
   write(iout,'(A)')    '   CASCI_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4, Dalton'
   write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
@@ -84,14 +85,14 @@ subroutine automr(fname)
 
  call do_hf()         ! RHF and/or UHF
  call get_paired_LMO()
- call do_gvb()
+ call do_gvb()        ! GVB
  call do_cas(.false.) ! CASCI/DMRG-CASCI
  call do_cas(.true.)  ! CASSCF/DMRG-CASSCF
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
  call do_mrpt3()      ! CASPT3/NEVPT3
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
  call do_mcpdft()     ! MC-PDFT
- call do_mrcc()       ! ic-MRCC
+ call do_mrcc()       ! MRCC
 
  call fdate(data_string)
  write(iout,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
@@ -572,168 +573,4 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  close(fid1)
  return
 end subroutine prt_assoc_rot_script_into_py
-
-! perform GVB computation (only in Strategy 1,3)
-subroutine do_gvb()
- use print_id, only: iout
- use mr_keyword, only: mem, nproc, gms_path, gms_scr_path, mo_rhf, ist, hf_fch,&
-  gvb, datname, npair_wish, bgchg, chgname, cart, check_gms_path
- use mol, only: nbf, nif, ndb, nopen, npair, lin_dep, gvb_e, nacto, nacta, &
-  nactb, nacte, npair0
- implicit none
- integer :: i, j, system, RENAME
- character(len=24) :: data_string = ' '
- character(len=240) :: buf, proname, inpname, gmsname, pair_fch
- character(len=300) :: longbuf = ' '
-
- if(.not. gvb) return
- write(iout,'(//,A)') 'Enter subroutine do_gvb...'
- call check_gms_path()
-
- if(.not. (ist==1 .or. ist==3)) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb: current ist /= 1,3.'
-  stop
- end if
-
- i = index(hf_fch, '.fch', back=.true.)
- proname = hf_fch(1:i-1)
- ! In RHF virtual MO projection, it will generate a file uno.out additionally
- call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
-
- if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-  if(npair_wish>0 .and. npair_wish/=npair) then
-   write(iout,'(A)') 'ERROR in subroutine do_gvb: npair_wish cannot be assigned in this strategy.'
-   stop
-  end if
-
-  pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(iout,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
-  write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
-  write(datname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.dat'
-  i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
-
- else ! paired LMOs obtained from associated rotation of UNOs
-
-  if(npair_wish>0 .and. npair_wish/=npair) then
-   write(iout,'(2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but&
-    & user specifies GVB(',npair_wish,'). Try to fulfill...'
-   if(npair_wish < npair) then
-    ndb = ndb + npair - npair_wish
-    npair = npair_wish
-    write(iout,'(A)') 'OK, fulfilled.'
-   else if(npair_wish > npair) then
-    write(iout,'(A)') 'ERROR in subroutine do_gvb: too large space specified.&
-                     & Cannot fulfilled.'
-    stop
-   end if
-  end if
-
-  pair_fch = TRIM(proname)//'_uno_asrot.fch'
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(iout,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
-  write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
-  write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
-  i = RENAME(TRIM(proname)//'_uno_asrot.inp', inpname)
- end if
-
- call modify_memory_in_gms_inp(inpname, mem, nproc)
-
- ! call GAMESS to do GVB computations (delete .dat file first, if any)
- buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
- call delete_file(buf)
- if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-
- write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
-! write(iout,'(A)') '$$GMS '//TRIM(longbuf)
- i = system(TRIM(gms_path)//' '//TRIM(longbuf))
-
- call read_gvb_energy_from_gms(gmsname, gvb_e)
- write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
-
- ! move the .dat file into current directory
- i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb: fail to move file. Possibly&
-                   & wrong gms_scr_path.'
-  write(iout,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
-  stop
- end if
-
- ! sort the GVB pairs by CI coefficients of the 1st NOs
- if(cart) then ! Cartesian functions
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
- else          ! spherical harmonic functions
-  call read_nbf_from_dat(datname, i)
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
- end if
- i = system(TRIM(longbuf))
- if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility gvb_sort_pairs.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  write(iout,'(A)') 'Or maybe there is some unexpected error.'
-  stop
- end if
-
- ! generate corresponding .fch file from _s.dat file
- i = index(datname, '.dat')
- inpname = datname(1:i-1)//'_s.fch'
- datname = datname(1:i-1)//'_s.dat'
- call copy_file(pair_fch, inpname, .false.)
- write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
-                             npair, ' -open ', nopen
- i = system(TRIM(longbuf))
- if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
-
- ! extract NOONs from the above .dat file and print them into .fch file
- write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
-                     TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
- i = system(TRIM(longbuf))
- if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
-
- ! update Total SCF Density in .fch(k) file
- call update_density_using_no_and_on(inpname)
-
- ! find npair0: the number of active pairs (|C2| > 0.1)
- call find_npair0_from_dat(datname, npair, npair0)
-
- ! determine the number of orbitals/electrons in following CAS/DMRG computations
- nacta = npair0 + nopen
- nactb = npair0
- nacte = nacta + nactb
- nacto = nacte
-
- call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)
- return
-end subroutine do_gvb
-
-! do ic-MRCC based on CASSCF, npair<=5
-subroutine do_mrcc()
- use print_id, only: iout
- use mr_keyword, only: mem, nproc, casci, casscf, CIonly
- implicit none
-! integer :: i
-! character(len=24) :: data_string
-
-! if(.not. mrcc) return
-! write(iout,'(//,A)') 'Enter subroutine do_mrcc...'
-
-! write(iout,'(/,A)') 'Enter subroutine do_mrcc...'
-! call fdate(data_string)
-! write(iout,'(A)') 'ERROR in subroutine do_mrcc: not supported currently.'
- return
-end subroutine do_mrcc
 

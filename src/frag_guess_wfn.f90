@@ -21,7 +21,7 @@ module frag_info
 
  type :: frag
   integer :: charge = 0
-  integer :: mult = 0
+  integer :: mult = 1
   integer :: natom = 0
   integer :: wfn_type = 0            ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
   integer, allocatable :: atm_map(:) ! map to parent system, i.e. supermolecule
@@ -30,17 +30,43 @@ module frag_info
   real(kind=8), allocatable :: coor(:,:)   ! size natom
   character(len=2), allocatable :: elem(:) ! size natom
   character(len=240) :: fname = ' '        ! gjf filename
+  logical :: pos = .true.            ! .True./.False. for alpha/beta total spin
   logical :: noiter = .false.        ! .True./.False. for skipping SCF or not
   logical, allocatable :: ghost(:)   ! .True./.False. for ghost atoms or not, size natom
  end type frag
 
  type(frag), allocatable :: frags(:)
+contains
+
+ subroutine copy_frag(frag1, frag2)
+  implicit none
+  type(frag), intent(in) :: frag1
+  type(frag), intent(out) :: frag2
+
+  frag2%charge = frag1%charge
+  frag2%mult = frag1%mult
+  frag2%natom = frag1%natom
+  frag2%wfn_type = frag1%wfn_type
+  frag2%atm_map = frag1%atm_map
+  frag2%e = frag1%e
+  frag2%ssquare = frag1%ssquare
+  frag2%coor = frag1%coor
+  frag2%elem = frag1%elem
+  frag2%fname = frag1%fname
+  frag2%pos = frag1%pos
+  frag2%noiter = frag1%noiter
+  frag2%ghost = frag1%ghost
+  return
+ end subroutine copy_frag
+
 end module frag_info
 
 module theory_level
  implicit none
+ integer :: mem, nproc
  integer :: wfn_type = 0   ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
- integer :: eda_type = 0   ! 0/1/2 for none/GKS-EDA/Morokuma-EDA
+ integer :: eda_type = 0   ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
+ integer :: disp_type = 0  ! 0/1/2 for no dispersion correction/GD3/GD3BJ
  character(len=9) :: method = ' '
  character(len=21) :: basis = ' '
  character(len=40) :: scrf  = ' '
@@ -81,13 +107,12 @@ end program main
 ! perform fragment-guess wavefunction calculations, one by one fragment
 subroutine frag_guess_wfn(gau_path, gjfname)
  use print_id, only: iout
- use util_wrapper, only: formchk
- use frag_info, only: nfrag0, nfrag, frags
+ use util_wrapper, only: formchk, unfchk
+ use frag_info, only: nfrag0, nfrag, frag, frags, copy_frag
  use theory_level
  implicit none
  integer :: i, j, k, m, fid, ifrag, iatom
  integer :: charge, mult, natom, maxfrag
- integer :: mem, nproc
  integer, allocatable :: cm(:), nuc(:)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
@@ -95,12 +120,21 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf
  logical :: guess_read
+ type(frag) :: tmp_frag1, tmp_frag2
 
  buf = ' '; longbuf = ' '
  call read_eda_type_from_gjf(gjfname, eda_type)
+ call read_disp_ver_from_gjf(gjfname, disp_type)
+ if(eda_type==4 .and. disp_type>0) then
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction&
+                     & cannot be used in SAPT.'
+  write(iout,'(A)') 'It may be supported in DFT-SAPT, but this method is not&
+                   & supported for frag_guess_wfn.'
+  stop
+ end if
  call check_sph_in_gjf(gjfname, sph)
 
- if(sph .and. eda_type==2) then
+ if(sph .and. eda_type==1) then
   write(iout,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic&
                    & functions (5D 7F) cannot be'
   write(iout,'(A)') 'used in Morokuma-EDA method in GAMESS. Automatically switch&
@@ -137,6 +171,11 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  call lower(longbuf)
  call read_scrf_string_from_buf(longbuf, scrf)
+ if(LEN_TRIM(scrf)>0 .and. eda_type==4) then
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: SCRF detected.'
+  write(iout,'(A)') 'Implicit solvent model is not supported in SAPT computations.'
+  stop
+ end if
  call determine_solvent_from_gau2gms(scrf, solvent)
  call read_nfrag_from_buf(longbuf, nfrag0)
 
@@ -144,15 +183,26 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  case(0) ! fragment guess wfn
   nfrag = nfrag0 + 1
   maxfrag = 998
- case(1) ! GKS-EDA
-  nfrag = 2*nfrag0 + 1
-  maxfrag = 499
- case(2) ! MOROKUMA-EDA
+ case(1) ! MOROKUMA-EDA
   nfrag = nfrag0 + 1
   maxfrag = 998
+ case(2) ! LMO-EDA
+  nfrag = 2*nfrag0 + 1
+  maxfrag = 499
+ case(3) ! GKS-EDA
+  nfrag = 2*nfrag0 + 1
+  maxfrag = 499
+ case(4) ! SAPT
+  if(nfrag0 /= 2) then
+   write(iout,'(A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid nfrag0=',nfrag0
+   write(iout,'(A)') 'Only two fragments/monomers are allowed in SAPT.'
+   stop
+  end if
+  nfrag = 3
+  maxfrag = 3
  case default
   write(iout,'(A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid eda_type=',eda_type
-  write(iout,'(A,I0)') 'Only 0,1,2 is allowed.'
+  write(iout,'(A,I0)') 'Only 0,1,2,3,4 are allowed.'
   close(fid)
   stop
  end select
@@ -191,15 +241,16 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  read(fid,*,iostat=i) cm
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: incomplete charges and&
-                   & multiplicities in file '//TRIM(gjfname)
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: incomplete charges and&
+                     & multiplicities detected'
+  write(iout,'(A)') 'in file '//TRIM(gjfname)
   close(fid)
   stop
  end if
 
  charge = cm(1); mult = cm(2)
 
- if(mult/=1 .and. eda_type==2) then
+ if(mult/=1 .and. eda_type==1) then
   write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
                    & be applied to RHF. But'
   write(iout,'(A)') 'the total spin is not singlet.'
@@ -229,7 +280,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   end if
  end if
 
- if(eda_type==2 .and. wfn_type/=1) then
+ if(eda_type==1 .and. wfn_type/=1) then
   write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
                    & be applied to RHF. But'
   write(iout,'(A,I0)') 'RHF-type wavefunction is not specified. wfn_type=',wfn_type
@@ -259,6 +310,43 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   close(fid)
   stop
  end if
+ if(ANY(frags(:)%mult==0) .or. ANY(frags(:)%mult==-1)) then
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: the spin multiplicity&
+                     & of some fragment is 0 or -1.'
+  write(iout,'(A)') 'This is impossible. Check your file '//TRIM(gjfname)
+  deallocate(frags)
+  close(fid)
+  stop
+ end if
+ j = 0 ! ne(alpha) - ne(beta)
+ do i = 1, nfrag0, 1
+  k = frags(i)%mult
+  if(k > 0) then
+   j = j + k - 1
+  else
+   j = j + k + 1
+  end if
+ end do ! for i
+ if(mult-1 /= j) then
+  write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired&
+                     & electrons calculated from'
+  write(iout,'(A)') 'fragments spin multiplicities is not equal to that calcu&
+                    &lated from the total spin'
+  write(iout,'(A)') 'multiplicity. Some spin multiplicity must be wrong.'
+  write(iout,'(A)') 'Check your spin in file '//TRIM(gjfname)
+  deallocate(frags)
+  close(fid)
+  stop
+ end if
+
+ ! now make all spin of fragment positive, move negative(if any) into pos
+ do i = 1, nfrag0, 1
+  k = frags(i)%mult
+  if(k < 0) then
+   frags(i)%mult = -k
+   frags(i)%pos = .false.
+  end if
+ end do ! for i
 
  allocate(coor(3,natom), source=0d0)
  allocate(elem(natom))
@@ -272,7 +360,11 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   k = index(buf,'=')
   m = index(buf,')')
   if(j*k*m == 0) then
-   write(iout,'(A)') 'ERROR in subroutine frag_guess_wfn: wrong format in file '//TRIM(gjfname)
+   write(iout,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in&
+                      & file '//TRIM(gjfname)//'.'
+   write(iout,'(A)') 'Please read examples in Section 5.3.2 ~ 5.3.4 of MOKIT&
+                    & manual and learn how to'
+   write(iout,'(A)') 'write a valid input file.'
    stop
   end if
   read(buf(1:j-1),*) elem(i)
@@ -342,6 +434,12 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  do i = 1, nfrag0, 1
   iatom = frags(i)%natom
+  if(iatom == 0) then
+   write(iout,'(/,A,I0,A)') 'ERROR in subroutine frag_guess_wfn: the ',i,'-th&
+    & fragment has 0 atom.'
+   write(iout,'(A)') 'Please check your specification of fragments in file '//TRIM(gjfname)
+   stop
+  end if
   allocate(frags(i)%ghost(iatom))
   frags(i)%ghost = .false.
  end do ! for i
@@ -359,30 +457,29 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  frags(nfrag)%ghost = .false.
  frags(nfrag)%noiter = .true.
 
- if(eda_type == 1) then ! GKS-EDA
+ if(eda_type == 3) then ! GKS-EDA
   do i = 1, nfrag0, 1
    call gen_extend_bas_frag(frags(i), frags(nfrag), frags(i+nfrag0))
   end do ! for i
+ else if(eda_type == 4) then ! SAPT
+  call gen_extend_bas_frag(frags(1), frags(3), tmp_frag1)
+  call gen_extend_bas_frag(frags(2), frags(3), tmp_frag2)
+  call copy_frag(tmp_frag1, frags(1)) ! overwrite frags(1)
+  call copy_frag(tmp_frag2, frags(2)) ! overwrite frags(2)
  end if
 
  ! generate these SCF .gjf files
  do i = 1, nfrag, 1
   write(frags(i)%fname,'(I3.3,A)') i, '-'//TRIM(gjfname)
   guess_read = .false.
-!  if(eda_type==1 .and. i>nfrag0 .and. i<nfrag) guess_read = .true.
-  call gen_gjf_from_type_frag(frags(i), mem, nproc, guess_read, basname)
+!  if(eda_type==3 .and. i>nfrag0 .and. i<nfrag) guess_read = .true.
+  call gen_gjf_from_type_frag(frags(i), guess_read, basname)
  end do ! for i
 
  j = index(frags(1)%fname, '.gjf', back=.true.)
 
  ! do SCF computations one by one
  do i = 1, nfrag, 1
-!  if(eda_type==1 .and. i>nfrag0 .and. i<nfrag) then
-!   buf = frags(i-nfrag0)%fname(1:j-1)//'.chk'
-!   chkname = frags(i)%fname(1:j-1)//'.chk'
-!   call copy_bin_file(buf, chkname, .false.)
-!   write(iout,'(A)') TRIM(buf)//' '//TRIM(chkname)
-!  end if
   call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
                          frags(i)%e, frags(i)%ssquare)
   if(i < nfrag) then
@@ -395,21 +492,45 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   logname = frags(i)%fname(1:j-1)//'.log'
   call delete_file(logname)
   if(i < nfrag) call delete_file(buf)
+  if(i==nfrag .and. eda_type==1) then ! MOROKUMA-EDA
+   call formchk(chkname, fchname)
+   call delete_files(2, [chkname, buf])
+  end if
  end do ! for i
 
  ! For GKS-EDA, construct supermolecule MOs from direct sum of fragment MOs
- if(eda_type == 1) then
+ if(eda_type == 3) then
   i = nfrag
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
-        frags(1:nfrag0)%wfn_type, frags(i)%fname, frags(i)%wfn_type)
+        frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
+        frags(i)%wfn_type)
   frags(i)%noiter = .false.
   call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
                          frags(i)%e, frags(i)%ssquare)
   write(iout,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
                                       ', frags(i)%ssquare=', frags(i)%ssquare
- end if
 
- write(iout,'(A)') 'All SCF computations finished. Generating GAMESS input file ...'
+ else if(eda_type == 4) then ! For SAPT, add SCF density of two fragments to
+  ! obtain approximate total SCF density
+  call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(3)%fname)
+  k = 1
+  if(frags(3)%wfn_type == 3) k = 0
+  call gen_no_using_density_in_fch(fchname, k)
+  call unfchk(fchname, chkname)
+  frags(3)%noiter = .false.
+  call modify_guess_only_in_gjf(frags(3)%fname)
+  call do_scf_and_read_e(gau_path, gau_path, frags(3)%fname, frags(3)%noiter, &
+                         frags(3)%e, frags(3)%ssquare)
+  write(iout,'(A,F18.9,A,F6.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
+                                 ', frags(i)%ssquare=', frags(3)%ssquare
+ end if
+ call delete_files(2, [frags(nfrag)%fname, logname])
+
+ if(eda_type == 4) then ! SAPT in PSI4
+  write(iout,'(A)') 'All SCF computations finished. Generating PSI4 input file...'
+ else
+  write(iout,'(A)') 'All SCF computations finished. Generating GAMESS input file...'
+ end if
  return
 end subroutine frag_guess_wfn
 
@@ -417,8 +538,9 @@ end subroutine frag_guess_wfn
 subroutine read_eda_type_from_gjf(gjfname, eda_type)
  use print_id, only: iout
  implicit none
- integer :: i, j, fid
+ integer :: i, j, k, fid
  integer, intent(out) :: eda_type
+ character(len=8) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
 
@@ -435,6 +557,8 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type)
 
  i = index(buf, '{')
  j = index(buf, '}')
+ k = index(buf,',')
+ if(k > 0) j = k
  if(j < i) then
   write(iout,'(A)') 'ERROR in subroutine read_eda_type_from_gjf: wrong syntax&
                     & in file '//TRIM(gjfname)
@@ -442,16 +566,26 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type)
   stop
  end if
 
- select case(buf(i+1:j-1))
+ str = buf(i+1:j-1)
+ call lower(str)
+
+ select case(str)
  case('frag')
- case('gks')
-  eda_type = 1
  case('morokuma')
+  eda_type = 1
+ case('lmo')
   eda_type = 2
+ case('gks')
+  eda_type = 3
+ case('sapt')
+  eda_type = 4
  case default
-  write(iout,'(A)') "ERROR in subroutine read_eda_type_from_gjf: invalid&
-                   & keyword '"//buf(i+1:j-1)//"' in Title Card line"
-  write(iout,'(A)') 'of file '//TRIM(gjfname)
+  write(iout,'(/,A)') "ERROR in subroutine read_eda_type_from_gjf: invalid&
+                     & keyword '"//buf(i+1:j-1)//"' in Title Card"
+  write(iout,'(A)') 'line of file '//TRIM(gjfname)//'.'
+  write(iout,'(A)') 'You are supposed to write one of {morokuma}, {gks} or {&
+                    &sapt,bronze} in the'
+  write(iout,'(A)') 'Title Card line.'
   stop
  end select
 
@@ -485,7 +619,7 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
    read(buf(k+1:j-2),*) mem
    select case(buf(j-1:j))
    case('gb')
-    mem = 1000*mem ! you like 1024? I prefer 1000
+    mem = 1000*mem ! You like 1024? I prefer 1000
    case('mb')
    case('gw')
     mem = 1000*8*mem
@@ -571,9 +705,11 @@ subroutine read_nfrag_from_buf(buf, nfrag)
 
  i = index(buf, 'guess')
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine read_nfrag_from_buf: keyword 'guess'&
-                   & not found in buf."
+  write(iout,'(/,A)') "ERROR in subroutine read_nfrag_from_buf: keyword 'guess'&
+                     & not found in buf."
   write(iout,'(A)') 'buf = '//TRIM(buf)
+  write(iout,'(/,A)') "You should write 'guess(fragment=N)' in route section&
+                     & to specify the number of fragments."
   stop
  end if
 
@@ -607,13 +743,12 @@ subroutine read_nfrag_from_buf(buf, nfrag)
 end subroutine read_nfrag_from_buf
 
 ! generate a .gjf file from a type frag
-subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
+subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
  use frag_info, only: frag
  use print_id, only: iout
- use theory_level, only: method, basis, scrf, sph
+ use theory_level, only: mem, nproc, method, basis, scrf, sph, eda_type, disp_type
  implicit none
  integer :: i, k(3),fid
- integer, intent(in) :: mem, nproc
  character(len=9) :: method0
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
@@ -642,6 +777,13 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
   stop
  end select
 
+ if(eda_type==1 .and. TRIM(method0)/='Rhf') then
+  write(iout,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: Morokuma-EDA&
+                     & can only be applied to RHF.'
+  write(iout,'(A)') 'But found method='//TRIM(method0)
+  stop
+ end if
+
  open(newunit=fid,file=TRIM(frag0%fname),status='replace')
  i = index(frag0%fname, '.gjf', back=.true.)
  write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
@@ -663,7 +805,7 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
  case(2) ! ROHF
   write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc)'
  case(3) ! UHF
-  write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc,conver=7)'
+  write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=300,NoIncFock,NoVarAcc,conver=7)'
  case default
   write(iout,'(A)') 'ERROR in subroutine gen_gjf_from_type_frag: wfn_type&
                    & out of range.'
@@ -677,6 +819,12 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
   write(fid,'(A)',advance='no') ' 5D 7F'
  else
   write(fid,'(A)',advance='no') ' 6D 10F'
+ end if
+
+ if(disp_type == 1) then
+  write(fid,'(A)',advance='no') ' em=GD3'
+ else if(disp_type == 2) then
+  write(fid,'(A)',advance='no') ' em=GD3BJ'
  end if
 
  if(guess_read) then
@@ -718,9 +866,14 @@ subroutine gen_gjf_from_type_frag(frag0, mem, nproc, guess_read, basname)
   write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
   write(fid,'(A)',advance='no') '#p '//TRIM(method0)//' chkbasis guess=read&
-   & geom=allcheck nosymm stable=opt scf(xqc,maxcycle=500,NoIncFock,NoVarAcc)'
+   & geom=allcheck nosymm stable=opt scf(xqc,maxcycle=300,NoIncFock,NoVarAcc)'
 
   if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
+  if(disp_type == 1) then
+   write(fid,'(A)',advance='no') ' em=GD3'
+  else if(disp_type == 2) then
+   write(fid,'(A)',advance='no') ' em=GD3BJ'
+  end if
 
   select case(TRIM(method0))
   case('rhf','rohf','uhf')
@@ -763,17 +916,16 @@ end subroutine gen_extend_bas_frag
 subroutine gen_inp_of_frags()
  use print_id, only: iout
  use frag_info, only: nfrag0, nfrag, frags
- use util_wrapper, only: fch2inp_wrap
- use theory_level, only: wfn_type, eda_type, method, scrf, solvent
+ use util_wrapper, only: fch2psi_wrap, fch2inp_wrap
+ use theory_level, only: mem, wfn_type, eda_type, scrf
  use periodic_table, only: read_elem_from_gjf, elem2vdw_radii
  implicit none
- integer :: i, j, k, m, fid1, fid2, system
+ integer :: i, k
  integer :: natom  ! No. of atoms
  integer :: na, nb ! No. of alpha/beta electrons
  real(kind=8), allocatable :: radii(:)
  character(len=2), allocatable :: elem(:)
- character(len=9) :: dft_in_gms
- character(len=240) :: buf1, buf2, chkname, fchname
+ character(len=240) :: buf, fchname, fileA, fileB
  character(len=240) :: inpname1, inpname2
  logical :: r2u
  logical, allocatable :: ghost(:)
@@ -784,25 +936,235 @@ subroutine gen_inp_of_frags()
 
  do i = 1, nfrag, 1
   fchname = frags(i)%fname(1:k-1)//'.fch'
-  call fch2inp_wrap(fchname, .false., 0, 0)
-!  call delete_file(fchname)
+  if(eda_type == 4) then ! SAPT in PSI4
+   call fch2psi_wrap(fchname)
+   inpname1 = frags(i)%fname(1:k-1)//'_psi.inp'
+   if(i < nfrag) call delete_files(2, [fchname, inpname1])
+  else
+   call fch2inp_wrap(fchname, .false., 0, 0)
+   if(eda_type==1 .and. i==nfrag) call delete_file(fchname)
+  end if
  end do ! for i
 
  i = index(frags(nfrag)%fname, '-')
- j = index(frags(nfrag)%fname, '.gjf', back=.true.)
- inpname1 = frags(nfrag)%fname(1:j-1)//'.inp'
- inpname2 = frags(nfrag)%fname(i+1:j-1)//'.inp'
+ if(eda_type == 4) then ! SAPT in PSI4
+  inpname1 = frags(nfrag)%fname(1:k-1)//'_psi.inp'
+ else
+  inpname1 = frags(nfrag)%fname(1:k-1)//'.inp'
+ end if
+ inpname2 = frags(nfrag)%fname(i+1:k-1)//'.inp'
 
+ allocate(radii(natom), source=0d0)
  if(LEN_TRIM(scrf) > 0) then
   if(index(scrf,'smd') == 0) then
-   call read_natom_from_gjf(frags(nfrag)%fname(i+1:j+3), natom)
-   allocate(elem(natom), ghost(natom), radii(natom))
-   call read_elem_from_gjf(frags(nfrag)%fname(i+1:j+3), natom, elem, ghost)
+   buf = frags(nfrag)%fname(i+1:k+3)
+   call read_natom_from_gjf(buf, natom)
+   allocate(elem(natom), ghost(natom))
+   call read_elem_from_gjf(buf, natom, elem, ghost)
    deallocate(ghost)
    forall(i = 1:natom) radii(i) = elem2vdw_radii(elem(i))
    deallocate(elem)
   end if
  end if
+
+ if(eda_type == 4) then ! SAPT in PSI4
+  do i = 1, nfrag0, 1
+   if(wfn_type==3 .and. frags(i)%wfn_type/=3) then ! RHF copied to UHF
+    fileA = frags(i)%fname(1:k-1)//'.A'
+    fileB = frags(i)%fname(1:k-1)//'.B'
+    call copy_file(fileA, fileB, .false.)
+   end if
+  end do ! for i
+
+  inpname1 = frags(nfrag)%fname(1:k-1)//'_psi.inp'
+  call copy_and_modify_psi4_sapt_file(inpname1, inpname2)
+ else ! not SAPT
+
+  call copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
+  if(eda_type == 1) call delete_file(inpname1)
+  if(eda_type == 3) then ! GKS-EDA
+   call copy_vec_to_append_another_inp(inpname1,inpname2,0,.false.,.true.,.true.,.false.)
+  end if
+
+  do i = 1, nfrag0, 1
+   r2u = .false.
+   if(wfn_type==3 .and. frags(i)%wfn_type/=3) r2u = .true.
+   inpname1 = frags(i)%fname(1:k-1)//'.inp'
+   call copy_vec_to_append_another_inp(inpname1,inpname2,i,.false.,.true.,.true.,r2u)
+
+   if(eda_type == 3) then ! GKS-EDA
+    inpname1 = frags(i+nfrag0)%fname(1:k-1)//'.inp'
+    call copy_vec_to_append_another_inp(inpname1,inpname2,i,.true.,.true.,.true.,r2u)
+   end if
+  end do ! for i
+ end if
+
+ deallocate(radii, frags)
+ write(iout,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)//' to '
+ if(eda_type == 4) then ! SAPT in PSI4
+  write(iout,'(A)') "PSI4 (Don't delete *.A and *.B files)."
+ else
+  write(iout,'(A)') 'GAMESS.'
+ end if
+
+ return
+end subroutine gen_inp_of_frags
+
+! copy content of a provided .inp file and modify it to be SAPT job
+subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
+ use print_id, only: iout
+ use frag_info, only: nfrag0, nfrag, frags
+ use theory_level, only: mem, basis, wfn_type
+ implicit none
+ integer :: i, j, natom, fid1, fid2
+ character(len=240) :: buf, fileA, fileB
+ character(len=240), intent(in) :: inpname1, inpname2
+
+ open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname2),status='replace')
+ write(fid2,'(A)') '# auto-generated file by utility frag_guess_wfn of MOKIT'
+ write(fid2,'(A,I0,A)') 'memory ',mem,' MB'
+ write(fid2,'(/,A)') 'molecule mymol {'
+ write(fid2,'(A)') 'symmetry c1'
+ write(fid2,'(A)') 'no_reorient'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:11) == 'no_reorient') exit
+ end do ! for while
+ read(fid1,'(A)') buf
+
+ do i = 1, nfrag0, 1
+  if(i > 1) write(fid2,'(A)') '--'
+  write(fid2,'(I0,1X,I0)') frags(i)%charge, frags(i)%mult
+  natom = COUNT(frags(i)%ghost .eqv. .false.)
+  do j = 1, natom, 1
+   read(fid1,'(A)') buf
+   write(fid2,'(A)') TRIM(buf)
+  end do ! for j
+ end do ! for i
+ read(fid1,'(A)') buf
+ write(fid2,'(A)') '}'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  write(fid2,'(A)') TRIM(buf)
+  if(buf(1:1) == '}') exit
+ end do ! for while
+ close(fid1, status='delete')
+
+ write(fid2,'(/,A)') 'dimer = psi4.get_active_molecule()'
+ write(fid2,'(/,A)') 'set {'
+ write(fid2,'(A)') ' scf_type pk'
+ write(fid2,'(A)') ' s_tolerance 1e-6'
+ write(fid2,'(A)') ' e_convergence 1e5'
+ write(fid2,'(A)') ' d_convergence 1e5'
+ i = frags(3)%wfn_type
+ select case(i)
+ case(1)
+  write(fid2,'(A)') ' reference rhf'
+ case(2)
+  write(fid2,'(A)') ' reference rohf'
+ case(3)
+  write(fid2,'(A)') ' reference uhf'
+ case default
+  write(iout,'(A)') 'ERROR in subroutine copy_and_modify_psi4_sapt_file: wfn_ty&
+                    &pe out of range.'
+  write(iout,'(A,I0)') 'wfn_type=', i
+  stop
+ end select
+ write(fid2,'(A)') ' df_basis_sapt '//TRIM(basis)//'-ri'
+ write(fid2,'(A)') '}'
+
+ write(fid2,'(/,A)') 'set df_ints_io save'
+ write(fid2,'(A)') "psi4.IO.set_default_namespace('dimer')"
+ write(fid2,'(A)') "Edim, wfn_dimer = energy('scf', molecule=dimer, return_wfn=True)"
+ write(fid2,'(A)') 'set df_ints_io load'
+ write(fid2,'(A)') '# the above scf makes every array allocated'
+ i = index(inpname2, '.inp', back=.true.)
+ write(fileA,'(I3.3,A)') nfrag, '-'//inpname2(1:i-1)//'.A'
+ write(fileB,'(I3.3,A)') nfrag, '-'//inpname2(1:i-1)//'.B'
+ write(fid2,'(A)') "wfn_dimer.Ca().load('"//TRIM(fileA)//"')"
+ if(wfn_type == 3) write(fid2,'(A)') "wfn_dimer.Cb().load('"//TRIM(fileB)//"')"
+ write(fid2,'(A)') 'wfn_dimer.to_file(wfn_dimer.get_scratch_filename(180))'
+ write(fid2,'(A)') 'set {'
+ write(fid2,'(A)') ' guess read'
+ write(fid2,'(A)') ' e_convergence 1e-8'
+ write(fid2,'(A)') ' d_convergence 1e-6'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') "Edim, wfn_dimer = energy('scf', molecule=dimer, return_wfn=True)"
+
+ write(fid2,'(/,A)') 'monomerA = dimer.extract_subsets(1,2)'
+ write(fid2,'(A)') "psi4.IO.change_file_namespace(97, 'dimer', 'monomerA')"
+ write(fid2,'(A)') "psi4.IO.set_default_namespace('monomerA')"
+ write(fid2,'(A)') 'set {'
+ write(fid2,'(A)') ' e_convergence 1e5'
+ write(fid2,'(A)') ' d_convergence 1e5'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') "EmonA, wfn_monA = energy('scf', molecule=monomerA, return_wfn=True)"
+ write(fid2,'(A)') '# the above scf makes every array allocated'
+ i = index(inpname2, '.inp', back=.true.)
+ write(fileA,'(A)') '001-'//inpname2(1:i-1)//'.A'
+ write(fileB,'(A)') '001-'//inpname2(1:i-1)//'.B'
+ write(fid2,'(A)') "wfn_monA.Ca().load('"//TRIM(fileA)//"')"
+ if(wfn_type == 3) write(fid2,'(A)') "wfn_monA.Cb().load('"//TRIM(fileB)//"')"
+ write(fid2,'(A)') 'wfn_monA.to_file(wfn_monA.get_scratch_filename(180))'
+ write(fid2,'(A)') 'set {'
+ write(fid2,'(A)') ' guess read'
+ write(fid2,'(A)') ' e_convergence 1e-8'
+ write(fid2,'(A)') ' d_convergence 1e-6'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') "EmonA, wfn_monA = energy('scf', molecule=monomerA, return_wfn=True)"
+
+ write(fid2,'(/,A)') 'monomerB = dimer.extract_subsets(2,1)'
+ write(fid2,'(A)') "psi4.IO.change_file_namespace(97, 'monomerA', 'monomerB')"
+ write(fid2,'(A)') "psi4.IO.set_default_namespace('monomerB')"
+ write(fid2,'(A)') 'set {'
+ write(fid2,'(A)') ' e_convergence 1e5'
+ write(fid2,'(A)') ' d_convergence 1e5'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') "EmonB, wfn_monB = energy('scf', molecule=monomerB, return_wfn=True)"
+ write(fid2,'(A)') '# the above scf makes every array allocated'
+ i = index(inpname2, '.inp', back=.true.)
+ write(fileA,'(A)') '002-'//inpname2(1:i-1)//'.A'
+ write(fileB,'(A)') '002-'//inpname2(1:i-1)//'.B'
+ write(fid2,'(A)') "wfn_monB.Ca().load('"//TRIM(fileA)//"')"
+ if(wfn_type == 3) write(fid2,'(A)') "wfn_monB.Cb().load('"//TRIM(fileB)//"')"
+ write(fid2,'(A)') 'wfn_monB.to_file(wfn_monB.get_scratch_filename(180))'
+ write(fid2,'(A)') 'set {'
+ write(fid2,'(A)') ' guess read'
+ write(fid2,'(A)') ' e_convergence 1e-8'
+ write(fid2,'(A)') ' d_convergence 1e-6'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') "EmonB, wfn_monB = energy('scf', molecule=monomerB, return_wfn=True)"
+
+ write(fid2,'(/,A)') "psi4.IO.change_file_namespace(97, 'monomerB', 'dimer')"
+ write(fid2,'(A)') "psi4.IO.set_default_namespace('dimer')"
+
+ write(fid2,'(/,A)') "aux_basis = psi4.core.BasisSet.build(wfn_dimer.molecule(),&
+                   & ""DF_BASIS_SAPT"","
+ write(fid2,'(A)') " psi4.core.get_global_option(""DF_BASIS_SAPT""),"
+ write(fid2,'(A)') " ""RIFIT"", psi4.core.get_global_option(""BASIS""))"
+ write(fid2,'(A)') "wfn_dimer.set_basisset(""DF_BASIS_SAPT"", aux_basis)"
+ write(fid2,'(A)') "wfn_dimer.set_basisset(""DF_BASIS_ELST"", aux_basis)"
+
+ write(fid2,'(/,A)') 'psi4.sapt(wfn_dimer, wfn_monA, wfn_monB)'
+ close(fid2)
+ return
+end subroutine copy_and_modify_psi4_sapt_file
+
+! copy content of a provided .inp file and modify it to be EDA job
+subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
+ use print_id, only: iout
+ use frag_info, only: nfrag0, frags
+ use theory_level, only: method, eda_type, scrf, solvent, disp_type
+ implicit none
+ integer :: i, j, m, fid1, fid2
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: radii(natom)
+ character(len=9) :: dft_in_gms
+ character(len=240) :: buf1, buf2
+ character(len=240), intent(in) :: inpname1, inpname2
 
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
@@ -825,13 +1187,21 @@ subroutine gen_inp_of_frags()
  end if
 
  write(fid2,'(A)') buf1(1:i-1)//'DFTTYP='//TRIM(dft_in_gms)//' $END'
- if(TRIM(dft_in_gms) /= 'NONE') write(fid2,'(A)') ' $DFT NRAD=99 NLEB=590 $END'
+ if(TRIM(dft_in_gms) /= 'NONE') then
+  write(fid2,'(A)',advance='no') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590'
+  if(disp_type == 2) then
+   write(fid2,'(A)',advance='no') ' IDCVER=3'
+  else
+   write(fid2,'(A)',advance='no') ' IDCVER=4'
+  end if
+  write(fid2,'(A)') ' $END'
+ end if
 
  do while(.true.)
   read(fid1,'(A)') buf1
   if(buf1(2:7) == '$GUESS') exit
   if(buf1(2:5) == '$SCF') then
-   if(eda_type == 2) then
+   if(eda_type == 1) then
     buf1 = ' $SCF DIRSCF=.F. $END'
    else
     if(TRIM(dft_in_gms) /= 'NONE') buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. $END'
@@ -841,7 +1211,27 @@ subroutine gen_inp_of_frags()
  end do ! for while
 
  select case(eda_type)
- case(1) ! GKS-EDA
+ case(1) ! MOROKUMA-EDA
+  write(fid2,'(A)',advance='no') ' $MOROKM IATM(1)='
+  do i = 1, nfrag0, 1
+   if(i > 1) write(fid2,'(A)',advance='no') ','
+   write(fid2,'(I0)',advance='no') frags(i)%natom
+  end do ! for i
+
+  write(fid2,'(A)',advance='no') ' ICHM(1)='
+  do i = 1, nfrag0, 1
+   if(i > 1) write(fid2,'(A)',advance='no') ','
+   write(fid2,'(I0)',advance='no') frags(i)%charge
+  end do ! for i
+
+  write(fid2,'(A)') ' $END'
+
+ case(2) ! LMO-EDA
+  write(iout,'(A)') 'ERROR in subroutine gen_inp_of_frags: LMO-EDA not&
+                   & supported surrently.'
+  stop
+
+ case(3) ! GKS-EDA
   write(fid2,'(A)',advance='no') ' $LMOEDA MATOM(1)='
   do i = 1, nfrag0, 1
    if(i > 1) write(fid2,'(A)',advance='no') ','
@@ -857,26 +1247,16 @@ subroutine gen_inp_of_frags()
   write(fid2,'(A)',advance='no') ' MMULT(1)='
   do i = 1, nfrag0, 1
    if(i > 1) write(fid2,'(A)',advance='no') ','
-   write(fid2,'(I0)',advance='no') frags(i)%mult
+   if(frags(i)%pos) then
+    write(fid2,'(I0)',advance='no') frags(i)%mult
+   else
+    write(fid2,'(I0)',advance='no') -frags(i)%mult
+   end if
   end do ! for i
 
   write(fid2,'(/,A)') '  EDATYP=GKS RDVECM=.T. $END'
   write(fid2,'(A)') ' $GUESS GUESS=HCORE $END'
 
- case(2) ! MOROKUMA-EDA
-  write(fid2,'(A)',advance='no') ' $MOROKM IATM(1)='
-  do i = 1, nfrag0, 1
-   if(i > 1) write(fid2,'(A)',advance='no') ','
-   write(fid2,'(I0)',advance='no') frags(i)%natom
-  end do ! for i
-
-  write(fid2,'(A)',advance='no') ' ICHM(1)='
-  do i = 1, nfrag0, 1
-   if(i > 1) write(fid2,'(A)',advance='no') ','
-   write(fid2,'(I0)',advance='no') frags(i)%charge
-  end do ! for i
-
-  write(fid2,'(A)') ' $END'
  case default
   write(iout,'(A,I0)') 'ERROR in subroutine gen_inp_of_frags: invalid eda_type=',&
                        eda_type
@@ -902,7 +1282,6 @@ subroutine gen_inp_of_frags()
    if(natom-8*j > 0) then
     write(fid2,'(A,I0,A,F6.4,7(A1,F6.4))') '  RIN(',8*j+1,')=',radii(8*j+1),(',',radii(m),m=8*j+2,natom)
    end if
-   deallocate(radii)
    write(fid2,'(A)') ' $END'
   end if
  end if
@@ -917,31 +1296,13 @@ subroutine gen_inp_of_frags()
  close(fid1)
  close(fid2)
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine gen_inp_of_frags: no&
-                   & '$VEC' found in file "//TRIM(inpname1)
+  write(iout,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$VEC' found&
+                   & in file "//TRIM(inpname1)
   stop
  end if
 
- if(eda_type == 1) &
-  call copy_vec_to_append_another_inp(inpname1, inpname2, 0, .false., .true., .true., .false.)
-
- do i = 1, nfrag0, 1
-  r2u = .false.
-  if(wfn_type==3 .and. frags(i)%wfn_type/=3) r2u = .true.
-  inpname1 = frags(i)%fname(1:k-1)//'.inp'
-  call copy_vec_to_append_another_inp(inpname1, inpname2, i, .false., .true., .true., r2u)
-
-  if(eda_type == 1) then
-   inpname1 = frags(i+nfrag0)%fname(1:k-1)//'.inp'
-   call copy_vec_to_append_another_inp(inpname1, inpname2, i, .true., .true., .true., r2u)
-  end if
- end do ! for i
-
- close(fid2)
- deallocate(frags)
- write(iout,'(/,A)') 'Done. Now you can submit file '//TRIM(inpname2)//' to GAMESS.'
  return
-end subroutine gen_inp_of_frags
+end subroutine copy_and_modify_gamess_eda_file
 
 ! copy $VEC from file inpname1 into inpname2, by appending
 subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
@@ -1327,7 +1688,7 @@ end subroutine del_ecp_of_ghost_in_gjf
 
 ! construct supermolecule occ MOs from direct sum of fragment occ MOs
 ! construct supermolecule vir MOs from direct sum of fragment vir MOs
-subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type)
+subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn_type)
  use print_id, only: iout
  use util_wrapper, only: formchk, unfchk
  implicit none
@@ -1342,6 +1703,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type
  real(kind=8), allocatable :: mo_a0(:,:), mo_b0(:,:) ! fragment MOs
  real(kind=8), allocatable :: mo_a(:,:), mo_b(:,:)   ! supermolecule MOs
  logical :: alive
+ logical, intent(in) :: pos(n)
 
  i = index(gjfname, '.gjf', back=.true.)
  if(i == 0) then
@@ -1405,10 +1767,19 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type
  do i = 1, n, 1
   j = index(gjfname0(i), '.gjf', back=.true.)
   fchname0 = gjfname0(i)(1:j-1)//'.fch'
-  call read_na_and_nb_from_fch(fchname0, na0, nb0)
   call read_nbf_and_nif_from_fch(fchname0, nbf0, nif0)
   allocate(mo_a0(nbf0,nif0))
-  call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_a0)
+  if(pos(i)) then
+   call read_na_and_nb_from_fch(fchname0, na0, nb0)
+   call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_a0)
+  else ! negative spin
+   call read_na_and_nb_from_fch(fchname0, nb0, na0)
+   if(wfn_type0(i) == 3) then
+    call read_mo_from_fch(fchname0, nbf0, nif0, 'b', mo_a0)
+   else ! ROHF
+    call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_a0)
+   end if
+  end if
 
   if(k1+nbf0 > nbf) then
    write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 1st&
@@ -1436,13 +1807,17 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type
     write(iout,'(4(A,I0))') 'k7=',k7,',nif=',nif,',i=',i,',n=',n
     stop
    end if
-   if(wfn_type0(i) == 3) then
+   if(wfn_type0(i) == 3) then ! UHF fragment
     allocate(mo_b0(nbf0,nif0))
-    call read_mo_from_fch(fchname0, nbf0, nif0, 'b', mo_b0)
+    if(pos(i)) then
+     call read_mo_from_fch(fchname0, nbf0, nif0, 'b', mo_b0)
+    else ! negative spin
+     call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_b0)
+    end if
     mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_b0(:,1:nb0)
     mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_b0(:,nb0+1:nif0)
     deallocate(mo_b0)
-   else
+   else ! RHF/ROHF fragment
     mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_a0(:,1:nb0)
     mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_a0(:,nb0+1:nif0)
    end if
@@ -1467,4 +1842,133 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, gjfname, wfn_type
  call unfchk(fchname, chkname)
  return
 end subroutine direct_sum_frag_mo2super_mo
+
+! sum fragment Total SCF Densities and print the 
+subroutine sum_frag_density_and_prt_into_fch(n, fname0, fname)
+ use print_id, only: iout
+ use util_wrapper, only: formchk
+ implicit none
+ integer :: i, j, nif, nbf, nbf1
+ integer, intent(in) :: n
+ character(len=240) :: chkname
+ character(len=240), intent(in) :: fname0(n), fname
+ character(len=240), allocatable :: fchname(:)
+ real(kind=8), allocatable :: dm(:,:), dm1(:,:)
+ logical :: alive
+ logical, allocatable :: has_spin_density(:)
+
+ allocate(fchname(n+1))
+
+ ! if fname0(n) and fname are .gjf files, convert filenames into .fch
+ do i = 1, n, 1
+  j = index(fname0(i), '.fch', back=.true.)
+  if(j == 0) then
+   j = index(fname0(i), '.gjf', back=.true.)
+   fchname(i) = fname0(i)(1:j-1)//'.fch'
+  else ! j > 0
+   fchname(i) = fname0(i)
+  end if
+ end do ! for i
+
+ j = index(fname, '.fch', back=.true.)
+ if(j == 0) then
+  j = index(fname, '.gjf', back=.true.)
+  fchname(n+1) = fname(1:j-1)//'.fch'
+ else ! j > 0
+  fchname(n+1) = fname
+  j = index(fname, '.fch', back=.true.)
+ end if
+ chkname = fname(1:j-1)//'.chk'
+ inquire(file=TRIM(fchname(n+1)), exist=alive)
+ if(.not. alive) call formchk(chkname, fchname(n+1))
+
+ call read_nbf_and_nif_from_fch(fchname(n+1), nbf, nif)
+ allocate(dm(nbf,nbf), dm1(nbf,nbf))
+ dm = 0d0
+
+ do i = 1, n, 1
+  call read_nbf_and_nif_from_fch(fchname(i), nbf1, nif)
+  if(nbf1 /= nbf) then
+   write(iout,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch:&
+                    & nbf1 /= nbf.'
+   write(iout,'(A,I0,A)') 'Inconsistent nbf between fragment ',i,' and the&
+                         & total system.'
+   write(iout,'(2(A,I0))') 'nbf1=', nbf1, ', nbf=', nbf
+   stop
+  end if
+  call read_density_from_fch(fchname(i), 1, nbf, dm1)
+  dm = dm + dm1
+ end do ! for i
+ call write_density_into_fch(fchname(n+1), nbf, .true., dm)
+
+ allocate(has_spin_density(n))
+ has_spin_density = .false.
+ dm = 0d0
+
+ do i = 1, n, 1
+  call detect_spin_scf_density_in_fch(fchname(i), has_spin_density(i))
+  if(.not. has_spin_density(i)) cycle
+  call read_density_from_fch(fchname(i), 2, nbf, dm1)
+  dm = dm + dm1
+ end do ! for i
+
+ call detect_spin_scf_density_in_fch(fchname(n+1), alive)
+
+ if(ANY(has_spin_density .eqv. .true.)) then
+  if(alive) then
+   call write_density_into_fch(fchname(n+1), nbf, .false., dm)
+  else ! no Spin SCF Density in the total system .fch file
+   write(iout,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: so&
+                     &me fragment has UHF-type wave'
+   write(iout,'(A)') 'function, but the total system has RHF-type wave function.&
+                    & Inconsistency detected.'
+   stop
+  end if
+ else ! all fragments has RHF-type wave function
+  if(alive) call write_density_into_fch(fchname(n+1), nbf, .false., dm)
+ end if
+
+ deallocate(fchname, dm, dm1, has_spin_density)
+ return
+end subroutine sum_frag_density_and_prt_into_fch
+
+! modify 'guess(only,save)' in a given .gjf file
+subroutine modify_guess_only_in_gjf(gjfname)
+ implicit none
+ integer :: i, j, fid1, fid2, RENAME
+ character(len=240) :: buf, fname
+ character(len=240), intent(in) :: gjfname
+
+ fname = TRIM(gjfname)//'.t'
+ open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(fname),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:1) == '#') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+
+ i = index(buf, '/')
+ j = index(buf(i+1:),' ') + i - 1
+ buf = buf(1:i-1)//' chkbasis'//buf(j+1:)
+
+ i = index(buf, 'guess')
+ buf(i:) = 'guess=read geom=allcheck'
+
+ ! assuming '#p R...' or '#p U...'
+ if(buf(4:4)=='u' .or. buf(4:4)=='U') then
+  buf = TRIM(buf)//' stable=opt'
+  i = index(buf, ',conver=6')
+  if(i == 0) i = index(buf, ',conver=7')
+  if(i > 0) buf = buf(1:i-1)//buf(i+9:)
+ end if
+
+ write(fid2,'(A,/)') TRIM(buf)
+ close(fid2)
+ i = RENAME(TRIM(fname), TRIM(gjfname))
+ return
+end subroutine modify_guess_only_in_gjf
 

@@ -1406,11 +1406,14 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
 
  if(i /= 0) then
   write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB&
-                     & energy found in'
-  write(iout,'(A)') 'file '//TRIM(gmsname)//'. You can open this file and check'
-  write(iout,'(A)') 'whether the SCF oscillates. If yes, reducing the number of&
-                   & processors and re-run'
-  write(iout,'(A)') 'may do dome help.'
+                     & energy found in file '//TRIM(gmsname)
+  write(iout,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
+  write(iout,'(A)') 'If yes, reducing the number of processors and re-run may&
+                   & do dome help.'
+  write(iout,'(A)') "If not, check if there is any error message like 'gamess.01.x&
+                   & could not be found'."
+  write(iout,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
+                   & manual.'
   close(fid)
   stop
  end if
@@ -3011,7 +3014,6 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  end if
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3106,6 +3108,32 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
  return
 end subroutine write_density_into_fch
+
+! detect whether there exists 'Spin SCF Density' in a given .fch file
+subroutine detect_spin_scf_density_in_fch(fchname, alive)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ logical, intent(out) :: alive
+
+ alive = .false.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+
+  if(buf(1:16) == 'Spin SCF Density') then
+   alive = .true.
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ close(fid)
+ return
+end subroutine detect_spin_scf_density_in_fch
 
 ! add a given density string into a .fch(k) file
 subroutine add_density_str_into_fch(fchname, itype)
@@ -3508,4 +3536,172 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
  end if
  return
 end subroutine copy_orb_and_den_in_fch
+
+! read AO-basis overlap integral from file .47
+subroutine read_ao_ovlp_from_47(file47, nbf, S)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nbf
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: S(nbf,nbf)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: file47
+
+ S = 0d0
+ open(newunit=fid,file=TRIM(file47),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:9) == '$OVERLAP') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(fid,'(A)') 'ERROR in subroutine read_ao_ovlp_from_47: failed to read&
+                  & AO overlap'
+  write(fid,'(A)') 'from file '//TRIM(file47)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(2X,5E15.7)') ((S(j,i),j=1,i),i=1,nbf)
+ close(fid)
+
+ do i = 1, nbf-1, 1
+  do j = i+1, nbf, 1
+   S(j,i) = S(i,j)
+  end do ! for j
+ end do ! for i
+
+ return
+end subroutine read_ao_ovlp_from_47
+
+! generate natural orbitals from provided density matrix and overlap matrix
+! This subroutine is originally copied from subroutine no in lo.f90
+subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
+ implicit none
+ integer :: i, j, lwork, liwork
+ integer, intent(in) :: nbf, nif
+ integer, allocatable :: isuppz(:), iwork(:)
+ real(kind=8), intent(in) :: P(nbf,nbf), ao_ovlp(nbf,nbf)
+ real(kind=8), intent(out) :: noon(nif), new_coeff(nbf,nif)
+ real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
+ real(kind=8), allocatable :: e(:), U(:,:), work(:)
+
+ allocate(S(nbf,nbf), source=ao_ovlp)
+ allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
+ call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
+
+ allocate(PS12(nbf,nbf), source=0d0)
+ ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dsymm('R', 'L', nbf, nbf, 1d0, sqrt_S, nbf, P, nbf, 0d0, PS12, nbf)
+ ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dgemm('N', 'N', nbf, nbf, nbf, 1d0, sqrt_S, nbf, PS12, nbf, 0d0, S, nbf)
+ ! use S to store (S^1/2)P(S^1/2)
+
+ deallocate(PS12, sqrt_S)
+
+ ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
+ ! ldz, isuppz, work, lwork, iwork, liwork, info)
+ lwork = -1
+ liwork = -1
+ allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
+             U, nbf, isuppz, work, lwork, iwork, liwork, j)
+ lwork = CEILING(work(1))
+ liwork = iwork(1)
+ deallocate(work, iwork)
+ allocate(work(lwork), iwork(liwork))
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
+             U, nbf, isuppz, work, lwork, iwork, liwork, j)
+ deallocate(isuppz, work, iwork, S)
+ ! eigenvalues in array e are in ascending order
+
+ noon = 0d0
+ forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
+ deallocate(e)
+
+ ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0d0, new_coeff, nbf)
+ deallocate(n_sqrt_S, U)
+
+ ! reverse the order of MOs
+ allocate(U(nbf,nif))
+ forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
+ new_coeff = U
+ deallocate(U)
+ return
+end subroutine get_no_from_density_and_ao_ovlp
+
+! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
+! Note: the input matrix A must be symmetric
+! This subroutine is copied from subroutine mat_dsqrt in lo.f90
+subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
+ implicit none
+ integer :: i, m, lwork, liwork
+ integer, parameter :: iout = 6
+ integer, intent(in) :: n
+ integer, allocatable :: iwork(:), isuppz(:)
+
+ real(kind=8), parameter :: lin_dep = 1d-6
+ ! 1.0D-6 is the default threshold of linear dependence in Gaussian and GAMESS
+ ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
+ real(kind=8), intent(in) :: a0(n,n)
+ real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n)
+ ! sqrt_a: A^1/2
+ ! n_sqrt_a: A(-1/2)
+ real(kind=8), allocatable :: a(:,:), e(:), U(:,:), Ue(:,:), work(:), e1(:,:)
+ ! a: copy of a0
+ ! e: eigenvalues; e1: all 0 except diagonal e(i)
+ ! U: eigenvectors
+ ! Ue: U*e
+
+ allocate(a(n,n), source=a0)
+ ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
+ ! ldz, isuppz, work, lwork, iwork, liwork, info)
+ lwork = -1
+ liwork = -1
+ allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
+             isuppz, work, lwork, iwork, liwork, i)
+ lwork = CEILING(work(1))
+ liwork = iwork(1)
+ deallocate(work, iwork)
+ allocate(work(lwork), iwork(liwork))
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
+             isuppz, work, lwork, iwork, liwork, i)
+
+ deallocate(a, work, iwork, isuppz)
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
+  write(iout,'(A,I0)') 'i=', i
+  stop
+ end if
+
+ if(e(1) < -1d-6) then
+  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
+  write(iout,'(A,F16.9)') 'e(1)=', e(1)
+  stop
+ end if
+
+ allocate(e1(n,n), source=0d0)
+ allocate(Ue(n,n), source=0d0)
+ sqrt_a = 0d0
+ forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
+ ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
+ ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
+
+ e1 = 0d0
+ n_sqrt_a = 0d0
+ forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
+ ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
+ ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+ call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
+
+ deallocate(e, e1, U, Ue)
+ return
+end subroutine mat_dsqrt
 

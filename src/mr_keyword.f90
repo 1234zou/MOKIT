@@ -54,10 +54,12 @@ module mol
  real(kind=8) :: nevpt2_e = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
  real(kind=8) :: nevpt3_e = 0d0 ! CASSCF-NEVPT3 energy
  real(kind=8) :: mrmp2_e  = 0d0 ! MRMP2 energy
+ real(kind=8) :: ovbmp2_e = 0d0 ! OVB-MP2 energy
  real(kind=8) :: sdspt2_e = 0d0 ! SDSPT2 energy
  real(kind=8) :: davidson_e=0d0 ! Davidson correction energy
  real(kind=8) :: mrcisd_e = 0d0 ! MRCISD+Q energy
  real(kind=8) :: mcpdft_e = 0d0 ! MC-PDFT energy
+ real(kind=8) :: mrcc_e   = 0d0 ! MRCC energy
  real(kind=8) :: ptchg_e  = 0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e = 0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
@@ -134,9 +136,11 @@ module mr_keyword
  logical :: nevpt2  = .false.
  logical :: nevpt3  = .false.
  logical :: mrmp2   = .false.
+ logical :: ovbmp2  = .false.
  logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
  logical :: mcpdft  = .false.
+ logical :: mrcc    = .false.
  logical :: CIonly  = .false.      ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.      ! dynamic correlation
  logical :: casscf_force = .false. ! whether to calculate CASSCF force
@@ -157,7 +161,7 @@ module mr_keyword
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mcpdft_prog  = 'openmolcas'
- character(len=10) :: ic_mrcc_prog = ' '
+ character(len=10) :: mrcc_prog    = 'orca'
 
  character(len=240) :: mokit_root = ' '
  character(len=240) :: gau_path = ' '
@@ -305,9 +309,9 @@ contains
 
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(iout,'(A)') '                    Author: jxzou'
-  write(iout,'(A)') '                   Version: 1.2.3'
-  write(iout,'(A)') '         (How to cite: read the file Citation.txt)'
+  write(iout,'(A)') '             Author: Jingxiang Zou'
+  write(iout,'(A)') '            Version: 1.2.3'
+  write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
   data_string = ' '
@@ -475,15 +479,15 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','sdspt2','mrmp2','caspt3','caspt2','nevpt3','nevpt2',&
-       'casscf','dmrgscf','casci','dmrgci','gvb')
+  case('mcpdft','mrcisd','sdspt2','mrmp2','ovbmp2','caspt3','caspt2','nevpt3',&
+       'nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','mrcc')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
                      TRIM(method)//"' not supported."
    write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                      DMRGSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, MRCISD,&
-                      MCPDFT.'
+                      DMRGSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, OVBMP2,&
+                      MRCISD, MCPDFT, MRCC.'
    stop
   end select
 
@@ -499,6 +503,9 @@ contains
    casscf = .true.
   case('mrmp2')
    mrmp2 = .true.
+   casscf = .true.
+  case('ovbmp2')
+   ovbmp2 = .true.
    casscf = .true.
   case('caspt2')
    caspt2 = .true.
@@ -520,6 +527,9 @@ contains
    casci = .true.
   case('dmrgci')
    dmrgci = .true.
+  case('mrcc')
+   mrcc = .true.
+   casscf = .true.
   case('gvb')
   end select
 
@@ -759,8 +769,8 @@ contains
     read(longbuf(j+1:i-1),*) mrcisd_prog
    case('mcpdft_prog')
     read(longbuf(j+1:i-1),*) mcpdft_prog
-   case('ic_mrcc_prog')
-    read(longbuf(j+1:i-1),*) ic_mrcc_prog
+   case('mrcc_prog')
+    read(longbuf(j+1:i-1),*) mrcc_prog
    case('force')
     casscf_force = .true.
    case('charge')
@@ -886,19 +896,21 @@ contains
   write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
        'CASPT2  = ', caspt2, 'NEVPT2  = ',  nevpt2, 'MRMP2   = ', mrmp2
 
-  write(iout,'(5(A,L1,3X))') 'SDSPT2  = ',  sdspt2, 'MRCISD  = ', mrcisd, &
-       'MCPDFT  = ', mcpdft, 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3
+  write(iout,'(5(A,L1,3X))') 'OVBMP2  = ',  ovbmp2, 'SDSPT2  = ', sdspt2 ,&
+       'MRCISD  = ', mrcisd, 'MCPDFT  = ',  mcpdft, 'NEVPT3  = ', nevpt3
 
-  write(iout,'(5(A,L1,3X))') 'CIonly  = ',  CIonly, 'dyn_corr= ', dyn_corr,&
-       'DKH2    = ', DKH2  , 'X2C     = ',     X2C, 'RI      = ', RI
+  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'MRCC    = ', mrcc   ,&
+       'CIonly  = ', CIonly, 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2
 
-  write(iout,'(5(A,L1,3X))') 'FIC     = ',     FIC, 'DLPNO   = ', DLPNO, &
-       'F12     = ',    F12, 'TenCycle= ',tencycle, 'HardWFN = ', hardwfn
+  write(iout,'(5(A,L1,3X))') 'X2C     = ',     X2C, 'RI      = ', RI     ,&
+       'FIC     = ', FIC   , 'DLPNO   = ',   DLPNO, 'F12     = ', F12
 
-  write(iout,'(3(A,L1,3X),A,I1,3X,A,I0)') 'CrazyWFN= ',crazywfn,'BgCharge= ',bgchg,&
-       'Ana_Grad= ', casscf_force, 'CtrType = ', CtrType, 'MaxM    = ', maxM
+  write(iout,'(5(A,L1,3X))') 'TenCycle= ',tencycle, 'HardWFN = ', hardwfn,&
+       'CrazyWFN= ',crazywfn,'BgCharge= ',   bgchg, 'Ana_Grad= ', casscf_force
 
-  write(iout,'(A,L1,3X,A,F7.5)') 'NMR     = ', nmr, 'ON_thres= ', ON_thres
+  write(iout,'(A,I1,3X,A,L1,3X,A,F7.5,11X,A,I5)') 'CtrType = ', CtrType, &
+       'NMR     = ',     nmr,'ON_thres= ',ON_thres, 'MaxM    =', maxM
+
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
 
@@ -1126,10 +1138,10 @@ contains
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-     (.not. mcpdft) .and. (.not.caspt3)) then
-   write(iout,'(A)') error_warn//"keyword 'CIonly' can only be used in"
-   write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT computations. But none&
-                    & of them is specified.'
+     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
+   write(iout,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
+   write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
+                    & none of them is specified.'
    stop
   end if
 
@@ -1277,9 +1289,10 @@ contains
    stop
   end if
 
-  if(ic_mrcc_prog /= ' ') then
+  if(mrcc_prog /= 'orca') then
    write(iout,'(A)') error_warn
-   write(iout,'(A)') 'Currently AutoMR of MOKIT does not support the ic-MRCC method.'
+   write(iout,'(A)') 'Currently MRCC is only supported by ORCA. But found mrcc_&
+                     &prog='//TRIM(mrcc_prog)
    stop
   end if
 
@@ -1340,6 +1353,11 @@ contains
   end if
 
   write(iout,'(A)') 'Check done. All keywords are compatible.'
+  write(iout,'(/,A)') REPEAT('-',79)
+  write(iout,'(A)') "Note: in any following output which starts with '$' symbol&
+                    &, it is the Shell co-"
+  write(iout,'(A)') '      mmand used to submit the corresponding job.'
+  write(iout,'(A)') REPEAT('-',79)
   return
  end subroutine check_kywd_compatible
 
@@ -1851,50 +1869,4 @@ subroutine check_exe_exist(path)
  end if
  return
 end subroutine check_exe_exist
-
-! read the path of the Gaussian binary executable file 
-subroutine get_gau_path(gau_path)
- use print_id, only: iout
- implicit none
- integer :: i
- character(len=240), intent(out) :: gau_path
-
- gau_path = ' '
- call getenv('GAUSS_EXEDIR', gau_path)
-
-#ifdef _WIN32
- i = index(gau_path, '\', back=.true.)
- if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in&
-                  & gau_path="//TRIM(gau_path)
-  stop
- end if
- gau_path = """"//TRIM(gau_path)//'\g'//gau_path(i+2:i+3)//".exe"""
-
-#else
- i = index(gau_path, ':', back=.true.)
- if(i == 0) then
-  write(iout,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
-                     & in gau_path="//TRIM(gau_path)
-  write(iout,'(/,A)') 'This error often occurs when your machine has no (or has&
-                     & incorrect) Gaussian'
-  write(iout,'(A)') 'environment variables. Here I offer an example:'
-  write(iout,'(A)') REPEAT('-',45)
-  write(iout,'(A)') ' export g16root=/opt'
-  write(iout,'(A)') ' source $g16root/g16/bsd/g16.profile'
-  write(iout,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
-  write(iout,'(A)') REPEAT('-',45)
-  write(iout,'(A)') 'Please check your Gaussian environment variables according&
-                   & to the example shown above.'
-  write(iout,'(A)') "Also: do not write 'export GAUSS_EXEDIR', it is useless."
-  stop
- end if
-
- gau_path = gau_path(i+1:)
- i = index(gau_path, '/', back=.true.)
- gau_path = TRIM(gau_path)//'/'//TRIM(gau_path(i+1:))
-#endif
-
- return
-end subroutine get_gau_path
 

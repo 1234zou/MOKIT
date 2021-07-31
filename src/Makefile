@@ -22,8 +22,8 @@ F2_MKL_FLAGS = --link-lapack_opt
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcharge_to_inp.o
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o \
-             read_fch.o rwgeom.o do_hf.o do_cas.o do_mrpt2.o do_mrpt3.o do_mcpdft.o \
-             do_mrci.o automr.o
+             read_fch.o rwgeom.o do_hf.o do_gvb.o do_cas.o do_mrpt2.o do_mrpt3.o \
+             do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
@@ -50,7 +50,8 @@ OBJ_fch2qm4d = file_op.o string_manipulate.o read_fch.o rwgeom.o fch2qm4d.o
 OBJ_fch_u2r = file_op.o fch_u2r.o
 OBJ_fch_mo_copy = rwwfn.o fch_mo_copy.o
 OBJ_frag_guess_wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
-                     mr_keyword.o do_hf.o rwwfn.o rwgeom.o read_gms_inp.o frag_guess_wfn.o
+                     mr_keyword.o do_hf.o rwwfn.o rwgeom.o read_gms_inp.o \
+                     call_qc_calc_int.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
@@ -121,13 +122,13 @@ align_orbitals: $(OBJ_align_orbitals)
 	$(F90) $(OBJ_align_orbitals) -o $(BIN)/align_orbitals $(FFLAGS)
 
 automr: $(OBJ_automr)
-	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS)
+	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "AutoMR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
 
 bas_fch2py: $(OBJ_bas_fch2py)
-	$(F90) $(OBJ_bas_fch2py) -o $(BIN)/bas_fch2py $(FFLAGS)
+	$(F90) $(OBJ_bas_fch2py) -o $(BIN)/bas_fch2py $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "bas_fch2py requires utilities fch2inp and bas_gms2py, please also compile them" ;\
 	echo
@@ -163,28 +164,28 @@ bdf2mkl: $(OBJ_bdf2mkl)
 	echo
 
 dal2fch: $(OBJ_dal2fch)
-	$(F90) $(OBJ_dal2fch) -o $(BIN)/dal2fch $(FFLAGS)
+	$(F90) $(OBJ_dal2fch) -o $(BIN)/dal2fch $(FFLAGS) $(MKL_FLAGS)
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS)
+	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS) $(MKL_FLAGS)
 
 extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
 
 fch2bdf: $(OBJ_fch2bdf)
-	$(F90) $(OBJ_fch2bdf) -o $(BIN)/fch2bdf $(FFLAGS)
+	$(F90) $(OBJ_fch2bdf) -o $(BIN)/fch2bdf $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "fch2bdf requires utilites fch2inp and bas_gms2bdf, please also compile them" ;\
 	echo
 
 fch2com: $(OBJ_fch2com)
-	$(F90) $(OBJ_fch2com) -o $(BIN)/fch2com $(FFLAGS)
+	$(F90) $(OBJ_fch2com) -o $(BIN)/fch2com $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "fch2com requires utilites fch2inp and bas_gms2molpro, please also compile them" ;\
 	echo
 
 fch2dal: $(OBJ_fch2dal)
-	$(F90) $(OBJ_fch2dal) -o $(BIN)/fch2dal $(FFLAGS)
+	$(F90) $(OBJ_fch2dal) -o $(BIN)/fch2dal $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "fch2dal requires utilites fch2inp and bas_gms2dal, please also compile them" ;\
 	echo
@@ -196,25 +197,25 @@ fch2inp: $(OBJ_fch2inp)
 	$(F90) $(OBJ_fch2inp) -o $(BIN)/fch2inp $(FFLAGS)
 
 fch2inporb: $(OBJ_fch2inporb)
-	$(F90) $(OBJ_fch2inporb) -o $(BIN)/fch2inporb $(FFLAGS)
+	$(F90) $(OBJ_fch2inporb) -o $(BIN)/fch2inporb $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them" ;\
 	echo
 
 fch2psi: $(OBJ_fch2psi)
-	$(F90) $(OBJ_fch2psi) -o $(BIN)/fch2psi $(FFLAGS)
+	$(F90) $(OBJ_fch2psi) -o $(BIN)/fch2psi $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "fch2psi requires utilities fch2inp and bas_gms2psi, please also compile them" ;\
 	echo
 
 fch2qm4d: $(OBJ_fch2qm4d)
-	$(F90) $(OBJ_fch2qm4d) -o $(BIN)/fch2qm4d $(FFLAGS)
+	$(F90) $(OBJ_fch2qm4d) -o $(BIN)/fch2qm4d $(FFLAGS) $(MKL_FLAGS)
 
 fch_u2r: $(OBJ_fch_u2r)
 	$(F90) $(OBJ_fch_u2r) -o $(BIN)/fch_u2r $(FFLAGS)
 
 fch_mo_copy: $(OBJ_fch_mo_copy)
-	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)/fch_mo_copy $(FFLAGS)
+	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)/fch_mo_copy $(FFLAGS) $(MKL_FLAGS)
 
 chk2py: $(OBJ_chk2py)
 	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS)
@@ -228,23 +229,23 @@ find_mc_pair: $(OBJ_find_mc_pair)
 	$(F90) $(OBJ_find_mc_pair) -o $(BIN)/find_mc_pair $(FFLAGS)
 
 frag_guess_wfn: $(OBJ_frag_guess_wfn)
-	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)/frag_guess_wfn $(FFLAGS)
+	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)/frag_guess_wfn $(FFLAGS) $(MKL_FLAGS)
 
 orb2fch: $(OBJ_orb2fch)
-	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS)
+	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS) $(MKL_FLAGS)
 
 py2fch: $(OBJ_py2fch)
 	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS)
 	@mv py2fch*.so ../lib/
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
-	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS)
+	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS)
 
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)/gvb_sort_pairs $(FFLAGS)
 
 mkl2fch: $(OBJ_mkl2fch)
-	$(F90) $(OBJ_mkl2fch) -o $(BIN)/mkl2fch $(FFLAGS)
+	$(F90) $(OBJ_mkl2fch) -o $(BIN)/mkl2fch $(FFLAGS) $(MKL_FLAGS)
 
 mkl2gjf: $(OBJ_mkl2gjf)
 	$(F90) $(OBJ_mkl2gjf) -o $(BIN)/mkl2gjf $(FFLAGS)
@@ -253,7 +254,7 @@ replace_xyz_in_inp: $(OBJ_replace_xyz_in_inp)
 	$(F90) $(OBJ_replace_xyz_in_inp) -o $(BIN)/replace_xyz_in_inp $(FFLAGS)
 
 xml2fch: $(OBJ_xml2fch)
-	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS)
+	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS) $(MKL_FLAGS)
 
 pyuno: $(OBJ_pyuno)
 	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(F2_MKL_FLAGS)
@@ -317,5 +318,5 @@ clean:
 	rm -f *.o *.mod
 
 distclean:
-	rm -f *.o *.mod *.so ../bin/* ../lib/*.so
+	rm -rf *.o *.mod *.so ../bin/* ../lib/*.so ../lib/__pycache__
 

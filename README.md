@@ -1,5 +1,5 @@
 *中文版说明请点击[README_zh.md](README_zh.md)*  
-*[Download](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
+*[Download the program](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
@@ -31,7 +31,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jun 22, 2021
+July 31, 2021
 
 Installation
 ------------
