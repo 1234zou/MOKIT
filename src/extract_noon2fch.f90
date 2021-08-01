@@ -176,6 +176,7 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  integer :: i, j, k, m, npair, fid
  integer, intent(in) :: nmo ! must be an even integer
  integer, intent(in) :: nopen ! number of singly occupied orbitals
+ integer, parameter :: iout = 6
  real(kind=8), allocatable :: cicoeff(:)
  real(kind=8), intent(out) :: noon(nmo)
  character(len=240) :: buf
@@ -187,10 +188,17 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
 
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
  do while(.true.)
-  read(fid,'(A)') buf
-  if(index(buf,'SCF') /= 0) exit
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(index(buf,'$SCF') /= 0) exit
  end do ! for while
 
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_noon_from_dat: no '$SCF'&
+                   & found in file "//TRIM(datname)
+  close(fid)
+  stop
+ end if
  k = 1
  if(index(buf,'CICOEF') /= 0) then
   i = index(buf,'='); j = index(buf,',')

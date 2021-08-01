@@ -1,6 +1,6 @@
-MOKIT 1.2.3 (July 31, 2021)
+MOKIT 1.2.3 (Aug 1, 2021)
 ------------------------
-* add OVB-MP2 interface of Gaussian
+* add GVB, OVB-MP2 interface of Gaussian
 * add FIC-MRCC interface of ORCA(>=5.0.0)
 * add SAPT0 PSI4 interface in utility frag_guess_wfn
 * add keyword NMR for calculating nuclear shielding constants using Dalton

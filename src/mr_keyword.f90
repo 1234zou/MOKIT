@@ -1151,9 +1151,10 @@ contains
    stop
   end if
 
-  if(gvb_prog /= 'gamess') then
-   write(iout,'(A)') error_warn//"only 'gamess' is supported for the GVB computation."
-   write(iout,'(A)') 'User specified GVB program cannot be identified: '//TRIM(gvb_prog)
+  if(.not. (gvb_prog=='gamess' .or. gvb_prog=='gaussian')) then
+   write(iout,'(A)') error_warn//"only 'GAMESS' or 'Gaussian' is supported for"
+   write(iout,'(A)') 'the GVB computation. User specified GVB program cannot be&
+                    & identified: '//TRIM(gvb_prog)
    stop
   end if
 

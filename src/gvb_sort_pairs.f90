@@ -194,12 +194,12 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
 
  ! print sorted pair coefficients into a new file
  if(buf(2:5) == '$SCF') then
-  write(fid,'(1X,2(A,F12.8))') '$SCF    CICOEF(  1)=', pair_coeff(1,1), ',', pair_coeff(2,1)
+  write(fid,'(1X,2(A,F14.10))') '$SCF    CICOEF(  1)=', pair_coeff(1,1), ',', pair_coeff(2,1)
  else
-  write(fid,'(9X,2(A,F12.8))') 'CICOEF(  1)=', pair_coeff(1,1), ',', pair_coeff(2,1)
+  write(fid,'(3X,2(A,F14.10))') 'CICOEF(  1)=', pair_coeff(1,1), ',', pair_coeff(2,1)
  end if
  do i = 2, npair, 1
-  write(fid,'(9X,A,I3,2(A,F12.8))') 'CICOEF(',2*i-1,')=',pair_coeff(1,i),',',pair_coeff(2,i)
+  write(fid,'(3X,A,I3,2(A,F14.10))') 'CICOEF(',2*i-1,')=',pair_coeff(1,i),',',pair_coeff(2,i)
  end do
  write(fid,'(1X,A)') '$END'
  ! print done
