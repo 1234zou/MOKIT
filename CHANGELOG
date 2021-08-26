@@ -1,5 +1,6 @@
-MOKIT 1.2.3 (Aug 1, 2021)
+MOKIT 1.2.3 (Aug 26, 2021)
 ------------------------
+* create all possible Python APIs in rwgeom.f90
 * add GVB, OVB-MP2 interface of Gaussian
 * add FIC-MRCC interface of ORCA(>=5.0.0)
 * add SAPT0 PSI4 interface in utility frag_guess_wfn

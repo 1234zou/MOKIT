@@ -5,7 +5,7 @@ BIN = ../bin
 
 # --- gfortran ---
 #F90    = gfortran
-#FFLAGS = -O2 -cpp -fbacktrace
+#FFLAGS = -O2 -cpp
 #MKL_FLAGS = -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
@@ -13,7 +13,7 @@ BIN = ../bin
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -fpp -traceback
+FFLAGS = -O2 -fpp
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
@@ -74,6 +74,7 @@ OBJ_lo = lo.f90
 OBJ_mo_svd = mo_svd.f90
 OBJ_mo_svd_format = string_manipulate.o rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = string_manipulate.o rwwfn.o solve_ON_matrix.o
+OBJ_rwgeom = string_manipulate.f90 rwgeom.f90
 OBJ_rwwfn = rwwfn.f90
 OBJ_excited = excited.f90
 
@@ -83,7 +84,7 @@ OBJ_excited = excited.f90
         fch2bdf fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qm4d \
         fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch \
         mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix \
-        rwwfn excited
+        rwgeom rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -298,6 +299,10 @@ mo_svd_format: $(OBJ_mo_svd_format)
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
+rwgeom: $(OBJ_rwgeom)
+	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS)
+	@mv rwgeom*.so ../lib/
+
 rwwfn: $(OBJ_rwwfn)
 	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS)
 	@mv rwwfn*.so ../lib/
@@ -312,7 +317,7 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy frag_guess_wfn \
      chk2py fch2py find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf \
      orb2fch replace_xyz_in_inp xml2fch py2fch pyuno construct_vir ortho assoc_rot \
-     assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwwfn excited
+     assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
 
 clean:
 	rm -f *.o *.mod

@@ -4,7 +4,7 @@ module periodic_table
  implicit none
  integer, parameter :: period_nelem = 112
  character(len=2), parameter :: period_elem(period_nelem) = &
-  ['H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+ (/'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
    'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
    'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
@@ -15,10 +15,10 @@ module periodic_table
    'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
    'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
    'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
-   'Rg', 'Cn' ]
+   'Rg', 'Cn'/)
  ! the radii below are read from Gaussian output file
  real(kind=8), parameter :: vdw_radii(period_nelem) = &
-  [1.4430d0, 1.1810d0, 1.2255d0, 1.3725d0, 2.0415d0, &
+ (/1.4430d0, 1.1810d0, 1.2255d0, 1.3725d0, 2.0415d0, &
    1.9255d0, 1.8300d0, 1.7500d0, 1.6820d0, 1.6215d0, &
    1.4915d0, 1.5105d0, 2.2495d0, 2.1475d0, 2.0735d0, &
    2.0175d0, 1.9735d0, 1.9340d0, 1.9060d0, 1.6995d0, &
@@ -40,7 +40,7 @@ module periodic_table
    1.6630d0, 1.6695d0, 1.6565d0, 1.6495d0, 1.6430d0, &
    1.6370d0, 1.6240d0, 1.6180d0, 1.7500d0, 1.7500d0, &
    1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, &
-   1.7500d0, 1.7500d0]
+   1.7500d0, 1.7500d0/)
 contains
 
  ! map a nuclear charge to an element (e.g. 6->'C')
@@ -213,6 +213,46 @@ subroutine read_natom_from_xyz(xyzname, natom)
  return
 end subroutine read_natom_from_xyz
 
+! read the number of atoms from a .pdb file
+! Note: if there exists >1 frames, only the first frame will be dectected
+subroutine read_natom_from_pdb(pdbname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+ integer, parameter :: iout = 6
+ character(len=13) :: buf
+ character(len=240), intent(in) :: pdbname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == 'END') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_natom_from_pdb: failed to read&
+                   & natom from file '//TRIM(pdbname)
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+ if(buf(1:3) == 'TER') then
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+ end if
+ close(fid)
+
+ i = index(buf, ' ')
+ read(buf(i+1:),*) natom
+ return
+end subroutine read_natom_from_pdb
+
 ! read the number of atoms from a (Open)Molcas output file
 subroutine read_natom_from_molcas_out(outname, natom)
  implicit none
@@ -296,7 +336,7 @@ end subroutine read_natom_from_molpro_out
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
- use fch_content, only: elem2nuc
+ use periodic_table, only: elem2nuc
  implicit none
  integer :: i, j, k, fid, nblank, ne
  integer, intent(in) :: natom
@@ -422,7 +462,7 @@ end subroutine read_frag_guess_from_gjf
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .fch file
 subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
- use fch_content, only: nuc2elem
+ use periodic_table, only: nuc2elem
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
@@ -708,7 +748,7 @@ end subroutine read_grad_from_molpro_out
 ! read Cartesian gradient from a given BDF .out file
 subroutine read_grad_from_bdf_out(outname, natom, grad)
  implicit none
- integer :: i, k, fid
+ integer :: i, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: grad(3*natom)
  character(len=10) :: str
@@ -785,6 +825,145 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
  return
 end subroutine read_coor_from_xyz
+
+! read the number of frames from pdb file
+subroutine read_nframe_from_pdb(pdbname, nframe)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nframe
+ character(len=240) :: buf
+ character*240, intent(in) :: pdbname
+
+ nframe = 1 ! initialization
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'MODEL') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) return ! assume 1 frame
+
+ i = index(buf, ' ')
+ read(buf(i+1:),*) nframe
+ return
+end subroutine read_nframe_from_pdb
+
+! read the i-th frame from a given .pdb file
+! Return cell, elem, resname and coor.
+! If the cell size is not recorded in the pdf file, the array cell will be 0.
+! If there is no residue name recorded, the array resname will be ' '
+subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coor)
+ implicit none
+ integer :: i, j, fid, iatom
+ integer, intent(in) :: iframe, natom
+ integer, parameter :: iout = 6
+ real(kind=8), dimension(6), intent(out) :: cell
+ real(kind=8), dimension(3,natom), intent(out) :: coor
+ character(len=6) :: str
+ character(len=240) :: buf
+ character*240, intent(in) :: pdbname
+ character*2, dimension(natom), intent(out) :: elem
+ character*3, dimension(natom), intent(out) :: resname
+
+ elem = '  '    ! initialization
+ resname = '   '
+ cell = 0d0 ! a,b,c,alpha,beta,gama
+ coor = 0d0
+
+ if(natom <= 0) then
+  write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: natom<=0.'
+  write(iout,'(A,I0)') 'Your input natom=', natom
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5) == 'MODEL') then
+   read(buf(6:),*) j
+   if(j == iframe) exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  if(iframe /= 1) then
+   write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read&
+                    & the i-th frame in file '//TRIM(pdbname)
+   write(iout,'(A,I0)') 'iframe=', iframe
+   close(fid)
+   stop
+  else ! iframe == 1
+   rewind(fid)
+   do while(.true.)
+    read(fid,'(A)',iostat=i) buf
+    if(i /= 0) exit
+    if(buf(1:4)=='ATOM' .or. buf(1:6)=='HETATM') exit
+   end do ! for while
+   if(i /= 0) then
+    write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read&
+                     & the 1st frame in file '//TRIM(pdbname)
+    close(fid)
+    stop
+   end if
+   BACKSPACE(fid)
+  end if
+ end if
+
+ do i = 1, 2
+  BACKSPACE(fid,iostat=j)
+  if(j /= 0) exit
+  BACKSPACE(fid,iostat=j)
+  if(j /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'CRYST1') then
+   read(buf,*) str, cell(1:6)
+   exit
+  end if
+ end do ! for i
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+  if(buf(1:4)=='ATOM' .or. buf(1:6)=='HETATM') exit
+ end do ! for j
+ BACKSPACE(fid)
+
+ read(fid,*) resname(1:4)
+ resname(4) = ADJUSTL(resname(4))
+ read(resname(4),fmt=*,iostat=i) j
+ BACKSPACE(fid)
+ iatom = 0
+
+ if(i /= 0) then ! the 4-th column is residue name
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(1:3) == 'TER') cycle
+   iatom = iatom + 1
+   read(buf,*) str, j, elem(iatom), resname(iatom), j, coor(1:3,iatom)
+   if(iatom == natom) exit
+  end do ! for while
+ else            ! the 4-th column is integer
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(1:3) == 'TER') cycle
+   iatom = iatom + 1
+   read(buf,*) str, j, elem(iatom), j, coor(1:3,iatom)
+   if(iatom == natom) exit
+  end do ! for while
+ end if
+
+ close(fid)
+ do i = 1, natom, 1
+  j = IACHAR(elem(i)(2:2))
+  if(j>47 .and. j<58) elem(i)(2:2) = ' '
+ end do ! for i
+ return
+end subroutine read_iframe_from_pdb
 
 ! read Cartesian coordinates from a (Open)Molcas output file
 subroutine read_coor_from_molcas_out(outname, natom, coor)
@@ -888,10 +1067,58 @@ subroutine write_xyzfile(natom, coor, elem, xyzname)
  write(fid,'(A)') 'xyz format file produced by MOKIT'
 
  do i = 1, natom, 1
-  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(1:3,i)
  end do ! for i
 
  close(fid)
  return
 end subroutine write_xyzfile
+
+! write a frame of molecule into a given .pdb file
+subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
+                              coor, append)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: iframe, natom
+!f2py intent(in) iframe, natom
+ character*240, intent(in) :: pdbname
+!f2py intent(in) pdbname
+ character*2, dimension(natom), intent(in) :: elem
+!f2py intent(in) elem
+!f2py depend(natom) elem
+ character*3, dimension(natom), intent(in) :: resname
+!f2py intent(in) resname
+!f2py depend(natom) resname
+ real(kind=8), intent(in) :: cell(6), coor(3,natom)
+!f2py intent(in) cell, coor
+!f2py depend(natom) cell, coor
+ logical, intent(in) :: append
+!f2py intent(in) append
+
+ if(append) then
+  open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
+ else
+  open(newunit=fid,file=TRIM(pdbname),status='replace')
+ end if
+
+ write(fid,'(A)') 'REMARK   1 File created by rwgeom of MOKIT'
+ if(ANY(cell > 1d-4)) then
+  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1',cell(1:3),cell(4:6),' P 1           1'
+ end if
+ if(iframe > 0) write(fid,'(A,1X,I8)') 'MODEL',iframe
+
+ do i = 1, natom, 1
+  if(LEN_TRIM(resname(i)) == 0) then
+   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A)') 'HETATM', i, elem(i), 0, &
+    coor(1:3,i),'  1.00  0.00'
+  else
+   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A)') 'ATOM', i, elem(i), &
+    resname(i), 0, coor(1:3,i), '  1.00  0.00'
+  end if
+ end do ! for i
+
+ write(fid,'(A)') 'END'
+ close(fid)
+ return
+end subroutine write_frame_into_pdb
 

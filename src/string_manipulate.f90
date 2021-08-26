@@ -75,7 +75,6 @@ subroutine check_DKH_in_gms_inp(inpname, order)
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  character(len=1200) :: longbuf
- logical :: alive(6)
 
  longbuf = ' '
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -178,7 +177,7 @@ end subroutine check_sph_in_gjf
 ! length <32 and in lowercase
 subroutine convert2molpro_fname(fname, suffix)
  implicit none
- integer :: i, len1, len2
+ integer :: len1, len2
  integer, parameter :: iout = 6
  character(len=240), intent(inout) :: fname
  character(len=*), intent(in) :: suffix
@@ -591,7 +590,7 @@ subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, parameter :: iout = 6
- character(len=240) :: buf, inpname1
+ character(len=240) :: inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
@@ -614,7 +613,7 @@ subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, parameter :: iout = 6
- character(len=240) :: buf, inpname1
+ character(len=240) :: inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
