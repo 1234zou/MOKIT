@@ -1,5 +1,6 @@
-MOKIT 1.2.3 (Aug 26, 2021)
+MOKIT 1.2.3 (Aug 31, 2021)
 ------------------------
+* use minimal basis set def2-SVP (in RHF proj) for atoms>Xe, instead of STO-6G
 * create all possible Python APIs in rwgeom.f90
 * add GVB, OVB-MP2 interface of Gaussian
 * add FIC-MRCC interface of ORCA(>=5.0.0)

@@ -47,7 +47,7 @@ program main
   write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
   write(iout,'(A)')    '  CASPT2_prog=OpenMolcas, Molpro, ORCA'
   write(iout,'(A)')    '  MCPDFT_prog=OpenMolcas, GAMESS'
-  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas, Molpro, ORCA, Gaussian, PSI4, Dalton'
+  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas, Molpro, ORCA, Gaussian, GAMESS, PSI4, Dalton'
   write(iout,'(A,/)')  '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
   stop
  end select
@@ -93,6 +93,7 @@ subroutine automr(fname)
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
  call do_mcpdft()     ! MC-PDFT
  call do_mrcc()       ! MRCC
+ call do_PES_scan()   ! PES scan
 
  call fdate(data_string)
  write(iout,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
@@ -104,7 +105,7 @@ subroutine get_paired_LMO()
  use print_id, only: iout
  use mr_keyword, only: mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
-                lin_dep
+  lin_dep, chem_core, ecp_core
  implicit none
  integer :: i, j, fid, system, RENAME
  character(len=24) :: data_string = ' '
@@ -118,6 +119,9 @@ subroutine get_paired_LMO()
                    & non-zero before this subroutine.'
   stop
  end if
+
+ call calc_ncore() ! calculate the number of core orbitals from array core_orb
+ write(iout,'(2(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core
 
  i = index(hf_fch,'.fch',back=.true.)
  proname = hf_fch(1:i-1)
@@ -196,9 +200,10 @@ end subroutine get_paired_LMO
 subroutine prt_rhf_proj_script_into_py(pyname)
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, tencycle, hf_fch, dkh2_or_x2c
- use mol, only: ndb, npair
+ use mol, only: ndb, npair, natom, nuc, elem
  implicit none
  integer :: i, fid1, fid2, RENAME
+ integer, allocatable :: ntimes(:)
  character(len=240) :: buf, pyname1, proj_fch, chkname
  character(len=240), intent(in) :: pyname
 
@@ -264,7 +269,21 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  close(fid1,status='delete')
  write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
- write(fid2,'(A)') "mol2.basis = 'STO-6G'"
+
+ if(ANY(nuc > 54)) then ! atoms > Xe
+  allocate(ntimes(natom))
+  call calc_ntimes(natom, elem, ntimes)
+  write(fid2,'(A)') "mol2.basis = {'default':'STO-6G',"
+  do i = 1, natom, 1
+   if(nuc(i) > 54) write(fid2,'(A,I0,A)') "'"//TRIM(elem(i)),ntimes(i),"':'def2-SVP',"
+  end do ! for i
+  write(fid2,'(A)') '}'
+  write(fid2,'(A)') 'mol2.ecp = mol.ecp.copy()'
+  deallocate(ntimes)
+ else
+  write(fid2,'(A)') "mol2.basis = 'STO-6G'"
+ end if
+
  write(fid2,'(A)') 'mol2.build()'
  if(dkh2_or_x2c) then
   write(fid2,'(A)') 'mf2 = scf.RHF(mol2).x2c()'
@@ -303,12 +322,13 @@ end subroutine prt_rhf_proj_script_into_py
 subroutine prt_auto_pair_script_into_py(pyname)
  use print_id, only: iout
  use mr_keyword, only: localm, hf_fch
- use mol, only: ndb, npair
+ use mol, only: chem_core, ecp_core, ndb, npair
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, ncore, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, loc_fch
  character(len=240), intent(in) :: pyname
 
+ ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.tmp'
  buf = ' '
  i = index(hf_fch, '.fch')
@@ -347,24 +367,26 @@ subroutine prt_auto_pair_script_into_py(pyname)
  close(fid1,status='delete')
 
  write(fid2,'(/,A)') '# localize the projected MOs of larger basis'
+ write(fid2,'(A,I0)') 'ncore = ', ncore
  write(fid2,'(A)') 'idx2 = np.sum(mf.mo_occ==2)'
- write(fid2,'(A)') 'idx1 = idx2 - npair'
- write(fid2,'(A)') 'idx3 = 2*idx2 - idx1'
- write(fid2,'(A)') 'occ_idx = range(idx1,idx2)'
- write(fid2,'(A)') 'vir_idx = range(idx2,idx3)'
+ write(fid2,'(A)') 'idx1 = min(npair, idx2-ncore)'
+ write(fid2,'(A)') 'occ_idx = range(ncore,idx2)'
+ write(fid2,'(A)') 'vir_idx = range(idx2,nif2)'
+ write(fid2,'(A)') 'idx3 = npair # backup'
+ write(fid2,'(A)') 'npair = idx1 # update'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
   write(fid2,'(A)') "occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                   &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[:,occ_idx],&
+                   &mol._bas[:,3],mol.cart,nbf,idx2-ncore,mf.mo_coeff[:,occ_idx],&
                    &S,'mulliken')"
   write(fid2,'(A)') "vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                   &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[:,vir_idx],&
+                   &mol._bas[:,3],mol.cart,nbf,nif2-idx2,mf.mo_coeff[:,vir_idx],&
                    &S,'mulliken')"
  else ! Boys localization
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,occ_idx])'
-  write(fid2,'(A)') 'occ_loc_orb = boys(nbf, npair, mf.mo_coeff[:,occ_idx], mo_dipole)'
+  write(fid2,'(A)') 'occ_loc_orb = boys(nbf, idx2-ncore, mf.mo_coeff[:,occ_idx], mo_dipole)'
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,vir_idx])'
-  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, npair, mf.mo_coeff[:,vir_idx], mo_dipole)'
+  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2, mf.mo_coeff[:,vir_idx], mo_dipole)'
  end if
 
  write(fid2,'(A)') 'mf.mo_coeff[:,occ_idx] = occ_loc_orb.copy()'
@@ -373,10 +395,9 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# pair the active orbitals'
  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff)'
- write(fid2,'(A)') 'ncore = idx1'
  write(fid2,'(A)') 'nopen = np.sum(mf.mo_occ==1)'
  write(fid2,'(A)') 'nalpha = np.sum(mf.mo_occ > 0)'
- write(fid2,'(A)') 'nvir_lmo = npair'
+ write(fid2,'(A)') 'nvir_lmo = idx3'
  write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo,&
                    &nbf, nif, mf.mo_coeff, mo_dipole)'
  write(fid2,'(A)') 'mf.mo_coeff = alpha_coeff.copy()'
@@ -390,8 +411,9 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
  write(fid2,'(A)') "f.write('nbf=%i\n' %nbf)"
  write(fid2,'(A)') "f.write('nif=%i\n\n' %nif)"
- write(fid2,'(A)') "f.write('ndb=%i\n\n' %ncore)"
- write(fid2,'(A)') "f.write('idx=%i %i %i' %(ncore+1,nalpha+npair+1,nopen))"
+ write(fid2,'(A)') 'idx1 = idx2 - npair'
+ write(fid2,'(A)') "f.write('ndb=%i\n\n' %idx1)"
+ write(fid2,'(A)') "f.write('idx=%i %i %i' %(idx1+1,nalpha+npair+1,nopen))"
  write(fid2,'(A)') 'f.close()'
  close(fid2)
 
@@ -573,4 +595,82 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  close(fid1)
  return
 end subroutine prt_assoc_rot_script_into_py
+
+! do PES scan, currently only rigid scan is supported
+subroutine do_PES_scan()
+ use print_id, only: iout
+ use mol, only: coor, scan_itype, scan_atoms
+ use mr_keyword, only: rigid_scan, relaxed_scan, scan_val_gen, scan_nstep, scan_val
+ implicit none
+ integer :: i, n
+ real(kind=8) :: val, rtmp(3,4), stepsize
+ real(kind=8), external :: calc_an_int_coor
+ character(len=24) :: data_string = ' '
+
+ if(.not. (rigid_scan .or. relaxed_scan)) return
+ write(iout,'(//,A)') 'Enter subroutine do_PES_scan...'
+
+ if(.not. scan_val_gen) then
+  select case(scan_itype)
+  case(1,2,3)
+   n = scan_itype + 1
+  case default
+   write(iout,'(A,I0)') 'ERROR in subroutine do_PES_scan: invalid scan_itype=',&
+                         scan_itype
+   stop
+  end select
+
+  forall(i=1:n) rtmp(:,i) = coor(:,scan_atoms(i))
+  val = calc_an_int_coor(n, rtmp(:,1:n))
+  stepsize = scan_val(1)
+  forall(i = 1:scan_nstep) scan_val(i) = val + (i-1)*stepsize
+ end if
+
+ if(rigid_scan) then
+  write(iout,'(A)') 'Rigid scan values:'
+ else
+  write(iout,'(A)') 'Relaxed scan values:'
+ end if
+ write(iout,'(10F6.3)') (scan_val(i),i=1,scan_nstep)
+
+ call fdate(data_string)
+ write(iout,'(A)') 'Leave subroutine do_PES_scan at '//TRIM(data_string)
+ return
+end subroutine do_PES_scan
+
+! calculate/determine the number of core orbitals
+subroutine calc_ncore()
+ use mr_keyword, only: hf_fch
+ use mol, only: natom, nuc, chem_core, ecp_core
+ use fch_content, only: core_orb, RNFroz
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+
+ chem_core = 0 ! initialization
+ ecp_core = 0
+ buf = ' '
+
+ do i = 1, natom, 1
+  chem_core = chem_core + core_orb(nuc(i))
+ end do ! for i
+
+ open(newunit=fid,file=TRIM(hf_fch),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:10) == 'ECP-RNFroz') exit
+  if(buf(1:7) == 'Alpha O') then
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ if(allocated(RNFroz)) deallocate(RNFroz)
+ allocate(RNFroz(natom), source=0d0)
+ read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
+ close(fid)
+
+ ecp_core = INT(SUM(RNFroz))
+ return
+end subroutine calc_ncore
 

@@ -18,6 +18,7 @@ module fch_content
  integer :: natom            ! number of atoms
  integer :: LenNCZ           ! ECP-LenNCZ
  integer, parameter :: iout = 6              ! print id, default on screen
+ integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
  integer, allocatable :: shell_type(:)       ! Shell types
  integer, allocatable :: prim_per_shell(:)   ! Number of primitives per shell
@@ -39,7 +40,19 @@ module fch_content
  real(kind=8), allocatable :: CLP(:), ZLP(:)    ! ECP-CLP1, ECP-ZLP, size LenNCZ
  character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
- integer, parameter :: period_nelem = 112
+ ! Frozen core orbitals used in RHF_proj and dynamic correlation computations.
+ ! This table is the same to the figure in ORCA 5.0.1 manual 9.11 Frozen Core
+ ! Options, except that only 1s orbital of B,C,N,O are frozen
+ integer, parameter :: core_orb(period_nelem) = &
+ (/  0,  0,  0,  0,  1,  1,  1,  1,  2,  2,  2,  2, 10, 10, 10, &
+    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, &
+    18, 18, 18, 18, 18, 18, 18, 18, 28, 28, 28, 28, 28, 28, 28, &
+    28, 28, 28, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, &
+    36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 46, 46, 46, 46, 46, &
+    46, 46, 46, 46, 46, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, &
+    68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,100,100, &
+   100,100,100,100,100,100,100/)
+
  character(len=2), parameter :: period_elem(period_nelem) = &
  (/'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
    'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &

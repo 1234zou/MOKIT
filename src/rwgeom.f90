@@ -1122,3 +1122,28 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  return
 end subroutine write_frame_into_pdb
 
+! calculate an internal coordinate (bond, angle, or dihedral)
+function calc_an_int_coor(n, coor) result(val)
+ implicit none
+ integer, parameter :: iout = 6
+ integer, intent(in) :: n
+ real(kind=8) :: val, rtmp(3)
+ real(kind=8), intent(in) :: coor(3,n)
+
+ val = 0d0
+ select case(n)
+ case(2) ! bond
+  rtmp = coor(:,1) - coor(:,2)
+  val = DSQRT(DOT_PRODUCT(rtmp,rtmp))
+ case(3) ! angle
+
+ case(4) ! dihedral
+
+ case default
+  write(iout,'(A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
+  stop
+ end select
+
+ return
+end function calc_an_int_coor
+

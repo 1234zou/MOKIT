@@ -30,9 +30,13 @@ module mol
  ! nacte = nacta + nactb
  ! nacta = npair0 + nopen
  ! nactb = npair0
- integer :: natom = 0    ! number of atoms
- integer :: nbgchg = 0   ! number of background point charges
- integer :: nfrag = 0    ! number of fragments
+ integer :: natom = 0      ! number of atoms
+ integer :: nbgchg = 0     ! number of background point charges
+ integer :: nfrag = 0      ! number of fragments
+ integer :: chem_core = 0  ! core orbitals calculated from the array core_orb
+ integer :: ecp_core = 0   ! core orbitals replaced by PP/ECP during computing
+ integer :: scan_itype = 0 ! the type of scanning, 1/2/3 for bond/angle/dihedral
+ integer :: scan_atoms(4)  ! 2/3/4 atoms to be scanned
  integer, allocatable :: nuc(:) ! nuclear charge number
 
  integer, allocatable :: frag_char_mult(:,:)
@@ -44,24 +48,24 @@ module mol
  ! (2) nbf > nif, lin_dep = .True. ;
  ! (3) nbf < nif is impossible.
 
- real(kind=8) :: rhf_e    = 0d0 ! RHF (electronic) energy
- real(kind=8) :: uhf_e    = 0d0 ! UHF energy
- real(kind=8) :: gvb_e    = 0d0 ! GVB energy
- real(kind=8) :: casci_e  = 0d0 ! CASCI/DMRG-CASCI energy
- real(kind=8) :: casscf_e = 0d0 ! CASSCF/DMRG-CASSCF energy
- real(kind=8) :: caspt2_e = 0d0 ! CASPT2/DMRG-CASPT2 energy
- real(kind=8) :: caspt3_e = 0d0 ! CASPT3 energy
- real(kind=8) :: nevpt2_e = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
- real(kind=8) :: nevpt3_e = 0d0 ! CASSCF-NEVPT3 energy
- real(kind=8) :: mrmp2_e  = 0d0 ! MRMP2 energy
- real(kind=8) :: ovbmp2_e = 0d0 ! OVB-MP2 energy
- real(kind=8) :: sdspt2_e = 0d0 ! SDSPT2 energy
- real(kind=8) :: davidson_e=0d0 ! Davidson correction energy
- real(kind=8) :: mrcisd_e = 0d0 ! MRCISD+Q energy
- real(kind=8) :: mcpdft_e = 0d0 ! MC-PDFT energy
- real(kind=8) :: mrcc_e   = 0d0 ! MRCC energy
- real(kind=8) :: ptchg_e  = 0d0 ! Coulomb energy of background point charges
- real(kind=8) :: nuc_pt_e = 0d0 ! nuclear-point_charge interaction energy
+ real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
+ real(kind=8) :: uhf_e     = 0d0 ! UHF energy
+ real(kind=8) :: gvb_e     = 0d0 ! GVB energy
+ real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
+ real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
+ real(kind=8) :: caspt2_e  = 0d0 ! CASPT2/DMRG-CASPT2 energy
+ real(kind=8) :: caspt3_e  = 0d0 ! CASPT3 energy
+ real(kind=8) :: nevpt2_e  = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
+ real(kind=8) :: nevpt3_e  = 0d0 ! CASSCF-NEVPT3 energy
+ real(kind=8) :: mrmp2_e   = 0d0 ! MRMP2 energy
+ real(kind=8) :: ovbmp2_e  = 0d0 ! OVB-MP2 energy
+ real(kind=8) :: sdspt2_e  = 0d0 ! SDSPT2 energy
+ real(kind=8) :: davidson_e= 0d0 ! Davidson correction energy
+ real(kind=8) :: mrcisd_e  = 0d0 ! MRCISD+Q energy
+ real(kind=8) :: mcpdft_e  = 0d0 ! MC-PDFT energy
+ real(kind=8) :: mrcc_e    = 0d0 ! MRCC energy
+ real(kind=8) :: ptchg_e   = 0d0 ! Coulomb energy of background point charges
+ real(kind=8) :: nuc_pt_e  = 0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
  real(kind=8), allocatable :: grad(:)       ! Cartesian gradient of this molecule, 3*natom
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
@@ -87,17 +91,20 @@ module mr_keyword
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
 
- integer :: CtrType = 0              ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
- integer :: maxM = 1000              ! bond-dimension in DMRG computation
- real(kind=8) :: ON_thres = 0.99999d0! Occupation Number threshold for UNO
+ integer :: CtrType = 0    ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
+ integer :: maxM = 1000    ! bond-dimension in DMRG computation
+ integer :: scan_nstep = 0 ! number of steps to scan
 
- character(len=4)   :: localm = 'pm'   ! localization method: boys/pm
- character(len=240) :: gjfname = ' '   ! filename of the input .gjf file
- character(len=240) :: chgname = ' '   ! filename of the .chg file (background point charges)
- character(len=240) :: hf_fch = ' '    ! filename of the given .fch(k) file
- character(len=240) :: datname = ' '   ! filename of GAMESS GVB .dat file
- character(len=240) :: casnofch = ' '  ! .fch(k) file of CASCI or CASSCF job
- character(len=8) :: otpdf = 'tPBE'    ! on-top pair density functional
+ real(kind=8) :: ON_thres = 0.99999d0     ! Occupation Number threshold for UNO
+ real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
+
+ character(len=4)   :: localm = 'pm'  ! localization method: boys/pm
+ character(len=240) :: gjfname = ' '  ! filename of the input .gjf file
+ character(len=240) :: chgname = ' '  ! filename of the .chg file (background point charges)
+ character(len=240) :: hf_fch = ' '   ! filename of the given .fch(k) file
+ character(len=240) :: datname = ' '  ! filename of GAMESS GVB .dat file
+ character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
+ character(len=8) :: otpdf = 'tPBE'   ! on-top pair density functional
 
  logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
@@ -148,7 +155,12 @@ module mr_keyword
  logical :: RI = .false.           ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.          ! whether F12 used in NEVPT2, MRCI
  logical :: DLPNO = .false.        ! whether to turn on DLPNO-NEVPT2
+ logical :: pop = .false.          ! whether to perform population analysis
  logical :: nmr = .false.          ! whether to calcuate nuclear shielding
+ logical :: soc = .false.          ! whether to calcuate spin-orbit coupling (SOC)
+ logical :: rigid_scan = .false.   ! rigid/unrelaxed PES scan
+ logical :: relaxed_scan = .false. ! relaxed PES scan
+ logical :: scan_val_gen = .false. ! whether the scanned values have been generated
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -310,7 +322,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2021-Aug-26)'
+  write(iout,'(A)') '            Version: 1.2.3 (2021-Aug-31)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -425,6 +437,7 @@ contains
    close(fid)
    stop
   end if
+  if(index(buf,'scan') > 0) rigid_scan = .true.
 
   j = index(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
@@ -590,7 +603,7 @@ contains
    close(fid)
    return
   else if(j > 7) then ! mokit{ }
-   if(LEN_TRIM(buf(7:j)) == 0) then ! no keyword specified
+   if(LEN_TRIM(buf(7:j-1)) == 0) then ! no keyword specified
     close(fid)
     return
    end if
@@ -625,6 +638,7 @@ contains
 
   close(fid)
   ! now all keywords are stored in longbuf
+  if(rigid_scan) call read_scan_var_from_gjf()
 
   write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
@@ -908,8 +922,11 @@ contains
   write(iout,'(5(A,L1,3X))') 'TenCycle= ',tencycle, 'HardWFN = ', hardwfn,&
        'CrazyWFN= ',crazywfn,'BgCharge= ',   bgchg, 'Ana_Grad= ', casscf_force
 
-  write(iout,'(A,I1,3X,A,L1,3X,A,F7.5,11X,A,I5)') 'CtrType = ', CtrType, &
-       'NMR     = ',     nmr,'ON_thres= ',ON_thres, 'MaxM    =', maxM
+  write(iout,'(5(A,L1,3X))') 'Pop     = ',     pop, 'NMR     = ', nmr, &
+       'SOC     = ', soc    ,'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan
+
+  write(iout,'(A,I1,3X,A,F7.5,1X,A,I5)') 'CtrType = ', CtrType, &
+       'ON_thres= ',ON_thres, 'MaxM=', maxM
 
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
@@ -1383,7 +1400,6 @@ contains
 
  ! read background point charge(s) from .gjf file
  subroutine read_bgchg_from_gjf(no_coor)
-  use print_id, only: iout
   use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
   implicit none
   integer :: i, fid, nblank, nblank0
@@ -1393,9 +1409,17 @@ contains
 
   nblank = 0
   if(no_coor) then ! no Cartesian Coordinates
-   nblank0 = 2
+   if(rigid_scan .or. relaxed_scan) then
+    nblank0 = 3
+   else
+    nblank0 = 2
+   end if
   else             ! there exists Cartesian Coordinates
-   nblank0 = 3
+   if(rigid_scan .or. relaxed_scan) then
+    nblank0 = 4
+   else
+    nblank0 = 3
+   end if
   end if
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
@@ -1408,6 +1432,7 @@ contains
 
   if(i /= 0) then
    write(iout,'(A)') error_warn//'wrong format of background point charges.'
+   close(fid)
    stop
   end if
 
@@ -1420,8 +1445,9 @@ contains
   end do ! for while
 
   if(nbgchg == 0) then
-   write(iout,'(A)') error_warn//'no background point charge(s) found in'
-   write(iout,'(A)') 'file: '//TRIM(gjfname)
+   write(iout,'(A)') error_warn//'no background point charge(s) found'
+   write(iout,'(A)') 'in file '//TRIM(gjfname)
+   close(fid)
    stop
   end if
 
@@ -1439,7 +1465,6 @@ contains
   do i = 1, nbgchg, 1
    read(fid,*) bgcharge(1:4,i)
   end do ! for i
-
   close(fid)
 
   call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
@@ -1455,6 +1480,125 @@ contains
   return
  end subroutine read_bgchg_from_gjf
 
+ ! read scan variables/coordinates from gjf
+ subroutine read_scan_var_from_gjf()
+  use mol, only: scan_itype, scan_atoms
+  implicit none
+  integer :: i, j, k, m, nblank0, nblank, fid
+  integer, external :: detect_ncol_in_buf
+  real(kind=8) :: rtmp
+  character(len=240) :: buf
+  character(len=44), parameter :: error_warn='ERROR in subroutine read_scan_var_from_gjf: '
+
+  scan_atoms = 0     ! initialization
+  buf = ' '
+  if(skiphf) then
+   nblank0 = 2
+  else
+   nblank0 = 3
+  end if
+
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+   if(nblank == nblank0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(iout,'(A)') error_warn//' wrong format of scan coordinate.'
+   close(fid)
+   stop
+  end if
+
+  read(fid,'(A)') buf
+  close(fid)
+
+  select case(buf(1:1))
+  case('B')
+   i = 5
+  case('A')
+   i = 6
+  case('D')
+   i = 7
+  case default
+   write(iout,'(A)') error_warn//' invalid scan variable: '//buf(1:1)
+   stop
+  end select
+
+  j = detect_ncol_in_buf(buf)
+  if(j < i) then
+   write(iout,'(A)') error_warn//' invalid rigid scan syntax.'
+   write(iout,'(A)') 'buf='//TRIM(buf)
+   stop
+  end if
+
+  select case(buf(1:1))
+  case('B') ! bond
+   scan_itype = 1
+   read(buf(3:),*) scan_atoms(1:2), scan_nstep
+  case('A') ! angle
+   scan_itype = 2
+   read(buf(3:),*) scan_atoms(1:3), scan_nstep
+  case('D') ! dihedral
+   scan_itype = 3
+   read(buf(3:),*) scan_atoms(1:4), scan_nstep
+  case default
+   write(iout,'(A)') error_warn//" invalid scan variable '"//buf(1:1)//"'"
+   stop
+  end select
+
+  write(*,*) 'scan_itype=', scan_itype
+  stop
+  if(scan_nstep < 1) then
+   write(iout,'(A,I0)') error_warn//' invalid scan step=', scan_nstep
+   stop
+  end if
+
+  allocate(scan_val(scan_nstep), source=0d0)
+  j = LEN_TRIM(buf)
+
+  if(buf(j:j) == '}') then ! given a set of values {}
+   i = index(buf, '{')
+   read(buf(i+1:j-1),fmt=*,iostat=m) (scan_val(k),k=1,scan_nstep)
+   if(m /= 0) then
+    write(iout,'(/,A)') error_warn//' wrong scan syntax.'
+    write(iout,'(A)') 'buf='//TRIM(buf)
+    stop
+   end if
+
+   do k = 1, scan_nstep-1, 1
+    rtmp = scan_val(k) - scan_val(k+1)
+
+    if(rtmp < 0d0) then
+     write(iout,'(/,A)') error_warn//' values must be in descending order.'
+     stop
+    else if(rtmp < 1d-3) then
+     write(iout,'(/,A)') error_warn//' scan interval is too small.'
+     write(iout,'(A,10F6.3)') 'scan_val=',(scan_val(m),m=1,scan_nstep)
+     stop
+    else if(rtmp > 10d0) then
+     write(iout,'(/,A)') 'Warning from subroutine read_scan_var_from_gjf: inte&
+                         &rvals of scanned'
+     write(iout,'(A)') 'variables are too large! Hope you know what you are doing.'
+     write(iout,'(A,10F6.3)') 'scan_val=',(scan_val(m),m=1,scan_nstep)
+    end if
+   end do ! for i
+   scan_val_gen = .true.
+
+  else ! given the step length/interval
+   i = index(buf(1:j), ' ', back=.true.)
+   read(buf(i+1:j),*) scan_val(1)
+   if(scan_val(1) > -1d-3) then
+    write(iout,'(/,A,F6.3)') error_warn//' invalid scan interval=',scan_val(1)
+    write(iout,'(A)') 'The scan stepsize must be less than -0.001.'
+    stop
+   end if
+  end if
+
+  return
+ end subroutine read_scan_var_from_gjf
 
 end module mr_keyword
 
