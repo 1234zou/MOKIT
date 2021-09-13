@@ -41,17 +41,18 @@ module fch_content
  character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
  ! Frozen core orbitals used in RHF_proj and dynamic correlation computations.
- ! This table is the same to the figure in ORCA 5.0.1 manual 9.11 Frozen Core
- ! Options, except that only 1s orbital of B,C,N,O are frozen
+ ! This table is copied from the figure in ORCA 5.0.1 manual 9.11 Frozen Core
+ ! Options.
+ ! Note: frozen electrons are two times of the frozen core orbitals
  integer, parameter :: core_orb(period_nelem) = &
- (/  0,  0,  0,  0,  1,  1,  1,  1,  2,  2,  2,  2, 10, 10, 10, &
-    10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, &
-    18, 18, 18, 18, 18, 18, 18, 18, 28, 28, 28, 28, 28, 28, 28, &
-    28, 28, 28, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 36, &
-    36, 36, 36, 36, 36, 36, 36, 36, 36, 36, 46, 46, 46, 46, 46, &
-    46, 46, 46, 46, 46, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, &
-    68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,100,100, &
-   100,100,100,100,100,100,100/)
+ (/  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  5,  5,  5, &
+     5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5, &
+     9,  9,  9,  9,  9,  9,  9,  9, 14, 14, 14, 14, 14, 14, 14, &
+    14, 14, 14, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, &
+    18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 23, 23, 23, 23, 23, &
+    23, 23, 23, 23, 23, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, &
+    34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 50, 50, &
+    50, 50, 50, 50, 50, 50, 50/)
 
  character(len=2), parameter :: period_elem(period_nelem) = &
  (/'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &

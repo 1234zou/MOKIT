@@ -12,9 +12,10 @@ program main
  character(len=30) :: fname1, fname2
  character(len=200) :: buffer
  character(len=10) :: filelist(nfile)
- data filelist /'comp','cphf','cprohf','fmoh2c','fmohss','grd1','grd2a','guess','gvb','hess','hss1c', &
-              & 'hss2a','hss2b','hss2c','locpol','mexing','parley','prppop','qmfm','scflib','statpt', &
-              & 'vector','vvos'/
+ logical :: alive
+ data filelist /'comp','cphf','cprohf','fmoh2c','fmohss','grd1','grd2a','gvb',&
+  'guess','hess','hss1c','hss2a','hss2b','hss2c','locpol','mexing','parley',&
+  'prppop','qmfm','scflib','statpt','vector','vvos'/
 
  fname1 = ' '
  fname2 = ' '
@@ -23,6 +24,10 @@ program main
  do i = 1, nfile, 1
   fname1 = TRIM(filelist(i))//'.src'
   fname2 = TRIM(filelist(i))//'_new.src'
+  if(TRIM(fname1) == 'vector.src') then
+   inquire(file='vector.src', exist=alive)
+   if(.not. alive) cycle
+  end if
   open(newunit=fid1,file=TRIM(fname1),status='old',position='rewind')
   open(newunit=fid2,file=TRIM(fname2),status='replace')
 

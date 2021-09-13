@@ -115,8 +115,8 @@ subroutine do_cas(scf)
   write(iout,'(A)') 'specify the size of acitve space in .gjf file. For example&
                    & CASSCF(8,8) for methane(CH4).'
   write(iout,'(A)') 'The maximum number of active orbitals is 2*npair. You can&
-                   & find npair in GVB computations above.'
-  write(iout,'(A,I0)') 'For this molecule, npair = ', npair
+                   & find npair in GVB computations'
+  write(iout,'(A,I0)') 'above. For this molecule, npair = ', npair
   stop
  end if
  write(iout,'(2(A,I4,4X),A,L1)') 'doubly_occ=', idx1-1, 'nvir=', nvir, 'RIJK= ', RI
@@ -186,9 +186,9 @@ subroutine do_cas(scf)
  i = index(hf_fch, '.fch', back=.true.)
  if(ist==1 .or. ist==3) then
   if(scf) then
-   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_2CASSCF'
+   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASSCF'
   else
-   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_2CASCI'
+   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASCI'
   end if
  else if(ist == 2) then
   if(scf) then

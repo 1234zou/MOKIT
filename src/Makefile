@@ -13,7 +13,7 @@ BIN = ../bin
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -fpp
+FFLAGS = -O2 -fpp -traceback
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
@@ -23,7 +23,8 @@ OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcha
 OBJ_align_orbitals = rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o \
              read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o do_mrpt2.o \
-             do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o automr.o
+             do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
+             do_PES_scan.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o

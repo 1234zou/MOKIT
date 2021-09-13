@@ -64,6 +64,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  character(len=62), parameter :: on_warn1 = 'Warning in subroutine uno: ON_thres deviates from ON_criteria.'
  character(len=35), parameter :: on_warn2 = 'You better know what you are doing.'
 
+ noon = 0d0
  nopen = nalpha - nbeta
  if(nopen < 0) then
   write(iout,'(A)') 'ERROR in subroutine uno: nalpha < nbeta.'
@@ -99,6 +100,17 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  write(outid,'(A,F16.10)') 'abs_mean=', abs_mean
  ! check orthonormality done
 
+ if(nbeta == 0) then ! no beta electrons, return
+  forall(i = 1:nopen) noon(i) = 1d0
+  uno_coeff = alpha_coeff
+  idx = [1, nopen+1, nopen]
+  write(outid,'(/,A6,I5)') 'ndb  =', 0
+  write(outid,'(A6,I5)')   'nact =', nalpha
+  write(outid,'(A6,I5)')   'nact0=', 0
+  write(outid,'(A6,3I5)')  'idx  =', idx
+  close(outid)
+  return
+ end if
  ! allocate arrays for alpha and beta occupied orbitals, prepare for SVD
  allocate(alpha_occ(nbf,nalpha), source=alpha_coeff(:,1:nalpha))
  allocate(beta_occ(nbf,nbeta), source=beta_coeff(:,1:nbeta))
@@ -112,6 +124,8 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  allocate(sv_occ(nalpha))
  call svd_and_rotate(nalpha, nbeta, nbf, alpha_occ, beta_occ, mo_basis_ovlp, sv_occ, .false.)
  deallocate(mo_basis_ovlp)
+ write(iout,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
+ write(iout,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
  ! SVD done in occ space
 
  sv_occ0 = sv_occ
@@ -126,7 +140,6 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  write(outid,'(A6,3I5)')  'idx  =', idx
 
  ! generate NOON (Natural Orbital Occupation Number)
- noon = 0d0
  forall(i = 1:nalpha) noon(i) = 1d0 + sv_occ(i)
  forall(i = 1:nact0) noon(nalpha+i) = 2d0 - noon(nbeta-i+1)
  deallocate(sv_occ)

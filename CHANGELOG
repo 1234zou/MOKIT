@@ -1,5 +1,7 @@
-MOKIT 1.2.3 (Aug 31, 2021)
+MOKIT 1.2.3 (Sep 13, 2021)
 ------------------------
+* supplement pairs when UNO pairs are not enough
+* compatible keywords and scripts with Molpro 2021 and GAMESS 2021
 * use minimal basis set def2-SVP (in RHF proj) for atoms>Xe, instead of STO-6G
 * create all possible Python APIs in rwgeom.f90
 * add GVB, OVB-MP2 interface of Gaussian

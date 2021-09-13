@@ -2743,8 +2743,13 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
- open(newunit=datid,file=TRIM(datname),status='old',position='rewind')
+ if(npair == 0) then
+  npair0 = 0
+  write(iout,'(A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
+  return
+ end if
 
+ open(newunit=datid,file=TRIM(datname),status='old',position='rewind')
  ! find pair coefficients
  do while(.true.)
   read(datid,'(A)',iostat=i) buf

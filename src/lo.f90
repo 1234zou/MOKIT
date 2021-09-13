@@ -26,7 +26,7 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
 
  integer, allocatable :: isuppz(:), iwork(:)
 
- real(kind=8) :: new_coeff(nbf,nif), P(nbf,nbf), S(nbf,nbf)
+ real(kind=8) :: P(nbf,nbf), S(nbf,nbf), new_coeff(nbf,nif)
 !f2py intent(in) :: P
 !f2py intent(in,copy) :: S
 !f2py intent(out) :: new_coeff
@@ -70,7 +70,7 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
 
  noon = 0d0
  forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
- write(iout,'(A)') 'Natural Orbital Occupancy Numbers (NOON):'
+ write(iout,'(/,A)') 'Natural Orbital Occupancy Numbers (NOON):'
  write(iout,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  deallocate(e)
 

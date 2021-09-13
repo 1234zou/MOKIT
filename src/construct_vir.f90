@@ -41,6 +41,12 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  ! Note that the index i can be larger than nocc, in which case we only
  !  construct part of virtual orbitals.
 
+ if(idx == nif+1) then
+  write(iout,'(/,A)') 'Warning in subroutine construct_vir: idx=nif+1 found.'
+  write(iout,'(A)') 'No need to construct virtual MOs.'
+  new_coeff = coeff
+  return
+ end if
  ! Step 1: P = sigma_i(Cui*Cvi)
  ! ?gemm: Computes a matrix-matrix product with general matrices
  ! Syntax FORTRAN 77:

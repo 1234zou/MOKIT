@@ -459,6 +459,44 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
  return
 end subroutine read_frag_guess_from_gjf
 
+! read the Cartesian coordinates from a given .fch file
+subroutine read_coor_from_fch(fchname, natom, coor)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, parameter :: iout = 6
+ real(kind=8), intent(out) :: coor(3,natom)
+ real(kind=8), allocatable :: coor0(:)
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ ! find and read coordinates
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == 'Current cart') exit
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_coor_from_fch: no 'Current &
+                   & cart' found in file "//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ allocate(coor0(3*natom), source=0d0)
+ read(fid,'(5(1X,ES15.8))') (coor0(i),i=1,3*natom)
+ close(fid)
+
+ coor0 = coor0*Bohr_const ! convert Bohr to Angstrom
+ coor = RESHAPE(coor0,(/3,natom/))
+ deallocate(coor0)
+ return
+end subroutine read_coor_from_fch
+
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .fch file
 subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)

@@ -184,6 +184,12 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  logical, intent(in) :: gau_order
 
  npair = (nmo - nopen)/2
+ if(npair == 0) then
+  write(iout,'(A)') 'Warning in subroutine read_noon_from_dat: npair=0. High&
+                   & spin ROHF wfn assumed.'
+  noon = 1d0
+  return
+ end if
  allocate(cicoeff(npair), source=0d0)
 
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')

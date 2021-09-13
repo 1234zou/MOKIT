@@ -160,7 +160,6 @@ module mr_keyword
  logical :: soc = .false.          ! whether to calcuate spin-orbit coupling (SOC)
  logical :: rigid_scan = .false.   ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false. ! relaxed PES scan
- logical :: scan_val_gen = .false. ! whether the scanned values have been generated
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -322,7 +321,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2021-Aug-31)'
+  write(iout,'(A)') '            Version: 1.2.3 (2021-Sep-13)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -599,16 +598,13 @@ contains
   end if
 
   j = index(buf,'}')
-  if(j == 7) then ! mokit{}
+  if(j==7 .or. (j>7 .and. LEN_TRIM(buf(7:j-1))==0)) then ! mokit{}
    close(fid)
    return
-  else if(j > 7) then ! mokit{ }
-   if(LEN_TRIM(buf(7:j-1)) == 0) then ! no keyword specified
-    close(fid)
-    return
-   end if
-  else ! j = 0, keywords written in more than 1 line
+  else if(j == 0) then ! keywords written in more than 1 line
    j = LEN_TRIM(buf) + 1
+  else ! j > 0
+   j = LEN_TRIM(buf)
   end if
 
   longbuf(1:j-7) = buf(7:j-1) ! some keywords specified
@@ -638,7 +634,6 @@ contains
 
   close(fid)
   ! now all keywords are stored in longbuf
-  if(rigid_scan) call read_scan_var_from_gjf()
 
   write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(iout,'(A)') TRIM(longbuf)
@@ -668,9 +663,9 @@ contains
                  (index(longbuf,'mcpdft_prog')/=0)]
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword&
-                      & of 'caspt2_prog', 'nevpt2_prog', 'mrmp2_prog'"
-   write(iout,'(A)') "'mrcisd_prog', 'mcpdft_prog' are detected. Only one can&
-                     & be specified in a job."
+                      & of 'caspt2_prog', 'nevpt2_prog',"
+   write(iout,'(A)') "'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are detected.&
+                     & Only one can be specified in a job."
    stop
   end if
 
@@ -1479,126 +1474,6 @@ contains
   call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
   return
  end subroutine read_bgchg_from_gjf
-
- ! read scan variables/coordinates from gjf
- subroutine read_scan_var_from_gjf()
-  use mol, only: scan_itype, scan_atoms
-  implicit none
-  integer :: i, j, k, m, nblank0, nblank, fid
-  integer, external :: detect_ncol_in_buf
-  real(kind=8) :: rtmp
-  character(len=240) :: buf
-  character(len=44), parameter :: error_warn='ERROR in subroutine read_scan_var_from_gjf: '
-
-  scan_atoms = 0     ! initialization
-  buf = ' '
-  if(skiphf) then
-   nblank0 = 2
-  else
-   nblank0 = 3
-  end if
-
-  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-   if(nblank == nblank0) exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(iout,'(A)') error_warn//' wrong format of scan coordinate.'
-   close(fid)
-   stop
-  end if
-
-  read(fid,'(A)') buf
-  close(fid)
-
-  select case(buf(1:1))
-  case('B')
-   i = 5
-  case('A')
-   i = 6
-  case('D')
-   i = 7
-  case default
-   write(iout,'(A)') error_warn//' invalid scan variable: '//buf(1:1)
-   stop
-  end select
-
-  j = detect_ncol_in_buf(buf)
-  if(j < i) then
-   write(iout,'(A)') error_warn//' invalid rigid scan syntax.'
-   write(iout,'(A)') 'buf='//TRIM(buf)
-   stop
-  end if
-
-  select case(buf(1:1))
-  case('B') ! bond
-   scan_itype = 1
-   read(buf(3:),*) scan_atoms(1:2), scan_nstep
-  case('A') ! angle
-   scan_itype = 2
-   read(buf(3:),*) scan_atoms(1:3), scan_nstep
-  case('D') ! dihedral
-   scan_itype = 3
-   read(buf(3:),*) scan_atoms(1:4), scan_nstep
-  case default
-   write(iout,'(A)') error_warn//" invalid scan variable '"//buf(1:1)//"'"
-   stop
-  end select
-
-  write(*,*) 'scan_itype=', scan_itype
-  stop
-  if(scan_nstep < 1) then
-   write(iout,'(A,I0)') error_warn//' invalid scan step=', scan_nstep
-   stop
-  end if
-
-  allocate(scan_val(scan_nstep), source=0d0)
-  j = LEN_TRIM(buf)
-
-  if(buf(j:j) == '}') then ! given a set of values {}
-   i = index(buf, '{')
-   read(buf(i+1:j-1),fmt=*,iostat=m) (scan_val(k),k=1,scan_nstep)
-   if(m /= 0) then
-    write(iout,'(/,A)') error_warn//' wrong scan syntax.'
-    write(iout,'(A)') 'buf='//TRIM(buf)
-    stop
-   end if
-
-   do k = 1, scan_nstep-1, 1
-    rtmp = scan_val(k) - scan_val(k+1)
-
-    if(rtmp < 0d0) then
-     write(iout,'(/,A)') error_warn//' values must be in descending order.'
-     stop
-    else if(rtmp < 1d-3) then
-     write(iout,'(/,A)') error_warn//' scan interval is too small.'
-     write(iout,'(A,10F6.3)') 'scan_val=',(scan_val(m),m=1,scan_nstep)
-     stop
-    else if(rtmp > 10d0) then
-     write(iout,'(/,A)') 'Warning from subroutine read_scan_var_from_gjf: inte&
-                         &rvals of scanned'
-     write(iout,'(A)') 'variables are too large! Hope you know what you are doing.'
-     write(iout,'(A,10F6.3)') 'scan_val=',(scan_val(m),m=1,scan_nstep)
-    end if
-   end do ! for i
-   scan_val_gen = .true.
-
-  else ! given the step length/interval
-   i = index(buf(1:j), ' ', back=.true.)
-   read(buf(i+1:j),*) scan_val(1)
-   if(scan_val(1) > -1d-3) then
-    write(iout,'(/,A,F6.3)') error_warn//' invalid scan interval=',scan_val(1)
-    write(iout,'(A)') 'The scan stepsize must be less than -0.001.'
-    stop
-   end if
-  end if
-
-  return
- end subroutine read_scan_var_from_gjf
 
 end module mr_keyword
 

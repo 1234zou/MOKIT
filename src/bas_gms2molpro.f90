@@ -1,4 +1,5 @@
 ! written by jxzou at 20201208: copy from bas_gms2molcas.f90 and do modifications
+! updated by jxzou at 20210906: change 'HF' to '{HF;start,2100.2}'
 ! This is a subroutine used to transform the basis sets in GAMESS format to those in Molpro format
 
 ! Note: Currently isotopes are not tested.
@@ -175,11 +176,13 @@ subroutine bas_gms2molpro(fort7, spherical)
   write(fid2,'(A)') 'save,mo,2200.2,ORBITALS,ALPHA;'
   write(fid2,'(A)') 'read,mo,ORB,file='//TRIM(orbfile2)//';'
   write(fid2,'(A)') 'save,mo,2200.2,ORBITALS,BETA}'
-  write(fid2,'(A3)') 'UHF'
+  write(fid2,'(A)') '{UHF;start,2200.2}'
  else
   write(fid2,'(A)') 'save,mo,2100.2,ORBITALS}'
-  write(fid2,'(A2)') 'HF'
+  write(fid2,'(A)') '{HF;start,2100.2}'
  end if
+ ! For Molpro <= 2019.2, only 'HF' is enough. But Molpro 2021 changes its
+ ! default settings, we should use '{HF;start,2100.2}' now.
 
  write(fid2,'(A)',advance='no') '{put,xml'
  if(spherical) write(fid2,'(A)',advance='no') ';keepspherical'

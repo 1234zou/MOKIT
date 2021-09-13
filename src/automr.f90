@@ -107,7 +107,7 @@ subroutine get_paired_LMO()
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  implicit none
- integer :: i, j, fid, system, RENAME
+ integer :: i, system, RENAME
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, proname, pyname, chkname, outname, fchname
 
@@ -122,19 +122,16 @@ subroutine get_paired_LMO()
 
  call calc_ncore() ! calculate the number of core orbitals from array core_orb
  write(iout,'(2(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core
-
- i = index(hf_fch,'.fch',back=.true.)
+ i = index(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
- chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
- fchname = hf_fch(1:i-1)//'_uno.fch'
 
  if(mo_rhf) then
   write(iout,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
                    & localization -> paring.'
 
+  chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
   i = system('bas_fch2py '//TRIM(hf_fch))
   pyname = TRIM(proname)//'_proj_loc_pair.py'
-  call delete_file(pyname) ! if already exists, delete it
   i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
 
@@ -153,6 +150,7 @@ subroutine get_paired_LMO()
    write(iout,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
   end if
 
+  fchname = hf_fch(1:i-1)//'_uno.fch'
   i = system('bas_fch2py '//TRIM(hf_fch))
   if(ist == 1) then
    pyname = TRIM(proname)//'_uno_asrot.py'
@@ -161,7 +159,7 @@ subroutine get_paired_LMO()
    pyname = TRIM(proname)//'_uno.py'
    outname = TRIM(proname)//'_uno.out'
   end if
-  call delete_file(pyname) ! if already exists, delete it
+
   i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
   call prt_uno_script_into_py(pyname)
@@ -514,12 +512,15 @@ end subroutine prt_uno_script_into_py
 ! print associated rotation into a given .py file
 subroutine prt_assoc_rot_script_into_py(pyname)
  use print_id, only: iout
+ use mol, only: natom, elem, nuc, chem_core, ecp_core
  use mr_keyword, only : localm, hf_fch, npair_wish
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, ncore, fid1, fid2, RENAME
+ integer, allocatable :: ntimes(:)
  character(len=240) :: buf, pyname1, uno_fch, assoc_fch
  character(len=240), intent(in) :: pyname
 
+ ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.tmp'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -539,12 +540,14 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  end if
 
  if(localm == 'pm') then
-  write(fid2,'(A)') 'from lo import pm'
+  write(fid2,'(A)') 'from lo import pm, boys'
  else
   write(fid2,'(A)') 'from lo import boys'
-  write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
  end if
+ write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
+ write(fid2,'(A)') 'from auto_pair import pair_by_tdm'
  write(fid2,'(A)') 'from assoc_rot import assoc_rot'
+ write(fid2,'(A)') 'from mo_svd import proj_occ_get_act_vir'
  write(fid2,'(A,/)') 'from shutil import copyfile'
 
  do while(.true.)
@@ -588,6 +591,67 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
  write(fid1,'(A)') '# localization done'
 
+! write(fid1,'(/,A)') '# using projection to supplement pairs (if needed)'
+! write(fid1,'(A)') 'mol2 = mol.copy()'
+! if(ANY(nuc > 54)) then ! atoms > Xe
+!  allocate(ntimes(natom))
+!  call calc_ntimes(natom, elem, ntimes)
+!  write(fid1,'(A)') "mol2.basis = {'default':'STO-6G',"
+!  do i = 1, natom, 1
+!   if(nuc(i) > 54) write(fid2,'(A,I0,A)') "'"//TRIM(elem(i)),ntimes(i),"':'def2-SVP',"
+!  end do ! for i
+!  write(fid1,'(A)') '}'
+!  write(fid1,'(A)') 'mol2.ecp = mol.ecp.copy()'
+!  deallocate(ntimes)
+! else
+!  write(fid1,'(A)') "mol2.basis = 'STO-6G'"
+! end if
+! write(fid1,'(A)') 'mol2.build()'
+! write(fid1,'(A)') 'nshl = mol2.nbas'
+! write(fid1,'(A)') 'ang = mol2._bas[:,1].copy()'
+! write(fid1,'(A)') 'if(mol2.cart == True):'
+! write(fid1,'(A)') '  for i in range(0,nshl):'
+! write(fid1,'(A)') '    ang[i] = (ang[i]+1)*(ang[i]+2)/2'
+! write(fid1,'(A)') 'else:'
+! write(fid1,'(A)') '  for i in range(0,nshl):'
+! write(fid1,'(A)') '    ang[i] = 2*ang[i] + 1'
+! write(fid1,'(A)') 'nbf2 = np.dot(ang, mol2._bas[:,3])'
+! write(fid1,'(A)') 'na_np = idx[1] - 1'
+! write(fid1,'(A)') 'nalpha = na_np - npair'
+! write(fid1,'(A)') 'npair0 = nbf2 - nalpha # number of virtual MOs in STO-6G'
+! write(fid1,'(A)') 'ncr = npair0 - npair'
+! write(fid1,'(A)') 'if(ncr > 0):'
+! write(fid1,'(A)') "  S2 = mol2.intor_symmetric('int1e_ovlp')"
+! write(fid1,'(A)') "  cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
+! write(fid1,'(A)') '  alpha_coeff = proj_occ_get_act_vir(nbf, nif, nbf2, na_np,&
+!                   & S2, cross_S, mf.mo_coeff[0])'
+! write(fid1,'(A)') '  mf.mo_coeff = (alpha_coeff, beta_coeff)'
+! write(fid1,'(A)') '  nopen = idx[2]'
+! write(fid1,'(A)') '  ndb = nalpha - nopen - npair0'
+! write(fid1,'(A,I0)') '  ncore = ', ncore
+! write(fid1,'(A)') '  nloc = ndb + ncr - ncore'
+! write(fid1,'(A)') "  f = open('uno.out', 'w+')"
+! write(fid1,'(A)') "  f.write('nbf=%i\n' %nbf)"
+! write(fid1,'(A)') "  f.write('nif=%i\n\n' %nif)"
+! write(fid1,'(A)') "  f.write('ndb=%i\n\n' %ndb)"
+! write(fid1,'(A)') "  f.write('idx=%i %i %i' %(ndb+1,nalpha+npair0+1,nopen))"
+! write(fid1,'(A)') '  f.close()'
+! write(fid1,'(A)') '  occ_idx = range(ncore, ndb+ncr)'
+! write(fid1,'(A)') '  vir_idx = range(na_np, na_np+ncr)'
+! write(fid1,'(A)') '  occ_idx1 = range(0, nloc)'
+! write(fid1,'(A)') '  vir_idx1 = range(nloc, nloc+ncr)'
+! write(fid1,'(A)') '  coeff = np.zeros((nbf, nloc+ncr))'
+! ! These pairs are sigma bonds and lone electrons, just use boys localization
+! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
+! write(fid1,'(A)') '  coeff[:,occ_idx1] = boys(nbf, nloc, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
+! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,vir_idx])'
+! write(fid1,'(A)') '  coeff[:,vir_idx1] = boys(nbf, ncr, mf.mo_coeff[0][:,vir_idx], mo_dipole)'
+! write(fid1,'(A)') '  # pair the supplement active orbitals'
+! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, coeff)'
+! write(fid1,'(A)') '  alpha_coeff = pair_by_tdm(0,ncr,0,nloc,ncr,nbf,nloc+ncr,coeff,mo_dipole)'
+! write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = alpha_coeff[:,occ_idx1].copy()'
+! write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = alpha_coeff[:,vir_idx1].copy()'
+
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
  write(fid1,'(A)') 'noon = np.zeros(nif)'
@@ -595,48 +659,6 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  close(fid1)
  return
 end subroutine prt_assoc_rot_script_into_py
-
-! do PES scan, currently only rigid scan is supported
-subroutine do_PES_scan()
- use print_id, only: iout
- use mol, only: coor, scan_itype, scan_atoms
- use mr_keyword, only: rigid_scan, relaxed_scan, scan_val_gen, scan_nstep, scan_val
- implicit none
- integer :: i, n
- real(kind=8) :: val, rtmp(3,4), stepsize
- real(kind=8), external :: calc_an_int_coor
- character(len=24) :: data_string = ' '
-
- if(.not. (rigid_scan .or. relaxed_scan)) return
- write(iout,'(//,A)') 'Enter subroutine do_PES_scan...'
-
- if(.not. scan_val_gen) then
-  select case(scan_itype)
-  case(1,2,3)
-   n = scan_itype + 1
-  case default
-   write(iout,'(A,I0)') 'ERROR in subroutine do_PES_scan: invalid scan_itype=',&
-                         scan_itype
-   stop
-  end select
-
-  forall(i=1:n) rtmp(:,i) = coor(:,scan_atoms(i))
-  val = calc_an_int_coor(n, rtmp(:,1:n))
-  stepsize = scan_val(1)
-  forall(i = 1:scan_nstep) scan_val(i) = val + (i-1)*stepsize
- end if
-
- if(rigid_scan) then
-  write(iout,'(A)') 'Rigid scan values:'
- else
-  write(iout,'(A)') 'Relaxed scan values:'
- end if
- write(iout,'(10F6.3)') (scan_val(i),i=1,scan_nstep)
-
- call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_PES_scan at '//TRIM(data_string)
- return
-end subroutine do_PES_scan
 
 ! calculate/determine the number of core orbitals
 subroutine calc_ncore()
