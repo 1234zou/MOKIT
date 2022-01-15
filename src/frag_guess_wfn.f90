@@ -1189,10 +1189,10 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
  write(fid2,'(A)') buf1(1:i-1)//'DFTTYP='//TRIM(dft_in_gms)//' $END'
  if(TRIM(dft_in_gms) /= 'NONE') then
   write(fid2,'(A)',advance='no') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590'
-  if(disp_type == 2) then
-   write(fid2,'(A)',advance='no') ' IDCVER=3'
-  else
-   write(fid2,'(A)',advance='no') ' IDCVER=4'
+  if(disp_type == 1) then
+   write(fid2,'(A)',advance='no') ' IDCVER=3' ! GD3
+  else if(disp_type == 2) then
+   write(fid2,'(A)',advance='no') ' IDCVER=4' ! GD3BJ
   end if
   write(fid2,'(A)') ' $END'
  end if
@@ -1268,7 +1268,7 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
  if(LEN_TRIM(scrf) > 0) then
   write(fid2,'(A)',advance='no') ' $PCM IEF=-3 SOLVNT='//TRIM(solvent)
   if(index(scrf,'smd') > 0) then
-   write(fid2,'(A)',advance='no') ' SMD=.T. $END'
+   write(fid2,'(A)') ' SMD=.T. $END'
    write(iout,'(/,A)') 'Warning from subroutine gen_inp_of_frags: scrf=SMD detected.'
    write(iout,'(A)') 'If you encounter SCF convergence problems later in GAMESS,&
                     & you can change'

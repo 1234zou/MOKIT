@@ -342,10 +342,11 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
   stop
  end if
 
- mo = 0.0d0
+ mo = 0d0
  do i = 1, nif, 1
   read(fid,'(A)') buf
   read(fid,'(5(1X,ES21.14))') (mo(j,i),j=1,nbf)
+!  read(fid,'(4E18.12)') (mo(j,i),j=1,nbf) ! MOLCAS 8.0
  end do ! for i
 
  close(fid)
@@ -2506,13 +2507,14 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
  integer :: i, fid
  integer, intent(in) :: CtrType
  integer, parameter :: iout = 6
+ real(kind=8) :: casci_e, ref_weight
  real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
  real(kind=8), intent(out) :: davidson_e, e
  character(len=10), intent(in) :: mrcisd_prog
  character(len=240), intent(in) :: outname
  character(len=240) :: buf
 
- davidson_e = 0d0; e = 0d0
+ davidson_e = 0d0; e = 0d0; ref_weight = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  select case(TRIM(mrcisd_prog))
@@ -2635,6 +2637,30 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   read(fid,'(A)') buf
   read(buf(7:),*) e
   e = e + ptchg_e
+
+ case('gamess')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:13) == ' E(MR-CISD) =') exit
+  end do ! for while
+  read(buf(14:),*) e
+
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(14:),*) ref_weight
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:7) == 'E(REF)') exit
+  end do ! for while
+  i = index(buf, '=')
+  read(buf(i+1:),*) casci_e
+
+  ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
+  ! correction
+  davidson_e = (1d0 - ref_weight)*(e - casci_e)
 
  case default
   write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
@@ -3637,6 +3663,121 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  deallocate(U)
  return
 end subroutine get_no_from_density_and_ao_ovlp
+
+! read spin multipliticity from a given .fch(k) file
+subroutine read_mult_from_fch(fchname, mult)
+ implicit none
+ integer :: i, fid
+ integer, parameter :: iout = 6
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'Mult') exit
+ end do ! for while
+ close(fid)
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mult_from_fch: no 'Mult' found&
+                   & in file "//TRIM(fchname)
+  stop
+ end if
+ read(buf(50:),*) mult
+ return
+end subroutine read_mult_from_fch
+
+! calculate the number of unpaired electrons and generate unpaired electron
+! density .fch file
+! Note: the input fchname must include natural orbitals and corresponding
+! orbital occupation numbers.
+subroutine calc_unpaired_from_fch(fchname, gen_dm, unpaired_e)
+ implicit none
+ integer :: i, j, k, nbf, nif, mult, fid, fid1
+ integer, parameter :: iout = 6
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+ real(kind=8) :: ne, t0, t1, y0, y1, upe(3)
+ real(kind=8), intent(out) :: unpaired_e
+ real(kind=8), allocatable :: noon(:,:), coeff(:,:), dm(:,:)
+ logical, intent(in) :: gen_dm
+ ! True/False: generate unpaired/odd electron density or not
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(noon(nif,5))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', noon(:,1))
+
+ call read_mult_from_fch(fchname, mult)
+ if(mult == 1) then
+  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:14) == 'Number of elec') exit
+  end do ! for while
+  close(fid)
+  read(buf(50:),*) ne
+  i = ne/2   ! assuming NOs are ordered in decreasing occupation number
+  t0 = (noon(i,1) - noon(i+1,1))*0.5d0
+  y0 = 1d0 - 2d0*t0/(1d0+t0*t0)
+  t1 = (noon(i-1,1) - noon(i+2,1))*0.5d0
+  y1 = 1d0 - 2d0*t1/(1d0+t1*t1)
+  write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
+  write(iout,'(A,F7.3)') 'biradical character    y0=', y0
+  write(iout,'(A,F7.3)') 'tatraradical character y1=', y1
+ else
+  write(iout,'(A)') 'Not spin singlet. Radical character will not be computed.'
+ end if
+
+ forall(i = 1:nif) noon(i,2) = 2d0 - noon(i,1)
+ forall(i = 1:nif)
+  noon(i,3) = noon(i,1)*noon(i,2)
+  noon(i,4) = min(noon(i,1), noon(i,2))
+ end forall
+ forall(i = 1:nif) noon(i,5) = noon(i,3)*noon(i,3)
+
+ upe(1) = SUM(noon(:,3))
+ upe(2) = SUM(noon(:,4))
+ upe(3) = SUM(noon(:,5))
+ write(iout,'(A,F8.4)') "Yamaguchi's unpaired electrons  (sum_n n(2-n)      ):",upe(1)
+ write(iout,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n min(n,(2-n))):",upe(2)
+ write(iout,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n (n(2-n))^2  ):",upe(3)
+ write(iout,'(A)') REPEAT('-',61)
+ unpaired_e = upe(3)
+
+ if(gen_dm) then
+  i = index(fchname, '.fch')
+  fchname1 = fchname(1:i-1)//'_unpaired.fch'
+  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+  open(newunit=fid1,file=TRIM(fchname1),status='replace')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  close(fid)
+  close(fid1)
+  allocate(coeff(nbf,nif), source=0d0)
+  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+  allocate(dm(nbf,nbf), source=0d0)
+  do i = 1, nbf, 1
+   do j = 1, i, 1
+    do k = 1, nif, 1
+     if(noon(k,5)<1d-5 .or. (2d0-noon(k,5)<1d-5)) cycle
+     dm(j,i) = dm(j,i) + noon(k,5)*coeff(j,k)*coeff(i,k)
+    end do ! for k
+   end do ! for j
+  end do ! for i
+  call write_density_into_fch(fchname1, nbf, .true., dm)
+  deallocate(dm, coeff)
+ end if
+
+ deallocate(noon)
+ return
+end subroutine calc_unpaired_from_fch
 
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
 ! Note: the input matrix A must be symmetric

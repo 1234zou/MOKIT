@@ -16,6 +16,7 @@ subroutine do_cas(scf)
   mkl2fch_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, system, RENAME
+ real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
@@ -549,6 +550,8 @@ subroutine do_cas(scf)
   write(iout,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
  end if
 
+ call calc_unpaired_from_fch(casnofch, .false., unpaired_e)
+
  if(casscf_force) then
   allocate(grad(3*natom))
 
@@ -932,6 +935,13 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  ! if RIJK is on, we need to generate the fitting basis set file for OpenMolcas
  if(RI) then
   i = system('cp '//TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' .')
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy&
+                    & file from'
+   write(iout,'(A)') TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' to '//&
+                     ' current directory.'
+   stop
+  end if
   i = system('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
    write(iout,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call&

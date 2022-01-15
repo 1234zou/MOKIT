@@ -32,7 +32,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2021年9月13号
+2022年1月15号
 
 安装
 ----------
@@ -59,7 +59,7 @@ or
         export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export ORCA=/opt/orca-4.2.1/orca
+        export ORCA=/opt/orca-5.0.1/orca
         export GMS=/home/$USER/software/gamess/rungms
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
@@ -147,7 +147,7 @@ AutoMR支持调用的量子化学程序
 
 Disclaimer
 ----------
-Copyright (c) 2021 jxzou
+Copyright (c) 2022 jxzou
 
 All rights reserved.
 

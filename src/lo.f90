@@ -670,9 +670,6 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
  !  matrix, with multiple right-hand sides.
  ! call dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
 
- ! ?gemm: Computes a matrix-matrix product with general matrix
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-
  ! find the unitary (orthogonal) matrix between coeff1 and lo_coeff1,
  !  where coeff1*U = lo_coeff1
  allocate(coeff1(nbf,nmo), lo_coeff1(nbf,nmo))

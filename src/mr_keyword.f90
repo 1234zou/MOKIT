@@ -51,6 +51,7 @@ module mol
  real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
  real(kind=8) :: gvb_e     = 0d0 ! GVB energy
+ real(kind=8) :: XHgvb_e   = 0d0 ! GVB energy after excluding inactive X-H pairs
  real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e  = 0d0 ! CASPT2/DMRG-CASPT2 energy
@@ -63,7 +64,7 @@ module mol
  real(kind=8) :: davidson_e= 0d0 ! Davidson correction energy
  real(kind=8) :: mrcisd_e  = 0d0 ! MRCISD+Q energy
  real(kind=8) :: mcpdft_e  = 0d0 ! MC-PDFT energy
- real(kind=8) :: mrcc_e    = 0d0 ! MRCC energy
+ real(kind=8) :: mrcc_e    = 0d0 ! FIC-MRCC/BCCC2b energy
  real(kind=8) :: ptchg_e   = 0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e  = 0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
@@ -139,6 +140,7 @@ module mr_keyword
  logical :: dmrgci  = .false.
  logical :: dmrgscf = .false.
  logical :: caspt2  = .false.
+ logical :: caspt2k = .false.
  logical :: caspt3  = .false.
  logical :: nevpt2  = .false.
  logical :: nevpt3  = .false.
@@ -147,19 +149,21 @@ module mr_keyword
  logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
  logical :: mcpdft  = .false.
- logical :: mrcc    = .false.
- logical :: CIonly  = .false.      ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
- logical :: dyn_corr= .false.      ! dynamic correlation
- logical :: casscf_force = .false. ! whether to calculate CASSCF force
- logical :: FIC = .false.          ! False/True for FIC-/SC-NEVPT2
- logical :: RI = .false.           ! whether to RI approximation in CASSCF, NEVPT2
- logical :: F12 = .false.          ! whether F12 used in NEVPT2, MRCI
- logical :: DLPNO = .false.        ! whether to turn on DLPNO-NEVPT2
- logical :: pop = .false.          ! whether to perform population analysis
- logical :: nmr = .false.          ! whether to calcuate nuclear shielding
- logical :: soc = .false.          ! whether to calcuate spin-orbit coupling (SOC)
- logical :: rigid_scan = .false.   ! rigid/unrelaxed PES scan
- logical :: relaxed_scan = .false. ! relaxed PES scan
+ logical :: ficmrcc = .false.
+ logical :: bccc2b  = .false.
+ logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
+ logical :: dyn_corr= .false.     ! dynamic correlation
+ logical :: casscf_force = .false.! whether to calculate CASSCF force
+ logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
+ logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
+ logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
+ logical :: DLPNO = .false.       ! whether to turn on DLPNO-NEVPT2
+ logical :: pop = .false.         ! whether to perform population analysis
+ logical :: nmr = .false.         ! whether to calcuate nuclear shielding
+ logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
+ logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
+ logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
+ logical :: relaxed_scan = .false.! relaxed PES scan
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -321,7 +325,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2021-Sep-13)'
+  write(iout,'(A)') '            Version: 1.2.3 (2021-Sep-17)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -432,7 +436,8 @@ contains
   if(i == 0) then
    write(iout,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected&
                     & in keyword line."
-   write(iout,'(A)') 'The method and basis set must be specified via method/basis.'
+   write(iout,'(A)') 'The method and basis set must be specified via method/bas&
+                    &is, e.g. CASSCF/cc-pVDZ.'
    close(fid)
    stop
   end if
@@ -491,15 +496,18 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','sdspt2','mrmp2','ovbmp2','caspt3','caspt2','nevpt3',&
-       'nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','mrcc')
+  case('mcpdft','mrcisd','sdspt2','mrmp2','ovbmp2','caspt3','caspt2','caspt2k',&
+       'nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','bccc2b', &
+       'bccc3b','mrcc')
    uno = .true.; gvb = .true.
   case default
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: specified method '"//&
-                     TRIM(method)//"' not supported."
+   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
+                        TRIM(method)//"' not supported."
    write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                      DMRGSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, OVBMP2,&
-                      MRCISD, MCPDFT, MRCC.'
+                      DMRGSCF, NEVPT2,'
+   write(iout,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, MCPDFT,&
+                    & BCCC2b, BCCC3b,'
+   write(iout,'(A)') 'and MRCC.'
    stop
   end select
 
@@ -522,6 +530,9 @@ contains
   case('caspt2')
    caspt2 = .true.
    casscf = .true.
+  case('caspt2k')
+   caspt2 = .true.; casscf = .true.
+   caspt2k = .true.; caspt2_prog = 'orca'
   case('caspt3')
    caspt3 = .true.
    casscf = .true.
@@ -540,8 +551,10 @@ contains
   case('dmrgci')
    dmrgci = .true.
   case('mrcc')
-   mrcc = .true.
+   ficmrcc = .true.
    casscf = .true.
+  case('bccc2b')
+   bccc2b = .true.
   case('gvb')
   end select
 
@@ -644,17 +657,6 @@ contains
    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog'&
                       & cannot be used with any of"
    write(iout,'(A)') "'readrhf', 'readuhf', 'readno'."
-   stop
-  end if
-
-  alive1(1:4) = [(index(longbuf,'opt')>0), (index(longbuf,'freq')>0),&
-                 (index(longbuf,'scrf')>0), (index(longbuf,'iop')>0)]
-  if(COUNT(alive1(1:4) .eqv. .true.) > 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: invalid keyword(s) detected.'
-   write(iout,'(A)') "Currently none of 'opt', 'freq', 'scrf', 'iop' is suppo&
-                     &rted. You can use the"
-   write(iout,'(A)') 'generated *_NO.fch file to perform further calculations with&
-                    & these keywords in corresponding files.'
    stop
   end if
 
@@ -804,6 +806,8 @@ contains
     read(longbuf(j+1:i-1),*) ON_thres
    case('nmr')
     nmr = .true.
+   case('excludexh')
+    excludeXH = .true.
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."
@@ -908,7 +912,7 @@ contains
   write(iout,'(5(A,L1,3X))') 'OVBMP2  = ',  ovbmp2, 'SDSPT2  = ', sdspt2 ,&
        'MRCISD  = ', mrcisd, 'MCPDFT  = ',  mcpdft, 'NEVPT3  = ', nevpt3
 
-  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'MRCC    = ', mrcc   ,&
+  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'FICMRCC = ', ficmrcc,&
        'CIonly  = ', CIonly, 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2
 
   write(iout,'(5(A,L1,3X))') 'X2C     = ',     X2C, 'RI      = ', RI     ,&
@@ -1150,7 +1154,7 @@ contains
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
+     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.ficmrcc)) then
    write(iout,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
    write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
                     & none of them is specified.'
@@ -1202,7 +1206,7 @@ contains
   end select
 
   select case(TRIM(mrcisd_prog))
-  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton')
+  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton','gamess')
   case default
    write(iout,'(A)') error_warn
    write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
@@ -1217,9 +1221,10 @@ contains
      write(iout,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
      stop
     end if
-    if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca') .and. X2C) then
+    if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca' .or. &
+        mrcisd_prog=='gamess') .and. X2C) then
      write(iout,'(A)') error_warn
-     write(iout,'(A)') 'MRCISD with Gaussian/ORCA incompatible with X2C.'
+     write(iout,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
      stop
     end if
    case(2) ! ic-MRCISD
@@ -1251,11 +1256,11 @@ contains
     stop
    end select
 
-   if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='psi4' .or. mrcisd_prog=='dalton')&
-      .and. (CtrType/=1)) then
+   if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='psi4' .or. mrcisd_prog=='dalton'&
+       .or. mrcisd_prog=='gamess') .and. (CtrType/=1)) then
     write(iout,'(A)') error_warn
-    write(iout,'(A)') 'Gaussian, PSI4 and Dalton only supports uncontracted MRCISD.'
-    write(iout,'(A,I0)') 'But you specify CtrType=',CtrType
+    write(iout,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
+    write(iout,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
     stop
    end if
 

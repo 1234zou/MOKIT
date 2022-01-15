@@ -33,11 +33,11 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
  real(kind=8) :: maxv
  real(kind=8), allocatable :: C_T_S_C(:,:)
 
- allocate(C_T_S_C(nif,nif), source=0.0d0)
+ allocate(C_T_S_C(nif,nif), source=0d0)
 
  C_T_S_C = MATMUL(TRANSPOSE(coeff),MATMUL(S,coeff))
 
- forall(i=1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1.0d0
+ forall(i=1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1d0
  forall(i=1:nif,j=1:nif) C_T_S_C(i,j) = DABS(C_T_S_C(i,j))
 
  i0 = 1; j0 = 1
@@ -51,7 +51,7 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
   end do ! for j
  end do ! for i
 
- write(iout,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0, 'maxv=', maxv
+ write(iout,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=',j0,'i=',i0,'maxv=',maxv
  deallocate(C_T_S_C)
  return
 end subroutine check_orthonormal
@@ -63,7 +63,7 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
  integer, parameter :: iout = 6
- real(kind=8), parameter :: thresh = 1.0d-6
+ real(kind=8), parameter :: thresh = 1d-6
  real(kind=8) :: ao_ovlp(nbf,nbf), mo_coeff(nbf,nif)
 !f2py depend(nbf) :: ao_ovlp
 !f2py intent(in,copy) :: ao_ovlp
@@ -71,8 +71,8 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
 !f2py intent(out) :: mo_coeff
  real(kind=8), allocatable :: U(:,:), s(:)
 
- mo_coeff = 0.0d0
- allocate(s(nbf), source=0.0d0)
+ mo_coeff = 0d0
+ allocate(s(nbf), source=0d0)
  call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
 
  nif0 = COUNT(s>thresh)
@@ -85,19 +85,19 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  end if
 
  ! reverse the eigenvalues
- allocate(U(nbf,1), source=0.0d0)
+ allocate(U(nbf,1), source=0d0)
  forall(i = 1:nbf) U(i,1) = s(nbf-i+1)
  s = U(:,1)
  deallocate(U)
  ! now s1 > s2 > s3 > ...
 
  ! reverse the eigenvectors, according to the descending order of eigenvalues
- allocate(U(nbf, nbf), source=0.0d0)
+ allocate(U(nbf, nbf), source=0d0)
  forall(i = 1:nbf) U(:,i) = ao_ovlp(:,nbf-i+1)
 
  ! compute s^(-1/2) (only the first nif ones), stored as diagonal in ao_ovlp
- ao_ovlp = 0.0d0
- forall(i = 1:nif) ao_ovlp(i,i) = 1.0d0/DSQRT(s(i))
+ ao_ovlp = 0d0
+ forall(i = 1:nif) ao_ovlp(i,i) = 1d0/DSQRT(s(i))
  deallocate(s)
  ! ao_ovlp now is a nif*nif diagonal matrix
 
@@ -105,7 +105,7 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric.
  ! Syntax FORTRAN 77:
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'U', nbf, nif, 1.0d0, ao_ovlp, nif, U, nbf, 0.0d0, mo_coeff, nbf)
+ call dsymm('R', 'U', nbf, nif, 1d0, ao_ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
 
  deallocate(U)
  return
@@ -118,15 +118,15 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
  integer :: nbf
 !f2py intent(in) :: nbf
  integer, parameter :: iout = 6
- real(kind=8), parameter :: thresh = 1.0d-6
+ real(kind=8), parameter :: thresh = 1d-6
  real(kind=8) :: ao_ovlp(nbf,nbf), mo_coeff(nbf,nbf)
 !f2py depend(nbf) :: ao_ovlp, mo_coeff
 !f2py intent(in,copy) :: ao_ovlp
 !f2py intent(out) :: mo_coeff
  real(kind=8), allocatable :: X(:,:), U(:,:), s(:)
 
- mo_coeff = 0.0d0
- allocate(s(nbf), source=0.0d0)
+ mo_coeff = 0d0
+ allocate(s(nbf), source=0d0)
  call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
 
  if(ANY(s<thresh)) then
@@ -135,33 +135,33 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
  end if
 
  ! reverse the eigenvalues
- allocate(X(nbf,1), source=0.0d0)
+ allocate(X(nbf,1), source=0d0)
  forall(i = 1:nbf) X(i,1) = s(nbf-i+1)
  s = X(:,1)
  deallocate(X)
  ! now s1 > s2 > s3 > ...
 
  ! reverse the eigenvectors, according to the descending order of eigenvalues
- allocate(U(nbf, nbf), source=0.0d0)
+ allocate(U(nbf, nbf), source=0d0)
  forall(i = 1:nbf) U(:,i) = ao_ovlp(:,nbf-i+1)
 
  ! compute s^(-1/2), stored as diagonal in ao_ovlp
- ao_ovlp = 0.0d0
- forall(i = 1:nbf) ao_ovlp(i,i) = 1.0d0/DSQRT(s(i))
+ ao_ovlp = 0d0
+ forall(i = 1:nbf) ao_ovlp(i,i) = 1d0/DSQRT(s(i))
  deallocate(s)
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
  ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric.
  ! Syntax FORTRAN 77:
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- allocate(X(nbf,nbf), source=0.0d0)
- call dsymm('R', 'U', nbf, nbf, 1.0d0, ao_ovlp, nbf, U, nbf, 0.0d0, X, nbf)
+ allocate(X(nbf,nbf), source=0d0)
+ call dsymm('R', 'U', nbf, nbf, 1d0, ao_ovlp, nbf, U, nbf, 0d0, X, nbf)
 
  ! compute X1*U^T, where X1 is Us^(-1/2)
  ! ?gemm: Computes a matrix-matrix product with general matrices.
  ! Syntax FORTRAN 77:
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', nbf, nbf, nbf, 1.0d0, X, nbf, U, nbf, 0.0d0, mo_coeff, nbf)
+ call dgemm('N', 'T', nbf, nbf, nbf, 1d0, X, nbf, U, nbf, 0d0, mo_coeff, nbf)
 
  deallocate(X, U)
  return

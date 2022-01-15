@@ -1,6 +1,11 @@
-MOKIT 1.2.3 (Sep 13, 2021)
+MOKIT 1.2.3 (Jan 15, 2022)
 ------------------------
-* supplement pairs when UNO pairs are not enough
+* fix a bug of py2fch when using small basis set like STO-3G/6G, 3-21G
+* output Head-Gordon's unpaired electrons, biradical/tetraradical index y0/y1
+* add keyword CASPT2K (interfaced with ORCA 5.x)
+* compute +Q Davidson correction for MRCISD in OpenMolcas/GAMESS
+* add keyword excludeXH and a utility gvb_exclude_XH
+* supplement pairs when UNO pairs are not enough (commented)
 * compatible keywords and scripts with Molpro 2021 and GAMESS 2021
 * use minimal basis set def2-SVP (in RHF proj) for atoms>Xe, instead of STO-6G
 * create all possible Python APIs in rwgeom.f90

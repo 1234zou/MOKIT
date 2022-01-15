@@ -1,5 +1,4 @@
 ! written by jxzou at 20180406: construct part of or all virtual orbitals using the PAO (projected atomic orbitals)
-
 ! updated by jxzou at 20191215: simplify code
 
 ! This subroutine is designed to be imported as a module by Python.

@@ -31,7 +31,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Sep 13, 2021
+Jan 15, 2022
 
 Installation
 ------------
@@ -57,7 +57,7 @@ Installation
         export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export ORCA=/opt/orca-4.2.1/orca
+        export ORCA=/opt/orca-5.0.1/orca
         export GMS=/home/$USER/software/gamess/rungms
 
   (Remember to modify the `ORCA` and `GMS` paths to suit your local environment)
@@ -147,7 +147,7 @@ Citation
 
 Disclaimer
 ----------
-Copyright (c) 2021 jxzou
+Copyright (c) 2022 jxzou
 
 All rights reserved.
 

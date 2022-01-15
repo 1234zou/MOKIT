@@ -4,15 +4,16 @@
 subroutine do_mrcisd()
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, casci, casscf, CIonly, ist, hf_fch, mrcisd,&
-  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, molpro_path,&
-  psi4_path, bgchg, casci_prog, casscf_prog, chgname, F12, RI
+  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, gms_path, &
+  gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname, F12, RI
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, davidson_e,&
   mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, mkl2gbw
  integer :: i, system
- real(kind=8) :: e
+ real(kind=8) :: e, ref_weight
  character(len=24) :: data_string
  character(len=240) :: string, chkname, inpname, outname, mklname
+ character(len=480) :: datpath
  character(len=47) :: error_warn='ERROR in subroutine do_mrcisd: invalid CtrType='
 
  if(.not. mrcisd) return
@@ -68,7 +69,7 @@ subroutine do_mrcisd()
   chkname = ' '
   call prt_mrcisd_molcas_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+  datpath = TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
 
  case('orca')
   call check_exe_exist(orca_path)
@@ -88,7 +89,7 @@ subroutine do_mrcisd()
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
-  i = system(TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+  datpath = TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
 
  case('gaussian')
   call check_exe_exist(gau_path)
@@ -99,7 +100,7 @@ subroutine do_mrcisd()
   call unfchk(casnofch, chkname)
   call prt_mrcisd_gau_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = system(TRIM(gau_path)//' '//TRIM(inpname))
+  datpath = TRIM(gau_path)//' '//TRIM(inpname)
 
  case('molpro')
   call check_exe_exist(molpro_path)
@@ -120,9 +121,8 @@ subroutine do_mrcisd()
 
   call prt_mrcisd_molpro_inp(inpname)
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
-  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,'m '//TRIM(inpname)
-  write(iout,'(A)') '$'//TRIM(string)
-  i = system(TRIM(string))
+  write(datpath,'(2(A,I0),A)') TRIM(molpro_path)//' -n ', nproc, ' -m ', i,&
+                               'm '//TRIM(inpname)
 
  case('psi4')
   call check_exe_exist(psi4_path)
@@ -137,10 +137,8 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
 
   call prt_mrcisd_psi4_inp(inpname)
-  write(string,'(A,I0)') 'psi4 '//TRIM(inpname)//' '//TRIM(outname)&
+  write(datpath,'(A,I0)') 'psi4 '//TRIM(inpname)//' '//TRIM(outname)&
                          //' -n ',nproc
-  write(iout,'(A)') '$'//TRIM(string)
-  i = system(TRIM(string))
 
  case('dalton')
   i = system('fch2dal '//TRIM(casnofch))
@@ -159,25 +157,49 @@ subroutine do_mrcisd()
   i = index(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD'
   chkname = casnofch(1:i)//'MRCISD.sout'
-  write(string,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' -ow '//TRIM(mklname)&
-                              //' >'//TRIM(chkname)//" 2>&1"
-  write(iout,'(A)') '$'//TRIM(string)
-  i = system(TRIM(string))
+  write(datpath,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' -ow '//&
+                               TRIM(mklname)//' >'//TRIM(chkname)//" 2>&1"
+
+ case('gamess')
+  i = system('fch2inp '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  string = casnofch(1:i-1)//'.inp'
+  i = index(casnofch, '_NO', back=.true.)
+  inpname = casnofch(1:i)//'MRCISD.inp'
+  mklname = casnofch(1:i)//'MRCISD.dat'
+  outname = casnofch(1:i)//'MRCISD.gms'
+  i = RENAME(TRIM(string), TRIM(inpname))
+  datpath = TRIM(gms_scr_path)//'/'//TRIM(mklname) ! delete the possible .dat file
+  call delete_file(datpath)
+  call prt_mrcisd_gms_inp(inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  write(datpath,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ',nproc,&
+                           ' >'//TRIM(outname)//" 2>&1"
 
  case default
-  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: invalid program='//TRIM(mrcisd_prog)
+  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: invalid program='//&
+                     TRIM(mrcisd_prog)
   stop
  end select
 
+ write(iout,'(A)') '$'//TRIM(datpath)
+ i = system(TRIM(datpath))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: error termination.'
-  write(iout,'(A)') 'Filename='//TRIM(outname)
+  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: MRCISD job failed.'
+  write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check why.'
   stop
  end if
 
- ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian output file
+ if(TRIM(MRCISD_prog) == 'gamess') then
+  ! move .dat file into current directory
+  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(mklname)//' .')
+ end if
+
+ ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian/
+ ! Dalton/GAMESS output file
  call read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
       nuc_pt_e, davidson_e, e)
+
  mrcisd_e = e + davidson_e ! E(MRCISD+Q)
  if(CIonly) then   ! E(MRCISD) - (E(CASCI) or E(CASSCF))
   e = e - casci_e
@@ -185,14 +207,19 @@ subroutine do_mrcisd()
   e = e - casscf_e
  end if
 
+ if(TRIM(MRCISD_prog)=='openmolcas' .and. CtrType==1) then
+  call calc_davidson_corr(outname, e, davidson_e)
+  mrcisd_e = mrcisd_e + davidson_e
+ end if
+
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
+  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   select case(CtrType)
   case(1) ! uncontracted MRCISD
-   write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
   case(2) ! ic-MRCISD
-   write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
    write(iout,'(A,F18.8,1X,A4)') 'E_corr(icMRCISD) =', e, 'a.u.'
    write(iout,'(A,F18.8,1X,A4)') 'E(icMRCISD+Q)    =', mrcisd_e, 'a.u.'
   case default
@@ -219,11 +246,21 @@ subroutine do_mrcisd()
   end if
   write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
- case('molpro')
+ case('molpro','gamess')
   write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
  end select
+
+ if(TRIM(mrcisd_prog) == 'gamess') then
+  write(iout,'(/,A)') 'You may notice that the E(MRCISD+Q) above is slightly&
+                      & different with that in'
+  write(iout,'(A)') '.gms file. This is because GAMESS uses renormalized David&
+                    &son size extensivity'
+  write(iout,'(A)') 'correction. While MOKIT adopts the simple Davidson size e&
+                    &xtensivity correction:'
+  write(iout,'(A)') 'E_corr*(1-c^2).'
+ end if
 
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine do_mrcisd at '//TRIM(data_string)
@@ -266,6 +303,7 @@ subroutine prt_mrcisd_molcas_inp(inpname)
   write(fid,'(A,I0)') 'RAS1 = ', idx
   write(fid,'(A,I0)') 'RAS2 = ', 2*npair0+nopen
   write(fid,'(A,I0)') 'RAS3 = ', nvir
+  write(fid,'(A)') 'PRWF = 1d-6'
   write(fid,'(A,/)') 'CIonly'
  else if(CtrType == 2) then ! ic-MRCISD
   write(fid,'(A,I0,A)') 'nActEl = ', nacta+nactb, ' 0 0'
@@ -318,6 +356,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
 
  if(CtrType == 1) then ! uncontracted MRCISD
   write(fid2,'(A)') '%mrci'
+  write(fid2,'(A)') ' CItype MRCI'
   write(fid2,'(2(A,I0),A)') ' NewBlock 1 * nroots 1 refs cas(',nacta+nactb,',',&
                              2*npair0+nopen,') end end'
   write(fid2,'(A)') ' tsel 0.0'
@@ -496,4 +535,132 @@ subroutine prt_mrcisd_dalton_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  return
 end subroutine prt_mrcisd_dalton_inp
+
+! add MRCISD+Q keywords into a GAMESS input file
+subroutine prt_mrcisd_gms_inp(inpname)
+ use mr_keyword, only: mem, nproc, cart
+ use mol, only: ndb, nacto, nopen, nacte, npair, npair0, nif, charge, mult
+ implicit none
+ integer :: i, j, ndb0, ne, fid, fid1, RENAME
+ character(len=240), intent(in) :: inpname
+ character(len=240) :: buf, inpname1
+
+ ndb0 = ndb + npair - npair0
+ ne = 2*ndb0 + nacte
+ inpname1 = TRIM(inpname)//'.t'
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ write(fid1,'(2(A,I0),A)') ' $CONTRL SCFTYP=NONE RUNTYP=ENERGY ICHARG=',&
+                           charge, ' MULT=', mult, ' NOSYM=1 ICUT=11'
+ if(cart) then
+  write(fid1,'(A)') '  CITYP=ORMAS $END'
+ else
+  write(fid1,'(A)') '  ISPHER=1 CITYP=ORMAS $END'
+ end if
+ write(fid1,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)),&
+                        ' $END'
+ write(fid1,'(2(A,I0),A)') ' $CIDET NCORE=0 NACT=', nif, ' NELS=', ne, ' $END'
+ write(fid1,'(6(A,I0),A)')' $ORMAS NSPACE=3 MSTART(1)=1,',ndb0+1,',',&
+  ndb0+nacto+1,' MINE(1)=',ndb0*2-2,',',nacte-2,',0 MAXE(1)=',ndb0*2,&
+  ',',nacte+2,',2 $END'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:7) == '$GUESS') exit
+ end do
+
+ BACKSPACE(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+ return
+end subroutine prt_mrcisd_gms_inp
+
+! calculate the Davidson size-extensivity correction energy for OpenMolcas
+! davidson_e = E_corr*(1-c^2), where c is the reference weight
+subroutine calc_davidson_corr(outname, E_corr, davidson_e)
+ use print_id, only: iout
+ use mol, only: ndb, nif, npair, npair0, nacto
+ implicit none
+ integer :: i, j, k, idx1, idx2, fid1, fid2, system
+ real(kind=8) :: c
+ real(kind=8), intent(in) :: E_corr
+ real(kind=8), intent(out) :: davidson_e
+ character(len=:), allocatable :: str
+ character(len=240) :: buf, h5name, pyname, pyout
+ character(len=240), intent(in) :: outname
+
+ c = 0d0; davidson_e = 0d0 ! initialization
+ str = REPEAT(' ',nif)
+
+ idx1 = ndb + npair - npair0
+ idx2 = idx1 + nacto
+ i = index(outname, '.', back=.true.)
+ h5name = outname(1:i-1)//'.rasscf.h5'
+ pyname = outname(1:i-1)//'_ci.py'
+ pyout = outname(1:i-1)//'_ci.o'
+
+ open(newunit=fid1,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(7:14) == 'conf/sym') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(iout,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
+                      &found in "//TRIM(outname)
+  close(fid1)
+  stop
+ end if
+
+ open(newunit=fid2,file=TRIM(pyname),status='replace')
+ write(fid2,'(A)') 'import h5py'
+ write(fid2,'(A)') "f = h5py.File('"//TRIM(h5name)//"','r')"
+ write(fid2,'(A)') "CI_coeff = f['CI_VECTORS']"
+ write(fid2,'(A)',advance='no') 'idx = ['
+
+ k = 0 
+ do while(.true.)
+  read(fid1,*,iostat=j) i, str
+  if(j /= 0) exit
+  if(str(1:idx1)==REPEAT('2',idx1) .and. str(idx2+1:nif)==REPEAT('0',nif-idx2)) then
+   k = k + 1
+   write(fid2,'(I0,A1)',advance='no') i, ','
+   if(MOD(k,20) == 0) write(fid2,'(A1,/)',advance='no') '\'
+  end if
+ end do ! for while
+
+ close(fid1)
+ write(fid2,'(A)') ']'
+ write(fid2,'(A)') 'ref_weight = 0e0'
+ write(fid2,'(A)') 'for i in range(0,len(idx)):'
+ write(fid2,'(A)') '  rtmp = CI_coeff[0][idx[i]-1]'
+ write(fid2,'(A)') '  ref_weight = ref_weight + rtmp*rtmp'
+ write(fid2,'(A)') 'f.close()'
+ write(fid2,'(A)') "print('%.12e' %ref_weight)"
+ close(fid2)
+ i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
+ if(i /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
+                       //TRIM(pyname)
+  stop
+ end if
+
+ open(newunit=fid2,file=TRIM(pyout),status='old')
+ read(fid2,*) c
+ close(fid2,status='delete')
+ davidson_e = E_corr*(1d0 - c)
+
+ open(newunit=fid2,file=TRIM(pyname),status='old')
+ close(fid2,status='delete')
+ return
+end subroutine calc_davidson_corr
 

@@ -5,7 +5,7 @@
 ! do CASSCF/CASPT2(npair<=7) or DMRG-CASSCF/DMRG-NEVPT2 (npair>7) when scf=.True.
 subroutine do_mrpt2()
  use print_id, only: iout
- use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, &
+ use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
   molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, F12
@@ -424,10 +424,14 @@ subroutine do_mrpt2()
  write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e, 'a.u.'
 
  if(caspt2) then
-  write(iout,'(A)')             'IP-EA shift  =         0.25 (default)'
+  if(.not.caspt2k) write(iout,'(A)') 'IP-EA shift  =         0.25 (default)'
   caspt2_e = ref_e + corr_e
   write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2)    = ', caspt2_e, 'a.u.'
+  if(caspt2k) then
+   write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2-K)  = ', caspt2_e, 'a.u.'
+  else
+   write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2)    = ', caspt2_e, 'a.u.'
+  end if
  else if(nevpt2) then ! NEVPT2
   nevpt2_e = ref_e + corr_e
   write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,   'a.u.'
@@ -676,7 +680,8 @@ end subroutine prt_nevpt2_orca_inp
 subroutine prt_caspt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, DKH2, X2C, CIonly, basis, RI, RIJK_bas
+ use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, basis, RI, &
+  RIJK_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -718,9 +723,13 @@ subroutine prt_caspt2_orca_inp(inpname)
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
- write(fid2,'(A)') ' PTMethod FIC_CASPT2'
+ if(caspt2k) then
+  write(fid2,'(A)') ' PTMethod FIC_CASPT2K'
+ else
+  write(fid2,'(A)') ' PTMethod FIC_CASPT2'
+ end if
  write(fid2,'(A)') ' PTSettings'
- write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
+ if(.not. caspt2k) write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
  write(fid2,'(A)') '  MaxIter 200'
  write(fid2,'(A)') ' end'
  write(fid2,'(A)') 'end'

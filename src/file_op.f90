@@ -80,6 +80,7 @@ end subroutine copy_file
 subroutine copy_bin_file(fname1, fname2, delete)
  implicit none
  integer :: i, system
+ integer, parameter :: iout = 6
  character(len=240), intent(in) :: fname1, fname2
  logical, intent(in) :: delete
 
@@ -97,6 +98,12 @@ subroutine copy_bin_file(fname1, fname2, delete)
 #endif
  end if
 
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine copy_bin_file: fail to copy binary&
+                   & file from'
+  write(iout,'(A)') TRIM(fname1)//' to '//TRIM(fname2)
+  stop
+ end if
  return
 end subroutine copy_bin_file
 

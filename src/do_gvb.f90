@@ -1,16 +1,19 @@
 ! written by jxzou at 20210729: move subroutine do_gvb from file automr.f90 to
 ! this new file, and rename it as do_gvb_gms
+! updated by jxzou at 20210915: add excludeXH section
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
  use print_id, only: iout
- use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish
+ use mr_keyword, only: nproc, gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish,&
+  excludeXH, gms_path, gms_scr_path
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte,&
-  nacto, npair0
+  nacto, npair0, XHgvb_e
  implicit none
- integer :: i
+ integer :: i, system
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, pair_fch
+ character(len=240) :: buf, proname, proname1, pair_fch, inpname, datname, gmsname
+ character(len=480) :: longbuf
 
  if(.not. gvb) return
  write(iout,'(//,A)') 'Enter subroutine do_gvb...'
@@ -71,6 +74,63 @@ subroutine do_gvb()
  nacte = nacta + nactb
  nacto = nacte
 
+ ! The excludeXH will not affect any CAS calculations, it only generates a inp
+ ! file where inactive X-H pairs are excluded.
+ ! This will affect the GVB-BCCC2b calculation (if GVB-BCCC2b is activated)
+ if(excludeXH) then
+  if(TRIM(gvb_prog) /= 'gamess') then
+   write(iout,'(A)') 'ERROR in subroutine do_gvb: the keyword excludeXH curren&
+                     &tly is supported only for GAMESS.'
+   write(iout,'(A)') 'But you are using GVB_prog='//TRIM(gvb_prog)
+   stop
+  end if
+
+  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+   write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+  else ! paired LMOs obtained from associated rotation of UNOs
+   write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
+  end if
+  datname = TRIM(proname1)//'.dat'
+  gmsname = TRIM(proname1)//'.gms'
+
+  buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
+  write(iout,'(/,A)') '$'//TRIM(buf)
+  i = system(TRIM(buf))
+  if(i /= 0) then
+   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility gvb&
+                       &_exclude_XH.'
+   write(iout,'(A)') 'Did you delete it or forget to compiled it?'
+   stop
+  end if
+
+  inpname = TRIM(proname1)//'_XH.inp'
+  datname = TRIM(proname1)//'_XH.dat'
+  gmsname = TRIM(proname1)//'_XH.gms'
+  ! call GAMESS to do GVB computations (delete .dat file first, if any)
+  buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
+  call delete_file(buf)
+  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
+  i = system(TRIM(gms_path)//' '//TRIM(longbuf))
+  if(i /= 0) then
+   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: GVB job failed. Please open&
+                      & file '//TRIM(gmsname)
+   write(iout,'(A)') 'and check why.'
+   stop
+  end if
+  call read_gvb_energy_from_gms(gmsname, XHgvb_e)
+  write(iout,'(A)') 'After excluding inactive X-H pairs from the original GVB:'
+  write(iout,'(A,F18.8,1X,A4)') 'E(GVB) = ', XHgvb_e, 'a.u.'
+
+  ! move the .dat file into current directory
+  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
+  if(i /= 0) then
+   write(iout,'(A)') 'ERROR in subroutine do_gvb: fail to move file. Possibly&
+                    & wrong gms_scr_path.'
+   write(iout,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
+   stop
+  end if
+ end if
+
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)
  return
@@ -84,9 +144,10 @@ subroutine do_gvb_gms(proname, pair_fch)
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  implicit none
  integer :: i, j, system, RENAME
+ real(kind=8) :: unpaired_e
  character(len=240) :: buf, chkname, inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
- character(len=360) :: longbuf = ' '
+ character(len=480) :: longbuf = ' '
 
  call check_gms_path()
 
@@ -126,7 +187,7 @@ subroutine do_gvb_gms(proname, pair_fch)
  ! move the .dat file into current directory
  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb: fail to move file. Possibly&
+  write(iout,'(A)') 'ERROR in subroutine do_gvb_gms: fail to move file. Possibly&
                    & wrong gms_scr_path.'
   write(iout,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
   stop
@@ -141,7 +202,8 @@ subroutine do_gvb_gms(proname, pair_fch)
  end if
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility gvb_sort_pairs.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+                     & gvb_sort_pairs.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   write(iout,'(A)') 'Or maybe there is some unexpected error.'
   stop
@@ -156,7 +218,8 @@ subroutine do_gvb_gms(proname, pair_fch)
                              npair, ' -open ', nopen
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+                     & dat2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
@@ -166,13 +229,17 @@ subroutine do_gvb_gms(proname, pair_fch)
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+                     & extract_noon2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
 
  ! update Total SCF Density in .fch(k) file
  call update_density_using_no_and_on(inpname)
+
+ ! calculate odd/unpaired electron number
+ call calc_unpaired_from_fch(inpname, .false., unpaired_e)
 
  ! find npair0: the number of active pairs (|C2| > 0.1)
  call find_npair0_from_dat(datname, npair, npair0)
@@ -200,9 +267,10 @@ subroutine do_gvb_gau(proname, pair_fch)
  use util_wrapper, only: unfchk, formchk
  implicit none
  integer :: i, system, RENAME
+ real(kind=8) :: unpaired_e
  real(kind=8), allocatable :: coeff(:,:) ! GVB pair coeff
  character(len=240) :: buf, chkname, fchname, gjfname, logname, inpname
- character(len=360) :: longbuf
+ character(len=480) :: longbuf
  character(len=240), intent(in) :: proname, pair_fch
 
  call check_exe_exist(gau_path)
@@ -225,6 +293,11 @@ subroutine do_gvb_gau(proname, pair_fch)
  buf = TRIM(gau_path)//' '//TRIM(gjfname)
  write(iout,'(A)') '$'//TRIM(buf)
  i = system(TRIM(buf))
+ if(i /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: Gaussian GVB job failed.'
+  write(iout,'(A)') 'Please open file '//TRIM(logname)//' and check why.'
+  stop
+ end if
 
  call read_gvb_e_from_gau_out(logname, gvb_e)
  write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
@@ -279,7 +352,8 @@ subroutine do_gvb_gau(proname, pair_fch)
  write(iout,'(A)') '$'//TRIM(longbuf)
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility dat2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+                     & dat2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
@@ -290,12 +364,14 @@ subroutine do_gvb_gau(proname, pair_fch)
  write(iout,'(A)') '$'//TRIM(longbuf)
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility extract_noon2fch.'
+  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+                     & extract_noon2fch.'
   write(iout,'(A)') 'Did you delete it or forget to compile it?'
   write(iout,'(A)') 'If neither, there is some unexpected error.'
   stop
  end if
 
+ call calc_unpaired_from_fch(inpname, .false., unpaired_e)
  return
 end subroutine do_gvb_gau
 

@@ -101,7 +101,7 @@ subroutine do_hf()
   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
   write(iout,'(A,F18.8,1X,A,F7.3)')   'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
 
-  if(rhf_e - uhf_e > 1D-4) then
+  if(rhf_e - uhf_e > 1D-6) then
    write(iout,'(A)') 'UHF energy is lower, choose UHF wave function.'
    ist = 1
    mo_rhf = .false.

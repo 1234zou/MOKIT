@@ -104,7 +104,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ecp, sph, X2C
+ logical :: uhf, ecp, sph, X2C, DIIS
  logical, intent(in) :: gvb
  logical, external :: nobasistransform_in_fch, nosymm_in_fch
 
@@ -212,11 +212,16 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  ! in GAMESS inp format file, the contr_coeff_sp is zero when there is no 'L'/'SP'
  if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0.0d0)
 
- ! create the GAMESS .inp file and print the keywords information
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
+ DIIS = .false.
+ if(ALL(elem == 'H ')) DIIS = .true.
+ ! By default, SOSCF is good for most systems; but for a system containing only
+ ! hydrogen atoms, DIIS is better than SOSCF
+
+ ! create the GAMESS .inp file and print the keywords information
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif,&
-                            nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb)
+                            nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb, DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! print basis sets into the .inp file
@@ -420,7 +425,7 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb)
+           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb, DIIS)
  implicit none
  integer :: fid, i, ia
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel, na, nb
@@ -429,7 +434,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: ecp, sph, X2C
+ logical, intent(in) :: ecp, sph, X2C, DIIS
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -488,9 +493,12 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    end if
   end if
   if(mult < 4) then
-   write(fid,'(A)') ' DIRSCF=.TRUE. $END'
+   write(fid,'(A)',advance='no') ' DIRSCF=.T.'
+   if(DIIS) write(fid,'(A)',advance='no') ' DIIS=.T. SOSCF=.F.'
+   write(fid,'(A)') ' $END'
   else ! mult >=4, i.e. >=3 e-
-   write(fid,'(A)') ' DIRSCF=.TRUE. COUPLE=.TRUE.'
+   write(fid,'(A)') ' DIRSCF=.T. COUPLE=.T.'
+   if(DIIS) write(fid,'(A)') '  DIIS=.T. SOSCF=.F.'
    allocate(f(nopen))
    f = '0.5'
    ia = nopen*(nopen+3)/2

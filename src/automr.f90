@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2021-Aug-26'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-15'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -37,8 +37,8 @@ program main
   write(iout,'(A)')    '  -h, -help, --help: Print this message and exit.'
   write(iout,'(A)')    '  -v, -V, --version: Print the version number of automr and exit.'
   write(iout,'(/,A)')  'Methods(#p ...):'
-  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT3, MRMP2, OVBMP2,'
-  write(iout,'(A)')    '  MRCISD, MRCC, MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
+  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2,'
+  write(iout,'(A)')    '  OVBMP2, MRCISD, MRCC, MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
   write(iout,'(/,A)')  'Frequently used keywords in MOKIT{}:'
   write(iout,'(A)')    '      HF_prog=Gaussian, PySCF, PSI4, ORCA'
   write(iout,'(A)')    '     GVB_prog=GAMESS, Gaussian'
@@ -108,6 +108,7 @@ subroutine get_paired_LMO()
   lin_dep, chem_core, ecp_core
  implicit none
  integer :: i, system, RENAME
+ real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, proname, pyname, chkname, outname, fchname
 
@@ -168,13 +169,14 @@ subroutine get_paired_LMO()
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
   write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
   write(iout,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
 
+  i = system(TRIM(buf))
   if(i /= 0) then
    write(iout,'(/,A)') 'ERROR in subroutine get_paired_LMO: PySCF job fails.'
    write(iout,'(A)') 'Please check file '//TRIM(outname)
    stop
   end if
+  call calc_unpaired_from_fch(fchname, .false., unpaired_e)
 
   ! when ist=2, GVB will not be performed, so we need to read variables before CASCI
   if(ist == 2) then

@@ -13,7 +13,7 @@ BIN = ../bin
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -fpp -traceback
+FFLAGS = -O2 -fpp
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
@@ -57,6 +57,7 @@ OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
 OBJ_gvb_correct_pairs = string_manipulate.o rwwfn.o gvb_correct_pairs.o
+OBJ_gvb_exclude_XH = string_manipulate.o read_gms_inp.o gvb_exclude_XH.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o rwwfn.o mkl2fch.o
 OBJ_mkl2gjf = file_op.o string_manipulate.o read_fch.o read_mkl.o mkl2gjf.o
@@ -83,9 +84,9 @@ OBJ_excited = excited.f90
         bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro \
         bas_gms2psi bas_gms2py bdf2fch bdf2mkl dal2fch dat2fch extract_noon2fch \
         fch2bdf fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qm4d \
-        fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch \
-        mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix \
-        rwgeom rwwfn excited
+        fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs gvb_exclude_XH \
+        gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd \
+        mo_svd_format solve_ON_matrix rwgeom rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -243,6 +244,9 @@ py2fch: $(OBJ_py2fch)
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
 	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS)
 
+gvb_exclude_XH: $(OBJ_gvb_exclude_XH)
+	$(F90) $(OBJ_gvb_exclude_XH) -o $(BIN)/gvb_exclude_XH $(FFLAGS)
+
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)/gvb_sort_pairs $(FFLAGS)
 
@@ -279,7 +283,7 @@ assoc_loc: $(OBJ_assoc_loc)
 	@mv assoc_loc*.so ../lib/
 
 pop: $(OBJ_pop)
-	$(F2PY) -c $(OBJ_pop) -m pop $(F2_FLAGS)
+	$(F2PY) -c $(OBJ_pop) -m pop $(F2_FLAGS) $(F2_MKL_FLAGS)
 	@mv pop*.so ../lib/
 
 lo: $(OBJ_lo)
@@ -305,7 +309,7 @@ rwgeom: $(OBJ_rwgeom)
 	@mv rwgeom*.so ../lib/
 
 rwwfn: $(OBJ_rwwfn)
-	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS)
+	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS) $(F2_MKL_FLAGS)
 	@mv rwwfn*.so ../lib/
 
 excited: $(OBJ_excited)
@@ -316,9 +320,10 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
      bdf2mkl dal2fch dat2fch extract_noon2fch fch2bdf fch2com fch2dal fch2mkl \
      fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy frag_guess_wfn \
-     chk2py fch2py find_mc_pair gvb_correct_pairs gvb_sort_pairs mkl2fch mkl2gjf \
-     orb2fch replace_xyz_in_inp xml2fch py2fch pyuno construct_vir ortho assoc_rot \
-     assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
+     chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
+     mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch pyuno construct_vir \
+     ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwgeom \
+     rwwfn excited
 
 clean:
 	rm -f *.o *.mod

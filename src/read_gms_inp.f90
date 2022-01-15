@@ -713,3 +713,63 @@ subroutine gen_contracted_string(nline, ncol, str1, str2)
  return
 end subroutine gen_contracted_string
 
+! read Alpha or (both Alpha and Beta) MOs from a GAMESS .dat or .inp file
+! Note: if you want to read both Alpha and Beta MOs, just double the variable
+! nif
+subroutine read_mo_from_dat(datname, nbf, nif, coeff)
+ use pg, only: iout
+ implicit none
+ integer i, j, k, nline, nleft, fid
+ integer, intent(in) :: nbf, nif
+ character(len=5) :: str1
+ character(len=30) :: str2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+ real(kind=8), intent(out) :: coeff(nbf,nif)
+
+ coeff = 0d0
+ open(newunit=fid,file=TRIM(datname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call upper(buf(3:5))
+  if(buf(2:5) == '$VEC') exit
+ end do
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine read_mo_from_dat: No '$VEC' section in&
+                   & file "//TRIM(datname)
+  close(fid)
+  stop
+ end if
+
+ nline = nbf/5
+ nleft = nbf - nline*5
+
+ do i = 1, nif, 1
+  k = 1
+  do j = 1, nline, 1
+   read(fid,'(A)') buf
+   buf = buf(6:)
+   read(buf,'(5ES15.8)') coeff(k:k+4,i)
+   k = k + 5
+  end do ! for j
+
+  if(nleft > 0) then
+   read(fid,'(A)') buf
+   buf = buf(6:)
+   str1 = ' '
+   write(str1,'(I5)') nleft
+   str1 = ADJUSTL(str1)
+   str2 = '('//TRIM(str1)//'ES15.8)'
+   read(buf,TRIM(str2)) coeff(k:nbf,i)
+  end if
+ end do ! for i
+
+ close(fid)
+ return
+end subroutine read_mo_from_dat
+

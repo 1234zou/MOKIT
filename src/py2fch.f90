@@ -365,7 +365,9 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  forall(i = 1:nbf0) idx(i) = i
 
  k = 2*ncontr
- allocate(shell_type(k), shell_to_atom_map(k))
+ ! REMEMBER to initialize these two arrays as all zero
+ allocate(shell_type(k), source=0)
+ allocate(shell_to_atom_map(k), source=0)
  shell_type(1:ncontr) = shell_type0
  shell_to_atom_map(1:ncontr) = shell_to_atom_map0
  k = ncontr

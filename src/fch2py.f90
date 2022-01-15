@@ -73,6 +73,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  character(len=7), parameter :: key2 = 'Beta MO'
  character(len=240) :: fchname, buffer
 !f2py intent(in) :: fchname
+ logical :: alive
 
  key = ' '
  buffer = ' '
@@ -81,6 +82,12 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  key = key1
  if(ab/='a' .and. ab/='A') then
   key = key2//' '
+ end if
+
+ inquire(file=TRIM(fchname),exist=alive)
+ if(.not. alive) then
+  write(iout,'(/,A)') "File '"//TRIM(fchname)//"' does not exist!"
+  stop
  end if
 
  open(newunit=fchid,file=TRIM(fchname),status='old',position='rewind')

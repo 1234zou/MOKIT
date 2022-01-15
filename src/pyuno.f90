@@ -41,12 +41,14 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  ! nbeta: the number of beta electrons
 
  ! array idx is in Fortran convention, i.e., begins from 1, not 0
- integer, intent(out) :: idx(3) ! 1: start of pair, 2: start of virtual, 3: nopen
+ integer :: idx(3) ! 1: start of pair, 2: start of virtual, 3: nopen
+!f2py intent(out) :: idx
  integer, allocatable :: idx1(:), idx2(:)
 
  real(kind=8) :: maxv, abs_mean
  real(kind=8), parameter :: ON_criteria = 0.99999d0
- real(kind=8), intent(in) :: ON_thres ! occupation number threshold
+ real(kind=8) :: ON_thres ! occupation number threshold
+!f2py intent(in) :: ON_thres
 
  real(kind=8) :: ao_ovlp(nbf,nbf)
 !f2py intent(in) :: ao_ovlp
@@ -57,7 +59,10 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
 !f2py intent(in) :: beta_coeff
 !f2py depend(nbf,nif) :: alpha_coeff, beta_coeff
 
- real(kind=8), intent(out) :: uno_coeff(nbf,nif), noon(nif)
+ real(kind=8) :: noon(nif), uno_coeff(nbf,nif)
+!f2py intent(out) :: noon, uno_coeff
+!f2py depend(nif) :: noon
+!f2py depend(nbf,nif) :: uno_coeff
  real(kind=8), allocatable :: mo_basis_ovlp(:,:), alpha_occ(:,:), beta_occ(:,:)
  real(kind=8), allocatable :: sv_occ0(:), sv_occ(:)
  character(len=7), parameter :: outname = 'uno.out'
