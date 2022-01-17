@@ -2549,13 +2549,31 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
     BACKSPACE(fid)
     BACKSPACE(fid)
     read(fid,'(A)') buf
-    if(buf(1:13) == 'Davidson type') exit
+    if(buf(20:27) == 'E(MR-CI)') exit
    end do ! for while
    read(fid,'(A)') buf
-   i = index(buf,'ECI=',back=.true.)
-   read(buf(i+4:),*) e
-   i = index(buf,'DE=',back=.true.)
-   read(buf(i+3:),*) davidson_e
+   read(fid,'(A)') buf
+   read(buf(13:),*) e
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(14:26) == 'residual conv') exit
+   end do ! for while
+   read(fid,'(A)') buf
+   read(buf(67:),*) ref_weight
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:17) == 'Computing the ref') exit
+   end do ! for while
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   read(buf(22:),*) casci_e
+   davidson_e = (1d0 - ref_weight)*(e - casci_e)
   else if(CtrType == 3) then ! FIC-MRCISD
    do while(.true.)
     BACKSPACE(fid)
@@ -3727,7 +3745,7 @@ subroutine calc_unpaired_from_fch(fchname, gen_dm, unpaired_e)
   y1 = 1d0 - 2d0*t1/(1d0+t1*t1)
   write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
   write(iout,'(A,F7.3)') 'biradical character    y0=', y0
-  write(iout,'(A,F7.3)') 'tatraradical character y1=', y1
+  write(iout,'(A,F7.3)') 'tetraradical character y1=', y1
  else
   write(iout,'(A)') 'Not spin singlet. Radical character will not be computed.'
  end if

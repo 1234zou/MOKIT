@@ -69,7 +69,7 @@ subroutine do_mrcisd()
   chkname = ' '
   call prt_mrcisd_molcas_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  datpath = TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
+  datpath = 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
 
  case('orca')
   call check_exe_exist(orca_path)
@@ -190,7 +190,7 @@ subroutine do_mrcisd()
   stop
  end if
 
- if(TRIM(MRCISD_prog) == 'gamess') then
+ if(TRIM(mrcisd_prog) == 'gamess') then
   ! move .dat file into current directory
   i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(mklname)//' .')
  end if
@@ -207,10 +207,13 @@ subroutine do_mrcisd()
   e = e - casscf_e
  end if
 
- if(TRIM(MRCISD_prog)=='openmolcas' .and. CtrType==1) then
-  call calc_davidson_corr(outname, e, davidson_e)
-  mrcisd_e = mrcisd_e + davidson_e
- end if
+ select case(TRIM(mrcisd_prog))
+ case('openmolcas', 'psi4')
+  if(CtrType == 1) then
+   call calc_davidson_corr_from_out(mrcisd_prog, outname, e, davidson_e)
+   mrcisd_e = mrcisd_e + davidson_e
+  end if
+ end select
 
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
@@ -239,14 +242,14 @@ subroutine do_mrcisd()
    write(iout,'(A,I0)') error_warn, CtrType
    stop
   end select
- case('gaussian','psi4','dalton') ! only uncontracted MRCISD
+ case('gaussian','dalton') ! only uncontracted MRCISD
   if(CtrType /= 1) then
    write(iout,'(A,I0)') error_warn, CtrType
    stop
   end if
   write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
- case('molpro','gamess')
+ case('molpro','gamess','psi4')
   write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
@@ -258,7 +261,7 @@ subroutine do_mrcisd()
   write(iout,'(A)') '.gms file. This is because GAMESS uses renormalized David&
                     &son size extensivity'
   write(iout,'(A)') 'correction. While MOKIT adopts the simple Davidson size e&
-                    &xtensivity correction:'
+                    &xtensivity correction'
   write(iout,'(A)') 'E_corr*(1-c^2).'
  end if
 
@@ -303,7 +306,7 @@ subroutine prt_mrcisd_molcas_inp(inpname)
   write(fid,'(A,I0)') 'RAS1 = ', idx
   write(fid,'(A,I0)') 'RAS2 = ', 2*npair0+nopen
   write(fid,'(A,I0)') 'RAS3 = ', nvir
-  write(fid,'(A)') 'PRWF = 1d-6'
+  write(fid,'(A)') 'PRWF = 1d-5'
   write(fid,'(A,/)') 'CIonly'
  else if(CtrType == 2) then ! ic-MRCISD
   write(fid,'(A,I0,A)') 'nActEl = ', nacta+nactb, ' 0 0'
@@ -474,6 +477,7 @@ subroutine prt_mrcisd_psi4_inp(inpname)
  write(fid,'(A,I0,A)') ' ras1 [',idx  ,']'
  write(fid,'(A,I0,A)') ' ras2 [',nacto,']'
  write(fid,'(A,I0,A)') ' ras3 [',nvir ,']'
+ write(fid,'(A)') ' num_dets_print 9999'
  write(fid,'(A)') '}'
 
  write(fid,'(/,A)') "mrcisd_energy = energy('detci',ref_wfn=scf_wfn)"
@@ -585,82 +589,150 @@ end subroutine prt_mrcisd_gms_inp
 
 ! calculate the Davidson size-extensivity correction energy for OpenMolcas
 ! davidson_e = E_corr*(1-c^2), where c is the reference weight
-subroutine calc_davidson_corr(outname, E_corr, davidson_e)
+subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
  use print_id, only: iout
  use mol, only: ndb, nif, npair, npair0, nacto
  implicit none
  integer :: i, j, k, idx1, idx2, fid1, fid2, system
+ integer, allocatable :: det_occ(:,:)
+ ! occupation number of each det, 2/1/0/-1
  real(kind=8) :: c
  real(kind=8), intent(in) :: E_corr
  real(kind=8), intent(out) :: davidson_e
+ real(kind=8), allocatable :: ci(:)
  character(len=:), allocatable :: str
+ character(len=10), intent(in) :: mrcisd_prog
  character(len=240) :: buf, h5name, pyname, pyout
  character(len=240), intent(in) :: outname
 
  c = 0d0; davidson_e = 0d0 ! initialization
- str = REPEAT(' ',nif)
-
  idx1 = ndb + npair - npair0
  idx2 = idx1 + nacto
- i = index(outname, '.', back=.true.)
- h5name = outname(1:i-1)//'.rasscf.h5'
- pyname = outname(1:i-1)//'_ci.py'
- pyout = outname(1:i-1)//'_ci.o'
 
- open(newunit=fid1,file=TRIM(outname),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(7:14) == 'conf/sym') exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
-                      &found in "//TRIM(outname)
-  close(fid1)
-  stop
- end if
-
- open(newunit=fid2,file=TRIM(pyname),status='replace')
- write(fid2,'(A)') 'import h5py'
- write(fid2,'(A)') "f = h5py.File('"//TRIM(h5name)//"','r')"
- write(fid2,'(A)') "CI_coeff = f['CI_VECTORS']"
- write(fid2,'(A)',advance='no') 'idx = ['
-
- k = 0 
- do while(.true.)
-  read(fid1,*,iostat=j) i, str
-  if(j /= 0) exit
-  if(str(1:idx1)==REPEAT('2',idx1) .and. str(idx2+1:nif)==REPEAT('0',nif-idx2)) then
-   k = k + 1
-   write(fid2,'(I0,A1)',advance='no') i, ','
-   if(MOD(k,20) == 0) write(fid2,'(A1,/)',advance='no') '\'
+ if(TRIM(mrcisd_prog) == 'psi4') then
+  open(newunit=fid1,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid1,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(13:22) == 'most impor') exit
+  end do ! for while
+  if(i /= 0) then
+   close(fid1)
+   write(iout,'(A)') "ERROR in subroutine calc_davidson_corr_from_out: no 'mo&
+                     &st impor' found in"
+   write(iout,'(A)') 'file '//TRIM(outname)
+   stop
   end if
- end do ! for while
+  read(buf(7:),*) k ! number of important determinants
+  allocate(det_occ(nif,k), ci(k))
+  read(fid1,'(A)') buf
+  do i = 1, k, 1
+   read(fid1,'(A)') buf
+   read(buf(10:),*) ci(i)
+   buf = buf(37:)
+   call det_str2occ_psi4(buf, nif, det_occ(:,i))
+  end do ! for i
+  close(fid1)
+  do i = 1, k, 1
+   if(ALL(det_occ(1:idx1,i)==2) .and. ALL(det_occ(idx2+1:nif,i)==0)) c=c+ci(i)*ci(i)
+  end do ! for i
+  deallocate(det_occ,ci)
+ else ! openmolcas
+  str = REPEAT(' ',nif)
+  i = index(outname, '.', back=.true.)
+  h5name = outname(1:i-1)//'.rasscf.h5'
+  pyname = outname(1:i-1)//'_ci.py'
+  pyout = outname(1:i-1)//'_ci.o'
+  open(newunit=fid1,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid1,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(7:14) == 'conf/sym') exit
+  end do ! for while
 
- close(fid1)
- write(fid2,'(A)') ']'
- write(fid2,'(A)') 'ref_weight = 0e0'
- write(fid2,'(A)') 'for i in range(0,len(idx)):'
- write(fid2,'(A)') '  rtmp = CI_coeff[0][idx[i]-1]'
- write(fid2,'(A)') '  ref_weight = ref_weight + rtmp*rtmp'
- write(fid2,'(A)') 'f.close()'
- write(fid2,'(A)') "print('%.12e' %ref_weight)"
- close(fid2)
- i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
- if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
-                       //TRIM(pyname)
-  stop
+  if(i /= 0) then
+   write(iout,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
+                       &found in "//TRIM(outname)
+   close(fid1)
+   stop
+  end if
+
+  open(newunit=fid2,file=TRIM(pyname),status='replace')
+  write(fid2,'(A)') 'import h5py'
+  write(fid2,'(A)') "f = h5py.File('"//TRIM(h5name)//"','r')"
+  write(fid2,'(A)') "CI_coeff = f['CI_VECTORS']"
+  write(fid2,'(A)',advance='no') 'idx = ['
+  k = 0 
+  do while(.true.)
+   read(fid1,*,iostat=j) i, str
+   if(j /= 0) exit
+   if(str(1:idx1)==REPEAT('2',idx1) .and. str(idx2+1:nif)==REPEAT('0',nif-idx2)) then
+    k = k + 1
+    write(fid2,'(I0,A1)',advance='no') i, ','
+    if(MOD(k,20) == 0) write(fid2,'(A1,/)',advance='no') '\'
+   end if
+  end do ! for while
+
+  close(fid1)
+  write(fid2,'(A)') ']'
+  write(fid2,'(A)') 'ref_weight = 0e0'
+  write(fid2,'(A)') 'for i in range(0,len(idx)):'
+  write(fid2,'(A)') '  rtmp = CI_coeff[0][idx[i]-1]'
+  write(fid2,'(A)') '  ref_weight = ref_weight + rtmp*rtmp'
+  write(fid2,'(A)') 'f.close()'
+  write(fid2,'(A)') "print('%.12e' %ref_weight)"
+  close(fid2)
+  i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
+  if(i /= 0) then
+   write(iout,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
+                        //TRIM(pyname)
+   stop
+  end if
+  open(newunit=fid2,file=TRIM(pyout),status='old')
+  read(fid2,*) c
+  close(fid2, status='delete')
+  open(newunit=fid2,file=TRIM(pyname),status='old')
+  close(fid2, status='delete')
  end if
 
- open(newunit=fid2,file=TRIM(pyout),status='old')
- read(fid2,*) c
- close(fid2,status='delete')
  davidson_e = E_corr*(1d0 - c)
-
- open(newunit=fid2,file=TRIM(pyname),status='old')
- close(fid2,status='delete')
  return
-end subroutine calc_davidson_corr
+end subroutine calc_davidson_corr_from_out
+
+! convert determinant string into occupation number
+subroutine det_str2occ_psi4(buf, nif, det_occ)
+ use print_id, only: iout
+ implicit none
+ integer :: i, k, iorb, ncol
+ integer, intent(in) :: nif
+ integer, intent(out) :: det_occ(nif)
+ integer, external :: detect_ncol_in_buf
+ character(len=5), allocatable :: str(:)
+ character(len=240), intent(in) :: buf
+
+ det_occ = 0
+ ncol = detect_ncol_in_buf(buf)
+ allocate(str(ncol))
+ forall(i = 1:ncol) str(i) = REPEAT(' ',5)
+ read(buf,*) (str(i),i=1,ncol)
+
+ do i = 1, ncol, 1
+  k = index(str(i),'A')
+  read(str(i)(1:k-1),*) iorb
+  select case(str(i)(k+1:k+1))
+  case('A')
+   det_occ(iorb) = 1
+  case('B')
+   det_occ(iorb) = -1
+  case('X')
+   det_occ(iorb) = 2
+  case default
+   write(iout,'(A)') 'ERROR in subroutine det_str2occ_psi4: invalid occupation&
+                    & type='//str(i)(k+1:k+1)
+   write(iout,'(A,I0)') 'i=', i
+   stop
+  end select
+ end do ! for i
+ return
+end subroutine det_str2occ_psi4
 

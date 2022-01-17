@@ -1,4 +1,4 @@
-MOKIT 1.2.3 (Jan 15, 2022)
+MOKIT 1.2.3 (Jan 17, 2022)
 ------------------------
 * fix a bug of py2fch when using small basis set like STO-3G/6G, 3-21G
 * output Head-Gordon's unpaired electrons, biradical/tetraradical index y0/y1
