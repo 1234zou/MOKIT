@@ -3712,10 +3712,11 @@ end subroutine read_mult_from_fch
 ! density .fch file
 ! Note: the input fchname must include natural orbitals and corresponding
 ! orbital occupation numbers.
-subroutine calc_unpaired_from_fch(fchname, gen_dm, unpaired_e)
+subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  implicit none
  integer :: i, j, k, nbf, nif, mult, fid, fid1
  integer, parameter :: iout = 6
+ integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
  real(kind=8) :: ne, t0, t1, y0, y1, upe(3)
@@ -3739,13 +3740,22 @@ subroutine calc_unpaired_from_fch(fchname, gen_dm, unpaired_e)
   close(fid)
   read(buf(50:),*) ne
   i = ne/2   ! assuming NOs are ordered in decreasing occupation number
-  t0 = (noon(i,1) - noon(i+1,1))*0.5d0
-  y0 = 1d0 - 2d0*t0/(1d0+t0*t0)
-  t1 = (noon(i-1,1) - noon(i+2,1))*0.5d0
-  y1 = 1d0 - 2d0*t1/(1d0+t1*t1)
   write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
-  write(iout,'(A,F7.3)') 'biradical character    y0=', y0
-  write(iout,'(A,F7.3)') 'tetraradical character y1=', y1
+  if(wfn_type == 1) then ! UNO
+   t0 = (noon(i,1) - noon(i+1,1))*0.5d0
+   y0 = 1d0 - 2d0*t0/(1d0+t0*t0)
+   t1 = (noon(i-1,1) - noon(i+2,1))*0.5d0
+   y1 = 1d0 - 2d0*t1/(1d0+t1*t1)
+   write(iout,'(A,F7.3)') 'biradical character   (1-2t/(1+t^2)) y0=', y0
+   write(iout,'(A,F7.3)') 'tetraradical character(1-2t/(1+t^2)) y1=', y1
+  else ! GVB/CASSCF NOs
+   ! For GVB/CAS NOs, there is no unique way to define radical index.
+   ! Here we adopt the occupation numbers of LUNO and LUNO+1.
+   ! You can adopt the way of calculating y0/y1 in UHF, if you like.
+   y0 = noon(i+1,1); y1 = noon(i+2,1)
+   write(iout,'(A,F7.3)') 'biradical character   (2c^2) y0=', y0
+   write(iout,'(A,F7.3)') 'tetraradical character(2c^2) y1=', y1
+  end if
  else
   write(iout,'(A)') 'Not spin singlet. Radical character will not be computed.'
  end if

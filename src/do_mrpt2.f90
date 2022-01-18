@@ -639,6 +639,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
+ write(fid2,'(A,I0)') ' maxiter 1'
  if(F12) then
   if(DLPNO) then
    write(fid2,'(A)') ' PTMethod DLPNO_NEVPT2'
@@ -723,6 +724,7 @@ subroutine prt_caspt2_orca_inp(inpname)
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
+ write(fid2,'(A,I0)') ' maxiter 1'
  if(caspt2k) then
   write(fid2,'(A)') ' PTMethod FIC_CASPT2K'
  else

@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-17'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-18'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -176,7 +176,7 @@ subroutine get_paired_LMO()
    write(iout,'(A)') 'Please check file '//TRIM(outname)
    stop
   end if
-  call calc_unpaired_from_fch(fchname, .false., unpaired_e)
+  call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
 
   ! when ist=2, GVB will not be performed, so we need to read variables before CASCI
   if(ist == 2) then

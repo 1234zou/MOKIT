@@ -239,7 +239,7 @@ subroutine do_gvb_gms(proname, pair_fch)
  call update_density_using_no_and_on(inpname)
 
  ! calculate odd/unpaired electron number
- call calc_unpaired_from_fch(inpname, .false., unpaired_e)
+ call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
 
  ! find npair0: the number of active pairs (|C2| > 0.1)
  call find_npair0_from_dat(datname, npair, npair0)
@@ -371,7 +371,7 @@ subroutine do_gvb_gau(proname, pair_fch)
   stop
  end if
 
- call calc_unpaired_from_fch(inpname, .false., unpaired_e)
+ call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
  return
 end subroutine do_gvb_gau
 

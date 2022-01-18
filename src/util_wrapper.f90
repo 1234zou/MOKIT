@@ -90,8 +90,17 @@ end subroutine unfchk
 subroutine gbw2mkl(gbwname, mklname)
  implicit none
  integer :: i, k, system, RENAME
+ integer, parameter :: iout = 6
  character(len=240), intent(in) :: gbwname
  character(len=240), optional :: mklname
+ logical :: alive
+
+ inquire(file=TRIM(gbwname), exist=alive)
+ if(.not. alive) then
+  write(iout,'(A)') 'ERROR in subroutine gbw2mkl: file does not exist!'
+  write(iout,'(A)') 'gbwname='//TRIM(gbwname)
+  stop
+ end if
 
  k = index(gbwname, '.gbw', back=.true.)
 #ifdef _WIN32

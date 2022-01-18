@@ -33,6 +33,8 @@ subroutine do_cas(scf)
  write(iout,'(//,A)') 'Enter subroutine do_cas...'
 
  if(ist == 5) then
+  write(iout,'(A)') 'Radical index for input NOs:'
+  call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
   call read_no_info_from_fch(hf_fch,nbf,nif,ndb,nopen,nacta,nactb,nacto,nacte)
   i = nacte; j = nacto
@@ -550,7 +552,7 @@ subroutine do_cas(scf)
   write(iout,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
  end if
 
- call calc_unpaired_from_fch(casnofch, .false., unpaired_e)
+ call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
 
  if(casscf_force) then
   allocate(grad(3*natom))
