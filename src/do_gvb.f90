@@ -140,12 +140,12 @@ end subroutine do_gvb
 subroutine do_gvb_gms(proname, pair_fch)
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, gms_path, gms_scr_path, mo_rhf, &
-  ist, datname, bgchg, chgname, cart, check_gms_path
+  datname, bgchg, chgname, cart, check_gms_path
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  implicit none
- integer :: i, j, system, RENAME
+ integer :: i, system, RENAME
  real(kind=8) :: unpaired_e
- character(len=240) :: buf, chkname, inpname, gmsname
+ character(len=240) :: buf, inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
  character(len=480) :: longbuf = ' '
 

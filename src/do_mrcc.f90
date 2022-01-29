@@ -3,7 +3,7 @@
 ! do MRCC based on CASCI/CASSCF, npair<=8
 subroutine do_mrcc()
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, bgchg, ficmrcc, bccc2b, casci, casscf, &
+ use mr_keyword, only: bgchg, ficmrcc, bccc2b, &
   CIonly, mrcc_prog, casnofch, orca_path, chgname
  use mol, only: nevpt2_e, mrcc_e
  use util_wrapper, only: mkl2gbw
@@ -95,7 +95,6 @@ end subroutine do_mrcc
 
 ! print FIC-MRCC keywords into ORCA .inp file
 subroutine prt_mrcc_orca_inp(inpname1)
- use print_id, only: iout
  use mol, only: nopen, nacta, nactb, npair0, mult
  use mr_keyword, only: mem, nproc, DKH2
  implicit none

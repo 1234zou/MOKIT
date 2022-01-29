@@ -505,7 +505,6 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  integer :: i, fid
  integer, intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0

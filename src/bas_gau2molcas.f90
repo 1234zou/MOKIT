@@ -28,8 +28,7 @@ subroutine bas_gau2molcas(inpname)
  use pg, only: iout, prim_gau, natom, ram, elem
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, k, nline, fid1, fid2, RENAME
- real(kind=8) :: exp1   ! the first exponent
+ integer :: i, nline, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, outname, gmslike
  character(len=1) :: stype
@@ -109,10 +108,8 @@ end subroutine bas_gau2molcas
 subroutine prt_prim_gau_molcas2(fid)
  use pg, only: prim_gau, ram, highest
  implicit none
- integer :: i, j, k, m, n, nline, ncol
+ integer :: i, j, k, nline, ncol
  integer, intent(in) :: fid
- integer, allocatable :: list(:)
- character(len=1), parameter :: am(0:6) = ['S','P','D','F','G','H','I']
 
  call get_highest_am()
  write(fid,'(5X,I0,A1,3X,I1)') ram(1), '.', highest

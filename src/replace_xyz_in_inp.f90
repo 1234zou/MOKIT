@@ -159,7 +159,7 @@ subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=6) :: elem
  character(len=8) :: key
- character(len=240) :: buf0, buf, inpname1
+ character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
  i = index(inpname, '.com', back=.true.)

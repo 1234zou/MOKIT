@@ -389,7 +389,7 @@ contains
 
  subroutine parse_keyword()
   implicit none
-  integer :: i, j, k, ifail, nblank, fid
+  integer :: i, j, k, ifail, fid
   character(len=24) :: method0 = ' '
   character(len=240) :: buf = ' '
   character(len=1000) :: longbuf = ' '
@@ -504,7 +504,7 @@ contains
    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
                         TRIM(method)//"' not supported."
    write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                      DMRGSCF, NEVPT2,'
+                      &DMRGSCF, NEVPT2,'
    write(iout,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, MCPDFT,&
                     & BCCC2b, BCCC3b,'
    write(iout,'(A)') 'and MRCC.'

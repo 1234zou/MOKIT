@@ -97,7 +97,6 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  character(len=240), intent(in) :: outname, fchname
  real(kind=8), allocatable :: noon(:), ev(:)
  logical, intent(in) :: gau_order
- logical :: pyscf
 
  nmo = idx2 - idx1 + 1   ! Note: here nmo is 2*npair + nopen for GVB
  allocate(noon(nmo))
@@ -249,7 +248,6 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  real(kind=8), allocatable :: on(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
- logical :: casci
 
  open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
  do while(.true.)

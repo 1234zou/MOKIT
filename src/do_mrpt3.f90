@@ -3,7 +3,7 @@
 ! do CASCI/CASSCF-CASPT3 or CASSCF-NEVPT3 when npair<=7
 subroutine do_mrpt3()
  use print_id, only: iout
- use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt3, nevpt3, &
+ use mr_keyword, only: dmrgci, dmrgscf, CIonly, caspt3, nevpt3, &
   casnofch, casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, &
   bdf_path
  use mol, only: caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, nuc_pt_e
@@ -11,7 +11,7 @@ subroutine do_mrpt3()
  integer :: i, mem0, RENAME, system
  character(len=24) :: data_string
  character(len=240) :: pyname, mklname
- character(len=240) :: string, outname, inpname, inporb, fchname
+ character(len=240) :: string, outname, inpname, inporb
  real(kind=8) :: ref_e, corr2_e, corr3_e
  logical :: alive(2)
 

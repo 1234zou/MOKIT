@@ -200,7 +200,7 @@ end subroutine get_paired_LMO
 subroutine prt_rhf_proj_script_into_py(pyname)
  use print_id, only: iout
  use mr_keyword, only: mem, nproc, tencycle, hf_fch, dkh2_or_x2c
- use mol, only: ndb, npair, natom, nuc, elem
+ use mol, only: natom, nuc, elem
  implicit none
  integer :: i, fid1, fid2, RENAME
  integer, allocatable :: ntimes(:)
@@ -322,7 +322,7 @@ end subroutine prt_rhf_proj_script_into_py
 subroutine prt_auto_pair_script_into_py(pyname)
  use print_id, only: iout
  use mr_keyword, only: localm, hf_fch
- use mol, only: chem_core, ecp_core, ndb, npair
+ use mol, only: chem_core, ecp_core
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, loc_fch
@@ -514,11 +514,10 @@ end subroutine prt_uno_script_into_py
 ! print associated rotation into a given .py file
 subroutine prt_assoc_rot_script_into_py(pyname)
  use print_id, only: iout
- use mol, only: natom, elem, nuc, chem_core, ecp_core
+ use mol, only: chem_core, ecp_core
  use mr_keyword, only : localm, hf_fch, npair_wish
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- integer, allocatable :: ntimes(:)
  character(len=240) :: buf, pyname1, uno_fch, assoc_fch
  character(len=240), intent(in) :: pyname
 

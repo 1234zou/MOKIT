@@ -57,7 +57,7 @@ subroutine mkl2gjf(mklname, print_mo)
  integer :: nf3mark, ng3mark, nh3mark
  integer, parameter :: iout = 6
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
- character(len=240) :: buf, gjfname
+ character(len=240) :: gjfname
  character(len=240), intent(in) :: mklname
  logical :: uhf
  logical, intent(in) :: print_mo

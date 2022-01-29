@@ -88,7 +88,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  use r_5D_2_6D, only: rd, rf, rg, rh
  use fch_content, only: iout, read_mark_from_shltyp
  implicit none
- integer :: i, j, k, datid, nline, nleft, RENAME
+ integer :: i, j, k, datid, nline, nleft
  integer :: nbf, nif, na, nb
  ! nbf: the number of basis functions
  ! nif: the number of independent functions, i.e. the number of MOs

@@ -3590,7 +3590,6 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nbf
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: S(nbf,nbf)
  character(len=240) :: buf
  character(len=240), intent(in) :: file47

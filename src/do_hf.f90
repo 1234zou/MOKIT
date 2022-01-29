@@ -6,9 +6,9 @@ subroutine do_hf()
  use print_id, only: iout
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
   charge, mult, rhf_e, uhf_e
- use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, mem, nproc, basis, &
-  cart, gau_path, hf_fch, ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, &
-  chgname, uno, dkh2_or_x2c, vir_proj, prt_strategy, gau_path, orca_path, &
+ use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, &
+  gau_path, hf_fch, ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, &
+  chgname, uno, vir_proj, prt_strategy, gau_path, orca_path, &
   psi4_path, frag_guess
  implicit none
  integer :: i, system
@@ -336,11 +336,11 @@ end subroutine generate_hf_gjf
 
 ! perform SCF computaton using Gaussian/PySCF/PSI4/ORCA, then read electronic
 ! energy and spin square
-! Note: parameters {mem, nproc, RI, RIJK_bas, bgchg, chgname} are taken from
+! Note: parameters {nproc, bgchg, chgname} are taken from
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, RI, RIJK_bas, bgchg, chgname
+ use mr_keyword, only: nproc, bgchg, chgname
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, j, hf_type, system, RENAME
@@ -955,7 +955,7 @@ end subroutine prt_hf_psi4_inp
 ! print HF job of ORCA input file
 subroutine prt_hf_orca_inp(inpname, hf_type)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, RI, RIJK_bas, dkh2_or_x2c
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: hf_type

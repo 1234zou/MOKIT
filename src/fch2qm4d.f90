@@ -70,7 +70,7 @@ end program main
 !  of Gaussian to that of QM4D
 subroutine fch2qm4d(fchname, binary)
  use fch_content, only: check_uhf_in_fch, read_fch, nif, nbf, ncontr, shell_type,&
-  natom, coor, elem, charge, mult, na, nb, alpha_coeff, beta_coeff
+  natom, coor, elem, na, nb, alpha_coeff, beta_coeff
  implicit none
  integer :: i, j, k, fid
  integer :: n6dmark, n10fmark

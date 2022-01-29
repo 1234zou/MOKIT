@@ -41,7 +41,7 @@ subroutine fch2psi(fchname)
  use util_wrapper, only: fch2inp_wrap
  use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, k, fid, system
+ integer :: i, system
  integer :: nbf0, nbf, nif, ncontr
  integer :: n3pmark, n6dmark, n10fmark, n15gmark, n21hmark
  integer, parameter :: iout = 6

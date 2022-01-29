@@ -45,7 +45,7 @@ end module pg
 ! check whether UHF in a given GAMESS .inp file
 subroutine check_uhf_in_gms_inp(inpname, uhf)
  implicit none
- integer :: i, fid
+ integer :: fid
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  logical, intent(out) :: uhf

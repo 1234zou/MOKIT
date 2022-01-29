@@ -3,14 +3,14 @@
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, casci, casscf, CIonly, ist, hf_fch, mrcisd,&
+ use mr_keyword, only: mem, nproc, CIonly, mrcisd,&
   mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, gms_path, &
-  gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname, F12, RI
- use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, davidson_e,&
+  gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
+ use mol, only: npair0, casci_e, casscf_e, davidson_e,&
   mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, mkl2gbw
  integer :: i, system
- real(kind=8) :: e, ref_weight
+ real(kind=8) :: e
  character(len=24) :: data_string
  character(len=240) :: string, chkname, inpname, outname, mklname
  character(len=480) :: datpath
@@ -272,7 +272,6 @@ end subroutine do_mrcisd
 
 ! print MRCISD keywords into OpenMolcas .input file
 subroutine prt_mrcisd_molcas_inp(inpname)
- use print_id, only: iout
  use mol, only: nif, ndb, nopen, nacta, nactb, npair, npair0, charge, mult
  use mr_keyword, only: CtrType
  implicit none
@@ -334,7 +333,6 @@ end subroutine prt_mrcisd_molcas_inp
 
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
- use print_id, only: iout
  use mol, only: nopen, nacta, nactb, npair0, mult
  use mr_keyword, only: mem, nproc, CtrType, DKH2
  implicit none
@@ -433,7 +431,7 @@ end subroutine prt_mrcisd_gau_inp
 ! print MRCISD keywords into Molpro input file
 subroutine prt_mrcisd_molpro_inp(inpname)
  implicit none
- integer :: i, fid
+ integer :: fid
  character(len=240), intent(in) :: inpname
 
  call prt_cas_molpro_inp(inpname, .false., .false.)
@@ -450,7 +448,7 @@ subroutine prt_mrcisd_psi4_inp(inpname)
  use mol, only: nif, ndb, nopen, nacto, npair, npair0
  use mr_keyword, only: iout, mem
  implicit none
- integer :: i, fid, idx, nvir
+ integer :: fid, idx, nvir
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
@@ -543,9 +541,9 @@ end subroutine prt_mrcisd_dalton_inp
 ! add MRCISD+Q keywords into a GAMESS input file
 subroutine prt_mrcisd_gms_inp(inpname)
  use mr_keyword, only: mem, nproc, cart
- use mol, only: ndb, nacto, nopen, nacte, npair, npair0, nif, charge, mult
+ use mol, only: ndb, nacto, nacte, npair, npair0, nif, charge, mult
  implicit none
- integer :: i, j, ndb0, ne, fid, fid1, RENAME
+ integer :: i, ndb0, ne, fid, fid1, RENAME
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, inpname1
 

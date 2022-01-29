@@ -42,18 +42,16 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Dalton format
 subroutine bas_gms2dal(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, elem, coor, prim_gau, highest, all_ecp,&
+ use pg, only: iout, natom, ram, ntimes, elem, coor, highest, all_ecp,&
   ecp_exist
  implicit none
- integer :: i, k, nline, rc, rel
+ integer :: i, nline, rc
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: exp1   ! the first exponent
  character(len=240), intent(in) :: fort7
- character(len=240) :: buf, dalfile, molfile, ecpfile
+ character(len=240) :: buf, dalfile, molfile
  character(len=1) :: stype
- character(len=21) :: str1, str2
- logical :: uhf, X2C
+ logical :: uhf
  logical, intent(in) :: spherical
 
  buf = ' '   ! initialization
@@ -198,12 +196,10 @@ end subroutine bas_gms2dal
 
 ! print primitive gaussians in Dalton format
 subroutine prt_prim_gau_dalton(iatom, fid)
- use pg, only: prim_gau, ram, all_ecp, elem, ecp_exist
+ use pg, only: prim_gau, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, ncol
+ integer :: i, j, k, nline, ncol
  integer, intent(in) :: iatom, fid
- integer, allocatable :: list(:)
- character(len=1), parameter :: am(0:6) = ['S','P','D','F','G','H','I']
 
  do i = 1, 7, 1
   if(.not. allocated(prim_gau(i)%coeff)) cycle

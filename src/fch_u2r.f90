@@ -33,7 +33,7 @@ end program main
 subroutine fch_u2r(fchname)
  implicit none
  integer :: k, nalpha, nbeta
- integer :: fchid, fchid1, RENAME
+ integer :: fchid, fchid1
  character(len=240), intent(in) :: fchname
  character(len=240) :: fchname1, buf
  logical :: rhf

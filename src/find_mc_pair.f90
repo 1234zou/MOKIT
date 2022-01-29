@@ -24,7 +24,7 @@ end program main
 
 subroutine find_mc_pair(gmsname)
  implicit none
- integer i, j, k, m
+ integer i, j, k
  integer npair, tmp_pair(2)
  integer, parameter :: iout = 6
  integer, parameter :: fid = 11
