@@ -1028,7 +1028,7 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:2) == 'mf') exit
  end do ! for while
@@ -1067,7 +1067,7 @@ subroutine read_hf_type_from_psi4_inp(inpname, hf_type)
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(2:10) == 'reference') exit
  end do ! for while
@@ -1108,7 +1108,7 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:1) == '!') exit
  end do ! for while
