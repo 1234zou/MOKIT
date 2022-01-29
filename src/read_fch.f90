@@ -106,11 +106,14 @@ subroutine check_uhf_in_fch(fchname, uhf)
  logical, intent(out) :: uhf
 
  uhf = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind',iostat=i)
+ if(i /= 0) ERROR STOP 'Error in check_uhf_in_fch: open failed'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
+  ! negative value means end of file, positive value means error
+  if(i < 0) exit
+  if(i > 0) ERROR STOP 'Error in check_uhf_in_fch: read failed'
 
   if(buf(1:7) == 'Beta MO') then
    uhf = .true.
@@ -119,7 +122,6 @@ subroutine check_uhf_in_fch(fchname, uhf)
  end do ! for while
 
  close(fid)
- return
 end subroutine check_uhf_in_fch
 
 ! read geometry, basis sets, ECP(if any) and MOs from .fch file (Gaussian)
