@@ -44,12 +44,11 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Molpro format
 subroutine bas_gms2molpro(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
+ use pg, only: iout, natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
- integer :: i, k, nline, rc, rel
+ integer :: i,  nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: exp1   ! the first exponent
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input ! input is the Molpro .com file

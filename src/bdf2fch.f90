@@ -92,7 +92,7 @@ subroutine bdf2fch(orbname, fchname, prt_no)
 
  if(ANY(shell_type>1)) then
   write(iout,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
-                     detected. Cannot deal with that.'
+                     &detected. Cannot deal with that.'
   write(iout,'(A)') 'BDF supports only spherical harmonic basis functions.'
   write(iout,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
                    & to obtain a new .fch(k) file."
@@ -386,7 +386,6 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, idx)
  implicit none
  integer :: i, tmp_type, ibegin, iend, jbegin, jend
  integer, parameter :: ntype = 10
- integer, parameter :: num0(ntype) = [0, 1, -2, 2, -3, 3, -4, 4, -5, 5]
  integer, parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
  !                                   S  P  5D 6D 7F 10F 9G 15G 11H 21H
  integer, parameter :: rnum(-5:5) = [9, 7, 5, 3, 0, 1, 2, 4, 6, 8, 10]
