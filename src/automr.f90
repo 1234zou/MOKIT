@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-18'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-31'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -37,30 +37,35 @@ program main
   write(iout,'(A)')    '  -h, -help, --help: Print this message and exit.'
   write(iout,'(A)')    '  -v, -V, --version: Print the version number of automr and exit.'
   write(iout,'(/,A)')  'Methods(#p ...):'
-  write(iout,'(A)')    '  GVB, CASCI, CASSCF, NEVPT2, NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2,'
-  write(iout,'(A)')    '  OVBMP2, MRCISD, MRCC, MCPDFT, SDSPT2, DMRGCI, DMRGSCF'
+  write(iout,'(A)')    '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3, CASPT2,&
+                      & CASPT2K, CASPT3,'
+  write(iout,'(A)')    '  MRMP2, OVBMP2, SDSPT2, MRCISD, MCPDFT, FICMRCCSD, MkMRCCSD,&
+                      & BWMRCCSD,'
+  write(iout,'(A)')    '  MkMRCCSD(T), BWMRCCSD(T)'
   write(iout,'(/,A)')  'Frequently used keywords in MOKIT{}:'
-  write(iout,'(A)')    '      HF_prog=Gaussian, PySCF, PSI4, ORCA'
-  write(iout,'(A)')    '     GVB_prog=GAMESS, Gaussian'
-  write(iout,'(A)')    '  CASSCF_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4, Dalton'
-  write(iout,'(A)')    '   CASCI_prog=PySCF, OpenMolcas, ORCA, Molpro, GAMESS, Gaussian, BDF, PSI4, Dalton'
-  write(iout,'(A)')    '  NEVPT2_prog=PySCF, OpenMolcas, ORCA, Molpro, BDF'
-  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas, Molpro, ORCA'
-  write(iout,'(A)')    '  MCPDFT_prog=OpenMolcas, GAMESS'
-  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas, Molpro, ORCA, Gaussian, GAMESS, PSI4, Dalton'
-  write(iout,'(A,/)')  '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
+  write(iout,'(A)')    '      HF_prog=Gaussian/PySCF/ORCA/PSI4'
+  write(iout,'(A)')    '     GVB_prog=GAMESS/Gaussian'
+  write(iout,'(A)')    '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
+  write(iout,'(A)')    '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
+  write(iout,'(A)')    '  NEVPT2_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
+  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas/Molpro/ORCA'
+  write(iout,'(A)')    '  MCPDFT_prog=OpenMolcas/GAMESS'
+  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
+  write(iout,'(A)')    '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
+  write(iout,'(A,/)')  '    MRCC_prog=ORCA/NWChem'
   stop
  end select
 
  i = index(fname, '.gjf', back=.true.)
  j = index(fname, '.fch', back=.true.)
  if(i/=0 .and. j/=0) then
-  write(iout,'(A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys detected&
-                   & in filename "//TRIM(fname)//'.'
+  write(iout,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys&
+                     & detected in filename "//TRIM(fname)//'.'
   write(iout,'(A)') "Better to use a filename only with suffix '.gjf'."
   stop
  else if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine automr: '.gjf' key not found in filename "//TRIM(fname)
+  write(iout,'(/,A)') "ERROR in subroutine automr: '.gjf' key not found in&
+                     & filename "//TRIM(fname)
   stop
  end if
 
@@ -515,9 +520,11 @@ end subroutine prt_uno_script_into_py
 subroutine prt_assoc_rot_script_into_py(pyname)
  use print_id, only: iout
  use mol, only: chem_core, ecp_core
+! use mol, only: natom, elem, nuc, chem_core, ecp_core
  use mr_keyword, only : localm, hf_fch, npair_wish
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
+! integer, allocatable :: ntimes(:)
  character(len=240) :: buf, pyname1, uno_fch, assoc_fch
  character(len=240), intent(in) :: pyname
 

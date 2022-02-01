@@ -130,9 +130,8 @@ end subroutine prt_mcpdft_gms_inp
 ! do MC-PDFT for npair<=7, or <=CAS(14,14)
 subroutine do_mcpdft()
  use print_id, only: iout
- use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, &
-  mcpdft_prog, casnofch, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
-  gms_scr_path
+ use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog, casnofch, &
+  molcas_path, gms_path, bgchg, chgname, check_gms_path, gms_scr_path
  use mol, only: ptchg_e, mcpdft_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
@@ -157,14 +156,14 @@ subroutine do_mcpdft()
   if(dmrgci) then
    write(iout,'(A)') 'DMRG-PDFT based on DMRG-CASCI orbitals.'
   else
-   write(iout,'(A)') 'DMRG-PDFT based on optimized DMRG-CASSCF orbitals.'
+   write(iout,'(A)') 'DMRG-PDFT based on DMRG-CASSCF orbitals.'
   end if
   write(iout,'(A)') 'DMRG-PDFT using program openmolcas'
  else
   if(casci) then
    write(iout,'(A)') 'MC-PDFT based on CASCI orbitals.'
   else
-   write(iout,'(A)') 'MC-PDFT based on optimized CASSCF orbitals.'
+   write(iout,'(A)') 'MC-PDFT based on CASSCF orbitals.'
   end if
   write(iout,'(A)') 'MC-PDFT using program '//TRIM(mcpdft_prog)
  end if

@@ -64,7 +64,7 @@ module mol
  real(kind=8) :: davidson_e= 0d0 ! Davidson correction energy
  real(kind=8) :: mrcisd_e  = 0d0 ! MRCISD+Q energy
  real(kind=8) :: mcpdft_e  = 0d0 ! MC-PDFT energy
- real(kind=8) :: mrcc_e    = 0d0 ! FIC-MRCC/BCCC2b energy
+ real(kind=8) :: mrcc_e    = 0d0 ! FIC-MRCC/MkMRCC/BWMRCC/BCCC energy
  real(kind=8) :: ptchg_e   = 0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e  = 0d0 ! nuclear-point_charge interaction energy
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
@@ -93,6 +93,8 @@ module mr_keyword
  ! 5: NOs -> CASCI/CASSCF -> ...
 
  integer :: CtrType = 0    ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
+ integer :: mrcc_type = 1
+ ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
 
@@ -149,8 +151,7 @@ module mr_keyword
  logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
  logical :: mcpdft  = .false.
- logical :: ficmrcc = .false.
- logical :: bccc2b  = .false.
+ logical :: mrcc    = .false.
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation
  logical :: casscf_force = .false.! whether to calculate CASSCF force
@@ -188,7 +189,7 @@ module mr_keyword
  character(len=240) :: bdf_path = ' '
  character(len=240) :: psi4_path = ' '
 
- character(len=7) :: method = ' '   ! model chemistry, theoretical method
+ character(len=11) :: method = ' '  ! model chemistry, theoretical method
  character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
  character(len=21) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
  character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
@@ -325,7 +326,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Jan-18)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Jan-31)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -497,17 +498,17 @@ contains
 
   select case(TRIM(method))
   case('mcpdft','mrcisd','sdspt2','mrmp2','ovbmp2','caspt3','caspt2','caspt2k',&
-       'nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','bccc2b', &
-       'bccc3b','mrcc')
+       'nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','ficmrccsd',&
+       'mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)','bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
                         TRIM(method)//"' not supported."
-   write(iout,'(A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                      &DMRGSCF, NEVPT2,'
+   write(iout,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
+                       &DMRGSCF, NEVPT2,'
    write(iout,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, MCPDFT,&
-                    & BCCC2b, BCCC3b,'
-   write(iout,'(A)') 'and MRCC.'
+                    & FICMRCCSD,'
+   write(iout,'(A)') 'MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T), BCCC2b, BCCC3b.'
    stop
   end select
 
@@ -550,11 +551,25 @@ contains
    casci = .true.
   case('dmrgci')
    dmrgci = .true.
-  case('mrcc')
-   ficmrcc = .true.
-   casscf = .true.
+  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
+  case('ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrcccsd(t)')
+   mrcc = .true.; casscf = .true.
+   select case(TRIM(method))
+   case('ficmrccsd')
+    mrcc_type = 1
+   case('mkmrccsd')
+    mrcc_type = 2
+   case('mkmrccsd(t)')
+    mrcc_type = 3; mrcc_prog = 'nwchem'
+   case('bwmrccsd')
+    mrcc_type = 4
+   case('bwmrccsd(t)')
+    mrcc_type = 5; mrcc_prog = 'nwchem'
+   end select
   case('bccc2b')
-   bccc2b = .true.
+   mrcc = .true.; mrcc_type = 6
+  case('bccc3b')
+   mrcc = .true.; mrcc_type = 7
   case('gvb')
   end select
 
@@ -912,7 +927,7 @@ contains
   write(iout,'(5(A,L1,3X))') 'OVBMP2  = ',  ovbmp2, 'SDSPT2  = ', sdspt2 ,&
        'MRCISD  = ', mrcisd, 'MCPDFT  = ',  mcpdft, 'NEVPT3  = ', nevpt3
 
-  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'FICMRCC = ', ficmrcc,&
+  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'MRCC    = ', mrcc,&
        'CIonly  = ', CIonly, 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2
 
   write(iout,'(5(A,L1,3X))') 'X2C     = ',     X2C, 'RI      = ', RI     ,&
@@ -924,8 +939,8 @@ contains
   write(iout,'(5(A,L1,3X))') 'Pop     = ',     pop, 'NMR     = ', nmr, &
        'SOC     = ', soc    ,'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan
 
-  write(iout,'(A,I1,3X,A,F7.5,1X,A,I5)') 'CtrType = ', CtrType, &
-       'ON_thres= ',ON_thres, 'MaxM=', maxM
+  write(iout,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType, &
+       'MRCC_type=',mrcc_type,'ON_thres= ',ON_thres, 'MaxM=', maxM
 
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
@@ -1154,7 +1169,7 @@ contains
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.ficmrcc)) then
+     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
    write(iout,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
    write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
                     & none of them is specified.'
@@ -1307,12 +1322,14 @@ contains
    stop
   end if
 
-  if(mrcc_prog /= 'orca') then
+  select case(TRIM(mrcc_prog))
+  case('orca','nwchem')
+  case default
    write(iout,'(A)') error_warn
-   write(iout,'(A)') 'Currently MRCC is only supported by ORCA. But found mrcc_&
-                     &prog='//TRIM(mrcc_prog)
+   write(iout,'(A)') 'Currently MRCC is only supported by ORCA/NWChem. But got&
+                     & mrcc_prog='//TRIM(mrcc_prog)
    stop
-  end if
+  end select
 
   if(casscf_force .and. (.not.casscf)) then
    write(iout,'(A)') error_warn//"'force' keyword is only avaible for CASSCF."

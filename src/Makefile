@@ -6,10 +6,11 @@ BIN = ../bin
 # --- gfortran ---
 #F90    = gfortran
 #FFLAGS = -O2 -cpp
-#MKL_FLAGS = -lmkl_rt
+#MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
 #F2_MKL_FLAGS = --link-lapack_opt
+#F2_F90_FLAGS = --f90flags="-cpp"
 
 # --- ifort ----
 F90    = ifort
@@ -18,9 +19,10 @@ MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
 F2_MKL_FLAGS = --link-lapack_opt
+F2_F90_FLAGS = --f90flags="-fpp"
 
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcharge_to_inp.o
-OBJ_align_orbitals = rwwfn.o align_orbitals.o
+OBJ_align_orbitals = file_op.o rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o rwwfn.o \
              read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o do_mrpt2.o \
              do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
@@ -36,6 +38,7 @@ OBJ_bas_gms2psi = file_op.o string_manipulate.o read_gms_inp.o bas_gms2psi.o
 OBJ_bas_gms2py = file_op.o string_manipulate.o read_gms_inp.o bas_gms2py.o
 OBJ_bdf2fch = file_op.o string_manipulate.o rwwfn.o read_fch.o bdf2fch.o
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
+OBJ_chk2gbw = util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o rwwfn.o dal2fch.o
 OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o
@@ -49,14 +52,15 @@ OBJ_fch2inporb = file_op.o string_manipulate.o rwwfn.o util_wrapper.o read_fch.o
 OBJ_fch2psi = file_op.o string_manipulate.o rwwfn.o util_wrapper.o read_fch.o fch2psi.o
 OBJ_fch2qm4d = file_op.o string_manipulate.o read_fch.o rwgeom.o fch2qm4d.o
 OBJ_fch_u2r = file_op.o fch_u2r.o
-OBJ_fch_mo_copy = rwwfn.o fch_mo_copy.o
+OBJ_fch_mo_copy = file_op.o rwwfn.o fch_mo_copy.o
+OBJ_fch2wfn = file_op.o string_manipulate.o read_fch.o fch2wfn.o
 OBJ_frag_guess_wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
                      mr_keyword.o do_hf.o rwwfn.o rwgeom.o read_gms_inp.o \
                      call_qc_calc_int.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
-OBJ_gvb_correct_pairs = string_manipulate.o rwwfn.o gvb_correct_pairs.o
+OBJ_gvb_correct_pairs = file_op.o string_manipulate.o rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_exclude_XH = string_manipulate.o read_gms_inp.o gvb_exclude_XH.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o rwwfn.o mkl2fch.o
@@ -74,17 +78,17 @@ OBJ_assoc_loc = assoc_loc.f90
 OBJ_pop = pop.f90
 OBJ_lo = lo.f90
 OBJ_mo_svd = mo_svd.f90
-OBJ_mo_svd_format = string_manipulate.o rwwfn.o mo_svd_format.o
-OBJ_solve_ON_matrix = string_manipulate.o rwwfn.o solve_ON_matrix.o
+OBJ_mo_svd_format = file_op.o string_manipulate.o rwwfn.o mo_svd_format.o
+OBJ_solve_ON_matrix = file_op.o string_manipulate.o rwwfn.o solve_ON_matrix.o
 OBJ_rwgeom = string_manipulate.f90 rwgeom.f90
-OBJ_rwwfn = rwwfn.f90
+OBJ_rwwfn = file_op.f90 rwwfn.f90
 OBJ_excited = excited.f90
 
 .PHONY: clean distclean add_bgcharge_to_inp align_orbitals automr bas_fch2py \
         bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro \
-        bas_gms2psi bas_gms2py bdf2fch bdf2mkl dal2fch dat2fch extract_noon2fch \
+        bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch \
         fch2bdf fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qm4d \
-        fch_u2r fch_mo_copy find_mc_pair gvb_correct_pairs gvb_exclude_XH \
+        fch_u2r fch_mo_copy fch2wfn find_mc_pair gvb_correct_pairs gvb_exclude_XH \
         gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd \
         mo_svd_format solve_ON_matrix rwgeom rwwfn excited
 
@@ -107,12 +111,12 @@ help:
 	echo " fch2py    : generate fch2py     (Gau->PySCF)" ;\
 	echo " fch2qm4d  : generate fch2qm4d   (Gau->QM4D)" ;\
 	echo " bdf2fch   : generate bdf2fch    (BDF->Gau)" ;\
+	echo " chk2gbw   : generate chk2gbw    (Gau->ORCA)" ;\
 	echo " dat2fch   : generate dat2fch    (GAMESS->Gau)" ;\
-	echo " mkl2gjf   : generate mkl2gjf    (ORCA->Gau)" ;\
 	echo " mkl2fch   : generate mkl2fch    (ORCA->Gau)" ;\
+	echo " mkl2gjf   : generate mkl2gjf    (ORCA->Gau)" ;\
 	echo " orb2fch   : generate orb2fch    (OpenMolcas->Gau)" ;\
 	echo " xml2fch   : generate xml2fch    (Molpro->Gau)" ;\
-	echo " xxx       : generate xxx or xxx.so (xxx is any individual module)" ;\
 	echo " all       : all executables and *.so files" ;\
 	echo " clean     : delete *.mod *.o" ;\
 	echo " distclean : delete *.mod *.o and clean ../lib ../bin" ;\
@@ -166,11 +170,14 @@ bdf2mkl: $(OBJ_bdf2mkl)
 	echo "bdf2mkl requires utilities bdf2fch and fch2mkl, please also compile them" ;\
 	echo
 
+chk2gbw: $(OBJ_chk2gbw)
+	$(F90) $(OBJ_chk2gbw) -o $(BIN)/chk2gbw $(FFLAGS)
+
 dal2fch: $(OBJ_dal2fch)
 	$(F90) $(OBJ_dal2fch) -o $(BIN)/dal2fch $(FFLAGS) $(MKL_FLAGS)
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) $(MKL_FLAGS) -o $(BIN)/dat2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_dat2fch) -o $(BIN)/dat2fch $(FFLAGS) $(MKL_FLAGS)
 
 extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
@@ -219,6 +226,9 @@ fch_u2r: $(OBJ_fch_u2r)
 
 fch_mo_copy: $(OBJ_fch_mo_copy)
 	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)/fch_mo_copy $(FFLAGS) $(MKL_FLAGS)
+
+fch2wfn: $(OBJ_fch2wfn)
+	$(F90) $(OBJ_fch2wfn) -o $(BIN)/fch2wfn $(FFLAGS)
 
 chk2py: $(OBJ_chk2py)
 	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS)
@@ -309,7 +319,7 @@ rwgeom: $(OBJ_rwgeom)
 	@mv rwgeom*.so ../lib/
 
 rwwfn: $(OBJ_rwwfn)
-	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_rwwfn) $(F2_F90_FLAGS) -m rwwfn $(F2_FLAGS) $(F2_MKL_FLAGS)
 	@mv rwwfn*.so ../lib/
 
 excited: $(OBJ_excited)
@@ -318,12 +328,12 @@ excited: $(OBJ_excited)
 
 all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf \
      bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
-     bdf2mkl dal2fch dat2fch extract_noon2fch fch2bdf fch2com fch2dal fch2mkl \
-     fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy frag_guess_wfn \
-     chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
-     mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch pyuno construct_vir \
-     ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format solve_ON_matrix rwgeom \
-     rwwfn excited
+     bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com fch2dal \
+     fch2mkl fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy fch2wfn \
+     frag_guess_wfn chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH \
+     gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch \
+     pyuno construct_vir ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format \
+     solve_ON_matrix rwgeom rwwfn excited
 
 clean:
 	rm -f *.o *.mod

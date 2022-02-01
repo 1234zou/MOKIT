@@ -590,8 +590,7 @@ end subroutine do_cas
 subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, maxM,&
-  hardwfn, crazywfn, casnofch, dkh2_or_x2c, &
-  RI, RIJK_bas
+  hardwfn, crazywfn, casnofch, dkh2_or_x2c, RI, RIJK_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -1196,10 +1195,10 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
 
  if(scf) then
   write(fid,'(/,A)') "casscf_energy, cas_wfn = energy('casscf',ref_wfn=scf_wfn,&
-                      &return_wfn=True)"
+                     &return_wfn=True)"
  else
   write(fid,'(/,A)') "casci_energy, cas_wfn = energy('fci',ref_wfn=scf_wfn,&
-                      &return_wfn=True)"
+                     &return_wfn=True)"
  end if
 
  write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"

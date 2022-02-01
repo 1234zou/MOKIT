@@ -43,12 +43,10 @@ end program main
 
 subroutine solve_ON_matrix(fname1, fname2, idx)
  implicit none
- integer :: i, j, fid, idx1, idx2
- integer :: nif, nbf, nmo
+ integer :: i, j, fid, idx1, idx2, nif, nbf, nmo
 ! nif: total number of MOs
 ! nbf: total number of basis functions
 ! nmo: the number of NOs, <= nif, e.g. in CAS(6,6), nmo=6 is enough
-! ncoeff = nbf*nif
  integer, intent(in) :: idx(2)
  integer, parameter :: iout = 6
  character(len=240) :: fname

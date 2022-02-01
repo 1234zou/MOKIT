@@ -79,7 +79,7 @@ subroutine read_ne_from_fch(fchname, ne)
  character(len=240), intent(in) :: fchname
 
  ne = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -106,14 +106,16 @@ subroutine check_uhf_in_fch(fchname, uhf)
  logical, intent(out) :: uhf
 
  uhf = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind',iostat=i)
- if(i /= 0) ERROR STOP 'Error in check_uhf_in_fch: open failed'
+ call open_file(fchname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
-  ! negative value means end of file, positive value means error
-  if(i < 0) exit
-  if(i > 0) ERROR STOP 'Error in check_uhf_in_fch: read failed'
+  if(i < 0) exit ! end-of-file
+  if(i > 0) then
+   write(iout,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read&
+                     & file '//TRIM(fchname)
+   stop
+  end if
 
   if(buf(1:7) == 'Beta MO') then
    uhf = .true.
@@ -145,7 +147,7 @@ subroutine read_fch(fchname, uhf)
  end if
 
  buf = ' '
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
 
  ! find variables: charge, mult, na, nb, nbf, nif
  do while(.true.)
@@ -479,7 +481,7 @@ module r_5D_2_6D
  real(kind=8), parameter :: r34= DSQRT(35d0/128d0), r35 = DSQRT(5d0/6d0), r36 = 0.25d0*r35
  real(kind=8), parameter :: r37= DSQRT(175d0/128d0), r38 = 1.25d0*r33, r39 = DSQRT(63d0/128d0)
 
-! This transformation table is taken from http://sobereva.com/97
+! The transformation table (rd,rf,rg,rh) is originally copied from http://sobereva.com/97
  real(kind=8), parameter :: rd(6,5) = RESHAPE([-r1, -r1, 1d0, 0d0, 0d0, 0d0,&
                                                0d0, 0d0, 0d0, 0d0, 1d0, 0d0,&
                                                0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
@@ -505,8 +507,8 @@ module r_5D_2_6D
                       0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, r21, 0d0],[15,9])
  real(kind=8), parameter :: &
 rh(21,11) = RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22, 0d0, r24, 0d0, 0d0, 0d0, 0d0, r23, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r26, 0d0, r27, 0d0, 0d0, 0d0, 0d0, r28, 0d0, r29, 0d0, 0d0, r30,&
-                     0d0, r25, 0d0,-r26, 0d0, r30, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r26, 0d0, r29, 0d0, 0d0, 0d0, 0d0, r27, 0d0,&
+                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r26, 0d0, r27, 0d0, 0d0, 0d0, 0d0,-r28, 0d0, r29, 0d0, 0d0, r30,&
+                     0d0, r25, 0d0,-r28, 0d0, r30, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r26, 0d0, r29, 0d0, 0d0, 0d0, 0d0, r27, 0d0,&
                      0d0, 0d0,-r21, 0d0, r31, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r31, 0d0, 0d0,&
                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r32, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r32, 0d0, 0d0, 0d0, 0d0,&
                      0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r33, 0d0, r34, 0d0, 0d0, 0d0, 0d0, r35, 0d0, r36, 0d0, 0d0,-r34,&
@@ -535,8 +537,7 @@ subroutine check_DKH_in_fch(fchname, order)
  logical :: alive(6)
 
  order = -2 ! default value, no DKH
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -599,8 +600,7 @@ subroutine check_X2C_in_fch(fchname, alive)
  logical, intent(out) :: alive
 
  alive = .false. ! default value
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -639,7 +639,7 @@ function nobasistransform_in_fch(fchname) result(notrans)
  logical :: notrans
 
  notrans = .true.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -681,8 +681,7 @@ function nosymm_in_fch(fchname) result(nosymm)
  logical :: nosymm
 
  nosymm = .true.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:5) == 'Route') exit
@@ -712,4 +711,98 @@ function nosymm_in_fch(fchname) result(nosymm)
 
  return
 end function nosymm_in_fch
+
+! read values of 'Virial Ratio' and 'Total Energy' from a .fch(k) file
+subroutine read_virial_and_tot_e_from_fch(fchname, virial, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: virial, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ virial = 0d0; tot_e = 0d0; buf = ' ' ! initialization
+ call open_file(fchname, .true., fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == 'Virial Ratio') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  return
+ else
+  read(buf(45:),*) virial
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == 'Total E') exit
+ end do ! for while
+ close(fid)
+
+ if(i /= 0) then
+  return
+ else
+  read(buf(45:),*) tot_e
+ end if
+ return
+end subroutine read_virial_and_tot_e_from_fch
+
+! expand MO coefficients from spherical harmonic type functions into Cartesian
+! type functions
+subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
+ use fch_content, only: iout
+ use r_5D_2_6D, only: rd, rf, rg, rh
+ implicit none
+ integer :: i, j, nbf
+ integer, intent(in) :: ncontr, nbf0, nbf1, nmo
+ integer, intent(inout) :: shltyp(ncontr)
+ real(kind=8), intent(in) :: coeff0(nbf0,nmo)
+ real(kind=8), intent(out) :: coeff1(nbf1,nmo)
+
+ nbf = 0; j = 0; coeff1 = 0d0
+
+ do i = 1, ncontr, 1
+  select case(shltyp(i))
+  case( 0) ! S
+   coeff1(nbf+1,:) = coeff0(j+1,:)
+   nbf = nbf + 1; j= j + 1
+  case( 1) ! P
+   coeff1(nbf+1:nbf+3,:) = coeff0(j+1:j+3,:)
+   nbf = nbf + 3; j = j + 3
+  case(-1) ! L, SP
+   coeff1(nbf+1:nbf+4,:) = coeff0(j+1:j+4,:)
+   nbf = nbf + 4; j = j + 4
+  case(-2) ! 5D
+   coeff1(nbf+1:nbf+6,:) = MATMUL(rd, coeff0(j+1:j+5,:))
+   nbf = nbf + 6; j = j + 5
+   shltyp(i) = 2
+  case(-3) ! 7F
+   coeff1(nbf+1:nbf+10,:) = MATMUL(rf, coeff0(j+1:j+7,:))
+   nbf = nbf + 10; j = j + 7
+   shltyp(i) = 3
+  case(-4) ! 9G
+   coeff1(nbf+1:nbf+15,:) = MATMUL(rg, coeff0(j+1:j+9,:))
+   nbf = nbf + 15; j = j + 9
+   shltyp(i) = 4
+  case(-5) ! 11H
+   coeff1(nbf+1:nbf+21,:) = MATMUL(rh, coeff0(j+1:j+11,:))
+   nbf = nbf + 21; j = j + 11
+   shltyp(i) = 5
+  case default
+   write(iout,'(A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
+   write(iout,'(A,3I5)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
+   stop
+  end select
+ end do ! for i
+
+ if(nbf/=nbf1 .or. j/=nbf0) then
+  write(iout,'(A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
+  write(iout,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
+  stop
+ end if
+ return
+end subroutine mo_sph2cart
 

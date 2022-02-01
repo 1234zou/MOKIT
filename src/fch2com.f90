@@ -61,8 +61,7 @@ subroutine fch2com(fchname)
  use fch_content, only: iout, check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, orbid
- integer :: nalpha, nbeta, nbf, nif
- integer :: nbf0
+ integer :: nalpha, nbeta, nbf, nif, nbf0
  integer :: n10fmark, n15gmark, n21hmark
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
@@ -333,8 +332,7 @@ end subroutine sort_shell_and_mo
 
 subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
  implicit none
- integer i, tmp_type
- integer ibegin, iend, jbegin, jend
+ integer :: i, tmp_type, ibegin, iend, jbegin, jend
  integer,parameter :: ntype = 10
  integer,parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
  !                                   S  P  5D 6D 7F 10F 9G 15G 11H 21H

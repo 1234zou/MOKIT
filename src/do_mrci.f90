@@ -3,11 +3,10 @@
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, CIonly, mrcisd,&
-  mrcisd_prog, CtrType, casnofch, molcas_path, orca_path, gau_path, gms_path, &
-  gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
- use mol, only: npair0, casci_e, casscf_e, davidson_e,&
-  mrcisd_e, ptchg_e, nuc_pt_e
+ use mr_keyword, only: mem, nproc, CIonly, ist, hf_fch, mrcisd, mrcisd_prog, &
+  CtrType, casnofch, molcas_path, orca_path, gau_path, gms_path, gms_scr_path,&
+  molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
+ use mol, only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, mkl2gbw
  integer :: i, system
  real(kind=8) :: e
@@ -34,7 +33,7 @@ subroutine do_mrcisd()
    write(iout,'(A)') 'If you care about the accuracy, please use another CASSCF solver.'
   end if
 
-  string = 'MRCISD based on optimized CASSCF orbitals.'
+  string = 'MRCISD based on CASSCF orbitals.'
  else ! CIonly = .True.
 
   if(TRIM(casci_prog) == 'orca') then

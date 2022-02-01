@@ -32,8 +32,7 @@ end program main
 ! transform a Gaussian UHF type .fchk into a RHF/ROHF type .fchk file
 subroutine fch_u2r(fchname)
  implicit none
- integer :: k, nalpha, nbeta
- integer :: fchid, fchid1
+ integer :: k, nalpha, nbeta, fchid, fchid1
  character(len=240), intent(in) :: fchname
  character(len=240) :: fchname1, buf
  logical :: rhf

@@ -2,14 +2,13 @@
 
 module util_wrapper
  implicit none
-
+ integer, parameter :: iout = 6
 contains
 
 ! wrapper of the Gaussian utility formchk
 subroutine formchk(chkname, fchname)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  character(len=240) :: fchname0
  character(len=500) :: buf
  character(len=240), intent(in) :: chkname
@@ -56,7 +55,6 @@ end subroutine formchk
 subroutine unfchk(fchname, chkname)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  character(len=240) :: chkname0
  character(len=500) :: buf
  character(len=240), intent(in) :: fchname
@@ -90,7 +88,6 @@ end subroutine unfchk
 subroutine gbw2mkl(gbwname, mklname)
  implicit none
  integer :: i, k, system, RENAME
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: gbwname
  character(len=240), optional :: mklname
  logical :: alive
@@ -147,7 +144,6 @@ end subroutine mkl2gbw
 
 subroutine prt_orca_2mkl_error(fname)
  implicit none
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: fname
 
  write(iout,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. Three&
@@ -162,7 +158,6 @@ end subroutine prt_orca_2mkl_error
 subroutine fch2psi_wrap(fchname)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: fchname
 
 #ifdef _WIN32
@@ -187,7 +182,6 @@ end subroutine fch2psi_wrap
 subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  integer, intent(in) :: npair, nopen
  character(len=240) :: buf = ' ', buf2 = ' '
  character(len=240), intent(in) :: fchname
@@ -238,7 +232,6 @@ end subroutine fch2inp_wrap
 subroutine mkl2fch_wrap(mklname, fchname, prt_no)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: mklname, fchname
  character(len=500) :: buf
  logical, intent(in) :: prt_no
@@ -260,6 +253,61 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
  end if
  return
 end subroutine mkl2fch_wrap
+
+subroutine fch2mkl_wrap(fchname, mklname)
+ implicit none
+ integer :: i, system, RENAME
+ character(len=240) :: mklname1
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: mklname
+
+#ifdef _WIN32
+ i = system('fch2mkl '//TRIM(fchname)//' > NUL')
+#else
+ i = system('fch2mkl '//TRIM(fchname)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch2mkl_wrap: failed to call utility fch2mkl.'
+  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(present(mklname)) then
+  i = index(fchname, '.fch')
+  mklname1 = fchname(1:i-1)//'_o.mkl'
+  if(TRIM(mklname) /= TRIM(mklname1)) then
+   i = RENAME(TRIM(mklname1), TRIM(mklname))
+  end if
+ end if
+
+ return
+end subroutine fch2mkl_wrap
+
+subroutine chk2gbw(chkname)
+ implicit none
+ integer :: i
+ character(len=240) :: fchname, inpname, mklname, gbwname
+ character(len=240), intent(in) :: chkname
+
+ i = index(chkname, '.chk')
+ fchname = chkname(1:i-1)//'.fch'
+ inpname = chkname(1:i-1)//'_o.inp'
+ mklname = chkname(1:i-1)//'_o.mkl'
+ gbwname = chkname(1:i-1)//'.gbw'
+ call formchk(chkname)
+
+ call fch2mkl_wrap(fchname)
+ open(newunit=i,file=TRIM(fchname),status='old')
+ close(unit=i,status='delete')
+ open(newunit=i,file=TRIM(inpname),status='old')
+ close(unit=i,status='delete')
+
+ call mkl2gbw(mklname, gbwname)
+ open(newunit=i,file=TRIM(mklname),status='old')
+ close(unit=i,status='delete')
+ return
+end subroutine chk2gbw
 
 end module util_wrapper
 

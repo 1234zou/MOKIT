@@ -92,7 +92,7 @@ subroutine bdf2fch(orbname, fchname, prt_no)
 
  if(ANY(shell_type>1)) then
   write(iout,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
-                     &detected. Cannot deal with that.'
+                    & detected. Cannot deal with that.'
   write(iout,'(A)') 'BDF supports only spherical harmonic basis functions.'
   write(iout,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
                    & to obtain a new .fch(k) file."

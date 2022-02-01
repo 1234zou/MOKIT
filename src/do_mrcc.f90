@@ -3,30 +3,34 @@
 ! do MRCC based on CASCI/CASSCF, npair<=8
 subroutine do_mrcc()
  use print_id, only: iout
- use mr_keyword, only: bgchg, ficmrcc, bccc2b, &
-  CIonly, mrcc_prog, casnofch, orca_path, chgname
+ use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
+  orca_path, chgname
  use mol, only: nevpt2_e, mrcc_e
  use util_wrapper, only: mkl2gbw
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: ref_e, corr_e(2)
+ character(len=12), parameter :: method(8) = ['FIC-MRCCSD  ','Mk-MRCCSD   ',&
+  'Mk-MRCCSD(T)','BW-MRCCSD   ','BW-MRCCSD(T)','BCCC2b      ','BCCC3b      ',&
+  'BCCC4b      ']
  character(len=24) :: data_string
  character(len=240) :: string, chkname, inpname, mklname, outname
 
- if(.not. (ficmrcc .or. bccc2b)) return
+ if(.not. mrcc) return
  write(iout,'(//,A)') 'Enter subroutine do_mrcc...'
+ write(iout,'(A)',advance='no') TRIM(method(mrcc_type))//' based on CAS'
+ if(CIonly) then
+  write(iout,'(A)') 'CI orbitals.'
+ else
+  write(iout,'(A)') 'SCF orbitals.'
+ end if
+ write(iout,'(A)') 'Frozen_core = F. Using program '//TRIM(mrcc_prog)
 
  select case(TRIM(mrcc_prog))
  case('orca')
-  if(CIonly) then
-   write(iout,'(A)') 'FIC-MRCC based on CASCI orbitals.'
-  else
-   write(iout,'(A)') 'FIC-MRCC based on optimized CASSCF orbitals.'
-  end if
-  write(iout,'(A)') 'Frozen_core = F, FIC-MRCC using program orca'
-  write(iout,'(A)') 'Note: 1) this is actually an approximate FIC-MRCC method since&
-                   & the H_bar'
-  write(iout,'(A)') '         operator is truncated after the quadratic terms.'
+  write(iout,'(A)') 'Note: 1) this is actually an approximate FIC-MRCCSD metho&
+                   &d since the'
+  write(iout,'(A)') '         H_bar operator is truncated after the quadratic terms.'
   write(iout,'(A)') '      2) this calculation will output the FIC-NEVPT2 energy&
                    & as a byproduct.'
   write(iout,'(A)') '      3) FIC-MRCC is supported since ORCA 5.0. Do not use&
@@ -52,40 +56,56 @@ subroutine do_mrcc()
   write(iout,'(A)') '$ORCA '//TRIM(string)
 
   i = system(TRIM(orca_path)//' '//TRIM(string))
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrcc: FIC-MRCC job failed.'
-   write(iout,'(A)') 'Please find the error information in file '//TRIM(outname)
-   stop
-  end if
-
- case('gvb_bccc2b')
-  if(CIonly) then
-   write(iout,'(A)') 'ERROR in subroutine do_mrcc: CIonly=.True. found. It&
-                    & should not be activated.'
-   write(iout,'(A)') 'Because this option has nothing to do with GVB-BCCC2b.'
-   stop
-  end if
-
+ case('nwchem')
+  ! call prt_mrcc_nwchem_inp(inpname)
  case default
   write(iout,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC_prog='//TRIM(mrcc_prog)
-  write(iout,'(A)') 'Currently only MRCC_prog=ORCA or GVB_BCCC2b is supported.'
+  write(iout,'(A)') 'Currently only MRCC_prog=ORCA/NWChem is supported.'
   stop
  end select
 
+ if(i /= 0) then
+  write(iout,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC job failed.'
+  write(iout,'(A)') 'Please find the error information in file '//TRIM(outname)
+  stop
+ end if
+
  ! read MRCC energy from ORCA output file
- call read_mrcc_energy_from_output(mrcc_prog, outname, ref_e, corr_e)
+ call read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, corr_e)
+ mrcc_e = ref_e + corr_e(2)
 
  select case(TRIM(mrcc_prog))
  case('orca')
-  nevpt2_e = ref_e + corr_e(1)
-  mrcc_e = ref_e + corr_e(2)
-  write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
-  write(iout,'(A,F18.8,1X,A4)')  'E(corr_PT2)  = ', corr_e(1),'a.u.'
-  write(iout,'(A,F18.8,1X,A4)')  'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)')  'E(corr_CC)   = ', corr_e(2),'a.u.'
-  write(iout,'(A,F18.8,1X,A4)')  'E(FIC-MRCC)  = ', mrcc_e,   'a.u.'
- case default
-  ! GVB-BCCC2b
+  select case(mrcc_type)
+  case(1)
+   nevpt2_e = ref_e + corr_e(1)
+   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(corr_PT2)  = ', corr_e(1),'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(FIC-MRCCSD)= ', mrcc_e,   'a.u.'
+  case(2) ! Mk-MRCCSD
+   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(Mk-MRCCSD) = ', mrcc_e,   'a.u.'
+  case(4) ! BW-MRCCSD
+   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(iout,'(A,F18.8,1X,A4)')  'E(BW-MRCCSD) = ', mrcc_e,   'a.u.'
+  case default
+   write(iout,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
+   stop
+  end select
+ case('nwchem')
+  select case(mrcc_type)
+  case(2) ! Mk-MRCCSD
+  case(3) ! Mk-MRCCSD(T)
+  case(4) ! BW-MRCCSD
+  case(5) ! BW-MRCCSD(T)
+  case default
+   write(iout,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
+   stop
+  end select
  end select
 
  call fdate(data_string)
@@ -93,13 +113,12 @@ subroutine do_mrcc()
  return
 end subroutine do_mrcc
 
-! print FIC-MRCC keywords into ORCA .inp file
+! print FIC-MRCCSD keywords into ORCA .inp file
 subroutine prt_mrcc_orca_inp(inpname1)
- use mol, only: nopen, nacta, nactb, npair0, mult
- use mr_keyword, only: mem, nproc, DKH2
+ use mol, only: ndb, nopen, nacta, nactb, npair, npair0, mult
+ use mr_keyword, only: mem, nproc, DKH2, mrcc_type, RI
  implicit none
- integer :: i, fid1, fid2
- integer :: RENAME
+ integer :: i, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
 
@@ -108,7 +127,11 @@ subroutine prt_mrcc_orca_inp(inpname1)
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
- write(fid2,'(A)') '! NoIter'
+ if(mrcc_type == 1) then
+  write(fid2,'(A)') '! NoIter'
+ else
+  write(fid2,'(A)') '! NoIter UHF CCSD'
+ end if
 
  if(DKH2) then
   write(fid2,'(A)') '%rel'
@@ -117,16 +140,36 @@ subroutine prt_mrcc_orca_inp(inpname1)
   write(fid2,'(A)') 'end'
  end if
 
- write(fid2,'(A)') '%autoci'
- write(fid2,'(A)') ' CItype FICMRCC'
- write(fid2,'(A,I0)') ' nel ',  nacta+nactb
- write(fid2,'(A,I0)') ' norb ', 2*npair0+nopen
- write(fid2,'(A,I0)') ' mult ', mult
- write(fid2,'(A)') ' nroots 1'
- write(fid2,'(A)') ' MaxIter 100'
+ select case(mrcc_type)
+ case(1) ! FIC-MRCCSD
+  write(fid2,'(A)') '%autoci'
+  write(fid2,'(A)') ' CItype FICMRCC'
+  write(fid2,'(A,I0)') ' nel ',  nacta+nactb
+  write(fid2,'(A,I0)') ' norb ', 2*npair0+nopen
+  write(fid2,'(A,I0)') ' mult ', mult
+  write(fid2,'(A)') ' nroots 1'
+  write(fid2,'(A)') ' MaxIter 100'
+ case(2,4) ! Mk-MRCCSD, BWMRCCSD
+  write(fid2,'(A)') '%mdci'
+  write(fid2,'(A)') ' STol 1e-6'
+  write(fid2,'(A)') ' mrcc on'
+  write(fid2,'(A)',advance='no') ' mrcctype '
+  if(mrcc_type == 2) then
+   write(fid2,'(A)') 'mkcc'
+  else
+   write(fid2,'(A)') 'bwcc'
+  end if
+  write(fid2,'(A,I0)') ' n_docc ', ndb+npair-npair0
+  write(fid2,'(A)') " refs ""2200,2020,2002,0220,0202,0022"""
+ case default
+  write(fid2,'(A,I0)') 'ERROR in subroutine prt_mrcc_orca_inp: invalid mrcc_typ&
+                       &e=',mrcc_type
+  stop
+ end select
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%method'
  write(fid2,'(A)') ' FrozenCore FC_NONE'
+ if(RI .and. mrcc_type>1) write(fid2,'(A)') ' RIJKSinglesFock 1'
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%coords'
 
@@ -147,10 +190,13 @@ subroutine prt_mrcc_orca_inp(inpname1)
  return
 end subroutine prt_mrcc_orca_inp
 
-subroutine read_mrcc_energy_from_output(mrcc_prog, outname, ref_e, corr_e)
+subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
+                                        corr_e)
  use print_id, only: iout
  implicit none
  integer :: i, fid
+ integer, intent(in) :: mrcc_type ! 1/2/3 for FIC-/Mk-/BW-MRCCSD
+ ! 4/5 for Mk-/BW-MRCCSD(T), 6~8 for GVB-BCCC2b/3b/4b
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: ref_e, corr_e(2)
  character(len=240) :: buf
@@ -158,11 +204,11 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, outname, ref_e, corr_e)
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0; corr_e = 0d0
+ ! corr_e(1): FIC-NEVPT2 energy
+ ! corr_e(2): FIC-/Mk-/BW- MRCCSD energy
 
  select case(mrcc_prog)
  case('orca')
-  ! corr_e(1): FIC-NEVPT2 energy
-  ! corr_e(2): FIC-MRCC energy
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
   do while(.true.)
    BACKSPACE(fid,iostat=i)
@@ -204,7 +250,7 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, outname, ref_e, corr_e)
   i = index(buf,'EC=')
   read(buf(i+3:),*) corr_e(1)
 
- case('gvb_bccc2b') ! GVB-BCCC2b
+ case('nwchem')
 
  case default
   write(iout,'(/,A)') 'ERROR in subroutine read_mrcc_energy_from_output: invalid&

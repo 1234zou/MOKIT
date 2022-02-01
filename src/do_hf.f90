@@ -6,10 +6,9 @@ subroutine do_hf()
  use print_id, only: iout
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
   charge, mult, rhf_e, uhf_e
- use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, &
-  gau_path, hf_fch, ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, &
-  chgname, uno, vir_proj, prt_strategy, gau_path, orca_path, &
-  psi4_path, frag_guess
+ use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
+  ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
+  prt_strategy, gau_path, orca_path, psi4_path, frag_guess
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0d0

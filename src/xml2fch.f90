@@ -49,8 +49,7 @@ end program main
 subroutine xml2fch(xmlname, fchname, prt_no)
  use fch_content, only: iout, check_uhf_in_fch
  implicit none
- integer :: i, j, k, length
- integer :: na, nb, nbf, nif, nbf0
+ integer :: i, j, k, length, na, nb, nbf, nif, nbf0
  integer :: n10fmark, n15gmark, n21hmark
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
@@ -416,10 +415,11 @@ end subroutine xml2fch_permute_9g
 subroutine xml2fch_permute_15g(idx)
  implicit none
  integer :: i, idx0(15)
+ integer, parameter :: order(15) = [15,5,1,14,13,9,4,6,2,12,10,3,11,8,7]
  integer, intent(inout) :: idx(15)
 
  idx0 = idx
- forall(i = 1:15) idx(i) = idx0(16-i)
+ forall(i = 1:15) idx(i) = idx0(order(i))
  return
 end subroutine xml2fch_permute_15g
 

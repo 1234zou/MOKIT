@@ -81,8 +81,7 @@ end program main
 subroutine fch2dal(fchname)
  use fch_content, only: iout, check_uhf_in_fch
  implicit none
- integer :: i, k, length, fid, fid1, RENAME
- integer :: nbf, nif
+ integer :: i, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell2atom_map(:)

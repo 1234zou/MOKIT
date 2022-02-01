@@ -210,7 +210,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end if
 
  ! in GAMESS inp format file, the contr_coeff_sp is zero when there is no 'L'/'SP'
- if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0.0d0)
+ if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0d0)
 
  ecp = .false.
  if(LenNCZ > 0) ecp = .true.
@@ -298,40 +298,8 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
    allocate(open_coeff(nbf,nif))
    open_coeff = alpha_coeff
   end if
-
-  nbf = 0; j = 0
-  do i = 1, ncontr, 1
-   select case(shell_type(i))
-   case( 0) ! S
-    temp_coeff(nbf+1,:) = open_coeff(j+1,:)
-    nbf = nbf + 1; j= j + 1
-   case( 1) ! P
-    temp_coeff(nbf+1:nbf+3,:) = open_coeff(j+1:j+3,:)
-    nbf = nbf + 3; j = j + 3
-   case(-1) ! L
-    temp_coeff(nbf+1:nbf+4,:) = open_coeff(j+1:j+4,:)
-    nbf = nbf + 4; j = j + 4
-   case(-2) ! 5D
-    temp_coeff(nbf+1:nbf+6,:) = MATMUL(rd, open_coeff(j+1:j+5,:))
-    nbf = nbf + 6; j= j + 5
-    shell_type(i) = 2
-   case(-3) ! 7F
-    temp_coeff(nbf+1:nbf+10,:) = MATMUL(rf, open_coeff(j+1:j+7,:))
-    nbf = nbf + 10; j = j + 7
-    shell_type(i) = 3
-   case(-4) ! 9G
-    temp_coeff(nbf+1:nbf+15,:) = MATMUL(rg, open_coeff(j+1:j+9,:))
-    nbf = nbf + 15; j = j + 9
-    shell_type(i) = 4
-   case(-5) ! 11H
-    temp_coeff(nbf+1:nbf+21,:) = MATMUL(rh, open_coeff(j+1:j+11,:))
-    nbf = nbf + 21; j = j + 11
-    shell_type(i) = 5
-   end select
-  end do ! for i
-
+  call mo_sph2cart(ncontr, shell_type, nbf, nbf1, nif1, open_coeff, temp_coeff)
   deallocate(open_coeff)
-
  else ! Cartesian functions
   temp_coeff(:,1:nif) = alpha_coeff
   if(gvb_or_uhf == '-uhf') temp_coeff(:,nif+1:nif1) = beta_coeff
@@ -364,7 +332,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  if(gvb_or_uhf == '-gvb') then
   if(npair > 1) then
    allocate(order(2*npair), source=0)
-   allocate(temp_coeff(nbf,2*npair), source=0.0d0)
+   allocate(temp_coeff(nbf,2*npair), source=0d0)
 
    if(nopen0 > 0) open_coeff = alpha_coeff(:,na-nopen0+1:na)
    forall(i = 1:npair)

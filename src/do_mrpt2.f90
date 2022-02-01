@@ -9,8 +9,8 @@ subroutine do_mrpt2()
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
   molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC
- use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
-                ovbmp2_e, davidson_e, ptchg_e, nuc_pt_e
+ use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
+  ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
  implicit none
  integer :: i, mem0, RENAME, system
@@ -64,21 +64,21 @@ subroutine do_mrpt2()
 
   if(casscf) then
    if(caspt2) then
-    string = 'CASPT2 based on optimized CASSCF orbitals.'
+    string = 'CASPT2 based on CASSCF orbitals.'
    else if(nevpt2) then
-    string = 'NEVPT2 based on optimized CASSCF orbitals.'
+    string = 'NEVPT2 based on CASSCF orbitals.'
    else if(mrmp2) then
-    string = 'MRMP2 based on optimized CASSCF orbitals.'
+    string = 'MRMP2 based on CASSCF orbitals.'
    else if(ovbmp2) then
-    string = 'OVB-MP2 based on optimized CASSCF orbitals.'
+    string = 'OVB-MP2 based on CASSCF orbitals.'
    else
-    string = 'SDSMP2 based on optimized CASSCF orbitals.'
+    string = 'SDSMP2 based on CASSCF orbitals.'
    end if
   else ! DMRG-CASSCF
    if(caspt2) then
-    string = 'DMRG-CASPT2 based on optimized DMRG-CASSCF orbitals.'
+    string = 'DMRG-CASPT2 based on DMRG-CASSCF orbitals.'
    else if(nevpt2) then
-    string = 'DMRG-NEVPT2 based on optimized DMRG-CASSCF orbitals.'
+    string = 'DMRG-NEVPT2 based on DMRG-CASSCF orbitals.'
    end if
   end if
 
@@ -602,8 +602,8 @@ end subroutine prt_mrpt_bdf_inp
 subroutine prt_nevpt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas,&
-  F12, F12_cabs, FIC, DLPNO
+ use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, F12, F12_cabs, &
+  FIC, DLPNO
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -754,8 +754,8 @@ end subroutine prt_caspt2_orca_inp
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI,&
-  RIJK_bas, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI, RIJK_bas, &
+  hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1

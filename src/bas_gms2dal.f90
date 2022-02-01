@@ -1,5 +1,5 @@
 ! written by jxzou at 20210612: transform basis sets in GAMESS format to Dalton format
-!  This file is initially copied from file bas_gms2dal. Modifications are made
+!  This file is initially copied from file bas_gms2molcas. Modifications are made
 
 ! Note: Currently isotopes are not tested.
 program main
@@ -42,12 +42,9 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Dalton format
 subroutine bas_gms2dal(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, elem, coor, highest, all_ecp,&
-  ecp_exist
+ use pg, only: iout, natom, ram, ntimes, elem, coor, highest, all_ecp, ecp_exist
  implicit none
- integer :: i, nline, rc
- integer :: fid1, fid2
- integer :: charge, mult
+ integer :: i, nline, rc, charge, mult, fid1, fid2
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, dalfile, molfile
  character(len=1) :: stype
@@ -70,6 +67,7 @@ subroutine bas_gms2dal(fort7, spherical)
   write(iout,'(/,A)') 'WARNING in subroutine bas_gms2dal: Dalton does not support UHF.'
   write(iout,'(A)') 'Basis set data will still be written.'
  end if
+ if(ecp_exist) call create_dir('ecp_data')
 
  open(newunit=fid1,file=TRIM(dalfile),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
@@ -171,35 +169,17 @@ subroutine bas_gms2dal(fort7, spherical)
   stop
  end if
 
-! call check_X2C_in_gms_inp(fort7, X2C)
-! if(X2C) write(fid2,'(A)') 'RX2C'
-!
-! call check_DKH_in_gms_inp(fort7, rel)
-! select case(rel)
-! case(-2) ! nothing
-! case(-1) ! RESC
-!  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: RESC keywords detected.'
-!  write(iout,'(A)') 'But RESC is not supported in (Open)Molcas.'
-!  stop
-! case(0,1,2,4)  ! DKH0/1/2/4
-!  if(.not. X2C) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
-!  !if(.not. X2C) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
-! case default
-!  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
-!  write(iout,'(A,I0)') 'rel=', rel
-!  close(fid2,status='delete')
-!  stop
-! end select
-
+ close(fid2)
  return
 end subroutine bas_gms2dal
 
 ! print primitive gaussians in Dalton format
 subroutine prt_prim_gau_dalton(iatom, fid)
- use pg, only: prim_gau, ecp_exist
+ use pg, only: prim_gau, all_ecp, ecp_exist, ram
  implicit none
- integer :: i, j, k, nline, ncol
+ integer :: i, j, k, m, n, nline, ncol, ecpid
  integer, intent(in) :: iatom, fid
+ character(len=240) :: ecpname
 
  do i = 1, 7, 1
   if(.not. allocated(prim_gau(i)%coeff)) cycle
@@ -218,28 +198,23 @@ subroutine prt_prim_gau_dalton(iatom, fid)
 
  if(.not. ecp_exist) return
 
-! if(all_ecp(iatom)%ecp) then
-!  m = all_ecp(iatom)%highest
-!  write(fid,'(A2,1X,A2,1X,I0,1X,I0)') 'PP', elem(iatom), all_ecp(iatom)%core_e, m
-!  allocate(list(m+1))
-!  list(1) = m
-!  forall(i=2:m+1) list(i) = i-2
-!
-!  do i = 1, m+1, 1
-!   n = all_ecp(iatom)%potential(i)%n
-!   if(i == 1) then
-!    write(fid,'(I0,A)') n,';!'//am(list(1))//' POTENTIAL'
-!   else ! i > 1
-!    write(fid,'(I0,A)') n,';!'//am(list(i))//'-'//am(list(1))//' POTENTIAL'
-!   end if
-!
-!   do j = 1, n, 1
-!    write(fid,'(I0,2(1X,F16.8))') all_ecp(iatom)%potential(i)%col2(j),&
-!     all_ecp(iatom)%potential(i)%col3(j), all_ecp(iatom)%potential(i)%col1(j)
-!   end do ! for j
-!  end do ! for i
-!  write(fid,'(A1,/,A,/,A)') '*', 'Spectral', 'End of Spectral'
-! end if
+ if(all_ecp(iatom)%ecp) then
+  write(ecpname,'(A,I0,A)') 'ecp_data/',iatom,'_ecp'
+  open(newunit=ecpid,file=TRIM(ecpname),status='replace')
+  write(ecpid,'(A,/,A,I4,/,A)') '$','a', ram(iatom), '$'
+  m = all_ecp(iatom)%highest
+  write(ecpid,'(2I4,I0)') m, all_ecp(iatom)%core_e
+
+  do i = 1, m+1, 1
+   n = all_ecp(iatom)%potential(i)%n
+   write(ecpid,'(I12)') n
+   do j = 1, n, 1
+    write(ecpid,'(I2,2F20.12)') all_ecp(iatom)%potential(i)%col2(j),&
+     all_ecp(iatom)%potential(i)%col3(j), all_ecp(iatom)%potential(i)%col1(j)
+   end do ! for j
+  end do ! for i
+  write(ecpid,'(A)') '$'
+ end if
 
  return
 end subroutine prt_prim_gau_dalton

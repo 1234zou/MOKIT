@@ -16,7 +16,7 @@ subroutine modify_IROHF_in_fch(fchname, k)
  i = index(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
@@ -55,7 +55,7 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -86,7 +86,7 @@ subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+ call open_file(mklname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -114,8 +114,7 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind',iostat=i)
- if(i /= 0) ERROR STOP 'Error in read_na_and_nb_from_fch: open failed'
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -125,7 +124,8 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
                    & alpha' found in file "//TRIM(fchname)
-  ERROR STOP
+  close(fid)
+  stop
  end if
 
  BACKSPACE(fid)
@@ -142,7 +142,7 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:17) == 'Number of basis f') exit
@@ -163,7 +163,7 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
 
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:5) == '#INFO') exit
@@ -186,8 +186,7 @@ subroutine read_nbf_from_dat(datname, nbf)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
- open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
-
+ call open_file(datname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -238,7 +237,7 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -295,7 +294,7 @@ subroutine read_mo_from_chk_txt(txtname, nbf, nif, ab, mo)
   key = key2//' '
  end if
 
- open(newunit=chkid,file=TRIM(txtname),status='old',position='rewind')
+ call open_file(txtname, .true., chkid)
  do while(.true.)
   read(chkid,'(A)') buf
   if(buf(7:14) == key) exit
@@ -328,7 +327,7 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2
 
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -363,7 +362,7 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  character(len=1), intent(in) :: ab
  character(len=240), intent(in) :: xmlname
 
- open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
+ call open_file(xmlname, .true., fid)
 
  if(ab=='a' .or. ab=='A') then
   do while(.true.)
@@ -432,7 +431,7 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
   stop
  end if
 
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -471,7 +470,7 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  real(kind=8), intent(out) :: coeff(nbf,nif)
 
  coeff = 0d0
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  read(fid,'(A)') buf
 
  do i = 1, nif, 1
@@ -520,7 +519,7 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//'b'
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -564,7 +563,7 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  key = key1//' '
  if(ab/='a' .and. ab/='A') key = key2
 
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -598,7 +597,7 @@ subroutine read_on_from_dat(datname, nmo, on, alive)
  alive = .false.
  on = 0d0
 
- open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+ call open_file(datname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -637,7 +636,7 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
  nline = nmo/10
  if(nmo-nline*10 > 0) nline = nline + 1
 
- open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
+ call open_file(xmlname, .true., fid)
 
  if(ab=='a' .or. ab=='A') then
   do while(.true.)
@@ -705,7 +704,7 @@ subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
  character(len=240), intent(in) :: orbname
 
  on = 0d0
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -745,7 +744,7 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  character(len=240), intent(in) :: orbname
 
  ev = 0d0
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -783,7 +782,7 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  real(kind=8), intent(out) :: on(nif)
 
  on = 0d0
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -818,7 +817,7 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  character(len=240), intent(in) :: fchname
 
  ncontr = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -848,8 +847,7 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
+ call open_file(fchname, .true., fid)
  ! find and read Shell types
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -909,8 +907,7 @@ subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
  end if
 
  mat = 0d0
-
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+ call open_file(logname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -963,9 +960,8 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: S(nbf,nbf)
 
- S = 0.0d0
-
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ S = 0d0
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1032,7 +1028,7 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//'b'
 
- open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid1)
  i = index(fchname,'.fch',back=.true.)
  fchname1 = fchname(1:i-1)//'_D.fch'
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
@@ -1095,7 +1091,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  character(len=6), parameter :: key4 = '#UOCHR'
  logical, intent(in) :: replace
 
- open(newunit=fid1,file=TRIM(orbname),status='old',position='rewind')
+ call open_file(orbname, .true., fid1)
  i = index(orbname,'.',back=.true.)
  orbname1 = orbname(1:i-1)//'_D.Orb'
  open(newunit=fid2,file=TRIM(orbname1),status='replace')
@@ -1199,7 +1195,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  if(ab/='a' .and. ab/='A') key = key2//' '
  fchname1 = TRIM(fchname)//'.tmp'
 
- open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid1)
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
@@ -1283,8 +1279,7 @@ subroutine determine_sph_or_cart(fchname, cart)
  character(len=240), intent(in) :: fchname
  logical, intent(out) :: cart
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
+ call open_file(fchname, .true., fid)
  ! find and read Shell types
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1323,7 +1318,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  character(len=240) :: buf = ' '
  logical, intent(out) :: lin_dep
 
- open(newunit=fid,file='uno.out',status='old',position='rewind')
+ call open_file('uno.out', .true., fid)
  read(fid,'(A)') buf
  i = index(buf,'=')
  read(buf(i+1:),*) nbf
@@ -1341,7 +1336,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end if
 
  close(fid)
- open(newunit=fid,file='uno.out',status='old',position='append')
+ call open_file('uno.out', .false., fid)
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -1397,7 +1392,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  character(len=240), intent(in) :: gmsname
 
  e = 0d0
- open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
+ call open_file(gmsname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1489,7 +1484,7 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ call open_file(outname, .false., fid)
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -1516,7 +1511,7 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  end if
 
  if(scf) then ! read CASCI energy
-  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  call open_file(outname, .true., fid)
   do while(.true.)
    read(fid,'(A)') buf
    if(buf(2:8) == 'ITN=  1') exit
@@ -1546,7 +1541,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  expect = DBLE(spin)/2d0
  expect = expect*(expect + 1d0)
 
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ call open_file(outname, .false., fid)
  if(scf) then ! CASSCF/DMRG-CASSCF
   do while(.true.)
    BACKSPACE(fid)
@@ -1677,8 +1672,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
 
  expect = DBLE(spin)/2.0d0
  expect = expect*(expect + 1.0d0)
-
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
 
  if(scf) then  ! CASSCF job
   do while(.true.)
@@ -1767,7 +1761,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1829,8 +1823,8 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ e = 0d0
+ call open_file(outname, .true., fid)
 
  if(scf) then ! CASSCF
   do while(.true.)
@@ -1892,8 +1886,8 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ e = 0d0
+ call open_file(outname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1949,8 +1943,8 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ e = 0d0
+ call open_file(outname, .true., fid)
 
  if(scf) then
   do while(.true.)
@@ -2005,7 +1999,7 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2074,7 +2068,7 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2124,9 +2118,9 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
 
- ref_e = 0.0d0
- corr_e = 0.0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ ref_e = 0d0
+ corr_e = 0d0
+ call open_file(outname, .false., fid)
 
  do while(.true.)
   BACKSPACE(fid)
@@ -2187,8 +2181,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   stop
  end if
 
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
+ call open_file(outname, .true., fid)
  select case(itype)
  case(1,2) ! NEVPT2
   do while(.true.)
@@ -2296,7 +2289,7 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
   stop
  end if
 
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2345,7 +2338,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
 
  ref_e = 0d0
  corr_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
 
  select case(itype)
  case(1,2,3)
@@ -2389,7 +2382,7 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
 
  ref_e = 0d0
  corr_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -2447,7 +2440,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
   stop
  end if
 
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2514,7 +2507,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
  character(len=240) :: buf
 
  davidson_e = 0d0; e = 0d0; ref_weight = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ call open_file(outname, .false., fid)
 
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
@@ -2701,7 +2694,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0; corr_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ call open_file(outname, .true., fid)
 
  select case(TRIM(prog))
  case('openmolcas')
@@ -2792,7 +2785,7 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
   return
  end if
 
- open(newunit=datid,file=TRIM(datname),status='old',position='rewind')
+ call open_file(datname, .true., datid)
  ! find pair coefficients
  do while(.true.)
   read(datid,'(A)',iostat=i) buf
@@ -2839,7 +2832,7 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
  real(kind=8), parameter :: no_thres = 0.02d0
  real(kind=8), allocatable :: noon(:)
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2932,8 +2925,7 @@ subroutine check_cart(fchname, cart)
  character(len=31), parameter :: error_warn='ERROR in subroutine check_cart:'
  logical, intent(in) :: cart
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
+ call open_file(fchname, .true., fid)
  ! find and read Shell types
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -2998,8 +2990,7 @@ subroutine check_sph(fchname, sph)
  character(len=30), parameter :: error_warn='ERROR in subroutine check_sph:'
  logical, intent(out) :: sph
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
+ call open_file(fchname, .true., fid)
  ! find and read Shell types
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3061,7 +3052,7 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
   stop
  end if
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3117,7 +3108,7 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
 
  i = index(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
@@ -3166,7 +3157,7 @@ subroutine detect_spin_scf_density_in_fch(fchname, alive)
  logical, intent(out) :: alive
 
  alive = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3199,7 +3190,7 @@ subroutine add_density_str_into_fch(fchname, itype)
   stop
  end if
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3268,7 +3259,7 @@ subroutine update_density_using_mo_in_fch(fchname)
  logical :: uhf
 
  uhf = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3398,7 +3389,7 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
  end if
 
  dm = 0d0
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+ call open_file(logname, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3537,7 +3528,7 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
  logical :: uhf
  logical, intent(in) :: deleted
 
- open(newunit=fid,file=TRIM(fchname1),status='old',position='rewind')
+ call open_file(fchname1, .true., fid)
  uhf = .false.
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3595,7 +3586,7 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  character(len=240), intent(in) :: file47
 
  S = 0d0
- open(newunit=fid,file=TRIM(file47),status='old',position='rewind')
+ call open_file(file47, .true., fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3689,7 +3680,7 @@ subroutine read_mult_from_fch(fchname, mult)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ call open_file(fchname, .true., fid)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3712,12 +3703,12 @@ end subroutine read_mult_from_fch
 ! orbital occupation numbers.
 subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  implicit none
- integer :: i, j, k, nbf, nif, mult, fid, fid1
+ integer :: i, j, k, ne, nbf, nif, mult, fid, fid1
  integer, parameter :: iout = 6
  integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
- real(kind=8) :: ne, t0, t1, y0, y1, upe(3)
+ real(kind=8) :: t0, t1, y0, y1, upe(3)
  real(kind=8), intent(out) :: unpaired_e
  real(kind=8), allocatable :: noon(:,:), coeff(:,:), dm(:,:)
  logical, intent(in) :: gen_dm
@@ -3727,9 +3718,10 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  allocate(noon(nif,5))
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon(:,1))
 
+ write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
  call read_mult_from_fch(fchname, mult)
  if(mult == 1) then
-  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+  call open_file(fchname, .true., fid)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -3738,7 +3730,6 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
   close(fid)
   read(buf(50:),*) ne
   i = ne/2   ! assuming NOs are ordered in decreasing occupation number
-  write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
   if(wfn_type == 1) then ! UNO
    t0 = (noon(i,1) - noon(i+1,1))*0.5d0
    y0 = 1d0 - 2d0*t0/(1d0+t0*t0)
@@ -3755,7 +3746,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
    write(iout,'(A,F7.3)') 'tetraradical character(2c^2) y1=', y1
   end if
  else
-  write(iout,'(A)') 'Not spin singlet. Radical character will not be computed.'
+  write(iout,'(A)') 'Not spin singlet. Biradical character will not be computed.'
  end if
 
  forall(i = 1:nif) noon(i,2) = 2d0 - noon(i,1)
@@ -3777,7 +3768,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  if(gen_dm) then
   i = index(fchname, '.fch')
   fchname1 = fchname(1:i-1)//'_unpaired.fch'
-  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+  call open_file(fchname, .true., fid)
   open(newunit=fid1,file=TRIM(fchname1),status='replace')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
