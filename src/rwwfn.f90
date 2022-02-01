@@ -114,7 +114,8 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind',iostat=i)
+ if(i /= 0) ERROR STOP 'Error in read_na_and_nb_from_fch: open failed'
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -124,15 +125,13 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  if(i /= 0) then
   write(iout,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
                    & alpha' found in file "//TRIM(fchname)
-  close(fid)
-  stop
+  ERROR STOP
  end if
 
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, na
  read(fid,'(A49,2X,I10)') buf, nb
  close(fid)
- return
 end subroutine read_na_and_nb_from_fch
 
 ! read nbf and nif from .fch(k) file
@@ -3591,7 +3590,6 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nbf
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: S(nbf,nbf)
  character(len=240) :: buf
  character(len=240), intent(in) :: file47

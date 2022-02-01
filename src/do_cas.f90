@@ -8,10 +8,10 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
-  dkh2_or_x2c, check_gms_path, prt_strategy, RI, nmr
+  gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force,&
+  check_gms_path, prt_strategy, RI, nmr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
-  nactb, nacto, nacte, gvb_e, mult, ptchg_e, nuc_pt_e, natom, grad
+  nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
   mkl2fch_wrap
  implicit none
@@ -23,7 +23,6 @@ subroutine do_cas(scf)
  character(len=240) :: buf, fchname, pyname, inpname, outname, proname, mklname
  character(len=240) :: orbname, xmlname
  logical, intent(in) :: scf
- logical :: rel
 
  if(scf) then
   if((.not. casscf) .and. (.not.dmrgscf)) return
@@ -589,9 +588,9 @@ end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
- use mol, only: npair, nacto, nacta, nactb
+ use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, maxM,&
-  hardwfn, crazywfn, hf_fch, casnofch, CIonly, casscf_force, dkh2_or_x2c, &
+  hardwfn, crazywfn, casnofch, dkh2_or_x2c, &
   RI, RIJK_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -962,9 +961,8 @@ end subroutine prt_cas_molcas_inp
 
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
 subroutine prt_cas_orca_inp(inpname, scf)
- use print_id, only: iout
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, basis, RI, RIJK_bas
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI, RIJK_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -1033,9 +1031,9 @@ end subroutine prt_cas_orca_inp
 subroutine prt_cas_molpro_inp(inpname, scf, force)
  use print_id, only: iout
  use mol, only: ndb, npair, npair0, nacto
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI, RIJK_bas
+ use mr_keyword, only: RI, RIJK_bas
  implicit none
- integer :: i, fid, nclosed, nocc
+ integer :: fid, nclosed, nocc
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, orbfile, put
  character(len=240), intent(in) :: inpname
@@ -1147,8 +1145,7 @@ end subroutine prt_cas_bdf_inp
 
 ! print CASCI/CASSCF keywords into a given PSI4 input file
 subroutine prt_cas_psi4_inp(inpname, scf, force)
- use print_id, only: iout
- use mol, only: charge, mult, ndb, npair, npair0, nacto, nacte
+ use mol, only: ndb, npair, npair0, nacte
  use mr_keyword, only: mem, hardwfn, crazywfn, RI, RIJK_bas
  implicit none
  integer :: i, nclosed, fid
@@ -1199,10 +1196,10 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
 
  if(scf) then
   write(fid,'(/,A)') "casscf_energy, cas_wfn = energy('casscf',ref_wfn=scf_wfn,&
-                      return_wfn=True)"
+                      &return_wfn=True)"
  else
   write(fid,'(/,A)') "casci_energy, cas_wfn = energy('fci',ref_wfn=scf_wfn,&
-                      return_wfn=True)"
+                      &return_wfn=True)"
  end if
 
  write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
@@ -1285,8 +1282,7 @@ subroutine prt_cas_dalton_nmr_inp(inpname, scf)
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
  use mr_keyword, only: nmr
  implicit none
- integer :: i, nclosed, fid
- character(len=240) :: buf
+ integer :: nclosed, fid
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
 

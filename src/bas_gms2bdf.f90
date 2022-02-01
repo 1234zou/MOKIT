@@ -6,7 +6,6 @@ program main
  use pg, only: iout
  implicit none
  integer :: i
- character(len=4) :: str
  character(len=240) :: fname
  ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
 
@@ -26,12 +25,11 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in BDF format
 subroutine bas_gms2bdf(fort7)
- use pg, only: iout, natom, ram, ntimes, coor, elem, prim_gau, all_ecp, ecp_exist
+ use pg, only: iout, natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, k, nline, rc, rel, nbf, nif
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: exp1   ! the first exponent
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input, basfile

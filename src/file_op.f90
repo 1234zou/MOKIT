@@ -51,7 +51,6 @@ end subroutine delete_files
 subroutine copy_file(fname1, fname2, delete)
  implicit none
  integer :: i, fid1, fid2
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fname1, fname2
  logical, intent(in) :: delete

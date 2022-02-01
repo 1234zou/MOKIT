@@ -178,8 +178,8 @@ subroutine un_normalized_all_pg()
  implicit none
  integer :: i, j, k, nc, nline, itype
  integer, parameter :: iout = 6
- real(kind=8) :: rtmp, norm_fac
- real(kind=8), allocatable :: coeff(:,:), S(:)
+ real(kind=8) :: norm_fac
+ real(kind=8), allocatable :: coeff(:,:)
 
  do i = 1, natom, 1
   nc = all_pg(i)%nc
@@ -266,7 +266,6 @@ end function norm_fac_of_contract_gau
 ! calculate the normalization factor of a primitive gaussian
 function norm_fac_of_prim_gau(itype, alpha) result(norm_fac)
  implicit none
- integer :: i, j
  integer, intent(in) :: itype
  real(kind=8) :: norm_fac
  real(kind=8), intent(in) :: alpha
@@ -288,7 +287,6 @@ end function norm_fac_of_prim_gau
 subroutine merge_s_and_p_into_sp()
  implicit none
  integer :: i, j, k, nc, nline
- character(len=2) :: stype
  real(kind=8), allocatable :: tmp_coeff(:,:), rtmp(:)
 
  do i = 1, natom, 1

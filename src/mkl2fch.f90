@@ -56,7 +56,7 @@ subroutine mkl2fch(mklname, fchname, prt_no)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
- integer :: i, j, k, nf3mark, ng3mark, nh3mark
+ integer :: i, k, nf3mark, ng3mark, nh3mark
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: mklname, fchname

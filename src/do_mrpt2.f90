@@ -8,15 +8,15 @@ subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
-  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, F12
- use mol, only: casci_e, casscf_e, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
+  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC
+ use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
                 ovbmp2_e, davidson_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
  implicit none
  integer :: i, mem0, RENAME, system
  character(len=24) :: data_string
  character(len=240) :: string, pyname, outname, inpname, inporb
- character(len=240) :: mklname, fchname, cmofch
+ character(len=240) :: mklname, cmofch
  real(kind=8) :: ref_e, corr_e
  logical :: alive(5)
 
@@ -466,7 +466,7 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  use mr_keyword, only: CIonly
  use mol, only: ndb, npair, npair0, nacto
  implicit none
- integer :: i, fid, nclosed, nocc
+ integer :: fid, nclosed, nocc
  integer, intent(in) :: itype ! 1/2/3 for NEVPT2/CASPT2/CASPT3
  character(len=240) :: put, buf, orbfile
  character(len=240), intent(in) :: inpname
@@ -602,7 +602,7 @@ end subroutine prt_mrpt_bdf_inp
 subroutine prt_nevpt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, DKH2, X2C, CIonly, basis, RI, RIJK_bas,&
+ use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas,&
   F12, F12_cabs, FIC, DLPNO
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -681,7 +681,7 @@ end subroutine prt_nevpt2_orca_inp
 subroutine prt_caspt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, basis, RI, &
+ use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, RI, &
   RIJK_bas
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -754,8 +754,8 @@ end subroutine prt_caspt2_orca_inp
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casnofch, casci, casscf, maxM, X2C, RI,&
-  RIJK_bas, RIC_bas, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI,&
+  RIJK_bas, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -840,7 +840,7 @@ end subroutine prt_nevpt2_script_into_py
 ! DMRG-NEVPT2.
 subroutine prt_nevpt2_molcas_inp(inpname)
  use print_id, only: iout
- use mr_keyword, only: nproc, CIonly, maxM, RI, RIJK_bas, RIC_bas
+ use mr_keyword, only: CIonly, maxM, RI, RIJK_bas
  use mol, only: nacte, nacto, charge, mult
  implicit none
  integer :: i, j, fid1, fid2, RENAME

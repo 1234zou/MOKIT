@@ -349,7 +349,7 @@ end subroutine get_permute_idx_from_fch
 subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, nbf0, idx, norm)
  use Sdiag_parameter, only: Sdiag_d, Sdiag_f, Sdiag_g, Sdiag_h
  implicit none
- integer :: i, j, k, nbf
+ integer :: i, k, nbf
  integer, intent(in) :: ncontr, nbf0
  integer, intent(out) :: idx(nbf0)
  integer :: n6dmark,n10fmark,n15gmark,n21hmark

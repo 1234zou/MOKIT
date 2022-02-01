@@ -63,9 +63,8 @@ end subroutine prt_mcpdft_molcas_inp
 
 ! print MC-PDFT keywords into GAMESS .inp file
 subroutine prt_mcpdft_gms_inp(inpname)
- use print_id, only: iout
  use mol, only: charge, mult, ndb, nacte, nacto, npair, npair0
- use mr_keyword, only: mem, nproc, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly
+ use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -131,10 +130,10 @@ end subroutine prt_mcpdft_gms_inp
 ! do MC-PDFT for npair<=7, or <=CAS(14,14)
 subroutine do_mcpdft()
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, casci, casscf, dmrgci, dmrgscf, mcpdft, &
+ use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, &
   mcpdft_prog, casnofch, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
   gms_scr_path
- use mol, only: casci_e, casscf_e, ptchg_e, mcpdft_e
+ use mol, only: ptchg_e, mcpdft_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system, RENAME

@@ -53,10 +53,9 @@ end program main
 subroutine bas_gms2molcas(fort7, spherical)
  use pg, only: iout, natom, ram, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, k, nline, rc, rel
+ integer :: i, nline, rc, rel
  integer :: fid1, fid2
  integer :: charge, mult
- real(kind=8) :: exp1   ! the first exponent
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input
  ! input is the (Open)Molcas .input file

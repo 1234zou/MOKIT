@@ -113,9 +113,8 @@ end subroutine get_permute_idx_from_fch
 
 ! get permutation index list from two arrays (shell_type and shell_to_atom_map)
 subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, nbf0, idx, norm)
- use Sdiag_dalton, only: Sdiag_d, Sdiag_f, Sdiag_g, Sdiag_h
  implicit none
- integer :: i, j, k, nbf
+ integer :: i, k, nbf
  integer, intent(in) :: ncontr, nbf0
  integer, intent(out) :: idx(nbf0)
  integer :: n6dmark,n10fmark,n15gmark,n21hmark

@@ -917,12 +917,11 @@ subroutine gen_inp_of_frags()
  use print_id, only: iout
  use frag_info, only: nfrag0, nfrag, frags
  use util_wrapper, only: fch2psi_wrap, fch2inp_wrap
- use theory_level, only: mem, wfn_type, eda_type, scrf
+ use theory_level, only: wfn_type, eda_type, scrf
  use periodic_table, only: read_elem_from_gjf, elem2vdw_radii
  implicit none
  integer :: i, k
  integer :: natom  ! No. of atoms
- integer :: na, nb ! No. of alpha/beta electrons
  real(kind=8), allocatable :: radii(:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: buf, fchname, fileA, fileB
@@ -1536,7 +1535,6 @@ end subroutine determine_solvent_from_gau2gms
 subroutine convert_dft_name_gau2gms(method, dft_in_gms)
  use print_id, only: iout
  implicit none
- integer :: i
  character(len=9), intent(in) :: method
  character(len=9), intent(out) :: dft_in_gms
 
