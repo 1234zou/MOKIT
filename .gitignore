@@ -1,0 +1,6 @@
+/lib/__pycache__
+/lib/*.so
+/bin/*
+/src/*.o
+/src/*.mod
+/src/*.make
