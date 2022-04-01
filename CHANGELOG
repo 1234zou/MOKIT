@@ -1,11 +1,12 @@
-MOKIT 1.2.3 (Jan 31, 2022)
+MOKIT 1.2.3 (Apr 1, 2022)
 ------------------------
+* support specifying the number of pairs in RHF_proj case
 * remove unused variables in source code, thanks to TiborGY
 * update utility bas_gms2dal to generate ECP/PP data
 * fix a bug in subroutine xml2fch_permute_15g, in file xml2fch.f90
 * fix two numerical errors of array rh in read_fch.f90
 * add keywords MkMRCCSD, BWMRCCSD, w/o (T); change keyword MRCC to FICMRCCSD
-* add utilities chk2gbw, fch2wfn
+* add utilities chk2gbw, fch2wfn, fch247
 * update radical index formulae
 * fix a bug of py2fch when using small basis set like STO-3G/6G, 3-21G
 * output Head-Gordon's unpaired electrons, biradical/tetraradical index y0/y1

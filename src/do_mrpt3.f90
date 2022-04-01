@@ -78,7 +78,7 @@ subroutine do_mrpt3()
 
   call prt_mrpt_molpro_inp(inpname, 3) ! 1/2/3 for NEVPT2/CASPT2/CASPT3
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem0, &
+  write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0, &
                            'm '//TRIM(inpname)
   i = system(TRIM(string))
 

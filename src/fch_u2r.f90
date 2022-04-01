@@ -13,13 +13,12 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=240) :: fchname = ' '
 
  i = iargc()
  if(i == 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch_u2r: .fch(k) file are required.'
-  write(iout,'(/,A,/)') 'Example: fch_u2r a.fchk'
+  write(6,'(/,A)') 'ERROR in subroutine fch_u2r: .fch(k) file are required.'
+  write(6,'(/,A,/)') 'Example: fch_u2r a.fchk'
   stop
  end if
 
@@ -112,7 +111,11 @@ subroutine fch_u2r(fchname)
   read(fchid,'(A)') buf
   if(buf(1:5) == 'IOpCl') exit
   write(fchid1,'(A)') TRIM(buf)
- end do
+  if(buf(1:8) == 'Alpha Or') then
+   BACKSPACE(fchid)
+   exit
+  end if
+ end do ! for while
  write(fchid1,'(A5,38X,A1,16X,A1)') 'IOpCl','I','0'
  write(fchid1,'(A5,38X,A1,16X,A1)') 'IROHF','I','0'
  read(fchid,'(A)') buf
@@ -123,7 +126,7 @@ subroutine fch_u2r(fchname)
   if(buf(1:12) == 'Beta Orbital') exit
   if(buf(1:8) == 'Alpha MO') exit
   write(fchid1,'(A)') TRIM(buf)
- end do
+ end do ! for while
  if(buf(1:8) == 'Alpha MO') rhf = .true.
  if(.not. rhf) then
   do while(.true.)
@@ -156,12 +159,12 @@ subroutine fch_u2r(fchname)
   if(buf(1:8) == 'Spin SCF') exit
   if(buf(1:16) == 'Mulliken Charges') exit
   write(fchid1,'(A)') TRIM(buf)
- end do
+ end do ! for while
  if(.not. rhf) then
   do while(.true.)
    read(fchid,'(A)') buf
    if(buf(1:16) == 'Mulliken Charges') exit
-  end do
+  end do ! for while
  end if
  BACKSPACE(fchid)
 
@@ -175,6 +178,5 @@ subroutine fch_u2r(fchname)
 
  close(fchid)
  close(fchid1)
- return
 end subroutine fch_u2r
 

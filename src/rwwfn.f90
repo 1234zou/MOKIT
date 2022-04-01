@@ -3697,6 +3697,92 @@ subroutine read_mult_from_fch(fchname, mult)
  return
 end subroutine read_mult_from_fch
 
+! 1) compute 1e expectation values of MOs in file mo_fch, using information from
+! file no_fch (which usually includes NOs)
+! 2) sort paired MOs in mo_fch by 1e expectation values
+subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, ndb, nopen, npair)
+ implicit none
+ integer :: i, k, nbf, nif, system
+ integer, intent(in) :: ndb, nopen, npair
+ real(kind=8) :: rtmp
+ real(kind=8), allocatable :: coeff(:), mo(:,:), noon(:)
+ character(len=240) :: dname
+ character(len=240), intent(in) :: mo_fch, no_fch
+ logical :: nat_orb, changed
+
+ i = system('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to &
+                  & call utility solve_ON_matrix.'
+  write(6,'(A)') 'Related files: '//TRIM(mo_fch)//', '//TRIM(no_fch)
+  write(6,'(A)') 'Did you forget to compile the utility solve_ON_matrix?'
+  stop
+ end if
+
+ i = index(mo_fch, '.fch', back=.true.)
+ dname = mo_fch(1:i-1)//'_D.txt'
+ open(newunit=i,file=TRIM(dname),status='old')
+ close(unit=i,status='delete')
+
+ call read_nbf_and_nif_from_fch(no_fch, nbf, nif)
+ allocate(noon(nif))
+ call read_eigenvalues_from_fch(no_fch, nif, 'a', noon)
+ nat_orb = .false.
+ if(ALL(noon<2.2d0) .and. ALL(noon>-0.04d0)) nat_orb = .true.
+ deallocate(noon)
+ write(6,'(/,A,L1,A,3I5)') 'In subroutine get_1e_exp_and_sort_pair: nat_orb=',&
+                            nat_orb,', idx=',ndb, nopen, npair
+
+ allocate(coeff(nbf), mo(nbf,nif), noon(nif))
+ call read_mo_from_fch(mo_fch, nbf, nif, 'a', mo)
+ call read_eigenvalues_from_fch(mo_fch, nif, 'a', noon)
+
+ ! reorder paired MOs as the ascending/descending order of diagonal elements
+ ! For NOs, use descending order; for MOs, use ascending order
+ k = 2*ndb + nopen + 1
+
+ if(npair > 1) then
+
+  if(nat_orb) then   ! assuming natural orbitals
+   do while(.true.)
+    changed = .false.
+    do i = ndb-npair+1, ndb, 1
+     if(noon(i) < noon(i+1)) then
+      rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
+      rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp
+      coeff = mo(:,i); mo(:,i) = mo(:,i+1); mo(:,i+1) = coeff
+      coeff = mo(:,k-i); mo(:,k-i) = mo(:,k-i-1); mo(:,k-i-1) = coeff
+      changed = .true.
+     end if
+    end do ! for i
+    if(.not. changed) exit
+   end do ! for while
+
+  else   ! assuming canonical MOs, sorting by orbital energies
+   do while(.true.)
+    changed = .false.
+    do i = ndb-npair+1, ndb, 1
+     if(noon(i) > noon(i+1)) then
+      rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
+      rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp
+      coeff = mo(:,i); mo(:,i) = mo(:,i+1); mo(:,i+1) = coeff
+      coeff = mo(:,k-i); mo(:,k-i) = mo(:,k-i-1); mo(:,k-i-1) = coeff
+      changed = .true.
+     end if
+    end do ! for i
+    if(.not. changed) exit
+   end do ! for while
+  end if
+
+ end if
+
+ deallocate(coeff)
+ call write_mo_into_fch(mo_fch, nbf, nif, 'a', mo)
+ deallocate(mo)
+ call write_eigenvalues_to_fch(mo_fch, nif, 'a', noon, .true.)
+ deallocate(noon)
+end subroutine get_1e_exp_and_sort_pair
+
 ! calculate the number of unpaired electrons and generate unpaired electron
 ! density .fch file
 ! Note: the input fchname must include natural orbitals and corresponding
@@ -3795,76 +3881,4 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  deallocate(noon)
  return
 end subroutine calc_unpaired_from_fch
-
-! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
-! Note: the input matrix A must be symmetric
-! This subroutine is copied from subroutine mat_dsqrt in lo.f90
-subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
- implicit none
- integer :: i, m, lwork, liwork
- integer, parameter :: iout = 6
- integer, intent(in) :: n
- integer, allocatable :: iwork(:), isuppz(:)
-
- real(kind=8), parameter :: lin_dep = 1d-6
- ! 1.0D-6 is the default threshold of linear dependence in Gaussian and GAMESS
- ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
- real(kind=8), intent(in) :: a0(n,n)
- real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n)
- ! sqrt_a: A^1/2
- ! n_sqrt_a: A(-1/2)
- real(kind=8), allocatable :: a(:,:), e(:), U(:,:), Ue(:,:), work(:), e1(:,:)
- ! a: copy of a0
- ! e: eigenvalues; e1: all 0 except diagonal e(i)
- ! U: eigenvectors
- ! Ue: U*e
-
- allocate(a(n,n), source=a0)
- ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
- ! ldz, isuppz, work, lwork, iwork, liwork, info)
- lwork = -1
- liwork = -1
- allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
-
- deallocate(a, work, iwork, isuppz)
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
-  write(iout,'(A,I0)') 'i=', i
-  stop
- end if
-
- if(e(1) < -1d-6) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
-  write(iout,'(A,F16.9)') 'e(1)=', e(1)
-  stop
- end if
-
- allocate(e1(n,n), source=0d0)
- allocate(Ue(n,n), source=0d0)
- sqrt_a = 0d0
- forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
-
- e1 = 0d0
- n_sqrt_a = 0d0
- forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
-
- deallocate(e, e1, U, Ue)
- return
-end subroutine mat_dsqrt
 

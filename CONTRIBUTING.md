@@ -1,4 +1,4 @@
-A few suggestions for contributer:
+A few suggestions for contributors:
 * it's fine to compile in `src` and send merge request, since `*.o`, `*.so`, etc are ignored in `.gitignore`.
 * if you want to modify `src/Makefile` and contribute, you can do
 ```

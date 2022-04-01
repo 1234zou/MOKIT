@@ -197,36 +197,6 @@ contains
   return
  end subroutine svd_on_ovlp
 
- ! subroutine diag_get_e_and_vec: diagonalize a real symmetric matrix and get
- !  all eigenvalues and eigenvectors
- subroutine diag_get_e_and_vec(n, a, w)
-  implicit none
-  integer :: info, lwork
-  integer, intent(in) :: n
-  real(kind=8), intent(inout) :: a(n,n)
-  real(kind=8), intent(out) :: w(n)
-  real(kind=8), allocatable :: work(:)
-
-  if(n == 1) then
-   w(1) = a(1,1)
-   return
-  end if
-
-  ! ?syev: Computes all eigenvalues and, optionally, eigenvectors of a real symmetric matrix
-  ! Syntax FORTRAN 77:
-  ! call dsyev(jobz, uplo, n, a, lda, w, work, lwork, info)
-  lwork = -1
-  allocate(work(1))
-  call dsyev('V', 'U', n, a, n, w, work, lwork, info)
-
-  lwork = CEILING(work(1))
-  deallocate(work)
-  allocate(work(lwork), source=0d0)
-  call dsyev('V', 'U', n, a, n, w, work, lwork, info)
-  deallocate(work)
-  return
- end subroutine diag_get_e_and_vec
-
 end module mo_ovlp_and_svd
 
 ! perform SVD on two sets of MOs, and get new MOs
@@ -270,8 +240,7 @@ end subroutine mo_svd
 ! 2) project virtual MOs of the large basis set onto those orbitals of the small
 !    basis set
 subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, coeff)
- use mo_ovlp_and_svd, only: iout, get_mo_basis_ovlp2, svd_and_rotate2, &
-  diag_get_e_and_vec
+ use mo_ovlp_and_svd, only: iout, get_mo_basis_ovlp2, svd_and_rotate2
  implicit none
  integer :: i, j, nmo2, nvir1, nvir2
  integer :: nbf1, nmo1, nbf2, na_np

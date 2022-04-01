@@ -29,28 +29,24 @@ subroutine do_gvb()
  ! In RHF virtual MO projection, it will generate a file uno.out additionally
  call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
 
- if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-  if(npair_wish>0 .and. npair_wish/=npair) then
-   write(iout,'(A)') 'ERROR in subroutine do_gvb: npair_wish cannot be assigned in this strategy.'
+ if(npair_wish>0 .and. npair_wish/=npair) then
+  write(iout,'(2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but&
+   & user specifies GVB(',npair_wish,'). Try to fulfill...'
+  if(npair_wish < npair) then
+   ndb = ndb + npair - npair_wish
+   npair = npair_wish
+   write(iout,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals&
+                    & after converged.'
+  else if(npair_wish > npair) then
+   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: too large pairs specified.&
+                      & Cannot fulfilled.'
    stop
   end if
+ end if
+
+ if(mo_rhf) then
   pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
-
- else ! paired LMOs obtained from associated rotation of UNOs
-  if(npair_wish>0 .and. npair_wish/=npair) then
-   write(iout,'(2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but&
-    & user specifies GVB(',npair_wish,'). Try to fulfill...'
-   if(npair_wish < npair) then
-    ndb = ndb + npair - npair_wish
-    npair = npair_wish
-    write(iout,'(A)') 'OK, fulfilled.'
-   else if(npair_wish > npair) then
-    write(iout,'(A)') 'ERROR in subroutine do_gvb: too large pairs specified.&
-                     & Cannot fulfilled.'
-    stop
-   end if
-  end if
-
+ else
   pair_fch = TRIM(proname)//'_uno_asrot.fch'
  end if
 
@@ -103,9 +99,9 @@ subroutine do_gvb()
    stop
   end if
 
-  inpname = TRIM(proname1)//'_XH.inp'
-  datname = TRIM(proname1)//'_XH.dat'
-  gmsname = TRIM(proname1)//'_XH.gms'
+  inpname = TRIM(proname1)//'XH.inp'
+  datname = TRIM(proname1)//'XH.dat'
+  gmsname = TRIM(proname1)//'XH.gms'
   ! call GAMESS to do GVB computations (delete .dat file first, if any)
   buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
   call delete_file(buf)
@@ -171,27 +167,11 @@ subroutine do_gvb_gms(proname, pair_fch)
  end if
 
  call modify_memory_in_gms_inp(inpname, mem, nproc)
-
- ! call GAMESS to do GVB computations (delete .dat file first, if any)
- buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
- call delete_file(buf)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
- write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
-! write(iout,'(A)') '$$GMS '//TRIM(longbuf)
- i = system(TRIM(gms_path)//' '//TRIM(longbuf))
-
+ call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  call read_gvb_energy_from_gms(gmsname, gvb_e)
  write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
-
- ! move the .dat file into current directory
- i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine do_gvb_gms: fail to move file. Possibly&
-                   & wrong gms_scr_path.'
-  write(iout,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
-  stop
- end if
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  if(cart) then ! Cartesian functions

@@ -50,8 +50,8 @@ subroutine assoc_rot(nbf, nmo, coeff1, lo_coeff1, coeff2, new_coeff2)
  end forall
  coeff2 = coeff1
  ! rotate the coeff2
- new_coeff2 = 0.0d0
- call dgemm('N', 'N', nbf, nmo, nmo, 1.0d0, coeff2, nbf, lo_coeff1, nbf, 0.0d0, new_coeff2, nbf)
+ new_coeff2 = 0d0
+ call dgemm('N', 'N', nbf, nmo, nmo, 1d0, coeff2, nbf, lo_coeff1, nbf, 0d0, new_coeff2, nbf)
  ! reverse the coeff2 again
  forall(i = 1:nmo)
   coeff1(:,i) = new_coeff2(:,nmo-i+1)

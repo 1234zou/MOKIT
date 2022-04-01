@@ -120,7 +120,7 @@ subroutine do_mrcisd()
 
   call prt_mrcisd_molpro_inp(inpname)
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
-  write(datpath,'(2(A,I0),A)') TRIM(molpro_path)//' -n ', nproc, ' -m ', i,&
+  write(datpath,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',i,&
                                'm '//TRIM(inpname)
 
  case('psi4')

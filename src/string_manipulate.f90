@@ -448,7 +448,7 @@ subroutine add_X2C_into_fch(fchname)
  return
 end subroutine add_X2C_into_fch
 
-! add '.x2c()' into a given PySCF .py file
+! add '.x2c1e()' into a given PySCF .py file
 subroutine add_X2C_into_py(pyname)
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -473,7 +473,7 @@ subroutine add_X2C_into_py(pyname)
   stop
  end if
 
- write(fid1,'(A)') TRIM(buf)//'.x2c()'
+ write(fid1,'(A)') TRIM(buf)//'.x2c1e()'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

@@ -502,92 +502,18 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
  return
 end subroutine get_mboys
 
-! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
-! Note: the input matrix A must be symmetric
-subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
- implicit none
- integer :: i, m, lwork, liwork
- integer, parameter :: iout = 6
- integer, intent(in) :: n
- integer, allocatable :: iwork(:), isuppz(:)
-
- real(kind=8), parameter :: lin_dep = 1d-6
- ! 1.0D-6 is the default threshold of linear dependence in Gaussian and GAMESS
- ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
- real(kind=8), intent(in) :: a0(n,n)
- real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n)
- ! sqrt_a: A^1/2
- ! n_sqrt_a: A(-1/2)
- real(kind=8), allocatable :: a(:,:), e(:), U(:,:), Ue(:,:), work(:), e1(:,:)
- ! a: copy of a0
- ! e: eigenvalues; e1: all 0 except diagonal e(i)
- ! U: eigenvectors
- ! Ue: U*e
-
- allocate(a(n,n), source=a0)
- ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
- ! ldz, isuppz, work, lwork, iwork, liwork, info)
- lwork = -1
- liwork = -1
- allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
-
- deallocate(a, work, iwork, isuppz)
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
-  write(iout,'(A,I0)') 'i=', i
-  stop
- end if
-
- if(e(1) < -1d-6) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
-  write(iout,'(A,F16.9)') 'e(1)=', e(1)
-  stop
- end if
-
- allocate(e1(n,n), source=0d0)
- allocate(Ue(n,n), source=0d0)
- sqrt_a = 0d0
- forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
-
- e1 = 0d0
- n_sqrt_a = 0d0
- forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
-
- deallocate(e, e1, U, Ue)
- return
-end subroutine mat_dsqrt
-
 ! perform immediate Boys localization by diagonalizing the DxDx+DyDy+DzDz
 subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
- integer :: i, lwork, liwork
- integer :: nbf, nmo
+ integer :: i, nbf, nmo
 !f2py intent(in) :: nbf, nmo
  integer, parameter :: iout = 6
- integer, allocatable :: iwork(:)
  real(kind=8) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo), new_coeff(nbf,nmo)
 !f2py intent(in) :: mo_coeff, mo_dipole
 !f2py intent(out) :: new_coeff
 !f2py depend(nbf,nmo) :: mo_coeff, new_coeff
 !f2py depend(nmo) :: mo_dipole
- real(kind=8), allocatable :: f(:,:)
- real(kind=8), allocatable :: w(:), work(:)
+ real(kind=8), allocatable :: f(:,:), w(:)
 
  allocate(f(nmo,nmo), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
@@ -595,24 +521,9 @@ subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
 
- ! call dsyevd(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info)
- allocate(work(1), iwork(1))
- lwork = -1
- liwork = -1
- call dsyevd('V', 'U', nmo, f, nmo, w, work, lwork, iwork, liwork, i)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(w(nmo), work(lwork), iwork(liwork))
- call dsyevd('V', 'U', nmo, f, nmo, w, work, lwork, iwork, liwork, i)
- deallocate(w, work, iwork)
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine boys_diag: info /= 0 in dsyevd.'
-  write(iout,'(A,I0)') 'info = ', i
-  stop
- end if
-
+ allocate(w(nmo), source=0d0)
+ call diag_get_e_and_vec(nmo, f, w)
+ deallocate(w)
  call dgemm('N','N',nbf,nmo,nmo, 1d0,mo_coeff,nbf, f,nmo, 0d0,new_coeff,nbf)
  deallocate(f)
  return

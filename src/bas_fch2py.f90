@@ -27,17 +27,22 @@ end program main
 subroutine bas_fch2py(fchname)
  use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, system
+ integer :: i, system, RENAME
  integer, parameter :: iout = 6
- character(len=240) :: inpname
+ character(len=240) :: inpname, inpname1
  character(len=240), intent(in) :: fchname
- logical :: cart
-
- call determine_sph_or_cart(fchname, cart) 
- call fch2inp_wrap(fchname, .false., 0, 0)
+ logical :: alive, cart
 
  i = index(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
+ inpname1 = fchname(1:i-1)//'.inp.t'
+
+ ! if inpname already exists, rename it
+ inquire(file=TRIM(inpname),exist=alive)
+ if(alive) i = RENAME(TRIM(inpname), TRIM(inpname1))
+
+ call determine_sph_or_cart(fchname, cart) 
+ call fch2inp_wrap(fchname, .false., 0, 0)
 
  if(cart) then ! Cartesian functions
   i = system('bas_gms2py '//TRIM(inpname))
@@ -51,9 +56,12 @@ subroutine bas_fch2py(fchname)
   stop
  end if
 
- ! delete the inpname
- open(newunit=i,file=TRIM(inpname),status='old')
- close(unit=i,status='delete')
- return
+ if(alive) then
+  i = RENAME(TRIM(inpname1), TRIM(inpname))
+ else
+  ! delete the inpname
+  open(newunit=i,file=TRIM(inpname),status='old')
+  close(unit=i,status='delete')
+ end if
 end subroutine bas_fch2py
 

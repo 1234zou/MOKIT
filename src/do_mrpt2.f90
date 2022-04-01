@@ -162,7 +162,7 @@ subroutine do_mrpt2()
 
    call prt_mrpt_molpro_inp(inpname, 1)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem0, &
+   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0,&
                             'm '//TRIM(inpname)
    i = system(TRIM(string))
 
@@ -273,7 +273,7 @@ subroutine do_mrpt2()
 
    call prt_mrpt_molpro_inp(inpname, 2)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ',mem0, &
+   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0,&
                             'm '//TRIM(inpname)
    i = system(TRIM(string))
 
@@ -790,7 +790,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
 
  write(fid2,'(A)') '# generate CASCI wfn'
  if(X2C) then
-  write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,')).x2c()'
+  write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,')).x2c1e()'
  else
   if(RI) then
    write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,&

@@ -9,7 +9,7 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr
+  check_gms_path, prt_strategy, RI, nmr, dryrun, nstate
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -108,20 +108,23 @@ subroutine do_cas(scf)
 
  if(i == 0) then
   write(iout,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
-  write(iout,'(/,A)') 'The reason is this molecule has no multi-configurational&
-                     & or multi-reference character.'
-  write(iout,'(A)') 'This molecule can be well described by single reference&
-                   & methods, e.g. MP2, CCSD(T).'
-  write(iout,'(A)') 'Thus no need for multi-reference computation. But if you&
-                   & have to do it, you can manually'
-  write(iout,'(A)') 'specify the size of acitve space in .gjf file. For example&
-                   & CASSCF(8,8) for methane(CH4).'
-  write(iout,'(A)') 'The maximum number of active orbitals is 2*npair. You can&
-                   & find npair in GVB computations'
-  write(iout,'(A,I0)') 'above. For this molecule, npair = ', npair
+  write(iout,'(/,A)') 'The reason is this molecule has little multi-configurational&
+                     & or multi-reference'
+  write(iout,'(A)') 'character. This molecule can be well described by single&
+                   & reference methods, e.g.'
+  write(iout,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation&
+                    &. But if you still want'
+  write(iout,'(A)') 'to do it, you can manually specify the size of acitve spac&
+                    &e in .gjf file. For ex-'
+  write(iout,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for meth&
+                    &ane(CH4). The maximum'
+  write(iout,'(A)') 'number of active orbitals is 2*npair. You can find npair &
+                    &in GVB computations above.'
+  write(iout,'(A,I0)') 'For this molecule, npair=', npair
   stop
  end if
- write(iout,'(2(A,I4,4X),A,L1)') 'doubly_occ=', idx1-1, 'nvir=', nvir, 'RIJK= ', RI
+ write(iout,'(2(A,I4,3X),A,L1,3X,A,I0)') 'doubly_occ=', idx1-1, 'nvir=',nvir,&
+                                         'RIJK=', RI, 'nstate=', nstate
  write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
  if(nopen+2*npair0 > 15) then
@@ -183,6 +186,8 @@ subroutine do_cas(scf)
   i = index(hf_fch, '.fch', back=.true.)
   pyname = hf_fch(1:i-1)//'.py'
  end if
+
+ if(dryrun) return ! do not perform electronic structure calculations
 
  proname = ' '
  i = index(hf_fch, '.fch', back=.true.)
@@ -401,9 +406,9 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
-  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -m ', i,&
+  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ', i,&
                            'm '//TRIM(inpname)
-  write(iout,'(2(A,I0),A)') '$molpro -n ',nproc,' -m ', i, 'm '//TRIM(inpname)
+  write(iout,'(2(A,I0),A)') '$molpro -n ',nproc,' -t 1 -m ',i,'m '//TRIM(inpname)
   i = system(TRIM(buf))
   if(i /= 0) then
    write(iout,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
@@ -641,11 +646,11 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to make them half
- if(scf) then ! CASSCF/DMRG-CASSCF
-  if(casscf) then
+ if(scf) then
+  if(casscf) then ! CASSCF
    write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto,',(',nacta,',',nactb,')'
    if(dkh2_or_x2c) then
-    write(fid2,'(A)') ').x2c()'
+    write(fid2,'(A)') ').x2c1e()'
    else
     if(RI) then
      write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
@@ -653,24 +658,23 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
      write(fid2,'(A)') ')'
     end if
    end if
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*500,' # MB'
+   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
   else ! DMRG-CASSCF
    write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
    if(dkh2_or_x2c) then
-    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,')).x2c()'
+    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,')).x2c1e()'
    else
     write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
    end if
    write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((2*nproc))),' # GB'
+   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
   end if
-
-  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*500, ' # MB'
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
   write(fid2,'(A)') 'mc.max_cycle = 200'
  else ! CASCI/DMRG-CASCI
   write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto,',(',nacta,',',nactb,')'
   if(dkh2_or_x2c) then
-   write(fid2,'(A)') ').x2c()'
+   write(fid2,'(A)') ').x2c1e()'
   else
    if(RI) then
     write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
@@ -678,12 +682,12 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
     write(fid2,'(A)') ')'
    end if
   end if
-  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*500, ' # MB'
-  if(casci) then
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*500, ' # MB'
-  else
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
+  if(casci) then ! CASCI
+   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*200, ' # MB'
+  else           ! DMRG-CASCI
    write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((2*nproc))),' # GB'
+   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
   end if
  end if
 
@@ -702,22 +706,24 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(A)') 'mc.fcisolver.max_cycle = 100'
  end if
 
- ! For CASCI/CASSCF, NOs will be generated; but for DMRGCI/DMRGSCF, both
- ! the canonical MOs and NOs will be generated.
- ! Since DMRG is not invariant to unitary rotations of orbitals, I hope
- ! the canonical MOs to be used in DMRG-NEVPT2/CASPT2 computations.
- if(.not.(dmrgci .or. dmrgscf)) write(fid2,'(A)') 'mc.natorb = True'
+ ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
+ ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
+ ! original MOs to be used in DMRG-NEVPT2/CASPT2 computations. NOs are often
+ ! more delocalized than original MOs.
+ if(.not. dmrgscf) write(fid2,'(A)') 'mc.natorb = True'
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 
- if(dmrgci .or. dmrgscf) then
-  i = index(casnofch, '_NO', back=.true.)
-  cmofch = casnofch(1:i)//'CMO.fch'
+ i = index(casnofch, '_NO', back=.true.)
+ cmofch = casnofch(1:i)//'CMO.fch'
+ if(dmrgci) then
+  write(fid2,'(/,A)') '# copy original MOs into a new file'
+  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
+ else if(dmrgscf) then
   write(fid2,'(/,A)') '# save CMOs into .fch file'
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
   write(fid2,'(A)') 'noon = np.zeros(nif)'
   write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False)"
-
   write(fid2,'(/,A)') 'mc.natorb = True'
   write(fid2,'(A)') 'mc.kernel()'
  end if
@@ -975,7 +981,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0)') '%maxcore ', CEILING(1000d0*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'

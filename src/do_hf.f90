@@ -448,10 +448,12 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   buf = gjfname(1:j-1)//'_o.mkl'
   i = RENAME(TRIM(buf), TRIM(mklname))
 
-  call mkl2gbw(mklname)
   call read_hf_type_from_orca_inp(inpname, hf_type)
   call prt_hf_orca_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  call mkl2gbw(mklname)
+  ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
+  ! will modify both .inp and .mkl file
 
   write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
   i = system(TRIM(hf_prog_path)//' '//TRIM(buf))
@@ -850,7 +852,7 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end if
 
  if(dkh2_or_x2c) then
-  write(fid1,'(A)') TRIM(buf)//'.x2c()'
+  write(fid1,'(A)') TRIM(buf)//'.x2c1e()'
  else
   write(fid1,'(A)') TRIM(buf)
  end if

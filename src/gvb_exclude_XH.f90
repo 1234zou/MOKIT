@@ -229,7 +229,7 @@ subroutine gvb_exclude_XH(datname, gmsname)
  i = index(datname,'.dat')
  if(i == 0) i = index(datname,'.inp')
  newdat = datname(1:i-1)//'_new.dat'
- write(inpname,'(A)') datname(1:i-1)//'_XH.inp'
+ write(inpname,'(A)') datname(1:i-1)//'XH.inp'
  call create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore+npair2,&
                                       npair-npair2, nopen)
  return

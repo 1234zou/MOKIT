@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jan-31'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Apr-1'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -98,6 +98,7 @@ subroutine automr(fname)
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
  call do_mcpdft()     ! MC-PDFT
  call do_mrcc()       ! MRCC
+ call do_sa_cas()     ! SA-CASSCF
  call do_PES_scan()   ! PES scan
 
  call fdate(data_string)
@@ -291,7 +292,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  write(fid2,'(A)') 'mol2.build()'
  if(dkh2_or_x2c) then
-  write(fid2,'(A)') 'mf2 = scf.RHF(mol2).x2c()'
+  write(fid2,'(A)') 'mf2 = scf.RHF(mol2).x2c1e()'
  else
   write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
  end if
@@ -356,6 +357,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
   stop
  end if
 
+ write(fid2,'(A)') 'from rwwfn import get_1e_exp_and_sort_pair as sort_pair'
  if(localm == 'pm') then ! Pipek-Mezey localization
   write(fid2,'(A)') 'from lo import pm'
  else ! Boys localization
@@ -411,6 +413,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
  write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
+ write(fid2,'(A)') "sort_pair('"//TRIM(loc_fch)//"','"//TRIM(hf_fch)//"',idx2,nopen,npair)"
  write(fid2,'(A)') '# save done'
 
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"

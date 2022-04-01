@@ -1,4 +1,5 @@
-! written by jxzou at 20200502: compute the (non-diagonal) occupation number matrix of a set of MOs
+! written by jxzou at 20200502: compute the (non-diagonal) occupation number
+!  matrix of a set of MOs
 
 ! Note:
 ! (1) the target MOs are hold in .fch(k) file fname1
@@ -12,18 +13,17 @@ program main
  implicit none
  integer :: i, idx(2)
 ! idx(1)/idx(2): the start/final NO index
- integer, parameter :: iout = 6
  character(len=8) :: buf
  character(len=240) :: fname1, fname2
 
  i = iargc()
  if(.not. (i==2 .or. i==4)) then
-  write(iout,'(/,A)') ' ERROR in subroutine solve_ON_matrix: wrong command line arguments.'
-  write(iout,'(A)') ' Format: solve_ON_matrix MO_file NO_file [idx1] [idx2]'
-  write(iout,'(/,A)') ' Example 1(Gaussian): solve_ON_matrix mo.fchk no.fchk'
-  write(iout,'(/,A)') ' Example 2(Gaussian): solve_ON_matrix mo.fchk no.fchk 19 24'
-  write(iout,'(/,A)') ' Example 3(OpenMolcas): solve_ON_matrix mo.UnaOrb no.RasOrb.1'
-  write(iout,'(/,A,/)') ' Example 4(OpenMolcas): solve_ON_matrix mo.UnaOrb no.RasOrb.1 19 24'
+  write(6,'(/,A)') ' ERROR in subroutine solve_ON_matrix: wrong command line arguments.'
+  write(6,'(A)') ' Format: solve_ON_matrix MO_file NO_file [idx1] [idx2]'
+  write(6,'(/,A)') ' Example 1(Gaussian): solve_ON_matrix mo.fchk no.fchk'
+  write(6,'(/,A)') ' Example 2(Gaussian): solve_ON_matrix mo.fchk no.fchk 19 24'
+  write(6,'(/,A)') ' Example 3(OpenMolcas): solve_ON_matrix mo.UnaOrb no.RasOrb.1'
+  write(6,'(/,A,/)') ' Example 4(OpenMolcas): solve_ON_matrix mo.UnaOrb no.RasOrb.1 19 24'
   stop
  end if
 
@@ -48,8 +48,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
 ! nbf: total number of basis functions
 ! nmo: the number of NOs, <= nif, e.g. in CAS(6,6), nmo=6 is enough
  integer, intent(in) :: idx(2)
- integer, parameter :: iout = 6
- character(len=240) :: fname
+ character(len=240) :: fname, new_fch
  character(len=240), intent(in) :: fname1, fname2
  real(kind=8), allocatable :: mo(:,:), no(:,:), noon(:)
  real(kind=8), allocatable :: U(:,:), n(:,:), nU(:,:)
@@ -82,29 +81,29 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
   idx1 = idx(1); idx2 = idx(2)
   nmo = idx2 - idx1 + 1
   if(nmo < 2) then
-   write(iout,'(A)') 'ERROR in subroutine solve_ON_matrix: >=2 NOs required.'
+   write(6,'(A)') 'ERROR in subroutine solve_ON_matrix: >=2 NOs required.'
    stop
   end if
  end if
 
  ! solve mo = no*U
- allocate(U(nmo,nmo), source=0.0d0)
+ allocate(U(nmo,nmo), source=0d0)
  call get_u(nbf, nmo, no(:,idx1:idx2), mo(:,idx1:idx2), U)
- deallocate(mo, no)
+ deallocate(no)
 
  ! check whether matrix U is unitary
  call check_unitary(nmo, U)
 
- allocate(n(nmo,nmo), source=0.0d0)
+ allocate(n(nmo,nmo), source=0d0)
  forall(i=1:nmo) n(i,i) = noon(idx1+i-1)
 
  ! D = (U^T)nU
- allocate(nU(nmo,nmo), source=0.0d0)
+ allocate(nU(nmo,nmo), source=0d0)
  ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('L', 'L', nmo, nmo, 1.0d0, n, nmo, U, nmo, 0.0d0, nU, nmo)
- n = 0.0d0
+ call dsymm('L', 'L', nmo, nmo, 1d0, n, nmo, U, nmo, 0d0, nU, nmo)
+ n = 0d0
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('T', 'N', nmo, nmo, nmo, 1.0d0, U, nmo, nU, nmo, 0.0d0, n, nmo)
+ call dgemm('T', 'N', nmo, nmo, nmo, 1d0, U, nmo, nU, nmo, 0d0, n, nmo)
  deallocate(U, nU)
 
  ! update the noon matrix
@@ -118,6 +117,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  fname = fname1(1:j-1)//'_D.txt'
 
  open(newunit=fid,file=TRIM(fname),status='replace')
+ write(fid,'(A)') 'Occupation matrix:'
  do i = 1, nmo, 1
   do j = i, nmo, 1
    write(fid,'(2(I4,1X),F9.5)') j, i, n(j,i)
@@ -127,12 +127,12 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  deallocate(n)
 
  if(gau) then ! Gaussian .fch(k) case
-  call write_eigenvalues_to_fch(fname1, nif, 'a', noon, .false.)
+  call write_eigenvalues_to_fch(fname1, nif, 'a', noon, .true.)
  else ! Molcas/OpenMolcas case
-  call write_on_to_orb(fname1, nif, 'a', noon, .false.)
+  call write_on_to_orb(fname1, nif, 'a', noon, .true.)
  end if
 
- return
+ deallocate(mo, noon)
 end subroutine solve_ON_matrix
 
 ! compute the unitary matrix U between two sets of MOs
@@ -185,37 +185,36 @@ subroutine check_unitary(nmo, U)
  implicit none
  integer :: i, j
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
- real(kind=8), parameter :: thresh = 1.0d-6
+ real(kind=8), parameter :: thresh = 1d-6
  real(kind=8), intent(in) :: U(nmo,nmo)
  real(kind=8), allocatable :: UUT(:,:), UTU(:,:)
 
- allocate(UUT(nmo,nmo), source=0.0d0)
- call dgemm('N', 'T', nmo, nmo, nmo, 1.0d0, U, nmo, U, nmo, 0.0d0, UUT, nmo)
- forall(i = 1:nmo) UUT(i,i) = UUT(i,i) - 1.0d0
+ allocate(UUT(nmo,nmo), source=0d0)
+ call dgemm('N', 'T', nmo, nmo, nmo, 1d0, U, nmo, U, nmo, 0d0, UUT, nmo)
+ forall(i = 1:nmo) UUT(i,i) = UUT(i,i) - 1d0
 
  do i = 1, nmo, 1
   do j = i, nmo, 1
    if(DABS(UUT(j,i)) > thresh) then
-    write(iout,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
-    write(iout,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
-    write(iout,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UUT(j,i)=', UUT(j,i)
+    write(6,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
+    write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
+    write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UUT(j,i)=', UUT(j,i)
     stop
    end if
   end do ! for j
  end do ! for i
 
  deallocate(UUT)
- allocate(UTU(nmo,nmo), source=0.0d0)
- call dgemm('T', 'N', nmo, nmo, nmo, 1.0d0, U, nmo, U, nmo, 0.0d0, UTU, nmo)
- forall(i = 1:nmo) UTU(i,i) = UTU(i,i) - 1.0d0
+ allocate(UTU(nmo,nmo), source=0d0)
+ call dgemm('T', 'N', nmo, nmo, nmo, 1d0, U, nmo, U, nmo, 0d0, UTU, nmo)
+ forall(i = 1:nmo) UTU(i,i) = UTU(i,i) - 1d0
 
  do i = 1, nmo, 1
   do j = i, nmo, 1
    if(DABS(UTU(j,i)) > thresh) then
-    write(iout,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
-    write(iout,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
-    write(iout,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UTU(j,i)=', UTU(j,i)
+    write(6,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
+    write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
+    write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UTU(j,i)=', UTU(j,i)
     stop
    end if
   end do ! for j

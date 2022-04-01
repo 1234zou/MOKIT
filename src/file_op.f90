@@ -40,7 +40,7 @@ end subroutine open_file
 subroutine delete_file(fname)
  implicit none
  integer :: fid
- character(len=240), intent(in) :: fname
+ character(len=*), intent(in) :: fname
  logical :: alive
 
  inquire(file=TRIM(fname),exist=alive)
@@ -50,8 +50,6 @@ subroutine delete_file(fname)
   if(.not. alive) open(newunit=fid,file=TRIM(fname),status='old')
   close(fid,status='delete')
  end if
-
- return
 end subroutine delete_file
 
 ! delete a set of files
@@ -64,9 +62,18 @@ subroutine delete_files(n, fname)
  do i = 1, n, 1
   call delete_file(fname(i))
  end do ! for i
-
- return
 end subroutine delete_files
+
+subroutine delete_files_in_path(path, n, fname)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ character(len=240), intent(in) :: path, fname(n)
+
+ do i = 1, n, 1
+  call delete_file(TRIM(path)//'/'//TRIM(fname(i)))
+ end do ! for i
+end subroutine delete_files_in_path
 
 ! copy file fname1 to fname2 (if delete=.True., delete fname1)
 subroutine copy_file(fname1, fname2, delete)

@@ -55,7 +55,6 @@ subroutine fch2wfn(fchname, read_no)
  ! cen_assign: center assignments in .wfn file, size tot_nprim
  ! type_assign: type assignments in .wfn file, size tot_nprim
  ! shl_nprim(i) = shltyp2nprim(shell_type(i))
- real(kind=8) :: tot_e, virial
  real(kind=8), parameter :: up_limit = 2.0000001d0, low_limit = -0.0000001d0
  real(kind=8), allocatable :: exponents(:), mo0(:,:), mo1(:,:), mo2(:,:)
  ! exponents: exponents of Gaussian functions, size tot_nprim
@@ -287,8 +286,6 @@ subroutine fch2wfn(fchname, read_no)
  deallocate(mo2)
 
  write(fid,'(A)') 'END DATA'
- ! read Virial coefficient and total energy from .fch(k) file
- call read_virial_and_tot_e_from_fch(fchname, virial, tot_e)
  write(fid,'(A,F22.12,A,F13.8)') ' TOTAL ENERGY =',tot_e,' THE VIRIAL(-V/T)=',virial
  close(fid)
  return
@@ -324,7 +321,6 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
   contr_coeff(i) = contr_coeff(i)*(r2a_pi(i)**(2*p0+3))
  end forall
  if(p0 > 0) contr_coeff = contr_coeff*(sqrt_2pi**p0)
- return
 end subroutine contr_coeff_multiply_norm_fac
 
 ! Scale MOs (Cartesian-type basis) by multiplying some constants
@@ -371,6 +367,5 @@ subroutine scale_mo_as_wfn(ncontr, shell_type, nbf, nif, coeff)
   end select
  end do ! for i
 
- return
 end subroutine scale_mo_as_wfn
 

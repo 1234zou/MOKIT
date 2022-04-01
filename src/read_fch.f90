@@ -19,6 +19,7 @@ module fch_content
  integer :: LenNCZ           ! ECP-LenNCZ
  integer, parameter :: iout = 6              ! print id, default on screen
  integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
+ integer, parameter :: shltyp2nbf(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
  integer, allocatable :: shell_type(:)       ! Shell types
  integer, allocatable :: prim_per_shell(:)   ! Number of primitives per shell
@@ -28,6 +29,8 @@ module fch_content
  integer, allocatable :: Lmax(:), LPSkip(:)  ! ECP-LMax, ECP-LPSkip, size natom
  integer, allocatable :: NLP(:)              ! ECP-NLP, size LenNCZ
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ real(kind=8) :: virial = 2d0 ! Virial Ratio
+ real(kind=8) :: tot_e = 0d0 ! Total Energy
  real(kind=8), allocatable :: coor(:,:)         ! Cartesian coordinates
  real(kind=8), allocatable :: prim_exp(:)       ! Primitive exponents
  real(kind=8), allocatable :: contr_coeff(:)    ! Contraction coefficients
@@ -38,6 +41,9 @@ module fch_content
  real(kind=8), allocatable :: beta_coeff(:,:)   ! Beta MOs
  real(kind=8), allocatable :: RNFroz(:)         ! ECP-RNFroz(core e), size natom
  real(kind=8), allocatable :: CLP(:), ZLP(:)    ! ECP-CLP1, ECP-ZLP, size LenNCZ
+ real(kind=8), allocatable :: tot_dm(:,:)       ! Total SCF Density
+ real(kind=8), allocatable :: spin_dm(:,:)      ! Spin SCF Density
+ real(kind=8), allocatable :: mull_char(:)      ! Mulliken Charges
  character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
  ! Frozen core orbitals used in RHF_proj and dynamic correlation computations.
@@ -129,7 +135,7 @@ end subroutine check_uhf_in_fch
 ! read geometry, basis sets, ECP(if any) and MOs from .fch file (Gaussian)
 subroutine read_fch(fchname, uhf)
  implicit none
- integer :: i, fid
+ integer :: i, j, fid
  integer :: ncoeff ! = nbf*nif
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
@@ -191,8 +197,8 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(A)') buf
   if(buf(1:12) == 'Current cart') exit
  end do
- allocate(coor0(3*natom), source=0.0d0)
- allocate(coor(3,natom), source=0.0d0)
+ allocate(coor0(3*natom), source=0d0)
+ allocate(coor(3,natom), source=0d0)
  read(fid,'(5(1X,ES15.8))') (coor0(i),i=1,3*natom)
  coor = RESHAPE(coor0,(/3,natom/))
  deallocate(coor0)
@@ -271,6 +277,10 @@ subroutine read_fch(fchname, uhf)
    exit
   end if
 
+  if(buf(1:12) == 'Virial Ratio') then
+   BACKSPACE(fid)
+   exit
+  end if
   if(buf(1:13) == 'Alpha Orbital') then
    BACKSPACE(fid)
    exit
@@ -283,10 +293,10 @@ subroutine read_fch(fchname, uhf)
   allocate(KFirst(natom,10), source=0)
   allocate(KLast(natom,10), source=0)
   allocate(LPSkip(natom), source=0)
-  allocate(RNFroz(natom), source=0.0d0)
+  allocate(RNFroz(natom), source=0d0)
   allocate(NLP(LenNCZ), source=0)
-  allocate(CLP(LenNCZ), source=0.0d0)
-  allocate(ZLP(LenNCZ), source=0.0d0)
+  allocate(CLP(LenNCZ), source=0d0)
+  allocate(ZLP(LenNCZ), source=0d0)
 
   allocate(Lmax(10*natom), source=0)
   read(fid,'(A)') buf
@@ -316,11 +326,21 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(5(1X,ES15.8))') (ZLP(i), i=1,LenNCZ)
  end if
 
- ! find and read Alpha Orbital Energies
+ ! read Virial Ratio and Total Energy
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:13) == 'Alpha Orbital') exit
- end do
+  select case(buf(1:12))
+  case('Virial Ratio')
+   read(buf(45:),*) virial
+  case('Total Energy')
+   read(buf(45:),*) tot_e
+  case('Alpha Orbita')
+   exit
+  case default ! do nothing
+  end select
+ end do ! for while
+
+ ! read Alpha Orbital Energies
  allocate(eigen_e_a(nif), source=0d0)
  read(fid,'(5(1X,ES15.8))') (eigen_e_a(i),i=1,nif)
 
@@ -350,16 +370,41 @@ subroutine read_fch(fchname, uhf)
 
  ! if '-uhf' specified, read Beta MO
  if(uhf) then
-  allocate(coeff(ncoeff), source=0.0d0)
+  allocate(coeff(ncoeff), source=0d0)
   read(fid,'(A)') buf   ! skip the Beta MO line
   read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
-  allocate(beta_coeff(nbf,nif), source=0.0d0)
+  allocate(beta_coeff(nbf,nif), source=0d0)
   beta_coeff = RESHAPE(coeff,(/nbf,nif/))
   deallocate(coeff)
  end if
 
+ do while(.true.)   ! read Total SCF Density
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   return
+  end if
+  if(buf(1:9) == 'Total SCF') exit
+ end do ! for while
+ allocate(tot_dm(nbf,nbf))
+ read(fid,'(5(1X,ES15.8))') ((tot_dm(j,i),j=1,i),i=1,nbf)
+ forall(i=1:nbf,j=1:nbf,i>j) tot_dm(i,j) = tot_dm(j,i)
+
+ if(uhf) then   ! read Spin SCF Density
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) then
+    close(fid)
+    return
+   end if
+   if(buf(1:9) == 'Spin SCF ') exit
+  end do ! for while
+  allocate(spin_dm(nbf,nbf))
+  read(fid,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
+  forall(i=1:nbf,j=1:nbf,i>j) spin_dm(i,j) = spin_dm(j,i)
+ end if
+
  close(fid)
- return
 end subroutine read_fch
 
 ! read the position marks of 5D,6D,etc from array shell_type
@@ -712,44 +757,6 @@ function nosymm_in_fch(fchname) result(nosymm)
  return
 end function nosymm_in_fch
 
-! read values of 'Virial Ratio' and 'Total Energy' from a .fch(k) file
-subroutine read_virial_and_tot_e_from_fch(fchname, virial, tot_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: virial, tot_e
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- virial = 0d0; tot_e = 0d0; buf = ' ' ! initialization
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:12) == 'Virial Ratio') exit
- end do ! for while
-
- if(i /= 0) then
-  close(fid)
-  return
- else
-  read(buf(45:),*) virial
- end if
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:7) == 'Total E') exit
- end do ! for while
- close(fid)
-
- if(i /= 0) then
-  return
- else
-  read(buf(45:),*) tot_e
- end if
- return
-end subroutine read_virial_and_tot_e_from_fch
-
 ! expand MO coefficients from spherical harmonic type functions into Cartesian
 ! type functions
 subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
@@ -805,4 +812,137 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
  end if
  return
 end subroutine mo_sph2cart
+
+! create/generate a new .fch file using arrays stored in memory
+! TODO: add ECP/PP data printing
+subroutine write_fch(fchname)
+ use fch_content
+ implicit none
+ integer :: i, j, ncoeff, nhigh, ncontr_l, len_dm, fid
+ integer, allocatable :: ilsw(:)
+ real(kind=8), allocatable :: relem(:), shell_coor(:), coor1(:)
+ character(len=240), intent(in) :: fchname
+ logical :: uhf
+
+ if(allocated(eigen_e_b)) then
+  uhf = .true.
+ else
+  uhf= .false.
+ end if
+ ncoeff = nif*nbf
+
+ i = MAXVAL(shell_type)
+ if(i < 0) i = -i
+ j = MINVAL(shell_type)
+ if(j < 0) j = -j
+ nhigh = MAX(i,j)
+ ncontr_l = MAXVAL(prim_per_shell)
+
+ allocate(relem(natom), coor1(3*natom))
+ forall(i = 1:natom) relem(i) = DBLE(ielem(i))
+ forall(i = 1:natom) coor1(3*i-2:3*i) = coor(:,i)
+ coor1 = coor1/Bohr_const
+
+ ! create array shell_coor, which is  'Coordinates of each shell'
+ allocate(shell_coor(3*ncontr), source=0d0)
+ do i = 1, ncontr, 1
+  j = shell2atom_map(i)
+  shell_coor(3*i-2:3*i) = coor(:,j)/Bohr_const
+ end do ! for i
+
+ allocate(ilsw(100), source=0)
+ if(uhf) ilsw(1) = 1
+ ilsw(5) = 2
+ ilsw(12) = -1
+ ilsw(13) = 5
+ ilsw(25:26) = 1
+ ilsw(33) = 100000
+ ilsw(35) = -1
+ ilsw(46) = 1
+ ilsw(50) = -2000000000
+ ilsw(51) = 1
+ ilsw(57) = 4
+ ilsw(58) = 52
+ ilsw(70) = natom
+ ilsw(72) = 1
+
+ open(newunit=fid,file=TRIM(fchname),status='replace')
+ write(fid,'(A)') 'Generated by MOKIT'
+ write(fid,'(A,9X)',advance='no') 'SP'
+ if(uhf) then
+  write(fid,'(A)',advance='no') 'UHF'
+ else
+  write(fid,'(A)',advance='no') 'RHF'
+ end if
+ write(fid,'(57X,A)') 'MYBAS'
+ write(fid,'(A,I17)') 'Number of atoms                            I',natom
+ write(fid,'(A,I17)') 'Charge                                     I',charge
+ write(fid,'(A,I17)') 'Multiplicity                               I',mult
+ write(fid,'(A,I17)') 'Number of electrons                        I',na+nb
+ write(fid,'(A,I17)') 'Number of alpha electrons                  I',na
+ write(fid,'(A,I17)') 'Number of beta electrons                   I',nb
+ write(fid,'(A,I17)') 'Number of basis functions                  I',nbf
+ write(fid,'(A,I17)') 'Number of independent functions            I',nif
+ write(fid,'(A,I12)') 'Atomic numbers                             I   N=',natom
+ write(fid,'(6I12)') ielem
+ write(fid,'(A,I12)') 'Nuclear charges                            R   N=',natom
+ write(fid,'(5(1X,ES15.8))') relem
+ deallocate(relem)
+ write(fid,'(A,I12)') 'Current cartesian coordinates              R   N=',natom*3
+ write(fid,'(5(1X,ES15.8))') coor1
+ deallocate(coor1)
+ write(fid,'(A,I17)') 'Number of contracted shells                I',ncontr
+ write(fid,'(A,I17)') 'Number of primitive shells                 I',nprim
+ write(fid,'(A,I17)') 'Highest angular momentum                   I',nhigh
+ write(fid,'(A,I17)') 'Largest degree of contraction              I',ncontr_l
+ write(fid,'(A,I12)') 'Shell types                                I   N=',ncontr
+ write(fid,'(6I12)') shell_type
+ write(fid,'(A,I12)') 'Number of primitives per shell             I   N=',ncontr
+ write(fid,'(6I12)') prim_per_shell
+ write(fid,'(A,I12)') 'Shell to atom map                          I   N=',ncontr
+ write(fid,'(6I12)') shell2atom_map
+ write(fid,'(A,I12)') 'Primitive exponents                        R   N=',nprim
+ write(fid,'(5(1X,ES15.8))') prim_exp
+ write(fid,'(A,I12)') 'Contraction coefficients                   R   N=',nprim
+ write(fid,'(5(1X,ES15.8))') contr_coeff
+ if(allocated(contr_coeff_sp)) then
+  write(fid,'(A,I12)') 'P(S=P) Contraction coefficients            R   N=',nprim
+  write(fid,'(5(1X,ES15.8))') contr_coeff_sp
+ end if
+ write(fid,'(A,I12)') 'Coordinates of each shell                  R   N=',3*ncontr
+ write(fid,'(5(1X,ES15.8))') shell_coor
+ deallocate(shell_coor)
+ write(fid,'(A)') 'Num ILSW                                   I              100'
+ write(fid,'(A)') 'ILSW                                       I   N=         100'
+ write(fid,'(6I12)') ilsw
+ deallocate(ilsw)
+ write(fid,'(A,E27.15)') 'Virial Ratio                               R',virial
+ write(fid,'(A,E27.15)') 'Total Energy                               R',tot_e
+ write(fid,'(A,I12)') 'Alpha Orbital Energies                     R   N=',nif
+ write(fid,'(5(1X,ES15.8))') eigen_e_a
+ if(uhf) then
+  write(fid,'(A,I12)') 'Beta Orbital Energies                      R   N=',nif
+  write(fid,'(5(1X,ES15.8))') eigen_e_b
+ end if
+ write(fid,'(A,I12)') 'Alpha MO coefficients                      R   N=',ncoeff
+ write(fid,'(5(1X,ES15.8))') alpha_coeff
+ if(uhf) then
+  write(fid,'(A,I12)') 'Beta MO coefficients                       R   N=',ncoeff
+  write(fid,'(5(1X,ES15.8))') beta_coeff
+ end if
+ len_dm = nbf*(nbf+1)/2
+ if(allocated(tot_dm)) then
+  write(fid,'(A,I12)') 'Total SCF Density                          R   N=',len_dm
+  write(fid,'(5(1X,ES15.8))') ((tot_dm(j,i),j=1,i),i=1,nbf)
+ end if
+ if(allocated(spin_dm)) then
+  write(fid,'(A,I12)') 'Spin SCF Density                           R   N=',len_dm
+  write(fid,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
+ end if
+ if(allocated(mull_char)) then
+  write(fid,'(A,I12)') 'Mulliken Charges                           R   N=',natom
+  write(fid,'(5(1X,ES15.8))') mull_char
+ end if
+ close(fid)
+end subroutine write_fch
 

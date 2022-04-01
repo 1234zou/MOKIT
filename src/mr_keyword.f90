@@ -97,6 +97,8 @@ module mr_keyword
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
+ integer :: nstate = 1 ! number of states in SA-CASSCF, including ground state
+ ! so nstate=1 means only ground state
 
  real(kind=8) :: ON_thres = 0.99999d0     ! Occupation Number threshold for UNO
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
@@ -165,6 +167,8 @@ module mr_keyword
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
+ logical :: dryrun = .false.      ! DryRun for excited states calculations
+ logical :: excited = .false.     ! whether to perform excited states calculations
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -326,7 +330,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Jan-31)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-1)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -823,6 +827,10 @@ contains
     nmr = .true.
    case('excludexh')
     excludeXH = .true.
+   case('dryrun')
+    dryrun = .true.; excited = .true.
+   case('nstate')
+    read(longbuf(j+1:i-1),*) nstate ! used in SA-CASSCF (ground state included)
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."
@@ -939,8 +947,9 @@ contains
   write(iout,'(5(A,L1,3X))') 'Pop     = ',     pop, 'NMR     = ', nmr, &
        'SOC     = ', soc    ,'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan
 
-  write(iout,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType, &
-       'MRCC_type=',mrcc_type,'ON_thres= ',ON_thres, 'MaxM=', maxM
+  write(iout,'(A,L1,3X,2(A,I1,3X),A,F7.5,2X,A,I5)') 'DryRun  = ',dryrun, &
+       'CtrType = ',CtrType ,'MRCC_type=',mrcc_type,'ON_thres= ',ON_thres,&
+       'MaxM=',maxM
 
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)

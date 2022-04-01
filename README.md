@@ -33,7 +33,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jan 31, 2022
+Apr 1, 2022
 
 Installation
 ------------
@@ -59,7 +59,7 @@ Installation
         export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export ORCA=/opt/orca-5.0.1/orca
+        export ORCA=/opt/orca_5_0_3/orca
         export GMS=/home/$USER/software/gamess/rungms
 
   (Remember to modify the `ORCA` and `GMS` paths to suit your local environment)
@@ -141,6 +141,9 @@ Citation
 * If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
+
+* If you use MOKIT in your work, you should cite MOKIT in the main body of your
+  paper. Citing MOKIT only in Supporting Information of your paper is insufficient.
 
 * Please read the [manual](doc/) for details of citation. Your proper citation
   would be a great encouragement to developer.

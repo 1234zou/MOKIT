@@ -99,30 +99,3 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  return
 end subroutine construct_vir
 
-! subroutine diag_get_e_and_vec: diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors
-subroutine diag_get_e_and_vec(n, a, w)
- implicit none
- integer :: info, lwork, liwork
- integer, intent(in) :: n
- integer, allocatable :: iwork(:)
- real(kind=8), intent(inout) :: a(n,n)
- real(kind=8), intent(out) :: w(n)
- real(kind=8), allocatable :: work(:)
-
- ! ?syevd: Computes all eigenvalues and (optionally) all eigenvectors of a real
- ! symmetric matrix using divide and conquer algorithm.
- ! Syntax FORTRAN 77:
- ! call dsyevd(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info)
- lwork = -1
- liwork = -1
- allocate(work(1), iwork(1))
- call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, info)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, info)
- deallocate(work,iwork)
- return
-end subroutine diag_get_e_and_vec
-

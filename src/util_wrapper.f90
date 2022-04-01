@@ -280,9 +280,35 @@ subroutine fch2mkl_wrap(fchname, mklname)
    i = RENAME(TRIM(mklname1), TRIM(mklname))
   end if
  end if
-
- return
 end subroutine fch2mkl_wrap
+
+subroutine fch2gbw(fchname, gbwname)
+ implicit none
+ integer :: i, RENAME
+ character(len=240) :: mklname, inpname1, inpname2
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: gbwname
+
+ i = index(fchname, '.fch', back=.true.)
+ inpname1 = gbwname(1:i-1)//'_o.inp'
+
+ if(present(gbwname)) then
+  i = index(gbwname, '.gbw', back=.true.)
+  inpname2 = gbwname(1:i-1)//'.inp'
+  mklname = gbwname(1:i-1)//'.mkl'
+  call fch2mkl_wrap(fchname, mklname)
+ else
+  i = index(fchname, '.fch', back=.true.)
+  inpname2 = fchname(1:i-1)//'.inp'
+  mklname = fchname(1:i-1)//'.mkl'
+  call fch2mkl_wrap(fchname, mklname)
+ end if
+
+ i = RENAME(TRIM(inpname1), TRIM(inpname2))
+ call mkl2gbw(mklname)
+ open(newunit=i,file=TRIM(mklname),status='old')
+ close(unit=i,status='delete')
+end subroutine fch2gbw
 
 subroutine chk2gbw(chkname)
  implicit none
@@ -306,8 +332,21 @@ subroutine chk2gbw(chkname)
  call mkl2gbw(mklname, gbwname)
  open(newunit=i,file=TRIM(mklname),status='old')
  close(unit=i,status='delete')
- return
 end subroutine chk2gbw
+
+subroutine fch_u2r_wrap(fchname)
+ implicit none
+ integer :: i, system
+ character(len=240), intent(in) :: fchname
+
+ i = system('fch_u2r '//TRIM(fchname))
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch_u2r_wrap: failed to call utility&
+                   & fch_u2r.'
+  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+end subroutine fch_u2r_wrap
 
 end module util_wrapper
 

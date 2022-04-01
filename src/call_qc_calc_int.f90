@@ -65,7 +65,6 @@ end subroutine gen_no_using_density_in_fch
 
 ! call Gaussian to compute AO-basis overlap according to a given .fch file
 subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
- use print_id, only: iout
  use util_wrapper, only: unfchk
  implicit none
  integer :: i, fid, system
@@ -82,7 +81,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
 
  i = index(fchname, '.fch', back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine get_ao_ovlp_using_fch: no '.fch'&
+  write(6,'(A)') "ERROR in subroutine get_ao_ovlp_using_fch: no '.fch'&
                    & suffix found in filename "//TRIM(fchname)
   stop
  end if
@@ -122,8 +121,8 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  call get_gau_path(gau_path)
  i = system(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: Gaussian job failed.'
-  write(iout,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
+  write(6,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: Gaussian job failed.'
+  write(6,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
   stop
  end if
  call delete_files(3, [chkname, gjfname, logname])
@@ -154,7 +153,6 @@ end subroutine get_a_random_int
 
 ! read the path of the Gaussian binary executable file 
 subroutine get_gau_path(gau_path)
- use print_id, only: iout
  implicit none
  integer :: i
  character(len=240), intent(out) :: gau_path
@@ -165,7 +163,7 @@ subroutine get_gau_path(gau_path)
 #ifdef _WIN32
  i = index(gau_path, '\', back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in&
+  write(6,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in&
                   & gau_path="//TRIM(gau_path)
   stop
  end if
@@ -174,19 +172,19 @@ subroutine get_gau_path(gau_path)
 #else
  i = index(gau_path, ':', back=.true.)
  if(i == 0) then
-  write(iout,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
+  write(6,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
                      & in gau_path="//TRIM(gau_path)
-  write(iout,'(/,A)') 'This error often occurs when your machine has no (or has&
+  write(6,'(/,A)') 'This error often occurs when your machine has no (or has&
                      & incorrect) Gaussian'
-  write(iout,'(A)') 'environment variables. Here I offer a correct example:'
-  write(iout,'(A)') REPEAT('-',45)
-  write(iout,'(A)') ' export g16root=/opt'
-  write(iout,'(A)') ' source $g16root/g16/bsd/g16.profile'
-  write(iout,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
-  write(iout,'(A)') REPEAT('-',45)
-  write(iout,'(A)') 'Please check your Gaussian environment variables according&
+  write(6,'(A)') 'environment variables. Here I offer a correct example:'
+  write(6,'(A)') REPEAT('-',45)
+  write(6,'(A)') ' export g16root=/opt'
+  write(6,'(A)') ' source $g16root/g16/bsd/g16.profile'
+  write(6,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
+  write(6,'(A)') REPEAT('-',45)
+  write(6,'(A)') 'Please check your Gaussian environment variables according&
                    & to the example shown above.'
-  write(iout,'(A)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
+  write(6,'(A)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
   stop
  end if
 
@@ -217,23 +215,66 @@ end subroutine get_ne_from_PS
 
 ! check whether two double precision values equal to each other
 subroutine check_two_real8_eq(r1, r2, diff)
- use print_id, only: iout
  implicit none
  real(kind=8), intent(in) :: r1, r2, diff
 
  if(diff < 0d0) then
-  write(iout,'(A)') 'ERROR in subroutine check_two_real8_eq: input diff<0.'
-  write(iout,'(A,F14.8,A)') 'diff=',diff,', but diff>0 is required.'
+  write(6,'(A)') 'ERROR in subroutine check_two_real8_eq: input diff<0.'
+  write(6,'(A,F14.8,A)') 'diff=',diff,', but diff>0 is required.'
   stop
  end if
 
  if(DABS(r1-r2) > diff) then
-  write(iout,'(A)') 'ERROR in subroutine check_two_real8_eq: two double precisi&
+  write(6,'(A)') 'ERROR in subroutine check_two_real8_eq: two double precisi&
                     &on values differ larger than the'
-  write(iout,'(3(A,F14.8))') 'tolerance diff. r1=',r1,', r2=',r2,', diff=',diff
+  write(6,'(3(A,F14.8))') 'tolerance diff. r1=',r1,', r2=',r2,', diff=',diff
   stop
  end if
 
  return
 end subroutine check_two_real8_eq
+
+subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+ implicit none
+ integer :: i, system
+ integer, intent(in) :: nproc
+ character(len=240) :: datname, gmsname, hs1, hs2, trj
+ character(len=500) :: longbuf
+ character(len=240), intent(in) :: gms_path, gms_scr_path, inpname
+
+ i = index(inpname, '.inp')
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine submit_gms_job: '.inp' suffix not &
+                      &found in filename "//TRIM(inpname)
+  stop
+ end if
+
+ ! delete scratch files, if any
+ datname = inpname(1:i-1)//'.dat'
+ gmsname = inpname(1:i-1)//'.gms'
+ hs1 = inpname(1:i-1)//'.hs1'
+ hs2 = inpname(1:i-1)//'.hs2'
+ trj = inpname(1:i-1)//'.trj'
+ call delete_files_in_path(gms_scr_path, 4, [datname, hs1, hs2, trj])
+
+ ! now we can submit the GAMESS job
+ write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
+ write(6,'(A)') '$$GMS '//TRIM(longbuf)
+
+ i = system(TRIM(gms_path)//' '//TRIM(longbuf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_gms_job: GAMESS job failed.'
+  write(6,'(A)') 'You can open file '//TRIM(gmsname)//' and check why.'
+  stop
+ end if
+
+ ! move the .dat file into current directory
+ i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine submit_gms_job: fail to move file. Pos&
+                    &sibly wrong gms_scr_path.'
+  write(6,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
+  stop
+ end if
+end subroutine submit_gms_job
 
