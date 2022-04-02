@@ -169,6 +169,7 @@ module mr_keyword
  logical :: relaxed_scan = .false.! relaxed PES scan
  logical :: dryrun = .false.      ! DryRun for excited states calculations
  logical :: excited = .false.     ! whether to perform excited states calculations
+ logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -330,7 +331,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-1)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-3)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -829,6 +830,8 @@ contains
     excludeXH = .true.
    case('dryrun')
     dryrun = .true.; excited = .true.
+   case('mixed_spin')
+    mixed_spin = .true.
    case('nstate')
     read(longbuf(j+1:i-1),*) nstate ! used in SA-CASSCF (ground state included)
    case default

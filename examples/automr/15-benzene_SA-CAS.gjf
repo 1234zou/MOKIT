@@ -1,0 +1,16 @@
+%mem=32GB
+%nprocshared=16
+#p CASSCF(6,6)/cc-pVTZ
+
+mokit{ist=5,readno='benzene_uhf_gvb15_CASSCF_NO.fch',DryRun,Nstate=2}
+
+# This example shows how to generate SA-CASSCF input file for excited state
+#  calculations. If you want to perform a NEVPT2 calculation, just replace
+#  CASSCF by NEVPT2.
+#
+# DryRun means exiting the main program after input file generated.
+#
+# Nstate=2 means averaging states S0/S1. If you want to average S0/T1, you
+#  should add the keyword Mixed_Spin.
+#
+# To run this example, Gaussian, GAMESS and PySCF should be installed.
