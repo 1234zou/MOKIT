@@ -258,7 +258,8 @@ end subroutine prt_sacas_gjf
 subroutine prt_sacas_orca_inp(inpname, hf_fch)
  use util_wrapper, only: fch2gbw
  use mol, only: nacto, nacte, mult
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI, RIJK_bas, mixed_spin,nstate
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, nevpt2, FIC, DLPNO, F12, RI, &
+  RIJK_bas, mixed_spin, nstate
  implicit none
  integer :: i, fid, fid1, system, RENAME
  character(len=240) :: buf, gbwname, inpname1
@@ -299,7 +300,30 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  end if
  write(fid1,'(A)') ' maxiter 200'
  if(RI) write(fid1,'(A)') ' TrafoStep RI'
+
+ if(nevpt2) then
+  if(FIC) then
+   if(DLPNO) then
+    write(fid1,'(A)') ' PTMethod DLPNO_NEVPT2'
+   else
+    write(fid1,'(A)') ' PTMethod FIC_NEVPT2'
+   end if
+  else
+   write(fid1,'(A)') ' PTMethod SC_NEVPT2'
+  end if
+  if(F12) then
+   write(fid1,'(A)') ' PTSettings'
+   write(fid1,'(A)') '  F12 true'
+   write(fid1,'(A)') ' end'
+  end if
+ end if
+
  write(fid1,'(A)') 'end'
+ if(nevpt2) then
+  write(fid1,'(A)') '%method'
+  write(fid1,'(A)') ' FrozenCore FC_NONE'
+  write(fid1,'(A)') 'end'
+ end if
 
  do i = 1, 3   ! skip 3 lines
   read(fid,'(A)') buf

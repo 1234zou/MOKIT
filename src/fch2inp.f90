@@ -251,6 +251,12 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   k = k + n
  end do ! for i
 
+ k = shell2atom_map(ncontr)
+ if(k < natom) then ! ghost atom
+  do i = k+1, natom, 1
+   write(fid,'(A2,2X,I3,A1,3(1X,F18.8),/)') elem(i), ielem(i), '.', coor(1:3,i)
+  end do ! for i
+ end if
  deallocate(ielem, elem, coor)
  deallocate(shell2atom_map, prim_per_shell, prim_exp, contr_coeff, contr_coeff_sp)
  write(fid,'(A)') ' $END'

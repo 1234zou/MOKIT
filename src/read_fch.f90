@@ -50,8 +50,8 @@ module fch_content
  ! This table is copied from the figure in ORCA 5.0.1 manual 9.11 Frozen Core
  ! Options.
  ! Note: frozen electrons are two times of the frozen core orbitals
- integer, parameter :: core_orb(period_nelem) = &
- (/  0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  5,  5,  5, &
+ integer, parameter :: core_orb(0:period_nelem) = (/0,&
+     0,  0,  0,  0,  1,  1,  1,  1,  1,  1,  1,  1,  5,  5,  5, &
      5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5, &
      9,  9,  9,  9,  9,  9,  9,  9, 14, 14, 14, 14, 14, 14, 14, &
     14, 14, 14, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, &
@@ -60,8 +60,8 @@ module fch_content
     34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 50, 50, &
     50, 50, 50, 50, 50, 50, 50/)
 
- character(len=2), parameter :: period_elem(period_nelem) = &
- (/'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+ character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
+   'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
    'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
    'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
@@ -501,7 +501,7 @@ pure function elem2nuc(s) result(i)
  integer :: i
  character(len=2), intent(in) :: s
 
- do i = 1, period_nelem, 1
+ do i = 0, period_nelem, 1
   if(period_elem(i) == s) return
  end do
  return

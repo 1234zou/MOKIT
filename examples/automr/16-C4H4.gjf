@@ -1,0 +1,24 @@
+%mem=32GB
+%nprocshared=16
+#p CASSCF(4,4)/6-31G(d)
+
+mokit{CASSCF_prog=Dalton,ICSS}
+
+0 1
+ C                  0.00000000    0.00000000    0.00000000
+ C                  0.00000000    0.00000000    1.34900000
+ C                  1.56200000    0.00000000    1.34894100
+ C                  1.56200000   -0.00023900   -0.00005900
+ H                 -0.76022400   -0.00000200   -0.76288200
+ H                 -0.76022400    0.00013500    2.11188200
+ H                  2.32222400    0.00000000    2.11182300
+ H                  2.32222400   -0.00037400   -0.76294100
+
+# Warning: ICSS computation is very time-consuming, using 6-31G(d)/6-31+G(d) is recommended.
+# If you do not need ICSS and just want accurate NMR shielding constants, do not
+#  use this file, please see the file 14-acetone_pcSseg-2.gjf.
+#
+# After computation finished, there should be a file named 16-C4H4_uhf_gvb10_CASSCF_ICSS.cub.
+# This file can be visualized by GaussView, Multiwfn or VMD.
+#
+# To run this example, Gaussian, GAMESS, PySCF and Dalton should be installed.

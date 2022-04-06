@@ -55,6 +55,8 @@ subroutine do_hf()
   allocate(atom2frag(natom), frag_char_mult(2,nfrag))
   call read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
   if(mult == 1) write(iout,'(A)') 'Fragment guess required. Only UHF will be performed.'
+ else
+  call check_frag_guess_in_gjf(gjfname)
  end if
  if(bgchg) call read_bgchg_from_gjf(.false.)
 
@@ -1138,4 +1140,41 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
 
  return
 end subroutine read_hf_type_from_orca_inp
+
+! Check whether fragment information can be found in Cartesian coordinate
+!  section when 'guess(fragment=N)' is not specified.
+! If fragment information is found, stop and print error
+subroutine check_frag_guess_in_gjf(gjfname)
+ implicit none
+ integer :: i, fid, nblank
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 2) exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  return
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+ call lower(buf)
+ if(index(buf,'fragment') > 0) then
+  write(6,'(/,A)') 'ERROR in subroutine check_frag_guess_in_gjf: fragment info&
+                   &rmation found in coordinate'
+  write(6,'(A)') "section. But 'guess(fragment=N)' keyword not found in file "&
+                 //TRIM(gjfname)//'.'
+  write(6,'(A)') 'It seems that you forgot to write necessary keywords.'
+  stop
+ end if
+end subroutine check_frag_guess_in_gjf
 

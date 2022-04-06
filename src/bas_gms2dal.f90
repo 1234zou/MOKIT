@@ -129,6 +129,11 @@ subroutine bas_gms2dal(fort7, spherical)
   read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
   ! 'buf' contains the element, ram and coordinates
+  if(elem(i) == 'Bq') then
+   write(fid2,'(A)') 'Charge=0. Atoms=1 Basis=INTGRL Ghost'
+   write(fid2,'(A2,3(1X,F15.8))') elem(i), coor(1:3,i)
+   cycle
+  end if
 
   ! deal with primitive gaussians
   do while(.true.)

@@ -57,9 +57,9 @@ subroutine do_mrpt2()
    write(iout,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO&
                     & coefficients in .mkl file are'
    write(iout,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5&
-                    & a.u. Such small error is usually'
-   write(iout,'(A)') 'not important. If you care about the accuracy, please use&
-                    & another CASSCF solver.'
+                    & a.u. Such small error'
+   write(iout,'(A)') 'is usually not important. If you care about the accuracy,&
+                    & please use another CASSCF solver.'
   end if
 
   if(casscf) then
@@ -87,9 +87,9 @@ subroutine do_mrpt2()
    write(iout,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO&
                     & coefficients in .mkl file are'
    write(iout,'(A)') 'only 7-digits. This will affect the PT2 energy up to 10^-5&
-                    & a.u. Such small error is usually'
-   write(iout,'(A)') 'not important. If you care about the accuracy, please use&
-                    & another CASCI solver.'
+                    & a.u. Such small error'
+   write(iout,'(A)') 'is usually not important. If you care about the accuracy,&
+                    & please use another CASCI solver.'
   end if
 
   if(casci) then
@@ -641,25 +641,19 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
  write(fid2,'(A,I0)') ' maxiter 1'
- if(F12) then
+ if(FIC) then
   if(DLPNO) then
    write(fid2,'(A)') ' PTMethod DLPNO_NEVPT2'
   else
    write(fid2,'(A)') ' PTMethod FIC_NEVPT2'
   end if
+ else
+  write(fid2,'(A)') ' PTMethod SC_NEVPT2'
+ end if
+ if(F12) then
   write(fid2,'(A)') ' PTSettings'
   write(fid2,'(A)') '  F12 true'
   write(fid2,'(A)') ' end'
- else
-  if(FIC) then
-   if(DLPNO) then
-    write(fid2,'(A)') ' PTMethod DLPNO_NEVPT2'
-   else
-    write(fid2,'(A)') ' PTMethod FIC_NEVPT2'
-   end if
-  else
-   write(fid2,'(A)') ' PTMethod SC_NEVPT2'
-  end if
  end if
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%method'

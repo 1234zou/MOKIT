@@ -13,4 +13,7 @@ mokit{ist=5,readno='benzene_uhf_gvb15_CASSCF_NO.fch',DryRun,Nstate=2}
 # Nstate=2 means averaging states S0/S1. If you want to average S0/T1, you
 #  should add the keyword Mixed_Spin.
 #
+# If you want to use other CASSCF programs, e.g. ORCA, just add the keyword
+#  CASSCF_prog=ORCA
+#
 # To run this example, Gaussian, GAMESS and PySCF should be installed.

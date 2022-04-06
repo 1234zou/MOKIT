@@ -1,6 +1,14 @@
 ! written by jxzou at 20210215: moved here from file automr.f90
 ! updated by jxzou at 20210216: implement first correct version of ist=5
 
+module icss_param
+ implicit none
+ integer :: ngrid(3)
+ real(kind=8) :: origin(3)
+ real(kind=8), parameter :: r_ext = 6.5d0 ! 6.5 Angstrom
+ real(kind=8), parameter :: interval = 0.25d0 ! 0.25 Angstrom
+end module icss_param
+
 ! do CASCI(npair<=7) or DMRG-CASCI(npair>7) when scf=.False.
 ! do CASSCF(npair<=7) or DMRG-CASSCF(npair>7) when scf=.True.
 subroutine do_cas(scf)
@@ -9,13 +17,13 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr, dryrun, nstate
+  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
   mkl2fch_wrap
  implicit none
- integer :: i, j, idx1, idx2, nvir, system, RENAME
+ integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
  character(len=10) :: cas_prog = ' '
@@ -482,14 +490,7 @@ subroutine do_cas(scf)
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  write(buf,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' -ow '//TRIM(proname)&
-                           //' >'//TRIM(proname)//".sout 2>&1"
-  write(iout,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_cas: Dalton CASCI/CASSCF job failed.'
-   stop
-  end if
+  call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
 
   ! untar/unzip the compressed package
   i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN SIRIUS.RST')
@@ -505,21 +506,15 @@ subroutine do_cas(scf)
   call delete_file(orbname)
 
   if(nmr) then
-   call prt_cas_dalton_nmr_inp(inpname, scf)
-   write(buf,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc," -put ""SIRIUS.RST""&
-    & -ow "//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
-   write(iout,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
-   if(i /= 0) then
-    write(iout,'(A)') 'ERROR in subroutine do_cas: Dalton CASSCF NMR job failed.'
-    stop
-   end if
+   call prt_cas_dalton_nmr_inp(inpname, scf, nfile)
+   call submit_dalton_job(proname, mem, nproc, .true., .true., .false.)
   end if
 
  case default
   write(iout,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian&
-                   & Gaussian, GAMESS, PySCF, OpenMolcas,'
-  write(iout,'(A)') 'ORCA, Molpro, BDF, PSI4 and Dalton. But got CAS_prog='//TRIM(cas_prog)
+                   & Gaussian, GAMESS, PySCF,'
+  write(iout,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got &
+                    &CAS_prog='//TRIM(cas_prog)
   stop
  end select
 
@@ -538,6 +533,10 @@ subroutine do_cas(scf)
  ! read energy, check convergence and check spin
  call read_cas_energy_from_output(cas_prog, outname, e, scf, nacta-nactb, &
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
+ if(nmr) then
+  outname = TRIM(proname)//'.out.0'
+  call read_cas_energy_from_dalton_out(outname, e, scf)
+ end if
 
  if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
   write(iout,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
@@ -584,6 +583,11 @@ subroutine do_cas(scf)
 
   write(iout,'(A)') 'Cartesian gradient (HARTREE/BOHR):'
   write(iout,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+ end if
+
+ if(ICSS) then
+  call submit_dalton_icss_job(proname, mem, nproc, nfile)
+  call gen_icss_cub(proname, nfile)
  end if
 
  call fdate(data_string)
@@ -1282,22 +1286,22 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
 end subroutine prt_cas_dalton_inp
 
 ! print CASSCF NMR keywords into a given Dalton input file
-subroutine prt_cas_dalton_nmr_inp(inpname, scf)
- use print_id, only: iout
+subroutine prt_cas_dalton_nmr_inp(inpname, scf, nfile)
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
- use mr_keyword, only: nmr
+ use mr_keyword, only: nmr, ICSS
  implicit none
  integer :: nclosed, fid
+ integer, intent(out) :: nfile
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
 
  if(.not. nmr) then
-  write(iout,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR=.F.'
+  write(6,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR=.F.'
   stop
  end if
  if(.not. scf) then
-  write(iout,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR under&
-                   & CASCI not supported currently.'
+  write(6,'(A)') 'ERROR in subroutine prt_cas_dalton_inp: CASCI NMR not &
+                 &supported currently.'
   stop
  end if
 
@@ -1305,20 +1309,254 @@ subroutine prt_cas_dalton_nmr_inp(inpname, scf)
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)') '**DALTON INPUT'
  write(fid,'(A)') '.RUN PROPERTIES'
- write(fid,'(A,/,A)') '**WAVE FUNCTIONS','.MCSCF'
+ write(fid,'(A)') '**WAVE FUNCTIONS'
+ if(scf) then
+  write(fid,'(A)') '.MCSCF'
+ else
+  write(fid,'(A)') '.CI'
+ end if
  write(fid,'(A,/,A)') '*CONFIGURATION INPUT', '.SPIN MULTIPLICITY'
  write(fid,'(I0)') mult
  write(fid,'(A,/,I0)') '.INACTIVE ORBITALS', nclosed
  write(fid,'(A,/,I0)') '.CAS SPACE', nacto
  write(fid,'(A,/,I0)') '.ELECTRONS', nacte
- write(fid,'(A)') '*OPTIMIZATION'
- write(fid,'(A,/,A)') '.MAX CI','500'
- write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+ if(scf) then
+  write(fid,'(A)') '*OPTIMIZATION'
+  write(fid,'(A,/,A)') '.MAX CI','500'
+  write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+ end if
  write(fid,'(A)') '*ORBITAL INPUT'
  write(fid,'(A,/,A)') '.MOSTART','NEWORB'
  write(fid,'(A,/,A)') '**PROPERTIES','.SHIELD'
  write(fid,'(A)') '**END OF INPUT'
  close(fid)
- return
+
+ nfile = 0
+ if(ICSS) call add_ghost2dalton_mol(inpname, nfile)
 end subroutine prt_cas_dalton_nmr_inp
+
+! add ghost atoms into Dalton .mol file
+subroutine add_ghost2dalton_mol(inpname, nfile)
+ use mol, only: natom, coor
+ use icss_param, only: r_ext, interval, ngrid, origin
+ implicit none
+ integer :: i, j, k, m, n, p, fid, tot_ngrid
+ integer, intent(out) :: nfile
+ real(kind=8) :: x,y,z, bound(2,3)
+ character(len=240) :: buf, proname, molname, molname1, dalname, dalname1
+ character(len=240), intent(in) :: inpname
+
+ do i = 1, 3   ! x,y,z
+  bound(1,i) = MINVAL(coor(i,:)) - r_ext
+  bound(2,i) = MAXVAL(coor(i,:)) + r_ext
+  ngrid(i) = INT((bound(2,i) - bound(1,i))/interval)
+ end do ! for i
+ origin = bound(1,:)
+ tot_ngrid = PRODUCT(ngrid)
+ write(6,'(A,I0)') 'ICSS rectangular box range: bound atoms + 6.5 Angstrom. To&
+                   &tal grid = ', tot_ngrid
+ write(6,'(A,3I9)') 'Ngrid along x,y,z are',(ngrid(i),i=1,3)
+
+ i = index(inpname, '.dal', back=.true.)
+ proname = inpname(1:i-1)
+ molname = inpname(1:i-1)//'.mol'
+ dalname = inpname(1:i-1)//'.dal'
+ molname1 = inpname(1:i-1)//'000001.mol'
+ dalname1 = inpname(1:i-1)//'000001.dal'
+ call copy_file(dalname, dalname1, .false.)
+ call copy_mol_and_add_atomtypes(molname, molname1)
+ open(newunit=fid,file=TRIM(molname1),status='old',position='append')
+
+ n = 333 - natom
+ write(fid,'(A,I0,A)') 'Charge=0. Atoms=', n, ' Basis=INTGRL Ghost'
+ m = 0; p = 1
+
+ do i = 1, ngrid(1), 1
+  x = bound(1,1) + DBLE(i-1)*interval
+  do j = 1, ngrid(2), 1
+   y = bound(1,2) + DBLE(j-1)*interval
+   do k = 1, ngrid(3), 1
+    z = bound(1,3) + DBLE(k-1)*interval
+    m = m + 1
+    write(fid,'(A,3(1X,F15.8))') 'Bq',x,y,z
+    if(m == n) then
+     close(fid)
+     tot_ngrid = tot_ngrid - n
+     if(tot_ngrid == 0) exit
+     m = 0; p = p + 1
+     write(molname1,'(A,I6.6,A)') TRIM(proname),p,'.mol'
+     write(dalname1,'(A,I6.6,A)') TRIM(proname),p,'.dal'
+     call copy_file(dalname, dalname1, .false.)
+     call copy_mol_and_add_atomtypes(molname, molname1)
+     open(newunit=fid,file=TRIM(molname1),status='old',position='append')
+     if(tot_ngrid < n) then
+      write(fid,'(A,I0,A)') 'Charge=0. Atoms=',tot_ngrid, ' Basis=INTGRL Ghost'
+     else
+      write(fid,'(A,I0,A)') 'Charge=0. Atoms=', n, ' Basis=INTGRL Ghost'
+     end if
+    end if
+   end do ! for k
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ nfile = p
+end subroutine add_ghost2dalton_mol
+
+! copy Dalton .mol file and add AtomTypes by 1
+subroutine copy_mol_and_add_atomtypes(molname, molname1)
+ implicit none
+ integer :: i, natom, fid, fid1
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molname, molname1
+
+ open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(molname1),status='replace')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:10) == 'AtomTypes=') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ i = index(buf, ' ')
+ read(buf(11:i-1),*) natom
+ write(fid1,'(A,I0,A)') 'AtomTypes=', natom+1, ' Integrals=1.0D-14 Charge=0 &
+                        &NoSymmetry Angstrom'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+end subroutine copy_mol_and_add_atomtypes
+
+subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
+ implicit none
+ integer :: i, system
+ integer, intent(in) :: mem, nproc
+ character(len=480) :: buf
+ character(len=240), intent(in) :: proname
+ logical, intent(in) :: sirius, noarch, del_sout
+
+ write(buf,'(2(A,I0))') 'dalton -gb ',mem,' -omp ',nproc
+ if(sirius) buf = TRIM(buf)//" -put ""SIRIUS.RST"""
+ if(noarch) buf = TRIM(buf)//' -noarch'
+ buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine do_cas: Dalton job failed.'
+  write(6,'(A)') 'Files: '//TRIM(proname)//'.dal, '//TRIM(proname)//'.mol'
+  stop
+ end if
+
+ if(del_sout) call delete_file(TRIM(proname)//'.sout')
+end subroutine submit_dalton_job
+
+subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
+ implicit none
+ integer :: i
+ integer, intent(in) :: mem, nproc, nfile
+ character(len=240) :: proname1
+ character(len=240), intent(in) :: proname
+
+ do i = 1, nfile, 1
+  write(proname1,'(A,I6.6)') TRIM(proname), i
+  call submit_dalton_job(proname1, mem, nproc, .true., .true., .true.)
+  call delete_file(TRIM(proname1)//'.mol')
+  call delete_file(TRIM(proname1)//'.dal')
+ end do ! for i
+end subroutine submit_dalton_icss_job
+
+! Cube format: https://gaussian.com/cubegen; http://sobereva.com/125
+subroutine gen_icss_cub(proname, nfile)
+ use mol, only: natom, coor, elem
+ use fch_content, only: elem2nuc, Bohr_const
+ use icss_param, only: ngrid, interval, origin
+ implicit none
+ integer :: i, j, k, tot_ngrid, fid, cubid
+ integer, intent(in) :: nfile
+ real(kind=8) :: intv
+ real(kind=8), allocatable :: iso(:,:,:)
+ character(len=240) :: buf, outname, cubname, bqfile
+ character(len=240), intent(in) :: proname
+
+ write(6,'(A)') 'Generating ICSS cube...'
+ cubname = TRIM(proname)//'_ICSS.cub'
+ bqfile = TRIM(proname)//'_ICSS.txt'
+ open(newunit=cubid,file=TRIM(cubname),status='replace')
+ write(cubid,'(A)') ' ICSS cube file generated by MOKIT'
+
+ tot_ngrid = PRODUCT(ngrid)
+ write(cubid,'(1X,I0,A)') tot_ngrid, ' grid points in total'
+
+ write(cubid,'(I5,3(1X,F11.6),A)') natom, origin/Bohr_const, '    1'
+ intv = interval/Bohr_const
+ write(cubid,'(I5,1X,F11.6,A)') ngrid(1),intv,'    0.000000    0.000000'
+ write(cubid,'(I5,A,1X,F11.6,A)') ngrid(2),'    0.000000',intv,'    0.000000'
+ write(cubid,'(I5,A,1X,F11.6)') ngrid(3),'    0.000000    0.000000',intv
+
+ do i = 1, natom, 1
+  if(elem(i) == 'Bq') exit
+  j = elem2nuc(elem(i))
+  write(cubid,'(2I5,A,3(1X,F11.6))') j, j, '.000000', coor(:,i)/Bohr_const
+ end do ! for i
+
+ allocate(iso(ngrid(3),ngrid(2),ngrid(1)), source=0d0)
+ call merge_shielding_into_one_file(proname, bqfile, nfile)
+ open(newunit=fid,file=TRIM(bqfile),status='old',position='rewind')
+ do i = 1, ngrid(1), 1
+  do j = 1, ngrid(2), 1
+   do k = 1, ngrid(3), 1
+    read(fid,*) iso(k,j,i)
+   end do ! for k
+  end do ! for j
+ end do ! for i
+
+ close(fid,status='delete')
+ do i = 1, ngrid(1), 1
+  do j = 1, ngrid(2), 1
+   write(cubid,'(6ES13.5)') iso(:,j,i)
+  end do ! for j
+ end do ! for i
+
+ deallocate(iso)
+ close(cubid)
+ write(6,'(A)') 'ICSS cube generated.'
+end subroutine gen_icss_cub
+
+subroutine merge_shielding_into_one_file(proname, bqfile, nfile)
+ implicit none
+ integer :: i, fid1, fid2
+ integer, intent(in) :: nfile
+ character(len=240) :: buf, outname
+ character(len=240), intent(in) :: proname, bqfile
+
+ open(newunit=fid1,file=TRIM(bqfile),status='replace')
+
+ do i = 1, nfile, 1
+  write(outname,'(A,I6.6,A)') TRIM(proname),i,'.out'
+  open(newunit=fid2,file=TRIM(outname),status='old',position='rewind')
+
+  do while(.true.)
+   read(fid2,'(A)') buf
+   if(buf(1:5) == '@1 Bq') exit
+  end do ! for while
+
+  BACKSPACE(fid2)
+  do while(.true.)
+   read(fid2,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+   write(fid1,'(A)') buf(8:19)
+  end do ! for while
+
+  close(fid2)
+ end do ! for i
+
+ close(fid1)
+end subroutine merge_shielding_into_one_file
 

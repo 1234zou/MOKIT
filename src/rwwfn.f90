@@ -1617,10 +1617,12 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  if( DABS(expect - s_square) > 1D-3) then
   if(scf) then
    write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASSCF&
-                     & <S**2> deviates too much from expectation value.'
+                     & <S**2> deviates too much'
+   write(iout,'(A)') 'from expectation value.'
   else
    write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASCI&
-                     & <S**2> deviates too much from expectation value.'
+                     & <S**2> deviates too much'
+   write(iout,'(A)') 'from expectation value.'
   end if
   write(iout,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
   close(fid)

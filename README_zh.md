@@ -1,6 +1,7 @@
 *[English](README.md)*  
 *[下载程序](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
-*[GitHub镜像](https://github.com/1234zou/MOKIT) [git.nju.edu.cn镜像](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;[GitHub镜像](https://github.com/1234zou/MOKIT)*
+*&emsp;[NJU git镜像](https://git.nju.edu.cn/jxzou/mokit)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外。
@@ -34,7 +35,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年4月3号
+2022年4月6号
 
 安装
 ----------

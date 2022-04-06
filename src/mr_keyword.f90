@@ -163,6 +163,7 @@ module mr_keyword
  logical :: DLPNO = .false.       ! whether to turn on DLPNO-NEVPT2
  logical :: pop = .false.         ! whether to perform population analysis
  logical :: nmr = .false.         ! whether to calcuate nuclear shielding
+ logical :: ICSS = .false.        ! whether to calcuate ICSS
  logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
@@ -331,7 +332,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-3)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-6)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -826,6 +827,8 @@ contains
     read(longbuf(j+1:i-1),*) ON_thres
    case('nmr')
     nmr = .true.
+   case('icss')
+    ICSS = .true.; nmr = .true.
    case('excludexh')
     excludeXH = .true.
    case('dryrun')
@@ -1009,7 +1012,7 @@ contains
    if(TRIM(cas_prog) /= 'dalton') then
     write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR can only be&
                        & calcualted using Dalton program.'
-    write(iout,'(A)') "But it seems currently '"//TRIM(cas_prog)//"' is specified."
+    write(iout,'(A)') "But currently '"//TRIM(cas_prog)//"' is used."
     stop
    end if
    cas_prog = ' '

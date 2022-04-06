@@ -335,6 +335,14 @@ subroutine fch2mkl(fchname)
  end do ! for i
 
  write(fid2,'(2X,A)') 'end'  ! in accord with 'NewGTO'
+ k = shell2atom_map(ncontr)
+ if(k < natom) then
+  do i = k+1, natom, 1
+   write(fid2,'(1X,A,I0,A,3(1X,F16.8))') 'H:(',i,')',coor(:,i)
+   write(fid2,'(2X,A)') 'NewGTO S 1 1 1e6 1 end'
+  end do ! for i
+ end if
+
  if(ecp) then   ! print ECP/PP data of the last atom
   if(LPSkip(natom) == 0) then
    write(fid2,'(2X,A)') 'NewECP'

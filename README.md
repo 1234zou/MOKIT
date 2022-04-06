@@ -1,6 +1,7 @@
 *中文版说明请点击[README_zh.md](README_zh.md)*  
 *[Download the program](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
-*[GitHub mirrors](https://github.com/1234zou/MOKIT) [git.nju.edu.cn mirrors](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;[GitHub mirrors](https://github.com/1234zou/MOKIT)*
+*&emsp;[NJU git mirrors](https://git.nju.edu.cn/jxzou/mokit)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
@@ -33,7 +34,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Apr 3, 2022
+Apr 6, 2022
 
 Installation
 ------------
