@@ -1,4 +1,4 @@
-MOKIT 1.2.3 (Apr 9, 2022)
+MOKIT 1.2.3 (Apr 12, 2022)
 ------------------------
 * add 3 keywords: DryRun, Nstate, Mixed_Spin, ICSS
 * support specifying the number of pairs in RHF_proj case

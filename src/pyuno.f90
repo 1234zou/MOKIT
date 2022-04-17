@@ -133,7 +133,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  write(iout,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
  ! SVD done in occ space
 
- sv_occ0 = sv_occ
+ allocate(sv_occ0(nalpha), source=sv_occ)
  nact = COUNT(sv_occ < ON_criteria)
  ndb = nalpha - nact
  nact0 = nact - nopen

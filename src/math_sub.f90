@@ -125,7 +125,8 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  ! ?getrs: Solves a system of linear equations with an LU-factored square
  !  matrix, with multiple right-hand sides.
  ! call dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
- a_copy = a; b_copy = b
+ allocate(a_copy(a1,a2), source=a)
+ allocate(b_copy(a1,a3), source=b)
  allocate(ipiv(min(a1,a2)), source=0)
 
  call dgetrf(a1, a2, a_copy, a1, ipiv, i)
