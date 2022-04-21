@@ -509,11 +509,6 @@ subroutine do_cas(scf)
   orbname = 'DALTON.MOPUN'
   call delete_file(orbname)
 
-  if(nmr) then
-   call prt_cas_dalton_nmr_inp(inpname, scf, nfile)
-   call submit_dalton_job(proname, mem, nproc, .true., .true., .false.)
-  end if
-
  case default
   write(iout,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian&
                    & Gaussian, GAMESS, PySCF,'
@@ -537,10 +532,6 @@ subroutine do_cas(scf)
  ! read energy, check convergence and check spin
  call read_cas_energy_from_output(cas_prog, outname, e, scf, nacta-nactb, &
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
- if(nmr) then
-  outname = TRIM(proname)//'.out.0'
-  call read_cas_energy_from_dalton_out(outname, e, scf)
- end if
 
  if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
   write(iout,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
@@ -589,6 +580,11 @@ subroutine do_cas(scf)
   write(iout,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  end if
 
+ if(nmr) then
+  call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, nfile)
+  inpname = TRIM(proname)//'_NMR'
+  call submit_dalton_job(inpname, mem, nproc, .false., .true., .false.)
+ end if
  if(ICSS) then
   call submit_dalton_icss_job(proname, mem, nproc, nfile)
   call gen_icss_cub(proname, nfile)
@@ -1290,27 +1286,29 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
 end subroutine prt_cas_dalton_inp
 
 ! print CASSCF NMR keywords into a given Dalton input file
-subroutine prt_cas_dalton_nmr_inp(inpname, scf, nfile)
+subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, nfile)
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
- use mr_keyword, only: nmr, ICSS
+ use util_wrapper, only: fch2dal_wrap
  implicit none
- integer :: nclosed, fid
+ integer :: i, nclosed, fid, fid1, RENAME
  integer, intent(out) :: nfile
- character(len=240), intent(in) :: inpname
- logical, intent(in) :: scf
+ character(len=240) :: buf, dalname, molname, olddal, oldmol
+ character(len=240), intent(in) :: fchname
+ logical, intent(in) :: scf, ICSS
 
- if(.not. nmr) then
-  write(6,'(A)') 'ERROR in subroutine prt_cas_dalton_nmr_inp: NMR=.F.'
-  stop
- end if
- if(.not. scf) then
-  write(6,'(A)') 'ERROR in subroutine prt_cas_dalton_inp: CASCI NMR not &
-                 &supported currently.'
-  stop
- end if
+ i = index(fchname, '.fch', back=.true.)
+ olddal = fchname(1:i-1)//'.dal'
+ oldmol = fchname(1:i-1)//'.mol'
+
+ i = index(fchname, '_NO.fch', back=.true.)
+ if(i == 0) i = index(fchname, '.fch')
+ dalname = fchname(1:i-1)//'_NMR.dal'
+ molname = fchname(1:i-1)//'_NMR.mol'
+ call fch2dal_wrap(fchname)
+ i = RENAME(TRIM(oldmol), TRIM(molname))
 
  nclosed = ndb + npair - npair0
- open(newunit=fid,file=TRIM(inpname),status='replace')
+ open(newunit=fid,file=TRIM(dalname),status='replace')
  write(fid,'(A)') '**DALTON INPUT'
  write(fid,'(A)') '.RUN PROPERTIES'
  write(fid,'(A)') '**WAVE FUNCTIONS'
@@ -1330,13 +1328,27 @@ subroutine prt_cas_dalton_nmr_inp(inpname, scf, nfile)
   write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
  end if
  write(fid,'(A)') '*ORBITAL INPUT'
- write(fid,'(A,/,A)') '.MOSTART','NEWORB'
+ write(fid,'(A)') '.MOSTART'
+
+ open(newunit=fid1,file=TRIM(olddal),status='old',position='rewind')
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:8) == '.MOSTART') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:5) == '**END') exit
+  write(fid,'(A)') TRIM(buf)
+ end do ! for while
+ close(fid1,status='delete')
+
  write(fid,'(A,/,A)') '**PROPERTIES','.SHIELD'
  write(fid,'(A)') '**END OF INPUT'
  close(fid)
 
  nfile = 0
- if(ICSS) call add_ghost2dalton_mol(inpname, nfile)
+ if(ICSS) call add_ghost2dalton_mol(dalname, nfile)
 end subroutine prt_cas_dalton_nmr_inp
 
 ! add ghost atoms into Dalton .mol file
@@ -1363,11 +1375,12 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
                            (ngrid(i),i=1,3)
 
  i = index(inpname, '.dal', back=.true.)
- proname = inpname(1:i-1)
+ j = index(inpname, '_NMR.dal', back=.true.)
+ proname = inpname(1:j-1)
  molname = inpname(1:i-1)//'.mol'
  dalname = inpname(1:i-1)//'.dal'
- molname1 = inpname(1:i-1)//'00001.mol'
- dalname1 = inpname(1:i-1)//'00001.dal'
+ molname1 = inpname(1:j-1)//'00001.mol'
+ dalname1 = inpname(1:j-1)//'00001.dal'
  call copy_file(dalname, dalname1, .false.)
  call copy_mol_and_add_atomtypes(molname, molname1)
  open(newunit=fid,file=TRIM(molname1),status='old',position='append')
@@ -1447,7 +1460,7 @@ subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
  character(len=240), intent(in) :: proname
  logical, intent(in) :: sirius, noarch, del_sout
 
- write(buf,'(2(A,I0))') 'dalton -gb ',mem,' -omp ',nproc
+ write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -omp ',nproc
  if(sirius) buf = TRIM(buf)//" -put ""SIRIUS.RST"""
  if(noarch) buf = TRIM(buf)//' -noarch'
  buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
@@ -1481,15 +1494,15 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  write(fid,'(A,/)') '# Makefile generated by MOKIT to run ICSS batch jobs'
 
  if(MOD(nproc,4) == 0) then
-  write(fid,'(A,I0)') 'mem = ', mem/4
+  write(fid,'(A,I0)') 'mem = ', MIN(16,mem/4)
   n = nproc/4
   write(fid,'(A,I0)') 'np = ', n
  else if(MOD(nproc,3) == 0) then
-  write(fid,'(A,I0)') 'mem = ', mem/3
+  write(fid,'(A,I0)') 'mem = ', MIN(16,mem/3)
   n = nproc/3
   write(fid,'(A,I0)') 'np = ', n
  else
-  write(fid,'(A,I0)') 'mem = ', CEILING(DBLE(mem)*0.5d0)
+  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)*0.5d0))
   n = nproc/2
   write(fid,'(A,I0)') 'np = ', n
  end if

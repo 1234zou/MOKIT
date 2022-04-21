@@ -156,8 +156,8 @@ subroutine do_mrcisd()
   i = index(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD'
   chkname = casnofch(1:i)//'MRCISD.sout'
-  write(datpath,'(2(A,I0),A)') 'dalton -gb ',mem,' -omp ',nproc,' -ow '//&
-                               TRIM(mklname)//' >'//TRIM(chkname)//" 2>&1"
+  write(datpath,'(2(A,I0),A)') 'dalton -gb ',MIN(16,mem),' -omp ',nproc,' -ow '&
+                                //TRIM(mklname)//' >'//TRIM(chkname)//" 2>&1"
 
  case('gamess')
   i = system('fch2inp '//TRIM(casnofch))

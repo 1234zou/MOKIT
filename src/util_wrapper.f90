@@ -348,5 +348,32 @@ subroutine fch_u2r_wrap(fchname)
  end if
 end subroutine fch_u2r_wrap
 
+subroutine fch2dal_wrap(fchname, dalname)
+ implicit none
+ integer :: i, system, RENAME
+ character(len=240) :: molname, dalname1, molname1
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: dalname
+
+ i = system('fch2dal '//TRIM(fchname))
+ if(i /= 0) then
+  write(iout,'(A)') 'ERROR in subroutine fch2dal_wrap: failed to call utility&
+                   & fch2dal.'
+  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(present(dalname)) then
+  i = index(dalname, '.dal')
+  molname = dalname(1:i-1)//'.mol'
+  i = index(fchname, '.fch')
+  dalname1 = fchname(1:i-1)//'.dal'
+  molname1 = fchname(1:i-1)//'.mol'
+  i = RENAME(TRIM(dalname1), TRIM(dalname))
+  i = RENAME(TRIM(molname1), TRIM(molname))
+ end if
+
+end subroutine fch2dal_wrap
+
 end module util_wrapper
 

@@ -1,8 +1,8 @@
-%mem=16GB
-%nprocshared=8
+%mem=32GB
+%nprocshared=16
 #p CASSCF/pcSseg-2
 
-mokit{CASSCF_prog=Dalton,NMR,ist=3,readrhf='acetone_pcSseg-2_rhf.fch'}
+mokit{ist=3,readrhf='acetone_pcSseg-2_rhf.fch',NMR}
 
 # This example shows how to perform NMR calculations at CASSCF/pcSseg-2 level.
 # Since Gaussian does not have built-in pcSseg-2 basis set, we calculate and

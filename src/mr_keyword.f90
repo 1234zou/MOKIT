@@ -332,7 +332,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-12)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Apr-22)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -995,27 +995,11 @@ contains
    stop
   end if
 
-  if(nmr) then
-   if(.not. (casci .or. casscf .or. mrcisd)) then
-    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR is supposed to&
-                       & be used with one of CASCI/CASSCF/MRCISD'
-    write(iout,'(A)') 'methods. But none of them is requested.'
-    stop
-   end if
-   if(casci) then
-    cas_prog = casci_prog
-   else if(casscf) then
-    cas_prog = casscf_prog
-   else
-    cas_prog = mrcisd_prog
-   end if
-   if(TRIM(cas_prog) /= 'dalton') then
-    write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR can only be&
-                       & calcualted using Dalton program.'
-    write(iout,'(A)') "But currently '"//TRIM(cas_prog)//"' is used."
-    stop
-   end if
-   cas_prog = ' '
+  if(nmr .and. (.not.casscf)) then
+   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR is supposed to&
+                      & be used with the'
+   write(iout,'(A)') 'CASSCF method. But it is not specified.'
+   stop
   end if
 
   if(DKH2 .and. X2C) then

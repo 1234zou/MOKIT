@@ -2,7 +2,7 @@
 %nprocshared=16
 #p CASSCF(4,4)/6-31G(d)
 
-mokit{CASSCF_prog=Dalton,ICSS}
+mokit{ICSS}
 
 0 1
  C                  0.00000000    0.00000000    0.00000000
