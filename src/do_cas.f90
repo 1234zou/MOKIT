@@ -584,6 +584,8 @@ subroutine do_cas(scf)
   call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, nfile)
   inpname = TRIM(proname)//'_NMR'
   call submit_dalton_job(inpname, mem, nproc, .false., .true., .false.)
+  inpname = TRIM(proname)//'_NMR.out'
+  call read_shieldings_from_dalton_out(inpname)
  end if
  if(ICSS) then
   call submit_dalton_icss_job(proname, mem, nproc, nfile)
@@ -1627,4 +1629,36 @@ subroutine merge_shielding_into_one_file(proname, bqfile, nfile)
 
  close(fid1)
 end subroutine merge_shielding_into_one_file
+
+subroutine read_shieldings_from_dalton_out(outname)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(28:57) == 'Summary of chemical shieldings') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(A)') 'ERROR in subroutine read_shieldings_from_dalton_out: no chem&
+                 &ical shieldings found in file '//TRIM(outname)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ BACKSPACE(fid)
+ write(6,'(/,A)') 'Chemical shieldings copied from Dalton output:'
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(4:8) == 'Inter') exit
+  write(6,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+end subroutine read_shieldings_from_dalton_out
 

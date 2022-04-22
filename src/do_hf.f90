@@ -133,7 +133,6 @@ subroutine do_hf()
 
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
- return
 end subroutine do_hf
 
 ! generate a RHF/UHF .gjf file (DKH, guess=fragment can be taken into account)
@@ -161,6 +160,8 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  if(i > 0) basis(i:i+2) = 'def'
  i = index(basis, 'MA')
  if(i > 0) basis(i:i+1) = 'ma'
+ i = index(basis, 'PCSSEG')
+ if(i > 0) basis(i:i+5) = 'pcSseg'
 
  rel = .false.
  select case(TRIM(basis))
@@ -196,6 +197,18 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
    end if
   end do ! for i
 
+ case('pcSseg-1','pcSseg-2')
+  basis1 = 'gen'
+
+  do i = 1, natom, 1
+   if(nuc(i) > 36) then ! H~Kr
+    write(iout,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets pcSseg-n&
+                       & series have no'
+    write(iout,'(A)') "definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+
  case default
   basis1 = basis
  end select
@@ -203,7 +216,7 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  if(rel .and. (.not. dkh2_or_x2c)) then
   write(iout,'(/,A61)') REPEAT('-',61)
   write(iout,'(A)') ' Warning: you are using relativistic all-electron basis set.'
-  write(iout,'(A)') " But you did not specify 'DKH2' keyword in mokit{}."
+  write(iout,'(A)') " But you did not specify 'DKH2' or 'X2C' keyword in mokit{}."
   write(iout,'(A61)') REPEAT('-',61)
  end if
 
@@ -295,6 +308,8 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  end if
 
  if(rel .and. TRIM(basis1)=='gen') then
+  write(fid,'(/,A,/)') '@'//TRIM(mokit_root)//'/basis/'//TRIM(basis)
+ else if((.not.rel) .and. basis(1:6)=='pcSseg') then
   write(fid,'(/,A,/)') '@'//TRIM(mokit_root)//'/basis/'//TRIM(basis)
  end if
 

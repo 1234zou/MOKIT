@@ -2,10 +2,21 @@
 %nprocshared=16
 #p CASSCF/pcSseg-2
 
-mokit{ist=3,readrhf='acetone_pcSseg-2_rhf.fch',NMR}
+mokit{NMR}
+
+0 1
+ C                  0.00000000    1.28061509   -0.61009004
+ C                  0.00000000    0.00000000    0.18342101
+ O                  0.00000000    0.00000000    1.39208110
+ C                  0.00000000   -1.28061509   -0.61009004
+ H                  0.11164901    2.13557315    0.05117000
+ H                  0.80215806    1.26597909   -1.34950010
+ H                 -0.94034507    1.36073510   -1.15971608
+ H                 -0.80215806   -1.26597909   -1.34950010
+ H                  0.94034507   -1.36073510   -1.15971608
+ H                 -0.11164901   -2.13557315    0.05117000
 
 # This example shows how to perform NMR calculations at CASSCF/pcSseg-2 level.
-# Since Gaussian does not have built-in pcSseg-2 basis set, we calculate and
-# provide one .fch file.
+# Note that MOKIT has built-in pcSseg-2 basis set.
 
 # To run this example, you need to install Gaussian, GAMESS, PySCF and Dalton.

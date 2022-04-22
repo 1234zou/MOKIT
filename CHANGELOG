@@ -1,5 +1,6 @@
 MOKIT 1.2.3 (Apr 22, 2022)
 ------------------------
+* add pcSseg-1 and pcSseg-2 into basis/
 * assume 32-bit integer Dalton, reduce memory to 16GB if user specified >16GB
 * add 3 keywords: DryRun, Nstate, Mixed_Spin, ICSS
 * support specifying the number of pairs in RHF_proj case
