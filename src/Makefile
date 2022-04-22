@@ -347,7 +347,7 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      frag_guess_wfn chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH \
      gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch \
      pyuno construct_vir ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format \
-     solve_ON_matrix rwgeom rwwfn excited
+     solve_ON_matrix rwgeom rwwfn
 
 clean:
 	rm -f *.o *.mod
