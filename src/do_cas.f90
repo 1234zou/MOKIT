@@ -1655,7 +1655,7 @@ subroutine read_shieldings_from_dalton_out(outname)
  write(6,'(/,A)') 'Chemical shieldings copied from Dalton output:'
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(4:8) == 'Inter') exit
+  if(index(buf,'Intera')>0 .or. index(buf,'intera')>0) exit
   write(6,'(A)') TRIM(buf)
  end do ! for while
 
