@@ -497,7 +497,7 @@ subroutine do_cas(scf)
   call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
 
   ! untar/unzip the compressed package
-  i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN SIRIUS.RST')
+  i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   i = system('dal2fch DALTON.MOPUN '//TRIM(casnofch)//' -no')
   if(i /= 0) then
@@ -1523,8 +1523,8 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  do i = 1, nfile, 1
   write(fid,'(/,2(A,I0),A)') 'w',i,':'
   write(molname,'(A,I5.5,A)') TRIM(proname),i,'.sout'
-  write(fid,'(A1,2(A,I5.5),A)') ACHAR(9),"dalton -gb ${mem} -omp ${np} -put &
-   &""SIRIUS.RST"" -noarch -ow ${pro}",i,' >${pro}',i,".sout 2>&1"
+  write(fid,'(A1,2(A,I5.5),A)') ACHAR(9),"dalton -gb ${mem} -omp ${np} -noarch&
+                              & -ow ${pro}",i,' >${pro}',i,".sout 2>&1"
  end do ! for i
  close(fid)
 
