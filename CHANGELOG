@@ -1,4 +1,4 @@
-MOKIT 1.2.3 (May 2, 2022)
+MOKIT 1.2.3 (May 3, 2022)
 ------------------------
 * add pcSseg-1 and pcSseg-2 into basis/
 * assume 32-bit integer Dalton, reduce memory to 16GB if user specified >16GB

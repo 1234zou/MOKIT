@@ -332,7 +332,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-May-2)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-May-3)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -852,6 +852,12 @@ contains
   dkh2_or_x2c = (DKH2 .or. X2C)
 
   if(readrhf .or. readuhf .or. readno) then
+   write(6,'(A79)') REPEAT('-',79)
+   write(6,'(A)') 'Note: read user-specified .fch file. The basis set and ECP&
+                  &(if any) will be imported'
+   write(6,'(A)') 'from .fch file. The basis set you wrote in Route Section(#p&
+                  &...) will not be used.'
+   write(6,'(A79)') REPEAT('-',79)
    if(frag_guess) then
     write(iout,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
                      & be used when none of readrhf/readuhf/readno is used.'

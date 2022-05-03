@@ -137,6 +137,11 @@ subroutine do_cas(scf)
  write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
  if(nopen+2*npair0 > 15) then
+  if(nmr) then
+   write(iout,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO&
+                       & is not supported.'
+   stop
+  end if
   if(scf) then
    casscf = .false.
    dmrgscf = .true.
@@ -493,8 +498,8 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(xmlname))
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-
-  call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
+                                             ! sirius, noarch, del_sout
+  call submit_dalton_job(proname, mem, nproc, .false., .true., .false.)
 
   ! untar/unzip the compressed package
   i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
@@ -583,7 +588,8 @@ subroutine do_cas(scf)
  if(nmr) then
   call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, nfile)
   inpname = TRIM(proname)//'_NMR'
-  call submit_dalton_job(inpname, mem, nproc, .false., .true., .false.)
+                                             ! sirius, noarch, del_sout
+  call submit_dalton_job(inpname, mem, nproc, .false., .false., .false.)
   inpname = TRIM(proname)//'_NMR.out'
   call read_shieldings_from_dalton_out(inpname)
  end if
@@ -1476,6 +1482,7 @@ subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
  end if
 
  if(del_sout) call delete_file(TRIM(proname)//'.sout')
+ if(.not. noarch) i = system('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
 end subroutine submit_dalton_job
 
 subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
