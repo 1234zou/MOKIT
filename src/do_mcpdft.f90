@@ -131,7 +131,7 @@ end subroutine prt_mcpdft_gms_inp
 subroutine do_mcpdft()
  use print_id, only: iout
  use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog, casnofch, &
-  molcas_path, gms_path, bgchg, chgname, check_gms_path, gms_scr_path
+  molcas_path, gms_path, bgchg, chgname, check_gms_path, gms_scr_path, eist
  use mol, only: ptchg_e, mcpdft_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
@@ -141,6 +141,7 @@ subroutine do_mcpdft()
  character(len=240) :: fname(3), inpname, outname, cmofch
  logical :: dmrg
 
+ if(eist == 1) return ! excited state calculation
  if(.not. mcpdft) return
  write(iout,'(//,A)') 'Enter subroutine do_mcpdft...'
 

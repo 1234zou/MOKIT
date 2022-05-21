@@ -15,6 +15,7 @@ subroutine do_mrcisd()
  character(len=480) :: datpath
  character(len=47) :: error_warn='ERROR in subroutine do_mrcisd: invalid CtrType='
 
+ if(eist == 1) return ! excited state calculation
  if(.not. mrcisd) return
  write(iout,'(//,A)') 'Enter subroutine do_mrcisd...'
 

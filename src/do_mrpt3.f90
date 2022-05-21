@@ -4,7 +4,8 @@
 subroutine do_mrpt3()
  use print_id, only: iout
  use mr_keyword, only: dmrgci, dmrgscf, CIonly, caspt3, nevpt3, casnofch, &
-  casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, bdf_path
+  casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, bdf_path,&
+  eist
  use mol, only: caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, nuc_pt_e
  implicit none
  integer :: i, mem0, RENAME, system
@@ -14,6 +15,7 @@ subroutine do_mrpt3()
  real(kind=8) :: ref_e, corr2_e, corr3_e
  logical :: alive(2)
 
+ if(eist == 1) return ! excited state calculation
  alive = [caspt3, nevpt3]
  if(ALL(alive .eqv. .false.)) return
 

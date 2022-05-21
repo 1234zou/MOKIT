@@ -1,6 +1,7 @@
 ! written by jxzou at 20190723
 ! updated by jxzou at 20200411: add Pipek-Mezey orbital localization (DOI: 10.1063/1.456588)
 ! updated by jxzou at 20200413: add Cholesky decomposition LMOs (DOI: 10.1063/1.2360264)
+! updated by jxzou at 20220520: generate NO from a NSO .fch file
 
 ! Note: before PySCF-1.6.4, its dumped .molden file is wrong when using Cartesian functions.
 
@@ -44,18 +45,13 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
 
  allocate(PS12(nbf,nbf), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('R', 'L', nbf, nbf, 1d0, sqrt_S, nbf, P, nbf, 0d0, PS12, nbf)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('N', 'N', nbf, nbf, nbf, 1d0, sqrt_S, nbf, PS12, nbf, 0d0, S, nbf)
  ! use S to store (S^1/2)P(S^1/2)
 
  deallocate(PS12, sqrt_S)
 
- ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
- ! ldz, isuppz, work, lwork, iwork, liwork, info)
- lwork = -1
- liwork = -1
+ lwork = -1; liwork = -1
  allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
  call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
              U, nbf, isuppz, work, lwork, iwork, liwork, j)
@@ -74,7 +70,7 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  write(iout,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  deallocate(e)
 
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
+ new_coeff = 0d0
  call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0d0, new_coeff, nbf)
  deallocate(n_sqrt_S, U)
 
@@ -85,6 +81,101 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  deallocate(U)
  return
 end subroutine no
+
+! generate AO-basis density matrix based on a .fch file
+! Note: be careful about the itype!
+subroutine gen_ao_dm_from_fch(fchname, itype, nbf, dm)
+ implicit none
+ integer :: i, nbf0, nif, na, nb
+ integer, intent(in) :: itype, nbf
+ real(kind=8), allocatable :: noon(:), n(:,:), mo(:,:), Cn(:,:)
+ real(kind=8), intent(out) :: dm(nbf,nbf)
+ character(len=240), intent(in) :: fchname
+
+ call read_nbf_and_nif_from_fch(fchname, nbf0, nif)
+ if(nbf0 /= nbf) then
+  write(6,'(A)') 'ERROR in subroutine gen_ao_dm_from_fch: nbf0/=nbf.'
+  write(6,'(A,2I6)') 'nbf0, nbf=', nbf0, nbf
+  stop
+ end if
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ allocate(noon(nif), source=0d0)
+
+ select case(itype)
+ case(0) ! R(O)HF orbitals, occupation 0/1/2
+  noon(1:nb) = 2d0
+  if(na > nb) noon(nb+1:na) = 1d0
+ case(1) ! UHF alpha MOs, occupation 0/1
+  noon(1:na) = 1d0
+ case(2) ! UHF beta MOs, occupation 0/1
+  noon(1:nb) = 1d0
+ case(3) ! NSO alpha, fractional occupation
+  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
+ case(4) ! NSO beta, fractional occupation
+  call read_eigenvalues_from_fch(fchname, nif, 'b', noon)
+ case default
+  write(6,'(A)') 'ERROR in subroutine gen_ao_dm_from_fch: itype out of range.'
+  write(6,'(A,I0)') 'Only 0~4 are allowed. But got itype=', itype
+  stop
+ end select
+
+ allocate(n(nif,nif),source=0d0)
+ forall(i = 1:nif) n(i,i) = noon(i)
+ deallocate(noon)
+
+ allocate(mo(nbf,nif), source=0d0)
+ select case(itype)
+ case(0,1,3)
+  call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ case(2,4)
+  call read_mo_from_fch(fchname, nbf, nif, 'b', mo)
+ end select
+
+ allocate(Cn(nbf,nif), source=0d0)
+ dm = 0d0 ! P = CnC^
+ call dgemm('N', 'N', nbf, nif, nif, 1d0, mo, nbf, n, nif, 0d0, Cn, nbf)
+ deallocate(n)
+ call dgemm('N', 'T', nbf, nbf, nif, 1d0, Cn, nbf, mo, nbf, 0d0, dm, nbf)
+ deallocate(Cn, mo)
+end subroutine gen_ao_dm_from_fch
+
+! generate spatial natural orbitals from natural spin orbitals
+subroutine gen_no_from_nso(fchname)
+ use util_wrapper, only: fch_u2r_wrap
+ implicit none
+ integer :: i, nbf, nif
+ character(len=240) :: nsofch, rfch
+ character(len=240), intent(in) :: fchname ! must have NSO in it
+ real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
+
+ i = index(fchname,'.fch',back=.true.)
+ nsofch = fchname(1:i-1)//'_no.fch'
+ rfch = fchname(1:i-1)//'_r.fch'
+
+ call fch_u2r_wrap(fchname)
+ call copy_file(rfch, nsofch, .true.)
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+
+ allocate(dm(nbf,nbf))
+ call gen_ao_dm_from_fch(fchname, 3, nbf, dm) ! alpha NSO
+
+ allocate(dm_b(nbf,nbf))
+ call gen_ao_dm_from_fch(fchname, 4, nbf, dm_b) ! beta NSO
+
+ dm = dm + dm_b ! total density
+ deallocate(dm_b)
+
+ allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
+ call get_ao_ovlp_using_fch(fchname, nbf, S)
+ call no(nbf, nif, dm, S, noon, mo)
+ deallocate(dm, S)
+
+ call write_mo_into_fch(nsofch, nbf, nif, 'a', mo)
+ deallocate(mo)
+ call write_eigenvalues_to_fch(nsofch, nif, 'a', noon, .true.)
+ deallocate(noon)
+end subroutine gen_no_from_nso
 
 ! compute MO-based density matrix
 ! Note: the result of this subroutine is identical to that of subroutine

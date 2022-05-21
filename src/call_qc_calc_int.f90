@@ -70,7 +70,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  integer :: i, fid, system
  integer, intent(in) :: nbf
  real(kind=8), intent(out) :: S(nbf,nbf)
- character(len=10) :: str, nproc
+ character(len=10) :: str
  character(len=24) :: mem
  character(len=240), intent(in) :: fchname
  character(len=240) :: gau_path, proname, chkname, gjfname, logname, file47
@@ -100,13 +100,9 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  call getenv('GAUSS_MEMDEF', mem)
  if(LEN_TRIM(mem) == 0) mem = '1GB'
 
- call getenv('OMP_NUM_THREADS', nproc)
- if(LEN_TRIM(nproc) == 0) call getenv('MKL_NUM_THREADS', nproc)
- if(LEN_TRIM(nproc) == 0) nproc = '1'
-
  open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%nprocshared=1'
  write(fid,'(A)') '%mem='//TRIM(mem)
- write(fid,'(A)') '%nprocshared='//TRIM(nproc)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A)') '# chkbasis nosymm int=nobasistransform guess(read,only)&
                  & geom=allcheck pop(nboread)'
@@ -155,7 +151,9 @@ end subroutine get_a_random_int
 subroutine get_gau_path(gau_path)
  implicit none
  integer :: i
+ character(len=240) :: g(3)
  character(len=240), intent(out) :: gau_path
+ logical :: alive
 
  gau_path = ' '
  call getenv('GAUSS_EXEDIR', gau_path)
@@ -173,9 +171,9 @@ subroutine get_gau_path(gau_path)
  i = index(gau_path, ':', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
-                     & in gau_path="//TRIM(gau_path)
+                  & in gau_path="//TRIM(gau_path)
   write(6,'(/,A)') 'This error often occurs when your machine has no (or has&
-                     & incorrect) Gaussian'
+                  & incorrect) Gaussian'
   write(6,'(A)') 'environment variables. Here I offer a correct example:'
   write(6,'(A)') REPEAT('-',45)
   write(6,'(A)') ' export g16root=/opt'
@@ -184,16 +182,32 @@ subroutine get_gau_path(gau_path)
   write(6,'(A)') REPEAT('-',45)
   write(6,'(A)') 'Please check your Gaussian environment variables according&
                    & to the example shown above.'
-  write(6,'(A)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
+  write(6,'(A,/)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
   stop
  end if
 
  gau_path = gau_path(i+1:)
- i = index(gau_path, '/', back=.true.)
- gau_path = TRIM(gau_path)//'/'//TRIM(gau_path(i+1:))
-#endif
+ g(1) = TRIM(gau_path)//'/g03'
+ g(2) = TRIM(gau_path)//'/g09'
+ g(3) = TRIM(gau_path)//'/g16'
+ ! maybe extended to g23 in 2023
 
- return
+ alive = .false.
+ do i = 3, 1, -1
+  inquire(file=TRIM(g(i)),exist=alive)
+  if(alive) then
+   gau_path = g(i)
+   exit
+  end if
+ end do ! for i
+
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine get_gau_path: Gaussian is not found in&
+                  & your node/machine.'
+  write(6,'(A)') 'Please check whether you have installed Gaussian correctly.'
+  stop
+ end if
+#endif
 end subroutine get_gau_path
 
 ! compute the number of electrons by tracing the product of density matrix and

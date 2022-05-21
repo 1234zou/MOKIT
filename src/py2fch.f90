@@ -372,8 +372,9 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  shell_to_atom_map(1:ncontr) = shell_to_atom_map0
  k = ncontr
 
-! first we adjust the basis functions in each MO according to the Shell to atom map
-! this is to ensure that the order of basis functions in PySCF is converted to be that of Gaussian
+! first we adjust the basis functions in each MO according to the Shell to atom
+! map. This is to ensure that the order of basis functions in PySCF is converted
+! to be that of Gaussian
  ! unsort the shell_type, shell_to_atom_map, MOs will be adjusted accordingly
  call unsort_shell_and_mo(k, shell_type, shell_to_atom_map, nbf0, idx)
  ! Note that k will be updated

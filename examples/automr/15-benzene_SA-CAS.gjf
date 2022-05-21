@@ -2,7 +2,7 @@
 %nprocshared=16
 #p CASSCF(6,6)/cc-pVTZ
 
-mokit{ist=5,readno='benzene_uhf_gvb15_CASSCF_NO.fch',DryRun,Nstate=2}
+mokit{ist=5,readno='benzene_uhf_gvb15_CASSCF_NO.fch',DryRun,Nstates=2}
 
 # This example shows how to generate SA-CASSCF input file for excited state
 #  calculations. If you want to perform a NEVPT2 calculation, just replace

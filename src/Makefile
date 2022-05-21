@@ -27,7 +27,7 @@ OBJ_align_orbitals = file_op.o math_sub.o rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rwwfn.o read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o \
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
-             do_PES_scan.o do_sa_cas.o automr.o
+             do_PES_scan.o do_cis.o do_sa_cas.o excited.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
@@ -83,7 +83,8 @@ OBJ_ortho  = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
 OBJ_assoc_loc = assoc_loc.f90
 OBJ_pop = pop.f90
-OBJ_lo = math_sub.f90 lo.f90
+OBJ_lo = string_manipulate.f90 math_sub.f90 file_op.f90 util_wrapper.f90 \
+         rwwfn.f90 call_qc_calc_int.f90 lo.f90
 OBJ_mo_svd = math_sub.f90 mo_svd.f90
 OBJ_mo_svd_format = file_op.o string_manipulate.o math_sub.o rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_matrix.o
@@ -311,7 +312,7 @@ pop: $(OBJ_pop)
 	@mv pop*.so ../lib/
 
 lo: $(OBJ_lo)
-	$(F2PY) -c $(OBJ_lo) -m lo $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(F2_MKL_FLAGS)
 	@mv lo*.so ../lib/
 
 auto_pair: $(OBJ_auto_pair)
@@ -347,7 +348,7 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      frag_guess_wfn chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH \
      gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch \
      pyuno construct_vir ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format \
-     solve_ON_matrix rwgeom rwwfn
+     solve_ON_matrix rwgeom rwwfn excited
 
 clean:
 	rm -f *.o *.mod

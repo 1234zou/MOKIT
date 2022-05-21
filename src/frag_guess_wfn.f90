@@ -397,6 +397,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    frags(ifrag)%elem = [elem(i)]
    frags(ifrag)%atm_map = [i]
   else
+   allocate(tmp_coor(3,iatom-1))
    tmp_coor = frags(ifrag)%coor
    deallocate(frags(ifrag)%coor)
    allocate(frags(ifrag)%coor(3,iatom))
@@ -405,7 +406,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    frags(ifrag)%coor(:,iatom) = coor(:,i)
 
    frags(ifrag)%elem = [frags(ifrag)%elem, elem(i)]
-   frags(ifrag)%atm_map =[frags(ifrag)%atm_map, [i]]
+   frags(ifrag)%atm_map =[frags(ifrag)%atm_map, i]
   end if
 
   j = LEN_TRIM(buf)

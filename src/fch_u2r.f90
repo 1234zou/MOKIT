@@ -13,33 +13,35 @@
 program main
  implicit none
  integer :: i
- character(len=240) :: fchname = ' '
+ character(len=240) :: fchname, newfch
 
  i = iargc()
- if(i == 0) then
+ if(.not. (i==1 .or. i==2)) then
   write(6,'(/,A)') 'ERROR in subroutine fch_u2r: .fch(k) file are required.'
-  write(6,'(/,A,/)') 'Example: fch_u2r a.fchk'
+  write(6,'(A)')   'Example 1: fch_u2r a.fch       (a_r.fch generated)'
+  write(6,'(A,/)') 'Example 2: fch_u2r a.fch b.fch (generate a_r.fch and rename&
+                  & it to b.fch)'
   stop
  end if
 
- call getarg(1,fchname)
+ call getarg(1, fchname)
  call require_file_exist(fchname)
- call fch_u2r(fchname)
+
+ newfch = REPEAT(' ',240)
+ if(i == 2) call getarg(2, newfch)
+ call fch_u2r(fchname, newfch)
  stop
 end program main
 
 ! transform a Gaussian UHF type .fchk into a RHF/ROHF type .fchk file
-subroutine fch_u2r(fchname)
+subroutine fch_u2r(fchname, newfch)
  implicit none
- integer :: k, nalpha, nbeta, fchid, fchid1
- character(len=240), intent(in) :: fchname
+ integer :: k, nalpha, nbeta, fchid, fchid1, RENAME
+ character(len=240), intent(in) :: fchname, newfch
  character(len=240) :: fchname1, buf
  logical :: rhf
 
- k = 0
- buf = ' '
- fchname1 = ' '
- rhf = .false.
+ k = 0; buf = ' '; fchname1 = ' '; rhf = .false.
 
  k = index(fchname,'.fch',back=.true.)
  fchname1 = fchname(1:k-1)//'_r.fch'
@@ -178,5 +180,6 @@ subroutine fch_u2r(fchname)
 
  close(fchid)
  close(fchid1)
+ if(LEN_TRIM(newfch) > 0) k = RENAME(TRIM(fchname1), TRIM(newfch))
 end subroutine fch_u2r
 

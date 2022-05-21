@@ -12,17 +12,16 @@
 
 program main
  implicit none
- integer :: i
- integer, parameter :: iout = 6
- character(len=3) :: str = ' '
+ integer :: i, no_type
+ character(len=4) :: str = ' '
  character(len=240) :: mklname, fchname
- logical :: prt_no
 
  i = iargc()
- if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,A)') ' ERROR in subroutine mkl2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): mkl2fch a.mkl a.fch'
-  write(iout,'(A,/)') ' Example 2 (CAS NO)          : mkl2fch a.mkl a.fch -no'
+ if(i<2 .or. i>3) then
+  write(6,'(/,A)') ' ERROR in subroutine mkl2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS)    : mkl2fch a.mkl a.fch'
+  write(6,'(A)')   ' Example 2 (UNO, CAS NO)         : mkl2fch a.mkl a.fch -no'
+  write(6,'(A,/)') ' Example 3 (UHF, UMP2, UCCSD NSO): mkl2fch a.mkl a.fch -nso'
   stop
  end if
 
@@ -32,47 +31,57 @@ program main
 
  call getarg(2, fchname)
  call require_file_exist(fchname)
- prt_no = .false.
+ no_type = 0 ! default, canonical orbitals assumed
 
  if(i == 3) then
   call getarg(3, str)
 
-  if(str /= '-no') then
-   write(iout,'(/,A)') 'ERROR in subroutine mkl2fch: wrong command line arguments!'
-   write(iout,'(A)') "The 3rd input parameter can only be '-no'. But you specify&
-                    & '"//TRIM(str)//"'"
+  select case(TRIM(str))
+  case('-no') ! (spatial) natural orbtials
+   no_type = 1
+  case('-nso') ! natural spin orbitals
+   no_type = 2
+  case default
+   write(6,'(/,A)') "ERROR in subroutine mkl2fch: the third argument can only&
+                   & be '-no' or '-sno'."
+   write(6,'(A)') "But you specify '"//TRIM(str)//"'."
    stop
-  else
-   prt_no = .true.
-  end if
+  end select
  end if
 
- call mkl2fch(mklname, fchname, prt_no)
+ call mkl2fch(mklname, fchname, no_type)
  stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine mkl2fch(mklname, fchname, prt_no)
+subroutine mkl2fch(mklname, fchname, no_type)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
  integer :: i, k, nf3mark, ng3mark, nh3mark
+ integer, intent(in) :: no_type
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: mklname, fchname
  logical :: uhf
- logical, intent(in) :: prt_no
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine mkl2fch: input filename does not&
-                   & contain '.fch' suffix!"
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine mkl2fch: input filename does not contain&
+                 & '.fch' suffix!"
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file
+
+ if(no_type==2 .and. (.not.uhf)) then
+  write(6,'(A)') 'ERROR in subroutine mkl2fch: Natural Spin Orbitals requested.&
+                & But this is not'
+  write(6,'(A)') 'a UHF-type .fch file.'
+  stop
+ end if
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
@@ -82,7 +91,8 @@ subroutine mkl2fch(mklname, fchname, prt_no)
                   & '5D 7F' keywords in Gaussian."
   stop
  else if( ANY(shell_type < -5) ) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not supported.'
+  write(iout,'(A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not&
+                   & supported.'
   stop
  end if
  ! check done
@@ -154,23 +164,36 @@ subroutine mkl2fch(mklname, fchname, prt_no)
  deallocate(f3_mark, g3_mark, h3_mark)
 
  allocate(noon(nif))
- if(prt_no) then
-  call read_on_from_mkl(mklname, nif, 'a', noon)
- else
+ select case(no_type)
+ case(0) ! canonical orbitals
   call read_ev_from_mkl(mklname, nif, 'a', noon)
- end if
- call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  if(uhf) then
+   call read_ev_from_mkl(mklname, nif, 'b', noon)
+   call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
+  end if
+ case(1) ! natural orbitals
+  call read_on_from_mkl(mklname, nif, 'a', noon)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+ case(2) ! natural spin orbitals
+  call read_on_from_mkl(mklname, nif, 'a', noon)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  call read_on_from_mkl(mklname, nif, 'b', noon)
+  call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
+ case default
+  write(6,'(A)') 'ERROR in subroutine mkl2fch: no_type out of range!'
+  write(6,'(A,I0)') 'no_type=', no_type
+  stop
+ end select
+
  call write_mo_into_fch(fchname, nbf, nif, 'a', alpha_coeff)
  deallocate(alpha_coeff)
 
  if(uhf) then
-  call read_ev_from_mkl(mklname, nif, 'b', noon)
-  call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
   deallocate(beta_coeff)
  end if
 
  deallocate(noon)
- return
 end subroutine mkl2fch
 

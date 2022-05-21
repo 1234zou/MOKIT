@@ -12,6 +12,11 @@ module print_id
  integer, parameter :: iout = 6
 end module print_id
 
+module phys_cons ! physics constants
+ implicit none
+ real(kind=8), parameter :: au2ev = 27.211396d0
+end module phys_cons
+
 ! molecular information
 module mol
  implicit none
@@ -70,6 +75,11 @@ module mol
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
  real(kind=8), allocatable :: grad(:)       ! Cartesian gradient of this molecule, 3*natom
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
+
+ real(kind=8), allocatable :: sa_cas_e(:) ! multi-root CASCI energies in SA-CASSCF
+ real(kind=8), allocatable :: ci_mult(:)  ! spin multiplicities of excited states
+ ! size 0:nstate, the ground states is included as 0
+
  character(len=2), allocatable :: elem(:)   ! element symbols
 end module mol
 
@@ -92,13 +102,18 @@ module mr_keyword
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
 
+ integer :: eist = 0       ! the i-th strategy for excited state calculation
+ ! 0: if RHF wfn is stable, use strategy 2; otherwise use strategy 1
+ ! 1: RHF -> CIS NTO -> CASCI/CASSCF -> ...
+ ! 2: UHF -> UCIS NTO -> CASCI/CASSCF -> ...
+
  integer :: CtrType = 0    ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
  integer :: mrcc_type = 1
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
- integer :: nstate = 1 ! number of states in SA-CASSCF, including ground state
- ! so nstate=1 means only ground state
+ integer :: nstate = 0 ! number of excited states in SA-CASSCF
+ ! ground state not included, so nstate=0 means only ground state
 
  real(kind=8) :: ON_thres = 0.99999d0     ! Occupation Number threshold for UNO
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
@@ -171,6 +186,11 @@ module mr_keyword
  logical :: dryrun = .false.      ! DryRun for excited states calculations
  logical :: excited = .false.     ! whether to perform excited states calculations
  logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
+ logical :: TDHF = .false.        ! True/False for CIS/TDHF
+ logical :: sa_cas = .false.      ! SA-CASSCF
+ logical :: noQD = .false.
+ ! True : multi-root CASCI-based NEVPT2 or CASPT2
+ ! False: QD-NEVPT2 or (X)MS-CASPT2
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -184,6 +204,7 @@ module mr_keyword
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mcpdft_prog  = 'openmolcas'
  character(len=10) :: mrcc_prog    = 'orca'
+ character(len=10) :: cis_prog     = 'gaussian'
 
  character(len=240) :: mokit_root = ' '
  character(len=240) :: gau_path = ' '
@@ -332,7 +353,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-May-3)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-May-20)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -835,8 +856,14 @@ contains
     dryrun = .true.; excited = .true.
    case('mixed_spin')
     mixed_spin = .true.
-   case('nstate')
-    read(longbuf(j+1:i-1),*) nstate ! used in SA-CASSCF (ground state included)
+   case('nstates')
+    read(longbuf(j+1:i-1),*) nstate ! used in SA-CASSCF (ground state not included)
+    gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
+    eist = 1
+   case('tdhf')
+    TDHF = .true.
+   case('noQD')
+    noQD = .true.
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."
@@ -850,6 +877,11 @@ contains
   end do ! for while
 
   dkh2_or_x2c = (DKH2 .or. X2C)
+  if(nstate > 999) then
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: too large nstates.'
+   write(6,'(A)') 'The paramter Nstates must be <=999.'
+   stop
+  end if
 
   if(readrhf .or. readuhf .or. readno) then
    write(6,'(A79)') REPEAT('-',79)
@@ -942,26 +974,31 @@ contains
        'GVB     = ', gvb   , 'CASCI   = ',   casci, 'CASSCF  = ', casscf
 
   write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
-       'CASPT2  = ', caspt2, 'NEVPT2  = ',  nevpt2, 'MRMP2   = ', mrmp2
+       'CASPT2  = ', caspt2, 'CASPT2K = ', caspt2k, 'NEVPT2  = ', nevpt2
 
-  write(iout,'(5(A,L1,3X))') 'OVBMP2  = ',  ovbmp2, 'SDSPT2  = ', sdspt2 ,&
-       'MRCISD  = ', mrcisd, 'MCPDFT  = ',  mcpdft, 'NEVPT3  = ', nevpt3
+  write(iout,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ', ovbmp2, &
+       'SDSPT2  = ', sdspt2, 'MRCISD  = ',  mrcisd, 'MCPDFT  = ', mcpdft
 
-  write(iout,'(5(A,L1,3X))') 'CASPT3  = ',  caspt3, 'MRCC    = ', mrcc,&
-       'CIonly  = ', CIonly, 'dyn_corr= ',dyn_corr, 'DKH2    = ', DKH2
+  write(iout,'(5(A,L1,3X))') 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3, &
+       'MRCC    = ',   mrcc, 'CIonly  = ',  CIonly, 'dyn_corr= ',dyn_corr
 
-  write(iout,'(5(A,L1,3X))') 'X2C     = ',     X2C, 'RI      = ', RI     ,&
-       'FIC     = ', FIC   , 'DLPNO   = ',   DLPNO, 'F12     = ', F12
+  write(iout,'(5(A,L1,3X))') 'DKH2    = ',    DKH2, 'X2C     = ', X2C, &
+       'RI      = ',     RI, 'FIC     = ',     FIC, 'DLPNO   = ', DLPNO
 
-  write(iout,'(5(A,L1,3X))') 'TenCycle= ',tencycle, 'HardWFN = ', hardwfn,&
-       'CrazyWFN= ',crazywfn,'BgCharge= ',   bgchg, 'Ana_Grad= ', casscf_force
+  write(iout,'(5(A,L1,3X))') 'F12     = ',     F12, 'TenCycle= ',tencycle,&
+       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'BgCharge= ',   bgchg
 
-  write(iout,'(5(A,L1,3X))') 'Pop     = ',     pop, 'NMR     = ', nmr, &
-       'SOC     = ', soc    ,'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan
+  write(iout,'(5(A,L1,3X))') 'Ana_Grad= ',casscf_force,'Pop     = ',pop,&
+       'NMR     = ',    nmr, 'ICSS    = ',    ICSS, 'TDHF    = ', TDHF
 
-  write(iout,'(A,L1,3X,2(A,I1,3X),A,F7.5,2X,A,I5)') 'DryRun  = ',dryrun, &
-       'CtrType = ',CtrType ,'MRCC_type=',mrcc_type,'ON_thres= ',ON_thres,&
-       'MaxM=',maxM
+  write(iout,'(5(A,L1,3X))') 'SA_CAS  = ',  sa_cas, 'Excited = ', excited,&
+       'noQD    = ',   noQD, 'SOC     = ',     SOC, 'Mixed_Spin=',Mixed_Spin
+
+  write(iout,'(3(A,L1,3X))') 'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan,&
+       'DryRun  = ', dryrun
+
+  write(iout,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType,&
+       'MRCC_type=',mrcc_type,'ON_thres= ', ON_thres,    'MaxM=', maxM
 
   write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
@@ -1910,10 +1947,10 @@ subroutine check_exe_exist(path)
 
  inquire(file=TRIM(path),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file does not exist.'
+  write(iout,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file&
+                   & does not exist.'
   write(iout,'(A)') 'path='//TRIM(path)
   stop
  end if
- return
 end subroutine check_exe_exist
 

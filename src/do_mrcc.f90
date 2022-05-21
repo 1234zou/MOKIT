@@ -4,7 +4,7 @@
 subroutine do_mrcc()
  use print_id, only: iout
  use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
-  orca_path, chgname
+  orca_path, chgname, eist
  use mol, only: nevpt2_e, mrcc_e
  use util_wrapper, only: mkl2gbw
  implicit none
@@ -16,7 +16,9 @@ subroutine do_mrcc()
  character(len=24) :: data_string
  character(len=240) :: string, chkname, inpname, mklname, outname
 
+ if(eist == 1) return ! excited state calculation
  if(.not. mrcc) return
+
  write(iout,'(//,A)') 'Enter subroutine do_mrcc...'
  write(iout,'(A)',advance='no') TRIM(method(mrcc_type))//' based on CAS'
  if(CIonly) then

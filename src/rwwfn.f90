@@ -3702,10 +3702,11 @@ end subroutine read_mult_from_fch
 ! 1) compute 1e expectation values of MOs in file mo_fch, using information from
 ! file no_fch (which usually includes NOs)
 ! 2) sort paired MOs in mo_fch by 1e expectation values
-subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, ndb, nopen, npair)
+subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  implicit none
- integer :: i, k, nbf, nif, system
- integer, intent(in) :: ndb, nopen, npair
+ integer :: i, k, na, nb, ndb, nopen, nbf, nif, system
+! here ndb is the number of doubly occupied orbitals in R(O)HF, ndb = nb
+ integer, intent(in) :: npair
  real(kind=8) :: rtmp
  real(kind=8), allocatable :: coeff(:), mo(:,:), noon(:)
  character(len=240) :: dname
@@ -3720,6 +3721,9 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, ndb, nopen, npair)
   write(6,'(A)') 'Did you forget to compile the utility solve_ON_matrix?'
   stop
  end if
+
+ call read_na_and_nb_from_fch(mo_fch, na, nb)
+ nopen = na  - nb; ndb = nb
 
  i = index(mo_fch, '.fch', back=.true.)
  dname = mo_fch(1:i-1)//'_D.txt'
@@ -3748,7 +3752,7 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, ndb, nopen, npair)
   if(nat_orb) then   ! assuming natural orbitals
    do while(.true.)
     changed = .false.
-    do i = ndb-npair+1, ndb, 1
+    do i = ndb-npair+1, ndb-1, 1
      if(noon(i) < noon(i+1)) then
       rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
       rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp
@@ -3763,7 +3767,7 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, ndb, nopen, npair)
   else   ! assuming canonical MOs, sorting by orbital energies
    do while(.true.)
     changed = .false.
-    do i = ndb-npair+1, ndb, 1
+    do i = ndb-npair+1, ndb-1, 1
      if(noon(i) > noon(i+1)) then
       rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
       rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp

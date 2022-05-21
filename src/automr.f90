@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-May-3'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-May-20'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -98,6 +98,8 @@ subroutine automr(fname)
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
  call do_mcpdft()     ! MC-PDFT
  call do_mrcc()       ! MRCC
+
+ call do_cis()        ! CIS/TDHF
  call do_sa_cas()     ! SA-CASSCF
  call do_PES_scan()   ! PES scan
 
@@ -109,7 +111,7 @@ end subroutine automr
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use print_id, only: iout
- use mr_keyword, only: mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c
+ use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  implicit none
@@ -118,6 +120,7 @@ subroutine get_paired_LMO()
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, proname, pyname, chkname, outname, fchname
 
+ if(eist == 1) return ! excited state calculation
  if(ist > 4) return ! no need for this subroutine
  write(iout,'(//,A)') 'Enter subroutine get_paired_LMO...'
 
@@ -413,7 +416,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
  write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
- write(fid2,'(A)') "sort_pair('"//TRIM(loc_fch)//"','"//TRIM(hf_fch)//"',idx2,nopen,npair)"
+ write(fid2,'(A)') "sort_pair('"//TRIM(loc_fch)//"','"//TRIM(hf_fch)//"',npair)"
  write(fid2,'(A)') '# save done'
 
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
@@ -511,8 +514,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') '# done transform'
 
  write(fid1,'(/,A)') '# save the UNO into .fch file'
- write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//"')"
- write(fid1,'(A)') "os.rename('"//hf_fch(1:i-1)//"_r.fch', '"//TRIM(uno_fch)//"')"
+ write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)//"')"
  write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
@@ -559,6 +561,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid2,'(A)') 'from auto_pair import pair_by_tdm'
  write(fid2,'(A)') 'from assoc_rot import assoc_rot'
  write(fid2,'(A)') 'from mo_svd import proj_occ_get_act_vir'
+ write(fid2,'(A)') 'from rwwfn import get_1e_exp_and_sort_pair as sort_pair'
  write(fid2,'(A,/)') 'from shutil import copyfile'
 
  do while(.true.)
@@ -667,8 +670,8 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
  write(fid1,'(A)') 'noon = np.zeros(nif)'
  write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,False)"
+ write(fid1,'(A)') "sort_pair('"//TRIM(assoc_fch)//"','"//TRIM(uno_fch)//"',npair)"
  close(fid1)
- return
 end subroutine prt_assoc_rot_script_into_py
 
 ! calculate/determine the number of core orbitals
