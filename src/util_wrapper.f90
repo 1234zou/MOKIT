@@ -375,5 +375,32 @@ subroutine fch2dal_wrap(fchname, dalname)
 
 end subroutine fch2dal_wrap
 
+subroutine bas_fch2py_wrap(fchname, pyname)
+ implicit none
+ integer :: i, system, RENAME
+ character(len=240) :: pyname0
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: pyname
+
+#ifdef _WIN32
+ i = system('bas_fch2py '//TRIM(fchname)//' > NUL')
+#else
+ i = system('bas_fch2py '//TRIM(fchname)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine bas_fch2py_wrap: failed to call utility&
+                & bas_fch2py.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(present(pyname)) then
+  i = index(fchname, '.fch', back=.true.)
+  pyname0 = fchname(1:i-1)//'.py'
+  i = RENAME(TRIM(pyname0), TRIM(pyname))
+ end if
+end subroutine bas_fch2py_wrap
+
 end module util_wrapper
 

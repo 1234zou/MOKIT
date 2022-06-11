@@ -6,7 +6,7 @@
 subroutine do_gvb()
  use print_id, only: iout
  use mr_keyword, only: nproc, gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish,&
-  excludeXH, gms_path, gms_scr_path
+  excludeXH, gms_path, gms_scr_path, GVB_conv
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte,&
   nacto, npair0, XHgvb_e
  implicit none
@@ -17,9 +17,9 @@ subroutine do_gvb()
 
  if(.not. gvb) return
  write(iout,'(//,A)') 'Enter subroutine do_gvb...'
- if(.not. (ist==1 .or. ist==3)) then
+ if(.not. (ist==1 .or. ist==3 .or. ist==6)) then
   write(iout,'(/,A,I0)') 'ERROR in subroutine do_gvb: ist=', ist
-  write(iout,'(A)') 'Only ist=1 or 3 is supported currently.'
+  write(iout,'(A)') 'Only ist=1,3,6 is supported currently.'
   stop
  end if
 
@@ -30,22 +30,29 @@ subroutine do_gvb()
  call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
 
  if(npair_wish>0 .and. npair_wish/=npair) then
-  write(iout,'(2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but&
-   & user specifies GVB(',npair_wish,'). Try to fulfill...'
+  write(6,'(/,2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but user&
+                          & specifies GVB(',npair_wish,'). Try to fulfill...'
   if(npair_wish < npair) then
    ndb = ndb + npair - npair_wish
    npair = npair_wish
-   write(iout,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals&
-                    & after converged.'
+   write(6,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals&
+                 & after converged.'
+   write(6,'(/,A)') 'Updated number of various orbitals:'
+   write(6,'(3(A,I5,4X))') 'doubly_occ=',ndb,'npair=',npair,'nopen=',nopen
+
   else if(npair_wish > npair) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: too large pairs specified.&
-                      & Cannot fulfilled.'
+   write(6,'(/,A)') 'ERROR in subroutine do_gvb: too large pairs specified.&
+                   & Cannot fulfilled.'
    stop
   end if
  end if
 
  if(mo_rhf) then
-  pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
+  if(ist == 6) then
+   pair_fch = hf_fch
+  else
+   pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
+  end if
  else
   pair_fch = TRIM(proname)//'_uno_asrot.fch'
  end if
@@ -102,6 +109,8 @@ subroutine do_gvb()
   inpname = TRIM(proname1)//'XH.inp'
   datname = TRIM(proname1)//'XH.dat'
   gmsname = TRIM(proname1)//'XH.gms'
+  call modify_gvb_conv(inpname, GVB_conv)
+
   ! call GAMESS to do GVB computations (delete .dat file first, if any)
   buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
   call delete_file(buf)
@@ -135,8 +144,8 @@ end subroutine do_gvb
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
 subroutine do_gvb_gms(proname, pair_fch)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, gms_path, gms_scr_path, mo_rhf, &
-  datname, bgchg, chgname, cart, check_gms_path
+ use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
+  datname, bgchg, chgname, cart, check_gms_path, GVB_conv
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  implicit none
  integer :: i, system, RENAME
@@ -149,16 +158,23 @@ subroutine do_gvb_gms(proname, pair_fch)
 
  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
-  write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
-  write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
-  write(datname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.dat'
-  i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
+  if(ist == 6) then
+   write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
+   write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
+   write(datname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.dat'
+   i = RENAME(TRIM(proname)//'.inp', inpname)
+  else
+   write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
+   write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
+   write(datname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.dat'
+   i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
+  end if
 
  else ! paired LMOs obtained from associated rotation of UNOs
   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
   write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
@@ -167,6 +183,7 @@ subroutine do_gvb_gms(proname, pair_fch)
  end if
 
  call modify_memory_in_gms_inp(inpname, mem, nproc)
+ call modify_gvb_conv(inpname, GVB_conv)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
@@ -533,4 +550,44 @@ subroutine determine_npair0_from_pair_coeff(npair, coeff, npair0)
  deallocate(coeff0)
  return
 end subroutine determine_npair0_from_pair_coeff
+
+! modify CONV value in a GAMESS .inp file
+! This is GVB SCF density matrix convergence criterion/threshold
+subroutine modify_gvb_conv(inpname, GVB_conv)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=4), intent(in) :: GVB_conv
+ character(len=240), intent(in) :: inpname
+
+ if(GVB_conv=='1d-5' .or. GVB_conv=='1D-5') return
+ i =  index(inpname, '.inp', back=.true.)
+ inpname1 = inpname(1:i-1)//'.tmp'
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:5) == '$SCF') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ i = index(buf, '$END')
+ if(i > 0) then
+  buf = buf(1:i-1)//' CONV='//GVB_conv//' $END'
+ else
+  buf = TRIM(buf)//' CONV='//GVB_conv
+ end if
+ write(fid1,'(A)') TRIM(buf)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine modify_gvb_conv
 

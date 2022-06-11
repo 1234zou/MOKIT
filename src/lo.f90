@@ -145,16 +145,16 @@ subroutine gen_no_from_nso(fchname)
  use util_wrapper, only: fch_u2r_wrap
  implicit none
  integer :: i, nbf, nif
- character(len=240) :: nsofch, rfch
+ character(len=240) :: nofch, rfch
  character(len=240), intent(in) :: fchname ! must have NSO in it
  real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
 
  i = index(fchname,'.fch',back=.true.)
- nsofch = fchname(1:i-1)//'_no.fch'
+ nofch = fchname(1:i-1)//'_NO.fch'
  rfch = fchname(1:i-1)//'_r.fch'
 
  call fch_u2r_wrap(fchname)
- call copy_file(rfch, nsofch, .true.)
+ call copy_file(rfch, nofch, .true.)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
 
  allocate(dm(nbf,nbf))
@@ -171,9 +171,9 @@ subroutine gen_no_from_nso(fchname)
  call no(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 
- call write_mo_into_fch(nsofch, nbf, nif, 'a', mo)
+ call write_mo_into_fch(nofch, nbf, nif, 'a', mo)
  deallocate(mo)
- call write_eigenvalues_to_fch(nsofch, nif, 'a', noon, .true.)
+ call write_eigenvalues_to_fch(nofch, nif, 'a', noon, .true.)
  deallocate(noon)
 end subroutine gen_no_from_nso
 
@@ -460,7 +460,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
  implicit none
  integer :: i, j, k, niter
  integer, intent(in) :: nbf, nif, ncomp
- integer, parameter :: iout = 6, niter_max = 9999
+ integer, parameter :: niter_max = 9999
  ! niter_max: max number of iterations
 
  real(kind=8), parameter :: threshold1 = 1d-7, threshold2 = 1d-6
@@ -545,19 +545,19 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
   end do ! for i
 
   niter = niter + 1
-  write(iout,'(A,I5,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
+  write(6,'(A,I5,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
   if(sum_change < threshold2) exit
  end do ! for while
 
- deallocate(motmp,vdiff,vtmp,dipole)
+ deallocate(motmp, vdiff, vtmp, dipole)
 
  if(niter <= niter_max) then
-  write(iout,'(A)') 'Localization converged successfully.'
+  write(6,'(A)') 'Orbital localization converged successfully.'
  else
-  write(iout,'(A)') 'ERROR in subroutine serial2by2: niter_max exceeded.'
+  write(6,'(A)') 'ERROR in subroutine serial2by2: niter_max exceeded.'
+  write(6,'(A,I0)') 'niter_max=', niter_max
   stop
  end if
- return
 end subroutine serial2by2
 
 ! get the value of the modified Boys function
@@ -594,11 +594,16 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
 end subroutine get_mboys
 
 ! perform immediate Boys localization by diagonalizing the DxDx+DyDy+DzDz
+! This was an idea came up with me during 2017 October, and showed in group
+!  meeting on 2017 Oct.12. However, I found that this subroutine works poorly
+!  since it always converged to saddle points, not minima. This is because at
+!  that time I didn't fully deduce the final solution, but put a restriction
+!  and deduce this special solution. During 2022 May. 22~28, I deduce the
+!  correct solution (see subroutine boys_noiter)
 subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
  integer :: i, nbf, nmo
 !f2py intent(in) :: nbf, nmo
- integer, parameter :: iout = 6
  real(kind=8) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo), new_coeff(nbf,nmo)
 !f2py intent(in) :: mo_coeff, mo_dipole
 !f2py intent(out) :: new_coeff
@@ -617,14 +622,13 @@ subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  deallocate(w)
  call dgemm('N','N',nbf,nmo,nmo, 1d0,mo_coeff,nbf, f,nmo, 0d0,new_coeff,nbf)
  deallocate(f)
- return
 end subroutine boys_diag
 
+! written at the same time as subroutine boys_diag
 subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  implicit none
  integer :: i, j
  integer :: nbf, nmo
- integer, parameter :: iout = 6
 !f2py intent(in) :: nbf, nmo
  real(kind=8) :: coeff(nbf,nmo), lo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
 !f2py intent(in) :: coeff, lo_coeff, mo_dipole
@@ -649,10 +653,9 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  deallocate(fU, U)
 
  do i = 1, nmo, 1
-  write(iout,'(20F14.4)') (lamda(j,i),j=1,i)
+  write(6,'(20F14.4)') (lamda(j,i),j=1,i)
  end do ! for i
  deallocate(lamda)
- return
 end subroutine solve_boys_lamda_matrix
 
 subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
@@ -685,6 +688,15 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
 
  u = lo_coeff1(1:nmo,1:nmo)
  deallocate(lo_coeff1)
- return
 end subroutine get_u
+
+! A non-iterative Boys orbital localization solver
+subroutine boys_noiter(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8), intent(out) :: new_coeff(nbf,nmo)
+
+end subroutine boys_noiter
 

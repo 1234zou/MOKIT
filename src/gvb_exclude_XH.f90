@@ -235,41 +235,6 @@ subroutine gvb_exclude_XH(datname, gmsname)
  return
 end subroutine gvb_exclude_XH
 
-! read ncore, nopen and npair from a GAMESS .gms file
-subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
- implicit none
- integer :: i, fid
- integer, intent(out) :: ncore, nopen, npair
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: gmsname
-
- ncore = 0; nopen = 0; npair = 0
- buf = ' '
-
- open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)', iostat=i) buf
-  if(i /= 0) exit
-  if(buf(34:41) == 'NCO    =') exit
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_npair_from_gms: no 'NCO    ='&
-                   & found"
-  write(iout,'(A)') ' in file '//TRIM(gmsname)//'.'
-  close(fid)
-  stop
- end if
-
- read(buf(42:),*) ncore
- read(fid,'(A)') buf
- read(buf(19:),*) npair
- read(buf(42:),*) nopen
- close(fid)
- return
-end subroutine read_npair_from_gms
-
 ! read nbf and nif from a GAMESS output file
 subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
  implicit none
@@ -341,89 +306,6 @@ subroutine chk_ci_coeff_in_dat(fname, alive)
  if(i /= 0) alive = .false.
  return
 end subroutine chk_ci_coeff_in_dat
-
-! read CI coefficients from a GAMESS .dat or .inp file
-subroutine read_ci_coeff_from_dat(fname, npair, coeff)
- implicit none
- integer :: i, j, k, fid
- integer, intent(in) :: npair
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: fname
- real(kind=8), intent(out) :: coeff(2,npair)
-
- buf = ' '; coeff = 0d0
- open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  j = index(buf,'CICOEF(')
-  if(j == 0) j = index(buf,'cicoef(')
-  if(j /= 0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_ci_coeff_from_dat: no GVB CI&
-                    & coefficients'
-  write(iout,'(A)') ' found in file '//TRIM(fname)//'!'
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- do i = 1, npair, 1
-  read(fid,'(A)') buf
-  j = index(buf,'=')
-  k = index(buf,',')
-  read(buf(j+1:k-1),*) coeff(1,i)
-  read(buf(k+1:),*) coeff(2,i)
- end do ! for i
-
- close(fid)
- return
-end subroutine read_ci_coeff_from_dat
-
-! read CI coefficients from a GAMESS .gms file
-! Note: if there exist multiple sets of CI coefficients in the file,
-!       only the last set will be read
-subroutine read_ci_coeff_from_gms(fname, npair, coeff)
- implicit none
- integer :: i, j, fid
- integer, intent(in) :: npair
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: fname
- real(kind=8), intent(out) :: coeff(2,npair)
-
- buf = ' '
- coeff = 0d0
-
- open(newunit=fid,file=TRIM(fname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  BACKSPACE(fid,iostat=i)
-  read(fid,'(A)') buf
-  if(i/=0 .or. buf(7:18)=='ORBITAL   CI') exit
- end do
-
- if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_ci_coeff_from_gms: no GVB CI&
-                   & coefficients'
-  write(iout,'(A)') ' found in file '//TRIM(fname)//'!'
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf   ! skip one line
-
- do i = 1, npair, 1
-  read(fid,'(A)') buf
-  read(buf,*) j, j, j, coeff(1,i), coeff(2,i)
- end do ! for i
-
- close(fid)
- return
-end subroutine read_ci_coeff_from_gms
 
 ! read natom from GAMESS .gms file
 subroutine read_natom_from_gms(gmsfile, natom)

@@ -1,5 +1,6 @@
-MOKIT 1.2.3 (May 20, 2022)
+MOKIT 1.2.3 (Jun 11, 2022)
 ------------------------
+* add ist=6 (GVB/STO-6G -> GVB/target basis set -> ...)
 * add RHF -> CIS -> SA-NTO -> SA-CASSCF strategy
 * add pcSseg-1 and pcSseg-2 into basis/
 * assume 32-bit integer Dalton, reduce memory to 16GB if user specified >16GB

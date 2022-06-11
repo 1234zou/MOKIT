@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-May-20'
+  write(iout,'(A)') 'AutoMR 1.2.3 :: MOKIT, release date: 2022-Jun-11'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -89,6 +89,7 @@ subroutine automr(fname)
  call check_kywd_compatible()
 
  call do_hf()         ! RHF and/or UHF
+ call do_minimal_basis_gvb() ! GVB/STO-6G, only valid for ist=6
  call get_paired_LMO()
  call do_gvb()        ! GVB
  call do_cas(.false.) ! CASCI/DMRG-CASCI
@@ -111,7 +112,8 @@ end subroutine automr
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use print_id, only: iout
- use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c
+ use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c,&
+  nskip_uno
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  implicit none
@@ -121,7 +123,7 @@ subroutine get_paired_LMO()
  character(len=240) :: buf, proname, pyname, chkname, outname, fchname
 
  if(eist == 1) return ! excited state calculation
- if(ist > 4) return ! no need for this subroutine
+ if(ist == 5) return ! no need for this subroutine
  write(iout,'(//,A)') 'Enter subroutine get_paired_LMO...'
 
  if(ist == 0) then
@@ -131,27 +133,33 @@ subroutine get_paired_LMO()
  end if
 
  call calc_ncore() ! calculate the number of core orbitals from array core_orb
- write(iout,'(2(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core
+ write(iout,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
+                         ', Nskip_UNO=', nskip_uno
+
  i = index(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
 
  if(mo_rhf) then
-  write(iout,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
-                   & localization -> paring.'
+  if(ist == 6) then
+   write(iout,'(A)') 'One set of MOs: GVB/STO-6G -> MO projection -> Rotate has&
+                     & been invoked.'
+  else
+   write(iout,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
+                    & localization -> paring.'
+   chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
+   i = system('bas_fch2py '//TRIM(hf_fch))
+   pyname = TRIM(proname)//'_proj_loc_pair.py'
+   i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
+   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
 
-  chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
-  i = system('bas_fch2py '//TRIM(hf_fch))
-  pyname = TRIM(proname)//'_proj_loc_pair.py'
-  i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
-  if(dkh2_or_x2c) call add_X2C_into_py(pyname)
-
-  call prt_rhf_proj_script_into_py(pyname)
-  call prt_auto_pair_script_into_py(pyname)
-  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(proname)//&
-                   '_proj_loc_pair.out 2>&1'
-  write(iout,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  call delete_file(chkname)
+   call prt_rhf_proj_script_into_py(pyname)
+   call prt_auto_pair_script_into_py(pyname)
+   write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(proname)//&
+                    '_proj_loc_pair.out 2>&1'
+   write(iout,'(A)') '$'//TRIM(buf)
+   i = system(TRIM(buf))
+   call delete_file(chkname)
+  end if
 
  else
   if(ist == 1) then
@@ -202,7 +210,6 @@ subroutine get_paired_LMO()
 
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine get_paired_LMO at '//TRIM(data_string)
- return
 end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
@@ -464,6 +471,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'from pyscf import lib'
  write(fid2,'(A)') 'import numpy as np'
  write(fid2,'(A)') 'import os'
+ write(fid2,'(A)') 'from time import sleep'
  write(fid2,'(A)') 'from py2fch import py2fch'
  write(fid2,'(A)') 'from uno import uno'
  write(fid2,'(A,/)') 'from construct_vir import construct_vir'
@@ -515,6 +523,7 @@ subroutine prt_uno_script_into_py(pyname)
 
  write(fid1,'(/,A)') '# save the UNO into .fch file'
  write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)//"')"
+ write(fid1,'(A)') 'sleep(1) # in some node, py2fch begins when fch_u2r unfinished'
  write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
@@ -523,10 +532,9 @@ end subroutine prt_uno_script_into_py
 
 ! print associated rotation into a given .py file
 subroutine prt_assoc_rot_script_into_py(pyname)
- use print_id, only: iout
  use mol, only: chem_core, ecp_core
 ! use mol, only: natom, elem, nuc, chem_core, ecp_core
- use mr_keyword, only : localm, hf_fch, npair_wish
+ use mr_keyword, only : localm, hf_fch, npair_wish, nskip_uno
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
 ! integer, allocatable :: ntimes(:)
@@ -545,8 +553,8 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine prt_assoc_rot_script_into_py: end-of-file detected.'
-  write(iout,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(A)') 'ERROR in subroutine prt_assoc_rot_script_into_py: end-of-file detected.'
+  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -583,24 +591,26 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') 'if(npair > 0):'
  write(fid1,'(A)') '  idx2 = idx[0] + npair - 1'
  write(fid1,'(A)') '  idx3 = idx2 + idx[2]'
- if(npair_wish > 0) write(fid1,'(A,I0,A1)') '  npair = min(npair,', npair_wish, ')'
+ if(npair_wish > 0) write(fid1,'(A,I0,A1)') '  npair = min(npair,',npair_wish,')'
  write(fid1,'(A)') '  idx1 = idx2 - npair'
  write(fid1,'(A)') '  idx4 = idx3 + npair'
- write(fid1,'(A)') '  occ_idx = range(idx1,idx2)'
- write(fid1,'(A)') '  vir_idx = range(idx3,idx4)'
-! write(fid1,'(A)') '  print(idx1, idx2, idx3, idx4)'
+ write(fid1,'(A,I0,A)') '  i = ',nskip_uno,' # pair(s) of UNO to be skipped'
+ write(fid1,'(A)') '  occ_idx = range(idx1,idx2-i)'
+ write(fid1,'(A)') '  vir_idx = range(idx3+i,idx4)'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
   write(fid1,'(A)') "  occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                    &mol._bas[:,3],mol.cart,nbf,npair,mf.mo_coeff[0][:,occ_idx],&
-                    &S,'mulliken')"
+                    &mol._bas[:,3],mol.cart,nbf,"
+  write(fid1,'(19X,A)') "npair-i,mf.mo_coeff[0][:,occ_idx],S,'mulliken')"
  else ! Boys localization
   write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
-  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
+  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair-i, mf.mo_coeff[0][:,&
+                     & occ_idx], mo_dipole)'
  end if
 
- write(fid1,'(A)')  '  vir_loc_orb = assoc_rot(nbf, npair, mf.mo_coeff[0][:,occ_idx],&
-                   & occ_loc_orb, mf.mo_coeff[0][:,vir_idx])'
+ write(fid1,'(A)') '  vir_loc_orb = assoc_rot(nbf, npair-i, mf.mo_coeff[0][:,occ_idx],&
+                    & occ_loc_orb,'
+ write(fid1,'(26X,A)') 'mf.mo_coeff[0][:,vir_idx])'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = occ_loc_orb.copy()'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
  write(fid1,'(A)') '# localization done'
@@ -707,6 +717,434 @@ subroutine calc_ncore()
  close(fid)
 
  ecp_core = INT(SUM(RNFroz))
- return
 end subroutine calc_ncore
+
+! perform GVB/STO-6G, only valid for ist=6
+subroutine do_minimal_basis_gvb()
+ use mol, only: mult, nbf, nif, nopen, ndb, npair
+ use mr_keyword, only: nproc, ist, npair_wish, gjfname, localm, hf_fch, mo_rhf,&
+  nskip_uno, bgchg, inherit
+ implicit none
+ integer :: i, fid, system
+ real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
+ real(kind=8) :: gvb_mult     ! GVB spin mult
+ real(kind=8), allocatable :: noon(:)
+ character(len=24) :: data_string
+ character(len=240) :: buf, proname, mbgjf, gvb_nofch, mbout, pyname, outname
+ ! mbgjf: minimal basis gjf
+
+ if(ist /= 6) return
+ i = (mult - 1)/2
+ gvb_mult = DBLE(i*(i+1))
+
+ i = index(gjfname, '.gjf', back=.true.)
+ proname = gjfname(1:i-1)
+ mbgjf = gjfname(1:i-1)//'_mb.gjf'
+ mbout = gjfname(1:i-1)//'_mb.out'
+ hf_fch = gjfname(1:i-1)//'_proj_rem.fch'
+ pyname = gjfname(1:i-1)//'_proj_rem.py'
+ outname = gjfname(1:i-1)//'_proj_rem.out'
+
+ call prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair_wish, nskip_uno, localm, &
+                            bgchg, inherit)
+ call submit_automr_job(mbgjf)
+ call read_hf_and_gvb_e_from_automr_out(mbout, e, uhf_s2)
+ call read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
+
+ write(6,'(/)',advance='no')
+ if(mult == 1) then
+  write(6,'(A,F18.8,1X,A)') 'GVB/STO-6G E(RHF) = ',e(1),'a.u., <S**2>=  0.000'
+ end if
+ write(6,'(A,F18.8,1X,A,F7.3)') 'GVB/STO-6G E(UHF) = ',e(2),'a.u., <S**2>=',uhf_s2
+ write(6,'(A,F18.8,1X,A,F7.3)') 'GVB/STO-6G E(GVB) = ',e(3),'a.u., <S**2>=',gvb_mult
+
+ call find_mb_gvb_nofch(proname, gvb_nofch)
+
+ ! compress these minimal basis set files
+ buf = 'tar -zcf '//TRIM(proname)//'_minb.tar.gz '//TRIM(proname)//&
+       '_mb* --remove-files'
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compress&
+                & minimal basis related files.'
+  stop
+ end if
+
+ ! decompress the gvb_nofch file
+ buf = 'tar -zxf '//TRIM(proname)//'_minb.tar.gz '//TRIM(gvb_nofch)
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+
+ write(6,'(A)') 'GVB/STO-6G finished. Rotate MOs at target basis to resemble&
+               & GVB/STO-6G orbitals...'
+
+ call gen_fch_from_gjf(gjfname, hf_fch)
+ call prt_orb_resemble_py_script(nproc, hf_fch, gvb_nofch, pyname)
+
+ buf = 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine do_minimal_basis_gvb: PySCF job failed.'
+  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
+  stop
+ end if
+
+ ! Read GVB NOON of minimal basis set. The GVB/STO-6G may have many pairs, but
+ ! we are only interested in moderate/strong-correlated pairs.
+ call read_nbf_and_nif_from_fch(gvb_nofch, nbf, nif)
+ allocate(noon(nif))
+ call read_eigenvalues_from_fch(gvb_nofch, nif, 'a', noon)
+ i = COUNT(noon(1:ndb+npair) < 1.98d0) ! 0.02~0.98
+ deallocate(noon)
+
+ ndb = ndb + npair - i ! update ndb and npair
+ npair = i
+
+ if(i == 0) then
+  if(nopen == 0) then
+   write(6,'(/,A)') 'ERROR in subroutine do_minimal_basis_gvb: GVB/STO-6G &
+                    &results shows that'
+   write(6,'(A)') 'this is a closed-shell singlet molecule.'
+   stop
+  else ! nopen > 0
+   write(6,'(/,A)') 'Warning from subroutine do_minimal_basis_gvb: GVB/STO-6G&
+                   & shows that this molecule'
+   write(6,'(A)') 'has npair=0. Calculation will be proceeded, but GVB and/or&
+                 & CASSCF will be identical to ROHF.'
+  end if
+ end if
+
+ call delete_file(gvb_nofch)
+ mo_rhf = .true. ! set to .True., actually ist=6, but mimicking ist=3
+
+ call read_nbf_and_nif_from_fch(hf_fch, nbf, nif)
+ open(newunit=fid,file='uno.out',status='replace')
+ write(fid,'(A,I0,/,A,I0)') 'nbf=', nbf, 'nif=', nif
+ write(fid,'(/,A,I0,/)') 'ndb=',ndb
+ write(fid,'(A,I0,2(1X,I0))') 'idx=', ndb+1, ndb+2*npair+nopen+1, nopen
+ close(fid)
+
+ write(6,'(A)') 'Rotation done. HF_fch='//TRIM(hf_fch)
+ call fdate(data_string)
+ write(6,'(A)') 'Leave subroutine do_minimal_basis_gvb at '//TRIM(data_string)
+end subroutine do_minimal_basis_gvb
+
+! print/create a GVB/STO-6G MOKIT automr .gjf file
+subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
+                                 bgchg, inherit)
+ implicit none
+ integer :: i, j, fid1, fid2
+ integer, intent(in) :: npair, nskip_uno
+ character(len=240) :: buf
+ character(len=4), intent(in) :: localm
+ character(len=240), intent(in) :: gjfname, mbgjf
+ logical, intent(in) :: bgchg, inherit
+
+ open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(mbgjf),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:1) == '#') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid2,'(A)',advance='no') '#p GVB'
+
+ if(inherit) then
+  if(npair > 0) write(fid2,'(A,I0,A)',advance='no') '(',npair,')'
+  i = index(buf,'/')
+  j = index(buf(i+1:),' ')
+  buf = '/STO-6G'//buf(i+j:)
+  write(fid2,'(A,//,A)',advance='no') TRIM(buf),'mokit{LocalM='//TRIM(localm)
+  if(nskip_uno > 0) then
+   write(fid2,'(A,I0)',advance='no') ',skip_uno=', nskip_uno
+  end if
+ else
+  write(fid2,'(A,//,A)',advance='no') '/STO-6G','mokit{'
+ end if
+
+ if(bgchg) write(fid2,'(A)',advance='no') ',charge'
+ write(fid2,'(A,/)') '}'
+
+ read(fid1,'(A)') buf
+ read(fid1,'(A)') buf
+ read(fid1,'(A)') buf
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1)
+ close(fid2)
+end subroutine prt_automr_mb_gvb_gjf
+
+! search the _mb_*s.fch filename
+subroutine find_mb_gvb_nofch(proname, gvb_nofch)
+ implicit none
+ integer :: i, fid, system
+ character(len=240), intent(in) :: proname
+ character(len=240), intent(out) :: gvb_nofch
+
+ i = system('ls '//TRIM(proname)//'_mb_*s.fch >mb.txt')
+ open(newunit=fid,file='mb.txt',status='old',position='rewind')
+ read(fid,'(A)') gvb_nofch
+ close(fid,status='delete')
+end subroutine find_mb_gvb_nofch
+
+! read RHF, UHF, GVB energies and UHF <S**2> from automr output file
+subroutine read_hf_and_gvb_e_from_automr_out(outname, e, uhf_s2)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: e(3), uhf_s2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ e = 0d0 ; uhf_s2 = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6)=='E(RHF)' .or. buf(1:6)=='E(UHF)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: failed&
+                & to read HF energies'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ if(buf(1:6) == 'E(RHF)') then
+  i = index(buf, '=')
+  read(buf(i+1:),*) e(1)
+  read(fid,'(A)') buf ! read E(UHF) line
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) e(2)
+ i = index(buf, '=', back=.true.)
+ read(buf(i+1:),*) uhf_s2
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'E(GVB)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: failed&
+                & to read GVB energies'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) e(3)
+ close(fid)
+end subroutine read_hf_and_gvb_e_from_automr_out
+
+! read ndb, npair, and nopen from a AutoMR output file
+subroutine read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: ndb, npair, nopen
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mbout
+
+ open(newunit=fid,file=TRIM(mbout),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:23) == 'Enter subroutine do_gvb') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_ndb_npair_nopen_from_automr_out: &
+                   &no 'Enter subroutine do_gvb' found in"
+  write(6,'(A)') 'file '//TRIM(mbout)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) ndb
+ buf(i:i) = ' '
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) npair
+ buf(i:i) = ' '
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) nopen
+end subroutine read_ndb_npair_nopen_from_automr_out
+
+! call Gaussian to generate fch file from a given gjf file
+subroutine gen_fch_from_gjf(gjfname, hf_fch)
+ use util_wrapper, only: formchk
+ use mr_keyword, only: gau_path
+ implicit none
+ integer :: i, j, mult, fid1, fid2, system
+ character(len=4) :: method
+ character(len=240) :: buf, tmpchk, tmpgjf, tmpout
+ character(len=240), intent(in) :: gjfname, hf_fch
+
+ call read_mult_from_gjf(gjfname, mult)
+ method = 'RHF'
+ if(mult > 1) method = 'ROHF'
+
+ call get_a_random_int(i)
+ write(tmpchk,'(I0,A)') i,'.chk'
+ write(tmpgjf,'(I0,A)') i,'.gjf'
+ write(tmpout,'(I0,A)') i,'.log'
+ open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(tmpgjf),status='replace')
+ write(fid2,'(A)') '%chk='//TRIM(tmpchk)
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:1) == '#') exit
+  if(buf(1:4) == '%chk') cycle
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ i = index(buf,' ')
+ j = index(buf,'/')
+ if(i > j) then
+  write(6,'(A)') 'ERROR in subroutine gen_fch_from_gjf: wrong syntax in file '&
+                  //TRIM(gjfname)
+  close(fid1)
+  close(fid2,status='delete')
+  stop
+ end if
+
+ buf = buf(1:i)//TRIM(method)//TRIM(buf(j:))//' guess(only,save) nosymm 5D 7F&
+                                              & int=nobasistransform'
+ write(fid2,'(A)') TRIM(buf)
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+ close(fid1)
+ close(fid2)
+
+ i = system(TRIM(gau_path)//' '//TRIM(tmpgjf))
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine gen_fch_from_gjf: Gaussian 'ONLY'-type&
+                  & job failed."
+  write(6,'(A)') 'You can open file '//TRIM(tmpout)//' and check why.'
+  stop
+ end if
+
+ call formchk(tmpchk, hf_fch)
+ call delete_files(3, [tmpchk, tmpgjf, tmpout])
+end subroutine gen_fch_from_gjf
+
+! read spin multiplicity from Gaussian gjf file
+subroutine read_mult_from_gjf(gjfname, mult)
+ implicit none
+ integer :: i, charge, nblank, fid
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ mult = 1
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 2) exit
+ end do ! for while
+
+ read(fid,*) charge, mult
+ close(fid)
+end subroutine read_mult_from_gjf
+
+! create/print a PySCF .py file for rotating MOs in fchname1 to resemble MOs
+! in fchname2
+subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
+ use util_wrapper, only: bas_fch2py_wrap
+ implicit none
+ integer :: i, nbf1, nif1, nbf2, nif2, fid1, fid2, fid3, RENAME
+ integer, intent(in) :: nproc
+ character(len=240) :: buf, pyname1, pyname2
+ character(len=240), intent(in) :: fchname1, fchname2
+ character(len=240), intent(out) :: pyname
+
+ call bas_fch2py_wrap(fchname1)
+ call bas_fch2py_wrap(fchname2)
+ call read_nbf_and_nif_from_fch(fchname1, nbf1, nif1)
+ call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
+
+ i = index(fchname1, '.fch', back=.true.)
+ pyname = fchname1(1:i-1)//'.py0'
+ pyname1 = fchname1(1:i-1)//'.py'
+
+ i = index(fchname2, '.fch', back=.true.)
+ pyname2 = fchname2(1:i-1)//'.py'
+
+ open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
+ open(newunit=fid3,file=TRIM(pyname),status='replace')
+ write(fid3,'(A)') 'from mo_svd import orb_resemble'
+ write(fid3,'(A)') 'from py2fch import py2fch'
+ write(fid3,'(A)') 'from rwwfn import read_nbf_and_nif_from_fch'
+ write(fid3,'(A)') 'import numpy as np'
+ write(fid3,'(A)') 'from pyscf import lib'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  write(fid3,'(A)') TRIM(buf)
+  if(buf(1:6) == 'mol.bu') exit
+ end do ! for while
+
+ close(fid1,status='delete')
+ write(fid3,'(/,A)') '# copy this molecule'
+ write(fid3,'(A)') 'mol2 = mol.copy()'
+
+ open(newunit=fid2,file=TRIM(pyname2),status='old',position='rewind')
+ do while(.true.)
+  read(fid2,'(A)') buf
+  if(buf(1:6) == 'mol.ba') exit
+ end do ! for while
+
+ write(fid3,'(A)') 'mol2.basis = {'
+ do while(.true.)
+  read(fid2,'(A)') buf
+  write(fid3,'(A)') TRIM(buf)
+  if(buf(1:5) == "''')}") exit
+ end do ! for while
+
+ close(fid2,status='delete')
+ write(fid3,'(A)') 'mol2.build()'
+ write(fid3,'(/,A)') "nbf1, nif1 = read_nbf_and_nif_from_fch('"//TRIM(fchname1)//"')"
+ write(fid3,'(A)') "nbf2, nif2 = read_nbf_and_nif_from_fch('"//TRIM(fchname2)//"')"
+
+ write(fid3,'(/,A,I0,A)') 'lib.num_threads(',nproc,')'
+ write(fid3,'(A)') '# rotate MOs at target basis to resemble known orbitals'
+ write(fid3,'(A)') "cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
+ write(fid3,'(A)') "mo1 = fch2py('"//TRIM(fchname1)//"', nbf1, nif1, 'a')"
+ write(fid3,'(A)') "mo2 = fch2py('"//TRIM(fchname2)//"', nbf2, nif2, 'a')"
+ write(fid3,'(A)') "mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nif2, mo2, cross_S)"
+ write(fid3,'(A)') 'noon = np.zeros(nif1)'
+ write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"', nbf1, nif1, mo3, 'a', noon,&
+                  & False)"
+ i = RENAME(TRIM(pyname), TRIM(pyname1))
+ pyname = pyname1
+end subroutine prt_orb_resemble_py_script
 

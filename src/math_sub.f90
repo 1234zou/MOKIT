@@ -15,6 +15,8 @@ subroutine diag_get_e_and_vec(n, a, w)
   w(1) = a(1,1)
   return
  end if
+ w = 0d0
+
  ! ?syevd: Computes all eigenvalues and (optionally) all eigenvectors of a real
  ! symmetric matrix using divide and conquer algorithm.
  ! Syntax FORTRAN 77:

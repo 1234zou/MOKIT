@@ -1313,7 +1313,6 @@ end subroutine determine_sph_or_cart
 subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  implicit none
  integer :: i, fid, idx(3), nvir
- integer, parameter :: iout = 6
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
  character(len=240) :: buf = ' '
  logical, intent(out) :: lin_dep
@@ -1330,13 +1329,14 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf < nif) then
-  write(iout,'(A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
-  write(iout,'(A)') 'This is impossible. Please check why.'
+  write(6,'(A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
+  write(6,'(A)') 'This is impossible. Please check why.'
   stop
  end if
 
  close(fid)
  call open_file('uno.out', .false., fid)
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -1346,8 +1346,8 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
-  write(iout,'(A)') "The file 'uno.out' may be incomplete."
+  write(6,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
+  write(6,'(A)') "The file 'uno.out' may be incomplete."
   close(fid)
   stop
  end if
@@ -1362,8 +1362,8 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
-  write(iout,'(A)') "The file 'uno.out' may be incomplete."
+  write(6,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
+  write(6,'(A)') "The file 'uno.out' may be incomplete."
   close(fid)
   stop
  end if
@@ -1376,10 +1376,9 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  npair = (idx(2) - idx(1) - idx(3))/2
  nvir = nif - ndb - 2*npair - idx(3)
  nopen = idx(3)
- write(iout,'(A,I5,4X,A,I5)') 'nbf =', nbf, 'nif =', nif
- write(iout,'(4(A,I5,4X))') 'doubly_occ=', idx(1)-1, 'npair=', npair, 'nopen=',&
-                            idx(3), 'nvir=', nvir
- return
+ write(6,'(A,I5,4X,A,I5)') 'nbf =', nbf, 'nif =', nif
+ write(6,'(4(A,I5,4X))') 'doubly_occ=', idx(1)-1, 'npair=', npair, 'nopen=',&
+                          idx(3), 'nvir=', nvir
 end subroutine read_npair_from_uno_out
 
 ! read GVB electronic energy from a given GAMESS .gms file
@@ -3677,7 +3676,6 @@ end subroutine get_no_from_density_and_ao_ovlp
 subroutine read_mult_from_fch(fchname, mult)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  integer, intent(out) :: mult
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
@@ -3691,12 +3689,11 @@ subroutine read_mult_from_fch(fchname, mult)
  close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mult_from_fch: no 'Mult' found&
-                   & in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_mult_from_fch: no 'Mult' found in&
+                & file "//TRIM(fchname)
   stop
  end if
  read(buf(50:),*) mult
- return
 end subroutine read_mult_from_fch
 
 ! 1) compute 1e expectation values of MOs in file mo_fch, using information from
@@ -3788,103 +3785,4 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  call write_eigenvalues_to_fch(mo_fch, nif, 'a', noon, .true.)
  deallocate(noon)
 end subroutine get_1e_exp_and_sort_pair
-
-! calculate the number of unpaired electrons and generate unpaired electron
-! density .fch file
-! Note: the input fchname must include natural orbitals and corresponding
-! orbital occupation numbers.
-subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
- implicit none
- integer :: i, j, k, ne, nbf, nif, mult, fid, fid1
- integer, parameter :: iout = 6
- integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
- character(len=240) :: buf, fchname1
- character(len=240), intent(in) :: fchname
- real(kind=8) :: t0, t1, y0, y1, upe(3)
- real(kind=8), intent(out) :: unpaired_e
- real(kind=8), allocatable :: noon(:,:), coeff(:,:), dm(:,:)
- logical, intent(in) :: gen_dm
- ! True/False: generate unpaired/odd electron density or not
-
- call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(noon(nif,5))
- call read_eigenvalues_from_fch(fchname, nif, 'a', noon(:,1))
-
- write(iout,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
- call read_mult_from_fch(fchname, mult)
- if(mult == 1) then
-  call open_file(fchname, .true., fid)
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:14) == 'Number of elec') exit
-  end do ! for while
-  close(fid)
-  read(buf(50:),*) ne
-  i = ne/2   ! assuming NOs are ordered in decreasing occupation number
-  if(wfn_type == 1) then ! UNO
-   t0 = (noon(i,1) - noon(i+1,1))*0.5d0
-   y0 = 1d0 - 2d0*t0/(1d0+t0*t0)
-   t1 = (noon(i-1,1) - noon(i+2,1))*0.5d0
-   y1 = 1d0 - 2d0*t1/(1d0+t1*t1)
-   write(iout,'(A,F7.3)') 'biradical character   (1-2t/(1+t^2)) y0=', y0
-   write(iout,'(A,F7.3)') 'tetraradical character(1-2t/(1+t^2)) y1=', y1
-  else ! GVB/CASSCF NOs
-   ! For GVB/CAS NOs, there is no unique way to define radical index.
-   ! Here we adopt the occupation numbers of LUNO and LUNO+1.
-   ! You can adopt the way of calculating y0/y1 in UHF, if you like.
-   y0 = noon(i+1,1); y1 = noon(i+2,1)
-   write(iout,'(A,F7.3)') 'biradical character   (2c^2) y0=', y0
-   write(iout,'(A,F7.3)') 'tetraradical character(2c^2) y1=', y1
-  end if
- else
-  write(iout,'(A)') 'Not spin singlet. Biradical character will not be computed.'
- end if
-
- forall(i = 1:nif) noon(i,2) = 2d0 - noon(i,1)
- forall(i = 1:nif)
-  noon(i,3) = noon(i,1)*noon(i,2)
-  noon(i,4) = min(noon(i,1), noon(i,2))
- end forall
- forall(i = 1:nif) noon(i,5) = noon(i,3)*noon(i,3)
-
- upe(1) = SUM(noon(:,3))
- upe(2) = SUM(noon(:,4))
- upe(3) = SUM(noon(:,5))
- write(iout,'(A,F8.4)') "Yamaguchi's unpaired electrons  (sum_n n(2-n)      ):",upe(1)
- write(iout,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n min(n,(2-n))):",upe(2)
- write(iout,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n (n(2-n))^2  ):",upe(3)
- write(iout,'(A)') REPEAT('-',61)
- unpaired_e = upe(3)
-
- if(gen_dm) then
-  i = index(fchname, '.fch')
-  fchname1 = fchname(1:i-1)//'_unpaired.fch'
-  call open_file(fchname, .true., fid)
-  open(newunit=fid1,file=TRIM(fchname1),status='replace')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   write(fid1,'(A)') TRIM(buf)
-  end do ! for while
-  close(fid)
-  close(fid1)
-  allocate(coeff(nbf,nif), source=0d0)
-  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
-  allocate(dm(nbf,nbf), source=0d0)
-  do i = 1, nbf, 1
-   do j = 1, i, 1
-    do k = 1, nif, 1
-     if(noon(k,5)<1d-5 .or. (2d0-noon(k,5)<1d-5)) cycle
-     dm(j,i) = dm(j,i) + noon(k,5)*coeff(j,k)*coeff(i,k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
-  call write_density_into_fch(fchname1, nbf, .true., dm)
-  deallocate(dm, coeff)
- end if
-
- deallocate(noon)
- return
-end subroutine calc_unpaired_from_fch
 

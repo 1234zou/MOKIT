@@ -37,34 +37,38 @@ def load_mol_from_fch(fchname):
   shutil.rmtree('__pycache__')
   return molpy.mol
 
-def loc(fchname, method, idx):
+def loc(fchname, idx, method=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given
   Gaussian .fch(k) file.
   (The following 1e AO-basis integrals are computed using PySCF:
    1) overlap integrals for Pipek-Mezey localization;
    2) dipole integrals for Boys localization.)
+  The method can be 'pm' or 'boys'.
 
   Simple usage::
-  >>> # perform Pipek-Mezey localization for valence occupied orbitals of benzene
+  >>> # perform Pipek-Mezey localization for occupied PI orbitals of benzene
   >>> # a file named benzene_rhf_LMO.fch will be created
   >>> from gaussian import loc
-  >>> loc(fchname='benzene_rhf.fch',method='pm',idx=range(6,21))
+  >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
+
+  if method is None:
+    method = 'pm'
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_LMO.fch'
   mol = load_mol_from_fch(fchname)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mo_coeff = fch2py(fchname, nbf, nif, 'a')
   nmo = len(idx)
 
-  if(method == 'boys'):
-    mo_dipole = dipole_integral(mol, mo_coeff[:,idx])
-    loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)
-  elif(method == 'pm'):
+  if method == 'pm':
     S = mol.intor_symmetric('int1e_ovlp')
     loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol._bas[:,3],mol.cart,nbf,nmo,mo_coeff[:,idx],S,'mulliken')
+  elif method == 'boys':
+    mo_dipole = dipole_integral(mol, mo_coeff[:,idx])
+    loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)
   else:
-    raise ValueError("Localization method cannot be recognized or supported.")
+    raise ValueError("Localization method cannot be recognized.")
 
   mo_coeff[:,idx] = loc_orb.copy()
   noon = np.zeros(nif)

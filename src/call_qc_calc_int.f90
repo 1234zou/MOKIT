@@ -248,6 +248,7 @@ subroutine check_two_real8_eq(r1, r2, diff)
  return
 end subroutine check_two_real8_eq
 
+! submit a GAMESS job
 subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  implicit none
  integer :: i, system
@@ -291,4 +292,24 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
   stop
  end if
 end subroutine submit_gms_job
+
+! submit a MOKIT automr job
+subroutine submit_automr_job(gjfname)
+ implicit none
+ integer :: i, system
+ character(len=240) :: buf, outname
+ character(len=240), intent(in) :: gjfname
+
+ i = index(gjfname,'.gjf',back=.true.)
+ outname = gjfname(1:i-1)//'.out'
+ buf = 'automr '//TRIM(gjfname)//' >'//TRIM(outname)//" 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_automr_job: automr job failed.'
+  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
+  stop
+ end if
+end subroutine submit_automr_job
 

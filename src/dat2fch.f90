@@ -288,7 +288,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  ! adjust Cartesian functions finished
 
  if(sph) then ! spherical harmonic functions, linear comb.
-  allocate(temp_coeff(nbf,nif1), source=0.0d0)
+  allocate(temp_coeff(nbf,nif1), source=0d0)
   nbf = 0; j = 0
   do i = 1, ncontr, 1
    select case(shltyp(i))
@@ -315,16 +315,25 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
     nbf = nbf + 11; j = j + 21
    end select
   end do ! for i
+
   deallocate(shltyp, all_coeff)
+  allocate(alpha_coeff(nbf,min(nif,nif1)))
   alpha_coeff = temp_coeff(:,1:min(nif,nif1))
-  if(gvb_or_uhf_or_cas == '-uhf') beta_coeff = temp_coeff(:, nif+1:nif1)
+  if(gvb_or_uhf_or_cas == '-uhf') then
+   allocate(beta_coeff(nbf,nif))
+   beta_coeff = temp_coeff(:,nif+1:nif1)
+  end if
   deallocate(temp_coeff)
 
  else ! Cartesian functions
 
   deallocate(shltyp)
+  allocate(alpha_coeff(nbf,min(nif,nif1)))
   alpha_coeff = all_coeff(:,1:min(nif,nif1))
-  if(gvb_or_uhf_or_cas == '-uhf') beta_coeff = all_coeff(:,nif+1:nif1)
+  if(gvb_or_uhf_or_cas == '-uhf') then
+   allocate(beta_coeff(nbf,nif))
+   beta_coeff = all_coeff(:,nif+1:nif1)
+  end if
   deallocate(all_coeff)
  end if
 
@@ -371,8 +380,6 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
   call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
   deallocate(beta_coeff)
  end if
-
- return
 end subroutine dat2fch
 
 subroutine dat2fch_permute_10f(nif,coeff)

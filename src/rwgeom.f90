@@ -51,7 +51,6 @@ contains
   character(len=2) :: s
  
   s = period_elem(i)
-  return
  end function nuc2elem
 
  pure function elem2vdw_radii(elem) result(radii)
@@ -60,7 +59,6 @@ contains
   character(len=2), intent(in) :: elem
 
   radii = vdw_radii(elem2nuc(elem))
-  return
  end function elem2vdw_radii
 
  ! map an element to a nuclear charge (e.g. 'C'->6)
@@ -73,7 +71,6 @@ contains
   do i = 1, period_nelem, 1
    if(period_elem(i) == s) return
   end do ! for i
-  return
  end function elem2nuc
 
  ! read elements array from a given .gjf array
@@ -128,7 +125,6 @@ contains
   end do ! for natom
 
   close(fid)
-  return
  end subroutine read_elem_from_gjf
 end module periodic_table
 
@@ -166,7 +162,6 @@ subroutine read_natom_from_gjf(gjfname, natom)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_natom_from_gjf
 
 ! read the number of atoms from a given .fch file
@@ -189,7 +184,6 @@ subroutine read_natom_from_fch(fchname, natom)
  read(fid,'(A49,2X,I10)') buf, natom
 
  close(fid)
- return
 end subroutine read_natom_from_fch
 
 ! read the number of atoms from a .xyz file
@@ -210,7 +204,6 @@ subroutine read_natom_from_xyz(xyzname, natom)
                    & natom from file '//TRIM(xyzname)
   stop
  end if
- return
 end subroutine read_natom_from_xyz
 
 ! read the number of atoms from a .pdb file
@@ -250,7 +243,6 @@ subroutine read_natom_from_pdb(pdbname, natom)
 
  i = index(buf, ' ')
  read(buf(i+1:),*) natom
- return
 end subroutine read_natom_from_pdb
 
 ! read the number of atoms from a (Open)Molcas output file
@@ -291,7 +283,6 @@ subroutine read_natom_from_molcas_out(outname, natom)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_natom_from_molcas_out
 
 ! read the number of atoms from a Molpro output file
@@ -330,7 +321,6 @@ subroutine read_natom_from_molpro_out(outname, natom)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_natom_from_molpro_out
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
@@ -340,8 +330,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  implicit none
  integer :: i, j, k, fid, nblank, ne
  integer, intent(in) :: natom
- integer, intent(out) :: charge, mult, nuc(natom)
- integer, parameter :: iout = 6
+ integer, intent(out) :: nuc(natom), charge, mult
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=2), intent(out) :: elem(natom)
@@ -349,8 +338,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  character(len=240), intent(in) :: gjfname
  logical :: bohr
 
- charge = 0; mult = 1; coor = 0d0; bohr = .false.
- nblank = 0
+ charge = 0; mult = 1; nuc = 0; coor = 0d0; bohr = .false.; nblank = 0
 
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
  do while(.true.)
@@ -365,15 +353,16 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: incomplete file '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: incomplete&
+                & file '//TRIM(gjfname)
   stop
  end if
 
  read(fid,*,iostat=k) charge, mult
  if(k /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: failed&
-                   & to read charge and mult.'
-  write(iout,'(A)') 'There exists syntax error in file '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: failed to&
+                & read charge and mult.'
+  write(6,'(A)') 'There exists syntax error in file '//TRIM(gjfname)
   stop
  end if
 
@@ -384,8 +373,8 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
   read(buf,*,iostat=k) elem(i), coor(1:3,i)
   if(k /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-column&
-                    & format is supported.'
+   write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-column&
+                 & format is supported.'
    stop
   end if
  end do ! for i
@@ -394,20 +383,19 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
 
- forall(i=1:natom)
+ forall(i = 1:natom)
   elem(i) = ADJUSTL(elem(i))
   nuc(i) = elem2nuc(elem(i))
  end forall
 
  ne = SUM(nuc) - charge
  if(MOD(ne,2) /= MOD(mult-1,2)) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf:'
-  write(iout,'(2(A,I0),A)') 'The combination of multiplicity ',mult,' and ',&
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf:'
+  write(6,'(2(A,I0),A)') 'The combination of multiplicity ',mult,' and ',&
                              ne,' electrons is impossible.'
   stop
  end if
 
- return
 end subroutine read_elem_and_coor_from_gjf
 
 ! read charge, spin multiplicities and atom2frag from a given .gjf file
@@ -456,7 +444,6 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
  end do ! for i
 
  close(fid)
- return
 end subroutine read_frag_guess_from_gjf
 
 ! read the Cartesian coordinates from a given .fch file
@@ -494,7 +481,6 @@ subroutine read_coor_from_fch(fchname, natom, coor)
  coor0 = coor0*Bohr_const ! convert Bohr to Angstrom
  coor = RESHAPE(coor0,(/3,natom/))
  deallocate(coor0)
- return
 end subroutine read_coor_from_fch
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
@@ -544,7 +530,6 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
 
  coor = coor*Bohr_const ! convert Bohr to Angstrom
  forall(i=1:natom) elem(i) = nuc2elem(nuc(i))
- return
 end subroutine read_elem_and_coor_from_fch
 
 ! read Cartesian gradient from a given PySCF output file
@@ -573,7 +558,6 @@ subroutine read_grad_from_pyscf_out(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_pyscf_out
 
 ! read Cartesian gradient from a given .fch file
@@ -594,7 +578,6 @@ subroutine read_grad_from_fch(fchname, natom, grad)
 
  read(fid,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  close(fid)
- return
 end subroutine read_grad_from_fch
 
 ! read Cartesian gradient from a given Gaussian .log file
@@ -623,7 +606,6 @@ subroutine read_grad_from_gau_log(logname, natom, grad)
  close(fid)
 
  grad = -grad !!! VIP
- return
 end subroutine read_grad_from_gau_log
 
 ! read Cartesian gradient from a given GAMESS .gms file
@@ -655,7 +637,6 @@ subroutine read_grad_from_gms_gms(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_gms_gms
 
 ! read Cartesian gradient from a given GAMESS .dat file
@@ -685,7 +666,6 @@ subroutine read_grad_from_gms_dat(datname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_gms_dat
 
 ! read Cartesian gradient from a given MOLCAS/OpenMolcas .out file
@@ -717,7 +697,6 @@ subroutine read_grad_from_molcas_out(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_molcas_out
 
 ! read Cartesian gradient from a given ORCA .out file
@@ -749,7 +728,6 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_orca_out
 
 ! read Cartesian gradient from a given Molpro .out file
@@ -779,7 +757,6 @@ subroutine read_grad_from_molpro_out(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_molpro_out
 
 ! read Cartesian gradient from a given BDF .out file
@@ -809,7 +786,6 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_grad_from_bdf_out
 
 ! read Cartesian xyz coordinates from a .xyz file
@@ -860,7 +836,6 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
 
  close(fid)
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
- return
 end subroutine read_coor_from_xyz
 
 ! read the number of frames from pdb file
@@ -887,7 +862,6 @@ subroutine read_nframe_from_pdb(pdbname, nframe)
 
  i = index(buf, ' ')
  read(buf(i+1:),*) nframe
- return
 end subroutine read_nframe_from_pdb
 
 ! read the i-th frame from a given .pdb file
@@ -999,7 +973,6 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
   j = IACHAR(elem(i)(2:2))
   if(j>47 .and. j<58) elem(i)(2:2) = ' '
  end do ! for i
- return
 end subroutine read_iframe_from_pdb
 
 ! read Cartesian coordinates from a (Open)Molcas output file
@@ -1047,7 +1020,6 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_coor_from_molcas_out
 
 ! read Cartesian coordinates from a Molpro output file
@@ -1087,7 +1059,6 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_coor_from_molpro_out
 
 ! write/create a .xyz file
@@ -1108,7 +1079,6 @@ subroutine write_xyzfile(natom, coor, elem, xyzname)
  end do ! for i
 
  close(fid)
- return
 end subroutine write_xyzfile
 
 ! write a frame of molecule into a given .pdb file
@@ -1156,7 +1126,6 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
 
  write(fid,'(A)') 'END'
  close(fid)
- return
 end subroutine write_frame_into_pdb
 
 ! calculate an internal coordinate (bond, angle, or dihedral)
@@ -1181,6 +1150,5 @@ function calc_an_int_coor(n, coor) result(val)
   stop
  end select
 
- return
 end function calc_an_int_coor
 

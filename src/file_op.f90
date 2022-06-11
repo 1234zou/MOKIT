@@ -2,27 +2,25 @@
 
 subroutine require_file_exist(fname)
  implicit none
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: fname
  logical :: alive
 
  inquire(file=TRIM(fname),exist=alive)
  if(.not. alive) then
-  write(iout,'(/,A)') 'ERROR in subroutine require_file_exist: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fname)
+  write(6,'(/,A)') 'ERROR in subroutine require_file_exist: file does not exist!'
+  write(6,'(A)') 'Filename='//TRIM(fname)
   stop
  end if
- return
 end subroutine require_file_exist
 
 subroutine open_file(fname, is_rewind, fid)
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  integer, intent(out) :: fid
  character(len=240), intent(in) :: fname
  logical, intent(in) :: is_rewind
 
+ call require_file_exist(fname)
  if(is_rewind) then
   open(newunit=fid,file=TRIM(fname),status='old',position='rewind',iostat=i)
  else
@@ -30,10 +28,10 @@ subroutine open_file(fname, is_rewind, fid)
  end if
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'Failed to open file '//TRIM(fname)
+  write(6,'(/,A)') 'ERROR in subroutine open_file: failed to open file '//&
+                    TRIM(fname)
   stop
  end if
- return
 end subroutine open_file
 
 ! delete the specified file (if not exist, return)
@@ -100,14 +98,12 @@ subroutine copy_file(fname1, fname2, delete)
  end if
 
  close(fid2)
- return
 end subroutine copy_file
 
 ! copy binary file (if delete=.True., delete fname1)
 subroutine copy_bin_file(fname1, fname2, delete)
  implicit none
  integer :: i, system
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: fname1, fname2
  logical, intent(in) :: delete
 
@@ -126,12 +122,11 @@ subroutine copy_bin_file(fname1, fname2, delete)
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine copy_bin_file: fail to copy binary&
-                   & file from'
-  write(iout,'(A)') TRIM(fname1)//' to '//TRIM(fname2)
+  write(6,'(A)') 'ERROR in subroutine copy_bin_file: fail to copy binary file&
+                & from'
+  write(6,'(A)') TRIM(fname1)//' to '//TRIM(fname2)
   stop
  end if
- return
 end subroutine copy_bin_file
 
 ! create a directory
@@ -146,6 +141,5 @@ subroutine create_dir(dirname)
 #else
  i = system('mkdir -p '//dirname)
 #endif
- return
 end subroutine create_dir
 

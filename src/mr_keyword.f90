@@ -107,6 +107,12 @@ module mr_keyword
  ! 1: RHF -> CIS NTO -> CASCI/CASSCF -> ...
  ! 2: UHF -> UCIS NTO -> CASCI/CASSCF -> ...
 
+ integer :: nskip_uno = 0  ! the number of pair of UNO to be skipped when
+ ! performing orbital localization
+ ! 1 for skipping HONO and LUNO
+ ! 2 for skipping HONO-1, HONO, LUNO, and LUNO+1
+ ! This keyword is used to try to obtain biradical GVB-SCF solution
+
  integer :: CtrType = 0    ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
  integer :: mrcc_type = 1
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
@@ -115,9 +121,12 @@ module mr_keyword
  integer :: nstate = 0 ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
 
- real(kind=8) :: ON_thres = 0.99999d0     ! Occupation Number threshold for UNO
+ real(kind=8) :: ON_thres = 0.99999d0 ! Occupation Number threshold for UNO
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
+ character(len=4) :: GVB_conv = '1d-5'
+ ! density matrix convergence criterion of GVB in GAMESS
+ ! Default in GAMESS: 1d-5. If modified, 5d-4 recommended
  character(len=4)   :: localm = 'pm'  ! localization method: boys/pm
  character(len=240) :: gjfname = ' '  ! filename of the input .gjf file
  character(len=240) :: chgname = ' '  ! filename of the .chg file (background point charges)
@@ -148,8 +157,9 @@ module mr_keyword
  ! in a saddle point/local minimum. If crazywfn is .True., AutoMR will add more
  ! keywords (than hardwfn)
 
- logical :: vir_proj = .false.      ! virtual orbitals projection onto those of STO-6G
- logical :: uno = .false.           ! generate UNOs
+ logical :: vir_proj = .false.    ! virtual orbitals projection onto those of STO-6G
+ logical :: uno = .false.         ! generate UNOs
+ logical :: inherit = .false.     ! whether to inherit keywords in GVB/STO-6G
  logical :: frag_guess = .false.
  ! whether to perform uhf using initial guess constructed from fragments
 
@@ -353,7 +363,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-May-20)'
+  write(iout,'(A)') '            Version: 1.2.3 (2022-Jun-11)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -511,8 +521,8 @@ contains
     end if
     read(method0(i+1:k-1),*) npair_wish
     if(npair_wish < 0) then
-     write(iout,'(A)') 'ERROR in subroutine parse_keyword: wrong number of pairs specified.'
-     write(iout,'(A,I0)') 'npair_wish=', npair_wish
+     write(6,'(A)') 'ERROR in subroutine parse_keyword: wrong number of pairs specified.'
+     write(6,'(A,I0)') 'npair_wish=', npair_wish
      stop
     end if
    case default
@@ -615,8 +625,8 @@ contains
    stop
   end if
 
-  if(npair_wish > 0) write(iout,'(A,I0)') 'User specified GVB npair = ', npair_wish
-  if(nacte_wish>0 .and. nacto_wish>0) write(iout,'(2(A,I0))') 'User specified&
+  if(npair_wish > 0) write(6,'(A,I0)') 'User specified GVB npair = ', npair_wish
+  if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
   i = index(buf, 'guess=')
@@ -824,10 +834,16 @@ contains
     read(longbuf(j+1:i-1),*) mcpdft_prog
    case('mrcc_prog')
     read(longbuf(j+1:i-1),*) mrcc_prog
+   case('gvb_conv')
+    read(longbuf(j+1:i-1),*) GVB_conv
+   case('skip_uno')
+    read(longbuf(j+1:i-1),*) nskip_uno
    case('force')
     casscf_force = .true.
    case('charge')
     bgchg = .true.
+   case('inherit')
+    inherit = .true.
    case('ri')
     RI = .true.
    case('rijk_bas')
@@ -950,8 +966,13 @@ contains
    vir_proj = .true.; gvb = .false.
   case(5)
    gvb = .false.
+  case(6) ! GVB/STO-6G GVB -> GVB/target basis set
+   gvb = .true.; skiphf = .true.
   case default
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: ist out of range.'
+   write(6,'(A)') "ERROR in subroutine parse_keyword: the parameter 'ist' is &
+                 & out of range."
+   write(6,'(A)') 'Only 1~6 are allowed. See MOKIT manual $4.4.4 for details of&
+                 & ist.'
    stop
   end select
 
@@ -965,51 +986,49 @@ contains
 
  subroutine prt_strategy()
   implicit none
-  write(iout,'(/,A,I0)') 'No. Strategy = ', ist
+  write(6,'(/,A,I0)') 'No. Strategy = ', ist
 
-  write(iout,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
+  write(6,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
        'readNO  = ', readno, 'skipHF  = ',  skiphf, 'Cart    = ', cart
 
-  write(iout,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
+  write(6,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
        'GVB     = ', gvb   , 'CASCI   = ',   casci, 'CASSCF  = ', casscf
 
-  write(iout,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
+  write(6,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
        'CASPT2  = ', caspt2, 'CASPT2K = ', caspt2k, 'NEVPT2  = ', nevpt2
 
-  write(iout,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ', ovbmp2, &
+  write(6,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ', ovbmp2, &
        'SDSPT2  = ', sdspt2, 'MRCISD  = ',  mrcisd, 'MCPDFT  = ', mcpdft
 
-  write(iout,'(5(A,L1,3X))') 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3, &
+  write(6,'(5(A,L1,3X))') 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3, &
        'MRCC    = ',   mrcc, 'CIonly  = ',  CIonly, 'dyn_corr= ',dyn_corr
 
-  write(iout,'(5(A,L1,3X))') 'DKH2    = ',    DKH2, 'X2C     = ', X2C, &
+  write(6,'(5(A,L1,3X))') 'DKH2    = ',    DKH2, 'X2C     = ', X2C, &
        'RI      = ',     RI, 'FIC     = ',     FIC, 'DLPNO   = ', DLPNO
 
-  write(iout,'(5(A,L1,3X))') 'F12     = ',     F12, 'TenCycle= ',tencycle,&
+  write(6,'(5(A,L1,3X))') 'F12     = ',     F12, 'TenCycle= ',tencycle,&
        'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'BgCharge= ',   bgchg
 
-  write(iout,'(5(A,L1,3X))') 'Ana_Grad= ',casscf_force,'Pop     = ',pop,&
+  write(6,'(5(A,L1,3X))') 'Ana_Grad= ',casscf_force,'Pop     = ',pop,&
        'NMR     = ',    nmr, 'ICSS    = ',    ICSS, 'TDHF    = ', TDHF
 
-  write(iout,'(5(A,L1,3X))') 'SA_CAS  = ',  sa_cas, 'Excited = ', excited,&
+  write(6,'(5(A,L1,3X))') 'SA_CAS  = ',  sa_cas, 'Excited = ', excited,&
        'noQD    = ',   noQD, 'SOC     = ',     SOC, 'Mixed_Spin=',Mixed_Spin
 
-  write(iout,'(3(A,L1,3X))') 'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan,&
-       'DryRun  = ', dryrun
+  write(6,'(4(A,L1,3X),A)') 'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan,&
+       'DryRun  = ', dryrun, 'Inherit = ', inherit, 'GVB_conv= '//TRIM(GVB_conv)
 
-  write(iout,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType,&
+  write(6,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType,&
        'MRCC_type=',mrcc_type,'ON_thres= ', ON_thres,    'MaxM=', maxM
 
-  write(iout,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
+  write(6,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
        //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
 
   if(skiphf) then
-   write(iout,'(A)') 'HF_fch = '//TRIM(hf_fch)
+   write(6,'(A)') 'HF_fch = '//TRIM(hf_fch)
   else
-   write(iout,'(A)') 'HF_fch = NONE'
+   write(6,'(A)') 'HF_fch = NONE'
   end if
-
-  return
  end subroutine prt_strategy
 
  subroutine check_kywd_compatible()
@@ -1022,6 +1041,13 @@ contains
   write(iout,'(/,A)') 'Check if the keywords are compatible with each other...'
 
   if(readrhf .or. readuhf .or. readno) then
+   if(ist == 6) then
+    write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: ist=6 is not &
+                     &compatible with any keyword'
+    write(6,'(A)') 'of readrhf, readuhf or readno. You should provide Cartesian&
+                  & coordinates directly.'
+    stop
+   end if
    call check_cart(hf_fch, cart)
   else
    if(TRIM(basis)=='gen' .or. TRIM(basis)=='genecp') then

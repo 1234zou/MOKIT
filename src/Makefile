@@ -27,7 +27,7 @@ OBJ_align_orbitals = file_op.o math_sub.o rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rwwfn.o read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o \
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
-             do_PES_scan.o do_cis.o do_sa_cas.o excited.o automr.o
+             do_PES_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o automr.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
@@ -67,7 +67,8 @@ OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
 OBJ_gvb_correct_pairs = file_op.o string_manipulate.o math_sub.o rwwfn.o gvb_correct_pairs.o
-OBJ_gvb_exclude_XH = string_manipulate.o read_gms_inp.o gvb_exclude_XH.o
+OBJ_gvb_exclude_XH = file_op.o string_manipulate.o math_sub.o rwwfn.o \
+                     wfn_analysis.o read_gms_inp.o gvb_exclude_XH.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o math_sub.o \
               rwwfn.o mkl2fch.o
@@ -82,7 +83,7 @@ OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho  = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
 OBJ_assoc_loc = assoc_loc.f90
-OBJ_pop = pop.f90
+OBJ_wfn_analysis = file_op.f90 math_sub.f90 rwwfn.f90 wfn_analysis.f90
 OBJ_lo = string_manipulate.f90 math_sub.f90 file_op.f90 util_wrapper.f90 \
          rwwfn.f90 call_qc_calc_int.f90 lo.f90
 OBJ_mo_svd = math_sub.f90 mo_svd.f90
@@ -270,7 +271,7 @@ gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
 	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS)
 
 gvb_exclude_XH: $(OBJ_gvb_exclude_XH)
-	$(F90) $(OBJ_gvb_exclude_XH) -o $(BIN)/gvb_exclude_XH $(FFLAGS)
+	$(F90) $(OBJ_gvb_exclude_XH) -o $(BIN)/gvb_exclude_XH $(FFLAGS) $(MKL_FLAGS)
 
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)/gvb_sort_pairs $(FFLAGS)
@@ -307,9 +308,9 @@ assoc_loc: $(OBJ_assoc_loc)
 	$(F2PY) -c $(OBJ_assoc_loc) -m assoc_loc $(F2_FLAGS)
 	@mv assoc_loc*.so ../lib/
 
-pop: $(OBJ_pop)
-	$(F2PY) -c $(OBJ_pop) -m pop $(F2_FLAGS) $(F2_MKL_FLAGS)
-	@mv pop*.so ../lib/
+wfn_analysis: $(OBJ_wfn_analysis)
+	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(F2_MKL_FLAGS)
+	@mv wfn_analysis*.so ../lib/
 
 lo: $(OBJ_lo)
 	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(F2_MKL_FLAGS)
@@ -347,8 +348,8 @@ all: add_bgcharge_to_inp automr auto_pair bas_fch2py bas_gau2molcas bas_gms2bdf 
      fch2mkl fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy fch2wfn \
      frag_guess_wfn chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH \
      gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch \
-     pyuno construct_vir ortho assoc_rot assoc_loc pop lo mo_svd mo_svd_format \
-     solve_ON_matrix rwgeom rwwfn excited
+     pyuno construct_vir ortho assoc_rot assoc_loc wfn_analysis lo mo_svd \
+     mo_svd_format solve_ON_matrix rwgeom rwwfn excited
 
 clean:
 	rm -f *.o *.mod

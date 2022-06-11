@@ -770,6 +770,5 @@ subroutine read_mo_from_dat(datname, nbf, nif, coeff)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_mo_from_dat
 

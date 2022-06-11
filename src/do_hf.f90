@@ -19,10 +19,18 @@ subroutine do_hf()
  write(iout,'(//,A)') 'Enter subroutine do_hf...'
 
  if(skiphf) then
-  write(iout,'(A)') 'Provided .fch(k) file. Skip the RHF/UHF step...'
-  call read_natom_from_fch(hf_fch, natom)
-  allocate(coor(3,natom), elem(natom), nuc(natom))
-  call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
+  if(ist == 6) then
+   write(6,'(A)') 'fch file will be provided. Skip the RHF/UHF step...'
+   call read_natom_from_gjf(gjfname, natom)
+   allocate(coor(3,natom), elem(natom), nuc(natom))
+   call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+   return
+  else
+   write(6,'(A)') 'Provided .fch(k) file. Skip the RHF/UHF step...'
+   call read_natom_from_fch(hf_fch, natom)
+   allocate(coor(3,natom), elem(natom), nuc(natom))
+   call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
+  end if
 
   if(readuhf .and. mult==1) then
    write(iout,'(A)') 'Check whether provided UHF wavefunction is equivalent to RHF...'

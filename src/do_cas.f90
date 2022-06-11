@@ -13,7 +13,6 @@ end module icss_param
 ! do CASCI(npair<=7) or DMRG-CASCI(npair>7) when scf=.False.
 ! do CASSCF(npair<=7) or DMRG-CASSCF(npair>7) when scf=.True.
 subroutine do_cas(scf)
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
@@ -38,10 +37,10 @@ subroutine do_cas(scf)
  else
   if((.not. casci) .and. (.not.dmrgci)) return
  end if
- write(iout,'(//,A)') 'Enter subroutine do_cas...'
+ write(6,'(//,A)') 'Enter subroutine do_cas...'
 
  if(ist == 5) then
-  write(iout,'(A)') 'Radical index for input NOs:'
+  write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
   call read_no_info_from_fch(hf_fch,nbf,nif,ndb,nopen,nacta,nactb,nacto,nacte)
@@ -52,13 +51,13 @@ subroutine do_cas(scf)
  end if
 
  if(nacte_wish>0 .and. i/=nacte_wish) then
-  write(iout,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
+  write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
    & user specifies CAS(',nacte_wish,'e,',nacto_wish, 'o). Trying to fulfill...'
 
   if(ist == 5) then
    if(nacte_wish > nacte) then
-    write(iout,'(A)') 'ERROR in subroutine do_cas: too large active space required.'
-    write(iout,'(2(A,I0),A)') 'Maximum allowed: CAS(',nacte,',',nacte,')'
+    write(6,'(A)') 'ERROR in subroutine do_cas: too large active space required.'
+    write(6,'(2(A,I0),A)') 'Maximum allowed: CAS(',nacte,',',nacte,')'
     stop
    else if(nacte_wish < nacte) then
     i = nacte_wish; j = nacto_wish
@@ -67,22 +66,22 @@ subroutine do_cas(scf)
     nacta = npair0 + nopen; nactb = npair0
     nacto = nacto_wish;     nacte = nacto_wish
    end if
-   write(iout,'(A)') 'OK, fulfilled.'
+   write(6,'(A)') 'OK, fulfilled.'
 
   else ! ist /= 5
    if(2*npair+nopen < nacte_wish) then
-    write(iout,'(A)') 'ERROR in subroutine do_cas: too large space specified. Cannot fulfilled.'
-    write(iout,'(2(A,I0))') '2*npair+nopen=', 2*npair+nopen, ', nacte_wish=', nacte_wish
+    write(6,'(A)') 'ERROR in subroutine do_cas: too large space specified. Cannot fulfilled.'
+    write(6,'(2(A,I0))') '2*npair+nopen=', 2*npair+nopen, ', nacte_wish=', nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
     if(MOD(nacte_wish-nopen,2) /= 0) then
-     write(iout,'(A)') 'ERROR in subroutine do_cas: wrong space specified. Cannot fulfilled.'
-     write(iout,'(A)') 'nacte_wish-nopen is not an even integer.'
-     write(iout,'(2(A,I0))') 'nopen=', nopen, ', nacte_wish=', nacte_wish
+     write(6,'(A)') 'ERROR in subroutine do_cas: wrong space specified. Cannot fulfilled.'
+     write(6,'(A)') 'nacte_wish-nopen is not an even integer.'
+     write(6,'(2(A,I0))') 'nopen=', nopen, ', nacte_wish=', nacte_wish
      stop
     end if
 
-    write(iout,'(A)') 'OK, fulfilled.'
+    write(6,'(A)') 'OK, fulfilled.'
     npair0 = (nacte_wish-nopen)/2
     i = 2*npair0 + nopen
     nacta = npair0 + nopen; nactb = npair0
@@ -108,49 +107,49 @@ subroutine do_cas(scf)
    cas_prog = dmrgci_prog
   end if
  end if
- write(iout,'(A)',advance='no') TRIM(data_string)
+ write(6,'(A)',advance='no') TRIM(data_string)
 
  idx1 = ndb + npair - npair0 + 1
  idx2 = idx1 + 2*npair0 + nopen - 1
  nvir = nif - (idx1-1) - 2*npair0 - nopen
- write(iout,'(A,2(I0,A))') '(',i,',',i,') using program '//TRIM(cas_prog)
+ write(6,'(A,2(I0,A))') '(',i,',',i,') using program '//TRIM(cas_prog)
 
  if(i == 0) then
-  write(iout,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
-  write(iout,'(/,A)') 'The reason is this molecule has little multi-configurational&
-                     & or multi-reference'
-  write(iout,'(A)') 'character. This molecule can be well described by single&
-                   & reference methods, e.g.'
-  write(iout,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation&
-                    &. But if you still want'
-  write(iout,'(A)') 'to do it, you can manually specify the size of acitve spac&
-                    &e in .gjf file. For ex-'
-  write(iout,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for meth&
-                    &ane(CH4). The maximum'
-  write(iout,'(A)') 'number of active orbitals is 2*npair. You can find npair &
-                    &in GVB computations above.'
-  write(iout,'(A,I0)') 'For this molecule, npair=', npair
+  write(6,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
+  write(6,'(/,A)') 'The reason is this molecule has little multi-configurational&
+                  & or multi-reference'
+  write(6,'(A)') 'character. This molecule can be well described by single&
+                & reference methods, e.g.'
+  write(6,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation&
+                 &. But if you still want'
+  write(6,'(A)') 'to do it, you can manually specify the size of acitve spac&
+                 &e in .gjf file. For ex-'
+  write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for meth&
+                 &ane(CH4). The maximum'
+  write(6,'(A)') 'number of active orbitals is 2*npair. You can find npair &
+                 &in GVB computations above.'
+  write(6,'(A,I0)') 'For this molecule, npair=', npair
   stop
  end if
- write(iout,'(2(A,I4,3X),A,L1,3X,A,I0)') 'doubly_occ=', idx1-1, 'nvir=',nvir,&
-                                         'RIJK=', RI, 'nstate=', nstate
- write(iout,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
+ write(6,'(2(A,I4,3X),A,L1,3X,A,I0)') 'doubly_occ=', idx1-1, 'nvir=',nvir,&
+                                      'RIJK=', RI, 'nstate=', nstate
+ write(6,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
  if(nopen+2*npair0 > 15) then
   if(nmr) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO&
-                       & is not supported.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO&
+                   & is not supported.'
    stop
   end if
   if(scf) then
    casscf = .false.
    dmrgscf = .true.
    cas_prog = dmrgscf_prog
-   write(iout,'(A)') 'Warning: CASSCF is switched to DMRG-CASSCF due to active&
-                    & space larger than (15,15).'
+   write(6,'(A)') 'Warning: CASSCF is switched to DMRG-CASSCF due to active&
+                 & space larger than (15,15).'
    if(casscf_prog /= 'pyscf') then
-    write(iout,'(A)') 'ERROR in subroutine do_cas: DMRGSCF required. But&
-                     & CASSCF_prog='//TRIM(casscf_prog)//'.'
+    write(6,'(A)') 'ERROR in subroutine do_cas: DMRGSCF required. But&
+                  & CASSCF_prog='//TRIM(casscf_prog)//'.'
     stop
    end if
 
@@ -158,72 +157,74 @@ subroutine do_cas(scf)
    casci = .false.
    dmrgci = .true.
    cas_prog = dmrgci_prog
-   write(iout,'(A)') 'Warning: CASCI is switched to DMRG-CASCI due to active&
-                    & space larger than (15,15).'
+   write(6,'(A)') 'Warning: CASCI is switched to DMRG-CASCI due to active&
+                 & space larger than (15,15).'
    if(casci_prog /= 'pyscf') then
-    write(iout,'(A)') 'ERROR in subroutine do_cas: DMRGCI required. But&
-                     & CASCI_prog='//TRIM(casci_prog)//'.'
+    write(6,'(A)') 'ERROR in subroutine do_cas: DMRGCI required. But&
+                  & CASCI_prog='//TRIM(casci_prog)//'.'
     stop
    end if
   end if
 
-  write(iout,'(A)') 'Strategy updated:'
+  write(6,'(A)') 'Strategy updated:'
   call prt_strategy()
  end if
 
- if(ist<1 .or. ist>5) then
-  write(iout,'(A)') 'ERROR in subroutine do_cas: ist out of range.'
-  write(iout,'(A,I0)') 'Allowed values are 1~5. But got ist=', ist
+ if(ist<1 .or. ist>6) then
+  write(6,'(A)') 'ERROR in subroutine do_cas: ist out of range.'
+  write(6,'(A,I0)') 'Allowed values are 1~6. But got ist=', ist
   stop
  end if
 
  if((dmrgci .or. dmrgscf) .and. cas_prog/='pyscf') then
-  write(iout,'(A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation&
-                   & is only supported by PySCF.'
-  write(iout,'(A)') 'Wrong casci_prog or casscf_prog: '//TRIM(cas_prog)
+  write(6,'(A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation&
+                & is only supported by PySCF.'
+  write(6,'(A)') 'Wrong casci_prog or casscf_prog: '//TRIM(cas_prog)
   stop
  end if
 
- if(ist==1 .or. ist==3) then
+ select case(ist)
+ case(1,3,6)
   i = index(datname, '.dat', back=.true.)
   fchname = datname(1:i-1)//'.fch'
   pyname = datname(1:i-1)//'.py'
- else if(ist == 2) then ! UHF -> UNO -> CASCI/CASSCF
+ case(2) ! UHF -> UNO -> CASCI/CASSCF
   i = index(hf_fch, '.fch', back=.true.)
   fchname = hf_fch(1:i-1)//'_uno.fch'
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
   i = RENAME(TRIM(pyname), TRIM(inpname))
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another filename
- else if(ist == 5) then
+ case(5)
   fchname = hf_fch
   i = index(hf_fch, '.fch', back=.true.)
   pyname = hf_fch(1:i-1)//'.py'
- end if
+ end select
 
  if(dryrun) return ! do not perform electronic structure calculations
 
  proname = ' '
  i = index(hf_fch, '.fch', back=.true.)
- if(ist==1 .or. ist==3) then
+ select case(ist)
+ case(1,3,6)
   if(scf) then
    write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASSCF'
   else
    write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASCI'
   end if
- else if(ist == 2) then
+ case(2)
   if(scf) then
    write(proname,'(A)') hf_fch(1:i-1)//'_uno2CASSCF'
   else
    write(proname,'(A)') hf_fch(1:i-1)//'_uno2CASCI'
   end if
- else if(ist == 5) then
+ case(5)
   if(scf) then
    proname = hf_fch(1:i-1)//'_CASSCF'
   else
    proname = hf_fch(1:i-1)//'_CASCI'
   end if
- end if
+ end select
  casnofch = TRIM(proname)//'_NO.fch'
 
  select case(TRIM(cas_prog))
@@ -241,11 +242,11 @@ subroutine do_cas(scf)
   outname = inpname(1:j-1)//'.out'
 
   write(buf,'(A)') 'python '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: PySCF CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: PySCF CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
    stop
   end if
 
@@ -259,11 +260,11 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
 
-  write(iout,'(A)') '$'//TRIM(gau_path)//' '//TRIM(inpname)
+  write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(inpname)
   i = system(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(inpname)//' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(inpname)//' and check.'
    stop
   end if
   call formchk(mklname, casnofch)
@@ -287,11 +288,11 @@ subroutine do_cas(scf)
   if(casscf_force) i = system("sed -i '1,1s/ENERGY/GRADIENT/' "//TRIM(inpname))
 
   write(buf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$$GMS '//TRIM(buf)
+  write(6,'(A)') '$$GMS '//TRIM(buf)
   i = system(TRIM(gms_path)//' '//TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: GAMESS CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: GAMESS CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
    stop
   end if
 
@@ -321,8 +322,8 @@ subroutine do_cas(scf)
   write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no 1 ',idx2
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'
-   write(iout,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'
+   write(6,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
    stop
   end if
 
@@ -345,11 +346,11 @@ subroutine do_cas(scf)
   if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
 
   write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: OpenMolcas CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: OpenMolcas CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
    stop
   end if
 
@@ -380,11 +381,11 @@ subroutine do_cas(scf)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
 
   write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$$ORCA '//TRIM(buf)
+  write(6,'(A)') '$$ORCA '//TRIM(buf)
   i = system(TRIM(orca_path)//' '//TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: ORCA CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: ORCA CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
    stop
   end if
 
@@ -422,10 +423,10 @@ subroutine do_cas(scf)
   i = CEILING(DBLE(mem*125)/DBLE(nproc))
   write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ', i,&
                            'm '//TRIM(inpname)
-  write(iout,'(2(A,I0),A)') '$molpro -n ',nproc,' -t 1 -m ',i,'m '//TRIM(inpname)
+  write(6,'(2(A,I0),A)') '$molpro -n ',nproc,' -t 1 -m ',i,'m '//TRIM(inpname)
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
+   write(6,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
    stop
   end if
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
@@ -447,10 +448,10 @@ subroutine do_cas(scf)
   call prt_cas_bdf_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  write(iout,'(A)') '$$BDF '//TRIM(proname)
+  write(6,'(A)') '$$BDF '//TRIM(proname)
   i = system(TRIM(bdf_path)//' '//TRIM(proname))
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
+   write(6,'(A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
    stop
   end if
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
@@ -470,11 +471,11 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   write(buf,'(A,I0)') 'psi4 '//TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_cas: PSI4 CASCI/CASSCF job failed.'
-   write(iout,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+   write(6,'(A)') 'ERROR in subroutine do_cas: PSI4 CASCI/CASSCF job failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
    stop
   end if
 
@@ -506,19 +507,19 @@ subroutine do_cas(scf)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   i = system('dal2fch DALTON.MOPUN '//TRIM(casnofch)//' -no')
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dal2fch.'
-   write(iout,'(A)') 'Please open files DALTON.MOPUN and '//TRIM(casnofch)//&
-                    &' and check.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dal2fch.'
+   write(6,'(A)') 'Please open files DALTON.MOPUN and '//TRIM(casnofch)//&
+                 &' and check.'
    stop
   end if
   orbname = 'DALTON.MOPUN'
   call delete_file(orbname)
 
  case default
-  write(iout,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian&
-                   & Gaussian, GAMESS, PySCF,'
-  write(iout,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got &
-                    &CAS_prog='//TRIM(cas_prog)
+  write(6,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian,&
+                & GAMESS, PySCF,'
+  write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got &
+                 &CAS_prog='//TRIM(cas_prog)
   stop
  end select
 
@@ -539,20 +540,20 @@ subroutine do_cas(scf)
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
 
  if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
-                     & are equal, but CASCI/CASSCF'
-  write(iout,'(A)') 'energy is higher than that of GVB. This is probably due to:&
-                   & (1) CASCI stucks in a higher'
-  write(iout,'(A)') 'energy local minimum or not pure spin state; (2) GVB MOs are&
-                   & disordered (GAMESS bug).'
+  write(6,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
+                  & are equal, but CASCI/CASSCF'
+  write(6,'(A)') 'energy is higher than that of GVB. This is probably due to:&
+                & (1) CASCI stucks in a higher'
+  write(6,'(A)') 'energy local minimum or not pure spin state; (2) GVB MOs are&
+                & disordered (GAMESS bug).'
   stop
  end if
 
  casci_e = e(1)
- write(iout,'(/,A,F18.8,1X,A4)') 'E(CASCI)  = ', e(1), 'a.u.'
+ write(6,'(/,A,F18.8,1X,A4)') 'E(CASCI)  = ', e(1), 'a.u.'
  if(scf) then
   casscf_e = e(2)
-  write(iout,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
  end if
 
  call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
@@ -576,13 +577,13 @@ subroutine do_cas(scf)
   case('bdf')
    call read_grad_from_bdf_out(outname, natom, grad)
   case default
-   write(iout,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
-   write(iout,'(A)') 'cas_prog='//TRIM(cas_prog)
+   write(6,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
+   write(6,'(A)') 'cas_prog='//TRIM(cas_prog)
    stop
   end select
 
-  write(iout,'(A)') 'Cartesian gradient (HARTREE/BOHR):'
-  write(iout,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+  write(6,'(A)') 'Cartesian gradient (HARTREE/BOHR):'
+  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  end if
 
  if(nmr) then
@@ -599,8 +600,7 @@ subroutine do_cas(scf)
  end if
 
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_cas at '//TRIM(data_string)
- return
+ write(6,'(A)') 'Leave subroutine do_cas at '//TRIM(data_string)
 end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
@@ -635,11 +635,13 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  end if
  write(fid2,'(A)') 'from py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
- write(fid2,'(A,/)') 'import numpy as np'
+ write(fid2,'(A)') 'import numpy as np'
+ write(fid2,'(A,/)') 'import os'
  if(dmrgci .or. dmrgscf) then
   write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX ='mpirun -n ",nproc,"'"
  end if
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
+ write(fid2,'(A)') "os.system('date')"
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -744,10 +746,10 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(casnofch)//"')"
  write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True)"
  ! mc.mo_occ only exists for PySCF >= 1.7.4
- close(fid2)
 
+ write(fid2,'(A)') "os.system('date')"
+ close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- return
 end subroutine prt_cas_script_into_py
 
 ! print a CASCI or CASSCF .gjf file
