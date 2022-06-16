@@ -835,7 +835,6 @@ end subroutine prt_nevpt2_script_into_py
 ! It seems that OpenMolcas does not support CASSCF-NEVPT2. So I have to use
 ! DMRG-NEVPT2.
 subroutine prt_nevpt2_molcas_inp(inpname)
- use print_id, only: iout
  use mr_keyword, only: CIonly, maxM, RI, RIJK_bas
  use mol, only: nacte, nacto, charge, mult
  implicit none
@@ -845,7 +844,7 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  character(len=240), intent(in) :: inpname
 
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -867,8 +866,8 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SEWARD'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SEWARD'&
+                & found in file "//TRIM(inpname)
   stop
  end if
 
@@ -883,30 +882,13 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SCF'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SCF'&
+                & found in file "//TRIM(inpname)
   stop
  end if
  close(fid1,status='delete')
 
- write(fid2,'(/,A)') "&DMRGSCF"
- write(fid2,'(A)') 'ActiveSpaceOptimizer=QCMaquis'
- write(fid2,'(A)') 'DMRGSettings'
- write(fid2,'(A)') ' conv_thresh = 1e-8'
- write(fid2,'(A,I0)') ' max_bond_dimension = ', maxM
- write(fid2,'(A)') ' nsweeps = 20'
- write(fid2,'(A)') 'EndDMRGSettings'
- write(fid2,'(A)') 'OOptimizationSettings'
- write(fid2,'(A,I0)') 'Charge = ', charge
- write(fid2,'(A,I0)') 'Spin = ', mult
- write(fid2,'(A,I0,A)') 'nActEl = ', nacte, ',0,0'
- write(fid2,'(A,I0)') 'RAS2 = ', nacto
- i = index(inpname,'.input',back=.true.)
- write(fid2,'(A)') 'FILEORB = '//inpname(1:i-1)//'.INPORB'
- if(CIonly) write(fid2,'(A)') 'CIonly'
- write(fid2,'(A)') 'NEVPT2Prep'
- write(fid2,'(A)') 'EvRDM'
- write(fid2,'(A)') 'EndOOptimizationSettings'
+ call prt_molcas_cas_para(fid2, .true., .true., .false., CIonly, inpname)
 
  write(fid2,'(/,A)') "&MOTRA"
  write(fid2,'(A)') 'Frozen = 0'
@@ -916,20 +898,21 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  write(fid2,'(A)') 'Frozen = 0'
  close(fid2)
  i = RENAME(inpname1, inpname)
- return
 end subroutine prt_nevpt2_molcas_inp
 
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
- use print_id, only: iout
  use mr_keyword, only: CIonly, maxM, dmrgci, dmrgscf, hardwfn, crazywfn
  use mol, only: nacte, nacto, charge, mult
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inputname1
  character(len=240), intent(in) :: inputname
+ logical :: dmrg
 
- inputname1 = TRIM(inputname)//'.tmp'
+ dmrg = (dmrgci .or. dmrgscf)
+ inputname1 = TRIM(inputname)//'.t'
+
  open(newunit=fid1,file=TRIM(inputname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inputname1),status='replace')
  do while(.true.)
@@ -940,8 +923,8 @@ subroutine prt_caspt2_molcas_inp(inputname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_caspt2_molcas_inp: no 'SEWARD'&
-                   & found in file "//TRIM(inputname)
+  write(6,'(A)') "ERROR in subroutine prt_caspt2_molcas_inp: no 'SEWARD'&
+                & found in file "//TRIM(inputname)
   stop
  end if
 
@@ -953,35 +936,16 @@ subroutine prt_caspt2_molcas_inp(inputname)
  end do ! for while
  close(fid1,status='delete')
 
- write(fid2,'(/,A)') "&RASSCF"
- write(fid2,'(A,I0)') 'Charge = ', charge
- write(fid2,'(A,I0)') 'Spin = ', mult
- write(fid2,'(A,I0,A)') 'nActEl= ', nacte, ' 0 0'
- write(fid2,'(A,I0)') 'RAS2 = ', nacto
- write(fid2,'(A)') 'CIMX= 200'
- write(fid2,'(A)') 'Tight= 5d-8 5d-6'
- if(crazywfn) then
-  write(fid2,'(A)') 'SDav= 500'
- else if(hardwfn) then
-  write(fid2,'(A)') 'SDav= 300'
- end if
- i = index(inputname,'.input',back=.true.)
- write(fid2,'(A)') 'FILEORB = '//inputname(1:i-1)//'.INPORB'
+ call prt_molcas_cas_para(fid2, dmrg, .false., dmrg, CIonly, inputname)
+ !write(fid2,'(A,I0,A)') 'nActEl= ', nacte, ' 0 0'
 
  if(CIonly) then
   if(dmrgci) then
-   write(iout,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not&
+   write(6,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not&
                     & allowed in DMRG-CASPT2.'
-   write(iout,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'   
+   write(6,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'
    stop
-  else
-   write(fid2,'(A)') 'CIonly'
   end if
- end if
-
- if(dmrgscf) then
-  write(fid2,'(A,I0)') 'DMRG = ', maxM
-  write(fid2,'(A)') '3RDM'
  end if
 
  write(fid2,'(/,A)') "&CASPT2"
@@ -992,7 +956,6 @@ subroutine prt_caspt2_molcas_inp(inputname)
 
  close(fid2)
  i = RENAME(inputname1, inputname)
- return
 end subroutine prt_caspt2_molcas_inp
 
 ! print MRMP2 keywords into GAMESS .inp file

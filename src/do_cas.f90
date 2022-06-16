@@ -17,7 +17,7 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate
+  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate, ON_thres
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -43,7 +43,8 @@ subroutine do_cas(scf)
   write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
-  call read_no_info_from_fch(hf_fch,nbf,nif,ndb,nopen,nacta,nactb,nacto,nacte)
+  call read_no_info_from_fch(hf_fch, ON_thres, nbf, nif, ndb, nopen, nacta, &
+                             nactb, nacto, nacte)
   i = nacte; j = nacto
   npair0 = nactb; npair = npair0
  else
@@ -635,13 +636,10 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  end if
  write(fid2,'(A)') 'from py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
- write(fid2,'(A)') 'import numpy as np'
- write(fid2,'(A,/)') 'import os'
- if(dmrgci .or. dmrgscf) then
-  write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX ='mpirun -n ",nproc,"'"
- end if
+ write(fid2,'(A,/)') 'import numpy as np'
+ if(dmrgci .or. dmrgscf) write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX = &
+                                               &'mpirun -n ",nproc,"'"
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
- write(fid2,'(A)') "os.system('date')"
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -738,7 +736,9 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
   write(fid2,'(A)') 'noon = np.zeros(nif)'
   write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False)"
-  write(fid2,'(/,A)') 'mc.natorb = True'
+  write(fid2,'(/,A)') 'import os'
+  write(fid2,'(A)') "os.system('date')"
+  write(fid2,'(A)') 'mc.natorb = True'
   write(fid2,'(A)') 'mc.kernel()'
  end if
 
@@ -747,7 +747,6 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True)"
  ! mc.mo_occ only exists for PySCF >= 1.7.4
 
- write(fid2,'(A)') "os.system('date')"
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine prt_cas_script_into_py
@@ -874,14 +873,16 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   hardwfn, crazywfn
  implicit none
  integer :: i, j, fid1, fid2, RENAME, system
- logical, intent(in) :: scf
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
+ logical, intent(in) :: scf
+ logical :: dmrg
 
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
+ dmrg = (dmrgci .or. dmrgscf)
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
  do while(.true.)
@@ -902,8 +903,8 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD' found&
+                & in file "//TRIM(inpname)
   stop
  end if
 
@@ -923,33 +924,11 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   stop
  end if
 
- write(fid2,'(A)') "&RASSCF"
- write(fid2,'(A,I0)') 'Spin = ', mult
- write(fid2,'(A,I0)') 'Charge = ', charge
- write(fid2,'(A,I0)') 'nActEl = ', nacte
- write(fid2,'(A,I0)') 'RAS2 = ', nacto
- write(fid2,'(A)') 'CIMX= 200'
- write(fid2,'(A)') 'Tight= 5d-8 5d-6'
- if(crazywfn) then
-  write(fid2,'(A)') 'SDav= 500'
- else if(hardwfn) then
-  write(fid2,'(A)') 'SDav= 300'
- end if
- if(.not. scf) write(fid2,'(A)') 'CIonly'
- i = index(inpname, '.input', back=.true.)
- write(fid2,'(A,/)') 'FILEORB = '//inpname(1:i-1)//'.INPORB'
+ call prt_molcas_cas_para(fid2, dmrg, .false., .false., (.not.scf), inpname)
 
- if(dmrgci .or. dmrgscf) then
-  write(fid2,'(A)') 'DMRG'
-  write(fid2,'(A)') 'RGinput'
-  write(fid2,'(A)') ' conv_thresh = 1E-8'
-  write(fid2,'(A)') ' nsweeps = 20'
-  write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
-  write(fid2,'(A)') 'endRG'
- end if
-
- close(fid1,status='delete')
+ write(fid2,'(/)',advance='no')
  close(fid2)
+ close(fid1,status='delete')
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 
  ! if RIJK is on, we need to generate the fitting basis set file for OpenMolcas
@@ -975,7 +954,6 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   i = system('mv '//TRIM(RIJK_bas1)//' $MOLCAS/basis_library/jk_Basis/')
  end if
 
- return
 end subroutine prt_cas_molcas_inp
 
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
@@ -1673,4 +1651,50 @@ subroutine read_shieldings_from_dalton_out(outname)
 
  close(fid)
 end subroutine read_shieldings_from_dalton_out
+
+! print (Open)Molcas (DMRG-)CASCI/CASSCF input file keywords
+subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
+ use mr_keyword, only: hardwfn, crazywfn, MaxM
+ use mol, only: nacte, nacto, charge, mult
+ implicit none
+ integer :: i
+ integer, intent(in) :: fid
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: dmrg, nevpt, chemps2, CIonly
+
+ if(dmrg) then
+  write(fid,'(/,A)') "&DMRGSCF"
+  write(fid,'(A)') 'ActiveSpaceOptimizer = QCMaquis'
+  write(fid,'(A)') 'Fiedler = ON'
+  write(fid,'(A)') 'DMRGSettings'
+  write(fid,'(A)') ' nsweeps = 5'
+  write(fid,'(A,I0)') ' max_bond_dimension = ', MaxM
+  write(fid,'(A)') 'EndDMRGSettings'
+  write(fid,'(A)') 'OOptimizationSettings'
+  if(chemps2) then
+   write(fid,'(A,I0)') 'DMRG = ', maxM
+   write(fid,'(A)') '3RDM'
+  end if
+ else
+  write(fid,'(/,A)') "&RASSCF"
+  write(fid,'(A)') 'CIMX= 200'
+  write(fid,'(A)') 'Tight= 5d-8 5d-6'
+  if(crazywfn) then
+   write(fid,'(A)') 'SDav= 500'
+  else if(hardwfn) then
+   write(fid,'(A)') 'SDav= 300'
+  end if
+ end if
+
+ write(fid,'(A,I0)') ' Spin = ', mult
+ write(fid,'(A,I0)') ' Charge = ', charge
+ write(fid,'(A,I0)') ' nActEl= ', nacte
+ write(fid,'(A,I0)') ' RAS2 = ', nacto
+ i = index(inpname, '.input', back=.true.)
+ write(fid,'(A)') ' FILEORB = '//inpname(1:i-1)//'.INPORB'
+
+ if(CIonly) write(fid,'(A)') ' CIonly'
+ if(nevpt) write(fid,'(A,/,A)') 'NEVPT2Prep','EvRDM'
+ if(dmrg) write(fid,'(A)') 'EndOOptimizationSettings'
+end subroutine prt_molcas_cas_para
 

@@ -1,3 +1,7 @@
+MOKIT 1.2.4 (Jun 16, 2022)
+------------------------
+* automatically change tPBE to T:PBE for OpenMolcas>=22.02
+
 MOKIT 1.2.3 (Jun 11, 2022)
 ------------------------
 * add ist=6 (GVB/STO-6G -> GVB/target basis set -> ...)

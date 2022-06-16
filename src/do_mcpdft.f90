@@ -1,133 +1,6 @@
 ! written by jxzou at 20210120: subroutine do_mcpdft from automr.f90 is moved here
 
-! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
-subroutine prt_mcpdft_molcas_inp(inpname)
- use print_id, only: iout
- use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2
- implicit none
- integer :: i, fid1, fid2, RENAME
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.tmp'
-
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(inpname1),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
-  if(buf(2:7) == 'SEWARD') exit
- end do
- close(fid1,status='delete')
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
-                   & found in file "//TRIM(inpname)
-  stop
- end if
-
- write(fid2,'(A)') ' Grid input'
- write(fid2,'(A)') '  grid=ultrafine'
- write(fid2,'(A)') ' End of grid input'
- if(DKH2) write(fid2,'(A)') ' Relativistic = R02O'
-
- write(fid2,'(/,A)') "&RASSCF"
- write(fid2,'(A,I0)') 'Spin = ', mult
- write(fid2,'(A,I0)') 'Charge = ', charge
- write(fid2,'(A,I0)') 'nActEl= ', nacte
- write(fid2,'(A,I0)') 'RAS2 = ', nacto
- i = index(inpname, '.input', back=.true.)
- write(fid2,'(A)') 'FILEORB = '//inpname(1:i-1)//'.INPORB'
-
- if(dmrgci .or. dmrgscf) then
-  write(fid2,'(A)') 'DMRG'
-  write(fid2,'(A)') 'RGinput'
-  write(fid2,'(A)') ' conv_thresh = 1E-8'
-  write(fid2,'(A)') ' nsweeps = 20'
-  write(fid2,'(A,I0)') ' max_bond_dimension = ', MaxM
-  write(fid2,'(A)') 'endRG'
- end if
-
- if(CIonly) write(fid2,'(A)') 'CIonly'
-
- write(fid2,'(/,A)') "&MCPDFT"
- write(fid2,'(A)') 'KSDFT='//TRIM(otpdf)
- close(fid2)
-
- i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine prt_mcpdft_molcas_inp
-
-! print MC-PDFT keywords into GAMESS .inp file
-subroutine prt_mcpdft_gms_inp(inpname)
- use mol, only: charge, mult, ndb, nacte, nacto, npair, npair0
- use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly
- implicit none
- integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- ncore = ndb + npair - npair0
- inpname1 = TRIM(inpname)//'.tmp'
-
- open(newunit=fid2,file=TRIM(inpname1),status='replace')
- if(CIonly) then
-  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=NONE CITYP=ALDET'
- else
-  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF'
- end if
-
- write(fid2,'(2(A,I0),A)') ' RUNTYP=ENERGY ICHARG=',charge,' MULT=',mult,' NOSYM=1 ICUT=11'
- write(fid2,'(A)',advance='no') '  PDFTYP='//TRIM(otpdf)
-
- if(DKH2) write(fid2,'(A)',advance='no') ' RELWFN=DK'
- if(.not. cart) then
-  write(fid2,'(A)') ' ISPHER=1 $END'
- else
-  write(fid2,'(A)') ' $END'
- end if
-
- ! MC-PDFT in GAMESS cannot run in parallel currently. All memory given to 1 core.
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',mem*125,' $END'
-
- if(CIonly) then
-  write(fid2,'(A)',advance='no') ' $CIDET'
- else
-  write(fid2,'(A)',advance='no') ' $DET'
- end if
- write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',nacto
-
- if(hardwfn) then
-  write(fid2,'(A)',advance='no') ' NSTATE=5'
- else if(crazywfn) then
-  write(fid2,'(A)',advance='no') ' NSTATE=10'
- end if
- write(fid2,'(A)') ' ITERMX=500 $END'
- write(fid2,'(A)') ' $DFT NRAD=99 NLEB=590 $END'
-
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(2:6) == '$GUES') exit
- end do
-
- write(fid2,'(A)') TRIM(buf)
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
- close(fid1,status='delete')
- close(fid2)
-
- i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine prt_mcpdft_gms_inp
-
-! do MC-PDFT for npair<=7, or <=CAS(14,14)
+! do MC-PDFT, valid for CASCI/CASSCFb based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
  use print_id, only: iout
  use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog, casnofch, &
@@ -244,6 +117,191 @@ subroutine do_mcpdft()
 
  call fdate(data_string)
  write(iout,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
- return
 end subroutine do_mcpdft
+
+! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
+subroutine prt_mcpdft_molcas_inp(inpname)
+ use print_id, only: iout
+ use mol, only: charge, mult, nacte, nacto
+ use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2
+ implicit none
+ integer :: i, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical :: dmrg
+
+ ! detect the OpenMolcas version and update otpdf if needed
+ call detect_and_change_otpdf(otpdf)
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+  if(buf(2:7) == 'SEWARD') exit
+ end do
+ close(fid1,status='delete')
+
+ if(i /= 0) then
+  write(iout,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
+                   & found in file "//TRIM(inpname)
+  stop
+ end if
+
+ write(fid2,'(A)') ' Grid input'
+ write(fid2,'(A)') '  grid=ultrafine'
+ write(fid2,'(A)') ' End of grid input'
+ if(DKH2) write(fid2,'(A)') ' Relativistic = R02O'
+
+ ! I used to use &RASSCF, DMRG, RGinput for DMRGCI calculations. I found it
+ ! seems that RGinput in &RASSCF had many disadvantages and often converged
+ ! to higher energy local minimum. So I changed in into &DMRGSCF, and it
+ ! seems to get more reasonable results
+
+ dmrg = (dmrgci .or. dmrgscf)
+ call prt_molcas_cas_para(fid2, dmrg, .false., .false., .true., inpname)
+
+ write(fid2,'(/,A)') "&MCPDFT"
+ write(fid2,'(A)') 'KSDFT='//TRIM(otpdf)
+ close(fid2)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine prt_mcpdft_molcas_inp
+
+! print MC-PDFT keywords into GAMESS .inp file
+subroutine prt_mcpdft_gms_inp(inpname)
+ use mol, only: charge, mult, ndb, nacte, nacto, npair, npair0
+ use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly
+ implicit none
+ integer :: i, ncore, fid1, fid2, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ ncore = ndb + npair - npair0
+ inpname1 = TRIM(inpname)//'.tmp'
+
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+ if(CIonly) then
+  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=NONE CITYP=ALDET'
+ else
+  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF'
+ end if
+
+ write(fid2,'(2(A,I0),A)') ' RUNTYP=ENERGY ICHARG=',charge,' MULT=',mult,' NOSYM=1 ICUT=11'
+ write(fid2,'(A)',advance='no') '  PDFTYP='//TRIM(otpdf)
+
+ if(DKH2) write(fid2,'(A)',advance='no') ' RELWFN=DK'
+ if(.not. cart) then
+  write(fid2,'(A)') ' ISPHER=1 $END'
+ else
+  write(fid2,'(A)') ' $END'
+ end if
+
+ ! MC-PDFT in GAMESS cannot run in parallel currently. All memory given to 1 core.
+ write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',mem*125,' $END'
+
+ if(CIonly) then
+  write(fid2,'(A)',advance='no') ' $CIDET'
+ else
+  write(fid2,'(A)',advance='no') ' $DET'
+ end if
+ write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',nacto
+
+ if(hardwfn) then
+  write(fid2,'(A)',advance='no') ' NSTATE=5'
+ else if(crazywfn) then
+  write(fid2,'(A)',advance='no') ' NSTATE=10'
+ end if
+ write(fid2,'(A)') ' ITERMX=500 $END'
+ write(fid2,'(A)') ' $DFT NRAD=99 NLEB=590 $END'
+
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(2:6) == '$GUES') exit
+ end do
+
+ write(fid2,'(A)') TRIM(buf)
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do
+ close(fid1,status='delete')
+ close(fid2)
+
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine prt_mcpdft_gms_inp
+
+! detect the OpenMolcas version and update otpdf if needed
+! OpenMolcas-v22.xx: T:PBE, FT:PBE
+! OpenMolcas-v21.xx: tPBE, ftPBE
+subroutine detect_and_change_otpdf(otpdf)
+ implicit none
+ integer :: i, k, iv, fid, system
+ character(len=3) :: sv
+ character(len=9), intent(inout) :: otpdf
+ character(len=10), parameter :: ftmp = 'molcas.ver'
+ character(len=240) :: buf
+
+ if(LEN_TRIM(otpdf)==0 .or. otpdf=='NONE') then
+  write(6,'(/,A)') 'ERROR in subroutine detect_and_change_otpdf: OtPDF=None.'
+  write(6,'(A)') 'Something must be wrong.'
+  stop
+ end if
+
+ ! find the OpenMolcas version
+ i = system('pymolcas --banner >'//ftmp)
+ open(newunit=fid,file=ftmp,status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  k = index(buf,'version:')
+  if(k > 0) exit
+ end do ! for while
+
+ close(fid,status='delete')
+ if(i /= 0) return
+ ! if something like 'version: v22.06' not found, just return
+
+ i = index(buf, '.')
+ read(buf(k+8:i-1),*) sv     ! 'v22'
+ read(sv(2:3),*,iostat=i) iv ! 22
+ if(i /= 0) return
+ ! if the user uses some strange version of OpenMolcas, just return
+
+ call lower(otpdf)
+ if(iv >= 22) then ! T:PBE, FT:PBE
+  i = index(otpdf, ':')
+  if(i == 0) then
+   select case(otpdf(1:1))
+   case('t')
+    otpdf = 't:'//TRIM(otpdf(2:))
+   case('f')
+    otpdf = 'ft:'//TRIM(otpdf(3:))
+   case default
+    write(6,'(A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
+                   //TRIM(OtPDF)
+    stop
+   end select
+  end if
+
+ else ! tPBE, ftPBE
+  i = index(otpdf, ':')
+  if(i > 0) then
+   select case(otpdf(1:1))
+   case('t')
+    otpdf = 't'//TRIM(otpdf(i+1:))
+   case('f')
+    otpdf = 'ft'//TRIM(otpdf(i+1:))
+   case default
+    write(6,'(A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
+                   //TRIM(OtPDF)
+   end select
+  end if
+ end if
+end subroutine detect_and_change_otpdf
 

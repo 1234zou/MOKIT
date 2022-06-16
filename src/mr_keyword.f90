@@ -133,7 +133,7 @@ module mr_keyword
  character(len=240) :: hf_fch = ' '   ! filename of the given .fch(k) file
  character(len=240) :: datname = ' '  ! filename of GAMESS GVB .dat file
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
- character(len=8) :: otpdf = 'tPBE'   ! on-top pair density functional
+ character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
 
  logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
@@ -258,8 +258,6 @@ contains
     molcas_path = 'NOT FOUND'
    end if
   end if
-
-  return
  end subroutine get_molcas_path
 
  subroutine get_molpro_path()
@@ -363,7 +361,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.3 (2022-Jun-11)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jun-16)'
   write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
 
   hostname = ' '
@@ -981,7 +979,6 @@ contains
               caspt3 .or. nevpt3)
   if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
   call prt_strategy()
-  return
  end subroutine parse_keyword
 
  subroutine prt_strategy()
@@ -1058,9 +1055,9 @@ contains
    end if
   end if
 
-  if(ON_thres < 0d0) then
-   write(iout,'(A)') error_warn//'ON_thres must be positive.'
-   write(iout,'(A,E12.5)') 'Your input ON_thres=', ON_thres
+  if(ON_thres<0d0 .or. ON_thres>1d0) then
+   write(6,'(A)') error_warn//'ON_thres must be [0.0,1.0].'
+   write(6,'(A,E12.5)') 'Your input ON_thres=', ON_thres
    stop
   end if
 

@@ -2871,13 +2871,13 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
 end subroutine find_npair0_from_fch
 
 ! read variables nbf, nif, ndb, etc from a .fch(k) file containing NOs and NOONs
-subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb,&
-                                 nacto, nacte)
+subroutine read_no_info_from_fch(fchname, ON_thres, nbf, nif, ndb, nopen, nacta,&
+                                 nactb, nacto, nacte)
  implicit none
  integer :: i, na, nb
  integer, intent(out) :: nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte
- integer, parameter :: iout = 6
- real(kind=8), parameter :: no_thres = 0.02d0
+ real(kind=8) :: thres
+ real(kind=8), intent(in) :: ON_thres
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: fchname
 
@@ -2889,16 +2889,24 @@ subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb,&
  allocate(noon(nif), source=0d0)
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
  if( ANY(noon < -1d-2) ) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
-                     & negative occupation number(s),'
-  write(iout,'(A)') 'this is not possible. Do you mistake the energy levels&
-                   & for occupation numbers?'
-  write(iout,'(A)') 'Or do you use relaxed density of MP2/CI/CC/TD- methods?'
+  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
+                  & negative occupation number(s),'
+  write(6,'(A)') 'this is not possible. Do you mistake the energy levels&
+                & for occupation numbers?'
+  write(6,'(A)') 'Or do you use relaxed density of MP2/CI/CC/TD- methods?'
   stop
  end if
 
+ if(ON_thres<0d0 .or. ON_thres>1d0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: input ON_thres&
+                  & is invalid.'
+  write(6,'(A)') '0.0 < ON_thres < 1.0 is required.'
+  stop
+ end if
+ thres = 1d0 - ON_thres ! 0.99999 -> 0.00001
+
  do i = 1, nif, 1
-  if(noon(i)>no_thres .and. noon(i)<(2d0-no_thres)) then
+  if(noon(i)>thres .and. noon(i)<(2d0-thres)) then
    nacto = nacto + 1
    if(i <= nb) then
     nacta = nacta + 1
@@ -2912,7 +2920,6 @@ subroutine read_no_info_from_fch(fchname, nbf, nif, ndb, nopen, nacta, nactb,&
  deallocate(noon)
  ndb = na - nacta
  nacte = nacta + nactb
- return
 end subroutine read_no_info_from_fch
 
 ! check whether pure Cartesian functions
