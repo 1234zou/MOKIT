@@ -88,13 +88,13 @@ module mr_keyword
  use print_id, only: iout
  use mol, only: nfrag
  implicit none
- integer :: mem = 4                 ! memory, default 4 GB
- integer :: nproc = 4               ! number of processors, default 4
- integer :: npair_wish = 0          ! number of GVB pairs specified by user
- integer :: nacto_wish = 0          ! number of active orbitals specified by user
- integer :: nacte_wish = 0          ! number of active electrons specified by user
+ integer :: mem = 4        ! memory, default 4 GB
+ integer :: nproc = 4      ! number of processors, default 4
+ integer :: npair_wish = 0 ! number of GVB pairs specified by user
+ integer :: nacto_wish = 0 ! number of active orbitals specified by user
+ integer :: nacte_wish = 0 ! number of active electrons specified by user
 
- integer :: ist = 0              ! the i-th strategy
+ integer :: ist = 0        ! the i-th strategy
  ! 0: if RHF wfn is stable, use strategy 3; otherwise use strategy 1
  ! 1: UHF -> UNO -> associated rotation -> GVB -> CASCI/CASSCF -> ...
  ! 2: UHF -> UNO -> (associated rotation ->) CASCI/CASSCF -> ...
@@ -361,8 +361,8 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jun-16)'
-  write(iout,'(A)') '       (How to cite: read the file Citation.txt)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jun-21)'
+  write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
   data_string = ' '

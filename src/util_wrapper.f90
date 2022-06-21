@@ -284,30 +284,25 @@ end subroutine fch2mkl_wrap
 
 subroutine fch2gbw(fchname, gbwname)
  implicit none
- integer :: i, RENAME
- character(len=240) :: mklname, inpname1, inpname2
+ integer :: i
+ character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: gbwname
 
  i = index(fchname, '.fch', back=.true.)
- inpname1 = gbwname(1:i-1)//'_o.inp'
+ inpname = fchname(1:i-1)//'_o.inp'
 
  if(present(gbwname)) then
   i = index(gbwname, '.gbw', back=.true.)
-  inpname2 = gbwname(1:i-1)//'.inp'
   mklname = gbwname(1:i-1)//'.mkl'
-  call fch2mkl_wrap(fchname, mklname)
  else
-  i = index(fchname, '.fch', back=.true.)
-  inpname2 = fchname(1:i-1)//'.inp'
   mklname = fchname(1:i-1)//'.mkl'
-  call fch2mkl_wrap(fchname, mklname)
  end if
 
- i = RENAME(TRIM(inpname1), TRIM(inpname2))
+ call fch2mkl_wrap(fchname, mklname)
+ call delete_file(inpname)
  call mkl2gbw(mklname)
- open(newunit=i,file=TRIM(mklname),status='old')
- close(unit=i,status='delete')
+ call delete_file(mklname)
 end subroutine fch2gbw
 
 subroutine chk2gbw(chkname)

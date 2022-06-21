@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jun-16'
+  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jun-21'
   stop
  case('-h','-help','--help')
   write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
@@ -864,11 +864,11 @@ subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
    write(fid2,'(A,I0)',advance='no') ',skip_uno=', nskip_uno
   end if
  else
-  write(fid2,'(A,//,A)',advance='no') '/STO-6G','mokit{'
+  write(fid2,'(A,//,A)',advance='no') '/STO-6G','mokit{LocalM=PM'
  end if
 
  if(bgchg) write(fid2,'(A)',advance='no') ',charge'
- write(fid2,'(A,/)') '}'
+ write(fid2,'(A,/)') ',GVB_conv=5D-4}'
 
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf

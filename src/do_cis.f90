@@ -3,8 +3,8 @@
 ! perform CIS/TDHF
 subroutine do_cis()
  use mol, only: nacto, nacta, nactb, nacte
- use mr_keyword, only: excited, eist, cis_prog, gjfname, nstate, nproc, mem,&
-  hf_fch, casnofch, gau_path, casscf, TDHF
+ use mr_keyword, only: ist, eist, excited, cis_prog, gjfname, nstate, nproc, &
+  mem, hf_fch, casnofch, gau_path, casscf, TDHF
  use util_wrapper, only: unfchk, formchk
  implicit none
  integer :: i, system
@@ -14,7 +14,11 @@ subroutine do_cis()
  if(eist == 0) then
   return
  else
-  if(eist /= 1) write(6,'(A)') 'ERROR in subroutine do_cis: eist/=1.'
+  if(eist /= 1) then
+   write(6,'(/,A)') 'ERROR in subroutine do_cis: eist/=1.'
+   stop
+  end if
+  if(ist == 5) return ! readno
  end if
 
  select case(cis_prog)

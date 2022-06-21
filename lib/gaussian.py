@@ -102,3 +102,24 @@ def uno(fchname):
   os.remove('uno.out')
   py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True)
   print('UNOs exported to file '+fchname1)
+
+def permute_orb(fchname, orb1, orb2):
+  '''
+  Permute two orbitals in a given Gaussian .fch(k) file
+  '''
+  from rwwfn import read_eigenvalues_from_fch
+
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  mo = fch2py(fchname, nbf, nif, 'a')
+  mo1 = mo[:,orb1-1].copy()
+  mo2 = mo[:,orb2-1].copy()
+  mo[:,orb1-1] = mo2.copy()
+  mo[:,orb2-1] = mo1.copy()
+
+  ev = read_eigenvalues_from_fch(fchname, nif, 'a')
+  i = ev[orb1-1]
+  ev[orb1-1] = ev[orb2-1]
+  ev[orb2-1] = i
+
+  py2fch(fchname, nbf, nif, mo, 'a', ev, False)
+

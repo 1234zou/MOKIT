@@ -2,18 +2,55 @@
 
 ! perform SA-CASSCF calculations
 subroutine do_sa_cas()
- use mol, only: nacto, nacte, sa_cas_e, ci_mult
- use mr_keyword, only: hf_fch, casscf, bgchg, casscf_prog, dmrgscf_prog, &
-  nevpt2_prog, chgname, dryrun, excited, nstate, nevpt2, caspt2, noQD
+ use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
+  npair0, sa_cas_e, ci_mult
+ use mr_keyword, only: ist, nacto_wish, nacte_wish, hf_fch, casscf, bgchg, &
+  casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, dryrun, excited, nstate, &
+  nevpt2, caspt2, noQD, ON_thres
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
+ real(kind=8) :: unpaired_e ! unpaired electrons
+ real(kind=8), allocatable :: e_ev(:), nevpt2_e(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: inpname, outname
- real(kind=8), allocatable :: e_ev(:), nevpt2_e(:)
 
  if(.not. excited) return
+
+ if(ist == 5) then
+  write(6,'(A)') 'Radical index for input NOs:'
+  call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
+  ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
+  call read_no_info_from_fch(hf_fch, ON_thres, nbf, nif, ndb, nopen, nacta, &
+                             nactb, nacto, nacte)
+  npair0 = nactb; npair = npair0
+
+  ! if the user has specified the active space size, overwrite
+  if(nacto_wish>0 .and. nacte_wish>0) then
+   nacto = nacto_wish
+   nacte = nacte_wish
+   nacta = (nacte + nopen)/2
+   nactb = (nacte - nopen)/2
+  end if
+ end if
+
+ if(nacto*nacte == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: nacto*nacte is 0.'
+  write(6,'(A)') 'Some variables have not been initialized.'
+  stop
+ end if
+ if(nacto /= nacte) then
+  write(6,'(A)') 'ERROR in subroutine do_sa_cas: nacto/=nacte not supported.'
+  stop
+ end if
+
+ if(nacto > 15) then
+  casscf = .false.
+ else
+  casscf = .true.
+ end if
+
  if(casscf) then
   data_string = 'SA-CASSCF'
   cas_prog = casscf_prog
