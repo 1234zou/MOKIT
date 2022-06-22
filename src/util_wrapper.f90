@@ -300,9 +300,12 @@ subroutine fch2gbw(fchname, gbwname)
  end if
 
  call fch2mkl_wrap(fchname, mklname)
- call delete_file(inpname)
+ open(newunit=i,file=TRIM(inpname))
+ close(unit=i,status='delete')
+
  call mkl2gbw(mklname)
- call delete_file(mklname)
+ open(newunit=i,file=TRIM(mklname))
+ close(unit=i,status='delete')
 end subroutine fch2gbw
 
 subroutine chk2gbw(chkname)

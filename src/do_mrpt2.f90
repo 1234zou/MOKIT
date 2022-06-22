@@ -203,7 +203,7 @@ subroutine do_mrpt2()
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
-   i = system(TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+   call submit_orca_job(inpname)
 
   case('bdf')
    call check_exe_exist(bdf_path)
@@ -298,7 +298,7 @@ subroutine do_mrpt2()
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
-   i = system(TRIM(orca_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+   call submit_orca_job(inpname)
   end select
 
  else if(mrmp2) then ! CASSCF-MRMP2
@@ -605,7 +605,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
  use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, F12, F12_cabs, &
-  FIC, DLPNO
+  FIC, DLPNO, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -642,6 +642,8 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
  write(fid2,'(A,I0)') ' maxiter 1'
+ call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
+
  if(FIC) then
   if(DLPNO) then
    write(fid2,'(A)') ' PTMethod DLPNO_NEVPT2'
@@ -678,7 +680,7 @@ subroutine prt_caspt2_orca_inp(inpname)
  use print_id, only: iout
  use mol, only: nacte, nacto
  use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, RI, &
-  RIJK_bas
+  RIJK_bas, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -721,6 +723,8 @@ subroutine prt_caspt2_orca_inp(inpname)
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
  write(fid2,'(A,I0)') ' maxiter 1'
+ call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
+
  if(caspt2k) then
   write(fid2,'(A)') ' PTMethod FIC_CASPT2K'
  else
@@ -805,19 +809,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2.0d0), ' # GB'
  end if
 
- if(hardwfn) then
-  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 200'
- else if(crazywfn) then
-  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
-  write(fid2,'(A)') 'mc.fcisolver.level_shift = 0.2'
-  write(fid2,'(A)') 'mc.fcisolver.pspace_size = 1200'
-  write(fid2,'(A)') 'mc.fcisolver.max_space = 100'
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 300'
- else
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 100'
- end if
-
+ call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
  if(casci .or. casscf) then

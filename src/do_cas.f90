@@ -381,15 +381,7 @@ subroutine do_cas(scf)
   call delete_file(mklname)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
 
-  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$$ORCA '//TRIM(buf)
-  i = system(TRIM(orca_path)//' '//TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: ORCA CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-   stop
-  end if
-
+  call submit_orca_job(inpname)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   if(scf) then ! CASSCF
    orbname = TRIM(proname)//'.gbw'
@@ -704,19 +696,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  end if
 
  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
-
- if(hardwfn) then
-  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 200'
- else if(crazywfn) then
-  write(fid2,'(A,I0,A)') 'mc.fix_spin_(ss=',nacta-nactb,')'
-  write(fid2,'(A)') 'mc.fcisolver.level_shift = 0.2'
-  write(fid2,'(A)') 'mc.fcisolver.pspace_size = 1200'
-  write(fid2,'(A)') 'mc.fcisolver.max_space = 100'
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 300'
- else
-  write(fid2,'(A)') 'mc.fcisolver.max_cycle = 100'
- end if
+ call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
 
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
  ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
@@ -959,7 +939,7 @@ end subroutine prt_cas_molcas_inp
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
 subroutine prt_cas_orca_inp(inpname, scf)
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI, RIJK_bas
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI,RIJK_bas, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -995,6 +975,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A,I0)') ' norb ', nacto
   write(fid2,'(A)') ' maxiter 200'
   write(fid2,'(A)') ' ActOrbs NatOrbs'
+  call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
  else ! CASCI
   write(fid2,'(A)') '%mrci'
   write(fid2,'(A)') ' tsel 0.0'
@@ -1021,7 +1002,6 @@ subroutine prt_cas_orca_inp(inpname, scf)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_cas_orca_inp
 
 ! print CASCI/CASSCF keywords into a given Molpro input file
@@ -1697,4 +1677,47 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
  if(nevpt) write(fid,'(A,/,A)') 'NEVPT2Prep','EvRDM'
  if(dmrg) write(fid,'(A)') 'EndOOptimizationSettings'
 end subroutine prt_molcas_cas_para
+
+! print PySCF FCI solver keywords
+subroutine prt_hard_or_crazy_casci_pyscf(fid, nopen, hardwfn, crazywfn)
+ implicit none
+ integer, intent(in) :: fid, nopen
+ real(kind=8) :: ss
+ logical, intent(in) :: hardwfn, crazywfn
+
+ if(hardwfn) then
+  write(fid,'(A)') 'mc.fcisolver.pspace_size = 900'
+  write(fid,'(A)') 'mc.fcisolver.max_cycle = 400'
+ else if(crazywfn) then
+  ss = DBLE(nopen)*0.5d0
+  ss = ss*(ss+1d0)
+  write(fid,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+  write(fid,'(A)') 'mc.fcisolver.level_shift = 0.2'
+  write(fid,'(A)') 'mc.fcisolver.pspace_size = 1400'
+  write(fid,'(A)') 'mc.fcisolver.max_space = 100'
+  write(fid,'(A)') 'mc.fcisolver.max_cycle = 600'
+ else
+  write(fid,'(A)') 'mc.fcisolver.max_cycle = 200'
+ end if
+end subroutine prt_hard_or_crazy_casci_pyscf
+
+! print PySCF FCI solver keywords
+subroutine prt_hard_or_crazy_casci_orca(fid, hardwfn, crazywfn)
+ implicit none
+ integer, intent(in) :: fid
+ logical, intent(in) :: hardwfn, crazywfn
+
+ write(fid,'(A)') ' CI'
+ if(hardwfn) then
+  write(fid,'(A)') '  MaxIter 400'
+  write(fid,'(A)') '  NGuessMat 1000'
+ else if(crazywfn) then
+  write(fid,'(A)') '  MaxIter 600'
+  write(fid,'(A)') '  NGuessMat 1500'
+ else
+  write(fid,'(A)') '  MaxIter 200'
+ end if
+
+ write(fid,'(A)') ' end'
+end subroutine prt_hard_or_crazy_casci_orca
 

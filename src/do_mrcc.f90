@@ -54,10 +54,7 @@ subroutine do_mrcc()
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
-  string = TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$ORCA '//TRIM(string)
-
-  i = system(TRIM(orca_path)//' '//TRIM(string))
+  call submit_orca_job(inpname)
  case('nwchem')
   ! call prt_mrcc_nwchem_inp(inpname)
  case default

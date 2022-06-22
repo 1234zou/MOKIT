@@ -117,9 +117,9 @@ def permute_orb(fchname, orb1, orb2):
   mo[:,orb2-1] = mo1.copy()
 
   ev = read_eigenvalues_from_fch(fchname, nif, 'a')
-  i = ev[orb1-1]
+  r = ev[orb1-1]
   ev[orb1-1] = ev[orb2-1]
-  ev[orb2-1] = i
+  ev[orb2-1] = r
 
   py2fch(fchname, nbf, nif, mo, 'a', ev, False)
 
