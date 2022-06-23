@@ -147,3 +147,19 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  return
 end subroutine solve_multi_lin_eqs
 
+! calculate (C^T)SC, S must be symmetric since dsymm is called
+! C: nbf*nif  S: nbf*nbf
+subroutine calc_CTSC(nbf, nif, C, S, CTSC)
+ implicit none
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: C(nbf,nif), S(nbf,nbf)
+ real(kind=8), intent(out) :: CTSC(nif,nif)
+ real(kind=8), allocatable :: SC(:,:)
+
+ CTSC = 0d0
+ allocate(SC(nbf,nif), source=0d0)
+ call dsymm('L', 'U', nbf, nif, 1d0, S, nbf, C, nbf, 0d0, SC, nbf)
+ call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SC, nbf, 0d0, CTSC, nif)
+ deallocate(SC)
+end subroutine calc_CTSC
+

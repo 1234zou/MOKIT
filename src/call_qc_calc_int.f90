@@ -124,7 +124,6 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  call delete_files(3, [chkname, gjfname, logname])
  call read_ao_ovlp_from_47(file47, nbf, S)
  call delete_file(file47)
- return
 end subroutine get_ao_ovlp_using_fch
 
 ! get a random integer

@@ -224,12 +224,17 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, fid, ncoeff
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
+!f2py depend(nbf,nif) mo
+!f2py intent(out) :: mo
  real(kind=8), allocatable :: coeff(:)
  character(len=1), intent(in) :: ab
+!f2py intent(in) :: ab
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
@@ -1015,15 +1020,21 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  implicit none
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: nif
+!f2py intent(in) :: nif
  integer, parameter :: iout = 6
  real(kind=8), intent(in) :: on(nif)
+!f2py depend(nif) :: on
+!f2py intent(in) :: on
  character(len=1), intent(in) :: ab
+!f2py intent(in) :: ab
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha Or'
  character(len=7), parameter :: key2 = 'Beta Or'
  logical, intent(in) :: replace
+!f2py intent(in) :: replace
 
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//'b'
@@ -1173,12 +1184,17 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  implicit none
  integer :: i, fid1, fid2, ncoeff, RENAME
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  integer, parameter :: iout = 6
  real(kind=8), intent(in) :: mo(nbf,nif)
+!f2py depend(nbf,nif) :: mo
+!f2py intent(in) :: mo
  real(kind=8), allocatable :: coeff(:)
  character(len=1), intent(in) :: ab
+!f2py intent(in) :: ab
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'

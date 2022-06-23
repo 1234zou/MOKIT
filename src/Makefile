@@ -63,7 +63,7 @@ OBJ_fch2wfn = file_op.o string_manipulate.o read_fch.o fch2wfn.o
 OBJ_fch247 = file_op.o string_manipulate.o read_fch.o math_sub.o int1.o fch247.o
 OBJ_frag_guess_wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
                      mr_keyword.o do_hf.o math_sub.o rwwfn.o rwgeom.o read_gms_inp.o \
-                     call_qc_calc_int.o frag_guess_wfn.o
+                     call_qc_calc_int.o construct_vir.o ortho.o frag_guess_wfn.o
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o

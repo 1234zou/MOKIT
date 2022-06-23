@@ -20,13 +20,12 @@ end module root_param_fch2psi
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=240) :: fchname = ' '
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine fch2psi: wrong command line arguments!'
-  write(iout,'(A,/)') ' Example (R(O)HF, UHF, CAS): fch2psi a.fch'
+  write(6,'(/,A)') ' ERROR in subroutine fch2psi: wrong command line arguments!'
+  write(6,'(A,/)') ' Example (R(O)HF, UHF, CAS): fch2psi a.fch'
   stop
  end if
 
@@ -43,7 +42,6 @@ subroutine fch2psi(fchname)
  implicit none
  integer :: i, nbf0, nbf, nif, ncontr, system
  integer :: n3pmark, n6dmark, n10fmark, n15gmark, n21hmark
- integer, parameter :: iout = 6
  integer, allocatable :: shell_type(:), shl2atm(:)
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
@@ -67,9 +65,10 @@ subroutine fch2psi(fchname)
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2psi: call utility bas_gms2psi failed.'
-  write(iout,'(A)') 'Did you forget to compile bas_gms2psi? Or the file '//&
-                     TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)') 'ERROR in subroutine fch2psi: call utility bas_gms2psi failed.'
+  write(6,'(A)') 'Did you forget to compile bas_gms2psi? Or the file '//&
+                  TRIM(fchname)
+  write(6,'(A,/)') 'may be incomplete.'
   stop
  end if
  call delete_file(inpname)
@@ -141,16 +140,16 @@ subroutine fch2psi(fchname)
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2psi: angular momentum too high!'
-   write(iout,'(3(A,I0))') 'ncontr=', ncontr, ', i=', i, ', nbf=', nbf
+   write(6,'(A)') 'ERROR in subroutine fch2psi: angular momentum too high!'
+   write(6,'(3(A,I0))') 'ncontr=', ncontr, ', i=', i, ', nbf=', nbf
    stop
   end select
  end do ! for i
  deallocate(shell_type)
 
  if(nbf0 /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine fch2psi: inconsistent nbf.'
-  write(iout,'(2(A,I0))') 'nbf0=', nbf0, ', nbf=', nbf
+  write(6,'(A)') 'ERROR in subroutine fch2psi: inconsistent nbf.'
+  write(6,'(2(A,I0))') 'nbf0=', nbf0, ', nbf=', nbf
   stop
  end if
 

@@ -107,10 +107,11 @@ def permute_orb(fchname, orb1, orb2):
   '''
   Permute two orbitals in a given Gaussian .fch(k) file
   '''
-  from rwwfn import read_eigenvalues_from_fch
+  from rwwfn import read_mo_from_fch, write_mo_into_fch, \
+    read_eigenvalues_from_fch, write_eigenvalues_to_fch
 
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
-  mo = fch2py(fchname, nbf, nif, 'a')
+  mo = read_mo_from_fch(fchname, nbf, nif, 'a')
   mo1 = mo[:,orb1-1].copy()
   mo2 = mo[:,orb2-1].copy()
   mo[:,orb1-1] = mo2.copy()
@@ -121,5 +122,6 @@ def permute_orb(fchname, orb1, orb2):
   ev[orb1-1] = ev[orb2-1]
   ev[orb2-1] = r
 
-  py2fch(fchname, nbf, nif, mo, 'a', ev, False)
+  write_mo_into_fch(fchname, nbf, nif, 'a', mo)
+  write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
 

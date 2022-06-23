@@ -75,32 +75,39 @@ module theory_level
 end module theory_level
 
 program main
- use print_id, only: iout
  implicit none
  integer :: i
+ character(len=24) :: data_string
  character(len=240) :: gau_path, gjfname
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
-                      & arguments!'
-  write(iout,'(/,A)') " Example 1 (in bash): frag_guess_wfn water_dimer.gjf >& water_dimer.out &"
-  write(iout,'(A,/)') " Example 2 (in dash): frag_guess_wfn water_dimer.gjf >water_dimer.out 2>&1 &"
+  write(6,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
+                   & arguments!'
+  write(6,'(/,A)') " Example 1 (in bash): frag_guess_wfn water_dimer.gjf >& water_dimer.out &"
+  write(6,'(A,/)') " Example 2 (in dash): frag_guess_wfn water_dimer.gjf >water_dimer.out 2>&1 &"
   stop
  end if
 
  gjfname = ' '
  call getarg(1, gjfname)
  if(index(gjfname,'.gjf') == 0) then
-  write(iout,'(/,A)') "ERROR in subroutine frag_guess_wfn: '.gjf' suffix not&
-                     & found in filename "//TRIM(gjfname)
+  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: '.gjf' suffix not found&
+                  & in filename "//TRIM(gjfname)
   stop
  end if
- call require_file_exist(gjfname)
 
+ call require_file_exist(gjfname)
  call get_gau_path(gau_path)
+
+ call fdate(data_string)
+ write(6,'(A)') TRIM(data_string)
+
  call frag_guess_wfn(gau_path, gjfname)
  call gen_inp_of_frags()
+
+ call fdate(data_string)
+ write(6,'(A)') TRIM(data_string)
  stop
 end program main 
 
@@ -525,14 +532,14 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   write(iout,'(A,F18.9,A,F6.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
                                  ', frags(i)%ssquare=', frags(3)%ssquare
  end if
- call delete_files(2, [frags(nfrag)%fname, logname])
+ call delete_file(frags(nfrag)%fname)
+! call delete_files(2, [frags(nfrag)%fname, logname])
 
  if(eda_type == 4) then ! SAPT in PSI4
   write(iout,'(A)') 'All SCF computations finished. Generating PSI4 input file...'
  else
   write(iout,'(A)') 'All SCF computations finished. Generating GAMESS input file...'
  end if
- return
 end subroutine frag_guess_wfn
 
 ! read the parameter eda_type from a given .gjf file
@@ -1686,13 +1693,11 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
 end subroutine del_ecp_of_ghost_in_gjf
 
 ! construct supermolecule occ MOs from direct sum of fragment occ MOs
-! construct supermolecule vir MOs from direct sum of fragment vir MOs
+! construct supermolecule vir MOs by PAO construction
 subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn_type)
- use print_id, only: iout
  use util_wrapper, only: formchk, unfchk
  implicit none
- integer :: i, j, fid0, fid, RENAME
- integer :: k1, k2, k3, k4, k5, k6, k7
+ integer :: i, j, fid0, fid, k1, k2, k5, RENAME
  integer :: nbf0, nif0, nbf, nif
  integer :: na0, nb0, na, nb   ! No. of alpha/beta electrons
  integer, intent(in) :: n
@@ -1701,25 +1706,26 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
  character(len=240), intent(in) :: gjfname0(n), gjfname
  real(kind=8), allocatable :: mo_a0(:,:), mo_b0(:,:) ! fragment MOs
  real(kind=8), allocatable :: mo_a(:,:), mo_b(:,:)   ! supermolecule MOs
+ real(kind=8), allocatable :: ovlp(:,:) ! AO overlap matrix
  logical :: alive
  logical, intent(in) :: pos(n)
 
  i = index(gjfname, '.gjf', back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine direct_sum_frag_mo2super_mo: no '.gjf'&
-                  & string found in file "//TRIM(gjfname)
+  write(6,'(A)') "ERROR in subroutine direct_sum_frag_mo2super_mo: no '.gjf'&
+                & string found in file "//TRIM(gjfname)
   stop
  end if
 
  if(ANY(wfn_type0 == 0) .or. wfn_type==0) then
-  write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: there exists&
-                   & at least one file'
-  write(iout,'(A)') 'whose wfn_type is 0. Not allowed.'
+  write(6,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: there exists&
+                & at least one file'
+  write(6,'(A)') 'whose wfn_type is 0. Not allowed.'
 
   do i = 1, n, 1
-   write(iout,'(2(A,I0))') 'i=',i,','//TRIM(gjfname0(i))//',wfn_type0(i)=',wfn_type0(i)
+   write(6,'(2(A,I0))') 'i=',i,','//TRIM(gjfname0(i))//',wfn_type0(i)=',wfn_type0(i)
   end do ! for i
-  write(iout,'(A,I0)') 'wfn_type=', wfn_type
+  write(6,'(A,I0)') 'wfn_type=', wfn_type
   stop
  end if
 
@@ -1757,11 +1763,13 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
  chkname = gjfname(1:i-1)//'.chk'
  inquire(file=TRIM(fchname), exist=alive)
  if(.not. alive) call formchk(chkname)
+
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+
  allocate(mo_a(nbf,nif), source=0d0)
  if(wfn_type == 3) allocate(mo_b(nbf,nif), source=0d0)
- k1 = 0; k2 = 0; k3 = na; k4 = 0; k5 = 0; k6 = nb; k7 = 0
+ k1 = 0; k2 = 0; k5 = 0
 
  do i = 1, n, 1
   j = index(gjfname0(i), '.gjf', back=.true.)
@@ -1781,31 +1789,14 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
   end if
 
   if(k1+nbf0 > nbf) then
-   write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 1st&
-                    & dimension of array mo_a out of range!'
-   write(iout,'(5(A,I0))') 'k1=',k1,',nbf0=',nbf0,',nbf=',nbf,',i=',i,',n=',n
-   stop
-  end if
-  k4 = k3 + nif0 - na0
-  if(k4 > nif) then
-   write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 2nd&
-                    & dimension of array mo_a out of range!'
-   write(iout,'(3(A,I0))') 'k3=',k3,',nif0=',nif0,',na0=',na0
-   write(iout,'(4(A,I0))') 'k4=',k4,',nif=',nif,',i=',i,',n=',n
+   write(6,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 1st&
+                 & dimension of array mo_a out of range!'
+   write(6,'(5(A,I0))') 'k1=',k1,',nbf0=',nbf0,',nbf=',nbf,',i=',i,',n=',n
    stop
   end if
   mo_a(k1+1:k1+nbf0, k2+1:k2+na0) = mo_a0(:,1:na0)
-  mo_a(k1+1:k1+nbf0, k3+1:k4) = mo_a0(:,na0+1:nif0)
 
   if(wfn_type == 3) then ! UHF
-   k7 = k6 + nif0 - nb0
-   if(k7 > nif) then
-    write(iout,'(A)') 'ERROR in subroutine direct_sum_frag_mo2super_mo: the 2nd&
-                     & dimension of array mo_b out of range!'
-    write(iout,'(3(A,I0))') 'k6=',k6,',nif0=',nif0,',nb0=',nb0
-    write(iout,'(4(A,I0))') 'k7=',k7,',nif=',nif,',i=',i,',n=',n
-    stop
-   end if
    if(wfn_type0(i) == 3) then ! UHF fragment
     allocate(mo_b0(nbf0,nif0))
     if(pos(i)) then
@@ -1814,32 +1805,41 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
      call read_mo_from_fch(fchname0, nbf0, nif0, 'a', mo_b0)
     end if
     mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_b0(:,1:nb0)
-    mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_b0(:,nb0+1:nif0)
     deallocate(mo_b0)
    else ! RHF/ROHF fragment
     mo_b(k1+1:k1+nbf0, k5+1:k5+nb0) = mo_a0(:,1:nb0)
-    mo_b(k1+1:k1+nbf0, k6+1:k7) = mo_a0(:,nb0+1:nif0)
    end if
    k5 = k5 + nb0
-   k6 = k7
   end if
 
   deallocate(mo_a0)
   k1 = k1 + nbf0
   k2 = k2 + na0
-  k3 = k4
  end do ! for i
 
+ ! In previous version, virtual MOs of the supermolecule were constructed from
+ ! virtual MOs of fragments. But it did not work for linear dependence case,
+ ! so I change it to construction of virtual MOs using PAO
+
+ allocate(ovlp(nbf,nbf), mo_a0(nbf,nif))
+ call get_ao_ovlp_using_fch(fchname, nbf, ovlp)
+ ! orthonormalize occupied MOs
+ call orthonormalize_orb(nbf, k2, ovlp, mo_a(:,1:k2), mo_a0(:,1:k2))
+ ! generate virtual MOs using PAO
+ call construct_vir(nbf, nif, k2+1, mo_a0, ovlp, mo_a)
  call write_mo_into_fch(fchname, nbf, nif, 'a', mo_a)
- deallocate(mo_a)
+ deallocate(mo_a, mo_a0)
 
  if(wfn_type == 3) then
+  allocate(mo_b0(nbf,nif))
+  call orthonormalize_orb(nbf, k5, ovlp, mo_b(:,1:k5), mo_b0(:,1:k5))
+  call construct_vir(nbf, nif, k5+1, mo_b0, ovlp, mo_b)
   call write_mo_into_fch(fchname, nbf, nif, 'b', mo_b)
-  deallocate(mo_b)
+  deallocate(mo_b, mo_b0)
  end if
 
+ deallocate(ovlp)
  call unfchk(fchname, chkname)
- return
 end subroutine direct_sum_frag_mo2super_mo
 
 ! sum fragment Total SCF Densities and print the 

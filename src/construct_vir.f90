@@ -18,7 +18,6 @@
 
 subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  implicit none
- integer, parameter :: iout = 6
  integer :: i, j, nvir
  integer :: nbf, nif, idx
 !f2py intent(in) :: nbf, nif, idx
@@ -33,19 +32,19 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
 !f2py intent(in,copy) :: coeff
 !f2py intent(out) :: new_coeff
 
- real(kind=8), allocatable :: p(:,:), v(:,:), sv(:,:)
- real(kind=8), allocatable :: s1(:,:), ev(:), x(:,:)
+ real(kind=8), allocatable :: p(:,:), v(:,:), s1(:,:), ev(:), x(:,:)
  ! V: projected atomic orbitals (PAO)
  ! P: density matrix of atomic basis functions, sigma_i(Cui*Cvi)
  ! Note that the index i can be larger than nocc, in which case we only
  !  construct part of virtual orbitals.
 
  if(idx == nif+1) then
-  write(iout,'(/,A)') 'Warning in subroutine construct_vir: idx=nif+1 found.'
-  write(iout,'(A)') 'No need to construct virtual MOs.'
+  write(6,'(/,A)') 'Warning in subroutine construct_vir: idx=nif+1 found.'
+  write(6,'(A)') 'No need to construct virtual MOs.'
   new_coeff = coeff
   return
  end if
+
  ! Step 1: P = sigma_i(Cui*Cvi)
  ! ?gemm: Computes a matrix-matrix product with general matrices
  ! Syntax FORTRAN 77:
@@ -63,11 +62,8 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  deallocate(p)
 
  ! Step 3: S1 = (VT)SV
- allocate(sv(nbf,nbf), source=0d0)
  allocate(s1(nbf,nbf), source=0d0)
- call dsymm('L', 'U', nbf, nbf, 1d0, ovlp, nbf, v, nbf, 0d0, sv, nbf)
- call dgemm('T', 'N', nbf, nbf, nbf, 1d0, v, nbf, sv, nbf, 0d0, s1, nbf)
- deallocate(sv)
+ call calc_CTSC(nbf, nbf, v, ovlp, s1)
 
  ! Step 4: diagonalize S1 (note that S1 is symmetric) and get X
  allocate(ev(nbf))
@@ -84,18 +80,14 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  new_coeff = coeff
 
  ! Step 6: check orthonormality
- allocate(s1(nbf,nif), source=0d0)
  allocate(x(nif,nif), source=0d0)
- call dsymm('L', 'U', nbf, nif, 1d0, ovlp, nbf, coeff, nbf, 0d0, s1, nbf)
- call dgemm('T', 'N', nif, nif, nbf, 1d0, coeff, nbf, s1, nbf, 0d0, x, nif)
- deallocate(s1)
- forall(i = 1:nif) x(i,i) = x(i,i) - 1.0d0
- x = DABS(x)
- write(iout,'(/,A)') 'The orthonormality of Alpha MO after PAO construction:'
- write(iout,'(A,F16.10)') 'maxv=', MAXVAL(x)
- write(iout,'(A,F16.10)') 'abs_mean=', SUM(x)/DBLE(nif*nif)
- deallocate(x)
+ call calc_CTSC(nbf, nif, coeff, ovlp, x)
 
- return
+ forall(i = 1:nif) x(i,i) = x(i,i) - 1d0
+ x = DABS(x)
+ write(6,'(/,A)') 'The orthonormality of Alpha MO after PAO construction:'
+ write(6,'(A,F16.10)') 'maxv=', MAXVAL(x)
+ write(6,'(A,F16.10)') 'abs_mean=', SUM(x)/DBLE(nif*nif)
+ deallocate(x)
 end subroutine construct_vir
 
