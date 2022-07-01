@@ -2511,11 +2511,10 @@ end subroutine read_mrpt_energy_from_bdf_out
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
 subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
-           nuc_pt_e, davidson_e, e)
+                                          nuc_pt_e, davidson_e, e)
  implicit none
  integer :: i, fid
  integer, intent(in) :: CtrType
- integer, parameter :: iout = 6
  real(kind=8) :: casci_e, ref_weight
  real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
  real(kind=8), intent(out) :: davidson_e, e
@@ -2635,8 +2634,8 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    if(buf(5:19) == 'Total CI energy') exit
 
    if(buf(11:23) == 'Psi4: An Open') then
-    write(iout,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
-    write(iout,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
+    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(6,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
     close(fid)
     stop
    end if
@@ -2654,8 +2653,8 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    if(buf(1:19) == '@ Final CI energies') exit
 
    if(buf(22:32) == 'Dalton - An') then
-    write(iout,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
-    write(iout,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
+    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(6,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
     close(fid)
     stop
    end if
@@ -2690,13 +2689,12 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   davidson_e = (1d0 - ref_weight)*(e - casci_e)
 
  case default
-  write(iout,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
-                   & mrcisd_prog='//TRIM(mrcisd_prog)
+  write(6,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
+                & mrcisd_prog='//TRIM(mrcisd_prog)
   stop
  end select
 
  close(fid)
- return
 end subroutine read_mrcisd_energy_from_output
 
 ! read MC-PDFT energy from a given (Open)Molcas/GAMESS output file
@@ -3109,7 +3107,6 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
   end do ! for k
  end do ! for i
 
- return
 end subroutine read_density_from_fch
 
 ! write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file
@@ -3634,8 +3631,6 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
    S(j,i) = S(i,j)
   end do ! for j
  end do ! for i
-
- return
 end subroutine read_ao_ovlp_from_47
 
 ! generate natural orbitals from provided density matrix and overlap matrix
@@ -3692,7 +3687,6 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
  new_coeff = U
  deallocate(U)
- return
 end subroutine get_no_from_density_and_ao_ovlp
 
 ! read spin multipliticity from a given .fch(k) file

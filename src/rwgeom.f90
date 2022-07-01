@@ -490,13 +490,17 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem, nuc, coor, charge, mult
+!f2py depend(natom) :: elem, nuc, coor
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
@@ -531,6 +535,33 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  coor = coor*Bohr_const ! convert Bohr to Angstrom
  forall(i=1:natom) elem(i) = nuc2elem(nuc(i))
 end subroutine read_elem_and_coor_from_fch
+
+! calculate the nuclear dipole moment from
+subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ real(kind=8), allocatable :: rnuc(:)
+ real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: nuc, coor
+!f2py depend(natom) :: nuc, coor
+ real(kind=8), intent(out) :: n_dipole(3) ! x,y,z 3-components
+!f2py intent(out) :: n_dipole
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+
+ allocate(rnuc(natom))
+ forall(i = 1:natom) rnuc(i) = DBLE(nuc(i))
+
+ do i = 1, 3
+  n_dipole(i) = DOT_PRODUCT(rnuc, coor(i,:))
+ end do ! for i
+ deallocate(rnuc)
+
+ ! input coor are in Angstrom, convert n_dipole into a.u.
+ n_dipole = n_dipole/Bohr_const
+end subroutine get_nuc_dipole
 
 ! read Cartesian gradient from a given PySCF output file
 subroutine read_grad_from_pyscf_out(outname, natom, grad)

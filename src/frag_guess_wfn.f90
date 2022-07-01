@@ -602,7 +602,6 @@ end subroutine read_eda_type_from_gjf
 
 ! read memory and nprocshared from a given .gjf file
 subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
- use print_id, only: iout
  implicit none
  integer :: i, j, k, fid
  integer, intent(out) :: mem, np
@@ -634,10 +633,10 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
    case('mw')
     mem = 8*mem
    case default
-    write(iout,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: memory&
-                       & unit cannot be recognized.'
-    write(iout,'(A)') "Only 'GB', 'MB', 'GW', and 'MW' are accepted."
-    write(iout,'(A)') 'unit = '//TRIM(buf(j-1:j))
+    write(6,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: memory&
+                    & unit cannot be recognized.'
+    write(6,'(A)') "Only 'GB', 'MB', 'GW', and 'MW' are accepted."
+    write(6,'(A)') 'unit = '//TRIM(buf(j-1:j))
     stop
    end select
   else if(buf(1:6) == '%nproc') then
@@ -648,11 +647,10 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
  close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
-                   & file '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
+                & file '//TRIM(gjfname)
   stop
  end if
- return
 end subroutine read_mem_and_nproc_from_gjf
 
 ! read the method and basis set from a string

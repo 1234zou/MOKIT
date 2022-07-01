@@ -8,7 +8,7 @@ BIN = ..\bin
 
 # --- ifort ----
 F90 = ifort
-FFLAG = /O2 /fpp
+FFLAG = /O2 /fpp /heap-arrays
 MKL_FLAG = /Qmkl:sequential
 LFLAG = /libs:static
 
@@ -47,7 +47,8 @@ OBJ_fch_mo_copy = file_op.obj math_sub.obj rwwfn.obj fch_mo_copy.obj
 OBJ_fch2wfn = file_op.obj string_manipulate.obj read_fch.obj fch2wfn.obj
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
                      util_wrapper.obj math_sub.obj rwwfn.obj rwgeom.obj do_hf.obj \
-                     read_gms_inp.obj call_qc_calc_int.obj frag_guess_wfn.obj
+                     read_gms_inp.obj call_qc_calc_int.obj construct_vir.obj \
+                     ortho.obj frag_guess_wfn.obj
 OBJ_gvb_correct_pairs = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                         gvb_correct_pairs.obj
 OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
@@ -204,5 +205,5 @@ clean:
 	del *.obj *.mod
 
 distclean:
-	del *.obj *.mod ..\bin\*
+	del *.obj *.mod ..\bin\*.exe
 

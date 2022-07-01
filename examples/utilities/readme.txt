@@ -8,7 +8,7 @@ Run 'fch2inp 01-water_cc-pVTZ_6D10F.fch' in Shell, a file 01-water_cc-pVTZ_6D10F
 ---------------------------------------------------
 Example 2: transfer UHF MOs from Gaussian to GAMESS
 ---------------------------------------------------
-Run 'fch2inp 02-bis_6D10F.fchk -uhf' in Shell, a file 02-bis_6D10F.inp would be generated.
+Run 'fch2inp 02-bis_6D10F.fchk' in Shell, a file 02-bis_6D10F.inp would be generated.
 
 ----------------------------------------------------------------
 Example 2.1: transfer UHF MOs from Gaussian to MOLCAS/OpenMolcas

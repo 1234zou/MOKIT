@@ -34,7 +34,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jun 22, 2022
+Jul 1, 2022
 
 Installation
 ------------
@@ -60,10 +60,9 @@ Installation
         export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export ORCA=/opt/orca_5_0_3/orca
         export GMS=/home/$USER/software/gamess/rungms
 
-  (Remember to modify the `ORCA` and `GMS` paths to suit your local environment)
+  (Remember to modify the `GMS` path to suit your local environment)
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in

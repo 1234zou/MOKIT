@@ -6,7 +6,7 @@ subroutine do_sa_cas()
   npair0, sa_cas_e, ci_mult
  use mr_keyword, only: ist, nacto_wish, nacte_wish, hf_fch, casscf, bgchg, &
   casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, dryrun, excited, nstate, &
-  nevpt2, caspt2, noQD, ON_thres
+  nevpt2, caspt2, noQD, ON_thres, orca_path
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -73,7 +73,7 @@ subroutine do_sa_cas()
   inpname = hf_fch(1:i-1)//'_SA.inp'
   outname = hf_fch(1:i-1)//'_SA.out'
   call prt_sacas_orca_inp(inpname, hf_fch)
-  call submit_orca_job(inpname)
+  call submit_orca_job(orca_path, inpname)
  case('gamess')
   inpname = hf_fch(1:i-1)//'_SA.inp'
   outname = hf_fch(1:i-1)//'_SA.gms'
@@ -515,27 +515,6 @@ subroutine submit_pyscf_job(pyname)
   stop
  end if
 end subroutine submit_pyscf_job
-
-subroutine submit_orca_job(inpname)
- use mr_keyword, only: orca_path
- implicit none
- integer :: i, system
- character(len=240) :: outname
- character(len=480) :: buf
- character(len=240), intent(in) :: inpname
-
- i = index(inpname, '.inp', back=.true.)
- outname = inpname(1:i-1)//'.out'
-
- write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$$ORCA '//TRIM(buf)
- i = system(TRIM(orca_path)//' '//TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_orca_job: ORCA job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-  stop
- end if
-end subroutine submit_orca_job
 
 subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
                                             sa_cas_e, ci_mult)

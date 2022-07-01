@@ -177,6 +177,7 @@ module mr_keyword
  logical :: ovbmp2  = .false.
  logical :: sdspt2  = .false.
  logical :: mrcisd  = .false.
+ logical :: mrcisdt = .false. ! uncontracted MRCISDT
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
@@ -212,6 +213,7 @@ module mr_keyword
  character(len=10) :: nevpt2_prog  = 'pyscf'
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
+ character(len=10) :: mrcisdt_prog = 'openmolcas' ! uncontracted MRCISDT
  character(len=10) :: mcpdft_prog  = 'openmolcas'
  character(len=10) :: mrcc_prog    = 'orca'
  character(len=10) :: cis_prog     = 'gaussian'
@@ -289,35 +291,6 @@ contains
   return
  end subroutine get_molpro_path
 
- subroutine get_psi4_path()
-  implicit none
-  integer :: i, fid, system
-
-  i = system("which psi4 >mokit.psi4 2>&1")
-  if(i /= 0) then
-   psi4_path = 'mokit.psi4'
-   call delete_file(psi4_path)
-   psi4_path = 'NOT FOUND'
-   return
-  end if
-
-  open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
-  read(fid,'(A)',iostat=i) psi4_path
-  close(fid,status='delete')
-
-  if(i /= 0) then
-   psi4_path = 'NOT FOUND'
-  else
-   if(LEN_TRIM(psi4_path) == 0) then
-    psi4_path = 'NOT FOUND'
-   else if(index(psi4_path,'no psi4') > 0) then
-    psi4_path = 'NOT FOUND'
-   end if
-  end if
-
-  return
- end subroutine get_psi4_path
-
  ! repalce variables like '$USER' in path into real path
  subroutine replace_env_in_path(path)
   implicit none
@@ -361,25 +334,24 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jun-23)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-1)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
   data_string = ' '
   i = hostnm(hostname)
   call fdate(data_string)
-  write(iout,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+  write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
   call getenv('MOKIT_ROOT', mokit_root)
   call get_gau_path(gau_path)
   call get_molcas_path()
   call get_molpro_path()
-  call get_psi4_path()
+  call get_psi4_path(psi4_path)
+  call get_orca_path(orca_path)
   call getenv('GMS', gms_path)
-  call getenv('ORCA', orca_path)
   call getenv('BDF', bdf_path)
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
-  if(LEN_TRIM(orca_path) == 0) orca_path = 'NOT FOUND'
   if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
   write(iout,'(/,A)') 'Read program paths from environment variables:'
@@ -439,30 +411,29 @@ contains
    if(buf(1:1) == '#') exit
 
    call lower(buf)
-   i = index(buf,'mem=')
-   if(i /= 0) then
+   if(buf(1:5) == '%mem=') then
     j = index(buf,'gb')
     if(j == 0) then
-     write(iout,'(A)') 'ERROR in subroutine parse_keyword: memory unit only GB&
-                      & is accepted.'
+     write(6,'(A)') 'ERROR in subroutine parse_keyword: memory unit only GB&
+                   & is accepted.'
      close(fid)
      stop
     end if
-    read(buf(i+4:j-1),*) mem
-    cycle
-   end if
-
-   i = index(buf,'nproc')
-   if(i /= 0) then
+    read(buf(6:j-1),*) mem
+   else if(buf(1:6) == '%nproc') then
     j = index(buf,'=')
     read(buf(j+1:),*) nproc
-    cycle
+   else
+    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: only %mem and %nproc&
+                    & are allowed.'
+    write(6,'(A)') 'Bot now got '//TRIM(buf)
+    stop
    end if
   end do ! for while
 
   if(ifail /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
-   write(iout,'(A)') 'The input file may be incomplete. File='//TRIM(gjfname)
+   write(6,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
+   write(6,'(A)') 'The input file may be incomplete. File='//TRIM(gjfname)
    close(fid)
    stop
   end if
@@ -470,10 +441,10 @@ contains
   call lower(buf)
   i = index(buf,'/')
   if(i == 0) then
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected&
-                    & in keyword line."
-   write(iout,'(A)') 'The method and basis set must be specified via method/bas&
-                    &is, e.g. CASSCF/cc-pVDZ.'
+   write(6,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected&
+                 & in keyword line."
+   write(6,'(A)') 'The method and basis set must be specified via method/bas&
+                  &is, e.g. CASSCF/cc-pVDZ.'
    close(fid)
    stop
   end if
@@ -481,8 +452,8 @@ contains
 
   j = index(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
-   write(iout,'(A)') "current line '"//TRIM(buf)//"'"
+   write(6,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
+   write(6,'(A)') "current line '"//TRIM(buf)//"'"
    stop
   end if
   method0 = buf(j+1:i-1)
@@ -490,8 +461,8 @@ contains
   i = index(method0, '('); j = index(method0, ','); k = index(method0, ')')
   alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
   if(.not. (alive(1) .or. alive(2)) ) then
-   write(iout,'(A)') 'ERROR in subroutine parse_keyword: incomplete method specified.'
-   write(iout,'(A)') 'method = '//TRIM(method0)
+   write(6,'(A)') 'ERROR in subroutine parse_keyword: incomplete method specified.'
+   write(6,'(A)') 'method = '//TRIM(method0)
    stop
   end if
 
@@ -499,22 +470,22 @@ contains
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mrcisd','sdspt2','mrmp2','caspt3','caspt2','nevpt3','nevpt2',&
-        'casscf','dmrgscf','casci','dmrgci')
+   case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','caspt3','caspt2','nevpt3',&
+        'nevpt2','casscf','dmrgscf','casci','dmrgci','caspt2k','caspt2-k')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
-     write(iout,'(A)') 'ERROR in subroutine parse_keyword: wrong number of active&
-                      & electrons/orbitals specified.'
-     write(iout,'(2(A,I0))') 'nacte/nacto=', nacte_wish, '/', nacto_wish
-     write(iout,'(A)') 'Currently only NactE = NactO > 0 such as (6,6) supported.'
+     write(6,'(A)') 'ERROR in subroutine parse_keyword: wrong number of active&
+                   & electrons/orbitals specified.'
+     write(6,'(2(A,I0))') 'nacte/nacto=', nacte_wish, '/', nacto_wish
+     write(6,'(A)') 'Currently only NactE = NactO > 0 such as (6,6) supported.'
      stop
     end if
    case('gvb')   ! e.g. GVB(6) is specified
     if(j /= 0) then
-     write(iout,'(A)') 'ERROR in subroutine parse_keyword: GVB active space should&
-                      & be specified like GVB(3),'
-     write(iout,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like CAS?'
+     write(6,'(A)') 'ERROR in subroutine parse_keyword: GVB active space should&
+                   & be specified like GVB(3),'
+     write(6,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like CAS?'
      stop
     end if
     read(method0(i+1:k-1),*) npair_wish
@@ -524,7 +495,8 @@ contains
      stop
     end if
    case default
-    write(iout,'(A)') 'ERROR in subroutine parse_keyword: unsupported method '//TRIM(method)
+    write(6,'(A)') 'ERROR in subroutine parse_keyword: unsupported method '//&
+                    TRIM(method)
     stop
    end select
   else ! i = 0
@@ -532,18 +504,20 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','sdspt2','mrmp2','ovbmp2','caspt3','caspt2','caspt2k',&
-       'nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci','gvb','ficmrccsd',&
-       'mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)','bccc2b','bccc3b')
+  case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3','caspt2',&
+       'caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci',&
+       'gvb','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)',&
+       'bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
-   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
-                        TRIM(method)//"' not supported."
-   write(iout,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                       &DMRGSCF, NEVPT2,'
-   write(iout,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, MCPDFT,&
-                    & FICMRCCSD,'
-   write(iout,'(A)') 'MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T), BCCC2b, BCCC3b.'
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
+                     TRIM(method)//"' not supported."
+   write(6,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
+                    &DMRGSCF, NEVPT2,'
+   write(6,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, &
+                  &MRCISDT, MCPDFT,'
+   write(6,'(A)') 'FICMRCCSD, MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T), &
+                  &BCCC2b, BCCC3b.'
    stop
   end select
 
@@ -553,6 +527,9 @@ contains
    casscf = .true.
   case('mrcisd')
    mrcisd = .true.
+   casscf = .true.
+  case('mrcisdt')
+   mrcisdt= .true.
    casscf = .true.
   case('sdspt2')
    sdspt2 = .true.
@@ -566,7 +543,7 @@ contains
   case('caspt2')
    caspt2 = .true.
    casscf = .true.
-  case('caspt2k')
+  case('caspt2k','caspt2-k')
    caspt2 = .true.; casscf = .true.
    caspt2k = .true.; caspt2_prog = 'orca'
   case('caspt3')
@@ -612,14 +589,14 @@ contains
   j = i - 1 + index(buf(i+1:),' ')
   if(j == 0) j = LEN_TRIM(buf)
   basis = buf(i+1:j)
-  write(iout,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
-  write(iout,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
+  write(6,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
+  write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
 
   if(basis(1:5) == 'def2-') then
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detec&
-                     &ted in given basis set."
-   write(iout,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP,&
-                     & not def2-TZVP.'
+   write(6,'(A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detec&
+                  &ted in given basis set."
+   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP,&
+                 & not def2-TZVP.'
    stop
   end if
 
@@ -629,9 +606,9 @@ contains
 
   i = index(buf, 'guess=')
   if(i > 0) then
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'guess=' syntax&
-                    & not supported in automr."
-   write(iout,'(A)') "You can use 'guess()' syntax instead."
+   write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess=' syntax&
+                 & not supported in automr."
+   write(6,'(A)') "You can use 'guess()' syntax instead."
    stop
   end if
 
@@ -640,8 +617,8 @@ contains
    frag_guess = .true.
    j = index(buf(i+6:),'='); k = index(buf(i+6:),')')
    if(j*k == 0)then
-    write(iout,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)'&
-                     & syntax is wrong in file "//TRIM(gjfname)
+    write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)'&
+                  & syntax is wrong in file "//TRIM(gjfname)
     close(fid)
     stop
    end if
@@ -653,10 +630,10 @@ contains
   call lower(buf)
 
   if(buf(1:6) /= 'mokit{') then
-   write(iout,'(A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected&
-                   & in file "//TRIM(gjfname)
-   write(iout,'(A)') "Syntax error. You must put 'mokit{' in leading position&
-                    & of the Title Card line."
+   write(6,'(A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected&
+                 & in file "//TRIM(gjfname)
+   write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position&
+                 & of the Title Card line."
    stop
   end if
 
@@ -688,8 +665,8 @@ contains
    end do ! for while
 
    if(ifail /= 0) then
-    write(iout,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
-    write(iout,'(A)') 'The provided .gjf file may be incomplete.'
+    write(6,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
+    write(6,'(A)') 'The provided .gjf file may be incomplete.'
     close(fid)
     stop
    end if
@@ -698,15 +675,15 @@ contains
   close(fid)
   ! now all keywords are stored in longbuf
 
-  write(iout,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
-  write(iout,'(A)') TRIM(longbuf)
+  write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
+  write(6,'(A)') TRIM(longbuf)
 
   alive1(1:4) = [(index(longbuf,'hf_prog')>0), (index(longbuf,'readrhf')>0), &
                  (index(longbuf,'readuhf')>0), (index(longbuf,'readno')>0)]
   if(alive1(1) .and. ANY(alive1(2:4) .eqv. .true.)) then
-   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog'&
-                      & cannot be used with any of"
-   write(iout,'(A)') "'readrhf', 'readuhf', 'readno'."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog'&
+                   & cannot be used with any of"
+   write(6,'(A)') "'readrhf', 'readuhf', 'readno'."
    stop
   end if
 
@@ -714,52 +691,52 @@ contains
                  (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0), &
                  (index(longbuf,'mcpdft_prog')/=0)]
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
-   write(iout,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword&
-                      & of 'caspt2_prog', 'nevpt2_prog',"
-   write(iout,'(A)') "'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are detected.&
-                     & Only one can be specified in a job."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword&
+                   & of 'caspt2_prog', 'nevpt2_prog',"
+   write(6,'(A)') "'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are detected.&
+                  & Only one can be specified in a job."
    stop
   end if
 
   alive1(1:4)= [(index(longbuf,'casci_prog')/=0),(index(longbuf,'casscf_prog')/=0),&
                 (index(longbuf,'dmrgci_prog')/=0),(index(longbuf,'dmrgscf_prog')/=0)]
   if(alive1(1) .and. alive1(2)) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and&
-                      & CASSCF_prog are detected.'
-   write(iout,'(A)') 'Only one can be specified in a job.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and&
+                   & CASSCF_prog are detected.'
+   write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
   if(alive1(3) .and. alive1(4)) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and&
-                      & DMRGSCF_prog are detected.'
-   write(iout,'(A)') 'Only one can be specified in a job.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and&
+                   & DMRGSCF_prog are detected.'
+   write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
   if(casscf .and. (alive1(1).or.alive1(3))) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
-                      & you specify the CASCI_prog or DMRGCI_prog.'
-   write(iout,'(A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
+                   & you specify the CASCI_prog or DMRGCI_prog.'
+   write(6,'(A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
    stop
   end if
 
   if(casci .and. (alive1(2).or.alive1(4))) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but&
-                      & you specify the CASSCF_prog or DMRGSCF_prog.'
-   write(iout,'(A)') 'You should specify CASCI_prog or DMRGCI_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but&
+                   & you specify the CASSCF_prog or DMRGSCF_prog.'
+   write(6,'(A)') 'You should specify CASCI_prog or DMRGCI_prog.'
    stop
   end if
 
   if(dmrgscf .and. alive1(3)) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated,&
-                      & but you specify the DMRGCI_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated,&
+                   & but you specify the DMRGCI_prog.'
    stop
   end if
 
   if(dmrgci .and. alive1(4)) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated,&
-                      & but you specify the DMRGSCF_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated,&
+                   & but you specify the DMRGSCF_prog.'
    stop
   end if
 
@@ -828,6 +805,8 @@ contains
     read(longbuf(j+1:i-1),*) mrmp2_prog
    case('mrcisd_prog')
     read(longbuf(j+1:i-1),*) mrcisd_prog
+   case('mrcisdt_prog')
+    read(longbuf(j+1:i-1),*) mrcisdt_prog
    case('mcpdft_prog')
     read(longbuf(j+1:i-1),*) mcpdft_prog
    case('mrcc_prog')
@@ -975,8 +954,8 @@ contains
   end select
 
   if(.not. mcpdft) otpdf = 'NONE'
-  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mcpdft .or. &
-              caspt3 .or. nevpt3)
+  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mrcisdt .or. &
+              mcpdft .or. caspt3 .or. nevpt3)
   if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
   call prt_strategy()
  end subroutine parse_keyword
@@ -1272,26 +1251,40 @@ contains
   select case(TRIM(casci_prog))
   case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
   case default
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
+   write(6,'(A)') error_warn
+   write(6,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
    stop
   end select
 
   select case(TRIM(casscf_prog))
   case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
   case default
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
    stop
   end select
 
   select case(TRIM(mrcisd_prog))
   case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton','gamess')
   case default
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
    stop
   end select
+
+  select case(TRIM(mrcisdt_prog))
+  case('gaussian','openmolcas','dalton')
+  case default
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'User specified MRCISDT program cannot be identified:'//TRIM(mrcisd_prog)
+   stop
+  end select
+
+  if(mrcisdt) then
+   CtrType = 1
+   write(6,'(/,A)') 'Only uncontracted MRCISDT is supported. Automatically &
+                    &setting CtrType=1.'
+  end if
 
   if(mrcisd) then
    select case(CtrType)
@@ -1976,4 +1969,50 @@ subroutine check_exe_exist(path)
   stop
  end if
 end subroutine check_exe_exist
+
+subroutine get_psi4_path(psi4_path)
+ implicit none
+ integer :: i, fid, system
+ character(len=240), intent(out) :: psi4_path
+
+ psi4_path = ' '
+ i = system("which psi4 >mokit.psi4 2>&1")
+
+ open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) psi4_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  psi4_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(psi4_path) == 0) then
+   psi4_path = 'NOT FOUND'
+  else if(index(psi4_path,'no psi4') > 0) then
+   psi4_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_psi4_path
+
+subroutine get_orca_path(orca_path)
+ implicit none
+ integer :: i, fid, system
+ character(len=240), intent(out) :: orca_path
+
+ orca_path = ' '
+ i = system("echo `\which orca` >mokit.orca 2>&1")
+
+ open(newunit=fid,file='mokit.orca',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) orca_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  orca_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(orca_path) == 0) then
+   orca_path = 'NOT FOUND'
+  else if(index(orca_path,'no orca') > 0) then
+   orca_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_orca_path
 

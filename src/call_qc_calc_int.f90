@@ -60,29 +60,83 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  end if
 
  deallocate(S)
- return
 end subroutine gen_no_using_density_in_fch
 
-! call Gaussian to compute AO-basis overlap according to a given .fch file
+! get electronic dipole using specified density in a given .fch file
+! Note: the nuclear dipole is calculated using subroutine get_nuc_dipole in
+!       rwgeom.f90
+subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
+ implicit none
+ integer :: i, nbf, nif
+ integer, intent(in) :: itype
+ ! itype has values [1,10] in subroutine read_density_from_fch
+ real(kind=8) :: n_dipole(3)
+ real(kind=8), intent(out) :: dipole(3)
+ real(kind=8), allocatable :: dm(:,:), D(:,:,:)
+ character(len=240), intent(in) :: fchname
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+
+ ! read desired AO-basis density matrix
+ allocate(dm(nbf,nbf))
+ call read_density_from_fch(fchname, itype, nbf, dm)
+
+ ! generate and read AO-basis dipole integrals
+ allocate(D(nbf,nbf,3))
+ call get_ao_dipole_using_fch(fchname, nbf, D)
+
+ ! calculate electronic dipole moment
+ call get_e_dipole_from_PD(nbf, dm, D, dipole)
+
+ deallocate(dm, D)
+end subroutine get_e_dipole_using_density_in_fch
+
+! call Gaussian to compute AO-basis overlap integrals using the given .fch file
 subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: S(nbf,nbf)
+ character(len=240), intent(in) :: fchname
+ character(len=240) :: file47
+
+ call call_gaussian_gen47_from_fch(fchname, file47)
+ call read_ao_ovlp_from_47(file47, nbf, S)
+ call delete_file(file47)
+end subroutine get_ao_ovlp_using_fch
+
+! call Gaussian to compute AO-basis dipole integrals using the given .fch file
+subroutine get_ao_dipole_using_fch(fchname, nbf, D)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: D(nbf,nbf,3)
+ character(len=240), intent(in) :: fchname
+ character(len=240) :: file47
+
+ call call_gaussian_gen47_from_fch(fchname, file47)
+ call read_ao_dipole_from_47(file47, nbf, D)
+ call delete_file(file47)
+end subroutine get_ao_dipole_using_fch
+
+! call Gaussian program to generate .47 file from a given .fch(k) file
+subroutine call_gaussian_gen47_from_fch(fchname, file47)
  use util_wrapper, only: unfchk
  implicit none
  integer :: i, fid, system
- integer, intent(in) :: nbf
- real(kind=8), intent(out) :: S(nbf,nbf)
  character(len=10) :: str
  character(len=24) :: mem
  character(len=240), intent(in) :: fchname
- character(len=240) :: gau_path, proname, chkname, gjfname, logname, file47
+ character(len=240), intent(out) :: file47
+ character(len=240) :: gau_path, proname, chkname, gjfname, logname
 
- str = ' '
+ str = REPEAT(' ',10)
  call get_a_random_int(i)
  write(str,'(I0)') i
 
  i = index(fchname, '.fch', back=.true.)
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine get_ao_ovlp_using_fch: no '.fch'&
-                   & suffix found in filename "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine call_gaussian_gen47_from_fch: no '.fch'&
+                & suffix found in"
+  write(6,'(A)') 'filename '//TRIM(fchname)
   stop
  end if
 
@@ -117,14 +171,66 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  call get_gau_path(gau_path)
  i = system(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: Gaussian job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine call_gaussian_gen47_from_fch: Gaussian&
+                  & job failed.'
   write(6,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
   stop
  end if
+
  call delete_files(3, [chkname, gjfname, logname])
- call read_ao_ovlp_from_47(file47, nbf, S)
- call delete_file(file47)
-end subroutine get_ao_ovlp_using_fch
+end subroutine call_gaussian_gen47_from_fch
+
+! read AO-basis dipole integrals from a given .47 file
+subroutine read_ao_dipole_from_47(file47, nbf, D)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: D(nbf,nbf,3)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: file47
+
+ D = 0d0
+ open(newunit=fid,file=TRIM(file47),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:8) == '$DIPOLE') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_ao_dipole_from_47: no '$DIPOLE'&
+                  & found in file "//TRIM(file47)
+  stop
+ end if
+
+ do i = 1, 3
+  read(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
+ end do ! for i
+
+ close(fid)
+end subroutine read_ao_dipole_from_47
+
+! calculate the electronic dipole moment from AO-basis density matrix and
+! dipole integrals
+subroutine get_e_dipole_from_PD(nbf, P, D, e_dipole)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf
+ real(kind=8), intent(in) :: P(nbf,nbf), D(nbf,nbf,3)
+ real(kind=8), intent(out) :: e_dipole(3) ! x,y,z 3-components
+ real(kind=8), allocatable :: r(:)
+
+ allocate(r(nbf))
+
+ do i = 1, 3
+  forall(j = 1:nbf) r(j) = DOT_PRODUCT(P(:,j), D(:,j,i))
+  e_dipole(i) = -SUM(r)
+ end do ! for i
+
+ deallocate(r)
+end subroutine get_e_dipole_from_PD
 
 ! get a random integer
 subroutine get_a_random_int(i)
@@ -223,7 +329,6 @@ subroutine get_ne_from_PS(nbf, P, S, ne)
  forall(i = 1:nbf) ne0(i) = DOT_PRODUCT(P(:,i),S(:,i))
  ne = SUM(ne0)
  deallocate(ne0)
- return
 end subroutine get_ne_from_PS
 
 ! check whether two double precision values equal to each other
@@ -243,8 +348,6 @@ subroutine check_two_real8_eq(r1, r2, diff)
   write(6,'(3(A,F14.8))') 'tolerance diff. r1=',r1,', r2=',r2,', diff=',diff
   stop
  end if
-
- return
 end subroutine check_two_real8_eq
 
 ! submit a GAMESS job
@@ -311,4 +414,67 @@ subroutine submit_automr_job(gjfname)
   stop
  end if
 end subroutine submit_automr_job
+
+subroutine submit_gau_job(gau_path, gjfname)
+ implicit none
+ integer :: i, system
+ character(len=240) :: logname
+ character(len=240), intent(in) :: gau_path, gjfname
+
+ i = index(gjfname, '.gjf', back=.true.)
+#ifdef _WIN32
+ logname = gjfname(1:i-1)//'.out'
+#else
+ logname = gjfname(1:i-1)//'.log'
+#endif
+
+ write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(gjfname)
+ i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_gau_job: Gaussian job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(logname)//' and check.'
+  stop
+ end if
+end subroutine submit_gau_job
+
+subroutine submit_orca_job(orca_path, inpname)
+ implicit none
+ integer :: i, system
+ character(len=240) :: outname
+ character(len=480) :: buf
+ character(len=240), intent(in) :: orca_path, inpname
+
+ i = index(inpname, '.inp', back=.true.)
+ outname = inpname(1:i-1)//'.out'
+
+ write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
+ write(6,'(A)') '$orca '//TRIM(buf)
+ i = system(TRIM(orca_path)//' '//TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_orca_job: ORCA job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_orca_job
+
+subroutine submit_molcas_job(inpname)
+ implicit none
+ integer :: i, system
+ character(len=240) :: outname
+ character(len=480) :: buf
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.inp', back=.true.)
+ outname = inpname(1:i-1)//'.out'
+
+ write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_molcas_job
 

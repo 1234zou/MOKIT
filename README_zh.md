@@ -35,7 +35,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年6月22号
+2022年7月1号
 
 安装
 ----------
@@ -57,12 +57,11 @@ or
 
 * 在执行'make all'之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
   例如，假定你的MOKIT安装在/home/$USER/software/mokit目录, 你需要在~/.bashrc文件中设定
-  以下变量（ORCA和GAMESS可执行文件的路径请按照您机器上的实际情况修改）:
+  以下变量（GAMESS可执行文件的路径请按照您机器上的实际情况修改）:
 
         export MOKIT_ROOT=/home/$USER/software/mokit
         export PATH=$MOKIT_ROOT/bin:$PATH
         export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export ORCA=/opt/orca_5_0_3/orca
         export GMS=/home/$USER/software/gamess/rungms
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。

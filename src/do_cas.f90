@@ -381,7 +381,7 @@ subroutine do_cas(scf)
   call delete_file(mklname)
   if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
 
-  call submit_orca_job(inpname)
+  call submit_orca_job(orca_path, inpname)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   if(scf) then ! CASSCF
    orbname = TRIM(proname)//'.gbw'
@@ -493,7 +493,7 @@ subroutine do_cas(scf)
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
                                              ! sirius, noarch, del_sout
-  call submit_dalton_job(proname, mem, nproc, .false., .true., .false.)
+  call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
 
   ! untar/unzip the compressed package
   i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
@@ -1065,7 +1065,6 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  if(force) write(fid,'(A)') 'Forces'
  write(fid,'(A)') TRIM(put)
  close(fid)
- return
 end subroutine prt_cas_molpro_inp
 
 ! print CASCI/CASSCF keywords into a given BDF input file
@@ -1180,13 +1179,12 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
  end if
 
  write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
- return
 end subroutine prt_cas_psi4_inp
 
 ! print CASCI/CASSCF keywords into a given Dalton input file
 subroutine prt_cas_dalton_inp(inpname, scf, force)
- use print_id, only: iout
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
+ use mr_keyword, only: DKH2
  implicit none
  integer :: i, nclosed, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -1198,6 +1196,7 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
 
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
+ if(DKH2) write(fid1,'(A)') '.DOUGLAS-KROLL'
  write(fid1,'(A)') '.RUN WAVE FUNCTION'
  write(fid1,'(A,/,A)') '**WAVE FUNCTIONS','.HF'
  if(scf) then
@@ -1238,9 +1237,9 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_cas_dalton_inp: no '**END OF INP'&
+  write(6,'(A)') "ERROR in subroutine prt_cas_dalton_inp: no '**END OF INP'&
                    & found in"
-  write(iout,'(A)') 'file '//TRIM(inpname)//'.'
+  write(6,'(A)') 'file '//TRIM(inpname)//'.'
   close(fid1,status='delete')
   close(fid)
   stop
@@ -1250,12 +1249,12 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_cas_dalton_inp
 
 ! print CASSCF NMR keywords into a given Dalton input file
 subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, nfile)
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
+ use mr_keyword, only: DKH2
  use util_wrapper, only: fch2dal_wrap
  implicit none
  integer :: i, nclosed, fid, fid1, RENAME
@@ -1278,6 +1277,7 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, nfile)
  nclosed = ndb + npair - npair0
  open(newunit=fid,file=TRIM(dalname),status='replace')
  write(fid,'(A)') '**DALTON INPUT'
+ if(DKH2) write(fid,'(A)') '.DOUGLAS-KROLL'
  write(fid,'(A)') '.RUN PROPERTIES'
  write(fid,'(A)') '**WAVE FUNCTIONS'
  if(scf) then
@@ -1337,8 +1337,8 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
  end do ! for i
  origin = bound(1,:)
  tot_ngrid = PRODUCT(ngrid)
- write(6,'(A,I0)') 'ICSS rectangular box range: bound atoms + 6.5 Angstrom. To&
-                   &tal grid = ', tot_ngrid
+ write(6,'(/,A,I0)') 'ICSS rectangular box range: bound atoms + 6.5 Angstrom.&
+                    & Total grid = ', tot_ngrid
  write(6,'(A,F6.3,A,3I5)') 'Interval=', interval, '. Ngrid along x,y,z are', &
                            (ngrid(i),i=1,3)
 

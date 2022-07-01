@@ -91,7 +91,7 @@ end subroutine calc_ovlp_using_fch
 ! explicitly calculate the AO-based dipole moment matrix (D) using basis set
 ! data in a given .fch(k) file
 !TODO: implement this subroutine
-subroutine calc_dipole_using_fch(fchname, nbf, D)
+subroutine calc_dipole_mat_using_fch(fchname, nbf, D)
  implicit none
  integer :: i
  integer, intent(in) :: nbf
@@ -99,15 +99,17 @@ subroutine calc_dipole_using_fch(fchname, nbf, D)
  real(kind=8), intent(out) :: D(nbf,nbf,3) ! x,y,z 3 components
 
  D = 0d0
- forall(i = 1:3) call symmetrize_dmat(nbf, D(:,:,i))
-end subroutine calc_dipole_using_fch
+ do i = 1, 3
+  call symmetrize_dmat(nbf, D(:,:,i))
+ end do ! for i
+end subroutine calc_dipole_mat_using_fch
 
 ! symmetrize a double precision matrix
-pure subroutine symmetrize_dmat(n, a)
+subroutine symmetrize_dmat(n, a)
  implicit none
  integer :: i, j
  integer, intent(in) :: n
- real(kind=8), intent(inout) :: a(n)
+ real(kind=8), intent(inout) :: a(n,n)
 
  forall(i=1:n,j=1:n,j>i) a(i,j) = a(j,i)
 end subroutine symmetrize_dmat

@@ -8,7 +8,6 @@ from pyscf.lo.boys import dipole_integral
 from fch2py import fch2py
 from py2fch import py2fch
 from rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
-import uno as pyuno
 from construct_vir import construct_vir
 from lo import boys, pm
 
@@ -87,6 +86,8 @@ def uno(fchname):
   >>> from gaussian import uno
   >>> uno(fchname='benzene_uhf.fch')
   '''
+  import uno as pyuno
+
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_UNO.fch'
@@ -124,4 +125,30 @@ def permute_orb(fchname, orb1, orb2):
 
   write_mo_into_fch(fchname, nbf, nif, 'a', mo)
   write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
+
+def get_dipole(fchname, itype=None):
+  '''
+  Calculate the dipole moment using density in .fch(k) file
+  itype=1/3/5/7 for Total SCF/CI/MP2/CC Density. Default: itype=1
+  '''
+  from lo import get_e_dipole_using_density_in_fch
+  from rwgeom import read_natom_from_fch, read_elem_and_coor_from_fch, \
+                     get_nuc_dipole
+  if itype is None:
+    itype = 1
+
+  # calculate nuclear dipole
+  natom = read_natom_from_fch(fchname)
+  elem, nuc, coor, charge, mult = read_elem_and_coor_from_fch(fchname, natom)
+  n_dip = get_nuc_dipole(natom, nuc, coor)
+  print('\n Dipole moment from nuclear charges (a.u.):', n_dip)
+
+  # call Gaussian to calculate dipole integrals and calculate electronic dipole
+  e_dip = get_e_dipole_using_density_in_fch(fchname, itype)
+  print(' Dipole moment from electrons (a.u.):', e_dip)
+
+  # (total) electric dipole moment
+  dipole = e_dip + n_dip
+  print(' Dipole moment (a.u.):', dipole)
+  return dipole
 

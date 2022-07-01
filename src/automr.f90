@@ -27,32 +27,32 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jun-23'
+  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jul-1'
   stop
  case('-h','-help','--help')
-  write(iout,'(/,A)')  "Usage: automr [gjfname] >& [outname]"
-  write(iout,'(A)')    "  Example 1 (in bash): automr a.gjf >& a.out &"
-  write(iout,'(A)')    "  Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
-  write(iout,'(/,A)')  'Options:'
-  write(iout,'(A)')    '  -h, -help, --help: Print this message and exit.'
-  write(iout,'(A)')    '  -v, -V, --version: Print the version number of automr and exit.'
-  write(iout,'(/,A)')  'Methods(#p ...):'
-  write(iout,'(A)')    '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3, CASPT2,&
-                      & CASPT2K, CASPT3,'
-  write(iout,'(A)')    '  MRMP2, OVBMP2, SDSPT2, MRCISD, MCPDFT, FICMRCCSD, MkMRCCSD,&
-                      & BWMRCCSD,'
-  write(iout,'(A)')    '  MkMRCCSD(T), BWMRCCSD(T)'
-  write(iout,'(/,A)')  'Frequently used keywords in MOKIT{}:'
-  write(iout,'(A)')    '      HF_prog=Gaussian/PySCF/ORCA/PSI4'
-  write(iout,'(A)')    '     GVB_prog=GAMESS/Gaussian'
-  write(iout,'(A)')    '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
-  write(iout,'(A)')    '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
-  write(iout,'(A)')    '  NEVPT2_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
-  write(iout,'(A)')    '  CASPT2_prog=OpenMolcas/Molpro/ORCA'
-  write(iout,'(A)')    '  MCPDFT_prog=OpenMolcas/GAMESS'
-  write(iout,'(A)')    '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
-  write(iout,'(A)')    '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
-  write(iout,'(A,/)')  '    MRCC_prog=ORCA/NWChem'
+  write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
+  write(6,'(A)')   "  Example 1 (in bash): automr a.gjf >& a.out &"
+  write(6,'(A)')   "  Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(6,'(/,A)') 'Options:'
+  write(6,'(A)')   '  -h, -help, --help: Print this message and exit.'
+  write(6,'(A)')   '  -v, -V, --version: Print the version number of automr and exit.'
+  write(6,'(/,A)') 'Methods(#p ...):'
+  write(6,'(A)')   '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3,&
+                   & CASPT2, CASPT2-K,'
+  write(6,'(A)')   '  CASPT3, MRMP2, OVBMP2, SDSPT2, MRCISD, MRCISDT, MCPDFT,&
+                   & FICMRCCSD,'
+  write(6,'(A)')   '  MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T)'
+  write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
+  write(6,'(A)')   '      HF_prog=Gaussian/PySCF/ORCA/PSI4'
+  write(6,'(A)')   '     GVB_prog=GAMESS/Gaussian'
+  write(6,'(A)')   '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
+  write(6,'(A)')   '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
+  write(6,'(A)')   '  NEVPT2_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
+  write(6,'(A)')   '  CASPT2_prog=OpenMolcas/Molpro/ORCA'
+  write(6,'(A)')   '  MCPDFT_prog=OpenMolcas/GAMESS'
+  write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
+  write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
+  write(6,'(A,/)') '    MRCC_prog=ORCA/NWChem'
   stop
  end select
 
@@ -97,6 +97,7 @@ subroutine automr(fname)
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
  call do_mrpt3()      ! CASPT3/NEVPT3
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
+ call do_mrcisdt()    ! uncontracted MRCISDT
  call do_mcpdft()     ! MC-PDFT
  call do_mrcc()       ! MRCC
 

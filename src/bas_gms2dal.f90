@@ -44,7 +44,7 @@ end program main
 subroutine bas_gms2dal(fort7, spherical)
  use pg, only: iout, natom, ram, ntimes, elem, coor, highest, all_ecp, ecp_exist
  implicit none
- integer :: i, nline, rc, charge, mult, fid1, fid2
+ integer :: i, nline, rc, charge, mult, rel, fid1, fid2
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, dalfile, molfile
  character(len=1) :: stype
@@ -71,6 +71,19 @@ subroutine bas_gms2dal(fort7, spherical)
 
  open(newunit=fid1,file=TRIM(dalfile),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
+
+ call check_DKH_in_gms_inp(fort7, rel)
+ select case(rel)
+ case(-2) ! nothing
+ case(2)  ! DKH2
+  write(fid1,'(A)') '.DOUGLAS-KROLL'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2dal: Dalton supports only the&
+                  & DKH2 relativistic'
+  write(6,'(A,I0)') 'Hamiltonian. But the variable rel=', rel
+  stop
+ end select
+
  write(fid1,'(A)') '.RUN WAVE FUNCTIONS'
  write(fid1,'(A)') '**WAVE FUNCTIONS'
  write(fid1,'(A)') '.HF'

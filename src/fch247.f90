@@ -211,7 +211,7 @@ subroutine fch247(fchname)
  write(fid,'(A)') ' $END'
  write(fid,'(A)') ' $DIPOLE'
  allocate(D(nbf,nbf,3))
- call calc_dipole_using_fch(fchname, nbf, D)
+ call calc_dipole_mat_using_fch(fchname, nbf, D)
  do i = 1, 3
   write(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
  end do ! for i

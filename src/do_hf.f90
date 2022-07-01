@@ -363,8 +363,7 @@ end subroutine generate_hf_gjf
 ! Note: parameters {nproc, bgchg, chgname} are taken from
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
- use print_id, only: iout
- use mr_keyword, only: nproc, bgchg, chgname
+ use mr_keyword, only: nproc, bgchg, chgname, orca_path
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, j, hf_type, system, RENAME
@@ -397,8 +396,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  i = system(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job failed.'
-  write(iout,'(A)') 'You can open file '//TRIM(outname1)//' and check why.'
+  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job failed.'
+  write(6,'(A)') 'You can open file '//TRIM(outname1)//' and check why.'
   stop
  end if
 
@@ -420,7 +419,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  else
   i = index(hf_prog_path, '/', back=.true.)
   if(i == 0) then
-   write(iout,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol&
+   write(6,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol&
                     & found in string '"//TRIM(hf_prog_path)//"'."
    stop
   end if
@@ -436,8 +435,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   buf = 'python '//TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PySCF SCF job failed.'
-   write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
+   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PySCF SCF job failed.'
+   write(6,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
    stop
   end if
   call read_hf_e_and_ss_from_pyscf_out(outname2, hf_type, e, ssquare)
@@ -455,8 +454,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   write(buf,'(A,I0)') TRIM(hf_prog_path)//' '//TRIM(inpname)//' '//TRIM(outname2)//' -n ',nproc
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PSI4 SCF job failed.'
-   write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
+   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PSI4 SCF job failed.'
+   write(6,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
    stop
   end if
   call read_hf_e_and_ss_from_psi4_out(outname2, hf_type, e, ssquare)
@@ -480,25 +479,18 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
 
-  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
-  i = system(TRIM(hf_prog_path)//' '//TRIM(buf))
-  if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: ORCA SCF job failed.'
-   write(iout,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
-   stop
-  end if
+  call submit_orca_job(orca_path, inpname)
   call read_hf_e_and_ss_from_orca_out(outname2, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
   call mkl2fch_wrap(mklname, fchname, .false.)
   call update_density_using_mo_in_fch(fchname)
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
-  write(iout,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name&
+  write(6,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name&
                    & = '//TRIM(prog_name)
   stop
  end select
 
- return
 end subroutine do_scf_and_read_e
 
 ! read HF electronic energy from a Gaussian .log/.out file
