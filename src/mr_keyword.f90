@@ -334,7 +334,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-1)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-4)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -1976,9 +1976,13 @@ subroutine get_psi4_path(psi4_path)
  character(len=240), intent(out) :: psi4_path
 
  psi4_path = ' '
- i = system("which psi4 >mokit.psi4 2>&1")
+ call getenv('PSI4', psi4_path)
+ if(LEN_TRIM(psi4_path) > 0) return
+ ! $PSI4 has higher priority than 'which psi4'
 
+ i = system("which psi4 >mokit.psi4 2>&1")
  open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
+
  read(fid,'(A)',iostat=i) psi4_path
  close(fid,status='delete')
 

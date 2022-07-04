@@ -166,7 +166,6 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
 end subroutine extract_noon2fch
 
 ! read GVB NOONs from .dat file of GAMESS
@@ -394,7 +393,7 @@ subroutine read_noon_from_psi4_out(nmo, noon, outname)
   BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(4:15) == 'Active Space') exit
+  if(buf(4:19) == 'Active Space Nat') exit
  end do ! for while
 
  if(i /= 0) then
@@ -420,7 +419,6 @@ subroutine read_noon_from_psi4_out(nmo, noon, outname)
  end if
 
  close(fid)
- return
 end subroutine read_noon_from_psi4_out
 
 ! identify whether this is a ORCA or PySCF output file

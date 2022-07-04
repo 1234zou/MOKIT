@@ -484,7 +484,6 @@ subroutine add_X2C_into_py(pyname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- return
 end subroutine add_X2C_into_py
 
 ! detect the number of columns of data in a string buf

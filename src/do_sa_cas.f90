@@ -177,24 +177,25 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to make them half
  if(casscf) then ! SA-CASSCF
-  write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,',nacto,',(',nacta,',',nactb,')'
   if(dkh2_or_x2c) then
-   write(fid2,'(A)') ').x2c1e()'
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
   else
-   if(RI) then
-    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-   else
-    write(fid2,'(A)') ')'
-   end if
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
+  end if
+  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  if(RI) then
+   write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+  else
+   write(fid2,'(A)') ')'
   end if
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
  else ! DMRG-SA-CASSCF
-  write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
   if(dkh2_or_x2c) then
-   write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,')).x2c1e()'
+   write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
   else
-   write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
+   write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
   end if
+  write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
  end if
@@ -231,27 +232,25 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
 
  if(nevpt2) then
   write(fid2,'(/,A)') '# perform multi-root CASCI'
-  write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,')'
-  if(casscf) then
-   if(dkh2_or_x2c) then
-    write(fid2,'(A)') ').x2c1e()'
+  if(dkh2_or_x2c) then
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
+  else
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
+  end if
+  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+
+  if(casscf) then ! CASSCF
+   if(RI) then
+    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
    else
-    if(RI) then
-     write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-    else
-     write(fid2,'(A)') ')'
-    end if
+    write(fid2,'(A)') ')'
    end if
    write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
-  else ! DMRG-SA-CASSCF
-   if(dkh2_or_x2c) then
-    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,')).x2c1e()'
-   else
-    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
-   end if
-   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
+  else            ! DMRG-SA-CASSCF
+   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
    write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
   end if
+
   write(fid2,'(A)',advance='no') 'mc.fcisolver.nroots = '
   if(hardwfn) then
    write(fid2,'(I0)') nstate+4
@@ -264,6 +263,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
   write(fid2,'(A)') 'mc.verbose = 4'
   write(fid2,'(A)') 'mc.kernel(mo)'
+
   write(fid2,'(/,A)') '# NEVPT2 based on multi-root CASCI'
   do i = 1, nstate+1, 1
    write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc, root=',i-1,').kernel()'

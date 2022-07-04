@@ -790,14 +790,15 @@ subroutine prt_nevpt2_script_into_py(pyname)
 
  write(fid2,'(A)') '# generate CASCI wfn'
  if(X2C) then
-  write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,')).x2c1e()'
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
  else
-  if(RI) then
-   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,&
-                             ")).density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid2,'(A,3(I0,A))') 'mc = mcscf.CASCI(mf,',nacto,',(',nacta,',',nactb,'))'
-  end if
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
+ end if
+ write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+ if(RI) then
+  write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ else
+  write(fid2,'(A)') ')'
  end if
 
  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*500, ' # MB'

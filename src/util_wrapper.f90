@@ -138,19 +138,17 @@ subroutine mkl2gbw(mklname, gbwname)
    i = RENAME(mklname(1:k-1)//'.gbw', TRIM(gbwname))
   end if
  end if
-
- return
 end subroutine mkl2gbw
 
 subroutine prt_orca_2mkl_error(fname)
  implicit none
  character(len=240), intent(in) :: fname
 
- write(iout,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. Three&
-                    & possible reasons:'
- write(iout,'(A)') '(1) Your ORCA environment variables are incorrect.'
- write(iout,'(A)') '(2) ORCA utility orca_2mkl does not exist.'
- write(iout,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
+ write(6,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. Three&
+                 & possible reasons:'
+ write(6,'(A)') '(1) Your ORCA environment variables are incorrect.'
+ write(6,'(A)') '(2) ORCA utility orca_2mkl does not exist.'
+ write(6,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
  stop
 end subroutine prt_orca_2mkl_error
 

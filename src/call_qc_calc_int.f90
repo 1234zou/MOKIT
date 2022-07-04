@@ -69,11 +69,14 @@ subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
  implicit none
  integer :: i, nbf, nif
  integer, intent(in) :: itype
+!f2py intent(in) :: itype
  ! itype has values [1,10] in subroutine read_density_from_fch
  real(kind=8) :: n_dipole(3)
  real(kind=8), intent(out) :: dipole(3)
+!f2py intent(out) :: dipole
  real(kind=8), allocatable :: dm(:,:), D(:,:,:)
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
 
@@ -208,8 +211,10 @@ subroutine read_ao_dipole_from_47(file47, nbf, D)
  do i = 1, 3
   read(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
  end do ! for i
-
  close(fid)
+
+ ! remember to symmetrize the dipole integral matrix
+ forall(i=1:3,j=1:nbf,k=1:nbf,j<k) D(k,j,i) = D(j,k,i)
 end subroutine read_ao_dipole_from_47
 
 ! calculate the electronic dipole moment from AO-basis density matrix and
@@ -470,6 +475,7 @@ subroutine submit_molcas_job(inpname)
 
  write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
+
  i = system(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
@@ -477,4 +483,26 @@ subroutine submit_molcas_job(inpname)
   stop
  end if
 end subroutine submit_molcas_job
+
+subroutine submit_psi4_job(psi4_path, inpname, nproc)
+ implicit none
+ integer :: i, system
+ integer, intent(in) :: nproc
+ character(len=240) :: outname
+ character(len=480) :: buf
+ character(len=240), intent(in) :: psi4_path, inpname
+
+ i = index(inpname, '.inp', back=.true.)
+ outname = inpname(1:i-1)//'.out'
+
+ write(buf,'(A,I0)') TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
+ write(6,'(A)') '$psi4 '//TRIM(buf)
+
+ i = system(TRIM(psi4_path)//' '//TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_psi4_job: PSI4 job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_psi4_job
 

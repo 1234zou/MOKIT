@@ -132,8 +132,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
 
   call prt_mrcisd_psi4_inp(inpname)
-  write(datpath,'(A,I0)') 'psi4 '//TRIM(inpname)//' '//TRIM(outname)&
-                         //' -n ',nproc
+  call submit_psi4_job(psi4_path, inpname, nproc)
 
  case('dalton')
   i = system('fch2dal '//TRIM(casnofch))
@@ -177,7 +176,7 @@ subroutine do_mrcisd()
  end select
 
  select case(TRIM(mrcisd_prog))
- case('molpro','psi4','gamess')
+ case('molpro','gamess')
   write(6,'(A)') '$'//TRIM(datpath)
   i = system(TRIM(datpath))
   if(i /= 0) then

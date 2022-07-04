@@ -1443,10 +1443,10 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
 end subroutine read_gvb_energy_from_gms
 
 ! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
-subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, ptchg_e, nuc_pt_e)
+subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg,&
+                                       ptchg_e, nuc_pt_e)
  implicit none
  integer, intent(in) :: spin
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
  real(kind=8), intent(out) :: e(2)
  character(len=10), intent(in) :: cas_prog
@@ -1480,13 +1480,12 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, pt
   call read_cas_energy_from_dalton_out(outname, e, scf)
   e = e + ptchg_e
  case default
-  write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
-                   & cannot be identified.'
-  write(iout,'(A)') 'cas_prog='//TRIM(cas_prog)
+  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
+                & cannot be identified.'
+  write(6,'(A)') 'cas_prog='//TRIM(cas_prog)
   stop
  end select
 
- return
 end subroutine read_cas_energy_from_output
 
 ! read CASCI/CASSCF energy from a Gaussian .log file
@@ -2009,7 +2008,6 @@ end subroutine read_cas_energy_from_bdf_out
 subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -2028,8 +2026,8 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
-                   &Iter' found in file "//TRIM(outname)
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
+                 &Iter' found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2061,8 +2059,8 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
-                   &MCSCF Final E' found in file "//TRIM(outname)
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
+                 &MCSCF Final E' found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2070,7 +2068,6 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  i = index(buf,':')
  read(buf(i+1:),*) e(2)
  close(fid)
- return
 end subroutine read_cas_energy_from_psi4_out
 
 ! read CASCI/CASSCF energy from a given Dalton output file
@@ -3106,16 +3103,14 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
    dm(k,i) = dm(i,k)
   end do ! for k
  end do ! for i
-
 end subroutine read_density_from_fch
 
 ! write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file
 ! Note: the dm(j,i) j<=i will be used
 subroutine write_density_into_fch(fchname, nbf, total, dm)
  implicit none
- integer :: i, j, fid, fid1, RENAME
+ integer :: i, j, k, fid, fid1, RENAME
  integer, intent(in) :: nbf
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: dm(nbf,nbf)
  character(len=11) :: key
  character(len=11), parameter :: key1 = 'Total SCF D'
@@ -3140,8 +3135,8 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine write_density_into_fch: no key '"&
-                   &//key//"' found in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine write_density_into_fch: no key '"&
+                 &//key//"' found in file "//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -3149,13 +3144,13 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
 
  write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
 
- do while(.true.) ! skip density in the original .fch file
+ ! skip density in the original .fch file
+ k = nbf*(nbf+1)/2
+ j = k/5
+ if(k - 5*j > 0) j = j + 1
+ do i = 1, j, 1
   read(fid,'(A)') buf
-  if(buf(49:49) == '=') then
-   write(fid1,'(A)') TRIM(buf)
-   exit
-  end if
- end do ! for while
+ end do ! for i
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3166,7 +3161,6 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
 end subroutine write_density_into_fch
 
 ! detect whether there exists 'Spin SCF Density' in a given .fch file
@@ -3386,7 +3380,6 @@ subroutine update_density_using_no_and_on(fchname)
  deallocate(coeff, noon)
  call write_density_into_fch(fchname, nbf, .true., dm)
  deallocate(dm)
- return
 end subroutine update_density_using_no_and_on
 
 ! read Total/Alpha/Beta/Transition Density Matrix from Gaussian output

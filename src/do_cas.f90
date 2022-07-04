@@ -16,7 +16,7 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, molpro_path, bdf_path, bgchg, chgname, casscf_force,&
+  gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
   check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate, ON_thres
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
@@ -463,18 +463,15 @@ subroutine do_cas(scf)
   call prt_cas_psi4_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  write(buf,'(A,I0)') 'psi4 '//TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
-  write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_cas: PSI4 CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-   stop
-  end if
-
+  call submit_psi4_job(psi4_path, inpname, nproc)
   write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                              TRIM(casnofch), idx1, idx2
   i = system(TRIM(buf))
+  if(i /= 0) then
+   write(6,'(A)') 'ERROR in subroutine do_cas: failed to call utility &
+                  &extract_noon2fch.'
+   stop
+  end if
 
  case('dalton')
   write(6,'(/,A)') 'Warning: you should use OpenMP version of Dalton. If you &
@@ -652,39 +649,41 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  ! not to share common memory, they used two memory, so I have to make them half
  if(scf) then
   if(casscf) then ! CASSCF
-   write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto,',(',nacta,',',nactb,')'
    if(dkh2_or_x2c) then
-    write(fid2,'(A)') ').x2c1e()'
+    write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
    else
-    if(RI) then
-     write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-    else
-     write(fid2,'(A)') ')'
-    end if
+    write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
+   end if
+   write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+   if(RI) then
+    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+   else
+    write(fid2,'(A)') ')'
    end if
    write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
   else ! DMRG-CASSCF
-   write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
    if(dkh2_or_x2c) then
-    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,')).x2c1e()'
+    write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
    else
-    write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
+    write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
    end if
+   write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
    write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
    write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
   end if
   write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
   write(fid2,'(A)') 'mc.max_cycle = 200'
  else ! CASCI/DMRG-CASCI
-  write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto,',(',nacta,',',nactb,')'
   if(dkh2_or_x2c) then
-   write(fid2,'(A)') ').x2c1e()'
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
   else
-   if(RI) then
-    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-   else
-    write(fid2,'(A)') ')'
-   end if
+   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
+  end if
+  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  if(RI) then
+   write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+  else
+   write(fid2,'(A)') ')'
   end if
   write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
   if(casci) then ! CASCI
@@ -1178,7 +1177,12 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
                      &return_wfn=True)"
  end if
 
- write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
+ ! The following line canbe used with PSI4 1.3.2, but not work for >= 1.4
+ !write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
+
+ ! So I make a workaround: copy CASSCF NOs into scf object
+ write(fid,'(A)') 'scf_wfn.Ca = cas_wfn.Ca'
+ write(fid,'(A)') "fchk(scf_wfn,'"//TRIM(casnofch)//"')"
 end subroutine prt_cas_psi4_inp
 
 ! print CASCI/CASSCF keywords into a given Dalton input file

@@ -363,7 +363,7 @@ end subroutine generate_hf_gjf
 ! Note: parameters {nproc, bgchg, chgname} are taken from
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
- use mr_keyword, only: nproc, bgchg, chgname, orca_path
+ use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, j, hf_type, system, RENAME
@@ -451,13 +451,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call prt_hf_psi4_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  write(buf,'(A,I0)') TRIM(hf_prog_path)//' '//TRIM(inpname)//' '//TRIM(outname2)//' -n ',nproc
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PSI4 SCF job failed.'
-   write(6,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
-   stop
-  end if
+  call submit_psi4_job(psi4_path, inpname, nproc)
   call read_hf_e_and_ss_from_psi4_out(outname2, hf_type, e, ssquare)
   call delete_file(inpname)
   i = index(fchname, '.fch', back=.true.)
