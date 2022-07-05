@@ -273,11 +273,6 @@ subroutine do_cas(scf)
 
  case('gamess')
   call check_gms_path()
-  inpname = TRIM(proname)//'.dat'
-  buf = TRIM(gms_scr_path)//'/'//TRIM(inpname) ! delete the possible .dat file
-  call delete_file(buf)
-  ! do not use datname in the above three lines! because datname may be that of a GVB job
-
   call fch2inp_wrap(fchname, .false., 0, 0)
   i = index(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
@@ -288,14 +283,7 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("sed -i '1,1s/ENERGY/GRADIENT/' "//TRIM(inpname))
 
-  write(buf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$$GMS '//TRIM(buf)
-  i = system(TRIM(gms_path)//' '//TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: GAMESS CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-   stop
-  end if
+  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
   ! make a copy of the .fch file to save NOs
   if(ist /= 2) then ! datname is a GVB job .dat file
@@ -306,10 +294,6 @@ subroutine do_cas(scf)
    inpname = hf_fch(1:i-1)//'_uno.fch'
   end if
   call copy_file(inpname, casnofch, .false.)
-
-  ! move .dat file into current directory
-  datname = TRIM(proname)//'.dat'
-  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
   if(scf) then
@@ -1177,11 +1161,12 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
                      &return_wfn=True)"
  end if
 
- ! The following line canbe used with PSI4 1.3.2, but not work for >= 1.4
+ ! The following line can be used with PSI4 1.3.2, but not work for >= 1.4
  !write(fid,'(A)') "fchk(cas_wfn,'"//TRIM(casnofch)//"')"
 
- ! So I make a workaround: copy CASSCF NOs into scf object
- write(fid,'(A)') 'scf_wfn.Ca = cas_wfn.Ca'
+ ! So I make a workaround: copy CASSCF NOs into scf object, see
+ ! http://forum.psicode.org/t/how-to-copy-orbitals-from-cas-wfn-to-scf-wfn/2541/5
+ write(fid,'(A)') 'scf_wfn.Ca().copy(cas_wfn.Ca())'
  write(fid,'(A)') "fchk(scf_wfn,'"//TRIM(casnofch)//"')"
 end subroutine prt_cas_psi4_inp
 

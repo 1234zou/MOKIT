@@ -364,7 +364,7 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  character(len=500) :: longbuf
  character(len=240), intent(in) :: gms_path, gms_scr_path, inpname
 
- i = index(inpname, '.inp')
+ i = index(inpname, '.inp', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine submit_gms_job: '.inp' suffix not &
                       &found in filename "//TRIM(inpname)
@@ -393,8 +393,8 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  ! move the .dat file into current directory
  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine submit_gms_job: fail to move file. Pos&
-                    &sibly wrong gms_scr_path.'
+  write(6,'(A)') 'ERROR in subroutine submit_gms_job: fail to move file. Possi&
+                 &bly wrong gms_scr_path.'
   write(6,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
   stop
  end if

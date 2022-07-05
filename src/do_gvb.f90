@@ -4,11 +4,11 @@
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
- use print_id, only: iout
  use mr_keyword, only: nproc, gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish,&
   excludeXH, gms_path, gms_scr_path, GVB_conv
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte,&
-  nacto, npair0, XHgvb_e
+  nacto, npair0
+ use util_wrapper, only: gvb_exclude_XH_A_wrap
  implicit none
  integer :: i, system
  character(len=24) :: data_string = ' '
@@ -16,10 +16,10 @@ subroutine do_gvb()
  character(len=480) :: longbuf
 
  if(.not. gvb) return
- write(iout,'(//,A)') 'Enter subroutine do_gvb...'
+ write(6,'(//,A)') 'Enter subroutine do_gvb...'
  if(.not. (ist==1 .or. ist==3 .or. ist==6)) then
-  write(iout,'(/,A,I0)') 'ERROR in subroutine do_gvb: ist=', ist
-  write(iout,'(A)') 'Only ist=1,3,6 is supported currently.'
+  write(6,'(/,A,I0)') 'ERROR in subroutine do_gvb: ist=', ist
+  write(6,'(A)') 'Only ist=1,3,6 is supported currently.'
   stop
  end if
 
@@ -41,8 +41,8 @@ subroutine do_gvb()
    write(6,'(3(A,I5,4X))') 'doubly_occ=',ndb,'npair=',npair,'nopen=',nopen
 
   else if(npair_wish > npair) then
-   write(6,'(/,A)') 'ERROR in subroutine do_gvb: too large pairs specified.&
-                   & Cannot fulfilled.'
+   write(6,'(/,A)') 'ERROR in subroutine do_gvb: too many number of pairs spec&
+                    &ified. Cannot be fulfilled.'
    stop
   end if
  end if
@@ -50,44 +50,28 @@ subroutine do_gvb()
  if(mo_rhf) then
   if(ist == 6) then
    pair_fch = hf_fch
-  else
+  else ! ist /= 6
    pair_fch = TRIM(proname)//'_proj_loc_pair.fch'
   end if
- else
+ else ! not mo_rhf
   pair_fch = TRIM(proname)//'_uno_asrot.fch'
  end if
 
  select case(TRIM(gvb_prog))
  case('gamess')
-  call do_gvb_gms(proname, pair_fch)
+  call do_gvb_gms(proname, pair_fch, .false.)
  case('qchem')
   call do_gvb_qchem(proname, pair_fch)
  case('gaussian')
   call do_gvb_gau(proname, pair_fch)
  case default
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//&
-                       TRIM(gvb_prog)
-  write(iout,'(A)') 'Currently supported programs: GAMESS, QChem, Gaussian.'
+  write(6,'(A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//TRIM(gvb_prog)
+  write(6,'(A)') 'Currently supported programs: GAMESS, QChem, Gaussian.'
   stop
  end select
 
- ! determine the number of orbitals/electrons in following CAS/DMRG computations
- nacta = npair0 + nopen
- nactb = npair0
- nacte = nacta + nactb
- nacto = nacte
-
- ! The excludeXH will not affect any CAS calculations, it only generates a inp
- ! file where inactive X-H pairs are excluded.
- ! This will affect the GVB-BCCC2b calculation (if GVB-BCCC2b is activated)
+ ! exclude X-H bonds with little multi-reference characters from GVB active space
  if(excludeXH) then
-  if(TRIM(gvb_prog) /= 'gamess') then
-   write(iout,'(A)') 'ERROR in subroutine do_gvb: the keyword excludeXH curren&
-                     &tly is supported only for GAMESS.'
-   write(iout,'(A)') 'But you are using GVB_prog='//TRIM(gvb_prog)
-   stop
-  end if
-
   if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
    write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
   else ! paired LMOs obtained from associated rotation of UNOs
@@ -95,91 +79,69 @@ subroutine do_gvb()
   end if
   datname = TRIM(proname1)//'.dat'
   gmsname = TRIM(proname1)//'.gms'
-
-  buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
-  write(iout,'(/,A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: failed to call utility gvb&
-                       &_exclude_XH.'
-   write(iout,'(A)') 'Did you delete it or forget to compiled it?'
-   stop
-  end if
-
-  inpname = TRIM(proname1)//'XH.inp'
-  datname = TRIM(proname1)//'XH.dat'
-  gmsname = TRIM(proname1)//'XH.gms'
-  call modify_gvb_conv(inpname, GVB_conv)
-
-  ! call GAMESS to do GVB computations (delete .dat file first, if any)
-  buf = TRIM(gms_scr_path)//'/'//TRIM(datname)
-  call delete_file(buf)
-  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
-  i = system(TRIM(gms_path)//' '//TRIM(longbuf))
-  if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_gvb: GVB job failed. Please open&
-                      & file '//TRIM(gmsname)
-   write(iout,'(A)') 'and check why.'
-   stop
-  end if
-  call read_gvb_energy_from_gms(gmsname, XHgvb_e)
-  write(iout,'(A)') 'After excluding inactive X-H pairs from the original GVB:'
-  write(iout,'(A,F18.8,1X,A4)') 'E(GVB) = ', XHgvb_e, 'a.u.'
-
-  ! move the .dat file into current directory
-  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
-  if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine do_gvb: fail to move file. Possibly&
-                    & wrong gms_scr_path.'
-   write(iout,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
-   stop
-  end if
+  pair_fch = TRIM(proname1)//'_s.fch'
+  call gvb_exclude_XH_A_wrap(datname, gmsname, inpname)
+  call get_npair_from_inpname(inpname, i)
+  ndb = ndb + npair - i
+  npair = i
+  call do_gvb_gms(inpname, pair_fch, .true.)
  end if
 
+ ! determine the number of orbitals/electrons in following CAS/DMRG computations
+ nacta = npair0 + nopen
+ nactb = npair0
+ nacte = nacta + nactb
+ nacto = nacte
+
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)
- return
+ write(6,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)
 end subroutine do_gvb
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
-subroutine do_gvb_gms(proname, pair_fch)
- use print_id, only: iout
+subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
   datname, bgchg, chgname, cart, check_gms_path, GVB_conv
- use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
+ use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e, XHgvb_e
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: unpaired_e
  character(len=240) :: buf, inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
  character(len=480) :: longbuf = ' '
+ logical, intent(in) :: name_determined
 
  call check_gms_path()
 
- if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(ist == 6) then
-   write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
-   write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
-   write(datname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.dat'
-   i = RENAME(TRIM(proname)//'.inp', inpname)
-  else
-   write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
-   write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
-   write(datname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.dat'
-   i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
+ if(name_determined) then
+  inpname = proname
+  i = index(inpname, '.inp', back=.true.)
+  datname = inpname(1:i-1)//'.dat'
+  gmsname = inpname(1:i-1)//'.gms'
+ else ! not determined
+  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
+   write(6,'(A)') '$'//TRIM(buf)
+   i = system(TRIM(buf))
+   if(ist == 6) then
+    write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
+    write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
+    write(datname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.dat'
+    i = RENAME(TRIM(proname)//'.inp', inpname)
+   else
+    write(inpname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.inp'
+    write(gmsname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.gms'
+    write(datname,'(A,I0,A)') TRIM(proname)//'_proj_loc_pair2gvb',npair,'.dat'
+    i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
+   end if
+  else ! paired LMOs obtained from associated rotation of UNOs
+   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
+   write(6,'(A)') '$'//TRIM(buf)
+   i = system(TRIM(buf))
+   write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
+   write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
+   write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
+   i = RENAME(TRIM(proname)//'_uno_asrot.inp', inpname)
   end if
-
- else ! paired LMOs obtained from associated rotation of UNOs
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-  write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
-  write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
-  write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
-  i = RENAME(TRIM(proname)//'_uno_asrot.inp', inpname)
  end if
 
  call modify_memory_in_gms_inp(inpname, mem, nproc)
@@ -187,8 +149,15 @@ subroutine do_gvb_gms(proname, pair_fch)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
- call read_gvb_energy_from_gms(gmsname, gvb_e)
- write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
+
+ if(name_determined) then
+  call read_gvb_energy_from_gms(gmsname, XHgvb_e)
+  write(6,'(A)') 'After excluding inactive X-H pairs from the original GVB:'
+  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', XHgvb_e, 'a.u.'
+ else ! not determined
+  call read_gvb_energy_from_gms(gmsname, gvb_e)
+  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
+ end if
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  if(cart) then ! Cartesian functions
@@ -197,12 +166,13 @@ subroutine do_gvb_gms(proname, pair_fch)
   call read_nbf_from_dat(datname, i)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
+
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                     & gvb_sort_pairs.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  write(iout,'(A)') 'Or maybe there is some unexpected error.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+                  & gvb_sort_pairs.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(A)') 'Or maybe there is some unexpected error.'
   stop
  end if
 
@@ -215,9 +185,9 @@ subroutine do_gvb_gms(proname, pair_fch)
                              npair, ' -open ', nopen
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                     & dat2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+                  & dat2fch.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
 
@@ -226,9 +196,9 @@ subroutine do_gvb_gms(proname, pair_fch)
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
                      & extract_noon2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
 
@@ -240,24 +210,20 @@ subroutine do_gvb_gms(proname, pair_fch)
 
  ! find npair0: the number of active pairs (|C2| > 0.1)
  call find_npair0_from_dat(datname, npair, npair0)
- return
 end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
 subroutine do_gvb_qchem(proname, pair_fch)
- use print_id, only: iout
  implicit none
  character(len=240), intent(in) :: proname, pair_fch
 
- write(iout,'(A)') 'ERROR in subroutine do_gvb_qchem: implmentation not&
-                  & finished yet.'
+ write(6,'(A)') 'ERROR in subroutine do_gvb_qchem: implmentation not&
+               & finished yet.'
  stop
- return
 end subroutine do_gvb_qchem
 
 ! perform GVB computation (only in Strategy 1,3) using Gaussian
 subroutine do_gvb_gau(proname, pair_fch)
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, cart,&
   datname
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
@@ -288,16 +254,16 @@ subroutine do_gvb_gau(proname, pair_fch)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(gjfname))
 
  buf = TRIM(gau_path)//' '//TRIM(gjfname)
- write(iout,'(A)') '$'//TRIM(buf)
+ write(6,'(A)') '$'//TRIM(buf)
  i = system(TRIM(buf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: Gaussian GVB job failed.'
-  write(iout,'(A)') 'Please open file '//TRIM(logname)//' and check why.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: Gaussian GVB job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(logname)//' and check why.'
   stop
  end if
 
  call read_gvb_e_from_gau_out(logname, gvb_e)
- write(iout,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
+ write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
@@ -306,12 +272,12 @@ subroutine do_gvb_gau(proname, pair_fch)
  else
   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
  end if
- write(iout,'(A)') '$'//TRIM(buf)
+ write(6,'(A)') '$'//TRIM(buf)
  i = system(TRIM(buf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                     & fch2inp.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+                  & fch2inp.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
 
@@ -329,13 +295,13 @@ subroutine do_gvb_gau(proname, pair_fch)
   call read_nbf_from_dat(datname, i)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
- write(iout,'(A)') '$'//TRIM(longbuf)
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                     & gvb_sort_pairs.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  write(iout,'(A)') 'If neither, there is some unexpected error.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+                  & gvb_sort_pairs.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(A)') 'If neither, there is some unexpected error.'
   stop
  end if
 
@@ -346,30 +312,29 @@ subroutine do_gvb_gau(proname, pair_fch)
  call copy_file(fchname, inpname, .false.)
  write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
                              npair, ' -open ', nopen
- write(iout,'(A)') '$'//TRIM(longbuf)
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                     & dat2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+                  & dat2fch.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
 
  ! extract NOONs from the above .dat file and print them into .fch file
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
- write(iout,'(A)') '$'//TRIM(longbuf)
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = system(TRIM(longbuf))
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
                      & extract_noon2fch.'
-  write(iout,'(A)') 'Did you delete it or forget to compile it?'
-  write(iout,'(A)') 'If neither, there is some unexpected error.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
+  write(6,'(A)') 'If neither, there is some unexpected error.'
   stop
  end if
 
  call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
- return
 end subroutine do_gvb_gau
 
 ! create Gaussian GVB input file
@@ -396,12 +361,10 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  write(fid,'(/)',advance='no')
  close(fid)
  deallocate(pair)
- return
 end subroutine prt_gvb_gau_inp
 
 ! read GVB electronic energy from a Gaussian output file
 subroutine read_gvb_e_from_gau_out(logname, gvb_e)
- use print_id, only: iout
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: gvb_e
@@ -418,18 +381,16 @@ subroutine read_gvb_e_from_gau_out(logname, gvb_e)
 
  close(fid)
  if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine read_gvb_e_from_gau_out: no 'TOTAL&
+  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_gau_out: no 'TOTAL&
                      & ENERGY' found in file "//TRIM(logname)
   stop
  end if
 
  read(buf(34:),*) gvb_e
- return
 end subroutine read_gvb_e_from_gau_out
 
 ! read GVB pair coefficients from a Gaussian output file
 subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
- use print_id, only: iout
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: npair
@@ -450,7 +411,7 @@ subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine read_pair_coeff_from_gau_out: no&
+  write(6,'(/,A)') "ERROR in subroutine read_pair_coeff_from_gau_out: no&
                     & 'Separated pair' found in file "//TRIM(logname)
   close(fid)
   stop
@@ -472,12 +433,10 @@ subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  forall(i = 1:npair) coeff0(:,npair-i+1) = coeff(:,i)
  coeff = coeff0
  deallocate(coeff0)
- return
 end subroutine read_pair_coeff_from_gau_out
 
 ! write the GVB pair coefficients into a given GAMESS .inp/.dat file
 subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
- use print_id, only: iout
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: npair
@@ -496,7 +455,7 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine write_pair_coeff_into_gms_inp: no&
+  write(6,'(/,A)') "ERROR in subroutine write_pair_coeff_into_gms_inp: no&
                      & '$SCF' found in file "//TRIM(datname)
   close(fid)
   close(fid1,status='delete')
@@ -519,7 +478,6 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(datname1), TRIM(datname))
- return
 end subroutine write_pair_coeff_into_gms_inp
 
 ! determine npair0 from the GVB pair coefficients
@@ -548,7 +506,6 @@ subroutine determine_npair0_from_pair_coeff(npair, coeff, npair0)
 
  npair0 = COUNT(coeff0(2,:) < -0.1d0)
  deallocate(coeff0)
- return
 end subroutine determine_npair0_from_pair_coeff
 
 ! modify CONV value in a GAMESS .inp file
@@ -590,4 +547,22 @@ subroutine modify_gvb_conv(inpname, GVB_conv)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine modify_gvb_conv
+
+! find the number of pairs from a given inpname
+subroutine get_npair_from_inpname(inpname, npair)
+ implicit none
+ integer :: i, j
+ integer, intent(out) :: npair
+ character(len=240), intent(in) :: inpname
+
+ npair = 0
+ i = index(inpname, 'gvb', back=.true.)
+ j = index(inpname, '.inp', back=.true.)
+ if(i==0 .or. j==0) then
+  write(6,'(A)') 'ERROR in subroutine get_npair_from_inpname: invalid filename&
+                 &='//TRIM(inpname)
+  stop
+ end if
+ read(inpname(i+3:j-1),*) npair
+end subroutine get_npair_from_inpname
 

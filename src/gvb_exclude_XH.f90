@@ -8,13 +8,12 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=240) :: datname, gmsname
 
  i = IARGC()
  if(i /= 2) then
-  write(iout,'(/,A)') ' ERROR in subroutine gvb_exclude_XH: wrong command line prameter!'
-  write(iout,'(A,/)') ' Example: gvb_exclude_XH a.dat a.gms'
+  write(6,'(/,A)') ' ERROR in subroutine gvb_exclude_XH: wrong command line prameter!'
+  write(6,'(A,/)') ' Example: gvb_exclude_XH a.dat a.gms'
   stop
  end if
 
@@ -30,7 +29,6 @@ subroutine gvb_exclude_XH(datname, gmsname)
  implicit none
  integer :: i, j, k, m, itmp, itmp1(1), itmp2(1)
  integer :: natom, ncore, nopen, npair, npair2, nbf, nif
- integer, parameter :: iout = 6
  integer, allocatable :: bf2atom(:), order(:)
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:)
  real(kind=8), allocatable :: tmp_coeff(:)
@@ -145,12 +143,16 @@ subroutine gvb_exclude_XH(datname, gmsname)
  ! now npair2 is the number of X-H pairs
  deallocate(elem, bf2atom, tmp_coeff)
 
- write(iout,'(A)') 'Report from subroutine gvb_exclude_XH:'
+ write(6,'(A)') 'Report from subroutine gvb_exclude_XH:'
  if(npair2 == 0) then
-  write(iout,'(A,/)') ' No X-H bond found in file '//TRIM(gmsname)
+  write(6,'(A,/)') ' No X-H bond found in file '//TRIM(gmsname)
   return
  end if
- write(iout,'(I0,A,/)') npair2, ' X-H bond(s) found in file '//TRIM(gmsname)
+ write(6,'(I0,A)') npair2, ' X-H bond(s) found in file '//TRIM(gmsname)
+
+ i = index(datname, 'gvb', back=.true.)
+ write(inpname,'(A,I0,A)') datname(1:i+2), npair-npair2, '.inp'
+ write(6,'(A)') 'Newly generated file: '//TRIM(inpname)
 
  ! CI coefficients of non X-H pairs will be reserved in ci_coeff2
  allocate(ci_coeff2(2,npair-npair2), source=0d0)
@@ -226,13 +228,12 @@ subroutine gvb_exclude_XH(datname, gmsname)
  deallocate(coeff, ci_coeff2)
  ! Note that a new .dat file will be generated
 
- i = index(datname,'.dat')
- if(i == 0) i = index(datname,'.inp')
+ i = index(datname,'.dat', back=.true.)
+ if(i == 0) i = index(datname,'.inp',back=.true.)
  newdat = datname(1:i-1)//'_new.dat'
- write(inpname,'(A)') datname(1:i-1)//'XH.inp'
+
  call create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore+npair2,&
                                       npair-npair2, nopen)
- return
 end subroutine gvb_exclude_XH
 
 ! read nbf and nif from a GAMESS output file
@@ -240,7 +241,6 @@ subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
  implicit none
  integer :: i, fid
  integer, intent(out) :: nbf, nif
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
 
@@ -255,9 +255,9 @@ subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_nbf_and_nif_from_gms: no 'NUMBER&
-                   & OF CARTESIAN G'"
-  write(iout,'(A)') ' found in file '//TRIM(gmsname)//'.'
+  write(6,'(A)') "ERROR in subroutine read_nbf_and_nif_from_gms: no 'NUMBER&
+                & OF CARTESIAN G'"
+  write(6,'(A)') ' found in file '//TRIM(gmsname)//'.'
   close(fid)
   stop
  end if
@@ -279,7 +279,6 @@ subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
  i = index(buf, 'NORB  =')
  read(buf(i+7:),*) nif
  close(fid)
- return
 end subroutine read_nbf_and_nif_from_gms
 
 ! check if there are any GVB CI coefficients in a GAMESS .dat or .inp file
@@ -304,7 +303,6 @@ subroutine chk_ci_coeff_in_dat(fname, alive)
  close(fid)
 
  if(i /= 0) alive = .false.
- return
 end subroutine chk_ci_coeff_in_dat
 
 ! read natom from GAMESS .gms file
@@ -312,7 +310,6 @@ subroutine read_natom_from_gms(gmsfile, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsfile
 
@@ -328,15 +325,14 @@ subroutine read_natom_from_gms(gmsfile, natom)
  close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_natom_from_gms: no 'TOTAL NUMBER&
-                   & OF ATOMS'"
-  write(iout,'(A)') 'found in file '//TRIM(gmsfile)//'.'
+  write(6,'(A)') "ERROR in subroutine read_natom_from_gms: no 'TOTAL NUMBER&
+                & OF ATOMS'"
+  write(6,'(A)') 'found in file '//TRIM(gmsfile)//'.'
   stop
  end if
 
  i = index(buf,'=')
  read(buf(i+1:),*) natom
- return
 end subroutine read_natom_from_gms
 
 ! read array elem and bf2atom from .gms file
@@ -346,7 +342,6 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
  integer :: i, j, nelem, fid
  integer, intent(in) :: natom, nbf
  integer, intent(out) :: bf2atom(nbf)
- integer, parameter :: iout = 6
  character(len=2) :: tmp_elem
  character(len=240) :: buf
  character(len=2), intent(out) :: elem(natom)
@@ -361,9 +356,9 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_bf2atom_from_gms: no &
-                    &'EIGENVECTORS' found"
-  write(iout,'(A)') 'file '//TRIM(gmsfile)//'.'
+  write(6,'(A)') "ERROR in subroutine read_bf2atom_from_gms: no &
+                 &'EIGENVECTORS' found"
+  write(6,'(A)') 'file '//TRIM(gmsfile)//'.'
   close(fid)
   stop
  end if
@@ -388,7 +383,6 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
 
  close(fid)
  forall(i = 1:natom) elem(i) = ADJUSTL(elem(i))
- return
 end subroutine read_elem_and_bf2atom_from_gms
 
 ! print MOs into .dat file
@@ -455,8 +449,6 @@ subroutine print_mo_into_dat(datname, nbf, nif, coeff, replace)
  else
   close(fid1)
  end if
-
- return
 end subroutine print_mo_into_dat
 
 ! print GVB CI coefficients into .dat file
@@ -537,8 +529,6 @@ subroutine print_ci_coeff_into_dat(datname, npair, coeff, replace)
  else
   close(fid1)
  end if
-
- return
 end subroutine print_ci_coeff_into_dat
 
 ! create a GAMESS GVB .inp file (inpname) according to given newdat and gmsname
@@ -546,7 +536,6 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
                                            npair, nopen)
  implicit none
  integer :: i, fid1, fid2
- integer, parameter :: iout = 6
  integer, intent(in) :: ncore, npair, nopen
  character(len=240) :: buf
  character(len=240), intent(in) :: newdat, gmsname, inpname
@@ -569,8 +558,8 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine create_gvb_inp_from_dat_and_gms: no&
-                   & '$SCF' found in file "//TRIM(gmsname)
+  write(6,'(A)') "ERROR in subroutine create_gvb_inp_from_dat_and_gms: no&
+                & '$SCF' found in file "//TRIM(gmsname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -633,6 +622,5 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
 
  close(fid1,status='delete')
  close(fid2)
- return
 end subroutine create_gvb_inp_from_dat_and_gms
 

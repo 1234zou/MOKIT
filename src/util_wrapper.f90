@@ -398,5 +398,36 @@ subroutine bas_fch2py_wrap(fchname, pyname)
  end if
 end subroutine bas_fch2py_wrap
 
+! wrapper for subroutine gvb_exclude_XH_A
+subroutine gvb_exclude_XH_A_wrap(datname, gmsname, new_inp)
+ implicit none
+ integer :: i, fid, system
+ character(len=500) :: buf
+ character(len=18), parameter :: txt = 'gvb_exclude_XH.txt'
+ character(len=240), intent(in) :: datname, gmsname
+ character(len=240), intent(out) :: new_inp
+
+ buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
+ write(6,'(/,A)') '$'//TRIM(buf)
+ i = system(TRIM(buf)//' >'//txt//" 2>&1")
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine gvb_exclude_XH_A_wrap: failed to call&
+                  & utility gvb_exclude_XH.'
+  write(6,'(A)') 'Did you delete it or forget to compiled it?'
+  stop
+ end if
+
+ open(newunit=fid,file=txt,status='old',position='rewind')
+ do i = 1, 3
+  read(fid,'(A)') buf
+  write(6,'(A)') TRIM(buf)
+ end do ! for i
+ close(fid,status='delete')
+
+ i = index(buf, ':')
+ read(buf(i+1:),*) new_inp
+end subroutine gvb_exclude_XH_A_wrap
+
 end module util_wrapper
 

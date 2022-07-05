@@ -334,7 +334,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-4)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-5)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -1445,13 +1445,19 @@ contains
    stop
   end if
 
-  write(iout,'(A)') 'Check done. All keywords are compatible.'
-  write(iout,'(/,A)') REPEAT('-',79)
-  write(iout,'(A)') "Note: in any following output which starts with '$' symbol&
-                    &, it is the Shell co-"
-  write(iout,'(A)') '      mmand used to submit the corresponding job.'
-  write(iout,'(A)') REPEAT('-',79)
-  return
+  if(excludeXH .and. TRIM(gvb_prog)/='gamess') then
+   write(6,'(A)') 'ERROR in subroutine check_kywd_compatible: the keyword excl&
+                  &udeXH currently'
+   write(6,'(A)') 'is supported only for GAMESS. But got GVB_prog='//TRIM(gvb_prog)
+   stop
+  end if
+
+  write(6,'(A)') 'Check done. All keywords are compatible.'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') "Note: in any following output which starts with '$' symbol, &
+                 &it is the Shell co-"
+  write(6,'(A)') '      mmand used to submit the corresponding job.'
+  write(6,'(A)') REPEAT('-',79)
  end subroutine check_kywd_compatible
 
  ! turn letters in buf into lower case, except those in symbol ''

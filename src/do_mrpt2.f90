@@ -311,18 +311,11 @@ subroutine do_mrpt2()
   i = index(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i-1)//'_MRMP2.inp'
 
-  mklname = casnofch(1:i-1)//'_MRMP2.dat'
-  mklname = TRIM(gms_scr_path)//'/'//TRIM(mklname) ! delete the possible .dat file
-  call delete_file(mklname)
-
   outname = casnofch(1:i-1)//'_MRMP2.gms'
   i = RENAME(pyname, inpname)
   call prt_mrmp2_gms_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(string,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ',nproc,&
-                           ' >'//TRIM(outname)//" 2>&1"
-  i = system(TRIM(string))
-  i = system('mv '//TRIM(mklname)//' .')
+  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
   write(iout,'(A)') 'OVB-MP2 using program gaussian'

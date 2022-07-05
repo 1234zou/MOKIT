@@ -87,18 +87,11 @@ subroutine do_mcpdft()
   inpname = casnofch(1:i)//'MCPDFT.inp'
   outname = casnofch(1:i)//'MCPDFT.gms'
   i = RENAME(TRIM(fname(1)), TRIM(inpname))
-  fname(2) = TRIM(gms_scr_path)//'/'//TRIM(fname(2)) ! delete the possible .dat file
-  call delete_file(fname(2))
 
   call prt_mcpdft_gms_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(fname(3),'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//" 01 1 >"//&
-                             TRIM(outname)//" 2>&1"
-  i = system(TRIM(fname(3)))
+  call submit_gms_job(gms_path, gms_scr_path, inpname, 1)
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
-
-  ! move the .dat file into current directory
-  i = system('mv '//TRIM(fname(2))//' .')
  end select
 
  ! read MC-PDFT/DMRG-PDFT energy from OpenMolcas output file

@@ -162,33 +162,23 @@ subroutine do_mrcisd()
   mklname = casnofch(1:i)//'MRCISD.dat'
   outname = casnofch(1:i)//'MRCISD.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
-  datpath = TRIM(gms_scr_path)//'/'//TRIM(mklname) ! delete the possible .dat file
-  call delete_file(datpath)
   call prt_mrcisd_gms_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  write(datpath,'(A,I0,A)') TRIM(gms_path)//' '//TRIM(inpname)//' 01 ',nproc,&
-                           ' >'//TRIM(outname)//" 2>&1"
+  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  case default
-  write(iout,'(A)') 'ERROR in subroutine do_mrcisd: invalid program='//&
-                     TRIM(mrcisd_prog)
+  write(6,'(A)') 'ERROR in subroutine do_mrcisd: invalid program='//TRIM(mrcisd_prog)
   stop
  end select
 
- select case(TRIM(mrcisd_prog))
- case('molpro','gamess')
+ if(TRIM(mrcisd_prog) == 'molpro') then
   write(6,'(A)') '$'//TRIM(datpath)
   i = system(TRIM(datpath))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_mrcisd: MRCISD job failed.'
+   write(6,'(A)') 'ERROR in subroutine do_mrcisd: Molpro MRCISD job failed.'
    write(6,'(A)') 'Please open file '//TRIM(outname)//' and check why.'
    stop
   end if
- end select
-
- if(TRIM(mrcisd_prog) == 'gamess') then
-  ! move .dat file into current directory
-  i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(mklname)//' .')
  end if
 
  ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian/
