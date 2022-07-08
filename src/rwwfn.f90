@@ -2786,14 +2786,13 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  integer :: i, k, datid
  integer, intent(in) :: npair
  integer, intent(out) :: npair0
- integer, parameter :: iout = 6
  real(kind=8), allocatable :: pair_coeff(:,:)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
  if(npair == 0) then
   npair0 = 0
-  write(iout,'(A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
+  write(6,'(A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
   return
  end if
 
@@ -2805,8 +2804,8 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
   if(index(buf,'CICOEF(') /= 0) exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine find_npair0_from_dat: no 'CICOEF(' found!"
-  write(iout,'(A)') 'The input file '//TRIM(datname)//' is not complete!'
+  write(6,'(A)') "ERROR in subroutine find_npair0_from_dat: no 'CICOEF(' found!"
+  write(6,'(A)') 'The input file '//TRIM(datname)//' is not complete!'
   close(datid)
   stop
  end if
@@ -2827,7 +2826,6 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
 
  npair0 = COUNT(pair_coeff(2,:) <= -0.1d0)
  deallocate(pair_coeff)
- return
 end subroutine find_npair0_from_dat
 
 ! find the number of active UNO pairs from a given .fch(k) file

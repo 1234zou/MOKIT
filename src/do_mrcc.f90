@@ -2,7 +2,6 @@
 
 ! do MRCC based on CASCI/CASSCF, npair<=8
 subroutine do_mrcc()
- use print_id, only: iout
  use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
   orca_path, chgname, eist
  use mol, only: nevpt2_e, mrcc_e
@@ -18,25 +17,29 @@ subroutine do_mrcc()
 
  if(eist == 1) return ! excited state calculation
  if(.not. mrcc) return
-
- write(iout,'(//,A)') 'Enter subroutine do_mrcc...'
- write(iout,'(A)',advance='no') TRIM(method(mrcc_type))//' based on CAS'
- if(CIonly) then
-  write(iout,'(A)') 'CI orbitals.'
- else
-  write(iout,'(A)') 'SCF orbitals.'
+ if(mrcc_type > 5) then
+  call do_gvb_bccc()
+  return
  end if
- write(iout,'(A)') 'Frozen_core = F. Using program '//TRIM(mrcc_prog)
+
+ write(6,'(//,A)') 'Enter subroutine do_mrcc...'
+ write(6,'(A)',advance='no') TRIM(method(mrcc_type))//' based on CAS'
+ if(CIonly) then
+  write(6,'(A)') 'CI orbitals.'
+ else
+  write(6,'(A)') 'SCF orbitals.'
+ end if
+ write(6,'(A)') 'Frozen_core = F. Using program '//TRIM(mrcc_prog)
 
  select case(TRIM(mrcc_prog))
  case('orca')
-  write(iout,'(A)') 'Note: 1) this is actually an approximate FIC-MRCCSD metho&
-                   &d since the'
-  write(iout,'(A)') '         H_bar operator is truncated after the quadratic terms.'
-  write(iout,'(A)') '      2) this calculation will output the FIC-NEVPT2 energy&
-                   & as a byproduct.'
-  write(iout,'(A)') '      3) FIC-MRCC is supported since ORCA 5.0. Do not use&
-                   & any older version.'
+  write(6,'(A)') 'Note: 1) this is actually an approximate FIC-MRCCSD method &
+                 &since the'
+  write(6,'(A)') '         H_bar operator is truncated after the quadratic terms.'
+  write(6,'(A)') '      2) this calculation will output the FIC-NEVPT2 energy&
+                 & as a byproduct.'
+  write(6,'(A)') '      3) FIC-MRCC is supported since ORCA 5.0. Do not use&
+                  & any older version.'
   call check_exe_exist(orca_path)
   i = system('fch2mkl '//TRIM(casnofch))
   i = index(casnofch, '.fch', back=.true.)
@@ -58,14 +61,14 @@ subroutine do_mrcc()
  case('nwchem')
   ! call prt_mrcc_nwchem_inp(inpname)
  case default
-  write(iout,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC_prog='//TRIM(mrcc_prog)
-  write(iout,'(A)') 'Currently only MRCC_prog=ORCA/NWChem is supported.'
+  write(6,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC_prog='//TRIM(mrcc_prog)
+  write(6,'(A)') 'Currently only MRCC_prog=ORCA/NWChem is supported.'
   stop
  end select
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC job failed.'
-  write(iout,'(A)') 'Please find the error information in file '//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine do_mrcc: MRCC job failed.'
+  write(6,'(A)') 'Please find the error information in file '//TRIM(outname)
   stop
  end if
 
@@ -78,21 +81,21 @@ subroutine do_mrcc()
   select case(mrcc_type)
   case(1)
    nevpt2_e = ref_e + corr_e(1)
-   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(corr_PT2)  = ', corr_e(1),'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(FIC-MRCCSD)= ', mrcc_e,   'a.u.'
+   write(6,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(corr_PT2)  = ', corr_e(1),'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(FIC-MRCCSD)= ', mrcc_e,   'a.u.'
   case(2) ! Mk-MRCCSD
-   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(Mk-MRCCSD) = ', mrcc_e,   'a.u.'
+   write(6,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(Mk-MRCCSD) = ', mrcc_e,   'a.u.'
   case(4) ! BW-MRCCSD
-   write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
-   write(iout,'(A,F18.8,1X,A4)')  'E(BW-MRCCSD) = ', mrcc_e,   'a.u.'
+   write(6,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e,    'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(corr_CCSD) = ', corr_e(2),'a.u.'
+   write(6,'(A,F18.8,1X,A4)')  'E(BW-MRCCSD) = ', mrcc_e,   'a.u.'
   case default
-   write(iout,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
+   write(6,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
    stop
   end select
  case('nwchem')
@@ -102,14 +105,13 @@ subroutine do_mrcc()
   case(4) ! BW-MRCCSD
   case(5) ! BW-MRCCSD(T)
   case default
-   write(iout,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
+   write(6,'(A,I0)') 'ERROR in subroutine do_mrcc: invalid mrcc_type=',mrcc_type
    stop
   end select
  end select
 
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_mrcc at '//TRIM(data_string)
- return
+ write(6,'(A)') 'Leave subroutine do_mrcc at '//TRIM(data_string)
 end subroutine do_mrcc
 
 ! print FIC-MRCCSD keywords into ORCA .inp file
@@ -186,12 +188,10 @@ subroutine prt_mrcc_orca_inp(inpname1)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname2), TRIM(inpname1))
- return
 end subroutine prt_mrcc_orca_inp
 
 subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
                                         corr_e)
- use print_id, only: iout
  implicit none
  integer :: i, fid
  integer, intent(in) :: mrcc_type ! 1/2/3 for FIC-/Mk-/BW-MRCCSD
@@ -219,9 +219,9 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: ' Summary&
-                      & of multi' not found"
-   write(iout,'(A)') 'in file '//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: ' Summary&
+                   & of multi' not found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -241,22 +241,222 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   close(fid)
 
   if(i /= 0) then
-   write(iout,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: 'MULT='&
-                      & not found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: 'MULT='&
+                   & not found in file "//TRIM(outname)
    stop
   end if
 
   i = index(buf,'EC=')
   read(buf(i+3:),*) corr_e(1)
 
- case('nwchem')
+ case('gvb_bcci2b','gvb_bccc2b','gvb_bccc3b')
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:5) == 'GVB e') exit
+  end do ! for while
 
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: no &
+                   &'GVB e' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
+   stop
+  end if
+
+  i = index(buf, '=')
+  read(buf(i+1:),*) ref_e
+
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'=') > 0) exit
+  end do ! for while
+
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  i = index(buf, '=')
+  read(buf(i+1:),*) corr_e(1) ! GVB-BCCCnb correlation energy
+
+  read(fid,'(A)') buf
+  i = index(buf, '=')
+  read(buf(i+1:),*) corr_e(2) ! GVB-BCCCnb total energy
+  close(fid)
+
+ !case('nwchem')
  case default
-  write(iout,'(/,A)') 'ERROR in subroutine read_mrcc_energy_from_output: invalid&
-                     & mrcc_prog='//TRIM(mrcc_prog)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrcc_energy_from_output: invalid&
+                  & mrcc_prog='//TRIM(mrcc_prog)
+  stop
+ end select
+end subroutine read_mrcc_energy_from_output
+
+! perform GVB-BCCC2b/3b calculations
+subroutine do_gvb_bccc()
+ use mol, only: npair, nopen, mrcc_e
+ use mr_keyword, only: mem, nproc, mrcc_type, mrcc_prog, datname
+ use util_wrapper, only: bas_fch2py_wrap
+ implicit none
+ integer :: i, j, system, RENAME
+ real(kind=8) :: ref_e, corr_e(2)
+ character(len=24) :: data_string
+ character(len=240) :: fchname1, fchname2, datname2, pyname, outname
+ character(len=240) :: fcidump, ampname1, ampname2, inpname
+
+ write(6,'(//,A)') 'Enter subroutine do_gvb_bccc...'
+ write(6,'(A)',advance='no') 'GVB-BCCC'
+
+ select case(mrcc_type)
+ case(6)
+  write(6,'(A)',advance='no') '2'
+  mrcc_prog = 'gvb_bccc2b'
+ case(7)
+  write(6,'(A)',advance='no') '3'
+  mrcc_prog = 'gvb_bccc3b'
+ case default
+  write(6,'(A,I0)') 'ERROR in subroutine do_gvb_bccc: invalid mrcc_type=',&
+                     mrcc_type
   stop
  end select
 
- return
-end subroutine read_mrcc_energy_from_output
+ write(6,'(A)') 'b based on GVB orbitals'
+ write(6,'(A)') 'Frozen_core = T. Frozen_vir = T. Using program gvb_bccc'
+
+ i = index(datname, '_s.dat', back=.true.)
+ if(i == 0) then
+  write(6,'(A)') 'ERROR in subroutine do_gvb_bccc: .dat filename does not &
+                & have _s.dat suffix!'
+  write(6,'(A)') 'datname='//TRIM(datname)
+  stop
+ end if
+
+ fchname1 = datname(1:i+1)//'.fch'
+ fchname2 = datname(1:i-1)//'.fch'
+ datname2 = datname(1:i-1)//'.dat'
+ pyname = datname(1:i-1)//'.py'
+ outname = datname(1:i-1)//'.out'
+ fcidump = datname(1:i-1)//'.FCIDUMP'
+ call copy_file(fchname1, fchname2, .false.)
+
+ i = system('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
+ call bas_fch2py_wrap(fchname2)
+
+ i = 2*npair + nopen
+ call modify_py_script_to_gen_fcidump(pyname, i, i, mem, nproc)
+ call submit_pyscf_job(pyname)
+ call delete_files(2, [pyname, fchname2])
+
+ i = index(datname, '_s.dat', back=.true.)
+ inpname = datname(1:i-1)//'_bccc.input'
+
+ ! perform GVB-BCCI2b
+ outname = datname(1:i-1)//'_linbccc2b.out'
+ ampname1 = datname(1:i-1)//'_linbccc2b.amp'
+ ampname2 = 'aaa'   ! no initial guess, nonexistent filename
+ call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname2)
+ call submit_gvb_bcci_job(nproc, 2, inpname, outname)
+ ampname2 = datname(1:i-1)//'_bccc.amp'
+ j = RENAME(TRIM(ampname2), TRIM(ampname1))
+
+ ! perform GVB-BCCC2b
+ outname = datname(1:i-1)//'_bccc2b.out'
+ call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname1)
+ call submit_gvb_bccc_job(nproc, 2, inpname, outname)
+ ampname1 = datname(1:i-1)//'_bccc2b.amp'
+ j = RENAME(TRIM(ampname2), TRIM(ampname1))
+ call read_mrcc_energy_from_output(mrcc_prog, 4, outname, ref_e, corr_e)
+ mrcc_e = corr_e(2)
+ write(6,'(/,A,F18.8,1X,A4)')'E(GVB)        = ', ref_e    , 'a.u.'
+ write(6,'(A,F18.8,1X,A4)')  'E(E_2bcorr)   = ', corr_e(1), 'a.u.'
+ write(6,'(A,F18.8,1X,A4)')  'E(GVB-BCCC2b) = ', corr_e(2), 'a.u.'
+
+ if(mrcc_type > 6) then   ! perform GVB-BCCC3b
+  outname = datname(1:i-1)//'_bccc3b.out'
+  call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname1)
+  call submit_gvb_bccc_job(nproc, 3, inpname, outname)
+  ampname2 = datname(1:i-1)//'_bccc.amp'
+  ampname1 = datname(1:i-1)//'_bccc3b.amp'
+  j = RENAME(TRIM(ampname2), TRIM(ampname1))
+  call read_mrcc_energy_from_output(mrcc_prog, 5, outname, ref_e, corr_e)
+  mrcc_e = corr_e(2)
+  write(6,'(A,F18.8,1X,A4)')  'E(E_3bcorr)   = ', corr_e(1), 'a.u.'
+  write(6,'(A,F18.8,1X,A4)')  'E(GVB-BCCC3b) = ', corr_e(2), 'a.u.'
+ end if
+
+ call fdate(data_string)
+ write(6,'(A)') 'Leave subroutine do_gvb_bccc at '//TRIM(data_string)
+end subroutine do_gvb_bccc
+
+! modify PySCF script to generate FCIDUMP
+subroutine modify_py_script_to_gen_fcidump(pyname, nacto, nacte, mem, nproc)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: nacto, nacte, mem, nproc
+! nacto: number of active orbitals
+! nacte: number of active electrons
+ character(len=240) :: buf, proname, pyname1
+ character(len=240), intent(in) :: pyname
+
+ i = index(pyname, '.py', back=.true.)
+ proname = pyname(1:i-1)
+ pyname1 = pyname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(pyname1),status='replace')
+
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)//', mcscf, dmrgscf, lib'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ write(fid1,'(/,A,I0,A)') 'lib.num_threads(',nproc,')'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'mf.kernel(') then
+   write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,'# MB'
+  end if
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+ close(fid,status='delete')
+
+ write(fid1,'(A,I0)') 'nacto = ', nacto
+ write(fid1,'(A,I0)') 'nacte = ', nacte
+ write(fid1,'(A)') 'mc = mcscf.CASCI(mf, nacto, nacte)'
+ write(fid1,'(A)') 'mc.verbose = 5'
+ write(fid1,'(A,I0,A)') 'mc.max_memory = ', mem*1000, ' # MB'
+ write(fid1,'(A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=1000)'
+ write(fid1,'(A)') "mc.fcisolver.runtimeDir = '.'"
+ write(fid1,'(A)') "mc.fcisolver.integralFile = '"//TRIM(proname)//".FCIDUMP'"
+ write(fid1,'(A)') 'eri = mc.get_h2eff()'
+ write(fid1,'(A)') 'h1eff, ecore = mc.get_h1eff()'
+ write(fid1,'(A)') 'dmrgscf.dmrgci.writeIntegralFile(mc.fcisolver, h1eff, eri,&
+                  & nacto, nacte, ecore)'
+ close(fid1)
+ i = RENAME(TRIM(pyname1), TRIM(pyname))
+end subroutine modify_py_script_to_gen_fcidump
+
+! print GVB-BCCC input file
+subroutine prt_bccc_inp(npair, inpname, fcidump, datname, ampname)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: npair
+ character(len=240), intent(in) :: inpname, fcidump, datname, ampname
+
+ open(newunit=fid,file=TRIM(inpname),status='replace')
+ write(fid,'(A)') 'fcidump = '//TRIM(fcidump)
+ write(fid,'(A)') 'datname = '//TRIM(datname)
+ write(fid,'(A)') 'ampname = '//TRIM(ampname)
+ write(fid,'(A,I0)') 'npair = ', npair
+ close(fid)
+end subroutine prt_bccc_inp
 

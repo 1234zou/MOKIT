@@ -35,13 +35,13 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年7月5号
+2022年7月8号
 
 安装
 ----------
 
 * 前提（编译器和库要求）
-    - Fortran编译器: ifort(推荐>=2015) 或 gfortran(>=4.8.5 且 <8.0)
+    - Fortran编译器: ifort(推荐>=2017) 或 gfortran(>=4.8.5)
     - Intel MKL (推荐安装Intel编译器，内含ifort和MKL库)
     - f2py (推荐安装Anaconda Python3，内含f2py)
 
@@ -139,7 +139,7 @@ AutoMR支持调用的量子化学程序
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
-* 若您使用MOKIT进行了GVB方法的相关计算，请务必引用以下2篇文献
+* 若您使用MOKIT进行了GVB方法的相关计算，建议您也引用以下2篇文献
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 

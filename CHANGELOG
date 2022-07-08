@@ -1,10 +1,11 @@
-MOKIT 1.2.4 (Jul 5, 2022)
+MOKIT 1.2.4 (Jul 8, 2022)
 ------------------------
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
 * improve DMRG keywords using OpenMolcas+QCMaquis
 * construct supermolecule vir MOs using PAO, not direct sum of fragments
 * no need for the environment variable $ORCA
 * fix bug about X2C Hamiltonian keyword
+* add GVB-BCCC2b/3b interface
 
 MOKIT 1.2.3 (Jun 11, 2022)
 ------------------------

@@ -1,0 +1,32 @@
+%mem=32GB
+%nprocshared=16
+#p BCCC2b(3)/cc-pVDZ
+
+mokit{}
+
+0 1
+ C                 -2.94294278    0.39039038    0.00000000
+ C                 -1.54778278    0.39039038    0.00000000
+ C                 -0.85024478    1.59814138    0.00000000
+ C                 -1.54789878    2.80665038   -0.00119900
+ C                 -2.94272378    2.80657238   -0.00167800
+ C                 -3.64032478    1.59836638   -0.00068200
+ H                 -3.49270178   -0.56192662    0.00045000
+ H                 -0.99827478   -0.56212262    0.00131500
+ H                  0.24943522    1.59822138    0.00063400
+ H                 -0.99769878    3.75879338   -0.00125800
+ H                 -3.49284578    3.75885338   -0.00263100
+ H                 -4.73992878    1.59854938   -0.00086200
+
+# This examples how to perform GVB-BCCC2b calculations. If you want the
+# GVB-BCCC3b result, then modify the method BCCC2b to BCCC3b.
+#
+# BCCC2b(3) means a GVB(3)-BCCC2b calculation, i.e. 3 pairs. If you do not sp-
+# ecify the number of pairs, GVB(15)-BCCC2b will be performed in this example.
+# 15 pairs correspond to full-valence active space containing all chemical bonds.
+#
+# Current limit is ~90 pairs for GVB-BCCC2b and <=25 pairs for GVB-BCCC3b.
+# For accurate results close to DMRG-CASCI energies, GVB-BCCC3b should be
+# performed, where GVB-BCCC2b is insufficient.
+#
+# To run this example, Gaussian, GAMESS, PySCF and gvb_bccc should be installed.

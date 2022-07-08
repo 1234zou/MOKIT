@@ -34,13 +34,13 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jul 5, 2022
+Jul 8, 2022
 
 Installation
 ------------
 
 * Prerequisites
-    - Fortran compiler: ifort(>=2015) or gfortran(>=4.8.5 and <8.0)
+    - Fortran compiler: ifort(>=2017) or gfortran(>=4.8.5)
     - Intel MKL (installing Intel compilers recommended)
     - f2py (installing Anaconda Python3 recommended)
 
@@ -138,7 +138,8 @@ Citation
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
-* If you use MOKIT to peform calculations involving GVB, please also cite the following two papers
+* If you use MOKIT to peform calculations involving GVB, citing the following
+  two papers would be appreciated
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 

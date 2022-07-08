@@ -1678,13 +1678,13 @@ subroutine prt_hard_or_crazy_casci_pyscf(fid, nopen, hardwfn, crazywfn)
   write(fid,'(A)') 'mc.fcisolver.pspace_size = 900'
   write(fid,'(A)') 'mc.fcisolver.max_cycle = 400'
  else if(crazywfn) then
-  ss = DBLE(nopen)*0.5d0
-  ss = ss*(ss+1d0)
-  write(fid,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
   write(fid,'(A)') 'mc.fcisolver.level_shift = 0.2'
   write(fid,'(A)') 'mc.fcisolver.pspace_size = 1400'
   write(fid,'(A)') 'mc.fcisolver.max_space = 100'
   write(fid,'(A)') 'mc.fcisolver.max_cycle = 600'
+  ss = DBLE(nopen)*0.5d0
+  ss = ss*(ss+1d0)
+  write(fid,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
  else
   write(fid,'(A)') 'mc.fcisolver.max_cycle = 200'
  end if

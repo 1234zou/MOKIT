@@ -15,6 +15,7 @@ end module print_id
 module phys_cons ! physics constants
  implicit none
  real(kind=8), parameter :: au2ev = 27.211396d0
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
 end module phys_cons
 
 ! molecular information
@@ -334,7 +335,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-5)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-8)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -481,7 +482,7 @@ contains
      write(6,'(A)') 'Currently only NactE = NactO > 0 such as (6,6) supported.'
      stop
     end if
-   case('gvb')   ! e.g. GVB(6) is specified
+   case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
     if(j /= 0) then
      write(6,'(A)') 'ERROR in subroutine parse_keyword: GVB active space should&
                    & be specified like GVB(3),'
@@ -1841,6 +1842,7 @@ end subroutine auxbas_convert
 ! calculate the Coulomb interaction energy of point charges
 subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  use print_id, only: iout
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, j
  integer, intent(in) :: n
@@ -1850,7 +1852,6 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  ! charge(4,i) is the electronic charge of the i-th point charge
  real(kind=8), intent(out) :: e
  real(kind=8), parameter :: zero1 = 1.0d-2, zero2 = 1.0d-3
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), allocatable :: r(:,:)
 
  e = 0.0d0
@@ -1913,12 +1914,12 @@ end subroutine write_charge_into_chg
 
 ! calculate nuclear-point_charge interaction energy
 subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, j
  integer, intent(in) :: nbgchg, natom
  integer, intent(in) :: nuc(natom)
  real(kind=8) :: rtmp1(3), rtmp2(3), dis, pt_e
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), intent(in) :: bgcharge(4,nbgchg), coor(3,natom)
  real(kind=8), intent(out) :: nuc_pt_e
 
@@ -1936,7 +1937,6 @@ subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
   end do ! for j
  end do ! for i
 
- return
 end subroutine calc_nuc_pt_e
 
 ! read nuclear charge number from a given .fch file
@@ -1957,7 +1957,6 @@ subroutine read_nuc_from_fch(natom, nuc, fchname)
  read(fid,'(6(1X,I11))') (nuc(i),i=1,natom)
 
  close(fid)
- return
 end subroutine read_nuc_from_fch
 
 ! check whether a given binary file exists

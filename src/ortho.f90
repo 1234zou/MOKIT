@@ -40,6 +40,7 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
 
  i0 = 1; j0 = 1
  maxv = C_T_S_C(1,1)
+
  do i = 1, nif, 1
   do j = 1, nif, 1
    if(C_T_S_C(j,i) > maxv) then

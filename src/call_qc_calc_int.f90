@@ -506,3 +506,75 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
  end if
 end subroutine submit_psi4_job
 
+! submit a GVB-BCCI job
+subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
+ implicit none
+ integer :: i, fid, system
+ integer, intent(in) :: nproc, ci_order
+ character(len=240) :: shname
+ character(len=240), intent(in) :: inpname, outname
+
+ if(ci_order /= 2) then
+  write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: only CI_order=2 is&
+                & allowed.'
+  write(6,'(A,I0)') 'Input CI_order=', ci_order
+  stop
+ end if
+
+ i = index(inpname, '.inp', back=.true.)
+ shname = inpname(1:i-1)//'.sh'
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') 'export OMP_STACKSIZE=2G'
+ write(fid,'(A,I0)') 'export OMP_NUM_THREADS=',nproc
+ write(fid,'(A)') 'gvb_bcci2b '//TRIM(inpname)//' 2 >'//TRIM(outname)//" 2>&1"
+ close(fid)
+
+ i = system('sh '//TRIM(shname))
+ call delete_file(shname)
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: Linearized BCCC job&
+                & failed.'
+  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
+  stop
+ end if
+end subroutine submit_gvb_bcci_job
+
+! submit a GVB-BCCC job
+subroutine submit_gvb_bccc_job(nproc, cc_order, inpname, outname)
+ implicit none
+ integer :: i, fid, system
+ integer, intent(in) :: nproc, cc_order
+ character(len=240) :: bccc_prog, shname
+ character(len=240), intent(in) :: inpname, outname
+
+ select case(cc_order)
+ case(2)
+  bccc_prog = 'gvb_bccc2b'
+ case(3)
+  bccc_prog = 'gvb_bccc3b'
+ case default
+  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: only CC_order=2 or &
+                & 3 is allowed.'
+  write(6,'(A,I0)') 'Input CC_order=', cc_order
+  stop
+ end select
+
+ i = index(inpname, '.inp', back=.true.)
+ shname = inpname(1:i-1)//'.sh'
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') 'export OMP_STACKSIZE=2G'
+ write(fid,'(A,I0)') 'export OMP_NUM_THREADS=',nproc
+ write(fid,'(A)') TRIM(bccc_prog)//' '//TRIM(inpname)//' >'//TRIM(outname)//&
+                  " 2>&1"
+ close(fid)
+
+ i = system('sh '//TRIM(shname))
+ call delete_file(shname)
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: Linearized BCCC job&
+                & failed.'
+  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
+  stop
+ end if
+end subroutine submit_gvb_bccc_job
+
