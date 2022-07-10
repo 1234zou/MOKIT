@@ -122,7 +122,11 @@ module mr_keyword
  integer :: nstate = 0 ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
 
- real(kind=8) :: ON_thres = 0.99999d0 ! Occupation Number threshold for UNO
+ real(kind=8) :: uno_thres = 0.99999d0 ! threshold for UNO occupation number
+ ! uno_thres is used for ist = 1,2
+
+ real(kind=8) :: on_thres = 0.98d0 ! threshold for NO occupation number, ist=5
+
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
  character(len=4) :: GVB_conv = '1d-5'
@@ -335,7 +339,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-8)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-10)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -840,6 +844,8 @@ contains
     read(longbuf(j+1:i-1),*) otpdf
    case('on_thres')
     read(longbuf(j+1:i-1),*) ON_thres
+   case('uno_thres')
+    read(longbuf(j+1:i-1),*) uno_thres
    case('nmr')
     nmr = .true.
    case('icss')
@@ -966,45 +972,50 @@ contains
   write(6,'(/,A,I0)') 'No. Strategy = ', ist
 
   write(6,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
-       'readNO  = ', readno, 'skipHF  = ',  skiphf, 'Cart    = ', cart
+       'readNO  = ', readno, 'skipHF  = ', skiphf, 'Cart    = ', cart
 
   write(6,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
-       'GVB     = ', gvb   , 'CASCI   = ',   casci, 'CASSCF  = ', casscf
+       'GVB     = ', gvb   , 'CASCI   = ',  casci, 'CASSCF  = ', casscf
 
   write(6,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
-       'CASPT2  = ', caspt2, 'CASPT2K = ', caspt2k, 'NEVPT2  = ', nevpt2
+       'CASPT2  = ', caspt2, 'CASPT2K = ',caspt2k, 'CASPT3  = ', caspt3
 
-  write(6,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ', ovbmp2, &
-       'SDSPT2  = ', sdspt2, 'MRCISD  = ',  mrcisd, 'MCPDFT  = ', mcpdft
+  write(6,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ',  ovbmp2,&
+       'SDSPT2  = ', sdspt2, 'MRCISD  = ', mrcisd, 'MRCISDT = ', MRCISDT
 
-  write(6,'(5(A,L1,3X))') 'NEVPT3  = ',  nevpt3, 'CASPT3  = ', caspt3, &
-       'MRCC    = ',   mrcc, 'CIonly  = ',  CIonly, 'dyn_corr= ',dyn_corr
+  write(6,'(5(A,L1,3X))') 'NEVPT2  = ',  nevpt2, 'NEVPT3  = ',  nevpt3,&
+       'MCPDFT  = ', mcpdft, 'MRCC    = ',   mrcc, 'CIonly  = ', CIonly
 
-  write(6,'(5(A,L1,3X))') 'DKH2    = ',    DKH2, 'X2C     = ', X2C, &
-       'RI      = ',     RI, 'FIC     = ',     FIC, 'DLPNO   = ', DLPNO
+  write(6,'(5(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ',    DKH2,&
+       'X2C     = ',    X2C, 'RI      = ',     RI, 'FIC     = ', FIC
 
-  write(6,'(5(A,L1,3X))') 'F12     = ',     F12, 'TenCycle= ',tencycle,&
-       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'BgCharge= ',   bgchg
+  write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
+       'TenCycle= ',tencycle,'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn
 
-  write(6,'(5(A,L1,3X))') 'Ana_Grad= ',casscf_force,'Pop     = ',pop,&
-       'NMR     = ',    nmr, 'ICSS    = ',    ICSS, 'TDHF    = ', TDHF
+  write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  casscf_force,&
+       'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
 
-  write(6,'(5(A,L1,3X))') 'SA_CAS  = ',  sa_cas, 'Excited = ', excited,&
-       'noQD    = ',   noQD, 'SOC     = ',     SOC, 'Mixed_Spin=',Mixed_Spin
+  write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
+       'Excited = ',excited, 'noQD    = ',   noQD, 'SOC     = ', SOC
 
-  write(6,'(4(A,L1,3X),A)') 'RigidScan=',rigid_scan,'RelaxScan=',relaxed_scan,&
-       'DryRun  = ', dryrun, 'Inherit = ', inherit, 'GVB_conv= '//TRIM(GVB_conv)
+  write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
+       rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
+       'GVB_conv= '//TRIM(GVB_conv)
 
-  write(6,'(2(A,I1,3X),A,F7.5,2X,A,I5)') 'CtrType = ', CtrType,&
-       'MRCC_type=',mrcc_type,'ON_thres= ', ON_thres,    'MaxM=', maxM
+  write(6,'(A,I2,3X,2(A,I1,3X),A,I5,3X,A,L1)') 'Skip_UNO=', nskip_uno, &
+       'CtrType = ', CtrType, 'MRCC_type=',mrcc_type, 'MaxM =', maxM,&
+       'excludeXH=', excludeXH
 
-  write(6,'(A)') 'LocalM  = '//TRIM(localm)//'  OtPDF = '//TRIM(otpdf)//'  RIJK_bas='&
-       //TRIM(RIJK_bas)//' RIC_bas='//TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)
+  write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
+       ON_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', UNO_thres
+
+  write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
+       TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
 
   if(skiphf) then
-   write(6,'(A)') 'HF_fch = '//TRIM(hf_fch)
+   write(6,'(A)') TRIM(hf_fch)
   else
-   write(6,'(A)') 'HF_fch = NONE'
+   write(6,'(A)') 'NONE'
   end if
  end subroutine prt_strategy
 
@@ -1038,6 +1049,12 @@ contains
   if(ON_thres<0d0 .or. ON_thres>1d0) then
    write(6,'(A)') error_warn//'ON_thres must be [0.0,1.0].'
    write(6,'(A,E12.5)') 'Your input ON_thres=', ON_thres
+   stop
+  end if
+
+  if(uno_thres<0d0 .or. uno_thres>1d0) then
+   write(6,'(A)') error_warn//'uno_thres must be [0.0,1.0].'
+   write(6,'(A,E12.5)') 'Your input uno_thres=', uno_thres
    stop
   end if
 

@@ -2828,57 +2828,6 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  deallocate(pair_coeff)
 end subroutine find_npair0_from_dat
 
-! find the number of active UNO pairs from a given .fch(k) file
-! Note that UNO are in pairs naturally, so npair0 from occupied space
-!  must be equal to that from unoccupied space
-subroutine find_npair0_from_fch(fchname, nopen, npair0)
- implicit none
- integer :: i, fid, nif
- integer, intent(in) :: nopen
- integer, intent(out) :: npair0
- integer, parameter :: iout = 6
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
- real(kind=8), parameter :: no_thres = 0.02d0
- real(kind=8), allocatable :: noon(:)
-
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:7) == 'Alpha O') exit
- end do ! for while
-
- if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine find_npair0_from_fch: keyword&
-                  & 'Alpha O' not found in file "//TRIM(fchname)
-  stop
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, nif
- allocate(noon(nif), source=0d0)
- read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
- close(fid)
-
- npair0 = 0
- do i = 1, nif, 1
-  if(noon(i)>no_thres .and. noon(i)<(2d0-no_thres)) npair0 = npair0 + 1
- end do
- deallocate(noon)
-
- if(MOD(npair0-nopen,2) /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine find_npair0_from_fch: npair0 - nopen&
-                   & is not an even integer.'
-  write(iout,'(A)') "This is probably because UNO occupation numbers in 'Alpha O'&
-                   & are probably incorrect."
-  stop
- end if
-
- npair0 = (npair0 - nopen)/2
- return
-end subroutine find_npair0_from_fch
-
 ! read variables nbf, nif, ndb, etc from a .fch(k) file containing NOs and NOONs
 subroutine read_no_info_from_fch(fchname, ON_thres, nbf, nif, ndb, nopen, nacta,&
                                  nactb, nacto, nacte)

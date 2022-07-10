@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jul-8'
+  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jul-10'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -107,7 +107,6 @@ subroutine automr(fname)
 
  call fdate(data_string)
  write(iout,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
- return
 end subroutine automr
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
@@ -443,7 +442,7 @@ end subroutine prt_auto_pair_script_into_py
 ! print UNO script into a given .py file
 subroutine prt_uno_script_into_py(pyname)
  use print_id, only: iout
- use mr_keyword, only: mem, nproc, hf_fch, tencycle, ON_thres
+ use mr_keyword, only: mem, nproc, hf_fch, tencycle, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, uno_fch
@@ -517,7 +516,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
  write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
  write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&
-                           &mf.mo_coeff[1],S,',ON_thres,')'
+                           &mf.mo_coeff[1],S,',uno_thres,')'
  write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
  write(fid1,'(A)') '# done transform'
@@ -1148,4 +1147,53 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  i = RENAME(TRIM(pyname), TRIM(pyname1))
  pyname = pyname1
 end subroutine prt_orb_resemble_py_script
+
+! find the number of active UNO pairs from a given .fch(k) file
+! Note that UNO are in pairs naturally, so npair0 from occupied space
+!  must be equal to that from unoccupied space
+subroutine find_npair0_from_fch(fchname, nopen, npair0)
+ use mr_keyword, only: on_thres
+ implicit none
+ integer :: i, fid, nif
+ integer, intent(in) :: nopen
+ integer, intent(out) :: npair0
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ real(kind=8), allocatable :: noon(:)
+
+ call open_file(fchname, .true., fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == 'Alpha O') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine find_npair0_from_fch: keyword 'Alpha O'&
+                 & not found in file "//TRIM(fchname)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ read(fid,'(A49,2X,I10)') buf, nif
+ allocate(noon(nif), source=0d0)
+ read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
+ close(fid)
+
+ npair0 = 0
+ do i = 1, nif, 1
+  if(noon(i)>on_thres .and. noon(i)<(2d0-on_thres)) npair0 = npair0 + 1
+ end do ! for i
+ deallocate(noon)
+
+ if(MOD(npair0-nopen,2) /= 0) then
+  write(6,'(A)') 'ERROR in subroutine find_npair0_from_fch: npair0-nopen is not&
+                & an even integer.'
+  write(6,'(A)') "This is probably because UNO occupation numbers in 'Alpha O'&
+                & are probably incorrect."
+  stop
+ end if
+
+ npair0 = (npair0 - nopen)/2
+end subroutine find_npair0_from_fch
 
