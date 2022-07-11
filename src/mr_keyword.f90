@@ -122,10 +122,10 @@ module mr_keyword
  integer :: nstate = 0 ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
 
- real(kind=8) :: uno_thres = 0.99999d0 ! threshold for UNO occupation number
+ real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
 
- real(kind=8) :: on_thres = 0.98d0 ! threshold for NO occupation number, ist=5
+ real(kind=8) :: on_thres = 2d-2 ! threshold for NO occupation number, ist=5
 
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
@@ -339,7 +339,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-10)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-12)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -843,7 +843,7 @@ contains
    case('otpdf')
     read(longbuf(j+1:i-1),*) otpdf
    case('on_thres')
-    read(longbuf(j+1:i-1),*) ON_thres
+    read(longbuf(j+1:i-1),*) on_thres
    case('uno_thres')
     read(longbuf(j+1:i-1),*) uno_thres
    case('nmr')
@@ -1007,7 +1007,7 @@ contains
        'excludeXH=', excludeXH
 
   write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
-       ON_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', UNO_thres
+       on_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
 
   write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
        TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
@@ -1046,9 +1046,9 @@ contains
    end if
   end if
 
-  if(ON_thres<0d0 .or. ON_thres>1d0) then
+  if(on_thres<0d0 .or. on_thres>1d0) then
    write(6,'(A)') error_warn//'ON_thres must be [0.0,1.0].'
-   write(6,'(A,E12.5)') 'Your input ON_thres=', ON_thres
+   write(6,'(A,E12.5)') 'Your input ON_thres=', on_thres
    stop
   end if
 

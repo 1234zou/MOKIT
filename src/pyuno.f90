@@ -7,6 +7,7 @@
 ! updated by jxzou at 20191215: delete SVD generation of virtual/inactive MOs (PAO outside recommanded)
 ! updated by jxzou at 20200426: add NOON output
 ! updated by jxzou at 20210518: add an intent(in) parameter ON_thres
+! updated by jxzou at 20220711: change ON_thres to uno_thres
 
 ! This subroutine is designed to be imported as a module in Python.
 !
@@ -23,9 +24,9 @@
 !  to compile this file (a uno.so file will be generated). Then in Python
 !  you can import the uno module.
 
-subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thres, idx, noon, uno_coeff)
+subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
+               uno_thres, idx, noon, uno_coeff)
  implicit none
- integer, parameter :: iout = 6
  integer :: i, outid
  integer :: ndb, nact, nact0, nopen, nocc
  ! ndb: the number of doubly occupied MOs
@@ -46,9 +47,9 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  integer, allocatable :: idx1(:), idx2(:)
 
  real(kind=8) :: maxv, abs_mean
- real(kind=8), parameter :: ON_criteria = 0.99999d0
- real(kind=8) :: ON_thres ! occupation number threshold
-!f2py intent(in) :: ON_thres
+ real(kind=8), parameter :: ON_criteria = 1d-5
+ real(kind=8) :: uno_thres ! UNO occupation number threshold
+!f2py intent(in) :: uno_thres
 
  real(kind=8) :: ao_ovlp(nbf,nbf)
 !f2py intent(in) :: ao_ovlp
@@ -66,14 +67,15 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  real(kind=8), allocatable :: mo_basis_ovlp(:,:), alpha_occ(:,:), beta_occ(:,:)
  real(kind=8), allocatable :: sv_occ0(:), sv_occ(:)
  character(len=7), parameter :: outname = 'uno.out'
- character(len=62), parameter :: on_warn1 = 'Warning in subroutine uno: ON_thres deviates from ON_criteria.'
+ character(len=62), parameter :: on_warn1 = 'Warning in subroutine uno: uno_th&
+                                            &res deviates from ON_criteria.'
  character(len=35), parameter :: on_warn2 = 'You better know what you are doing.'
 
  noon = 0d0
  nopen = nalpha - nbeta
  if(nopen < 0) then
-  write(iout,'(A)') 'ERROR in subroutine uno: nalpha < nbeta.'
-  write(iout,'(2(A,I0))') 'nalpha=', nalpha, ', nbeta=', nbeta
+  write(6,'(A)') 'ERROR in subroutine uno: nalpha < nbeta.'
+  write(6,'(2(A,I0))') 'nalpha=', nalpha, ', nbeta=', nbeta
   stop
  end if
 
@@ -81,12 +83,12 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  write(outid,'(A4,I5)') 'nbf=', nbf
  write(outid,'(A4,I5)') 'nif=', nif
  write(outid,'(A,F11.7)') 'ON_criteria=', ON_criteria
- write(outid,'(A,F11.7)') 'ON_thres=', ON_thres
- if(DABS(ON_thres - ON_criteria) > 1d-5) then
+ write(outid,'(A,F11.7)') 'uno_thres=', uno_thres
+ if(DABS(uno_thres - ON_criteria) > 1d-5) then
   write(outid,'(/,A)') on_warn1
   write(outid,'(A)') on_warn2
-  write(iout,'(/,A)') on_warn1
-  write(iout,'(A)') on_warn2
+  write(6,'(/,A)') on_warn1
+  write(6,'(A)') on_warn2
  end if
 
  ! check the orthonormality of initial Alpha and Beta MO, respectively
@@ -129,12 +131,12 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  allocate(sv_occ(nalpha))
  call svd_and_rotate(nalpha, nbeta, nbf, alpha_occ, beta_occ, mo_basis_ovlp, sv_occ, .false.)
  deallocate(mo_basis_ovlp)
- write(iout,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
- write(iout,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
+ write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
+ write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
  ! SVD done in occ space
 
  allocate(sv_occ0(nalpha), source=sv_occ)
- nact = COUNT(sv_occ < ON_criteria)
+ nact = COUNT(sv_occ < 1d0-ON_criteria)
  ndb = nalpha - nact
  nact0 = nact - nopen
  nocc = nalpha + nact0
@@ -183,19 +185,21 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, ON_thr
  ! copy the UNO coefficients
  uno_coeff = alpha_coeff
 
- ! now let's update ndb, nact, nact0, idx according to input ON_thres
- nact = COUNT(sv_occ0 < ON_thres)
- ndb = nalpha - nact
- nact0 = nact - nopen
- nocc = nalpha + nact0
- idx = [ndb+1, nocc+1, nopen]
+ ! now let's update ndb, nact, nact0, idx according to input uno_thres
+ if(DABS(uno_thres - ON_criteria) > 1d-5) then
+  nact = COUNT(sv_occ0 < 1d0-uno_thres)
+  ndb = nalpha - nact
+  nact0 = nact - nopen
+  nocc = nalpha + nact0
+  idx = [ndb+1, nocc+1, nopen]
+ end if
+
  write(outid,'(/,A6,I5)') 'ndb  =', ndb
  write(outid,'(A6,I5)')   'nact =', nact
  write(outid,'(A6,I5)')   'nact0=', nact0
  write(outid,'(A6,3I5)')  'idx  =', idx
  close(outid)
  deallocate(sv_occ0)
- return
 end subroutine uno
 
 subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_basis_ovlp)
@@ -216,7 +220,6 @@ subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_basis_ovl
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L', 'U', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
  call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_basis_ovlp, na)
- return
 end subroutine get_mo_basis_ovlp
 
 ! perform SVD on a given overlap matrix
@@ -224,7 +227,6 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
  implicit none
  integer :: i, lwork
  integer, intent(in) :: m,n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: a(m,n)
  real(kind=8), intent(out) :: u(m,m), vt(n,n), s(m)
  real(kind=8), allocatable :: work(:)
@@ -247,11 +249,10 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
 
  deallocate(work)
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR: info /= 0 in subroutine svd_on_ovlp. Please check why.'
-  write(iout,'(A5,I0)') 'info=',i
+  write(6,'(A)') 'ERROR: info /= 0 in subroutine svd_on_ovlp. Please check why.'
+  write(6,'(A5,I0)') 'info=',i
   stop
  end if
- return
 end subroutine svd_on_ovlp
 
 subroutine svd_and_rotate(nalpha,nbeta,nbf,c_alpha,c_beta,alpha_beta_ovlp,sv,reverse)
@@ -297,7 +298,6 @@ subroutine svd_and_rotate(nalpha,nbeta,nbf,c_alpha,c_beta,alpha_beta_ovlp,sv,rev
  c_alpha = u2
  c_beta = vt2
  deallocate(u2, vt2)
- return
 end subroutine svd_and_rotate
 
 subroutine check_unity(n, a, maxv, abs_mean)
@@ -314,7 +314,6 @@ subroutine check_unity(n, a, maxv, abs_mean)
 
  maxv = MAXVAL(b)
  abs_mean = SUM(b)/DBLE(n*n)
- return
 end subroutine check_unity
 
 ! calculated the SVD singular values of overlap of two sets of MOs
@@ -324,7 +323,6 @@ subroutine svd_of_two_mo(nbf, nif, coeff1, coeff2, S)
  integer :: i
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
 
  real(kind=8), intent(in) :: coeff1(nbf,nif), coeff2(nbf,nif), S(nbf,nbf)
 !f2py intent(in) :: coeff1, coeff2, S
@@ -340,16 +338,15 @@ subroutine svd_of_two_mo(nbf, nif, coeff1, coeff2, S)
  call svd_on_ovlp(nif, nif, mo_ovlp, u, vt, ev)
  deallocate(mo_ovlp, u, vt)
 
- write(iout,'(/,A)') 'SVD analysis of two sets of MOs:'
- write(iout,'(A,ES15.8)') 'The smallest singular value:', MINVAL(ev)
+ write(6,'(/,A)') 'SVD analysis of two sets of MOs:'
+ write(6,'(A,ES15.8)') 'The smallest singular value:', MINVAL(ev)
  i = COUNT(ev < 1d-1)
- write(iout,'(A,I0)') 'Number of singular values< 0.1: ', i
+ write(6,'(A,I0)') 'Number of singular values< 0.1: ', i
  i = COUNT(ev < 1d-2)
- write(iout,'(A,I0)') 'Number of singular values<0.01: ', i
+ write(6,'(A,I0)') 'Number of singular values<0.01: ', i
 
- write(iout,'(A)') 'All singular values:'
- write(iout,'(5(1X,ES15.8))') (ev(i),i=1,nif)
+ write(6,'(A)') 'All singular values:'
+ write(6,'(5(1X,ES15.8))') (ev(i),i=1,nif)
  deallocate(ev)
- return
 end subroutine svd_of_two_mo
 

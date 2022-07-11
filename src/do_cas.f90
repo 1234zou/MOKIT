@@ -17,7 +17,7 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate, ON_thres
+  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate, on_thres
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -25,7 +25,7 @@ subroutine do_cas(scf)
  implicit none
  integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
- real(kind=8) :: e(2)   ! e(1) is CASCI enery, e(2) is CASSCF energy
+ real(kind=8) :: e(2)       ! e(1) is CASCI enery, e(2) is CASSCF energy
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: buf, fchname, pyname, inpname, outname, proname, mklname
@@ -43,7 +43,7 @@ subroutine do_cas(scf)
   write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
-  call read_no_info_from_fch(hf_fch, ON_thres, nbf, nif, ndb, nopen, nacta, &
+  call read_no_info_from_fch(hf_fch, on_thres, nbf, nif, ndb, nopen, nacta, &
                              nactb, nacto, nacte)
   i = nacte; j = nacto
   npair0 = nactb; npair = npair0
@@ -132,6 +132,7 @@ subroutine do_cas(scf)
   write(6,'(A,I0)') 'For this molecule, npair=', npair
   stop
  end if
+
  write(6,'(2(A,I4,3X),A,L1,3X,A,I0)') 'doubly_occ=', idx1-1, 'nvir=',nvir,&
                                       'RIJK=', RI, 'nstate=', nstate
  write(6,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb

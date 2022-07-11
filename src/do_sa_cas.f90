@@ -6,7 +6,7 @@ subroutine do_sa_cas()
   npair0, sa_cas_e, ci_mult
  use mr_keyword, only: ist, nacto_wish, nacte_wish, hf_fch, casscf, bgchg, &
   casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, dryrun, excited, nstate, &
-  nevpt2, caspt2, noQD, ON_thres, orca_path
+  nevpt2, caspt2, noQD, on_thres, orca_path
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -22,7 +22,7 @@ subroutine do_sa_cas()
   write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
-  call read_no_info_from_fch(hf_fch, ON_thres, nbf, nif, ndb, nopen, nacta, &
+  call read_no_info_from_fch(hf_fch, on_thres, nbf, nif, ndb, nopen, nacta, &
                              nactb, nacto, nacte)
   npair0 = nactb; npair = npair0
 

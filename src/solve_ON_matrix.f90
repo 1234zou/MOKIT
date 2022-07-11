@@ -185,7 +185,7 @@ subroutine check_unitary(nmo, U)
  implicit none
  integer :: i, j
  integer, intent(in) :: nmo
- real(kind=8), parameter :: thresh = 1d-6
+ real(kind=8), parameter :: thresh = 1.3d-6
  real(kind=8), intent(in) :: U(nmo,nmo)
  real(kind=8), allocatable :: UUT(:,:), UTU(:,:)
 
@@ -221,6 +221,5 @@ subroutine check_unitary(nmo, U)
  end do ! for i
 
  deallocate(UTU)
- return
 end subroutine check_unitary
 

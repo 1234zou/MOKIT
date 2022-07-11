@@ -1492,7 +1492,6 @@ end subroutine read_cas_energy_from_output
 subroutine read_cas_energy_from_gaulog(outname, e, scf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1504,12 +1503,13 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
   BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(13:22)=='EIGENVALUE' .or. buf(23:32)=='Eigenvalue') exit
+  if(buf(13:22)=='EIGENVALUE' .or. buf(20:29)=='EIGENVALUE' .or. &
+     buf(23:32)=='Eigenvalue') exit
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_gaulog: no&
-   & 'EIGENVALUE' or 'Eigenvalue' found in file "//TRIM(outname)
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gaulog: no&
+         & 'EIGENVALUE' or 'Eigenvalue' found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1534,8 +1534,6 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
   i = index(buf,'E=')
   read(buf(i+2:),*) e(1)
  end if
-
- return
 end subroutine read_cas_energy_from_gaulog
 
 ! read CASCI/CASSCF energy from a PySCF output file
@@ -2829,13 +2827,12 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
 end subroutine find_npair0_from_dat
 
 ! read variables nbf, nif, ndb, etc from a .fch(k) file containing NOs and NOONs
-subroutine read_no_info_from_fch(fchname, ON_thres, nbf, nif, ndb, nopen, nacta,&
+subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,&
                                  nactb, nacto, nacte)
  implicit none
  integer :: i, na, nb
  integer, intent(out) :: nbf, nif, ndb, nopen, nacta, nactb, nacto, nacte
- real(kind=8) :: thres
- real(kind=8), intent(in) :: ON_thres
+ real(kind=8), intent(in) :: on_thres
  real(kind=8), allocatable :: noon(:)
  character(len=240), intent(in) :: fchname
 
@@ -2855,16 +2852,15 @@ subroutine read_no_info_from_fch(fchname, ON_thres, nbf, nif, ndb, nopen, nacta,
   stop
  end if
 
- if(ON_thres<0d0 .or. ON_thres>1d0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: input ON_thres&
+ if(on_thres<0d0 .or. on_thres>1d0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: input on_thres&
                   & is invalid.'
-  write(6,'(A)') '0.0 < ON_thres < 1.0 is required.'
+  write(6,'(A)') '0.0 < on_thres < 1.0 is required.'
   stop
  end if
- thres = 1d0 - ON_thres ! 0.99999 -> 0.00001
 
  do i = 1, nif, 1
-  if(noon(i)>thres .and. noon(i)<(2d0-thres)) then
+  if(noon(i)>on_thres .and. noon(i)<(2d0-on_thres)) then
    nacto = nacto + 1
    if(i <= nb) then
     nacta = nacta + 1
