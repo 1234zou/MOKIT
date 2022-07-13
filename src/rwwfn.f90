@@ -2503,10 +2503,34 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  return
 end subroutine read_mrpt_energy_from_bdf_out
 
+! whether the Davidson Q CORRECTION can be found in a GAMESS output file
+function has_davidson_q(outname) result(alive)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: alive
+
+ alive = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:18) == 'CALC. OF DAVIDSON') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) return
+
+ i = index(buf, '=')
+ read(buf(i+1:),*) alive
+end function has_davidson_q
+
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
-subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
-                                          nuc_pt_e, davidson_e, e)
+subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
+                                        nuc_pt_e, davidson_e, e)
  implicit none
  integer :: i, fid
  integer, intent(in) :: CtrType
@@ -2516,6 +2540,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
  character(len=10), intent(in) :: mrcisd_prog
  character(len=240), intent(in) :: outname
  character(len=240) :: buf
+ logical, external :: has_davidson_q
 
  davidson_e = 0d0; e = 0d0; ref_weight = 0d0
  call open_file(outname, .false., fid)
@@ -2629,7 +2654,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    if(buf(5:19) == 'Total CI energy') exit
 
    if(buf(11:23) == 'Psi4: An Open') then
-    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
     write(6,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
     close(fid)
     stop
@@ -2648,7 +2673,7 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
    if(buf(1:19) == '@ Final CI energies') exit
 
    if(buf(22:32) == 'Dalton - An') then
-    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_energy_from_output:'
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
     write(6,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
     close(fid)
     stop
@@ -2660,37 +2685,54 @@ subroutine read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e
   e = e + ptchg_e
 
  case('gamess')
-  do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
+  close(fid)
+
+  if(has_davidson_q(outname)) then
+   call open_file(outname, .false., fid)
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:13) == ' E(MR-CISD) =') exit
+   end do ! for while
+
+   read(buf(14:),*) e
    read(fid,'(A)') buf
-   if(buf(1:13) == ' E(MR-CISD) =') exit
-  end do ! for while
-  read(buf(14:),*) e
-
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  read(buf(14:),*) ref_weight
-
-  do while(.true.)
    read(fid,'(A)') buf
-   if(buf(2:7) == 'E(REF)') exit
-  end do ! for while
-  i = index(buf, '=')
-  read(buf(i+1:),*) casci_e
+   read(buf(14:),*) ref_weight
 
-  ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
-  ! correction
-  davidson_e = (1d0 - ref_weight)*(e - casci_e)
+   do while(.true.)
+    read(fid,'(A)') buf
+    if(buf(2:7) == 'E(REF)') exit
+   end do ! for while
+   i = index(buf, '=')
+   read(buf(i+1:),*) casci_e
+
+   ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
+   ! correction
+   davidson_e = (1d0 - ref_weight)*(e - casci_e)
+
+  else ! no 'CALC. OF DAVIDSON', i.e. no Davidson Q
+
+   call open_file(outname, .true., fid)
+   do while(.true.)
+    read(fid,'(A)')  buf
+    if(buf(2:14) == 'CI EIGENSTATE') exit
+   end do ! for while
+
+   close(fid)
+   i = index(buf, '=')
+   read(buf(i+1:),*) e
+  end if
 
  case default
-  write(6,'(A)') 'ERROR in subroutine read_mrcisd_energy_from_output: invalid&
+  write(6,'(A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid&
                 & mrcisd_prog='//TRIM(mrcisd_prog)
   stop
  end select
 
  close(fid)
-end subroutine read_mrcisd_energy_from_output
+end subroutine read_mrci_energy_from_output
 
 ! read MC-PDFT energy from a given (Open)Molcas/GAMESS output file
 subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)

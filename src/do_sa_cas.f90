@@ -103,6 +103,14 @@ subroutine do_sa_cas()
  deallocate(e_ev)
 
  if(nevpt2) then
+  if(TRIM(nevpt2_prog) /= TRIM(cas_prog)) then
+   write(6,'(A)') 'ERROR in subroutine do_sa_cas: currently only NEVPT2_prog=&
+                  &CASSCF_prog is allowed.'
+   write(6,'(A)') 'But NEVPT2_prog='//TRIM(nevpt2_prog)//' and CASSCF_prog='//&
+                   TRIM(cas_prog)
+   stop
+  end if
+
   allocate(nevpt2_e(0:nstate))
   select case(TRIM(nevpt2_prog))
   case('pyscf')
@@ -112,9 +120,8 @@ subroutine do_sa_cas()
   case default
    stop
   end select
+  deallocate(nevpt2_e)
  end if
-
- deallocate(nevpt2_e)
 end subroutine do_sa_cas
 
 ! print (DMRG-)SA-CASSCF script into a given .py file
@@ -351,13 +358,13 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  if(mixed_spin) then
   write(fid1,'(A,I0,A1,I0)') ' mult ',mult,',',mult+2
   if(MOD(nstate,2) == 0) then
-   write(fid1,'(A,I0,A1,I0)') ' nroots ',nstate/2,',',nstate/2
+   write(fid1,'(A,I0,A1,I0)') ' nroots ',nstate/2+1,',',nstate/2
   else
    write(fid1,'(A,I0,A1,I0)') ' nroots ',(nstate+1)/2,',',(nstate+1)/2
   end if
  else
   write(fid1,'(A,I0)') ' mult ', mult
-  write(fid1,'(A,I0)') ' nroots ', nstate
+  write(fid1,'(A,I0)') ' nroots ', nstate+1
  end if
  write(fid1,'(A)') ' maxiter 200'
  if(RI) write(fid1,'(A)') ' TrafoStep RI'
@@ -531,9 +538,12 @@ subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
   ci_mult = mult
  case('pyscf')
   call read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
-! case('orca')
-!  call read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e)
+ case('orca')
+  call read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
  case default
+  write(6,'(/,A)') 'ERROR in subroutine read_sa_cas_energies_from_output: &
+                   &cas_prog cannot be recognized.'
+  write(6,'(A)') 'cas_prog='//TRIM(cas_prog)
   stop
  end select
 end subroutine read_sa_cas_energies_from_output
@@ -573,6 +583,93 @@ subroutine read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mul
 
  close(fid)
 end subroutine read_sa_cas_energies_from_pyscf_out
+
+subroutine read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+ implicit none
+ integer :: i, j, k, m, mult, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8) :: s
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+
+ sa_cas_e = 0d0; ci_mult = 0d0
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:24) == 'CAS-SCF STATES FOR BLOCK') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_energies_from_orca_out: no&
+                  & 'CAS-SCF STATES FOR BLOCK'"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  stop
+ end if
+
+ ! CAS-SCF STATES FOR BLOCK  1 MULT= 3 NROOTS= 3
+ i = index(buf, '=', back=.true.)
+ read(buf(i+1:),*) k
+
+ j = index(buf, '=')
+ read(buf(j+1:),*) mult
+ s = 0.5d0*DBLE(mult-1)
+ ci_mult(0:k-1) = s*(s+1d0)
+
+ m = -1
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'ROOT') then
+   m = m + 1
+   i = index(buf, '=')
+   read(buf(i+1:),*) sa_cas_e(m)
+   if(m+1 == k) exit
+  end if
+ end do ! for while
+
+ if(nstate+1 == k) then
+  close(fid)
+  return
+ end if
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:24) == 'CAS-SCF STATES FOR BLOCK') exit
+ end do ! for while
+
+ i = index(buf, '=', back=.true.)
+ read(buf(i+1:),*) k
+
+ j = index(buf, '=')
+ read(buf(j+1:),*) mult
+ s = 0.5d0*DBLE(mult-1)
+ ci_mult(m+1:) = s*(s+1d0)
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'ROOT') then
+   m = m + 1
+   i = index(buf, '=')
+   read(buf(i+1:),*) sa_cas_e(m)
+   if(m == nstate) exit
+  end if
+ end do ! for while
+
+ close(fid)
+
+ ! sort the electronic states
+ do i = 0, nstate-1, 1
+  do j = i+1, nstate, 1
+   if(sa_cas_e(i) > sa_cas_e(j)) then
+    s = sa_cas_e(i); sa_cas_e(i) = sa_cas_e(j); sa_cas_e(j) = s
+    s = ci_mult(i); ci_mult(i) = ci_mult(j); ci_mult(j) = s
+   end if
+  end do ! for i
+ end do ! for j
+end subroutine read_sa_cas_energies_from_orca_out
 
 ! read multi-root CASCI-based NEVPT2 energies from a PySCF out file
 subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)

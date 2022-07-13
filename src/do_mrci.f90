@@ -62,7 +62,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(chkname), TRIM(mklname))
   i = RENAME(TRIM(string), TRIM(inpname))
   chkname = ' '
-  call prt_mrcisd_molcas_inp(2, inpname)
+  call prt_mrci_molcas_inp(2, inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_molcas_job(inpname)
 
@@ -131,7 +131,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.out'
   i = RENAME(TRIM(string), TRIM(inpname))
 
-  call prt_mrcisd_psi4_inp(inpname)
+  call prt_mrci_psi4_inp(2, inpname)
   call submit_psi4_job(psi4_path, inpname, nproc)
 
  case('dalton')
@@ -145,7 +145,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.out'
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
-  call prt_mrcisd_dalton_inp(2, inpname)
+  call prt_mrci_dalton_inp(2, inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   i = index(casnofch, '_NO', back=.true.)
@@ -162,7 +162,7 @@ subroutine do_mrcisd()
   mklname = casnofch(1:i)//'MRCISD.dat'
   outname = casnofch(1:i)//'MRCISD.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
-  call prt_mrcisd_gms_inp(inpname)
+  call prt_mrci_gms_inp(2, inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
@@ -183,7 +183,7 @@ subroutine do_mrcisd()
 
  ! read Davidson correction and MRCISD energy from OpenMolcas/ORCA/Gaussian/
  ! Dalton/GAMESS output file
- call read_mrcisd_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
+ call read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
       nuc_pt_e, davidson_e, e)
 
  mrcisd_e = e + davidson_e ! E(MRCISD+Q)
@@ -256,7 +256,7 @@ subroutine do_mrcisd()
 end subroutine do_mrcisd
 
 ! print MRCISD/MRCISDT keywords into OpenMolcas .input file
-subroutine prt_mrcisd_molcas_inp(order, inpname)
+subroutine prt_mrci_molcas_inp(order, inpname)
  use mol, only: nif, ndb, nopen, nacta, nactb, npair, npair0, charge, mult
  use mr_keyword, only: CtrType
  implicit none
@@ -314,7 +314,7 @@ subroutine prt_mrcisd_molcas_inp(order, inpname)
  end if
 
  close(fid)
-end subroutine prt_mrcisd_molcas_inp
+end subroutine prt_mrci_molcas_inp
 
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
@@ -428,12 +428,13 @@ subroutine prt_mrcisd_molpro_inp(inpname)
  return
 end subroutine prt_mrcisd_molpro_inp
 
-! print MRCISD keywords into a PSI4 input file
-subroutine prt_mrcisd_psi4_inp(inpname)
+! print MRCISD/MRCISDT keywords into a PSI4 input file
+subroutine prt_mrci_psi4_inp(order, inpname)
  use mol, only: nif, ndb, nopen, nacto, npair, npair0
- use mr_keyword, only: iout, mem
+ use mr_keyword, only: mem
  implicit none
  integer :: fid, idx, nvir
+ integer, intent(in) :: order
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
@@ -449,8 +450,8 @@ subroutine prt_mrcisd_psi4_inp(inpname)
   if(index(buf,'d_convergence') > 0) exit
 
   if(buf(1:6) == 'memory') then
-   write(iout,'(A)') 'ERROR in subroutine prt_mrcisd_psi4_inp: incomplete&
-                    & file '//TRIM(inpname)
+   write(6,'(A)') 'ERROR in subroutine prt_mrcisd_psi4_inp: incomplete&
+                  & file '//TRIM(inpname)
    close(fid)
    stop
   end if
@@ -460,16 +461,16 @@ subroutine prt_mrcisd_psi4_inp(inpname)
  write(fid,'(A,I0,A)') ' ras1 [',idx  ,']'
  write(fid,'(A,I0,A)') ' ras2 [',nacto,']'
  write(fid,'(A,I0,A)') ' ras3 [',nvir ,']'
- write(fid,'(A)') ' num_dets_print 9999'
+ if(order == 2) write(fid,'(A)') ' num_dets_print 9999'
+ write(fid,'(A,I0)') ' ex_level ', order
  write(fid,'(A)') '}'
 
- write(fid,'(/,A)') "mrcisd_energy = energy('detci',ref_wfn=scf_wfn)"
+ write(fid,'(/,A)') "mrci_energy = energy('detci',ref_wfn=scf_wfn)"
  close(fid)
- return
-end subroutine prt_mrcisd_psi4_inp
+end subroutine prt_mrci_psi4_inp
 
 ! print MRCISD/MRCISDT keywords into a Dalton input file
-subroutine prt_mrcisd_dalton_inp(order, inpname)
+subroutine prt_mrci_dalton_inp(order, inpname)
  use mol, only: mult, nif, ndb, nopen, nacto, nacte, npair, npair0
  use mr_keyword, only: DKH2
  implicit none
@@ -508,8 +509,8 @@ subroutine prt_mrcisd_dalton_inp(order, inpname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_mrcisd_dalton_inp: no '*ORBITAL&
-                & INP' found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_mrci_dalton_inp: no '*ORBITAL INP' &
+                 &found in file "//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -525,14 +526,15 @@ subroutine prt_mrcisd_dalton_inp(order, inpname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine prt_mrcisd_dalton_inp
+end subroutine prt_mrci_dalton_inp
 
-! add MRCISD+Q keywords into a GAMESS input file
-subroutine prt_mrcisd_gms_inp(inpname)
+! add MRCISD+Q/MRCISDT keywords into a GAMESS input file
+subroutine prt_mrci_gms_inp(order, inpname)
  use mr_keyword, only: mem, nproc, cart
  use mol, only: ndb, nacto, nacte, npair, npair0, nif, charge, mult
  implicit none
  integer :: i, ndb0, ne, fid, fid1, RENAME
+ integer, intent(in) :: order
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, inpname1
 
@@ -552,9 +554,9 @@ subroutine prt_mrcisd_gms_inp(inpname)
  write(fid1,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)),&
                         ' $END'
  write(fid1,'(2(A,I0),A)') ' $CIDET NCORE=0 NACT=', nif, ' NELS=', ne, ' $END'
- write(fid1,'(6(A,I0),A)')' $ORMAS NSPACE=3 MSTART(1)=1,',ndb0+1,',',&
-  ndb0+nacto+1,' MINE(1)=',ndb0*2-2,',',nacte-2,',0 MAXE(1)=',ndb0*2,&
-  ',',nacte+2,',2 $END'
+ write(fid1,'(A,7(I0,A))')' $ORMAS NSPACE=3 MSTART(1)=1,',ndb0+1,',',&
+  ndb0+nacto+1,' MINE(1)=',ndb0*2-order,',',nacte-order,',0 MAXE(1)=',ndb0*2,&
+  ',',nacte+order,',',order,' $END'
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -571,8 +573,7 @@ subroutine prt_mrcisd_gms_inp(inpname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
-end subroutine prt_mrcisd_gms_inp
+end subroutine prt_mrci_gms_inp
 
 ! calculate the Davidson size-extensivity correction energy for OpenMolcas
 ! davidson_e = E_corr*(1-c^2), where c is the reference weight
@@ -752,7 +753,8 @@ end subroutine prt_mrci_orb_type
 ! do uncontacted MRCISDT using one of Gaussian/OpenMolcas/Dalton
 subroutine do_mrcisdt()
  use mr_keyword, only: mem, nproc, eist, mrcisdt, mrcisdt_prog, molcas_path, &
-  gau_path, casnofch, chgname, CIonly, bgchg, CtrType
+  gau_path, psi4_path, gms_path, gms_scr_path, casnofch, chgname, CIonly, bgchg,&
+  CtrType
  use mol , only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk
  implicit none
@@ -789,7 +791,7 @@ subroutine do_mrcisdt()
   i = RENAME(TRIM(chkname), TRIM(mklname))
   i = RENAME(TRIM(string), TRIM(inpname))
   chkname = ' '
-  call prt_mrcisd_molcas_inp(3, inpname)
+  call prt_mrci_molcas_inp(3, inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_molcas_job(inpname)
 
@@ -804,6 +806,18 @@ subroutine do_mrcisdt()
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gau_job(gau_path, inpname)
 
+ case('psi4')
+  call check_exe_exist(psi4_path)
+  i = system('fch2psi '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  string = casnofch(1:i-1)//'_psi.inp'
+  i = index(casnofch, '_NO', back=.true.)
+  inpname = casnofch(1:i)//'MRCISDT.inp'
+  outname = casnofch(1:i)//'MRCISDT.out'
+  i = RENAME(TRIM(string), TRIM(inpname))
+  call prt_mrci_psi4_inp(3, inpname)
+  call submit_psi4_job(psi4_path, inpname, nproc)
+
  case('dalton')
   i = system('fch2dal '//TRIM(casnofch))
   i = index(casnofch, '.fch', back=.true.)
@@ -815,13 +829,25 @@ subroutine do_mrcisdt()
   outname = casnofch(1:i)//'MRCISDT.out'
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
-  call prt_mrcisd_dalton_inp(3, inpname)
+  call prt_mrci_dalton_inp(3, inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-
   i = index(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISDT'
   chkname = casnofch(1:i)//'MRCISDT.sout'
   call submit_dalton_job(mklname, mem, nproc, .false., .false., .false.)
+
+ case('gamess')
+  i = system('fch2inp '//TRIM(casnofch))
+  i = index(casnofch, '.fch', back=.true.)
+  string = casnofch(1:i-1)//'.inp'
+  i = index(casnofch, '_NO', back=.true.)
+  inpname = casnofch(1:i)//'MRCISDT.inp'
+  mklname = casnofch(1:i)//'MRCISDT.dat'
+  outname = casnofch(1:i)//'MRCISDT.gms'
+  i = RENAME(TRIM(string), TRIM(inpname))
+  call prt_mrci_gms_inp(3, inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  case default
   write(6,'(A)') 'ERROR in subroutine do_mrcisdt: invalid program='//&
@@ -830,7 +856,7 @@ subroutine do_mrcisdt()
  end select
 
  ! read MRCISDT energy from OpenMolcas/Gaussian/Dalton output file
- call read_mrcisd_energy_from_output(CtrType, mrcisdt_prog, outname, ptchg_e,&
+ call read_mrci_energy_from_output(CtrType, mrcisdt_prog, outname, ptchg_e,&
       nuc_pt_e, davidson_e, e)
 
  mrcisd_e = e ! E(MRCISDT)

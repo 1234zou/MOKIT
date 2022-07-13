@@ -339,7 +339,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-12)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-13)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -1286,15 +1286,17 @@ contains
   case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton','gamess')
   case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') 'User specified MRCISD program cannot be identified:'//TRIM(mrcisd_prog)
+   write(6,'(A)') 'User specified MRCISD program is not supported: '//&
+                   TRIM(mrcisd_prog)
    stop
   end select
 
   select case(TRIM(mrcisdt_prog))
-  case('gaussian','openmolcas','dalton')
+  case('openmolcas','dalton','psi4','gamess')
   case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') 'User specified MRCISDT program cannot be identified:'//TRIM(mrcisd_prog)
+   write(6,'(A)') 'User specified MRCISDT program is not supported: '//&
+                   TRIM(mrcisdt_prog)
    stop
   end select
 

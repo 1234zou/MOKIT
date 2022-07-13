@@ -698,5 +698,6 @@ subroutine boys_noiter(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  real(kind=8), intent(in) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
  real(kind=8), intent(out) :: new_coeff(nbf,nmo)
 
+ new_coeff = 0d0
 end subroutine boys_noiter
 
