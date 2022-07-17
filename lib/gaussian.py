@@ -8,7 +8,6 @@ from pyscf.lo.boys import dipole_integral
 from fch2py import fch2py
 from py2fch import py2fch
 from rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
-from construct_vir import construct_vir
 from lo import boys, pm
 
 def load_mol_from_fch(fchname):
@@ -87,6 +86,7 @@ def uno(fchname):
   >>> uno(fchname='benzene_uhf.fch')
   '''
   import uno as pyuno
+  from construct_vir import construct_vir
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
@@ -98,7 +98,7 @@ def uno(fchname):
   beta_mo  = fch2py(fchname, nbf, nif, 'b')
   mol = load_mol_from_fch(fchname)
   S = mol.intor_symmetric('int1e_ovlp')
-  idx, noon, alpha_coeff = pyuno.uno(nbf, nif, na, nb, alpha_mo, beta_mo, S, 0.99999E+00)
+  idx, noon, alpha_coeff = pyuno.uno(nbf, nif, na, nb, alpha_mo, beta_mo, S, 1e-5)
   alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)
   os.remove('uno.out')
   py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True)
@@ -151,4 +151,37 @@ def get_dipole(fchname, itype=None):
   dipole = e_dip + n_dip
   print(' Dipole moment (a.u.):', dipole)
   return dipole
+
+def gen_fcidump(fchname, nacto, nacte):
+  '''
+  generate a FCIDUMP file using the provided .fch(k) file
+  nacto: the number of active orbitals
+  nacte: the number of active electrons
+  '''
+  from pyscf import scf, mcscf, dmrgscf
+
+  mol = load_mol_from_fch(fchname)
+  na = np.int((nacte + mol.spin)/2) # active alpha electrons
+  nb = np.int((nacte - mol.spin)/2) # active beta electrons
+
+  if mol.spin == 0:
+    mf = scf.RHF(mol)
+  else:
+    mf = scf.ROHF(mol)
+
+  mf.max_cycle = 1
+  mf.max_memory = 8000 # MB
+  mf.kernel()
+
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  mf.mo_coeff = fch2py(fchname, nbf, nif, 'a')
+
+  mc = mcscf.CASCI(mf, nacto, (na,nb))
+  mc.max_memory = 8000 # MB
+  mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=1000)
+  mc.fcisolver.runtimeDir = '.'
+  mc.fcisolver.integralFile = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
+  eri = mc.get_h2eff()
+  h1eff, ecore = mc.get_h1eff()
+  dmrgscf.dmrgci.writeIntegralFile(mc.fcisolver, h1eff, eri, nacto, (na,nb), ecore)
 

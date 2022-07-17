@@ -298,7 +298,7 @@ end subroutine read_mrcc_energy_from_output
 
 ! perform GVB-BCCC2b/3b calculations
 subroutine do_gvb_bccc()
- use mol, only: npair, nopen, mrcc_e
+ use mol, only: mult, npair, nopen, mrcc_e
  use mr_keyword, only: mem, nproc, mrcc_type, mrcc_prog, datname
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
@@ -327,6 +327,13 @@ subroutine do_gvb_bccc()
  write(6,'(A)') 'b based on GVB orbitals'
  write(6,'(A)') 'Frozen_core = T. Frozen_vir = T. Using program gvb_bccc'
 
+ if(mult /= 1) then
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently only singlet is&
+                   & supported.'
+  write(6,'(A,I0)') 'Input spin multiplicity=', mult
+  stop
+ end if
+
  i = index(datname, '_s.dat', back=.true.)
  if(i == 0) then
   write(6,'(A)') 'ERROR in subroutine do_gvb_bccc: .dat filename does not &
@@ -349,7 +356,7 @@ subroutine do_gvb_bccc()
  i = 2*npair + nopen
  call modify_py_script_to_gen_fcidump(pyname, i, i, mem, nproc)
  call submit_pyscf_job(pyname)
- call delete_files(2, [pyname, fchname2])
+ call delete_files(3, [pyname, outname, fchname2])
 
  i = index(datname, '_s.dat', back=.true.)
  inpname = datname(1:i-1)//'_bccc.input'

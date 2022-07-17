@@ -339,7 +339,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-13)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-17)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
