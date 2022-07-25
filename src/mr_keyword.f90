@@ -475,8 +475,9 @@ contains
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','caspt3','caspt2','nevpt3',&
-        'nevpt2','casscf','dmrgscf','casci','dmrgci','caspt2k','caspt2-k')
+   case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3','caspt2',&
+        'caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf','casci',&
+        'dmrgci','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then

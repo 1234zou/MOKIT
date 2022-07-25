@@ -1017,6 +1017,8 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
  write(fid,'(A,I0)') '%nprocshared=', nproc
  write(fid,'(4(A,I0),A)',advance='no') '#p CAS(',nacte,',',nacto,') MP2&
  & chkbasis nosymm guess=read geom=allcheck iop(5/52=100)'
+ ! IOp(5/52): configuration cutoff for mp2
+ ! i     float(1/i)
 
  if(DKH2) then
   write(fid,'(A,/)') ' int(nobasistransform,DKH2) iop(3/93=1)'
