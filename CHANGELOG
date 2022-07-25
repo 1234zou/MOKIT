@@ -1,4 +1,4 @@
-MOKIT 1.2.4 (Jul 17, 2022)
+MOKIT 1.2.4 (Jul 25, 2022)
 ------------------------
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
 * improve DMRG keywords using OpenMolcas+QCMaquis

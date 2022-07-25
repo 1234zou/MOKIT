@@ -23,25 +23,32 @@
 ! 'L' is 'SP' in Pople-type basis sets
 
 program main
+ use util_wrapper, only: formchk
  implicit none
- integer :: i
- integer, parameter :: iout = 6
+ integer :: i, k
  character(len=4) :: str
  character(len=240) :: fname
  logical :: binary
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,1X,A)') 'ERROR in subroutine fch2qm4d: wrong command line arguments!'
-  write(iout,'(1X,A)') 'Example 1 (for HF/DFT): fch2qm4d a.fch'
-  write(iout,'(1X,A)') 'Example 2 (for HF/DFT): fch2qm4d a.fch -xml'
-  write(iout,'(1X,A,/)') 'Example 3 (for HF/DFT): fch2qm4d a.fch -bin'
+  write(6,'(/,1X,A)') 'ERROR in subroutine fch2qm4d: wrong command line arguments!'
+  write(6,'(1X,A)') 'Example 1 (for HF/DFT): fch2qm4d a.fch'
+  write(6,'(1X,A)') 'Example 2 (for HF/DFT): fch2qm4d a.fch -xml'
+  write(6,'(1X,A,/)') 'Example 3 (for HF/DFT): fch2qm4d a.fch -bin'
   stop
  end if
 
  fname = ' '
  call getarg(1, fname)
  call require_file_exist(fname)
+
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fname)
+ if(fname(k-3:k) == '.chk') then
+  call formchk(fname)
+  fname = fname(1:k-3)//'fch'
+ end if
 
  binary = .false.
  ! False: use .xml ASCII text file
@@ -55,9 +62,9 @@ program main
   case('-bin')
    binary = .true.
   case default
-   write(iout,'(/,A)') 'ERROR in subroutine fch2qm4d: the 2nd command line&
+   write(6,'(/,A)') 'ERROR in subroutine fch2qm4d: the 2nd command line&
                       & argument is wrong.'
-   write(iout,'(A)') "Only '-xml' or '-bin' is accepted. But got '"//str//"'"
+   write(6,'(A)') "Only '-xml' or '-bin' is accepted. But got '"//str//"'"
    stop
   end select
  end if

@@ -56,7 +56,6 @@ contains
   frag2%pos = frag1%pos
   frag2%noiter = frag1%noiter
   frag2%ghost = frag1%ghost
-  return
  end subroutine copy_frag
 
 end module frag_info
@@ -117,6 +116,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  use util_wrapper, only: formchk, unfchk
  use frag_info, only: nfrag0, nfrag, frag, frags, copy_frag
  use theory_level
+ use phys_cons, only: au2kcal
  implicit none
  integer :: i, j, k, m, fid, ifrag, iatom
  integer :: charge, mult, natom, maxfrag
@@ -513,10 +513,21 @@ subroutine frag_guess_wfn(gau_path, gjfname)
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
         frags(i)%wfn_type)
   frags(i)%noiter = .false.
-  call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
+  call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
-  write(iout,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
-                                      ', frags(i)%ssquare=', frags(i)%ssquare
+  write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
+                                   ', frags(i)%ssquare=', frags(i)%ssquare
+
+  write(6,'(/,A)') "The following energy should be close to 'TOTAL INTERACTION&
+                  & ENERGY' of"
+  write(6,'(A)') "'OWN BASIS SET' section in GAMESS output:"
+  write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(1:nfrag0)%e))*au2kcal, ' kcal/mol'
+
+  write(6,'(/,A)') "The following energy should be close to 'TOTAL INTERACTION&
+                  & ENERGY' of"
+  write(6,'(A)') "'ALL BASIS SET' section in GAMESS output:"
+  write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(nfrag0+1:2*nfrag0)%e))*au2kcal,&
+                       ' kcal/mol'
 
  else if(eda_type == 4) then ! For SAPT, add SCF density of two fragments to
   ! obtain approximate total SCF density
@@ -536,9 +547,10 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 ! call delete_files(2, [frags(nfrag)%fname, logname])
 
  if(eda_type == 4) then ! SAPT in PSI4
-  write(iout,'(A)') 'All SCF computations finished. Generating PSI4 input file...'
+  write(6,'(A)') 'All SCF computations finished. Generating PSI4 input file...'
  else
-  write(iout,'(A)') 'All SCF computations finished. Generating GAMESS input file...'
+  write(6,'(/,A)') 'All SCF computations finished. Generating GAMESS input fil&
+                   &e...'
  end if
 end subroutine frag_guess_wfn
 
@@ -597,7 +609,6 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type)
   stop
  end select
 
- return
 end subroutine read_eda_type_from_gjf
 
 ! read memory and nprocshared from a given .gjf file
@@ -695,8 +706,6 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  i = index(buf(j+1:), ' ')
  basis = ' '
  basis = buf(j+1:j+i-1)
-
- return
 end subroutine read_method_and_basis_from_buf
 
 ! read nfrag (the number of fragments) from a string
@@ -745,7 +754,6 @@ subroutine read_nfrag_from_buf(buf, nfrag)
   stop
  end if
 
- return
 end subroutine read_nfrag_from_buf
 
 ! generate a .gjf file from a type frag
@@ -890,7 +898,6 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
   close(fid)
  end if
 
- return
 end subroutine gen_gjf_from_type_frag
 
 ! generate extended basis set gjf files for a fragment
@@ -915,7 +922,6 @@ subroutine gen_extend_bas_frag(frag_i, frag_n, frag_k)
  do i = 1, natom, 1
   if( ANY(frag_i%atm_map == i) ) frag_k%ghost(i) = .false.
  end do ! for i
- return
 end subroutine gen_extend_bas_frag
 
 ! generate .fch files from .chk files, and create GAMESS .inp file (if EDA requested)
@@ -1006,13 +1012,12 @@ subroutine gen_inp_of_frags()
 
  deallocate(radii, frags)
  write(iout,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)//' to '
+
  if(eda_type == 4) then ! SAPT in PSI4
   write(iout,'(A)') "PSI4 (Don't delete *.A and *.B files)."
  else
-  write(iout,'(A)') 'GAMESS.'
+  write(iout,'(A)') 'GAMESS or XEDA.'
  end if
-
- return
 end subroutine gen_inp_of_frags
 
 ! copy content of a provided .inp file and modify it to be SAPT job
@@ -1155,7 +1160,6 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
 
  write(fid2,'(/,A)') 'psi4.sapt(wfn_dimer, wfn_monA, wfn_monB)'
  close(fid2)
- return
 end subroutine copy_and_modify_psi4_sapt_file
 
 ! copy content of a provided .inp file and modify it to be EDA job
@@ -1305,8 +1309,6 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
                    & in file "//TRIM(inpname1)
   stop
  end if
-
- return
 end subroutine copy_and_modify_gamess_eda_file
 
 ! copy $VEC from file inpname1 into inpname2, by appending
@@ -1440,7 +1442,6 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
  end if
 
  close(fid2)
- return
 end subroutine copy_vec_to_append_another_inp
 
 ! read the scrf string from a longbuf
@@ -1462,7 +1463,6 @@ subroutine read_scrf_string_from_buf(longbuf, scrf)
  end if
 
  scrf = longbuf(i:j)
- return
 end subroutine read_scrf_string_from_buf
 
 ! determine implicit solvent model from the scrf string
@@ -1534,7 +1534,6 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'INPUT'
  end select
 
- return
 end subroutine determine_solvent_from_gau2gms
 
 ! convert DFT name of Gaussian to that of GAMESS
@@ -1587,7 +1586,6 @@ subroutine convert_dft_name_gau2gms(method, dft_in_gms)
   dft_in_gms = 'NONE'
  end select
 
- return
 end subroutine convert_dft_name_gau2gms
 
 ! delete ECP/PP of ghost atoms in a given .gjf file
@@ -1687,7 +1685,6 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
  close(fid1)
  deallocate(elem, ghost)
  i = RENAME(TRIM(gjfname1), TRIM(gjfname))
- return
 end subroutine del_ecp_of_ghost_in_gjf
 
 ! construct supermolecule occ MOs from direct sum of fragment occ MOs
@@ -1926,7 +1923,6 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, fname)
  end if
 
  deallocate(fchname, dm, dm1, has_spin_density)
- return
 end subroutine sum_frag_density_and_prt_into_fch
 
 ! modify 'guess(only,save)' in a given .gjf file
@@ -1966,6 +1962,5 @@ subroutine modify_guess_only_in_gjf(gjfname)
  write(fid2,'(A,/)') TRIM(buf)
  close(fid2)
  i = RENAME(TRIM(fname), TRIM(gjfname))
- return
 end subroutine modify_guess_only_in_gjf
 

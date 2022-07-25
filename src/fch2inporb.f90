@@ -19,8 +19,7 @@ module root_parameter
 end module root_parameter
 
 program main
- use fch_content, only: iout
- use util_wrapper, only: fch2inp_wrap
+ use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
  integer :: i, k, system
  character(len=3) :: str
@@ -29,9 +28,9 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') ' ERROR in subroutine fch2inporb: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inporb a.fch'
-  write(iout,'(A,/)') ' Example 2 (for CAS NO)      : fch2inporb a.fch -no'
+  write(6,'(/,A)') ' ERROR in subroutine fch2inporb: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inporb a.fch'
+  write(6,'(A,/)') ' Example 2 (for CAS NO)      : fch2inporb a.fch -no'
   stop
  end if
 
@@ -39,12 +38,19 @@ program main
  call getarg(1, fname)
  call require_file_exist(fname)
 
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fname)
+ if(fname(k-3:k) == '.chk') then
+  call formchk(fname)
+  fname = fname(1:k-3)//'fch'
+ end if
+
  if(i == 2) then
   str = ' '
   call getarg(2, str)
   if(str /= '-no') then
-   write(iout,'(/,A)') " ERROR in subroutine fch2inporb: the 2nd argument is&
-                       & wrong! Only '-no' is accepted."
+   write(6,'(/,A)') " ERROR in subroutine fch2inporb: the 2nd argument is&
+                    & wrong! Only '-no' is accepted."
    stop
   else ! str = '-no'
    prt_no = .true.
@@ -67,11 +73,11 @@ program main
  end if
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
-  write(iout,'(A)')   'Three possible reasons:'
-  write(iout,'(A)')   '(1) You forget to compile the utility bas_gms2molcas.'
-  write(iout,'(A)')   '(2) The file '//TRIM(fname)//' may be incomplete.'
-  write(iout,'(A,/)') '(3) This is a bug of the utility bas_gms2molcas.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
+  write(6,'(A)')   'Three possible reasons:'
+  write(6,'(A)')   '(1) You forget to compile the utility bas_gms2molcas.'
+  write(6,'(A)')   '(2) The file '//TRIM(fname)//' may be incomplete.'
+  write(6,'(A,/)') '(3) This is a bug of the utility bas_gms2molcas.'
   stop
  end if
 

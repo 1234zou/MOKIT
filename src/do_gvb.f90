@@ -101,7 +101,7 @@ end subroutine do_gvb
 subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
   datname, bgchg, chgname, cart, check_gms_path, GVB_conv
- use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e, XHgvb_e
+ use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: unpaired_e
@@ -109,6 +109,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  character(len=240), intent(in) :: proname, pair_fch
  character(len=480) :: longbuf = ' '
  logical, intent(in) :: name_determined
+ ! True: using the provided proname as inpname
+ ! False: create inpname, gmsname, datname according to proname
 
  call check_gms_path()
 
@@ -150,14 +152,10 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
- if(name_determined) then
-  call read_gvb_energy_from_gms(gmsname, XHgvb_e)
-  write(6,'(A)') 'After excluding inactive X-H pairs from the original GVB:'
-  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', XHgvb_e, 'a.u.'
- else ! not determined
-  call read_gvb_energy_from_gms(gmsname, gvb_e)
-  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
- end if
+ if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from &
+                                    &the original GVB:'
+ call read_gvb_energy_from_gms(gmsname, gvb_e)
+ write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  if(cart) then ! Cartesian functions

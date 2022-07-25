@@ -27,9 +27,9 @@
 ! from spherical harmonic functions to Cartesian functions.
 
 program main
- use fch_content, only: iout
+ use util_wrapper, only: formchk
  implicit none
- integer :: i, npair, nopen0
+ integer :: i, k, npair, nopen0
  character(len=4) :: str1, string
  character(len=5) :: str2
  character(len=240) :: fchname
@@ -44,21 +44,28 @@ program main
  case(3,5)
   gvb = .true.
  case default
-  write(iout,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch'
-  write(iout,'(A)')   ' Example 2 (GVB)             : fch2inp a.fch -gvb [npair]'
-  write(iout,'(A,/)') ' Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]'
+  write(6,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch'
+  write(6,'(A)')   ' Example 2 (GVB)             : fch2inp a.fch -gvb [npair]'
+  write(6,'(A,/)') ' Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]'
   stop
  end select
 
  call getarg(1,fchname)
  call require_file_exist(fchname)
 
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:k-3)//'fch'
+ end if
+
  if(i > 1) then
   call getarg(2, str1)
   if(str1 /= '-gvb') then
-   write(iout,'(A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
-   write(iout,'(A)') "It can only be '-gvb'."
+   write(6,'(A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
+   write(6,'(A)') "It can only be '-gvb'."
    stop
   end if
 
@@ -68,8 +75,8 @@ program main
   if(i == 5) then
    call getarg(4, str2)
    if(str2 /= '-open') then
-    write(iout,'(A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
-    write(iout,'(A)') "It can only be '-open'."
+    write(6,'(A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
+    write(6,'(A)') "It can only be '-open'."
     stop
    end if
    call getarg(5, string)

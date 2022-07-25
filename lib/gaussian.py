@@ -152,36 +152,45 @@ def get_dipole(fchname, itype=None):
   print(' Dipole moment (a.u.):', dipole)
   return dipole
 
-def gen_fcidump(fchname, nacto, nacte):
+def gen_fcidump(fchname, nacto, nacte, mem=None, np=None):
   '''
   generate a FCIDUMP file using the provided .fch(k) file
   nacto: the number of active orbitals
   nacte: the number of active electrons
+  mem: total memory, in MB
+  np: the number of OpenMP threads
   '''
-  from pyscf import scf, mcscf, dmrgscf
+  from pyscf import scf, mcscf, ao2mo, lib
+  from pyscf.tools.fcidump import from_integrals
 
+  if mem is None:
+    mem = 4000 # MB
+
+  if (np):
+    lib.num_threads(np)
+
+  # load the mol object from a given .fch(k) file
   mol = load_mol_from_fch(fchname)
-  na = np.int((nacte + mol.spin)/2) # active alpha electrons
-  nb = np.int((nacte - mol.spin)/2) # active beta electrons
 
   if mol.spin == 0:
     mf = scf.RHF(mol)
   else:
     mf = scf.ROHF(mol)
 
+  # do 1-cycle R(O)HF to make necessary arrays allocated
   mf.max_cycle = 1
-  mf.max_memory = 8000 # MB
+  mf.max_memory = mem
   mf.kernel()
 
+  # read MOs from a given .fch(k) file
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mf.mo_coeff = fch2py(fchname, nbf, nif, 'a')
 
-  mc = mcscf.CASCI(mf, nacto, (na,nb))
-  mc.max_memory = 8000 # MB
-  mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=1000)
-  mc.fcisolver.runtimeDir = '.'
-  mc.fcisolver.integralFile = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
-  eri = mc.get_h2eff()
+  # generate integrals and create FCIDUMP
+  mc = mcscf.CASCI(mf, nacto, nacte)
+  eri_cas = mc.get_h2eff()
+  eri_cas = ao2mo.restore(8, eri_cas, nacto)
   h1eff, ecore = mc.get_h1eff()
-  dmrgscf.dmrgci.writeIntegralFile(mc.fcisolver, h1eff, eri, nacto, (na,nb), ecore)
+  int_file = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
+  from_integrals(int_file, h1eff, eri_cas, nacto, nacte, ecore, ms=mol.spin)
 

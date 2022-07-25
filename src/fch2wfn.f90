@@ -1,30 +1,37 @@
 ! written by jxzou at 20210126: convert .fch -> .wfn file
 
 program main
- use fch_content, only: iout
+ use util_wrapper, only: formchk
  implicit none
- integer :: i
+ integer :: i, k
  character(len=3) :: str
  character(len=240) :: fchname
  logical :: read_no
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch2wfn: wrong command line arguments!'
-  write(iout,'(A)')   'Example 1 (HF/DFT): fch2wfn a.fch'
-  write(iout,'(A,/)') 'Example 2 (NOs)   : fch2wfn a.fch -no'
+  write(6,'(/,A)') 'ERROR in subroutine fch2wfn: wrong command line arguments!'
+  write(6,'(A)')   'Example 1 (HF/DFT): fch2wfn a.fch'
+  write(6,'(A,/)') 'Example 2 (NOs)   : fch2wfn a.fch -no'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:k-3)//'fch'
+ end if
+
  read_no = .false.
  if(i == 2) then
   call getarg(2, str)
   if(str /= '-no') then
-   write(iout,'(A)') 'ERROR in subroutine fch2wfn: the 2nd argument is wrong!'
-   write(iout,'(A)') "It can only be '-no'."
+   write(6,'(A)') 'ERROR in subroutine fch2wfn: the 2nd argument is wrong!'
+   write(6,'(A)') "It can only be '-no'."
    stop
   else
    read_no = .true.

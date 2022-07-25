@@ -5,20 +5,28 @@
 !       thus 'fch2inp' and 'bas_gms2py' must be compiled as well.
 
 program main
+ use util_wrapper, only: formchk
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=240) :: fchname
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line argument!'
-  write(iout,'(A,/)') ' Example (R(O)HF, UHF): bas_fch2py a.fch'
+  write(6,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line argument!'
+  write(6,'(A,/)') ' Example (R(O)HF, UHF): bas_fch2py a.fch'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ ! if .chk file provided, convert into .fch file automatically
+ i = LEN_TRIM(fchname)
+ if(fchname(i-3:i) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:i-3)//'fch'
+ end if
+
  call bas_fch2py(fchname)
  stop
 end program main

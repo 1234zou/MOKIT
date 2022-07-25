@@ -18,6 +18,7 @@ module root_param_fch2psi
 end module root_param_fch2psi
 
 program main
+ use util_wrapper, only: formchk
  implicit none
  integer :: i
  character(len=240) :: fchname = ' '
@@ -31,6 +32,14 @@ program main
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ ! if .chk file provided, convert into .fch file automatically
+ i = LEN_TRIM(fchname)
+ if(fchname(i-3:i) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:i-3)//'fch'
+ end if
+
  call fch2psi(fchname)
  stop
 end program main

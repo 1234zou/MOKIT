@@ -300,7 +300,6 @@ end subroutine read_mrcc_energy_from_output
 subroutine do_gvb_bccc()
  use mol, only: mult, npair, nopen, mrcc_e
  use mr_keyword, only: mem, nproc, mrcc_type, mrcc_prog, datname
- use util_wrapper, only: bas_fch2py_wrap
  implicit none
  integer :: i, j, system, RENAME
  real(kind=8) :: ref_e, corr_e(2)
@@ -327,10 +326,16 @@ subroutine do_gvb_bccc()
  write(6,'(A)') 'b based on GVB orbitals'
  write(6,'(A)') 'Frozen_core = T. Frozen_vir = T. Using program gvb_bccc'
 
- if(mult /= 1) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently only singlet is&
-                   & supported.'
-  write(6,'(A,I0)') 'Input spin multiplicity=', mult
+ if(mult==3 .and. mrcc_type>6) then
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently triplet GVB-BCCC&
+                   &3b is not supported.'
+  stop
+ end if
+
+ if(mult > 3) then
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently GVB-BCCC is only&
+                  & valid for singlet and triplet.'
+  write(6,'(A,I0)') 'Your input spin multiplicity=', mult
   stop
  end if
 
@@ -351,29 +356,32 @@ subroutine do_gvb_bccc()
  call copy_file(fchname1, fchname2, .false.)
 
  i = system('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
- call bas_fch2py_wrap(fchname2)
 
  i = 2*npair + nopen
- call modify_py_script_to_gen_fcidump(pyname, i, i, mem, nproc)
+ call prt_py_script_to_gen_fcidump(fchname2, i, i, mem, nproc)
  call submit_pyscf_job(pyname)
  call delete_files(3, [pyname, outname, fchname2])
 
  i = index(datname, '_s.dat', back=.true.)
  inpname = datname(1:i-1)//'_bccc.input'
 
- ! perform GVB-BCCI2b
- outname = datname(1:i-1)//'_linbccc2b.out'
- ampname1 = datname(1:i-1)//'_linbccc2b.amp'
- ampname2 = 'aaa'   ! no initial guess, nonexistent filename
- call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname2)
- call submit_gvb_bcci_job(nproc, 2, inpname, outname)
- ampname2 = datname(1:i-1)//'_bccc.amp'
- j = RENAME(TRIM(ampname2), TRIM(ampname1))
+ if(mult == 1) then ! perform linearized BCCC2b
+  outname = datname(1:i-1)//'_linbccc2b.out'
+  ampname1 = datname(1:i-1)//'_linbccc2b.amp'
+  ampname2 = 'aaa'   ! no initial guess, nonexistent filename
+  call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname2)
+  call submit_gvb_bcci_job(nproc, 2, inpname, outname)
+  ampname2 = datname(1:i-1)//'_bccc.amp'
+  j = RENAME(TRIM(ampname2), TRIM(ampname1))
+ else
+  ampname1 = 'aaa'   ! no initial guess, nonexistent filename
+  ampname2 = datname(1:i-1)//'_bccc.amp'
+ end if
 
  ! perform GVB-BCCC2b
  outname = datname(1:i-1)//'_bccc2b.out'
- call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname1)
- call submit_gvb_bccc_job(nproc, 2, inpname, outname)
+ call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname1)
+ call submit_gvb_bccc_job(mult, nproc, 2, inpname, outname)
  ampname1 = datname(1:i-1)//'_bccc2b.amp'
  j = RENAME(TRIM(ampname2), TRIM(ampname1))
  call read_mrcc_energy_from_output(mrcc_prog, 4, outname, ref_e, corr_e)
@@ -384,8 +392,8 @@ subroutine do_gvb_bccc()
 
  if(mrcc_type > 6) then   ! perform GVB-BCCC3b
   outname = datname(1:i-1)//'_bccc3b.out'
-  call prt_bccc_inp(npair, inpname, fcidump, datname2, ampname1)
-  call submit_gvb_bccc_job(nproc, 3, inpname, outname)
+  call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname1)
+  call submit_gvb_bccc_job(mult, nproc, 3, inpname, outname)
   ampname2 = datname(1:i-1)//'_bccc.amp'
   ampname1 = datname(1:i-1)//'_bccc3b.amp'
   j = RENAME(TRIM(ampname2), TRIM(ampname1))
@@ -400,70 +408,48 @@ subroutine do_gvb_bccc()
 end subroutine do_gvb_bccc
 
 ! modify PySCF script to generate FCIDUMP
-subroutine modify_py_script_to_gen_fcidump(pyname, nacto, nacte, mem, nproc)
+subroutine prt_py_script_to_gen_fcidump(fchname, nacto, nacte, mem, nproc)
  implicit none
- integer :: i, fid, fid1, RENAME
+ integer :: i, fid
  integer, intent(in) :: nacto, nacte, mem, nproc
 ! nacto: number of active orbitals
 ! nacte: number of active electrons
- character(len=240) :: buf, proname, pyname1
- character(len=240), intent(in) :: pyname
+ character(len=240) :: pyname
+ character(len=240), intent(in) :: fchname
 
- i = index(pyname, '.py', back=.true.)
- proname = pyname(1:i-1)
- pyname1 = pyname(1:i-1)//'.t'
- open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(pyname1),status='replace')
+ i = index(fchname, '.fch', back=.true.)
+ pyname = fchname(1:i-1)//'.py'
 
- read(fid,'(A)') buf
- write(fid1,'(A)') TRIM(buf)//', mcscf, dmrgscf, lib'
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(LEN_TRIM(buf) == 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for i
-
- write(fid1,'(/,A,I0,A)') 'lib.num_threads(',nproc,')'
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:10) == 'mf.kernel(') then
-   write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,'# MB'
-  end if
-  write(fid1,'(A)') TRIM(buf)
- end do ! for i
- close(fid,status='delete')
-
- write(fid1,'(A,I0)') 'nacto = ', nacto
- write(fid1,'(A,I0)') 'nacte = ', nacte
- write(fid1,'(A)') 'mc = mcscf.CASCI(mf, nacto, nacte)'
- write(fid1,'(A)') 'mc.verbose = 5'
- write(fid1,'(A,I0,A)') 'mc.max_memory = ', mem*1000, ' # MB'
- write(fid1,'(A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=1000)'
- write(fid1,'(A)') "mc.fcisolver.runtimeDir = '.'"
- write(fid1,'(A)') "mc.fcisolver.integralFile = '"//TRIM(proname)//".FCIDUMP'"
- write(fid1,'(A)') 'eri = mc.get_h2eff()'
- write(fid1,'(A)') 'h1eff, ecore = mc.get_h1eff()'
- write(fid1,'(A)') 'dmrgscf.dmrgci.writeIntegralFile(mc.fcisolver, h1eff, eri,&
-                  & nacto, nacte, ecore)'
- close(fid1)
- i = RENAME(TRIM(pyname1), TRIM(pyname))
-end subroutine modify_py_script_to_gen_fcidump
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from gaussian import gen_fcidump'
+ write(fid,'(4(A,I0),A)') "gen_fcidump('"//TRIM(fchname)//"',", nacto, ',', &
+                           nacte, ',', mem*1000, ',', nproc, ')'
+ close(fid)
+end subroutine prt_py_script_to_gen_fcidump
 
 ! print GVB-BCCC input file
-subroutine prt_bccc_inp(npair, inpname, fcidump, datname, ampname)
+subroutine prt_bccc_inp(mult, npair, inpname, fcidump, datname, ampname)
  implicit none
  integer :: fid
- integer, intent(in) :: npair
+ integer, intent(in) :: mult, npair
  character(len=240), intent(in) :: inpname, fcidump, datname, ampname
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)') 'fcidump = '//TRIM(fcidump)
  write(fid,'(A)') 'datname = '//TRIM(datname)
  write(fid,'(A)') 'ampname = '//TRIM(ampname)
- write(fid,'(A,I0)') 'npair = ', npair
+
+ select case(mult)
+ case(1)
+  write(fid,'(A,I0)') 'npair = ', npair
+ case(3)
+  write(fid,'(A,I0)') 'npair = ', npair+1
+  write(fid,'(A,I0)') 'nif = ', 2*(npair+1)
+ case default
+  write(fid,'(A,I0)') 'ERROR in subroutine prt_bccc_inp: invalid mult=',mult
+  stop
+ end select
+
  close(fid)
 end subroutine prt_bccc_inp
 

@@ -26,8 +26,7 @@ module Sdiag_dalton
 end module Sdiag_dalton
 
 program main
- use fch_content, only: iout
- use util_wrapper, only: fch2inp_wrap
+ use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
  integer :: i, system
  character(len=240) :: fchname, inpname
@@ -35,8 +34,8 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine fch2dal: wrong command line argument!'
-  write(iout,'(A,/)') ' Example (R(O)HF, CAS): fch2dal a.fch'
+  write(6,'(/,A)') ' ERROR in subroutine fch2dal: wrong command line argument!'
+  write(6,'(A,/)') ' Example (R(O)HF, CAS): fch2dal a.fch'
   stop
  end if
 
@@ -44,15 +43,18 @@ program main
  sph = .true.
 
  call getarg(1, fchname)
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2dal: no '.fch' suffix in&
-                   & filename="//TRIM(fchname)
-  stop
+ call require_file_exist(fchname)
+
+ ! if .chk file provided, convert into .fch file automatically
+ i = LEN_TRIM(fchname)
+ if(fchname(i-3:i) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:i-3)//'fch'
  end if
+
+ i = index(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
 
- call require_file_exist(fchname)
  call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
 
  call check_sph(fchname, sph)
@@ -63,11 +65,11 @@ program main
  end if
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch2dal: failed to call utility&
-                     & bas_gms2dal. Two possible reasons:'
-  write(iout,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
-  write(iout,'(A)')   '(2) You forgot to compile the utility bas_gms2dal.'
-  write(iout,'(A,/)') '(3) This is a bug of the utility bas_gms2dal.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2dal: failed to call utility&
+                  & bas_gms2dal. Two possible reasons:'
+  write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)')   '(2) You forgot to compile the utility bas_gms2dal.'
+  write(6,'(A,/)') '(3) This is a bug of the utility bas_gms2dal.'
   stop
  end if
 

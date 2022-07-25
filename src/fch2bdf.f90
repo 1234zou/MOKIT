@@ -5,19 +5,18 @@
 ! updated by jxzou at 20210407: remove '-uhf' and add automatic determination
 
 program main
- use fch_content, only: iout
- use util_wrapper, only: fch2inp_wrap
+ use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, system
+ integer :: i, k, system
  character(len=3) :: str
  character(len=240) :: fchname, inpname
  logical :: prt_no
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') ' ERROR in subroutine fch2bdf: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
-  write(iout,'(A,/)') ' Example 2 (CAS NO)     : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
+  write(6,'(/,A)') ' ERROR in subroutine fch2bdf: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
+  write(6,'(A,/)') ' Example 2 (CAS NO)     : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
   stop
  end if
 
@@ -26,11 +25,18 @@ program main
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:k-3)//'fch'
+ end if
+
  if(i == 2) then
   call getarg(2, str)
   if(str /= '-no') then
-   write(iout,'(A)') 'ERROR in subroutine fch2bdf: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-no'."
+   write(6,'(A)') 'ERROR in subroutine fch2bdf: wrong command line arguments!'
+   write(6,'(A)') "The 2nd argument can only be '-no'."
    stop
   else ! str = '-no'
    prt_no = .true.
@@ -47,8 +53,8 @@ program main
  i = system('bas_gms2bdf '//TRIM(inpname))
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms2bdf.'
-  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms2bdf.'
+  write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if
 

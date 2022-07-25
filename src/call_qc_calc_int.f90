@@ -540,20 +540,24 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
 end subroutine submit_gvb_bcci_job
 
 ! submit a GVB-BCCC job
-subroutine submit_gvb_bccc_job(nproc, cc_order, inpname, outname)
+subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
  implicit none
  integer :: i, fid, system
- integer, intent(in) :: nproc, cc_order
+ integer, intent(in) :: mult, nproc, cc_order
  character(len=240) :: bccc_prog, shname
  character(len=240), intent(in) :: inpname, outname
 
  select case(cc_order)
  case(2)
-  bccc_prog = 'gvb_bccc2b'
+  if(mult == 1) then
+   bccc_prog = 'gvb_bccc2b'
+  else
+   bccc_prog = 'gvb_bccc2b_T'
+  end if
  case(3)
   bccc_prog = 'gvb_bccc3b'
  case default
-  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: only CC_order=2 or &
+  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: only CC_order=2 or&
                 & 3 is allowed.'
   write(6,'(A,I0)') 'Input CC_order=', cc_order
   stop

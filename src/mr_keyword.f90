@@ -15,6 +15,7 @@ end module print_id
 module phys_cons ! physics constants
  implicit none
  real(kind=8), parameter :: au2ev = 27.211396d0
+ real(kind=8), parameter :: au2kcal = 627.51d0 ! a.u. to kcal/mol
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
 end module phys_cons
 
@@ -57,7 +58,6 @@ module mol
  real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
  real(kind=8) :: gvb_e     = 0d0 ! GVB energy
- real(kind=8) :: XHgvb_e   = 0d0 ! GVB energy after excluding inactive X-H pairs
  real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e  = 0d0 ! CASPT2/DMRG-CASPT2 energy
@@ -339,7 +339,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-17)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-25)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '

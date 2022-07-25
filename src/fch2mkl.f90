@@ -18,21 +18,29 @@
 ! 'L' is 'SP' in Pople-type basis sets
 
 program main
- use fch_content, only: iout
+ use util_wrapper, only: formchk
  implicit none
  integer :: i
- character(len=240) :: fchname = ' '
+ character(len=240) :: fchname, chkname
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line argument!'
-  write(iout,'(/,A)') ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
-  write(iout,'(A,/)') ' (a_o.inp and a_o.mkl files will be generated)'
+  write(6,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line argument!'
+  write(6,'(/,A)') ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
+  write(6,'(A,/)') ' (a_o.inp and a_o.mkl files will be generated)'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ ! if .chk file provided, convert into .fch file automatically
+ i = LEN_TRIM(fchname)
+ if(fchname(i-3:i) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:i-3)//'fch'
+ end if
+
  call fch2mkl(fchname)
  stop
 end program main
