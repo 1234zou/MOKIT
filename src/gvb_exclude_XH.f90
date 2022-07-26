@@ -567,13 +567,24 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
 
  ! write $SCF and $GUESS sections into inpname
  write(fid2,'(2(A,I0))',advance='no') ' $SCF NCO=', ncore, ' NPAIR=', npair
- if(nopen > 0) then
+
+ if(nopen == 0) then
+  write(fid2,'(A)') ' DIRSCF=.T. $END'
+
+ else ! nopen > 0
   write(fid2,'(A,I0,A)',advance='no') ' NSETO=',nopen,' NO(1)=1'
   do i = 2, nopen, 1
    write(fid2,'(A)',advance='no') ',1'
   end do ! for i
+
+  if(nopen < 3) then
+   write(fid2,'(A)') ' DIRSCF=.T. $END'
+  else ! nopen >= 3
+   write(fid2,'(A)') ' DIRSCF=.T. COUPLE=.T.'
+   call prt_gvb_couple_coeff(fid2, nopen)
+   write(fid2,'(A)') ' $END'
+  end if
  end if
- write(fid2,'(A)') ' DIRSCF=.T. $END'
 
  ! skip the $SCF section in gmsname
  BACKSPACE(fid1)
