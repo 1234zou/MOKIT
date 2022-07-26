@@ -931,9 +931,11 @@ subroutine write_fch(fchname)
   write(fid,'(5(1X,ES15.8))') beta_coeff
  end if
  len_dm = nbf*(nbf+1)/2
- if(allocated(tot_dm)) then
   write(fid,'(A,I12)') 'Total SCF Density                          R   N=',len_dm
+ if(allocated(tot_dm)) then
   write(fid,'(5(1X,ES15.8))') ((tot_dm(j,i),j=1,i),i=1,nbf)
+ else
+  write(fid,'(5(1X,ES15.8))') ((0.0d0,j=1,i),i=1,nbf) ! ugly workaround for EOF
  end if
  if(allocated(spin_dm)) then
   write(fid,'(A,I12)') 'Spin SCF Density                           R   N=',len_dm
