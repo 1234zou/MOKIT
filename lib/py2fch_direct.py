@@ -1,7 +1,8 @@
 from py2fch import molinfo2fch
 import numpy as np
 from pyscf.data import elements, nist
-from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF
+from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
+        gto_norm
 
 
 def mol2fch(mol, fchname='test.fch'):
@@ -39,8 +40,11 @@ def mol2fch(mol, fchname='test.fch'):
         ptr_exp = sh[PTR_EXP]
         ptr_c = sh[PTR_COEFF]
         for c in range(contr_in_sh):
-            exps.append(mol._env[ptr_exp:ptr_exp+nprim])
-            ccoeffs.append(mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim])
+            norm = gto_norm(sh[ANG_OF], mol._env[ptr_exp:ptr_exp+nprim])
+            sh_exps = mol._env[ptr_exp:ptr_exp+nprim]
+            sh_coeffs = mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim]
+            exps.append( np.array(sh_exps)  )
+            ccoeffs.append(np.array(sh_coeffs) / np.array(norm) )
     print(shell_type, prim_per_shell, shell2atom_map)
     virial = 0.0
     tot_e = 0.0
