@@ -1,6 +1,6 @@
 from py2fch import molinfo2fch
 import numpy as np
-from pyscf.data import elements
+from pyscf.data import elements, nist
 from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF
 
 
@@ -45,6 +45,7 @@ def mol2fch(mol, fchname='test.fch'):
     virial = 0.0
     tot_e = 0.0
     coor = np.array([mol._atom[a][1] for a in range(natom)]).T
+    coor = coor * nist.BOHR
     print(coor)
 
     #print(mol._basis)
