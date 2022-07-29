@@ -62,3 +62,21 @@ def mol2fch(mol, fchname='test.fch'):
             # KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP,&
              virial, tot_e, coor, prim_exp, contr_coeff, contr_coeff_sp)
 
+def fchk(mf, fchname, density=False, overwrite_mol=False):
+    from pyscf import scf, mcscf
+    import os
+    from py2fch import py2fch
+    if (not os.path.isfile(fchname)) or overwrite_mol:
+        mol2fch(mf.mol, fchname)
+    if isinstance(mf, scf.hf.SCF):
+        mo = mf.mo_coeff
+        if isinstance(mf, scf.hf.RHF): # ROHF is also RHF here
+            py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, density)
+        elif ininstance(mf, scf.uhf.UHF):
+            py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], density)
+            py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], density)
+        else:
+            raise NotImplementedError('GHF/DHF not supported in py2fch')
+    elif isinstance(mf, mcscf.casci.CASCI):
+        py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_occ, density)
+        
