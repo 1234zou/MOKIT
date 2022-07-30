@@ -28,7 +28,6 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              rwwfn.o read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o \
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
              do_PES_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o automr.o
-OBJ_auto_pair = auto_pair.f90
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
 OBJ_bas_gms2bdf = file_op.o string_manipulate.o read_gms_inp.o bas_gms2bdf.o
@@ -66,8 +65,6 @@ OBJ_fch247 = file_op.o string_manipulate.o read_fch.o math_sub.o int1.o \
 OBJ_frag_guess_wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
                      mr_keyword.o do_hf.o math_sub.o rwwfn.o rwgeom.o read_gms_inp.o \
                      call_qc_calc_int.o construct_vir.o ortho.o frag_guess_wfn.o
-OBJ_chk2py = chk2py.f90
-OBJ_fch2py = fch2py.f90
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
 OBJ_gvb_correct_pairs = file_op.o string_manipulate.o math_sub.o rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_exclude_XH = file_op.o string_manipulate.o math_sub.o rwwfn.o \
@@ -80,6 +77,9 @@ OBJ_orb2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o orb2fc
 OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o read_fch.o rwgeom.o \
                          replace_xyz_in_inp.o
 OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o xml2fch.o
+OBJ_auto_pair = auto_pair.f90
+OBJ_chk2py = chk2py.f90
+OBJ_fch2py = fch2py.f90
 OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
