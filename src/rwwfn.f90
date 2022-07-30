@@ -1540,7 +1540,6 @@ end subroutine read_cas_energy_from_gaulog
 subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  implicit none
  integer :: i, j, k, fid
- integer, parameter :: iout = 6
  integer, intent(in) :: spin ! na - nb
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1589,14 +1588,14 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end if
 
  if(k /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
-                   & incomplete file '//TRIM(outname)//'.'
+  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
+                & incomplete file '//TRIM(outname)//'.'
   close(fid)
   stop
  else ! k = 0
   if(j /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
-                    & CASCI or CASSCF not converged.'
+   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
+                 & CASCI or CASSCF not converged.'
    close(fid)
    stop
   end if
@@ -1610,8 +1609,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_out:&
-                   & 'CASCI E' not found in "//TRIM(outname)
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_out:&
+                & 'CASCI E' not found in "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1627,16 +1626,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  read(buf(i+1:),*) s_square
 
  if( DABS(expect - s_square) > 1D-3) then
-  if(scf) then
-   write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASSCF&
-                     & <S**2> deviates too much'
-   write(iout,'(A)') 'from expectation value.'
-  else
-   write(iout,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: CASCI&
-                     & <S**2> deviates too much'
-   write(iout,'(A)') 'from expectation value.'
-  end if
-  write(iout,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
+  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: <S**2> &
+                   &deviates too much from'
+  write(6,'(2(A,F10.6))') 'the expectation value. Expectation=', expect, &
+                          ', S_square=', s_square
   close(fid)
   stop
  end if
@@ -1655,21 +1648,19 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   read(buf(i+1:),*) s_square
 
   if( DABS(expect - s_square) > 1D-3) then
-   write(iout,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the&
-                      & 0-th step in this CASSCF job,'
-   write(iout,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expecta&
-                     &tion value.'
-   write(iout,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
-   write(iout,'(A)') 'This is probably because Davidson iterative diagonalizat&
-                     &ion is unconverged.'
-   write(iout,'(A)') "You may try to add keyword HardWFN or CrazyWFN in mokit{}."
+   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the&
+                   & 0-th step in this CASSCF job,'
+   write(6,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expecta&
+                  &tion value.'
+   write(6,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
+   write(6,'(A)') 'This is probably because Davidson iterative diagonalizat&
+                  &ion is unconverged.'
+   write(6,'(A)') "You may try to add keyword HardWFN or CrazyWFN in mokit{}."
   end if
-
  else
   close(fid)
  end if
 
- return
 end subroutine read_cas_energy_from_pyout
 
 ! read CASCI/CASSCF energy from the GAMESS output file

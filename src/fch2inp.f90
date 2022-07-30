@@ -408,10 +408,8 @@ end subroutine fch2inp
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
            nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb, DIIS)
  implicit none
- integer :: fid, i, ia
+ integer :: fid
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel, na, nb
- character(len=3), allocatable :: f(:), alpha(:)
- character(len=4), allocatable :: beta(:)
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
@@ -480,25 +478,14 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   else ! mult >=4, i.e. >=3 e-
    write(fid,'(A)') ' DIRSCF=.T. COUPLE=.T.'
    if(DIIS) write(fid,'(A)') '  DIIS=.T. SOSCF=.F.'
-   allocate(f(nopen))
-   f = '0.5'
-   ia = nopen*(nopen+3)/2
-   allocate(alpha(ia))
-   alpha = '0.5'
-   forall(i = 1:nopen) alpha(i*(i+1)/2) = '1.0'
-   allocate(beta(ia))
-   beta = '-0.5'
-   write(fid,'(A,10(A1,A3))') '  F(1)=1.0', (',',f(i),i=1,nopen)
-   write(fid,'(A,10(A1,A3))') '  ALPHA(1)=2.0', (',',alpha(i),i=1,ia)
-   write(fid,'(A,10(A1,A4))') '  BETA(1)=-1.0', (',',beta(i),i=1,ia)
+   call prt_gvb_couple_coeff(fid, nopen)
    write(fid,'(A)') ' $END'
-   deallocate(f, alpha, beta)
   end if
  case default
   if(rel==0 .or. rel==2 .or. rel==4) then
-   write(fid,'(A)') ' $SCF DIRSCF=.TRUE. DIIS=.T. SOSCF=.F. $END'
+   write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
   else
-   write(fid,'(A)') ' $SCF DIRSCF=.TRUE. $END'
+   write(fid,'(A)') ' $SCF DIRSCF=.T. $END'
   end if
  end select
 
@@ -512,7 +499,6 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  write(fid,'(2(A,I0))') ',nif=',nif,',nbf=',nbf
  write(fid,'(A)') 'C1   1'
  close(fid)
- return
 end subroutine creat_gamess_inp_head
 
 subroutine fch2inp_permute_10f(nif,coeff)

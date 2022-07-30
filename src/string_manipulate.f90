@@ -868,3 +868,26 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
  return
 end subroutine read_disp_ver_from_gjf
 
+! print Fock operator coupling coefficients for ROGVB when nopen>=3
+subroutine prt_gvb_couple_coeff(fid, nopen)
+ implicit none
+ integer :: i, ia
+ integer, intent(in) :: fid, nopen
+ character(len=3), allocatable :: f(:), alpha(:)
+ character(len=4), allocatable :: beta(:)
+
+ allocate(f(nopen))
+ f = '0.5'
+ ia = nopen*(nopen+3)/2
+ allocate(alpha(ia))
+ alpha = '0.5'
+ forall(i = 1:nopen) alpha(i*(i+1)/2) = '1.0'
+ allocate(beta(ia))
+ beta = '-0.5'
+ write(fid,'(A,10(A1,A3))') '  F(1)=1.0', (',',f(i),i=1,nopen)
+ write(fid,'(A,15(A1,A3))') '  ALPHA(1)=2.0', (',',alpha(i),i=1,ia)
+ write(fid,'(A,12(A1,A4))') '  BETA(1)=-1.0', (',',beta(i),i=1,ia)
+
+ deallocate(f, alpha, beta)
+end subroutine prt_gvb_couple_coeff
+

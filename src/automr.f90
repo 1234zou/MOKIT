@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jul-25'
+  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Jul-30'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -93,7 +93,7 @@ subroutine automr(fname)
  call get_paired_LMO()
  call do_gvb()        ! GVB
  call do_cas(.false.) ! CASCI/DMRG-CASCI
- call do_cas(.true.)  ! CASSCF/DMRG-CASSCF
+ call do_cas(.true.)  ! CASSCF/DMRG-CASSCF, including SS-CASSCF
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
  call do_mrpt3()      ! CASPT3/NEVPT3
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD

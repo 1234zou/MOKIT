@@ -17,7 +17,7 @@ subroutine do_cas(scf)
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
   gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr, ICSS, dryrun, nstate, on_thres
+  check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres, iroot
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -134,7 +134,7 @@ subroutine do_cas(scf)
  end if
 
  write(6,'(2(A,I4,3X),A,L1,3X,A,I0)') 'doubly_occ=', idx1-1, 'nvir=',nvir,&
-                                      'RIJK=', RI, 'nstate=', nstate
+                                      'RIJK=', RI, 'Root=', iroot
  write(6,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
  if(nopen+2*npair0 > 15) then
@@ -202,8 +202,6 @@ subroutine do_cas(scf)
   i = index(hf_fch, '.fch', back=.true.)
   pyname = hf_fch(1:i-1)//'.py'
  end select
-
- if(dryrun) return ! do not perform electronic structure calculations
 
  proname = ' '
  i = index(hf_fch, '.fch', back=.true.)
@@ -562,13 +560,14 @@ subroutine do_cas(scf)
  end if
 
  if(nmr) then
-  call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, nfile)
+  call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, iroot, nfile)
   inpname = TRIM(proname)//'_NMR'
                                              ! sirius, noarch, del_sout
   call submit_dalton_job(inpname, mem, nproc, .false., .false., .false.)
   inpname = TRIM(proname)//'_NMR.out'
   call read_shieldings_from_dalton_out(inpname)
  end if
+
  if(ICSS) then
   call submit_dalton_icss_job(proname, mem, nproc, nfile)
   call gen_icss_cub(proname, nfile)
@@ -582,9 +581,10 @@ end subroutine do_cas
 subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, maxM,&
-  hardwfn, crazywfn, casnofch, dkh2_or_x2c, RI, RIJK_bas
+  hardwfn, crazywfn, casnofch, dkh2_or_x2c, RI, RIJK_bas, iroot
  implicit none
  integer :: i, fid1, fid2, RENAME
+ real(kind=8) :: ss = 0d0
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
  character(len=240), intent(in) :: pyname, gvb_fch
@@ -640,6 +640,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
     write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
    end if
    write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+   if(iroot > 0) write(fid2,'(A,I0)',advance='no') ').state_specific_(',iroot
    if(RI) then
     write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
    else
@@ -665,6 +666,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
    write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
   end if
   write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  if(iroot > 0) write(fid2,'(A,I0)',advance='no') ').state_specific_(',iroot
   if(RI) then
    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -681,6 +683,14 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
+
+ ! For SS-CASSCF, we need to restrict spin otherwise T1 maybe found if the ground
+ ! state is singlet
+ if(iroot>0 .and. (.not.crazywfn)) then
+  ss = DBLE(nacta-nactb)*0.5d0
+  ss = ss*(ss+1d0)
+  write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+ end if
 
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
  ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
@@ -1242,12 +1252,14 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
 end subroutine prt_cas_dalton_inp
 
 ! print CASSCF NMR keywords into a given Dalton input file
-subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, nfile)
+subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
  use mol, only: mult, ndb, npair, npair0, nacto, nacte
  use mr_keyword, only: DKH2
  use util_wrapper, only: fch2dal_wrap
  implicit none
  integer :: i, nclosed, fid, fid1, RENAME
+ integer, intent(in) :: iroot
+ ! 0 for ground state, 1 for the first excited state
  integer, intent(out) :: nfile
  character(len=240) :: buf, dalname, molname, olddal, oldmol
  character(len=240), intent(in) :: fchname
@@ -1284,6 +1296,7 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, nfile)
   write(fid,'(A)') '*OPTIMIZATION'
   write(fid,'(A,/,A)') '.MAX CI','500'
   write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+  if(iroot > 0) write(fid,'(A,/,I0)') '.STATE',iroot+1
  end if
  write(fid,'(A)') '*ORBITAL INPUT'
  write(fid,'(A)') '.MOSTART'

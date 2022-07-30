@@ -192,7 +192,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  character(len=240) :: fchname, fchname1, buf
 !f2py intent(in) :: fchname
 
- logical :: alive,  gen_density
+ logical :: alive, gen_density
 !f2py intent(in) :: gen_density
 
 ! If gen_density = .True., generate total density using input MOs and eigenvalues
@@ -200,8 +200,8 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine py2fch: file does not exist!'
+  write(6,'(A)') 'Filename='//TRIM(fchname)
   stop
  end if
 
@@ -209,12 +209,19 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  ncoeff = 0
  fchname1 = TRIM(fchname)//'.t'
 
- key0 = key3
- key = key1
- if(ab/='a' .and. ab/='A') then
+ select case(ab)
+ case('a','A')
+  key0 = key3
+  key = key1
+ case('b','B')
   key = key2//' '
   key0 = key4//'b'
- end if
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine py2fch: wrong data type of ab!'
+  write(6,'(A)') "This argument can only be 'a' or 'b'. But your input"
+  write(6,*) 'ab=', ab
+  stop
+ end select
 
  allocate(idx(nbf), norm(nbf))
  call get_permute_idx_from_fch(fchname, nbf, idx, norm)

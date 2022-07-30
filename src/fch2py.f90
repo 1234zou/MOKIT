@@ -79,10 +79,17 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  buffer = ' '
  ncoeff = 0
 
- key = key1
- if(ab/='a' .and. ab/='A') then
+ select case(ab)
+ case('a','A')
+  key = key1
+ case('b','B')
   key = key2//' '
- end if
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine fch2py: wrong data type of ab.'
+  write(6,'(A)') "This argument can only be 'a' or 'b'. But your input"
+  write(6,*) 'ab=', ab
+  stop
+ end select
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then

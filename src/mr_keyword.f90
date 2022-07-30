@@ -119,8 +119,12 @@ module mr_keyword
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
+
  integer :: nstate = 0 ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
+
+ integer :: iroot = 0 ! the state you are interested in SS-CASSCF
+ ! 0 for ground state, 1 for the first excited state
 
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
@@ -199,11 +203,10 @@ module mr_keyword
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
- logical :: dryrun = .false.      ! DryRun for excited states calculations
  logical :: excited = .false.     ! whether to perform excited states calculations
  logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
  logical :: TDHF = .false.        ! True/False for CIS/TDHF
- logical :: sa_cas = .false.      ! SA-CASSCF
+ logical :: sa_cas = .false.      ! State-Averaged CASSCF
  logical :: noQD = .false.
  ! True : multi-root CASCI-based NEVPT2 or CASPT2
  ! False: QD-NEVPT2 or (X)MS-CASPT2
@@ -339,7 +342,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-25)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Jul-30)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -821,6 +824,8 @@ contains
     read(longbuf(j+1:i-1),*) GVB_conv
    case('skip_uno')
     read(longbuf(j+1:i-1),*) nskip_uno
+   case('root')
+    read(longbuf(j+1:i-1),*) iroot
    case('force')
     casscf_force = .true.
    case('charge')
@@ -853,8 +858,6 @@ contains
     ICSS = .true.; nmr = .true.
    case('excludexh')
     excludeXH = .true.
-   case('dryrun')
-    dryrun = .true.; excited = .true.
    case('mixed_spin')
     mixed_spin = .true.
    case('nstates')
@@ -913,28 +916,28 @@ contains
    else
     call check_X2C_in_fch(hf_fch, alive(1))
     if(alive(1)) then
-     write(iout,'(/,A)') REPEAT('-',55)
-     write(iout,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword&
-                      & detected in file"
-     write(iout,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}.&
-                      & If you do"
-     write(iout,'(A)') 'not want to perform X2C computations, please kill this job&
-                      & immediately'
-     write(iout,'(A)') "and delete 'X2C' in .fch."
-     write(iout,'(A)') REPEAT('-',55)
+     write(6,'(/,A)') REPEAT('-',55)
+     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword&
+                   & detected in file"
+     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}.&
+                  & If you do"
+     write(6,'(A)') 'not want to perform X2C computations, please kill this job&
+                   & immediately'
+     write(6,'(A)') "and delete 'X2C' in .fch."
+     write(6,'(A)') REPEAT('-',55)
     end if
 
     call check_DKH_in_fch(hf_fch, i)
     if(i /= -2) then
-     write(iout,'(/,A)') REPEAT('-',55)
-     write(iout,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
+     write(6,'(/,A)') REPEAT('-',55)
+     write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
                       & detected in file'
-     write(iout,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}.&
-                      & If you do"
-     write(iout,'(A)') 'not want to perform DKH2 computations, please kill this job&
-                      & immediately'
-     write(iout,'(A)') 'and delete DKH related keywords in .fch.'
-     write(iout,'(A)') REPEAT('-',55)
+     write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}.&
+                  & If you do"
+     write(6,'(A)') 'not want to perform DKH2 computations, please kill this job&
+                   & immediately'
+     write(6,'(A)') 'and delete DKH related keywords in .fch.'
+     write(6,'(A)') REPEAT('-',55)
     end if
    end if
   end if
@@ -962,6 +965,7 @@ contains
   end select
 
   if(.not. mcpdft) otpdf = 'NONE'
+
   dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mrcisdt .or. &
               mcpdft .or. caspt3 .or. nevpt3)
   if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
@@ -1048,32 +1052,49 @@ contains
   end if
 
   if(on_thres<0d0 .or. on_thres>1d0) then
-   write(6,'(A)') error_warn//'ON_thres must be [0.0,1.0].'
+   write(6,'(A)') error_warn//'ON_thres must be in [0.0,1.0].'
    write(6,'(A,E12.5)') 'Your input ON_thres=', on_thres
    stop
   end if
 
   if(uno_thres<0d0 .or. uno_thres>1d0) then
-   write(6,'(A)') error_warn//'uno_thres must be [0.0,1.0].'
+   write(6,'(A)') error_warn//'uno_thres must be in [0.0,1.0].'
    write(6,'(A,E12.5)') 'Your input uno_thres=', uno_thres
    stop
   end if
 
-  if(nmr .and. (.not.casscf)) then
-   write(iout,'(/,A)') 'ERROR in subroutine parse_keyword: NMR is supposed to&
-                      & be used with the'
-   write(iout,'(A)') 'CASSCF method. But it is not specified.'
+  if(iroot > 0) then ! State-Specific CASSCF
+   if(nstate > 0) then
+    write(6,'(A)') error_warn//'you can specify only one of Nstates and Root.'
+    stop
+   end if
+
+   if(casci) then
+    write(6,'(A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
+    stop
+   end if
+
+   if(dyn_corr) then
+    write(6,'(A)') error_warn//'State-Specific CASSCF based post-CAS methods'
+    write(6,'(A)') 'are not supported currently.'
+    stop
+   end if
+  end if
+
+  if(nmr .and. (.not.casscf) .and. iroot==0) then
+   write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
+   write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
    stop
   end if
 
   if(DKH2 .and. X2C) then
-   write(iout,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
+   write(6,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
    stop
   end if
 
   if(DKH2 .and. hf_prog=='pyscf') then
-   write(iout,'(A)') error_warn//"'DKH2' is not supported in PySCF."
-   write(iout,'(A)') 'You can use another HF_prog (PSI4 or ORCA), or you can&
+   write(6,'(A)') error_warn//"'DKH2' is not supported in PySCF."
+   write(6,'(A)') 'You can use another HF_prog (PSI4 or ORCA), or you can&
                     & change DKH2 to X2C.'
    stop
   end if
