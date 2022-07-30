@@ -50,6 +50,120 @@ module Sdiag_parameter
   [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
 end module Sdiag_parameter
 
+subroutine molecp2fch(fchname, uhf, &
+                  & nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in, &
+                  & ielem_in, shell_type_in, prim_per_shell_in, shell2atom_map_in, &
+                  & virial_in, tot_e_in, coor_in, prim_exp_in, contr_coeff_in, & ! contr_coeff_sp_in,&
+                  & KFirst_in, KLast_in, Lmax_in, LPSkip_in, NLP_in, RNFroz_in, CLP_in, ZLP_in )
+ use fch_content, only : is_uhf, nbf, nif, na, nb, ncontr, nprim, charge, mult, natom, LenNCZ, &
+                        & ielem, shell_type, prim_per_shell, shell2atom_map, &
+                        & virial, tot_e, coor, prim_exp, contr_coeff, contr_coeff_sp, &
+                        & KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
+ character(len=240), intent(in) :: fchname
+ logical, intent(in) :: uhf
+ integer, intent(in) :: nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in
+ integer, intent(in) :: ielem_in(natom_in), shell_type_in(ncontr_in), prim_per_shell_in(ncontr_in), shell2atom_map_in(ncontr_in)
+ real(kind=8), intent(in) :: virial_in, tot_e_in 
+ real(kind=8), intent(in) :: coor_in(3,natom_in), prim_exp_in(nprim_in), contr_coeff_in(nprim_in)!, contr_coeff_sp_in
+!f2py depend(natom_in) :: ielem_in
+!f2py depend(ncontr_in) :: shell_type_in, prim_per_shell_in, shell2atom_map_in
+!f2py depend(natom_in) :: coor_in
+!f2py depend(nprim_in) :: prim_exp_in, contr_coeff_in
+ integer, intent(in) :: KFirst_in(natom_in, 10), KLast_in(natom_in, 10), Lmax_in(natom_in), LPSkip_in(natom_in)
+ integer, intent(in) :: NLP_in(LenNCZ_in)
+ real(kind=8), intent(in) :: CLP_in(LenNCZ_in), ZLP_in(LenNCZ_in), RNFroz_in(natom_in) 
+!f2py depend(natom_in) :: KFirst_in, KLast_in, Lmax_in, LPSkip_in, RNFroz_in
+!f2py depend(LenNCZ_in) :: NLP_in, CLP_in, ZLP_in
+
+ is_uhf = uhf
+ nbf = nbf_in
+ nif = nif_in
+ na = na_in
+ nb = nb_in
+ ncontr = ncontr_in
+ nprim = nprim_in
+ charge = charge_in
+ mult = mult_in
+ natom = natom_in
+ LenNCZ = LenNCZ_in
+ ielem = ielem_in
+ allocate(shell_type(ncontr), source=shell_type_in)
+! write(*,*) shell_type
+ allocate(prim_per_shell(ncontr), source=prim_per_shell_in)
+ allocate(shell2atom_map(ncontr), source=shell2atom_map_in)
+ virial = virial_in
+ tot_e = tot_e_in
+! write(*,*) tot_e
+ allocate(coor(3,natom), source=coor_in)
+! write(*,*) coor
+ allocate(prim_exp(nprim), source=prim_exp_in)
+ allocate(contr_coeff(nprim), source=contr_coeff_in)
+ if (LenNCZ > 0) then
+  allocate(KFirst(natom, 10), source=KFirst_in)
+  allocate(KLast(natom, 10), source=KLast_in)
+  allocate(Lmax(natom), source=Lmax_in)
+  allocate(LPSkip(natom), source=LPSkip_in) 
+  allocate(NLP(LenNCZ), source=NLP_in)
+  allocate(RNFroz(natom), source=RNFroz_in) 
+  allocate(CLP(LenNCZ), source=CLP_in)
+  allocate(ZLP(LenNCZ), source=ZLP_in)
+ end if
+ call write_fch(fchname)
+ return
+end subroutine molecp2fch
+
+subroutine molinfo2fch(fchname, uhf, &
+                  & nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in, &
+                  & ielem_in, shell_type_in, prim_per_shell_in, shell2atom_map_in, &
+                  & virial_in, tot_e_in, coor_in, prim_exp_in, contr_coeff_in) ! contr_coeff_sp_in,&
+                  
+ use fch_content, only : is_uhf, nbf, nif, na, nb, ncontr, nprim, charge, mult, natom, LenNCZ, &
+                        & ielem, shell_type, prim_per_shell, shell2atom_map, &
+                        & virial, tot_e, coor, prim_exp, contr_coeff, contr_coeff_sp
+ implicit none
+ character(len=240), intent(in) :: fchname
+ logical :: uhf
+ integer, intent(in) :: nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in
+ integer, intent(in) :: ielem_in(natom_in), shell_type_in(ncontr_in), prim_per_shell_in(ncontr_in), shell2atom_map_in(ncontr_in)
+ real(kind=8), intent(in) :: virial_in, tot_e_in 
+ real(kind=8), intent(in) :: coor_in(3,natom_in), prim_exp_in(nprim_in), contr_coeff_in(nprim_in)!, contr_coeff_sp_in
+!f2py depend(natom_in) :: ielem_in
+!f2py depend(ncontr_in) :: shell_type_in, prim_per_shell_in, shell2atom_map_in
+!f2py depend(natom_in) :: coor_in
+!f2py depend(nprim_in) :: prim_exp_in, contr_coeff_in
+
+ is_uhf = uhf
+ nbf = nbf_in
+ nif = nif_in
+ na = na_in
+ nb = nb_in
+ ncontr = ncontr_in
+ nprim = nprim_in
+ charge = charge_in
+ mult = mult_in
+ natom = natom_in
+ LenNCZ = LenNCZ_in
+ ielem = ielem_in
+ allocate(shell_type(ncontr), source=shell_type_in)
+! write(*,*) shell_type
+ allocate(prim_per_shell(ncontr), source=prim_per_shell_in)
+ allocate(shell2atom_map(ncontr), source=shell2atom_map_in)
+ virial = virial_in
+ tot_e = tot_e_in
+! write(*,*) tot_e
+ allocate(coor(3,natom), source=coor_in)
+! write(*,*) coor
+ allocate(prim_exp(nprim), source=prim_exp_in)
+ allocate(contr_coeff(nprim), source=contr_coeff_in)
+! if (ALL(contr_coeff_sp_in==0.0d0)) then 
+!   allocate(contr_coeff_sp(1), source=0.0d0)
+! end if
+
+ call write_fch(fchname)
+ return
+end subroutine molinfo2fch
+
+
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
 subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)

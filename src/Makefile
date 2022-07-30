@@ -5,7 +5,7 @@ BIN = ../bin
 
 # --- gfortran ---
 #F90    = gfortran
-#FFLAGS = -O2 -cpp
+#FFLAGS = -O2 -cpp -fPIC
 #MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
@@ -80,7 +80,7 @@ OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o xml2fc
 OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = chk2py.f90
 OBJ_fch2py = fch2py.f90
-OBJ_py2fch = py2fch.f90
+OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho  = math_sub.f90 ortho.f90

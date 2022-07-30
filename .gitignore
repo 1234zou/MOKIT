@@ -4,3 +4,4 @@
 /src/*.o
 /src/*.mod
 /src/*.make
+*.egg-info/
