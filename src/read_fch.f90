@@ -11,6 +11,7 @@
 
 module fch_content
  implicit none
+ logical :: is_uhf           ! is UHF or not
  integer :: nbf, nif         ! number of basis functions/MOs
  integer :: na, nb, nopen    ! number of alpha/beta/open shell electrons
  integer :: ncontr, nprim    ! Number of contracted/primitive shells
@@ -814,7 +815,6 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
 end subroutine mo_sph2cart
 
 ! create/generate a new .fch file using arrays stored in memory
-! TODO: add ECP/PP data printing
 subroutine write_fch(fchname)
  use fch_content
  implicit none
@@ -824,11 +824,12 @@ subroutine write_fch(fchname)
  character(len=240), intent(in) :: fchname
  logical :: uhf
 
- if(allocated(eigen_e_b)) then
-  uhf = .true.
- else
-  uhf= .false.
- end if
+! if(allocated(eigen_e_b)) then
+!  uhf = .true.
+! else
+!  uhf= .false.
+! end if
+ uhf = is_uhf
  ncoeff = nif*nbf
 
  i = MAXVAL(shell_type)
@@ -916,6 +917,31 @@ subroutine write_fch(fchname)
  write(fid,'(A)') 'ILSW                                       I   N=         100'
  write(fid,'(6I12)') ilsw
  deallocate(ilsw)
+ if (LenNCZ > 0) then
+  write(fid,'(A)') 'ECP-MxAtEC                                 I           250000'
+  write(fid,'(A)') 'ECP-MaxLECP                                I               10'
+  write(fid,'(A)') 'ECP-MaxAtL                                 I          2250000'
+  write(fid,'(A)') 'ECP-MxTECP                                 I         11250000'
+  write(fid,'(A,I17)') 'ECP-LenNCZ                                 I', LenNCZ
+  write(fid,'(A,I12)') 'ECP-KFirst                                 I   N=',10*natom
+  write(fid,'(6I12)') KFirst
+  write(fid,'(A,I12)') 'ECP-KLast                                  I   N=',10*natom
+  write(fid,'(6I12)') KLast
+  write(fid,'(A,I12)') 'ECP-Lmax                                   I   N=',natom
+  write(fid,'(6I12)') Lmax
+  write(fid,'(A,I12)') 'ECP-LPSkip                                 I   N=',natom
+  write(fid,'(6I12)') LPSkip
+  write(fid,'(A,I12)') 'ECP-RNFroz                                 R   N=',natom
+  write(fid,'(5(1X,ES15.8))') RNFroz
+  write(fid,'(A,I12)') 'ECP-NLP                                    I   N=',LenNCZ
+  write(fid,'(6I12)') NLP
+  write(fid,'(A,I12)') 'ECP-CLP1                                   R   N=',LenNCZ
+  write(fid,'(5(1X,ES15.8))') CLP
+  write(fid,'(A,I12)') 'ECP-CLP2                                   R   N=',LenNCZ
+  write(fid,'(5(1X,ES15.8))') (0.0d0,i=1,LenNCZ)
+  write(fid,'(A,I12)') 'ECP-ZLP                                    R   N=',LenNCZ
+  write(fid,'(5(1X,ES15.8))') ZLP
+ end if
  write(fid,'(A,E27.15)') 'Virial Ratio                               R',virial
  write(fid,'(A,E27.15)') 'Total Energy                               R',tot_e
  write(fid,'(A,I12)') 'Alpha Orbital Energies                     R   N=',nif
