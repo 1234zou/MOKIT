@@ -8,7 +8,7 @@ subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
-  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, dryrun, eist
+  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, eist
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
@@ -116,7 +116,6 @@ subroutine do_mrpt2()
  end if
 
  write(iout,'(A)') TRIM(string)
- if(dryrun) return
  write(iout,'(A)',advance='no') 'Frozen_core = F, '
 
  if(nevpt2) then

@@ -5,8 +5,8 @@ subroutine do_sa_cas()
  use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
   npair0, sa_cas_e, ci_mult
  use mr_keyword, only: ist, nacto_wish, nacte_wish, hf_fch, casscf, bgchg, &
-  casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, dryrun, excited, nstate, &
-  nevpt2, caspt2, noQD, on_thres, orca_path
+  casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
+  caspt2, noQD, on_thres, orca_path
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -78,12 +78,9 @@ subroutine do_sa_cas()
   inpname = hf_fch(1:i-1)//'_SA.inp'
   outname = hf_fch(1:i-1)//'_SA.gms'
   call prt_sacas_gms_inp(inpname, hf_fch)
- case('dalton')
-  inpname = hf_fch(1:i-1)//'_SA.dal'
-  outname = hf_fch(1:i-1)//'_SA.out'
-  call prt_sacas_dalton_inp(inpname, hf_fch)
  case default
-  write(6,'(A)') 'CASSCF_prog='//TRIM(cas_prog)//' unrecognized or unsupported.'
+  write(6,'(A)') 'ERROR in subroutine do_sa_cas: CASSCF_prog='//TRIM(cas_prog)&
+                 //' unrecognized or unsupported.'
   stop
  end select
 
@@ -272,8 +269,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') 'mc.kernel(mo)'
 
   write(fid2,'(/,A)') '# NEVPT2 based on multi-root CASCI'
-  do i = 1, nstate+1, 1
-   write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc, root=',i-1,').kernel()'
+  do i = 0, nstate, 1
+   write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc, root=',i,').kernel()'
   end do ! for i
  end if
  close(fid2)
@@ -483,26 +480,6 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_sacas_gms_inp
 
-! print SA-CASSCF input file of Dalton
-subroutine prt_sacas_dalton_inp(inpname, hf_fch)
- use mr_keyword, only: mixed_spin, nstate
- implicit none
- integer :: i, fid, fid1, k, system, RENAME
- character(len=240) :: buf, inpname1, molname
- character(len=240), intent(in) :: inpname, hf_fch
-
- i = index(inpname, '.dal', back=.true.)
- molname = inpname(1:i-1)//'.mol'
-
- i = system('fch2dal '//TRIM(hf_fch))
- i = index(hf_fch, '.fch', back=.true.)
- inpname1 = hf_fch(1:i-1)//'.dal'
- k = RENAME(TRIM(inpname1), TRIM(inpname))
- inpname1 = hf_fch(1:i-1)//'.mol'
- k = RENAME(TRIM(inpname1), TRIM(molname))
-
-end subroutine prt_sacas_dalton_inp
-
 subroutine submit_pyscf_job(pyname)
  implicit none
  integer :: i, system
@@ -558,17 +535,19 @@ subroutine read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mul
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:16) == 'CASCI energy for') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_sa_cas_energies_from_pyscf_out:&
-                  & no'
-  write(6,'(A)') "'CASCI energy for' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_energies_from_pyscf_out:&
+                  & no 'CASCI energy for'"
+  write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
 
