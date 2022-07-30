@@ -14,7 +14,7 @@ BIN = ../bin
 
 # --- ifort ----
 F90    = ifort
-FFLAGS = -O2 -fpp
+FFLAGS = -O2 -fpp -fPIC
 MKL_FLAGS = -mkl
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
