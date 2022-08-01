@@ -123,7 +123,7 @@ def fchk(mf, fchname, density=False, overwrite_mol=False):
     from pyscf import scf, mcscf
     import os
     from py2fch import py2fch
-    is_uhf = isinstance(mf, scf.uhf.UHF):
+    is_uhf = isinstance(mf, scf.uhf.UHF)
     if (not os.path.isfile(fchname)) or overwrite_mol:
         mol2fch(mf.mol, fchname, is_uhf)
     if isinstance(mf, scf.hf.SCF):

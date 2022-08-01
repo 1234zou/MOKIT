@@ -1,6 +1,10 @@
 from pyscf import gto
 
-mol = gto.M(atom='O 0.0 0.0 0.1; H 0.0 0.0 1.0', basis='cc-pvtz', charge=-1).build()
+mol = gto.M(atom='O 0.0 0.0 0.1; H 0.0 0.0 1.0', 
+        basis='cc-pvtz', 
+        charge=-1,
+        cart=True
+        ).build()
 mf = mol.RHF().run()
 
 from py2fch_direct import fchk

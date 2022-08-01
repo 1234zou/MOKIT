@@ -57,3 +57,9 @@ Example 6: transfer UHF MOs from Gaussian to PySCF
 Run 'python 06-bis_6D10F.py' in Shell. The UHF canonical MOs in 02-bis_6D10F.fchk will be read in.
 One will find that the UHF energy immediately converges after little change.
 
+--------------------------------------------------
+Example 7: create fch from PySCF
+--------------------------------------------------
+Run 'python 07-OH_writefch.py'. It will create `07-OH.fch` containing basis information and MOs.
+To validate the fch, run 'unfchk 07-OH.fch && g16 07-OH_restart.gjf' and the Gaussian calculation will converge in 1 cycle.
+Of course, the main purpose of generating this fch is to visualize it with GaussView, Multiwfn, etc.

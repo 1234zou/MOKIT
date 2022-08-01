@@ -5,3 +5,6 @@
 /src/*.mod
 /src/*.make
 *.egg-info/
+/test/*/*.fch*
+/test/*/*.chk
+/test/*/*.log
