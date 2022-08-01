@@ -5,13 +5,18 @@ from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
         gto_norm
 
 
-def mol2fch(mol, fchname='test.fch', uhf=False):
+def mol2fch(mol, fchname='test.fch', uhf=False, mo=None):
     nbf = mol.nao
-    nif = nbf 
+    if mo is not None:
+        if is_uhf:
+            nif = mo[0].shape[1]
+        else:
+            nif = mo.shape[1]
+    else:
+        nif = nbf 
     na, nb = mol.nelec
     #ncontr = mol.nbas
     #print(nbf,ncontr)
-    #nprim = 0
     charge = mol.charge
     mult = mol.spin+1
     natom = mol.natm
@@ -54,8 +59,6 @@ def mol2fch(mol, fchname='test.fch', uhf=False):
     #print(coor)
     #print(shell_type, prim_per_shell, shell2atom_map)
     
-
-    #print(na,nb)
     LenNCZ = 0
     KFirst = np.zeros((natom,10), dtype=int)
     KLast = np.zeros((natom,10), dtype=int)
@@ -65,7 +68,6 @@ def mol2fch(mol, fchname='test.fch', uhf=False):
 
     if mol._ecpbas.size > 0:
         #print(mol._ecpbas)
-        #print(mol._ecp)
         NLP = []
         CLP = []
         ZLP = []
@@ -124,12 +126,12 @@ def fchk(mf, fchname, density=False, overwrite_mol=False):
     import os
     from py2fch import py2fch
     is_uhf = isinstance(mf, scf.uhf.UHF)
+    mo = mf.mo_coeff
     if (not os.path.isfile(fchname)) or overwrite_mol:
-        mol2fch(mf.mol, fchname, is_uhf)
+        mol2fch(mf.mol, fchname, is_uhf, mo)
     if isinstance(mf, scf.hf.SCF):
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
             raise NotImplementedError('GHF/DHF not supported in py2fch')
-        mo = mf.mo_coeff
         if not is_uhf: # ROHF is also RHF here
             py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, density)
         else:
