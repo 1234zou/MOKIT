@@ -5,10 +5,10 @@ from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
         gto_norm
 
 
-def mol2fch(mol, fchname='test.fch', uhf=False, mo=None):
+def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
     nbf = mol.nao
     if mo is not None:
-        if is_uhf:
+        if uhf:
             nif = mo[0].shape[1]
         else:
             nif = mo.shape[1]
@@ -39,15 +39,21 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None):
                 sh_type *= -1
             shell_type.append(sh_type)
             nprim = sh[NPRIM_OF]
-            prim_per_shell.append(nprim)
-            shell2atom_map.append(mol.bas_atom(a)+1)
+            norm = np.array( gto_norm(sh[ANG_OF], mol._env[ptr_exp:ptr_exp+nprim]) )
+            sh_exps = np.array( mol._env[ptr_exp:ptr_exp+nprim] )
+            sh_coeffs = np.array( mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim] )
+            if trim_zeros:
+                nprim = np.count_nonzero(sh_coeffs)
+                non0_idx = np.flatnonzero(sh_coeffs)
+                norm = norm[non0_idx]
+                sh_exps = sh_exps[non0_idx]
+                sh_coeffs = sh_coeffs[non0_idx]
             ncontr += 1
             nprimitive += nprim
-            norm = gto_norm(sh[ANG_OF], mol._env[ptr_exp:ptr_exp+nprim])
-            sh_exps = mol._env[ptr_exp:ptr_exp+nprim]
-            sh_coeffs = mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim]
-            exps.append( np.array(sh_exps)  )
-            ccoeffs.append(np.array(sh_coeffs) / np.array(norm) )
+            prim_per_shell.append(nprim)
+            shell2atom_map.append(mol.bas_atom(a)+1)
+            exps.append( sh_exps )
+            ccoeffs.append( sh_coeffs / norm )
     #print(mol._basis)
     prim_exp = np.concatenate(exps)
     contr_coeff = np.concatenate(ccoeffs)
