@@ -1,0 +1,6 @@
+%oldchk=testcu.chk
+%chk=testcu2.chk
+#p hf chkbasis nosymm int=nobasistransform gfinput
+# geom=allcheck guess=read
+
+

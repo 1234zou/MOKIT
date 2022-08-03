@@ -5,13 +5,18 @@ from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
         gto_norm
 
 
-def mol2fch(mol, fchname='test.fch', uhf=False):
+def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
     nbf = mol.nao
-    nif = nbf 
+    if mo is not None:
+        if uhf:
+            nif = mo[0].shape[1]
+        else:
+            nif = mo.shape[1]
+    else:
+        nif = nbf 
     na, nb = mol.nelec
     #ncontr = mol.nbas
     #print(nbf,ncontr)
-    #nprim = 0
     charge = mol.charge
     mult = mol.spin+1
     natom = mol.natm
@@ -34,15 +39,21 @@ def mol2fch(mol, fchname='test.fch', uhf=False):
                 sh_type *= -1
             shell_type.append(sh_type)
             nprim = sh[NPRIM_OF]
-            prim_per_shell.append(nprim)
-            shell2atom_map.append(mol.bas_atom(a)+1)
+            norm = np.array( gto_norm(sh[ANG_OF], mol._env[ptr_exp:ptr_exp+nprim]) )
+            sh_exps = np.array( mol._env[ptr_exp:ptr_exp+nprim] )
+            sh_coeffs = np.array( mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim] )
+            if trim_zeros:
+                nprim = np.count_nonzero(sh_coeffs)
+                non0_idx = np.flatnonzero(sh_coeffs)
+                norm = norm[non0_idx]
+                sh_exps = sh_exps[non0_idx]
+                sh_coeffs = sh_coeffs[non0_idx]
             ncontr += 1
             nprimitive += nprim
-            norm = gto_norm(sh[ANG_OF], mol._env[ptr_exp:ptr_exp+nprim])
-            sh_exps = mol._env[ptr_exp:ptr_exp+nprim]
-            sh_coeffs = mol._env[ptr_c+c*nprim : ptr_c+nprim+c*nprim]
-            exps.append( np.array(sh_exps)  )
-            ccoeffs.append(np.array(sh_coeffs) / np.array(norm) )
+            prim_per_shell.append(nprim)
+            shell2atom_map.append(mol.bas_atom(a)+1)
+            exps.append( sh_exps )
+            ccoeffs.append( sh_coeffs / norm )
     #print(mol._basis)
     prim_exp = np.concatenate(exps)
     contr_coeff = np.concatenate(ccoeffs)
@@ -54,8 +65,6 @@ def mol2fch(mol, fchname='test.fch', uhf=False):
     #print(coor)
     #print(shell_type, prim_per_shell, shell2atom_map)
     
-
-    #print(na,nb)
     LenNCZ = 0
     KFirst = np.zeros((natom,10), dtype=int)
     KLast = np.zeros((natom,10), dtype=int)
@@ -65,7 +74,6 @@ def mol2fch(mol, fchname='test.fch', uhf=False):
 
     if mol._ecpbas.size > 0:
         #print(mol._ecpbas)
-        #print(mol._ecp)
         NLP = []
         CLP = []
         ZLP = []
@@ -123,13 +131,13 @@ def fchk(mf, fchname, density=False, overwrite_mol=False):
     from pyscf import scf, mcscf
     import os
     from py2fch import py2fch
-    is_uhf = isinstance(mf, scf.uhf.UHF):
+    is_uhf = isinstance(mf, scf.uhf.UHF)
+    mo = mf.mo_coeff
     if (not os.path.isfile(fchname)) or overwrite_mol:
-        mol2fch(mf.mol, fchname, is_uhf)
+        mol2fch(mf.mol, fchname, is_uhf, mo)
     if isinstance(mf, scf.hf.SCF):
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
             raise NotImplementedError('GHF/DHF not supported in py2fch')
-        mo = mf.mo_coeff
         if not is_uhf: # ROHF is also RHF here
             py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, density)
         else:

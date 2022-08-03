@@ -1,0 +1,5 @@
+%oldchk=07-OH.chk
+%chk=07-OH2.chk
+#p hf chkbasis nosymm int=nobasistransform geom=allcheck guess=read
+
+
