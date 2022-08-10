@@ -14,16 +14,15 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=4) :: buf
  character(len=240) :: fname = ' '
  logical :: cart
 
  i = iargc()
  if(.not. (i==1 .or. i==2)) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1: bas_gms2py a.inp '
-  write(iout,'(A,/)') ' Example 2: bas_gms2py a.inp -sph'
+  write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1: bas_gms2py a.inp '
+  write(6,'(A,/)') ' Example 2: bas_gms2py a.inp -sph'
   stop
  end if
 
@@ -34,8 +33,8 @@ program main
  if(i == 2) then
   call getarg(2, buf)
   if(buf /= '-sph') then
-   write(iout,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-   write(iout,'(A)') "The second argument must be '-sph'."
+   write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
+   write(6,'(A)') "The second argument must be '-sph'."
    stop
   else
    cart = .false.
@@ -53,7 +52,6 @@ subroutine bas_gms2py(inpname, cart)
  integer :: i, j, k, m, lmax, charge, mult
  integer :: nline, ncol, natom, nif, nbf
  integer :: inpid, pyid
- integer, parameter :: iout = 6
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
  integer, allocatable :: nuc(:)
  real(kind=8), allocatable :: coor(:,:), prim_gau(:,:)
@@ -63,7 +61,7 @@ subroutine bas_gms2py(inpname, cart)
  character(len=240) :: buf, pyname
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
- logical :: ecp, uhf, lin_dep
+ logical :: ecp, uhf, ghf, lin_dep
  logical, intent(in) :: cart
 
  buf = ' '
@@ -73,15 +71,15 @@ subroutine bas_gms2py(inpname, cart)
  i = INDEX(inpname, '.', back=.true.)
  pyname = inpname(1:i-1)//'.py'
 
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
+ call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
  call read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf == nif) then
   lin_dep = .false.
  else
-  write(iout,'(A)') 'ERROR in ERROR in subroutine bas_gms2py: nbf<nif.'
-  write(iout,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
+  write(6,'(A)') 'ERROR in ERROR in subroutine bas_gms2py: nbf<nif.'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
   stop
  end if
 
@@ -98,14 +96,19 @@ subroutine bas_gms2py(inpname, cart)
  open(newunit=pyid,file=TRIM(pyname),status='replace')
  write(pyid,'(A)') 'from pyscf import gto, scf'
  write(pyid,'(A)') 'from fch2py import fch2py'
- write(pyid,'(A)') 'from ortho import check_orthonormal'
+ if(ghf) then
+  write(pyid,'(A)') '#from ortho import check_complex_orthonormal'
+ else
+  write(pyid,'(A)') 'from ortho import check_orthonormal'
+ end if
  write(pyid,'(/,A)') 'mol = gto.M()'
  write(pyid,'(A,I0,A)') '# ',natom,' atom(s)'
  write(pyid,'(A)') "mol.atom = '''"
+
  do i = 1, natom, 1
   write(buf(1:6),'(A,I0)') TRIM(elem(i)), ntimes(i)
   write(pyid,'(A6,2X,3(1X,F17.8))') buf(1:6), coor(1:3,i)
- end do
+ end do ! for i
  write(pyid,'(A)') "'''"
  deallocate(coor)
  ! print coordinates done
@@ -224,6 +227,7 @@ subroutine bas_gms2py(inpname, cart)
  write(pyid,'(A,/)') 'mol.build()'
 
  i = INDEX(inpname, '.', back=.true.)
+
  if(uhf) then
   if(lin_dep) then
    write(pyid,'(A)') 'old_mf = scf.UHF(mol)'
@@ -244,7 +248,28 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[0], S)'
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[1], S)'
- else ! using RHF/ROHF format
+
+ else if(ghf) then ! complex GHF
+  if(lin_dep) then
+   write(pyid,'(A)') 'old_mf = scf.GHF(mol)'
+   write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lindep=1.1e-6)'
+  else
+   write(pyid,'(A)') 'mf = scf.GHF(mol)'
+  end if
+  write(pyid,'(A)') "dm = mf.get_init_guess() + 0j"
+  write(pyid,'(A)') 'mf.max_cycle = 1'
+  write(pyid,'(A)') 'mf.kernel(dm0=dm)'
+  write(pyid,'(/,A)') '# read MOs from .fch(k) file'
+  write(pyid,'(A)') 'nbf = mf.mo_coeff.shape[0]'
+  write(pyid,'(A)') 'nif = mf.mo_coeff.shape[1]'
+  write(pyid,'(A)') "mf.mo_coeff.real = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'r')"
+  write(pyid,'(A)') "mf.mo_coeff.imag = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'i')"
+  write(pyid,'(A)') '# read done'
+  write(pyid,'(/,A)') '# check if input MOs are orthonormal'
+  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  write(pyid,'(A)') '#check_complex_orthonormal(nbf, nif, mf.mo_coeff, S)'
+
+ else ! using R(O)HF format
   if(mult == 1) then
    if(lin_dep) then
     write(pyid,'(A)') 'old_mf = scf.RHF(mol)'
@@ -276,6 +301,5 @@ subroutine bas_gms2py(inpname, cart)
  write(pyid,'(A)')   '#mf.max_cycle = 10'
  write(pyid,'(A,/)') '#mf.kernel(dm)'
  close(pyid)
- return
 end subroutine bas_gms2py
 

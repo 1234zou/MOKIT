@@ -119,8 +119,9 @@ subroutine check_uhf_in_fch(fchname, uhf)
   read(fid,'(A)',iostat=i) buf
   if(i < 0) exit ! end-of-file
   if(i > 0) then
-   write(iout,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read&
-                     & file '//TRIM(fchname)
+   write(6,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
+                  & '//TRIM(fchname)
+   close(fid)
    stop
   end if
 
@@ -132,6 +133,52 @@ subroutine check_uhf_in_fch(fchname, uhf)
 
  close(fid)
 end subroutine check_uhf_in_fch
+
+! check whether GHF-type MOs are hold in a given .fch(k) file
+subroutine check_ghf_in_fch(fchname, ghf)
+ implicit none
+ integer :: i, nif, norb, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ logical, intent(out) :: ghf
+
+ nif = 0; norb = 0; ghf = .false.
+ call open_file(fchname, .true., fid)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:13) == 'Number of ind') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(A)') "ERROR in subroutine check_ghf_in_fch: no 'Number of ind' fou&
+                 &nd in file "//TRIM(fchname)
+  stop
+ end if
+
+ read(buf(50:),*) nif
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i < 0) exit ! end-of-file
+  if(i > 0) then
+   write(6,'(A)') 'ERROR in subroutine check_ghf_in_fch: failed to read file&
+                  & '//TRIM(fchname)
+   close(fid)
+   stop
+  end if
+
+  if(buf(1:7) == 'Alpha O') then
+   read(buf(50:),*) norb
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+ if(norb == 2*nif) ghf = .true.
+end subroutine check_ghf_in_fch
 
 ! read geometry, basis sets, ECP(if any) and MOs from .fch file (Gaussian)
 subroutine read_fch(fchname, uhf)

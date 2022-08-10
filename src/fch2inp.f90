@@ -111,9 +111,11 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ecp, sph, X2C, DIIS
+ logical :: uhf, ghf, ecp, sph, X2C, DIIS
  logical, intent(in) :: gvb
  logical, external :: nobasistransform_in_fch, nosymm_in_fch
+
+ uhf = .false.; ghf = .false.; ecp = .false.
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -171,16 +173,29 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   stop
  end select
 
- call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- if(gvb) then
-  gvb_or_uhf = '-gvb'
- else
-  if(uhf) then
-   gvb_or_uhf = '-uhf'
+ call check_ghf_in_fch(fchname, ghf) ! determine whether GHF
+
+ if(ghf) then
+  write(6,'(/,A)') 'Warning in subroutine fch2inp: GHF detected in file '//&
+                    TRIM(fchname)
+  write(6,'(A)') 'GAMESS does not support GHF currently. But fch2inp will be&
+                & continued.'
+  write(6,'(A)') 'Orbitals in the generated .inp file are meanningless.'
+ end if
+
+ if(.not. ghf) then
+  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+  if(gvb) then
+   gvb_or_uhf = '-gvb'
   else
-   gvb_or_uhf = ' '
+   if(uhf) then
+    gvb_or_uhf = '-uhf'
+   else
+    gvb_or_uhf = ' '
+   end if
   end if
  end if
+
  call read_fch(fchname, uhf) ! read content in .fch(k) file
 
  if(uhf) then
@@ -219,7 +234,6 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  ! in GAMESS inp format file, the contr_coeff_sp is zero when there is no 'L'/'SP'
  if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0d0)
 
- ecp = .false.
  if(LenNCZ > 0) ecp = .true.
  DIIS = .false.
  if(ALL(elem == 'H ')) DIIS = .true.
@@ -227,8 +241,9 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  ! hydrogen atoms, DIIS is better than SOSCF
 
  ! create the GAMESS .inp file and print the keywords information
- call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif,&
-                            nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb, DIIS)
+ call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, &
+                            nbf, gvb_or_uhf, ghf, ecp, sph, rel, X2C, na, nb, &
+                            DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! print basis sets into the .inp file
@@ -406,14 +421,14 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ecp, sph, rel, X2C, na, nb, DIIS)
+           nif, nbf, gvb_or_uhf, ghf, ecp, sph, rel, X2C, na, nb, DIIS)
  implicit none
  integer :: fid
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel, na, nb
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: ecp, sph, X2C, DIIS
+ logical, intent(in) :: ghf, ecp, sph, X2C, DIIS
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -424,10 +439,15 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  case('-gvb')
   write(fid,'(A)',advance='no') 'GVB'
  case default
-  if(mult == 1) then
-   write(fid,'(A)',advance='no') 'RHF'
+  if(ghf) then
+   write(fid,'(A)',advance='no') 'GHF'
+   ! GHF is not supported in GAMESS, but print anyway
   else
-   write(fid,'(A)',advance='no') 'ROHF'
+   if(mult == 1) then
+    write(fid,'(A)',advance='no') 'RHF'
+   else
+    write(fid,'(A)',advance='no') 'ROHF'
+   end if
   end if
  end select
 

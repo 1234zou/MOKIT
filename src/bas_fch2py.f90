@@ -36,12 +36,16 @@ subroutine bas_fch2py(fchname)
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: inpname, inpname1
  character(len=240), intent(in) :: fchname
  logical :: alive, cart
 
  i = index(fchname, '.fch', back=.true.)
+ if(i == 0) then
+  write(6,'(A)') "ERROR in subroutine bas_fch2py: '.fch' not found in filename&
+                & "//TRIM(fchname)
+  stop
+ end if
  inpname = fchname(1:i-1)//'.inp'
  inpname1 = fchname(1:i-1)//'.inp.t'
 
@@ -59,8 +63,8 @@ subroutine bas_fch2py(fchname)
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py failed.'
-  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py failed.'
+  write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if
 

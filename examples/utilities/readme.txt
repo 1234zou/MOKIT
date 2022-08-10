@@ -47,8 +47,7 @@ In Example 3.1, you already got the file 03-ben_cc-pVDZ_6D10F_gvb3.fch, now run
 The GVB NOs will be read and used as the initial guess of CAS(6,6). After CASSCF finished,
 CASSCF NOs will be exported.
 
-(Note: the basis sets in .py file are obtained by running
-'fch2inp 03-ben_cc-pVDZ_6D10F_uno_assoc_rot.fch && bas_gms2py 03-ben_cc-pVDZ_6D10F_uno_assoc_rot.inp'
+(Note: the basis sets in .py file are obtained by running 'bas_fch2py 03-ben_cc-pVDZ_6D10F_uno_assoc_rot.fch'
 in Shell. Do not use the built-in basis sets of PySCF.)
 
 --------------------------------------------------

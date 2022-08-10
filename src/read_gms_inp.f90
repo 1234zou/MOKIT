@@ -124,19 +124,18 @@ end subroutine read_natom_from_gms_inp
 
 ! read charge, spin multiplicity, uhf(bool) bohrs(bool) from a given GAMESS
 ! .inp/.dat file
-subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
+subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
  implicit none
  integer :: i, fid
  integer, intent(out) :: charge, mult
  character(len=240) :: buf
  character(len=480) :: buf1
  character(len=240), intent(in) :: inpname
- logical, intent(out) :: uhf, ecp
+ logical, intent(out) :: uhf, ghf, ecp
 
  charge = 0
  mult = 1
- uhf = .false.
- ecp = .false.
+ uhf = .false.; ghf = .false.; ecp = .false.
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  read(fid,'(A)') buf
@@ -144,6 +143,7 @@ subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
  buf1 = TRIM(buf)//' '//TRIM(buf1)
  call upper(buf1)
  if(index(buf1,'UHF') > 0) uhf = .true.
+ if(index(buf1,'GHF') > 0) ghf = .true.
 
  i = index(buf1,'ICHAR')
  if(i > 0) read(buf1(i+7:),*) charge
@@ -164,7 +164,6 @@ subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_charge_and_mult_from_gms_inp
 
 ! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file

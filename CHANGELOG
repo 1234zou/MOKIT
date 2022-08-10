@@ -1,4 +1,4 @@
-MOKIT 1.2.4 (Jul 30, 2022)
+MOKIT 1.2.4 (Aug 10, 2022)
 ------------------------
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
 * improve DMRG keywords using OpenMolcas+QCMaquis
@@ -7,6 +7,8 @@ MOKIT 1.2.4 (Jul 30, 2022)
 * fix bug about X2C Hamiltonian keyword
 * add GVB-BCCC2b/3b interface
 * add State-Specific CASSCF interface
+* py2fch_direct added by wsr
+* update bas_fch2py, fch2py for complex GHF
 
 MOKIT 1.2.3 (Jun 11, 2022)
 ------------------------

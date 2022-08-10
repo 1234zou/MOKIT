@@ -12,19 +12,7 @@
 ! updated by jxzou at 20210126: generate Total SCF Density using MOs and ONs
 ! updated by jxzou at 20210527: remove intent(in) parameter Sdiag, use parameter array
 ! updated by jxzou at 20210601: add subroutine get_permute_idx_from_shell
-
-! This subroutine is designed to be imported as a module by Python.
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------
-!  f2py -m py2fch -c py2fch.f90 --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------
-!  For GNU compiler, use
-! ------------------------------
-!  f2py -m py2fch -c py2fch.f90
-! ------------------------------
-
-!  to compile this file (a py2fch.so file will be generated). Then in
-!  Python you can import the py2fch module.
+! updated by wsr   at 20220726: add subroutines molinfo2fch and molecp2fch
 
 ! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
 module Sdiag_parameter
@@ -108,8 +96,8 @@ subroutine molecp2fch(fchname, uhf, &
   allocate(CLP(LenNCZ), source=CLP_in)
   allocate(ZLP(LenNCZ), source=ZLP_in)
  end if
+
  call write_fch(fchname)
- return
 end subroutine molecp2fch
 
 subroutine molinfo2fch(fchname, uhf, &
@@ -155,14 +143,12 @@ subroutine molinfo2fch(fchname, uhf, &
 ! write(*,*) coor
  allocate(prim_exp(nprim), source=prim_exp_in)
  allocate(contr_coeff(nprim), source=contr_coeff_in)
-! if (ALL(contr_coeff_sp_in==0.0d0)) then 
-!   allocate(contr_coeff_sp(1), source=0.0d0)
+! if (ALL(contr_coeff_sp_in==0d0)) then 
+!   allocate(contr_coeff_sp(1), source=0d0)
 ! end if
 
  call write_fch(fchname)
- return
 end subroutine molinfo2fch
-
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
@@ -335,7 +321,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  close(fid1)
  close(fid, status='delete')
  i = RENAME(TRIM(fchname1),TRIM(fchname))
- return
 end subroutine py2fch
 
 ! read nbf from .fch(k) file
@@ -365,7 +350,6 @@ subroutine read_nbf_from_fch(fchname, nbf)
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, nbf
  close(fid)
- return
 end subroutine read_nbf_from_fch
 
 ! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
@@ -395,7 +379,6 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, ncontr
  close(fid)
- return
 end subroutine read_ncontr_from_fch
 
 ! read shell_type and shell_to_atom_map from a given .fch(k) file
@@ -444,7 +427,6 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  shl2atm = 0
  read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
  close(fid)
- return
 end subroutine read_shltyp_and_shl2atm_from_fch
 
 ! get permutation index list from a given .fch(k) file
@@ -463,7 +445,6 @@ subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
 
  call get_permute_idx_from_shell(k, shell_type, shell_to_atom_map, nbf, idx, norm)
  deallocate(shell_type, shell_to_atom_map)
- return
 end subroutine get_permute_idx_from_fch
 
 ! get permutation index list from two arrays (shell_type and shell_to_atom_map)
@@ -594,7 +575,6 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  end do
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
- return
 end subroutine get_permute_idx_from_shell
 
 ! split the 'L' into 'S' and 'P'
@@ -630,7 +610,6 @@ subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
 
  length = i - 1
  shell_type(i : k0) = 0
- return
 end subroutine split_L_func
 
 ! unsort the shell_type, shell_to_atom_map according to the order in Gaussian
@@ -703,7 +682,6 @@ subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
 
  deallocate(ith, new_ith, ith_bas)
  ilen = length ! update ilen
- return
 end subroutine unsort_shell_and_mo
 
 ! sort the shell_type within each atom
@@ -726,7 +704,6 @@ subroutine sort_shell_type_in_each_atom2(ilen, shell_type)
     shell_type(i) = tmp_type
   end do
  end do
- return
 end subroutine sort_shell_type_in_each_atom2
 
 ! Unsort the MO within each atom. (Only for 'L' in Pople basis)
@@ -783,7 +760,6 @@ subroutine unsort_mo_in_each_atom(ilen1, shell_type, new_shell_type, ilen2, idx)
  ! update array idx
  idx = new_idx
  deallocate(new_idx)
- return
 end subroutine unsort_mo_in_each_atom
 
 subroutine get_1st_loc(inum, loc, ilen, a)
@@ -798,7 +774,6 @@ subroutine get_1st_loc(inum, loc, ilen, a)
  end do
  loc = i
  if(i == ilen+1) loc = 0
- return
 end subroutine get_1st_loc
 
 subroutine py2fch_permute_5d(idx)
@@ -814,7 +789,6 @@ subroutine py2fch_permute_5d(idx)
 
  idx0 = idx
  forall(i = 1:5) idx(i) = idx0(order(i))
- return
 end subroutine py2fch_permute_5d
 
 subroutine py2fch_permute_6d(idx, norm)
@@ -835,7 +809,6 @@ subroutine py2fch_permute_6d(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = Sdiag_d(order(i))
  end forall
- return
 end subroutine py2fch_permute_6d
 
 subroutine py2fch_permute_7f(idx)
@@ -851,7 +824,6 @@ subroutine py2fch_permute_7f(idx)
 
  idx0 = idx
  forall(i = 1:7) idx(i) = idx0(order(i))
- return
 end subroutine py2fch_permute_7f
 
 subroutine py2fch_permute_10f(idx, norm)
@@ -872,7 +844,6 @@ subroutine py2fch_permute_10f(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = Sdiag_f(order(i))
  end forall
- return
 end subroutine py2fch_permute_10f
 
 subroutine py2fch_permute_9g(idx)
@@ -888,7 +859,6 @@ subroutine py2fch_permute_9g(idx)
 
  idx0 = idx
  forall(i = 1:9) idx(i) = idx0(order(i))
- return
 end subroutine py2fch_permute_9g
 
 subroutine py2fch_permute_15g(idx, norm)
@@ -908,7 +878,6 @@ subroutine py2fch_permute_15g(idx, norm)
   idx(i) = idx0(16-i)
   norm(i) = Sdiag_g(16-i)
  end forall
- return
 end subroutine py2fch_permute_15g
 
 subroutine py2fch_permute_11h(idx)
@@ -924,7 +893,6 @@ subroutine py2fch_permute_11h(idx)
 
  idx0 = idx
  forall(i = 1:11) idx(i) = idx0(order(i))
- return
 end subroutine py2fch_permute_11h
 
 subroutine py2fch_permute_21h(idx, norm)
@@ -944,7 +912,6 @@ subroutine py2fch_permute_21h(idx, norm)
   idx(i) = idx0(22-i)
   norm(i) = Sdiag_h(22-i)
  end forall
- return
 end subroutine py2fch_permute_21h
 
 ! write density (in PySCF format) into a given Gaussian .fch(k) file
@@ -1058,6 +1025,5 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
 end subroutine write_pyscf_dm_into_fch
 

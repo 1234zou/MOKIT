@@ -9,19 +9,7 @@
 ! updated by jxzou at 20190411: pass the Sdiag in
 ! updated by jxzou at 20200324: renamed from fch2py as fch2py, simplify code
 ! updated by jxzou at 20210527: remove intent(in) parameter Sdiag, use parameter array
-
-! This subroutine is designed to be called as a module by Python.
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------
-!  f2py -m fch2py -c fch2py.f90 --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------
-!  For GNU compiler, use
-! ------------------------------
-!  f2py -m fch2py -c fch2py.f90
-! ------------------------------
-
-!  to compile this file (a fch2py.so file will be generated). Then in
-!  Python you can import the fch2py module.
+! updated by jxzou at 20220810: support Gau->PySCF complex GHF
 
 ! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
 module Sdiag_parameter
@@ -51,49 +39,54 @@ end module Sdiag_parameter
 !  of Gaussian to that of PySCF
 subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  implicit none
- integer :: i, k, length, fchid
- integer :: ncoeff, nbf, nif
+ integer :: i, j, k, length, nbf0, ncoeff, fchid
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
+
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
- integer, parameter :: iout = 6
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
 
- real(kind=8) :: coeff2(nbf,nif)
+ real(kind=8), intent(out) :: coeff2(nbf,nif)
 !f2py depend(nbf,nif) :: coeff2
 !f2py intent(out) :: coeff2
  real(kind=8), allocatable :: coeff(:)
 
- character(len=1) :: ab
+ character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
+
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
- character(len=240) :: fchname, buffer
+ character(len=240) :: buffer
+ character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
- logical :: alive
 
- key = ' '
- buffer = ' '
- ncoeff = 0
+ logical :: alive, ghf
+
+ key = ' '; buffer = ' '
+ ncoeff = 0; ghf = .false.
 
  select case(ab)
  case('a','A')
   key = key1
  case('b','B')
   key = key2//' '
+ case('r','i') ! r/i for real/imaginary in complex GHF
+  key = key1
+  ghf = .true.
  case default
   write(6,'(/,A)') 'ERROR in subroutine fch2py: wrong data type of ab.'
-  write(6,'(A)') "This argument can only be 'a' or 'b'. But your input"
+  write(6,'(A)') "This argument can only be 'a'/'b'/'r'/'i'. But your input"
   write(6,*) 'ab=', ab
   stop
  end select
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
-  write(iout,'(/,A)') "File '"//TRIM(fchname)//"' does not exist!"
+  write(6,'(/,A)') "File '"//TRIM(fchname)//"' does not exist!"
   stop
  end if
 
@@ -105,38 +98,85 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  BACKSPACE(fchid)
  read(fchid,'(A49,2X,I10)') buffer, ncoeff
 
- if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine fch2py: inconsistent basis sets in&
-                   & .fch file and in PySCF script, ncoeff/=nbf*nif!'
-  write(iout,'(A)') TRIM(fchname)
-  close(fchid)
-  stop
+ if(ghf) then
+  if(ncoeff /= 2*nbf*nif) then
+   close(fchid)
+   write(6,'(/,A)') 'ERROR in subroutine fch2py: ncoeff/=2*nbf*nif! Inconsisten&
+                    &t basis sets'
+   write(6,'(A)') 'in PySCF script and file '//TRIM(fchname)
+   write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nbf=', nbf, ', nif=', nif
+   stop
+  end if
+ else ! R(O)HF, UHF
+  if(ncoeff /= nbf*nif) then
+   close(fchid)
+   write(6,'(/,A)') 'ERROR in subroutine fch2py: ncoeff/=nbf*nif! Inconsistent &
+                    &basis sets in'
+   write(6,'(A)') 'PySCF script and file '//TRIM(fchname)
+   write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nbf=', nbf, ', nif=', nif
+   stop
+  end if
  end if
 
  ! read Alpha MO or Beta MO
- allocate(coeff(ncoeff), source=0.0d0)
+ allocate(coeff(ncoeff), source=0d0)
  read(fchid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
- coeff2 = RESHAPE(coeff,(/nbf,nif/))
+
+ ! For complex GHF, the MO coefficients of Gaussian are in the order
+ !  (C_ar, C_ai, C_br, C_bi)X1 + ()X2 + ... which can be seen in the log file
+ !  by specifying the keyword 'pop=full'
+ ! While for PySCF, the real part of MO coefficients are in the order
+ !  C_ar_1, C_ar_2, ..., C_ar_nbf0, C_br_1, C_br_2, ..., C_br_nbf0
+ !  the imaginary part of MO coefficients are in the order
+ !  C_ai_1, C_ai_2, ..., C_ai_nbf0, C_bi_1, C_bi_2, ..., C_bi_nbf0
+
+ if(ghf) then ! complex GHF
+  select case(ab)
+  case('r') ! real part
+   k = 0
+   do i = 1, nif, 1
+    j = k + 2*nbf
+    coeff2(1:nbf/2,i) = coeff(k+1:j-3:4)
+    coeff2(nbf/2+1:nbf,i) = coeff(k+3:j-1:4)
+    k = j ! update k
+   end do ! for i
+  case('i') ! imarginary part
+   k = 0
+   do i = 1, nif, 1
+    j = k + 2*nbf
+    coeff2(1:nbf/2,i) = coeff(k+2:j-2:4)
+    coeff2(nbf/2+1:nbf,i) = coeff(k+4:j:4)
+    k = j ! update k
+   end do ! for i
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine fch2py: wrong parameter ab.'
+   write(6,*) 'ab=', ab
+   stop
+  end select
+ else         ! real R(O)HF, UHF
+  coeff2 = RESHAPE(coeff,(/nbf,nif/))
+ end if
+
  deallocate(coeff)
 
- rewind(fchid)
- ! find and read Shell types
+ rewind(fchid)   ! find and read Shell types
  do while(.true.)
   read(fchid,'(A)',iostat=i) buffer
   if(buffer(1:11) == 'Shell types') exit
- end do
+ end do ! for while
+
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2py: missing the 'Shell types'&
-                   & section in .fch file!"
-  write(iout,'(A)') TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine fch2py: missing the 'Shell types'&
+                & section in .fch file!"
+  write(6,'(A)') TRIM(fchname)
   close(fchid)
   stop
  end if
 
  BACKSPACE(fchid)
  read(fchid,'(A49,2X,I10)') buffer, k
- allocate(shell_type(2*k))
- shell_type = 0
+
+ allocate(shell_type(2*k), source=0)
  read(fchid,'(6(6X,I6))') (shell_type(i),i=1,k)
  ! read Shell types done
 
@@ -144,17 +184,17 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  do while(.true.)
   read(fchid,'(A)',iostat=i) buffer
   if(buffer(1:13) == 'Shell to atom') exit
- end do
+ end do ! for while
+
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2py: missing the 'Shell to atom map'&
-                   & section in .fch file!"
-  write(iout,'(A)') TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine fch2py: missing the 'Shell to atom map'&
+                & section in .fch file!"
+  write(6,'(A)') TRIM(fchname)
   close(fchid)
   stop
  end if
 
- allocate(shell_to_atom_map(2*k))
- shell_to_atom_map = 0
+ allocate(shell_to_atom_map(2*k), source=0)
  read(fchid,'(6(6X,I6))') (shell_to_atom_map(i),i=1,k)
  ! read Shell to atom map done
 
@@ -166,9 +206,27 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  ! split the 'L' into 'S' and 'P'
  call split_L_func(k, shell_type, shell_to_atom_map, length)
 
- ! sort the shell_type, shell_to_atom_map by ascending order
- ! MOs will be adjusted accordingly
- call sort_shell_and_mo(length, shell_type, shell_to_atom_map, nbf, nif, coeff2)
+ ! Sort the shell_type, shell_to_atom_map by ascending order. MOs will be
+ ! adjusted accordingly
+ if(ghf) then ! GHF
+  ! Note: arrays shell_type and shell_to_atom_map will be changed after calling
+  !  subroutine sort_shell_and_mo, so we need to backup these two arrays.
+  !  Using d_mark and f_mark as intermediate arrays here
+
+  allocate(d_mark(2*k), source=shell_type)
+  allocate(f_mark(2*k), source=shell_to_atom_map)
+  call sort_shell_and_mo(length, shell_type, shell_to_atom_map, nbf/2, nif, &
+                         coeff2(1:nbf/2,:))
+  ! restore shell_type and shell_to_atom_map from d_mark and f_mark
+  shell_type = d_mark
+  shell_to_atom_map = f_mark
+  deallocate(d_mark, f_mark)
+  call sort_shell_and_mo(length, shell_type, shell_to_atom_map, nbf/2, nif, &
+                         coeff2(nbf/2+1:nbf,:))
+ else         ! R(O)HF, UHF
+  call sort_shell_and_mo(length, shell_type, shell_to_atom_map, nbf, nif, coeff2)
+ end if
+
  deallocate(shell_to_atom_map)
 ! adjust done
 
@@ -187,80 +245,75 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  f_mark = 0
  g_mark = 0
  h_mark = 0
- nbf = 0
- do i = 1,k,1
+ nbf0 = 0
+
+ do i = 1, k, 1
   select case(shell_type(i))
   case( 0)   ! S
-   nbf = nbf + 1
+   nbf0 = nbf0 + 1
   case( 1)   ! 3P
-   nbf = nbf + 3
+   nbf0 = nbf0 + 3
   case(-1)   ! SP or L
-   nbf = nbf + 4
+   nbf0 = nbf0 + 4
   case(-2)   ! 5D
    n5dmark = n5dmark + 1
-   d_mark(n5dmark) = nbf + 1
-   nbf = nbf + 5
+   d_mark(n5dmark) = nbf0 + 1
+   nbf0 = nbf0 + 5
   case( 2)   ! 6D
    n6dmark = n6dmark + 1
-   d_mark(n6dmark) = nbf + 1
-   nbf = nbf + 6
+   d_mark(n6dmark) = nbf0 + 1
+   nbf0 = nbf0 + 6
   case(-3)   ! 7F
    n7fmark = n7fmark + 1
-   f_mark(n7fmark) = nbf + 1
-   nbf = nbf + 7
+   f_mark(n7fmark) = nbf0 + 1
+   nbf0 = nbf0 + 7
   case( 3)   ! 10F
    n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
+   f_mark(n10fmark) = nbf0 + 1
+   nbf0 = nbf0 + 10
   case(-4)   ! 9G
    n9gmark = n9gmark + 1
-   g_mark(n9gmark) = nbf + 1
-   nbf = nbf + 9
+   g_mark(n9gmark) = nbf0 + 1
+   nbf0 = nbf0 + 9
   case( 4)   ! 15G
    n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
+   g_mark(n15gmark) = nbf0 + 1
+   nbf0 = nbf0 + 15
   case(-5)   ! 11H
    n11hmark = n11hmark + 1
-   h_mark(n11hmark) = nbf + 1
-   nbf = nbf + 11
+   h_mark(n11hmark) = nbf0 + 1
+   nbf0 = nbf0 + 11
   case( 5)   ! 21H
    n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
+   h_mark(n21hmark) = nbf0 + 1
+   nbf0 = nbf0 + 21
+  case default
+   write(6,'(A)') 'ERROR in subroutine fch2py: shell_type(i) out of range.'
+   write(6,'(A,3I4)') 'k, i, shell_type(i)=', k, i, shell_type(i)
+   stop
   end select
- end do
+ end do ! for i
  deallocate(shell_type)
 
  ! adjust the order of d, f, etc. functions
- do i = 1,n5dmark,1
-  call fch2py_permute_5d(nif,coeff2(d_mark(i):d_mark(i)+4,:))
- end do
- do i = 1,n6dmark,1
-  call fch2py_permute_6d(nif,coeff2(d_mark(i):d_mark(i)+5,:))
- end do
- do i = 1,n7fmark,1
-  call fch2py_permute_7f(nif,coeff2(f_mark(i):f_mark(i)+6,:))
- end do
- do i = 1,n10fmark,1
-  call fch2py_permute_10f(nif,coeff2(f_mark(i):f_mark(i)+9,:))
- end do
- do i = 1,n9gmark,1
-  call fch2py_permute_9g(nif,coeff2(g_mark(i):g_mark(i)+8,:))
- end do
- do i = 1,n15gmark,1
-  call fch2py_permute_15g(nif,coeff2(g_mark(i):g_mark(i)+14,:))
- end do
- do i = 1,n11hmark,1
-  call fch2py_permute_11h(nif,coeff2(h_mark(i):h_mark(i)+10,:))
- end do
- do i = 1,n21hmark,1
-  call fch2py_permute_21h(nif,coeff2(h_mark(i):h_mark(i)+20,:))
- end do
+ call fch2py_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                         f_mark, g_mark, h_mark, nbf, nif, coeff2)
+ call fch2py_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                          f_mark, g_mark, h_mark, nbf, nif, coeff2)
+
+ if(ghf) then ! Beta real or Beta imaginary
+  d_mark = d_mark + nbf0
+  f_mark = f_mark + nbf0
+  g_mark = g_mark + nbf0
+  h_mark = h_mark + nbf0
+  call fch2py_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                          f_mark, g_mark, h_mark, nbf, nif, coeff2)
+  call fch2py_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                           f_mark, g_mark, h_mark, nbf, nif, coeff2)
+ end if
 ! adjustment finished
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
- return
 end subroutine fch2py
 
 ! split the 'L' into 'S' and 'P'
@@ -277,6 +330,7 @@ subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
  ! set initial values for arrays shell_type, assume 15 will not be used
  shell_type(k+1:k0) = 15
  i = 1
+
  do while(shell_type(i) /= 15)
   if(shell_type(i) /= -1) then
    i = i + 1
@@ -292,26 +346,23 @@ subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
   shell_type(i+1) = 1
   shell_to_atom_map(i+1) = shell_to_atom_map(i)
   i = i + 2
- end do
+ end do ! for while
 
  length = i - 1
  shell_type(i : k0) = 0
- return
 end subroutine split_L_func
 
 ! sort the shell_type, shell_to_atom_map by ascending order
 ! MOs will be adjusted accordingly
 subroutine sort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coeff2)
  implicit none
- integer i, j, k
- integer ibegin, iend, natom
- integer jbegin, jend
+ integer :: i, j, k, natom
+ integer :: ibegin, iend, jbegin, jend
  integer, parameter :: ntype = 10
  integer, parameter :: num0(ntype) = [0, 1, -2, 2, -3, 3, -4, 4, -5, 5]
  integer, parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
  !                                     S  P  5D 6D 7F 10F 9G 15G 11H 21H
- integer num(ntype)
-
+ integer :: num(ntype)
  integer,intent(in) :: ilen, nbf, nif
  integer,intent(inout) :: shell_type(ilen), shell_to_atom_map(ilen)
  integer,allocatable :: ith(:), ith_bas(:), tmp_type(:)
@@ -327,7 +378,7 @@ subroutine sort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coef
  ! find the end position of each atom in array shell_to_atom_map
  do i = 1, natom, 1
   ith(i) = count(shell_to_atom_map==i) + ith(i-1)
- end do
+ end do ! for i
 
  ! find the end position of basis functions between two atoms
  do i = 1, natom, 1
@@ -339,14 +390,14 @@ subroutine sort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coef
   num = 0
   do j = 1, ntype, 1
    num(j) = count(tmp_type == num0(j))
-  end do
+  end do ! for j
   k = 0
   do j = 1, ntype, 1
    k = k + num(j)*num1(j)
-  end do
+  end do ! for j
   ith_bas(i) = ith_bas(i-1) + k
   deallocate(tmp_type)
- end do
+ end do ! for i
 
  ! adjust the MOs in each atom
  do i = 1, natom, 1
@@ -356,20 +407,20 @@ subroutine sort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coef
   jend = ith_bas(i)
   call sort_shell_and_mo_in_each_atom(iend-ibegin+1, shell_type(ibegin:iend), &
   & jend-jbegin+1, nif, coeff2(jbegin:jend,1:nif))
- end do
+ end do ! for i
  ! adjust the MOs in each atom done
+
  deallocate(ith, ith_bas)
- return
 end subroutine sort_shell_and_mo
 
 subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
  implicit none
- integer i, tmp_type
- integer ibegin, iend, jbegin, jend
+ integer :: i, tmp_type
+ integer :: ibegin, iend, jbegin, jend
  integer,parameter :: ntype = 10
  integer,parameter :: num0(ntype) = [0, 1, -2, 2, -3, 3, -4, 4, -5, 5]
  integer,parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
- !                                    S  P  5D 6D 7F 10F 9G 15G 11H 21H
+ !                                   S  P  5D 6D 7F 10F 9G 15G 11H 21H
  integer,parameter :: rnum(-5:5) = [9, 7, 5, 3, 0, 1, 2, 4, 6, 8, 10]
 
  integer,intent(in) :: nif, ilen1, ilen2
@@ -377,7 +428,7 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
  integer,allocatable :: ith_bas(:)
  real(kind=8),intent(inout) :: coeff2(ilen2,nif)
  real(kind=8),allocatable :: tmp_coeff1(:,:), tmp_coeff2(:,:)
- logical sort_done
+ logical :: sort_done
 
  tmp_type = 0
 
@@ -385,8 +436,8 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
  allocate(ith_bas(0:ilen1))
  ith_bas = 0
  do i = 1, ilen1, 1
-   ith_bas(i) = ith_bas(i-1) + num1(rnum(shell_type(i)))
- end do
+  ith_bas(i) = ith_bas(i-1) + num1(rnum(shell_type(i)))
+ end do ! for i
 
  sort_done = .false.
  do while(.not. sort_done)
@@ -403,8 +454,8 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
     jbegin = ith_bas(i) + 1
     jend = ith_bas(i+1)
     allocate(tmp_coeff1(ibegin:iend,nif), tmp_coeff2(jbegin:jend,nif))
-    tmp_coeff1 = 0.0d0
-    tmp_coeff2 = 0.0d0
+    tmp_coeff1 = 0d0
+    tmp_coeff2 = 0d0
     tmp_coeff1 = coeff2(ibegin:iend,:)
     tmp_coeff2 = coeff2(jbegin:jend,:)
     ith_bas(i) = ibegin+jend-jbegin
@@ -412,11 +463,61 @@ subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, nif, coeff2)
     ith_bas(i+1) = jend+iend-jbegin+1
     coeff2(ibegin+jend-jbegin+1: ith_bas(i+1),:) = tmp_coeff1
     deallocate(tmp_coeff1, tmp_coeff2)
-  end do
- end do
+  end do ! for i
+ end do ! for while
+
  deallocate(ith_bas)
- return
 end subroutine sort_shell_and_mo_in_each_atom
+
+subroutine fch2py_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                              f_mark, g_mark, h_mark, nbf, nif, coeff2)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n5dmark, n7fmark, n9gmark, n11hmark, k, nbf, nif
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ real(kind=8), intent(inout) :: coeff2(nbf,nif)
+
+ if(n5dmark==0 .and. n7fmark==0 .and. n9gmark==0 .and. n11hmark==0) return
+
+ do i = 1, n5dmark, 1
+  call fch2py_permute_5d(nif, coeff2(d_mark(i):d_mark(i)+4,:))
+ end do
+ do i = 1, n7fmark, 1
+  call fch2py_permute_7f(nif, coeff2(f_mark(i):f_mark(i)+6,:))
+ end do
+ do i = 1, n9gmark, 1
+  call fch2py_permute_9g(nif, coeff2(g_mark(i):g_mark(i)+8,:))
+ end do
+ do i = 1, n11hmark, 1
+  call fch2py_permute_11h(nif, coeff2(h_mark(i):h_mark(i)+10,:))
+ end do
+
+end subroutine fch2py_permute_sph
+
+subroutine fch2py_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                              f_mark, g_mark, h_mark, nbf, nif, coeff2)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf, nif
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ real(kind=8), intent(inout) :: coeff2(nbf,nif)
+
+ if(n6dmark==0 .and. n10fmark==0 .and. n15gmark==0 .and. n21hmark==0) return
+
+ do i = 1, n6dmark, 1
+  call fch2py_permute_6d(nif, coeff2(d_mark(i):d_mark(i)+5,:))
+ end do
+ do i = 1, n10fmark, 1
+  call fch2py_permute_10f(nif, coeff2(f_mark(i):f_mark(i)+9,:))
+ end do
+ do i = 1, n15gmark, 1
+  call fch2py_permute_15g(nif, coeff2(g_mark(i):g_mark(i)+14,:))
+ end do
+ do i = 1, n21hmark, 1
+  call fch2py_permute_21h(nif, coeff2(h_mark(i):h_mark(i)+20,:))
+ end do
+
+end subroutine fch2py_permute_cart
 
 subroutine fch2py_permute_5d(nif,coeff)
  implicit none
@@ -435,7 +536,6 @@ subroutine fch2py_permute_5d(nif,coeff)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_5d
 
 subroutine fch2py_permute_6d(nif,coeff)
@@ -455,7 +555,6 @@ subroutine fch2py_permute_6d(nif,coeff)
  allocate(coeff2(6,nif), source=coeff)
  forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)/Sdiag_d(i)
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_6d
 
 subroutine fch2py_permute_7f(nif,coeff)
@@ -475,7 +574,6 @@ subroutine fch2py_permute_7f(nif,coeff)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_7f
 
 subroutine fch2py_permute_10f(nif,coeff)
@@ -495,7 +593,6 @@ subroutine fch2py_permute_10f(nif,coeff)
  allocate(coeff2(10,nif), source=coeff)
  forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)/Sdiag_f(i)
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_10f
 
 subroutine fch2py_permute_9g(nif,coeff)
@@ -515,7 +612,6 @@ subroutine fch2py_permute_9g(nif,coeff)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_9g
 
 subroutine fch2py_permute_15g(nif,coeff)
@@ -534,7 +630,6 @@ subroutine fch2py_permute_15g(nif,coeff)
  allocate(coeff2(15,nif), source=coeff)
  forall(i = 1:15) coeff(i,:) = coeff2(16-i,:)/Sdiag_g(i)
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_15g
 
 subroutine fch2py_permute_11h(nif,coeff)
@@ -554,7 +649,6 @@ subroutine fch2py_permute_11h(nif,coeff)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_11h
 
 subroutine fch2py_permute_21h(nif,coeff)
@@ -573,6 +667,30 @@ subroutine fch2py_permute_21h(nif,coeff)
  allocate(coeff2(21,nif), source=coeff)
  forall(i = 1:21) coeff(i,:) = coeff2(22-i,:)/Sdiag_h(i)
  deallocate(coeff2)
- return
 end subroutine fch2py_permute_21h
+
+! For complex GHF
+subroutine fch2py_cghf(fchname, nbf, nif, coeff2)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+
+ complex(kind=8), intent(out) :: coeff2(nbf,nif)
+!f2py intent(out) :: coeff2
+!f2py depend(nbf,nif) :: coeff2
+ real(kind=8), allocatable :: real_c(:,:), imag_c(:,:)
+
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ allocate(real_c(nbf,nif), source=0d0)
+ allocate(imag_c(nbf,nif), source=0d0)
+
+ call fch2py(fchname, nbf, nif, 'r', real_c) ! real part
+ call fch2py(fchname, nbf, nif, 'i', imag_c) ! imaginary part
+ forall(i=1:nbf, j=1:nif) coeff2(i,j) = CMPLX(real_c(i,j), imag_c(i,j))
+
+ deallocate(real_c, imag_c)
+end subroutine fch2py_cghf
 
