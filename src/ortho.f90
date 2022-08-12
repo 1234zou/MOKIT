@@ -54,6 +54,80 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
  deallocate(C_T_S_C)
 end subroutine check_orthonormal
 
+! check whether a given set of complex MOs are orthonormal
+! Note: 
+! 1) this subroutine is specially designed for complex GHF MOs in PySCF, where 
+!  the basis oerder of a MO is (ar, ai)1, (ar, ai)2, ..., (br, bi)1, (br, bi)2
+! 2) do not use this subroutine for complex GHF MOs in Gaussian, where the
+!  basis oerder of a MO is (ar, ai, br, bi)1, (ar, ai, br, bi)2, ...
+subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
+ implicit none
+ integer :: i, j, i0, j0
+ integer :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ complex(kind=8), intent(in) :: coeff(nbf,nif)
+!f2py intent(in) :: coeff
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(in) :: S(nbf/2,nbf/2)
+!f2py intent(in) :: S
+!f2py depend(nbf) :: S
+ real(kind=8) :: rtmp, maxv
+ real(kind=8), allocatable :: C_r(:,:), C_i(:,:), A(:,:), A_b(:,:)
+ real(kind=8), allocatable :: B(:,:), B_2(:,:)
+
+ allocate(C_r(nbf,nif), source=REAL(coeff))  ! real part
+ allocate(C_i(nbf,nif), source=AIMAG(coeff)) ! imaginary part
+
+ allocate(A(nif,nif))
+ call calc_CTSCp(nbf/2, nif, C_r(1:nbf/2,:), S, C_i(1:nbf/2,:), A)
+
+ allocate(A_b(nif,nif))
+ call calc_CTSCp(nbf/2, nif, C_r(nbf/2+1:nbf,:), S, C_i(nbf/2+1:nbf,:), A_b)
+
+ A = A + A_b
+ deallocate(A_b)
+ A = A - TRANSPOSE(A)
+
+ rtmp = SUM(DABS(A))/DBLE(nif*nif)
+ deallocate(A)
+ write(6,'(/,A,ES15.8)') 'SUM(DABS(A))/nif^2=', rtmp
+ if(rtmp > 1d-7) then
+  write(6,'(/,A)') 'Warning in subroutine check_cghf_orthonormal: rtmp>1D-7.'
+  write(6,'(A)') 'SUM(DABS(A))/nif^2 should be zero. Orthonormality not good.'
+ end if
+
+ allocate(B(nif,nif))
+ call calc_CTSC(nbf/2, nif, C_r(1:nbf/2,:), S, B)
+
+ allocate(B_2(nif,nif))
+ call calc_CTSC(nbf/2, nif, C_r(nbf/2+1:nbf,:), S, B_2)
+ deallocate(C_r)
+ B = B + B_2
+
+ call calc_CTSC(nbf/2, nif, C_i(1:nbf/2,:), S, B_2)
+ B = B + B_2
+
+ call calc_CTSC(nbf/2, nif, C_i(nbf/2+1:nbf,:), S, B_2)
+ deallocate(C_i)
+ B = B + B_2
+ deallocate(B_2)
+
+ forall(i = 1:nif) B(i,i) = B(i,i)- 1d0
+ B = DABS(B)
+
+ do i = 1, nif, 1
+  do j = 1, nif, 1
+   if(B(j,i) > maxv) then
+    maxv = B(j,i)
+    i0 = i; j0 = j
+   end if
+  end do ! for j
+ end do ! for i
+
+ write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=',j0,'i=',i0,'maxv=',maxv
+ deallocate(B)
+end subroutine check_cghf_orthonormal
+
 ! orthonormalize a set of non-orthogonal MOs
 ! Note: this subroutine can only be used for no linear dependence
 subroutine orthonormalize_orb(nbf, nif, ao_ovlp, old_mo, new_mo)

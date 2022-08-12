@@ -42,6 +42,7 @@ module fch_content
  real(kind=8), allocatable :: beta_coeff(:,:)   ! Beta MOs
  real(kind=8), allocatable :: RNFroz(:)         ! ECP-RNFroz(core e), size natom
  real(kind=8), allocatable :: CLP(:), ZLP(:)    ! ECP-CLP1, ECP-ZLP, size LenNCZ
+ real(kind=8), allocatable :: CLP2(:)           ! ECP-CLP2, size LenNCZ, for GHF
  real(kind=8), allocatable :: tot_dm(:,:)       ! Total SCF Density
  real(kind=8), allocatable :: spin_dm(:,:)      ! Spin SCF Density
  real(kind=8), allocatable :: mull_char(:)      ! Mulliken Charges
@@ -344,6 +345,7 @@ subroutine read_fch(fchname, uhf)
   allocate(RNFroz(natom), source=0d0)
   allocate(NLP(LenNCZ), source=0)
   allocate(CLP(LenNCZ), source=0d0)
+  allocate(CLP2(LenNCZ), source=0d0)
   allocate(ZLP(LenNCZ), source=0d0)
 
   allocate(Lmax(10*natom), source=0)
@@ -367,10 +369,9 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(6(1X,I11))') (NLP(i), i=1,LenNCZ)
   read(fid,'(A)') buf
   read(fid,'(5(1X,ES15.8))') (CLP(i), i=1,LenNCZ)
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(buf(1:7) == 'ECP-ZLP') exit
-  end do
+  read(fid,'(A)') buf
+  read(fid,'(5(1X,ES15.8))') (CLP2(i), i=1,LenNCZ)
+  read(fid,'(A)') buf
   read(fid,'(5(1X,ES15.8))') (ZLP(i), i=1,LenNCZ)
  end if
 
@@ -985,7 +986,7 @@ subroutine write_fch(fchname)
   write(fid,'(A,I12)') 'ECP-CLP1                                   R   N=',LenNCZ
   write(fid,'(5(1X,ES15.8))') CLP
   write(fid,'(A,I12)') 'ECP-CLP2                                   R   N=',LenNCZ
-  write(fid,'(5(1X,ES15.8))') (0.0d0,i=1,LenNCZ)
+  write(fid,'(5(1X,ES15.8))') CLP2
   write(fid,'(A,I12)') 'ECP-ZLP                                    R   N=',LenNCZ
   write(fid,'(5(1X,ES15.8))') ZLP
  end if
@@ -997,27 +998,32 @@ subroutine write_fch(fchname)
   write(fid,'(A,I12)') 'Beta Orbital Energies                      R   N=',nif
   write(fid,'(5(1X,ES15.8))') eigen_e_b
  end if
+
  write(fid,'(A,I12)') 'Alpha MO coefficients                      R   N=',ncoeff
  write(fid,'(5(1X,ES15.8))') alpha_coeff
  if(uhf) then
   write(fid,'(A,I12)') 'Beta MO coefficients                       R   N=',ncoeff
   write(fid,'(5(1X,ES15.8))') beta_coeff
  end if
+
  len_dm = nbf*(nbf+1)/2
-  write(fid,'(A,I12)') 'Total SCF Density                          R   N=',len_dm
+ write(fid,'(A,I12)') 'Total SCF Density                          R   N=',len_dm
  if(allocated(tot_dm)) then
   write(fid,'(5(1X,ES15.8))') ((tot_dm(j,i),j=1,i),i=1,nbf)
  else
-  write(fid,'(5(1X,ES15.8))') ((0.0d0,j=1,i),i=1,nbf) ! ugly workaround for EOF
+  write(fid,'(5(1X,ES15.8))') ((0d0,j=1,i),i=1,nbf) ! ugly workaround for EOF
  end if
+
  if(allocated(spin_dm)) then
   write(fid,'(A,I12)') 'Spin SCF Density                           R   N=',len_dm
   write(fid,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
  end if
+
  if(allocated(mull_char)) then
   write(fid,'(A,I12)') 'Mulliken Charges                           R   N=',natom
   write(fid,'(5(1X,ES15.8))') mull_char
  end if
+
  close(fid)
 end subroutine write_fch
 

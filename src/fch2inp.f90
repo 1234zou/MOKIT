@@ -111,11 +111,11 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
- logical :: uhf, ghf, ecp, sph, X2C, DIIS
+ logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
  logical, intent(in) :: gvb
  logical, external :: nobasistransform_in_fch, nosymm_in_fch
 
- uhf = .false.; ghf = .false.; ecp = .false.
+ uhf = .false.; ghf = .false.; ecp = .false.; so_ecp = .false.
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
@@ -197,6 +197,10 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end if
 
  call read_fch(fchname, uhf) ! read content in .fch(k) file
+
+ if(ghf) then
+  if(ANY(DABS(CLP2) > 1d-4)) so_ecp = .true. ! SOHF/SODFT
+ end if
 
  if(uhf) then
   nif1 = 2*nif ! alpha, beta MOs
@@ -302,15 +306,28 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
      else
       write(fid,'(I0,5X,A)') n2-n1+1, '----- '//am_type1(j-2)//'-'//str//' potential -----'
      end if
-     do n = n1, n2, 1
-      write(fid,'(3X,ES15.8,3X,I2,2X,ES15.8)') CLP(n), NLP(n), ZLP(n)
-     end do ! for n
+     if(so_ecp) then ! GHF (SOHF, SODFT)
+      ! Note: SO-ECP of GHF is not supported in GAMESS. I add SO-ECP as the 3rd
+      ! column. If in the future GAMESS supports SO-ECP of GHF, then this may be
+      ! updated
+      do n = n1, n2, 1
+       if(j==1 .or. j==2) then
+        write(fid,'(3X,ES15.8,3X,I2,2X,ES15.8)') CLP(n),NLP(n),ZLP(n)
+       else
+        write(fid,'(3X,ES15.8,3X,I2,2(2X,ES15.8))') CLP(n),NLP(n),ZLP(n),CLP2(n)
+       end if
+      end do ! for n
+     else            ! R(O)HF, UHF
+      do n = n1, n2, 1
+       write(fid,'(3X,ES15.8,3X,I2,2X,ES15.8)') CLP(n), NLP(n), ZLP(n)
+      end do ! for n
+     end if
     end do ! for j
    end if
   end do ! for i
 
   write(fid,'(A)') ' $END'
-  deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
+  deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP)
  end if
 
  ! record the indices of Cartesian f, g and h functions

@@ -147,7 +147,7 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  return
 end subroutine solve_multi_lin_eqs
 
-! calculate (C^T)SC, S must be symmetric since dsymm is called
+! calculate (C^T)SC, S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  implicit none
@@ -162,4 +162,20 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SC, nbf, 0d0, CTSC, nif)
  deallocate(SC)
 end subroutine calc_CTSC
+
+! calculate (C^T)S(C'), S must be real symmetric since dsymm is called
+! C: nbf*nif  S: nbf*nbf, C': nbf*nif
+subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
+ implicit none
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: C(nbf,nif), S(nbf,nbf), Cp(nbf,nif)
+ real(kind=8), intent(out) :: CTSCp(nif,nif)
+ real(kind=8), allocatable :: SCp(:,:)
+
+ CTSCp = 0d0
+ allocate(SCp(nbf,nif), source=0d0)
+ call dsymm('L', 'U', nbf, nif, 1d0, S, nbf, Cp, nbf, 0d0, SCp, nbf)
+ call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SCp, nbf, 0d0, CTSCp, nif)
+ deallocate(SCp)
+end subroutine calc_CTSCp
 

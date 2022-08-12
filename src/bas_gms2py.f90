@@ -49,11 +49,13 @@ end program main
 ! which can be used as input file for PySCF
 subroutine bas_gms2py(inpname, cart)
  implicit none
- integer :: i, j, k, m, lmax, charge, mult
+ integer :: i, j, k, m, p, lmax, charge, mult
  integer :: nline, ncol, natom, nif, nbf
  integer :: inpid, pyid
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
  integer, allocatable :: nuc(:)
+ integer, external :: detect_ncol_in_buf
+ real(kind=8) :: so_coeff
  real(kind=8), allocatable :: coor(:,:), prim_gau(:,:)
  character(len=1) :: bastype
  character(len=2) :: new_bastype
@@ -97,7 +99,7 @@ subroutine bas_gms2py(inpname, cart)
  write(pyid,'(A)') 'from pyscf import gto, scf'
  write(pyid,'(A)') 'from fch2py import fch2py'
  if(ghf) then
-  write(pyid,'(A)') '#from ortho import check_complex_orthonormal'
+  write(pyid,'(A)') 'from ortho import check_cghf_orthonormal'
  else
   write(pyid,'(A)') 'from ortho import check_orthonormal'
  end if
@@ -203,8 +205,20 @@ subroutine bas_gms2py(inpname, cart)
     write(pyid,'(A)') TRIM(elem(m))//' '//TRIM(new_bastype)
     read(buf,*) nline
     do i = 1, nline, 1
-     read(inpid,*) prim_gau(1,1), j, prim_gau(2,1)
-     write(pyid,'(I1,1X,F15.8,3X,F15.8)') j, prim_gau(2,1), prim_gau(1,1)
+     read(inpid,'(A)') buf
+     p = detect_ncol_in_buf(buf)
+     select case(p)
+     case(3)
+      read(buf,*) prim_gau(1,1), j, prim_gau(2,1)
+      write(pyid,'(I1,1X,F17.10,3X,F17.10)') j, prim_gau(2,1), prim_gau(1,1)
+     case(4)
+      read(buf,*) prim_gau(1,1), j, prim_gau(2,1), so_coeff
+      write(pyid,'(I1,1X,F17.10,2(3X,F17.10))') j, prim_gau(2,1), prim_gau(1,1),&
+                                                so_coeff
+     case default
+      write(6,'(A,I0)') 'ERROR in subroutine bas_gms2py: invalid p=', p
+      stop
+     end select
     end do ! for i
    end do ! for k
 
@@ -256,7 +270,16 @@ subroutine bas_gms2py(inpname, cart)
   else
    write(pyid,'(A)') 'mf = scf.GHF(mol)'
   end if
-  write(pyid,'(A)') "dm = mf.get_init_guess() + 0j"
+  if(ecp) then
+   write(pyid,'(A)') 'mf.with_soc = True'
+  else
+   write(pyid,'(A)') '#mf.with_soc = True'
+  end if
+  write(pyid,'(A)') "dm = mf.get_init_guess(key='1e') + 0j"
+  ! For super-heavy atoms, the initial guess 'minao' or 'atom' does not work, so
+  !  I use '1e', which means initial guess from Hcore.
+  ! Anyway, here the initial guess is not important since we will use fch2py to
+  !  read MOs from a given .fch(k) file.
   write(pyid,'(A)') 'mf.max_cycle = 1'
   write(pyid,'(A)') 'mf.kernel(dm0=dm)'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
@@ -267,7 +290,7 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
-  write(pyid,'(A)') '#check_complex_orthonormal(nbf, nif, mf.mo_coeff, S)'
+  write(pyid,'(A)') 'check_cghf_orthonormal(nbf, nif, mf.mo_coeff, S)'
 
  else ! using R(O)HF format
   if(mult == 1) then
