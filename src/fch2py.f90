@@ -70,9 +70,9 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  ncoeff = 0; ghf = .false.
 
  select case(ab)
- case('a','A')
+ case('a')
   key = key1
- case('b','B')
+ case('b')
   key = key2//' '
  case('r','i') ! r/i for real/imaginary in complex GHF
   key = key1
@@ -669,16 +669,16 @@ subroutine fch2py_permute_21h(nif,coeff)
  deallocate(coeff2)
 end subroutine fch2py_permute_21h
 
-! For complex GHF
-subroutine fch2py_cghf(fchname, nbf, nif, coeff2)
+! complex GHF wrapper of fch2py
+subroutine fch2py_cghf(fchname, nbf, nif, coeff)
  implicit none
  integer :: i, j
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
 
- complex(kind=8), intent(out) :: coeff2(nbf,nif)
-!f2py intent(out) :: coeff2
-!f2py depend(nbf,nif) :: coeff2
+ complex(kind=8), intent(out) :: coeff(nbf,nif)
+!f2py intent(out) :: coeff
+!f2py depend(nbf,nif) :: coeff
  real(kind=8), allocatable :: real_c(:,:), imag_c(:,:)
 
  character(len=240), intent(in) :: fchname
@@ -689,7 +689,7 @@ subroutine fch2py_cghf(fchname, nbf, nif, coeff2)
 
  call fch2py(fchname, nbf, nif, 'r', real_c) ! real part
  call fch2py(fchname, nbf, nif, 'i', imag_c) ! imaginary part
- forall(i=1:nbf, j=1:nif) coeff2(i,j) = CMPLX(real_c(i,j), imag_c(i,j))
+ forall(i=1:nbf, j=1:nif) coeff(i,j) = CMPLX(real_c(i,j), imag_c(i,j))
 
  deallocate(real_c, imag_c)
 end subroutine fch2py_cghf

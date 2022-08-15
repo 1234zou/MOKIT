@@ -1,0 +1,6 @@
+%oldchk=09-test1198.chk
+%chk=09-test1198_restart.chk
+%mem=8GB
+%nprocshared=8
+#p GHF chkbasis guess=read geom=allcheck nosymm int=nobasistransform
+

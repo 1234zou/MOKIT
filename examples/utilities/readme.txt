@@ -62,3 +62,25 @@ Example 7: create fch from PySCF
 Run 'python 07-OH_writefch.py'. It will create `07-OH.fch` containing basis information and MOs.
 To validate the fch, run 'unfchk 07-OH.fch && g16 07-OH_restart.gjf' and the Gaussian calculation will converge in 1 cycle.
 Of course, the main purpose of generating this fch is to visualize it with GaussView, Multiwfn, etc.
+
+----------------------------------------------------------
+Example 8: transfer complex GHF MOs from Gaussian to PySCF
+----------------------------------------------------------
+Run 'bas_fch2py 08-test1198.fch'. It will create `08-test1198.py` which contains
+Cartesian coordinates, basis information and a few of necessary keywords.  
+Uncomment the last three lines in `08-test1198.py`, and run 'python 08-test1198.py',
+PySCF will converge in 2 cycles.  
+If you further append `mf.stability()` into the end of the file `08-test1198.py`,
+you will find this complex GHF solution has an internal instability.
+
+----------------------------------------------------------
+Example 9: transfer complex GHF MOs from PySCF to Gaussian
+----------------------------------------------------------
+Please read file `09-test1198.py`, which is nothing but several lines are added
+into `08-test1198.py`. The density matrix of the instable wave function in `08-test1198.py`
+is slightly perturbed in order to obtain a stable wave function. And then MOs of
+the stable wave function are exported into a .fch file.  
+To validate this .fch, run 'unfchk 09-test1198.fch && g16 09-test1198_restart.gjf'
+and the Gaussian calculation will converge in ~19 cycle. But the electronic energy
+changes only with 1.6e-9 a.u.
+

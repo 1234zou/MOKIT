@@ -13,6 +13,7 @@
 ! updated by jxzou at 20210527: remove intent(in) parameter Sdiag, use parameter array
 ! updated by jxzou at 20210601: add subroutine get_permute_idx_from_shell
 ! updated by wsr   at 20220726: add subroutines molinfo2fch and molecp2fch
+! updated by jxzou at 20220815: support PySCF->Gaussian complex GHF
 
 ! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
 module Sdiag_parameter
@@ -155,19 +156,20 @@ end subroutine molinfo2fch
 subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  implicit none
  integer :: i, j, k, ncoeff, fid, fid1, RENAME
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  integer, allocatable :: idx(:)
 
- real(kind=8) :: coeff2(nbf,nif), ev(nif)
-!f2py intent(in,copy) :: coeff2
-!f2py intent(in) :: ev
+ real(kind=8), intent(in) :: coeff2(nbf,nif)
+!f2py intent(in) :: coeff2
 !f2py depend(nbf,nif) :: coeff2
+ real(kind=8), intent(in) :: ev(nif)
+!f2py intent(in) :: ev
 !f2py depend(nif) :: ev
- real(kind=8), allocatable :: coeff(:), den(:,:), norm(:)
+! ev will be printed into the Alpha/Beta Orbital Energies section
+ real(kind=8), allocatable :: coeff(:), den(:,:), norm(:), coeff3(:,:)
 
- character(len=1) :: ab
+ character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=8) :: key0, key
  character(len=8), parameter :: key1 = 'Alpha MO'
@@ -175,14 +177,16 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  character(len=8), parameter :: key3 = 'Alpha Or'
  character(len=7), parameter :: key4 = 'Beta Or'
  character(len=49) :: str
- character(len=240) :: fchname, fchname1, buf
+ character(len=240) :: fchname1, buf
+ character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
- logical :: alive, gen_density
+ logical :: alive
+ logical, intent(in) :: gen_density
 !f2py intent(in) :: gen_density
 
-! If gen_density = .True., generate total density using input MOs and eigenvalues
-! In this case, the array ev should contain occupation numbers
+! If gen_density = .True., generate total density using input MOs and
+! occupation numbers (stored in ev)
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
@@ -191,20 +195,19 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   stop
  end if
 
- buf = ' '
- ncoeff = 0
+ buf = ' '; ncoeff = 0
  fchname1 = TRIM(fchname)//'.t'
 
  select case(ab)
- case('a','A')
+ case('a')
   key0 = key3
   key = key1
- case('b','B')
+ case('b')
   key = key2//' '
   key0 = key4//'b'
  case default
   write(6,'(/,A)') 'ERROR in subroutine py2fch: wrong data type of ab!'
-  write(6,'(A)') "This argument can only be 'a' or 'b'. But your input"
+  write(6,'(A)') "This argument can only be 'a'/'b'. But your input"
   write(6,*) 'ab=', ab
   stop
  end select
@@ -238,20 +241,21 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  read(buf,'(A49,2X,I10)') str, ncoeff
 
  if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine py2fch: inconsistent basis set in&
-                   & .fch(k) file and in PySCF script. ncoeff/=nbf*nif!'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
-  write(iout,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
   close(fid)
   close(fid1,status='delete')
-  return
+  write(6,'(/,A)') 'ERROR in subroutine py2fch: ncoeff/=nbf*nif! Inconsistent&
+                   & basis sets'
+  write(6,'(A)') 'in PySCF script and file '//TRIM(fchname)
+  write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
+  stop
  end if
 
  allocate(den(nbf,nif), source=coeff2)
- forall(i=1:nbf,j=1:nif) coeff2(i,j) = den(idx(i),j)*norm(i)
+ allocate(coeff3(nbf,nif), source=0d0)
+ forall(i=1:nbf, j=1:nif) coeff3(i,j) = den(idx(i),j)*norm(i)
  deallocate(den, norm, idx)
  allocate(coeff(ncoeff))
- coeff = RESHAPE(coeff2,(/ncoeff/))
+ coeff = RESHAPE(coeff3,(/ncoeff/))
  write(fid1,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
  deallocate(coeff)
 
@@ -265,9 +269,9 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
 
  if(gen_density) then
   if( ANY(ev<-0.1D0) ) then
-   write(iout,'(A)') 'ERROR in subroutine py2fch: occupation numbers of some&
-                    & orbitals < -0.1. Did you'
-   write(iout,'(A)') 'mistake orbital energies for occupation numbers?'
+   write(6,'(A)') 'ERROR in subroutine py2fch: occupation numbers of some&
+                 & orbitals < -0.1 a.u.'
+   write(6,'(A)') 'Did you mistake orbital energies for occupation numbers?'
    close(fid1)
    close(fid,status='delete')
    stop
@@ -281,8 +285,8 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
-                    & file "//TRIM(fchname)
+   write(6,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
+                 & file "//TRIM(fchname)
    close(fid1)
    close(fid,status='delete')
    stop
@@ -294,7 +298,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
    do j = 1, i, 1
     do k = 1, nif, 1
      if(DABS(ev(k)) < 1D-7) cycle
-     den(j,i) = den(j,i) + ev(k)*coeff2(j,k)*coeff2(i,k)
+     den(j,i) = den(j,i) + ev(k)*coeff3(j,k)*coeff3(i,k)
     end do ! for k
    end do ! for j
   end do ! for i
@@ -311,6 +315,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   end do ! for while
  end if
 
+ deallocate(coeff3)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -327,7 +332,6 @@ end subroutine py2fch
 subroutine read_nbf_from_fch(fchname, nbf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  integer, intent(out) :: nbf
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
@@ -341,8 +345,8 @@ subroutine read_nbf_from_fch(fchname, nbf)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_nbf_from_fch: no&
-                   & 'Number of basis f' found in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_nbf_from_fch: no&
+               & 'Number of basis f' found in file "//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -357,7 +361,6 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  implicit none
  integer :: i, fid
  integer, intent(out) :: ncontr
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -370,8 +373,8 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                   & 'Number of contract' section in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
+                & 'Number of contract' section in file "//TRIM(fchname)
   close(fid)
   return
  end if
@@ -387,7 +390,6 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  integer :: i, fid
  integer, intent(in) :: k
  integer, intent(out) :: shltyp(k), shl2atm(k)
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -401,8 +403,8 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                   & missing 'Shell types' section in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+                & missing 'Shell types' section in file "//TRIM(fchname)
   close(fid)
   return
  end if
@@ -418,8 +420,8 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
   if(buf(1:13) == 'Shell to atom') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                   & missing 'Shell to atom map' section in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+                & missing 'Shell to atom map' section in file "//TRIM(fchname)
   close(fid)
   return
  end if
@@ -457,7 +459,6 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  ! mark the index where d, f, g, h functions begin
- integer, parameter :: iout = 6
  integer, intent(in) :: shell_type0(ncontr), shell_to_atom_map0(ncontr)
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -535,17 +536,17 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell:&
-                    & shell_type(i) out of range!'
-   write(iout,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
+   write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell:&
+                 & shell_type(i) out of range!'
+   write(6,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
    stop
   end select
  end do ! for i
  deallocate(shell_type)
 
  if(nbf /= nbf0) then
-  write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: nbf /= nbf0.'
-  write(iout,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
+  write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: nbf /= nbf0.'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
   stop
  end if
 
@@ -918,7 +919,6 @@ end subroutine py2fch_permute_21h
 subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  implicit none
  integer :: i, j, fid, fid1, RENAME
- integer, parameter :: iout = 6
  integer :: nbf, itype
 !f2py intent(in) :: nbf, itype
 
@@ -942,11 +942,11 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 !f2py intent(in) :: force
 
  if(itype<1 .or. itype>10) then
-  write(iout,'(A,I0)') 'ERROR in subroutine write_pyscf_dm_into_fch: invalid itype&
+  write(6,'(A,I0)') 'ERROR in subroutine write_pyscf_dm_into_fch: invalid itype&
                       & = ',itype
-  write(iout,'(A)') 'Allowed values are 1~10:'
+  write(6,'(A)') 'Allowed values are 1~10:'
   do i = 1, 10, 1
-   write(iout,'(A,I2,A)') 'i=', i,': '//key(i)
+   write(6,'(A,I2,A)') 'i=', i,': '//key(i)
   end do ! for i
   stop
  end if
@@ -959,10 +959,10 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 
  call read_nbf_from_fch(fchname, i)
  if(i /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsis&
+  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsis&
                     &ent nbf in fchname and input dm.'
-  write(iout,'(2(A,I0))') 'i=', i, ', nbf=', nbf
-  write(iout,'(A)') 'Related file: '//TRIM(fchname)
+  write(6,'(2(A,I0))') 'i=', i, ', nbf=', nbf
+  write(6,'(A)') 'Related file: '//TRIM(fchname)
   stop
  end if
 
@@ -988,18 +988,18 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: all required&
-                   & strings are not found.'
-  write(iout,'(A)') 'File '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: all required&
+                & strings are not found.'
+  write(6,'(A)') 'File '//TRIM(fchname)//' may be incomplete.'
   close(fid)
   close(fid1,status='delete')
   stop
  end if
 
  if((key1/=key0) .and. (.not.force)) then
-  write(iout,'(A)') "ERROR in subroutine write_pyscf_dm_into_fch: required&
-                   & string '"//key0//"' is"
-  write(iout,'(A)') 'not found in file '//TRIM(fchname)//'.'
+  write(6,'(A)') "ERROR in subroutine write_pyscf_dm_into_fch: required&
+                & string '"//key0//"' is"
+  write(6,'(A)') 'not found in file '//TRIM(fchname)//'.'
   close(fid)
   close(fid1,status='delete')
   stop
@@ -1026,4 +1026,129 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine write_pyscf_dm_into_fch
+
+! For PySCF->Gau complex GHF
+subroutine py2fch_cghf(fchname, nbf, nif, coeff, ev, gen_density)
+ implicit none
+ integer :: i, j, k, nbf1, ncoeff, fid, fid1, RENAME
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ integer, allocatable :: idx(:)
+
+ complex(kind=8), intent(in) :: coeff(nbf,nif)
+!f2py intent(in) :: coeff
+!f2py depend(nbf,nif) :: coeff
+
+ real(kind=8), intent(in) :: ev(nif)
+!f2py intent(in) :: ev
+!f2py depend(nif) :: ev
+ real(kind=8), allocatable :: coeff2(:,:,:), den(:,:), norm(:), coeff3
+
+ character(len=49) :: str
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ logical :: alive
+ logical, intent(in) :: gen_density
+!f2py intent(in) :: gen_density
+
+! If gen_density = .True., generate total density using input MOs and
+! occupation numbers (stored in ev)
+
+ inquire(file=TRIM(fchname),exist=alive)
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine py2fch_cghf: file does not exist!'
+  write(6,'(A)') 'Filename='//TRIM(fchname)
+  stop
+ end if
+
+ if(gen_density) then
+  write(6,'(A)') 'ERROR in subroutine py2fch_cghf: currently gen_density=True &
+                 &for GHF is not supported.'
+  stop
+ end if
+
+ buf = ' '; ncoeff = 0
+ fchname1 = TRIM(fchname)//'.t'
+
+ ! transform complex(kind=8) array coeff into real(kind=8) array coeff2
+ nbf1 = nbf/2
+ allocate(coeff2(4,nbf1,nif), source=0d0)
+ ! alpha real, alpha imag, beta real, beta imag
+ coeff2(1,:,:) =  REAL(coeff(1:nbf1,:))
+ coeff2(2,:,:) = AIMAG(coeff(1:nbf1,:))
+ coeff2(3,:,:) =  REAL(coeff(nbf1+1:nbf,:))
+ coeff2(4,:,:) = AIMAG(coeff(nbf1+1:nbf,:))
+
+ ! get permute indices normalization factors from the given .fch(k) file
+ allocate(idx(nbf1), norm(nbf1))
+ call get_permute_idx_from_fch(fchname, nbf1, idx, norm)
+
+ ! permute MO coefficients
+ allocate(den(nbf1,nif))
+ do k = 1, 4
+  den = coeff2(k,:,:)
+  forall(i=1:nbf1,j=1:nif) coeff2(k,i,j) = den(idx(i),j)*norm(i)
+ end do ! for k
+ deallocate(den, norm, idx)
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ ! write Alpha Orbital Energies
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:8) == 'Alpha Or') exit
+ end do ! for while
+ write(fid1,'(5(1X,ES15.8))') (ev(i),i=1,nif)
+
+ ! skip the Orbital Energies in old fch(k) file
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(49:49) == '=') exit
+ end do ! for while
+
+ write(fid1,'(A)') TRIM(buf)
+ read(buf,'(A49,2X,I10)') str, ncoeff
+
+ if(ncoeff /= 2*nbf*nif) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') 'ERROR in subroutine py2fch_cghf: ncoeff/=2*nbf*nif! Incons&
+                   &istent basis sets'
+  write(6,'(A)') 'in PySCF script and file '//TRIM(fchname)
+  write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
+  stop
+ end if
+
+ allocate(norm(ncoeff))
+ norm = RESHAPE(coeff2,(/ncoeff/))
+ deallocate(coeff2)
+ ! If gen_density=True is implemented in the future, 'deallocate(coeff2)'
+ ! should be moved to next few lines
+ write(fid1,'(5(1X,ES15.8))') (norm(i),i=1,ncoeff)
+ deallocate(norm)
+
+ ! copy the rest of the .fch file
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(49:49) == '=') exit
+ end do
+ ! here should be 'Orthonormal basis' or 'Total SCF Density'
+ BACKSPACE(fid)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5) == 'ClPar') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ ! writing new fch file done
+
+ close(fid1)
+ close(fid, status='delete')
+ i = RENAME(TRIM(fchname1),TRIM(fchname))
+end subroutine py2fch_cghf
 
