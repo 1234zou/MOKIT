@@ -36,7 +36,7 @@ subroutine bas_gms2bdf(fort7)
  ! input is the BDF input file
  ! if you do not like the suffix .bdf, you can change it into .inp
  character(len=1) :: stype
- logical :: X2C, uhf, lin
+ logical :: X2C, uhf, ghf, lin
 
  ! initialization
  buf = ' '
@@ -58,7 +58,7 @@ subroutine bas_gms2bdf(fort7)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
  call read_all_ecp_from_gms_inp(fort7)
 
  if(ecp_exist) then

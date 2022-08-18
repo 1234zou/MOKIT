@@ -86,7 +86,7 @@ end program main
 ! transform MOs in .dat file into .fchk file
 subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
- use fch_content, only: iout, read_mark_from_shltyp
+ use fch_content, only: iout, read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, datid, nline, nleft
  integer :: nbf, nif, na, nb
@@ -271,7 +271,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  end if
 
  allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
- call read_mark_from_shltyp(.false.,ncontr,shl2atm,nd,nf,ng,nh,d_mark,f_mark,g_mark,h_mark)
+ call read_mark_from_shltyp_cart(ncontr, shl2atm, nd, nf, ng, nh, d_mark, &
+                                 f_mark, g_mark, h_mark)
  deallocate(d_mark, shl2atm)
 
  ! adjust the order of Cartesian f, g, h functions

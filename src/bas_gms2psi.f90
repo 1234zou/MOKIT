@@ -47,7 +47,7 @@ subroutine bas_gms2psi(inpname, sph)
  character(len=2) :: stype
  character(len=240) :: buf, inpname1, fileA, fileB
  character(len=240), intent(in) :: inpname
- logical :: uhf, X2C
+ logical :: uhf, ghf, X2C
  logical, intent(in) :: sph
 
  i = index(inpname, '.inp', back=.true.)
@@ -55,7 +55,7 @@ subroutine bas_gms2psi(inpname, sph)
  fileA = inpname(1:i-1)//'.A'
  fileB = inpname(1:i-1)//'.B'
 
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ecp_exist)
+ call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
  allocate(elem(natom), coor(3,natom), ntimes(natom), ram(natom))
  call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, ram, coor)

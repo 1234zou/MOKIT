@@ -1,4 +1,4 @@
-MOKIT 1.2.4 (Aug 15, 2022)
+MOKIT 1.2.4 (Aug 18, 2022)
 ------------------------
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
 * improve DMRG keywords using OpenMolcas+QCMaquis
@@ -9,6 +9,7 @@ MOKIT 1.2.4 (Aug 15, 2022)
 * add State-Specific CASSCF interface
 * py2fch_direct added by wsr
 * update bas_fch2py, fch2py and py2fch for complex GHF
+* add utility fch2qchem
 
 MOKIT 1.2.3 (Jun 11, 2022)
 ------------------------

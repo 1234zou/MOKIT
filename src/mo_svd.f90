@@ -496,7 +496,7 @@ end subroutine orb_resemble3
 subroutine orb_resemble2(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_on_ovlp
  implicit none
- integer :: i, j, k, niter
+ integer :: i, j, niter
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
  integer, parameter :: niter_max = 9999
@@ -607,7 +607,7 @@ end subroutine orb_resemble2
 subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_on_ovlp
  implicit none
- integer :: i, j, k, niter
+ integer :: i, j, niter
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
  integer, parameter :: niter_max = 9999

@@ -102,7 +102,6 @@ subroutine read_ne_from_fch(fchname, ne)
  end if
 
  read(buf(50:),*) ne
- return
 end subroutine read_ne_from_fch
 
 ! check whether UHF-type MOs are hold in a given .fch(k) file
@@ -456,15 +455,17 @@ subroutine read_fch(fchname, uhf)
  close(fid)
 end subroutine read_fch
 
-! read the position marks of 5D,6D,etc from array shell_type
-subroutine read_mark_from_shltyp(sph, ncontr, shltyp, nd, nf, ng, nh, d_mark, f_mark, g_mark, h_mark)
+! read the position marks of 5D, 7F, etc from array shell_type
+! Note: only used for spherical harmonic type basis
+subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
+                                     f_mark, g_mark, h_mark)
  implicit none
  integer :: i, nbf
  integer, intent(in) :: ncontr
  integer, intent(in) :: shltyp(ncontr)
  integer, intent(out) :: nd, nf, ng, nh
- integer, intent(out) :: d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr)
- logical, intent(in) :: sph
+ integer, intent(out) :: d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), &
+                         h_mark(ncontr)
 
  nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0
  d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0
@@ -472,65 +473,87 @@ subroutine read_mark_from_shltyp(sph, ncontr, shltyp, nd, nf, ng, nh, d_mark, f_
 ! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
 !  I  H  G  F  D  L  S  P  D  F  G  H  I
 
- if(sph) then ! spherical harmonic functions
-  do i = 1, ncontr, 1
-   select case(shltyp(i))
-   case( 0)   ! S
-    nbf = nbf + 1
-   case( 1)   ! 3P
-    nbf = nbf + 3
-   case(-1)   ! SP or L
-    nbf = nbf + 4
-   case(-2)   ! 5D
-    nd = nd + 1
-    d_mark(nd) = nbf + 1
-    nbf = nbf + 5
-   case(-3)   ! 7F
-    nf = nf + 1
-    f_mark(nf) = nbf + 1
-    nbf = nbf + 7
-   case(-4)   ! 9G
-    ng = ng + 1
-    g_mark(ng) = nbf + 1
-    nbf = nbf + 9
-   case(-5)   ! 11H
-    nh = nh + 1
-    h_mark(nh) = nbf + 1
-    nbf = nbf + 11
-   end select
-  end do ! for i
+ do i = 1, ncontr, 1
+  select case(shltyp(i))
+  case( 0)   ! S
+   nbf = nbf + 1
+  case( 1)   ! 3P
+   nbf = nbf + 3
+  case(-1)   ! SP or L
+   nbf = nbf + 4
+  case(-2)   ! 5D
+   nd = nd + 1
+   d_mark(nd) = nbf + 1
+   nbf = nbf + 5
+  case(-3)   ! 7F
+   nf = nf + 1
+   f_mark(nf) = nbf + 1
+   nbf = nbf + 7
+  case(-4)   ! 9G
+   ng = ng + 1
+   g_mark(ng) = nbf + 1
+   nbf = nbf + 9
+  case(-5)   ! 11H
+   nh = nh + 1
+   h_mark(nh) = nbf + 1
+   nbf = nbf + 11
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine read_mark_from_shltyp_sph:'
+   write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
+   stop
+  end select
+ end do ! for i
+end subroutine read_mark_from_shltyp_sph
 
- else ! Cartesian functions
-  do i = 1, ncontr, 1
-   select case(shltyp(i))
-   case( 0)   ! S
-    nbf = nbf + 1
-   case( 1)   ! 3P
-    nbf = nbf + 3
-   case(-1)   ! SP or L
-    nbf = nbf + 4
-   case( 2)   ! 6D
-    nd = nd + 1
-    d_mark(nd) = nbf + 1
-    nbf = nbf + 6
-   case( 3)   ! 10F
-    nf = nf + 1
-    f_mark(nf) = nbf + 1
-    nbf = nbf + 10
-   case( 4)   ! 15G
-    ng = ng + 1
-    g_mark(ng) = nbf + 1
-    nbf = nbf + 15
-   case( 5)   ! 21H
-    nh = nh + 1
-    h_mark(nh) = nbf + 1
-    nbf = nbf + 21
-   end select
-  end do ! for i
- end if
+! read the position marks of 6D, 10F, etc from array shell_type
+! Note: only used for Cartesian type basis
+subroutine read_mark_from_shltyp_cart(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
+                                      f_mark, g_mark, h_mark)
+ implicit none
+ integer :: i, nbf
+ integer, intent(in) :: ncontr
+ integer, intent(in) :: shltyp(ncontr)
+ integer, intent(out) :: nd, nf, ng, nh
+ integer, intent(out) :: d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), &
+                         h_mark(ncontr)
 
- return
-end subroutine read_mark_from_shltyp
+ nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0
+ d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0
+!     Spherical      |     Cartesian
+! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
+!  I  H  G  F  D  L  S  P  D  F  G  H  I
+
+ do i = 1, ncontr, 1
+  select case(shltyp(i))
+  case( 0)   ! S
+   nbf = nbf + 1
+  case( 1)   ! 3P
+   nbf = nbf + 3
+  case(-1)   ! SP or L
+   nbf = nbf + 4
+  case( 2)   ! 6D
+   nd = nd + 1
+   d_mark(nd) = nbf + 1
+   nbf = nbf + 6
+  case( 3)   ! 10F
+   nf = nf + 1
+   f_mark(nf) = nbf + 1
+   nbf = nbf + 10
+  case( 4)   ! 15G
+   ng = ng + 1
+   g_mark(ng) = nbf + 1
+   nbf = nbf + 15
+  case( 5)   ! 21H
+   nh = nh + 1
+   h_mark(nh) = nbf + 1
+   nbf = nbf + 21
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine read_mark_from_shltyp_cart:'
+   write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
+   stop
+  end select
+ end do ! for i
+end subroutine read_mark_from_shltyp_cart
 
 ! map a nuclear charge to an element (e.g. 6->'C')
 ! Note: only 1-112 elements are supported!
@@ -540,7 +563,6 @@ pure function nuc2elem(i) result(s)
  character(len=2) :: s
 
  s = period_elem(i)
- return
 end function nuc2elem
 
 ! map an element to a nuclear charge (e.g. 'C'->6)
@@ -552,8 +574,7 @@ pure function elem2nuc(s) result(i)
 
  do i = 0, period_nelem, 1
   if(period_elem(i) == s) return
- end do
- return
+ end do ! for i
 end function elem2nuc
 
 end module fch_content
@@ -677,7 +698,6 @@ subroutine check_DKH_in_fch(fchname, order)
   order = -2           ! no relativistic
  end if
 
- return
 end subroutine check_DKH_in_fch
 
 ! check whether there exists X2C keyword in a given .fch(k) file
@@ -720,7 +740,6 @@ subroutine check_X2C_in_fch(fchname, alive)
  end if
 
  close(fid)
- return
 end subroutine check_X2C_in_fch
 
 ! check whether 'int=nobasistransform' exists in a given .fch(k) file
@@ -761,8 +780,6 @@ function nobasistransform_in_fch(fchname) result(notrans)
  close(fid)
  call lower(longbuf)
  if(index(longbuf,'nobasistransform') > 0) notrans = .true.
-
- return
 end function nobasistransform_in_fch
 
 ! check whether 'nosymm' exists in a given .fch(k) file
@@ -802,8 +819,6 @@ function nosymm_in_fch(fchname) result(nosymm)
  close(fid)
  call lower(longbuf)
  if(index(longbuf,'nosymm') > 0) nosymm = .true.
-
- return
 end function nosymm_in_fch
 
 ! expand MO coefficients from spherical harmonic type functions into Cartesian
@@ -859,7 +874,6 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
   write(iout,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
   stop
  end if
- return
 end subroutine mo_sph2cart
 
 ! create/generate a new .fch file using arrays stored in memory

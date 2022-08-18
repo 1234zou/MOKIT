@@ -350,7 +350,8 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   if(gvb_or_uhf == '-uhf') temp_coeff(:,nif+1:nif1) = beta_coeff
  end if
 
- call read_mark_from_shltyp(.false.,ncontr,shell_type,nd,nf,ng,nh,d_mark,f_mark,g_mark,h_mark)
+ call read_mark_from_shltyp_cart(ncontr, shell_type, nd, nf, ng, nh, d_mark, &
+                                 f_mark, g_mark, h_mark)
  deallocate(d_mark, shell_type)
  ! done recording
 

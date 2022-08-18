@@ -48,7 +48,7 @@ subroutine bas_gms2dal(fort7, spherical)
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, dalfile, molfile
  character(len=1) :: stype
- logical :: uhf
+ logical :: uhf, ghf
  logical, intent(in) :: spherical
 
  buf = ' '   ! initialization
@@ -62,7 +62,7 @@ subroutine bas_gms2dal(fort7, spherical)
  ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
  if(uhf) then
   write(iout,'(/,A)') 'WARNING in subroutine bas_gms2dal: Dalton does not support UHF.'
   write(iout,'(A)') 'Basis set data will still be written.'

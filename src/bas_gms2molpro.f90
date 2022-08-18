@@ -53,7 +53,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=240) :: orbfile, orbfile2 ! Molpro MOs, plain text file
  character(len=1) :: stype
  logical, intent(in) :: spherical
- logical :: uhf, X2C
+ logical :: uhf, ghf, X2C
 
  ! initialization
  buf = ' '
@@ -71,7 +71,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_molpro will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ecp_exist)
+ call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
  call read_all_ecp_from_gms_inp(fort7)
 
  open(newunit=fid2,file=TRIM(input),status='replace')

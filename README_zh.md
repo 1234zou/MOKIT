@@ -35,7 +35,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年8月15号
+2022年8月18号
 
 安装
 ----------
@@ -111,6 +111,7 @@ AutoMR支持调用的量子化学程序
 * [BDF](http://182.92.69.169:7226/Introduction)
 * [PSI4](https://github.com/psi4/psi4/)
 * [Dalton](https://gitlab.com/dalton/dalton)
+* [QChem](https://www.q-chem.com/)
 
 温馨提示
 ----------

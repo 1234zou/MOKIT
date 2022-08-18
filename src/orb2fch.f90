@@ -117,11 +117,11 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
  allocate(idx(nbf))
  forall(i = 1:nbf) idx(i) = i
- allocate(norm(nbf), source=1.0d0)
+ allocate(norm(nbf), source=1d0)
 
  ! 2) sort the shell_type and shell2atom_map by ascending order,
  !  the indices of MOs will be adjusted accordingly
- call sort_shell_and_mo(length, shell_type, shell2atom_map, nbf, idx)
+ call sort_shell_and_mo_idx(length, shell_type, shell2atom_map, nbf, idx)
 ! adjust done
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
@@ -328,155 +328,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
  deallocate(idx, norm)
  return
 end subroutine zeta_mv_forwd
-
-! split the 'L' into 'S' and 'P'
-subroutine split_L_func(k, shell_type, shell2atom_map, length)
- implicit none
- integer i, k0
- integer,intent(in) :: k
- integer,intent(inout) :: shell_type(2*k), shell2atom_map(2*k)
- integer,intent(out) :: length
- integer,allocatable :: temp1(:), temp2(:)
-
- k0 = 2*k
- length = k
- ! set initial values for arrays shell_type, assume 15 has not be used
- shell_type(k+1:k0) = 15
- i = 1
- do while(shell_type(i) /= 15)
-  if(shell_type(i) /= -1) then
-   i = i + 1
-   cycle
-  end if
-  shell_type(i) = 0
-  allocate( temp1(i+1 : k0-1), temp2(i+1 : k0-1) )
-  temp1(i+1 : k0-1) = shell_type(i+1 : k0-1)
-  shell_type(i+2 : k0) = temp1(i+1 : k0-1)
-  temp2(i+1 : k0-1) = shell2atom_map(i+1 : k0-1)
-  shell2atom_map(i+2 : k0) = temp2(i+1 : k0-1)
-  deallocate(temp1, temp2)
-  shell_type(i+1) = 1
-  shell2atom_map(i+1) = shell2atom_map(i)
-  i = i + 2
- end do
-
- length = i - 1
- shell_type(i : k0) = 0
- return
-end subroutine split_L_func
-
-! sort the shell_type, shell2atom_map by ascending order,
-! indices of MOs will be adjusted accordingly
-subroutine sort_shell_and_mo(ilen, shell_type, shell2atom_map, nbf, idx)
- implicit none
- integer :: i, j, k
- integer :: ibegin, iend, natom
- integer :: jbegin, jend
- integer, parameter :: ntype = 10
- integer, parameter :: num0(ntype) = [0, 1, -2, 2, -3, 3, -4, 4, -5, 5]
- integer, parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
- !                                    S  P  5D 6D 7F 10F 9G 15G 11H 21H
- integer :: num(ntype)
- integer, intent(in) :: ilen, nbf
- integer, intent(inout) :: shell_type(ilen), shell2atom_map(ilen)
- integer, intent(inout) :: idx(nbf)
- integer, allocatable :: ith(:), ith_bas(:), tmp_type(:)
-
- ! find the number of atoms
- natom = shell2atom_map(ilen)
-
- allocate(ith(0:natom), ith_bas(0:natom))
- ith = 0
- ith_bas = 0
-
- ! find the end position of each atom in array shell2atom_map
- do i = 1, natom, 1
-  ith(i) = count(shell2atom_map==i) + ith(i-1)
- end do
-
- ! find the end position of basis functions between two atoms
- do i = 1, natom, 1
-  ibegin = ith(i-1) + 1
-  iend = ith(i)
-  allocate(tmp_type(ibegin:iend), source=0)
-  tmp_type = shell_type(ibegin:iend)
-  num = 0
-
-  do j = 1, ntype, 1
-   num(j) = count(tmp_type == num0(j))
-  end do ! for j
-
-  k = 0
-  do j = 1, ntype, 1
-   k = k + num(j)*num1(j)
-  end do ! for j
-
-  ith_bas(i) = ith_bas(i-1) + k
-  deallocate(tmp_type)
- end do ! for i
-
- ! adjust the indices of MOs in each atom
- do i = 1, natom, 1
-  ibegin = ith(i-1) + 1
-  iend = ith(i)
-  jbegin = ith_bas(i-1) + 1
-  jend = ith_bas(i)
-  call sort_shell_and_mo_in_each_atom(iend-ibegin+1, shell_type(ibegin:iend), &
-  & jend-jbegin+1, idx(jbegin:jend))
- end do ! for i
-
- deallocate(ith, ith_bas)
- return
-end subroutine sort_shell_and_mo
-
-subroutine sort_shell_and_mo_in_each_atom(ilen1, shell_type, ilen2, idx)
- implicit none
- integer :: i, tmp_type, ibegin, iend, jbegin, jend
- integer, parameter :: ntype = 10
- integer, parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
- !                                   S  P  5D 6D 7F 10F 9G 15G 11H 21H
- integer, parameter :: rnum(-5:5) = [9, 7, 5, 3, 0, 1, 2, 4, 6, 8, 10]
- integer, intent(in) :: ilen1, ilen2
- integer, intent(inout) :: shell_type(ilen1), idx(ilen2)
- integer, allocatable :: ith_bas(:), idx1(:), idx2(:)
- logical :: sort_done
-
- tmp_type = 0
-
- ! find the end position of basis functions within an atom
- allocate(ith_bas(0:ilen1), source=0)
- do i = 1, ilen1, 1
-  ith_bas(i) = ith_bas(i-1) + num1(rnum(shell_type(i)))
- end do ! for i
-
- sort_done = .false.
-
- do while(.not. sort_done)
-  sort_done = .true.
-
-  do i = 1, ilen1-1, 1
-    if(shell_type(i) == 0) cycle
-    if(ABS(shell_type(i+1)) >= ABS(shell_type(i))) cycle
-
-    sort_done = .false.
-    tmp_type = shell_type(i+1)
-    shell_type(i+1) = shell_type(i)
-    shell_type(i) = tmp_type
-    ibegin = ith_bas(i-1) + 1; iend = ith_bas(i)
-    jbegin = ith_bas(i) + 1  ; jend = ith_bas(i+1)
-    allocate(idx1(ibegin:iend), source=idx(ibegin:iend))
-    allocate(idx2(jbegin:jend), source=idx(jbegin:jend))
-    ith_bas(i) = ibegin + jend - jbegin
-    idx(ibegin:ith_bas(i)) = idx2
-    ith_bas(i+1) = jend + iend - jbegin + 1
-    idx(ith_bas(i)+1: ith_bas(i+1)) = idx1
-    deallocate(idx1, idx2)
-  end do ! for i
- end do ! for while
-
- deallocate(ith_bas)
- return
-end subroutine sort_shell_and_mo_in_each_atom
 
 subroutine orb2fch_permute_5d(idx)
  implicit none

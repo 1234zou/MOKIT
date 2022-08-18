@@ -36,25 +36,28 @@ OBJ_bas_gms2molcas = file_op.o string_manipulate.o read_gms_inp.o bas_gms2molcas
 OBJ_bas_gms2molpro = file_op.o string_manipulate.o read_gms_inp.o bas_gms2molpro.o
 OBJ_bas_gms2psi = file_op.o string_manipulate.o read_gms_inp.o bas_gms2psi.o
 OBJ_bas_gms2py = file_op.o string_manipulate.o read_gms_inp.o bas_gms2py.o
-OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o bdf2fch.o
+OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o split_sp.o \
+              bdf2fch.o
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
 OBJ_chk2gbw = util_wrapper.o chk2gbw.o
-OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o dal2fch.o
+OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o split_sp.o dal2fch.o
 OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o math_sub.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o
 OBJ_fch2bdf = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
-              read_fch.o rwgeom.o read_gms_inp.o fch2bdf.o
+              read_fch.o rwgeom.o read_gms_inp.o split_sp.o fch2bdf.o
 OBJ_fch2com = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
-              read_fch.o fch2com.o
+              read_fch.o split_sp.o fch2com.o
 OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
-              read_fch.o fch2dal.o
+              read_fch.o split_sp.o fch2dal.o
 OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2mkl.o
 OBJ_fch2gbw = file_op.o util_wrapper.o fch2gbw.o
 OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
-                 read_fch.o fch2inporb.o
+                 read_fch.o split_sp.o fch2inporb.o
 OBJ_fch2psi = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
               read_fch.o fch2psi.o
+OBJ_fch2qchem = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
+                fch2qchem.o
 OBJ_fch2qm4d = file_op.o string_manipulate.o read_fch.o rwgeom.o util_wrapper.o \
                fch2qm4d.o
 OBJ_fch_u2r = file_op.o fch_u2r.o
@@ -73,14 +76,16 @@ OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2fch = file_op.o string_manipulate.o read_fch.o read_mkl.o math_sub.o \
               rwwfn.o mkl2fch.o
 OBJ_mkl2gjf = file_op.o string_manipulate.o read_fch.o read_mkl.o mkl2gjf.o
-OBJ_orb2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o orb2fch.o
+OBJ_orb2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
+              split_sp.o orb2fch.o
 OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o read_fch.o rwgeom.o \
                          replace_xyz_in_inp.o
-OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o xml2fch.o
+OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
+              split_sp.o xml2fch.o
 OBJ_auto_pair = auto_pair.f90
-OBJ_chk2py = chk2py.f90
-OBJ_fch2py = fch2py.f90
-OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o
+OBJ_chk2py = split_sp.f90 chk2py.f90
+OBJ_fch2py = split_sp.f90 fch2py.f90
+OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o split_sp.o
 OBJ_pyuno  = pyuno.f90
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho  = math_sub.f90 ortho.f90
@@ -101,9 +106,10 @@ OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
         bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro \
         bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch \
         fch2bdf fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
-        fch2qm4d fch_u2r fch_mo_copy fch2wfn fch247 find_mc_pair gvb_correct_pairs \
-        gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
-        xml2fch mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
+        fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn fch247 find_mc_pair \
+        gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch \
+        replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix rwgeom \
+        rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -122,6 +128,7 @@ help:
 	echo " fch2mkl   : generate fch2mkl    (Gau->ORCA)" ;\
 	echo " fch2psi   : generate fch2psi    (Gau->PSI4)" ;\
 	echo " fch2py    : generate fch2py     (Gau->PySCF)" ;\
+	echo " fch2qchem : generate fch2qchem  (Gau->QChem)" ;\
 	echo " fch2qm4d  : generate fch2qm4d   (Gau->QM4D)" ;\
 	echo " bdf2fch   : generate bdf2fch    (BDF->Gau)" ;\
 	echo " chk2gbw   : generate chk2gbw    (Gau->ORCA)" ;\
@@ -237,6 +244,9 @@ fch2psi: $(OBJ_fch2psi)
 	echo "fch2psi requires utilities fch2inp and bas_gms2psi, please also compile them" ;\
 	echo
 
+fch2qchem: $(OBJ_fch2qchem)
+	$(F90) $(OBJ_fch2qchem) -o $(BIN)/fch2qchem $(FFLAGS)
+
 fch2qm4d: $(OBJ_fch2qm4d)
 	$(F90) $(OBJ_fch2qm4d) -o $(BIN)/fch2qm4d $(FFLAGS) $(MKL_FLAGS)
 
@@ -351,11 +361,12 @@ excited: $(OBJ_excited)
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com \
-     fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qm4d fch_u2r fch_mo_copy \
-     fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair gvb_correct_pairs gvb_exclude_XH \
-     gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch py2fch \
-     pyuno construct_vir ortho assoc_rot assoc_loc wfn_analysis lo mo_svd \
-     mo_svd_format solve_ON_matrix rwgeom rwwfn excited
+     fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
+     fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair \
+     gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch \
+     replace_xyz_in_inp xml2fch py2fch pyuno construct_vir ortho assoc_rot \
+     assoc_loc wfn_analysis lo mo_svd mo_svd_format solve_ON_matrix rwgeom \
+     rwwfn excited
 
 clean:
 	rm -f *.o *.mod

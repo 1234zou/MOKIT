@@ -10,7 +10,6 @@ subroutine upper(buf)
   k = ICHAR(buf(i:i))
   if(k>=97 .and. k<=122) buf(i:i) = CHAR(k-32)
  end do
- return
 end subroutine upper
 
 ! transform a string into lower case
@@ -23,7 +22,6 @@ subroutine lower(buf)
   k = ICHAR(buf(i:i))
   if (k>=65 .and. k<=90) buf(i:i) = CHAR(k+32)
  end do
- return
 end subroutine lower
 
 ! convert a (character) stype to (integer) itype
@@ -57,8 +55,6 @@ subroutine stype2itype(stype, itype)
   write(iout,'(A)') 'stype= '//TRIM(stype)
   stop
  end select
-
- return
 end subroutine stype2itype
 
 ! check whether there exists DKH keywords in a given GAMESS .inp file
@@ -118,8 +114,6 @@ subroutine check_DKH_in_gms_inp(inpname, order)
    read(buf(k+7:),*) order
   end if
  end if
-
- return
 end subroutine check_DKH_in_gms_inp
 
 ! check whether X2C appears in a given GAMESS .inp file
@@ -142,7 +136,6 @@ subroutine check_X2C_in_gms_inp(inpname, X2C)
  end do ! for i
 
  close(fid)
- return
 end subroutine check_X2C_in_gms_inp
 
 subroutine check_sph_in_gjf(gjfname, sph)
@@ -170,7 +163,6 @@ subroutine check_sph_in_gjf(gjfname, sph)
 
  close(fid)
  if(index(longbuf,'6D')>0 .or. index(longbuf,'6d')>0) sph = .false.
- return
 end subroutine check_sph_in_gjf
 
 ! convert a filename into which molpro requires, i.e.
@@ -200,7 +192,6 @@ subroutine convert2molpro_fname(fname, suffix)
  end if
 
  call lower(fname(1:16))
- return
 end subroutine convert2molpro_fname
 
 ! add DKH2 related keywords into a given GAMESS .inp file,
@@ -254,7 +245,6 @@ subroutine add_DKH2_into_gms_inp(inpname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_DKH2_into_gms_inp
 
 ! add DKH2 keyword into a given Gaussian .fch(k) file
@@ -348,7 +338,6 @@ subroutine add_DKH2_into_fch(fchname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
 end subroutine add_DKH2_into_fch
 
 ! add X2C keyword into a given Gaussian .fch(k) file
@@ -445,7 +434,6 @@ subroutine add_X2C_into_fch(fchname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
- return
 end subroutine add_X2C_into_fch
 
 ! add '.x2c1e()' into a given PySCF .py file
@@ -508,7 +496,6 @@ function detect_ncol_in_buf(buf) result(ncol)
  end do ! for while
 
  ncol = ncol - 1
- return
 end function detect_ncol_in_buf
 
 ! modify the memory in a given .inp file
@@ -551,7 +538,6 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine modify_memory_in_gms_inp
 
 ! modify memory in a given PSI4 input file
@@ -581,7 +567,6 @@ subroutine modify_memory_in_psi4_inp(inpname, mem)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine modify_memory_in_psi4_inp
 
 ! add given/specified RIJK basis set into a PSI4 input file
@@ -604,7 +589,6 @@ subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_RIJK_bas_into_psi4_inp
 
 ! add given/specified RIJK basis set into an ORCA input file
@@ -627,7 +611,6 @@ subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_RIJK_bas_into_orca_inp
 
 ! copy mixed/user-defined basis set in a given .gjf file to a .bas file
@@ -702,7 +685,6 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  close(fid2)
 
  call add_hyphen_for_elem_in_basfile(basname)
- return
 end subroutine record_gen_basis_in_gjf
 
 ! add '-' symbol before elements, in a .bas file
@@ -767,7 +749,6 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(basname1), TRIM(basname))
- return
 end subroutine add_hyphen_for_elem_in_basfile
 
 ! add '-' symbol for each element, in a buf
@@ -793,7 +774,6 @@ subroutine add_hyphen_for_elem_in_buf(buf)
  end do ! for i
 
  buf = TRIM(buf)//' 0'
- return
 end subroutine add_hyphen_for_elem_in_buf
 
 ! copy mixed/user-defined basis set content from file basname to gjfname
@@ -831,7 +811,6 @@ subroutine copy_gen_basis_bas2gjf(basname, gjfname)
 
  close(fid1)
  close(fid2)
- return
 end subroutine copy_gen_basis_bas2gjf
 
 ! read the version of dispersion correction from a .gjf file
@@ -864,8 +843,6 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
  else if(index(buf,'em=gd3')>0 .or. index(buf,'empiricaldispersion=gd3')>0) then
   itype = 1
  end if
-
- return
 end subroutine read_disp_ver_from_gjf
 
 ! print Fock operator coupling coefficients for ROGVB when nopen>=3

@@ -89,7 +89,6 @@ subroutine dal2fch(orbname, fchname, prt_no)
   call write_eigenvalues_to_fch(fchname, nif, 'a', norm, .true.)
   deallocate(norm)
  end if
- return
 end subroutine dal2fch
 
 ! get permutation index list from a given .fch(k) file
@@ -108,7 +107,6 @@ subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
 
  call get_permute_idx_from_shell(k, shell_type, shell_to_atom_map, nbf, idx, norm)
  deallocate(shell_type, shell_to_atom_map)
- return
 end subroutine get_permute_idx_from_fch
 
 ! get permutation index list from two arrays (shell_type and shell_to_atom_map)
@@ -234,44 +232,7 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  end do
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
- return
 end subroutine get_permute_idx_from_shell
-
-! split the 'L' into 'S' and 'P'
-subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
- implicit none
- integer :: i, k0
- integer,intent(in) :: k
- integer,intent(inout) :: shell_type(2*k), shell_to_atom_map(2*k)
- integer,intent(out) :: length
- integer,allocatable :: temp1(:), temp2(:)
-
- k0 = 2*k
- length = k
- ! set initial values for arrays shell_type, assume 15 will not be used
- shell_type(k+1:k0) = 15
- i = 1
- do while(shell_type(i) /= 15)
-  if(shell_type(i) /= -1) then
-   i = i + 1
-   cycle
-  end if
-  shell_type(i) = 0
-  allocate( temp1(i+1 : k0-1), temp2(i+1 : k0-1) )
-  temp1(i+1 : k0-1) = shell_type(i+1 : k0-1)
-  shell_type(i+2 : k0) = temp1(i+1 : k0-1)
-  temp2(i+1 : k0-1) = shell_to_atom_map(i+1 : k0-1)
-  shell_to_atom_map(i+2 : k0) = temp2(i+1 : k0-1)
-  deallocate(temp1, temp2)
-  shell_type(i+1) = 1
-  shell_to_atom_map(i+1) = shell_to_atom_map(i)
-  i = i + 2
- end do
-
- length = i - 1
- shell_type(i : k0) = 0
- return
-end subroutine split_L_func
 
 ! unsort the shell_type, shell_to_atom_map according to the order in Gaussian
 ! MOs will be adjusted accordingly
@@ -343,7 +304,6 @@ subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
 
  deallocate(ith, new_ith, ith_bas)
  ilen = length ! update ilen
- return
 end subroutine unsort_shell_and_mo
 
 ! sort the shell_type within each atom
@@ -366,7 +326,6 @@ subroutine sort_shell_type_in_each_atom2(ilen, shell_type)
     shell_type(i) = tmp_type
   end do
  end do
- return
 end subroutine sort_shell_type_in_each_atom2
 
 ! Unsort the MO within each atom. (Only for 'L' in Pople basis)
@@ -423,7 +382,6 @@ subroutine unsort_mo_in_each_atom(ilen1, shell_type, new_shell_type, ilen2, idx)
  ! update array idx
  idx = new_idx
  deallocate(new_idx)
- return
 end subroutine unsort_mo_in_each_atom
 
 subroutine get_1st_loc(inum, loc, ilen, a)
@@ -438,7 +396,6 @@ subroutine get_1st_loc(inum, loc, ilen, a)
  end do
  loc = i
  if(i == ilen+1) loc = 0
- return
 end subroutine get_1st_loc
 
 subroutine dal2fch_permute_5d(idx)
@@ -454,7 +411,6 @@ subroutine dal2fch_permute_5d(idx)
 
  idx0 = idx
  forall(i = 1:5) idx(i) = idx0(order(i))
- return
 end subroutine dal2fch_permute_5d
 
 subroutine dal2fch_permute_6d(idx, norm)
@@ -475,7 +431,6 @@ subroutine dal2fch_permute_6d(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = Sdiag_d(order(i))
  end forall
- return
 end subroutine dal2fch_permute_6d
 
 subroutine dal2fch_permute_7f(idx)
@@ -491,7 +446,6 @@ subroutine dal2fch_permute_7f(idx)
 
  idx0 = idx
  forall(i = 1:7) idx(i) = idx0(order(i))
- return
 end subroutine dal2fch_permute_7f
 
 subroutine dal2fch_permute_10f(idx, norm)
@@ -512,7 +466,6 @@ subroutine dal2fch_permute_10f(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = Sdiag_f(order(i))
  end forall
- return
 end subroutine dal2fch_permute_10f
 
 subroutine dal2fch_permute_9g(idx)
@@ -528,7 +481,6 @@ subroutine dal2fch_permute_9g(idx)
 
  idx0 = idx
  forall(i = 1:9) idx(i) = idx0(order(i))
- return
 end subroutine dal2fch_permute_9g
 
 subroutine dal2fch_permute_15g(idx, norm)
@@ -548,7 +500,6 @@ subroutine dal2fch_permute_15g(idx, norm)
   idx(i) = idx0(16-i)
   norm(i) = Sdiag_g(16-i)
  end forall
- return
 end subroutine dal2fch_permute_15g
 
 subroutine dal2fch_permute_11h(idx)
@@ -564,7 +515,6 @@ subroutine dal2fch_permute_11h(idx)
 
  idx0 = idx
  forall(i = 1:11) idx(i) = idx0(order(i))
- return
 end subroutine dal2fch_permute_11h
 
 subroutine dal2fch_permute_21h(idx, norm)
@@ -584,6 +534,5 @@ subroutine dal2fch_permute_21h(idx, norm)
   idx(i) = idx0(22-i)
   norm(i) = Sdiag_h(22-i)
  end forall
- return
 end subroutine dal2fch_permute_21h
 

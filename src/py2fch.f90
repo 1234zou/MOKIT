@@ -578,41 +578,6 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  deallocate(d_mark, f_mark, g_mark, h_mark)
 end subroutine get_permute_idx_from_shell
 
-! split the 'L' into 'S' and 'P'
-subroutine split_L_func(k, shell_type, shell_to_atom_map, length)
- implicit none
- integer :: i, k0
- integer,intent(in) :: k
- integer,intent(inout) :: shell_type(2*k), shell_to_atom_map(2*k)
- integer,intent(out) :: length
- integer,allocatable :: temp1(:), temp2(:)
-
- k0 = 2*k
- length = k
- ! set initial values for arrays shell_type, assume 15 will not be used
- shell_type(k+1:k0) = 15
- i = 1
- do while(shell_type(i) /= 15)
-  if(shell_type(i) /= -1) then
-   i = i + 1
-   cycle
-  end if
-  shell_type(i) = 0
-  allocate( temp1(i+1 : k0-1), temp2(i+1 : k0-1) )
-  temp1(i+1 : k0-1) = shell_type(i+1 : k0-1)
-  shell_type(i+2 : k0) = temp1(i+1 : k0-1)
-  temp2(i+1 : k0-1) = shell_to_atom_map(i+1 : k0-1)
-  shell_to_atom_map(i+2 : k0) = temp2(i+1 : k0-1)
-  deallocate(temp1, temp2)
-  shell_type(i+1) = 1
-  shell_to_atom_map(i+1) = shell_to_atom_map(i)
-  i = i + 2
- end do
-
- length = i - 1
- shell_type(i : k0) = 0
-end subroutine split_L_func
-
 ! unsort the shell_type, shell_to_atom_map according to the order in Gaussian
 ! MOs will be adjusted accordingly
 subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
