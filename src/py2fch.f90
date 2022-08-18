@@ -1007,7 +1007,7 @@ subroutine py2fch_cghf(fchname, nbf, nif, coeff, ev, gen_density)
  real(kind=8), intent(in) :: ev(nif)
 !f2py intent(in) :: ev
 !f2py depend(nif) :: ev
- real(kind=8), allocatable :: coeff2(:,:,:), den(:,:), norm(:), coeff3
+ real(kind=8), allocatable :: coeff2(:,:,:), den(:,:), norm(:)
 
  character(len=49) :: str
  character(len=240) :: buf, fchname1

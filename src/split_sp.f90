@@ -90,7 +90,7 @@ subroutine sort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, nif, coef
   jbegin = ith_bas(i-1) + 1
   jend = ith_bas(i)
   call sort_shell_and_mo_in_each_atom(iend-ibegin+1, shell_type(ibegin:iend), &
-  & jend-jbegin+1, nif, coeff2(jbegin:jend,1:nif))
+                                      jend-jbegin+1, nif, coeff2(jbegin:jend,1:nif))
  end do ! for i
  ! adjust the MOs in each atom done
 

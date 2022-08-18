@@ -104,7 +104,7 @@ end subroutine copy_file
 subroutine copy_bin_file(fname1, fname2, delete)
  implicit none
  integer :: i, system
- character(len=240), intent(in) :: fname1, fname2
+ character(len=*), intent(in) :: fname1, fname2
  logical, intent(in) :: delete
 
 #ifdef _WIN32
@@ -137,7 +137,11 @@ subroutine create_dir(dirname)
 
 #ifdef _WIN32
  i = system('CD '//dirname)
- if(i /= 0) i = system('MD '//dirname)
+ if(i == 0) then
+  i = system('CD ..')
+ else
+  i = system('MD '//dirname)
+ end if
 #else
  i = system('mkdir -p '//dirname)
 #endif

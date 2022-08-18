@@ -8,19 +8,41 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i
+ integer :: i, npair
+ character(len=4) :: str
  character(len=240) :: fchname
+ character(len=60), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
+                                              & wrong command line arguments!'
 
  i = iargc()
- if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2qchem: wrong command line argument!'
+ if(.not. (i==1 .or. i==3)) then
+  write(6,'(/,A)') error_warn
   write(6,'(A)')   ' Example 1: fch2qchem water.fch'
-  write(6,'(A,/)') ' Example 2: fch2qchem water.chk'
+  write(6,'(A,/)') ' Example 2: fch2qchem water.fch -gvb 2'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ str = ' '; npair = 0
+
+ if(i == 3) then
+  call getarg(2, str)
+  if(str /= '-gvb') then
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') "The 2nd argument can only be '-gvb'."
+   stop
+  end if
+
+  call getarg(3, str)
+  read(str,*) npair
+  if(npair < 0) then
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'The 3rd argument npair should be >=0.'
+   stop
+  end if
+ end if
 
  ! if .chk file provided, convert into .fch file automatically
  i = LEN_TRIM(fchname)
@@ -29,22 +51,23 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call fch2qchem(fchname)
+ call fch2qchem(fchname, npair)
 end program main
 
-subroutine fch2qchem(fchname)
+subroutine fch2qchem(fchname, npair)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, length, fid, purecart(4)
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer :: n6dmark, n10fmark, n15gmark, n21hmark
+ integer :: system
+ integer, intent(in) :: npair
  integer, allocatable :: itmp(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
- character(len=240) :: proname, inpname
- character(len=240), parameter :: orbname = '53.0'
+ character(len=240) :: proname, inpname, dirname
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
@@ -108,9 +131,16 @@ subroutine fch2qchem(fchname)
  write(fid,'(A)') 'basis gen'
  write(fid,'(A)') 'scf_guess read'
  write(fid,'(A)') 'scf_convergence 8'
- write(fid,'(A)') 'thresh 11'
+ write(fid,'(A)') 'thresh 12'
  write(fid,'(A,1X,4I0)') 'purecart', (purecart(i),i=1,4)
- write(fid,'(A)') 'symmetry off'
+ !write(fid,'(A)') 'symmetry off' ! warning: this is useless
+ write(fid,'(A)') 'sym_ignore true'
+ if(npair > 0) then
+  write(fid,'(A)') 'correlation pp'
+  write(fid,'(A,I0)') 'gvb_n_pairs ',npair
+  write(fid,'(A)') 'gvb_restart true'
+ end if
+ write(fid,'(A)') 'gui = 2' ! generate fchk
  write(fid,'(A,/)') '$end'
 
  ! print basis sets into the .in file
@@ -134,6 +164,7 @@ subroutine fch2qchem(fchname)
   end if
   write(fid,'(A2,1X,I2,3X,A)') str2, n, '1.00'
 
+  has_sp = .false.
   if(allocated(contr_coeff_sp)) then
    if(ANY(contr_coeff_sp(k+1:k+n) > 1d-6)) has_sp = .true.
   end if
@@ -154,6 +185,7 @@ subroutine fch2qchem(fchname)
  write(fid,'(A4,/,A)') '****','$end'
  deallocate(ielem, prim_per_shell, prim_exp, contr_coeff)
  if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
+ deallocate(shell2atom_map)
 
  if(ecp) then
   write(fid,'(/,A)') '$ecp'
@@ -205,30 +237,6 @@ subroutine fch2qchem(fchname)
   nif1 = nif
  end if
 
- if(ANY(shell_type == -1)) then ! has 'SP' or 'L'
-  ! enlarge arrays shell_type and shell2atom_map
-  k = ncontr
-  allocate(itmp(2*k), source=0)
-  itmp(1:k) = shell_type
-  deallocate(shell_type)
-  allocate(shell_type(2*k), source=itmp)
-  itmp = 0
-  itmp(1:k) = shell2atom_map
-  deallocate(shell2atom_map)
-  allocate(shell2atom_map(2*k), source=itmp)
-  deallocate(itmp)
-
-  ! split 'L' into 'S' and 'P', this is to ensure D comes after L functions
-  call split_L_func(k, shell_type, shell2atom_map, length)
- else
-  length = ncontr
- end if
-
- ! Sort the shell_type, shell2atom_map by ascending order. MOs will be
- ! adjusted accordingly
- call sort_shell_and_mo(length, shell_type, shell2atom_map, nbf, nif1, coeff)
- deallocate(shell2atom_map)
-
  ! record the indices of d, f, g and h functions
  allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
 
@@ -255,8 +263,9 @@ subroutine fch2qchem(fchname)
  end if
  deallocate(coeff)
 
- !open(newunit=fid,file=orbname,form='binary')
- open(newunit=fid,file=orbname,access='stream')
+ call create_dir(proname)
+ !open(newunit=fid,file='53.0',form='binary')
+ open(newunit=fid,file=TRIM(proname)//'/53.0',access='stream')
 
  write(unit=fid) alpha_coeff
  if(uhf) then
@@ -272,8 +281,35 @@ subroutine fch2qchem(fchname)
   write(unit=fid) eigen_e_a
  end if
 
- close(fid)
  deallocate(alpha_coeff, eigen_e_a)
+ close(fid)
+ if(npair > 0) call copy_bin_file(TRIM(proname)//'/53.0', TRIM(proname)//&
+                                  '/169.0', .false.)
+
+ ! move the newly created directory into $QCSCRATCH/
+ dirname = ' '
+ call getenv('QCSCRATCH', dirname)
+
+ if(LEN_TRIM(dirname) == 0) then
+  write(6,'(/,A)') '$QCSCRATCH not found. '//TRIM(proname)//' put in the curren&
+                   &t directory.'
+  write(6,'(A)') 'You need to put the directory into $QCSCRATCH/ before running&
+                 & qchem.'
+ else
+  i = system('mv '//TRIM(proname)//' '//TRIM(dirname)//'/')
+  if(i /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: failed to move directory to&
+                   & $QCSCRATCH.'
+   write(6,'(A)') 'Probably your $QCSCRATCH/ is not empty.'
+   stop
+  else
+   write(6,'(/,A)') '$QCSCRATCH found. Directory '//TRIM(proname)//' moved into &
+                    &$QCSCRATCH/'
+   write(6,'(A)') 'You can run:'
+   write(6,'(A)') 'qchem '//TRIM(inpname)//' '//TRIM(proname)//&
+                  '.out '//TRIM(proname)
+  end if
+ end if
 end subroutine fch2qchem
 
 subroutine fch2qchem_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
