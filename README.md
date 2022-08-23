@@ -34,7 +34,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Aug 18, 2022
+Aug 23, 2022
 
 Installation
 ------------
@@ -112,7 +112,7 @@ QC Packages can be called by AutoMR
 * [BDF](http://182.92.69.169:7226/Introduction)
 * [PSI4](https://github.com/psi4/psi4/)
 * [Dalton](https://gitlab.com/dalton/dalton)
-* [QChem](https://www.q-chem.com/)
+* [Q-Chem](https://www.q-chem.com/)
 
 Some Tips
 ---------
