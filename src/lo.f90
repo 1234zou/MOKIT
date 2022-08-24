@@ -5,20 +5,10 @@
 
 ! Note: before PySCF-1.6.4, its dumped .molden file is wrong when using Cartesian functions.
 
-!  For GNU compiler, use
-! ----------------------------------------
-!  f2py -m lo -c lo.f90 --link-lapack_opt
-! ----------------------------------------
-!  For INTEL compiler, use
-! -------------------------------------------------------------------------------
-!  f2py -m lo -c lo.f90 --link-lapack_opt --fcompiler=intelem --compiler=intelem
-! -------------------------------------------------------------------------------
-
 ! generate natural orbitals from density matrix and overlap matrix
 subroutine no(nbf, nif, P, S, noon, new_coeff)
  implicit none
  integer :: i, j, lwork, liwork
- integer, parameter :: iout = 6
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
  ! nbf: the number of atomic basis functions
@@ -66,8 +56,8 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
 
  noon = 0d0
  forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
- write(iout,'(/,A)') 'Natural Orbital Occupancy Numbers (NOON):'
- write(iout,'(5(1X,ES15.8))') (noon(i),i=1,nif)
+ write(6,'(/,A)') 'Natural Orbital Occupancy Numbers (NOON):'
+ write(6,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  deallocate(e)
 
  new_coeff = 0d0
@@ -79,7 +69,6 @@ subroutine no(nbf, nif, P, S, noon, new_coeff)
  forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
  new_coeff = U
  deallocate(U)
- return
 end subroutine no
 
 ! generate AO-basis density matrix based on a .fch file
@@ -185,7 +174,6 @@ subroutine get_mo_based_dm(nbf, nif, coeff, S, P, dm)
  integer :: i, j
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8) :: coeff(nbf,nif), S(nbf,nbf), P(nbf,nbf), dm(nif,nif)
 !f2py intent(in) :: coeff, S, P
 !f2py intent(out) :: dm
@@ -204,22 +192,94 @@ subroutine get_mo_based_dm(nbf, nif, coeff, S, P, dm)
  ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, SC, nbf, PSC, nbf, 0d0, dm, nif)
 
- write(iout,'(A)') 'MO-based density matrix (Final one electron symbolic density matrix):'
+ write(6,'(A)') 'MO-based density matrix (Final one electron symbolic density matrix):'
  do i = 1, nif, 1
   do j = i, nif, 1
-   write(iout,'(2I4,F15.8)') j, i, dm(j,i)
+   write(6,'(2I4,F15.8)') j, i, dm(j,i)
   end do ! for j
  end do ! for i
 
  deallocate(SC, PSC)
- return
 end subroutine get_mo_based_dm
+
+! generate Coulson-Fischer orbitals from GVB natural orbitals
+! this is actually orthogonal -> non-orthogonal orbital transformation
+subroutine gen_cf_orb(datname, ndb, nopen)
+ implicit none
+ integer :: i, j, k, nbf, nif, npair
+ integer, intent(in) :: ndb, nopen
+ ! ndb and nopen cannot be determined from .dat file, manual input required
+ real(kind=8) :: a, a2, fac
+ real(kind=8), allocatable :: coeff(:,:), ci_coeff(:,:), rtmp(:,:)
+ ! coeff: MO coefficients
+ ! ci_coeff: GVB CI coefficients, pair coefficients
+ ! rtmp: temporary array to hold two orbitals
+ character(len=240), intent(in) :: datname
+
+ if(ndb<0 .or. nopen<0) then
+  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: ndb<0 or nopen<0 found.'
+  write(6,'(A)') 'Correct values should be assgined to these two parameters.'
+  stop
+ end if
+
+ ! read Cartesian-type nbf and nif from GAMESS .dat file
+ ! No matter spherical harmonic/Cartesian-type basis you use, the MOs in
+ ! GAMESS .inp/.dat file are in Cartesian-type. So this subroutine reads
+ ! Cartesian-type nbf
+ call read_cart_nbf_nif_from_dat(datname, nbf, nif)
+
+ allocate(coeff(nbf,nif))
+ call read_mo_from_dat(datname, nbf, nif, coeff)
+
+ call read_npair_from_dat(datname, npair)
+ allocate(ci_coeff(2,npair))
+ call read_ci_coeff_from_dat(datname, npair, ci_coeff)
+
+ if(ANY(ci_coeff(1,:)<0d0) .or. ANY(ci_coeff(2,:)>0d0)) then
+  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: pair coefficients in file '&
+                  //TRIM(datname)//' violate'
+  write(6,'(A)') 'the rule C1>0, C2<0 for each pair. If your MOs and pair coef&
+                 &ficients are correct,'
+  write(6,'(A)') 'you need to swap the bonding orbital with the anti-bonding o&
+                 &ne, and swap two pair coefficients.'
+  write(6,'(A)') 'Then try to call this subroutine again.'
+  stop
+ end if
+
+ k = ndb + nopen
+ if(k+2*npair > nif) then
+  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: probably wrong ndb or nopen.'
+  write(6,'(A,2I4)') 'Your input ndb, nopen=', ndb, nopen
+  stop
+ end if
+
+ allocate(rtmp(nbf,2), source=0d0)
+ write(6,'(/,A)') 'Non-orthogonal overlap for each pair:'
+
+ do i = 1, npair, 1
+  a2 = -ci_coeff(1,i)/ci_coeff(2,i)
+  ! always set b=1, so no need to calculated b
+  fac = 1d0/DSQRT(a2 + 1d0)
+  a = DSQRT(a2)
+
+  j = 2*i - 1
+  rtmp = coeff(:,k+j:k+j+1)
+  rtmp(:,1) = a*rtmp(:,1)
+  coeff(:,k+j) = fac*(rtmp(:,1) + rtmp(:,2))
+  coeff(:,k+j+1) = fac*(rtmp(:,1) - rtmp(:,2))
+  write(6,'(A,I3,A,F10.6)') 'i=', i, ', S_i=', (a2-1d0)/(a2+1d0)
+ end do ! for i
+
+ deallocate(rtmp, ci_coeff)
+
+ call write_mo_into_dat(datname, nbf, nif, coeff, .false.)
+ deallocate(coeff)
+end subroutine gen_cf_orb
 
 ! use Cholesky factorization/decomposition of the density matrix to generate LMOs
 subroutine cholesky(nbf, nif, coeff, new_coeff)
  implicit none
  integer :: i, j, t0, t1, time
- integer, parameter :: iout = 6
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
 
@@ -234,7 +294,7 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
  t0 = time()
  new_coeff = coeff
  if(nif == 1) then
-  write(iout,'(A)') 'Warning in subroutine cholesky: only 1 orbital. Nothing to do.'
+  write(6,'(A)') 'Warning in subroutine cholesky: only 1 orbital. Nothing to do.'
   stop
  end if
 
@@ -245,8 +305,8 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
   rtmp1 = P(i,i) - ddot(i-1, new_coeff(i,1:i-1), 1, new_coeff(i,1:i-1), 1)
 
   if(rtmp1 < 1.0d-12) then
-   write(iout,'(A)') 'ERROR in subroutine cholesky: density matrix not positive semidefinite.'
-   write(iout,'(A)') 'rtmp1 < 1.0d-12.'
+   write(6,'(A)') 'ERROR in subroutine cholesky: density matrix not positive semidefinite.'
+   write(6,'(A)') 'rtmp1 < 1.0d-12.'
    stop
   end if
   rtmp1 = DSQRT(rtmp1)
@@ -259,8 +319,7 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
 
  deallocate(P)
  t1 = time()
- write(iout,'(A,I0)') 'Decomposition time(sec):', t1-t0
- return
+ write(6,'(A,I0)') 'Decomposition time(sec):', t1-t0
 end subroutine cholesky
 
 ! perform Boys orbital localization (Jacobian 2*2 rotations) on a set of MOs
@@ -269,7 +328,6 @@ subroutine boys(nbf, nif, coeff, mo_dipole, new_coeff)
  integer :: t0, t1, time
  integer :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
 
  real(kind=8) :: coeff(nbf,nif), new_coeff(nbf,nif)
  real(kind=8) :: mo_dipole(3,nif,nif)
@@ -283,19 +341,18 @@ subroutine boys(nbf, nif, coeff, mo_dipole, new_coeff)
  ! mo_dipole: the whole MO basis dipole integrals matrix
 
  t0 = time()
- write(iout,'(/,A)') 'Boys orbital localization begins:'
+ write(6,'(/,A)') 'Boys orbital localization begins:'
  new_coeff = coeff
 
  if(nif == 1) then
-  write(iout,'(A)') 'Warning in subroutine boys: only 1 orbital. No rotation.'
+  write(6,'(A)') 'Warning in subroutine boys: only 1 orbital. No rotation.'
   return
  end if
 
  call serial2by2(nbf, nif, new_coeff, 3, mo_dipole)
 
  t1 = time()
- write(iout,'(A,I0)') 'Localization time(sec):', t1-t0
- return
+ write(6,'(A,I0)') 'Localization time(sec):', t1-t0
 end subroutine boys
 
 ! perform Pipek-Mezey orbital localization (Jacobian 2*2 rotations) on a set of MOs
@@ -303,7 +360,6 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  implicit none
  integer :: i, j, k, natom, t0, t1, time, i1, i2, i3
  integer :: lwork, liwork
- integer, parameter :: iout = 6
  integer :: nshl, nbf, nif
 !f2py intent(in) :: nshl, nbf, nif
 
@@ -337,16 +393,16 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
 !f2py intent(in) :: cart
 
  t0 = time()
- write(iout,'(/,A)') 'PM orbital localization begins: using '//TRIM(pop)//' population'
+ write(6,'(/,A)') 'PM orbital localization begins: using '//TRIM(pop)//' population'
  new_coeff = coeff
 
  if(nif == 1) then
-  write(iout,'(A)') 'Warning in subroutine pm: only 1 orbital. No rotation.'
+  write(6,'(A)') 'Warning in subroutine pm: only 1 orbital. No rotation.'
   return
  end if
 
  if(ANY(ang<0)) then
-  write(iout,'(A)') 'ERROR in subroutine pm: there exists ang(i)<0.'
+  write(6,'(A)') 'ERROR in subroutine pm: there exists ang(i)<0.'
   stop
  end if
 
@@ -358,14 +414,14 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
 
  j = DOT_PRODUCT(ang, ibas)
  if(j /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine pm: number of basis function is&
-                   & inconsistent between j and nbf.'
-  write(iout,'(2(A,I0))') 'j=', j, ', nbf=', nbf
+  write(6,'(A)') 'ERROR in subroutine pm: number of basis function is&
+                 & inconsistent between j and nbf.'
+  write(6,'(2(A,I0))') 'j=', j, ', nbf=', nbf
   stop
  end if
 
  natom = shl2atm(nshl) + 1
- write(iout,'(A,I0)') 'natom=', natom
+ write(6,'(A,I0)') 'natom=', natom
  allocate(bfirst(natom+1), source=0)
  bfirst(1) = 1
  do i = 1, nshl, 1
@@ -440,8 +496,8 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
   end do ! for i
 
  else
-  write(iout,'(A)') 'ERROR in subroutine pm: wrong population method provided.'
-  write(iout,'(A)') "Only 'mulliken' or 'lowdin' supported. But input pop="//pop
+  write(6,'(A)') 'ERROR in subroutine pm: wrong population method provided.'
+  write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input pop="//pop
   stop
  end if
 
@@ -451,8 +507,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  deallocate(gross)
 
  t1 = time()
- write(iout,'(A,I0)') 'Localization time(sec):', t1-t0
- return
+ write(6,'(A,I0)') 'Localization time(sec):', t1-t0
 end subroutine pm
 
 ! perform serial 2-by-2 rotation on given MOs
@@ -564,7 +619,6 @@ end subroutine serial2by2
 subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
  implicit none
  integer i, j, nocc
- integer, parameter :: iout = 6
  integer nif, ncore, npair, nopen
 !f2py intent(in) :: nif, nocc, npair, nopen
  real(kind=8) :: mo_dipole(3,nif,nif)
@@ -581,7 +635,7 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
   fBoys = fBoys + ddot(3, temp_dipole, 1, temp_dipole, 1)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F13.6)') 'In occ, Modified f(Boys)=', fBoys
+ write(6,'(A,F13.6)') 'In occ, Modified f(Boys)=', fBoys
  fBoys = 0d0
  j = nocc + npair
  do i = nocc+1, j, 1
@@ -589,8 +643,7 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
   fBoys = fBoys + ddot(3, temp_dipole, 1, temp_dipole, 1)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F13.6)') 'In vir, Modified f(Boys)=', fBoys
- return
+ write(6,'(A,F13.6)') 'In vir, Modified f(Boys)=', fBoys
 end subroutine get_mboys
 
 ! perform immediate Boys localization by diagonalizing the DxDx+DyDy+DzDz

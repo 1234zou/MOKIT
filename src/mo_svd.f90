@@ -3,15 +3,6 @@
 !  1) optimize the code
 !  2) add subroutine mo_svd_qcmo, diagonalize SVOs into QCMOs (quasi-canonical MOs)
 
-!  For GNU compiler, use
-! ------------------------------------------------
-!  f2py -m mo_svd -c mo_svd.f90 --link-lapack_opt
-! ------------------------------------------------
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------------------------
-!  f2py -m mo_svd -c mo_svd.f90 --link-lapack_opt --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------------------------
-
 module mo_ovlp_and_svd
  implicit none
 contains

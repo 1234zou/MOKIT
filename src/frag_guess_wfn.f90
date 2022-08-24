@@ -63,14 +63,14 @@ end module frag_info
 module theory_level
  implicit none
  integer :: mem, nproc
- integer :: wfn_type = 0   ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
- integer :: eda_type = 0   ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
- integer :: disp_type = 0  ! 0/1/2 for no dispersion correction/GD3/GD3BJ
+ integer :: wfn_type = 0  ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
+ integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
+ integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
  character(len=9) :: method = ' '
  character(len=21) :: basis = ' '
  character(len=40) :: scrf  = ' '
  character(len=20) :: solvent = ' '
- logical :: sph = .true.  ! .True./.False. for spherical harmonic/Cartesian functions
+ logical :: sph = .true.  ! spherical harmonic/Cartesian functions
 end module theory_level
 
 program main
@@ -107,7 +107,6 @@ program main
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)
- stop
 end program main 
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
@@ -131,6 +130,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  buf = ' '; longbuf = ' '
  call read_eda_type_from_gjf(gjfname, eda_type)
  call read_disp_ver_from_gjf(gjfname, disp_type)
+
  if(eda_type==4 .and. disp_type>0) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction&
                    & cannot be used in SAPT.'
@@ -138,8 +138,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                  & supported for frag_guess_wfn.'
   stop
  end if
- call check_sph_in_gjf(gjfname, sph)
 
+ call check_sph_in_gjf(gjfname, sph)
  if(sph .and. eda_type==1) then
   write(6,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic&
                  & functions (5D 7F) cannot be'
@@ -226,6 +226,17 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  call read_method_and_basis_from_buf(longbuf, method, basis, wfn_type)
  write(6,'(A,I0)') 'method='//TRIM(method)//', basis='//TRIM(basis)//&
                   &', wfn_type=', wfn_type
+
+! Strange thing: if the following 'if(' lines are uncommented, GKS-EDA will
+!  signal unknown errors
+! if(TRIM(method) == 'pbe0') then
+!  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: 'PBE0' string found in&
+!                   & gjf file."
+!  write(6,'(A)') "Be careful! The PBE0 functional in papers corresponds to the&
+!                 & keyword 'PBE1PBE' in Gaussian."
+!  write(6,'(A)') 'You should check what you want to calculate.'
+!  stop
+! end if
 
  if(index(basis,'gen') > 0) then
   close(fid)
@@ -318,13 +329,15 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  end if
  if(ANY(frags(:)%mult==0) .or. ANY(frags(:)%mult==-1)) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: the spin multiplicity&
-                   & of some fragment is 0 or -1.'
-  write(6,'(A)') 'This is impossible. Check your file '//TRIM(gjfname)
+                   & of some fragment is'
+  write(6,'(A)') '0 or -1. This is impossible. Check your file '//TRIM(gjfname)
   deallocate(frags)
   close(fid)
   stop
  end if
+
  j = 0 ! ne(alpha) - ne(beta)
+
  do i = 1, nfrag0, 1
   k = frags(i)%mult
   if(k > 0) then
@@ -333,6 +346,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    j = j + k + 1
   end if
  end do ! for i
+
  if(mult-1 /= j) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired&
                    & electrons calculated from'
@@ -960,6 +974,7 @@ subroutine gen_inp_of_frags()
  inpname2 = frags(nfrag)%fname(i+1:k-1)//'.inp'
 
  allocate(radii(natom), source=0d0)
+
  if(LEN_TRIM(scrf) > 0) then
   if(index(scrf,'smd') == 0) then
    buf = frags(nfrag)%fname(i+1:k+3)
@@ -1005,10 +1020,11 @@ subroutine gen_inp_of_frags()
  end if
 
  deallocate(radii, frags)
- write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)//' to '
+ write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)&
+                               //' to '
 
  if(eda_type == 4) then ! SAPT in PSI4
-  write(6,'(A)') "PSI4 (Don't delete *.A and *.B files)."
+  write(6,'(A)') 'PSI4 (DO NOT delete *.A and *.B files).'
  else
   write(6,'(A)') 'GAMESS or XEDA.'
  end if
@@ -1334,8 +1350,8 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
  close(fid2)
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$VEC' found&
-                 & in file "//TRIM(inpname1)
+  write(6,'(A)') "ERROR in subroutine copy_and_modify_gamess_eda_file: no '$VEC'&
+                & found in file "//TRIM(inpname1)
   stop
  end if
 end subroutine copy_and_modify_gamess_eda_file

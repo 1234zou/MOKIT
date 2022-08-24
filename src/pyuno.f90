@@ -11,19 +11,6 @@
 
 ! This subroutine is designed to be imported as a module in Python.
 !
-! For GNU compiler, use
-! --------------------------------------------
-!  f2py -m uno -c pyuno.f90 --link-lapack_opt
-! --------------------------------------------
-!
-! For Intel compiler, use
-! -----------------------------------------------------------------------------------
-!  f2py -m uno -c pyuno.f90 --link-lapack_opt --fcompiler=intelem --compiler=intelem
-! -----------------------------------------------------------------------------------
-!
-!  to compile this file (a uno.so file will be generated). Then in Python
-!  you can import the uno module.
-
 subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
                uno_thres, idx, noon, uno_coeff)
  implicit none

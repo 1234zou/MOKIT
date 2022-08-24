@@ -2,19 +2,6 @@
 ! updated by jxzou at 20191215: simplify code
 
 ! This subroutine is designed to be imported as a module by Python.
-!
-! For GNU compiler, use
-! --------------------------------------------------------------
-!  f2py -m construct_vir -c construct_vir.f90 --link-lapack_opt
-! --------------------------------------------------------------
-!
-! For Intel compiler, use
-! -----------------------------------------------------------------------------------------------------
-!  f2py -m construct_vir -c construct_vir.f90 --link-lapack_opt --fcompiler=intelem --compiler=intelem
-! -----------------------------------------------------------------------------------------------------
-!
-!  to compile this file (a construct_vir.so file will be generated). Then in Python
-!  you can import the construct_vir module.
 
 subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  implicit none

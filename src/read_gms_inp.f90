@@ -286,6 +286,64 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  return
 end subroutine read_nbf_and_nif_from_gms_inp
 
+! read Cartesian-type nbf and nif from GAMESS .inp/.dat file
+subroutine read_cart_nbf_nif_from_dat(datname, nbf, nif)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(out) :: nbf, nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+
+ nbf = 0; nif = 0
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:2) == '$') call upper(buf(3:5))
+  if(buf(2:5) == '$VEC') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$VEC'&
+                & found in file "//TRIM(datname)
+  close(fid)
+  stop
+ end if
+
+ j = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:2) /= ' 1') exit
+  j = j + 1
+ end do ! for while
+
+ k = j ! backup
+
+ BACKSPACE(fid)
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+ nbf = (j-1)*5 + (LEN_TRIM(buf)-5)/15
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:2) == '$') call upper(buf(3:5))
+  if(buf(2:5) == '$END') exit
+  j = j + 1
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$END'&
+                & corresponds to '$VEC'"
+  write(6,'(A)') 'in file '//TRIM(datname)
+  stop
+ end if
+
+ nif = j/k
+end subroutine read_cart_nbf_nif_from_dat
+
 ! read na, nb, nif and nbf from a given GAMESS .inp file
 ! Note: when spherical harmonic functions are used, the nbf here will <=
 !  the number of basis functions in $VEC (where MOs are always expanded
@@ -770,4 +828,142 @@ subroutine read_mo_from_dat(datname, nbf, nif, coeff)
 
  close(fid)
 end subroutine read_mo_from_dat
+
+! read the number of GVB pairs from a GAMESS .dat file
+subroutine read_npair_from_dat(datname, npair)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: npair
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+
+ npair = 0
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:5) == '$SCF') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_npair_from_dat: no '$SCF' found&
+                & in file "//TRIM(datname)
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ do while(.true.)
+  read(fid,'(A)') buf
+  i = index(buf, 'CICOEF')
+  if(i > 0) npair = npair + 1
+  if(index(buf,'END')>0 .or. index(buf,'VEC')>0) exit
+ end do ! for while
+
+ close(fid)
+end subroutine read_npair_from_dat
+
+! read CI coefficients from a GAMESS .dat or .inp file
+subroutine read_ci_coeff_from_dat(fname, npair, coeff)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: npair
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fname
+ real(kind=8), intent(out) :: coeff(2,npair)
+
+ buf = ' '; coeff = 0d0
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  j = index(buf,'CICOEF(')
+  if(j == 0) j = index(buf,'cicoef(')
+  if(j /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine read_ci_coeff_from_dat: no GVB CI&
+                & coefficients found in file '//TRIM(fname)
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ do i = 1, npair, 1
+  read(fid,'(A)') buf
+  j = index(buf,'=')
+  k = index(buf,',')
+  read(buf(j+1:k-1),*) coeff(1,i)
+  read(buf(k+1:),*) coeff(2,i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_ci_coeff_from_dat
+
+! print MOs into .dat file
+! if replace is .true., the MOs in the original file will be replaced
+! if replace is .false., a new *_new.dat file will be generated
+subroutine write_mo_into_dat(datname, nbf, nif, coeff, replace)
+ implicit none
+ integer :: i, j, k, nline, nleft, fid1, fid2, RENAME
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: coeff(nbf,nif)
+ character(len=240), intent(in) :: datname
+ character(len=240) :: newdat, buf
+ logical, intent(in) :: replace
+
+ buf = ' '; newdat = ' '
+ i = index(datname,'.dat',.true.)
+ if(i == 0) i = index(datname,'.inp',.true.)
+ newdat = datname(1:i-1)//'_new.dat'
+
+ open(newunit=fid1,file=TRIM(datname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(newdat),status='replace')
+ do while(.true.)
+  read(fid1,'(A)') buf
+  write(fid2,'(A)') TRIM(buf)
+  call upper(buf(3:5))
+  if(buf(2:5)=='$VEC') exit
+ end do ! for while
+
+ ! print MOs
+ nline = nbf/5
+ nleft = nbf - 5*nline
+
+ do i = 1, nif, 1
+  k = MOD(i,100)
+  do j = 1, nline, 1
+   write(fid2,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:5*j,i)
+  end do ! for j
+  if(nleft > 0) then
+   write(fid2,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:nbf,i)
+  end if
+ end do ! for i
+ write(fid2,'(A)') ' $END'
+ ! print MOs done
+
+ ! skip the MOs in datname
+ do while(.true.)
+  read(fid1,'(A)') buf
+  call upper(buf(3:5))
+  if(buf(2:5) == '$END') exit
+ end do
+
+ ! copy remaining contens
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+ close(fid2)
+ ! copy done
+
+ if(replace) then
+  close(fid1,status='delete')
+  i = RENAME(TRIM(newdat), TRIM(datname))
+ else
+  close(fid1)
+ end if
+end subroutine write_mo_into_dat
 

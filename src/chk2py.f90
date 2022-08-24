@@ -1,18 +1,6 @@
 ! written by jxzou at 20190411: read and adjust the orders of d,f,g, etc functions
 !  in Gaussian .chk file, to the orders in PySCF
 
-! This subroutine is designed to be called as a module by Python.
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------
-!  f2py -m chk2py -c chk2py.f90 --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------
-!  For GNU compiler, use
-! ------------------------------
-!  f2py -m chk2py -c chk2py.f90
-! ------------------------------
-!  to compile this file (a chk2py.so file will be generated). Then in
-!  Python you can import the chk2py module.
-
 ! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
 module Sdiag_parameter
  implicit none

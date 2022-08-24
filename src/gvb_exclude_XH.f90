@@ -224,7 +224,7 @@ subroutine gvb_exclude_XH(datname, gmsname)
  deallocate(order, coeff2)
 
  ! print MO into .dat file
- call print_mo_into_dat(datname, nbf, nif, coeff, .false.)
+ call write_mo_into_dat(datname, nbf, nif, coeff, .false.)
  deallocate(coeff, ci_coeff2)
  ! Note that a new .dat file will be generated
 
@@ -384,72 +384,6 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
  close(fid)
  forall(i = 1:natom) elem(i) = ADJUSTL(elem(i))
 end subroutine read_elem_and_bf2atom_from_gms
-
-! print MOs into .dat file
-! if replace is .true., the MOs in the original file will be replaced
-! if replace is .false., a new *_new.dat file will be generated
-subroutine print_mo_into_dat(datname, nbf, nif, coeff, replace)
- implicit none
- integer :: i, j, k, nline, nleft, fid1, fid2, RENAME
- integer, intent(in) :: nbf, nif
- real(kind=8), intent(in) :: coeff(nbf,nif)
- character(len=240), intent(in) :: datname
- character(len=240) :: newdat, buf
- logical, intent(in) :: replace
-
- buf = ' '; newdat = ' '
- i = index(datname,'.dat',.true.)
- if(i == 0) i = index(datname,'.inp',.true.)
- newdat = datname(1:i-1)//'_new.dat'
-
- open(newunit=fid1,file=TRIM(datname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(newdat),status='replace')
- do while(.true.)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
-  call upper(buf(3:5))
-  if(buf(2:5)=='$VEC') exit
- end do ! for while
-
- ! print MOs
- nline = nbf/5
- nleft = nbf - 5*nline
-
- do i = 1, nif, 1
-  k = MOD(i,100)
-  do j = 1, nline, 1
-   write(fid2,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:5*j,i)
-  end do ! for j
-  if(nleft > 0) then
-   write(fid2,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:nbf,i)
-  end if
- end do ! for i
- write(fid2,'(A)') ' $END'
- ! print MOs done
-
- ! skip the MOs in datname
- do while(.true.)
-  read(fid1,'(A)') buf
-  call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
- end do
-
- ! copy remaining contens
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
- close(fid2)
- ! copy done
-
- if(replace) then
-  close(fid1,status='delete')
-  i = RENAME(TRIM(newdat), TRIM(datname))
- else
-  close(fid1)
- end if
-end subroutine print_mo_into_dat
 
 ! print GVB CI coefficients into .dat file
 ! if replace is .true., the CI coefficients in the original file will be

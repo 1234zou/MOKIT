@@ -84,7 +84,7 @@ contains
   character(len=2), intent(out) :: elem(natom)
   logical, intent(out) :: ghost(natom)
 
-  elem = ' '
+  forall(i = 1:natom) elem(i) = '  '
   ghost = .false.
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
   nblank = 0
@@ -96,6 +96,7 @@ contains
   end do ! for while
 
   read(fid,'(A)') buf ! skip charge and mult
+
   do i = 1, natom, 1
    read(fid,*) str
    str = ADJUSTL(str)
@@ -119,6 +120,11 @@ contains
      elem(i) = TRIM(str)
     else
      read(str,*) j
+     if(j > period_nelem) then
+      write(6,'(A)') 'ERROR in subroutine read_elem_from_gjf: j too large.'
+      write(6,'(A,I0)') 'j=', j
+      stop
+     end if
      elem(i) = nuc2elem(j)
     end if
    end if

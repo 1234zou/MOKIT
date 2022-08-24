@@ -7,15 +7,6 @@
 ! modified by jxzou at 20180611: cycle in pairing
 ! modified by jxzou at 20180705: implement cases where occpuied LMO < unoccpuied LMO
 
-!  For GNU compiler, use
-! ------------------------------------
-!  f2py -m auto_pair -c auto_pair.f90
-! ------------------------------------
-!  For INTEL compiler, use
-! ---------------------------------------------------------------------------
-!  f2py -m auto_pair -c auto_pair.f90 --fcompiler=intelem --compiler=intelem
-! ---------------------------------------------------------------------------
-
 ! paired by minimizing the sum of orbitals distances (<i|r|i>-<j|r|j>)**2
 subroutine pair_by_dis(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole, new_coeff)
  implicit none

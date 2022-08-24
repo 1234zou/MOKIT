@@ -182,40 +182,6 @@ subroutine prt_unpaired_e(nif, noon, upe)
  write(6,'(A)') REPEAT('-',61)
 end subroutine prt_unpaired_e
 
-! read the number of GVB pairs from a GAMESS .dat file
-subroutine read_npair_from_dat(datname, npair)
- implicit none
- integer :: i, fid
- integer, intent(out) :: npair
- character(len=240) :: buf
- character(len=240), intent(in) :: datname
-
- npair = 0
- open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:5) == '$SCF') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_npair_from_dat: no '$SCF' found&
-                & in file "//TRIM(datname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- do while(.true.)
-  read(fid,'(A)') buf
-  i = index(buf, 'CICOEF')
-  if(i > 0) npair = npair + 1
-  if(index(buf,'END')>0 .or. index(buf,'VEC')>0) exit
- end do ! for while
-
- close(fid)
-end subroutine read_npair_from_dat
-
 ! read ncore, nopen and npair from a GAMESS .gms file
 subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
  implicit none
@@ -246,44 +212,6 @@ subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
  read(buf(42:),*) nopen
  close(fid)
 end subroutine read_npair_from_gms
-
-! read CI coefficients from a GAMESS .dat or .inp file
-subroutine read_ci_coeff_from_dat(fname, npair, coeff)
- implicit none
- integer :: i, j, k, fid
- integer, intent(in) :: npair
- character(len=240) :: buf
- character(len=240), intent(in) :: fname
- real(kind=8), intent(out) :: coeff(2,npair)
-
- buf = ' '; coeff = 0d0
- open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  j = index(buf,'CICOEF(')
-  if(j == 0) j = index(buf,'cicoef(')
-  if(j /= 0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_ci_coeff_from_dat: no GVB CI&
-                & coefficients found in file '//TRIM(fname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- do i = 1, npair, 1
-  read(fid,'(A)') buf
-  j = index(buf,'=')
-  k = index(buf,',')
-  read(buf(j+1:k-1),*) coeff(1,i)
-  read(buf(k+1:),*) coeff(2,i)
- end do ! for i
-
- close(fid)
-end subroutine read_ci_coeff_from_dat
 
 ! read CI coefficients from a GAMESS .gms file
 ! Note: if there exist multiple sets of CI coefficients in the file,

@@ -8,17 +8,6 @@
 
 ! TO DO: Schmidt orthogonalization
 
-!  For GNU compiler, use
-! ----------------------------------------------
-!  f2py -m ortho -c ortho.f90 --link-lapack_opt
-! ----------------------------------------------
-!  For INTEL compiler, use
-! -------------------------------------------------------------------------------------
-!  f2py -m ortho -c ortho.f90 --link-lapack_opt --fcompiler=intelem --compiler=intelem
-! -------------------------------------------------------------------------------------
-!  to compile this file (a ortho.so file will be generated). Then in Python
-!  you can import the sym_ortho module.
-
 ! check whether a given set of MOs are orthonormal
 subroutine check_orthonormal(nbf, nif, coeff, S)
  implicit none
