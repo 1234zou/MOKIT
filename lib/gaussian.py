@@ -7,7 +7,7 @@ from pyscf import gto
 from pyscf.lo.boys import dipole_integral
 from fch2py import fch2py
 from py2fch import py2fch
-from rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
+from rwwfn import read_nbf_and_nif_from_fch
 from lo import boys, pm
 
 def load_mol_from_fch(fchname):
@@ -87,6 +87,7 @@ def uno(fchname):
   '''
   import uno as pyuno
   from construct_vir import construct_vir
+  from rwwfn import read_na_and_nb_from_fch
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'

@@ -9,7 +9,12 @@ echo 'Warning! This Shell script will modify your current GAMESS source code.'
 echo 'You may want to save a copy of your source code(if it is important).'
 read -p 'Continue? [y/n]:' select
 
-if [ $select = "n" ]; then
+if [ $select == "y" ]; then
+ echo 'OK, continue...'
+elif [ $select == "n" ]; then
+ exit
+else
+ echo 'Wrong input. Only y or n is accepted.'
  exit
 fi
 
