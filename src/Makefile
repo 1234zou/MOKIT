@@ -39,7 +39,7 @@ OBJ_bas_gms2py = file_op.o string_manipulate.o read_gms_inp.o bas_gms2py.o
 OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o split_sp.o \
               bdf2fch.o
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
-OBJ_chk2gbw = util_wrapper.o chk2gbw.o
+OBJ_chk2gbw = file_op.o util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o split_sp.o dal2fch.o
 OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o math_sub.o rwwfn.o dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o

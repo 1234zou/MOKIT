@@ -342,7 +342,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Sep-12)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Sep-29)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -852,6 +852,14 @@ contains
     read(longbuf(j+1:i-1),*) on_thres
    case('uno_thres')
     read(longbuf(j+1:i-1),*) uno_thres
+   case('npair') ! numbers of pairs for non-GVB calculations
+    if(npair_wish /= 0) then
+     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified &
+                      &by more than once.'
+     write(6,'(A)') 'Please check your input file.'
+     stop
+    end if
+    read(longbuf(j+1:i-1),*) npair_wish
    case('nmr')
     nmr = .true.
    case('icss')
@@ -1266,12 +1274,14 @@ contains
    stop
   end if
 
-  if(.not. (gvb_prog=='gamess' .or. gvb_prog=='gaussian')) then
-   write(iout,'(A)') error_warn//"only 'GAMESS' or 'Gaussian' is supported for"
-   write(iout,'(A)') 'the GVB computation. User specified GVB program cannot be&
-                    & identified: '//TRIM(gvb_prog)
+  select case(TRIM(gvb_prog))
+  case('gamess','gaussian','qchem')
+  case default
+   write(6,'(A)') error_warn//'only GAMESS/Gaussian/QChem is supported for the'
+   write(6,'(A)') 'GVB computation. User specified GVB program cannot be ident&
+                  &ified: '//TRIM(gvb_prog)
    stop
-  end if
+  end select
 
   if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
    write(iout,'(A)') error_warn

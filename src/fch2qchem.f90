@@ -60,7 +60,7 @@ subroutine fch2qchem(fchname, npair)
  integer :: i, j, k, m, n, n1, n2, nif1, length, fid, purecart(4)
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer :: system
+ integer :: RENAME, SYSTEM
  integer, intent(in) :: npair
  integer, allocatable :: itmp(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=1) :: str = ' '
@@ -296,18 +296,17 @@ subroutine fch2qchem(fchname, npair)
   write(6,'(A)') 'You need to put the directory into $QCSCRATCH/ before running&
                  & qchem.'
  else
-  i = system('mv '//TRIM(proname)//' '//TRIM(dirname)//'/')
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: failed to move directory to&
-                   & $QCSCRATCH.'
-   write(6,'(A)') 'Probably your $QCSCRATCH/ is not empty.'
-   stop
-  else
+  call remove_dir(TRIM(dirname)//'/'//TRIM(proname))
+  i = SYSTEM('mv '//TRIM(proname)//' '//TRIM(dirname)//'/')
+  if(i == 0) then
    write(6,'(/,A)') '$QCSCRATCH found. Directory '//TRIM(proname)//' moved into &
                     &$QCSCRATCH/'
    write(6,'(A)') 'You can run:'
-   write(6,'(A)') 'qchem '//TRIM(inpname)//' '//TRIM(proname)//&
-                  '.out '//TRIM(proname)
+   write(6,'(A)') 'qchem '//TRIM(inpname)//' '//TRIM(proname)//'.out '//&
+                   TRIM(proname)
+  else
+   write(6,'(/,A)') 'Warning in subroutine fch2qchem: failed to move directory&
+                    & into '//TRIM(dirname)//'/'
   end if
  end if
 end subroutine fch2qchem

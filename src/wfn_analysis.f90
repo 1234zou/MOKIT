@@ -71,6 +71,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
   allocate(coeff(nbf,nif), source=0d0)
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
   allocate(dm(nbf,nbf), source=0d0)
+
   do i = 1, nbf, 1
    do j = 1, i, 1
     do k = 1, nif, 1
@@ -79,6 +80,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
     end do ! for k
    end do ! for j
   end do ! for i
+
   call write_density_into_fch(fchname1, nbf, .true., dm)
   deallocate(dm, coeff)
  end if

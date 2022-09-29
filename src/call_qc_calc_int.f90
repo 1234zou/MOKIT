@@ -355,6 +355,41 @@ subroutine check_two_real8_eq(r1, r2, diff)
  end if
 end subroutine check_two_real8_eq
 
+! submit a GAMESS frozen core GVB job
+subroutine submit_gms_fzgvb_job(gms_path, gms_scr_path, inpname, nproc)
+ implicit none
+ integer :: i, fid, fid1
+ integer, intent(in) :: nproc
+ character(len=240) :: buf, inpname1, datname1
+ character(len=240), intent(in) :: gms_path, gms_scr_path, inpname
+
+ i = index(inpname, '.inp', back=.true.)
+ inpname1 = inpname(1:i-1)//'_f.inp'
+ datname1 = inpname(1:i-1)//'_f.dat'
+ call submit_gms_job(gms_path, gms_scr_path, inpname1, nproc)
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(datname1),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:5) == '$VEC') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(2:5) == '$VEC') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  write(fid,'(A)') TRIM(buf)
+  if(buf(2:5) == '$END') exit
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+end subroutine submit_gms_fzgvb_job
+
 ! submit a GAMESS job
 subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  implicit none
@@ -505,6 +540,30 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
   stop
  end if
 end subroutine submit_psi4_job
+
+subroutine submit_qchem_job(inpname, nproc)
+ implicit none
+ integer :: i, system
+ integer, intent(in) :: nproc
+ character(len=240) :: scr_dir, outname
+ character(len=500) :: buf
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.in', back=.true.)
+ scr_dir = inpname(1:i-1)
+ outname = inpname(1:i-1)//'.out'
+
+ write(buf,'(A,I0,A)') 'qchem -nt ',nproc,' -np 1 '//TRIM(inpname)//' '//&
+                       TRIM(outname)//' '//TRIM(scr_dir)//' >& junk'
+ write(6,'(A)') '$'//TRIM(buf)
+
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_qchem_job: QChem job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_qchem_job
 
 ! submit a GVB-BCCI job
 subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)

@@ -371,6 +371,49 @@ subroutine fch2dal_wrap(fchname, dalname)
 
 end subroutine fch2dal_wrap
 
+! wrapper of utility fch2qchem
+subroutine fch2qchem_wrap(fchname, npair, inpname)
+ implicit none
+ integer :: i, system, RENAME
+ integer, intent(in) :: npair ! the number of GVB pairs
+ character(len=240) :: inpname0, dirname
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: inpname
+ character(len=260) :: buf
+ character(len=480) :: scr_dir, scr_dir0
+
+ buf = 'fch2qchem '//TRIM(fchname)
+ if(npair > 0) write(buf,'(A,I0)') TRIM(buf)//' -gvb ', npair
+
+#ifdef _WIN32
+ i = system(TRIM(buf)//' > NUL')
+#else
+ i = system(TRIM(buf)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine fch2qchem_wrap: failed to call utility&
+                & fch2qchem.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(present(inpname)) then
+  dirname = ' '
+  call getenv('QCSCRATCH', dirname)
+
+  i = index(fchname, '.fch', back=.true.)
+  scr_dir0 = TRIM(dirname)//'/'//fchname(1:i-1)
+  inpname0 = fchname(1:i-1)//'.in'
+  i = RENAME(TRIM(inpname0), TRIM(inpname))
+
+  i = index(inpname, '.in', back=.true.)
+  scr_dir = TRIM(dirname)//'/'//inpname(1:i-1)
+  call remove_dir(TRIM(scr_dir))
+  i = RENAME(TRIM(scr_dir0), TRIM(scr_dir))
+ end if
+end subroutine fch2qchem_wrap
+
 subroutine bas_fch2py_wrap(fchname, pyname)
  implicit none
  integer :: i, system, RENAME

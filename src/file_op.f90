@@ -103,21 +103,21 @@ end subroutine copy_file
 ! copy binary file (if delete=.True., delete fname1)
 subroutine copy_bin_file(fname1, fname2, delete)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=*), intent(in) :: fname1, fname2
  logical, intent(in) :: delete
 
 #ifdef _WIN32
- i = system('copy /Y '//TRIM(fname1)//' '//TRIM(fname2)//' > NUL')
+ i = SYSTEM('copy /Y '//TRIM(fname1)//' '//TRIM(fname2)//' > NUL')
 #else
- i = system('cp '//TRIM(fname1)//' '//TRIM(fname2))
+ i = SYSTEM('cp '//TRIM(fname1)//' '//TRIM(fname2))
 #endif
 
  if(delete) then
 #ifdef _WIN32
- i = system('del '//TRIM(fname1))
+ i = SYSTEM('del '//TRIM(fname1))
 #else
- i = system('rm -f '//TRIM(fname1))
+ i = SYSTEM('rm -f '//TRIM(fname1))
 #endif
  end if
 
@@ -132,18 +132,64 @@ end subroutine copy_bin_file
 ! create a directory
 subroutine create_dir(dirname)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=*), intent(in) :: dirname
 
 #ifdef _WIN32
- i = system('CD '//dirname)
+ i = SYSTEM('CD '//dirname)
  if(i == 0) then
-  i = system('CD ..')
+  i = SYSTEM('CD ..')
  else
-  i = system('MD '//dirname)
+  i = SYSTEM('MD '//dirname)
  end if
 #else
- i = system('mkdir -p '//dirname)
+ i = SYSTEM('mkdir -p '//dirname)
 #endif
 end subroutine create_dir
+
+! remove/delete a directory. USE WITH CAUTION!!!
+subroutine remove_dir(dirname)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=*), intent(in) :: dirname
+
+#ifdef _WIN32
+ i = SYSTEM('rd '//dirname)
+#else
+ i = LEN_TRIM(dirname)
+ if(i == 1) then
+  write(6,'(A)') 'ERROR in subroutine remove_dir: wrong directory name: '//&
+                  TRIM(dirname)
+  stop
+ end if
+
+ if(i > 3) then
+  select case(dirname(1:4))
+  case('/usr','/bin','/lib','/etc')
+   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+                   //TRIM(dirname)
+   stop
+  case default
+  end select
+ end if
+
+ if(i > 4) then
+  if(dirname(1:5) == '/sbin') then
+   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+                   //TRIM(dirname)
+   stop
+  end if
+ end if
+
+ if(i > 5) then
+  if(dirname(1:6) == '/lib64') then
+   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+                   //TRIM(dirname)
+   stop
+  end if
+ end if
+
+ i = SYSTEM('rm -rf '//dirname)
+#endif
+end subroutine remove_dir
 

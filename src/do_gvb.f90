@@ -150,6 +150,11 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  call modify_gvb_conv(inpname, GVB_conv)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
+ ! perform GVB with all doubly occupied orbitals frozen
+! call add_frz2gms_inp(inpname)
+! call submit_gms_fzgvb_job(gms_path, gms_scr_path, inpname, nproc)
+
+ ! perform GVB
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from &
@@ -195,7 +200,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  i = system(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                     & extract_noon2fch.'
+                  & extract_noon2fch.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if
@@ -212,12 +217,39 @@ end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
 subroutine do_gvb_qchem(proname, pair_fch)
+ use mr_keyword, only: nproc, mo_rhf
+ use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
+ use util_wrapper, only: fch2qchem_wrap
  implicit none
+ integer :: i, RENAME
+ character(len=240) :: buf, inpname, outname, fchname0, fchname
  character(len=240), intent(in) :: proname, pair_fch
 
- write(6,'(A)') 'ERROR in subroutine do_gvb_qchem: implmentation not&
-               & finished yet.'
- stop
+ if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+  write(buf,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+ else ! paired LMOs obtained from associated rotation of UNOs
+  write(buf,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
+ end if
+
+ inpname = TRIM(buf)//'.in'
+ outname = TRIM(buf)//'.out'
+ fchname0= TRIM(buf)//'.FChk'
+ fchname = TRIM(buf)//'.fch'
+ call fch2qchem_wrap(pair_fch, npair, inpname)
+ call submit_qchem_job(inpname, nproc)
+ call delete_file('pathtable')
+ call delete_file('junk')
+ call delete_file(TRIM(buf)//'.0.FChk')
+ i = RENAME(TRIM(buf)//'.FChk', TRIM(buf)//'.fch')
+
+ call read_gvb_e_from_qchem_out(outname, gvb_e)
+ write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
+ write(6,'(A)') 'Remark: the GVB-PP in Q-Chem uses coupled-cluster-like formula&
+                &e, see Chemical'
+ write(6,'(A)') 'Physics 202 (1996) 217-229. It is a non-variational method, so&
+                & its energy usually'
+ write(6,'(A)') 'differs slightly with that calculated by GVB-PP in GAMESS/Gaus&
+                &sian.'
 end subroutine do_gvb_qchem
 
 ! perform GVB computation (only in Strategy 1,3) using Gaussian
@@ -361,7 +393,33 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  deallocate(pair)
 end subroutine prt_gvb_gau_inp
 
-! read GVB electronic energy from a Gaussian output file
+! read GVB energy from a Q-Chem output file
+subroutine read_gvb_e_from_qchem_out(outname, gvb_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: gvb_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ gvb_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'GVB Converge') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_qchem_out: no 'GVB Con&
+                   &verge' found in file "//TRIM(outname)
+  stop
+ end if
+
+ read(buf(16:),*) i, gvb_e
+end subroutine read_gvb_e_from_qchem_out
+
+! read GVB energy from a Gaussian output file
 subroutine read_gvb_e_from_gau_out(logname, gvb_e)
  implicit none
  integer :: i, fid
@@ -563,4 +621,46 @@ subroutine get_npair_from_inpname(inpname, npair)
  end if
  read(inpname(i+3:j-1),*) npair
 end subroutine get_npair_from_inpname
+
+! add keywords of freezing all doubly orbitals for a GAMESS .inp file
+subroutine add_frz2gms_inp(inpname)
+ implicit none
+ integer :: i, ncore, fid, fid1
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.inp', back=.true.)
+ inpname1 = inpname(1:i-1)//'_f.inp'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(2:5) == '$SCF') exit
+ end do ! for while
+
+ i = index(buf, 'NCO')
+ if(i == 0) then
+  close(fid)
+  close(fid1, status='delete')
+  write(6,'(A)') "ERROR in subroutine add_frz2gms_inp: no 'NCO' found in file"
+  write(6,'(A)') trim(inpname)
+  stop
+ end if
+ read(buf(i+4:),*) ncore
+
+ write(fid1,'(A)',advance='no') ' $MOFRZ FRZ=.T. IFRZ(1)='
+ write(fid1,'(21(I0,A1))') (i,',',i=1,ncore)
+ write(fid1,'(A)') ' $END'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+end subroutine add_frz2gms_inp
 

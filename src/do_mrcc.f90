@@ -268,7 +268,25 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   i = index(buf, '=')
   read(buf(i+1:),*) ref_e
 
+  ! find if any 'ERROR: amplitude iterations fail'
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:32) == 'ERROR: amplitude iterations fail') then
+    close(fid)
+    write(6,'(A)') 'ERROR in subroutine read_mrcc_energy_from_output: amplitud&
+                   &e iterations not converge.'
+    stop
+   end if
+   if(buf(1:3) == 'ITN') exit
+  end do ! for while
+
+  close(fid)
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
   do while(.true.)
    BACKSPACE(fid)
    BACKSPACE(fid)
