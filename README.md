@@ -34,14 +34,14 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Sep 29, 2022
+Sep 30, 2022
 
 Installation
 ------------
 
 * Prerequisites
-    - Fortran compiler: ifort(>=2017) or gfortran(>=4.8.5)
-    - Intel MKL (installing Intel compilers recommended)
+    - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
+    - Intel MKL(recommended) or [OpenBLAS](https://github.com/xianyi/OpenBLAS)
     - f2py (installing Anaconda Python3 recommended)
 
 * Compile all modules
@@ -65,8 +65,8 @@ Installation
   (Remember to modify the `GMS` path to suit your local environment)
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
-  can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in
-  [manual](doc/).
+  can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
+  in [manual](doc/).
 
 Quick Start
 -----------

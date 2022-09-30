@@ -35,14 +35,14 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年9月29号
+2022年9月30号
 
 安装
 ----------
 
 * 前提（编译器和库要求）
-    - Fortran编译器: ifort(推荐>=2017) 或 gfortran(>=4.8.5)
-    - Intel MKL (推荐安装Intel编译器，内含ifort和MKL库)
+    - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)
+    - Intel MKL(推荐安装Intel编译器，内含ifort和MKL) 或 [OpenBLAS](https://github.com/xianyi/OpenBLAS)
     - f2py (推荐安装Anaconda Python3，内含f2py)
 
 * 编译全部模块， 执行

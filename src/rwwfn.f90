@@ -1330,10 +1330,15 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  implicit none
  integer :: i, fid, idx(3), nvir
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
- character(len=240) :: buf = ' '
+ character(len=240) :: buf, unofile
  logical, intent(out) :: lin_dep
 
- call open_file('uno.out', .true., fid)
+ buf = ' '
+ unofile = 'uno.out'
+ ! Note: better use a string with length 240 to store 'uno.out' since the
+ ! corresponding parameter in subroutine open_file is with parameter 240
+ call open_file(unofile, .true., fid)
+
  read(fid,'(A)') buf
  i = index(buf,'=')
  read(buf(i+1:),*) nbf
@@ -1351,7 +1356,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end if
 
  close(fid)
- call open_file('uno.out', .false., fid)
+ call open_file(unofile, .false., fid)
 
  do while(.true.)
   BACKSPACE(fid)

@@ -3,7 +3,16 @@
 
 BIN = ../bin
 
-# --- gfortran ---
+# --- ifort + Intel MKL ----
+F90    = ifort
+FFLAGS = -O2 -fpp -fPIC
+MKL_FLAGS = -mkl
+F2PY   = f2py
+F2_FLAGS = --fcompiler=intelem --compiler=intelem
+F2_MKL_FLAGS = --link-lapack_opt
+F2_F90_FLAGS = --f90flags="-fpp"
+
+# --- gfortran + Intel MKL ---
 #F90    = gfortran
 #FFLAGS = -O2 -cpp -fPIC
 #MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
@@ -12,14 +21,14 @@ BIN = ../bin
 #F2_MKL_FLAGS = --link-lapack_opt
 #F2_F90_FLAGS = --f90flags="-cpp"
 
-# --- ifort ----
-F90    = ifort
-FFLAGS = -O2 -fpp -fPIC
-MKL_FLAGS = -mkl
-F2PY   = f2py
-F2_FLAGS = --fcompiler=intelem --compiler=intelem
-F2_MKL_FLAGS = --link-lapack_opt
-F2_F90_FLAGS = --f90flags="-fpp"
+# --- gfortran + OpenBLAS ---
+#F90    = gfortran
+#FFLAGS = -O2 -cpp -fPIC
+#MKL_FLAGS = -L/home/jxzou/software/openblas-0.3.21/lib64 -lopenblas
+#F2PY   = f2py
+#F2_FLAGS =
+#F2_MKL_FLAGS = --link-lapack_opt
+#F2_F90_FLAGS = --f90flags="-cpp"
 
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcharge_to_inp.o
 OBJ_addH2singlet = file_op.o string_manipulate.o read_fch.o math_sub.o addH2singlet.o
