@@ -1,4 +1,4 @@
-MOKIT 1.2.4 (Sep 30, 2022)
+MOKIT 1.2.4 (Oct 1, 2022)
 ------------------------
 * add compiler options for gfortran+OpenBLAS
 * add the keyword Npair for non-GVB calculations

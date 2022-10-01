@@ -868,3 +868,78 @@ subroutine prt_gvb_couple_coeff(fid, nopen)
  deallocate(f, alpha, beta)
 end subroutine prt_gvb_couple_coeff
 
+! copy GVB CI coefficients (or called pair coefficients) from a .dat file into
+! another one 
+subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
+ implicit none
+ integer :: i, j, npair, fid1, fid2, fid3, RENAME
+ integer, intent(in) :: nopen
+ character(len=240) :: buf, new_dat
+ character(len=240), intent(in) :: addH_dat, datname
+
+ i = index(addH_dat, '.dat', back=.true.)
+ new_dat = addH_dat(1:i-1)//'.t'
+ open(newunit=fid1,file=TRIM(addH_dat),status='old',position='rewind')
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(2:6) == '$DATA') exit
+ end do ! for while
+
+ open(newunit=fid2,file=TRIM(new_dat),status='replace')
+ write(fid2,'(A)') ' $DATA'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(2:5) == '$VEC') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ open(newunit=fid3,file=TRIM(datname),status='old',position='rewind')
+ do while(.true.)
+  read(fid3,'(A)') buf
+  if(buf(2:5) == '$SCF') exit
+ end do ! for while
+
+ i = index(buf, 'CICOEF')
+ if(i > 0) then
+  write(fid2,'(A)') TRIM(buf)
+  npair = 1
+ else
+  npair = 0
+ end if
+
+ do while(.true.)
+  read(fid3,'(A)') buf
+  i = index(buf, 'CICOEF')
+  if(i > 0) then
+   j = index(buf, '$END')
+   if(j > 0) then
+    buf(j:j+3) = '    '
+    write(fid2,'(A)') TRIM(buf)
+    exit
+   else
+    write(fid2,'(A)') TRIM(buf)
+   end if
+   npair = npair + 1
+  else
+   exit
+  end if
+ end do ! for while
+
+ close(fid3)
+ do i = 1, nopen, 1
+  j = 2*(npair+i) - 1
+  write(fid2,'(3X,A,I3,A)') 'CICOEF(',j,')= 0.7071067811865476,-0.7071067811865476'
+ end do ! for i
+ write(fid2,'(A,/,A)') ' $END', ' $VEC'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(new_dat), TRIM(addH_dat))
+end subroutine copy_and_add_pair_coeff
+

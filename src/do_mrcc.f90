@@ -316,11 +316,12 @@ end subroutine read_mrcc_energy_from_output
 
 ! perform GVB-BCCC2b/3b calculations
 subroutine do_gvb_bccc()
- use mol, only: mult, npair, nopen, mrcc_e
+ use mol, only: mult, ndb, npair, nopen, mrcc_e
  use mr_keyword, only: mem, nproc, mrcc_type, mrcc_prog, datname
  implicit none
- integer :: i, j, system, RENAME
+ integer :: i, j, npair1, system, RENAME
  real(kind=8) :: ref_e, corr_e(2)
+ real(kind=8), parameter :: e_H = -0.454397401648d0 ! ROHF/STO-2G
  character(len=24) :: data_string
  character(len=240) :: fchname1, fchname2, datname2, pyname, outname
  character(len=240) :: fcidump, ampname1, ampname2, inpname
@@ -344,79 +345,98 @@ subroutine do_gvb_bccc()
  write(6,'(A)') 'b based on GVB orbitals'
  write(6,'(A)') 'Frozen_core = T. Frozen_vir = T. Using program gvb_bccc'
 
- if(mult==3 .and. mrcc_type>6) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently triplet GVB-BCCC&
-                   &3b is not supported.'
-  stop
- end if
-
- if(mult > 3) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_bccc: currently GVB-BCCC is only&
-                  & valid for singlet and triplet.'
-  write(6,'(A,I0)') 'Your input spin multiplicity=', mult
-  stop
+ ! print warnings for non-singlet calculations
+ if(mult > 1) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Remark: non-singlet dectected. The molecule will be augmented&
+                 & by proper number'
+  write(6,'(A)') 'of H atoms far away. Then it becomes a singlet complex, and s&
+                 &inglet GVB-BCCC w-'
+  write(6,'(A)') 'ill be invoked. ROHF energies of H atoms using STO-2G have be&
+                 &en subtracted in'
+  write(6,'(A)') 'the following energies.'
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: this algorithm cannot deal with a molecule whose gro&
+                 &und state is sing-'
+  write(6,'(A)') 'let. For example, if you use this algorithm to calculate the &
+                 &triplet of NH3 mo-'
+  write(6,'(A)') 'lecule, the GVB-BCCC wave function will collapse to singlet.'
+  write(6,'(A)') REPEAT('-',79)
  end if
 
  i = index(datname, '_s.dat', back=.true.)
  if(i == 0) then
-  write(6,'(A)') 'ERROR in subroutine do_gvb_bccc: .dat filename does not &
-                & have _s.dat suffix!'
-  write(6,'(A)') 'datname='//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine do_gvb_bccc: '_s.dat' suffix not found&
+                   & in filname "//TRIM(datname)
   stop
  end if
-
  fchname1 = datname(1:i+1)//'.fch'
- fchname2 = datname(1:i-1)//'.fch'
- datname2 = datname(1:i-1)//'.dat'
- pyname = datname(1:i-1)//'.py'
- outname = datname(1:i-1)//'.out'
- fcidump = datname(1:i-1)//'.FCIDUMP'
- call copy_file(fchname1, fchname2, .false.)
 
- i = system('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
+ if(mult == 1) then
+  ! singlet: generate FCIDUMP and perform linearized BCCC2b
+  fchname2 = datname(1:i-1)//'.fch'
+  datname2 = datname(1:i-1)//'.dat'
+  pyname = datname(1:i-1)//'.py'
+  outname = datname(1:i-1)//'.out'
+  fcidump = datname(1:i-1)//'.FCIDUMP'
+  call copy_file(fchname1, fchname2, .false.)
+  i = system('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
+  i = 2*npair + nopen
+  call prt_py_script_to_gen_fcidump(fchname2, i, i, mem, nproc)
+  call submit_pyscf_job(pyname)
+  call delete_files(3, [pyname, outname, fchname2])
+  npair1 = npair
 
- i = 2*npair + nopen
- call prt_py_script_to_gen_fcidump(fchname2, i, i, mem, nproc)
- call submit_pyscf_job(pyname)
- call delete_files(3, [pyname, outname, fchname2])
+ else ! non-singlet: localization, add H atoms, and generate FCIDUMP
+  pyname = datname(1:i+1)//'.py'
+  outname = datname(1:i+1)//'.out'
+  datname2 = datname(1:i-1)//'aH.dat'
+  fcidump = datname(1:i-1)//'aH.FCIDUMP'
+  call prt_py_script_loc_add_gen(fchname1, ndb, npair, nopen)
+  call submit_pyscf_job(pyname)
+  call delete_file(outname)
+  npair1 = npair + nopen
+ end if
 
  i = index(datname, '_s.dat', back=.true.)
  inpname = datname(1:i-1)//'_bccc.input'
-
- if(mult == 1) then ! perform linearized BCCC2b
-  outname = datname(1:i-1)//'_linbccc2b.out'
-  ampname1 = datname(1:i-1)//'_linbccc2b.amp'
-  ampname2 = 'aaa'   ! no initial guess, nonexistent filename
-  call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname2)
-  call submit_gvb_bcci_job(nproc, 2, inpname, outname)
-  ampname2 = datname(1:i-1)//'_bccc.amp'
-  j = RENAME(TRIM(ampname2), TRIM(ampname1))
- else
-  ampname1 = 'aaa'   ! no initial guess, nonexistent filename
-  ampname2 = datname(1:i-1)//'_bccc.amp'
- end if
+ outname = datname(1:i-1)//'_linbccc2b.out'
+ ampname1 = datname(1:i-1)//'_linbccc2b.amp'
+ ampname2 = 'aaa'   ! no initial guess, nonexistent filename
+ call prt_bccc_inp(1, npair1, inpname, fcidump, datname2, ampname2)
+ call submit_gvb_bcci_job(nproc, 2, inpname, outname)
+ ampname2 = datname(1:i-1)//'_bccc.amp'
+ j = RENAME(TRIM(ampname2), TRIM(ampname1))
 
  ! perform GVB-BCCC2b
  outname = datname(1:i-1)//'_bccc2b.out'
- call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname1)
- call submit_gvb_bccc_job(mult, nproc, 2, inpname, outname)
+ call prt_bccc_inp(1, npair1, inpname, fcidump, datname2, ampname1)
+ call submit_gvb_bccc_job(1, nproc, 2, inpname, outname)
  ampname1 = datname(1:i-1)//'_bccc2b.amp'
  j = RENAME(TRIM(ampname2), TRIM(ampname1))
  call read_mrcc_energy_from_output(mrcc_prog, 4, outname, ref_e, corr_e)
  mrcc_e = corr_e(2)
+ if(mult /= 1) then
+  ref_e = ref_e - DBLE(nopen)*e_H
+  corr_e(2) = corr_e(2) - DBLE(nopen)*e_H
+ end if
  write(6,'(/,A,F18.8,1X,A4)')'E(GVB)        = ', ref_e    , 'a.u.'
  write(6,'(A,F18.8,1X,A4)')  'E(E_2bcorr)   = ', corr_e(1), 'a.u.'
  write(6,'(A,F18.8,1X,A4)')  'E(GVB-BCCC2b) = ', corr_e(2), 'a.u.'
 
  if(mrcc_type > 6) then   ! perform GVB-BCCC3b
   outname = datname(1:i-1)//'_bccc3b.out'
-  call prt_bccc_inp(mult, npair, inpname, fcidump, datname2, ampname1)
-  call submit_gvb_bccc_job(mult, nproc, 3, inpname, outname)
+  call prt_bccc_inp(1, npair1, inpname, fcidump, datname2, ampname1)
+  call submit_gvb_bccc_job(1, nproc, 3, inpname, outname)
   ampname2 = datname(1:i-1)//'_bccc.amp'
   ampname1 = datname(1:i-1)//'_bccc3b.amp'
   j = RENAME(TRIM(ampname2), TRIM(ampname1))
   call read_mrcc_energy_from_output(mrcc_prog, 5, outname, ref_e, corr_e)
   mrcc_e = corr_e(2)
+  if(mult /= 1) then
+   ref_e = ref_e - DBLE(nopen)*e_H
+   corr_e(2) = corr_e(2) - DBLE(nopen)*e_H
+  end if
   write(6,'(A,F18.8,1X,A4)')  'E(E_3bcorr)   = ', corr_e(1), 'a.u.'
   write(6,'(A,F18.8,1X,A4)')  'E(GVB-BCCC3b) = ', corr_e(2), 'a.u.'
  end if
@@ -425,7 +445,7 @@ subroutine do_gvb_bccc()
  write(6,'(A)') 'Leave subroutine do_gvb_bccc at '//TRIM(data_string)
 end subroutine do_gvb_bccc
 
-! modify PySCF script to generate FCIDUMP
+! print Python script to generate FCIDUMP
 subroutine prt_py_script_to_gen_fcidump(fchname, nacto, nacte, mem, nproc)
  implicit none
  integer :: i, fid
@@ -444,6 +464,53 @@ subroutine prt_py_script_to_gen_fcidump(fchname, nacto, nacte, mem, nproc)
                            nacte, ',', mem*1000, ',', nproc, ')'
  close(fid)
 end subroutine prt_py_script_to_gen_fcidump
+
+! print Python script to perform orbital localization for singly occupied
+! open-shell orbitals, add H atoms and generate FCIDUMP for non-singlet
+subroutine prt_py_script_loc_add_gen(fchname, ndb, npair, nopen)
+ use mr_keyword, only: mem, nproc
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: ndb, npair, nopen
+ character(len=240) :: pyname, lmofch, addH_fch, inpname, addH_dat, datname,&
+                       addH_fch2
+ character(len=240), intent(in) :: fchname
+
+ k = ndb + npair
+ i = index(fchname, '_s.fch', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine prt_py_script_loc_add_gen: no '_s.fch'&
+                   & suffix found in"
+  write(6,'(A)') 'filename '//TRIM(fchname)
+  stop
+ end if
+ pyname   = fchname(1:i+1)//'.py'
+ lmofch   = fchname(1:i+1)//'_LMO.fch'
+ addH_fch = fchname(1:i+1)//'_LMOaH.fch'
+ inpname  = fchname(1:i+1)//'_LMOaH.inp'
+ addH_dat = fchname(1:i-1)//'aH.dat'
+ addH_fch2= fchname(1:i-1)//'aH.fch'
+ datname  = fchname(1:i+1)//'.dat'
+
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from gaussian import loc, gen_fcidump'
+ write(fid,'(A)') 'from rwgeom import copy_and_add_pair_coeff'
+ write(fid,'(A)') 'from os import system, rename'
+ write(fid,'(A)') 'from shutil import copyfile'
+ write(fid,'(/,2(A,I0),A)') "loc(fchname='"//TRIM(fchname)//"',idx=range(",&
+                             k, ',', k+nopen, '))'
+ write(fid,'(A)') "system('addH2singlet "//TRIM(lmofch)//" -gvb')"
+ write(fid,'(A,I0,A)') "system('fch2inp "//TRIM(addH_fch)//" -gvb ",npair+nopen,"')"
+ write(fid,'(A)') "rename('"//TRIM(inpname)//"','"//TRIM(addH_dat)//"')"
+ write(fid,'(A,I0,A)') "copy_and_add_pair_coeff('"//TRIM(addH_dat)//"','"//&
+                        TRIM(datname)//"',",nopen,')'
+ write(fid,'(A)') "copyfile('"//TRIM(addH_fch)//"','"//TRIM(addH_fch2)//"')"
+ write(fid,'(A)') "system('dat2fch "//TRIM(addH_dat)//' '//TRIM(addH_fch2)//"')"
+ i = 2*(npair + nopen)
+ write(fid,'(4(A,I0),A)') "gen_fcidump('"//TRIM(addH_fch2)//"',",i,',',i, ',',&
+                           mem*1000, ',', nproc, ')'
+ close(fid)
+end subroutine prt_py_script_loc_add_gen
 
 ! print GVB-BCCC input file
 subroutine prt_bccc_inp(mult, npair, inpname, fcidump, datname, ampname)

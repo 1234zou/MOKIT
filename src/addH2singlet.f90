@@ -226,7 +226,7 @@ subroutine addH2singlet(fchname, gvb_no)
 
  ! create/generate a new .fch file
  i = index(fchname, '.fch')
- write(new_fch,'(A,I0,A)') fchname(1:i-1),nadd,'H.fch'
+ new_fch = fchname(1:i-1)//'aH.fch'
  call write_fch(new_fch)
 end subroutine addH2singlet
 

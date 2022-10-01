@@ -24,7 +24,7 @@ F2_F90_FLAGS = --f90flags="-fpp"
 # --- gfortran + OpenBLAS ---
 #F90    = gfortran
 #FFLAGS = -O2 -cpp -fPIC
-#MKL_FLAGS = -L/home/jxzou/software/openblas-0.3.21/lib64 -lopenblas
+#MKL_FLAGS = -L/home/$USER/software/openblas-0.3.21/lib64 -lopenblas
 #F2PY   = f2py
 #F2_FLAGS =
 #F2_MKL_FLAGS = --link-lapack_opt
@@ -90,6 +90,8 @@ OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o read_fch.o rwgeom.o \
                          replace_xyz_in_inp.o
 OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
               split_sp.o xml2fch.o
+OBJ_mo_svd_format = file_op.o string_manipulate.o math_sub.o rwwfn.o mo_svd_format.o
+OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_matrix.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
@@ -104,8 +106,6 @@ OBJ_wfn_analysis = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
 OBJ_lo = string_manipulate.f90 math_sub.f90 file_op.f90 util_wrapper.f90 \
          rwwfn.f90 call_qc_calc_int.f90 lo.f90 read_gms_inp.o
 OBJ_mo_svd = math_sub.f90 mo_svd.f90
-OBJ_mo_svd_format = file_op.o string_manipulate.o math_sub.o rwwfn.o mo_svd_format.o
-OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_matrix.o
 OBJ_rwgeom = string_manipulate.f90 rwgeom.f90
 OBJ_rwwfn = file_op.f90 math_sub.f90 rwwfn.f90
 OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
