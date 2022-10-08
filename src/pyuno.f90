@@ -54,7 +54,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  real(kind=8), allocatable :: mo_basis_ovlp(:,:), alpha_occ(:,:), beta_occ(:,:)
  real(kind=8), allocatable :: sv_occ0(:), sv_occ(:)
  character(len=7), parameter :: outname = 'uno.out'
- character(len=62), parameter :: on_warn1 = 'Warning in subroutine uno: uno_th&
+ character(len=63), parameter :: on_warn1 = 'Warning in subroutine uno: uno_th&
                                             &res deviates from ON_criteria.'
  character(len=35), parameter :: on_warn2 = 'You better know what you are doing.'
 

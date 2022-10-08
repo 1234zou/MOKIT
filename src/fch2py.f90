@@ -536,7 +536,7 @@ subroutine fch2py_cghf(fchname, nbf, nif, coeff)
 
  call fch2py(fchname, nbf, nif, 'r', real_c) ! real part
  call fch2py(fchname, nbf, nif, 'i', imag_c) ! imaginary part
- forall(i=1:nbf, j=1:nif) coeff(i,j) = CMPLX(real_c(i,j), imag_c(i,j))
+ forall(i=1:nbf, j=1:nif) coeff(i,j) = CMPLX(real_c(i,j), imag_c(i,j), kind=8)
 
  deallocate(real_c, imag_c)
 end subroutine fch2py_cghf

@@ -1,33 +1,33 @@
 # written by jxzou at 20200322
 # updated by jxzou at 20200515: delete 'install', add $(BIN)
+# updated by jxzou at 20221008: delete F2_MKL_FLAGS
 
 BIN = ../bin
 
 # --- ifort + Intel MKL ----
 F90    = ifort
 FFLAGS = -O2 -fpp -fPIC
-MKL_FLAGS = -mkl
+MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
+#MKL_FLAGS = -L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem --compiler=intelem
-F2_MKL_FLAGS = --link-lapack_opt
 F2_F90_FLAGS = --f90flags="-fpp"
 
 # --- gfortran + Intel MKL ---
 #F90    = gfortran
 #FFLAGS = -O2 -cpp -fPIC
 #MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
+##MKL_FLAGS = -L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt
 #F2PY   = f2py
 #F2_FLAGS =
-#F2_MKL_FLAGS = --link-lapack_opt
 #F2_F90_FLAGS = --f90flags="-cpp"
 
 # --- gfortran + OpenBLAS ---
 #F90    = gfortran
 #FFLAGS = -O2 -cpp -fPIC
-#MKL_FLAGS = -L/home/$USER/software/openblas-0.3.21/lib64 -lopenblas
+#MKL_FLAGS = -L/home/$$USER/software/openblas-0.3.21/lib64 -lopenblas
 #F2PY   = f2py
 #F2_FLAGS =
-#F2_MKL_FLAGS = --link-lapack_opt
 #F2_F90_FLAGS = --f90flags="-cpp"
 
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o add_bgcharge_to_inp.o
@@ -314,19 +314,19 @@ xml2fch: $(OBJ_xml2fch)
 	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS) $(MKL_FLAGS)
 
 pyuno: $(OBJ_pyuno)
-	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(MKL_FLAGS)
 	@mv uno*.so ../lib/
 
 construct_vir: $(OBJ_construct_vir)
-	$(F2PY) -c $(OBJ_construct_vir) -m construct_vir $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_construct_vir) -m construct_vir $(F2_FLAGS) $(MKL_FLAGS)
 	@mv construct_vir*.so ../lib/
 
 ortho: $(OBJ_ortho)
-	$(F2PY) -c $(OBJ_ortho) -m ortho $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_ortho) -m ortho $(F2_FLAGS) $(MKL_FLAGS)
 	@mv ortho*.so ../lib/
 
 assoc_rot: $(OBJ_assoc_rot)
-	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(MKL_FLAGS)
 	@mv assoc_rot*.so ../lib/
 
 assoc_loc: $(OBJ_assoc_loc)
@@ -334,11 +334,11 @@ assoc_loc: $(OBJ_assoc_loc)
 	@mv assoc_loc*.so ../lib/
 
 wfn_analysis: $(OBJ_wfn_analysis)
-	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
 	@mv wfn_analysis*.so ../lib/
 
 lo: $(OBJ_lo)
-	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(MKL_FLAGS)
 	@mv lo*.so ../lib/
 
 auto_pair: $(OBJ_auto_pair)
@@ -346,7 +346,7 @@ auto_pair: $(OBJ_auto_pair)
 	@mv auto_pair*.so ../lib/
 
 mo_svd: $(OBJ_mo_svd)
-	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(MKL_FLAGS)
 	@mv mo_svd*.so ../lib/
 
 mo_svd_format: $(OBJ_mo_svd_format)
@@ -360,11 +360,11 @@ rwgeom: $(OBJ_rwgeom)
 	@mv rwgeom*.so ../lib/
 
 rwwfn: $(OBJ_rwwfn)
-	$(F2PY) -c $(OBJ_rwwfn) $(F2_F90_FLAGS) -m rwwfn $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_rwwfn) $(F2_F90_FLAGS) -m rwwfn $(F2_FLAGS) $(MKL_FLAGS)
 	@mv rwwfn*.so ../lib/
 
 excited: $(OBJ_excited)
-	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(F2_MKL_FLAGS)
+	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(MKL_FLAGS)
 	@mv excited*.so ../lib/
 
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
