@@ -1,0 +1,16 @@
+# written by jxzou at 20200322
+# updated by jxzou at 20200515: delete 'install', add $(BIN)
+# updated by jxzou at 20221008: delete F2_MKL_FLAGS
+
+BIN = ../bin
+
+# For Arch/Manjaro distributions, in which openblas is distributed without lapack
+# --- gfortran + OpenBLAS ---
+F90    = gfortran
+FFLAGS = -O2 -cpp -fPIC
+MKL_FLAGS = -L/home/$$USER/software/openblas-0.3.21/lib64 -lopenblas -llapack
+F2PY   = f2py
+F2_FLAGS =
+F2_F90_FLAGS = --f90flags="-cpp"
+
+include Makefile.main

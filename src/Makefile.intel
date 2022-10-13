@@ -1,0 +1,16 @@
+# written by jxzou at 20200322
+# updated by jxzou at 20200515: delete 'install', add $(BIN)
+# updated by jxzou at 20221008: delete F2_MKL_FLAGS
+
+BIN = ../bin
+
+# --- ifort + Intel MKL ----
+F90    = ifort
+FFLAGS = -O2 -fpp -fPIC
+MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
+#MKL_FLAGS = -L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt
+F2PY   = f2py
+F2_FLAGS = --fcompiler=intelem --compiler=intelem
+F2_F90_FLAGS = --f90flags="-fpp"
+
+include Makefile.main
