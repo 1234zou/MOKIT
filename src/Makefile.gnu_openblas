@@ -4,15 +4,6 @@
 
 BIN = ../bin
 
-# --- gfortran + Intel MKL ---
-#F90    = gfortran
-#FFLAGS = -O2 -cpp -fPIC
-#MKL_FLAGS = -L/opt/intel/mkl/lib/intel64 -lmkl_rt
-##MKL_FLAGS = -L/opt/intel/oneapi/mkl/latest/lib/intel64 -lmkl_rt
-#F2PY   = f2py
-#F2_FLAGS =
-#F2_F90_FLAGS = --f90flags="-cpp"
-
 # --- gfortran + OpenBLAS ---
 F90    = gfortran
 FFLAGS = -O2 -cpp -fPIC
