@@ -3,8 +3,15 @@ centos7_conda20.11_py38:
   variables:
     TARGET: mokit-master_linux_centos_conda20.11_py38
   script:
-    - yum install epel-release
-    - yum install openblas-devel make gcc gcc-gfortran  
+    - yum install -y epel-release
+    - yum install -y openblas-devel make gcc gcc-gfortran  
+    - wget https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.11-Linux-x86_64.sh
+    - >
+      { echo ${KEYCODE_ENTER};
+      echo "yes";
+      echo ${KEYCODE_ENTER};
+      } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
+    - source /root/bashrc
     - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
