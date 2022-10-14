@@ -1,6 +1,5 @@
 build:
-  stage: build
-  image: python:3.8
+  image: python:3.8 debian:buster
   script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
@@ -18,3 +17,5 @@ build:
   artifacts:
     paths:
       - ./*tar.gz
+  #release:
+  #  name: 'MOKIT-1.2.4
