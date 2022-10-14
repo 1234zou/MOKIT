@@ -1,4 +1,46 @@
 
+conda19.03_py37_gcc8:
+  image: continuumio/anaconda3:2019.03
+  variables:
+    TARGET: mokit-master_linux_conda19.03_py37_gcc8
+  script:
+    - apt-get update -qy --allow-releaseinfo-change
+    - apt-get install -qy libopenblas-dev make gcc gfortran  
+    - pip install numpy
+    - cd src
+    - make all -f Makefile.gnu_openblas
+    - cd ../lib
+    - cp /usr/lib/*/libopenblasp*.so .
+    - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
+  artifacts:
+    name: $TARGET
+    paths:
+      - ./$TARGET.tar.gz
+conda19.07_py37_gcc8:
+  image: continuumio/anaconda3:2019.07
+  variables:
+    TARGET: mokit-master_linux_conda19.07_py37_gcc8
+  script:
+    - apt-get update -qy --allow-releaseinfo-change
+    - apt-get install -qy libopenblas-dev make gcc gfortran  
+    - pip install numpy
+    - cd src
+    - make all -f Makefile.gnu_openblas
+    - cd ../lib
+    - cp /usr/lib/*/libopenblasp*.so .
+    - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
+  artifacts:
+    name: $TARGET
+    paths:
+      - ./$TARGET.tar.gz
 conda19.10_py37_gcc8:
   image: continuumio/anaconda3:2019.10
   variables:
