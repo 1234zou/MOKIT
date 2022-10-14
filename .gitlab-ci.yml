@@ -14,10 +14,11 @@ py37:
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
-      - ./$TARGET
+      - ./$TARGET.tar.gz
 py38:
   image: python:3.8-buster
   variables:
@@ -34,10 +35,11 @@ py38:
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
-      - ./$TARGET
+      - ./$TARGET.tar.gz
   #release:
   #  name: 'MOKIT-1.2.4
 py39:
@@ -56,7 +58,8 @@ py39:
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
-      - ./$TARGET
+      - ./$TARGET.tar.gz
