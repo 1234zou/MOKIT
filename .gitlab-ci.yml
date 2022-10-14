@@ -9,7 +9,7 @@ py37:
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
-    - cp /usr/lib/*/*/libopenblasp*.so .
+    - cp /usr/lib/*/libopenblasp*.so .
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ..
     - mkdir $TARGET
@@ -29,7 +29,7 @@ py38:
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
-    - cp /usr/lib/*/*/libopenblasp*.so .
+    - cp /usr/lib/*/libopenblasp*.so .
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ..
     - mkdir $TARGET
