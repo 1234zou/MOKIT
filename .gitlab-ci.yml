@@ -4,7 +4,7 @@ conda_py38_gcc8:
   variables:
     TARGET: mokit-master_linux_conda_py38_gcc8
   script:
-    - apt-get update
+    - apt-get update -qy --allow-releaseinfo-change
     - apt-get install -qy libopenblas-dev make gcc gfortran  
     - pip install numpy
     - cd src
