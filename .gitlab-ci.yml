@@ -7,3 +7,10 @@ build:
     - pip install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
+    - cd ..
+    - export TARGET=mokit-master_linux_py38
+    - mkdir $TARGET
+    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+  artifacts:
+    paths:
+      - ./$TARGET 
