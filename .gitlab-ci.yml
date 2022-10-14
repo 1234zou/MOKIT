@@ -1,8 +1,8 @@
 
-py37_gcc6:
-  image: circleci/python:3.7.9-stretch
+conda_py38_gcc7:
+  image: continuumio/anaconda3:2020.11
   variables:
-    TARGET: mokit-master_linux_py37_gcc6
+    TARGET: mokit-master_linux_py38_gcc7
   script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
