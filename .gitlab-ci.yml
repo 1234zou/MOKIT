@@ -8,7 +8,7 @@ build:
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ..
-    - cp /usr/local/lib/libopenblas* lib/
+    - cp /usr/lib/*/*/libopenblas* lib/
     - export TARGET=mokit-master_linux_py38
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
