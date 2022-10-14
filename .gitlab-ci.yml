@@ -1,5 +1,5 @@
 build:
-  image: python:3.8 debian:buster
+  image: debian:buster
   script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
