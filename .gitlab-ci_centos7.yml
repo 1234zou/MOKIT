@@ -13,7 +13,8 @@ centos7_conda20.11_py38:
       } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
     - /root/anaconda3/bin/conda init bash
     - . ~/.bashrc
-    - { echo "y"; } | conda create -n ${ENVNAME:="test"} python=3.8
+    - >
+      { echo "y"; } | conda create -n ${ENVNAME:="test"} python=3.8
     - conda activate ${ENVNAME}
     - conda install numpy
     - cd src
