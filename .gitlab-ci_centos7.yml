@@ -1,7 +1,7 @@
 centos7_conda20.11_py38:
   image: centos:7
   variables:
-    TARGET: mokit-master_linux_centos_conda20.11_py38
+    TARGET: mokit-master_linux_centos7_conda20.11_py38
   script:
     - yum install -y epel-release
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
@@ -14,8 +14,8 @@ centos7_conda20.11_py38:
     - /root/anaconda3/bin/conda init bash
     - . ~/.bashrc
     - >
-      { echo "y"; } | conda create -n ${ENVNAME:="test"} python=3.8
-    - conda activate ${ENVNAME}
+      { echo "y"; } | conda create -n test38 python=3.8
+    - conda activate test38
     - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
