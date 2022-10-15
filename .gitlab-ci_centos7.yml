@@ -11,7 +11,10 @@ centos7_conda20.11_py38:
       echo "yes";
       echo ${KEYCODE_ENTER};
       } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
-    - source /root/bashrc
+    - /root/anaconda3/bin/conda init bash
+    - . ~/.bashrc
+    - { echo "y"; } | conda create -n ${ENVNAME:="test"} python=3.8
+    - conda activate ${ENVNAME}
     - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
