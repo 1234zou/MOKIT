@@ -21,7 +21,7 @@ centos7_conda20.11_py38:
     - make all -f Makefile.gnu_openblas
     - cd ../lib
     - cp /usr/lib64/libopenblasp*.so .
-    - ls libopen* -l
+    - ls /usr/lib64/libopenblas* -l
     - ln -s libopenblasp*.so libopenblas.so
     - cd ..
     - mkdir $TARGET
