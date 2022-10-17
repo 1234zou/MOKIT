@@ -1,0 +1,3 @@
+include:
+  - local: '/.gitlab-ci_centos7.yml'
+  - local: '/.gitlab-ci_main.yml'

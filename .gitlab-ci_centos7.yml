@@ -1,0 +1,76 @@
+centos7_conda20.11_py37:
+  image: centos:7
+  variables:
+    TARGET: mokit-master_linux_centos7_conda20.11_py37
+  script:
+    - yum install -y epel-release
+    - yum install -y openblas-devel make gcc gcc-gfortran wget 
+    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.11-Linux-x86_64.sh
+    - >
+      { echo ${KEYCODE_ENTER};
+      echo "yes";
+      echo ${KEYCODE_ENTER};
+      } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
+    - /root/anaconda3/bin/conda init bash
+    - . ~/.bashrc
+    #- >
+    #  { echo "y"; } | conda create -n test37 python=3.7
+    #- conda activate test37
+    #- conda install numpy
+    - cd src
+    - make all -f Makefile.gnu_openblas
+    - cd ../lib
+    - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
+    #    - ls /usr/lib64/libopenblas* -l
+    - ln -s libopenblasp-r*.so libopenblasp.so
+    - ln -s libopenblasp-r*.so libopenblasp.so.0
+    - ln -s libopenblas-r*.so libopenblas.so
+    - ln -s libopenblas-r*.so libopenblas.so.0
+    - cd ..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
+  artifacts:
+    name: $TARGET
+    paths:
+      - ./$TARGET.tar.gz
+
+
+centos7_conda20.11_py38:
+  image: centos:7
+  variables:
+    TARGET: mokit-master_linux_centos7_conda20.11_py38
+  script:
+    - yum install -y epel-release
+    - yum install -y openblas-devel make gcc gcc-gfortran wget 
+    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.11-Linux-x86_64.sh
+    - >
+      { echo ${KEYCODE_ENTER};
+      echo "yes";
+      echo ${KEYCODE_ENTER};
+      } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
+    - /root/anaconda3/bin/conda init bash
+    - . ~/.bashrc
+    #    - >
+    #  { echo "y"; } | conda create -n test38 python=3.8
+    #- conda activate test38
+    #- conda install numpy==1.21
+    - cd src
+    - make all -f Makefile.gnu_openblas
+    - cd ../lib
+    - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
+    #    - ls /usr/lib64/libopenblas* -l
+    - ln -s libopenblasp-r*.so libopenblasp.so
+    - ln -s libopenblasp-r*.so libopenblasp.so.0
+    - ln -s libopenblas-r*.so libopenblas.so
+    - ln -s libopenblas-r*.so libopenblas.so.0
+    - cd ..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
+    - tar czvf $TARGET.tar.gz $TARGET
+  artifacts:
+    name: $TARGET
+    paths:
+      - ./$TARGET.tar.gz
+
+
