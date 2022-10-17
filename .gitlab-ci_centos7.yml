@@ -13,10 +13,10 @@ centos7_conda20.11_py37:
       } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
     - /root/anaconda3/bin/conda init bash
     - . ~/.bashrc
-    - >
-      { echo "y"; } | conda create -n test37 python=3.7
-    - conda activate test37
-    - conda install numpy
+    #- >
+    #  { echo "y"; } | conda create -n test37 python=3.7
+    #- conda activate test37
+    #- conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
@@ -51,10 +51,10 @@ centos7_conda20.11_py38:
       } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
     - /root/anaconda3/bin/conda init bash
     - . ~/.bashrc
-    - >
-      { echo "y"; } | conda create -n test38 python=3.8
-    - conda activate test38
-    - conda install numpy<=1.21
+    #    - >
+    #  { echo "y"; } | conda create -n test38 python=3.8
+    #- conda activate test38
+    #- conda install numpy==1.21
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
