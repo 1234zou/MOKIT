@@ -27,7 +27,8 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 programs) are ensured during transferring MOs, since the basis order of angular
 momentum up to H(i.e. l=5) are considered.
 
-Pre-built `Windows* OS` executables of 20 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases).
+Pre-built `Windows* OS` executables of 20 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables can be downloaded via the
+download button on the main page.
 
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
@@ -46,23 +47,28 @@ Installation
 
 * Compile all modules
 
-        cd src
-        make all
+    cd src
+    make all
 
 * Compile individual utility or module  
   E.g.
 
-        make fch2inp
+    make fch2inp
 
 * After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
   E.g. if MOKIT is installed in /home/$USER/software/mokit, the following should be set in ~/.bashrc:
 
-        export MOKIT_ROOT=/home/$USER/software/mokit
-        export PATH=$MOKIT_ROOT/bin:$PATH
-        export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-        export GMS=/home/$USER/software/gamess/rungms
+    export MOKIT_ROOT=/home/$USER/software/mokit
+    export PATH=$MOKIT_ROOT/bin:$PATH
+    export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+    export GMS=/home/$USER/software/gamess/rungms
 
-  (Remember to modify the `GMS` path to suit your local environment)
+  Remember to modify the `GMS` path to suit your local environment. If you
+  download and use the pre-compiled Linux executables, you should also add
+
+    export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+
+  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`.
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
