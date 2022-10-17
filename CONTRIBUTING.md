@@ -12,5 +12,5 @@ since `*.make` is also ignored.
 
 ## CI/CD
 * any push or pr will trigger Gitlab CI build. The produced artifacts (binary) can be downloaded at pipelines.
-* To skip CI (when updating docs or something not important), add [ci skip] in commit message. For example `git commit -m "xxx [ci skip]`. 
+* To skip CI (when updating docs or something not important), add [ci skip] in commit message. For example `git commit -m "xxx [ci skip]"`. 
 * CI minutes is limited to 400min per user per repo per month. One build of MOKIT on one platform will consume 3 min and we have at least 4 platforms. But you can overdraft it from next month! So the limit would not be a big problem if skipping unnecessary CI jobs.
