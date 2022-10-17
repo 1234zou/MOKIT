@@ -54,7 +54,7 @@ centos7_conda20.11_py38:
     - >
       { echo "y"; } | conda create -n test38 python=3.8
     - conda activate test38
-    - conda install numpy
+    - conda install numpy<=1.21
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
