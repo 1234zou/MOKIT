@@ -302,8 +302,8 @@ subroutine fch2qchem(fchname, npair)
    write(6,'(/,A)') '$QCSCRATCH found. Directory '//TRIM(proname)//' moved into &
                     &$QCSCRATCH/'
    write(6,'(A)') 'You can run:'
-   write(6,'(A)') 'qchem '//TRIM(inpname)//' '//TRIM(proname)//'.out '//&
-                   TRIM(proname)
+   write(6,'(A,/)') 'qchem '//TRIM(inpname)//' '//TRIM(proname)//'.out '//&
+                     TRIM(proname)
   else
    write(6,'(/,A)') 'Warning in subroutine fch2qchem: failed to move directory&
                     & into '//TRIM(dirname)//'/'

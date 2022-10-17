@@ -178,9 +178,9 @@ subroutine prt_unpaired_e(nif, noon, upe)
  upe(1) = SUM(noon(:,3))
  upe(2) = SUM(noon(:,4))
  upe(3) = SUM(noon(:,5))
- write(6,'(A,F8.4)') "Yamaguchi's unpaired electrons  (sum_n n(2-n)      ):",upe(1)
- write(6,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n min(n,(2-n))):",upe(2)
- write(6,'(A,F8.4)') "Head-Gordon's unpaired electrons(sum_n (n(2-n))^2  ):",upe(3)
+ write(6,'(A,F7.3)') "Yamaguchi's unpaired electrons  (sum_n n(2-n)      ):",upe(1)
+ write(6,'(A,F7.3)') "Head-Gordon's unpaired electrons(sum_n min(n,(2-n))):",upe(2)
+ write(6,'(A,F7.3)') "Head-Gordon's unpaired electrons(sum_n (n(2-n))^2  ):",upe(3)
  write(6,'(A)') REPEAT('-',61)
 end subroutine prt_unpaired_e
 

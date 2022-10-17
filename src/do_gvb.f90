@@ -100,7 +100,7 @@ end subroutine do_gvb
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
 subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
-  datname, bgchg, chgname, cart, check_gms_path, GVB_conv
+  datname, bgchg, chgname, cart, check_gms_path, GVB_conv, fcgvb
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  implicit none
  integer :: i, system, RENAME
@@ -147,12 +147,18 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  end if
 
  call modify_memory_in_gms_inp(inpname, mem, nproc)
- call modify_gvb_conv(inpname, GVB_conv)
+ call add_gvb_conv(inpname, GVB_conv)
  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
  ! perform GVB with all doubly occupied orbitals frozen
 ! call add_frz2gms_inp(inpname)
 ! call submit_gms_fzgvb_job(gms_path, gms_scr_path, inpname, nproc)
+
+ ! modify the input file for GVB with all doubly occupied orbitals frozen
+ if(fcgvb) then
+  write(6,'(A)') 'Remark: fcgvb=.T. GVB with all doubly occupied orbitals frozen.'
+  call add_frz2gms_inp(inpname)
+ end if
 
  ! perform GVB
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
@@ -564,9 +570,27 @@ subroutine determine_npair0_from_pair_coeff(npair, coeff, npair0)
  deallocate(coeff0)
 end subroutine determine_npair0_from_pair_coeff
 
-! modify CONV value in a GAMESS .inp file
+! find the number of pairs from a given inpname
+subroutine get_npair_from_inpname(inpname, npair)
+ implicit none
+ integer :: i, j
+ integer, intent(out) :: npair
+ character(len=240), intent(in) :: inpname
+
+ npair = 0
+ i = index(inpname, 'gvb', back=.true.)
+ j = index(inpname, '.inp', back=.true.)
+ if(i==0 .or. j==0) then
+  write(6,'(A)') 'ERROR in subroutine get_npair_from_inpname: invalid filename&
+                 &='//TRIM(inpname)
+  stop
+ end if
+ read(inpname(i+3:j-1),*) npair
+end subroutine get_npair_from_inpname
+
+! add/modify CONV value in a GAMESS .inp file
 ! This is GVB SCF density matrix convergence criterion/threshold
-subroutine modify_gvb_conv(inpname, GVB_conv)
+subroutine add_gvb_conv(inpname, GVB_conv)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -602,30 +626,12 @@ subroutine modify_gvb_conv(inpname, GVB_conv)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine modify_gvb_conv
-
-! find the number of pairs from a given inpname
-subroutine get_npair_from_inpname(inpname, npair)
- implicit none
- integer :: i, j
- integer, intent(out) :: npair
- character(len=240), intent(in) :: inpname
-
- npair = 0
- i = index(inpname, 'gvb', back=.true.)
- j = index(inpname, '.inp', back=.true.)
- if(i==0 .or. j==0) then
-  write(6,'(A)') 'ERROR in subroutine get_npair_from_inpname: invalid filename&
-                 &='//TRIM(inpname)
-  stop
- end if
- read(inpname(i+3:j-1),*) npair
-end subroutine get_npair_from_inpname
+end subroutine add_gvb_conv
 
 ! add keywords of freezing all doubly orbitals for a GAMESS .inp file
 subroutine add_frz2gms_inp(inpname)
  implicit none
- integer :: i, ncore, fid, fid1
+ integer :: i, ncore, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
@@ -650,8 +656,16 @@ subroutine add_frz2gms_inp(inpname)
  end if
  read(buf(i+4:),*) ncore
 
+ if(index(buf,'$END') == 0) then
+  do while(.true.)
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+   if(index(buf,'$END') > 0) exit
+  end do ! for while
+ end if
+
  write(fid1,'(A)',advance='no') ' $MOFRZ FRZ=.T. IFRZ(1)='
- write(fid1,'(21(I0,A1))') (i,',',i=1,ncore)
+ write(fid1,'(19(I0,A1))') (i,',',i=1,ncore)
  write(fid1,'(A)') ' $END'
 
  do while(.true.)
@@ -660,7 +674,8 @@ subroutine add_frz2gms_inp(inpname)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- close(fid)
+ close(fid,status='delete')
  close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_frz2gms_inp
 

@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 # Written by Jingxiang Zou at 20171106. This Shell script can modify the GAMESS source code
 #  (only 2017 version tested) to do GVB up to 499 pairs.
 # Note that this script must be run in the gamess/source directory; and your GAMESS is required to

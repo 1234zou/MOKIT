@@ -189,6 +189,7 @@ module mr_keyword
  logical :: mrcisdt = .false. ! uncontracted MRCISDT
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
+ logical :: fcgvb   = .false. ! GVB with all doubly occupied orbitals frozen
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation
  logical :: casscf_force = .false.! whether to calculate CASSCF force
@@ -342,7 +343,7 @@ contains
   write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
   write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Oct-8)'
+  write(iout,'(A)') '            Version: 1.2.4 (2022-Oct-17)'
   write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -876,6 +877,8 @@ contains
     TDHF = .true.
    case('noQD')
     noQD = .true.
+   case('fcgvb')
+    fcgvb = .true.
    case default
     write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                         //"' not recognized in {}."

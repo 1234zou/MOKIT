@@ -1,6 +1,10 @@
-MOKIT 1.2.4 (Oct 8, 2022)
+MOKIT 1.2.4 (Oct 17, 2022)
 ------------------------
+* add py2qchem for transferring MOs from PySCF to Q-Chem
+* add GitLab-CI by contributor jeanwsr
+* split Makefile into multiple conditions by contributor jeanwsr
 * add compiler options for gfortran+OpenBLAS
+* add keyword FcGVB to freeze all doubly occupied orbitals in GVB
 * add the keyword Npair for non-GVB calculations
 * add GVB interface of Q-Chem
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
@@ -10,7 +14,7 @@ MOKIT 1.2.4 (Oct 8, 2022)
 * fix bug about X2C Hamiltonian keyword
 * add GVB-BCCC2b/3b interface
 * add State-Specific CASSCF interface
-* py2fch_direct added by wsr
+* py2fch_direct added by contributor jeanwsr
 * update bas_fch2py, fch2py and py2fch for complex GHF
 * add utility fch2qchem
 

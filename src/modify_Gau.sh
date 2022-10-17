@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 # Written by Jingxiang Zou at 20171222.
 # This Shell script can modify the Gaussian source code (only G09D.01 and G16A.03 tested)
 #  to do GVB up to 100 pairs.
