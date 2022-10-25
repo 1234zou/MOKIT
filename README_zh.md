@@ -27,9 +27,9 @@ or
 （例如CASSCF）在不同量化程序中的电子能量可以很好地复现（误差通常小于10^-6 a.u.），且
 几乎1-2圈收敛。
 
-开发者还提供`Windows* 系统`下预编译好的约20个小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases).
-但请注意这些小程序的版本会滞后于master主分支代码。`Linux* 系统`下预编译版本可以
-在主页上的下载箭头处Previous Artifacts中下载。
+开发者还提供`Windows 系统`下预编译好的约20个小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases).
+但请注意这些小程序的版本会滞后于master主分支代码。`Linux 系统`下预编译版本可以
+在GitLab主页上的下载箭头处Previous Artifacts中下载。
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户
 仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若
@@ -47,30 +47,34 @@ or
     - f2py (推荐安装Anaconda Python3，内含f2py)
 
 * 编译全部模块， 执行
-
-    cd src
-    make all
+```
+cd src
+make all
+```
 
 * 若仅想使用单个子程序，可仅编译单个子程序或模块  
   例如执行
-
-    make fch2inp
+```
+make fch2inp
+```
 
 * 在执行'make all'之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
   例如，假定你的MOKIT安装在/home/$USER/software/mokit目录, 你需要在~/.bashrc文件中设定
   以下变量:
-
-    export MOKIT_ROOT=/home/$USER/software/mokit
-    export PATH=$MOKIT_ROOT/bin:$PATH
-    export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-    export GMS=/home/$USER/software/gamess/rungms
+```
+export MOKIT_ROOT=/home/$USER/software/mokit
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+export GMS=/home/$USER/software/gamess/rungms
+```
 
   GAMESS可执行文件的路径请按照您机器上的实际情况修改。若您下载和使用的是Linux预编
   译版，您还需增加一条环境变量
+```
+export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+```
 
-    export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
-
-  这是因为OpenBLAS动态库在`$MOKIT_ROOT/lib`目录下。
+  这是因为OpenBLAS动态库放在`$MOKIT_ROOT/lib`目录下。
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
   因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
@@ -89,21 +93,23 @@ or
 
 * 自动做多参考计算的核心程序automr的输入文件采用的是Gaussian gjf文件的格式。例如，一个O-H
   键长为1.5 A的水分子输入文件'00-h2o_cc-pVDZ_1.5.gjf'示例如下
+```
+%mem=4GB
+%nprocshared=4
+#p CASSCF/cc-pVDZ
 
-        %mem=4GB
-        %nprocshared=4
-        #p CASSCF/cc-pVDZ
-        
-        mokit{}
-        
-        0 1
-        O      -0.23497692    0.90193619   -0.068688
-        H       1.26502308    0.90193619   -0.068688
-        H      -0.73568721    2.31589843   -0.068688
+mokit{}
+
+0 1
+O      -0.23497692    0.90193619   -0.068688
+H       1.26502308    0.90193619   -0.068688
+H      -0.73568721    2.31589843   -0.068688
+```
 
   只需在Shell中执行
-
-        automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+```
+automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+```
 
   命令，automr程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。更多例子
   请见[examples](examples/)。

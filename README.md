@@ -27,8 +27,10 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 programs) are ensured during transferring MOs, since the basis order of angular
 momentum up to H(i.e. l=5) are considered.
 
-Pre-built `Windows* OS` executables of 20 utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables can be downloaded via the
-download button on the main page.
+Pre-built `Windows* OS` executables of 20 utilities are provided in [Releases](
+https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables can
+be downloaded in `Previous Artifacts` via the download button on the GitLab main
+page.
 
 Note that although MOKIT aims to make the multi-reference calculations block-box,
 the users are still required to have practical experiences of quantum chemistry
@@ -46,27 +48,34 @@ Installation
     - f2py (installing Anaconda Python3 recommended)
 
 * Compile all modules
-
-    cd src
-    make all
+```
+cd src
+make all
+```
 
 * Compile individual utility or module  
   E.g.
+```
+make fch2inp
+```
 
-    make fch2inp
+* After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH`
+  and `PYTHONPATH`. E.g. if MOKIT is installed in /home/$USER/software/mokit,
+  the following should be set in ~/.bashrc:
 
-* After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
-  E.g. if MOKIT is installed in /home/$USER/software/mokit, the following should be set in ~/.bashrc:
-
-    export MOKIT_ROOT=/home/$USER/software/mokit
-    export PATH=$MOKIT_ROOT/bin:$PATH
-    export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-    export GMS=/home/$USER/software/gamess/rungms
+```
+export MOKIT_ROOT=/home/$USER/software/mokit
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+export GMS=/home/$USER/software/gamess/rungms
+```
 
   Remember to modify the `GMS` path to suit your local environment. If you
   download and use the pre-compiled Linux executables, you should also add
 
-    export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+```
+export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+```
 
   since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`.
 
@@ -88,21 +97,23 @@ Quick Start
 
 * The input syntax of the automr program is like Gaussian gjf. For example, the input
   file '00-h2o_cc-pVDZ_1.5.gjf' of the water molecule at d(O-H) = 1.5 A is shown below
+```
+%mem=4GB
+%nprocshared=4
+#p CASSCF/cc-pVDZ
 
-        %mem=4GB
-        %nprocshared=4
-        #p CASSCF/cc-pVDZ
-        
-        mokit{}
-        
-        0 1
-        O      -0.23497692    0.90193619   -0.068688
-        H       1.26502308    0.90193619   -0.068688
-        H      -0.73568721    2.31589843   -0.068688
+mokit{}
+
+0 1
+O      -0.23497692    0.90193619   -0.068688
+H       1.26502308    0.90193619   -0.068688
+H      -0.73568721    2.31589843   -0.068688
+```
 
   Run
-
-        automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+```
+automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+```
 
   in Shell. The automr program will successively perform HF, GVB, and CASSCF
   computations. See [examples/](examples/) for more examples.
