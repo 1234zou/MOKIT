@@ -1,5 +1,6 @@
-MOKIT 1.2.4 (Oct 17, 2022)
+MOKIT 1.2.4 (Oct 25, 2022)
 ------------------------
+* add py2bdf, py2dalton, py2gms, py2molcas, py2molpro, py2orca and py2psi
 * add py2qchem for transferring MOs from PySCF to Q-Chem
 * add GitLab-CI by contributor jeanwsr
 * split Makefile into multiple conditions by contributor jeanwsr

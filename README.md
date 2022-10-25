@@ -35,7 +35,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Oct 17, 2022
+Oct 25, 2022
 
 Installation
 ------------
@@ -46,31 +46,27 @@ Installation
     - f2py (installing Anaconda Python3 recommended)
 
 * Compile all modules
-```
-cd src
-make all
-```
+
+    cd src
+    make all
 
 * Compile individual utility or module  
   E.g.
-```
-make fch2inp
-```
+
+    make fch2inp
 
 * After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`.  
   E.g. if MOKIT is installed in /home/$USER/software/mokit, the following should be set in ~/.bashrc:
-```
-export MOKIT_ROOT=/home/$USER/software/mokit
-export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-export GMS=/home/$USER/software/gamess/rungms
-```
+
+    export MOKIT_ROOT=/home/$USER/software/mokit
+    export PATH=$MOKIT_ROOT/bin:$PATH
+    export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+    export GMS=/home/$USER/software/gamess/rungms
 
   Remember to modify the `GMS` path to suit your local environment. If you
   download and use the pre-compiled Linux executables, you should also add
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
-```
+
+    export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 
   since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`.
 

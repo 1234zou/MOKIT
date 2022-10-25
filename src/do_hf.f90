@@ -355,7 +355,6 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
 
  write(fid,'(/)',advance='no')
  close(fid)
- return
 end subroutine generate_hf_gjf
 
 ! perform SCF computaton using Gaussian/PySCF/PSI4/ORCA, then read electronic
@@ -529,7 +528,6 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  if(i /= 0) read(buf(i+6:),*) ss
 
  close(fid)
- return
 end subroutine read_hf_e_and_ss_from_gau_out
 
 ! read HF electronic energy from a PySCF .out file
@@ -587,7 +585,6 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
  end select
 
  close(fid)
- return
 end subroutine read_hf_e_and_ss_from_pyscf_out
 
 ! read HF electronic energy from a PSI4 .out file
@@ -655,7 +652,6 @@ subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
   stop
  end select
 
- return
 end subroutine read_hf_e_and_ss_from_psi4_out
 
 ! read HF electronic energy from a ORCA .out file
@@ -725,7 +721,6 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
   stop
  end select
 
- return
 end subroutine read_hf_e_and_ss_from_orca_out
 
 ! read spin multiplicity from a PySCF .py file
@@ -755,7 +750,6 @@ subroutine read_mult_from_pyscf_inp(inpname, mult)
  i = index(buf,'=')
  read(buf(i+1:),*) mult ! this is No.(alpha-beta)
  mult = mult + 1
- return
 end subroutine read_mult_from_pyscf_inp
 
 ! read spin multiplicity from a PSI4 output file
@@ -782,7 +776,6 @@ subroutine read_mult_from_psi4_out(outname, mult)
  end if
  i = index(buf,'=',back=.true.)
  read(buf(i+1:),*) mult
- return
 end subroutine read_mult_from_psi4_out
 
 ! read spin multiplicity from an ORCA output file
@@ -809,7 +802,6 @@ subroutine read_mult_from_orca_out(outname, mult)
  end if
  i = index(buf,'.',back=.true.)
  read(buf(i+1:),*) mult
- return
 end subroutine read_mult_from_orca_out
 
 ! print HF job of PySCF input file
@@ -910,7 +902,6 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_hf_pyscf_inp
 
 ! print HF job of PSI4 input file
@@ -961,7 +952,6 @@ subroutine prt_hf_psi4_inp(inpname, hf_type)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_hf_psi4_inp
 
 ! print HF job of ORCA input file
@@ -1026,7 +1016,6 @@ subroutine prt_hf_orca_inp(inpname, hf_type)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_hf_orca_inp
 
 ! read hf_type from a PySCF .inp file
@@ -1064,8 +1053,6 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
   close(fid)
   stop
  end if
-
- return
 end subroutine read_hf_type_from_pyscf_inp
 
 ! read hf_type from a PSI4 .inp file
@@ -1105,8 +1092,6 @@ subroutine read_hf_type_from_psi4_inp(inpname, hf_type)
   close(fid)
   stop
  end if
-
- return
 end subroutine read_hf_type_from_psi4_inp
 
 ! read hf_type from an ORCA .inp file
@@ -1146,8 +1131,6 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
   close(fid)
   stop
  end if
-
- return
 end subroutine read_hf_type_from_orca_inp
 
 ! Check whether fragment information can be found in Cartesian coordinate

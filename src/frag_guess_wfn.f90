@@ -1555,7 +1555,7 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
  case('n-hexane')
   solvent = 'HEXANE'
  case('1,4-dioxane')
-  solvent = 'C4H8O2'
+  solvent = 'dioxane'
  case('water','h2o','methanol','ch3oh','ethanol','hexane','acetonitrile','dmso',&
       'thf','benzene','c6h6','nitromethane','ch3no2','aniline','c6h5nh2',&
       'cyclohexane','c6h12','ccl4','dichloromethane','ch2cl2','toluene','c6h5ch3',&

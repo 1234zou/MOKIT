@@ -769,7 +769,6 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  end if
 
  close(fid)
- return
 end subroutine prt_cas_gjf
 
 subroutine prt_cas_gms_inp(inpname, ncore, scf)
@@ -836,7 +835,6 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_cas_gms_inp
 
 ! print CASCI/CASSCF keywords in to a given (Open)Molcas input file
@@ -1110,7 +1108,6 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  end if
 
  close(fid)
- return
 end subroutine prt_cas_bdf_inp
 
 ! print CASCI/CASSCF keywords into a given PSI4 input file

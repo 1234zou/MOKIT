@@ -32,7 +32,6 @@ subroutine pair_by_dis(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, m
   write(iout,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
   stop
  end if
- return
 end subroutine pair_by_dis
 
 ! for case where occpuied LMO >= unoccpuied LMO
@@ -165,7 +164,6 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  end do
  coeff = coeff1
  deallocate(pair_idx, opt_pair_idx, coeff1, dis, dis1, used)
- return
 end subroutine pair_by_dis1
 
 ! for case where occpuied LMO < unoccpuied LMO
@@ -296,7 +294,6 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  end do
  coeff = coeff1
  deallocate(pair_idx, opt_pair_idx, coeff1, dis, dis1, used)
- return
 end subroutine pair_by_dis2
 
 ! paired by maximizing the sum of orbital transition dipoles <i|r|j>**2
@@ -324,7 +321,6 @@ subroutine pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, m
   write(iout,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
   stop
  end if
- return
 end subroutine pair_by_tdm
 
 ! for case where occpuied LMO >= unoccpuied LMO
@@ -468,7 +464,6 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  end do
  coeff = coeff1
  deallocate(pair_idx, opt_pair_idx, coeff1, tdm, tdm1, used)
- return
 end subroutine pair_by_tdm1
 
 ! for case where occpuied LMO < unoccpuied LMO
@@ -606,6 +601,5 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  end do
  coeff = coeff1
  deallocate(pair_idx, opt_pair_idx, coeff1, tdm, tdm1, used)
- return
 end subroutine pair_by_tdm2
 

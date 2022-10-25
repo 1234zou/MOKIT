@@ -125,7 +125,6 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   stop
  end select
 
- return
 end subroutine add_bgcharge_to_inp
 
 ! add background charges into a Gaussian .gjf file
@@ -185,7 +184,6 @@ subroutine add_bgcharge_to_gjf(gjfname, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(gjfname1), TRIM(gjfname))
- return
 end subroutine add_bgcharge_to_gjf
 
 ! add background charges into a PySCF .py input file
@@ -230,7 +228,6 @@ subroutine add_bgcharge_to_py(pyname, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- return
 end subroutine add_bgcharge_to_py
 
 ! add background charges into a GAMESS .inp input file
@@ -292,7 +289,6 @@ subroutine add_bgcharge_to_gms_inp(inpname, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_bgcharge_to_gms_inp
 
 ! add background charges into a ORCA .inp input file
@@ -383,7 +379,6 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(mklname1), TRIM(mklname))
- return
 end subroutine add_bgcharge_to_orca_inp
 
 ! add background charges into a (Open)Molcas .input file
@@ -432,8 +427,6 @@ subroutine add_bgcharge_to_molcas_input(input, n, charge)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(input1), TRIM(input))
-
- return
 end subroutine add_bgcharge_to_molcas_input
 
 ! add background charges into a Molpro .input file
@@ -490,7 +483,6 @@ subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_bgcharge_to_molpro_inp
 
 ! generate the .extcharge file for a given BDF .inp file, and
@@ -549,7 +541,6 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_bgcharge_to_bdf_inp
 
 subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
@@ -589,6 +580,5 @@ subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine add_bgcharge_to_psi4_inp
 

@@ -297,7 +297,6 @@ contains
    end if
   end if
 
-  return
  end subroutine get_molpro_path
 
  ! repalce variables like '$USER' in path into real path
@@ -329,7 +328,6 @@ contains
   if(j > 0) buf(i+k:) = path(j:)
 
   path = TRIM(buf)
-  return
  end subroutine replace_env_in_path
 
  ! read paths of various programs from environment variables
@@ -340,11 +338,10 @@ contains
   character(len=8) :: hostname
   character(len=24) :: data_string
 
-  write(iout,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
-  write(iout,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(iout,'(A)') '             Author: Jingxiang Zou'
-  write(iout,'(A)') '            Version: 1.2.4 (2022-Oct-17)'
-  write(iout,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
+  write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
+  write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
+  write(6,'(A)') '            Version: 1.2.4 (2022-Oct-25)'
+  write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
   data_string = ' '
@@ -363,16 +360,15 @@ contains
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
   if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
-  write(iout,'(/,A)') 'Read program paths from environment variables:'
-  write(iout,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
-  write(iout,'(A)') 'gau_path    = '//TRIM(gau_path)
-  write(iout,'(A)') 'gms_path    = '//TRIM(gms_path)
-  write(iout,'(A)') 'orca_path   = '//TRIM(orca_path)
-  write(iout,'(A)') 'molcas_path = '//TRIM(molcas_path)
-  write(iout,'(A)') 'molpro_path = '//TRIM(molpro_path)
-  write(iout,'(A)') 'bdf_path    = '//TRIM(bdf_path)
-  write(iout,'(A)') 'psi4_path   = '//TRIM(psi4_path)
-  return
+  write(6,'(/,A)') 'Read program paths from environment variables:'
+  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
+  write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
+  write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
+  write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
+  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
+  write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
+  write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+  write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
  end subroutine read_program_path
 
  ! check whether GAMESS path exists
@@ -401,7 +397,6 @@ contains
   gms_scr_path = buf(i+1:)
   call replace_env_in_path(gms_scr_path)
   write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
-  return
  end subroutine check_gms_path
 
  subroutine parse_keyword()
@@ -1530,8 +1525,6 @@ contains
    j = IACHAR(buf(i:i))
    if(j>64 .and. j<91) buf(i:i) = ACHAR(j+32)
   end do ! for i
-
-  return
  end subroutine lower
 
  ! read background point charge(s) from .gjf file
@@ -1613,7 +1606,6 @@ contains
   call write_charge_into_chg(nbgchg, bgcharge, chgname)
 
   call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
-  return
  end subroutine read_bgchg_from_gjf
 
 end module mr_keyword
@@ -1836,7 +1828,6 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
                    & provide them in mokit{}."
   stop
  end if
- return
 end subroutine determine_auxbas
 
 ! convert the name of auxiliary basis set from ORCA format to other format
@@ -1890,7 +1881,6 @@ subroutine auxbas_convert(inbas, outbas, itype)
   stop
  end select
 
- return
 end subroutine auxbas_convert
 
 ! calculate the Coulomb interaction energy of point charges
@@ -1944,7 +1934,6 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  end do ! for i
 
  deallocate(r)
- return
 end subroutine calc_Coulomb_energy_of_charges
 
 ! write point charges into a .chg file
@@ -1963,7 +1952,6 @@ subroutine write_charge_into_chg(n, charge, chgname)
  end do ! for i
 
  close(fid)
- return
 end subroutine write_charge_into_chg
 
 ! calculate nuclear-point_charge interaction energy

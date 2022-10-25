@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年10月17号
+2022年10月25号
 
 安装
 ----------
@@ -47,32 +47,28 @@ or
     - f2py (推荐安装Anaconda Python3，内含f2py)
 
 * 编译全部模块， 执行
-```
-cd src
-make all
-```
+
+    cd src
+    make all
 
 * 若仅想使用单个子程序，可仅编译单个子程序或模块  
   例如执行
-```
-make fch2inp
-```
+
+    make fch2inp
 
 * 在执行'make all'之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
   例如，假定你的MOKIT安装在/home/$USER/software/mokit目录, 你需要在~/.bashrc文件中设定
   以下变量:
-```
-export MOKIT_ROOT=/home/$USER/software/mokit
-export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-export GMS=/home/$USER/software/gamess/rungms
-```
+
+    export MOKIT_ROOT=/home/$USER/software/mokit
+    export PATH=$MOKIT_ROOT/bin:$PATH
+    export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+    export GMS=/home/$USER/software/gamess/rungms
 
   GAMESS可执行文件的路径请按照您机器上的实际情况修改。若您下载和使用的是Linux预编
   译版，您还需增加一条环境变量
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
-```
+
+    export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 
   这是因为OpenBLAS动态库在`$MOKIT_ROOT/lib`目录下。
 

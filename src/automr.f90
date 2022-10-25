@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Oct-17'
+  write(iout,'(A)') 'AutoMR 1.2.4 :: MOKIT, release date: 2022-Oct-25'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -331,7 +331,6 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  close(fid2)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- return
 end subroutine prt_rhf_proj_script_into_py
 
 ! print localization and automatically pairing information into a given .py file
@@ -436,7 +435,6 @@ subroutine prt_auto_pair_script_into_py(pyname)
  close(fid2)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- return
 end subroutine prt_auto_pair_script_into_py
 
 ! print UNO script into a given .py file
@@ -527,7 +525,6 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
- return
 end subroutine prt_uno_script_into_py
 
 ! print associated rotation into a given .py file
