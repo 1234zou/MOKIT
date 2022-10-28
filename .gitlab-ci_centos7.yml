@@ -17,7 +17,7 @@ centos7_conda20.11_py37:
     #  { echo "y"; } | conda create -n test37 python=3.7
     #- conda activate test37
     - >
-      {echo "y"; } | conda install numpy
+      { echo "y"; } | conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
@@ -56,7 +56,7 @@ centos7_conda20.11_py38:
     #  { echo "y"; } | conda create -n test38 python=3.8
     #- conda activate test38
     - >
-      {echo "y"; } | conda install numpy
+      { echo "y"; } | conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
