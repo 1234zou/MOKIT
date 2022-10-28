@@ -1,7 +1,7 @@
-centos7_conda20.11_py37:
+centos7_conda_py37:
   image: centos:7
   variables:
-    TARGET: mokit-master_linux_centos7_conda20.11_py37
+    TARGET: mokit-master_linux_centos7_conda_py37
   script:
     - yum install -y epel-release
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
@@ -30,17 +30,17 @@ centos7_conda20.11_py37:
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    - tar czvf $TARGET.tar.gz $TARGET
+    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
-      - ./$TARGET.tar.gz
+      - ./$TARGET/
 
 
-centos7_conda20.11_py38:
+centos7_conda_py38:
   image: centos:7
   variables:
-    TARGET: mokit-master_linux_centos7_conda20.11_py38
+    TARGET: mokit-master_linux_centos7_conda_py38
   script:
     - yum install -y epel-release
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
@@ -69,10 +69,10 @@ centos7_conda20.11_py38:
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    - tar czvf $TARGET.tar.gz $TARGET
+    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
-      - ./$TARGET.tar.gz
+      - ./$TARGET/
 
 
