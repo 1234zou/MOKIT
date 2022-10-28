@@ -23,8 +23,8 @@ centos7_conda_py37:
     - cd ../lib
     - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
     #    - ls /usr/lib64/libopenblas* -l
-    - ln -s libopenblasp-r*.so libopenblasp.so
-    - ln -s libopenblasp-r*.so libopenblasp.so.0
+    #- ln -s libopenblasp-r*.so libopenblasp.so
+    #- ln -s libopenblasp-r*.so libopenblasp.so.0
     - ln -s libopenblas-r*.so libopenblas.so
     - ln -s libopenblas-r*.so libopenblas.so.0
     - cd ..
@@ -62,8 +62,8 @@ centos7_conda_py38:
     - cd ../lib
     - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
     #    - ls /usr/lib64/libopenblas* -l
-    - ln -s libopenblasp-r*.so libopenblasp.so
-    - ln -s libopenblasp-r*.so libopenblasp.so.0
+    #- ln -s libopenblasp-r*.so libopenblasp.so
+    #- ln -s libopenblasp-r*.so libopenblasp.so.0
     - ln -s libopenblas-r*.so libopenblas.so
     - ln -s libopenblas-r*.so libopenblas.so.0
     - cd ..
