@@ -5,18 +5,19 @@ centos7_conda20.11_py37:
   script:
     - yum install -y epel-release
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
-    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.11-Linux-x86_64.sh
+    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
       echo "yes";
       echo ${KEYCODE_ENTER};
-      } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
-    - /root/anaconda3/bin/conda init bash
+      } | sh ./Miniconda3-py37_4.10.3-Linux-x86_64.sh 
+    - /root/miniconda3/bin/conda init bash
     - . ~/.bashrc
+    #- >
+    #  { echo "y"; } | conda create -n test37 python=3.7
+    #- conda activate test37
     - >
-      { echo "y"; } | conda create -n test37 python=3.7
-    - conda activate test37
-    - conda install numpy
+      {echo "y"; } | conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
@@ -43,18 +44,19 @@ centos7_conda20.11_py38:
   script:
     - yum install -y epel-release
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
-    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/archive/Anaconda3-2020.11-Linux-x86_64.sh
+    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
       echo "yes";
       echo ${KEYCODE_ENTER};
-      } | sh ./Anaconda3-2020.11-Linux-x86_64.sh 
-    - /root/anaconda3/bin/conda init bash
+      } | sh ./Miniconda3-py38_4.10.3-Linux-x86_64.sh 
+    - /root/miniconda3/bin/conda init bash
     - . ~/.bashrc
-    #    - >
+    #- >
     #  { echo "y"; } | conda create -n test38 python=3.8
     #- conda activate test38
-    #- conda install numpy==1.21
+    - >
+      {echo "y"; } | conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
