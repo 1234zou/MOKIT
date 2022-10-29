@@ -20,7 +20,7 @@ centos7_conda_py37:
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
-    - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
+    - cp /usr/lib64/libopenblas-r*.so .
     #    - ls /usr/lib64/libopenblas* -l
     #- ln -s libopenblasp-r*.so libopenblasp.so
     #- ln -s libopenblasp-r*.so libopenblasp.so.0
@@ -58,7 +58,7 @@ centos7_conda_py38:
     - cd src
     - make all -f Makefile.gnu_openblas
     - cd ../lib
-    - cp /usr/lib64/libopenblas-r*.so /usr/lib64/libopenblasp-r*.so .
+    - cp /usr/lib64/libopenblas-r*.so .
     #    - ls /usr/lib64/libopenblas* -l
     #- ln -s libopenblasp-r*.so libopenblasp.so
     #- ln -s libopenblasp-r*.so libopenblasp.so.0
