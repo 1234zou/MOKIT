@@ -129,8 +129,8 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
 
 def fchk(mf, fchname, density=False, overwrite_mol=False):
     from pyscf import scf, mcscf
-    import os
     from py2fch import py2fch
+    import os
     is_uhf = isinstance(mf, scf.uhf.UHF)
     mo = mf.mo_coeff
     if (not os.path.isfile(fchname)) or overwrite_mol:
@@ -144,5 +144,10 @@ def fchk(mf, fchname, density=False, overwrite_mol=False):
             py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], density)
             py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], density)
     elif isinstance(mf, mcscf.casci.CASCI):
+        if mf.mo_occ is None:
+            if density is True:
+                raise ValueError('density is True, but mo_occ is None.')
+            else:
+                mf.mo_occ = np.zeros(mf.mo_coeff.shape[1])
         py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_occ, density)
-        
+

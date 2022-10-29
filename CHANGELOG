@@ -1,3 +1,7 @@
+MOKIT 1.2.5 (Oct 30, 2022)
+------------------------
+* update py2fch_direct
+
 MOKIT 1.2.4 (Oct 25, 2022)
 ------------------------
 * add py2bdf, py2dalton, py2gms, py2molcas, py2molpro, py2orca and py2psi
