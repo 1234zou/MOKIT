@@ -307,7 +307,8 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   deallocate(den)
 
   do while(.true.) ! skip density in the original .fch(k) file
-   read(fid,'(A)') buf
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
    if(buf(49:49) == '=') then
     write(fid1,'(A)') TRIM(buf)
     exit
