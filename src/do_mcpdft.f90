@@ -3,8 +3,9 @@
 ! do MC-PDFT, valid for CASCI/CASSCFb based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
  use print_id, only: iout
- use mr_keyword, only: casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog, casnofch, &
-  molcas_path, gms_path, bgchg, chgname, check_gms_path, gms_scr_path, eist
+ use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
+  casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
+  gms_scr_path, eist
  use mol, only: ptchg_e, mcpdft_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
@@ -75,7 +76,7 @@ subroutine do_mcpdft()
  
   call prt_mcpdft_molcas_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
  case('gamess')
   call check_gms_path()

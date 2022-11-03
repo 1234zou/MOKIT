@@ -8,7 +8,8 @@ subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
-  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, eist
+  openmp_molcas, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
+  eist
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
@@ -182,7 +183,7 @@ subroutine do_mrpt2()
  
    call prt_nevpt2_molcas_inp(inpname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
   case('orca')
    call check_exe_exist(orca_path)
@@ -254,7 +255,7 @@ subroutine do_mrpt2()
  
    call prt_caspt2_molcas_inp(inpname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = system(TRIM(molcas_path)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1")
+   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
   case('molpro')
    call check_exe_exist(molpro_path)

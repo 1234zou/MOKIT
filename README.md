@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Oct 30, 2022
+Nov 3, 2022
 
 Installation
 ------------
@@ -118,7 +118,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
   in Shell. The automr program will successively perform HF, GVB, and CASSCF
   computations. See [examples/](examples/) for more examples.
 
-QC Packages can be called by AutoMR
+QC Packages can be called by `automr`
 ----------
 * [Gaussian](http://gaussian.com/)
 * [PySCF](https://github.com/pyscf/pyscf)
@@ -134,7 +134,7 @@ QC Packages can be called by AutoMR
 Some Tips
 ---------
 * To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
-  in Gaussian .gjf file, if you want to provide a .fch(k) file to AutoMR.
+  in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
 
 Bug Report
 ----------

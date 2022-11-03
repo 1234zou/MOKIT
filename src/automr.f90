@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Oct-30'
+  write(iout,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Nov-3'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -720,7 +720,7 @@ end subroutine calc_ncore
 subroutine do_minimal_basis_gvb()
  use mol, only: mult, nbf, nif, nopen, ndb, npair
  use mr_keyword, only: nproc, ist, npair_wish, gjfname, localm, hf_fch, mo_rhf,&
-  nskip_uno, bgchg, inherit
+  nskip_uno, bgchg, fcgvb, inherit
  implicit none
  integer :: i, fid, system
  real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
@@ -743,7 +743,7 @@ subroutine do_minimal_basis_gvb()
  outname = gjfname(1:i-1)//'_proj_rem.out'
 
  call prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair_wish, nskip_uno, localm, &
-                            bgchg, inherit)
+                            bgchg, fcgvb, inherit)
  call submit_automr_job(mbgjf)
  call read_hf_and_gvb_e_from_automr_out(mbout, e, uhf_s2)
  call read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
@@ -831,14 +831,14 @@ end subroutine do_minimal_basis_gvb
 
 ! print/create a GVB/STO-6G MOKIT automr .gjf file
 subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
-                                 bgchg, inherit)
+                                 bgchg, fcgvb, inherit)
  implicit none
  integer :: i, j, fid1, fid2
  integer, intent(in) :: npair, nskip_uno
  character(len=240) :: buf
  character(len=4), intent(in) :: localm
  character(len=240), intent(in) :: gjfname, mbgjf
- logical, intent(in) :: bgchg, inherit
+ logical, intent(in) :: bgchg, fcgvb, inherit
 
  open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(mbgjf),status='replace')
@@ -860,6 +860,7 @@ subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
   if(nskip_uno > 0) then
    write(fid2,'(A,I0)',advance='no') ',skip_uno=', nskip_uno
   end if
+  if(fcgvb) write(fid2,'(A,I0)',advance='no') ',FcGVB'
  else
   write(fid2,'(A,//,A)',advance='no') '/STO-6G','mokit{LocalM=PM'
  end if

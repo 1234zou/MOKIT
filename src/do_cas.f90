@@ -15,9 +15,9 @@ end module icss_param
 subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
   datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
-  dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_path, orca_path, &
-  gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, casscf_force,&
-  check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres, iroot
+  dmrgci_prog, dmrgscf_prog, gau_path, gms_path, openmp_molcas, molcas_path, &
+  orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, &
+  casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres, iroot
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -329,18 +329,10 @@ subroutine do_cas(scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
 
-  write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: OpenMolcas CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-   stop
-  end if
+  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
   ! make a copy of the .fch file to save NOs
   call copy_file(fchname, casnofch, .false.)
-
   ! transfer NOs from .dat to .fch
   i = system('orb2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
 

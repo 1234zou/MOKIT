@@ -498,25 +498,46 @@ subroutine submit_orca_job(orca_path, inpname)
  end if
 end subroutine submit_orca_job
 
-subroutine submit_molcas_job(inpname)
+! need to distinguish between OpenMP version and MPI version of OpenMolcas
+subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  implicit none
- integer :: i, system
- character(len=240) :: outname
+ integer :: i, fid, system
+ integer, intent(in) :: mem, nproc ! mem in GB
+ character(len=240) :: shname, outname
  character(len=480) :: buf
  character(len=240), intent(in) :: inpname
+ logical, intent(in) :: openmp
 
  i = index(inpname, '.inp', back=.true.)
+ shname = inpname(1:i-1)//'.sh'
  outname = inpname(1:i-1)//'.out'
+
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ if(openmp) then ! OpenMP version
+  write(fid,'(A)') '#OpenMP'
+  write(fid,'(A,I0,A)') 'export MOLCAS_MEM=',mem,'Gb'
+  write(fid,'(A)') 'export MOLCAS_NPROCS=1'
+  write(fid,'(A,I0)') 'export OMP_NUM_THREADS=',nproc
+ else ! MPI version
+  write(fid,'(A)') '#MPI'
+  write(fid,'(A,I0)') 'export MOLCAS_MEM=',INT(DBLE(mem)*1d3/DBLE(nproc))
+  write(fid,'(A,I0)') 'export MOLCAS_NPROCS=',nproc
+  write(fid,'(A)') 'export OMP_NUM_THREADS=1'
+ end if
 
  write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
+ write(fid,'(A)') TRIM(buf)
+ close(fid)
 
- i = system(TRIM(buf))
+ i = system('sh '//TRIM(shname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
+
+ call delete_file(shname)
 end subroutine submit_molcas_job
 
 subroutine submit_psi4_job(psi4_path, inpname, nproc)
