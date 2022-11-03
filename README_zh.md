@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年10月30号
+2022年11月3号
 
 安装
 ----------
@@ -114,7 +114,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
   命令，automr程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。更多例子
   请见[examples](examples/)。
 
-AutoMR支持调用的量子化学程序
+`automr`支持调用的量子化学程序
 ----------
 * [Gaussian](http://gaussian.com/)
 * [PySCF](https://github.com/pyscf/pyscf)
@@ -129,7 +129,7 @@ AutoMR支持调用的量子化学程序
 
 温馨提示
 ----------
-* 若您想提供.fch(k)文件给automr程序读入，请务必在计算前在Gaussian的输入文件中加上
+* 若您想提供.fch(k)文件给`automr`程序读入，请务必在计算前在Gaussian的输入文件中加上
   关键词nosymm int=nobasistransform，以避免后续产生不必要的、不可预见的错误。
 
 汇报Bug

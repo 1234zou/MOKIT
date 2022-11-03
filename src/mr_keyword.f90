@@ -144,7 +144,10 @@ module mr_keyword
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
  character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
 
- logical :: mo_rhf  = .false.       ! whether the initial wfn is RHF/UHF for True/False
+ logical :: openmp_molcas = .true. ! OpenMP/MPI version of OpenMolcas
+ ! True/False for OpenMP/MPI. To be determined when running
+
+ logical :: mo_rhf  = .false.      ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
  ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
  ! the rhf/uhf variable/flag will be used in utilities like fch2inp
@@ -340,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2022-Oct-30)'
+  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-3)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -352,6 +355,7 @@ contains
   call getenv('MOKIT_ROOT', mokit_root)
   call get_gau_path(gau_path)
   call get_molcas_path()
+  call check_molcas_is_openmp(openmp_molcas)
   call get_molpro_path()
   call get_psi4_path(psi4_path)
   call get_orca_path(orca_path)
@@ -2066,4 +2070,52 @@ subroutine get_orca_path(orca_path)
   end if
  end if
 end subroutine get_orca_path
+
+! check/detect OpenMolcas is OpenMP version or MPI version
+subroutine check_molcas_is_openmp(openmp)
+ implicit none
+ integer :: i, fid, system
+ character(len=3) :: str
+ character(len=10), parameter :: ftmp = 'molcas.ver'
+ character(len=240) :: buf
+ logical, intent(out) :: openmp
+
+ str = ' '
+ openmp = .true.
+ i = system('pymolcas --banner >'//ftmp)
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine check_molcas_is_openmp: failed to run 'py&
+                 &molcas --banner'."
+  stop
+ end if
+
+ open(newunit=fid,file=ftmp,status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == 'Parallel') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine check_molcas_is_openmp: no 'Parallel' fou&
+                 &nd in 'pymolcas --banner'."
+  close(fid,status='delete')
+  stop
+ end if
+
+ i = index(buf,':')
+ read(buf(i+1:),*) str
+ close(fid,status='delete')
+ str = ADJUSTL(str)
+
+ select case(TRIM(str))
+ case('ON') ! MPI version
+  openmp = .false.
+ case('OFF') ! OpenMP version
+ case default
+  write(6,'(A)') 'ERROR in subroutine check_molcas_is_openmp: unrecognized para&
+                 &llel type='//str
+  stop
+ end select
+end subroutine check_molcas_is_openmp
 
