@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-3)'
+  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-6)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -2083,11 +2083,8 @@ subroutine check_molcas_is_openmp(openmp)
  str = ' '
  openmp = .true.
  i = system('pymolcas --banner >'//ftmp)
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine check_molcas_is_openmp: failed to run 'py&
-                 &molcas --banner'."
-  stop
- end if
+ if(i /= 0) return
+ ! maybe OpenMolcas not installed, assume OpenMP version
 
  open(newunit=fid,file=ftmp,status='old',position='rewind')
  do while(.true.)
