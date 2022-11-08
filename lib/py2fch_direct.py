@@ -1,5 +1,7 @@
-from py2fch import molinfo2fch, molecp2fch
+from py2fch import molinfo2fch, molecp2fch, py2fch
+import os
 import numpy as np
+from pyscf import scf, mcscf
 from pyscf.data import elements, nist
 from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
         gto_norm
@@ -127,10 +129,12 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
              #KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
              )
 
+def fchk_uno(mf, fchname, uno, unoon, density=False, overwrite_mol=False):
+    if (not os.path.isfile(fchname)) or overwrite_mol:
+        mol2fch(mf.mol, fchname, False, uno)
+    py2fch(fchname, uno.shape[0], uno.shape[1], uno, 'a', unoon, density)
+
 def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=None):
-    from pyscf import scf, mcscf
-    from py2fch import py2fch
-    import os
     is_uhf = isinstance(mf, scf.uhf.UHF)
     if mo_coeff is None:
         mo = mf.mo_coeff
