@@ -99,6 +99,23 @@ subroutine molecp2fch(fchname, uhf, &
  end if
 
  call write_fch(fchname)
+ 
+ deallocate(shell_type)
+ deallocate(prim_per_shell)
+ deallocate(shell2atom_map)
+ deallocate(coor)
+ deallocate(prim_exp)
+ deallocate(contr_coeff)
+ if (LenNCZ > 0) then
+  deallocate(KFirst)
+  deallocate(KLast)
+  deallocate(Lmax)
+  deallocate(LPSkip) 
+  deallocate(NLP)
+  deallocate(RNFroz) 
+  deallocate(CLP)
+  deallocate(ZLP)
+ end if
 end subroutine molecp2fch
 
 subroutine molinfo2fch(fchname, uhf, &
@@ -149,6 +166,13 @@ subroutine molinfo2fch(fchname, uhf, &
 ! end if
 
  call write_fch(fchname)
+
+ deallocate(shell_type)
+ deallocate(prim_per_shell)
+ deallocate(shell2atom_map)
+ deallocate(coor)
+ deallocate(prim_exp)
+ deallocate(contr_coeff)
 end subroutine molinfo2fch
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
