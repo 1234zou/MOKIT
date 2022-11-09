@@ -11,7 +11,7 @@ mf = mol.RHF().run()
 fchk(mf, 'test.fch')
 
 mf2 = mol.UHF().run()
-fchk(mf, 'test_uhf.fch')
+fchk(mf2, 'test_uhf.fch')
 
 from pyscf import mcscf, cc
 mf3 = mcscf.CASSCF(mf, 5, 8)
