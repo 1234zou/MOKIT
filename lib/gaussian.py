@@ -127,7 +127,7 @@ def permute_orb(fchname, orb1, orb2):
   write_mo_into_fch(fchname, nbf, nif, 'a', mo)
   write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
 
-def get_dipole(fchname, itype=None):
+def get_dipole(fchname, itype=1):
   '''
   Calculate the dipole moment using density in .fch(k) file
   itype=1/3/5/7 for Total SCF/CI/MP2/CC Density. Default: itype=1
@@ -135,9 +135,6 @@ def get_dipole(fchname, itype=None):
   from lo import get_e_dipole_using_density_in_fch
   from rwgeom import read_natom_from_fch, read_elem_and_coor_from_fch, \
                      get_nuc_dipole
-  if itype is None:
-    itype = 1
-
   # calculate nuclear dipole
   natom = read_natom_from_fch(fchname)
   elem, nuc, coor, charge, mult = read_elem_and_coor_from_fch(fchname, natom)
@@ -153,7 +150,7 @@ def get_dipole(fchname, itype=None):
   print(' Dipole moment (a.u.):', dipole)
   return dipole
 
-def gen_fcidump(fchname, nacto, nacte, mem=None, np=None):
+def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
   '''
   generate a FCIDUMP file using the provided .fch(k) file
   nacto: the number of active orbitals
@@ -163,9 +160,6 @@ def gen_fcidump(fchname, nacto, nacte, mem=None, np=None):
   '''
   from pyscf import scf, mcscf, ao2mo, lib
   from pyscf.tools.fcidump import from_integrals
-
-  if mem is None:
-    mem = 4000 # MB
 
   if (np):
     lib.num_threads(np)
