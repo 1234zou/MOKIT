@@ -47,7 +47,7 @@ subroutine molecp2fch(fchname, uhf, &
  use fch_content, only : is_uhf, nbf, nif, na, nb, ncontr, nprim, charge, mult, natom, LenNCZ, &
                         & ielem, shell_type, prim_per_shell, shell2atom_map, &
                         & virial, tot_e, coor, prim_exp, contr_coeff, contr_coeff_sp, &
-                        & KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
+                        & KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: uhf
  integer, intent(in) :: nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in
@@ -115,6 +115,7 @@ subroutine molecp2fch(fchname, uhf, &
   deallocate(RNFroz) 
   deallocate(CLP)
   deallocate(ZLP)
+  if(allocated(CLP2)) deallocate(CLP2)
  end if
 end subroutine molecp2fch
 

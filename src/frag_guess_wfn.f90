@@ -83,8 +83,8 @@ program main
  if(i /= 1) then
   write(6,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
                    & arguments!'
-  write(6,'(/,A)') " Example 1 (in bash): frag_guess_wfn water_dimer.gjf >& water_dimer.out &"
-  write(6,'(A,/)') " Example 2 (in dash): frag_guess_wfn water_dimer.gjf >water_dimer.out 2>&1 &"
+  write(6,'(/,A)') " Example 1 (in bash): frag_guess_wfn h2o_dimer.gjf >& h2o_dimer.out &"
+  write(6,'(A,/)') " Example 2 (in dash): frag_guess_wfn h2o_dimer.gjf >h2o_dimer.out 2>&1 &"
   stop
  end if
 
@@ -240,7 +240,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  if(index(basis,'gen') > 0) then
   close(fid)
-  call record_gen_basis_in_gjf(gjfname, basname)
+  call record_gen_basis_in_gjf(gjfname, basname, .false.)
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
   do while(.true.)
    read(fid,'(A)') buf
@@ -259,8 +259,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  read(fid,*,iostat=i) cm
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: incomplete charges and&
-                   & multiplicities detected'
-  write(6,'(A)') 'in file '//TRIM(gjfname)
+                   & spin multiplicities'
+  write(6,'(A)') 'detected in file '//TRIM(gjfname)
   close(fid)
   stop
  end if

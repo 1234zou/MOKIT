@@ -5,14 +5,13 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=240) gmsname
 
  gmsname = ' '
  i = iargc()
  if(i /= 1) then
-  write(iout,'(A)') 'ERROR in subroutine find_mc_pair: wrong command line parameter!'
-  write(iout,'(A)') 'Example: ./find_mc_pair a.gms'
+  write(6,'(A)') 'ERROR in subroutine find_mc_pair: wrong command line parameter!'
+  write(6,'(A)') 'Example: ./find_mc_pair a.gms'
   stop
  end if
 
@@ -25,7 +24,6 @@ end program main
 subroutine find_mc_pair(gmsname)
  implicit none
  integer :: i, j, k, npair, tmp_pair(2)
- integer, parameter :: iout = 6
  integer, parameter :: fid = 11
  integer, allocatable :: pair(:,:)
  real(kind=8) tmp_coeff(2), tmp_coeff1(2), tmp_coeff2(2)
@@ -44,8 +42,8 @@ subroutine find_mc_pair(gmsname)
   if(i /= 0) exit
  end do
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine find_mc_pair: no 'ROHF-GVB INPUT' string found!"
-  write(iout,'(A)') 'The .gms file '//TRIM(gmsname)//' is not complete!'
+  write(6,'(A)') "ERROR in subroutine find_mc_pair: no 'ROHF-GVB INPUT' string found!"
+  write(6,'(A)') 'The .gms file '//TRIM(gmsname)//' is not complete!'
   close(fid)
   return
  end if
@@ -73,8 +71,8 @@ subroutine find_mc_pair(gmsname)
   if(i /= 0) exit
  end do
  if(i == 0) then
-  write(iout,'(A)') 'ERROR in subroutine find_mc_pair: no PAIR INFORMATION found!'
-  write(iout,'(A)') 'The .gms file '//TRIM(gmsname)//' is not complete!'
+  write(6,'(A)') 'ERROR in subroutine find_mc_pair: no PAIR INFORMATION found!'
+  write(6,'(A)') 'The .gms file '//TRIM(gmsname)//' is not complete!'
   close(fid)
   return
  end if
@@ -126,15 +124,15 @@ subroutine find_mc_pair(gmsname)
 
  ! output the number of required pair coefficients
  k = count(pair_coeff(2,:) < threshold)
- write(iout,'(/)',advance='no')
+ write(6,'(/)',advance='no')
  if(k > 0) then
-  write(iout,'(6X,A)') 'ORBITAL   CI COEFFICIENTS'
-  write(iout,'(A)')    ' PAIR 1   2     ORB 1     ORB 2'
+  write(6,'(6X,A)') 'ORBITAL   CI COEFFICIENTS'
+  write(6,'(A)')    ' PAIR 1   2     ORB 1     ORB 2'
   do i = 1, k, 1
-   write(iout,'(I3,2I4,2X,2F10.6)') i, pair(1:2,i), pair_coeff(1:2,i)
+   write(6,'(I3,2I4,2X,2F10.6)') i, pair(1:2,i), pair_coeff(1:2,i)
   end do
  else
-  write(iout,'(A)') 'No pair '
+  write(6,'(A)') 'No pair '
  end if
  ! output done
 

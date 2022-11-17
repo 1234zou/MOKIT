@@ -28,16 +28,15 @@ end module Sdiag_dalton
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=3) :: str
  character(len=240) :: orbname, fchname
  logical :: prt_no
 
  i = iargc()
  if(i<2 .or. i>3) then
-  write(iout,'(/,A)') ' ERROR in subroutine dal2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (R(O)HF, CAS): dal2fch DALTON.MOPUN a.fch'
-  write(iout,'(A,/)') ' Example 2 (CAS NO)     : dal2fch DALTON.MOPUN a.fch -no'
+  write(6,'(/,A)') ' ERROR in subroutine dal2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, CAS): dal2fch DALTON.MOPUN a.fch'
+  write(6,'(A,/)') ' Example 2 (CAS NO)     : dal2fch DALTON.MOPUN a.fch -no'
   stop
  end if
 
@@ -50,7 +49,7 @@ program main
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine dal2fch: the 3rd argument is&
+   write(6,'(/,1X,A)') "ERROR in subroutine dal2fch: the 3rd argument is&
                          & wrong! Only '-no' is accepted."
    stop
   else
@@ -118,7 +117,6 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  ! mark the index where d, f, g, h functions begin
- integer, parameter :: iout = 6
  integer, intent(in) :: shell_type0(ncontr), shell_to_atom_map0(ncontr)
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -193,16 +191,16 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: shell_type(i) out of range!'
-   write(iout,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
+   write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: shell_type(i) out of range!'
+   write(6,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
    stop
   end select
  end do ! for i
  deallocate(shell_type)
 
  if(nbf /= nbf0) then
-  write(iout,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: nbf /= nbf0.'
-  write(iout,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
+  write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: nbf /= nbf0.'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
   stop
  end if
 

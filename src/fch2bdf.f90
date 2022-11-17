@@ -65,7 +65,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order
 !  of Gaussian to that of BDF
 subroutine fch2bdf(fchname, prt_no)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, natom, orbid
  integer :: na, nb, nif, nbf, nbf0, nbf1, mult
@@ -91,9 +91,9 @@ subroutine fch2bdf(fchname, prt_no)
 
  if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
   deallocate(shell_type, shell2atom_map)
-  write(iout,'(A)') 'ERROR in subroutine fch2bdf: Cartesian-type basis functions&
+  write(6,'(A)') 'ERROR in subroutine fch2bdf: Cartesian-type basis functions&
                    & are not supported in BDF.'
-  write(iout,'(A)') 'You can use spherical harmonic basis functions.'
+  write(6,'(A)') 'You can use spherical harmonic basis functions.'
   stop
  end if
 
@@ -171,8 +171,8 @@ subroutine fch2bdf(fchname, prt_no)
    h_mark(n11hmark) = nbf + 1
    nbf = nbf + 11
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2bdf: shell_type(i) out of range.'
-   write(iout,'(2(A,I0))') 'i=', i, ', k=', k
+   write(6,'(A)') 'ERROR in subroutine fch2bdf: shell_type(i) out of range.'
+   write(6,'(2(A,I0))') 'i=', i, ', k=', k
    stop
   end select
  end do ! for i
@@ -339,7 +339,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  implicit none
  integer i, j, k
  integer, intent(in) :: i0, shell_type, length, nbf, nif
- integer, parameter :: iout = 6
  integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
  !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
  real(kind=8), intent(inout) :: coeff2(nbf,nif)
@@ -348,9 +347,9 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(iout,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
+  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
                    & shell_type is 0 or -1. Impossible.'
-  write(iout,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
+  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if
 

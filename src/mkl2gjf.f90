@@ -15,16 +15,15 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=3) :: str
  character(len=240) :: mklname
  logical :: print_mo
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)')  ' ERROR in subroutine mkl2gjf: wrong command line arguments.'
-  write(iout,'(A)')    ' Example 1: mkl2gjf a.mkl     (coordinates and basis)'
-  write(iout,'(A,/)')  ' Example 2: mkl2gjf a.mkl -mo (plus MOs)'
+  write(6,'(/,A)')  ' ERROR in subroutine mkl2gjf: wrong command line arguments.'
+  write(6,'(A)')    ' Example 1: mkl2gjf a.mkl     (coordinates and basis)'
+  write(6,'(A,/)')  ' Example 2: mkl2gjf a.mkl -mo (plus MOs)'
   stop
  end if
 
@@ -37,8 +36,8 @@ program main
  if(i == 2) then
   call getarg(2, str)
   if(str /= '-mo') then
-   write(iout,'(A)')  'ERROR in subroutine mkl2gjf: wrong command line arguments.'
-   write(iout,'(A)')  "The 2nd argument can only be '-mo'."
+   write(6,'(A)')  'ERROR in subroutine mkl2gjf: wrong command line arguments.'
+   write(6,'(A)')  "The 2nd argument can only be '-mo'."
    stop
   end if
   print_mo = .true.
@@ -55,7 +54,6 @@ subroutine mkl2gjf(mklname, print_mo)
  implicit none
  integer :: i, j, k, nc, nline, ncol, fid
  integer :: nf3mark, ng3mark, nh3mark
- integer, parameter :: iout = 6
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  character(len=240) :: gjfname
  character(len=240), intent(in) :: mklname
@@ -64,9 +62,9 @@ subroutine mkl2gjf(mklname, print_mo)
 
  i = INDEX(mklname,'.',back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine mkl2gjf: input filename does not&
+  write(6,'(A)') "ERROR in subroutine mkl2gjf: input filename does not&
                    & contain '.' key!"
-  write(iout,'(A)') 'mklname='//TRIM(mklname)
+  write(6,'(A)') 'mklname='//TRIM(mklname)
   stop
  end if
  gjfname = mklname(1:i-1)//'.gjf'
@@ -80,14 +78,14 @@ subroutine mkl2gjf(mklname, print_mo)
  call read_mkl(mklname, uhf, print_mo)
  deallocate(shl2atm)
  if(ANY(nuc > 18)) then
-  write(iout,'(/,A)') "Warning in subroutine mkl2gjf: element(s)>'Ar' detected."
-  write(iout,'(A)') 'NOTE: the .mkl file does not contain ECP/PP information.&
+  write(6,'(/,A)') "Warning in subroutine mkl2gjf: element(s)>'Ar' detected."
+  write(6,'(A)') 'NOTE: the .mkl file does not contain ECP/PP information.&
                    & If you use ECP/PP'
-  write(iout,'(A)') '(in ORCA .inp file), there would be no ECP in the genera&
+  write(6,'(A)') '(in ORCA .inp file), there would be no ECP in the genera&
                    &ted .gjf file. You'
-  write(iout,'(A)') "should manually add ECP data into .gjf, and change 'gen'&
+  write(6,'(A)') "should manually add ECP data into .gjf, and change 'gen'&
                    & into 'genecp'. If"
-  write(iout,'(A)') 'you use all-electron basis set, there is no problem.'
+  write(6,'(A)') 'you use all-electron basis set, there is no problem.'
  end if
  deallocate(nuc)
 
@@ -136,8 +134,8 @@ subroutine mkl2gjf(mklname, print_mo)
     case(3)
      write(fid,'(3ES20.10)') all_pg(i)%prim_gau(j)%coeff(k,1:3)
     case default
-     write(iout,'(A)') 'ERROR in subroutine mkl2gjf: ncol out of range.'
-     write(iout,'(A,I0)') 'ncol=', ncol
+     write(6,'(A)') 'ERROR in subroutine mkl2gjf: ncol out of range.'
+     write(6,'(A,I0)') 'ncol=', ncol
      stop
     end select
    end do ! for k
@@ -188,8 +186,8 @@ subroutine mkl2gjf(mklname, print_mo)
  deallocate(shell_type)
 
  if(k /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2gjf: k /= nbf!'
-  write(iout,'(2(A,I0))') 'k=', k, ', nbf=', nbf
+  write(6,'(A)') 'ERROR in subroutine mkl2gjf: k /= nbf!'
+  write(6,'(2(A,I0))') 'k=', k, ', nbf=', nbf
   stop
  end if
 

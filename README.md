@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Nov 6, 2022
+Nov 17, 2022
 
 Installation
 ------------
@@ -60,14 +60,14 @@ make fch2inp
 ```
 
 * After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH`
-  and `PYTHONPATH`. E.g. if MOKIT is installed in /home/$USER/software/mokit,
-  the following should be set in ~/.bashrc:
+  and `PYTHONPATH`. E.g. if MOKIT is installed in `$HOME/software/mokit`, the
+  following should be set in `~/.bashrc`:
 
 ```
-export MOKIT_ROOT=/home/$USER/software/mokit
+export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-export GMS=/home/$USER/software/gamess/rungms
+export GMS=$HOME/software/gamess/rungms
 ```
 
   Remember to modify the `GMS` path to suit your local environment. If you
@@ -77,7 +77,9 @@ export GMS=/home/$USER/software/gamess/rungms
 export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 ```
 
-  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`.
+  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`. Note that you
+  need to run `source ~/.bashrc` or exit the terminal as well as re-login, in
+  order to activate newly written environment variables.
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10

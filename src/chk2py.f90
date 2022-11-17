@@ -43,7 +43,6 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
- integer, parameter :: iout = 6
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
 
@@ -63,8 +62,8 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
 
  inquire(file=TRIM(chkname),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine chk2py: file does not exist!'
-  write(iout,'(A)') 'Filename='//TRIM(chkname)
+  write(6,'(A)') 'ERROR in subroutine chk2py: file does not exist!'
+  write(6,'(A)') 'Filename='//TRIM(chkname)
   stop
  end if
 
@@ -74,10 +73,10 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  ! Step1: tranform .chk to _chk.txt using Gaussian utility chkchk
  i = system('chkchk -p '//TRIM(chkname)//' > '//TRIM(txtname))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
+  write(6,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
                    & to _chk.txt file, using Gaussian utility chkchk.'
-  write(iout,'(A)') 'File: '//TRIM(chkname)
-  write(iout,'(A)') "You can use 'which chkchk' to check if this command exists."
+  write(6,'(A)') 'File: '//TRIM(chkname)
+  write(6,'(A)') "You can use 'which chkchk' to check if this command exists."
   stop
  end if
 
@@ -110,10 +109,10 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  txtname = chkname(1:i-1)//'_tmp.fchk'
  i = system('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
+  write(6,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
                    & to _tmp.fchk file, using Gaussian utility formchk.'
-  write(iout,'(A)') TRIM(chkname)
-  write(iout,'(A)') "You can use 'which formchk' to check if this command exists."
+  write(6,'(A)') TRIM(chkname)
+  write(6,'(A)') "You can use 'which formchk' to check if this command exists."
   stop
  end if
 
@@ -133,18 +132,18 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
 
  read(chkid,'(A49,2X,I10)') buffer, i
  if(i /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine chk2py: inconsistent number of basis&
+  write(6,'(A)') 'ERROR in subroutine chk2py: inconsistent number of basis&
                    & functions in .chk file and in PySCF script.'
-  write(iout,'(A)') TRIM(chkname)
+  write(6,'(A)') TRIM(chkname)
   close(chkid)
   stop
  end if
 
  read(chkid,'(A49,2X,I10)') buffer, i
  if(i /= nif) then
-  write(iout,'(A)') 'ERROR in subroutine chk2py: inconsistent number of MOs in&
+  write(6,'(A)') 'ERROR in subroutine chk2py: inconsistent number of MOs in&
                    & .chk file and in PySCF script.'
-  write(iout,'(A)') TRIM(chkname)
+  write(6,'(A)') TRIM(chkname)
   close(chkid)
   stop
  end if
@@ -155,9 +154,9 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
   if(buffer(1:11) == 'Shell types') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine chk2py: missing the 'Shell types'&
+  write(6,'(A)') "ERROR in subroutine chk2py: missing the 'Shell types'&
                    & section in .fchk file!"
-  write(iout,'(A)') TRIM(chkname)
+  write(6,'(A)') TRIM(chkname)
   close(chkid)
   stop
  end if
@@ -175,9 +174,9 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
   if(buffer(1:13) == 'Shell to atom') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine chk2py: missing the 'Shell to atom map'&
+  write(6,'(A)') "ERROR in subroutine chk2py: missing the 'Shell to atom map'&
                    & section in .fchk file!"
-  write(iout,'(A)') TRIM(chkname)
+  write(6,'(A)') TRIM(chkname)
   close(chkid)
   stop
  end if

@@ -43,7 +43,6 @@ end subroutine diag_get_e_and_vec
 subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  implicit none
  integer :: i, m, lwork, liwork
- integer, parameter :: iout = 6
  integer, intent(in) :: n
  integer, allocatable :: iwork(:), isuppz(:)
 
@@ -77,14 +76,14 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
 
  deallocate(a, work, iwork, isuppz)
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
-  write(iout,'(A,I0)') 'i=', i
+  write(6,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
+  write(6,'(A,I0)') 'i=', i
   stop
  end if
 
  if(e(1) < -1d-6) then
-  write(iout,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
-  write(iout,'(A,F16.9)') 'e(1)=', e(1)
+  write(6,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
+  write(6,'(A,F16.9)') 'e(1)=', e(1)
   stop
  end if
 
@@ -114,7 +113,6 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  implicit none
  integer :: i
  integer, intent(in) :: a1, a2, a3
- integer, parameter :: iout = 6
  integer, allocatable :: ipiv(:)
  real(kind=8), intent(in) :: a(a1,a2), b(a1,a3)
  real(kind=8), intent(out) :: x(a2,a3)
@@ -133,9 +131,9 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
 
  call dgetrf(a1, a2, a_copy, a1, ipiv, i)
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine solve_multi_lin_eqs: MKL subroutine&
+  write(6,'(/,A)') 'ERROR in subroutine solve_multi_lin_eqs: MKL subroutine&
                      & dgetrf failed.'
-  write(iout,'(A,I0)') 'info=', i
+  write(6,'(A,I0)') 'info=', i
   stop
  end if
 

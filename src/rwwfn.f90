@@ -51,7 +51,6 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  implicit none
  integer :: i, fid
  integer, intent(out) :: charge, mult
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -63,7 +62,7 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no&
+  write(6,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no&
                    & 'Charge' found in file "//TRIM(fchname)//'.'
   close(fid)
   stop
@@ -82,7 +81,6 @@ subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  implicit none
  integer :: i, fid
  integer, intent(out) :: charge, mult
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
@@ -94,7 +92,7 @@ subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no&
+  write(6,'(A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no&
                    & '$CHAR_M' found in file "//TRIM(mklname)//'.'
   close(fid)
   stop
@@ -110,7 +108,6 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
  integer :: i, fid
  integer, intent(out) :: na, nb ! number of alpha/beta electrons
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -122,7 +119,7 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
+  write(6,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
                    & alpha' found in file "//TRIM(fchname)
   close(fid)
   stop
@@ -182,7 +179,6 @@ subroutine read_nbf_from_dat(datname, nbf)
  implicit none
  integer :: i, j, fid
  integer, intent(out) :: nbf
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
@@ -194,7 +190,7 @@ subroutine read_nbf_from_dat(datname, nbf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found&
+  write(6,'(A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found&
                    & in file "//TRIM(datname)
   close(fid)
   stop
@@ -225,7 +221,6 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  integer :: i, j, fid, ncoeff
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
 !f2py depend(nbf,nif) mo
 !f2py intent(out) :: mo
@@ -250,7 +245,7 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_fch: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine read_mo_from_fch: no '"//key//"' found&
                    & in file "//TRIM(fchname)//'.'
   stop
  end if
@@ -258,10 +253,10 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, ncoeff
  if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine read_mo_from_fch: ncoeff /= nbf*nif.'
-  write(iout,'(A)') 'Inconsistency found between input nbf,nif and those&
+  write(6,'(A)') 'ERROR in subroutine read_mo_from_fch: ncoeff /= nbf*nif.'
+  write(6,'(A)') 'Inconsistency found between input nbf,nif and those&
                    & in file '//TRIM(fchname)
-  write(iout,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
+  write(6,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
   stop
  end if
 
@@ -269,8 +264,8 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  read(unit=fid,fmt='(5(1X,ES15.8))',iostat=j) (coeff(i),i=1,ncoeff)
 
  if(j /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_mo_from_fch: failed to read MOs.'
-  write(iout,'(A)') 'This file seems problematic: '//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mo_from_fch: failed to read MOs.'
+  write(6,'(A)') 'This file seems problematic: '//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -321,7 +316,6 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -340,7 +334,7 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_orb: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine read_mo_from_orb: no '"//key//"' found&
                    & in file "//TRIM(orbname)//'.'
   stop
  end if
@@ -361,7 +355,6 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, k, fid, nline
  integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
  character(len=240) :: buf
  character(len=1), intent(in) :: ab
@@ -377,7 +370,7 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
       index(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH',&
+   write(6,'(A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH',&
                    & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
    stop
   end if
@@ -390,7 +383,7 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
    if(index(buf,"type=""BETA") /= 0) exit
   end do ! for while
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
+   write(6,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
                     & found in file "//TRIM(xmlname)//'.'
    stop
   end if
@@ -418,7 +411,6 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, k, nline, fid
  integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -431,8 +423,8 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
  else if (ab=='b' .or. ab=='B') then
   key = key2
  else
-  write(iout,'(A)') 'ERROR in subroutine read_mo_from_bdf_orb: invalid ab.'
-  write(iout,'(A)') 'ab = '//ab
+  write(6,'(A)') 'ERROR in subroutine read_mo_from_bdf_orb: invalid ab.'
+  write(6,'(A)') 'ab = '//ab
   stop
  end if
 
@@ -444,7 +436,7 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_bdf_orb: no '"//key//"'&
+  write(6,'(A)') "ERROR in subroutine read_mo_from_bdf_orb: no '"//key//"'&
                    & found in file "//TRIM(orbname)//'.'
   stop
  end if
@@ -469,7 +461,6 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  implicit none
  integer :: i, j, k, nline, fid
  integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
  real(kind=8), intent(out) :: coeff(nbf,nif)
@@ -494,10 +485,10 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
 
  close(fid)
  if(k /= 0) then
-  write(iout,'(/,A)') 'ERROR in subrouine read_mo_from_dalton_mopun: failed&
+  write(6,'(/,A)') 'ERROR in subrouine read_mo_from_dalton_mopun: failed&
                      & to read MOs from'
-  write(iout,'(A)') 'file '//TRIM(orbname)//'.'
-  write(iout,'(4(A,I0))') 'nbf=',nbf,',nif=',nif,',i=',i,',j=',j
+  write(6,'(A)') 'file '//TRIM(orbname)//'.'
+  write(6,'(4(A,I0))') 'nbf=',nbf,',nif=',nif,',i=',i,',j=',j
   close(fid)
   stop
  end if
@@ -512,7 +503,6 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: noon(nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -532,7 +522,7 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_eigenvalues_from_fch: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine read_eigenvalues_from_fch: no '"//key//"' found&
                    & in file "//TRIM(fchname)//'.'
   stop
  end if
@@ -540,8 +530,8 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, i
  if(i /= nif) then
-  write(iout,'(A)') 'ERROR in subroutine read_eigenvalues_from_fch: i /= nif.'
-  write(iout,'(A)') 'Inconsistency found between input nif and that in file '//TRIM(fchname)
+  write(6,'(A)') 'ERROR in subroutine read_eigenvalues_from_fch: i /= nif.'
+  write(6,'(A)') 'Inconsistency found between input nif and that in file '//TRIM(fchname)
   stop
  end if
 
@@ -556,7 +546,6 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: on(nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -576,7 +565,7 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
+  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
                    & //"' found in file "//TRIM(orbname)//'.'
   stop
  end if
@@ -631,7 +620,6 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
  implicit none
  integer :: i, j, k, nline, fid
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: on(nmo)
  character(len=240) :: buf
  character(len=1), intent(in) :: ab
@@ -651,7 +639,7 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
       index(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH',&
+   write(6,'(A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH',&
                    & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
    stop
   end if
@@ -664,7 +652,7 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
    if(index(buf,"type=""BETA") /= 0) exit
   end do ! for while
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
+   write(6,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
                     & found in file "//TRIM(xmlname)//'.'
    stop
   end if
@@ -687,10 +675,10 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
 
  close(fid)
  if(k /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_on_from_xml: not all occupation&
+  write(6,'(A)') 'ERROR in subroutine read_on_from_xml: not all occupation&
                    & numbers are found.'
-  write(iout,'(A)') "Did you forget to add '{put,xml}' in Molpro input file?"
-  write(iout,'(A)') 'Filname = '//TRIM(xmlname)
+  write(6,'(A)') "Did you forget to add '{put,xml}' in Molpro input file?"
+  write(6,'(A)') 'Filname = '//TRIM(xmlname)
   stop
  end if
 
@@ -702,7 +690,6 @@ subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: on(nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -717,11 +704,11 @@ subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "Warning in subroutine read_on_from_bdf_orb: no 'OCCUPATION'&
+  write(6,'(A)') "Warning in subroutine read_on_from_bdf_orb: no 'OCCUPATION'&
                    & found in file "//TRIM(orbname)//'.'
-  write(iout,'(A)') 'Failed to read CAS NOONs. This does not affect the CASCI/CASSCF&
+  write(6,'(A)') 'Failed to read CAS NOONs. This does not affect the CASCI/CASSCF&
                    & energy. So continue.'
-  write(iout,'(A)') 'To avoid this error, please use newer version of BDF.'
+  write(6,'(A)') 'To avoid this error, please use newer version of BDF.'
   close(fid)
   return
  end if
@@ -742,7 +729,6 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ev(nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf
@@ -757,13 +743,13 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "Warning in subroutine read_ev_from_bdf_orb: no 'ORBITAL E'&
+  write(6,'(A)') "Warning in subroutine read_ev_from_bdf_orb: no 'ORBITAL E'&
                    & found in file "//TRIM(orbname)//'.'
-  write(iout,'(A)') 'Failed to read orbital energies. Set all orbital energies&
+  write(6,'(A)') 'Failed to read orbital energies. Set all orbital energies&
                    & to be zero. This does not affect'
-  write(iout,'(A)') 'subsequent computations in AutoMR of MOKIT. So continue. If&
+  write(6,'(A)') 'subsequent computations in AutoMR of MOKIT. So continue. If&
                    & you know your subsequent computations'
-  write(iout,'(A)') 'will explicitly use orbital energies in fch(k) file, &
+  write(6,'(A)') 'will explicitly use orbital energies in fch(k) file, &
                    & please stop subsequent computations.'
   close(fid)
   return
@@ -781,7 +767,6 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
  real(kind=8), intent(out) :: on(nif)
@@ -795,7 +780,7 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC'&
+  write(6,'(A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC'&
                    & found in file "//TRIM(orbname)//'.'
   close(fid)
   stop
@@ -805,7 +790,7 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  close(fid)
 
  if(k /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_on_from_dalton_mopun: failed to&
+  write(6,'(A)') 'ERROR in subroutine read_on_from_dalton_mopun: failed to&
                    & read occupation numbers from file '//TRIM(orbname)
   stop
  end if
@@ -817,7 +802,6 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  implicit none
  integer :: i, fid
  integer, intent(out) :: ncontr
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -830,7 +814,7 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
+  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
                    & 'Number of contract' section in file "//TRIM(fchname)
   close(fid)
   return
@@ -848,7 +832,6 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  integer :: i, fid
  integer, intent(in) :: k
  integer, intent(out) :: shltyp(k), shl2atm(k)
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -861,7 +844,7 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
                    & missing 'Shell types' section in file "//TRIM(fchname)
   close(fid)
   return
@@ -878,7 +861,7 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
   if(buf(1:13) == 'Shell to atom') exit
  end do
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
                    & missing 'Shell to atom map' section in file "//TRIM(fchname)
   close(fid)
   return
@@ -896,7 +879,6 @@ subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
  implicit none
  integer :: i, j, k, m, n, p, fid
  integer, intent(in) :: itype, nbf
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mat(nbf,nbf)
  character(len=7), parameter :: key(4) = &
   ['Overlap', 'Kinetic', '* Poten', '** Core']
@@ -904,9 +886,9 @@ subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
  character(len=240), intent(in) :: logname
 
  if(itype<1 .or. itype>4) then
-  write(iout,'(A,I0)') 'ERROR in subroutine read_int1e_from_gau_log: invalid&
+  write(6,'(A,I0)') 'ERROR in subroutine read_int1e_from_gau_log: invalid&
                      & itype = ', itype
-  write(iout,'(A)') 'Allowed values are 1/2/3/4 for Overlap/Kinetic/Potential/&
+  write(6,'(A)') 'Allowed values are 1/2/3/4 for Overlap/Kinetic/Potential/&
                    &Core Hamiltonian.'
   stop
  end if
@@ -920,7 +902,7 @@ subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_int1e_from_gau_log: no key '"&
+  write(6,'(A)') "ERROR in subroutine read_int1e_from_gau_log: no key '"&
                    & //key(itype)//"' found in file "//TRIM(logname)
   close(fid)
   stop
@@ -960,7 +942,6 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  implicit none
  integer :: i, j, k, nline, fid
  integer, intent(in) :: nbf
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: S(nbf,nbf)
@@ -974,7 +955,7 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ovlp_from_molcas_out: no 'SO&
+  write(6,'(A)') "ERROR in subroutine read_ovlp_from_molcas_out: no 'SO&
                    & Integrals of type Mltpl  0' found in file "//TRIM(outname)
   stop
  end if
@@ -986,9 +967,9 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  i = index(buf, 'x')
  read(buf(i+1:),*) j
  if(j /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine read_ovlp_from_molcas_out: inconsistent&
+  write(6,'(A)') 'ERROR in subroutine read_ovlp_from_molcas_out: inconsistent&
    & nbf(i.e. number of basis functions) in orbital file and overlap file.'
-   write(iout,'(2(A,I5))') 'j=', j, ', nbf=', nbf
+   write(6,'(2(A,I5))') 'j=', j, ', nbf=', nbf
   stop
  end if
 
@@ -1021,7 +1002,6 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: nif
 !f2py intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: on(nif)
 !f2py depend(nif) :: on
 !f2py intent(in) :: on
@@ -1052,7 +1032,7 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine write_eigenvalues_to_fch: no '"//&
+  write(6,'(A)') "ERROR in subroutine write_eigenvalues_to_fch: no '"//&
                     key//"' found in file "//TRIM(fchname)
   close(fid1)
   close(fid2,status='delete')
@@ -1091,7 +1071,6 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  implicit none
  integer :: i, nline, fid1, fid2, RENAME
  integer, intent(in) :: nif
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: on(nif)
  character(len=1), intent(in) :: ab
  character(len=240) :: buf, orbname1
@@ -1118,7 +1097,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
+  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
                    & //"' found in file "//TRIM(orbname)//'.'
   stop
  end if
@@ -1145,7 +1124,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
+  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
                    & //"' found in file "//TRIM(orbname)//'.'
   stop
  end if
@@ -1185,7 +1164,6 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  integer :: i, fid1, fid2, ncoeff, RENAME
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: mo(nbf,nif)
 !f2py depend(nbf,nif) :: mo
 !f2py intent(in) :: mo
@@ -1202,7 +1180,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine write_mo_into_fch: file '//TRIM(fchname)&
+  write(6,'(A)') 'ERROR in subroutine write_mo_into_fch: file '//TRIM(fchname)&
                   //' does not exist.'
   stop
  end if
@@ -1222,7 +1200,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine write_mo_into_fch: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine write_mo_into_fch: no '"//key//"' found&
                    & in file "//TRIM(fchname)//'.'
   close(fid1)
   close(fid2,status='delete')
@@ -1232,10 +1210,10 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  BACKSPACE(fid1)
  read(fid1,'(A49,2X,I10)') buf, ncoeff
  if(ncoeff /= nbf*nif) then
-  write(iout,'(A)') 'ERROR in subroutine write_mo_into_fch: ncoeff /= nbf*nif.'
-  write(iout,'(A)') 'Inconsistency found between input nbf,nif and those&
+  write(6,'(A)') 'ERROR in subroutine write_mo_into_fch: ncoeff /= nbf*nif.'
+  write(6,'(A)') 'Inconsistency found between input nbf,nif and those&
                    & in file '//TRIM(fchname)//'.'
-  write(iout,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
+  write(6,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
   stop
  end if
 
@@ -1290,7 +1268,6 @@ subroutine determine_sph_or_cart(fchname, cart)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
  logical, intent(out) :: cart
@@ -1304,7 +1281,7 @@ subroutine determine_sph_or_cart(fchname, cart)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine determine_sph_or_cart: missing&
+  write(6,'(A)') "ERROR in subroutine determine_sph_or_cart: missing&
                    & 'Shell types' section in file "//TRIM(fchname)
   close(fid)
   return
@@ -1406,7 +1383,6 @@ end subroutine read_npair_from_uno_out
 subroutine read_gvb_energy_from_gms(gmsname, e)
  implicit none
  integer :: i, j, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
@@ -1420,14 +1396,14 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  end do
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB&
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB&
                      & energy found in file '//TRIM(gmsname)
-  write(iout,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
-  write(iout,'(A)') 'If yes, reducing the number of processors and re-run may&
+  write(6,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
+  write(6,'(A)') 'If yes, reducing the number of processors and re-run may&
                    & do dome help.'
-  write(iout,'(A)') "If not, check if there is any error message like 'gamess.01.x&
+  write(6,'(A)') "If not, check if there is any error message like 'gamess.01.x&
                    & could not be found'."
-  write(iout,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
+  write(6,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
                    & manual.'
   close(fid)
   stop
@@ -1438,9 +1414,9 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  read(buf(i+2:j-1),*) e
 
  if(DABS(e) < 1d-5) then
-  write(iout,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems&
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems&
                      & that GVB computation does not'
-  write(iout,'(A)') 'converge. You can try to reduce the number of processors&
+  write(6,'(A)') 'converge. You can try to reduce the number of processors&
                    & and re-run.'
   stop
  end if
@@ -1673,7 +1649,6 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
  implicit none
  integer :: i, fid
  integer, intent(in) :: spin
- integer, parameter :: iout = 6
  real(kind=8) :: s_square, expect
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
@@ -1692,7 +1667,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
+   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
                    & 'THE DENSITIES ARE STATE' found in file "//TRIM(outname)
    stop
   end if
@@ -1704,10 +1679,10 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
+   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
                     & CASSCF job, the 0-th step, i.e., the CASCI'
-   write(iout,'(A)') '<S**2> deviates too much from the expectation value.'
-   write(iout,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(A)') '<S**2> deviates too much from the expectation value.'
+   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
    stop
   end if
 
@@ -1721,9 +1696,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+2:),*) s_square
   s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
+   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
                     & <S**2> deviates too much from the expectation value.'
-   write(iout,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
    stop
   end if
 
@@ -1735,7 +1710,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
+   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
                    & 'DENSITY MATRIX' found in file "//TRIM(outname)
    stop
   end if
@@ -1744,9 +1719,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1.0d0)
   if( DABS(expect - s_square) > 1.0D-2) then
-   write(iout,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
+   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
                     & <S**2> deviates too much from the expectation value.'
-   write(iout,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
    stop
   end if
 
@@ -1764,7 +1739,6 @@ end subroutine read_cas_energy_from_gmsgms
 subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  implicit none
  integer :: i, j, fid
- integer, parameter :: iout = 6
  real(kind=8) :: add
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
@@ -1779,7 +1753,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molcas_out: no&
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molcas_out: no&
                    & 'RASSCF root number  1' found in file "//TRIM(outname)//'.'
   stop
  end if
@@ -1796,12 +1770,12 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
 
   read(fid,'(A)') buf
   if(index(buf,'No convergence') /= 0) then
-   write(iout,'(/,A)') 'Warning in subroutine read_cas_energy_from_molcas_out:'
-   write(iout,'(A)') 'The 0-th step in CASSCF, i.e. the CASCI (in the CASSCF)&
+   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_molcas_out:'
+   write(6,'(A)') 'The 0-th step in CASSCF, i.e. the CASCI (in the CASSCF)&
                     & iterative diagonalization fails to converge.'
-   write(iout,'(A)') 'This is a defect of OpenMolcas when doing CASSCF. If you want a'
-   write(iout,'(A)') 'correct CASCI energy, please run a single CASCI job.'
-   write(iout,'(A)') 'This may or may not affect the final CASSCF result, so continue.'
+   write(6,'(A)') 'This is a defect of OpenMolcas when doing CASSCF. If you want a'
+   write(6,'(A)') 'correct CASCI energy, please run a single CASCI job.'
+   write(6,'(A)') 'This may or may not affect the final CASSCF result, so continue.'
    read(fid,'(A)') buf
   end if
   if(index(buf,'Total energies') /= 0) then
@@ -1825,7 +1799,6 @@ end subroutine read_cas_energy_from_molcas_out
 subroutine read_cas_energy_from_orca_out(outname, e, scf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=51), parameter :: error_warn = &
   'ERROR in subroutine read_cas_energy_from_orca_out: '
@@ -1844,7 +1817,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') error_warn//"'ROOT   0' not found in file "//TRIM(outname)
+   write(6,'(A)') error_warn//"'ROOT   0' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if
@@ -1858,7 +1831,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') error_warn//"'Final CASSCF energy' not found in file "//TRIM(outname)
+   write(6,'(A)') error_warn//"'Final CASSCF energy' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if
@@ -1873,7 +1846,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') error_warn//"'STATE   0' not found in file "//TRIM(outname)
+   write(6,'(A)') error_warn//"'STATE   0' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if
@@ -1890,7 +1863,6 @@ end subroutine read_cas_energy_from_orca_out
 subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  implicit none
  integer :: i, k, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1906,9 +1878,9 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
                     & 'ITER. M' not found in file "//TRIM(outname)
-  write(iout,'(A)') 'Error termination of the Molpro CASCI job.'
+  write(6,'(A)') 'Error termination of the Molpro CASCI job.'
   close(fid)
   stop
  end if
@@ -1928,9 +1900,9 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
    if(buf(2:9) == '!MCSCF S') exit
   end do ! for while
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
+   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
                     & '!MCSCF S' not found in file "//TRIM(outname)
-   write(iout,'(A)') 'Error termination of the Molpro CASSCF job.'
+   write(6,'(A)') 'Error termination of the Molpro CASSCF job.'
    close(fid)
    stop
   end if
@@ -1947,7 +1919,6 @@ end subroutine read_cas_energy_from_molpro_out
 subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1964,9 +1935,9 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
+   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
                      & 'mcscf_eneci' not found in file "//TRIM(outname)
-   write(iout,'(A)') 'Error termination of the BDF CASSCF job.'
+   write(6,'(A)') 'Error termination of the BDF CASSCF job.'
    close(fid)
    stop
   end if
@@ -1980,9 +1951,9 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
                     & 'CHECKDATA:MCSCF:M' not found in file "//TRIM(outname)
-  write(iout,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
+  write(6,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
   close(fid)
   stop
  end if
@@ -2068,7 +2039,6 @@ end subroutine read_cas_energy_from_psi4_out
 subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: e(2)
  character(len=1) :: str
  character(len=240) :: buf
@@ -2084,9 +2054,9 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
                    &@ Final CI energies' found in"
-  write(iout,'(A)') 'file '//TRIM(outname)//'.'
+  write(6,'(A)') 'file '//TRIM(outname)//'.'
   close(fid)
   stop
  end if
@@ -2104,9 +2074,9 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
+  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
                    &@    Final MCSCF en' found in"
-  write(iout,'(A)') 'file '//TRIM(outname)//'.'
+  write(6,'(A)') 'file '//TRIM(outname)//'.'
   close(fid)
   stop
  end if
@@ -2121,7 +2091,6 @@ end subroutine read_cas_energy_from_dalton_out
 subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
@@ -2139,8 +2108,8 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
-  write(iout,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
+  write(6,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2157,8 +2126,8 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
-  write(iout,'(A)') 'No CASCI energy found in file '//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
+  write(6,'(A)') 'No CASCI energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2173,7 +2142,6 @@ end subroutine read_mrpt_energy_from_pyscf_out
 subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, j, fid
- integer, parameter :: iout = 6
  integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -2183,9 +2151,9 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  ref_e = 0d0
  corr_e = 0d0
  if(itype<1 .or. itype>3) then
-  write(iout,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:&
+  write(6,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:&
                       & invalid itype=', itype
-  write(iout,'(A)') 'Allowed values are 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2.'
+  write(6,'(A)') 'Allowed values are 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2.'
   stop
  end if
 
@@ -2199,8 +2167,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2217,8 +2185,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(iout,'(A)') "No 'state number:   1' found in file "//TRIM(outname)
+   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(6,'(A)') "No 'state number:   1' found in file "//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2230,8 +2198,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for j
 
   if(i/=0 .or. j==16) then
-   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(iout,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(6,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2250,8 +2218,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
  
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+   write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2268,8 +2236,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   corr_e = corr_e - ref_e
 
  case default
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-  write(iout,'(A,I0)') 'Invalid itype=', itype
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
+  write(6,'(A,I0)') 'Invalid itype=', itype
   stop
  end select
 
@@ -2282,7 +2250,6 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, fid
  integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ref_e, corr_e
  character(len=8), parameter :: key(3)= ['Strongly','!NEVPT2 ','!RSPT2 S']
  character(len=240) :: buf
@@ -2291,9 +2258,9 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  ref_e = 0d0
  corr_e = 0d0
  if(itype<1 .or. itype>3) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: itype&
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: itype&
                    & out of range.'
-  write(iout,'(A,I0,A)') 'itype=', itype, ', outname='//TRIM(outname)
+  write(6,'(A,I0,A)') 'itype=', itype, ', outname='//TRIM(outname)
   stop
  end if
 
@@ -2305,8 +2272,8 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
-  write(iout,'(A)') "'!MCSCF STATE  1.1 E' not found in file "//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
+  write(6,'(A)') "'!MCSCF STATE  1.1 E' not found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2321,8 +2288,8 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
-  write(iout,'(A)') "'"//key(itype)//"' not found in file "//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
+  write(6,'(A)') "'"//key(itype)//"' not found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2338,7 +2305,6 @@ end subroutine read_mrpt_energy_from_molpro_out
 subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -2357,7 +2323,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
+   write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
                     & 'Total Energy (' found in file "//TRIM(outname)
    close(fid)
    stop
@@ -2370,7 +2336,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
   i = index(buf, '=')
   read(buf(i+1:),*) ref_e
  case default
-  write(iout,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
+  write(6,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
                       & invalid itype=', itype
   stop
  end select
@@ -2383,7 +2349,6 @@ end subroutine read_mrpt_energy_from_orca_out
 subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ref_e, corr_e
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -2399,8 +2364,8 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
-  write(iout,'(A)') 'No reference energy found in file '//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
+  write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2415,8 +2380,8 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
-  write(iout,'(A)') 'No MRMP2 energy found in file '//TRIM(outname)
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
+  write(6,'(A)') 'No MRMP2 energy found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2431,7 +2396,6 @@ end subroutine read_mrpt_energy_from_gms_out
 subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  integer, intent(in) :: itype   ! 1/2 for SDSPT2/FIC-NEVPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -2443,7 +2407,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  corr_e = 0d0
  dav_e = 0d0
  if(.not. (itype==1 .or. itype==2)) then
-  write(iout,'(A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currently&
+  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currently&
                    & only reading SDSPT2/NEVPT2 energy is supported.'
   stop
  end if
@@ -2456,9 +2420,9 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out:&
+  write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out:&
                     & 'Print final' not found in file "//TRIM(outname)
-  write(iout,'(A)') 'Error termination of the BDF CASSCF in SDSPT2/NEVPT2 job.'
+  write(6,'(A)') 'Error termination of the BDF CASSCF in SDSPT2/NEVPT2 job.'
   close(fid)
   stop
  end if
@@ -2488,7 +2452,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no&
+  write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no&
                     & 'TARGET_XIANCI' found in file "//TRIM(outname)
   stop
  end if
@@ -2734,7 +2698,6 @@ end subroutine read_mrci_energy_from_output
 subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ref_e, corr_e
  character(len=240) :: buf
  character(len=9) :: str(3)
@@ -2753,7 +2716,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                     & 'MCSCF reference e' found in file "//TRIM(outname)//'.'
    close(fid)
    stop
@@ -2767,7 +2730,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                     & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
    close(fid)
    stop
@@ -2782,7 +2745,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                     & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
    close(fid)
    stop
@@ -2801,7 +2764,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
                    & 'STATE=   1   E' found in file "//TRIM(outname)//'.'
    close(fid)
    stop
@@ -2919,7 +2882,6 @@ subroutine check_cart(fchname, cart)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
  character(len=31), parameter :: error_warn='ERROR in subroutine check_cart:'
@@ -2934,7 +2896,7 @@ subroutine check_cart(fchname, cart)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
+  write(6,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
   close(fid)
   return
  end if
@@ -2948,30 +2910,30 @@ subroutine check_cart(fchname, cart)
  close(fid)
 
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(iout,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
+  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
+  write(6,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') 'AutoMR can deal only pure spherical harmonic or pure Cartesian&
+  write(6,'(A)') 'AutoMR can deal only pure spherical harmonic or pure Cartesian&
                    & functions.'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
  if(ANY(shltyp<-1) .and. cart) then
-  write(iout,'(/,A)') error_warn//' Cartesian functions required. But you provided'
-  write(iout,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
+  write(6,'(/,A)') error_warn//' Cartesian functions required. But you provided'
+  write(6,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
                    & possible solutions:'
-  write(iout,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch file which uses"
-  write(iout,'(A)') 'pure Cartesian functions. fchname='//TRIM(fchname)
+  write(6,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch file which uses"
+  write(6,'(A)') 'pure Cartesian functions. fchname='//TRIM(fchname)
   stop
  end if
 
  if(ANY(shltyp>1) .and. (.not.cart)) then
-  write(iout,'(/,A)') error_warn//' spherical harmonic functions default. But you'
-  write(iout,'(A)') 'provided a .fch file which has Cartesian functions. Two&
+  write(6,'(/,A)') error_warn//' spherical harmonic functions default. But you'
+  write(6,'(A)') 'provided a .fch file which has Cartesian functions. Two&
                    & possible solutions:'
-  write(iout,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch file which uses pure"
-  write(iout,'(A)') 'spherical harmonic functions. fchname='//TRIM(fchname)
+  write(6,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch file which uses pure"
+  write(6,'(A)') 'spherical harmonic functions. fchname='//TRIM(fchname)
   stop
  end if
 
@@ -2984,7 +2946,6 @@ subroutine check_sph(fchname, sph)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
  character(len=30), parameter :: error_warn='ERROR in subroutine check_sph:'
@@ -2999,7 +2960,7 @@ subroutine check_sph(fchname, sph)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
+  write(6,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
   close(fid)
   return
  end if
@@ -3013,11 +2974,11 @@ subroutine check_sph(fchname, sph)
  close(fid)
 
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(iout,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
+  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
+  write(6,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') 'Only pure Cartesian or spherical harmonic is allowed'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'Only pure Cartesian or spherical harmonic is allowed'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  else if(ANY(shltyp>1)) then
   sph = .false.
@@ -3033,7 +2994,6 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  implicit none
  integer :: i, k, fid, ncoeff1, ncoeff2
  integer, intent(in) :: itype, nbf
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: dm(nbf,nbf)
  character(len=11), parameter :: key(10) = ['Total SCF D', 'Spin SCF De',&
    'Total CI De', 'Spin CI Den', 'Total MP2 D', 'Spin MP2 De',&
@@ -3043,11 +3003,11 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
 
  dm = 0d0
  if(itype<1 .or. itype>10) then
-  write(iout,'(A,I0)') 'ERROR in subroutine read_density_from_fch: invalid itype&
+  write(6,'(A,I0)') 'ERROR in subroutine read_density_from_fch: invalid itype&
                       & = ',itype
-  write(iout,'(A)') 'Allowed values are 1~10:'
+  write(6,'(A)') 'Allowed values are 1~10:'
   do i = 1, 10, 1
-   write(iout,'(I2,A)') i,': '//key(i)
+   write(6,'(I2,A)') i,': '//key(i)
   end do ! for i
   stop
  end if
@@ -3060,7 +3020,7 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_density_from_fch: no key '"//&
+  write(6,'(A)') "ERROR in subroutine read_density_from_fch: no key '"//&
                    & key(itype)//"' found in file "//TRIM(fchname)
   close(fid)
   stop
@@ -3069,9 +3029,9 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  ncoeff2 = (nbf*nbf + nbf)/2
  read(buf(50:),*) ncoeff1
  if(ncoeff1 /= ncoeff2) then
-  write(iout,'(A)') 'ERROR in subroutine read_density_from_fch: inconsistent&
+  write(6,'(A)') 'ERROR in subroutine read_density_from_fch: inconsistent&
                    & dimension between .fch(k) file and input nbf!'
-  write(iout,'(2(A,I0))') 'nbf=', nbf, ', ncoeff1=', ncoeff1
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', ncoeff1=', ncoeff1
   stop
  end if
 
@@ -3173,16 +3133,15 @@ end subroutine detect_spin_scf_density_in_fch
 ! add a given density string into a .fch(k) file
 subroutine add_density_str_into_fch(fchname, itype)
  implicit none
- integer :: i, nbf, fid, fid1, RENAME
+ integer :: i, k, nbf, fid, fid1, RENAME
  integer, intent(in) :: itype ! 1/2 for 'Total SCF Density'/'Spin SCF Density'
- integer, parameter :: iout = 6
  character(len=17), parameter :: str(2) = ['Total SCF Density','Spin SCF Density ']
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
 
  if(itype<1 .or. itype>2) then
-  write(iout,'(A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid&
-                      & itype=', itype
+  write(6,'(A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid&
+                   & itype=', itype
   stop
  end if
 
@@ -3210,9 +3169,9 @@ subroutine add_density_str_into_fch(fchname, itype)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine add_density_str_into_fch: key not&
-                    & found in file '//TRIM(fchname)
-   write(iout,'(A,I0)') 'itype=', itype
+   write(6,'(A)') 'ERROR in subroutine add_density_str_into_fch: key not found&
+                  & in file '//TRIM(fchname)
+   write(6,'(A,I0)') 'itype=', itype
    close(fid)
    close(fid1,status='delete')
    stop
@@ -3224,7 +3183,9 @@ subroutine add_density_str_into_fch(fchname, itype)
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
 
-  write(fid1,'(A,I12)') str(itype)//'                          R   N=',nbf*(nbf+1)/2
+  k = nbf*(nbf+1)/2
+  write(fid1,'(A,I12)') str(itype)//'                          R   N=', k
+  write(fid1,'(5(1X,ES15.8))') (0d0,i=1,k)
   write(fid1,'(A)') TRIM(buf)
 
   do while(.true.)
@@ -3236,11 +3197,10 @@ subroutine add_density_str_into_fch(fchname, itype)
   close(fid,status='delete')
   close(fid1)
   i = RENAME(TRIM(fchname1), TRIM(fchname))
+
  else
   close(fid)
  end if
-
- return
 end subroutine add_density_str_into_fch
 
 ! update 'Total SCF Density' (and 'Spin SCF Density') using Alpha(and Beta) MOs
@@ -3330,7 +3290,6 @@ subroutine update_density_using_mo_in_fch(fchname)
 
  call write_density_into_fch(fchname, nbf, .true., total_dm)
  deallocate(total_dm)
- return
 end subroutine update_density_using_mo_in_fch
 
 ! update 'Total SCF Density' using natural orbitals and occupation numbers
@@ -3370,16 +3329,15 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
  integer :: i, j, k, m, n, fid
  integer, intent(in) :: itype, nbf
  ! itype: 1/2/3 for Total/Alpha/Beta density matrix
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: dm(nbf,nbf)
  character(len=7), parameter :: key(3) = ['Density','Alpha D','Beta De']
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
 
  if(itype<1 .or. itype>3) then
-  write(iout,'(A,I0)') 'ERROR in subroutine read_density_from_gau_log: invalid&
+  write(6,'(A,I0)') 'ERROR in subroutine read_density_from_gau_log: invalid&
                       & itype = ', itype
-  write(iout,'(A)') 'Allowed values are 1/2/3 for Total/Alpha/Beta density.'
+  write(6,'(A)') 'Allowed values are 1/2/3 for Total/Alpha/Beta density.'
   stop
  end if
 
@@ -3393,7 +3351,7 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_density_from_gau_log: no key '"&
+  write(6,'(A)') "ERROR in subroutine read_density_from_gau_log: no key '"&
                     &//key(itype)//"' found in file "//TRIM(logname)
   close(fid)
   stop
@@ -3490,7 +3448,6 @@ end subroutine export_mat_into_txt
 subroutine check_if_uhf_equal_rhf(fchname, eq)
  implicit none
  integer :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8) :: max_diff, ave_diff
  real(kind=8), parameter :: zero1 = 1D-2, zero2 = 1D-4
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:), diff(:,:)
@@ -3506,7 +3463,7 @@ subroutine check_if_uhf_equal_rhf(fchname, eq)
  diff = DABS(alpha_coeff - beta_coeff)
  max_diff = MAXVAL(diff)
  ave_diff = SUM(diff)/DBLE(nbf*nif)
- write(iout,'(2(A,F12.6))') 'max_diff =', max_diff, ', ave_diff =', ave_diff
+ write(6,'(2(A,F12.6))') 'max_diff =', max_diff, ', ave_diff =', ave_diff
  if(max_diff<zero1 .and. ave_diff<zero2) eq = .true.
  deallocate(alpha_coeff, beta_coeff, diff)
  return
@@ -3568,7 +3525,6 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
   open(newunit=fid,file=TRIM(fchname1),status='old')
   close(fid,status='delete')
  end if
- return
 end subroutine copy_orb_and_den_in_fch
 
 ! read AO-basis overlap integral from file .47

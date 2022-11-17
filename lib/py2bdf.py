@@ -16,7 +16,7 @@ def py2bdf(mf, inpname, write_no=None):
         orbname1 = proname+'_bdf.inporb'
         system('fch2bdf '+fchname+' -no')
     else:
-        raise AttributeError('write_no can only None, True or False.')
+        raise AttributeError('write_no can only be None, True or False.')
     remove(fchname)
     rename(inpname1, inpname)
     rename(orbname1, orbname)

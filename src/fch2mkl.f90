@@ -65,9 +65,9 @@ subroutine fch2mkl(fchname)
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2mkl: input filename does not&
+  write(6,'(A)') "ERROR in subroutine fch2mkl: input filename does not&
                    & contain '.fch' suffix!"
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
  mklname = fchname(1:i-1)//'_o.mkl'
@@ -81,13 +81,13 @@ subroutine fch2mkl(fchname)
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected&
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected&
                    & in file '//TRIM(fchname)//'.'
-  write(iout,'(A)') "ORCA supports only spherical functions. You need to add&
+  write(6,'(A)') "ORCA supports only spherical functions. You need to add&
                   & '5D 7F' keywords in Gaussian."
   stop
  else if( ANY(shell_type < -5) ) then
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not supported.'
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not supported.'
   stop
  end if
  ! check done
@@ -124,8 +124,8 @@ subroutine fch2mkl(fchname)
  end do ! for i
 
  if(k /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl: k /= nbf!'
-  write(iout,'(2(A,I0))') 'k=', k, ', nbf=', nbf
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: k /= nbf!'
+  write(6,'(2(A,I0))') 'k=', k, ', nbf=', nbf
   stop
  end if
 
@@ -232,31 +232,31 @@ subroutine fch2mkl(fchname)
  case(-2) ! no relativistic
   call check_X2C_in_fch(fchname, X2C)
   if(X2C) then
-   write(iout,'(A)') 'Warning in subroutine fch2mkl: X2C detected.'
-   write(iout,'(A)') 'But ORCA does not support X2C.'
-   write(iout,'(A)') 'DKH2 keywords will be printed into ORCA .inp file.'
+   write(6,'(A)') 'Warning in subroutine fch2mkl: X2C detected.'
+   write(6,'(A)') 'But ORCA does not support X2C.'
+   write(6,'(A)') 'DKH2 keywords will be printed into ORCA .inp file.'
    rel = 2 ! mimic X2C as DKH2
   end if
  case(-1)
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in&
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in&
                    & file '//TRIM(fchname)//'.'
-  write(iout,'(A)') 'But ORCA does not support RESC.'
+  write(6,'(A)') 'But ORCA does not support RESC.'
   stop
  case(0) ! DKH0
-  write(iout,'(A)') 'Warning in subroutine fch2mkl: DKH0 detected in file '//TRIM(fchname)
-  write(iout,'(A)') 'But ORCA does not support DKH0. DKH2 keywords will&
+  write(6,'(A)') 'Warning in subroutine fch2mkl: DKH0 detected in file '//TRIM(fchname)
+  write(6,'(A)') 'But ORCA does not support DKH0. DKH2 keywords will&
                    & be printed into ORCA .inp file.'
   rel = 2
  case(2) ! DKH2
  case(4) ! DKHSO, DKH4 with SO
-  write(iout,'(A)') 'Warning in subroutine fch2mkl: DKHSO detected in&
+  write(6,'(A)') 'Warning in subroutine fch2mkl: DKHSO detected in&
                    & file '//TRIM(fchname)//'.'
-  write(iout,'(A)') 'But ORCA does not support DKHSO. DKH2 keywords will&
+  write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keywords will&
                    & be printed into ORCA .inp file.'
   rel = 2
  case default
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl: rel out of range!'
-  write(iout,'(A,I0)') 'rel=', rel
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: rel out of range!'
+  write(6,'(A,I0)') 'rel=', rel
   stop
  end select
 

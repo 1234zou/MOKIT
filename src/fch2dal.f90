@@ -81,7 +81,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
 !  to that of Dalton
 subroutine fch2dal(fchname)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
@@ -98,8 +98,8 @@ subroutine fch2dal(fchname)
  buf = ' '
  call check_uhf_in_fch(fchname, uhf)
  if(uhf) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch2dal: UHF wave function not supported.'
-  write(iout,'(A)') 'Because there is no UHF method in Dalton. You can compute&
+  write(6,'(/,A)') 'ERROR in subroutine fch2dal: UHF wave function not supported.'
+  write(6,'(A)') 'Because there is no UHF method in Dalton. You can compute&
                    & ROHF instead.'
   stop
  end if
@@ -114,11 +114,11 @@ subroutine fch2dal(fchname)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(iout,'(A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/&
+  write(6,'(A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/&
                    &Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shell_type<-1) ) then
   sph = .true.
@@ -233,7 +233,7 @@ subroutine fch2dal(fchname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2dal: no '' found&
+  write(6,'(A)') "ERROR in subroutine fch2dal: no '' found&
                    & in file "//TRIM(dalfile)
   close(fid)
   close(fid1,status='delete')

@@ -145,7 +145,8 @@ subroutine fch_u2r(fchname, newfch)
   if(buf(1:11) == 'Orthonormal') exit
   if(buf(1:9) == 'Total SCF') exit
   write(fchid1,'(A)') TRIM(buf)
- end do
+ end do ! for while
+
  if(.not. rhf) then
   do while(.true.)
    read(fchid,'(A)') buf
@@ -162,6 +163,7 @@ subroutine fch_u2r(fchname, newfch)
   if(buf(1:16) == 'Mulliken Charges') exit
   write(fchid1,'(A)') TRIM(buf)
  end do ! for while
+
  if(.not. rhf) then
   do while(.true.)
    read(fchid,'(A)') buf

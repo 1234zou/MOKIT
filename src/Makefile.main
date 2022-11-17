@@ -46,6 +46,7 @@ OBJ_frag_guess_wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
                      mr_keyword.o do_hf.o math_sub.o rwwfn.o rwgeom.o read_gms_inp.o \
                      call_qc_calc_int.o construct_vir.o ortho.o frag_guess_wfn.o
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
+OBJ_inp2gjf = string_manipulate.o inp2gjf.o
 OBJ_gvb_correct_pairs = file_op.o string_manipulate.o math_sub.o rwwfn.o gvb_correct_pairs.o
 OBJ_gvb_exclude_XH = file_op.o string_manipulate.o math_sub.o rwwfn.o \
                      wfn_analysis.o read_gms_inp.o gvb_exclude_XH.o
@@ -85,9 +86,9 @@ OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
         bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch \
         fch2bdf fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
         fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn fch247 \
-        find_mc_pair gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2fch \
-        mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix \
-        rwgeom rwwfn excited
+        find_mc_pair inp2gjf gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
+        mkl2fch mkl2gjf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format \
+        solve_ON_matrix rwgeom rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -253,6 +254,9 @@ find_mc_pair: $(OBJ_find_mc_pair)
 
 frag_guess_wfn: $(OBJ_frag_guess_wfn)
 	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)/frag_guess_wfn $(FFLAGS) $(MKL_FLAGS)
+
+inp2gjf: $(OBJ_inp2gjf)
+	$(F90) $(OBJ_inp2gjf) -o $(BIN)/inp2gjf $(FFLAGS) $(MKL_FLAGS)
 
 orb2fch: $(OBJ_orb2fch)
 	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS) $(MKL_FLAGS)

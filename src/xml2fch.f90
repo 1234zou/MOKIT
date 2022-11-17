@@ -6,16 +6,15 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=3) :: str
  character(len=240) :: fchname, xmlname
  logical :: prt_no
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,A)') ' ERROR in subroutine xml2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (for R(O)HF, UHF): xml2fch a.xml a.fch'
-  write(iout,'(A,/)') ' Example 2 (for CAS NO)     : xml2fch a.xml a.fch -no'
+  write(6,'(/,A)') ' ERROR in subroutine xml2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF): xml2fch a.xml a.fch'
+  write(6,'(A,/)') ' Example 2 (for CAS NO)     : xml2fch a.xml a.fch -no'
   stop
  end if
 
@@ -29,8 +28,8 @@ program main
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(iout,'(/,1X,A)') "ERROR in subroutine xml2fch: the 3rd argument is&
-                         & wrong! Only '-no' is accepted."
+   write(6,'(/,1X,A)') "ERROR in subroutine xml2fch: the 3rd argument is&
+                       & wrong! Only '-no' is accepted."
    stop
   else
    prt_no = .true.
@@ -47,7 +46,7 @@ end program main
 ! read the MOs in orbital file of Molpro and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine xml2fch(xmlname, fchname, prt_no)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, na, nb, nbf, nif, nbf0
  integer :: n10fmark, n15gmark, n21hmark
@@ -89,10 +88,10 @@ subroutine xml2fch(xmlname, fchname, prt_no)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type>1) .and. ANY(shell_type<-2)) then
-  write(iout,'(A)') 'ERROR in subroutine xml2fch: mixed Cartesian/spherical harmonic&
-                   & functions detected. Cannot deal with that.'
-  write(iout,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
-  write(iout,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
+  write(6,'(A)') 'ERROR in subroutine xml2fch: mixed Cartesian/spherical harmonic&
+                 & functions detected. Cannot deal with that.'
+  write(6,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
+  write(6,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
   stop
  end if
 

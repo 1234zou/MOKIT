@@ -90,14 +90,13 @@ subroutine read_all_pg(mklname)
  implicit none
  integer :: i, j, k, nc, nline, fid
  integer, external :: detect_ncol_in_buf
- integer, parameter :: iout = 6
  character(len=1) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
  if(natom == 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_all_pg: natom = 0.'
-  write(iout,'(A)') 'You must call subroutine read_natom_from_mkl to get the&
+  write(6,'(A)') 'ERROR in subroutine read_all_pg: natom = 0.'
+  write(6,'(A)') 'You must call subroutine read_natom_from_mkl to get the&
                    & value of natom, before calling this subroutine.'
   stop
  end if
@@ -105,10 +104,10 @@ subroutine read_all_pg(mklname)
  allocate(all_pg(natom))
 
  if(.not. allocated(shl2atm)) then
-  write(iout,'(A)') 'ERROR in subroutine read_all_pg: array shl2atm is not allocated.'
-  write(iout,'(A)') 'You must call subroutines read_ncontr_from_mkl and &
+  write(6,'(A)') 'ERROR in subroutine read_all_pg: array shl2atm is not allocated.'
+  write(6,'(A)') 'You must call subroutines read_ncontr_from_mkl and &
                    & read_shltyp_and_shl2atm_from_mkl'
-  write(iout,'(A)') 'to generate the array shl2atm, before calling this subroutine.'
+  write(6,'(A)') 'to generate the array shl2atm, before calling this subroutine.'
   stop
  end if
 
@@ -177,7 +176,6 @@ end subroutine read_all_pg
 subroutine un_normalized_all_pg()
  implicit none
  integer :: i, j, k, nc, nline, itype
- integer, parameter :: iout = 6
  real(kind=8) :: norm_fac
  real(kind=8), allocatable :: coeff(:,:)
 
@@ -193,9 +191,9 @@ subroutine un_normalized_all_pg()
 
    call stype2itype(all_pg(i)%prim_gau(j)%stype, itype)
    if(itype == 0) then
-    write(iout,'(A)') "ERROR in subroutine un_normalized_all_pg: 'L' type should&
+    write(6,'(A)') "ERROR in subroutine un_normalized_all_pg: 'L' type should&
                      & not be in the .mkl file."
-    write(iout,'(A)') 'This .mkl file violates the definition of mkl.'
+    write(6,'(A)') 'This .mkl file violates the definition of mkl.'
     stop
    end if
    itype = itype - 1 ! 'S' begins with 0
@@ -210,9 +208,9 @@ subroutine un_normalized_all_pg()
     norm_fac = norm_fac_of_contract_gau(itype, nline, coeff)
 
     if(DABS(1D0-norm_fac) > 1D-3) then
-     write(iout,'(A)') 'ERROR in subroutine un_normalized_all_pg: the contraction&
+     write(6,'(A)') 'ERROR in subroutine un_normalized_all_pg: the contraction&
                       & coefficients in .mkl file are wrong.'
-     write(iout,'(A)') 'They must be either normalized or un-normalized coefficients.'
+     write(6,'(A)') 'They must be either normalized or un-normalized coefficients.'
     end if
    end if
 
@@ -346,7 +344,6 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  implicit none
  integer :: i, fid
  integer, intent(out) :: nbf, nif
- integer, parameter :: iout = 6
  integer, external :: detect_ncol_in_buf
  real(kind=8) :: rtmp
  character(len=240) :: buf
@@ -361,8 +358,8 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: incomplete file.'
-  write(iout,'(A)') 'Filename='//TRIM(mklname)
+  write(6,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: incomplete file.'
+  write(6,'(A)') 'Filename='//TRIM(mklname)
   close(fid)
   stop
  end if
@@ -378,8 +375,8 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  end do ! for while
 
  if(nbf == 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis function.'
-  write(iout,'(A)') 'There must be something wrong in file '//TRIM(mklname)//'.'
+  write(6,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis function.'
+  write(6,'(A)') 'There must be something wrong in file '//TRIM(mklname)//'.'
   close(fid)
   stop
  end if
@@ -431,7 +428,6 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
  integer, intent(in) :: ncontr
  integer, intent(out) :: shltyp(ncontr), shl2atm(ncontr)
  integer, external :: detect_ncol_in_buf
- integer, parameter :: iout = 6
  character(len=1) :: ang
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
@@ -451,9 +447,9 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
   shl2atm(i) = iatom
   read(buf,*,iostat=j) k, ang
   if(j /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: wrong format&
+   write(6,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: wrong format&
                     & in file '//TRIM(mklname)
-   write(iout,'(A)') 'buf='//TRIM(buf)
+   write(6,'(A)') 'buf='//TRIM(buf)
    stop
   end if
 
@@ -471,7 +467,7 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
   case('H')
    shltyp(i) = -5
   case default
-   write(iout,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: unsupported&
+   write(6,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: unsupported&
                     & angular momentum='//ang
    stop
   end select
@@ -494,7 +490,6 @@ subroutine read_natom_from_mkl(mklname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
@@ -507,7 +502,7 @@ subroutine read_natom_from_mkl(mklname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$COOR' found&
+  write(6,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$COOR' found&
                   & in file "//TRIM(mklname)
   close(fid)
   stop
@@ -521,7 +516,7 @@ subroutine read_natom_from_mkl(mklname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$END' found&
+  write(6,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$END' found&
                    & in file "//TRIM(mklname)
   close(fid)
   stop
@@ -539,7 +534,6 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
  integer :: i, fid
  integer, intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=2), intent(out) :: elem(natom)
  character(len=240) :: buf
@@ -555,7 +549,7 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
+  write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
                   & '$CHAR_M' found in file "//TRIM(mklname)
   close(fid)
   stop
@@ -570,7 +564,7 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
+  write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
                   & '$COOR' found in file "//TRIM(mklname)
   close(fid)
   stop
@@ -590,7 +584,6 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, k, fid, nbatch
  integer, intent(in) :: nbf, nif
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: mo(nbf,nif)
  character(len=240) :: buf
  character(len=11) :: key
@@ -604,8 +597,8 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  else if (ab=='b' .or. ab=='B') then
   key = key2
  else
-  write(iout,'(A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
-  write(iout,'(A)') 'ab = '//ab
+  write(6,'(A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
+  write(6,'(A)') 'ab = '//ab
   stop
  end if
 
@@ -617,7 +610,7 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)&
+  write(6,'(A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)&
                     //"' found in file "//TRIM(mklname)//'.'
   stop
  end if
@@ -650,7 +643,6 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
  implicit none
  integer :: i, k, rc, nline, fid
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: ev(nmo)
  character(len=1), intent(in) :: ab
  character(len=3) :: str = ' '
@@ -675,7 +667,7 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found&
                    & in file "//TRIM(mklname)
   close(fid)
   stop
@@ -705,8 +697,8 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
 
  close(fid)
  if(rc /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
-  write(iout,'(A)') 'Filename='//TRIM(mklname)
+  write(6,'(A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
+  write(6,'(A)') 'Filename='//TRIM(mklname)
   stop
  end if
 
@@ -718,7 +710,6 @@ subroutine read_on_from_mkl(mklname, nmo, ab, on)
  implicit none
  integer :: i, k, nline, fid
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: on(nmo)
  character(len=1), intent(in) :: ab
  character(len=6) :: key = ' '
@@ -742,7 +733,7 @@ subroutine read_on_from_mkl(mklname, nmo, ab, on)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_on_from_mkl: no '"//key//"' found&
+  write(6,'(A)') "ERROR in subroutine read_on_from_mkl: no '"//key//"' found&
                    & in file "//TRIM(mklname)
   close(fid)
   stop

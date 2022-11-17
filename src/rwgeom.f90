@@ -139,7 +139,6 @@ subroutine read_natom_from_gjf(gjfname, natom)
  implicit none
  integer :: i, fid, nblank
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
 
@@ -153,7 +152,7 @@ subroutine read_natom_from_gjf(gjfname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gjf: incomplete file '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_gjf: incomplete file '//TRIM(gjfname)
   stop
  end if
 
@@ -197,7 +196,6 @@ subroutine read_natom_from_xyz(xyzname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240), intent(in) :: xyzname
 
  natom = 0
@@ -206,7 +204,7 @@ subroutine read_natom_from_xyz(xyzname, natom)
  close(fid)
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read&
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read&
                    & natom from file '//TRIM(xyzname)
   stop
  end if
@@ -218,7 +216,6 @@ subroutine read_natom_from_pdb(pdbname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=13) :: buf
  character(len=240), intent(in) :: pdbname
 
@@ -231,7 +228,7 @@ subroutine read_natom_from_pdb(pdbname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_pdb: failed to read&
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_pdb: failed to read&
                    & natom from file '//TRIM(pdbname)
   close(fid)
   stop
@@ -256,7 +253,6 @@ subroutine read_natom_from_molcas_out(outname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -270,9 +266,9 @@ subroutine read_natom_from_molcas_out(outname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_natom_from_molcas_out: keywords&
+  write(6,'(A)') "ERROR in subroutine read_natom_from_molcas_out: keywords&
                    & '++    Molecular struc' not found"
-  write(iout,'(A)') 'in file '//TRIM(outname)
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -296,7 +292,6 @@ subroutine read_natom_from_molpro_out(outname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -310,7 +305,7 @@ subroutine read_natom_from_molpro_out(outname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_natom_from_molpro_out: no '&
+  write(6,'(A)') "ERROR in subroutine read_natom_from_molpro_out: no '&
                    &ATOMIC COOR' found in file "//TRIM(outname)
   close(fid)
   stop
@@ -408,7 +403,6 @@ end subroutine read_elem_and_coor_from_gjf
 subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
  implicit none
  integer :: i, j, k, nblank, charge, mult, fid
- integer, parameter :: iout = 6
  integer, intent(in) :: natom, nfrag
  integer, intent(out) :: atom2frag(natom), frag_char_mult(2,nfrag)
  character(len=240) :: buf
@@ -426,9 +420,9 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
 
  read(fid,*,iostat=i) charge, mult, ((frag_char_mult(j,i),j=1,2),i=1,nfrag)
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
+  write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
                    & charges and spin multiplicities of fragments.'
-  write(iout,'(A)') 'Please check syntax in file '//TRIM(gjfname)
+  write(6,'(A)') 'Please check syntax in file '//TRIM(gjfname)
   close(fid)
   stop
  end if
@@ -438,10 +432,10 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
   j = index(buf,'='); k = index(buf,')')
 
   if(j*k == 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
+   write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
                      & atom2frag.'
-   write(iout,'(A)') 'Problematic line: '//TRIM(buf)
-   write(iout,'(A)') 'Please check syntax in file '//TRIM(gjfname)
+   write(6,'(A)') 'Problematic line: '//TRIM(buf)
+   write(6,'(A)') 'Please check syntax in file '//TRIM(gjfname)
    close(fid)
    stop
   end if
@@ -457,7 +451,6 @@ subroutine read_coor_from_fch(fchname, natom, coor)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
@@ -474,7 +467,7 @@ subroutine read_coor_from_fch(fchname, natom, coor)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_coor_from_fch: no 'Current &
+  write(6,'(A)') "ERROR in subroutine read_coor_from_fch: no 'Current &
                    & cart' found in file "//TRIM(fchname)
   close(fid)
   stop
@@ -833,7 +826,6 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=3) :: elem
@@ -850,9 +842,9 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  call lower(buf)
  if(index(buf,'bohr') > 0) then
   if(index(buf,'angstrom') > 0) then
-   write(iout,'(A)') "ERROR in subroutine read_coor_from_xyz: it's confusing&
+   write(6,'(A)') "ERROR in subroutine read_coor_from_xyz: it's confusing&
                     & because both 'bohr' and 'angstrom'"
-   write(iout,'(A)') 'are detected in the 2nd line of file '//TRIM(xyzname)
+   write(6,'(A)') 'are detected in the 2nd line of file '//TRIM(xyzname)
    close(fid)
    stop
   else
@@ -863,9 +855,9 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  do i = 1, natom, 1
   read(fid,*,iostat=k) elem, coor(1:3,i)
   if(k /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_coor_from_xyz: insufficient&
+   write(6,'(A)') 'ERROR in subroutine read_coor_from_xyz: insufficient&
                     & number of atoms in file '//TRIM(xyzname)
-   write(iout,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
+   write(6,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
    close(fid)
    stop
   end if
@@ -909,7 +901,6 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  implicit none
  integer :: i, j, fid, iatom
  integer, intent(in) :: iframe, natom
- integer, parameter :: iout = 6
  real(kind=8), dimension(6), intent(out) :: cell
  real(kind=8), dimension(3,natom), intent(out) :: coor
  character(len=6) :: str
@@ -924,8 +915,8 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  coor = 0d0
 
  if(natom <= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: natom<=0.'
-  write(iout,'(A,I0)') 'Your input natom=', natom
+  write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: natom<=0.'
+  write(6,'(A,I0)') 'Your input natom=', natom
   stop
  end if
 
@@ -941,9 +932,9 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
 
  if(i /= 0) then
   if(iframe /= 1) then
-   write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read&
+   write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read&
                     & the i-th frame in file '//TRIM(pdbname)
-   write(iout,'(A,I0)') 'iframe=', iframe
+   write(6,'(A,I0)') 'iframe=', iframe
    close(fid)
    stop
   else ! iframe == 1
@@ -954,7 +945,7 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
     if(buf(1:4)=='ATOM' .or. buf(1:6)=='HETATM') exit
    end do ! for while
    if(i /= 0) then
-    write(iout,'(A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read&
+    write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read&
                      & the 1st frame in file '//TRIM(pdbname)
     close(fid)
     stop
@@ -1017,7 +1008,6 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=6) :: str
  character(len=240) :: buf
@@ -1032,9 +1022,9 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
   BACKSPACE(fid)
   read(fid,'(A)') buf
   if(buf(4:21) == 'This run of MOLCAS') then
-   write(iout,'(A)') "ERROR in subroutine read_coor_from_molcas_out: failed to&
+   write(6,'(A)') "ERROR in subroutine read_coor_from_molcas_out: failed to&
                     & find 'Cartesian coordinates in A'"
-   write(iout,'(A)') 'keywords in file '//TRIM(outname)
+   write(6,'(A)') 'keywords in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -1048,9 +1038,9 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  do i = 1, natom, 1
   read(fid,*,iostat=j) k, str, coor(1:3,i)
   if(j /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine read_coor_from_molcas_out: insufficient&
+   write(6,'(A)') 'ERROR in subroutine read_coor_from_molcas_out: insufficient&
                     & number of atoms in file '//TRIM(outname)
-   write(iout,'(2(A,I0))') 'natom=', natom, ', but broken at i=', i
+   write(6,'(2(A,I0))') 'natom=', natom, ', but broken at i=', i
    close(fid)
    stop
   end if
@@ -1064,7 +1054,6 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=2) :: elem = ' '
  character(len=240) :: buf
@@ -1080,7 +1069,7 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
   if(buf(2:13) == 'Current geom') exit
 
   if(buf(2:13) == 'Primary work') then
-   write(iout,'(A)') "ERROR in subroutine read_coor_from_molpro_out: no '&
+   write(6,'(A)') "ERROR in subroutine read_coor_from_molpro_out: no '&
                    &Current geom' found in file "//TRIM(outname)
    close(fid)
    stop
@@ -1168,7 +1157,6 @@ end subroutine write_frame_into_pdb
 ! calculate an internal coordinate (bond, angle, or dihedral)
 function calc_an_int_coor(n, coor) result(val)
  implicit none
- integer, parameter :: iout = 6
  integer, intent(in) :: n
  real(kind=8) :: val, rtmp(3)
  real(kind=8), intent(in) :: coor(3,n)
@@ -1183,7 +1171,7 @@ function calc_an_int_coor(n, coor) result(val)
  case(4) ! dihedral
 
  case default
-  write(iout,'(A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
+  write(6,'(A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
   stop
  end select
 

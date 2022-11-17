@@ -2,7 +2,6 @@
 
 ! Note: Currently isotopes are not tested.
 program main
- use pg, only: iout
  implicit none
  integer :: i
  character(len=240) :: fname
@@ -10,9 +9,9 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_gau2molcas: wrong command line&
+  write(6,'(/,A)') ' ERROR in subroutine bas_gau2molcas: wrong command line&
                       & argument!'
-  write(iout,'(A,/)') ' Example: bas_gau2molcas cc-pVTZ.gbs (generate CC-PVTZ)'
+  write(6,'(A,/)') ' Example: bas_gau2molcas cc-pVTZ.gbs (generate CC-PVTZ)'
   stop
  end if
 
@@ -25,7 +24,7 @@ end program main
 
 ! Transform the basis sets in Gaussian format to those in (Open)Molcas format
 subroutine bas_gau2molcas(inpname)
- use pg, only: iout, prim_gau, natom, ram, elem
+ use pg, only: prim_gau, natom, ram, elem
  use fch_content, only: elem2nuc
  implicit none
  integer :: i, nline, fid1, fid2, RENAME
@@ -41,7 +40,7 @@ subroutine bas_gau2molcas(inpname)
  i = index(inpname, '.gjf')
  if(i == 0) i = index(inpname, '.com')
  if(i > 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gau2molcas: .gjf/.com file not&
+  write(6,'(A)') 'ERROR in subroutine bas_gau2molcas: .gjf/.com file not&
                    & supported currently.'
   stop
  end if

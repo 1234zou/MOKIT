@@ -1,5 +1,8 @@
-MOKIT 1.2.5 (Nov 6, 2022)
+MOKIT 1.2.5 (Nov 17, 2022)
 ------------------------
+* remove the integer variable iout in source code
+* support gen/genecp in automr
+* add keyword HFonly
 * update py2fch_direct
 
 MOKIT 1.2.4 (Oct 25, 2022)

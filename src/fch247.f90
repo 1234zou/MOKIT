@@ -232,7 +232,6 @@ end subroutine fch247
 ! multiply each contraction coefficient with corresponding normalization factor
 ! Note: this subroutine is different with that in file fch2wfn.f90
 subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
- use fch_content, only: iout
  implicit none
  integer :: i, p0
  integer, intent(in) :: n, p
@@ -244,8 +243,8 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  real(kind=8), intent(inout) :: contr_coeff(n)
 
  if(p == -1) then
-  write(iout,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
-  write(iout,'(A)') 'You should divide L/SP into separate S/P before calling &
+  write(6,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
+  write(6,'(A)') 'You should divide L/SP into separate S/P before calling &
                     &this subroutine.'
   stop
  end if
@@ -272,7 +271,7 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  case(5) ! H
   contr_coeff = contr_coeff/DSQRT(945d0)
  case default
-  write(iout,'(A,I0)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: inva&
+  write(6,'(A,I0)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: inva&
                        &lid p0=', p0
   stop
  end select

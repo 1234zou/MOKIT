@@ -4,18 +4,17 @@
 program main
  implicit none
  integer :: i, itype
- integer, parameter :: iout = 6
  character(len=11) :: str
  character(len=240) :: xyzname, inpname
 
  i = iargc()
  if(i /= 3) then
-  write(iout,'(/,A)')' ERROR in subroutine replace_xyz_in_inp: wrong command&
+  write(6,'(/,A)')' ERROR in subroutine replace_xyz_in_inp: wrong command&
                      & line arguments!'
-  write(iout,'(A)')  ' Example 1 (OpenMolcas): replace_xyz_in_inp a.xyz a.input -molcas'
-  write(iout,'(A)')  ' Example 2 (OpenMolcas): replace_xyz_in_inp a.out a.input -molcas'
-  write(iout,'(A)')  ' Example 3 (Molpro)    : replace_xyz_in_inp a.xyz a.com -molpro'
-  write(iout,'(A,/)')' Example 4 (Molpro)    : replace_xyz_in_inp a.out a.com -molpro'
+  write(6,'(A)')  ' Example 1 (OpenMolcas): replace_xyz_in_inp a.xyz a.input -molcas'
+  write(6,'(A)')  ' Example 2 (OpenMolcas): replace_xyz_in_inp a.out a.input -molcas'
+  write(6,'(A)')  ' Example 3 (Molpro)    : replace_xyz_in_inp a.xyz a.com -molpro'
+  write(6,'(A,/)')' Example 4 (Molpro)    : replace_xyz_in_inp a.out a.com -molpro'
   stop
  end if
 
@@ -35,7 +34,7 @@ program main
   itype = 3
  case default
   itype = 0
-  write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: wrong command&
+  write(6,'(A)') 'ERROR in subroutine replace_xyz_in_inp: wrong command&
                    & line argument str='//TRIM(str)
   stop
  end select
@@ -49,7 +48,6 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  implicit none
  integer :: i, natom
  integer, intent(in) :: itype ! 1/2 for Molcas/Molpro/GAMESS
- integer, parameter :: iout = 6
  real(kind=8), allocatable :: coor(:,:)
  character(len=240), intent(in) :: xyzname, inpname
 
@@ -70,9 +68,9 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
    allocate(coor(3,natom))
    call read_coor_from_molpro_out(xyzname, natom, coor)
   case default
-   write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
+   write(6,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
                      & supported.'
-   write(iout,'(A)') 'Filename='//TRIM(xyzname)
+   write(6,'(A)') 'Filename='//TRIM(xyzname)
    stop
   end select
  end if
@@ -83,9 +81,9 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  case(2)
   call replace_coor_in_molpro_inp(inpname, natom, coor)
  case default
-  write(iout,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
+  write(6,'(A)') 'ERROR in subroutine replace_xyz_in_inp: file format not&
                    & supported.'
-  write(iout,'(A)') 'Filename='//TRIM(inpname)
+  write(6,'(A)') 'Filename='//TRIM(inpname)
   stop
  end select
 
@@ -98,7 +96,6 @@ subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
  implicit none
  integer :: i, k, fid, fid1
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=6) :: elem
  character(len=16) :: key
@@ -132,7 +129,7 @@ subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
  end do ! for while
 
  if(k /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine replace_coor_in_molcas_inp: insuffic&
+  write(6,'(A)') 'ERROR in subroutine replace_coor_in_molcas_inp: insuffic&
                     &ient number of atoms found in file '//TRIM(inpname)
   close(fid1,status='delete')
   close(fid)
@@ -155,7 +152,6 @@ subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
  implicit none
  integer :: i, fid, fid1
  integer, intent(in) :: natom
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=6) :: elem
  character(len=8) :: key
@@ -178,9 +174,9 @@ subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine replace_coor_in_molcas_inp: insuffic&
+  write(6,'(A)') 'ERROR in subroutine replace_coor_in_molcas_inp: insuffic&
                     &ient number of atoms found'
-  write(iout,'(A)') 'in file '//TRIM(inpname)
+  write(6,'(A)') 'in file '//TRIM(inpname)
   close(fid1,status='delete')
   close(fid)
   stop

@@ -34,7 +34,6 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
  ! ref1: the begin index of reference orbitals
  ! ref2: the end index of reference orbitals
  integer, parameter :: niter_max = 10000
- integer, parameter :: iout = 6
  real(kind=8) coeff(nbf,nif), new_coeff(nbf,nif)
  real(kind=8) mo_dipole(3,nif,nif)
 !f2py intent(in) :: coeff
@@ -58,9 +57,9 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
  nref = ref2 - ref1
 
  if(nref > nrot) then
-  write(iout,'(A)') 'ERROR in subroutine assoc_loc: the number of reference orbitals is &
+  write(6,'(A)') 'ERROR in subroutine assoc_loc: the number of reference orbitals is &
   &larger than that of rotated orbitals. Not allowed.'
-  write(iout,'(4(A,I3))') 'ref1=',ref1,', ref2=',ref2,', rot1=',rot1,', rot2=',rot2
+  write(6,'(4(A,I3))') 'ref1=',ref1,', ref2=',ref2,', rot1=',rot1,', rot2=',rot2
   return
  end if
 
@@ -111,8 +110,8 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
      cos_theta = 1.0d0
      sin_theta = 0.0d0
     end if
-    !write(iout,*) 'Aij=', Aij, 'Bij=', Bij
-    !write(iout,*) 'sin_theta=', sin_theta, 'cos_theta=', cos_theta
+    !write(6,*) 'Aij=', Aij, 'Bij=', Bij
+    !write(6,*) 'sin_theta=', sin_theta, 'cos_theta=', cos_theta
     ! update two orbitals
     motmp(:,1) = new_coeff(:,rot1+i)
     motmp(:,2) = new_coeff(:,rot1+j)
@@ -128,16 +127,16 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
    end do
   end do
   niter = niter + 1
-  write(iout,'(A,I5,A,F13.6)') 'niter=', niter, ', decrease=', decrease
+  write(6,'(A,I5,A,F13.6)') 'niter=', niter, ', decrease=', decrease
   if(-decrease < threshold2) exit
   if(nref == 1) exit
  end do
 
  if(niter <= niter_max) then
-  write(iout,'(A)') 'Associated localization converged successfully.'
+  write(6,'(A)') 'Associated localization converged successfully.'
  else
-  write(iout,'(A,I5)') 'niter_max=', niter_max
-  write(iout,'(A)') 'Associated localization fails to converge.'
+  write(6,'(A,I5)') 'niter_max=', niter_max
+  write(6,'(A)') 'Associated localization fails to converge.'
  end if
 
  deallocate(dipole)

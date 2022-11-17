@@ -9,7 +9,6 @@
 program main
  implicit none
  integer :: i, j, idx1, idx2, nopen
- integer, parameter :: iout = 6
  character(len=10) :: buf
  character(len=240) :: outname, fchname
  logical :: gau_order
@@ -18,14 +17,14 @@ program main
 
  i = iargc()
  if(i<4 .or. i>6) then
-  write(iout,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
-  write(iout,'(A)')   ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
-  write(iout,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
-  write(iout,'(A)')   ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
-  write(iout,'(A)')   ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
-  write(iout,'(A)')   ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
-  write(iout,'(A)')   ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
-  write(iout,'(A,/)') ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
+  write(6,'(A)')   ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
+  write(6,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A)')   ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
+  write(6,'(A)')   ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
+  write(6,'(A)')   ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
+  write(6,'(A)')   ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A,/)') ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
   stop
  end if
 
@@ -45,12 +44,12 @@ program main
   call getarg(5, buf)
   read(buf,*,iostat=j) nopen
   if(j /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
+   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
                     & arguments. Failed to read integer nopen.'
    stop
   end if
   if(nopen < 0) then
-   write(iout,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
+   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
                     & arguments. nopen<0.'
    stop
   end if
@@ -61,24 +60,24 @@ program main
   if(index(buf,'-gau') /= 0) then
    gau_order = .true.
   else
-   write(iout,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line arguments.'
-   write(iout,'(A)') 'The 5th argument='//TRIM(buf)
+   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line arguments.'
+   write(6,'(A)') 'The 5th argument='//TRIM(buf)
    stop
   end if
  end if
 
  i = idx2 - idx1
  if(i < 1) then
-  write(iout,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.'
-  write(iout,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
+  write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.'
+  write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
   stop
  end if
 
  if(index(outname,'.dat',back=.true.) /= 0) then
   if(MOD(i+1-nopen,2) /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
+   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
                     & In this case idx2-idx1+1-nopen must be an even integer.'
-   write(iout,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
+   write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
    stop
   end if
  end if
@@ -92,7 +91,6 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  implicit none
  integer :: i, fid1, fid2, nmo, nif, itype, RENAME
  integer, intent(in) :: idx1, idx2, nopen
- integer, parameter :: iout = 6
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: outname, fchname
  real(kind=8), allocatable :: noon(:), ev(:)
@@ -115,8 +113,8 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
   case(3)
    call read_noon_from_psi4_out(nmo, noon, outname)
   case default
-   write(iout,'(A,I0)') 'ERROR in subroutine extract_noon2fch: invalid itype=',itype
-   write(iout,'(A)') TRIM(outname)
+   write(6,'(A,I0)') 'ERROR in subroutine extract_noon2fch: invalid itype=',itype
+   write(6,'(A)') TRIM(outname)
    stop
   end select
  end if
@@ -174,7 +172,6 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  integer :: i, j, k, m, npair, fid
  integer, intent(in) :: nmo ! must be an even integer
  integer, intent(in) :: nopen ! number of singly occupied orbitals
- integer, parameter :: iout = 6
  real(kind=8), allocatable :: cicoeff(:)
  real(kind=8), intent(out) :: noon(nmo)
  character(len=240) :: buf
@@ -183,7 +180,7 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
 
  npair = (nmo - nopen)/2
  if(npair == 0) then
-  write(iout,'(A)') 'Warning in subroutine read_noon_from_dat: npair=0. High&
+  write(6,'(A)') 'Warning in subroutine read_noon_from_dat: npair=0. High&
                    & spin ROHF wfn assumed.'
   noon = 1d0
   return
@@ -198,7 +195,7 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_noon_from_dat: no '$SCF'&
+  write(6,'(A)') "ERROR in subroutine read_noon_from_dat: no '$SCF'&
                    & found in file "//TRIM(datname)
   close(fid)
   stop
@@ -242,7 +239,6 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  implicit none
  integer :: i, j, k, fid, n, nmo1
  integer, intent(in) :: idx1, nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: noon(nmo)
  real(kind=8), allocatable :: on(:)
  character(len=240) :: buf
@@ -256,7 +252,7 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M'&
+  write(6,'(A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M'&
                    & found in file "//TRIM(gmsname)
   stop
  end if
@@ -346,7 +342,6 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: noon(nmo)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -362,7 +357,7 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_noon_from_orca_out: no ''&
+  write(6,'(A)') "ERROR in subroutine read_noon_from_orca_out: no ''&
                    & found in file "//TRIM(outname)//'.'
   close(fid)
   stop
@@ -379,7 +374,6 @@ subroutine read_noon_from_psi4_out(nmo, noon, outname)
  implicit none
  integer :: i, nline, fid
  integer, intent(in) :: nmo
- integer, parameter :: iout = 6
  real(kind=8), intent(out) :: noon(nmo)
  character(len=1) :: str
  character(len=240) :: buf
@@ -397,7 +391,7 @@ subroutine read_noon_from_psi4_out(nmo, noon, outname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_noon_from_psi4_out: no 'Active&
+  write(6,'(A)') "ERROR in subroutine read_noon_from_psi4_out: no 'Active&
                    & Space' found in file "//TRIM(outname)
   close(fid)
   stop

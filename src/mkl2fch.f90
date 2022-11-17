@@ -85,13 +85,13 @@ subroutine mkl2fch(mklname, fchname, no_type)
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2fch: Cartesian functions detected&
+  write(6,'(A)') 'ERROR in subroutine mkl2fch: Cartesian functions detected&
                    & in file '//TRIM(fchname)//'.'
-  write(iout,'(A)') "ORCA supports only spherical functions. You need to add&
+  write(6,'(A)') "ORCA supports only spherical functions. You need to add&
                   & '5D 7F' keywords in Gaussian."
   stop
  else if( ANY(shell_type < -5) ) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not&
+  write(6,'(A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not&
                    & supported.'
   stop
  end if
@@ -129,8 +129,8 @@ subroutine mkl2fch(mklname, fchname, no_type)
  end do ! for i
 
  if(k /= nbf) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2fch: k /= nbf!'
-  write(iout,'(2(A,I0))') 'k=', k, ', nbf=', nbf
+  write(6,'(A)') 'ERROR in subroutine mkl2fch: k /= nbf!'
+  write(6,'(2(A,I0))') 'k=', k, ', nbf=', nbf
   stop
  end if
 
