@@ -4,7 +4,6 @@
 ! do CASCI/CASPT2(npair<=7) or DMRG-CASCI/DMRG-NEVPT2 (npair>7) when scf=.False.
 ! do CASSCF/CASPT2(npair<=7) or DMRG-CASSCF/DMRG-NEVPT2 (npair>7) when scf=.True.
 subroutine do_mrpt2()
- use print_id, only: iout
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
@@ -24,43 +23,43 @@ subroutine do_mrpt2()
  if(eist == 1) return ! excited state calculation
  alive = [caspt2, nevpt2, mrmp2, ovbmp2, sdspt2]
  if(ALL(alive .eqv. .false.)) return
- write(iout,'(//,A)') 'Enter subroutine do_mrpt2...'
+ write(6,'(//,A)') 'Enter subroutine do_mrpt2...'
  mem0 = CEILING(DBLE(mem*125)/DBLE(nproc))
 
  if((dmrgci .or. dmrgscf)) then
   if(mrmp2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-MRMP2 not supported.'
    stop
   end if
   if(sdspt2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-SDSPT2 not supported.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-SDSPT2 not supported.'
    stop
   end if
   if(ovbmp2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-OVB-MP2 not supported.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-OVB-MP2 not supported.'
    stop
   end if
   if(nevpt2 .and. (nevpt2_prog=='molpro' .or. nevpt2_prog=='orca')) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-NEVPT2 is only supported&
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-NEVPT2 is only supported&
                     & with PySCF or OpenMolcas.'
-   write(iout,'(A)') 'But you specify NEVPT2_prog='//TRIM(nevpt2_prog)
+   write(6,'(A)') 'But you specify NEVPT2_prog='//TRIM(nevpt2_prog)
    stop
   end if
   if(caspt2 .and. caspt2_prog/='openmolcas') then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-CASPT2 is only supported&
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-CASPT2 is only supported&
                     & with OpenMolcas.'
-   write(iout,'(A)') 'But you specify CASPT2_prog='//TRIM(caspt2_prog)
+   write(6,'(A)') 'But you specify CASPT2_prog='//TRIM(caspt2_prog)
    stop
   end if
  end if
 
  if(.not. CIonly) then
   if(casscf_prog == 'orca') then
-   write(iout,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO&
+   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO&
                     & coefficients in .mkl file are'
-   write(iout,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5&
+   write(6,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5&
                     & a.u. Such small error'
-   write(iout,'(A)') 'is usually not important. If you care about the accuracy,&
+   write(6,'(A)') 'is usually not important. If you care about the accuracy,&
                     & please use another CASSCF solver.'
   end if
 
@@ -86,11 +85,11 @@ subroutine do_mrpt2()
 
  else ! CIonly = .True.
   if(casci_prog == 'orca') then
-   write(iout,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO&
+   write(6,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO&
                     & coefficients in .mkl file are'
-   write(iout,'(A)') 'only 7-digits. This will affect the PT2 energy up to 10^-5&
+   write(6,'(A)') 'only 7-digits. This will affect the PT2 energy up to 10^-5&
                     & a.u. Such small error'
-   write(iout,'(A)') 'is usually not important. If you care about the accuracy,&
+   write(6,'(A)') 'is usually not important. If you care about the accuracy,&
                     & please use another CASCI solver.'
   end if
 
@@ -111,16 +110,16 @@ subroutine do_mrpt2()
     string = 'DMRG-NEVPT2 based on DMRG-CASCI orbitals.'
    end if
   end if
-  write(iout,'(A)') 'Warning: the CASSCF orbital optimization is strongly&
+  write(6,'(A)') 'Warning: the CASSCF orbital optimization is strongly&
                      & recommended'
-  write(iout,'(A)') 'to be performed before PT2, unless it is too time-consuming.'
+  write(6,'(A)') 'to be performed before PT2, unless it is too time-consuming.'
  end if
 
- write(iout,'(A)') TRIM(string)
- write(iout,'(A)',advance='no') 'Frozen_core = F, '
+ write(6,'(A)') TRIM(string)
+ write(6,'(A)',advance='no') 'Frozen_core = F, '
 
  if(nevpt2) then
-  write(iout,'(A)') 'NEVPT2 using program '//TRIM(nevpt2_prog)
+  write(6,'(A)') 'NEVPT2 using program '//TRIM(nevpt2_prog)
 
   select case(TRIM(nevpt2_prog))
   case('pyscf')
@@ -226,7 +225,7 @@ subroutine do_mrpt2()
   end select
 
  else if(caspt2) then ! CASPT2
-  write(iout,'(A)') 'CASPT2 using program '//TRIM(caspt2_prog)
+  write(6,'(A)') 'CASPT2 using program '//TRIM(caspt2_prog)
 
   select case(TRIM(caspt2_prog))
   case('openmolcas')
@@ -302,7 +301,7 @@ subroutine do_mrpt2()
   end select
 
  else if(mrmp2) then ! CASSCF-MRMP2
-  write(iout,'(A)') 'MRMP2 using program gamess'
+  write(6,'(A)') 'MRMP2 using program gamess'
   call check_gms_path()
 
   call fch2inp_wrap(casnofch, .false., 0, 0)
@@ -318,7 +317,7 @@ subroutine do_mrpt2()
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
-  write(iout,'(A)') 'OVB-MP2 using program gaussian'
+  write(6,'(A)') 'OVB-MP2 using program gaussian'
   call check_exe_exist(gau_path)
   i = index(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'OVBMP2.chk'
@@ -328,11 +327,11 @@ subroutine do_mrpt2()
   call prt_ovbmp2_gau_inp(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   string = TRIM(gau_path)//' '//TRIM(inpname)
-  write(iout,'(A)') '$'//TRIM(string)
+  write(6,'(A)') '$'//TRIM(string)
   i = system(TRIM(string))
 
  else ! CASSCF-SDSPT2
-  write(iout,'(A)') 'SDSPT2 using program bdf'
+  write(6,'(A)') 'SDSPT2 using program bdf'
   call check_exe_exist(bdf_path)
 
   i = system('fch2bdf '//TRIM(casnofch)//' -no')
@@ -355,15 +354,15 @@ subroutine do_mrpt2()
 
  if(i /= 0) then
   if(nevpt2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: NEVPT2 computation failed.'
   else if(caspt2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: CASPT2 computation failed.'
   else if(ovbmp2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: OVB-MP2 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: OVB-MP2 computation failed.'
   else if(sdspt2) then
-   write(iout,'(/,A)') 'ERROR in subroutine do_mrpt2: SDSPT2 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: SDSPT2 computation failed.'
   end if
-  write(iout,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
+  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
  end if
 
@@ -416,48 +415,47 @@ subroutine do_mrpt2()
   call read_mrpt_energy_from_bdf_out(outname, 1, ref_e, corr_e, davidson_e)
  end if
 
- write(iout,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e, 'a.u.'
+ write(6,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e, 'a.u.'
 
  if(caspt2) then
-  if(.not.caspt2k) write(iout,'(A)') 'IP-EA shift  =         0.25 (default)'
+  if(.not.caspt2k) write(6,'(A)') 'IP-EA shift  =         0.25 (default)'
   caspt2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
   if(caspt2k) then
-   write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2-K)  = ', caspt2_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(CASPT2-K)  = ', caspt2_e, 'a.u.'
   else
-   write(iout,'(A,F18.8,1X,A4)') 'E(CASPT2)    = ', caspt2_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(CASPT2)    = ', caspt2_e, 'a.u.'
   end if
  else if(nevpt2) then ! NEVPT2
   nevpt2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,   'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,   'a.u.'
   if(FIC) then
-   write(iout,'(A,F18.8,1X,A4)')'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)')'E(FIC-NEVPT2)= ', nevpt2_e, 'a.u.'
   else
-   write(iout,'(A,F18.8,1X,A4)')'E(SC-NEVPT2) = ', nevpt2_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)')'E(SC-NEVPT2) = ', nevpt2_e, 'a.u.'
   end if
  else if(mrmp2) then ! MRMP2
   mrmp2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MRMP2)     = ', mrmp2_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(MRMP2)     = ', mrmp2_e, 'a.u.'
  else if(ovbmp2) then ! OVB-MP2
   ovbmp2_e = ref_e + corr_e
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(OVB-MP2)   = ', ovbmp2_e,'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(OVB-MP2)   = ', ovbmp2_e,'a.u.'
  else           ! SDSPT2
   sdspt2_e = ref_e + corr_e + davidson_e
-  write(iout,'(A,F18.8,1X,A4)') 'Davidson correction=',davidson_e,'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(SDSPT2)    = ', sdspt2_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'Davidson correction=',davidson_e,'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e,  'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(SDSPT2)    = ', sdspt2_e, 'a.u.'
  end if
 
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_mrpt2 at '//TRIM(data_string)
+ write(6,'(A)') 'Leave subroutine do_mrpt2 at '//TRIM(data_string)
  return
 end subroutine do_mrpt2
 
 ! print NEVPT2/CASPT2/CASPT3 keywords into Molpro input file
 subroutine prt_mrpt_molpro_inp(inpname, itype)
- use print_id, only: iout
  use mr_keyword, only: CIonly
  use mol, only: ndb, npair, npair0, nacto
  implicit none
@@ -476,7 +474,7 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
 
  if(put(1:4) /= '{put') then
   close(fid)
-  write(iout,'(A)') 'ERROR in subroutine prt_mrpt_molpro_inp: wrong content found&
+  write(6,'(A)') 'ERROR in subroutine prt_mrpt_molpro_inp: wrong content found&
                    & in the final line of file '//TRIM(inpname)
   stop
  end if
@@ -512,9 +510,9 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  case(3) ! CASPT3
   write(fid,'(A)') '{RS3,IPEA=0.25;CORE}'
  case default
-  write(iout,'(A,I0)') 'ERROR in subroutine prt_mrpt_molpro_inp: invalid&
+  write(6,'(A,I0)') 'ERROR in subroutine prt_mrpt_molpro_inp: invalid&
                       & itype=',itype
-  write(iout,'(A,I0)') 'Valid itype=1/2/3 for NEVPT2/CASPT2/CASPT3.'
+  write(6,'(A,I0)') 'Valid itype=1/2/3 for NEVPT2/CASPT2/CASPT3.'
   close(fid)
   stop
  end select
@@ -525,7 +523,6 @@ end subroutine prt_mrpt_molpro_inp
 
 ! print SDSPT2/NEVPT2/NEVPT3 keywords in to a given BDF .inp file
 subroutine prt_mrpt_bdf_inp(inpname, itype)
- use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto, npair, npair0, ndb
  use mr_keyword, only: CIonly
  implicit none
@@ -545,7 +542,7 @@ subroutine prt_mrpt_bdf_inp(inpname, itype)
 
  if(i /= 0) then
   close(fid)
-  write(iout,'(A)') "ERROR in subroutine prt_mrpt_bdf_inp: no '$SCF' found&
+  write(6,'(A)') "ERROR in subroutine prt_mrpt_bdf_inp: no '$SCF' found&
                    & in file "//TRIM(inpname)
   stop
  end if
@@ -583,8 +580,8 @@ subroutine prt_mrpt_bdf_inp(inpname, itype)
  case(3)
   write(fid,'(A)') 'NEVPT3'
  case default
-  write(iout,'(A,I0)') 'ERROR in subroutine prt_mrpt_bdf_inp: invalid itype=',itype
-  write(iout,'(A)') 'itype=1/2/3 for SDSPT2/NEVPT2/NEVPT3.'
+  write(6,'(A,I0)') 'ERROR in subroutine prt_mrpt_bdf_inp: invalid itype=',itype
+  write(6,'(A)') 'itype=1/2/3 for SDSPT2/NEVPT2/NEVPT3.'
   stop
  end select
 
@@ -595,7 +592,6 @@ end subroutine prt_mrpt_bdf_inp
 
 ! print NEVPT2 keywords in to a given ORCA .inp file
 subroutine prt_nevpt2_orca_inp(inpname)
- use print_id, only: iout
  use mol, only: nacte, nacto
  use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, F12, F12_cabs, &
   FIC, DLPNO, hardwfn, crazywfn
@@ -625,9 +621,9 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A)') ' TightSCF'
 
  if(X2C) then
-  write(iout,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C&
+  write(6,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C&
                    & is not supported in ORCA.'
-  write(iout,'(A)') 'You can specify NEVPT2_prog=Molpro or OpenMolcas.'
+  write(6,'(A)') 'You can specify NEVPT2_prog=Molpro or OpenMolcas.'
   stop
  end if
 
@@ -670,7 +666,6 @@ end subroutine prt_nevpt2_orca_inp
 
 ! print CASPT2 keywords in to a given ORCA .inp file
 subroutine prt_caspt2_orca_inp(inpname)
- use print_id, only: iout
  use mol, only: nacte, nacto
  use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, RI, &
   RIJK_bas, hardwfn, crazywfn
@@ -704,9 +699,9 @@ subroutine prt_caspt2_orca_inp(inpname)
   write(fid2,'(A)') ' order 2'
   write(fid2,'(A)') 'end'
  else if(X2C) then
-  write(iout,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C&
+  write(6,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C&
                    & is not supported in ORCA.'
-  write(iout,'(A)') 'You can specify CASPT2_prog=Molpro or OpenMolcas.'
+  write(6,'(A)') 'You can specify CASPT2_prog=Molpro or OpenMolcas.'
   close(fid2,status='delete')
   close(fid1)
   stop
@@ -1032,7 +1027,6 @@ end subroutine prt_ovbmp2_gau_inp
 
 ! read CASSCF OVB-MP2 energy from a Gaussian output file
 subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
- use print_id, only: iout
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: ref_e, corr_e
@@ -1048,7 +1042,7 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
                       &EIGENVALUE' found in file "//TRIM(outname)
   close(fid)
  end if
@@ -1062,7 +1056,7 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
 
  close(fid)
  if(i /= 0) then
-  write(iout,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
                       &EUMP2 =' found in file "//TRIM(outname)
  end if
 

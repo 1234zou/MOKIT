@@ -5,7 +5,6 @@ module pg
  implicit none
  integer :: natom     ! the number of atoms
  integer :: highest   ! highest angular momentum
- integer, parameter :: iout = 6
  integer, allocatable :: ram(:), ntimes(:) ! ram: relative atomic mass
  ! I made a mistake, ram should be interpreted as atomic order
  real(kind=8), allocatable :: coor(:,:)    ! Cartesian coordinates
@@ -71,7 +70,6 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  implicit none
  integer :: i, fid, nline
  integer, intent(out) :: natom
- integer, parameter :: iout = 6
  character(len=1) :: str
  character(len=240):: buf
  character(len=240), intent(in) :: inpname
@@ -87,7 +85,7 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
                    & in file '//TRIM(inpname)
   stop
  end if
@@ -114,7 +112,7 @@ subroutine read_natom_from_gms_inp(inpname, natom)
 
  close(fid)
  if(natom == 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: zero atom&
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: zero atom&
                    & found in file '//TRIM(inpname)
   stop
  end if
@@ -235,7 +233,6 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  implicit none
  integer:: i, j, k, fid
  integer, intent(out) :: nbf, nif
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
@@ -267,7 +264,7 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2py: No $DATA section found&
+  write(6,'(A)') 'ERROR in subroutine bas_gms2py: No $DATA section found&
                    & in file '//TRIM(inpname)//'.'
   close(fid)
   stop
@@ -352,7 +349,6 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
  implicit none
  integer :: i, fid
  integer, intent(out) :: na, nb, nif, nbf
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
@@ -367,9 +363,9 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_na_nb_nif_nbf_from_gms_inp: No&
+  write(6,'(A)') 'ERROR in subroutine read_na_nb_nif_nbf_from_gms_inp: No&
                    & $DATA section found in'
-  write(iout,'(A)') 'file '//TRIM(inpname)//'.'
+  write(6,'(A)') 'file '//TRIM(inpname)//'.'
   close(fid)
   stop
  end if
@@ -397,15 +393,15 @@ end subroutine read_na_nb_nif_nbf_from_gms_inp
 
 ! read type all_ecp from a given GAMESS .inp/.dat file
 subroutine read_all_ecp_from_gms_inp(inpname)
- use pg, only: iout, natom, all_ecp, ecp_exist
+ use pg, only: natom, all_ecp, ecp_exist
  implicit none
  integer :: i, j, k, m, n, fid
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
  if(natom == 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: natom = 0.'
-  write(iout,'(A)') 'The variable natom should be initialized before calling&
+  write(6,'(A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: natom = 0.'
+  write(6,'(A)') 'The variable natom should be initialized before calling&
                    & this subroutine.'
   stop
  end if
@@ -439,9 +435,9 @@ subroutine read_all_ecp_from_gms_inp(inpname)
    if(j == 1) then
     k = index(buf,'ul')
     if(k == 0) then
-     write(iout,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP&
+     write(6,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP&
                       & does not start with '-ul potential'."
-     write(iout,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(inpname)
+     write(6,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(inpname)
      stop
     end if
    end if
@@ -478,7 +474,7 @@ end subroutine clear_prim_gau
 
 ! read this type of primitive gaussians, i.e., 'S', 'L', etc.
 subroutine read_prim_gau(stype, nline, fid)
- use pg, only: iout, prim_gau
+ use pg, only: prim_gau
  implicit none
  integer :: i, j, k, itmp, ncol, ncol1, nline0, nline1
  integer, intent(in) :: nline, fid
@@ -538,10 +534,10 @@ subroutine read_prim_gau(stype, nline, fid)
        end if
       end do ! for j
       if(j == nline0+1) then
-       write(iout,'(/,A)') "ERROR in subroutine read_prim_gau: I've never seen such basis."
-       write(iout,'(A)') "Did you forget to add 'int(nobasistransform)' in .gjf file?"
-       write(iout,'(3(A,I0))') 'stype='//stype//', i=',i,', nline=',nline,', nline0=',nline0
-       write(iout,'(2(A,E16.8))') 'exp0=', exp0, ', rtmp=', rtmp
+       write(6,'(/,A)') "ERROR in subroutine read_prim_gau: I've never seen such basis."
+       write(6,'(A)') "Did you forget to add 'int(nobasistransform)' in .gjf file?"
+       write(6,'(3(A,I0))') 'stype='//stype//', i=',i,', nline=',nline,', nline0=',nline0
+       write(6,'(2(A,E16.8))') 'exp0=', exp0, ', rtmp=', rtmp
        stop
       end if
      end if
@@ -774,7 +770,6 @@ end subroutine gen_contracted_string
 ! Note: if you want to read both Alpha and Beta MOs, just double the variable
 ! nif
 subroutine read_mo_from_dat(datname, nbf, nif, coeff)
- use pg, only: iout
  implicit none
  integer i, j, k, nline, nleft, fid
  integer, intent(in) :: nbf, nif
@@ -797,7 +792,7 @@ subroutine read_mo_from_dat(datname, nbf, nif, coeff)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_mo_from_dat: No '$VEC' section in&
+  write(6,'(A)') "ERROR in subroutine read_mo_from_dat: No '$VEC' section in&
                    & file "//TRIM(datname)
   close(fid)
   stop

@@ -76,7 +76,7 @@ subroutine fch2wfn(fchname, read_no)
 
  i = index(fchname,'.fch')
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2wfn: '.fch' key not found in file&
+  write(6,'(A)') "ERROR in subroutine fch2wfn: '.fch' key not found in file&
                     &name "//TRIM(fchname)
   stop
  end if
@@ -100,14 +100,14 @@ subroutine fch2wfn(fchname, read_no)
  !  probably natural orbital occupation numbers. Print warnings to remind the
  !  user the argument '-no'.
  if(ALL(eigen_e_a<up_limit) .and. ALL(eigen_e_a>low_limit) .and. (.not.read_no)) then
-  write(iout,'(/,A)') REPEAT('-',71)
-  write(iout,'(A)') 'Warning from subroutine fch2wfn: it seems that this is a&
+  write(6,'(/,A)') REPEAT('-',71)
+  write(6,'(A)') 'Warning from subroutine fch2wfn: it seems that this is a&
                     & .fch(k) file'
-  write(iout,'(A)') 'including natural orbitals, since all orbital energies are&
+  write(6,'(A)') 'including natural orbitals, since all orbital energies are&
                     & among [0,2].'
-  write(iout,'(A)') "But '-no' argument is not found. You should know what you&
+  write(6,'(A)') "But '-no' argument is not found. You should know what you&
                     & are doing."
-  write(iout,'(A,/)') REPEAT('-',71)
+  write(6,'(A,/)') REPEAT('-',71)
  end if
 
  allocate(shl_nprim(ncontr))
@@ -182,8 +182,8 @@ subroutine fch2wfn(fchname, read_no)
   case(-5,5) ! H
    forall(m = 1:21) type_assign(k+1+j*(m-1):k+j*m) = 35 + m
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2wfn: shell_type out of range.'
-   write(iout,'(A,I0)') 'shell_type(i)=', shell_type(i)
+   write(6,'(A)') 'ERROR in subroutine fch2wfn: shell_type out of range.'
+   write(6,'(A,I0)') 'shell_type(i)=', shell_type(i)
    stop
   end select
   ! remember to update k and q
@@ -300,7 +300,6 @@ end subroutine fch2wfn
 
 ! multiply each contraction coefficient with corresponding normalization factor
 subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
- use fch_content, only: iout
  implicit none
  integer :: i, p0
  integer, intent(in) :: n, p
@@ -312,8 +311,8 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  real(kind=8), intent(inout) :: contr_coeff(n)
 
  if(p == -1) then
-  write(iout,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
-  write(iout,'(A)') 'You should divide L/SP into separate S/P before calling &
+  write(6,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
+  write(6,'(A)') 'You should divide L/SP into separate S/P before calling &
                     &this subroutine.'
   stop
  end if
@@ -332,7 +331,6 @@ end subroutine contr_coeff_multiply_norm_fac
 
 ! Scale MOs (Cartesian-type basis) by multiplying some constants
 subroutine scale_mo_as_wfn(ncontr, shell_type, nbf, nif, coeff)
- use fch_content, only: iout
  implicit none
  integer :: i, j, k
  integer, intent(in) :: ncontr, nbf, nif
@@ -368,8 +366,8 @@ subroutine scale_mo_as_wfn(ncontr, shell_type, nbf, nif, coeff)
    forall(k = 1:21) coeff(j+k,:) = coeff(j+k,:)/c21h(k)
    j = j + 21
   case default
-   write(iout,'(A)') 'ERROR in scale_mo_as_wfn: shell_type(i) out of range!'
-   write(iout,'(A,3I5)') 'i, ncontr, shell_type(i)=', i, ncontr, shell_type(i)
+   write(6,'(A)') 'ERROR in scale_mo_as_wfn: shell_type(i) out of range!'
+   write(6,'(A,3I5)') 'i, ncontr, shell_type(i)=', i, ncontr, shell_type(i)
    stop
   end select
  end do ! for i

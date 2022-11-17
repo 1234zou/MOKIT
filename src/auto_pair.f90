@@ -10,7 +10,6 @@
 ! paired by minimizing the sum of orbitals distances (<i|r|i>-<j|r|j>)**2
 subroutine pair_by_dis(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole, new_coeff)
  implicit none
- integer, parameter :: iout = 6
  integer ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
 !f2py intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
  real(kind=8) coeff(nbf,nif), mo_dipole(3,nif,nif), new_coeff(nbf,nif)
@@ -28,8 +27,8 @@ subroutine pair_by_dis(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, m
   call pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole)
   new_coeff = coeff
  else
-  write(iout,'(A,I4)') 'ERROR in subroutine pair_by_dis: nalpha-nopen-ncore=', nalpha-nopen-ncore
-  write(iout,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
+  write(6,'(A,I4)') 'ERROR in subroutine pair_by_dis: nalpha-nopen-ncore=', nalpha-nopen-ncore
+  write(6,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
   stop
  end if
 end subroutine pair_by_dis
@@ -37,7 +36,6 @@ end subroutine pair_by_dis
 ! for case where occpuied LMO >= unoccpuied LMO
 subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  implicit none
- integer, parameter :: iout = 6
  integer i, j, k, nocc_lmo, nmid
  integer tmp_idx(1), tmp_idx2(2)
  integer, intent(in) :: ncore, npair, nopen, nalpha, nbf, nif
@@ -54,12 +52,12 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  nmid = nalpha - nopen - npair - ncore
  nocc_lmo = npair + nmid
- write(iout,'(/,A)') 'Information of subroutine pair_by_dis1:'
- write(iout,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
- write(iout,'(A9,I4,A)') 'There are', nocc_lmo, ' occupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
- write(iout,'(A9,I4,A)') 'There are', npair,    ' unoccupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
+ write(6,'(/,A)') 'Information of subroutine pair_by_dis1:'
+ write(6,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
+ write(6,'(A9,I4,A)') 'There are', nocc_lmo, ' occupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
+ write(6,'(A9,I4,A)') 'There are', npair,    ' unoccupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
  fBoys = 0.0d0
@@ -69,7 +67,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   fBoys = fBoys + DOT_PRODUCT(temp_dipole1,temp_dipole1)
  end do
  fBoys = DSQRT(fBoys/DBLE(nocc_lmo))
- write(iout,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
  fBoys = 0.0d0
  j = nalpha + npair
  do i = nalpha+1, j, 1
@@ -77,7 +75,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   fBoys = fBoys + DOT_PRODUCT(temp_dipole1,temp_dipole1)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
 
  ! calculate the distances between any one active occ orbital and any one active vir orbital
  allocate(dis(nocc_lmo,npair), dis1(nocc_lmo,npair), used(nocc_lmo))
@@ -93,8 +91,8 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   end do
  end do
  tmp_idx2 = MINLOC(dis)
- write(iout,'(A,F11.5)') 'Min pair distance**2=', dis(tmp_idx2(1),tmp_idx2(2))
- write(iout,'(2I5)') tmp_idx2(1)+ncore, tmp_idx2(2)+nalpha
+ write(6,'(A,F11.5)') 'Min pair distance**2=', dis(tmp_idx2(1),tmp_idx2(2))
+ write(6,'(2I5)') tmp_idx2(1)+ncore, tmp_idx2(2)+nalpha
 
  ! find the closest vir orbital of an occ orbital
  allocate(pair_idx(npair), opt_pair_idx(npair))
@@ -132,20 +130,20 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   do i = 1, npair, 1
    sum_dis = sum_dis + dis(pair_idx(i),i)
   end do
-  write(iout,'(A8,F16.5)') 'sum_dis=', sum_dis
+  write(6,'(A8,F16.5)') 'sum_dis=', sum_dis
   if(sum_dis-min_sum < rdiff) then
    min_sum = sum_dis
    opt_pair_idx = pair_idx
   end if
  end do 
 
- write(iout,'(A)') 'Final pairs:'
+ write(6,'(A)') 'Final pairs:'
  do i = 1, npair, 1
   j = opt_pair_idx(i)
-  write(iout,'(3I4,F11.5)') i, i+nalpha, j+ncore, dis(j,i)
+  write(6,'(3I4,F11.5)') i, i+nalpha, j+ncore, dis(j,i)
  end do
- write(iout,'(A8,F16.5)') 'min_sum=', min_sum
- write(iout,'(A)') 'Information of subroutine pair_by_dis2 printing done.'
+ write(6,'(A8,F16.5)') 'min_sum=', min_sum
+ write(6,'(A)') 'Information of subroutine pair_by_dis2 printing done.'
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
@@ -169,7 +167,6 @@ end subroutine pair_by_dis1
 ! for case where occpuied LMO < unoccpuied LMO
 subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole)
  implicit none
- integer, parameter :: iout = 6
  integer i, j, k
  integer tmp_idx(1), tmp_idx2(2)
  integer, intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
@@ -184,12 +181,12 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  real(kind=8), allocatable :: coeff1(:,:)
  logical, allocatable :: used(:)
 
- write(iout,'(/,A)') 'Information of subroutine pair_by_dis2:'
- write(iout,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
- write(iout,'(A9,I4,A)') 'There are', npair,    ' occupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
- write(iout,'(A9,I4,A)') 'There are', nvir_lmo, ' unoccupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
+ write(6,'(/,A)') 'Information of subroutine pair_by_dis2:'
+ write(6,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
+ write(6,'(A9,I4,A)') 'There are', npair,    ' occupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
+ write(6,'(A9,I4,A)') 'There are', nvir_lmo, ' unoccupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
  fBoys = 0.0d0
@@ -199,7 +196,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   fBoys = fBoys + DOT_PRODUCT(temp_dipole1,temp_dipole1)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
  fBoys = 0.0d0
  j = nalpha + nvir_lmo
  do i = nalpha+1, j, 1
@@ -207,7 +204,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   fBoys = fBoys + DOT_PRODUCT(temp_dipole1,temp_dipole1)
  end do
  fBoys = DSQRT(fBoys/DBLE(nvir_lmo))
- write(iout,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
 
  ! calculate the distances between any one active occ orbital and any one active vir orbital
  allocate(dis(nvir_lmo,npair), dis1(nvir_lmo,npair), used(nvir_lmo))
@@ -223,8 +220,8 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   end do
  end do
  tmp_idx2 = MINLOC(dis)
- write(iout,'(A,F11.5)') 'Min pair distance**2=', dis(tmp_idx2(1),tmp_idx2(2))
- write(iout,'(2I5)') tmp_idx2(1)+nalpha, tmp_idx2(2)+ncore
+ write(6,'(A,F11.5)') 'Min pair distance**2=', dis(tmp_idx2(1),tmp_idx2(2))
+ write(6,'(2I5)') tmp_idx2(1)+nalpha, tmp_idx2(2)+ncore
 
  ! find the closest vir orbital of an occ orbital
  allocate(pair_idx(npair), opt_pair_idx(npair))
@@ -262,20 +259,20 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   do i = 1, npair, 1
    sum_dis = sum_dis + dis(pair_idx(i),i)
   end do
-  write(iout,'(A8,F16.5)') 'sum_dis=', sum_dis
+  write(6,'(A8,F16.5)') 'sum_dis=', sum_dis
   if(sum_dis-min_sum < rdiff) then
    min_sum = sum_dis
    opt_pair_idx = pair_idx
   end if
  end do 
 
- write(iout,'(A)') 'Final pairs:'
+ write(6,'(A)') 'Final pairs:'
  do i = 1, npair, 1
   j = opt_pair_idx(i)
-  write(iout,'(3I4,F11.5)') i, i+ncore, j+nalpha, dis(j,i)
+  write(6,'(3I4,F11.5)') i, i+ncore, j+nalpha, dis(j,i)
  end do
- write(iout,'(A8,F16.5)') 'min_sum=', min_sum
- write(iout,'(A)') 'Information of subroutine pair_by_dis2 printing done.'
+ write(6,'(A8,F16.5)') 'min_sum=', min_sum
+ write(6,'(A)') 'Information of subroutine pair_by_dis2 printing done.'
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
@@ -299,7 +296,6 @@ end subroutine pair_by_dis2
 ! paired by maximizing the sum of orbital transition dipoles <i|r|j>**2
 subroutine pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole, new_coeff)
  implicit none
- integer, parameter :: iout = 6
  integer ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
 !f2py intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
  real(kind=8) coeff(nbf,nif), mo_dipole(3,nif,nif), new_coeff(nbf,nif)
@@ -317,8 +313,8 @@ subroutine pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, m
   call pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole)
   new_coeff = coeff
  else
-  write(iout,'(A,I4)') 'ERROR in subroutine pair_by_tdm: nalpha-nopen-ncore=', nalpha-nopen-ncore
-  write(iout,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
+  write(6,'(A,I4)') 'ERROR in subroutine pair_by_tdm: nalpha-nopen-ncore=', nalpha-nopen-ncore
+  write(6,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
   stop
  end if
 end subroutine pair_by_tdm
@@ -326,7 +322,6 @@ end subroutine pair_by_tdm
 ! for case where occpuied LMO >= unoccpuied LMO
 subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  implicit none
- integer, parameter :: iout = 6
  integer i, j, k, nocc_lmo, nmid
  integer tmp_idx(1), tmp_idx2(2)
  integer, intent(in) :: ncore, npair, nopen, nalpha, nbf, nif
@@ -343,12 +338,12 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  nmid = nalpha - nopen - npair - ncore
  nocc_lmo = npair + nmid
- write(iout,'(/,A)') 'Information of subroutine pair_by_tdm1:'
- write(iout,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
- write(iout,'(A9,I4,A)') 'There are', nocc_lmo, ' occupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
- write(iout,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
- write(iout,'(A9,I4,A)') 'There are', npair,    ' unoccupied LMOs.'
+ write(6,'(/,A)') 'Information of subroutine pair_by_tdm1:'
+ write(6,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
+ write(6,'(A9,I4,A)') 'There are', nocc_lmo, ' occupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
+ write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
+ write(6,'(A9,I4,A)') 'There are', npair,    ' unoccupied LMOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
  fBoys = 0.0d0
@@ -358,7 +353,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   fBoys = fBoys + DOT_PRODUCT(temp_dipole,temp_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(nocc_lmo))
- write(iout,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
  fBoys = 0.0d0
  j = nalpha + npair
  do i = nalpha+1, j, 1
@@ -366,7 +361,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   fBoys = fBoys + DOT_PRODUCT(temp_dipole,temp_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
 
  ! calculate the transition dipoles between any one active occ orbital and any one active vir orbital
  allocate(tdm(nocc_lmo,npair), tdm1(nocc_lmo,npair), used(nocc_lmo))
@@ -381,8 +376,8 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   end do
  end do
  tmp_idx2 = MAXLOC(tdm)
- write(iout,'(A,F11.5)') 'Max transition dipole**2=', tdm(tmp_idx2(1),tmp_idx2(2))
- write(iout,'(2I5)') tmp_idx2(1)+ncore, tmp_idx2(2)+nalpha
+ write(6,'(A,F11.5)') 'Max transition dipole**2=', tdm(tmp_idx2(1),tmp_idx2(2))
+ write(6,'(2I5)') tmp_idx2(1)+ncore, tmp_idx2(2)+nalpha
 
  ! find the closest vir orbital of an occ orbital
  allocate(pair_idx(npair), opt_pair_idx(npair))
@@ -427,7 +422,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
    if(tempv1 < min_tdm) min_tdm = tempv1
   end do ! for i
 
-  write(iout,'(A8,F16.5)') 'sum_tdm=', sum_tdm
+  write(6,'(A8,F16.5)') 'sum_tdm=', sum_tdm
   if(j == 1) then
    max_sum = sum_tdm
    opt_pair_idx = pair_idx
@@ -439,13 +434,13 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   end if
  end do ! for j
 
- write(iout,'(A)') 'Final pairs:'
+ write(6,'(A)') 'Final pairs:'
  do i = 1, npair, 1
   j = opt_pair_idx(i)
-  write(iout,'(3I4,F11.5)') i, i+nalpha, j+ncore, tdm(j,i)
+  write(6,'(3I4,F11.5)') i, i+nalpha, j+ncore, tdm(j,i)
  end do
- write(iout,'(A8,F16.5)') 'max_sum=', max_sum
- write(iout,'(A)') 'Information of subroutine pair_by_tdm1 printing done.'
+ write(6,'(A8,F16.5)') 'max_sum=', max_sum
+ write(6,'(A)') 'Information of subroutine pair_by_tdm1 printing done.'
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
@@ -469,7 +464,6 @@ end subroutine pair_by_tdm1
 ! for case where occpuied LMO < unoccpuied LMO
 subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole)
  implicit none
- integer, parameter :: iout = 6
  integer i, j, k
  integer tmp_idx(1), tmp_idx2(2)
  integer, intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
@@ -484,12 +478,12 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
 !                               vir occ
  logical, allocatable :: used(:)
 
- write(iout,'(/,A)') 'Information of subroutine pair_by_tdm2:'
- write(iout,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
- write(iout,'(A9,I4,A)') 'There are', npair,    ' occupied LMOs.'
- write(iout,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
- write(iout,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
- write(iout,'(A9,I4,A)') 'There are', nvir_lmo, ' unoccupied LMOs.'
+ write(6,'(/,A)') 'Information of subroutine pair_by_tdm2:'
+ write(6,'(A9,I4,A)') 'There are', ncore,    ' core orbitals.'
+ write(6,'(A9,I4,A)') 'There are', npair,    ' occupied LMOs.'
+ write(6,'(A9,I4,A)') 'There are', nopen,    ' singly occupied MOs.'
+ write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
+ write(6,'(A9,I4,A)') 'There are', nvir_lmo, ' unoccupied LMOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
  fBoys = 0.0d0
@@ -499,7 +493,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   fBoys = fBoys + DOT_PRODUCT(temp_dipole,temp_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
- write(iout,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
  fBoys = 0.0d0
  j = nalpha + nvir_lmo
  do i = nalpha+1, j, 1
@@ -507,7 +501,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   fBoys = fBoys + DOT_PRODUCT(temp_dipole,temp_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(nvir_lmo))
- write(iout,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
+ write(6,'(A,F12.6)') 'In vir LMO subspace, Modified f(Boys)=', fBoys
 
  ! calculate the transition dipoles between any one active occ orbital and any one active vir orbital
  allocate(tdm(nvir_lmo,npair), tdm1(nvir_lmo,npair), used(nvir_lmo))
@@ -522,8 +516,8 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   end do
  end do
  tmp_idx2 = MAXLOC(tdm)
- write(iout,'(A,F11.5)') 'Max transition dipole**2=', tdm(tmp_idx2(1),tmp_idx2(2))
- write(iout,'(2I5)') tmp_idx2(1)+nalpha, tmp_idx2(2)+ncore
+ write(6,'(A,F11.5)') 'Max transition dipole**2=', tdm(tmp_idx2(1),tmp_idx2(2))
+ write(6,'(2I5)') tmp_idx2(1)+nalpha, tmp_idx2(2)+ncore
 
  ! find the closest vir orbital of an occ orbital
  allocate(pair_idx(npair), opt_pair_idx(npair))
@@ -564,7 +558,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
    sum_tdm = sum_tdm + tempv1
    if(tempv1 < min_tdm) min_tdm = tempv1
   end do
-  write(iout,'(A8,F16.5)') 'sum_tdm=', sum_tdm
+  write(6,'(A8,F16.5)') 'sum_tdm=', sum_tdm
   if(j == 1) then
    max_sum = sum_tdm
    opt_pair_idx = pair_idx
@@ -576,13 +570,13 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
   end if
  end do 
 
- write(iout,'(A)') 'Final pairs:'
+ write(6,'(A)') 'Final pairs:'
  do i = 1, npair, 1
   j = opt_pair_idx(i)
-  write(iout,'(3I4,F11.5)') i, i+ncore, j+nalpha, tdm(j,i)
+  write(6,'(3I4,F11.5)') i, i+ncore, j+nalpha, tdm(j,i)
  end do
- write(iout,'(A8,F16.5)') 'max_sum=', max_sum
- write(iout,'(A)') 'Information of subroutine pair_by_tdm2 printing done.'
+ write(6,'(A8,F16.5)') 'max_sum=', max_sum
+ write(6,'(A)') 'Information of subroutine pair_by_tdm2 printing done.'
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))

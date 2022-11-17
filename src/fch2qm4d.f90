@@ -81,7 +81,6 @@ subroutine fch2qm4d(fchname, binary)
  implicit none
  integer :: i, j, k, fid
  integer :: n6dmark, n10fmark
- integer, parameter :: iout = 6
  integer, allocatable :: d_mark(:), f_mark(:)
  character(len=240) :: inpname ! QM4D input file
  character(len=240) :: xyzname ! .xyz file to hold Cartesian coordinates
@@ -94,9 +93,9 @@ subroutine fch2qm4d(fchname, binary)
  logical, intent(in) :: binary
 
  if(binary) then
-  write(iout,'(A)') 'ERROR in subroutine fch2qm4d: currently binary=.True.&
+  write(6,'(A)') 'ERROR in subroutine fch2qm4d: currently binary=.True.&
                    & is not supported.'
-  write(iout,'(A)') "Please use '-xml'."
+  write(6,'(A)') "Please use '-xml'."
   stop
  end if
 
@@ -105,18 +104,18 @@ subroutine fch2qm4d(fchname, binary)
 
  ! check if any Cartesian functions
  if( ANY(shell_type < -1) ) then
-  write(iout,'(A)') 'ERROR in subroutine fch2qm4d: spherical harmonic functions&
+  write(6,'(A)') 'ERROR in subroutine fch2qm4d: spherical harmonic functions&
                    & detected in file '//TRIM(fchname)//'.'
-  write(iout,'(A)') "QM4D currently supports only Cartesian functions. You need to add&
+  write(6,'(A)') "QM4D currently supports only Cartesian functions. You need to add&
                   & '6D 10F' keywords in Gaussian."
   stop
  end if
 
  ! check any angular momentum higher than F
  if( ANY(shell_type > 3) ) then
-  write(iout,'(A)') 'ERROR in subroutine fch2qm4d: it seems that QM4D does not&
+  write(6,'(A)') 'ERROR in subroutine fch2qm4d: it seems that QM4D does not&
                    & support G, H functions.'
-  write(iout,'(A)') 'You can use a smaller basis set (e.g. cc-pVQZ -> cc-pVTZ).'
+  write(6,'(A)') 'You can use a smaller basis set (e.g. cc-pVQZ -> cc-pVTZ).'
   stop
  end if
 
@@ -170,8 +169,8 @@ subroutine fch2qm4d(fchname, binary)
    f_mark(n10fmark) = nbf + 1
    nbf = nbf + 10
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2qm4d: shell_type out of range!'
-   write(iout,'(2(A,I0))') 'i=', i, ', shell_type(i)=', shell_type(i)
+   write(6,'(A)') 'ERROR in subroutine fch2qm4d: shell_type out of range!'
+   write(6,'(2(A,I0))') 'i=', i, ', shell_type(i)=', shell_type(i)
    stop
   end select
  end do ! for i

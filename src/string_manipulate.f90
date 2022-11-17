@@ -27,7 +27,6 @@ end subroutine lower
 ! convert a (character) stype to (integer) itype
 subroutine stype2itype(stype, itype)
  implicit none
- integer, parameter :: iout = 6
  integer, intent(out) :: itype
  character(len=1), intent(in) :: stype
 
@@ -51,8 +50,8 @@ subroutine stype2itype(stype, itype)
  case('L') ! 'L' is 'SP'
   itype = 0
  case default
-  write(iout,'(A)') 'ERROR in subroutine stype2itype: stype out of range.'
-  write(iout,'(A)') 'stype= '//TRIM(stype)
+  write(6,'(A)') 'ERROR in subroutine stype2itype: stype out of range.'
+  write(6,'(A)') 'stype= '//TRIM(stype)
   stop
  end select
 end subroutine stype2itype
@@ -67,7 +66,6 @@ subroutine check_DKH_in_gms_inp(inpname, order)
 !  0: DKH 0th-order
 !  2: DKH2
 !  4: DKH4 with SO
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  character(len=1200) :: longbuf
@@ -89,11 +87,11 @@ subroutine check_DKH_in_gms_inp(inpname, order)
   return
  else
   if(index(longbuf,'RELWFN=DK') == 0) then
-   write(iout,'(A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported&
+   write(6,'(A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported&
                     & relativistic method detected.'
-   write(iout,'(A)') '(Open)Molcas does not support RELWFN=LUT-IOTC, IOTC,&
+   write(6,'(A)') '(Open)Molcas does not support RELWFN=LUT-IOTC, IOTC,&
                     & RESC, or NESC in GAMESS. Only RELWFN=DK is supported.'
-   write(iout,'(A)') 'The MO transferring will still be proceeded. But the result&
+   write(6,'(A)') 'The MO transferring will still be proceeded. But the result&
                     & may be non-sense.'
   end if
  end if
@@ -170,12 +168,11 @@ end subroutine check_sph_in_gjf
 subroutine convert2molpro_fname(fname, suffix)
  implicit none
  integer :: len1, len2
- integer, parameter :: iout = 6
  character(len=240), intent(inout) :: fname
  character(len=*), intent(in) :: suffix
 
  if(LEN_TRIM(fname) == 0) then
-  write(iout,'(A)') 'ERROR in subroutine convert2molpro_fname: input fname is NULL.'
+  write(6,'(A)') 'ERROR in subroutine convert2molpro_fname: input fname is NULL.'
   stop
  end if
 
@@ -251,7 +248,6 @@ end subroutine add_DKH2_into_gms_inp
 subroutine add_DKH2_into_fch(fchname)
  implicit none
  integer :: i, j, k, nline, nterm, fid, fid1, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
  character(len=1200) :: longbuf, longbuf1
@@ -285,8 +281,8 @@ subroutine add_DKH2_into_fch(fchname)
   write(fid1,'(A)') '#p int(nobasistransform,DKH2) nosymm'
  else
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k)  file.'
-   write(iout,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
+   write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k)  file.'
+   write(6,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
    stop
@@ -300,8 +296,8 @@ subroutine add_DKH2_into_fch(fchname)
    end do ! for while
 
    if(i /= 0) then
-    write(iout,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k) file.'
-    write(iout,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
+    write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k) file.'
+    write(6,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
     close(fid)
     close(fid1,status='delete')
     stop
@@ -347,7 +343,6 @@ end subroutine add_DKH2_into_fch
 subroutine add_X2C_into_fch(fchname)
  implicit none
  integer :: i, j, k, nline, nterm, fid, fid1, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
  character(len=1200) :: longbuf, longbuf1
@@ -381,8 +376,8 @@ subroutine add_X2C_into_fch(fchname)
   write(fid1,'(A)') '#p int(nobasistransform,X2C) nosymm'
  else
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k)  file.'
-   write(iout,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
+   write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k)  file.'
+   write(6,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
    stop
@@ -396,8 +391,8 @@ subroutine add_X2C_into_fch(fchname)
    end do ! for while
 
    if(i /= 0) then
-    write(iout,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k) file.'
-    write(iout,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
+    write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k) file.'
+    write(6,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
     close(fid)
     close(fid1,status='delete')
     stop
@@ -440,7 +435,6 @@ end subroutine add_X2C_into_fch
 subroutine add_X2C_into_py(pyname)
  implicit none
  integer :: i, fid, fid1, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: buf, pyname1
  character(len=240), intent(in) :: pyname
 
@@ -456,7 +450,7 @@ subroutine add_X2C_into_py(pyname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in&
+  write(6,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in&
                    & file "//TRIM(pyname)
   stop
  end if
@@ -503,7 +497,6 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  implicit none
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: mem, nproc
- integer, parameter :: iout = 6
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
@@ -519,7 +512,7 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS'&
+  write(6,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS'&
                    & found in file "//TRIM(inpname)
   close(fid1)
   close(fid2,status='delete')
@@ -573,13 +566,12 @@ end subroutine modify_memory_in_psi4_inp
 subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  implicit none
  integer :: i, fid, fid1, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
  if(LEN_TRIM(RIJK_bas) == 0) then
-  write(iout,'(A)') 'ERROR in subroutine add_RIJK_bas_into_psi4_inp:'
+  write(6,'(A)') 'ERROR in subroutine add_RIJK_bas_into_psi4_inp:'
   stop
  end if
 
@@ -595,13 +587,12 @@ end subroutine add_RIJK_bas_into_psi4_inp
 subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  implicit none
  integer :: i, fid, fid1, RENAME
- integer, parameter :: iout = 6
  character(len=240) :: inpname1
  character(len=21), intent(in) :: RIJK_bas
  character(len=240), intent(in) :: inpname
 
  if(LEN_TRIM(RIJK_bas) == 0) then
-  write(iout,'(A)') 'ERROR in subroutine add_RIJK_bas_into_orca_inp: input RI&
+  write(6,'(A)') 'ERROR in subroutine add_RIJK_bas_into_orca_inp: input RI&
                    & basis set is null string.'
   stop
  end if
@@ -614,13 +605,13 @@ subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
 end subroutine add_RIJK_bas_into_orca_inp
 
 ! copy mixed/user-defined basis set in a given .gjf file to a .bas file
-subroutine record_gen_basis_in_gjf(gjfname, basname)
+subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  implicit none
- integer :: i, nblank, fid1, fid2
- integer, parameter :: iout = 6
+ integer :: i, j, nblank, fid1, fid2
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
  character(len=240), intent(out) :: basname
+ logical, intent(in) :: add_path
  logical :: nobasis
 
  i = index(gjfname, '.gjf', back=.true.)
@@ -636,8 +627,8 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: incomplete&
-                   & file: '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: incomplete&
+                 & file: '//TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -648,8 +639,9 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  if((.not.nobasis) .and. LEN_TRIM(buf)==0) nobasis = .true.
 
  if(nobasis) then
-  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: no mixed/user&
-                   &-defined basis set detected in file '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: no mixed/user&
+                 &-defined basis'
+  write(6,'(A)') 'set detected in file '//TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -662,11 +654,12 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  end if
 
  if(.not. ((i>96 .and. i<123) .or. (i>64 .and. i<91))) then
-  write(iout,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: the first&
-                   & character in mixed/user-defined'
-  write(iout,'(A)') 'basis set is neither a-z, nor A-Z. This is not an element&
-                   & symbol. This format of basis'
-  write(iout,'(A)') 'set cannot be recognized. Problematic file: '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: the first charac&
+                 &ter in mixed/user-defined'
+  write(6,'(A)') 'basis set is neither a-z, nor A-Z. This is not an element sym&
+                 &bol. This format of basis'
+  write(6,'(A)') 'set cannot be recognized by automr. Problematic file: '//&
+                  TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -677,6 +670,7 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
@@ -685,6 +679,7 @@ subroutine record_gen_basis_in_gjf(gjfname, basname)
  close(fid2)
 
  call add_hyphen_for_elem_in_basfile(basname)
+ if(add_path) call add_mokit_path_to_genbas(basname)
 end subroutine record_gen_basis_in_gjf
 
 ! add '-' symbol before elements, in a .bas file
@@ -751,6 +746,55 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  i = RENAME(TRIM(basname1), TRIM(basname))
 end subroutine add_hyphen_for_elem_in_basfile
 
+! add MOKIT_ROOT path into basis sets like ANO-RCC-VDZP, DKH-def2-SVP in file
+! basname because MOKIT has these basis sets in $MOKIT_ROOT/basis/
+subroutine add_mokit_path_to_genbas(basname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=12) :: sbuf
+ character(len=240) :: buf, mokit_root, basname1
+ character(len=240), intent(in) :: basname
+
+ mokit_root = ' '
+ call getenv('MOKIT_ROOT', mokit_root)
+ basname1 = TRIM(basname)//'.t'
+
+ open(newunit=fid,file=TRIM(basname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(basname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) exit
+  sbuf = TRIM(buf(1:12))
+  call upper(sbuf)
+  if(sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or. sbuf(1:8)=='DKH-DEF2' &
+     .or. sbuf(1:9)=='ZORA-DEF2' .or. sbuf(1:11)=='MA-DKH-DEF2' .or. &
+     sbuf(1:12)=='MA-ZORA-DEF2') then
+   buf = '@'//TRIM(mokit_root)//'/basis/'//TRIM(buf)
+  end if
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ write(fid1,'(/)')
+ close(fid1)
+ i = RENAME(TRIM(basname1), TRIM(basname))
+end subroutine add_mokit_path_to_genbas
+
+subroutine create_basfile(basfile, basis)
+ implicit none
+ integer :: i, fid
+ character(len=240), intent(in) :: basfile
+ character(len=*), intent(in) :: basis
+
+ open(newunit=fid,file=TRIM(basfile),status='replace')
+ write(fid,'(A)') TRIM(basis)
+ write(fid,'(/)')
+ close(fid)
+ call add_mokit_path_to_genbas(basfile)
+end subroutine create_basfile
+
 ! add '-' symbol for each element, in a buf
 subroutine add_hyphen_for_elem_in_buf(buf)
  implicit none
@@ -780,7 +824,6 @@ end subroutine add_hyphen_for_elem_in_buf
 subroutine copy_gen_basis_bas2gjf(basname, gjfname)
  implicit none
  integer :: i, nblank, fid1, fid2
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: basname, gjfname
 
@@ -796,8 +839,8 @@ subroutine copy_gen_basis_bas2gjf(basname, gjfname)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine copy_gen_basis_bas2gjf: incomplete&
-                   & file: '//TRIM(gjfname)
+  write(6,'(A)') 'ERROR in subroutine copy_gen_basis_bas2gjf: incomplete&
+                 & file: '//TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -818,7 +861,6 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
  implicit none
  integer :: i, fid
  integer, intent(out) :: itype
- integer, parameter :: iout = 6
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
 
@@ -832,7 +874,7 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
 
  close(fid)
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_disp_ver_from_gjf: no '#' symbol&
+  write(6,'(A)') "ERROR in subroutine read_disp_ver_from_gjf: no '#' symbol&
                    & found in file "//TRIM(gjfname)
   stop
  end if

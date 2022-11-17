@@ -1,7 +1,6 @@
 ! written by jxzou at 20210210: convert a GAMESS .inp file into a PSI4 input file
 
 program main
- use pg, only: iout
  implicit none
  integer :: i
  character(len=4) :: str
@@ -10,9 +9,9 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_gms2psi: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1: bas_gms2psi a.inp'
-  write(iout,'(A,/)') ' Example 2: bas_gms2psi a.inp -sph'
+  write(6,'(/,A)') ' ERROR in subroutine bas_gms2psi: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1: bas_gms2psi a.inp'
+  write(6,'(A,/)') ' Example 2: bas_gms2psi a.inp -sph'
   stop
  end if
 
@@ -27,8 +26,8 @@ program main
   if(str == '-sph') then
    sph = .true.
   else
-   write(iout,'(A)') 'ERROR in subroutine bas_gms2psi: wrong command line arguments.'
-   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
+   write(6,'(A)') 'ERROR in subroutine bas_gms2psi: wrong command line arguments.'
+   write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
  end if
@@ -39,7 +38,7 @@ end program main
 
 ! convert a GAMESS .inp file into a PSI4 input file
 subroutine bas_gms2psi(inpname, sph)
- use pg, only: iout, natom, ram, elem, coor, ntimes, all_ecp, ecp_exist
+ use pg, only: natom, ram, elem, coor, ntimes, all_ecp, ecp_exist
  implicit none
  integer :: i, j, k, m, n, nline, rel, charge, mult, fid1, fid2
  real(kind=8) :: rtmp(3)
@@ -168,8 +167,8 @@ subroutine bas_gms2psi(inpname, sph)
  select case(rel)
  case(-2) ! nothing
  case(-1) ! RESC
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2psi: RESC keywords detected.'
-  write(iout,'(A)') 'But RESC is not supported in PSI4.'
+  write(6,'(A)') 'ERROR in subroutine bas_gms2psi: RESC keywords detected.'
+  write(6,'(A)') 'But RESC is not supported in PSI4.'
   stop
  case(0,1,2,4)  ! DKH0/1/2/4
   if(.not. X2C) then
@@ -178,8 +177,8 @@ subroutine bas_gms2psi(inpname, sph)
    if(rel /= 2) write(fid2,'(A,I0)') 'set DKH_order ', rel
   end if
  case default
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2psi: rel out of range!'
-  write(iout,'(A,I0)') 'rel=', rel
+  write(6,'(A)') 'ERROR in subroutine bas_gms2psi: rel out of range!'
+  write(6,'(A,I0)') 'rel=', rel
   close(fid2,status='delete')
   stop
  end select

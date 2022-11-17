@@ -119,29 +119,29 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine fch2inp: input filename does not&
+  write(6,'(A)') "ERROR in subroutine fch2inp: input filename does not&
                      & contain '.fch' suffix!"
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
  inpname = fchname(1:i-1)//'.inp'
 
  if(.not. nobasistransform_in_fch(fchname)) then
-  write(iout,'(/,A)') REPEAT('-',56)
-  write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
+  write(6,'(/,A)') REPEAT('-',56)
+  write(6,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
                    & not detected in file "//TRIM(fchname)//'.'
-  write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
                    &cify this keyword in .gjf file.'
-  write(iout,'(A)') REPEAT('-',56)
+  write(6,'(A)') REPEAT('-',56)
  end if
 
  if(.not. nosymm_in_fch(fchname)) then
-  write(iout,'(/,A)') REPEAT('-',56)
-  write(iout,'(A)') "Warning in subroutine fch2inp: keyword 'nosymm' not detected&
+  write(6,'(/,A)') REPEAT('-',56)
+  write(6,'(A)') "Warning in subroutine fch2inp: keyword 'nosymm' not detected&
                    & in file "//TRIM(fchname)//'.'
-  write(iout,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
                    &cify this keyword in .gjf file.'
-  write(iout,'(A)') REPEAT('-',56)
+  write(6,'(A)') REPEAT('-',56)
  end if
 
  X2C = .false. ! default
@@ -149,27 +149,27 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  select case(rel)
  case(-1) ! RESC
  case(0)  ! DKH0
-  write(iout,'(A)') 'Warning in subroutine fch2inp: DKH0 detected.'
-  write(iout,'(A)') 'But GAMESS does not support this DKH 0-th order correction.'
-  write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+  write(6,'(A)') 'Warning in subroutine fch2inp: DKH0 detected.'
+  write(6,'(A)') 'But GAMESS does not support this DKH 0-th order correction.'
+  write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
   rel = 2
  case(2) ! DKH2
  case(4) ! DKH4
-  write(iout,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
-  write(iout,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
-  write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+  write(6,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
+  write(6,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
+  write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
   rel = 2
  case(-2) ! no, or X2C
   call check_X2C_in_fch(fchname, X2C)
   if(X2C) then
-   write(iout,'(A)') 'Warning in subroutine fch2inp: X2C detected.'
-   write(iout,'(A)') 'But GAMESS does not support X2C.'
-   write(iout,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
+   write(6,'(A)') 'Warning in subroutine fch2inp: X2C detected.'
+   write(6,'(A)') 'But GAMESS does not support X2C.'
+   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
    rel = 2 ! mimic X2C as DKH2
   end if
  case default
-  write(iout,'(A)') 'Warning in subroutine fch2inp: rel out of range.'
-  write(iout,'(A,I0)') 'rel=', rel
+  write(6,'(A)') 'Warning in subroutine fch2inp: rel out of range.'
+  write(6,'(A,I0)') 'rel=', rel
   stop
  end select
 
@@ -215,11 +215,11 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
+  write(6,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
                    &Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if(ANY(shell_type<-1)) then
   sph = .true.

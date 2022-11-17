@@ -11,7 +11,6 @@
 program main
  implicit none
  integer :: i, idx1, idx2
- integer, parameter :: iout = 6
  character(len=240) :: buf = ' ', fname = ' '
  logical :: gau
  ! gau = .True., meaning MOs in .fch(k) file are in Gaussian order
@@ -23,10 +22,10 @@ program main
 
  i = iargc()
  if(i /= 4) then
-  write(iout,'(/,A)') ' ERROR in gvb_correct_pairs: wrong command line arguments!'
-  write(iout,'(/,A)') ' Format: gvb_correct_pairs a.fch idx1 idx2 -gms/-gau'
-  write(iout,'(/,A)') ' Example1: gvb_correct_pairs a.fch 3 12 -gms'
-  write(iout,'(/,A,/)') ' Example2: gvb_correct_pairs b.fch 3 12 -gau'
+  write(6,'(/,A)') ' ERROR in gvb_correct_pairs: wrong command line arguments!'
+  write(6,'(/,A)') ' Format: gvb_correct_pairs a.fch idx1 idx2 -gms/-gau'
+  write(6,'(/,A)') ' Example1: gvb_correct_pairs a.fch 3 12 -gms'
+  write(6,'(/,A,/)') ' Example2: gvb_correct_pairs b.fch 3 12 -gau'
   stop
  end if
 
@@ -44,14 +43,14 @@ program main
  case('-gms')
   gau = .false.
  case default
-  write(iout,'(A)') 'ERROR in gvb_correct_pairs: the 4-th argument is wrong.'
-  write(iout,'(A)') 'buf = '//TRIM(buf)
+  write(6,'(A)') 'ERROR in gvb_correct_pairs: the 4-th argument is wrong.'
+  write(6,'(A)') 'buf = '//TRIM(buf)
   stop
  end select
 
  if(idx1 >= idx2) then
-  write(iout,'(A)') 'ERROR in subroutine gvb_correct_pairs: idx1 >= idx2.'
-  write(iout,'(A,2I5)') 'idx1/idx2 = ', idx1, idx2
+  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: idx1 >= idx2.'
+  write(6,'(A,2I5)') 'idx1/idx2 = ', idx1, idx2
   stop
  end if
 
@@ -70,7 +69,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  integer, intent(in) :: idx1, idx2
  ! idx1: the beginning index of target MOs (Fortran convention, 1,...)
  ! idx2: the final index of target MOs (Fortran convention, 1,...)
- integer, parameter :: iout = 6, iter_max = 1000
+ integer, parameter :: iter_max = 1000
  integer, allocatable :: target_pair_idx(:), ideal_idx(:)
  real(kind=8), allocatable :: coeff(:,:), coeff1(:,:)
  real(kind=8), allocatable :: angle(:,:)
@@ -81,7 +80,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  logical, intent(in) :: gau
  logical, allocatable :: paired(:)
 
- write(iout,'(/,A)') 'Enter subroutine gvb_correct_pairs (check if paired MOs are correct)...'
+ write(6,'(/,A)') 'Enter subroutine gvb_correct_pairs (check if paired MOs are correct)...'
 
  if(idx2 - idx1 < 2) return
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -112,10 +111,10 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  end do ! for i
 
  deallocate(coeff1, norm, tmp_coeff)
- write(iout,'(A)') 'Angle matrix:'
+ write(6,'(A)') 'Angle matrix:'
  do i = 1, nmo, 1
   do j = 1, nmo, 1
-   write(iout,'(2I4,F10.6)') j, i, angle(j,i)
+   write(6,'(2I4,F10.6)') j, i, angle(j,i)
   end do ! for j
  end do ! for i
 
@@ -173,23 +172,23 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
   if(iter == 4) stop
  end do ! for while
 
- write(iout,'(/,A,I0)') 'iter = ', iter
+ write(6,'(/,A,I0)') 'iter = ', iter
  if(iter >= iter_max) then
-  write(iout,'(A)') 'ERROR in subroutine gvb_correct_pairs: iter exceeds max_cycle 1000.'
+  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: iter exceeds max_cycle 1000.'
   stop
  end if
 
  nopen = COUNT(paired .eqv. .false.)
- write(iout,'(A,I0)') 'detected nopen = ', nopen
+ write(6,'(A,I0)') 'detected nopen = ', nopen
  if(MOD(nmo-nopen,2) /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine gvb_correct_pairs: I tried my best to&
+  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: I tried my best to&
                    & re-pair these slightly disordered orbitals.'
-  write(iout,'(A)') 'But nmo-nopen is not an even integer, which means possibly&
+  write(6,'(A)') 'But nmo-nopen is not an even integer, which means possibly&
              & (1) the input idx1,idx2 may be incorrect; (2) re-pairing failed.'
   stop
  end if
  npair = (nmo - nopen)/2
- write(iout,'(A,I0)') 'detected npair = ', npair
+ write(6,'(A,I0)') 'detected npair = ', npair
 
  allocate(ideal_idx(nmo), source=0)
  if(gau) then ! in Gaussian order
@@ -207,28 +206,28 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  end if
  if(ANY(ideal_idx/=target_pair_idx)) then
   if(gau) then
-   write(iout,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
+   write(6,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
                     & orbtials are not strictly in Gaussian GVB MO order.'
   else
-   write(iout,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
+   write(6,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
                     & orbtials are not strictly in GAMES GVB MO order.'
   end if
-  write(iout,'(A)') 'Trying to re-pair...'
+  write(6,'(A)') 'Trying to re-pair...'
  else
-  write(iout,'(A)') 'Congratulations! subroutine gvb_correct_pairs detected&
+  write(6,'(A)') 'Congratulations! subroutine gvb_correct_pairs detected&
                    & the order of these GVB orbtials is probably correct.'
   return
  end if
  deallocate(ideal_idx)
 
- write(iout,'(/,A)') 'Final pairs:'
+ write(6,'(/,A)') 'Final pairs:'
  do i = 1, nmo, 1
   j = target_pair_idx(i)
 
   if(j /= 0) then
-   write(iout,'(3(I5,1X),F10.6)') i, i, j, angle(j,i)
+   write(6,'(3(I5,1X),F10.6)') i, i, j, angle(j,i)
   else
-   write(iout,'(2(I5,1X),A)') i, i, 'singly occupied'
+   write(6,'(2(I5,1X),A)') i, i, 'singly occupied'
   end if
  end do ! for i
  deallocate(angle)
@@ -286,7 +285,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff1)
  deallocate(coeff1)
 
- write(iout,'(A)') 'Leave subroutine gvb_correct_pairs.'
+ write(6,'(A)') 'Leave subroutine gvb_correct_pairs.'
  return
 end subroutine gvb_correct_pairs
 

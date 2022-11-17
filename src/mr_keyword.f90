@@ -9,7 +9,6 @@
 module print_id
  implicit none
  integer :: cid ! file ID of Citation.txt
- integer, parameter :: iout = 6
 end module print_id
 
 module phys_cons ! physics constants
@@ -86,7 +85,6 @@ end module mol
 
 ! keywords information (default values are set)
 module mr_keyword
- use print_id, only: iout
  use mol, only: nfrag
  implicit none
  integer :: mem = 4        ! memory, default 4 GB
@@ -142,6 +140,7 @@ module mr_keyword
  character(len=240) :: hf_fch = ' '   ! filename of the given .fch(k) file
  character(len=240) :: datname = ' '  ! filename of GAMESS GVB .dat file
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
+ character(len=240) :: basname = ' '  ! file to store gen/genecp data
  character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
 
  logical :: openmp_molcas = .true. ! OpenMP/MPI version of OpenMolcas
@@ -193,6 +192,7 @@ module mr_keyword
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
  logical :: fcgvb   = .false. ! GVB with all doubly occupied orbitals frozen
+ logical :: HFonly  = .false. ! stop after HF calculations
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation
  logical :: casscf_force = .false.! whether to calculate CASSCF force
@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-6)'
+  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-17)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -384,8 +384,8 @@ contains
 
   inquire(file=TRIM(gms_path),exist=alive)
   if(.not. alive) then
-   write(iout,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
-   write(iout,'(A)') 'gms_path='//TRIM(gms_path)
+   write(6,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
+   write(6,'(A)') 'gms_path='//TRIM(gms_path)
    stop
   end if
 
@@ -400,7 +400,7 @@ contains
   i = index(buf,'=')
   gms_scr_path = buf(i+1:)
   call replace_env_in_path(gms_scr_path)
-  write(iout,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
+  write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
  end subroutine check_gms_path
 
  subroutine parse_keyword()
@@ -604,9 +604,19 @@ contains
   if(basis(1:5) == 'def2-') then
    write(6,'(A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detec&
                   &ted in given basis set."
-   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP,&
-                 & not def2-TZVP.'
+   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not&
+                  & def2-TZVP.'
    stop
+  end if
+
+  if(basis(1:3) == 'gen') then
+   close(fid)
+   call record_gen_basis_in_gjf(gjfname, basname, .true.)
+   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+   do while(.true.)
+    read(fid,'(A)') buf
+    if(buf(1:1) == '#') exit
+   end do ! for while
   end if
 
   if(npair_wish > 0) write(6,'(A,I0)') 'User specified GVB npair = ', npair_wish
@@ -878,9 +888,11 @@ contains
     noQD = .true.
    case('fcgvb')
     fcgvb = .true.
+   case('hfonly')
+    HFonly = .true.
    case default
-    write(iout,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
-                        //"' not recognized in {}."
+    write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
+                    //"' not recognized in {}."
     stop
    end select
 
@@ -905,8 +917,8 @@ contains
                   &...) will not be used.'
    write(6,'(A79)') REPEAT('-',79)
    if(frag_guess) then
-    write(iout,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
-                     & be used when none of readrhf/readuhf/readno is used.'
+    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
+                  & be used when none of readrhf/readuhf/readno is used.'
     stop
    end if
    call require_file_exist(hf_fch)
@@ -1041,24 +1053,16 @@ contains
   character(len=10) :: cas_prog
   character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
 
-  write(iout,'(/,A)') 'Check if the keywords are compatible with each other...'
+  write(6,'(/,A)') 'Check if the keywords are compatible with each other...'
 
   if(readrhf .or. readuhf .or. readno) then
    if(ist == 6) then
     write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: ist=6 is not &
-                     &compatible with any keyword'
-    write(6,'(A)') 'of readrhf, readuhf or readno. You should provide Cartesian&
-                  & coordinates directly.'
+                     &compatible with any'
+    write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
     stop
    end if
    call check_cart(hf_fch, cart)
-  else
-   if(TRIM(basis)=='gen' .or. TRIM(basis)=='genecp') then
-    write(iout,'(A)') error_warn//'gen or genecp is not supported currently.'
-    write(iout,'(A)') 'You can provide a pre-calculated .fch file and use keyword&
-                     & ist=1, 2 or 3 to read it.'
-    stop
-   end if
   end if
 
   if(on_thres<0d0 .or. on_thres>1d0) then
@@ -1103,10 +1107,12 @@ contains
   end if
 
   if(DKH2 .and. hf_prog=='pyscf') then
-   write(6,'(A)') error_warn//"'DKH2' is not supported in PySCF."
-   write(6,'(A)') 'You can use another HF_prog (PSI4 or ORCA), or you can&
-                    & change DKH2 to X2C.'
-   stop
+   write(6,'(/,A)') 'Warning: DKH2 not supported in PySCF. HF in PySCF will use&
+                    & X2C Hamiltonian'
+   write(6,'(A)') 'instead. MOs obtained by these two Hamiltonians are usually&
+                 & very similar.'
+   write(6,'(A)') 'If you want to use DKH2 during HF calculations, you can spec&
+                  &ify HF_prog=PSI4/ORCA.'
   end if
 
   if(casci .or. casscf) then
@@ -1119,53 +1125,53 @@ contains
 
   if(RI) then
    if(DKH2 .or. X2C) then
-    write(iout,'(A)') error_warn//'currently RI cannot be applied in DKH2/X2C&
-                    & computations.'
+    write(6,'(A)') error_warn//'currently RI cannot be applied in DKH2/X2C&
+                  & computations.'
     stop
    end if
 
    if(.not. (casci .or. casscf)) then
-    write(iout,'(A)') error_warn//'RI activated. But neither CASCI nor CASSCF is invoked.'
+    write(6,'(A)') error_warn//'RI activated. But neither CASCI nor CASSCF is invoked.'
     stop
    end if
    select case(cas_prog)
    case('pyscf','orca','openmolcas','psi4','molpro')
    case default
-    write(iout,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
-    write(iout,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
-    write(iout,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
-                      &ORCA/OpenMolcas/Molpro/PSI4.'
+    write(6,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
+    write(6,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
+    write(6,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
+                   &ORCA/OpenMolcas/Molpro/PSI4.'
     stop
    end select
   end if
 
   if(F12) then
    if(.not. RI) then
-    write(iout,'(A)') error_warn//'F12 must be combined with RI. But RI is set'
-    write(iout,'(A)') 'to be False. Impossible.'
+    write(6,'(A)') error_warn//'F12 must be combined with RI. But RI is set'
+    write(6,'(A)') 'to be False. Impossible.'
     stop
    end if
    if(.not. (nevpt2 .or. mrcisd)) then
-    write(iout,'(A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
-    write(iout,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
+    write(6,'(A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
+    write(6,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
     stop
    end if
    if(nevpt2) then
     if(nevpt2_prog /= 'orca') then
-     write(iout,'(A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
-     write(iout,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
+     write(6,'(A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
+     write(6,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
      stop
     end if
     if(.not. FIC) then
-     write(iout,'(A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
-     write(iout,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
+     write(6,'(A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
+     write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
                      & keyword FIC in mokit{}.'
      stop
     end if
    end if
    if(mrcisd .and. mrcisd_prog/='molpro') then
-    write(iout,'(A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
-    write(iout,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
+    write(6,'(A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
+    write(6,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
     stop
    end if
   end if
@@ -1174,9 +1180,9 @@ contains
   alive(2) = (casscf_prog=='gaussian' .or. casscf_prog=='gamess' .or. casscf_prog=='orca')
   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(X2C .and. alive(3)) then
-   write(iout,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
-                   & incompatible with X2C.'
-   write(iout,'(A)') 'You can use Molpro or OpenMolcas.'
+   write(6,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
+                 & incompatible with X2C.'
+   write(6,'(A)') 'You can use Molpro or OpenMolcas.'
    stop
   end if
 
@@ -1184,95 +1190,98 @@ contains
   alive(2) = (casscf_prog=='pyscf' .or. casscf_prog=='bdf')
   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(DKH2 .and. alive(3)) then
-   write(iout,'(A)') error_warn//'CASCI/CASSCF with DKH2 is not supported by PySCF/BDF.'
-   write(iout,'(A)') 'For CASCI, you can use CASCI_prog=Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
-   write(iout,'(A)') 'For CASSCF, you can use CASSCF_prog=Molpro, OpenMolcas, GAMESS, ORCA or Gaussian.'
+   write(6,'(/,A)') error_warn//'CASCI/CASSCF with DKH2 is not'
+   write(6,'(A)') 'supported by PySCF/BDF.'
+   write(6,'(A)') 'For CASCI, you can use CASCI_prog=Molpro/OpenMolcas/GAMESS/&
+                  &ORCA/Gaussian.'
+   write(6,'(A)') 'For CASSCF, you can use CASSCF_prog=Molpro/OpenMolcas/GAMES&
+                  &S/ORCA/Gaussian.'
    stop
   end if
 
   select case(dmrgci_prog)
   case('pyscf', 'openmolcas')
   case default
-   write(iout,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
-   write(iout,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
+   write(6,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
+   write(6,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
    stop
   end select
 
   select case(dmrgscf_prog)
   case('pyscf', 'openmolcas')
   case default
-   write(iout,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
-   write(iout,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
+   write(6,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
+   write(6,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
    stop
   end select
 
   alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
   if(X2C .and. alive(1)) then
-   write(iout,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
+   write(6,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
    stop
   end if
 
   if(hardwfn .and. crazywfn) then
-   write(iout,'(A)') error_warn//"'hardwfn' or 'crazywfn' cannot both be activated."
+   write(6,'(A)') error_warn//"'hardwfn' or 'crazywfn' cannot both be activated."
    stop
   end if
 
   if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
-   write(iout,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
-   write(iout,'(A)') 'Wrong localm='//TRIM(localm)
+   write(6,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
+   write(6,'(A)') 'Wrong localm='//TRIM(localm)
    stop
   end if
 
   alive = [readrhf, readuhf, readno]
   i = COUNT(alive .eqv. .true.)
   if(i > 1) then
-   write(iout,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'readno'&
+   write(6,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'readno'&
                    & are set as .True."
-   write(iout,'(A)') 'These three keywords are mutually exclusive.'
+   write(6,'(A)') 'These three keywords are mutually exclusive.'
    stop
   end if
 
   if(readrhf .and. .not.(ist==3 .or. ist==4)) then
-   write(iout,'(A)') error_warn//"'readrhf' is only compatible with ist=3 or 4."
+   write(6,'(A)') error_warn//"'readrhf' is only compatible with ist=3 or 4."
    stop
   end if
 
   if(.not.readrhf .and. (ist==3 .or. ist==4)) then
-   write(iout,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined with 'readrhf'."
+   write(6,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined with 'readrhf'."
    stop
   end if
 
   if(readuhf .and. .not.(ist==1 .or. ist==2)) then
-   write(iout,'(A)') error_warn//"'readuhf' is only compatible with ist=1 or 2."
+   write(6,'(A)') error_warn//"'readuhf' is only compatible with ist=1 or 2."
    stop
   end if
 
   if(.not.readuhf .and. (ist==1 .or. ist==2)) then
-   write(iout,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined with 'readuhf'."
+   write(6,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined with 'readuhf'."
    stop
   end if
 
   if(readno .and. ist/=5) then
-   write(iout,'(A)') error_warn//"'readno' is only compatible with ist=5."
+   write(6,'(A)') error_warn//"'readno' is only compatible with ist=5."
    stop
   end if
 
   if(.not.readno .and. ist==5) then
-   write(iout,'(A)') error_warn//"ist=5 specified, it must be used combined with 'readno'."
+   write(6,'(A)') error_warn//"ist=5 specified, it must be used combined with 'readno'."
    stop
   end if
 
   if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
      (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
-   write(iout,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
-   write(iout,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
-                    & none of them is specified.'
+   write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
+   write(6,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
+                  & none of them is specified.'
    stop
   end if
 
   if(CIonly .and. nevpt2_prog=='bdf') then
-   write(iout,'(A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF program.'
-   write(iout,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
+   write(6,'(A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF program.'
+   write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
    stop
   end if
 
@@ -1286,18 +1295,18 @@ contains
   end select
 
   if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
-   write(iout,'(A)') 'You can use OpenMolcas.'
+   write(6,'(A)') error_warn
+   write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
+   write(6,'(A)') 'You can use OpenMolcas.'
    stop
   end if
 
   select case(TRIM(mcpdft_prog))
   case('openmolcas','gamess')
   case default
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'User specified MC-PDFT program cannot be identified: '&
-                     //TRIM(mcpdft_prog)
+   write(6,'(A)') error_warn
+   write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '&
+                 //TRIM(mcpdft_prog)
   end select
 
   select case(TRIM(casci_prog))
@@ -1344,157 +1353,157 @@ contains
    select case(CtrType)
    case(1) ! uncontracted MRCISD
     if(mrcisd_prog == 'molpro') then
-     write(iout,'(A)') error_warn
-     write(iout,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
+     write(6,'(A)') error_warn
+     write(6,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
      stop
     end if
     if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca' .or. &
         mrcisd_prog=='gamess') .and. X2C) then
-     write(iout,'(A)') error_warn
-     write(iout,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
+     write(6,'(A)') error_warn
+     write(6,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
      stop
     end if
    case(2) ! ic-MRCISD
     select case(TRIM(mrcisd_prog))
     case('openmolcas', 'molpro')
     case default
-     write(iout,'(A)') error_warn
-     write(iout,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
-                      & But you specify mrcisd_prog='//TRIM(mrcisd_prog)
+     write(6,'(A)') error_warn
+     write(6,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
+                    & But you specify mrcisd_prog='//TRIM(mrcisd_prog)
      stop
     end select
    case(3) ! FIC-MRCISD
     if(mrcisd_prog /= 'orca') then
-     write(iout,'(A)') error_warn
-     write(iout,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current&
+     write(6,'(A)') error_warn
+     write(6,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current&
                       & mrcisd_prog='//TRIM(mrcisd_prog)
      stop
     end if
     if(X2C) then
-     write(iout,'(A)') error_warn//'FIC-MRCISD with ORCA incompatible with X2C.'
+     write(6,'(A)') error_warn//'FIC-MRCISD with ORCA incompatible with X2C.'
      stop
     end if
    case default
-    write(iout,'(/,A)') error_warn//'invalid CtrType.'
-    write(iout,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17&
+    write(6,'(/,A)') error_warn//'invalid CtrType.'
+    write(6,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17&
                        & MRCISD_prog in MOKIT manual.'
-    write(iout,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
+    write(6,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
                      & MRCISD, respectively.'
     stop
    end select
 
    if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='psi4' .or. mrcisd_prog=='dalton'&
        .or. mrcisd_prog=='gamess') .and. (CtrType/=1)) then
-    write(iout,'(A)') error_warn
-    write(iout,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
-    write(iout,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
+    write(6,'(A)') error_warn
+    write(6,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
+    write(6,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
     stop
    end if
 
    if(mrcisd_prog=='orca' .and. cart) then
-    write(iout,'(A)') error_warn//'conflict settings.'
-    write(iout,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
-                     & harmonic functions, but'
-    write(iout,'(A)') "Cart = True, you should delete the keyword 'cart', or&
-                     & provide a .fch file with spherical harmonic functions."
+    write(6,'(A)') error_warn//'conflict settings.'
+    write(6,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
+                   & harmonic functions, but'
+    write(6,'(A)') "Cart = True, you should delete the keyword 'cart', or&
+                   & provide a .fch file with spherical harmonic functions."
     stop
    end if
   end if
 
   if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports&
-                    & spherical harmonic functions, but Cart = True.'
-   write(iout,'(A)') 'Use another program or provide a .fch file with spherical harmonic functions.'
+   write(6,'(A)') error_warn
+   write(6,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports&
+                  & spherical harmonic functions, but Cart = True.'
+   write(6,'(A)') 'Use another program or provide a .fch file with spherical harmonic functions.'
    stop
   end if
 
   select case(TRIM(caspt2_prog))
   case('openmolcas', 'molpro','orca')
   case default
-   write(iout,'(/,A)') error_warn
-   write(iout,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
-   write(iout,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
+   write(6,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
    stop
   end select
 
   select case(TRIM(nevpt2_prog))
   case('pyscf','molpro','openmolcas','orca','bdf')
   case default
-   write(iout,'(/,A)') error_warn
-   write(iout,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
-   write(iout,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
+   write(6,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
    stop
   end select
 
   if(mrmp2_prog /= 'gamess') then
-   write(iout,'(/,A)') error_warn
-   write(iout,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
-   write(iout,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
+   write(6,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
    stop
   end if
 
   select case(TRIM(mrcc_prog))
   case('orca','nwchem')
   case default
-   write(iout,'(A)') error_warn
-   write(iout,'(A)') 'Currently MRCC is only supported by ORCA/NWChem. But got&
-                     & mrcc_prog='//TRIM(mrcc_prog)
+   write(6,'(A)') error_warn
+   write(6,'(A)') 'Currently MRCC is only supported by ORCA/NWChem. But got&
+                  & mrcc_prog='//TRIM(mrcc_prog)
    stop
   end select
 
   if(casscf_force .and. (.not.casscf)) then
-   write(iout,'(A)') error_warn//"'force' keyword is only avaible for CASSCF."
-   write(iout,'(A)') 'But CASSCF is not activated.'
+   write(6,'(A)') error_warn//"'force' keyword is only avaible for CASSCF."
+   write(6,'(A)') 'But CASSCF is not activated.'
    stop
   end if
 
   if(casscf_force .and. cart .and. casscf_prog=='pyscf') then
-   write(iout,'(A)') error_warn//"current version of PySCF can only compute force"
-   write(iout,'(A)') 'using spherical harmonic basis fucntions.'
+   write(6,'(A)') error_warn//"current version of PySCF can only compute force"
+   write(6,'(A)') 'using spherical harmonic basis fucntions.'
    stop
   end if
 
   if(mrmp2 .and. X2C) then
-   write(iout,'(A)') error_warn//'MRMP2 with GAEMSS is incompatible with X2C.'
+   write(6,'(A)') error_warn//'MRMP2 with GAEMSS is incompatible with X2C.'
    stop
   end if
 
   if(nevpt2) then
    if(DKH2 .and. (nevpt2_prog=='pyscf' .or. nevpt2_prog=='bdf')) then
-    write(iout,'(A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
-    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
+    write(6,'(A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
+    write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
     stop
    else if(X2C .and. nevpt2_prog=='orca') then
-    write(iout,'(A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
-    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
+    write(6,'(A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
+    write(6,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
     stop
    end if
    if(nevpt2_prog=='bdf' .and. bgchg) then
-    write(iout,'(A)') error_warn//'NEVPT2 with BDF program is incompatible with'
-    write(iout,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
+    write(6,'(A)') error_warn//'NEVPT2 with BDF program is incompatible with'
+    write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
     stop
    end if
    if(FIC .and. nevpt2_prog=='pyscf') then
-    write(iout,'(A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
-    write(iout,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
+    write(6,'(A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
+    write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
     stop
    end if
    if(RI .and. nevpt2_prog=='openmolcas') then
-    write(iout,'(A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
+    write(6,'(A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
     stop
    end if
   end if
 
   if((sdspt2.or.nevpt3) .and. bgchg) then
-   write(iout,'(A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompatible'
-   write(iout,'(A)') 'with background point charges.'
+   write(6,'(A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompatible'
+   write(6,'(A)') 'with background point charges.'
    stop
   end if
 
   if((DKH2 .or. X2C) .and. cart) then
-   write(iout,'(A)') error_warn//'relativistic calculations using Cartesian'
-   write(iout,'(A)') 'functions may cause severe numerical instability. Please&
+   write(6,'(A)') error_warn//'relativistic calculations using Cartesian'
+   write(6,'(A)') 'functions may cause severe numerical instability. Please&
                     & use spherical harmonic type basis set.'
    stop
   end if
@@ -1564,7 +1573,7 @@ contains
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(A)') error_warn//'wrong format of background point charges.'
+   write(66,'(A)') error_warn//'wrong format of background point charges.'
    close(fid)
    stop
   end if
@@ -1578,13 +1587,13 @@ contains
   end do ! for while
 
   if(nbgchg == 0) then
-   write(iout,'(A)') error_warn//'no background point charge(s) found'
-   write(iout,'(A)') 'in file '//TRIM(gjfname)
+   write(6,'(A)') error_warn//'no background point charge(s) found'
+   write(6,'(A)') 'in file '//TRIM(gjfname)
    close(fid)
    stop
   end if
 
-  write(iout,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
+  write(6,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
   allocate(bgcharge(4,nbgchg), source=0d0)
 
   rewind(fid)   ! jump to the 1st line of the file
@@ -1601,9 +1610,9 @@ contains
   close(fid)
 
   call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
-  write(iout,'(A,F18.8,A)') 'Coulomb interaction energy of background point&
-                           & charges:', ptchg_e, ' a.u.'
-  write(iout,'(A)') 'This energy is taken into account for all energies below.'
+  write(6,'(A,F18.8,A)') 'Coulomb interaction energy of background point&
+                         & charges:', ptchg_e, ' a.u.'
+  write(6,'(A)') 'This energy is taken into account for all energies below.'
 
   i = index(gjfname, '.gjf', back=.true.)
   chgname = gjfname(1:i-1)//'.chg'
@@ -1617,7 +1626,6 @@ end module mr_keyword
 ! If RIJK_bas, RIC_bas and F12_cabs are given, check validity
 ! If not given, automatically determine them
 subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
- use print_id, only: iout
  implicit none
  integer :: i, j
  character(len=21) :: basis1
@@ -1631,9 +1639,9 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  if(RIJK_bas /= 'NONE') then
   call lower(RIJK_bas)
   if(index(RIJK_bas, '/jk') == 0) then
-   write(iout,'(A)') "Warning in subroutine determine_auxbas: RI-JK auxiliary&
-                    & basis set does not contain key '/JK'."
-   write(iout,'(A)') 'Did you specify wrong auxiliary basis set? Caution!'
+   write(6,'(A)') "Warning in subroutine determine_auxbas: RI-JK auxiliary&
+                  & basis set does not contain key '/JK'."
+   write(6,'(A)') 'Did you specify wrong auxiliary basis set? Caution!'
   end if
  end if
 
@@ -1641,22 +1649,22 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(RIC_bas /= 'NONE') then
    call lower(RIC_bas)
    if(RIC_bas(1:5) == 'def2-') then
-    write(iout,'(A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix&
-                     & is not supported as Gaussian syntax."
-    write(iout,'(A)') "You should change it to 'def2' prefix."
+    write(6,'(A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix&
+                   & is not supported as Gaussian syntax."
+    write(6,'(A)') "You should change it to 'def2' prefix."
     stop
    end if
    if(index(RIC_bas, '/c') == 0) then
-    write(iout,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlat&
-                     & ion computations activated. But'
-    write(iout,'(A)') "your provided RIC_bas does not contain key '/C'. Caution!"
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlat&
+                   & ion computations activated. But'
+    write(6,'(A)') "your provided RIC_bas does not contain key '/C'. Caution!"
    end if
   end if
  else   ! no dynamic correlation computation
   if(RIC_bas /= 'NONE') then
-   write(iout,'(A)') 'ERROR in subroutine determine_auxbas: no dynamic correl&
-                     &ation computation is activated. But'
-   write(iout,'(A)') 'you provide RIC_bas='//TRIM(RIC_bas)//'.'
+   write(6,'(A)') 'ERROR in subroutine determine_auxbas: no dynamic correl&
+                  &ation computation is activated. But'
+   write(6,'(A)') 'you provide RIC_bas='//TRIM(RIC_bas)//'.'
    stop
   end if
  end if
@@ -1665,20 +1673,20 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12_cabs /= 'NONE') then
    call lower(F12_cabs)
    if(index(basis,'-f12') == 0) then
-    write(iout,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
-                     & activated. But your provided'
-    write(iout,'(A)') "basis set does not contain key '-F12'. Caution!"
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
+                   & activated. But your provided'
+    write(6,'(A)') "basis set does not contain key '-F12'. Caution!"
    end if
    if(index(F12_cabs,'-cabs') == 0) then
-    write(iout,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
                      & activated. But your provided'
-    write(iout,'(A)') "F12_cabs does not contain key '-cabs'. Caution!"
+    write(6,'(A)') "F12_cabs does not contain key '-cabs'. Caution!"
    end if
   end if
  else
   if(F12_cabs /= 'NONE') then
-   write(iout,'(A)') 'ERROR in subroutine determine_auxbas: F12 not activated,&
-                    & but you provide F12_cabs='//TRIM(F12_cabs)//'.'
+   write(6,'(A)') 'ERROR in subroutine determine_auxbas: F12 not activated,&
+                  & but you provide F12_cabs='//TRIM(F12_cabs)//'.'
    stop
   end if
  end if
@@ -1803,40 +1811,39 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
 
  case('STO-3G','STO-6G','3-21G','6-31G','6-31G(d)','6-31G*','6-31G(d,p)','6-31G**')
-  write(iout,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
-                   & you want to use Pople-type basis set?'
-  write(iout,'(A)') 'This is less recommended. But automr will continue.'
+  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
+                 & you want to use Pople-type basis set?'
+  write(6,'(A)') 'This is less recommended. But automr will continue.'
   RIJK_bas = 'def2/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2SVP/C'
 
  case('6-311G','6-311G(d)','6-311G*','6-311G(d,p)','6-311G**')
-  write(iout,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
-                   & you want to use Pople-type basis set?'
-  write(iout,'(A)') 'This is less recommended. But automr will continue.'
+  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
+                 & you want to use Pople-type basis set?'
+  write(6,'(A)') 'This is less recommended. But automr will continue.'
   RIJK_bas = 'def2/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2TZVP/C'  
 
  case default
   if(RIJK_bas=='NONE' .or. (dyn .and. RIC_bas=='NONE')) then
-   write(iout,'(A)') "ERROR in subroutine determine_auxbas: auxiliary basis&
-                    & '/JK' or '/C' cannot be automatically determined."
-   write(iout,'(A)') 'You should provide them in mokit{}.'
+   write(6,'(A)') "ERROR in subroutine determine_auxbas: auxiliary basis&
+                  & '/JK' or '/C' cannot be automatically determined."
+   write(6,'(A)') 'You should provide them in mokit{}.'
    stop
   end if
  end select
 
  if(F12 .and. F12_cabs=='NONE') then
-  write(iout,'(A)') 'ERROR in subroutine determine_auxbas: near-complete&
-                   & auxiliary basis set for F12 calculations'
-  write(iout,'(A)') "'-CABS' cannot be automatically determined. You should&
-                   & provide them in mokit{}."
+  write(6,'(A)') 'ERROR in subroutine determine_auxbas: near-complete&
+                 & auxiliary basis set for F12 calculations'
+  write(6,'(A)') "'-CABS' cannot be automatically determined. You should&
+                 & provide them in mokit{}."
   stop
  end if
 end subroutine determine_auxbas
 
 ! convert the name of auxiliary basis set from ORCA format to other format
 subroutine auxbas_convert(inbas, outbas, itype)
- use print_id, only: iout
  implicit none
  integer :: i
  integer, intent(in) :: itype ! 1/2 for PySCF/Molpro
@@ -1861,8 +1868,8 @@ subroutine auxbas_convert(inbas, outbas, itype)
   case(2) ! Molpro
    outbas = TRIM(inbas)//'fit'
   case default
-   write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
-   write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   write(6,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
    stop
   end select
  case('def2/jk')
@@ -1875,13 +1882,13 @@ subroutine auxbas_convert(inbas, outbas, itype)
    ! But so far there is a tiny bug for definition of def2-universal-JKFIT in
    ! Molpro, thus we have to use 'qzvpp/jkfit'. And these two are identical in fact.
   case default
-   write(iout,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
-   write(iout,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   write(6,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
    stop
   end select
  case default
-  write(iout,'(A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
-  write(iout,'(A)') 'inbas1='//TRIM(inbas1)
+  write(6,'(A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
+  write(6,'(A)') 'inbas1='//TRIM(inbas1)
   stop
  end select
 
@@ -1889,7 +1896,6 @@ end subroutine auxbas_convert
 
 ! calculate the Coulomb interaction energy of point charges
 subroutine calc_Coulomb_energy_of_charges(n, charge, e)
- use print_id, only: iout
  use phys_cons, only: Bohr_const
  implicit none
  integer :: i, j
@@ -1914,14 +1920,14 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
    r(j,i) = DSQRT(DOT_PRODUCT(rtmp2, rtmp2))
 
    if(r(j,i) < zero2) then
-    write(iout,'(A)') 'ERROR in subroutine calc_Coulomb_energy_of_charges:'
-    write(iout,'(2(A,I0))') 'There exists two point charges too close: i=',i,',j=',j
-    write(iout,'(A,F15.8)') 'r(j,i) = ', r(j,i)
+    write(6,'(A)') 'ERROR in subroutine calc_Coulomb_energy_of_charges:'
+    write(6,'(2(A,I0))') 'There exists two point charges too close: i=',i,',j=',j
+    write(6,'(A,F15.8)') 'r(j,i) = ', r(j,i)
     stop
    else if(r(j,i) < zero1) then
-    write(iout,'(A)') 'Warning in subroutine calc_Coulomb_energy_of_charges:'
-    write(iout,'(2(A,I0))') 'There exists two point charges very close: i=',i,',j=',j
-    write(iout,'(A,F15.8)') 'r(j,i) = ', r(j,i)
+    write(6,'(A)') 'Warning in subroutine calc_Coulomb_energy_of_charges:'
+    write(6,'(2(A,I0))') 'There exists two point charges very close: i=',i,',j=',j
+    write(6,'(A,F15.8)') 'r(j,i) = ', r(j,i)
    end if
 
   end do ! for j
@@ -2007,16 +2013,15 @@ end subroutine read_nuc_from_fch
 
 ! check whether a given binary file exists
 subroutine check_exe_exist(path)
- use print_id, only: iout
  implicit none
  character(len=240), intent(in) :: path
  logical :: alive
 
  inquire(file=TRIM(path),exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file&
+  write(6,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file&
                    & does not exist.'
-  write(iout,'(A)') 'path='//TRIM(path)
+  write(6,'(A)') 'path='//TRIM(path)
   stop
  end if
 end subroutine check_exe_exist
@@ -2082,7 +2087,7 @@ subroutine check_molcas_is_openmp(openmp)
 
  str = ' '
  openmp = .true.
- i = system('pymolcas --banner >'//ftmp)
+ i = system('pymolcas --banner >'//ftmp//" 2>&1")
  if(i /= 0) return
  ! maybe OpenMolcas not installed, assume OpenMP version
 
@@ -2093,12 +2098,8 @@ subroutine check_molcas_is_openmp(openmp)
   if(buf(1:8) == 'Parallel') exit
  end do ! for while
 
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine check_molcas_is_openmp: no 'Parallel' fou&
-                 &nd in 'pymolcas --banner'."
-  close(fid,status='delete')
-  stop
- end if
+ if(i /= 0) return 
+ ! maybe 'bash: pymolcas: command not found', assume OpenMP version
 
  i = index(buf,':')
  read(buf(i+1:),*) str

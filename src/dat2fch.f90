@@ -17,7 +17,7 @@
 !  extra keyword needed.
 
 program main
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, npair, nopen, idx1, idx2
  character(len=4) :: gvb_or_uhf_or_cas, string
@@ -32,11 +32,11 @@ program main
 
  i = iargc()
  if(.not. (i==2 .or. i==4 .or. i==5 .or. i==6) ) then
-  write(iout,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (for R(O)HF, UHF, CAS): dat2fch a.dat a.fch'
-  write(iout,'(A)')   ' Example 2 (for GVB)             : dat2fch a.dat a.fch -gvb 4'
-  write(iout,'(A)')   ' Example 3 (for ROGVB)           : dat2fch a.dat a.fch -gvb 4 -open 2'
-  write(iout,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 5 10'
+  write(6,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF, CAS): dat2fch a.dat a.fch'
+  write(6,'(A)')   ' Example 2 (for GVB)             : dat2fch a.dat a.fch -gvb 4'
+  write(6,'(A)')   ' Example 3 (for ROGVB)           : dat2fch a.dat a.fch -gvb 4 -open 2'
+  write(6,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 5 10'
   stop
  end if
 
@@ -66,13 +66,13 @@ program main
    call getarg(5,string)
    read(string,*) idx2
    if(idx1<1 .or. idx2<2) then
-    write(iout,'(/,A)') 'ERROR in subroutine dat2fch: invalid idx1 and/or idx2.'
-    write(iout,'(2(A,I0))') 'idx1=', idx1, ', idx2=', idx2
+    write(6,'(/,A)') 'ERROR in subroutine dat2fch: invalid idx1 and/or idx2.'
+    write(6,'(2(A,I0))') 'idx1=', idx1, ', idx2=', idx2
     stop
    end if
   case default
-   write(iout,'(/,A)') 'ERROR in subroutine dat2fch: the 3rd argument is wrong!'
-   write(iout,'(A)') "It must be '-gvb' or '-no'."
+   write(6,'(/,A)') 'ERROR in subroutine dat2fch: the 3rd argument is wrong!'
+   write(6,'(A)') "It must be '-gvb' or '-no'."
    stop
   end select
  else
@@ -86,7 +86,7 @@ end program main
 ! transform MOs in .dat file into .fchk file
 subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
- use fch_content, only: iout, read_mark_from_shltyp_cart
+ use fch_content, only: read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, datid, nline, nleft
  integer :: nbf, nif, na, nb
@@ -119,10 +119,10 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
 
  ! check nopen ?= na - nb
  if(gvb_or_uhf_or_cas=='-gvb' .and. nopen/=na-nb) then
-  write(iout,'(/,A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
-  write(iout,'(A)') 'You should check if anything is wrong in .fch(k) file&
+  write(6,'(/,A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
+  write(6,'(A)') 'You should check if anything is wrong in .fch(k) file&
                    & or your command line arguments.'
-  write(iout,'(3(A,I0))') 'nopen=', nopen, ', na=', na, ', nb=', nb
+  write(6,'(3(A,I0))') 'nopen=', nopen, ', na=', na, ', nb=', nb
  end if
  ! check done
 
@@ -135,11 +135,11 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
 
  ! check if any spherical functions
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(iout,'(A)') 'ERROR in subroutine dat2fch: mixed spherical harmonic/&
+  write(6,'(A)') 'ERROR in subroutine dat2fch: mixed spherical harmonic/&
                    &Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if(ANY(shltyp<-1)) then
   sph = .true.
@@ -157,9 +157,9 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
 
  call read_nbf_from_dat(datname, i)
  if(i /= nbf1) then
-  write(iout,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
+  write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
                      & .fch and .dat file.'
-  write(iout,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
+  write(6,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
   stop
  end if
 
@@ -171,8 +171,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
    case(-5:-2)
     shl2atm(i) = -shltyp(i)
    case default
-    write(iout,'(A)') 'ERROR in subroutine dat2fch: shltyp(i) out of range.'
-    write(iout,'(2(A,I0))') 'i=', i, ', shltyp(i)=', shltyp(i)
+    write(6,'(A)') 'ERROR in subroutine dat2fch: shltyp(i) out of range.'
+    write(6,'(2(A,I0))') 'i=', i, ', shltyp(i)=', shltyp(i)
     stop
    end select
   end do ! for i
@@ -219,7 +219,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine dat2fch: No '$VEC' section in file "//TRIM(datname)
+  write(6,'(A)') "ERROR in subroutine dat2fch: No '$VEC' section in file "//TRIM(datname)
   close(datid)
   stop
  end if

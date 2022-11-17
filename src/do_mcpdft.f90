@@ -2,7 +2,6 @@
 
 ! do MC-PDFT, valid for CASCI/CASSCFb based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
   casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
   gms_scr_path, eist
@@ -17,36 +16,36 @@ subroutine do_mcpdft()
 
  if(eist == 1) return ! excited state calculation
  if(.not. mcpdft) return
- write(iout,'(//,A)') 'Enter subroutine do_mcpdft...'
+ write(6,'(//,A)') 'Enter subroutine do_mcpdft...'
 
  dmrg = (dmrgci .or. dmrgscf)
 
  if(dmrg) then
   if(mcpdft_prog=='gamess') then
-   write(iout,'(A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been&
+   write(6,'(A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been&
                     & implemented in GAMESS.'
-   write(iout,'(A)') 'You can set MCPDFT_prog=OpenMolcas in mokit{}.'
+   write(6,'(A)') 'You can set MCPDFT_prog=OpenMolcas in mokit{}.'
    stop
   end if
   if(dmrgci) then
-   write(iout,'(A)') 'DMRG-PDFT based on DMRG-CASCI orbitals.'
+   write(6,'(A)') 'DMRG-PDFT based on DMRG-CASCI orbitals.'
   else
-   write(iout,'(A)') 'DMRG-PDFT based on DMRG-CASSCF orbitals.'
+   write(6,'(A)') 'DMRG-PDFT based on DMRG-CASSCF orbitals.'
   end if
-  write(iout,'(A)') 'DMRG-PDFT using program openmolcas'
+  write(6,'(A)') 'DMRG-PDFT using program openmolcas'
  else
   if(casci) then
-   write(iout,'(A)') 'MC-PDFT based on CASCI orbitals.'
+   write(6,'(A)') 'MC-PDFT based on CASCI orbitals.'
   else
-   write(iout,'(A)') 'MC-PDFT based on CASSCF orbitals.'
+   write(6,'(A)') 'MC-PDFT based on CASSCF orbitals.'
   end if
-  write(iout,'(A)') 'MC-PDFT using program '//TRIM(mcpdft_prog)
+  write(6,'(A)') 'MC-PDFT using program '//TRIM(mcpdft_prog)
  end if
 
  if(dmrgci .or. casci) then
-  write(iout,'(A)') 'Warning: orbital optimization is strongly recommended to&
+  write(6,'(A)') 'Warning: orbital optimization is strongly recommended to&
                    & be performed'
-  write(iout,'(A)') 'before PDFT, unless it is too time-consuming.'
+  write(6,'(A)') 'before PDFT, unless it is too time-consuming.'
  end if
 
  select case(TRIM(mcpdft_prog))
@@ -100,22 +99,21 @@ subroutine do_mcpdft()
  if(TRIM(mcpdft_prog) == 'openmolcas') ref_e = ref_e + ptchg_e
  mcpdft_e = ref_e + corr_e
 
- write(iout,'(/,A,F18.8,1X,A4)')'E(ref)      = ',    ref_e, 'a.u.'
+ write(6,'(/,A,F18.8,1X,A4)')'E(ref)      = ',    ref_e, 'a.u.'
  if(dmrg) then
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(DMRG-PDFT)= ', mcpdft_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(DMRG-PDFT)= ', mcpdft_e, 'a.u.'
  else
-  write(iout,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MC-PDFT)  = ', mcpdft_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(MC-PDFT)  = ', mcpdft_e, 'a.u.'
  end if
 
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
+ write(6,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
 end subroutine do_mcpdft
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
- use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
  use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2
  implicit none
@@ -140,7 +138,7 @@ subroutine prt_mcpdft_molcas_inp(inpname)
  close(fid1,status='delete')
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
+  write(6,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
                    & found in file "//TRIM(inpname)
   stop
  end if

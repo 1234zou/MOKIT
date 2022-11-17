@@ -9,17 +9,16 @@
 !  specified in the Title Card line like 'mokit{}'.
 
 program main
- use print_id, only: iout
  implicit none
  integer :: i, j
  character(len=240) :: fname = ' '
 
  i = iargc()
  if(i /= 1) then
-  write(iout,'(/,A)') ' ERROR in subroutine automr: wrong command line argument!'
-  write(iout,'(A)')   " Example 1 (in bash): automr a.gjf >& a.out &"
-  write(iout,'(A)')   " Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
-  write(iout,'(A,/)') ' See help: automr -h'
+  write(6,'(/,A)') ' ERROR in subroutine automr: wrong command line argument!'
+  write(6,'(A)')   " Example 1 (in bash): automr a.gjf >& a.out &"
+  write(6,'(A)')   " Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(6,'(A,/)') ' See help: automr -h'
   stop
  end if
 
@@ -27,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(iout,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Nov-6'
+  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Nov-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -59,12 +58,12 @@ program main
  i = index(fname, '.gjf', back=.true.)
  j = index(fname, '.fch', back=.true.)
  if(i/=0 .and. j/=0) then
-  write(iout,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys&
+  write(6,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys&
                      & detected in filename "//TRIM(fname)//'.'
-  write(iout,'(A)') "Better to use a filename only with suffix '.gjf'."
+  write(6,'(A)') "Better to use a filename only with suffix '.gjf'."
   stop
  else if(i == 0) then
-  write(iout,'(/,A)') "ERROR in subroutine automr: '.gjf' key not found in&
+  write(6,'(/,A)') "ERROR in subroutine automr: '.gjf' key not found in&
                      & filename "//TRIM(fname)
   stop
  end if
@@ -76,7 +75,6 @@ end program main
 
 ! automatically do multireference calculations in a block-box way
 subroutine automr(fname)
- use print_id, only: iout
  use mr_keyword, only: gjfname, read_program_path, parse_keyword, check_kywd_compatible
  implicit none
  character(len=24) :: data_string
@@ -106,12 +104,11 @@ subroutine automr(fname)
  call do_PES_scan()   ! PES scan
 
  call fdate(data_string)
- write(iout,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
+ write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
 end subroutine automr
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
- use print_id, only: iout
  use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c,&
   nskip_uno
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
@@ -124,16 +121,16 @@ subroutine get_paired_LMO()
 
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return ! no need for this subroutine
- write(iout,'(//,A)') 'Enter subroutine get_paired_LMO...'
+ write(6,'(//,A)') 'Enter subroutine get_paired_LMO...'
 
  if(ist == 0) then
-  write(iout,'(A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be&
+  write(6,'(A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be&
                    & non-zero before this subroutine.'
   stop
  end if
 
  call calc_ncore() ! calculate the number of core orbitals from array core_orb
- write(iout,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
+ write(6,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
                          ', Nskip_UNO=', nskip_uno
 
  i = index(hf_fch, '.fch', back=.true.)
@@ -141,10 +138,10 @@ subroutine get_paired_LMO()
 
  if(mo_rhf) then
   if(ist == 6) then
-   write(iout,'(A)') 'One set of MOs: GVB/STO-6G -> MO projection -> Rotate has&
+   write(6,'(A)') 'One set of MOs: GVB/STO-6G -> MO projection -> Rotate has&
                      & been invoked.'
   else
-   write(iout,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
+   write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
                     & localization -> paring.'
    chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
    i = system('bas_fch2py '//TRIM(hf_fch))
@@ -156,16 +153,16 @@ subroutine get_paired_LMO()
    call prt_auto_pair_script_into_py(pyname)
    write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(proname)//&
                     '_proj_loc_pair.out 2>&1'
-   write(iout,'(A)') '$'//TRIM(buf)
+   write(6,'(A)') '$'//TRIM(buf)
    i = system(TRIM(buf))
    call delete_file(chkname)
   end if
 
  else
   if(ist == 1) then
-   write(iout,'(A)') 'Two sets of MOs, ist=1, invoke UNO associated rotation.'
+   write(6,'(A)') 'Two sets of MOs, ist=1, invoke UNO associated rotation.'
   else if(ist == 2) then
-   write(iout,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
+   write(6,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
   end if
 
   fchname = hf_fch(1:i-1)//'_uno.fch'
@@ -185,12 +182,12 @@ subroutine get_paired_LMO()
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
   write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
-  write(iout,'(A)') '$'//TRIM(buf)
+  write(6,'(A)') '$'//TRIM(buf)
 
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine get_paired_LMO: PySCF job fails.'
-   write(iout,'(A)') 'Please check file '//TRIM(outname)
+   write(6,'(/,A)') 'ERROR in subroutine get_paired_LMO: PySCF job fails.'
+   write(6,'(A)') 'Please check file '//TRIM(outname)
    stop
   end if
   call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
@@ -209,12 +206,11 @@ subroutine get_paired_LMO()
  end if
 
  call fdate(data_string)
- write(iout,'(A)') 'Leave subroutine get_paired_LMO at '//TRIM(data_string)
+ write(6,'(A)') 'Leave subroutine get_paired_LMO at '//TRIM(data_string)
 end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
 subroutine prt_rhf_proj_script_into_py(pyname)
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, tencycle, hf_fch, dkh2_or_x2c
  use mol, only: natom, nuc, elem
  implicit none
@@ -239,8 +235,8 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: end-of-file detected.'
-  write(iout,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: end-of-file detected.'
+  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -335,7 +331,6 @@ end subroutine prt_rhf_proj_script_into_py
 
 ! print localization and automatically pairing information into a given .py file
 subroutine prt_auto_pair_script_into_py(pyname)
- use print_id, only: iout
  use mr_keyword, only: localm, hf_fch
  use mol, only: chem_core, ecp_core
  implicit none
@@ -359,8 +354,8 @@ subroutine prt_auto_pair_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-file detected.'
-  write(iout,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-file detected.'
+  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -439,7 +434,6 @@ end subroutine prt_auto_pair_script_into_py
 
 ! print UNO script into a given .py file
 subroutine prt_uno_script_into_py(pyname)
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, hf_fch, tencycle, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -459,8 +453,8 @@ subroutine prt_uno_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine prt_uno_script_into_py: end-of-file detected.'
-  write(iout,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(A)') 'ERROR in subroutine prt_uno_script_into_py: end-of-file detected.'
+  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop

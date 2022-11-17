@@ -22,21 +22,20 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=38), parameter :: error_warn='ERROR in program add_bgcharge_to_inp: '
  character(len=240) :: chgname, inpname
 
  i = iargc()
  if(i /= 2) then
-  write(iout,'(/,A)') error_warn//'wrong command line arguments!'
-  write(iout,'(/,A)') 'Format: add_bgcharge_to_inp chgname inpname'
-  write(iout,'(A)')   'Example 1 (PySCF) : add_bgcharge_to_inp a.chg a.py'
-  write(iout,'(A)')   'Example 2 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
-  write(iout,'(A)')   'Example 3 (Molcas): add_bgcharge_to_inp a.chg a.input'
-  write(iout,'(A)')   'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
-  write(iout,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
-  write(iout,'(A)')   'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
-  write(iout,'(A,/)') 'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(/,A)') error_warn//'wrong command line arguments!'
+  write(6,'(/,A)') 'Format: add_bgcharge_to_inp chgname inpname'
+  write(6,'(A)')   'Example 1 (PySCF) : add_bgcharge_to_inp a.chg a.py'
+  write(6,'(A)')   'Example 2 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 3 (Molcas): add_bgcharge_to_inp a.chg a.input'
+  write(6,'(A)')   'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
+  write(6,'(A)')   'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A,/)') 'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
   stop
  end if
 
@@ -53,7 +52,6 @@ end program main
 subroutine add_bgcharge_to_inp(chgname, inpname)
  implicit none
  integer :: i, j, n, fid
- integer, parameter :: iout = 6
  real(kind=8), allocatable :: charge(:,:)
  character(len=41),parameter::error_warn='ERROR in subroutine add_bgcharge_to_inp: '
  character(len=240) :: buf
@@ -62,12 +60,12 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  open(newunit=fid,file=TRIM(chgname),status='old',position='rewind')
  read(fid,*,iostat=i) n
  if(i /= 0) then
-  write(iout,'(A)') error_warn//'failed to read number of charges!'
+  write(6,'(A)') error_warn//'failed to read number of charges!'
   stop
  end if
 
  if(n < 1) then
-  write(iout,'(A)') error_warn//'number of charges less than 1!'
+  write(6,'(A)') error_warn//'number of charges less than 1!'
   stop
  end if
 
@@ -79,7 +77,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  close(fid)
 
  if(j /= 0) then
-  write(iout,'(A)') error_warn//' missing charges.'
+  write(6,'(A)') error_warn//' missing charges.'
   stop
  end if
 
@@ -121,7 +119,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
    call add_bgcharge_to_gjf(inpname, n, charge)
   end if
  case default
-  write(iout,'(A)') error_warn//'filetype not supported!'
+  write(6,'(A)') error_warn//'filetype not supported!'
   stop
  end select
 
@@ -296,7 +294,6 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  implicit none
  integer :: i, iend, fid1, fid2, RENAME
  integer, intent(in) :: n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: charge(4,n)
  character(len=240) :: buf, mklname, mklname1
  character(len=240), intent(in) :: inpname
@@ -336,7 +333,7 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine add_bgcharge_to_orca_inp: section&
+  write(6,'(A)') "ERROR in subroutine add_bgcharge_to_orca_inp: section&
                    & '$COORD' in file '"//TRIM(mklname)//"' is incomplete."
   close(fid1)
   close(fid2,status='delete')
@@ -358,7 +355,7 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine add_bgcharge_to_orca_inp: section&
+  write(6,'(A)') "ERROR in subroutine add_bgcharge_to_orca_inp: section&
                   & '$CHARGES' in file '"//TRIM(mklname)//"' is incomplete."
   close(fid1)
   close(fid2,status='delete')
@@ -386,7 +383,6 @@ subroutine add_bgcharge_to_molcas_input(input, n, charge)
  implicit none
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: charge(4,n)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=240) :: buf, input1
@@ -404,7 +400,7 @@ subroutine add_bgcharge_to_molcas_input(input, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine add_bgcharge_to_molcas_inp: file '"//&
+  write(6,'(A)') "ERROR in subroutine add_bgcharge_to_molcas_inp: file '"//&
    TRIM(input)//"' is incomplete."
   close(fid1)
   close(fid2,status='delete')
@@ -434,7 +430,6 @@ subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: charge(4,n)
  character(len=240) :: buf, inpname1, chgname
  character(len=240), intent(in) :: inpname
@@ -465,7 +460,7 @@ subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine add_bgcharge_to_molpro_inp:'
+  write(6,'(A)') 'ERROR in subroutine add_bgcharge_to_molpro_inp:'
   close(fid)
   close(fid1,status='delete')
   stop
@@ -491,7 +486,6 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: charge(4,n)
  character(len=4) :: str
  character(len=240) :: buf, chgname, inpname1
@@ -524,7 +518,7 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  if(i /= 0) then
   close(fid1,status='delete')
   close(fid)
-  write(iout,'(A)') 'ERROR in subroutine add_bgcharge_to_bdf_inp: '
+  write(6,'(A)') 'ERROR in subroutine add_bgcharge_to_bdf_inp: '
   stop
  end if
 

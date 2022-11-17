@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年11月6号
+2022年11月17号
 
 安装
 ----------
@@ -59,13 +59,13 @@ make fch2inp
 ```
 
 * 在执行'make all'之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
-  例如，假定你的MOKIT安装在/home/$USER/software/mokit目录, 你需要在~/.bashrc文件中设定
-  以下变量:
+  例如，假定你的MOKIT安装在`$HOME/software/mokit`目录, 你需要在`~/.bashrc`文件中设定
+  以下环境变量:
 ```
-export MOKIT_ROOT=/home/$USER/software/mokit
+export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
-export GMS=/home/$USER/software/gamess/rungms
+export GMS=$HOME/software/gamess/rungms
 ```
 
   GAMESS可执行文件的路径请按照您机器上的实际情况修改。若您下载和使用的是Linux预编
@@ -74,7 +74,8 @@ export GMS=/home/$USER/software/gamess/rungms
 export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 ```
 
-  这是因为OpenBLAS动态库放在`$MOKIT_ROOT/lib`目录下。
+  这是因为OpenBLAS动态库放在`$MOKIT_ROOT/lib`目录下。修改后需执行`source ~/.bashrc`
+  或退出重登，以使环境变量生效。
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
   因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。

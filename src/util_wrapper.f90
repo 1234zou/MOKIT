@@ -2,7 +2,6 @@
 
 module util_wrapper
  implicit none
- integer, parameter :: iout = 6
 contains
 
 ! wrapper of the Gaussian utility formchk
@@ -17,8 +16,8 @@ subroutine formchk(chkname, fchname)
 
  inquire(file=TRIM(chkname), exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine formchk: file does not exist!'
-  write(iout,'(A)') 'chkname='//TRIM(chkname)
+  write(6,'(A)') 'ERROR in subroutine formchk: file does not exist!'
+  write(6,'(A)') 'chkname='//TRIM(chkname)
   stop
  end if
 
@@ -27,8 +26,8 @@ subroutine formchk(chkname, fchname)
  else
   i = index(chkname, '.chk', back=.true.)
   if(i == 0) then
-   write(iout,'(A)') 'ERROR in subroutine formchk: .chk suffix not found!'
-   write(iout,'(A)') 'chkname='//TRIM(chkname)
+   write(6,'(A)') 'ERROR in subroutine formchk: .chk suffix not found!'
+   write(6,'(A)') 'chkname='//TRIM(chkname)
    stop
   end if
   fchname0 = chkname(1:i-1)//'.fch'
@@ -42,8 +41,8 @@ subroutine formchk(chkname, fchname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utility formchk.'
-  write(iout,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
+  write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utility formchk.'
+  write(6,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
                    & utility formchk does not exist.'
   stop
  end if
@@ -75,8 +74,8 @@ subroutine unfchk(fchname, chkname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine formchk: failed to call Gaussian utility unfchk.'
-  write(iout,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
+  write(6,'(A)') 'ERROR in subroutine formchk: failed to call Gaussian utility unfchk.'
+  write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
                    & utility unfchk does not exist.'
   stop
  end if
@@ -94,8 +93,8 @@ subroutine gbw2mkl(gbwname, mklname)
 
  inquire(file=TRIM(gbwname), exist=alive)
  if(.not. alive) then
-  write(iout,'(A)') 'ERROR in subroutine gbw2mkl: file does not exist!'
-  write(iout,'(A)') 'gbwname='//TRIM(gbwname)
+  write(6,'(A)') 'ERROR in subroutine gbw2mkl: file does not exist!'
+  write(6,'(A)') 'gbwname='//TRIM(gbwname)
   stop
  end if
 
@@ -165,11 +164,11 @@ subroutine fch2psi_wrap(fchname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(/,A)') 'ERROR in subroutine fch2psi_wrap: failed to call utility&
+  write(6,'(/,A)') 'ERROR in subroutine fch2psi_wrap: failed to call utility&
                      & fch2psi. Two possible reasons:'
-  write(iout,'(A)') '(1) You might forget to compile the utility fch2psi.'
-  write(iout,'(A)') '(2) The file '//TRIM(fchname)//' may be incomplete.'
-  write(iout,'(A)') '(3) There might exist a bug in the utility fch2psi.'
+  write(6,'(A)') '(1) You might forget to compile the utility fch2psi.'
+  write(6,'(A)') '(2) The file '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)') '(3) There might exist a bug in the utility fch2psi.'
   stop
  end if
 
@@ -187,9 +186,9 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
 
  if(gvb) then
   if(npair<0 .or. nopen<0) then
-   write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0&
+   write(6,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0&
                     & and/or nopen<0.'
-   write(iout,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
+   write(6,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
    stop
   end if
 
@@ -218,9 +217,9 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  end if
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inp_wrap: failed to call utility fch2inp.'
-  write(iout,'(A)') 'Filename = '//TRIM(fchname)
-  write(iout,'(2(A,I0),A,L1)') 'npair= ',npair,', nopen= ',nopen,', gvb= ',gvb
+  write(6,'(A)') 'ERROR in subroutine fch2inp_wrap: failed to call utility fch2inp.'
+  write(6,'(A)') 'Filename = '//TRIM(fchname)
+  write(6,'(2(A,I0),A,L1)') 'npair= ',npair,', nopen= ',nopen,', gvb= ',gvb
   stop
  end if
 
@@ -244,9 +243,9 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
 #endif
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine mkl2fch_wrap: failed to call utility mkl2fch.'
-  write(iout,'(A)') 'mklname='//TRIM(mklname)//', fchname='//TRIM(fchname)
-  write(iout,'(A,L1)') 'prt_no=', prt_no
+  write(6,'(A)') 'ERROR in subroutine mkl2fch_wrap: failed to call utility mkl2fch.'
+  write(6,'(A)') 'mklname='//TRIM(mklname)//', fchname='//TRIM(fchname)
+  write(6,'(A,L1)') 'prt_no=', prt_no
   stop
  end if
  return
@@ -266,8 +265,8 @@ subroutine fch2mkl_wrap(fchname, mklname)
 #endif
 
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2mkl_wrap: failed to call utility fch2mkl.'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'ERROR in subroutine fch2mkl_wrap: failed to call utility fch2mkl.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
@@ -337,9 +336,9 @@ subroutine fch_u2r_wrap(fchname)
 
  i = system('fch_u2r '//TRIM(fchname))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch_u2r_wrap: failed to call utility&
+  write(6,'(A)') 'ERROR in subroutine fch_u2r_wrap: failed to call utility&
                    & fch_u2r.'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 end subroutine fch_u2r_wrap
@@ -353,9 +352,9 @@ subroutine fch2dal_wrap(fchname, dalname)
 
  i = system('fch2dal '//TRIM(fchname))
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine fch2dal_wrap: failed to call utility&
+  write(6,'(A)') 'ERROR in subroutine fch2dal_wrap: failed to call utility&
                    & fch2dal.'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 

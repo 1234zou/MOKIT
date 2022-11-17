@@ -7,7 +7,7 @@ subroutine do_hf()
   charge, mult, rhf_e, uhf_e
  use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
   ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
-  prt_strategy, gau_path, orca_path, psi4_path, frag_guess
+  prt_strategy, gau_path, orca_path, psi4_path, frag_guess, HFonly
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0d0
@@ -58,6 +58,7 @@ subroutine do_hf()
  call read_natom_from_gjf(gjfname, natom)
  allocate(coor(3,natom), elem(natom), nuc(natom))
  call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+
  if(frag_guess) then
   allocate(atom2frag(natom), frag_char_mult(2,nfrag))
   call read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
@@ -140,34 +141,49 @@ subroutine do_hf()
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
+
+ if(HFonly) then
+  write(6,'(/,A)') 'HFonly keyword is specified. Now stop the program.'
+  call fdate(data_string)
+  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
+  stop
+ end if
 end subroutine do_hf
 
 ! generate a RHF/UHF .gjf file (DKH, guess=fragment can be taken into account)
 subroutine generate_hf_gjf(gjfname, uhf, noiter)
  use mol, only: charge, mult, natom, nuc, elem, coor, nfrag, atom2frag, frag_char_mult
- use mr_keyword, only: mem, nproc, basis, cart, dkh2_or_x2c, frag_guess, mokit_root
+ use mr_keyword, only: mem, nproc, basis, cart, dkh2_or_x2c, frag_guess, basname,&
+                       origin_gjf=>gjfname
  implicit none
  integer :: i, fid
  character(len=21) :: basis1
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: uhf, noiter
- logical :: rel
+ logical :: rel, create
 
+ create = .false.
  if(frag_guess .and. (.not.uhf)) then
-  write(6,'(A)') 'ERROR in subroutine generate_hf_gjf: both frag_guess and&
-                   & RHF are .True.'
+  write(6,'(A)') 'ERROR in subroutine generate_hf_gjf: both frag_guess and RHF&
+                 & are .True.'
   write(6,'(A)') 'Fragment guess can only be used with UHF wave function.'
   stop
  end if
 
  call upper(basis)
- i = index(basis, 'DEF')
- if(i > 0) basis(i:i+2) = 'def'
  i = index(basis, 'MA')
  if(i > 0) basis(i:i+1) = 'ma'
+ i = index(basis, 'DEF')
+ if(i > 0) basis(i:i+2) = 'def'
+ i = index(basis, 'CC-P')
+ if(i > 0) basis(i:i+3) = 'cc-p'
  i = index(basis, 'PCSSEG')
  if(i > 0) basis(i:i+5) = 'pcSseg'
+ i = index(basis, 'GENECP')
+ if(i > 0) basis(i:i+5) = 'genecp'
+ i = index(basis, 'GEN')
+ if(i > 0) basis(i:i+2) = 'gen'
 
  rel = .false.
  select case(TRIM(basis))
@@ -184,24 +200,26 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
   do i = 1, natom, 1
    if(nuc(i) > 36) then
     write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets DKH-def2-&
-                       & or ZORA-def2- series'
+                     & or ZORA-def2- series'
     write(6,'(A)') "have no definition on element '"//TRIM(elem(i))//"'."
     stop
    end if
   end do ! for i
+  create = .true.
 
- case('ANO-RCC-VDZP','ANO-RCC-VTZP','ANO-RCC-VQZP') 
+ case('ANO-RCC-MB','ANO-RCC-VDZP','ANO-RCC-VTZP','ANO-RCC-VQZP') 
   basis1 = 'gen'
   rel = .true.
 
   do i = 1, natom, 1
    if(nuc(i) > 96) then
-    write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets ANO-RCC-VnZP&
-                       & series have no'
+    write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets ANO-RCC-V&
+                     &nZP series have no'
     write(6,'(A)') "definition on element '"//TRIM(elem(i))//"'."
     stop
    end if
   end do ! for i
+  create = .true.
 
  case('pcSseg-1','pcSseg-2')
   basis1 = 'gen'
@@ -209,11 +227,12 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
   do i = 1, natom, 1
    if(nuc(i) > 36) then ! H~Kr
     write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets pcSseg-n&
-                       & series have no'
+                     & series have no'
     write(6,'(A)') "definition on element '"//TRIM(elem(i))//"'."
     stop
    end if
   end do ! for i
+  create = .true.
 
  case default
   basis1 = basis
@@ -313,10 +332,17 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
   end do ! for i
  end if
 
- if(rel .and. TRIM(basis1)=='gen') then
-  write(fid,'(/,A,/)') '@'//TRIM(mokit_root)//'/basis/'//TRIM(basis)
- else if((.not.rel) .and. basis(1:6)=='pcSseg') then
-  write(fid,'(/,A,/)') '@'//TRIM(mokit_root)//'/basis/'//TRIM(basis)
+ if(create) then
+  i = index(origin_gjf, '.gjf')
+  basname = origin_gjf(1:i-1)//'.bas'
+  call create_basfile(basname, TRIM(basis))
+ end if
+
+ if(create .or. ((.not.create) .and. basis(1:3)=='gen')) then
+  write(fid,'(/)',advance='no')
+  close(fid)
+  call copy_gen_basis_bas2gjf(basname, gjfname)
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='append')
  end if
 
  ! If DKH Hamiltonian is used,
@@ -762,8 +788,8 @@ subroutine read_mult_from_psi4_out(outname, mult)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mult_from_psi4_out: no 'Multip&
-                    &licity' found in file "//TRIM(outname)
+  write(6,'(A)') "ERROR in subroutine read_mult_from_psi4_out: no 'Multiplicit&
+                 &y' found in file "//TRIM(outname)
   stop
  end if
  i = index(buf,'=',back=.true.)
@@ -867,25 +893,32 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end if
  write(fid1,'(A)') 'dm = mf.make_rdm1()'
  write(fid1,'(A)') 'mf.max_cycle = 500'
- write(fid1,'(A,/)') 'mf.kernel(dm)'
+ write(fid1,'(A,/)') 'old_e = mf.kernel(dm)'
 
  select case(hf_type)
- case(1,2)
+ case(1,2) ! R(O)HF
   write(fid1,'(A)') '# save R(O)HF MOs into .fch file'
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_energy,False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
- case(3)
-  write(fid1,'(A)') 'mo1 = mf.stability()[0]'
-  write(fid1,'(A)') 'dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
-  write(fid1,'(A)') 'mf = mf.run(dm1)'
-  write(fid1,'(A,/)') 'mf.stability()'
+ case(3)   ! UHF
+  ! loop to check wave function stability
+  write(fid1,'(A)') 'new_e = old_e + 2e-5'
+  write(fid1,'(A)') 'for i in range(0,10):'
+  write(fid1,'(A)') '  mo1 = mf.stability()[0]'
+  write(fid1,'(A)') '  dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
+  write(fid1,'(A)') '  mf = mf.newton()'
+  write(fid1,'(A)') '  new_e = mf.kernel(dm0=dm1)'
+  write(fid1,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
+  write(fid1,'(A)') '    break # cannot find lower solution'
+  write(fid1,'(A,/)') '  old_e = new_e'
+
   write(fid1,'(A)') '# save UHF MOs into .fch file'
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf.mo_energy[0],False)"
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],'b',mf.mo_energy[1],False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
  case default
-  write(6,'(A)') 'ERROR in subroutine prt_hf_pyscf_inp: hf_type out of range!'
-  write(6,'(A,I0)') 'hf_type=', hf_type
+  write(6,'(A,I0)') 'ERROR in subroutine prt_hf_pyscf_inp: invalid hf_type=',&
+                     hf_type
   stop
  end select
 

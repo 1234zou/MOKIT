@@ -3,7 +3,6 @@
 
 ! Note: Currently isotopes are not tested.
 program main
- use pg, only: iout
  implicit none
  integer :: i
  character(len=4) :: str
@@ -13,8 +12,8 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') 'Example1: bas_gms2dal a.inp (generate an a.input file)'
-  write(iout,'(A,/)') "Example2: bas_gms2dal a.inp -sph (without 'Cartesian')"
+  write(6,'(/,A)') 'Example1: bas_gms2dal a.inp (generate an a.input file)'
+  write(6,'(A,/)') "Example2: bas_gms2dal a.inp -sph (without 'Cartesian')"
   stop
  end if
 
@@ -30,8 +29,8 @@ program main
   if(str == '-sph') then
    spherical = .true.
   else
-   write(iout,'(A)') 'ERROR in subroutine bas_gms2dal: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
+   write(6,'(A)') 'ERROR in subroutine bas_gms2dal: wrong command line arguments!'
+   write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
  end if
@@ -42,7 +41,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Dalton format
 subroutine bas_gms2dal(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, elem, coor, highest, all_ecp, ecp_exist
+ use pg, only: natom, ram, ntimes, elem, coor, highest, all_ecp, ecp_exist
  implicit none
  integer :: i, nline, rc, charge, mult, rel, fid1, fid2
  character(len=240), intent(in) :: fort7
@@ -64,8 +63,8 @@ subroutine bas_gms2dal(fort7, spherical)
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
  if(uhf) then
-  write(iout,'(/,A)') 'WARNING in subroutine bas_gms2dal: Dalton does not support UHF.'
-  write(iout,'(A)') 'Basis set data will still be written.'
+  write(6,'(/,A)') 'WARNING in subroutine bas_gms2dal: Dalton does not support UHF.'
+  write(6,'(A)') 'Basis set data will still be written.'
  end if
  if(ecp_exist) call create_dir('ecp_data')
 
@@ -113,7 +112,7 @@ subroutine bas_gms2dal(fort7, spherical)
  end do ! for while
 
  if(rc /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2molcas: No $DATA section found&
+  write(6,'(A)') 'ERROR in subroutine bas_gms2molcas: No $DATA section found&
                    & in file '//TRIM(fort7)//'.'
   close(fid1)
   stop
@@ -180,9 +179,9 @@ subroutine bas_gms2dal(fort7, spherical)
  deallocate(ram, elem, ntimes, coor, all_ecp)
 
  if(rc /= 0) then
-  write(iout,'(A)') "ERROR in subroutine bas_gms2dal: it seems the '$DATA'&
+  write(6,'(A)') "ERROR in subroutine bas_gms2dal: it seems the '$DATA'&
                    & has no corresponding '$END'."
-  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
+  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if

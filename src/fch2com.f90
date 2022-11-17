@@ -60,7 +60,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2com(fchname)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, orbid
  integer :: nalpha, nbeta, nbf, nif, nbf0
@@ -96,11 +96,11 @@ subroutine fch2com(fchname)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(iout,'(A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/&
+  write(6,'(A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/&
                    &Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shell_type<-1) ) then
   sph = .true.
@@ -173,8 +173,8 @@ subroutine fch2com(fchname)
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2com: shell_type(i) out of range.'
-   write(iout,'(2(A,I0))') 'i=', i, ', k=', k
+   write(6,'(A)') 'ERROR in subroutine fch2com: shell_type(i) out of range.'
+   write(6,'(2(A,I0))') 'i=', i, ', k=', k
    stop
   end select
  end do ! for i

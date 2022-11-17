@@ -4,7 +4,6 @@
 
 ! Note: Currently isotopes are not tested.
 program main
- use pg, only: iout
  implicit none
  integer :: i
  character(len=4) :: str
@@ -14,8 +13,8 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A,/)') 'Example1: bas_gms2molpro a.inp (generate a Molpro a.com file)'
-  write(iout,'(A,/)') "Example2: bas_gms2molpro a.inp -sph (without 'Cartesian')"
+  write(6,'(/,A,/)') 'Example1: bas_gms2molpro a.inp (generate a Molpro a.com file)'
+  write(6,'(A,/)') "Example2: bas_gms2molpro a.inp -sph (without 'Cartesian')"
   stop
  end if
 
@@ -31,8 +30,8 @@ program main
   if(str == '-sph') then
    spherical = .true.
   else
-   write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: wrong command line arguments!'
-   write(iout,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
+   write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: wrong command line arguments!'
+   write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
 
@@ -44,7 +43,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Molpro format
 subroutine bas_gms2molpro(fort7, spherical)
- use pg, only: iout, natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
+ use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, nline, rc, rel, charge, mult, fid1, fid2
  character(len=7) :: str
@@ -102,7 +101,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  end do ! for while
 
  if(rc /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found&
+  write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found&
                    & in file '//TRIM(fort7)
   close(fid1)
   stop
@@ -142,9 +141,9 @@ subroutine bas_gms2molpro(fort7, spherical)
  close(fid1)
 
  if(rc /= 0) then
-  write(iout,'(A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA'&
+  write(6,'(A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA'&
                    & has no corresponding '$END'."
-  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
+  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if
@@ -153,8 +152,8 @@ subroutine bas_gms2molpro(fort7, spherical)
 
  call check_DKH_in_gms_inp(fort7, rel)
  if(rel>-1 .and. rel<2) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not supported.'
-  write(iout,'(A)') 'Please use DKH2 at least.'
+  write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not supported.'
+  write(6,'(A)') 'Please use DKH2 at least.'
   stop
  else if(rel > 1) then ! at least DKH2
   call check_X2C_in_gms_inp(fort7, X2C)

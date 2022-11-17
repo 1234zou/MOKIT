@@ -91,7 +91,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2inporb(fchname, prt_no, sph)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, orbid
  integer :: nalpha, nbeta, nbf, nif
@@ -144,11 +144,11 @@ subroutine fch2inporb(fchname, prt_no, sph)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(iout,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/&
+  write(6,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/&
                    &Cartesian functions detected.'
-  write(iout,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                    & default setting is (6D,7F).'
-  write(iout,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shell_type<-1) ) then
   sph = .true.
@@ -222,8 +222,8 @@ subroutine fch2inporb(fchname, prt_no, sph)
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(iout,'(A)') 'ERROR in subroutine fch2inporb: shell_type(i) out of range.'
-   write(iout,'(2(A,I0))') 'k=', k, ', i=', i
+   write(6,'(A)') 'ERROR in subroutine fch2inporb: shell_type(i) out of range.'
+   write(6,'(2(A,I0))') 'k=', k, ', i=', i
    stop
   end select
  end do ! for i
@@ -396,7 +396,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  implicit none
  integer i, j, k
  integer, intent(in) :: i0, shell_type, length, nbf, nif
- integer, parameter :: iout = 6
  integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
  !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
  real(kind=8), intent(inout) :: coeff2(nbf,nif)
@@ -405,9 +404,9 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(iout,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
+  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
                    & shell_type is 0 or -1. Impossible.'
-  write(iout,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
+  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if
 

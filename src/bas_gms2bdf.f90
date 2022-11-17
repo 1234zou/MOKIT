@@ -3,7 +3,6 @@
 
 ! Note: Currently isotopes are not tested.
 program main
- use pg, only: iout
  implicit none
  integer :: i
  character(len=240) :: fname
@@ -11,8 +10,8 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(iout,'(/,A)') ' ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
-  write(iout,'(A,/)') ' Example : bas_gms2bdf a.inp (generate an a_bdf.inp file)'
+  write(6,'(/,A)') ' ERROR in subroutine bas_gms2bdf: wrong command line arguments!'
+  write(6,'(A,/)') ' Example : bas_gms2bdf a.inp (generate an a_bdf.inp file)'
   stop
  end if
 
@@ -25,7 +24,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in BDF format
 subroutine bas_gms2bdf(fort7)
- use pg, only: iout, natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
+ use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, k, nline, rc, rel, nbf, nif
  integer :: fid1, fid2
@@ -96,9 +95,9 @@ subroutine bas_gms2bdf(fort7)
   write(fid2,'(A)') 'Scalar'
 
   if(rel>-1 .and. (.not.X2C)) then
-   write(iout,'(A)') 'Warning in subroutine bas_gms2bdf: BDF program does&
+   write(6,'(A)') 'Warning in subroutine bas_gms2bdf: BDF program does&
                     & not support DKH Hamiltonian.'
-   write(iout,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN&
+   write(6,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN&
                     & instead."
   end if
  end if
@@ -140,7 +139,7 @@ subroutine bas_gms2bdf(fort7)
  end do ! for while
 
  if(rc /= 0) then
-  write(iout,'(A)') 'ERROR in subroutine bas_gms2bdf: No $DATA section found&
+  write(6,'(A)') 'ERROR in subroutine bas_gms2bdf: No $DATA section found&
                    & in file '//TRIM(fort7)//'.'
   close(fid1)
   stop
@@ -180,9 +179,9 @@ subroutine bas_gms2bdf(fort7)
  close(fid1)
 
  if(rc /= 0) then
-  write(iout,'(A)') "ERROR in subroutine bas_gms2bdf: it seems the '$DATA'&
+  write(6,'(A)') "ERROR in subroutine bas_gms2bdf: it seems the '$DATA'&
                    & has no corresponding '$END'."
-  write(iout,'(A)') 'Incomplete file '//TRIM(fort7)
+  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if

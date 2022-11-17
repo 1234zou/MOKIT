@@ -13,15 +13,14 @@
 program main
  implicit none
  integer :: i, idx1, idx2
- integer, parameter :: iout = 6
  character(len=10) :: str
  character(len=240) :: fname1, fname2, ovlp_file
 
  i = iargc()
  if(i /= 5) then
-  write(iout,'(/,A)') ' ERROR in subroutine mo_svd: wrong command line arguments!'
-  write(iout,'(/,A)') ' Example 1(Gaussian): mo_svd a.fch b.fch a.log idx1 idx2'
-  write(iout,'(/,A,/)') ' Example 2(OpenMolcas): mo_svd a.INPORB b.RasOrb a.out idx1 idx2'
+  write(6,'(/,A)') ' ERROR in subroutine mo_svd: wrong command line arguments!'
+  write(6,'(/,A)') ' Example 1(Gaussian): mo_svd a.fch b.fch a.log idx1 idx2'
+  write(6,'(/,A,/)') ' Example 2(OpenMolcas): mo_svd a.INPORB b.RasOrb a.out idx1 idx2'
   stop
  end if
 
@@ -43,7 +42,6 @@ end program main
 subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  implicit none
  integer :: i, j, nbf, nif, nmo
- integer, parameter :: iout = 6
  integer, intent(in) :: idx1, idx2
  character(len=240), intent(in) :: fname1, fname2, ovlp_file
  real(kind=8), allocatable :: S(:,:), mo_ovlp(:,:), SC(:,:)
@@ -84,7 +82,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  do i = 1, nif, 1
   do j = i, nif, 1
    if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1.0d0
-   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(iout,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
+   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
  mo_ovlp = MATMUL(TRANSPOSE(coeff2), MATMUL(S,coeff2))
@@ -92,7 +90,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  do i = 1, nif, 1
   do j = i, nif, 1
    if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1.0d0
-   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(iout,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
+   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
  deallocate(mo_ovlp)
@@ -111,15 +109,15 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  call svd_on_ovlp(nmo, nmo, mo_ovlp, u, vt, ev)
  deallocate(mo_ovlp, u, vt)
 
- write(iout,'(/,A)') 'SVD analysis of two sets of MOs:'
- write(iout,'(A,ES15.8)') 'The smallest singular value:', MINVAL(ev)
+ write(6,'(/,A)') 'SVD analysis of two sets of MOs:'
+ write(6,'(A,ES15.8)') 'The smallest singular value:', MINVAL(ev)
  i = COUNT(ev < 0.1d0)
- write(iout,'(A,I0)') 'Number of singular values< 0.1: ', i
+ write(6,'(A,I0)') 'Number of singular values< 0.1: ', i
  i = COUNT(ev < 0.01d0)
- write(iout,'(A,I0)') 'Number of singular values<0.01: ', i
+ write(6,'(A,I0)') 'Number of singular values<0.01: ', i
 
- write(iout,'(A)') 'All singular values:'
- write(iout,'(5(1X,ES15.8))') (ev(i),i=1,nmo)
+ write(6,'(A)') 'All singular values:'
+ write(6,'(5(1X,ES15.8))') (ev(i),i=1,nmo)
  deallocate(ev)
  return
 end subroutine mo_svd
@@ -129,7 +127,6 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
  implicit none
  integer :: i, lwork
  integer, intent(in) :: m,n
- integer, parameter :: iout = 6
  real(kind=8), intent(in) :: a(m,n)
  real(kind=8), intent(out) :: u(m,m), vt(n,n), s(m)
  real(kind=8), allocatable :: work(:)
@@ -152,8 +149,8 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
 
  deallocate(work)
  if(i /= 0) then
-  write(iout,'(A)') 'ERROR: info /= 0 in subroutine svd_on_ovlp. Please check why.'
-  write(iout,'(A5,I0)') 'info=',i
+  write(6,'(A)') 'ERROR: info /= 0 in subroutine svd_on_ovlp. Please check why.'
+  write(6,'(A5,I0)') 'info=',i
   stop
  end if
  return

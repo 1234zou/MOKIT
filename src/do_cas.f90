@@ -831,7 +831,6 @@ end subroutine prt_cas_gms_inp
 
 ! print CASCI/CASSCF keywords in to a given (Open)Molcas input file
 subroutine prt_cas_molcas_inp(inpname, scf)
- use print_id, only: iout
  use mol, only: charge, mult, nacte, nacto
  use mr_keyword, only: maxM, dmrgci, dmrgscf, RI, RIJK_bas, mokit_root,&
   hardwfn, crazywfn
@@ -883,7 +882,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF'&
+  write(6,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF'&
                    & found in file "//TRIM(inpname)
   stop
  end if
@@ -899,17 +898,17 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  if(RI) then
   i = system('cp '//TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' .')
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy&
+   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy&
                     & file from'
-   write(iout,'(A)') TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' to '//&
+   write(6,'(A)') TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' to '//&
                      ' current directory.'
    stop
   end if
   i = system('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
-   write(iout,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call&
+   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call&
                     & utility bas_gau2molcas.'
-   write(iout,'(A)') 'Did you forget to compile it?'
+   write(6,'(A)') 'Did you forget to compile it?'
    stop
   end if
 
@@ -990,7 +989,6 @@ end subroutine prt_cas_orca_inp
 
 ! print CASCI/CASSCF keywords into a given Molpro input file
 subroutine prt_cas_molpro_inp(inpname, scf, force)
- use print_id, only: iout
  use mol, only: ndb, npair, npair0, nacto
  use mr_keyword, only: RI, RIJK_bas
  implicit none
@@ -1010,7 +1008,7 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
 
  if(put(1:4) /= '{put') then
   close(fid)
-  write(iout,'(A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
+  write(6,'(A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
                    & in the final line of file '//TRIM(inpname)
   stop
  end if
@@ -1053,7 +1051,6 @@ end subroutine prt_cas_molpro_inp
 
 ! print CASCI/CASSCF keywords into a given BDF input file
 subroutine prt_cas_bdf_inp(inpname, scf, force)
- use print_id, only: iout
  use mol, only: nbf, nif, charge, mult, ndb, npair, npair0, nacto, nacte
  implicit none
  integer :: i, nclosed, fid
@@ -1069,7 +1066,7 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in&
+  write(6,'(A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in&
                   & file "//TRIM(inpname)
   close(fid)
   stop

@@ -1000,6 +1000,8 @@ subroutine write_fch(fchname)
   write(fid,'(A,I12)') 'ECP-CLP1                                   R   N=',LenNCZ
   write(fid,'(5(1X,ES15.8))') CLP
   write(fid,'(A,I12)') 'ECP-CLP2                                   R   N=',LenNCZ
+  if(.not. allocated(CLP2)) allocate(CLP2(LenNCZ), source=0d0)
+  ! CLP2 is used for SO-ECP, not supported currently, set to zero
   write(fid,'(5(1X,ES15.8))') CLP2
   write(fid,'(A,I12)') 'ECP-ZLP                                    R   N=',LenNCZ
   write(fid,'(5(1X,ES15.8))') ZLP

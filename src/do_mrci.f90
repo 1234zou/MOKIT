@@ -2,7 +2,6 @@
 
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
- use print_id, only: iout
  use mr_keyword, only: mem, nproc, CIonly, eist, hf_fch, mrcisd, mrcisd_prog,&
   CtrType, casnofch, openmp_molcas, molcas_path, orca_path, gau_path, gms_path,&
   gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
@@ -203,42 +202,42 @@ subroutine do_mrcisd()
 
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
-  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  write(6,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   select case(CtrType)
   case(1) ! uncontracted MRCISD
-   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
   case(2) ! ic-MRCISD
-   write(iout,'(A,F18.8,1X,A4)') 'E_corr(icMRCISD) =', e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)') 'E(icMRCISD+Q)    =', mrcisd_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E_corr(icMRCISD) =', e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(icMRCISD+Q)    =', mrcisd_e, 'a.u.'
   case default
-   write(iout,'(A,I0)') error_warn, CtrType
+   write(6,'(A,I0)') error_warn, CtrType
    stop
   end select
  case('orca')
-  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  write(6,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   select case(CtrType)
   case(1) ! uncontracted MRCISD
-   write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
   case(3) ! FIC-MRCISD
-   write(iout,'(A,F18.8,1X,A4)') 'E_corr(FIC-MRCISD) =', e, 'a.u.'
-   write(iout,'(A,F18.8,1X,A4)') 'E(FIC-MRCISD+Q)    =', mrcisd_e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E_corr(FIC-MRCISD) =', e, 'a.u.'
+   write(6,'(A,F18.8,1X,A4)') 'E(FIC-MRCISD+Q)    =', mrcisd_e, 'a.u.'
   case default
-   write(iout,'(A,I0)') error_warn, CtrType
+   write(6,'(A,I0)') error_warn, CtrType
    stop
   end select
  case('gaussian','dalton') ! only uncontracted MRCISD
   if(CtrType /= 1) then
-   write(iout,'(A,I0)') error_warn, CtrType
+   write(6,'(A,I0)') error_warn, CtrType
    stop
   end if
-  write(iout,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
+  write(6,'(/,A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(MRCISD)      =', mrcisd_e, 'a.u.'
  case('molpro','gamess','psi4')
-  write(iout,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
-  write(iout,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
+  write(6,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E_corr(MRCISD) =', e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(MRCISD+Q)    =', mrcisd_e, 'a.u.'
  end select
 
  if(TRIM(mrcisd_prog) == 'gamess') then
@@ -578,7 +577,6 @@ end subroutine prt_mrci_gms_inp
 ! calculate the Davidson size-extensivity correction energy for OpenMolcas
 ! davidson_e = E_corr*(1-c^2), where c is the reference weight
 subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
- use print_id, only: iout
  use mol, only: ndb, nif, npair, npair0, nacto
  implicit none
  integer :: i, j, k, idx1, idx2, fid1, fid2, system
@@ -606,9 +604,9 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   end do ! for while
   if(i /= 0) then
    close(fid1)
-   write(iout,'(A)') "ERROR in subroutine calc_davidson_corr_from_out: no 'mo&
+   write(6,'(A)') "ERROR in subroutine calc_davidson_corr_from_out: no 'mo&
                      &st impor' found in"
-   write(iout,'(A)') 'file '//TRIM(outname)
+   write(6,'(A)') 'file '//TRIM(outname)
    stop
   end if
   read(buf(7:),*) k ! number of important determinants
@@ -639,7 +637,7 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   end do ! for while
 
   if(i /= 0) then
-   write(iout,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
+   write(6,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
                        &found in "//TRIM(outname)
    close(fid1)
    stop
@@ -672,7 +670,7 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   close(fid2)
   i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
   if(i /= 0) then
-   write(iout,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
+   write(6,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
                         //TRIM(pyname)
    stop
   end if

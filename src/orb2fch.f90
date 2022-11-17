@@ -16,19 +16,18 @@ end module
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=3) :: str
  character(len=240) :: fchname, orbname
  logical :: prt_no
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,A)') ' ERROR in subroutine orb2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
-  write(iout,'(A)')   ' Example 2 (for UHF)   : orb2fch a.UhfOrb a.fch'
-  write(iout,'(A)')   ' Example 3 (for CAS)   : orb2fch a.RasOrb a.fch'
-  write(iout,'(A)')   ' Example 4 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
-  write(iout,'(A,/)') ' Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
+  write(6,'(/,A)') ' ERROR in subroutine orb2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
+  write(6,'(A)')   ' Example 2 (for UHF)   : orb2fch a.UhfOrb a.fch'
+  write(6,'(A)')   ' Example 3 (for CAS)   : orb2fch a.RasOrb a.fch'
+  write(6,'(A)')   ' Example 4 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
+  write(6,'(A,/)') ' Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
   stop
  end if
 
@@ -44,7 +43,7 @@ program main
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(iout,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
+   write(6,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
                       & wrong! Only '-no' is accepted."
    stop
   else
@@ -59,7 +58,7 @@ end program main
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine orb2fch(orbname, fchname, prt_no)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
@@ -104,10 +103,10 @@ subroutine orb2fch(orbname, fchname, prt_no)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type>1) .and. ANY(shell_type<-2)) then
-  write(iout,'(A)') 'ERROR in subroutine orb2fch: mixed Cartesian/spherical harmonic&
+  write(6,'(A)') 'ERROR in subroutine orb2fch: mixed Cartesian/spherical harmonic&
                    & functions detected. Cannot deal with that.'
-  write(iout,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
-  write(iout,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
+  write(6,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
+  write(6,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
   stop
  end if
 
@@ -295,7 +294,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
  implicit none
  integer :: i, j, k
  integer, intent(in) :: i0, shell_type, length, nbf
- integer, parameter :: iout = 6
  integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
  !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
  integer, intent(inout) :: idx2(nbf)
@@ -306,9 +304,9 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(iout,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
+  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
                    & shell_type is 0 or -1. Impossible.'
-  write(iout,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
+  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if
 

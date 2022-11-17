@@ -6,17 +6,16 @@
 program main
  implicit none
  integer :: i
- integer, parameter :: iout = 6
  character(len=3) :: str
  character(len=240) :: fchname, orbname
  logical :: prt_no
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(iout,'(/,A)') ' ERROR in subroutine bdf2fch: wrong command line arguments!'
-  write(iout,'(A)')   ' Example 1 (for R(O)HF, UHF): bdf2fch a.scforb a.fch'
-  write(iout,'(A)')   ' Example 2 (for CAS)        : bdf2fch a.casorb a.fch'
-  write(iout,'(A,/)') ' Example 3 (for CAS NO)     : bdf2fch a.casorb a.fch -no'
+  write(6,'(/,A)') ' ERROR in subroutine bdf2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF): bdf2fch a.scforb a.fch'
+  write(6,'(A)')   ' Example 2 (for CAS)        : bdf2fch a.casorb a.fch'
+  write(6,'(A,/)') ' Example 3 (for CAS NO)     : bdf2fch a.casorb a.fch -no'
   stop
  end if
 
@@ -30,9 +29,9 @@ program main
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(iout,'(/,A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
+   write(6,'(/,A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
                       & wrong! Only '-no' is accepted."
-   write(iout,'(A)') "But you specify '"//str//"'."
+   write(6,'(A)') "But you specify '"//str//"'."
    stop
   end if
  end if
@@ -44,7 +43,7 @@ end program main
 ! read the MOs in orbital file of BDF and adjust its p,d,f,g,h functions
 !  order to that of Gaussian
 subroutine bdf2fch(orbname, fchname, prt_no)
- use fch_content, only: iout, check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
@@ -91,10 +90,10 @@ subroutine bdf2fch(orbname, fchname, prt_no)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type>1)) then
-  write(iout,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
+  write(6,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
                     & detected. Cannot deal with that.'
-  write(iout,'(A)') 'BDF supports only spherical harmonic basis functions.'
-  write(iout,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
+  write(6,'(A)') 'BDF supports only spherical harmonic basis functions.'
+  write(6,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
                    & to obtain a new .fch(k) file."
   stop
  end if
@@ -252,7 +251,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2)
  implicit none
  integer :: i, j, k
  integer, intent(in) :: i0, shell_type, length, nbf
- integer, parameter :: iout = 6
  integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
  !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
  integer, intent(inout) :: idx2(nbf)
@@ -261,9 +259,9 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(iout,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
+  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
                    & shell_type is 0 or -1. Impossible.'
-  write(iout,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
+  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if
 
