@@ -94,11 +94,13 @@ subroutine fch2qm4d(fchname, binary)
 
  if(binary) then
   write(6,'(A)') 'ERROR in subroutine fch2qm4d: currently binary=.True.&
-                   & is not supported.'
+                 & is not supported.'
   write(6,'(A)') "Please use '-xml'."
   stop
  end if
 
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf)         ! read content in .fch
 

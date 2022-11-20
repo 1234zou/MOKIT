@@ -36,12 +36,12 @@ end program main
 ! transform a Gaussian UHF type .fchk into a RHF/ROHF type .fchk file
 subroutine fch_u2r(fchname, newfch)
  implicit none
- integer :: k, nalpha, nbeta, fchid, fchid1, RENAME
+ integer :: i, k, nalpha, nbeta, fchid, fchid1, RENAME
  character(len=240), intent(in) :: fchname, newfch
  character(len=240) :: fchname1, buf
- logical :: rhf
+ logical :: rhf, no_remain
 
- k = 0; buf = ' '; fchname1 = ' '; rhf = .false.
+ k = 0; buf = ' '; fchname1 = ' '; rhf = .false.; no_remain = .false.
 
  k = index(fchname,'.fch',back=.true.)
  fchname1 = fchname(1:k-1)//'_r.fch'
@@ -166,19 +166,26 @@ subroutine fch_u2r(fchname, newfch)
 
  if(.not. rhf) then
   do while(.true.)
-   read(fchid,'(A)') buf
+   read(fchid,'(A)',iostat=i) buf
+   if(i /= 0) then
+    no_remain = .true.
+    exit
+   end if
    if(buf(1:16) == 'Mulliken Charges') exit
   end do ! for while
  end if
- BACKSPACE(fchid)
 
- ! copy the remaining content
- do while(.true.)
-  read(fchid,'(A)',iostat=k) buf
-  if(k /= 0) exit
-  write(fchid1,'(A)') TRIM(buf)
- end do
- ! copy done
+ if(.not. no_remain) then
+  BACKSPACE(fchid)
+
+  ! copy the remaining content
+  do while(.true.)
+   read(fchid,'(A)',iostat=k) buf
+   if(k /= 0) exit
+   write(fchid1,'(A)') TRIM(buf)
+  end do ! for while
+  ! copy done
+ end if
 
  close(fchid)
  close(fchid1)

@@ -742,29 +742,37 @@ subroutine check_X2C_in_fch(fchname, alive)
  close(fid)
 end subroutine check_X2C_in_fch
 
-! check whether 'int=nobasistransform' exists in a given .fch(k) file
-function nobasistransform_in_fch(fchname) result(notrans)
+! check whether 'nobasistransform' exists in a given .fch(k) file
+! if not, print warning
+subroutine check_nobasistransform_in_fch(fchname)
  implicit none
  integer:: i, fid
  character(len=240) :: buf
  character(len=1200) :: longbuf
  character(len=240), intent(in) :: fchname
- logical :: notrans
 
- notrans = .true.
+ buf = ' '; longbuf = ' '
  call open_file(fchname, .true., fid)
 
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:5) == 'Route') exit
 
+  ! no Route Section in fch, maybe produced by g09 or older version
+  ! do not print warning in this case
   if(buf(1:5) == 'Charg') then
    close(fid)
    return
   end if
  end do ! for while
 
- notrans = .false.
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine check_nobasistransform_in_fch: problema&
+                   &tic file '//TRIM(fchname)
+  stop
+ end if
 
  do i = 1, 5
   read(fid,'(A)') buf
@@ -779,31 +787,49 @@ function nobasistransform_in_fch(fchname) result(notrans)
 
  close(fid)
  call lower(longbuf)
- if(index(longbuf,'nobasistransform') > 0) notrans = .true.
-end function nobasistransform_in_fch
+
+ if(index(longbuf,'nobasistransform') == 0) then
+  write(6,'(/,A)') REPEAT('-',56)
+  write(6,'(A)') "Warning in subroutine check_nobasistransform_in_fch: keyword&
+                 & 'nobasistransform' not"
+  write(6,'(A)') 'detected in file '//TRIM(fchname)
+  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+                 &cify this keyword in .gjf file.'
+  write(6,'(A)') REPEAT('-',56)
+ end if
+end subroutine check_nobasistransform_in_fch
 
 ! check whether 'nosymm' exists in a given .fch(k) file
-function nosymm_in_fch(fchname) result(nosymm)
+! if not, print warning
+subroutine check_nosymm_in_fch(fchname)
  implicit none
  integer:: i, fid
  character(len=240) :: buf
  character(len=1200) :: longbuf
  character(len=240), intent(in) :: fchname
- logical :: nosymm
 
- nosymm = .true.
+ buf = ' '; longbuf = ' '
  call open_file(fchname, .true., fid)
+
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:5) == 'Route') exit
 
+  ! no Route Section in fch, maybe produced by g09 or older version
+  ! do not print warning in this case
   if(buf(1:5) == 'Charg') then
    close(fid)
    return
   end if
  end do ! for while
 
- nosymm = .false.
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine check_nosymm_in_fch: problematic file '&
+                   //TRIM(fchname)
+  stop
+ end if
 
  do i = 1, 5
   read(fid,'(A)') buf
@@ -818,8 +844,16 @@ function nosymm_in_fch(fchname) result(nosymm)
 
  close(fid)
  call lower(longbuf)
- if(index(longbuf,'nosymm') > 0) nosymm = .true.
-end function nosymm_in_fch
+
+ if(index(longbuf,'nosymm') == 0) then
+  write(6,'(/,A)') REPEAT('-',56)
+  write(6,'(A)') "Warning in subroutine check_nosymm_in_fch: keyword 'nosymm' &
+                 &not detected in file "//TRIM(fchname)
+  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
+                 &cify this keyword in .gjf file.'
+  write(6,'(A)') REPEAT('-',56)
+ end if
+end subroutine check_nosymm_in_fch
 
 ! expand MO coefficients from spherical harmonic type functions into Cartesian
 ! type functions

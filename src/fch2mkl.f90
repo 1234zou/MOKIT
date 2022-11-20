@@ -73,6 +73,8 @@ subroutine fch2mkl(fchname)
  mklname = fchname(1:i-1)//'_o.mkl'
  inpname = fchname(1:i-1)//'_o.inp'
 
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
  call check_DKH_in_fch(fchname, rel)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file

@@ -45,6 +45,9 @@ program main
   fname = fname(1:k-3)//'fch'
  end if
 
+ call check_nobasistransform_in_fch(fname)
+ call check_nosymm_in_fch(fname)
+
  if(i == 2) then
   str = ' '
   call getarg(2, str)

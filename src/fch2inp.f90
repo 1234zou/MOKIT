@@ -113,7 +113,6 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  character(len=240) :: inpname = ' '
  logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
  logical, intent(in) :: gvb
- logical, external :: nobasistransform_in_fch, nosymm_in_fch
 
  uhf = .false.; ghf = .false.; ecp = .false.; so_ecp = .false.
 
@@ -126,23 +125,8 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end if
  inpname = fchname(1:i-1)//'.inp'
 
- if(.not. nobasistransform_in_fch(fchname)) then
-  write(6,'(/,A)') REPEAT('-',56)
-  write(6,'(A)') "Warning in subroutine fch2inp: keyword 'nobasistransform'&
-                   & not detected in file "//TRIM(fchname)//'.'
-  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
-                   &cify this keyword in .gjf file.'
-  write(6,'(A)') REPEAT('-',56)
- end if
-
- if(.not. nosymm_in_fch(fchname)) then
-  write(6,'(/,A)') REPEAT('-',56)
-  write(6,'(A)') "Warning in subroutine fch2inp: keyword 'nosymm' not detected&
-                   & in file "//TRIM(fchname)//'.'
-  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
-                   &cify this keyword in .gjf file.'
-  write(6,'(A)') REPEAT('-',56)
- end if
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
 
  X2C = .false. ! default
  call check_DKH_in_fch(fchname, rel)

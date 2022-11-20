@@ -58,6 +58,8 @@ subroutine fch2psi(fchname)
  character(len=240), intent(in) :: fchname
  logical :: sph, uhf
 
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf)
  call fch2inp_wrap(fchname, .false., 0, 0)
  call check_sph(fchname, sph)

@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-17)'
+  write(6,'(A)') '            Version: 1.2.5 (2022-Nov-20)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -611,7 +611,10 @@ contains
 
   if(basis(1:3) == 'gen') then
    close(fid)
-   call record_gen_basis_in_gjf(gjfname, basname, .true.)
+   if(.not. check_readfch(gjfname)) then
+    call record_gen_basis_in_gjf(gjfname, basname, .true.)
+   end if
+
    open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
    do while(.true.)
     read(fid,'(A)') buf
@@ -1620,6 +1623,32 @@ contains
 
   call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
  end subroutine read_bgchg_from_gjf
+
+ ! check any readrhf/readuhf/readno in the given .gjf file
+ function check_readfch(gjfname) result(has_readfch)
+  implicit none
+  integer :: fid
+  character(len=240) :: buf
+  character(len=240), intent(in) :: gjfname
+  logical :: has_readfch
+ 
+  has_readfch = .false.
+  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ 
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+  end do ! for while
+ 
+  read(fid,'(A)') buf
+  close(fid)
+ 
+  if(LEN_TRIM(buf) == 0) return
+  call lower(buf)
+ 
+  if(index(buf,'readrhf')>0 .or. index(buf,'readuhf')>0 .or. &
+     index(buf,'readno')>0) has_readfch = .true.
+ end function check_readfch
 
 end module mr_keyword
 
