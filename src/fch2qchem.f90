@@ -80,6 +80,8 @@ subroutine fch2qchem(fchname, npair)
  end if
  proname = fchname(1:i-1)
  inpname = fchname(1:i-1)//'.in'
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
 
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF

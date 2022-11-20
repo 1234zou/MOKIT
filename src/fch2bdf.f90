@@ -83,8 +83,10 @@ subroutine fch2bdf(fchname, prt_no)
  logical :: uhf
 
  orbfile = ' '
-
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
  call read_ncontr_from_fch(fchname, k)
+
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)

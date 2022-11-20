@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Nov 17, 2022)
+MOKIT 1.2.5 (Nov 20, 2022)
 ------------------------
 * remove the integer variable iout in source code
 * support gen/genecp in automr

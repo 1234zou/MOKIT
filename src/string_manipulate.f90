@@ -980,6 +980,7 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
+
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(new_dat), TRIM(addH_dat))
