@@ -40,6 +40,7 @@ or
 
 安装
 ----------
+### 一种选择：从源码编译
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)
@@ -79,6 +80,21 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
   因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
+
+### 另一种选择：使用预编译版
+* 前提
+    - 虽然不需要Fortran编译器，预编译版仍然依赖`libgfortran.so`
+    - 预编译版仍然需要Python3环境和NumPy
+* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
+* 下载预编译版后, 仍然需要设定上面提到的所有环境变量。还要多设定一个：
+
+```
+export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+```
+  因为 OpenBLAS 动态库放在了 `$MOKIT_ROOT/lib`. 
+
+  预编译版本可能仍然有不少依赖问题，所以更推荐从源码编译。欢迎提issue报告相关问题。
+
 
 快速开始
 ----------
@@ -148,6 +164,8 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 * 支持BAGEL, CFOUR, NWCHEM等软件间传轨道
 
 * 开发和实现多参考的激发态计算
+
+* 通过conda发布预编译版
 
 如何引用
 ----------
