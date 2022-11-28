@@ -42,6 +42,7 @@ Nov 20, 2022
 Installation
 ------------
 
+### Option 1: Build from Source
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
     - Intel MKL(recommended) or [OpenBLAS](https://github.com/xianyi/OpenBLAS)
@@ -70,20 +71,29 @@ export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
-  Remember to modify the `GMS` path to suit your local environment. If you
-  download and use the pre-compiled Linux executables, you should also add
+  Remember to modify the `GMS` path to suit your local environment. 
 
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
-```
-
-  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`. Note that you
+  Note that you
   need to run `source ~/.bashrc` or exit the terminal as well as re-login, in
   order to activate newly written environment variables.
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
   in [manual](doc/).
+
+### Option 2: Use Pre-compiled MOKIT
+* Prerequisites: 
+    - Although you don't need to have a Fortran compiler, `libgfortran.so` is still needed.
+    - Still, you need to have a Python3 environment and NumPy.
+* A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found at [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
+* After downloading the pre-built artifacts, you still need to set all the environment variables mentioned above, and one more:
+
+```
+export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+```
+  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`. 
+
+  There may still be some compatilibity problem when using pre-built MOKIT, so that's less recommended than building from source. Feel free to open an issue for any problems about that.
 
 Quick Start
 -----------
@@ -151,6 +161,8 @@ TODO
 * MOs trasferring among BAGEL, CFOUR, NWCHEM, etc.
 
 * Develop/Implement black-box strategies of excited state calculations
+
+* Distribute pre-built via conda
 
 Citation
 --------
