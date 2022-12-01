@@ -1,5 +1,7 @@
-MOKIT 1.2.5 (Nov 20, 2022)
+MOKIT 1.2.5 (Dec 1, 2022)
 ------------------------
+* skip stable=opt in frag_guess_wfn
+* add missing nopen for vir_idx in ist=3 when reading ROHF wfn
 * remove the integer variable iout in source code
 * support gen/genecp in automr
 * add keyword HFonly

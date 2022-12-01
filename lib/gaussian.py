@@ -189,3 +189,29 @@ def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
   int_file = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
   from_integrals(int_file, h1eff, eri_cas, nacto, nacte, ecore, ms=mol.spin)
 
+def make_orb_resemble(target_fch, ref_fch, nmo=None):
+  '''
+  make a set of target MOs resembles the reference MOs
+  (different geometries and different basis set in two .fch files are allowed)
+  target_fch: the .fch file which holds MOs to be updated
+  ref_fch: the .fch file which holds reference MOs
+  nmo: indices 1~nmo MOs in ref_fch will be set as reference MOs
+  If nmo is not given, it will be set as na (number of alpha electrons)
+  '''
+  from rwwfn import read_na_and_nb_from_fch
+  from mo_svd import orb_resemble
+  if nmo is None:
+    nmo, nb = read_na_and_nb_from_fch(ref_fch)
+
+  mol1 = load_mol_from_fch(target_fch)
+  mol2 = load_mol_from_fch(ref_fch)
+  nbf1, nif1 = read_nbf_and_nif_from_fch(target_fch)
+  nbf2, nif2 = read_nbf_and_nif_from_fch(ref_fch)
+  # rotate MOs of target molecule at target basis to resemble known orbitals
+  cross_S = gto.intor_cross('int1e_ovlp', mol1, mol2)
+  mo1 = fch2py(target_fch, nbf1, nif1, 'a')
+  mo2 = fch2py(ref_fch, nbf2, nif2, 'a')
+  mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
+  noon = np.zeros(nif1)
+  py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False)
+

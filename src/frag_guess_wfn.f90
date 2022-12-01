@@ -124,13 +124,19 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  character(len=240) :: buf, chkname, fchname, logname, basname
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf
- logical :: guess_read
+ logical :: guess_read, stab_chk
  type(frag) :: tmp_frag1, tmp_frag2
 
  buf = ' '; longbuf = ' '
- call read_eda_type_from_gjf(gjfname, eda_type)
- call read_disp_ver_from_gjf(gjfname, disp_type)
 
+ call read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
+ if(.not. stab_chk) then
+  write(6,'(/,A)') 'Warning from subroutine frag_guess_wfn: wave function stabili&
+                   &ty check is turned'
+  write(6,'(A,/)') 'off. Not recommended. You should know what you are doing.'
+ end if
+
+ call read_disp_ver_from_gjf(gjfname, disp_type)
  if(eda_type==4 .and. disp_type>0) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction&
                    & cannot be used in SAPT.'
@@ -269,7 +275,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  if(mult/=1 .and. eda_type==1) then
   write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
-                   & be applied to RHF. But'
+                 & be applied to RHF. But'
   write(6,'(A)') 'the total spin is not singlet.'
   close(fid)
   stop
@@ -299,7 +305,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  if(eda_type==1 .and. wfn_type/=1) then
   write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
-                   & be applied to RHF. But'
+                 & be applied to RHF. But'
   write(6,'(A,I0)') 'RHF-type wavefunction is not specified. wfn_type=',wfn_type
   close(fid)
   stop
@@ -327,6 +333,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   close(fid)
   stop
  end if
+
  if(ANY(frags(:)%mult==0) .or. ANY(frags(:)%mult==-1)) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: the spin multiplicity&
                    & of some fragment is'
@@ -391,7 +398,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   read(buf(k+1:m-1),*) ifrag
 
   if(i==1 .and. eda_type/=0 .and. ifrag/=1) then
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fragment number.'
+   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fr&
+                    &agment number.'
    write(6,'(A)') 'EDA input file required. This task requires definition&
                   & of fragment number'
    write(6,'(A)') 'monomer1, monomer2, monomer3,...'
@@ -443,9 +451,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: conflicted type of&
                     & wfn between the total system and some fragment.'
    write(6,'(A)') 'Restricted closed shell wfn is specified for the total&
-                    & system. But'
+                  & system. But'
    write(6,'(A)') 'restricted open shell or unrestricted wfn is specified&
-                    & for some fragment.'
+                  & for some fragment.'
    write(6,'(3(A,I0))') 'natom=', natom, ', i=', i, ', ifrag=', ifrag
    stop
   end if
@@ -494,7 +502,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   write(frags(i)%fname,'(I3.3,A)') i, '-'//TRIM(gjfname)
   guess_read = .false.
 !  if(eda_type==3 .and. i>nfrag0 .and. i<nfrag) guess_read = .true.
-  call gen_gjf_from_type_frag(frags(i), guess_read, basname)
+  call gen_gjf_from_type_frag(frags(i), guess_read, stab_chk, basname)
  end do ! for i
 
  j = index(frags(1)%fname, '.gjf', back=.true.)
@@ -524,7 +532,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   i = nfrag
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
-        frags(i)%wfn_type)
+        frags(i)%wfn_type, stab_chk)
   frags(i)%noiter = .false.
   call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
@@ -568,15 +576,17 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 end subroutine frag_guess_wfn
 
 ! read the parameter eda_type from a given .gjf file
-subroutine read_eda_type_from_gjf(gjfname, eda_type)
+subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
  implicit none
- integer :: i, j, k, fid
+ integer :: i, j, k, len_buf, fid
  integer, intent(out) :: eda_type
- character(len=8) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
+ character(len=69), parameter :: error_str = 'ERROR in subroutine read_eda_type&
+  &_from_gjf: wrong syntax in gjf file.'
+ logical, intent(out) :: stab_chk ! True/False for 'stable=opt' or not
 
- eda_type = 0
+ eda_type = 0; stab_chk = .true.
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
  do while(.true.)
@@ -586,22 +596,28 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type)
 
  read(fid,'(A)') buf ! Title Card line
  close(fid)
+ len_buf = LEN_TRIM(buf)
 
  i = index(buf, '{')
  j = index(buf, '}')
+ if(i==0 .or. j==0) then
+  write(6,'(/,A)') error_str
+  write(6,'(A)') "No '{' or '}' found in file "//TRIM(gjfname)
+  stop
+ end if
+
+ buf = ADJUSTL(buf(i+1:j-1))
  k = index(buf,',')
  if(k > 0) j = k
  if(j < i) then
-  write(6,'(A)') 'ERROR in subroutine read_eda_type_from_gjf: wrong syntax&
-                 & in file '//TRIM(gjfname)
+  write(6,'(/,A)') error_str
   write(6,'(A)') 'buf='//TRIM(buf)
   stop
  end if
 
- str = buf(i+1:j-1)
- call lower(str)
+ call lower(buf)
 
- select case(str)
+ select case(buf(1:j-1))
  case('frag')
  case('morokuma')
   eda_type = 1
@@ -612,14 +628,27 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type)
  case('sapt')
   eda_type = 4
  case default
-  write(6,'(/,A)') "ERROR in subroutine read_eda_type_from_gjf: invalid&
-                   & keyword '"//buf(i+1:j-1)//"' in Title Card"
-  write(6,'(A)') 'line of file '//TRIM(gjfname)//'.'
+  write(6,'(/,A)') error_str
   write(6,'(A)') 'You are supposed to write one of {morokuma}, {gks} or {&
                  &sapt,bronze} in the'
   write(6,'(A)') 'Title Card line.'
   stop
  end select
+
+ k = index(buf,',')
+
+ if(k > 0) then
+  buf = buf(k+1:)
+  select case(TRIM(buf))
+  case('bronze') ! SAPT,bronze
+  case('nostab')
+   stab_chk = .false.
+  case default
+   write(6,'(/,A)') error_str
+   write(6,'(A)') "Invalid keyword '"//TRIM(buf)//"'"
+   stop
+  end select
+ end if
 
 end subroutine read_eda_type_from_gjf
 
@@ -767,7 +796,7 @@ subroutine read_nfrag_from_buf(buf, nfrag)
 end subroutine read_nfrag_from_buf
 
 ! generate a .gjf file from a type frag
-subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
+subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  use frag_info, only: frag
  use theory_level, only: mem, nproc, method, basis, scrf, sph, eda_type, disp_type
  implicit none
@@ -775,14 +804,14 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
  character(len=9) :: method0
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
- logical, intent(in) :: guess_read
+ logical, intent(in) :: guess_read, stab_chk
 
  k = [index(method,'o3lyp'),index(method,'ohse2pbe'),index(method,'ohse1pbe')]
 
  if( ANY(k > 0) ) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP,&
-                   & OHSE2PBE, and OHSE1PBE functionals'
-  write(6,'(A)') 'are not supported. Because these functional names are confusing.'
+  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP, OHSE2PBE&
+                   &, and OHSE1PBE functionals'
+  write(6,'(A)') 'are not supported since these functional names are confusing.'
   stop
  end if
 
@@ -802,7 +831,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
 
  if(eda_type==1 .and. TRIM(method0)/='Rhf') then
   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: Morokuma-EDA&
-                     & can only be applied to RHF.'
+                   & can only be applied to RHF.'
   write(6,'(A)') 'But found method='//TRIM(method0)
   stop
  end if
@@ -831,7 +860,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
   write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=300,NoIncFock,NoVarAcc,conver=7)'
  case default
   write(6,'(A)') 'ERROR in subroutine gen_gjf_from_type_frag: wfn_type&
-                   & out of range.'
+                 & out of range.'
   write(6,'(A,I0)') 'frag0%wfn_type=', frag0%wfn_type
   stop
  end select
@@ -889,7 +918,8 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, basname)
   write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
   write(fid,'(A)',advance='no') '#p '//TRIM(method0)//' chkbasis guess=read&
-   & geom=allcheck nosymm stable=opt scf(xqc,maxcycle=300,NoIncFock,NoVarAcc)'
+   & geom=allcheck nosymm scf(xqc,maxcycle=300,NoIncFock,NoVarAcc)'
+  if(stab_chk) write(fid,'(A)',advance='no') ' stable=opt'
 
   if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
   if(disp_type == 1) then
@@ -1725,7 +1755,8 @@ end subroutine del_ecp_of_ghost_in_gjf
 
 ! construct supermolecule occ MOs from direct sum of fragment occ MOs
 ! construct supermolecule vir MOs by PAO construction
-subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn_type)
+subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
+                                       wfn_type, stab_chk)
  use util_wrapper, only: formchk, unfchk
  implicit none
  integer :: i, j, fid0, fid, k1, k2, k5, RENAME
@@ -1739,7 +1770,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
  real(kind=8), allocatable :: mo_a(:,:), mo_b(:,:)   ! supermolecule MOs
  real(kind=8), allocatable :: ovlp(:,:) ! AO overlap matrix
  logical :: alive
- logical, intent(in) :: pos(n)
+ logical, intent(in) :: pos(n), stab_chk
 
  i = index(gjfname, '.gjf', back=.true.)
  if(i == 0) then
@@ -1779,7 +1810,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, wfn
     buf = buf(1:i-1)//')'//buf(i+j+1:)
    end if
 
-   if(wfn_type == 3) buf = TRIM(buf)//' stable=opt'
+   if(wfn_type==3 .and. stab_chk) buf = TRIM(buf)//' stable=opt'
   end if
   write(fid,'(A)') TRIM(buf)
   if(LEN_TRIM(buf) == 0) exit
