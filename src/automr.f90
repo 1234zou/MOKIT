@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Nov-20'
+  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Dec-1'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -379,25 +379,26 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# localize the projected MOs of larger basis'
  write(fid2,'(A,I0)') 'ncore = ', ncore
+ write(fid2,'(A)') 'nopen = np.sum(mf.mo_occ==1)'
  write(fid2,'(A)') 'idx2 = np.sum(mf.mo_occ==2)'
  write(fid2,'(A)') 'idx1 = min(npair, idx2-ncore)'
  write(fid2,'(A)') 'occ_idx = range(ncore,idx2)'
- write(fid2,'(A)') 'vir_idx = range(idx2,nif2)'
- write(fid2,'(A)') 'idx3 = npair # backup'
+ write(fid2,'(A)') 'vir_idx = range(idx2+nopen,nif2)'
+ write(fid2,'(A)') 'nvir_lmo = npair # backup'
  write(fid2,'(A)') 'npair = idx1 # update'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') "occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                   &mol._bas[:,3],mol.cart,nbf,idx2-ncore,mf.mo_coeff[:,occ_idx],&
-                   &S,'mulliken')"
-  write(fid2,'(A)') "vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                   &mol._bas[:,3],mol.cart,nbf,nif2-idx2,mf.mo_coeff[:,vir_idx],&
-                   &S,'mulliken')"
+  write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+                    &mol._bas[:,3],mol.cart,nbf,'
+  write(fid2,'(17X,A)') "idx2-ncore,mf.mo_coeff[:,occ_idx],S,'mulliken')"
+  write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
+                    &mol._bas[:,3],mol.cart,nbf,'
+  write(fid2,'(17X,A)') "nif2-idx2-nopen,mf.mo_coeff[:,vir_idx],S,'mulliken')"
  else ! Boys localization
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,occ_idx])'
   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, idx2-ncore, mf.mo_coeff[:,occ_idx], mo_dipole)'
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,vir_idx])'
-  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2, mf.mo_coeff[:,vir_idx], mo_dipole)'
+  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2-nopen, mf.mo_coeff[:,vir_idx], mo_dipole)'
  end if
 
  write(fid2,'(A)') 'mf.mo_coeff[:,occ_idx] = occ_loc_orb.copy()'
@@ -406,11 +407,9 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# pair the active orbitals'
  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff)'
- write(fid2,'(A)') 'nopen = np.sum(mf.mo_occ==1)'
  write(fid2,'(A)') 'nalpha = np.sum(mf.mo_occ > 0)'
- write(fid2,'(A)') 'nvir_lmo = idx3'
- write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo,&
-                   &nbf, nif, mf.mo_coeff, mo_dipole)'
+ write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore,npair,nopen,nalpha,nvir_lmo,&
+                   &nbf,nif,mf.mo_coeff,mo_dipole)'
  write(fid2,'(A)') 'mf.mo_coeff = alpha_coeff.copy()'
  write(fid2,'(A)') '# pair done'
 

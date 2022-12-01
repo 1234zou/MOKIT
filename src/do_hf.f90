@@ -443,7 +443,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   i = index(hf_prog_path, '/', back=.true.)
   if(i == 0) then
    write(6,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol&
-                    & found in string '"//TRIM(hf_prog_path)//"'."
+                  & found in string '"//TRIM(hf_prog_path)//"'."
    stop
   end if
   prog_name = TRIM(hf_prog_path(i+1:))
