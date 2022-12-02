@@ -1,5 +1,8 @@
 .setup_lib:
   before_script:
+    - apt-get update -qy
+    - apt-get install -qy libopenblas-dev make gcc gfortran  
+    - pip install numpy
     - ldconfig -p | grep libgfort
 
 py37_gcc8:
@@ -8,9 +11,6 @@ py37_gcc8:
     TARGET: mokit-master_linux_py37_gcc8
   extends: .setup_lib
   script:
-    - apt-get update -qy
-    - apt-get install -qy libopenblas-dev make gcc gfortran  
-    - pip install numpy
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
     - cp /usr/lib/libgfortran.so.4.* .
@@ -32,9 +32,6 @@ py38_gcc8:
     TARGET: mokit-master_linux_py38_gcc8
   extends: .setup_lib
   script:
-    - apt-get update -qy
-    - apt-get install -qy libopenblas-dev make gcc gfortran  
-    - pip install numpy
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
     - cp /usr/lib/libgfortran.so.4.* .
@@ -58,9 +55,6 @@ py39_gcc10:
     TARGET: mokit-master_linux_py39_gcc10
   extends: .setup_lib
   script:
-    - apt-get update -qy
-    - apt-get install -qy libopenblas-dev make gcc gfortran  
-    - pip install numpy
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
     - cp /usr/lib/libgfortran.so.5.* .
@@ -82,9 +76,6 @@ py310_gcc10:
     TARGET: mokit-master_linux_py310_gcc10
   extends: .setup_lib
   script:
-    - apt-get update -qy
-    - apt-get install -qy libopenblas-dev make gcc gfortran  
-    - pip install numpy
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
     - cp /usr/lib/libgfortran.so.5.* .
