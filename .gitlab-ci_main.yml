@@ -5,6 +5,7 @@
     - pip install numpy
     - ldconfig -p | grep libgfort
     - ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
+    - ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
 
 py37_gcc8:
   image: python:3.7-buster
