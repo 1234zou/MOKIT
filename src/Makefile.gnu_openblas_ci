@@ -7,10 +7,10 @@ BIN = ../bin
 
 # --- gfortran + OpenBLAS ---
 F90    = gfortran
-FFLAGS = -O2 -cpp -fPIC -L../lib -R../lib
+FFLAGS = -O2 -cpp -fPIC -L../lib -Wl,--rpath=../lib
 MKL_FLAGS = -L/home/$$USER/software/openblas-0.3.21/lib64 -lopenblas
 F2PY   = f2py
-F2_FLAGS = -L../lib -R../lib
+F2_FLAGS = -L../lib -Wl,--rpath=../lib
 F2_F90_FLAGS = --f90flags="-cpp"
 
 include Makefile.main
