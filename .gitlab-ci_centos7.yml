@@ -1,10 +1,27 @@
+default:
+  before_script:
+    - >
+      sed -e 's|^mirrorlist=|#mirrorlist=|g' \
+      -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' \
+      -i.bak /etc/yum.repos.d/CentOS-*.repo
+    - yum makecache
+    - yum install -y epel-release
+    - >
+      sed -e 's!^metalink=!#metalink=!g' \
+      -e 's!^#baseurl=!baseurl=!g' \
+      -e 's!//download\.fedoraproject\.org/pub!//mirrors.bfsu.edu.cn!g' \
+      -e 's!//download\.example/pub!//mirrors.bfsu.edu.cn!g' \
+      -e 's!http://mirrors!https://mirrors!g' \
+      -i /etc/yum.repos.d/epel*.repo
+    - yum makecache
+    - yum install -y openblas-devel make gcc gcc-gfortran wget 
+
+
 centos7_conda_py37:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py37
   script:
-    - yum install -y epel-release
-    - yum install -y openblas-devel make gcc gcc-gfortran wget 
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
@@ -43,8 +60,6 @@ centos7_conda_py38:
   variables:
     TARGET: mokit-master_linux_centos7_conda_py38
   script:
-    - yum install -y epel-release
-    - yum install -y openblas-devel make gcc gcc-gfortran wget 
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
@@ -82,8 +97,6 @@ centos7_conda_py39:
   variables:
     TARGET: mokit-master_linux_centos7_conda_py39
   script:
-    - yum install -y epel-release
-    - yum install -y openblas-devel make gcc gcc-gfortran wget 
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
