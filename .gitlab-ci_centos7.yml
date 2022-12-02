@@ -1,5 +1,5 @@
-default:
-  before_script:
+setup_yum:
+  script:
     - >
       sed -e 's|^mirrorlist=|#mirrorlist=|g' 
       -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
@@ -21,6 +21,8 @@ centos7_conda_py37:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py37
+  before_script:
+    - setup_yum
   script:
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh
     - >
@@ -59,6 +61,8 @@ centos7_conda_py38:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py38
+  before_script:
+    - setup_yum
   script:
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh
     - >
@@ -96,6 +100,8 @@ centos7_conda_py39:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py39
+  before_script:
+    - setup_yum
   script:
     - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
     - >
