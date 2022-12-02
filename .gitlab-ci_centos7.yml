@@ -27,7 +27,7 @@ centos7_conda_py37:
     - ln -s libopenblas-r*.so libopenblas.so.0
     - ln -s libgfortran.so.3.* libgfortran.so.3
     - cd ../src
-    - make all -f Makefile.gnu_openblas
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
@@ -67,7 +67,7 @@ centos7_conda_py38:
     - ln -s libopenblas-r*.so libopenblas.so.0
     - ln -s libgfortran.so.3.* libgfortran.so.3
     - cd ../src
-    - make all -f Makefile.gnu_openblas
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
@@ -106,7 +106,7 @@ centos7_conda_py39:
     - ln -s libopenblas-r*.so libopenblas.so.0
     - ln -s libgfortran.so.3.* libgfortran.so.3
     - cd ../src
-    - make all -f Makefile.gnu_openblas
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET

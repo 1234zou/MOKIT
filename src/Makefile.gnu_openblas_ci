@@ -1,0 +1,16 @@
+# written by jxzou at 20200322
+# updated by jxzou at 20200515: delete 'install', add $(BIN)
+# updated by jxzou at 20221008: delete F2_MKL_FLAGS
+# updated by wsr at 20221202: adjust for gitlab ci
+
+BIN = ../bin
+
+# --- gfortran + OpenBLAS ---
+F90    = gfortran
+FFLAGS = -O2 -cpp -fPIC -L../lib -R../lib
+MKL_FLAGS = -L/home/$$USER/software/openblas-0.3.21/lib64 -lopenblas
+F2PY   = f2py
+F2_FLAGS = -L../lib -R../lib
+F2_F90_FLAGS = --f90flags="-cpp"
+
+include Makefile.main
