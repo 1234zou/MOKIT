@@ -1,19 +1,20 @@
+# Switch to BFSU mirror for git.nju. No need to do that in GitLab.
 .setup_yum:
   before_script:
-    - >
-      sed -e 's|^mirrorlist=|#mirrorlist=|g' 
-      -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
-      -i.bak /etc/yum.repos.d/CentOS-*.repo
-    - yum makecache
+    #- >
+    #  sed -e 's|^mirrorlist=|#mirrorlist=|g' 
+    #  -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
+    #  -i.bak /etc/yum.repos.d/CentOS-*.repo
+    #- yum makecache
     - yum install -y epel-release
-    - >
-      sed -e 's!^metalink=!#metalink=!g' 
-      -e 's!^#baseurl=!baseurl=!g' 
-      -e 's!//download\.fedoraproject\.org/pub!//mirrors.bfsu.edu.cn!g' 
-      -e 's!//download\.example/pub!//mirrors.bfsu.edu.cn!g' 
-      -e 's!http://mirrors!https://mirrors!g' 
-      -i /etc/yum.repos.d/epel*.repo
-    - yum makecache
+    #- >
+    #  sed -e 's!^metalink=!#metalink=!g' 
+    #  -e 's!^#baseurl=!baseurl=!g' 
+    #  -e 's!//download\.fedoraproject\.org/pub!//mirrors.bfsu.edu.cn!g' 
+    #  -e 's!//download\.example/pub!//mirrors.bfsu.edu.cn!g' 
+    #  -e 's!http://mirrors!https://mirrors!g' 
+    #  -i /etc/yum.repos.d/epel*.repo
+    #- yum makecache
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
 
 

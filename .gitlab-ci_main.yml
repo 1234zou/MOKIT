@@ -6,11 +6,13 @@ py37_gcc8:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
     - pip install numpy
-    - cd src
-    - make all -f Makefile.gnu_openblas
-    - cd ../lib
+    - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/libgfortran.so.4.* .
+    - ln -s libgfortran.so.4.* libgfortran.so.4
     - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ../src
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
@@ -27,11 +29,13 @@ py38_gcc8:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
     - pip install numpy
-    - cd src
-    - make all -f Makefile.gnu_openblas
-    - cd ../lib
+    - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/libgfortran.so.4.* .
+    - ln -s libgfortran.so.4.* libgfortran.so.4
     - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ../src
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
@@ -50,11 +54,13 @@ py39_gcc10:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
     - pip install numpy
-    - cd src
-    - make all -f Makefile.gnu_openblas
-    - cd ../lib
-    - cp /usr/lib/*/*/libopenblasp*.so .
+    - cd lib
+    - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/libgfortran.so.5.* .
+    - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ../src
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
@@ -71,11 +77,13 @@ py310_gcc10:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
     - pip install numpy
-    - cd src
-    - make all -f Makefile.gnu_openblas
-    - cd ../lib
-    - cp /usr/lib/*/*/libopenblasp*.so .
+    - cd lib
+    - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/libgfortran.so.5.* .
+    - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ../src
+    - make all -f Makefile.gnu_openblas_ci
     - cd ..
     - mkdir $TARGET
     - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
