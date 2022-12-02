@@ -83,7 +83,6 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 
 ### 另一种选择：使用预编译版
 * 前提
-    - 虽然不需要Fortran编译器，预编译版仍然依赖`libgfortran.so`
     - 预编译版仍然需要Python3环境和NumPy
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
 * 下载预编译版后, 仍然需要设定上面提到的所有环境变量。还要多设定一个：
