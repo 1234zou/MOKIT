@@ -13,8 +13,8 @@ py37_gcc8:
   script:
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/libgfortran.so.4.* .
-    - ln -s libgfortran.so.4.* libgfortran.so.4
+    - cp /usr/lib/*/libgfortran.so.5.* .
+    - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ../src
     - make all -f Makefile.gnu_openblas_ci
@@ -34,8 +34,8 @@ py38_gcc8:
   script:
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/libgfortran.so.4.* .
-    - ln -s libgfortran.so.4.* libgfortran.so.4
+    - cp /usr/lib/*/libgfortran.so.5.* .
+    - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ../src
     - make all -f Makefile.gnu_openblas_ci
@@ -57,7 +57,7 @@ py39_gcc10:
   script:
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/libgfortran.so.5.* .
+    - cp /usr/lib/*/libgfortran.so.5.* .
     - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ../src
@@ -78,7 +78,7 @@ py310_gcc10:
   script:
     - cd lib
     - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/libgfortran.so.5.* .
+    - cp /usr/lib/*/libgfortran.so.5.* .
     - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
     - cd ../src
