@@ -5,7 +5,7 @@
     - pip install numpy
     - ldconfig -p | grep libgfort
     - ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
-    - ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
+    #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
 
 py37_gcc8:
   image: python:3.7-buster
@@ -58,7 +58,7 @@ py39_gcc10:
   extends: .setup_lib
   script:
     - cd lib
-    - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/*/openblas-pthread/libopenblasp*.so .
     - cp /usr/lib/*/libgfortran.so.5.* .
     - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
@@ -79,7 +79,7 @@ py310_gcc10:
   extends: .setup_lib
   script:
     - cd lib
-    - cp /usr/lib/*/libopenblasp*.so .
+    - cp /usr/lib/*/openblas-pthread/libopenblasp*.so .
     - cp /usr/lib/*/libgfortran.so.5.* .
     - ln -s libgfortran.so.5.* libgfortran.so.5
     - ln -s libopenblasp*.so libopenblas.so.0
