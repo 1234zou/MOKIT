@@ -607,7 +607,7 @@ end subroutine add_RIJK_bas_into_orca_inp
 ! copy mixed/user-defined basis set in a given .gjf file to a .bas file
 subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  implicit none
- integer :: i, j, nblank, fid1, fid2
+ integer :: i, nblank, fid1, fid2
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
  character(len=240), intent(out) :: basname
@@ -784,7 +784,7 @@ end subroutine add_mokit_path_to_genbas
 
 subroutine create_basfile(basfile, basis)
  implicit none
- integer :: i, fid
+ integer :: fid
  character(len=240), intent(in) :: basfile
  character(len=*), intent(in) :: basis
 

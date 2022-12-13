@@ -1,6 +1,212 @@
 ! written by jxzou at 20220524: move some subroutines from rwwfn.f90 and
 !  pop.f90 to this file
 
+module population
+ implicit none
+ integer :: ncontr, nbf, nif, natom, nmo, i1, i2
+! nmo <= nif, the number of MOs to be analyzed. nmo = i2-i1+1
+! i1: the beginning index of MOs to be analyzed
+! i2: the final index of MOs to be analyzed
+ integer, allocatable :: shl2atm(:), shltyp(:), bfirst(:), mo_center(:,:)
+! shl2atm: Shell to atom map. Atom begins from 1, not 0
+! shltyp: Shell types
+!   Spherical     |     Cartesian
+! -5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5
+!  H  G  F  D  L  S  P  D  F  G  H
+! bfirst: the beginning index of basis func. of each atom, size natom+1
+! mo_center: the center(s) of each MOs (multiple centers allowed), (0:natom,nmo)
+! mo_center(0,j) is number of atomic centers of the j-th MO
+! mo_center(1:,j) is the atomic centers of the j-th MO
+
+ real(kind=8), allocatable :: mo_dis(:,:)
+ ! mo_dis: distances between MOs, defined as the shortest distances of two
+ !         atomic centers
+ logical :: cart
+
+ type mo_cluster       ! an MO cluster
+  integer :: nocc = 0  ! number of occupied MOs
+  integer :: nvir = 0  ! number of virtual MOs
+  integer, allocatable :: occ_idx(:) ! indices of occupied MOs, size nocc
+  integer, allocatable :: vir_idx(:) ! indices of virtual MOs, size nvir
+ end type mo_cluster
+
+contains
+
+! get integer array bfirst (the beginning index of basis func. of each atom)
+subroutine get_bfirst()
+ implicit none
+ integer :: i, j
+ integer, allocatable :: ang0(:)
+
+ if( ANY(shltyp>1) ) then
+  cart = .true. ! 6D 10F
+ else
+  cart = .false. ! 5D 7F
+ end if
+
+ allocate(ang0(ncontr), source=0)
+ if(cart) then
+  forall(i = 1:ncontr) ang0(i) = (shltyp(i)+1)*(shltyp(i)+2)/2
+ else
+  where(shltyp == -1)
+   ang0 = 4
+  elsewhere
+   ang0 = 2*IABS(shltyp) + 1
+  end where
+ end if
+
+ bfirst = 0; bfirst(1) = 1
+
+ do i = 1, ncontr, 1
+  j = shl2atm(i) + 1
+  bfirst(j) = bfirst(j) + ang0(i)
+ end do ! for i
+
+ deallocate(ang0)
+
+ do i = 2, natom+1, 1
+  bfirst(i) = bfirst(i) + bfirst(i-1)
+ end do ! for i
+end subroutine get_bfirst
+
+subroutine init_shltyp_shl2atm_bfirst(fchname)
+ implicit none
+ character(len=240), intent(in) :: fchname
+
+ call read_ncontr_from_fch(fchname, ncontr)
+ allocate(shltyp(ncontr), shl2atm(ncontr))
+ call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)
+
+ natom = shl2atm(ncontr)
+ allocate(bfirst(natom+1))
+ call get_bfirst()
+ deallocate(shltyp, shl2atm)
+end subroutine init_shltyp_shl2atm_bfirst
+
+! Mulliken population for a set of MOs. Atomic centers are stored in integer
+! array mo_center. An MO is allowed to have multiple centers since we may deal
+! with diradical orbitals
+subroutine mulliken_pop_of_mo(fchname, ibegin, iend)
+ implicit none
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: ibegin, iend
+ real(kind=8) :: r, ddot
+ real(kind=8), parameter :: diff = 0.1d0
+ ! diff: difference between the largest and the 2nd largest component
+ real(kind=8), allocatable :: mo(:,:), S(:,:), rtmp(:), pop(:,:)
+ character(len=240), intent(in) :: fchname
+
+ i1 = ibegin; i2 = iend
+ if(i2<i1 .or. i1<1 .or. i2<1) then
+  write(6,'(/,A)') 'ERROR in subroutine mulliken_pop_of_mo: invalid i1, i2.'
+  write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2 
+  stop
+ end if
+
+ ! get integer array bfirst
+ call init_shltyp_shl2atm_bfirst(fchname)
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif), S(nbf,nbf))
+
+ ! read MOs and AO-basis overlap integrals
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ call get_ao_ovlp_using_fch(fchname, nbf, S)
+
+ allocate(rtmp(nbf), pop(natom,i1:i2))
+ pop = 0d0
+
+ do i = i1, i2, 1
+  do j = 1, natom, 1
+   k = bfirst(j); m = bfirst(j+1)-1
+   rtmp = 0d0
+   call dgemv('N', nbf, m-k+1, 1d0, S(:,k:m), nbf, mo(k:m,i), 1, 0d0, rtmp, 1)
+   pop(j,i) = ddot(nbf, mo(:,i), 1, rtmp, 1)
+  end do ! for j
+ end do ! for i
+
+ deallocate(mo, S, rtmp, bfirst)
+ allocate(mo_center(0:natom,i1:i2), source=0)
+
+ do i = i1, i2, 1
+  ! the largest component on an atom of an orbital
+  ak = MAXLOC(pop(:,i)); k = ak(1); r = pop(k,i)
+  mo_center(0,i) = 1; mo_center(1,i) = k
+  m = 1
+
+  ! find the 2nd largest component and so on
+  do j = 1, natom, 1
+   if(j == k) cycle
+   if(DABS(r - pop(j,i)) < diff) then
+    m = m + 1
+    mo_center(0,i) = m; mo_center(m,i) = j
+   end if
+  end do ! for j
+ end do ! for i
+
+ deallocate(pop)
+! do i = i1, i2, 1
+!  do j = 1, mo_center(0,i), 1
+!   write(6,'(I3)',advance='no') mo_center(j,i)
+!  end do ! for j
+!  write(6,'(/)',advance='no')
+! end do ! for i
+
+ call gen_mo_dis_from_mo_center(fchname)
+end subroutine mulliken_pop_of_mo
+
+subroutine gen_mo_dis_from_mo_center(fchname)
+ implicit none
+ integer :: i, j, k, m, p, q, i3, i4
+ real(kind=8) :: dis0, coor0(3), coor1(3)
+ real(kind=8), allocatable :: coor(:,:), dis(:,:)
+ character(len=240), intent(in) :: fchname
+
+ allocate(coor(3,natom))
+ call read_coor_from_fch(fchname, natom, coor)
+ allocate(dis(natom,natom), source=0d0)
+
+ do i = 1, natom-1, 1
+  coor0 = coor(:,i)
+  do j = i+1, natom, 1
+   coor1 = coor(:,j) - coor0
+   dis(j,i) = DSQRT(DOT_PRODUCT(coor1, coor1))
+   dis(i,j) = dis(j,i)
+  end do ! for j
+ end do ! for i
+
+ deallocate(coor)
+ allocate(mo_dis(i1:i2,i1:i2), source=0d0)
+
+ do i = i1, i2-1, 1
+  i3 = mo_center(0,i)
+  do j = i+1, i2, 1
+   i4 = mo_center(0,j)
+   dis0 = dis(mo_center(1,i), mo_center(1,j))
+
+   do k = 1, i3, 1
+    p = mo_center(k,i)
+    do m = 1, i4, 1
+     q = mo_center(m,j)
+     if(dis(q,p) < dis0) dis0 = dis(q,p)
+    end do ! for m
+   end do ! for k
+
+   mo_dis(j,i) = dis0
+   mo_dis(i,j) = mo_dis(j,i)
+  end do ! for j
+ end do ! for i
+
+ deallocate(dis, mo_center)
+! do i = i1, i2-1, 1
+!  do j = i+1, i2, 1
+!   write(6,'(2I4,F7.3)') j, i, mo_dis(j,i)
+!  end do ! for j
+! end do ! for i
+end subroutine gen_mo_dis_from_mo_center
+
+end module population
+
 ! calculate the number of unpaired electrons and generate unpaired electron
 ! density .fch file
 ! Note: the input fchname must include natural orbitals and corresponding
@@ -91,7 +297,7 @@ end subroutine calc_unpaired_from_fch
 ! calculate the number of unpaired electrons using a GAMESS GVB .dat file
 subroutine calc_unpaired_from_gms_dat(datname, mult, unpaired_e)
  implicit none
- integer :: i, nopen, npair, nif
+ integer :: nopen, npair, nif
  integer, intent(in) :: mult
  character(len=240), intent(in) :: datname
  real(kind=8) :: upe(3)
@@ -122,7 +328,7 @@ end subroutine calc_unpaired_from_gms_dat
 ! calculate the number of unpaired electrons using a GAMESS GVB .gms file
 subroutine calc_unpaired_from_gms_out(outname, unpaired_e)
  implicit none
- integer :: i, ncore, nopen, npair, nif
+ integer :: ncore, nopen, npair, nif
  character(len=240), intent(in) :: outname
  real(kind=8) :: upe(3)
  real(kind=8), intent(out) :: unpaired_e
@@ -256,159 +462,108 @@ subroutine read_ci_coeff_from_gms(fname, npair, coeff)
  close(fid)
 end subroutine read_ci_coeff_from_gms
 
-! perform Mulliken population analysis
-subroutine mulliken(nshl, shl2atm, ang, ibas, cart, nbf, P, S, natom, eff_nuc)
- implicit none
- integer :: i, j
- integer, intent(in) :: nshl, nbf, natom
- integer, intent(in) :: shl2atm(nshl), ang(nshl), ibas(nshl), eff_nuc(natom)
- integer, allocatable :: bfirst(:) ! size natom
- ! bfirst: the beginning index of basis func. of each atom
- integer, allocatable :: ang0(:)
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
- real(kind=8) :: rtmp, ddot
- real(kind=8), allocatable :: gross(:) ! size natom
- logical, intent(in) :: cart
+! perform Mulliken population analysis based on density matrix
+!subroutine mulliken_pop_of_dm(nshl, shl2atm, ang, ibas, cart, nbf, P, S, natom, eff_nuc)
+! implicit none
+! integer :: i, j
+! integer, intent(in) :: nshl, nbf, natom
+! integer, intent(in) :: shl2atm(nshl), ang(nshl), ibas(nshl), eff_nuc(natom)
+! integer, allocatable :: bfirst(:) ! size natom+1
+! ! bfirst: the beginning index of basis func. of each atom
+! real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+! real(kind=8) :: rtmp, ddot
+! real(kind=8), allocatable :: gross(:) ! size natom
+! logical, intent(in) :: cart
+!
+! allocate(bfirst(natom+1))
+! call get_bfirst(nshl, shl2atm, ang, ibas, cart, natom, bfirst)
+!
+! allocate(gross(natom), source=0d0)
+!
+! do i = 1, natom, 1
+!  rtmp = 0d0
+!  do j = bfirst(i), bfirst(i+1)-1, 1
+!   rtmp = rtmp + ddot(nbf, P(j,:), 1, S(:,j), 1)
+!  end do ! for j
+!  gross(i) = rtmp
+! end do ! for i
+!
+! deallocate(bfirst)
+! gross = eff_nuc - gross
+! write(6,'(/,A)') 'Mulliken population:'
+!
+! do i = 1, natom, 1
+!  write(6,'(I5,1X,F11.6)') i, gross(i)
+! end do ! for i
+!
+! deallocate(gross)
+!end subroutine mulliken_pop_of_dm
 
- allocate(ang0(nshl), source=0)
- if(cart) then
-  forall(i = 1:nshl) ang0(i) = (ang(i)+1)*(ang(i)+2)/2
- else
-  forall(i = 1:nshl) ang0(i) = 2*ang(i) + 1
- end if
-
- j = DOT_PRODUCT(ang0, ibas)
- if(j /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine mulliken: number of basis function is &
-                & inconsistent between j and nbf.'
-  write(6,'(2(A,I0))') 'j=', j, ', nbf=', nbf
-  stop
- end if
-
- allocate(bfirst(natom+1), source=0)
- bfirst(1) = 1
-
- do i = 1, nshl, 1
-  j = shl2atm(i) + 2
-  bfirst(j) = bfirst(j) + ang0(i)*ibas(i)
- end do ! for i
- deallocate(ang0)
-
- do i = 2, natom+1, 1
-  bfirst(i) = bfirst(i) + bfirst(i-1)
- end do ! for i
-
- allocate(gross(natom), source=0d0)
-
- do i = 1, natom, 1
-  rtmp = 0d0
-  do j = bfirst(i), bfirst(i+1)-1, 1
-   rtmp = rtmp + ddot(nbf, P(j,:), 1, S(:,j), 1)
-  end do ! for j
-  gross(i) = rtmp
- end do ! for i
-
- deallocate(bfirst)
- gross = eff_nuc - gross
- write(6,'(/,A)') 'Mulliken population:'
-
- do i = 1, natom, 1
-  write(6,'(I5,1X,F11.6)') i, gross(i)
- end do ! for i
-
- deallocate(gross)
-end subroutine mulliken
-
-! perform lowdin/lowedin population analysis
-subroutine lowdin(nshl, shl2atm, ang, ibas, cart, nbf, P, S, natom, eff_nuc)
- implicit none
- integer :: i, j, m, lwork, liwork
- integer, intent(in) :: nshl, nbf, natom
- integer, intent(in) :: shl2atm(nshl), ang(nshl), ibas(nshl), eff_nuc(natom)
- integer, allocatable :: bfirst(:) ! size natom
- ! bfirst: the beginning index of basis func. of each atom
- integer, allocatable :: ang0(:), iwork(:), isuppz(:)
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
- real(kind=8) :: rtmp, ddot
- real(kind=8), allocatable :: gross(:) ! size natom
- real(kind=8), allocatable :: work(:), e(:), ev(:,:), sqrt_S_P(:,:), S0(:,:)
- ! e: eigenvalues, ev: eigenvectors, sqrt_S_P: S^(1/2)*P
- logical, intent(in) :: cart
-
- allocate(ang0(nshl), source=0)
- if(cart) then
-  forall(i = 1:nshl) ang0(i) = (ang(i)+1)*(ang(i)+2)/2
- else
-  forall(i = 1:nshl) ang0(i) = 2*ang(i) + 1
- end if
-
- j = DOT_PRODUCT(ang0, ibas)
- if(j /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine lowdin: number of basis function is &
-                 &inconsistent between j and nbf.'
-  write(6,'(2(A,I0))') 'j=', j, ', nbf=', nbf
-  stop
- end if
-
- allocate(bfirst(natom+1), source=0)
- bfirst(1) = 1
-
- do i = 1, nshl, 1
-  j = shl2atm(i) + 2
-  bfirst(j) = bfirst(j) + ang0(i)*ibas(i)
- end do ! for i
- deallocate(ang0)
-
- do i = 2, natom+1, 1
-  bfirst(i) = bfirst(i) + bfirst(i-1)
- end do ! for i
-
- allocate(e(nbf), ev(nbf, nbf), isuppz(2*nbf))
- lwork = -1; liwork = -1
- allocate(work(1), iwork(1))
- allocate(S0(nbf,nbf), source=S)
- call dsyevr('V', 'A', 'L', nbf, S0, nbf, 0d0, 0d0, 0, 0, 1d-6, m, e, ev,&
-             nbf, isuppz, work, lwork, iwork, liwork, i)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A', 'L', nbf, S0, nbf, 0d0, 0d0, 0, 0, 1d-6, m, e, ev,&
-             nbf, isuppz, work, lwork, iwork, liwork, i)
- deallocate(isuppz, work, iwork)
-
- S0 = 0d0
- forall(i = 1:nbf) S0(i,i) = DSQRT(DABS(e(i)))
- deallocate(e)
- allocate(sqrt_S_P(nbf,nbf))
- call dsymm('R', 'U', nbf, nbf, 1d0, S0, nbf, ev, nbf, 0d0, sqrt_S_P, nbf)
- call dgemm('N', 'T', nbf, nbf, nbf, 1d0, sqrt_S_P, nbf, ev, nbf, 0d0, S0, nbf)
- deallocate(ev, sqrt_S_P)
-
- allocate(gross(natom), source=0d0)
- allocate(e(nbf))
-
- do i = 1, natom, 1
-  rtmp = 0d0
-
-  do j = bfirst(i), bfirst(i+1)-1, 1
-   e = S0(j,:)
-   do m = 1, nbf, 1
-    rtmp = rtmp + ddot(nbf,e,1,P(:,m),1)*S0(m,j)
-   end do ! for m
-  end do ! for j
-
-  gross(i) = rtmp
- end do ! for i
-
- deallocate(bfirst, e, S0)
- gross = eff_nuc - gross
-
- write(6,'(/,A)') 'Lowdin population:'
- do i = 1, natom, 1
-  write(6,'(I5,1X,F11.6)') i, gross(i)
- end do ! for i
-
- deallocate(gross)
-end subroutine lowdin
+! perform lowdin/lowedin population analysis based on density matrix
+!subroutine lowdin_pop_of_dm(nshl, shl2atm, ang, ibas, cart, nbf, P, S, natom, eff_nuc)
+! implicit none
+! integer :: i, j, m, lwork, liwork
+! integer, intent(in) :: nshl, nbf, natom
+! integer, intent(in) :: shl2atm(nshl), ang(nshl), ibas(nshl), eff_nuc(natom)
+! integer, allocatable :: bfirst(:) ! size natom+1
+! ! bfirst: the beginning index of basis func. of each atom
+! integer, allocatable :: iwork(:), isuppz(:)
+! real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+! real(kind=8) :: rtmp, ddot
+! real(kind=8), allocatable :: gross(:) ! size natom
+! real(kind=8), allocatable :: work(:), e(:), ev(:,:), sqrt_S_P(:,:), S0(:,:)
+! ! e: eigenvalues, ev: eigenvectors, sqrt_S_P: S^(1/2)*P
+! logical, intent(in) :: cart
+!
+! allocate(bfirst(natom+1))
+! call get_bfirst(nshl, shl2atm, ang, ibas, cart, natom, bfirst)
+!
+! allocate(e(nbf), ev(nbf, nbf), isuppz(2*nbf))
+! lwork = -1; liwork = -1
+! allocate(work(1), iwork(1))
+! allocate(S0(nbf,nbf), source=S)
+! call dsyevr('V', 'A', 'L', nbf, S0, nbf, 0d0, 0d0, 0, 0, 1d-6, m, e, ev,&
+!             nbf, isuppz, work, lwork, iwork, liwork, i)
+! lwork = CEILING(work(1))
+! liwork = iwork(1)
+! deallocate(work, iwork)
+! allocate(work(lwork), iwork(liwork))
+! call dsyevr('V', 'A', 'L', nbf, S0, nbf, 0d0, 0d0, 0, 0, 1d-6, m, e, ev,&
+!             nbf, isuppz, work, lwork, iwork, liwork, i)
+! deallocate(isuppz, work, iwork)
+!
+! S0 = 0d0
+! forall(i = 1:nbf) S0(i,i) = DSQRT(DABS(e(i)))
+! deallocate(e)
+! allocate(sqrt_S_P(nbf,nbf))
+! call dsymm('R', 'U', nbf, nbf, 1d0, S0, nbf, ev, nbf, 0d0, sqrt_S_P, nbf)
+! call dgemm('N', 'T', nbf, nbf, nbf, 1d0, sqrt_S_P, nbf, ev, nbf, 0d0, S0, nbf)
+! deallocate(ev, sqrt_S_P)
+!
+! allocate(gross(natom), source=0d0)
+! allocate(e(nbf))
+!
+! do i = 1, natom, 1
+!  rtmp = 0d0
+!
+!  do j = bfirst(i), bfirst(i+1)-1, 1
+!   e = S0(j,:)
+!   do m = 1, nbf, 1
+!    rtmp = rtmp + ddot(nbf,e,1,P(:,m),1)*S0(m,j)
+!   end do ! for m
+!  end do ! for j
+!
+!  gross(i) = rtmp
+! end do ! for i
+!
+! deallocate(bfirst, e, S0)
+! gross = eff_nuc - gross
+!
+! write(6,'(/,A)') 'Lowdin population:'
+! do i = 1, natom, 1
+!  write(6,'(I5,1X,F11.6)') i, gross(i)
+! end do ! for i
+!
+! deallocate(gross)
+!end subroutine lowdin_pop_of_dm
 
