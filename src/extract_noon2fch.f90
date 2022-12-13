@@ -16,7 +16,7 @@ program main
  nopen = 0
 
  i = iargc()
- if(i<4 .or. i>6) then
+ if(i<2 .or. i>6) then
   write(6,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
   write(6,'(A)')   ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
   write(6,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
@@ -24,7 +24,8 @@ program main
   write(6,'(A)')   ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
   write(6,'(A)')   ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
   write(6,'(A)')   ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
-  write(6,'(A,/)') ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A)')   ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A,/)') ' Example 7 (Q-Chem GVB): extract_noon2fch a.out a.fch'
   stop
  end if
 
@@ -34,10 +35,14 @@ program main
  call getarg(2, fchname)
  call require_file_exist(fchname)
 
- call getarg(3, buf)
- read(buf,*) idx1
- call getarg(4, buf)
- read(buf,*) idx2
+ if(i > 2) then
+  call getarg(3, buf)
+  read(buf,*) idx1
+  call getarg(4, buf)
+  read(buf,*) idx2
+ else ! i == 2, Q-Chem case, fake two integers
+  idx1 = 1; idx2 = 2
+ end if
 
  gau_order = .false.
  if(i > 4) then
@@ -45,12 +50,12 @@ program main
   read(buf,*,iostat=j) nopen
   if(j /= 0) then
    write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
-                    & arguments. Failed to read integer nopen.'
+                  & arguments. Failed to read integer nopen.'
    stop
   end if
   if(nopen < 0) then
    write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
-                    & arguments. nopen<0.'
+                  & arguments. nopen<0.'
    stop
   end if
  end if
@@ -60,7 +65,8 @@ program main
   if(index(buf,'-gau') /= 0) then
    gau_order = .true.
   else
-   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line arguments.'
+   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line arg&
+                  &uments.'
    write(6,'(A)') 'The 5th argument='//TRIM(buf)
    stop
   end if
@@ -76,20 +82,19 @@ program main
  if(index(outname,'.dat',back=.true.) /= 0) then
   if(MOD(i+1-nopen,2) /= 0) then
    write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
-                    & In this case idx2-idx1+1-nopen must be an even integer.'
+                  & In this case idx2-idx1+1-nopen must be an even integer.'
    write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
    stop
   end if
  end if
 
  call extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
- stop
 end program main
 
 ! extract NOONs from PySCF .out file, and print it into .fch(k) file
 subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  implicit none
- integer :: i, fid1, fid2, nmo, nif, itype, RENAME
+ integer :: i, fid1, fid2, nfocc, nmo, nif, itype, RENAME
  integer, intent(in) :: idx1, idx2, nopen
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: outname, fchname
@@ -112,8 +117,14 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
    call read_noon_from_orca_out(nmo, noon, outname)
   case(3)
    call read_noon_from_psi4_out(nmo, noon, outname)
+  case(4)
+   deallocate(noon)
+   call read_nfocc_nif_from_qchem_gvb_out(outname, nfocc, nmo)
+   allocate(noon(nmo), source=0d0)
+   call read_noon_from_qchem_out(outname, nfocc, noon(1:nfocc))
   case default
-   write(6,'(A,I0)') 'ERROR in subroutine extract_noon2fch: invalid itype=',itype
+   write(6,'(/,A,I0)') 'ERROR in subroutine extract_noon2fch: invalid itype=',&
+                        itype
    write(6,'(A)') TRIM(outname)
    stop
   end select
@@ -140,9 +151,13 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  end do
 
  ! print NOONs in to file fchname1
- allocate(ev(nif), source=0d0)
- if(idx1 > 1) ev(1:idx1-1) = 2d0
- ev(idx1:idx2) = noon
+ if(itype == 4) then ! Q-Chem case
+  allocate(ev(nif), source=noon)
+ else
+  allocate(ev(nif), source=0d0)
+  if(idx1 > 1) ev(1:idx1-1) = 2d0
+  ev(idx1:idx2) = noon
+ end if
  deallocate(noon)
  write(fid2,'(5(1X,ES15.8))') (ev(i),i=1,nif)
  deallocate(ev)
@@ -151,7 +166,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  do while(.true.)
   read(fid1,'(A)') buf
   if(index(buf,'=') /= 0) exit
- end do
+ end do ! for while
 
  ! copy remaining content
  BACKSPACE(fid1)
@@ -159,7 +174,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
- end do
+ end do ! for while
 
  close(fid1,status='delete')
  close(fid2)
@@ -181,7 +196,7 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  npair = (nmo - nopen)/2
  if(npair == 0) then
   write(6,'(A)') 'Warning in subroutine read_noon_from_dat: npair=0. High&
-                   & spin ROHF wfn assumed.'
+                 & spin ROHF wfn assumed.'
   noon = 1d0
   return
  end if
@@ -230,7 +245,6 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  end if
 
  deallocate(cicoeff)
- return
 end subroutine read_noon_from_dat
 
 ! read CASSCF NOONs from .gms file of GAMESS
@@ -280,7 +294,6 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
 
  close(fid)
  noon = on(idx1:)
- return
 end subroutine read_noon_from_gmsgms
 
 ! read NOONs from .out file of PySCF
@@ -334,7 +347,6 @@ subroutine read_noon_from_pyout(nmo, noon, outname)
  end if
 
  close(fid)
- return
 end subroutine read_noon_from_pyout
 
 ! read CASCI/CASSCF NOONs from ORCA .out file
@@ -366,7 +378,6 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
 
  i = index(buf,'=')
  read(buf(i+1:),*) (noon(i),i=1,nmo)
- return
 end subroutine read_noon_from_orca_out
 
 ! read CASCI/CASSCF NOONs from a PSI4 .out file
@@ -419,7 +430,7 @@ end subroutine read_noon_from_psi4_out
 subroutine identify_itype_of_out(outname, itype)
  implicit none
  integer :: i, fid
- integer, intent(out) :: itype ! 1/2/3 for PySCF/ORCA/PSI4
+ integer, intent(out) :: itype ! 1/2/3/4 for PySCF/ORCA/PSI4/Q-Chem
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -435,9 +446,84 @@ subroutine identify_itype_of_out(outname, itype)
   else if(buf(11:23) == 'Psi4: An Open') then
    itype = 3
    exit
+  else if(buf(1:5) == 'qchem') then
+   itype = 4
+   exit
   end if
  end do ! for i
-
- return
 end subroutine identify_itype_of_out
+
+! read nfocc and nif from a Q-Chem output file
+! nfocc := doubly occupied + singly occupied + 2*npair
+subroutine read_nfocc_nif_from_qchem_gvb_out(outname, nfocc, nif)
+ implicit none
+ integer :: i, fid, ndb, npair, nopen, nvir
+ integer, intent(out) :: nfocc, nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ndb = 0; npair = 0; nopen = 0; nvir = 0; nfocc = 0; nif = 0
+ buf = ' '
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:7) == 'Alpha:') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_nfocc_nif_from_qchem_gvb_out: no 'Al&
+                 &pha:' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(8:),*) ndb
+ i = index(buf,',')
+ read(buf(i+1:),*) npair
+ read(fid,*) nvir
+ close(fid)
+ nfocc = ndb + nopen + 2*npair
+ nif = nfocc + nvir
+end subroutine read_nfocc_nif_from_qchem_gvb_out
+
+! read NOONs from a Q-Chem output file
+subroutine read_noon_from_qchem_out(outname, nfocc, noon)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nfocc
+ real(kind=8) :: r1, r2
+ real(kind=8), intent(out) :: noon(nfocc)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ noon = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(4:14) == 'Orbital occ') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_qchem_gvb_out: no 'Orbit&
+                   &al occ' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do i = 1, nfocc, 1
+  read(fid,*) j, r1, r2
+  noon(i) = r1 + r2
+ end do ! for i
+
+ close(fid)
+end subroutine read_noon_from_qchem_out
 

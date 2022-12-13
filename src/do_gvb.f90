@@ -223,39 +223,75 @@ end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
 subroutine do_gvb_qchem(proname, pair_fch)
- use mr_keyword, only: nproc, mo_rhf
- use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
- use util_wrapper, only: fch2qchem_wrap
+ use mr_keyword, only: nproc, mo_rhf, datname
+ use mol, only: nopen, npair, npair0, gvb_e
+ use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap
  implicit none
- integer :: i, RENAME
- character(len=240) :: buf, inpname, outname, fchname0, fchname
+ integer :: i, system, RENAME
+ real(kind=8) :: unpaired_e
+ real(kind=8), allocatable :: coeff(:,:)
+ character(len=240) :: buf, inpname, outname, fchname0, fchname1, fchname, &
+                       pre_fch, gms_inp
  character(len=240), intent(in) :: proname, pair_fch
+ character(len=500) :: longbuf
 
  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+  pre_fch = TRIM(proname)//'_proj_loc_pair.fch'
   write(buf,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
  else ! paired LMOs obtained from associated rotation of UNOs
+  pre_fch = TRIM(proname)//'_uno_asrot.fch'
   write(buf,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
  end if
 
  inpname = TRIM(buf)//'.in'
  outname = TRIM(buf)//'.out'
- fchname0= TRIM(buf)//'.FChk'
- fchname = TRIM(buf)//'.fch'
+ fchname0= TRIM(buf)//'.0.FChk'
+ fchname1= TRIM(buf)//'.FChk'
+ fchname = TRIM(buf)//'_s.fch'
+ datname = TRIM(buf)//'_s.dat'
+ gms_inp = TRIM(buf)//'_s.inp'
  call fch2qchem_wrap(pair_fch, npair, inpname)
  call submit_qchem_job(inpname, nproc)
+
  call delete_file('pathtable')
  call delete_file('junk')
- call delete_file(TRIM(buf)//'.0.FChk')
- i = RENAME(TRIM(buf)//'.FChk', TRIM(buf)//'.fch')
+ call delete_file(TRIM(fchname0))
+ call copy_file(pre_fch, fchname, .false.)
+ call copy_orb_and_den_in_fch(fchname1, fchname, .false.)
+ call delete_file(TRIM(fchname1))
+
+ ! copy NOONs from output file into fch file
+ longbuf = 'extract_noon2fch '//TRIM(outname)//' '//TRIM(fchname)
+ write(6,'(A)') '$'//TRIM(longbuf)
+ i = system(TRIM(longbuf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: failed to call utility ex&
+                   &tract_noon.'
+  write(6,'(A)') 'Did you delete it or forget to compile it?'
+  stop
+ end if
+
+ call fch2inp_wrap(fchname, .true., npair, nopen)
+ i = RENAME(TRIM(gms_inp), TRIM(datname))
+ allocate(coeff(2,npair))
+ call read_pair_coeff_from_qchem_out(outname, npair, coeff)
+ call write_pair_coeff_into_gms_inp(datname, npair, coeff)
+ call determine_npair0_from_pair_coeff(npair, coeff, npair0)
+ deallocate(coeff)
 
  call read_gvb_e_from_qchem_out(outname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
+
+ call calc_unpaired_from_fch(fchname, 2, .false., unpaired_e)
+
+ write(6,'(A)') REPEAT('-',79)
  write(6,'(A)') 'Remark: the GVB-PP in Q-Chem uses coupled-cluster-like formula&
                 &e, see Chemical'
  write(6,'(A)') 'Physics 202 (1996) 217-229. It is a non-variational method, so&
-                & its energy usually'
- write(6,'(A)') 'differs slightly with that calculated by GVB-PP in GAMESS/Gaus&
-                &sian.'
+                & its energy usu-'
+ write(6,'(A)') 'ally differs slightly with that calculated by GVB-PP in GAMESS&
+                &/Gaussian.'
+ write(6,'(A)') REPEAT('-',79)
 end subroutine do_gvb_qchem
 
 ! perform GVB computation (only in Strategy 1,3) using Gaussian
@@ -364,7 +400,7 @@ subroutine do_gvb_gau(proname, pair_fch)
  i = system(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                     & extract_noon2fch.'
+                   & extract_noon2fch.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   write(6,'(A)') 'If neither, there is some unexpected error.'
   stop
@@ -451,6 +487,47 @@ subroutine read_gvb_e_from_gau_out(logname, gvb_e)
  read(buf(34:),*) gvb_e
 end subroutine read_gvb_e_from_gau_out
 
+subroutine read_pair_coeff_from_qchem_out(outname, npair, coeff)
+ implicit none
+ integer :: i, j, fid, ndb
+ integer, intent(in) :: npair
+ real(kind=8) :: r1, r2, noon(npair)
+ real(kind=8), intent(out) :: coeff(2,npair)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ coeff = 0d0; buf = ' '
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:7) == 'Alpha:') exit
+ end do ! for while
+
+ read(buf(8:),*) ndb
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(4:14) == 'Orbital occ') exit
+ end do ! for while
+
+ do i = 1, ndb+2, 1
+  read(fid,'(A)') buf
+ end do ! for i
+
+ noon = 0
+ do i = 1, npair, 1
+  read(fid,*) j, r1, r2
+  noon(i) = r1 + r2
+ end do ! for i
+
+ close(fid)
+ forall(i=1:npair)
+  coeff(1,i) = DSQRT(noon(i)*0.5d0)
+  coeff(2,i) = -DSQRT(1d0 - noon(i)*0.5d0)
+ end forall
+end subroutine read_pair_coeff_from_qchem_out
+
 ! read GVB pair coefficients from a Gaussian output file
 subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  implicit none
@@ -527,7 +604,7 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
  write(fid1,'(A)') buf(1:i-1)
 
  do i = 1, npair, 1
-  write(fid1,'(A,I3,2(A,F14.10))') '   CICOEF(',2*i-1,')=',coeff(1,i),',',coeff(2,i)
+  write(fid1,'(A,I3,2(A,F18.14))') '   CICOEF(',2*i-1,')=',coeff(1,i),',',coeff(2,i)
  end do ! for i
  write(fid1,'(A)') ' $END'
 

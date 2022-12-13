@@ -25,7 +25,7 @@ program main
   call getarg(2, str)
   if(str /= '-gvb') then
    write(6,'(/,A)') 'ERROR in subroutine addH2singlet: wrong command line&
-                  & arguments!'
+                    & arguments!'
    write(6,'(A)') "The 2nd argument can only be '-gvb'."
    stop
   else
@@ -35,7 +35,6 @@ program main
 
  call require_file_exist(fchname)
  call addH2singlet(fchname, gvb_no)
- stop
 end program main
 
 ! add hydrogen atoms for a specified .fch file

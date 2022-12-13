@@ -67,11 +67,11 @@ end subroutine gen_no_using_density_in_fch
 !       rwgeom.f90
 subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
  implicit none
- integer :: i, nbf, nif
+ integer :: nbf, nif
  integer, intent(in) :: itype
 !f2py intent(in) :: itype
  ! itype has values [1,10] in subroutine read_density_from_fch
- real(kind=8) :: n_dipole(3)
+! real(kind=8) :: n_dipole(3)
  real(kind=8), intent(out) :: dipole(3)
 !f2py intent(out) :: dipole
  real(kind=8), allocatable :: dm(:,:), D(:,:,:)

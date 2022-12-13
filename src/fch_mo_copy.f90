@@ -51,7 +51,6 @@ program main
  end if
 
  call fch_mo_copy(fchname1, fchname2, ab, idx1, idx2)
- stop
 end program main
 
 ! copy Alpha/Beta MOs from a .fch file into Alpha/Beta MOs of another .fch file
@@ -85,6 +84,5 @@ subroutine fch_mo_copy(fchname1, fchname2, ab, idx1, idx2)
 
  call write_mo_into_fch(fchname2, nbf, nif, ab(3:3), coeff2)
  deallocate(coeff1, coeff2)
- return
 end subroutine fch_mo_copy
 
