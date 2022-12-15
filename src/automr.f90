@@ -9,6 +9,7 @@
 !  specified in the Title Card line like 'mokit{}'.
 
 program main
+ use mr_keyword, only: read_program_path
  implicit none
  integer :: i, j
  character(len=240) :: fname = ' '
@@ -35,6 +36,7 @@ program main
   write(6,'(/,A)') 'Options:'
   write(6,'(A)')   '  -h, -help, --help: Print this message and exit.'
   write(6,'(A)')   '  -v, -V, --version: Print the version number of automr and exit.'
+  write(6,'(A)')   '  -t, --testprog: Print the path of programs detected by automr and exit.'
   write(6,'(/,A)') 'Methods(#p ...):'
   write(6,'(A)')   '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3,&
                    & CASPT2, CASPT2-K,'
@@ -52,6 +54,8 @@ program main
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
   write(6,'(A,/)') '    MRCC_prog=ORCA/NWChem'
+ case('-t','--testprog')
+  call read_program_path()
   stop
  end select
 
