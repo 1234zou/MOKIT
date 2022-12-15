@@ -54,6 +54,7 @@ program main
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC- MRCISD'
   write(6,'(A,/)') '    MRCC_prog=ORCA/NWChem'
+  stop
  case('-t','--testprog')
   call read_program_path()
   stop
