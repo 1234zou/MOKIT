@@ -19,7 +19,6 @@ program main
  call getarg(1, fname)
  call require_file_exist(fname)
  call bas_gms2bdf(fname)
- stop
 end program main
 
 ! Transform the basis sets in GAMESS format to those in BDF format
@@ -187,7 +186,6 @@ subroutine bas_gms2bdf(fort7)
  end if
 
  close(fid2)
- return
 end subroutine bas_gms2bdf
 
 ! print primitive gaussians
@@ -241,6 +239,5 @@ subroutine prt_prim_gau_bdf(iatom, fid)
   end do ! for i
  end if
 
- return
 end subroutine prt_prim_gau_bdf
 

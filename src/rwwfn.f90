@@ -137,9 +137,18 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
 
  call open_file(fchname, .true., fid)
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:17) == 'Number of basis f') exit
  end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of bas&
+                 &sis f' not found in"
+  write(6,'(A)') 'file '//TRIM(fchname)
+  stop
+ end if
  read(buf(52:),*) nbf
 
  ! In case that this is a Q-Chem .fch file, let's assume nif is not just below
@@ -807,7 +816,7 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                   & 'Number of contract' section in file "//TRIM(fchname)
+                 & 'Number of contract' section in file "//TRIM(fchname)
   close(fid)
   return
  end if

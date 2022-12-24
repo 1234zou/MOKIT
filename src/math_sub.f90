@@ -142,7 +142,6 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
 
  x = b_copy(1:a2,1:a3)
  deallocate(b_copy)
- return
 end subroutine solve_multi_lin_eqs
 
 ! calculate (C^T)SC, S must be real symmetric since dsymm is called

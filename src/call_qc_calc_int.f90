@@ -254,7 +254,6 @@ subroutine get_a_random_int(i)
  deallocate(seed)
 
  i = CEILING(r*1e6)
- return
 end subroutine get_a_random_int
 
 ! read the path of the Gaussian binary executable file 

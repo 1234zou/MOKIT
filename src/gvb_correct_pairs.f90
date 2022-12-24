@@ -55,7 +55,6 @@ program main
  end if
 
  call gvb_correct_pairs(fname, idx1, idx2, gau)
- stop
 end program main
 
 ! gvb_correct_pairs: pair the disordered pair orbitals in a .fch(k) file
@@ -286,6 +285,5 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  deallocate(coeff1)
 
  write(6,'(A)') 'Leave subroutine gvb_correct_pairs.'
- return
 end subroutine gvb_correct_pairs
 

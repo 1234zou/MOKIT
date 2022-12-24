@@ -41,7 +41,6 @@ program main
  end if
 
  call fch2psi(fchname)
- stop
 end program main
 
 ! transfer MOs from Gaussian to Psi4
@@ -189,7 +188,6 @@ subroutine fch2psi(fchname)
  if(uhf) call write_mo_into_psi_mat(fileB, nbf, nif, coeff(:,nif+1:2*nif))
 
  deallocate(coeff)
- return
 end subroutine fch2psi
 
 ! this subroutine is used only when spherical harmonic functions are used
@@ -210,7 +208,6 @@ subroutine fch2psi_permute_3p(nif, coeff)
  forall(i = 1:3) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2psi_permute_3p
 
 ! The basis order of 6D, 10F, 15G, 21H of PSI4 is the same as that of (OpenMolcas).
@@ -235,7 +232,6 @@ subroutine fch2psi_permute_6d(nif, coeff)
  forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2psi_permute_6d
 
 subroutine fch2psi_permute_10f(nif, coeff)
@@ -259,7 +255,6 @@ subroutine fch2psi_permute_10f(nif, coeff)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2psi_permute_10f
 
 subroutine fch2psi_permute_15g(nif, coeff)
@@ -283,7 +278,6 @@ subroutine fch2psi_permute_15g(nif, coeff)
  forall(i = 1:15) coeff2(i,:) = coeff(16-i,:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2psi_permute_15g
 
 subroutine fch2psi_permute_21h(nif, coeff)
@@ -308,6 +302,5 @@ subroutine fch2psi_permute_21h(nif, coeff)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2psi_permute_21h
 

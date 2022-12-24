@@ -8,6 +8,5 @@
 subroutine prt_mo_proj_py_script()
  implicit none
 
- return
 end subroutine prt_mo_proj_py_script
 

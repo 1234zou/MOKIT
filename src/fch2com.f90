@@ -53,7 +53,6 @@ program main
 
  call delete_file(inpname)
  call fch2com(fchname)
- stop
 end program main
 
 ! nbf: the number of basis functions
@@ -232,7 +231,6 @@ subroutine fch2com(fchname)
 ! print done
 
  deallocate(coeff)
- return
 end subroutine fch2com
 
 subroutine fch2com_permute_5d(nif,coeff)
@@ -252,7 +250,6 @@ subroutine fch2com_permute_5d(nif,coeff)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_5d
 
 subroutine fch2com_permute_7f(nif,coeff)
@@ -272,7 +269,6 @@ subroutine fch2com_permute_7f(nif,coeff)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_7f
 
 subroutine fch2com_permute_10f(nif,coeff)
@@ -292,7 +288,6 @@ subroutine fch2com_permute_10f(nif,coeff)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_10f
 
 subroutine fch2com_permute_9g(nif,coeff)
@@ -312,7 +307,6 @@ subroutine fch2com_permute_9g(nif,coeff)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_9g
 
 subroutine fch2com_permute_15g(nif,coeff)
@@ -332,7 +326,6 @@ subroutine fch2com_permute_15g(nif,coeff)
  forall(i = 1:15) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_15g
 
 subroutine fch2com_permute_11h(nif,coeff)
@@ -352,7 +345,6 @@ subroutine fch2com_permute_11h(nif,coeff)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_11h
 
 subroutine fch2com_permute_21h(nif,coeff)
@@ -371,6 +363,5 @@ subroutine fch2com_permute_21h(nif,coeff)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2com_permute_21h
 

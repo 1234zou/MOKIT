@@ -30,7 +30,6 @@ program main
  newfch = REPEAT(' ',240)
  if(i == 2) call getarg(2, newfch)
  call fch_u2r(fchname, newfch)
- stop
 end program main
 
 ! transform a Gaussian UHF type .fchk into a RHF/ROHF type .fchk file

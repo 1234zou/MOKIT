@@ -91,7 +91,7 @@ OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
         fch2bdf fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
         fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn fch247 \
         find_mc_pair inp2gjf gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
-        mkl2fch mkl2gjf orf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format \
+        mkl2fch mkl2gjf obf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format \
         solve_ON_matrix rwgeom rwwfn excited
 
 %.o: %.f90

@@ -28,7 +28,6 @@ program main
  end if
 
  call bas_fch2py(fchname)
- stop
 end program main
 
 ! generate PySCF format basis set (.py file) from Gaussian .fch(k) file

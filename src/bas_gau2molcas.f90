@@ -19,7 +19,6 @@ program main
  call getarg(1, fname)
  call require_file_exist(fname)
  call bas_gau2molcas(fname)
- stop
 end program main
 
 ! Transform the basis sets in Gaussian format to those in (Open)Molcas format
@@ -100,7 +99,6 @@ subroutine bas_gau2molcas(inpname)
  close(fid1,status='delete')
  close(fid2)
  deallocate(ram, elem)
- return
 end subroutine bas_gau2molcas
 
 ! print primitive gaussians
@@ -127,7 +125,6 @@ subroutine prt_prim_gau_molcas2(fid)
   end do ! for j
  end do ! for i
 
- return
 end subroutine prt_prim_gau_molcas2
 
 ! transform to GAMESS-like basis set data format, so we can call subroutines
@@ -185,6 +182,5 @@ subroutine bas_gau2gmslike(inpname, gmslike)
 
  close(fid1)
  close(fid2)
- return
 end subroutine bas_gau2gmslike
 

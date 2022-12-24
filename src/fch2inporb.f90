@@ -85,7 +85,6 @@ program main
  end if
 
  call delete_file(inpname)
- stop
 end program main
 
 ! nbf: the number of basis functions
@@ -391,7 +390,6 @@ subroutine fch2inporb(fchname, prt_no, sph)
  deallocate(occ_num)
  close(orbid)
 ! print done
- return
 end subroutine fch2inporb
 
 ! move the 2nd, 3rd, ... Zeta basis functions forward
@@ -423,7 +421,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
 
  coeff2 = coeff
  deallocate(coeff)
- return
 end subroutine zeta_mv_forwd
 
 subroutine fch2inporb_permute_5d(nif,coeff)
@@ -443,7 +440,6 @@ subroutine fch2inporb_permute_5d(nif,coeff)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_5d
 
 subroutine fch2inporb_permute_6d(nif,coeff)
@@ -466,7 +462,6 @@ subroutine fch2inporb_permute_6d(nif,coeff)
  forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_6d
 
 subroutine fch2inporb_permute_7f(nif,coeff)
@@ -486,7 +481,6 @@ subroutine fch2inporb_permute_7f(nif,coeff)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_7f
 
 subroutine fch2inporb_permute_10f(nif,coeff)
@@ -510,7 +504,6 @@ subroutine fch2inporb_permute_10f(nif,coeff)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_10f
 
 subroutine fch2inporb_permute_9g(nif,coeff)
@@ -530,7 +523,6 @@ subroutine fch2inporb_permute_9g(nif,coeff)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_9g
 
 subroutine fch2inporb_permute_15g(nif,coeff)
@@ -554,7 +546,6 @@ subroutine fch2inporb_permute_15g(nif,coeff)
  forall(i = 1:15) coeff2(i,:) = coeff(16-i,:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_15g
 
 subroutine fch2inporb_permute_11h(nif,coeff)
@@ -574,7 +565,6 @@ subroutine fch2inporb_permute_11h(nif,coeff)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_11h
 
 subroutine fch2inporb_permute_21h(nif,coeff)
@@ -599,6 +589,5 @@ subroutine fch2inporb_permute_21h(nif,coeff)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inporb_permute_21h
 

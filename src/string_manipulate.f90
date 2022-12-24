@@ -562,6 +562,39 @@ subroutine modify_memory_in_psi4_inp(inpname, mem)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine modify_memory_in_psi4_inp
 
+! modify memory in a given Q-Chem input file
+! Note: input mem is in unit GB
+subroutine modify_memory_in_qchem_inp(mem, inpname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.in', back=.true.)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:7) == 'mem_tot') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A,I0)') 'mem_total ',mem*1000 ! in MB
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine modify_memory_in_qchem_inp
+
 ! add given/specified RIJK basis set into a PSI4 input file
 subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  implicit none

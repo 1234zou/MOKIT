@@ -140,6 +140,5 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
  end if
 
  deallocate(dipole)
- return
 end subroutine assoc_loc
 

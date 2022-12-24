@@ -412,7 +412,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  use mr_keyword, only: mem, nproc, hardwfn, crazywfn, dkh2_or_x2c, cart, &
   mixed_spin, nstate
  implicit none
- integer :: i, ncore, idx1, fid1, fid2, RENAME
+ integer :: i, ncore, fid1, fid2, RENAME
  real(kind=8), allocatable :: weight(:)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname, hf_fch
@@ -732,13 +732,15 @@ end subroutine read_multiroot_nevpt2_from_pyscf
 ! read multi-root CASCI-based NEVPT2 energies from an ORCA out file
 subroutine read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
  use phys_cons, only: au2ev
- integer :: i, j, fid
+ integer :: fid
  integer, intent(in) :: nstate
- character(len=240) :: buf
+ !character(len=240) :: buf
  character(len=240), intent(in) :: outname
- real(kind=8), allocatable :: casci_e(:)
+ !real(kind=8), allocatable :: casci_e(:)
  real(kind=8), intent(out) :: nevpt2_e(0:nstate)
 
  nevpt2_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ close(fid)
 end subroutine read_multiroot_nevpt2_from_orca
 

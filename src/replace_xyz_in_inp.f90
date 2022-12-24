@@ -40,7 +40,6 @@ program main
  end select
 
  call replace_xyz_in_inp(xyzname, inpname, itype)
- stop
 end program main
 
 ! replace Cartesian coordinates in a input file
@@ -88,7 +87,6 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  end select
 
  deallocate(coor)
- return
 end subroutine replace_xyz_in_inp
 
 ! replace Cartesian coordinates in a (Open)Molcas input file
@@ -144,7 +142,6 @@ subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
 
  close(fid)
  close(fid1)
- return
 end subroutine replace_coor_in_molcas_inp
 
 ! replace Cartesian coordinates in a Molpro input file
@@ -196,6 +193,5 @@ subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
 
  close(fid)
  close(fid1)
- return
 end subroutine replace_coor_in_molpro_inp
 

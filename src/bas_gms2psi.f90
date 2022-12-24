@@ -33,7 +33,6 @@ program main
  end if
 
  call bas_gms2psi(inpname, sph)
- stop
 end program main
 
 ! convert a GAMESS .inp file into a PSI4 input file
@@ -214,6 +213,5 @@ subroutine bas_gms2psi(inpname, sph)
  write(fid2,'(A)') '}'
  write(fid2,'(/,A)') "scfenergy = energy('scf')"
  close(fid2)
- return
 end subroutine bas_gms2psi
 

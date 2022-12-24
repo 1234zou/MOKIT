@@ -145,7 +145,6 @@ subroutine do_mrpt3()
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mrpt3 at '//TRIM(data_string)
- return
 end subroutine do_mrpt3
 
 ! read CASPT3 electronic energy from Molpro .out file
@@ -209,7 +208,6 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
  i = index(buf,'ergy')
  read(buf(i+4:),*) corr3_e
  corr3_e = corr3_e - ref_e
- return
 end subroutine read_caspt3_energy_from_molpro_out
 
 ! read NEVPT3 electronic energy from BDF .out file
@@ -243,6 +241,5 @@ subroutine read_nevpt3_energy_from_bdf_out(outname, ref_e, corr2_e, corr3_e)
  close(fid)
  corr2_e = corr2_e - ref_e
  corr3_e = corr3_e - ref_e
- return
 end subroutine read_nevpt3_energy_from_bdf_out
 

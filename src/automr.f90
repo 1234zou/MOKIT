@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Dec-13'
+  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2022-Dec-24'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -75,7 +75,6 @@ program main
 
  call require_file_exist(fname)
  call automr(fname)
- stop
 end program main
 
 ! automatically do multireference calculations in a block-box way
@@ -518,8 +517,14 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') '# done transform'
 
  write(fid1,'(/,A)') '# save the UNO into .fch file'
- write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)//"')"
- write(fid1,'(A)') 'sleep(1) # in some node, py2fch begins when fch_u2r unfinished'
+ !write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)//"')"
+ !write(fid1,'(A)') 'sleep(1) # in some node, py2fch begins when fch_u2r unfinished'
+ ! Thanks to the suggestion of Kalinite. The problem in the above two lines
+ ! does not exist now.
+ write(fid1,'(A)') "with os.popen('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)&
+                    //"')\"
+ write(fid1,'(A)') ' as run:'
+ write(fid1,'(A)') '  null = run.read()'
  write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
@@ -1053,7 +1058,7 @@ end subroutine gen_fch_from_gjf
 ! read spin multiplicity from Gaussian gjf file
 subroutine read_mult_from_gjf(gjfname, mult)
  implicit none
- integer :: i, charge, nblank, fid
+ integer :: charge, nblank, fid
  integer, intent(out) :: mult
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname

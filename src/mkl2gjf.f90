@@ -44,7 +44,6 @@ program main
  end if
 
  call mkl2gjf(mklname, print_mo)
- stop
 end program main
 
 ! generate Gaussian .gjf from ORCA .mkl file
@@ -234,6 +233,5 @@ subroutine mkl2gjf(mklname, print_mo)
 
  write(fid,'(/)')
  close(fid)
- return
 end subroutine mkl2gjf
 

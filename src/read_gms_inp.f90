@@ -62,7 +62,6 @@ subroutine check_uhf_in_gms_inp(inpname, uhf)
  end do ! for while
 
  close(fid)
- return
 end subroutine check_uhf_in_gms_inp
 
 ! find the number of atoms in GAMESS .inp file
@@ -113,11 +112,9 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  close(fid)
  if(natom == 0) then
   write(6,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: zero atom&
-                   & found in file '//TRIM(inpname)
+                 & found in file '//TRIM(inpname)
   stop
  end if
-
- return
 end subroutine read_natom_from_gms_inp
 
 ! read charge, spin multiplicity, uhf(bool) bohrs(bool) from a given GAMESS
@@ -225,7 +222,6 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
  forall(i = 1:natom) nuc(i) = DNINT(nuc1(i))
  deallocate(nuc1)
  if(bohrs) coor = coor*Bohr_const
- return
 end subroutine read_elem_nuc_coor_from_gms_inp
 
 ! read nbf and nif from a given GAMESS .inp/.dat file
@@ -280,7 +276,6 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  end if
 
  close(fid)
- return
 end subroutine read_nbf_and_nif_from_gms_inp
 
 ! read Cartesian-type nbf and nif from GAMESS .inp/.dat file
@@ -388,7 +383,6 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
 
  i = index(buf,'na=')
  read(buf(i+3:),*) na
- return
 end subroutine read_na_nb_nif_nbf_from_gms_inp
 
 ! read type all_ecp from a given GAMESS .inp/.dat file
@@ -454,7 +448,6 @@ subroutine read_all_ecp_from_gms_inp(inpname)
   end do ! for j
  end do ! for i
 
- return
 end subroutine read_all_ecp_from_gms_inp
 
 ! deallocate the allocatable arrays in array prim_gau
@@ -468,8 +461,7 @@ subroutine clear_prim_gau()
   prim_gau(i)%nline = 0
   prim_gau(i)%ncol = 0
   if(allocated(prim_gau(i)%coeff)) deallocate(prim_gau(i)%coeff)
- end do
- return
+ end do ! for i
 end subroutine clear_prim_gau
 
 ! read this type of primitive gaussians, i.e., 'S', 'L', etc.
@@ -612,7 +604,6 @@ subroutine read_prim_gau(stype, nline, fid)
   end do ! for i
  end if
 
- return
 end subroutine read_prim_gau
 
 ! determine the highest angular momentum quantum number
@@ -635,7 +626,6 @@ subroutine get_highest_am()
  else
   highest = 0
  end if
- return
 end subroutine get_highest_am
 
 ! print primitive gaussians
@@ -692,8 +682,6 @@ subroutine prt_prim_gau(iatom, fid)
   end do ! for i
   write(fid,'(A1,/,A,/,A)') '*', 'Spectral', 'End of Spectral'
  end if
-
- return
 end subroutine prt_prim_gau
 
 ! update the number of times each atom occurred
@@ -712,8 +700,6 @@ subroutine update_ntimes(iatom)
    exit
   end if
  end do ! for i
-
- return
 end subroutine update_ntimes
 
 ! update the number of times each atom occurred
@@ -738,8 +724,6 @@ subroutine calc_ntimes(natom, elem, ntimes)
   end do ! for j
 
  end do ! for i
-
- return
 end subroutine calc_ntimes
 
 ! generate contracted string, e.g. 5s3p1d -> 3s2p1d
@@ -762,8 +746,6 @@ subroutine gen_contracted_string(nline, ncol, str1, str2)
    str2 = TRIM(str2)//TRIM(str)
   end if
  end do ! for i
-
- return
 end subroutine gen_contracted_string
 
 ! read Alpha or (both Alpha and Beta) MOs from a GAMESS .dat or .inp file

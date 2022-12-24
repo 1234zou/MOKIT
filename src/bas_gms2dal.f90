@@ -36,7 +36,6 @@ program main
  end if
 
  call bas_gms2dal(fname, spherical)
- stop
 end program main
 
 ! Transform the basis sets in GAMESS format to those in Dalton format
@@ -187,7 +186,6 @@ subroutine bas_gms2dal(fort7, spherical)
  end if
 
  close(fid2)
- return
 end subroutine bas_gms2dal
 
 ! print primitive gaussians in Dalton format
@@ -233,6 +231,5 @@ subroutine prt_prim_gau_dalton(iatom, fid)
   write(ecpid,'(A)') '$'
  end if
 
- return
 end subroutine prt_prim_gau_dalton
 

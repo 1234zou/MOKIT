@@ -58,7 +58,6 @@ program main
  end if
 
  call dal2fch(orbname, fchname, prt_no)
- stop
 end program main
 
 ! transfer MOs from Dalton DALTON.MOPUN file to Gaussian .fch(k) file

@@ -4,7 +4,7 @@
 subroutine do_cis()
  use mol, only: nacto, nacta, nactb, nacte
  use mr_keyword, only: ist, eist, excited, cis_prog, gjfname, nstate, nproc, &
-  mem, hf_fch, casnofch, gau_path, casscf, TDHF
+  mem, hf_fch, gau_path, casscf, TDHF
  use util_wrapper, only: unfchk, formchk
  implicit none
  integer :: i, system
@@ -88,8 +88,7 @@ end subroutine prt_cis_gjf
 
 subroutine read_cis_energies_from_gau_log(logname)
  implicit none
- integer :: i, mult, fid
- real(kind=8) :: e
+ integer :: i, fid
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
 

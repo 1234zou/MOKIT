@@ -70,7 +70,6 @@ program main
  end if
 
  call fch2qm4d(fname, binary)
- stop
 end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
@@ -267,7 +266,6 @@ subroutine fch2qm4d(fchname, binary)
 
  write(fid,'(A)') '</QM4D>'
  close(fid)
- return
 end subroutine fch2qm4d
 
 ! write/create a QM4D .inp file
@@ -332,7 +330,6 @@ subroutine write_qm4d_inp(inpname, uhf, binary)
  write(fid,'(A)') 'cw'
  write(fid,'(A)') 'end'
  close(fid)
- return
 end subroutine write_qm4d_inp
 
 ! write/create basis files (and ECP, if any) for each element
@@ -415,7 +412,6 @@ subroutine write_basis_files_for_each_elem()
  if(allocated(NLP)) deallocate(NLP)
  if(allocated(CLP)) deallocate(CLP)
  if(allocated(ZLP)) deallocate(ZLP)
- return
 end subroutine write_basis_files_for_each_elem
 
 ! print ECP data in Gaussian format
@@ -445,7 +441,6 @@ subroutine prt_ecp_in_gau_format(fid, i)
   end do ! for n
  end do ! for j
 
- return
 end subroutine prt_ecp_in_gau_format
 
 subroutine fch2qm4d_permute_6d(nif,coeff)
@@ -465,7 +460,6 @@ subroutine fch2qm4d_permute_6d(nif,coeff)
  forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2qm4d_permute_6d
 
 subroutine fch2qm4d_permute_10f(nif,coeff)
@@ -485,6 +479,5 @@ subroutine fch2qm4d_permute_10f(nif,coeff)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2qm4d_permute_10f
 

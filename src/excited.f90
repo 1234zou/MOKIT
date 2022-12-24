@@ -356,7 +356,6 @@ subroutine mo2ao_tdm(nbf, nif, mo, nae, nav, exc, total, tdm)
  if(total) rtmp = 2d0
  call dgemm('N','T',nbf,nbf,nav,rtmp,mo_ci,nbf,mo(:,nae+1:nif),nbf,0d0,tdm,nbf)
  deallocate(mo_ci)
- return
 end subroutine mo2ao_tdm
 
 ! Compute and average the first n states of AO-based transition density matrices

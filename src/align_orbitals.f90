@@ -29,7 +29,6 @@ program main
  read(str,*) idx2
 
  call align_orbitals(fname1, fname2, idx1, idx2)
- stop
 end program main
 
 subroutine align_orbitals(fname1,fname2, idx1, idx2)
@@ -111,7 +110,6 @@ subroutine align_orbitals(fname1,fname2, idx1, idx2)
 
  deallocate(coeff1, coeff2)
  deallocate(coeff, tmp_coeff)
- return
 end subroutine align_orbitals
 
 subroutine get_mo_diff(nbf, coeff1, k, coeff2, diff)
@@ -135,7 +133,6 @@ subroutine get_mo_diff(nbf, coeff1, k, coeff2, diff)
   end forall
   tempv2 = SUM(tmp_coeff)
   diff(i) = min(tempv1,tempv2)
- end do
- return
+ end do ! for i
 end subroutine get_mo_diff
 

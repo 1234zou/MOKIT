@@ -80,7 +80,6 @@ program main
  end if
 
  call dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
- stop
 end program main
 
 ! transform MOs in .dat file into .fchk file
@@ -400,7 +399,6 @@ subroutine dat2fch_permute_10f(nif,coeff)
   coeff2(i,:) = coeff(order(i),:)
  end forall
  coeff = coeff2
- return
 end subroutine dat2fch_permute_10f
 
 subroutine dat2fch_permute_15g(nif,coeff)
@@ -421,7 +419,6 @@ subroutine dat2fch_permute_15g(nif,coeff)
   coeff2(i,:) = coeff(order(i),:)
  end forall
  coeff = coeff2
- return
 end subroutine dat2fch_permute_15g
 
 subroutine dat2fch_permute_21h(nif,coeff)
@@ -442,7 +439,6 @@ subroutine dat2fch_permute_21h(nif,coeff)
   coeff2(i,:) = coeff(order(i),:)
  end forall
  coeff = coeff2
- return
 end subroutine dat2fch_permute_21h
 
 ! get the integer value after the keyword flag
@@ -462,6 +458,5 @@ subroutine get_int_after_flag(buf, flag, k)
 
  k = 0
  read(buf(i+1:),*) k
- return
 end subroutine get_int_after_flag
 

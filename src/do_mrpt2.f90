@@ -451,7 +451,6 @@ subroutine do_mrpt2()
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mrpt2 at '//TRIM(data_string)
- return
 end subroutine do_mrpt2
 
 ! print NEVPT2/CASPT2/CASPT3 keywords into Molpro input file
@@ -518,7 +517,6 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  end select
 
  close(fid)
- return
 end subroutine prt_mrpt_molpro_inp
 
 ! print SDSPT2/NEVPT2/NEVPT3 keywords in to a given BDF .inp file
@@ -587,7 +585,6 @@ subroutine prt_mrpt_bdf_inp(inpname, itype)
 
  write(fid,'(A)') '$END'
  close(fid)
- return
 end subroutine prt_mrpt_bdf_inp
 
 ! print NEVPT2 keywords in to a given ORCA .inp file
@@ -661,7 +658,6 @@ subroutine prt_nevpt2_orca_inp(inpname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_nevpt2_orca_inp
 
 ! print CASPT2 keywords in to a given ORCA .inp file
@@ -736,7 +732,6 @@ subroutine prt_caspt2_orca_inp(inpname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
- return
 end subroutine prt_caspt2_orca_inp
 
 ! print NEVPT2 script into a given .py file
@@ -809,15 +804,13 @@ subroutine prt_nevpt2_script_into_py(pyname)
  close(fid2)
 
  i = RENAME(pyname1, pyname)
- return
 end subroutine prt_nevpt2_script_into_py
 
 ! print NEVPT2 keywords into OpenMolcas .input file
 ! It seems that OpenMolcas does not support CASSCF-NEVPT2. So I have to use
 ! DMRG-NEVPT2.
 subroutine prt_nevpt2_molcas_inp(inpname)
- use mr_keyword, only: CIonly, maxM, RI, RIJK_bas
- use mol, only: nacte, nacto, charge, mult
+ use mr_keyword, only: CIonly, RI, RIJK_bas
  implicit none
  integer :: i, j, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -883,8 +876,7 @@ end subroutine prt_nevpt2_molcas_inp
 
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
- use mr_keyword, only: CIonly, maxM, dmrgci, dmrgscf, hardwfn, crazywfn
- use mol, only: nacte, nacto, charge, mult
+ use mr_keyword, only: CIonly, dmrgci, dmrgscf
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inputname1
@@ -993,7 +985,6 @@ subroutine prt_mrmp2_gms_inp(inpname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(inpname1, inpname)
- return
 end subroutine prt_mrmp2_gms_inp
 
 ! print OVB-MP2 keywords into Gaussian .gjf file
@@ -1022,7 +1013,6 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
  end if
 
  close(fid)
- return
 end subroutine prt_ovbmp2_gau_inp
 
 ! read CASSCF OVB-MP2 energy from a Gaussian output file
@@ -1062,6 +1052,5 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
 
  read(buf(35:),*) corr_e
  corr_e = corr_e - ref_e
- return
 end subroutine read_mrpt_energy_from_gau_out
 

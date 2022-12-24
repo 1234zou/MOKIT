@@ -45,7 +45,6 @@ program main
  call require_file_exist(inpname)
 
  call add_bgcharge_to_inp(chgname, inpname)
- stop
 end program main
 
 ! add background charges into input files of various programs (.py, .inp, .input, etc)

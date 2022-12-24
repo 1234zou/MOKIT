@@ -36,7 +36,6 @@ program main
  read(str,*) idx2
 
  call mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
- stop
 end program main
 
 subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
@@ -119,7 +118,6 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  write(6,'(A)') 'All singular values:'
  write(6,'(5(1X,ES15.8))') (ev(i),i=1,nmo)
  deallocate(ev)
- return
 end subroutine mo_svd
 
 ! perform SVD on a given overlap matrix
@@ -153,6 +151,5 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
   write(6,'(A5,I0)') 'info=',i
   stop
  end if
- return
 end subroutine svd_on_ovlp
 

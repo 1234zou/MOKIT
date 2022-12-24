@@ -831,9 +831,7 @@ end subroutine prt_cas_gms_inp
 
 ! print CASCI/CASSCF keywords in to a given (Open)Molcas input file
 subroutine prt_cas_molcas_inp(inpname, scf)
- use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: maxM, dmrgci, dmrgscf, RI, RIJK_bas, mokit_root,&
-  hardwfn, crazywfn
+ use mr_keyword, only: dmrgci, dmrgscf, RI, RIJK_bas, mokit_root
  implicit none
  integer :: i, j, fid1, fid2, RENAME, system
  character(len=21) :: RIJK_bas1
@@ -883,7 +881,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF'&
-                   & found in file "//TRIM(inpname)
+                 & found in file "//TRIM(inpname)
   stop
  end if
 
@@ -899,15 +897,15 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   i = system('cp '//TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' .')
   if(i /= 0) then
    write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy&
-                    & file from'
+                  & file from'
    write(6,'(A)') TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' to '//&
-                     ' current directory.'
+                 ' current directory.'
    stop
   end if
   i = system('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
    write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call&
-                    & utility bas_gau2molcas.'
+                  & utility bas_gau2molcas.'
    write(6,'(A)') 'Did you forget to compile it?'
    stop
   end if
@@ -1316,7 +1314,7 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
  integer :: i, j, k, m, n, p, fid, tot_ngrid
  integer, intent(out) :: nfile
  real(kind=8) :: x,y,z, bound(2,3)
- character(len=240) :: buf, proname, molname, molname1, dalname, dalname1
+ character(len=240) :: proname, molname, molname1, dalname, dalname1
  character(len=240), intent(in) :: inpname
 
  do i = 1, 3   ! x,y,z
@@ -1511,7 +1509,7 @@ subroutine gen_icss_cub(proname, nfile)
  integer, intent(in) :: nfile
  real(kind=8) :: intv
  real(kind=8), allocatable :: iso(:,:,:)
- character(len=240) :: buf, outname, cubname, bqfile
+ character(len=240) :: cubname, bqfile
  character(len=240), intent(in) :: proname
 
  write(6,'(A)') 'Generating ICSS cube...'
