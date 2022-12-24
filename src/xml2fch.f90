@@ -37,7 +37,6 @@ program main
  end if
 
  call xml2fch(xmlname, fchname, prt_no)
- stop
 end program main
 
 ! nbf: the number of basis functions

@@ -47,7 +47,6 @@ program main
  end if
 
  call gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
- stop
 end program main
 
 subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
@@ -255,6 +254,5 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  close(fid)
 
  deallocate(pair_coeff, mo_coeff)
- return
 end subroutine gvb_sort_pairs
 

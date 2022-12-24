@@ -57,6 +57,5 @@ subroutine assoc_rot(nbf, nmo, coeff1, lo_coeff1, coeff2, new_coeff2)
   coeff1(:,i) = new_coeff2(:,nmo-i+1)
  end forall
  new_coeff2 = coeff1
- return
 end subroutine assoc_rot
 

@@ -59,7 +59,6 @@ program main
  end if
 
  call delete_file(inpname)
- stop
 end program main
 
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order

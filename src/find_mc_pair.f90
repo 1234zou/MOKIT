@@ -18,7 +18,6 @@ program main
  call getarg(1,gmsname)
  call require_file_exist(gmsname)
  call find_mc_pair(gmsname)
- stop
 end program main
 
 subroutine find_mc_pair(gmsname)
@@ -137,6 +136,5 @@ subroutine find_mc_pair(gmsname)
  ! output done
 
  deallocate(pair_coeff, pair)
- return
 end subroutine find_mc_pair
 

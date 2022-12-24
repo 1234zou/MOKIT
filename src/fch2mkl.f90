@@ -21,7 +21,7 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: i
- character(len=240) :: fchname, chkname
+ character(len=240) :: fchname
 
  i = iargc()
  if(i /= 1) then
@@ -42,7 +42,6 @@ program main
  end if
 
  call fch2mkl(fchname)
- stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
@@ -453,6 +452,5 @@ subroutine fch2mkl(fchname)
  end if
 
  close(fid1)
- return
 end subroutine fch2mkl
 

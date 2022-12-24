@@ -75,7 +75,5 @@ program modify_GMS2
   close(fid2)
   k = RENAME(fname2, fname1)
  end do ! for i
-
- stop
 end program modify_GMS2
 

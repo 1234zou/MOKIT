@@ -17,6 +17,5 @@ program chk2gbw_main
   call getarg(i, chkname)
   call chk2gbw(chkname)
  end do ! for i
- stop
 end program chk2gbw_main
 

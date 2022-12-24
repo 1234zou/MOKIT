@@ -21,7 +21,6 @@ subroutine do_PES_scan()
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_PES_scan at '//TRIM(data_string)
- return
 end subroutine do_PES_scan
 
 ! read scan variables/coordinates from gjf
@@ -131,7 +130,6 @@ subroutine read_scan_var_from_gjf()
  end if
 
  call check_scan_val(scan_itype, scan_nstep, scan_val)
- return
 end subroutine read_scan_var_from_gjf
 
 ! check whether the array scan_val is valid/reasonable
@@ -172,6 +170,5 @@ subroutine check_scan_val(scan_itype, n, scan_val)
   end select
  end do ! for i
 
- return
 end subroutine check_scan_val
 

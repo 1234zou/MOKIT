@@ -33,7 +33,6 @@ program main
  end if
 
  call bdf2mkl(orbname, fchname, str)
- stop
 end program main
 
 ! Step 1: call utility bdf2fch to transfer orbitals back into .fch(k) file
@@ -57,6 +56,5 @@ subroutine bdf2mkl(orbname, fchname, str)
   write(6,'(A)') 'Did you forget to compile utility fch2mkl?'
   stop
  end if
- return
 end subroutine bdf2mkl
 

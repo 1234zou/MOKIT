@@ -47,7 +47,6 @@ subroutine check_uhf_in_mkl(mklname, uhf)
  end do ! for while
 
  close(fid)
- return
 end subroutine check_uhf_in_mkl
 
 ! read various information from a given .mkl file
@@ -82,7 +81,6 @@ subroutine read_mkl(mklname, uhf, read_mo)
   allocate(ev_b(nif))
   call read_ev_from_mkl(mklname, nif, 'b', ev_b)
  end if
- return
 end subroutine read_mkl
 
 ! read the basis set data of all atoms
@@ -170,7 +168,6 @@ subroutine read_all_pg(mklname)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_all_pg
 
 subroutine un_normalized_all_pg()
@@ -219,7 +216,6 @@ subroutine un_normalized_all_pg()
   end do ! for j
  end do ! for i
 
- return
 end subroutine un_normalized_all_pg
 
 ! calculate the normalization factor of a serial of primitive gaussians
@@ -258,7 +254,6 @@ function norm_fac_of_contract_gau(itype, nline, coeff) result(norm_fac)
  end do ! for k
 
  deallocate(S)
- return
 end function norm_fac_of_contract_gau
 
 ! calculate the normalization factor of a primitive gaussian
@@ -278,8 +273,6 @@ function norm_fac_of_prim_gau(itype, alpha) result(norm_fac)
   norm_fac = norm_fac*(2d0*alpha/PI)**(0.25d0*DBLE(2*itype+3))
   ! the DSQRT(1*3*5...) should not be considered here
  end if
-
- return
 end function norm_fac_of_prim_gau
 
 subroutine merge_s_and_p_into_sp()
@@ -335,8 +328,6 @@ subroutine merge_s_and_p_into_sp()
    deallocate(rtmp)
   end do ! for j
  end do ! for i
-
- return
 end subroutine merge_s_and_p_into_sp
 
 ! find nbf and nif from a given ORCA .mkl file
@@ -391,7 +382,6 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_nbf_and_nif_from_mkl
 
 ! find the array size of shell_type from a given .mkl file
@@ -418,7 +408,6 @@ subroutine read_ncontr_from_mkl(mklname, ncontr)
  end do ! for while
 
  close(fid)
- return
 end subroutine read_ncontr_from_mkl
 
 ! read array shell_type from a given .mkl file
@@ -482,7 +471,6 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_shltyp_and_shl2atm_from_mkl
 
 ! read the number of atoms in .mkl file
@@ -523,7 +511,6 @@ subroutine read_natom_from_mkl(mklname, natom)
  end if
 
  close(fid)
- return
 end subroutine read_natom_from_mkl
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
@@ -576,7 +563,6 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
  close(fid)
 
  forall(i=1:natom) elem(i) = nuc2elem(nuc(i))
- return
 end subroutine read_elem_and_coor_from_mkl
 
 ! read Alpha/Beta MO coefficients from ORCA .mkl file
@@ -635,7 +621,6 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  end if
 
  close(fid)
- return
 end subroutine read_mo_from_mkl
 
 ! read orbital energies from an ORCA .mkl file
@@ -701,8 +686,6 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
   write(6,'(A)') 'Filename='//TRIM(mklname)
   stop
  end if
-
- return
 end subroutine read_ev_from_mkl
 
 ! read occupation numbers from ORCA .mkl file
@@ -748,7 +731,6 @@ subroutine read_on_from_mkl(mklname, nmo, ab, on)
  end do ! for i
 
  close(fid)
- return
 end subroutine read_on_from_mkl
 
 end module mkl_content

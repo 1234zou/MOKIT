@@ -38,7 +38,6 @@ program main
  end if
 
  call bas_gms2molpro(fname, spherical)
- stop
 end program main
 
 ! Transform the basis sets in GAMESS format to those in Molpro format
@@ -185,7 +184,6 @@ subroutine bas_gms2molpro(fort7, spherical)
  write(fid2,'(A)') '}'
 
  close(fid2)
- return
 end subroutine bas_gms2molpro
 
 ! print primitive gaussians
@@ -245,6 +243,5 @@ subroutine prt_prim_gau_molpro(iatom, fid)
   end do ! for i
  end if
 
- return
 end subroutine prt_prim_gau_molpro
 

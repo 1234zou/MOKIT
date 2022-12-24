@@ -24,7 +24,6 @@ program main
  end if
 
  call fch247(fchname)
- stop
 end program main
 
 subroutine fch247(fchname)

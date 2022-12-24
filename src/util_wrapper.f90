@@ -46,8 +46,6 @@ subroutine formchk(chkname, fchname)
                    & utility formchk does not exist.'
   stop
  end if
-
- return
 end subroutine formchk
 
 ! wrapper of the Gaussian utility unfchk
@@ -79,8 +77,6 @@ subroutine unfchk(fchname, chkname)
                    & utility unfchk does not exist.'
   stop
  end if
-
- return
 end subroutine unfchk
 
 ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
@@ -112,8 +108,6 @@ subroutine gbw2mkl(gbwname, mklname)
    i = RENAME(gbwname(1:k-1)//'.mkl', TRIM(mklname))
   end if
  end if
-
- return
 end subroutine gbw2mkl
 
 ! wrapper of the ORCA utility orca_2mkl, only .mkl -> .gbw
@@ -171,8 +165,6 @@ subroutine fch2psi_wrap(fchname)
   write(6,'(A)') '(3) There might exist a bug in the utility fch2psi.'
   stop
  end if
-
- return
 end subroutine fch2psi_wrap
 
 ! wrapper of the utility fch2inp
@@ -222,8 +214,6 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
   write(6,'(2(A,I0),A,L1)') 'npair= ',npair,', nopen= ',nopen,', gvb= ',gvb
   stop
  end if
-
- return
 end subroutine fch2inp_wrap
 
 subroutine mkl2fch_wrap(mklname, fchname, prt_no)
@@ -248,7 +238,6 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
   write(6,'(A,L1)') 'prt_no=', prt_no
   stop
  end if
- return
 end subroutine mkl2fch_wrap
 
 subroutine fch2mkl_wrap(fchname, mklname)
@@ -374,7 +363,7 @@ end subroutine fch2dal_wrap
 subroutine fch2qchem_wrap(fchname, npair, inpname)
  implicit none
  integer :: i, system, RENAME
- integer, intent(in) :: npair ! the number of GVB pairs
+ integer, intent(in) :: npair
  character(len=240) :: inpname0, dirname
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: inpname

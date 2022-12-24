@@ -38,7 +38,6 @@ program main
  end if
 
  call solve_ON_matrix(fname1, fname2, idx)
- stop
 end program main
 
 subroutine solve_ON_matrix(fname1, fname2, idx)
@@ -48,7 +47,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
 ! nbf: total number of basis functions
 ! nmo: the number of NOs, <= nif, e.g. in CAS(6,6), nmo=6 is enough
  integer, intent(in) :: idx(2)
- character(len=240) :: fname, new_fch
+ character(len=240) :: fname
  character(len=240), intent(in) :: fname1, fname2
  real(kind=8), allocatable :: mo(:,:), no(:,:), noon(:)
  real(kind=8), allocatable :: U(:,:), n(:,:), nU(:,:)
@@ -177,7 +176,6 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
 
  u = lo_coeff1(1:nmo,1:nmo)
  deallocate(lo_coeff1)
- return
 end subroutine get_u
 
 ! check whether matrix U is unitary

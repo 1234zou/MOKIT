@@ -20,7 +20,6 @@ program main
  call GETARG(1,datname)
  call GETARG(2,gmsname)
  call gvb_exclude_XH(datname, gmsname)
- stop
 end program main
 
 ! exclude all X-H pairs out of the GVB active space (except those pairs with

@@ -52,7 +52,6 @@ program main
  end if
 
  call orb2fch(orbname, fchname, prt_no)
- stop
 end program main
 
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
@@ -286,7 +285,6 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
  deallocate(coeff2)
  if(allocated(occ_num)) deallocate(occ_num)
- return
 end subroutine orb2fch
 
 ! move the 2nd, 3rd, ... Zeta basis functions forward
@@ -324,7 +322,6 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
  idx2 = idx
  norm1 = norm
  deallocate(idx, norm)
- return
 end subroutine zeta_mv_forwd
 
 subroutine orb2fch_permute_5d(idx)
@@ -340,7 +337,6 @@ subroutine orb2fch_permute_5d(idx)
 
  idx0 = idx
  forall(i = 1:5) idx(i) = idx0(order(i))
- return
 end subroutine orb2fch_permute_5d
 
 subroutine orb2fch_permute_6d(idx, norm)
@@ -365,8 +361,6 @@ subroutine orb2fch_permute_6d(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = norm0(order(i))
  end forall
-
- return
 end subroutine orb2fch_permute_6d
 
 subroutine orb2fch_permute_7f(idx)
@@ -382,7 +376,6 @@ subroutine orb2fch_permute_7f(idx)
 
  idx0 = idx
  forall(i = 1:7) idx(i) = idx0(order(i))
- return
 end subroutine orb2fch_permute_7f
 
 subroutine orb2fch_permute_10f(idx, norm)
@@ -408,7 +401,6 @@ subroutine orb2fch_permute_10f(idx, norm)
   idx(i) = idx0(order(i))
   norm(i) = norm0(order(i))
  end forall
- return
 end subroutine orb2fch_permute_10f
 
 subroutine orb2fch_permute_9g(idx)
@@ -424,7 +416,6 @@ subroutine orb2fch_permute_9g(idx)
 
  idx0 = idx
  forall(i = 1:9) idx(i) = idx0(order(i))
- return
 end subroutine orb2fch_permute_9g
 
 subroutine orb2fch_permute_15g(idx, norm)
@@ -450,7 +441,6 @@ subroutine orb2fch_permute_15g(idx, norm)
   idx(i) = idx0(16-i)
   norm(i) = norm0(16-i)
  end forall
- return
 end subroutine orb2fch_permute_15g
 
 subroutine orb2fch_permute_11h(idx)
@@ -466,7 +456,6 @@ subroutine orb2fch_permute_11h(idx)
 
  idx0 = idx
  forall(i = 1:11) idx(i) = idx0(order(i))
- return
 end subroutine orb2fch_permute_11h
 
 subroutine orb2fch_permute_21h(idx, norm)
@@ -493,6 +482,5 @@ subroutine orb2fch_permute_21h(idx, norm)
   idx(i) = idx0(22-i)
   norm(i) = norm0(22-i)
  end forall
- return
 end subroutine orb2fch_permute_21h
 

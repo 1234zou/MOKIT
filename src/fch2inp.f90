@@ -85,7 +85,6 @@ program main
  end if
 
  call fch2inp(fchname, gvb, npair, nopen0)
- stop
 end program main
 
 ! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
@@ -418,7 +417,6 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  write(fid,'(1X,A4)') '$END'
  close(fid)
- return
 end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
@@ -540,7 +538,6 @@ subroutine fch2inp_permute_10f(nif,coeff)
  forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inp_permute_10f
 
 subroutine fch2inp_permute_15g(nif,coeff)
@@ -560,7 +557,6 @@ subroutine fch2inp_permute_15g(nif,coeff)
  forall(i = 1:15) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inp_permute_15g
 
 subroutine fch2inp_permute_21h(nif,coeff)
@@ -581,6 +577,5 @@ subroutine fch2inp_permute_21h(nif,coeff)
  forall(i = 1:21) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2inp_permute_21h
 

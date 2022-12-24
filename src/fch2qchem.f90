@@ -9,7 +9,7 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: i, npair
- character(len=4) :: str
+ character(len=5) :: str
  character(len=240) :: fchname
  character(len=60), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
                                               & wrong command line arguments!'
@@ -18,7 +18,8 @@ program main
  if(.not. (i==1 .or. i==3)) then
   write(6,'(/,A)') error_warn
   write(6,'(A)')   ' Example 1: fch2qchem water.fch'
-  write(6,'(A,/)') ' Example 2: fch2qchem water.fch -gvb 2'
+  write(6,'(A)')   ' Example 2: fch2qchem water.fch -gvb 2'
+  write(6,'(A,/)') ' (nopen will be automatically determined)'
   stop
  end if
 
@@ -29,7 +30,7 @@ program main
 
  if(i == 3) then
   call getarg(2, str)
-  if(str /= '-gvb') then
+  if(TRIM(str) /= '-gvb') then
    write(6,'(/,A)') error_warn
    write(6,'(A)') "The 2nd argument can only be '-gvb'."
    stop
@@ -57,12 +58,12 @@ end program main
 subroutine fch2qchem(fchname, npair)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nif1, length, fid, purecart(4)
+ integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4)
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer :: RENAME, SYSTEM
+ integer :: SYSTEM
  integer, intent(in) :: npair
- integer, allocatable :: itmp(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
@@ -141,8 +142,10 @@ subroutine fch2qchem(fchname, npair)
   write(fid,'(A)') 'correlation pp'
   write(fid,'(A,I0)') 'gvb_n_pairs ',npair
   write(fid,'(A)') 'gvb_restart true'
+  if(nopen > 0) write(fid,'(A,I0)') 'gvb_do_rohf ',npair
  end if
  write(fid,'(A)') 'gui = 2' ! generate fchk
+ write(fid,'(A)') 'mem_total 4000'
  write(fid,'(A,/)') '$end'
 
  ! print basis sets into the .in file
@@ -272,6 +275,7 @@ subroutine fch2qchem(fchname, npair)
  write(unit=fid) alpha_coeff
  if(uhf) then
   write(unit=fid) beta_coeff
+  deallocate(beta_coeff)
  else
   write(unit=fid) alpha_coeff
  end if
@@ -279,14 +283,17 @@ subroutine fch2qchem(fchname, npair)
  write(unit=fid) eigen_e_a
  if(uhf) then
   write(unit=fid) eigen_e_b
+  deallocate(eigen_e_b)
  else
   write(unit=fid) eigen_e_a
  end if
 
  deallocate(alpha_coeff, eigen_e_a)
  close(fid)
- if(npair > 0) call copy_bin_file(TRIM(proname)//'/53.0', TRIM(proname)//&
-                                  '/169.0', .false.)
+ if(npair > 0) then
+  call copy_bin_file(TRIM(proname)//'/53.0', TRIM(proname)//'/169.0', .false.)
+  !if(nopen > 0) ??
+ end if
 
  ! move the newly created directory into $QCSCRATCH/
  dirname = ' '

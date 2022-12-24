@@ -39,7 +39,6 @@ program main
  end if
 
  call fch2wfn(fchname, read_no)
- stop
 end program main
 
 subroutine fch2wfn(fchname, read_no)
@@ -295,7 +294,6 @@ subroutine fch2wfn(fchname, read_no)
  write(fid,'(A)') 'END DATA'
  write(fid,'(A,F22.12,A,F13.8)') ' TOTAL ENERGY =',tot_e,' THE VIRIAL(-V/T)=',virial
  close(fid)
- return
 end subroutine fch2wfn
 
 ! multiply each contraction coefficient with corresponding normalization factor

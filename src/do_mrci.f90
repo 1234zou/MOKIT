@@ -2,8 +2,8 @@
 
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
- use mr_keyword, only: mem, nproc, CIonly, eist, hf_fch, mrcisd, mrcisd_prog,&
-  CtrType, casnofch, openmp_molcas, molcas_path, orca_path, gau_path, gms_path,&
+ use mr_keyword, only: mem, nproc, CIonly, eist, mrcisd, mrcisd_prog, CtrType,&
+  casnofch, openmp_molcas, molcas_path, orca_path, gau_path, gms_path, &
   gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
  use mol, only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, mkl2gbw
@@ -379,7 +379,6 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname2), TRIM(inpname1))
- return
 end subroutine prt_mrcisd_orca_inp
 
 ! print MRCISD/MRCISDT keywords into Gaussian .gjf file
@@ -423,8 +422,6 @@ subroutine prt_mrcisd_molpro_inp(inpname)
  BACKSPACE(fid)
  write(fid,'(A)') '{MRCIC;CORE}'
  close(fid)
-
- return
 end subroutine prt_mrcisd_molpro_inp
 
 ! print MRCISD/MRCISDT keywords into a PSI4 input file
@@ -682,7 +679,6 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
  end if
 
  davidson_e = E_corr*(1d0 - c)
- return
 end subroutine calc_davidson_corr_from_out
 
 ! convert determinant string into occupation number

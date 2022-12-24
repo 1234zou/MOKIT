@@ -37,7 +37,6 @@ program main
  end if
 
  call bdf2fch(orbname, fchname, prt_no)
- stop
 end program main
 
 ! read the MOs in orbital file of BDF and adjust its p,d,f,g,h functions

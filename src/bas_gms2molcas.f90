@@ -45,7 +45,6 @@ program main
  end if
 
  call bas_gms2molcas(fname, spherical)
- stop
 end program main
 
 ! Transform the basis sets in GAMESS format to those in (Open)Molcas format
@@ -187,6 +186,5 @@ subroutine bas_gms2molcas(fort7, spherical)
  end if
 
  close(fid2)
- return
 end subroutine bas_gms2molcas
 

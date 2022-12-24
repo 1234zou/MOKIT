@@ -50,7 +50,6 @@ program main
  end if
 
  call mkl2fch(mklname, fchname, no_type)
- stop
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)

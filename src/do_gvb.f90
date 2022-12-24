@@ -4,16 +4,14 @@
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
- use mr_keyword, only: nproc, gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish,&
-  excludeXH, gms_path, gms_scr_path, GVB_conv
- use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte,&
+ use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, excludeXH
+ use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
  implicit none
- integer :: i, system
+ integer :: i
  character(len=24) :: data_string = ' '
- character(len=240) :: buf, proname, proname1, pair_fch, inpname, datname, gmsname
- character(len=480) :: longbuf
+ character(len=240) :: proname, proname1, pair_fch, inpname, datname, gmsname
 
  if(.not. gvb) return
  write(6,'(//,A)') 'Enter subroutine do_gvb...'
@@ -223,7 +221,7 @@ end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
 subroutine do_gvb_qchem(proname, pair_fch)
- use mr_keyword, only: nproc, mo_rhf, datname
+ use mr_keyword, only: mem, nproc, mo_rhf, datname
  use mol, only: nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap
  implicit none
@@ -234,6 +232,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
                        pre_fch, gms_inp
  character(len=240), intent(in) :: proname, pair_fch
  character(len=500) :: longbuf
+ logical :: alive
 
  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
   pre_fch = TRIM(proname)//'_proj_loc_pair.fch'
@@ -250,13 +249,31 @@ subroutine do_gvb_qchem(proname, pair_fch)
  fchname = TRIM(buf)//'_s.fch'
  datname = TRIM(buf)//'_s.dat'
  gms_inp = TRIM(buf)//'_s.inp'
+
  call fch2qchem_wrap(pair_fch, npair, inpname)
+ ! Note: nopen is determined automatically in fch2qchem
+
+ call modify_memory_in_qchem_inp(mem, inpname)
  call submit_qchem_job(inpname, nproc)
 
  call delete_file('pathtable')
  call delete_file('junk')
- call delete_file(TRIM(fchname0))
+ call delete_file(TRIM(fchname0)) ! O.K. even if fchname0 does not exist
  call copy_file(pre_fch, fchname, .false.)
+
+ ! for Q-Chem 5.3.2, only *.fchk file, so rename fchname1
+ ! (thanks to bug report from Dr. Qi Ou)
+ inquire(file=TRIM(fchname1),exist=alive)
+ if(.not. alive) then
+  fchname1 = TRIM(buf)//'.fchk'
+  inquire(file=TRIM(fchname1),exist=alive)
+  if(.not. alive) then
+   write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: fchname1 does not exist.'
+   write(6,'(A)') 'This may be a bug or unexpected version of Q-Chem.'
+   write(6,'(A)') 'fchname1 = '//TRIM(fchname1)
+   stop
+  end if
+ end if
  call copy_orb_and_den_in_fch(fchname1, fchname, .false.)
  call delete_file(TRIM(fchname1))
 

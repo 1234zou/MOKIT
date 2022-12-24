@@ -114,8 +114,7 @@ end subroutine do_mcpdft
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
- use mol, only: charge, mult, nacte, nacto
- use mr_keyword, only: CIonly, dmrgci, dmrgscf, maxM, otpdf, DKH2
+ use mr_keyword, only: dmrgci, dmrgscf, otpdf, DKH2
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -134,12 +133,12 @@ subroutine prt_mcpdft_molcas_inp(inpname)
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
   if(buf(2:7) == 'SEWARD') exit
- end do
+ end do ! for while
  close(fid1,status='delete')
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
-                   & found in file "//TRIM(inpname)
+                 & found in file "//TRIM(inpname)
   stop
  end if
 

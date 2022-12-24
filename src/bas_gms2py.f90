@@ -42,7 +42,6 @@ program main
  end if
 
  call bas_gms2py(fname, cart)
- stop
 end program main
 
 ! transform the GAMESS format of basis sets to the NWChem format,

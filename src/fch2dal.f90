@@ -78,7 +78,6 @@ program main
 
  call delete_file(inpname)
  call fch2dal(fchname)
- stop
 end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
@@ -258,7 +257,6 @@ subroutine fch2dal(fchname)
  write(fid1,'(A)') '**END OF INPUT'
  close(fid1)
  i = RENAME(TRIM(dalfile1), TRIM(dalfile))
- return
 end subroutine fch2dal
 
 subroutine fch2dal_permute_5d(nif,coeff)
@@ -278,7 +276,6 @@ subroutine fch2dal_permute_5d(nif,coeff)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_5d
 
 subroutine fch2dal_permute_6d(nif,coeff)
@@ -298,7 +295,6 @@ subroutine fch2dal_permute_6d(nif,coeff)
  allocate(coeff2(6,nif), source=coeff)
  forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)/Sdiag_d(i)
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_6d
 
 subroutine fch2dal_permute_7f(nif,coeff)
@@ -318,7 +314,6 @@ subroutine fch2dal_permute_7f(nif,coeff)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_7f
 
 subroutine fch2dal_permute_10f(nif,coeff)
@@ -338,7 +333,6 @@ subroutine fch2dal_permute_10f(nif,coeff)
  allocate(coeff2(10,nif), source=coeff)
  forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)/Sdiag_f(i)
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_10f
 
 subroutine fch2dal_permute_9g(nif,coeff)
@@ -358,7 +352,6 @@ subroutine fch2dal_permute_9g(nif,coeff)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_9g
 
 subroutine fch2dal_permute_15g(nif,coeff)
@@ -377,7 +370,6 @@ subroutine fch2dal_permute_15g(nif,coeff)
  allocate(coeff2(15,nif), source=coeff)
  forall(i = 1:15) coeff(i,:) = coeff2(16-i,:)/Sdiag_g(i)
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_15g
 
 subroutine fch2dal_permute_11h(nif,coeff)
@@ -397,7 +389,6 @@ subroutine fch2dal_permute_11h(nif,coeff)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_11h
 
 subroutine fch2dal_permute_21h(nif,coeff)
@@ -416,6 +407,5 @@ subroutine fch2dal_permute_21h(nif,coeff)
  allocate(coeff2(21,nif), source=coeff)
  forall(i = 1:21) coeff(i,:) = coeff2(22-i,:)/Sdiag_h(i)
  deallocate(coeff2)
- return
 end subroutine fch2dal_permute_21h
 

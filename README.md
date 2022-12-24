@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Dec 13, 2022
+Dec 24, 2022
 
 Installation
 ------------
@@ -128,6 +128,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ```
 
   in Shell. The automr program will successively perform HF, GVB, and CASSCF
+  computations. The active space will be automatically determined as (4,4) during
   computations. See [examples/](examples/) for more examples.
 
 QC Packages can be called by `automr`
@@ -150,9 +151,10 @@ Some Tips
 
 Bug Report
 ----------
-* If you find any bug frequently occurs, please contact the author jxzou via njumath[at]sina.cn,
-  with your .fch(k) file and output files attached. The author may not answer or update code
-  frequently since he is being postponed due to his PhD program.
+* If you find any bug frequently occurs, please contact the developer jxzou via
+  njumath[at]sina.cn, with your .fch(k) file and output files attached. The developer
+  may not answer or update code frequently since he is being postponed due to his
+  PhD program.
 
 * You can also open an issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
 
