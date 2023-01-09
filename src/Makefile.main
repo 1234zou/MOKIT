@@ -6,6 +6,8 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              rwwfn.o read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o \
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
              do_PES_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o automr.o
+OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
+             rwwfn.o read_fch.o rwgeom.o do_hf.o call_qc_calc_int.o autosr.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
 OBJ_bas_gms2bdf = file_op.o string_manipulate.o read_gms_inp.o bas_gms2bdf.o
@@ -86,13 +88,13 @@ OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
               math_sub.f90 lo.f90 call_qc_calc_int.f90 excited.f90 read_gms_inp.o
 
 .PHONY: clean distclean addH2singlet add_bgcharge_to_inp align_orbitals automr \
-        bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro \
-        bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch \
-        fch2bdf fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
-        fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn fch247 \
-        find_mc_pair inp2gjf gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
-        mkl2fch mkl2gjf obf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format \
-        solve_ON_matrix rwgeom rwwfn excited
+        autosr bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas \
+        bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch \
+        dat2fch extract_noon2fch fch2bdf fch2com fch2dal fch2mkl fch2gbw fch2inp \
+        fch2inporb fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn \
+        frag_guess_wfn fch247 find_mc_pair inp2gjf gvb_correct_pairs gvb_exclude_XH \
+        gvb_sort_pairs mkl2fch mkl2gjf obf orb2fch replace_xyz_in_inp xml2fch \
+        mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -103,6 +105,7 @@ help:
 	echo ;\
 	echo " help      : print the current information" ;\
 	echo " automr    : generate automr, automated multireference calculations" ;\
+	echo " autosr    : generate automr, automated single reference calculations" ;\
 	echo " fch2bdf   : generate fch2bdf    (Gau->BDF)" ;\
 	echo " fch2com   : generate fch2com    (Gau->Molpro)" ;\
 	echo " fch2dal   : generate fch2dal    (Gau->Dalton)" ;\
@@ -138,6 +141,12 @@ automr: $(OBJ_automr)
 	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS) $(MKL_FLAGS)
 	@echo ;\
 	echo "AutoMR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
+	echo
+
+autosr: $(OBJ_autosr)
+	$(F90) $(OBJ_autosr) -o $(BIN)/autosr $(FFLAGS) $(MKL_FLAGS)
+	@echo ;\
+	echo "AutoSR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
 
 bas_fch2py: $(OBJ_bas_fch2py)

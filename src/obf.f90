@@ -10,12 +10,12 @@ module obf   ! orbital-based fragmentation
  integer :: n_tot  ! total number of MO clusters (primitive + derivative)
  integer :: na, nb, nopen ! number of alpha, beta and singly occupied orbitals
  integer, allocatable :: icoeff0(:), icoeff1(:), icoeff(:)
- integer, allocatable :: label0(:,:), label1(:,:)
+ integer, allocatable :: label0(:,:), label1(:,:), del_lab(:,:)
  real(kind=8) :: e_tot = 0d0       ! total electronic energy
  real(kind=8), parameter :: dis_thres0 = 4d0  ! Angstrom
  real(kind=8), allocatable :: cluster_e(:) ! size n_tot
  character(len=240) :: fchname = ' '
- type(mo_cluster), allocatable :: cluster0(:), cluster1(:), cluster(:)
+ type(mo_cluster), allocatable :: cluster(:), cluster0(:), cluster1(:)
 
 contains
 
@@ -102,17 +102,18 @@ subroutine gen_mo_cluster_per_mo(dis_thres)
  end if
 end subroutine gen_mo_cluster_per_mo
 
-! delete primitive MO clusters which are embraced by other primitive clusters
-! cluster0 -> cluster1, icoeff0 -> icoeff1
-subroutine delete_embraced_cluster()
+! delete primitive MO clusters which are embraced by other primitive MO clusters
+! cluster0 -> cluster1
+subroutine delete_embraced_cluster0()
  implicit none
- integer :: i, j, k, m, n, p, q, nocc1, nocc2
- integer, allocatable :: idx1(:), idx2(:)
- logical :: deleted
+ integer :: i, j, n1, n2
+ integer, allocatable :: idx(:)
+ logical :: alive
+ logical, external :: check_subset
  logical, allocatable :: del(:)
 
  if(n_old == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine delete_embraced_cluster: n_old=0.'
+  write(6,'(/,A)') 'ERROR in subroutine delete_embraced_cluster0: n_old=0.'
   write(6,'(A)') 'Something must be wrong.'
   stop
  end if
@@ -120,57 +121,26 @@ subroutine delete_embraced_cluster()
 
  do i = 1, n_old-1, 1
   if(del(i)) cycle
-  nocc1 = cluster0(i)%nocc
-  if(nocc1 == 0) then
-   del(i) = .true.
-   cycle
-  end if
+  n1 = cluster0(i)%nocc
+  allocate(idx(n1), source=cluster0(i)%occ_idx)
 
   do j = i+1, n_old, 1
    if(del(j)) cycle
-   nocc2 = cluster0(j)%nocc
-   if(nocc2 == 0) then
-    del(j) = .true.
-    cycle
-   end if
+   n2 = cluster0(j)%nocc
 
-   if(nocc1 < nocc2) then
-    k = nocc1; m = nocc2
-    allocate(idx1(k), source=cluster0(i)%occ_idx)
-    allocate(idx2(m), source=cluster0(j)%occ_idx)
-   else ! nocc1 >= nocc2
-    k = nocc2; m = nocc1
-    allocate(idx1(k), source=cluster0(j)%occ_idx)
-    allocate(idx2(m), source=cluster0(i)%occ_idx)
-   end if
-   deleted = .true.
-
-   do p = 1, k, 1 ! k >= m
-    n = idx1(p)
-    do q = 1, m, 1
-     if(ALL(idx2 /= n)) then
-      deleted = .false.
-      exit
-     end if
-    end do ! for q
-   end do ! for p
-
-   deallocate(idx1, idx2)
-
-   if(deleted) then
-    if(nocc1 < nocc2) then
+   if(n1 < n2) then
+    alive = check_subset(n1, idx, n2, cluster0(j)%occ_idx)
+    if(alive) then
      del(i) = .true.
      exit
-    else ! nocc1 >= nocc2
-     del(j) = .true.
-     if(nocc1 == nocc2) then
-      icoeff0(i) = icoeff0(i) + icoeff0(j)
-      icoeff0(j) = 0
-     end if
     end if
+   else ! n1 >= n2
+    alive = check_subset(n2, cluster0(j)%occ_idx, n1, idx)
+    if(alive) del(j) = .true.
    end if
-
   end do ! for j
+
+  deallocate(idx)
  end do ! for i
 
  n_new = COUNT(del .eqv. .false.)
@@ -181,21 +151,136 @@ subroutine delete_embraced_cluster()
   stop
  end if
 
- j = 0
  allocate(cluster1(n_new))
- allocate(icoeff1(n_new), source=0)
- p = size(label0,1)
- allocate(label1(p,n_new), source=0)
+ j = 0
 
  do i = 1, n_old, 1
   if(del(i)) cycle
   j = j + 1
-  icoeff1(j) = icoeff0(i)
-  label1(:,j) = label0(:,i)
   call copy_type_mo_cluster(cluster0(i), cluster1(j))
  end do ! for i
 
- deallocate(del, cluster0, icoeff0, label0)
+ deallocate(del, cluster0)
+
+ write(6,'(A)') 'merged primitive MO clusters:'
+ do i = 1, n_new, 1
+  write(6,'(I4,A1,23I4)') i,':',cluster1(i)%occ_idx
+ end do ! for i
+end subroutine delete_embraced_cluster0
+
+! delete MO clusters which are embraced by other MO clusters
+! Note: there may exists empty MO clusters, which will also be deleted
+! cluster0 -> cluster1, icoeff0 -> icoeff1
+subroutine delete_embraced_cluster()
+ implicit none
+ integer :: i, j, k, m, n1, n2, n3, n4
+ integer, allocatable :: idx(:), idx1(:), idx2(:), itmp(:), del_lab1(:,:)
+ logical :: alive, cycle_j
+ logical, external :: check_subset
+ logical, allocatable :: del(:)
+
+ if(n_old == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine delete_embraced_cluster: n_old=0.'
+  write(6,'(A)') 'Something must be wrong.'
+  stop
+ end if
+ if(allocated(del_lab)) deallocate(del_lab)
+ allocate(del(n_old), source=.false.)
+ forall(i=1:n_old, cluster0(i)%nocc==0) del(i) = .true.
+
+ do i = 1, n_old-1, 1
+  if(del(i)) cycle
+  n1 = cluster0(i)%nocc
+  allocate(idx(n1), source=cluster0(i)%occ_idx)
+
+  do j = i+1, n_old, 1
+   if(del(j)) cycle
+   n2 = cluster0(j)%nocc
+
+   if(n1 < n2) then
+    n3 = n1; n4 = n2
+    allocate(idx1(n3), source=idx)
+    allocate(idx2(n4), source=cluster0(j)%occ_idx)
+   else ! n1 >= n2
+    n3 = n2; n4 = n1
+    allocate(idx1(n3), source=cluster0(j)%occ_idx)
+    allocate(idx2(n4), source=idx)
+   end if
+   alive = check_subset(n3, idx1, n4, idx2)
+   deallocate(idx1, idx2)
+   if(.not. alive) cycle
+   ! now alive is .true., i.e. idx1 is subset of idx2
+
+   k = size(label0, 1)
+   allocate(itmp(2*k))
+   call find_union(k, label0(:,i), label0(:,j), itmp)
+   if(COUNT(itmp>0) > k+1) then ! not the next generation, skip
+    deallocate(itmp)
+    cycle
+   end if
+   ! now COUNT(itmp > 0) = k+1
+
+   if(allocated(del_lab)) then
+    m = size(del_lab, 2)
+    cycle_j = .false.
+    do n3 = 1, m, 1
+     if(ALL(del_lab(:,n3) == itmp)) then
+      cycle_j = .true.
+      exit
+     end if
+    end do ! for n3
+    if(cycle_j) then
+     deallocate(itmp)
+     cycle
+    end if
+
+    allocate(del_lab1(k+1,m), source=del_lab)
+    deallocate(del_lab)
+    allocate(del_lab(k+1,m+1))
+    del_lab(:,1:m) = del_lab1
+    deallocate(del_lab1)
+    del_lab(:,m+1) = itmp
+   else ! not allocated
+    allocate(del_lab(k+1,1))
+    del_lab(:,1) = itmp
+   end if
+
+   deallocate(itmp)
+
+   if(n1 < n2) then
+    del(i) = .true.
+    exit
+   else
+    del(j) = .true.
+   end if
+  end do ! for j
+
+  deallocate(idx)
+ end do ! for i
+
+ n_new = COUNT(del .eqv. .false.)
+ if(n_new == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine delete_embraced_cluster: all MO cluster&
+                   &s are deleted.'
+  write(6,'(A)') 'Something must be wrong.'
+  stop
+ end if
+
+ k = size(label0, 1)
+ allocate(label1(k,n_new), source=0)
+ allocate(icoeff1(n_new), source=0)
+ allocate(cluster1(n_new))
+ j = 0
+
+ do i = 1, n_old, 1
+  if(del(i)) cycle
+  j = j + 1
+  label1(:,j) = label0(:,i)
+  icoeff1(j) = icoeff0(i)
+  call copy_type_mo_cluster(cluster0(i), cluster1(j))
+ end do ! for i
+
+ deallocate(del, label0, icoeff0, cluster0)
 
  write(6,'(A)') 'merged MO clusters:'
  do i = 1, n_new, 1
@@ -211,12 +296,8 @@ subroutine gen_prim_cluster(dis_thres)
 
  call gen_mo_cluster_per_mo(dis_thres)
  n_old = nmo
- allocate(icoeff0(n_old), source=1)
- allocate(label0(1,n_old))
- forall(i = 1:n_old) label0(1,i) = i
 
- call delete_embraced_cluster()
- deallocate(icoeff1, label1) ! useless for primitive subsystems
+ call delete_embraced_cluster0()
 
  if(n_new == 1) then
   write(6,'(/,A)') 'ERROR in subroutine gen_prim_cluster: only one primitive&
@@ -239,11 +320,11 @@ end subroutine gen_prim_cluster
 subroutine gen_deri_cluster()
  implicit none
  integer :: i, j, k, m, n, p, n1, n2, n_deri
- integer, external :: comb, label2idx
- integer, allocatable :: itmp(:), itmp1(:)
- logical :: alive, cycle_k
+ integer, allocatable :: idx(:), itmp(:)
+ logical :: cycle_k, alive
+ logical, external :: check_subset
 
- ! copy primitive MO cluster from type cluster to cluster2
+ ! copy primitive MO cluster from type cluster to cluster1
  n_old = n_tot
  allocate(cluster1(n_old), icoeff1(n_old), label1(1,n_old))
  call copy_type_mo_clusters(n_old, cluster, cluster1)
@@ -260,12 +341,13 @@ subroutine gen_deri_cluster()
   n_deri = n_old*(n_old-1)/2
   ! the number of derivative clusters of the current generation
 
-  allocate(cluster0(n_deri), label0(i,n_deri), icoeff0(n_deri))
-  allocate(itmp(2*(i-1)), itmp1(i-1))
+  allocate(cluster0(n_deri), label0(i,n_deri), icoeff0(n_deri), itmp(2*(i-1)))
   label0 = 0; icoeff0 = 0; m = 0
 
   do j = 1, n_old-1, 1
    n1 = cluster1(j)%nocc
+   allocate(idx(n1), source=cluster1(j)%occ_idx)
+
    do k = j+1, n_old, 1
     n2 = cluster1(k)%nocc
 
@@ -283,7 +365,8 @@ subroutine gen_deri_cluster()
      stop
     end if
 
-    ! if the intersection has appeared before, cycle
+    ! if the intersection pattern has appeared before, cycle
+    ! e.g. if (AxB)x(CxD) is reserved, (AxC)x(BxD) should be discarded
     cycle_k = .false.
     do n = 1, m, 1
      if(ALL(label0(:,n) == itmp(1:i))) then
@@ -293,58 +376,51 @@ subroutine gen_deri_cluster()
     end do ! for n
     if(cycle_k) cycle
 
-    ! if any parent set of this intersection is null, cycle
-    do n = 1, i, 1
-     cycle_k = .true.
-
-     if(n == 1) then
-      itmp1 = itmp(2:i)
-     else if(n == i) then
-      itmp1 = itmp(1:i-1)
-     else ! 1 < n < i
-      itmp1(1:n-1) = itmp(1:n-1)
-      itmp1(n:i-1) = itmp(n+1:i)
-     end if
-
-     do p = 1, n_old, 1
-      if(ALL(label1(:,p) == itmp1)) then
-       cycle_k = .false.
+    ! if the intersection pattern has been determined as 'deleted' in the
+    ! previous cycle, skip
+    if(allocated(del_lab)) then
+     cycle_k = .false.
+     p = size(del_lab, 2)
+     do n = 1, p, 1
+      if(ALL(del_lab(:,n) == itmp)) then
+       cycle_k = .true.
        exit
       end if
-     end do ! for p
-
-     if(cycle_k) exit
-    end do ! for n
-    if(cycle_k) cycle
-    ! done check parent sets
+     end do ! for n
+     if(cycle_k) cycle
+    end if
 
     m = m + 1
     label0(:,m) = itmp(1:i)
-    call find_intersec(n1, cluster1(j)%occ_idx, n2, cluster1(k)%occ_idx, &
-                       cluster0(m))
-    if(cluster0(m)%nocc > 0) then
-     icoeff0(m) = icoeff1(j)*icoeff1(k)
-     if(MOD(i,2) == 0) icoeff0(m) = -icoeff0(m)
-    end if
+    call find_intersec(n1, idx, n2, cluster1(k)%occ_idx, cluster0(m))
    end do ! for k
+
+   deallocate(idx)
   end do ! for j
 
-  deallocate(itmp, itmp1, cluster1, icoeff1, label1)
+  deallocate(itmp, label1, cluster1, icoeff1)
   if(m == 0) then ! no intersection in this generation
-   deallocate(cluster0, icoeff0, label0)
+   deallocate(label0)
    exit
   end if
+  if(MOD(i,2) == 0) then
+   forall(j=1:m, cluster0(j)%nocc>0) icoeff0(j) = -1
+  else
+   forall(j=1:m, cluster0(j)%nocc>0) icoeff0(j) = 1
+  end if
 
-  n_old = m   ! will be used in empty_embraced_cluster
+  n_old = m   ! will be used in delete_embraced_cluster
   call delete_embraced_cluster()
   ! cluster0 -> cluster1, icoeff0 -> icoeff1, label0 -> label1
 
   call append_cluster1_to_cluster()
 
   n_old = n_new   ! update n_old for next cycle
-  if(ALL(cluster1(:)%nocc < 2)) exit
+  if(n_old == 1) exit
+  !if(ALL(cluster1(:)%nocc < 2)) exit
  end do ! for i
 
+ if(allocated(del_lab)) deallocate(del_lab)
  call check_occur_once(alive)
 
  if(.not. alive) then
@@ -358,27 +434,6 @@ subroutine gen_deri_cluster()
   stop
  end if
 end subroutine gen_deri_cluster
-
-! find the union set of two integer arrays
-! Note: all elements in integer arrays a1 and a2 must be positive
-subroutine find_union(n, a1, a2, a3)
- implicit none
- integer :: i, j
- integer, intent(in) :: n
- integer, intent(in) :: a1(n), a2(n)
- integer, intent(out) :: a3(2*n)
-
- a3(1:n) = a1; a3(n+1:) = 0; j = n
-
- do i = 1, n, 1
-  if(ANY(a1 == a2(i))) cycle
-  j = j + 1
-  a3(j) = a2(i)
- end do ! for i
-
- ! sort a3(1:j)
- call sort_int_array(j, a3(1:j), .true.)
-end subroutine find_union
 
 ! append type cluster1 to type cluster, the latter will be enlarged
 ! also enlarge the integer array icoeff
@@ -396,63 +451,17 @@ subroutine append_cluster1_to_cluster()
  allocate(cluster(n))
  call copy_type_mo_clusters(n_tot, tmp_c, cluster(1:n_tot))
  deallocate(tmp_c)
+ call copy_type_mo_clusters(n_new, cluster1, cluster(n_tot+1:))
 
  allocate(tmp_i(n_tot), source=icoeff)
  deallocate(icoeff)
  allocate(icoeff(n))
  icoeff(1:n_tot) = tmp_i
  deallocate(tmp_i)
-
  icoeff(n_tot+1:) = icoeff1
- call copy_type_mo_clusters(n_new, cluster1, cluster(n_tot+1:))
 
  n_tot = n
 end subroutine append_cluster1_to_cluster
-
-! find intersection of two integer arrays, save the result into type clus
-subroutine find_intersec(n1, a1, n2, a2, clus)
- implicit none
- integer :: i, j, k, m
- integer, intent(in) :: n1, n2
- integer, intent(in) :: a1(n1), a2(n2)
- integer, allocatable :: occ_idx(:)
- logical, allocatable :: skip1(:), skip2(:)
- type(mo_cluster), intent(out) :: clus
-
- if(n1==0 .or. n2==0) return ! the intersection must be empty
- allocate(skip1(n1), source=.false.)
- allocate(skip2(n2), source=.false.)
- k = 0
-
- do i = 1, n1, 1
-  if(skip1(i)) cycle
-  m = a1(i)
-
-  do j = 1, n2, 1
-   if(skip2(j)) cycle
-
-   if(m == a2(j)) then
-    skip1(i) = .true.
-    skip2(j) = .true.
-    k = k + 1
-    if(k > 1) then
-     occ_idx = [occ_idx, m]
-    else
-     allocate(occ_idx(1))
-     occ_idx(1) = m
-    end if
-    exit
-   end if
-  end do ! for j
- end do ! for i
-
- deallocate(skip1, skip2)
- clus%nocc = k
- if(k > 0) then
-  allocate(clus%occ_idx(k), source=occ_idx)
-  deallocate(occ_idx)
- end if
-end subroutine find_intersec
 
 subroutine check_occur_once(alive)
  implicit none
@@ -672,7 +681,6 @@ program main
  do i = 1, n_tot, 1
   write(6,'(I2,A1,23I4)') icoeff(i),':',cluster(i)%occ_idx
  end do ! for i
- stop
 
  ! generate all .fch files with active orbitals permuted near HONO or LUNO
  call gen_permute_fch()
@@ -687,190 +695,28 @@ program main
  write(6,'(/,A)') 'Obf program ends at '//TRIM(data_string)
 end program main
 
-! Compute Cn,k. E.g. C4,2 = 6
-function comb(n,k)
+! find the union set of two integer arrays
+! Note: all elements in integer arrays a1 and a2 must be positive
+subroutine find_union(n, a1, a2, a3)
  implicit none
- integer :: i, k1
- integer :: numerator, denominator, comb
- integer, intent(in) :: n, k
+ integer :: i, j
+ integer, intent(in) :: n
+ integer, intent(in) :: a1(n), a2(n)
+ integer, intent(out) :: a3(2*n)
 
- numerator = 1
- denominator = 1
- if(2*k <= n) then
-  k1 = k     ! Cn,k
- else
-  k1 = n - k ! Cn,(n-k)
- end if
+ a3(1:n) = a1; a3(n+1:) = 0; j = n
 
- do i = n, n-k1+1, -1
-  numerator = numerator*i
+ do i = 1, n, 1
+  if(ANY(a1 == a2(i))) cycle
+  j = j + 1
+  a3(j) = a2(i)
  end do ! for i
 
- do i = 1, k1, 1
-  denominator = denominator*i
- end do ! for i
+ ! sort a3(1:j)
+ call sort_int_array(j, a3(1:j), .true.)
+end subroutine find_union
 
- comb = numerator/denominator
-end function comb
-
-! initialize the integer array label
-! Example: when np=4, m=2, label contains 1,2, 1,3, 1,4, 2,3, 2,4, 3,4, n=6
-subroutine init_label(np, m, n, label)
- implicit none
- integer, intent(in) :: np, m, n
- integer, intent(out) :: label(m,n)
-
- select case(m)
- case(2)
-  call init_label2(np, n, label)
- case(3)
-  call init_label3(np, n, label)
- case(4)
-  call init_label4(np, n, label)
- case(5)
-  call init_label5(np, n, label)
- case(6)
-  call init_label6(np, n, label)
- case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine init_label: m=', m
-  write(6,'(A)') 'Currently only m=2,3,4,5,6 are supported.'
-  stop
- end select
-end subroutine init_label
-
-subroutine init_label2(np, n, label)
- implicit none
- integer :: i, j, k
- integer, intent(in) :: np, n
- integer, intent(out) :: label(2,n)
-
- k = 0
- do i = 1, np-1, 1
-  do j = i+1, np, 1
-   k = k + 1
-   label(:,k) = [i,j]
-  end do ! for j
- end do ! for i
-end subroutine init_label2
-
-subroutine init_label3(np, n, label)
- implicit none
- integer :: i, j, k, m
- integer, intent(in) :: np, n
- integer, intent(out) :: label(3,n)
-
- m = 0
- do i = 1, np-2, 1
-  do j = i+1, np-1, 1
-   do k = j+1, np, 1
-    m = m + 1
-    label(:,m) = [i,j,k]
-   end do ! for k
-  end do ! for j
- end do ! for i
-end subroutine init_label3
-
-subroutine init_label4(np, n, label)
- implicit none
- integer :: i, j, k, m, p
- integer, intent(in) :: np, n
- integer, intent(out) :: label(4,n)
-
- p = 0
- do i = 1, np-3, 1
-  do j = i+1, np-2, 1
-   do k = j+1, np-1, 1
-    do m = k+1, np, 1
-     p = p + 1
-     label(:,p) = [i,j,k,m]
-    end do ! for m
-   end do ! for k
-  end do ! for j
- end do ! for i
-end subroutine init_label4
-
-subroutine init_label5(np, n, label)
- implicit none
- integer :: i, j, k, m, p, q
- integer, intent(in) :: np, n
- integer, intent(out) :: label(5,n)
-
- q = 0
- do i = 1, np-4, 1
-  do j = i+1, np-3, 1
-   do k = j+1, np-2, 1
-    do m = k+1, np-1, 1
-     do p = m+1, np, 1
-      q = q + 1
-      label(:,q) = [i,j,k,m,p]
-     end do ! for p
-    end do ! for m
-   end do ! for k
-  end do ! for j
- end do ! for i
-end subroutine init_label5
-
-subroutine init_label6(np, n, label)
- implicit none
- integer :: i, i1, i2, i3, i4, i5, i6
- integer, intent(in) :: np, n
- integer, intent(out) :: label(6,n)
-
- i = 0
- do i1 = 1, np-5, 1
-  do i2 = i1+1, np-4, 1
-   do i3 = i2+1, np-3, 1
-    do i4 = i3+1, np-2, 1
-     do i5 = i4+1, np-1, 1
-      do i6 = i5+1, np, 1
-       i = i + 1
-       label(:,i) = [i1,i2,i3,i4,i5,i6]
-      end do ! for i6
-     end do ! for i5
-    end do ! for i4
-   end do ! for i3
-  end do ! for i2
- end do ! for i1
-end subroutine init_label6
-
-! given a set of integers, return its corresponding index
-! e.g. np=6, a=[2,3,4] => idx=11
-! see subroutine init_label and you will know why the index is calculated in
-! this way
-function label2idx(np, n, a) result(idx)
- implicit none
- integer :: i, j, k, m, p, q, r, idx
- integer, intent(in) :: np, n
- integer, intent(in) :: a(n)
-
- i = a(1)
- if(n > 1) j = a(2)
-
- select case(n)
- case(1)
-  idx = i
- case(2)
-  idx = (2*np-i)*(i-1)/2 + j - i
- case(3)
-  k = np - i
-  idx = (np*(np-1)*(np-2) - (k+1)*k*(k-1))/6 + (2*np-i-j)*(j-i-1)/2 + a(3) - j
- case(4)
-  k = a(3); m = np - i; p = np - j
-  idx = (np*(np-1)*(np-2)*(np-3) - (m+1)*m*(m-1)*(m-2))/24 + &
-        (m*(m-1)*(m-2) - (p+1)*p*(p-1))/6 + (2*np-j-k)*(k-j-1)/2 + a(4) - k
- case(5)
-  k = a(3); m = a(4); p = np - i; q = np - j; r = np - k
-  idx = (np*(np-1)*(np-2)*(np-3)*(np-4) - (p+1)*p*(p-1)*(p-2)*(p-3))/120 + &
-        (p*(p-1)*(p-2)*(p-3) - (q+1)*q*(q-1)*(q-2))/24 + &
-        (q*(q-1)*(q-2) - (r+1)*r*(r-1))/6 + (2*np-k-m)*(m-k-1)/2 + a(5) - m
- case default
-  write(6,'(/,A,I0)') 'ERROR in function label2idx: n=', n
-  write(6,'(A)') 'Currently only n=1,2,3,4,5 are supported.'
-  stop
- end select
-end function label2idx
-
-! sort an integer array by ascending order
+! sort an integer array by ascending/descending order
 subroutine sort_int_array(n, a, ascending)
  implicit none
  integer :: i, j, k, m
@@ -901,6 +747,75 @@ subroutine sort_int_array(n, a, ascending)
   end do ! for i
  end if
 end subroutine sort_int_array
+
+! find intersection of two integer arrays, save the result into type clus
+! Note: assuming all elements in arrays a1 and a2 are positive integers
+subroutine find_intersec(n1, a1, n2, a2, clus)
+ use population, only: mo_cluster
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: n1, n2
+ integer, intent(in) :: a1(n1), a2(n2)
+ integer, allocatable :: occ_idx(:)
+ logical, allocatable :: skip1(:), skip2(:)
+ type(mo_cluster), intent(out) :: clus
+
+ allocate(skip1(n1), source=.false.)
+ allocate(skip2(n2), source=.false.)
+ k = 0
+
+ do i = 1, n1, 1
+  if(skip1(i)) cycle
+  m = a1(i)
+
+  do j = 1, n2, 1
+   if(skip2(j)) cycle
+
+   if(m == a2(j)) then
+    skip1(i) = .true.
+    skip2(j) = .true.
+    k = k + 1
+    if(k > 1) then
+     occ_idx = [occ_idx, m]
+    else
+     allocate(occ_idx(1))
+     occ_idx(1) = m
+    end if
+    exit
+   end if
+  end do ! for j
+ end do ! for i
+
+ deallocate(skip1, skip2)
+ clus%nocc = k
+ if(k > 0) then
+  allocate(clus%occ_idx(k), source=occ_idx)
+  deallocate(occ_idx)
+ end if
+end subroutine find_intersec
+
+! check whether the integer array a1 is a subset of a2
+! Note: n1 <= n2 is required
+function check_subset(n1, a1, n2, a2) result(subset)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: n1, n2
+ integer, intent(in) :: a1(n1), a2(n2)
+ logical :: subset
+
+ subset = .true.
+
+ do i = 1, n1, 1
+  k = a1(i)
+
+  do j = 1, n2, 1
+   if(ALL(a2 /= k)) then
+    subset = .false.
+    return
+   end if
+  end do ! for j
+ end do ! for i
+end function check_subset
 
 ! permute active MOs of a sub-cluster
 subroutine permute_mo_in_sub_cluster(nbf, nif, mo, clus, mo1)
@@ -952,7 +867,7 @@ subroutine gen_automr_gjf_and_submit()
  use obf, only: fchname, n_tot, cluster
  implicit none
  integer :: i, ne, fid
- integer, parameter :: nproc = 48, mem = 200
+ integer, parameter :: nproc = 24, mem = 170
  character(len=240) :: proname, gjfname, new_fch
 
  i = index(fchname, '.fch', back=.true.)
@@ -976,21 +891,31 @@ subroutine gen_automr_gjf_and_submit()
  end do ! for i
 end subroutine gen_automr_gjf_and_submit
 
-! read the electronic energy of each MO cluster from output files
+! 1) read the electronic energy of each MO cluster from output files
+! 2) calculate the total density using linear combinations of the total density
+! of various MO clusters
 subroutine read_cluster_e_from_out()
  use obf, only: fchname, n_tot, e_tot, cluster_e, icoeff
  implicit none
- integer :: i, k, fid, system
- character(len=240) :: buf, proname, proname1, outname
+ integer :: i, k, nbf, nif, fid, system
+ real(kind=8), allocatable :: den0(:,:), den1(:,:)
+ character(len=240) :: buf, proname, proname1, outname, fchname1, fchname2
  character(len=500) :: longbuf = ' '
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(den0(nbf,nbf), source=0d0)
+ allocate(den1(nbf,nbf), source=0d0)
 
  i = index(fchname, '.fch', back=.true.)
  proname = fchname(1:i-1)
+ fchname2 = fchname(1:i-1)//'_NO.fch'
+ call copy_file(fchname, fchname2, .false.)
  allocate(cluster_e(n_tot), source=0d0)
 
  do i = 1, n_tot, 1
   write(proname1,'(A,I0)') TRIM(proname),i
   outname = TRIM(proname1)//'_CASCI.out'
+  fchname1 = TRIM(proname1)//'_CASCI_NO.fch'
 
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
   BACKSPACE(fid)
@@ -1002,9 +927,12 @@ subroutine read_cluster_e_from_out()
                  & found at the end of "//TRIM(outname)
    stop
   end if
-
   k = index(buf, '=')
   read(buf(k+1:),*) cluster_e(i)
+
+  call read_density_from_fch(fchname1, 1, nbf, den1)
+  den0 = den0 + DBLE(icoeff(i))*den1
+
   longbuf = 'tar -zcf '//TRIM(proname1)//'.tar.gz '//TRIM(proname1)//'.* '//&
             TRIM(proname1)//'_* --remove-files'
   k = system(longbuf)
@@ -1012,8 +940,13 @@ subroutine read_cluster_e_from_out()
                             &d to create package '//TRIM(proname1)//'.tar.gz'
  end do ! for i
 
+ deallocate(den1)
  e_tot = DOT_PRODUCT(cluster_e, DBLE(icoeff))
- write(6,'(/,A,F18.8,A)') 'E_tot = ',e_tot,' a.u.'
  deallocate(cluster_e)
+ write(6,'(/,A,F18.8,A)') 'E_tot = ',e_tot,' a.u.'
+
+ call write_density_into_fch(fchname2, nbf, .true., den0)
+ deallocate(den0)
+ call gen_no_using_density_in_fch(fchname2, 1) 
 end subroutine read_cluster_e_from_out
 

@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Dec 24, 2022)
+MOKIT 1.2.5 (Jan 9, 2023)
 ------------------------
 * allow to skip stable=opt in frag_guess_wfn
 * add missing nopen for vir_idx in ist=3 when reading ROHF wfn

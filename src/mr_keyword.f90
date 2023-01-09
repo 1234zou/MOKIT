@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2022-Dec-24)'
+  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-9)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -2088,7 +2088,11 @@ subroutine get_orca_path(orca_path)
  character(len=240), intent(out) :: orca_path
 
  orca_path = ' '
- i = system("echo `\which orca` >mokit.orca 2>&1")
+ ! Previously, I use "echo `\which orca` >mokit.orca". But if no ORCA installed
+ ! on the current machine, the content 'which: no orca in...' will be printed
+ ! into the automr output file, so I change it to the original version, simply
+ ! which orca
+ i = system("which orca >mokit.orca 2>&1")
 
  open(newunit=fid,file='mokit.orca',status='old',position='rewind')
  read(fid,'(A)',iostat=i) orca_path
@@ -2117,7 +2121,10 @@ subroutine check_molcas_is_openmp(openmp)
  str = ' '
  openmp = .true.
  i = system('pymolcas --banner >'//ftmp//" 2>&1")
- if(i /= 0) return
+ if(i /= 0) then
+  call delete_file(ftmp)
+  return
+ end if
  ! maybe OpenMolcas not installed, assume OpenMP version
 
  open(newunit=fid,file=ftmp,status='old',position='rewind')
