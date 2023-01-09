@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2022年12月24号
+2023年1月9号
 
 安装
 ----------
@@ -184,7 +184,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
 Disclaimer
 ----------
-Copyright (c) 2022 jxzou
+Copyright (c) 2023 jxzou
 
 All rights reserved.
 

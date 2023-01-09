@@ -524,7 +524,7 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
   read(fid,'(A)') buf
   if(buf(1:12) == 'Current cart') exit
  end do
- allocate(coor0(3*natom), source=0.0d0)
+ allocate(coor0(3*natom), source=0d0)
  read(fid,'(5(1X,ES15.8))') (coor0(i),i=1,3*natom)
  coor = RESHAPE(coor0,[3,natom])
 
@@ -572,7 +572,7 @@ subroutine read_grad_from_pyscf_out(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
@@ -599,7 +599,7 @@ subroutine read_grad_from_fch(fchname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
- grad = 0.0d0
+ grad = 0d0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
@@ -619,7 +619,7 @@ subroutine read_grad_from_gau_log(logname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
 
- grad = 0.0d0
+ grad = 0d0
  open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
@@ -648,7 +648,7 @@ subroutine read_grad_from_gms_gms(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
@@ -680,8 +680,7 @@ subroutine read_grad_from_gms_dat(datname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
- grad = 0.0d0
-
+ grad = 0d0
  open(newunit=fid,file=TRIM(datname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
@@ -708,7 +707,7 @@ subroutine read_grad_from_molcas_out(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
@@ -740,7 +739,7 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
@@ -769,7 +768,7 @@ subroutine read_grad_from_molpro_out(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
@@ -799,7 +798,7 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0.0d0
+ grad = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)

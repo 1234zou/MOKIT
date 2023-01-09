@@ -35,7 +35,8 @@ program main
   write(6,'(A)')   'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
   write(6,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
   write(6,'(A)')   'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A,/)') 'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A,/)') 'Example 8 (Q-Chem): add_bgcharge_to_inp a.chg a.in'
   stop
  end if
 
@@ -52,7 +53,8 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  implicit none
  integer :: i, j, n, fid
  real(kind=8), allocatable :: charge(:,:)
- character(len=41),parameter::error_warn='ERROR in subroutine add_bgcharge_to_inp: '
+ character(len=41), parameter :: error_warn = 'ERROR in subroutine add_bgcharg&
+                                              &e_to_inp: '
  character(len=240) :: buf
  character(len=240), intent(in) :: chgname, inpname
 
@@ -117,6 +119,8 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   else                         ! Gaussian .com file
    call add_bgcharge_to_gjf(inpname, n, charge)
   end if
+ case('in') ! Q-Chem
+  call add_bgcharge_to_qchem_inp(inpname, n, charge)
  case default
   write(6,'(A)') error_warn//'filetype not supported!'
   stop
@@ -147,7 +151,7 @@ subroutine add_bgcharge_to_gjf(gjfname, n, charge)
  write(fid2,'(A,/)') TRIM(buf)//' charge'
 
  if(index(buf,'geom=allcheck') /= 0) then
-  ! do nothing
+  read(fid1,'(A)',iostat=i) buf
  else if(index(buf,'geom=check') /= 0) then
   do i = 1, 5, 1
    read(fid2,'(A)') buf
@@ -167,6 +171,7 @@ subroutine add_bgcharge_to_gjf(gjfname, n, charge)
  do i = 1, n, 1
   write(fid2,'(4F17.8)') charge(:,i)
  end do ! for i
+ write(fid2,'(/)',advance='no')
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -574,4 +579,21 @@ subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_bgcharge_to_psi4_inp
+
+! add background point charges into a Q-Chem input(.in) file
+subroutine add_bgcharge_to_qchem_inp(inpname, n, charge)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: charge(4,n)
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ write(fid,'(/,A)') '$external_charges'
+ do i = 1, n, 1
+  write(fid,'(4(1X,F16.8))') charge(:,i)
+ end do ! for i
+ write(fid,'(A)') '$end'
+ close(fid)
+end subroutine add_bgcharge_to_qchem_inp
 

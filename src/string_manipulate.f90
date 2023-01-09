@@ -637,16 +637,57 @@ subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_RIJK_bas_into_orca_inp
 
+! detect whether there exists the charge keyword in a given .gjf file
+function detect_charge_key_in_gjf(gjfname) result(has_charge)
+ implicit none
+ integer :: i, j, nblank, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ logical :: has_charge
+
+ has_charge = .true.; nblank = 0
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) == '#') then
+   call lower(buf)
+   if(index(buf,'charge') > 0) then
+    close(fid)
+    return
+   end if
+  end if
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 1) exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ close(fid)
+ i = index(buf,'{')
+ j = index(buf,'}')
+ if(i>0 .and. j>0) then
+  call lower(buf(i+1:j-1))
+  if(index(buf(i+1:j-1),'charge') > 0) return
+ end if
+ has_charge = .false.
+end function detect_charge_key_in_gjf
+
 ! copy mixed/user-defined basis set in a given .gjf file to a .bas file
 subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  implicit none
- integer :: i, nblank, fid1, fid2
+ integer :: i, nblank0, nblank, fid1, fid2
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
  character(len=240), intent(out) :: basname
  logical, intent(in) :: add_path
+ logical, external :: detect_charge_key_in_gjf
  logical :: nobasis
 
+ if(detect_charge_key_in_gjf(gjfname)) then
+  nblank0 = 4
+ else
+  nblank0 = 3
+ end if
  i = index(gjfname, '.gjf', back=.true.)
  basname = gjfname(1:i-1)//'.bas'
 
@@ -656,7 +697,7 @@ subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-  if(nblank == 3) exit
+  if(nblank == nblank0) exit
  end do ! for while
 
  if(i /= 0) then

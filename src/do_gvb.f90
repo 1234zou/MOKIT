@@ -221,7 +221,7 @@ end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
 subroutine do_gvb_qchem(proname, pair_fch)
- use mr_keyword, only: mem, nproc, mo_rhf, datname
+ use mr_keyword, only: mem, nproc, mo_rhf, bgchg, chgname, datname
  use mol, only: nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap
  implicit none
@@ -253,6 +253,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  call fch2qchem_wrap(pair_fch, npair, inpname)
  ! Note: nopen is determined automatically in fch2qchem
 
+ if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
  call modify_memory_in_qchem_inp(mem, inpname)
  call submit_qchem_job(inpname, nproc)
 
@@ -303,11 +304,11 @@ subroutine do_gvb_qchem(proname, pair_fch)
 
  write(6,'(A)') REPEAT('-',79)
  write(6,'(A)') 'Remark: the GVB-PP in Q-Chem uses coupled-cluster-like formula&
-                &e, see Chemical'
- write(6,'(A)') 'Physics 202 (1996) 217-229. It is a non-variational method, so&
-                & its energy usu-'
- write(6,'(A)') 'ally differs slightly with that calculated by GVB-PP in GAMESS&
-                &/Gaussian.'
+                &e, see DOI:10.1016/'
+ write(6,'(A)') '0301-0104(95)00321-5. It is a non-variational method, so its e&
+                &nergy usually'
+ write(6,'(A)') 'differs slightly with that calculated by GVB-PP in GAMESS/Gaus&
+                &sian.'
  write(6,'(A)') REPEAT('-',79)
 end subroutine do_gvb_qchem
 

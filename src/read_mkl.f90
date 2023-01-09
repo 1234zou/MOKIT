@@ -262,7 +262,7 @@ function norm_fac_of_prim_gau(itype, alpha) result(norm_fac)
  integer, intent(in) :: itype
  real(kind=8) :: norm_fac
  real(kind=8), intent(in) :: alpha
- real(kind=8), parameter :: PI = 4.0d0*DATAN(1.0d0)
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
 
  norm_fac = 1d0
 

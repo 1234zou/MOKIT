@@ -319,6 +319,23 @@ subroutine get_gau_path(gau_path)
 #endif
 end subroutine get_gau_path
 
+! calculate the total number of electrons using total density in a .fch file
+subroutine get_ne_from_fch(fchname)
+ implicit none
+ integer :: nbf, nif
+ real(kind=8) :: ne
+ real(kind=8), allocatable :: den(:,:), S(:,:)
+ character(len=240), intent(in) :: fchname
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(den(nbf,nbf), S(nbf,nbf))
+ call read_density_from_fch(fchname, 1, nbf, den)
+ call get_ao_ovlp_using_fch(fchname, nbf, S)
+ call get_ne_from_PS(nbf, den, S, ne)
+ deallocate(den, S)
+ write(6,'(A,F11.4)') 'ne = ', ne
+end subroutine get_ne_from_fch
+
 ! compute the number of electrons by tracing the product of density matrix and
 ! AO-basis overlap
 subroutine get_ne_from_PS(nbf, P, S, ne)

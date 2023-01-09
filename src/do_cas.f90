@@ -286,7 +286,7 @@ subroutine do_cas(scf)
 
   ! make a copy of the .fch file to save NOs
   if(ist /= 2) then ! datname is a GVB job .dat file
-   i = index(datname,'.dat')
+   i = index(datname, '.dat', back=.true.)
    inpname = datname(1:i-1)//'.fch'
   else              ! no GVB job
    i = index(hf_fch, '.fch')
@@ -301,6 +301,10 @@ subroutine do_cas(scf)
                               TRIM(casnofch), idx1, idx2
    i = system(TRIM(buf))
   end if
+
+  ! update datname to *_CASSCF.dat
+  i = index(casnofch, '_NO.fch', back=.true.)
+  datname = casnofch(1:i-1)//'.dat'
 
   ! transfer NOs from .dat to .fch
   write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no 1 ',idx2
@@ -742,13 +746,13 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(scf) then ! CASSCF
-  write(fid,'(A,/)') ' scf(maxcycle=128)'
+  write(fid,'(A)') ' scf(maxcycle=128)'
  else         ! CASCI
-  write(fid,'(A,/)') ' scf(maxcycle=-2)'
+  write(fid,'(A)') ' scf(maxcycle=-2)'
   ! to obtain CASCI NOs, we need to use -2, since -1 only calculates CASCI energy
  end if
 
- write(fid,'(A)') '--Link1--'
+ write(fid,'(/,A)') '--Link1--'
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
