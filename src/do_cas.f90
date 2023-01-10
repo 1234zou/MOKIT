@@ -234,10 +234,7 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(inpname))
   call prt_cas_script_into_py(inpname, fchname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(casscf_force) then
-   i = system("echo 'from pyscf import grad' >> "//TRIM(inpname))
-   i = system("echo 'mc.Gradients().kernel()' >> "//TRIM(inpname))
-  end if
+  if(casscf_force) call add_force_key2py_script(mem, inpname)
   j = index(inpname, '.py', back=.true.)
   outname = inpname(1:j-1)//'.out'
 
