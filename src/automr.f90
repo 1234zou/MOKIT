@@ -1088,8 +1088,8 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  character(len=240), intent(in) :: fchname1, fchname2
  character(len=240), intent(out) :: pyname
 
- call bas_fch2py_wrap(fchname1)
- call bas_fch2py_wrap(fchname2)
+ call bas_fch2py_wrap(fchname1, .false.)
+ call bas_fch2py_wrap(fchname2, .false.)
  call read_nbf_and_nif_from_fch(fchname1, nbf1, nif1)
  call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
 
