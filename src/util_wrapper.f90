@@ -402,17 +402,22 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
  end if
 end subroutine fch2qchem_wrap
 
-subroutine bas_fch2py_wrap(fchname, pyname)
+subroutine bas_fch2py_wrap(fchname, dft, pyname)
  implicit none
  integer :: i, system, RENAME
  character(len=240) :: pyname0
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: pyname
+ character(len=256) :: buf
+ logical, intent(in) :: dft
+
+ buf = 'bas_fch2py '//TRIM(fchname)
+ if(dft) buf = TRIM(buf)//' -dft'
 
 #ifdef _WIN32
- i = system('bas_fch2py '//TRIM(fchname)//' > NUL')
+ i = system(TRIM(buf)//' > NUL')
 #else
- i = system('bas_fch2py '//TRIM(fchname)//' > /dev/null')
+ i = system(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then

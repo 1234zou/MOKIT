@@ -167,3 +167,6 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
     else:
         raise TypeError('cannot dump fchk for %s job' %mf.__class__ )
 
+# alias
+py2gau = fchk
+
