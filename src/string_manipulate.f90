@@ -1060,3 +1060,17 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
  i = RENAME(TRIM(new_dat), TRIM(addH_dat))
 end subroutine copy_and_add_pair_coeff
 
+subroutine add_force_key2py_script(mem, pyname)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: mem ! GB
+ character(len=240), intent(in) :: pyname
+
+ open(newunit=fid,file=TRIM(pyname),status='old',position='append')
+ write(fid,'(A)') 'from pyscf import grad'
+ write(fid,'(A)') 'mcg = mc.Gradients()'
+ write(fid,'(A,I0,A)') 'mcg.max_memory = ',mem*1000,' # MB'
+ write(fid,'(A)') 'mcg.kernel()'
+ close(fid)
+end subroutine add_force_key2py_script
+
