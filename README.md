@@ -83,7 +83,6 @@ export GMS=$HOME/software/gamess/rungms
 
 ### Option 2: Use Pre-compiled MOKIT
 * Prerequisites: 
-    - Although you don't need to have a Fortran compiler, `libgfortran.so` is still needed.
     - Still, you need to have a Python3 environment and NumPy.
 * A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found at [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
 * After downloading the pre-built artifacts, you still need to set all the environment variables mentioned above, and one more:
