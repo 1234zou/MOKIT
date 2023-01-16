@@ -19,7 +19,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.5 :: MOKIT, release date: 2023-Jan-10'
+  write(6,'(A)') 'AutoSR 1.2.5 :: MOKIT, release date: 2023-Jan-15'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -38,11 +38,11 @@ program main
                    &S, SF-XCIS, SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
   write(6,'(A)')   '     HF_prog=Gaussian/PySCF/ORCA/PSI4'
-  write(6,'(A)')   '    MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/OpenMolcas/Dalton/QChem'
-  write(6,'(A)')   '     CC_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/OpenMolcas/Dalton/QChem'
+  write(6,'(A)')   '    MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem'
+  write(6,'(A)')   '     CC_prog=Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/PySCF/Dalton/QChem'
   write(6,'(A)')   '    CIS_prog=Molpro/ORCA/Gaussian/QChem'
   write(6,'(A)')   '    ADC_prog=Molpro/ORCA/PySCF/QChem'
-  write(6,'(A,/)') '  EOMCC_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/QChem'
+  write(6,'(A,/)') '  EOMCC_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
   call read_program_path()

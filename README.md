@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jan 10, 2023
+Jan 15, 2023
 
 Installation
 ------------
@@ -83,6 +83,7 @@ export GMS=$HOME/software/gamess/rungms
 
 ### Option 2: Use Pre-compiled MOKIT
 * Prerequisites: 
+    - Although you don't need to have a Fortran compiler, `libgfortran.so` is still needed.
     - Still, you need to have a Python3 environment and NumPy.
 * A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found at [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
 * After downloading the pre-built artifacts, you still need to set all the environment variables mentioned above, and one more:
@@ -150,10 +151,9 @@ Some Tips
 
 Bug Report
 ----------
-* If you find any bug frequently occurs, please contact the developer jxzou via
-  njumath[at]sina.cn, with your .fch(k) file and output files attached. The developer
-  may not answer or update code frequently since he is being postponed due to his
-  PhD program.
+* If you find any bug frequently occurs or have any suggestions, please contact
+  the developer jxzou via njumath[at]sina.cn, with related files (gjf, fch, out,
+  etc) attached.
 
 * You can also open an issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
 
@@ -167,7 +167,8 @@ TODO
 
 Citation
 --------
-* If you use MOKIT in your work, please cite the gitlab page of MOKIT as
+* Currently we have not published the paper of MOKIT program. If you use (any
+  module or utility of) MOKIT in your work, please cite MOKIT as
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
@@ -176,11 +177,11 @@ Citation
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* If you use MOKIT in your work, you should cite MOKIT in the main body of your
-  paper. Citing MOKIT only in Supporting Information of your paper is insufficient.
-
-* Please read the [manual](doc/) for details of citation. Your proper citation
-  would be a great encouragement to developer.
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper.
+  Citing MOKIT only in Supporting Information of your paper is insufficient. More
+  details and examples of citation can be found in [manual](doc/MOKIT_manual.pdf)
+  under the `doc/` directory, in which you can also find EndNote citation files.
+  Your proper citation would be a great encouragement to developers.
 
 Disclaimer
 ----------

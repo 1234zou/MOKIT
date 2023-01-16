@@ -1,17 +1,18 @@
 ! written by jxzou at 20210120: subroutine do_mcpdft from automr.f90 is moved here
 
-! do MC-PDFT, valid for CASCI/CASSCFb based MC-PDFT, and DMRG-PDFT
+! do MC-PDFT, valid for CASCI/CASSCF based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
   casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
   gms_scr_path, eist
  use mol, only: ptchg_e, mcpdft_e
- use util_wrapper, only: fch2inp_wrap
+ use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: ref_e, corr_e
  character(len=24) :: data_string
  character(len=240) :: fname(3), inpname, outname, cmofch
+ character(len=480) :: longbuf
  logical :: dmrg
 
  if(eist == 1) return ! excited state calculation
@@ -21,9 +22,9 @@ subroutine do_mcpdft()
  dmrg = (dmrgci .or. dmrgscf)
 
  if(dmrg) then
-  if(mcpdft_prog=='gamess') then
+  if(mcpdft_prog == 'gamess') then
    write(6,'(A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been&
-                    & implemented in GAMESS.'
+                  & implemented in GAMESS.'
    write(6,'(A)') 'You can set MCPDFT_prog=OpenMolcas in mokit{}.'
    stop
   end if
@@ -43,30 +44,46 @@ subroutine do_mcpdft()
  end if
 
  if(dmrgci .or. casci) then
-  write(6,'(A)') 'Warning: orbital optimization is strongly recommended to&
-                   & be performed'
-  write(6,'(A)') 'before PDFT, unless it is too time-consuming.'
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: orbital optimization is strongly recommended to be&
+                 & performed before'
+  write(6,'(A)') 'PDFT, unless it is too time-consuming or the input orbitals&
+                 & have been optimized.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
+
+ ! For DMRG-PDFT, use input orbitals or pseudo-canonical MOs rather than NOs
+ if(dmrg) then
+  i = index(casnofch, '_NO', back=.true.)
+  cmofch = casnofch(1:i)//'CMO.fch'
+  casnofch = cmofch
  end if
 
  select case(TRIM(mcpdft_prog))
+ case('pyscf')
+  i = index(casnofch, '_', back=.true.)
+  inpname = casnofch(1:i)//'MCPDFT.py'
+  outname = casnofch(1:i)//'MCPDFT.out'
+  call bas_fch2py_wrap(casnofch, .false., inpname)
+  call prt_mcpdft_script_into_py(inpname)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  longbuf = 'python '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
+  write(6,'(A)') '$'//TRIM(longbuf)
+  i = system(TRIM(longbuf))
+  if(i /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: PySCF MC-PDFT jobs failed.'
+   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check why.'
+   stop
+  end if
+
  case('openmolcas')
   call check_exe_exist(molcas_path)
-  ! For DMRG-PDFT, use CMOs rather than NOs
-  if(dmrg) then
-   i = index(casnofch, '_NO', back=.true.)
-   cmofch = casnofch(1:i)//'CMO.fch'
-   casnofch = cmofch
-  end if
 
   i = system('fch2inporb '//TRIM(casnofch))
   i = index(casnofch, '.fch', back=.true.)
   fname(1) = casnofch(1:i-1)//'.INPORB'
   fname(2) = casnofch(1:i-1)//'.input'
-  if(dmrg) then
-   i = index(casnofch, '_CMO', back=.true.)
-  else
-   i = index(casnofch, '_NO', back=.true.)
-  end if
+  i = index(casnofch, '_', back=.true.)
   fname(3) = casnofch(1:i)//'MCPDFT.INPORB'
   inpname  = casnofch(1:i)//'MCPDFT.input'
   outname  = casnofch(1:i)//'MCPDFT.out'
@@ -94,23 +111,64 @@ subroutine do_mcpdft()
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
  end select
 
- ! read MC-PDFT/DMRG-PDFT energy from OpenMolcas output file
- call read_mcpdft_e_from_output(mcpdft_prog, outname, ref_e, corr_e)
- if(TRIM(mcpdft_prog) == 'openmolcas') ref_e = ref_e + ptchg_e
- mcpdft_e = ref_e + corr_e
+ ! read MC-PDFT/DMRG-PDFT energy from output file
+ call read_mcpdft_e_from_output(mcpdft_prog, outname, ref_e, mcpdft_e)
+ if(bgchg .and. TRIM(mcpdft_prog)/='gamess') then
+  ref_e = ref_e + ptchg_e
+  mcpdft_e = mcpdft_e + ptchg_e
+ end if
 
  write(6,'(/,A,F18.8,1X,A4)')'E(ref)      = ',    ref_e, 'a.u.'
  if(dmrg) then
-  write(6,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
   write(6,'(A,F18.8,1X,A4)') 'E(DMRG-PDFT)= ', mcpdft_e, 'a.u.'
  else
-  write(6,'(A,F18.8,1X,A4)') 'E(corr)     = ',   corr_e, 'a.u.'
   write(6,'(A,F18.8,1X,A4)') 'E(MC-PDFT)  = ', mcpdft_e, 'a.u.'
  end if
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
 end subroutine do_mcpdft
+
+! print MC-PDFT or DMRG-PDFT keywords into PySCF .py file
+subroutine prt_mcpdft_script_into_py(inpname)
+ use mol, only: nacto, nacta, nactb
+ use mr_keyword, only: dmrgci, dmrgscf, otpdf, mem
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical :: dmrg
+
+ dmrg = (dmrgci .or. dmrgscf)
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+  if(buf(1:17) == 'from pyscf import') then
+   buf = TRIM(buf)//', mcpdft'
+   write(fid1,'(A)') TRIM(buf)
+   exit
+  end if
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ write(fid1,'(3(A,I0),A)') "mmp = mcpdft.CASCI(mf,'"//TRIM(otpdf)//"',",nacto,&
+                           ',(',nacta,',',nactb,'))'
+ write(fid1,'(A)') 'mmp.grids.atom_grid = (99,590)'
+ write(fid1,'(A,I0,A)') 'mmp.max_memory = ',mem*1000,' # MB'
+ write(fid1,'(A)') 'mmp.kernel()'
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine prt_mcpdft_script_into_py
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
@@ -142,9 +200,9 @@ subroutine prt_mcpdft_molcas_inp(inpname)
   stop
  end if
 
- write(fid2,'(A)') ' Grid input'
- write(fid2,'(A)') '  grid=ultrafine'
- write(fid2,'(A)') ' End of grid input'
+ write(fid2,'(A)') 'Grid input'
+ write(fid2,'(A)') ' grid=ultrafine'
+ write(fid2,'(A)') 'End of grid input'
  if(DKH2) write(fid2,'(A)') ' Relativistic = R02O'
 
  ! I used to use &RASSCF, DMRG, RGinput for DMRGCI calculations. I found it

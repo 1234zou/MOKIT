@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年1月10号
+2023年1月15号
 
 安装
 ----------
@@ -83,6 +83,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
 
 ### 另一种选择：使用预编译版
 * 前提
+    - 虽然不需要Fortran编译器，预编译版仍然依赖`libgfortran.so`
     - 预编译版仍然需要Python3环境和NumPy
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
 * 下载预编译版后, 仍然需要设定上面提到的所有环境变量。还要多设定一个：
@@ -151,8 +152,8 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 汇报Bug
 ----------
 * 若您发现MOKIT的程序错误或bug，或有任何使用建议，可通过电子邮件njumath[at]sina.cn
-  联系作者jxzou。在邮件中请将您的相关文件（例如.gjf, .fchk, .out文件等）添加为附件
-  发送。由于作者正在博士延期中，不保证及时回复。
+  联系开发者jxzou。在邮件中请将您的相关文件（例如.gjf, .fch, .out文件等）打包、
+  压缩并添加为附件发送。
 
 * 您也可以在此页面[Issues](https://gitlab.com/jxzou/mokit/-/issues)上新建一个问题。
 
@@ -168,7 +169,8 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
 如何引用
 ----------
-* 若您在您的研究中使用了MOKIT的任何一个子程序，请务必按如下引用
+* 当前MOKIT未发表专门的论文，若您在您的研究中使用了MOKIT的任何一个子程序，请
+  按如下引用
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
@@ -176,10 +178,9 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
-* 注意：若您在您的研究中使用了MOKIT的任何一个子程序，应在正文参考文献中引用MOKIT。
-  若仅在补充材料中引用MOKIT是不够的。
-
-* 更详细的引用说明请参见文件[doc/](doc/)。您的规范引用是对开发者的极大鼓励。
+* 若您在您的研究中使用了MOKIT的任何一个子程序，请在正文参考文献中引用MOKIT。若仅
+  在补充材料中引用MOKIT是不够的。更详细的引用说明和示例请见`doc/`目录下的[手册](doc/MOKIT_manual.pdf)，
+  目录下也提供了EndNote引用文件。您的规范引用是对开发者的极大鼓励。
 
 Disclaimer
 ----------

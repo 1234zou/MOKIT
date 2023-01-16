@@ -1,5 +1,8 @@
-MOKIT 1.2.5 (Jan 10, 2023)
+MOKIT 1.2.5 (Jan 15, 2023)
 ------------------------
+* add LMO-EDA interface in frag_guess_wfn
+* add MC-PDFT interface to PySCF and PySCF-forge
+* add '-dft' argument for bas_fch2py
 * allow to skip stable=opt in frag_guess_wfn
 * add missing nopen for vir_idx in ist=3 when reading ROHF wfn
 * remove the integer variable iout in source code
@@ -16,7 +19,7 @@ MOKIT 1.2.4 (Oct 25, 2022)
 * add compiler options for gfortran+OpenBLAS
 * add keyword FcGVB to freeze all doubly occupied orbitals in GVB
 * add the keyword Npair for non-GVB calculations
-* add GVB interface of Q-Chem
+* add GVB interface to Q-Chem
 * automatically change tPBE to T:PBE for OpenMolcas>=22.02
 * improve DMRG keywords using OpenMolcas+QCMaquis
 * construct supermolecule vir MOs using PAO, not direct sum of fragments
@@ -52,8 +55,8 @@ MOKIT 1.2.3 (Jun 11, 2022)
 * compatible keywords and scripts with Molpro 2021 and GAMESS 2021
 * use minimal basis set def2-SVP (in RHF proj) for atoms>Xe, instead of STO-6G
 * create all possible Python APIs in rwgeom.f90
-* add GVB, OVB-MP2 interface of Gaussian
-* add FIC-MRCC interface of ORCA(>=5.0.0)
+* add GVB, OVB-MP2 interface to Gaussian
+* add FIC-MRCC interface to ORCA(>=5.0.0)
 * add SAPT0 PSI4 interface in utility frag_guess_wfn
 * add keyword NMR for calculating nuclear shielding constants using Dalton
 * add utilities bas_gms2dal, fch2dal and dal2fch (Gaussian <-> Dalton)
@@ -82,11 +85,11 @@ MOKIT 1.2.2 (Feb 24, 2021)
 * add CAS, NEVPT2 and SDSPT2 interfaces of BDF
 * add utility bdf2fch (BDF -> Gaussian)
 * add utilities bas_gms2bdf and fch2bdf (Gaussian -> BDF)
-* add MC-PDFT interface of GAMESS(>=2019R2)
-* add NEVPT2 interface of Molpro
+* add MC-PDFT interface to GAMESS(>=2019R2)
+* add NEVPT2 interface to Molpro
 * add DKH2 and X2C interfaces of Molpro
-* add background point charge interface of Molpro
-* add CASSCF force interface of Molpro
+* add background point charge interface to Molpro
+* add CASSCF force interface to Molpro
 * allow specification of active space (m,m) in dynamic correlation
 
 MOKIT 1.2.1 (2020-12-15)

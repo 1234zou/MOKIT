@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-10)'
+  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-15)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -1300,12 +1300,12 @@ contains
   if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
    write(6,'(A)') error_warn
    write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
-   write(6,'(A)') 'You can use OpenMolcas.'
+   write(6,'(A)') 'You can use PySCF/OpenMolcas.'
    stop
   end if
 
   select case(TRIM(mcpdft_prog))
-  case('openmolcas','gamess')
+  case('pyscf','openmolcas','gamess')
   case default
    write(6,'(A)') error_warn
    write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '&

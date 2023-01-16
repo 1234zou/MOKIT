@@ -2670,20 +2670,45 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
  close(fid)
 end subroutine read_mrci_energy_from_output
 
-! read MC-PDFT energy from a given (Open)Molcas/GAMESS output file
-subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
+! read MC-PDFT energy from a given PySCF/OpenMolcas/GAMESS output file
+subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
  implicit none
  integer :: i, fid
- real(kind=8), intent(out) :: ref_e, corr_e
+ real(kind=8), intent(out) :: ref_e, pdft_e
  character(len=240) :: buf
  character(len=9) :: str(3)
  character(len=10), intent(in) :: prog
  character(len=240), intent(in) :: outname
 
- ref_e = 0d0; corr_e = 0d0
+ ref_e = 0d0; pdft_e = 0d0
  call open_file(outname, .true., fid)
 
  select case(TRIM(prog))
+ case('pyscf')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:7) == 'CASCI E') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
+                  & 'CASCI E' found in file "//TRIM(outname)//'.'
+   close(fid)
+   stop
+  end if
+
+  read(buf(10:),*) ref_e
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:9) == 'MC-PDFT E') exit
+  end do ! for while
+
+  i = index(buf,'=')
+  read(buf(12:),*) pdft_e
+
  case('openmolcas')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
@@ -2711,7 +2736,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
    close(fid)
    stop
   end if
-  read(buf(60:),*) corr_e
+  read(buf(60:),*) pdft_e
 
  case('gamess')
   do while(.true.)
@@ -2727,7 +2752,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
    stop
   end if
   i = index(buf, '=', back=.true.)
-  read(buf(i+1:),*) corr_e
+  read(buf(i+1:),*) pdft_e
 
   do while(.true.)
    BACKSPACE(fid,iostat=i)
@@ -2750,7 +2775,6 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, corr_e)
  end select
 
  close(fid)
- corr_e = corr_e - ref_e
 end subroutine read_mcpdft_e_from_output
 
 ! find npair0: the number of active pairs (|C2| > 0.1)

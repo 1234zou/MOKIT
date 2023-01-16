@@ -465,8 +465,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   iatom = frags(i)%natom
   if(iatom == 0) then
    write(6,'(/,A,I0,A)') 'ERROR in subroutine frag_guess_wfn: the ',i,'-th&
-    & fragment has 0 atom.'
-   write(6,'(A)') 'Please check your specification of fragments in file '//TRIM(gjfname)
+                         & fragment has 0 atom.'
+   write(6,'(A)') 'Please check your specification of fragments in file '//&
+                   TRIM(gjfname)
    stop
   end if
   allocate(frags(i)%ghost(iatom))
@@ -486,16 +487,17 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  frags(nfrag)%ghost = .false.
  frags(nfrag)%noiter = .true.
 
- if(eda_type == 3) then ! GKS-EDA
+ select case(eda_type)
+ case(2,3) ! LMO-EDA/GKS-EDA
   do i = 1, nfrag0, 1
    call gen_extend_bas_frag(frags(i), frags(nfrag), frags(i+nfrag0))
   end do ! for i
- else if(eda_type == 4) then ! SAPT
+ case(4) ! SAPT
   call gen_extend_bas_frag(frags(1), frags(3), tmp_frag1)
   call gen_extend_bas_frag(frags(2), frags(3), tmp_frag2)
   call copy_frag(tmp_frag1, frags(1)) ! overwrite frags(1)
   call copy_frag(tmp_frag2, frags(2)) ! overwrite frags(2)
- end if
+ end select
 
  ! generate these SCF .gjf files
  do i = 1, nfrag, 1
@@ -527,8 +529,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   end if
  end do ! for i
 
- ! For GKS-EDA, construct supermolecule MOs from direct sum of fragment MOs
- if(eda_type == 3) then
+ select case(eda_type)
+ case(2,3) ! For LMO-EDA/GKS-EDA, construct supermolecule MOs from direct sum
+           ! of fragment MOs
   i = nfrag
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
@@ -550,8 +553,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(nfrag0+1:2*nfrag0)%e))*au2kcal,&
                        ' kcal/mol'
 
- else if(eda_type == 4) then ! For SAPT, add SCF density of two fragments to
-  ! obtain approximate total SCF density
+ case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
+         ! total SCF density
   call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(3)%fname)
   k = 1
   if(frags(3)%wfn_type == 3) k = 0
@@ -563,7 +566,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                          frags(3)%e, frags(3)%ssquare)
   write(6,'(A,F18.9,A,F6.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
                               ', frags(i)%ssquare=', frags(3)%ssquare
- end if
+ end select
  call delete_file(frags(nfrag)%fname)
 ! call delete_files(2, [frags(nfrag)%fname, logname])
 
@@ -629,9 +632,9 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
   eda_type = 4
  case default
   write(6,'(/,A)') error_str
-  write(6,'(A)') 'You are supposed to write one of {morokuma}, {gks} or {&
-                 &sapt,bronze} in the'
-  write(6,'(A)') 'Title Card line.'
+  write(6,'(A)') 'You are supposed to write one of {morokuma}, {lmo}, {gks} or&
+                 & {sapt,bronze} in'
+  write(6,'(A)') 'the Title Card line.'
   stop
  end select
 
@@ -1031,20 +1034,25 @@ subroutine gen_inp_of_frags()
  else ! not SAPT
 
   call copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
-  if(eda_type == 1) call delete_file(inpname1)
-  if(eda_type == 3) then ! GKS-EDA
-   call copy_vec_to_append_another_inp(inpname1,inpname2,0,.false.,.true.,.true.,.false.)
-  end if
+  select case(eda_type)
+  case(1)
+   call delete_file(inpname1)
+  case(2,3) ! LMO/GKS-EDA
+   call copy_vec_to_append_another_inp(inpname1, inpname2, 0, .false., .true.,&
+                                       .true., .false.)
+  end select
 
   do i = 1, nfrag0, 1
    r2u = .false.
    if(wfn_type==3 .and. frags(i)%wfn_type/=3) r2u = .true.
    inpname1 = frags(i)%fname(1:k-1)//'.inp'
-   call copy_vec_to_append_another_inp(inpname1,inpname2,i,.false.,.true.,.true.,r2u)
+   call copy_vec_to_append_another_inp(inpname1, inpname2, i, .false., .true.,&
+                                       .true., r2u)
 
-   if(eda_type == 3) then ! GKS-EDA
+   if(eda_type==2 .or. eda_type==3) then ! LMO/GKS-EDA
     inpname1 = frags(i+nfrag0)%fname(1:k-1)//'.inp'
-    call copy_vec_to_append_another_inp(inpname1,inpname2,i,.true.,.true.,.true.,r2u)
+    call copy_vec_to_append_another_inp(inpname1, inpname2, i, .true., .true.,&
+                                        .true., r2u)
    end if
   end do ! for i
  end if
@@ -1306,12 +1314,7 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
 
   write(fid2,'(A)') ' $END'
 
- case(2) ! LMO-EDA
-  write(6,'(A)') 'ERROR in subroutine gen_inp_of_frags: LMO-EDA not&
-                 & supported surrently.'
-  stop
-
- case(3) ! GKS-EDA
+ case(2,3) ! 2/3 for LMO-EDA/GKS-EDA, respectively
   write(fid2,'(A)',advance='no') ' $LMOEDA MATOM(1)='
   do i = 1, nfrag0, 1
    if(i > 1) write(fid2,'(A)',advance='no') ','
@@ -1334,8 +1337,12 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
    end if
   end do ! for i
 
-  write(fid2,'(/,A)') '  EDATYP=GKS RDVECM=.T. $END'
-  write(fid2,'(A)') ' $GUESS GUESS=HCORE $END'
+  if(eda_type == 2) then
+   write(fid2,'(/,A)',advance='no') '  EDATYP=NONE'
+  else
+   write(fid2,'(/,A)',advance='no') '  EDATYP=GKS'
+  end if
+  write(fid2,'(A,/,A)') ' RDVECM=.T. $END',' $GUESS GUESS=HCORE $END'
 
  case default
   write(6,'(A,I0)') 'ERROR in subroutine gen_inp_of_frags: invalid eda_type=',&

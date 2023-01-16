@@ -8,7 +8,7 @@ BIN = ../bin
 # --- gfortran + OpenBLAS ---
 F90    = gfortran
 FFLAGS = -O2 -cpp -fPIC -L../lib 
-MKL_FLAGS =  -lopenblas
+MKL_FLAGS = -lopenblas
 F2PY   = f2py
 F2_FLAGS = 
 F2_F90_FLAGS = --f90flags="-cpp"
