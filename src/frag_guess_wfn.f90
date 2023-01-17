@@ -62,7 +62,7 @@ end module frag_info
 
 module theory_level
  implicit none
- integer :: mem, nproc
+ integer :: mem, nproc ! mem is in MB
  integer :: wfn_type = 0  ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
  integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
@@ -106,7 +106,7 @@ program main
  call gen_inp_of_frags()
 
  call fdate(data_string)
- write(6,'(A)') TRIM(data_string)
+ write(6,'(/,A)') TRIM(data_string)
 end program main 
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
@@ -355,10 +355,10 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  end do ! for i
 
  if(mult-1 /= j) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired&
-                   & electrons calculated from'
-  write(6,'(A)') 'fragments spin multiplicities is not equal to that calcu&
-                 &lated from the total spin'
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired ele&
+                   &ctrons calculated from'
+  write(6,'(A)') 'fragments spin multiplicities is not equal to that calculate&
+                 &d from the total spin'
   write(6,'(A)') 'multiplicity. Some spin multiplicity must be wrong.'
   write(6,'(A)') 'Check your spin in file '//TRIM(gjfname)
   deallocate(frags)
@@ -448,12 +448,12 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
   if(wfn_type==1 .and. frags(ifrag)%wfn_type/=1) then
    close(fid)
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: conflicted type of&
-                    & wfn between the total system and some fragment.'
-   write(6,'(A)') 'Restricted closed shell wfn is specified for the total&
-                  & system. But'
-   write(6,'(A)') 'restricted open shell or unrestricted wfn is specified&
-                  & for some fragment.'
+   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: conflicted type of wfn&
+                    & between the total'
+   write(6,'(A)') 'system and some fragment. Restricted closed shell wfn is spe&
+                  &cified for the total'
+   write(6,'(A)') 'system. But restricted open shell or unrestricted wfn is spe&
+                  &cified for some fragment.'
    write(6,'(3(A,I0))') 'natom=', natom, ', i=', i, ', ifrag=', ifrag
    stop
   end if
@@ -488,7 +488,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  frags(nfrag)%noiter = .true.
 
  select case(eda_type)
- case(2,3) ! LMO-EDA/GKS-EDA
+ case(2,3) ! LMO-/GKS-EDA
   do i = 1, nfrag0, 1
    call gen_extend_bas_frag(frags(i), frags(nfrag), frags(i+nfrag0))
   end do ! for i
@@ -530,8 +530,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  end do ! for i
 
  select case(eda_type)
- case(2,3) ! For LMO-EDA/GKS-EDA, construct supermolecule MOs from direct sum
-           ! of fragment MOs
+ case(2,3) ! For LMO/GKS-EDA, construct supermolecule MOs from direct sum of
+           ! fragment MOs
   i = nfrag
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
@@ -541,14 +541,15 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                          frags(i)%e, frags(i)%ssquare)
   write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
                                    ', frags(i)%ssquare=', frags(i)%ssquare
-
-  write(6,'(/,A)') "The following energy should be close to 'TOTAL INTERACTION&
-                  & ENERGY' of"
-  write(6,'(A)') "'OWN BASIS SET' section in GAMESS output:"
+  write(6,'(/,A)') 'If you are performing a GKS-EDA calculation using DFT or a &
+                   &LMO-EDA calculation'
+  write(6,'(A)') "using HF, then the following energy should be close to 'TOTAL&
+                 & INTERACTION ENERGY'"
+  write(6,'(A)') "of 'OWN BASIS SET' section in GAMESS output:"
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(1:nfrag0)%e))*au2kcal, ' kcal/mol'
 
-  write(6,'(/,A)') "The following energy should be close to 'TOTAL INTERACTION&
-                  & ENERGY' of"
+  write(6,'(/,A)') "and the following energy should be close to 'TOTAL INTERACT&
+                   &ION ENERGY' of"
   write(6,'(A)') "'ALL BASIS SET' section in GAMESS output:"
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(nfrag0+1:2*nfrag0)%e))*au2kcal,&
                        ' kcal/mol'
@@ -721,11 +722,12 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
 
  j = index(buf, '/')
  if(j == 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_method_and_basis_from_buf: no&
-                     & '/' symbol found in '#' line."
-  write(6,'(A)') "Failed to identify the method name. This utility does not&
-                   & support syntax like 'M062X cc-pVDZ'."
-  write(6,'(A)') "You must use the '/' symbol like 'M062X/cc-pVDZ'."
+  write(6,'(/,A)') "ERROR in subroutine read_method_and_basis_from_buf: no '/'&
+                   & symbol found in"
+  write(6,'(A)') "the '#' line. Failed to identify the method name. This utilit&
+                 &y does not support"
+  write(6,'(A)') "support syntax like 'M062X cc-pVDZ'. You should use the '/' &
+                 &symbol like 'M062X/cc-pVDZ'."
   stop
  end if
 
@@ -804,28 +806,57 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  use theory_level, only: mem, nproc, method, basis, scrf, sph, eda_type, disp_type
  implicit none
  integer :: i, k(3),fid
- character(len=9) :: method0
+ character(len=9) :: method0, method1
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
  logical, intent(in) :: guess_read, stab_chk
 
  k = [index(method,'o3lyp'),index(method,'ohse2pbe'),index(method,'ohse1pbe')]
 
- if( ANY(k > 0) ) then
+ if(ANY(k > 0)) then
   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP, OHSE2PBE&
-                   &, and OHSE1PBE functionals'
-  write(6,'(A)') 'are not supported since these functional names are confusing.'
+                   &, and OHSE1PBE'
+  write(6,'(A)') 'functionals are not supported since these functional names ar&
+                 &e confusing.'
   stop
+ end if
+
+ if(method(1:7)=='ccsd(t)' .and. frag0%wfn_type==2) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: ROCCSD(T) not &
+                    supported.'
+  write(6,'(A)') 'You can use ROCCSD instead.'
+  stop
+ end if
+
+ ! If MP2, CCSD or CCSD(T) is required in LMO-EDA, only R(O)HF orbitals are wr-
+ ! itten into the generated .inp file. So we call Gaussian to compute R(O)HF
+ if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
+  if(eda_type /= 2) then
+   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: MP2 or CC meth&
+                    &ods are only available'
+   write(6,'(A)') 'for LMO-EDA, but you are not using LMO-EDA.'
+   stop
+  end if
+  if(frag0%wfn_type > 2) then
+   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: only R(O)HF ba&
+                    &sed MP2 or CC methods'
+   write(6,'(A)') 'are supported in LMO-EDA. It seems that you are trying to us&
+                  &e UHF-based methds.'
+   stop
+  end if
+  method1 = 'hf'
+ else
+  method1 = method
  end if
 
  method0 = ' '
  select case(frag0%wfn_type)
  case(1)
-  method0 = 'R'//TRIM(method)
+  method0 = 'R'//TRIM(method1)
  case(2)
-  method0 = 'RO'//TRIM(method)
+  method0 = 'RO'//TRIM(method1)
  case(3)
-  method0 = 'U'//TRIM(method)
+  method0 = 'U'//TRIM(method1)
  case default
   write(6,'(A,I0)') 'ERROR in subroutine gen_gjf_from_type_frag: invalid&
                     & wfn_type=', frag0%wfn_type
@@ -834,8 +865,8 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
 
  if(eda_type==1 .and. TRIM(method0)/='Rhf') then
   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: Morokuma-EDA&
-                   & can only be applied to RHF.'
-  write(6,'(A)') 'But found method='//TRIM(method0)
+                   & can only be applied'
+  write(6,'(A)') 'to RHF. But found method='//TRIM(method0)
   stop
  end if
 
@@ -939,7 +970,6 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
   end select
   close(fid)
  end if
-
 end subroutine gen_gjf_from_type_frag
 
 ! generate extended basis set gjf files for a fragment
@@ -970,7 +1000,7 @@ end subroutine gen_extend_bas_frag
 subroutine gen_inp_of_frags()
  use frag_info, only: nfrag0, nfrag, frags
  use util_wrapper, only: fch2psi_wrap, fch2inp_wrap
- use theory_level, only: wfn_type, eda_type, scrf
+ use theory_level, only: nproc, wfn_type, eda_type, scrf, method
  use periodic_table, only: read_elem_from_gjf, elem2vdw_radii
  implicit none
  integer :: i, k
@@ -978,7 +1008,7 @@ subroutine gen_inp_of_frags()
  real(kind=8), allocatable :: radii(:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: buf, fchname, fileA, fileB
- character(len=240) :: inpname1, inpname2
+ character(len=240) :: inpname1, inpname2, outname
  logical :: r2u
  logical, allocatable :: ghost(:)
 
@@ -1033,7 +1063,7 @@ subroutine gen_inp_of_frags()
   call copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  else ! not SAPT
 
-  call copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
+  call copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   select case(eda_type)
   case(1)
    call delete_file(inpname1)
@@ -1061,10 +1091,23 @@ subroutine gen_inp_of_frags()
  write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)&
                                //' to '
 
+ i = index(inpname2, '.inp',back=.true.)
+
  if(eda_type == 4) then ! SAPT in PSI4
-  write(6,'(A)') 'PSI4 (DO NOT delete *.A and *.B files).'
+  outname = inpname2(1:i-1)//'.out'
+  write(6,'(A,/,A)') 'PSI4 (DO NOT delete *.A and', '*.B files) like'
+  write(6,'(A,I0,A)') 'psi4 '//TRIM(inpname2)//' '//TRIM(outname)//' -n ',&
+                       nproc," &"
  else
-  write(6,'(A)') 'GAMESS or XEDA.'
+  outname = inpname2(1:i-1)//'.gms'
+  write(6,'(A)') 'GAMESS or XEDA like'
+  if(wfn_type==2 .and. method(1:4)=='ccsd') then ! ROCCSD
+   i = 1
+  else
+   i = nproc
+  end if
+  write(6,'(A,I0,A)') 'xeda '//TRIM(inpname2)//' 00 ',i,' >'//TRIM(outname)&
+                      //" 2>&1 &"
  end if
 end subroutine gen_inp_of_frags
 
@@ -1210,9 +1253,9 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
 end subroutine copy_and_modify_psi4_sapt_file
 
 ! copy content of a provided .inp file and modify it to be EDA job
-subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
+subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  use frag_info, only: nfrag0, frags
- use theory_level, only: method, eda_type, scrf, solvent, disp_type
+ use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, disp_type
  implicit none
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
@@ -1235,13 +1278,32 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
  i = index(buf1, '$END')
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found&
-                 & in the 2nd line of file "//TRIM(inpname1)
+                 & in the 2nd"
+  write(6,'(A)') 'line of file '//TRIM(inpname1)
   close(fid1)
   close(fid2,status='delete')
   stop
  end if
 
- write(fid2,'(A)') buf1(1:i-1)//'DFTTYP='//TRIM(dft_in_gms)//' $END'
+ write(fid2,'(A)',advance='no') buf1(1:i-1)//'DFTTYP='//TRIM(dft_in_gms)
+ if(method(1:3) == 'mp2') then
+  write(fid2,'(A)',advance='no') ' MPLEVL=2'
+ else if(TRIM(method) == 'ccsd') then
+  write(fid2,'(A)',advance='no') ' CCTYP=CCSD'
+ else if(TRIM(method) == 'ccsd(t)') then
+  write(fid2,'(A)',advance='no') ' CCTYP=CCSD(T)'
+ end if
+ write(fid2,'(A)') ' $END'
+
+ read(fid1,'(A)') buf1 ! this line should be $SYSTEM
+ i = FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc)))
+ write(fid2,'(A,I0)',advance='no') ' $SYSTEM MWORDS=',i
+
+ if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
+  i = FLOOR(DBLE(mem)*0.05d0/8d0)
+  write(fid2,'(A,I0)',advance='no') ' MEMDDI=',i
+ end if
+ write(fid2,'(A)') ' $END'
 
  if(TRIM(dft_in_gms) /= 'NONE') then
   write(fid2,'(A)',advance='no') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590'
@@ -1387,11 +1449,11 @@ subroutine copy_and_modify_gamess_eda_file(natom, radii, inpname1, inpname2)
  close(fid2)
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine copy_and_modify_gamess_eda_file: no '$VEC'&
-                & found in file "//TRIM(inpname1)
+  write(6,'(A)') "ERROR in subroutine copy_and_modify_gms_eda_file: no '$VEC&
+                &' found in file "//TRIM(inpname1)
   stop
  end if
-end subroutine copy_and_modify_gamess_eda_file
+end subroutine copy_and_modify_gms_eda_file
 
 ! copy $VEC from file inpname1 into inpname2, by appending
 subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
@@ -1649,13 +1711,13 @@ subroutine convert_dft_name_gau2gms(method, dft_in_gms)
   dft_in_gms = 'CAMB3LYP'
  case('tpsstpss')
   dft_in_gms = 'TPSS'
- case('hf','rhf','rohf','uhf')
+ case('hf','rhf','rohf','uhf','mp2','ccsd','ccsd(t)')
   dft_in_gms = 'NONE'
  case default
-  write(6,'(A)') 'Warning in subroutine convert_dft_name_gau2gms: functional name&
-                 & cannot be recognized.'
-  write(6,'(A)') 'DFTTYP=NONE will be set in .inp file. You can modify it by yo&
-                 &urself.'
+  write(6,'(A)') 'Warning in subroutine convert_dft_name_gau2gms: functional na&
+                 &me cannot be'
+  write(6,'(A)') 'recognized. DFTTYP=NONE will be set in .inp file. You can mod&
+                 &ify it by yourself.'
   dft_in_gms = 'NONE'
  end select
 

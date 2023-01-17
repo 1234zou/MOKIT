@@ -476,7 +476,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(A)') ' $END'
  end if
 
- write(fid,'(A)') ' $SYSTEM MWORDS=500 $END'
+ write(fid,'(A)') ' $SYSTEM MWORDS=300 $END'
 
  if(rel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
 

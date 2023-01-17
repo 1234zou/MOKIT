@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Jan 15, 2023)
+MOKIT 1.2.5 (Jan 17, 2023)
 ------------------------
 * add LMO-EDA interface in frag_guess_wfn
 * add MC-PDFT interface to PySCF and PySCF-forge

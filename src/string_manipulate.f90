@@ -512,14 +512,14 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS' fou&
+                 &nd in file "//TRIM(inpname)
   close(fid1)
   close(fid2,status='delete')
   stop
  end if
 
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1000d0/(8d0*DBLE(nproc))),' $END'
+ write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1d3/(8d0*DBLE(nproc))),' $END'
 
  ! copy the remaining content
  do while(.true.)
