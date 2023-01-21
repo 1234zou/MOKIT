@@ -1,30 +1,6 @@
 ! written by jxzou at 20210613: adjust the orders of d,f,g, etc functions in
 !  .fch(k) file, to the orders in Dalton
 
-! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
-module Sdiag_dalton
- implicit none
- real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
- real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
- real(kind=8), parameter :: p2 = 2d0*DSQRT(PI/5d0)
- real(kind=8), parameter :: p3 = 2d0*DSQRT(PI/7d0)
- real(kind=8), parameter :: p4 = 2d0*DSQRT(PI/35d0)
- real(kind=8), parameter :: p5 = 2d0*DSQRT(PI/105d0)
- real(kind=8), parameter :: p6 = (2d0/3d0)*DSQRT(PI)
- real(kind=8), parameter :: p7 = (2d0/3d0)*DSQRT(PI/7d0)
- real(kind=8), parameter :: p8 = (2d0/3d0)*DSQRT(PI/35d0)
- real(kind=8), parameter :: p9 = 2d0*DSQRT(PI/11d0)
- real(kind=8), parameter :: p10 = (2d0/3d0)*DSQRT(PI/11d0)
- real(kind=8), parameter :: p11 = 2d0*DSQRT(PI/231d0)
- real(kind=8), parameter :: p12 = (2d0/3d0)*DSQRT(PI/77d0)
- real(kind=8), parameter :: p13 = 2d0*DSQRT(PI/1155d0)
- real(kind=8), parameter :: Sdiag_d(6)  = [p2,p1,p1,p2,p1,p2]
- real(kind=8), parameter :: Sdiag_f(10) = [p3,p4,p4,p4,p5,p4,p3,p4,p4,p3]
- real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
- real(kind=8), parameter :: Sdiag_h(21) = &
-  [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
-end module Sdiag_dalton
-
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
@@ -279,7 +255,7 @@ subroutine fch2dal_permute_5d(nif,coeff)
 end subroutine fch2dal_permute_5d
 
 subroutine fch2dal_permute_6d(nif,coeff)
- use Sdiag_dalton, only: Sdiag_d
+ use Sdiag_parameter, only: Sdiag_d
  implicit none
  integer :: i
  integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
@@ -317,7 +293,7 @@ subroutine fch2dal_permute_7f(nif,coeff)
 end subroutine fch2dal_permute_7f
 
 subroutine fch2dal_permute_10f(nif,coeff)
- use Sdiag_dalton, only: Sdiag_f
+ use Sdiag_parameter, only: Sdiag_f
  implicit none
  integer :: i
  integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
@@ -355,7 +331,7 @@ subroutine fch2dal_permute_9g(nif,coeff)
 end subroutine fch2dal_permute_9g
 
 subroutine fch2dal_permute_15g(nif,coeff)
- use Sdiag_dalton, only: Sdiag_g
+ use Sdiag_parameter, only: Sdiag_g
  implicit none
  integer :: i
  integer, intent(in) :: nif
@@ -392,7 +368,7 @@ subroutine fch2dal_permute_11h(nif,coeff)
 end subroutine fch2dal_permute_11h
 
 subroutine fch2dal_permute_21h(nif,coeff)
- use Sdiag_dalton, only: Sdiag_h
+ use Sdiag_parameter, only: Sdiag_h
  implicit none
  integer :: i
  integer, intent(in) :: nif

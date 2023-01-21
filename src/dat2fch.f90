@@ -19,24 +19,24 @@
 program main
  use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, npair, nopen, idx1, idx2
+ integer :: i, npair, nopen, idx2
  character(len=4) :: gvb_or_uhf_or_cas, string
  character(len=240) :: datname, fchname
  logical :: uhf
 
- npair = 0; nopen = 0; idx1 = 0; idx2 = 0
+ npair = 0; nopen = 0; idx2 = 0
  gvb_or_uhf_or_cas = ' '
  string = ' '
  datname = ' '
  fchname = ' '
 
  i = iargc()
- if(.not. (i==2 .or. i==4 .or. i==5 .or. i==6) ) then
+ if(.not. (i==2 .or. i==4 .or. i==6) ) then
   write(6,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (for R(O)HF, UHF, CAS): dat2fch a.dat a.fch'
   write(6,'(A)')   ' Example 2 (for GVB)             : dat2fch a.dat a.fch -gvb 4'
   write(6,'(A)')   ' Example 3 (for ROGVB)           : dat2fch a.dat a.fch -gvb 4 -open 2'
-  write(6,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 5 10'
+  write(6,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 10'
   stop
  end if
 
@@ -62,12 +62,9 @@ program main
    end if
   case('-no')
    call getarg(4,string)
-   read(string,*) idx1
-   call getarg(5,string)
    read(string,*) idx2
-   if(idx1<1 .or. idx2<2) then
-    write(6,'(/,A)') 'ERROR in subroutine dat2fch: invalid idx1 and/or idx2.'
-    write(6,'(2(A,I0))') 'idx1=', idx1, ', idx2=', idx2
+   if(idx2 < 2) then
+    write(6,'(/,A,I0)') 'ERROR in subroutine dat2fch: invalid idx2=',idx2
     stop
    end if
   case default
@@ -79,11 +76,11 @@ program main
   if(uhf) gvb_or_uhf_or_cas = '-uhf'
  end if
 
- call dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
+ call dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
 end program main
 
 ! transform MOs in .dat file into .fchk file
-subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2)
+subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
  use fch_content, only: read_mark_from_shltyp_cart
  implicit none
@@ -95,7 +92,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
  integer :: nbf1, nif1, ncontr, nd, nf, ng, nh
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  ! mark the index where f,g,h functions begin
- integer, intent(in) :: npair, nopen, idx1, idx2
+ integer, intent(in) :: npair, nopen, idx2
  integer, allocatable :: order(:), shltyp(:), shl2atm(:)
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
  real(kind=8), allocatable :: all_coeff(:,:), temp_coeff(:,:)
@@ -223,7 +220,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx1, idx2
   stop
  end if
 
- allocate(all_coeff(nbf1,nif1), source=0.0d0)
+ allocate(all_coeff(nbf1,nif1), source=0d0)
 
  ! read Alpha MO
  nline = nbf1/5
@@ -394,7 +391,7 @@ subroutine dat2fch_permute_10f(nif,coeff)
 ! From: XXX,YYY,ZZZ, XXY, XXZ, XYY, YYZ, XZZ, YZZ, XYZ
 ! To:   XXX,YYY,ZZZ, XYY, XXY, XXZ, XZZ, YZZ, YYZ, XYZ
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:6)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -414,7 +411,7 @@ subroutine dat2fch_permute_15g(nif,coeff)
 ! From: XXXX,YYYY,ZZZZ,XXXY,XXXZ,XYYY,YYYZ,XZZZ,YZZZ,XXYY,XXZZ,YYZZ,XXYZ,XYYZ,XYZZ
 ! To:   ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:15)
   coeff2(i,:) = coeff(order(i),:)
  end forall
@@ -434,7 +431,7 @@ subroutine dat2fch_permute_21h(nif,coeff)
 ! From: XXXXX,YYYYY,ZZZZZ,XXXXY,XXXXZ,XYYYY,YYYYZ,XZZZZ,YZZZZ,XXXYY,XXXZZ,XXYYY,YYYZZ,XXZZZ,YYZZZ,XXXYZ,XYYYZ,XYZZZ,XXYYZ,XXYZZ,XYYZZ
 ! To:   ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 
- coeff2 = 0.0d0
+ coeff2 = 0d0
  forall(i = 1:21)
   coeff2(i,:) = coeff(order(i),:)
  end forall

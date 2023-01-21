@@ -315,7 +315,7 @@ subroutine read_mo_from_chk_txt(txtname, nbf, nif, ab, mo)
  end do
  BACKSPACE(chkid)
 
- mo = 0.0d0
+ mo = 0d0
  do i = 1, nif, 1
   read(chkid,'(A)') buf
   read(chkid,'(4D20.12)') (mo(k,i), k=1,nbf)
@@ -544,7 +544,7 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
   stop
  end if
 
- noon = 0.0d0
+ noon = 0d0
  read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  close(fid)
 end subroutine read_eigenvalues_from_fch
@@ -578,7 +578,7 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
   stop
  end if
 
- on = 0.0d0
+ on = 0d0
  read(fid,'(A)') buf
  read(fid,'(5(1X,ES21.14))') (on(i),i=1,nif)
 
@@ -1208,7 +1208,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
   stop
  end if
 
- allocate(coeff(ncoeff), source=0.0d0)
+ allocate(coeff(ncoeff), source=0d0)
          coeff = RESHAPE(mo, (/ncoeff/))
  write(fid2,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
  deallocate(coeff)
@@ -1643,8 +1643,8 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- expect = DBLE(spin)/2.0d0
- expect = expect*(expect + 1.0d0)
+ expect = DBLE(spin)/2d0
+ expect = expect*(expect + 1d0)
  call open_file(outname, .true., fid)
 
  if(scf) then  ! CASSCF job
@@ -1665,7 +1665,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+7:),*) e(1)   ! CASCI energy in the CASSCF job
   i = index(buf,'=',back=.true.)
   read(buf(i+1:),*) s_square
-  s_square = s_square*(s_square+1.0d0)
+  s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
                   & CASSCF job, the 0-th step, i.e., the CASCI'
@@ -1682,7 +1682,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+7:),*) e(2)   ! CASSCF energy
   i = index(buf,'S=')
   read(buf(i+2:),*) s_square
-  s_square = s_square*(s_square+1.0d0)
+  s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
                   & <S**2> deviates too much from the expectation value.'
@@ -1705,7 +1705,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
  
   i = index(buf,'=', back=.true.)
   read(buf(i+1:),*) s_square
-  s_square = s_square*(s_square+1.0d0)
+  s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1.0D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
                   & <S**2> deviates too much from the expectation value.'
@@ -1745,7 +1745,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
   stop
  end if
 
- e = 0.0d0; add = 0.0d0
+ e = 0d0; add = 0d0
  i = index(buf,':',back=.true.)
  if(scf) then   ! CASSCF
   read(buf(i+1:),*) e(2)
@@ -2810,7 +2810,7 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
 
  ! read pair coefficients
  BACKSPACE(datid)
- allocate(pair_coeff(2,npair), source=0.0d0)
+ allocate(pair_coeff(2,npair), source=0d0)
  do i = 1, npair, 1
   read(datid,'(A)') buf
   k = index(buf,'=')

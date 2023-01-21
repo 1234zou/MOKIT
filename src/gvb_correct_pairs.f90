@@ -79,26 +79,27 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  logical, intent(in) :: gau
  logical, allocatable :: paired(:)
 
- write(6,'(/,A)') 'Enter subroutine gvb_correct_pairs (check if paired MOs are correct)...'
+ write(6,'(/,A)') 'Enter subroutine gvb_correct_pairs (check if paired MOs are &
+                  &correct)...'
 
  if(idx2 - idx1 < 2) return
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(coeff(nbf,nif), source=0.0d0)
+ allocate(coeff(nbf,nif), source=0d0)
  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
 
  ! Task: sort the angles between any two orbitals by ascent order and pair them
  ! 1st step: turn all target MO coefficients into positive and calculate their norms
  nmo = idx2 - idx1 + 1
- allocate(coeff1(nbf,nmo), source=0.0d0)
- allocate(norm(nmo), source=0.0d0)
+ allocate(coeff1(nbf,nmo), source=0d0)
+ allocate(norm(nmo), source=0d0)
  forall(i = 1:nmo, j = 1:nbf) coeff1(j,i) = DABS(coeff(j,idx1-1+i))
  forall(i = 1:nmo) norm(i) = DOT_PRODUCT(coeff1(:,i), coeff1(:,i))
  forall(i = 1:nmo) norm(i) = DSQRT(norm(i))
 
  ! 2nd step: calculate the angles between any two active orbitals
  ! the angle here and below are in fact in its COSINE value
- allocate(angle(nmo, nmo), source=0.0d0)
- allocate(tmp_coeff(nbf), source=0.0d0)
+ allocate(angle(nmo, nmo), source=0d0)
+ allocate(tmp_coeff(nbf), source=0d0)
  do i = 1, nmo-1, 1
   tmp_norm = norm(i)
   tmp_coeff = coeff1(:,i)
@@ -173,17 +174,20 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
 
  write(6,'(/,A,I0)') 'iter = ', iter
  if(iter >= iter_max) then
-  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: iter exceeds max_cycle 1000.'
+  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: iter exceeds max_cycle&
+                 & 1000.'
   stop
  end if
 
  nopen = COUNT(paired .eqv. .false.)
  write(6,'(A,I0)') 'detected nopen = ', nopen
  if(MOD(nmo-nopen,2) /= 0) then
-  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: I tried my best to&
-                   & re-pair these slightly disordered orbitals.'
-  write(6,'(A)') 'But nmo-nopen is not an even integer, which means possibly&
-             & (1) the input idx1,idx2 may be incorrect; (2) re-pairing failed.'
+  write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: I tried my best to re-&
+                 &pair these slightly'
+  write(6,'(A)') 'disordered orbitals. But nmo-nopen is not an even integer, wh&
+                 &ich means possibly'
+  write(6,'(A)') '(1) the input idx1,idx2 may be incorrect; (2) re-pairing fail&
+                 &ed.'
   stop
  end if
  npair = (nmo - nopen)/2
@@ -206,15 +210,18 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  if(ANY(ideal_idx/=target_pair_idx)) then
   if(gau) then
    write(6,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
-                    & orbtials are not strictly in Gaussian GVB MO order.'
+                  & orbtials are not'
+   write(6,'(A)') 'strictly in Gaussian GVB MO order.'
   else
    write(6,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
-                    & orbtials are not strictly in GAMES GVB MO order.'
+                  & orbtials are not'
+   write(6,'(A)') 'strictly in GAMES GVB MO order.'
   end if
   write(6,'(A)') 'Trying to re-pair...'
  else
   write(6,'(A)') 'Congratulations! subroutine gvb_correct_pairs detected&
-                   & the order of these GVB orbtials is probably correct.'
+                 & the order of'
+  write(6,'(A)') 'these GVB orbtials is probably correct.'
   return
  end if
  deallocate(ideal_idx)
@@ -232,7 +239,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  deallocate(angle)
 
  ! put new MO into the array coeff1
- allocate(coeff1(nbf,nif), source=0.0d0)
+ allocate(coeff1(nbf,nif), source=0d0)
  coeff1(:,1:idx1-1) = coeff(:,1:idx1-1)
  coeff1(:,idx2+1:nif) = coeff(:,idx2+1:nif)
  m = idx1

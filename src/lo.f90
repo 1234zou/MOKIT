@@ -655,7 +655,7 @@ end subroutine get_mboys
 !  correct solution (see subroutine boys_noiter)
 subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
- integer :: i, nbf, nmo
+ integer :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
  real(kind=8) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo), new_coeff(nbf,nmo)
 !f2py intent(in) :: mo_coeff, mo_dipole
@@ -746,7 +746,6 @@ end subroutine get_u
 ! A non-iterative Boys orbital localization solver
 subroutine boys_noiter(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
- integer :: i
  integer, intent(in) :: nbf, nmo
  real(kind=8), intent(in) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
  real(kind=8), intent(out) :: new_coeff(nbf,nmo)

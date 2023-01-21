@@ -120,7 +120,7 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
   stop
  end if
 
- allocate(mo_coeff(nbf,nif), source=0.0d0)
+ allocate(mo_coeff(nbf,nif), source=0d0)
  nline = nbf/5
  nleft = nbf - nline*5
  do i = 1, nif, 1

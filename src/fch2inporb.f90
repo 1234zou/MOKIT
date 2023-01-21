@@ -8,16 +8,6 @@
 ! updated by jxzou at 20200809: combined with util_wrapper.f90
 ! updated by jxzou at 20210407: remove '-uhf', add automatic determination
 
-module root_parameter
- implicit none
- real(kind=8), parameter :: root3   = DSQRT(3d0)     ! SQRT(3)
- real(kind=8), parameter :: root9   = 3d0            ! SQRT(9)
- real(kind=8), parameter :: root15  = DSQRT(15d0)    ! SQRT(15)
- real(kind=8), parameter :: root45  = DSQRT(45d0)    ! SQRT(45)
- real(kind=8), parameter :: root105 = DSQRT(105d0)   ! SQRT(105)
- real(kind=8), parameter :: root945 = DSQRT(945d0)   ! SQRT(945)
-end module root_parameter
-
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
@@ -436,7 +426,7 @@ subroutine fch2inporb_permute_5d(nif,coeff)
 ! d0 , d+1, d-1, d+2, d-2
 ! d-2, d-1, d0 , d+1, d+2
 
- allocate(coeff2(5,nif), source=0.0d0)
+ allocate(coeff2(5,nif), source=0d0)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -458,7 +448,7 @@ subroutine fch2inporb_permute_6d(nif,coeff)
 
  forall(j=1:3 , i=1:nif) coeff(j,i) = coeff(j,i)/root3
 
- allocate(coeff2(6,nif), source=0.0d0)
+ allocate(coeff2(6,nif), source=0d0)
  forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -477,7 +467,7 @@ subroutine fch2inporb_permute_7f(nif,coeff)
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 ! f-3, f-2, f-1, f0 , f+1, f+2, f+3
 
- allocate(coeff2(7,nif), source=0.0d0)
+ allocate(coeff2(7,nif), source=0d0)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -500,7 +490,7 @@ subroutine fch2inporb_permute_10f(nif,coeff)
  forall(j=1:3 , i=1:nif) coeff(j,i) = coeff(j,i)/root15
  forall(j=4:9 , i=1:nif) coeff(j,i) = coeff(j,i)/root3
 
- allocate(coeff2(10,nif), source=0.0d0)
+ allocate(coeff2(10,nif), source=0d0)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -519,7 +509,7 @@ subroutine fch2inporb_permute_9g(nif,coeff)
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 ! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
 
- allocate(coeff2(9,nif), source=0.0d0)
+ allocate(coeff2(9,nif), source=0d0)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -542,7 +532,7 @@ subroutine fch2inporb_permute_15g(nif,coeff)
 
  forall(j=1:15, i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
 
- allocate(coeff2(15,nif), source=0.0d0)
+ allocate(coeff2(15,nif), source=0d0)
  forall(i = 1:15) coeff2(i,:) = coeff(16-i,:)
  coeff = coeff2
  deallocate(coeff2)
@@ -561,7 +551,7 @@ subroutine fch2inporb_permute_11h(nif,coeff)
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 ! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
 
- allocate(coeff2(11,nif), source=0.0d0)
+ allocate(coeff2(11,nif), source=0d0)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -585,7 +575,7 @@ subroutine fch2inporb_permute_21h(nif,coeff)
 
  forall(j=1:21, i=1:nif) coeff(j,i) = coeff(j,i)/ratio(j)
 
- allocate(coeff2(21,nif), source=0.0d0)
+ allocate(coeff2(21,nif), source=0d0)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
  coeff = coeff2
  deallocate(coeff2)

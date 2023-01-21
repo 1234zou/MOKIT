@@ -73,7 +73,7 @@ subroutine align_orbitals(fname1,fname2, idx1, idx2)
  do i = idx1, idx2, 1
   m = k - i + 1
   allocate(diff(m))
-  diff = 0.0d0
+  diff = 0d0
   call get_mo_diff(nbf, coeff1(:,i), m, coeff2(:,i:k), diff)
   tmp_idx = MINLOC(diff)
   j = tmp_idx(1)
@@ -85,13 +85,14 @@ subroutine align_orbitals(fname1,fname2, idx1, idx2)
    coeff2(:,i) = coeff2(:,j+i-1)
    coeff2(:,j+i-1) = tmp_coeff
   end if
- end do
+ end do ! for i
+
  write(6,'(A)') 'In vir subspace:'
  k = nocc + npair
  do i = nocc+1, k, 1
   m = k - i + 1
   allocate(diff(m))
-  diff = 0.0d0
+  diff = 0d0
   call get_mo_diff(nbf, coeff1(:,i), m, coeff2(:,i:k), diff)
   tmp_idx = MINLOC(diff)
   j = tmp_idx(1)
@@ -103,7 +104,7 @@ subroutine align_orbitals(fname1,fname2, idx1, idx2)
    coeff2(:,i) = coeff2(:,j+i-1)
    coeff2(:,j+i-1) = tmp_coeff
   end if
- end do
+ end do ! for i
  ! permute done
 
  ! output the new coeff2 into a new .fchk file

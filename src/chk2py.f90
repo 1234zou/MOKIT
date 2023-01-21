@@ -1,30 +1,6 @@
 ! written by jxzou at 20190411: read and adjust the orders of d,f,g, etc functions
 !  in Gaussian .chk file, to the orders in PySCF
 
-! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
-module Sdiag_parameter
- implicit none
- real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
- real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
- real(kind=8), parameter :: p2 = 2d0*DSQRT(PI/5d0)
- real(kind=8), parameter :: p3 = 2d0*DSQRT(PI/7d0)
- real(kind=8), parameter :: p4 = 2d0*DSQRT(PI/35d0)
- real(kind=8), parameter :: p5 = 2d0*DSQRT(PI/105d0)
- real(kind=8), parameter :: p6 = (2d0/3d0)*DSQRT(PI)
- real(kind=8), parameter :: p7 = (2d0/3d0)*DSQRT(PI/7d0)
- real(kind=8), parameter :: p8 = (2d0/3d0)*DSQRT(PI/35d0)
- real(kind=8), parameter :: p9 = 2d0*DSQRT(PI/11d0)
- real(kind=8), parameter :: p10 = (2d0/3d0)*DSQRT(PI/11d0)
- real(kind=8), parameter :: p11 = 2d0*DSQRT(PI/231d0)
- real(kind=8), parameter :: p12 = (2d0/3d0)*DSQRT(PI/77d0)
- real(kind=8), parameter :: p13 = 2d0*DSQRT(PI/1155d0)
- real(kind=8), parameter :: Sdiag_d(6)  = [p2,p1,p1,p2,p1,p2]
- real(kind=8), parameter :: Sdiag_f(10) = [p3,p4,p4,p4,p5,p4,p3,p4,p4,p3]
- real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
- real(kind=8), parameter :: Sdiag_h(21) = &
-  [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
-end module Sdiag_parameter
-
 ! Step1:
 !  tranform the .chk file to _chk.txt file using Gaussian utility chkchk,
 !  and read the MOs from _chk.txt
@@ -46,7 +22,6 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
 
- real(kind=8), parameter :: diff = 1d-6
  real(kind=8) :: coeff(nbf,nif)
 !f2py depend(nbf,nif) :: coeff
 !f2py intent(out) :: coeff
@@ -73,9 +48,9 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  ! Step1: tranform .chk to _chk.txt using Gaussian utility chkchk
  i = system('chkchk -p '//TRIM(chkname)//' > '//TRIM(txtname))
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
-                   & to _chk.txt file, using Gaussian utility chkchk.'
-  write(6,'(A)') 'File: '//TRIM(chkname)
+  write(6,'(A)') 'ERROR in subroutine chk2py: fail to transform the .chk file t&
+                 &o *_chk.txt file'
+  write(6,'(A)') 'using Gaussian utility chkchk. File: '//TRIM(chkname)
   write(6,'(A)') "You can use 'which chkchk' to check if this command exists."
   stop
  end if
@@ -95,7 +70,7 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  end do
  BACKSPACE(chkid)
 
- coeff = 0.0d0
+ coeff = 0d0
  do i = 1, nif, 1
   read(chkid,'(A)') buffer ! skip one line
   read(chkid,'(4D20.12)') (coeff(k,i), k=1,nbf)

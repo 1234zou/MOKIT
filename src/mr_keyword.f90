@@ -343,7 +343,7 @@ contains
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-17)'
+  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-20)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -1937,7 +1937,7 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  real(kind=8), parameter :: zero1 = 1.0d-2, zero2 = 1.0d-3
  real(kind=8), allocatable :: r(:,:)
 
- e = 0.0d0
+ e = 0d0
  allocate(r(n,n))
 
  do i = 1, n-1, 1
@@ -2004,7 +2004,7 @@ subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
  real(kind=8), intent(in) :: bgcharge(4,nbgchg), coor(3,natom)
  real(kind=8), intent(out) :: nuc_pt_e
 
- nuc_pt_e = 0.0d0
+ nuc_pt_e = 0d0
 
  do i = 1, nbgchg, 1
   pt_e = bgcharge(4,i)

@@ -60,7 +60,7 @@ subroutine find_mc_pair(gmsname)
  ! npair found
 
  allocate(pair_coeff(2,npair), pair(2,npair))
- pair_coeff = 0.0d0
+ pair_coeff = 0d0
  pair = 0
 
  ! find the pair coefficients
@@ -101,9 +101,9 @@ subroutine find_mc_pair(gmsname)
  ! check done
 
  ! sort the pair coefficients
- tmp_coeff = 0.0d0
- tmp_coeff1 = 0.0d0
- tmp_coeff2 = 0.0d0
+ tmp_coeff = 0d0
+ tmp_coeff1 = 0d0
+ tmp_coeff2 = 0d0
  do i = 1, npair-1, 1
   tmp_coeff1 = pair_coeff(:,i)
   do j = i+1, npair, 1

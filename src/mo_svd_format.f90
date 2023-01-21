@@ -58,9 +58,9 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  end if
 
  nmo = idx2 - idx1 + 1
- allocate(coeff1(nbf,nif), source=0.0d0)
- allocate(coeff2(nbf,nif), source=0.0d0)
- allocate(S(nbf,nbf), source=0.0d0)
+ allocate(coeff1(nbf,nif), source=0d0)
+ allocate(coeff2(nbf,nif), source=0d0)
+ allocate(S(nbf,nbf), source=0d0)
 
  if(gau) then ! Gaussian case
   call read_mo_from_fch(fname1, nbf, nif, 'a', coeff1)
@@ -75,12 +75,12 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  end if
 
  ! check orthonormality
- allocate(mo_ovlp(nif,nif), source=0.0d0)
+ allocate(mo_ovlp(nif,nif), source=0d0)
  mo_ovlp = MATMUL(TRANSPOSE(coeff1), MATMUL(S,coeff1))
  write(*,'(A)') 'orthonormality of file1:'
  do i = 1, nif, 1
   do j = i, nif, 1
-   if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1.0d0
+   if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1d0
    if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
@@ -88,7 +88,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  write(*,'(A)') 'orthonormality of file2:'
  do i = 1, nif, 1
   do j = i, nif, 1
-   if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1.0d0
+   if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1d0
    if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
@@ -96,11 +96,11 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  ! check done
 
  ! compute the MO-basis overlap matrix (C1^T)SC2
- allocate(SC(nbf,nmo), source=0.0d0)
- call dsymm('L', 'U', nbf, nmo, 1.0d0, S, nbf, coeff2(:,idx1:idx2), nbf, 0.0d0, SC, nbf)
+ allocate(SC(nbf,nmo), source=0d0)
+ call dsymm('L', 'U', nbf, nmo, 1d0, S, nbf, coeff2(:,idx1:idx2), nbf, 0d0, SC, nbf)
  deallocate(S, coeff2)
- allocate(mo_ovlp(nmo,nmo), source=0.0d0)
- call dgemm('T', 'N', nmo, nmo, nbf, 1.0d0, coeff1(:,idx1:idx2), nbf, SC, nbf, 0.0d0, mo_ovlp, nmo)
+ allocate(mo_ovlp(nmo,nmo), source=0d0)
+ call dgemm('T', 'N', nmo, nmo, nbf, 1d0, coeff1(:,idx1:idx2), nbf, SC, nbf, 0d0, mo_ovlp, nmo)
  deallocate(SC, coeff1)
 
  ! perform SVD on the MO-basis overlap matrix
@@ -131,7 +131,7 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
  real(kind=8) :: a_copy(m,n)
 
  a_copy = a
- u = 0.0d0; vt = 0.0d0; s = 0.0d0
+ u = 0d0; vt = 0d0; s = 0d0
 
  ! ?gesvd: Computes the singular value decomposition of a general rectangular matrix
  ! Syntax FORTRAN 77:

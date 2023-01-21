@@ -3,16 +3,6 @@
 ! Originally copied from fch2inporb.f90, some modifications are made
 ! updated by jxzou at 20210413: remove '-uhf', add automatic determination
 
-module root_parameter
- implicit none
- real(kind=8), parameter :: root3   = DSQRT(3d0)   ! SQRT(3)
- real(kind=8), parameter :: root9   = 3d0          ! SQRT(9)
- real(kind=8), parameter :: root15  = DSQRT(15d0)  ! SQRT(15)
- real(kind=8), parameter :: root45  = DSQRT(45d0)  ! SQRT(45)
- real(kind=8), parameter :: root105 = DSQRT(105d0) ! SQRT(105)
- real(kind=8), parameter :: root945 = DSQRT(945d0) ! SQRT(945)
-end module
-
 program main
  implicit none
  integer :: i

@@ -604,7 +604,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
@@ -677,7 +677,7 @@ subroutine prt_caspt2_orca_inp(inpname)
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1000.0d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
@@ -790,7 +790,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*500, ' # MB'
  else
   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
-  write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2.0d0), ' # GB'
+  write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2d0), ' # GB'
  end if
 
  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)

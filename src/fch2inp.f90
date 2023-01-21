@@ -90,7 +90,6 @@ end program main
 ! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
 subroutine fch2inp(fchname, gvb, npair, nopen0)
  use fch_content
- use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, k, m, n, n1, n2, nline, nleft, fid
  integer :: rel     ! the order of DKH, or RESC
@@ -118,7 +117,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine fch2inp: input filename does not&
-                     & contain '.fch' suffix!"
+                 & contain '.fch' suffix!"
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
