@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 # Copyright 2020-2023 The MOKIT Developers. All Rights Reserved.
 
-import os
-from setuptools import setup
+import os, sys, subprocess
+from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+from distutils.command.build_scripts import build_scripts
+from distutils import sysconfig
 
 CLASSIFIERS = [
 'Development Status :: 5 - Production/Stable',
@@ -15,8 +17,6 @@ CLASSIFIERS = [
 'Topic :: Software Development',
 'Topic :: Scientific/Engineering',
 'Operating System :: POSIX',
-'Operating System :: Unix',
-'Operating System :: MacOS',
 ]
 
 NAME             = 'mokit'
@@ -39,12 +39,57 @@ def get_version():
     raise ValueError("Version string not found")
 VERSION = get_version()
 
+class MakeExt(Extension):
+    def __init__(self, name, cmdir="."):
+        Extension.__init__(self, name, [])
+        self.cmake_lists_dir = os.path.abspath(cmdir)
+
+from distutils.dep_util import newer
+#from distutils import log
+from stat import ST_MODE
+from distutils.util import convert_path
+class BinBuild(build_scripts):
+    def copy_scripts(self):
+        #build_scripts.copy_scripts(self)
+        outfiles, updated_files = [], []
+        for script in self.scripts:
+            script = convert_path(script)
+            outfile = os.path.join(self.build_dir, os.path.basename(script))
+            outfiles.append(outfile)
+
+            if not self.force and not newer(script, outfile):
+                print("not copying %s (up-to-date) "% script)
+                return
+    
+            updated_files.append(outfile)
+            #print("copying and adjusting %s -> %s"%( script, self.build_dir))
+            self.copy_file(script, outfile)
+        if os.name == "posix":
+            for file in outfiles:
+                if self.dry_run:
+                    print("changing mode of %s"% file)
+                else:
+                    oldmode = os.stat(file)[ST_MODE] & 0o7777
+                    newmode = (oldmode | 0o555) & 0o7777
+                    if newmode != oldmode:
+                        print(
+                            "changing mode of %s from %o to %o"%( file, oldmode, newmode)
+                        )
+                        os.chmod(file, newmode)
+
+
 class MakeBuildExt(build_ext):
-    def build_make(self, extension):
+    def build_extensions(self):
         self.announce('Building binaries', level=3)
         # Do not use high level parallel compilation
-        cmd = ['make', 'all']
-        self.spawn(cmd)
+        print("Python3: ", sys.executable)
+        print("Build Dir: ", os.getcwd())
+        #extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        cmd = ['make', 'automr', '-f', 'Makefile.gnu_mkl']
+        #self.spawn(cmd)
+        #if not os.path.exists(self.build_temp):
+        #    os.makedirs(self.build_temp)
+        subprocess.check_call(cmd, cwd='./src')
 
     # To remove the infix string like cpython-37m-x86_64-linux-gnu.so
     # Python ABI updates since 3.5
@@ -54,6 +99,12 @@ class MakeBuildExt(build_ext):
 #        filename = build_ext.get_ext_filename(self, ext_name)
 #        name, ext_suffix = os.path.splitext(filename)
 #        return os.path.join(*ext_path) + ext_suffix
+
+#from distutils.command.build import build
+#
+#build.sub_commands = [c for c in build.sub_commands if c[0] == "build_ext"] + [
+#    c for c in build.sub_commands if c[0] != "build_ext"
+#]
 
 setup(
     name=NAME,
@@ -74,8 +125,10 @@ setup(
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     platforms=PLATFORMS,
-    packages=['src'],
-    cmdclass={'build_ext': MakeBuildExt},
+    packages=['lib'],
+    ext_modules = [MakeExt('mokit')],
+    cmdclass={'build_ext': MakeBuildExt, 'build_scripts': BinBuild},
     install_requires=['numpy>=1.13,!=1.16,!=1.17'],
-    extras_require={'h5py':['h5py>=2.7']}
+    #extras_require={'h5py':['h5py>=2.7']}
+    scripts = ["bin/automr"]
 )
