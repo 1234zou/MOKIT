@@ -2,7 +2,7 @@
 # Copyright 2020-2023 The MOKIT Developers. All Rights Reserved.
 
 import os, sys, subprocess
-from setuptools import setup, Extension
+from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
 from distutils.command.build_scripts import build_scripts
 from distutils import sysconfig
@@ -31,7 +31,7 @@ AUTHOR_EMAIL     = 'njumath@sina.cn'
 PLATFORMS        = ['Linux', 'Mac OS-X', 'Unix']
 def get_version():
     topdir = os.path.abspath(os.path.join(__file__, '..'))
-    with open(os.path.join(topdir, 'lib', '__init__.py'), 'r') as f:
+    with open(os.path.join(topdir, 'mokit', '__init__.py'), 'r') as f:
         for line in f.readlines():
             if line.startswith('__version__'):
                 delim = '"' if '"' in line else "'"
@@ -42,19 +42,29 @@ VERSION = get_version()
 class MakeExt(Extension):
     def __init__(self, name, cmdir="."):
         Extension.__init__(self, name, [])
-        self.cmake_lists_dir = os.path.abspath(cmdir)
+        #self.cmake_lists_dir = os.path.abspath(cmdir)
 
 from distutils.dep_util import newer
 #from distutils import log
 from stat import ST_MODE
 from distutils.util import convert_path
 class BinBuild(build_scripts):
+    def initialize_options(self):
+        build_scripts.initialize_options(self)
+        self.build_temp = None
+
+    def finalize_options(self):
+        build_scripts.finalize_options(self)
+        self.set_undefined_options("build", ("build_temp", "build_temp"))
+
     def copy_scripts(self):
         #build_scripts.copy_scripts(self)
         outfiles, updated_files = [], []
+        subprocess.check_call(['mkdir', '-p', self.build_dir])
         for script in self.scripts:
             script = convert_path(script)
             outfile = os.path.join(self.build_dir, os.path.basename(script))
+            #print(self.build_dir, outfile)
             outfiles.append(outfile)
 
             if not self.force and not newer(script, outfile):
@@ -85,7 +95,7 @@ class MakeBuildExt(build_ext):
         print("Python3: ", sys.executable)
         print("Build Dir: ", os.getcwd())
         #extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmd = ['make', 'automr', '-f', 'Makefile.gnu_mkl']
+        cmd = ['make', 'automr', 'fch2py', '-f', 'Makefile.gnu_openblas_pip']
         #self.spawn(cmd)
         #if not os.path.exists(self.build_temp):
         #    os.makedirs(self.build_temp)
@@ -125,7 +135,7 @@ setup(
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     platforms=PLATFORMS,
-    packages=['lib'],
+    packages=find_packages(),
     ext_modules = [MakeExt('mokit')],
     cmdclass={'build_ext': MakeBuildExt, 'build_scripts': BinBuild},
     install_requires=['numpy>=1.13,!=1.16,!=1.17'],

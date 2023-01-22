@@ -125,7 +125,7 @@ help:
 	echo " xml2fch   : generate xml2fch    (Molpro->Gau)" ;\
 	echo " all       : all executables and *.so files" ;\
 	echo " clean     : delete *.mod *.o" ;\
-	echo " distclean : delete *.mod *.o and clean ../lib ../bin" ;\
+	echo " distclean : delete *.mod *.o and clean $(LIB) ../bin" ;\
 	echo
 
 add_bgcharge_to_inp: $(OBJ_add_bgcharge_to_inp)
@@ -256,11 +256,11 @@ fch247: $(OBJ_fch247)
 
 chk2py: $(OBJ_chk2py)
 	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS)
-	@mv chk2py*.so ../lib/
+	@mv chk2py*.so $(LIB)/
 
 fch2py: $(OBJ_fch2py)
 	$(F2PY) -c $(OBJ_fch2py) -m fch2py $(F2_FLAGS)
-	@mv fch2py*.so ../lib/
+	@mv fch2py*.so $(LIB)/
 
 find_mc_pair: $(OBJ_find_mc_pair)
 	$(F90) $(OBJ_find_mc_pair) -o $(BIN)/find_mc_pair $(FFLAGS)
@@ -279,7 +279,7 @@ orb2fch: $(OBJ_orb2fch)
 
 py2fch: $(OBJ_py2fch)
 	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS)
-	@mv py2fch*.so ../lib/
+	@mv py2fch*.so $(LIB)/
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
 	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS)
@@ -304,39 +304,39 @@ xml2fch: $(OBJ_xml2fch)
 
 pyuno: $(OBJ_pyuno)
 	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(MKL_FLAGS)
-	@mv uno*.so ../lib/
+	@mv uno*.so $(LIB)/
 
 construct_vir: $(OBJ_construct_vir)
 	$(F2PY) -c $(OBJ_construct_vir) -m construct_vir $(F2_FLAGS) $(MKL_FLAGS)
-	@mv construct_vir*.so ../lib/
+	@mv construct_vir*.so $(LIB)/
 
 ortho: $(OBJ_ortho)
 	$(F2PY) -c $(OBJ_ortho) -m ortho $(F2_FLAGS) $(MKL_FLAGS)
-	@mv ortho*.so ../lib/
+	@mv ortho*.so $(LIB)/
 
 assoc_rot: $(OBJ_assoc_rot)
 	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(MKL_FLAGS)
-	@mv assoc_rot*.so ../lib/
+	@mv assoc_rot*.so $(LIB)/
 
 assoc_loc: $(OBJ_assoc_loc)
 	$(F2PY) -c $(OBJ_assoc_loc) -m assoc_loc $(F2_FLAGS)
-	@mv assoc_loc*.so ../lib/
+	@mv assoc_loc*.so $(LIB)/
 
 wfn_analysis: $(OBJ_wfn_analysis)
 	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
-	@mv wfn_analysis*.so ../lib/
+	@mv wfn_analysis*.so $(LIB)/
 
 lo: $(OBJ_lo)
 	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(MKL_FLAGS)
-	@mv lo*.so ../lib/
+	@mv lo*.so $(LIB)/
 
 auto_pair: $(OBJ_auto_pair)
 	$(F2PY) -c $(OBJ_auto_pair) -m auto_pair $(F2_FLAGS)
-	@mv auto_pair*.so ../lib/
+	@mv auto_pair*.so $(LIB)/
 
 mo_svd: $(OBJ_mo_svd)
 	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(MKL_FLAGS)
-	@mv mo_svd*.so ../lib/
+	@mv mo_svd*.so $(LIB)/
 
 mo_svd_format: $(OBJ_mo_svd_format)
 	$(F90) $(OBJ_mo_svd_format) $(MKL_FLAGS) -o $(BIN)/mo_svd
@@ -346,15 +346,15 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 
 rwgeom: $(OBJ_rwgeom)
 	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS)
-	@mv rwgeom*.so ../lib/
+	@mv rwgeom*.so $(LIB)/
 
 rwwfn: $(OBJ_rwwfn)
 	$(F2PY) -c $(OBJ_rwwfn) $(F2_F90_FLAGS) -m rwwfn $(F2_FLAGS) $(MKL_FLAGS)
-	@mv rwwfn*.so ../lib/
+	@mv rwwfn*.so $(LIB)/
 
 excited: $(OBJ_excited)
 	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(MKL_FLAGS)
-	@mv excited*.so ../lib/
+	@mv excited*.so $(LIB)/
 
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
@@ -372,8 +372,8 @@ clean:
 	rm -f *.o *.mod
 
 pyclean:
-	rm -rf *.o *.mod ../lib/*.so ../lib/__pycache__
+	rm -rf *.o *.mod $(LIB)/*.so $(LIB)/__pycache__
 
 distclean:
-	rm -rf *.o *.mod *.so ../bin/* ../lib/*.so ../lib/__pycache__
+	rm -rf *.o *.mod *.so ../bin/* $(LIB)/*.so $(LIB)/__pycache__
 

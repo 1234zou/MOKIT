@@ -7,6 +7,7 @@
 *.egg-info/
 build/
 dist/
+*-wheels/
 /test/*/*.fch*
 /test/*/*.chk
 /test/*/*.log
