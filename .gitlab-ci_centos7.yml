@@ -21,7 +21,19 @@
     #  -i /etc/yum.repos.d/epel*.repo
     #- yum makecache
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
-
+  after_script:
+    - cd mokit/lib
+    - cp /usr/lib64/libopenblas-r*.so .
+    - cp /usr/lib64/libgfortran.so.3.* .
+    #    - ls /usr/lib64/libopenblas* -l
+    #- ln -s libopenblasp-r*.so libopenblasp.so
+    #- ln -s libopenblasp-r*.so libopenblasp.so.0
+    - ln -s libopenblas-r*.so libopenblas.so
+    - ln -s libopenblas-r*.so libopenblas.so.0
+    - ln -s libgfortran.so.3.* libgfortran.so.3
+    - cd ../..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples CHANGELOG *.md $TARGET
 
 centos7_conda_py37:
   image: centos:7
@@ -41,20 +53,9 @@ centos7_conda_py37:
     #  { echo "y"; } | conda create -n test37 python=3.7
     #- conda activate test37
     - pip install numpy==1.18
-    - cd lib
-    - cp /usr/lib64/libopenblas-r*.so .
-    - cp /usr/lib64/libgfortran.so.3.* .
-    #    - ls /usr/lib64/libopenblas* -l
-    #- ln -s libopenblasp-r*.so libopenblasp.so
-    #- ln -s libopenblasp-r*.so libopenblasp.so.0
-    - ln -s libopenblas-r*.so libopenblas.so
-    - ln -s libopenblas-r*.so libopenblas.so.0
-    - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
     #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
@@ -80,21 +81,9 @@ centos7_conda_py38:
     #  { echo "y"; } | conda create -n test38 python=3.8
     #- conda activate test38
     - conda install numpy
-    - cd lib
-    - cp /usr/lib64/libopenblas-r*.so .
-    - cp /usr/lib64/libgfortran.so.3.* .
-    #    - ls /usr/lib64/libopenblas* -l
-    #- ln -s libopenblasp-r*.so libopenblasp.so
-    #- ln -s libopenblasp-r*.so libopenblasp.so.0
-    - ln -s libopenblas-r*.so libopenblas.so
-    - ln -s libopenblas-r*.so libopenblas.so.0
-    - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -118,21 +107,9 @@ centos7_conda_py39:
     #  { echo "y"; } | conda create -n test38 python=3.8
     #- conda activate test38
     - conda install numpy
-    - cd lib
-    - cp /usr/lib64/libopenblas-r*.so .
-    - cp /usr/lib64/libgfortran.so.3.* .
-    #    - ls /usr/lib64/libopenblas* -l
-    #- ln -s libopenblasp-r*.so libopenblasp.so
-    #- ln -s libopenblasp-r*.so libopenblasp.so.0
-    - ln -s libopenblas-r*.so libopenblas.so
-    - ln -s libopenblas-r*.so libopenblas.so.0
-    - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:

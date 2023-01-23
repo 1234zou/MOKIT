@@ -3,6 +3,7 @@
 # updated by jxzou at 20221008: delete F2_MKL_FLAGS
 
 BIN = ../bin
+LIB = ../mokit/lib
 
 # --- gfortran + OpenBLAS ---
 F90    = gfortran

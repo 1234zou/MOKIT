@@ -1,3 +1,5 @@
+variables:
+  OB_ROOT: /usr/lib/*
 .setup_lib:
   except:
     - conda
@@ -11,6 +13,16 @@
     - ldconfig -p | grep libgfort
     - ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
     #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
+  after_script:
+    - cd mokit/lib
+    - cp $OB_ROOT/libopenblasp*.so .
+    - cp /usr/lib/*/libgfortran.so.5.* .
+    - ln -s libgfortran.so.5.* libgfortran.so.5
+    - ln -s libopenblasp*.so libopenblas.so.0
+    - cd ../..
+    - mkdir $TARGET
+    - cp -r bin lib doc examples CHANGELOG *.md $TARGET
+    #- tar czvf $TARGET.tar.gz $TARGET
 
 py37_gcc8:
   image: python:3.7-buster
@@ -18,17 +30,9 @@ py37_gcc8:
     TARGET: mokit-master_linux_py37_gcc8
   extends: .setup_lib
   script:
-    - cd lib
-    - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/*/libgfortran.so.5.* .
-    - ln -s libgfortran.so.5.* libgfortran.so.5
-    - ln -s libopenblasp*.so libopenblas.so.0
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -39,17 +43,9 @@ py38_gcc8:
     TARGET: mokit-master_linux_py38_gcc8
   extends: .setup_lib
   script:
-    - cd lib
-    - cp /usr/lib/*/libopenblasp*.so .
-    - cp /usr/lib/*/libgfortran.so.5.* .
-    - ln -s libgfortran.so.5.* libgfortran.so.5
-    - ln -s libopenblasp*.so libopenblas.so.0
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -60,19 +56,12 @@ py39_gcc10:
   image: python:3.9-bullseye
   variables:
     TARGET: mokit-master_linux_py39_gcc10
+    OB_ROOT: /usr/lib/*/openblas-pthread
   extends: .setup_lib
   script:
-    - cd lib
-    - cp /usr/lib/*/openblas-pthread/libopenblasp*.so .
-    - cp /usr/lib/*/libgfortran.so.5.* .
-    - ln -s libgfortran.so.5.* libgfortran.so.5
-    - ln -s libopenblasp*.so libopenblas.so.0
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -81,19 +70,12 @@ py310_gcc10:
   image: python:3.10-bullseye
   variables:
     TARGET: mokit-master_linux_py310_gcc10
+    OB_ROOT: /usr/lib/*/openblas-pthread
   extends: .setup_lib
   script:
-    - cd lib
-    - cp /usr/lib/*/openblas-pthread/libopenblasp*.so .
-    - cp /usr/lib/*/libgfortran.so.5.* .
-    - ln -s libgfortran.so.5.* libgfortran.so.5
-    - ln -s libopenblasp*.so libopenblas.so.0
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
