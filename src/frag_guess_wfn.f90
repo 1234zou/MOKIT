@@ -1115,8 +1115,10 @@ end subroutine gen_inp_of_frags
 subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  use frag_info, only: nfrag0, nfrag, frags
  use theory_level, only: mem, basis, wfn_type
+ use periodic_table, only: elem2nuc
  implicit none
  integer :: i, j, natom, fid1, fid2
+ character(len=2) :: str
  character(len=240) :: buf, fileA, fileB
  character(len=240), intent(in) :: inpname1, inpname2
 
@@ -1173,7 +1175,21 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
   write(6,'(A,I0)') 'wfn_type=', i
   stop
  end select
- write(fid2,'(A)') ' df_basis_sapt '//TRIM(basis)//'-ri'
+ write(fid2,'(A)') '}'
+ write(fid2,'(A)') 'df_basis_sapt {'
+ write(fid2,'(A)') ' assign '//TRIM(basis)//'-ri'
+ if(TRIM(basis) == 'jun-cc-pvdz') then
+  natom = frags(3)%natom
+  do i = 1, natom, 1
+   str = frags(3)%elem(i); j = elem2nuc(str)
+   if(i > 2) then
+    if(ANY(frags(3)%elem(1:i-1) == str)) cycle
+   end if
+   if(j==3 .or. j==11 .or. (j>18 .and. j<31) .or. j>36) then
+    write(fid2,'(A)') ' assign '//TRIM(str)//' def2-qzvpp-ri'
+   end if
+  end do ! for i
+ end if
  write(fid2,'(A)') '}'
 
  write(fid2,'(/,A)') 'set df_ints_io save'
