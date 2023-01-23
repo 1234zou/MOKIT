@@ -159,7 +159,7 @@ subroutine fch2psi_wrap(fchname)
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine fch2psi_wrap: failed to call utility&
-                     & fch2psi. Two possible reasons:'
+                   & fch2psi. 3 possible reasons:'
   write(6,'(A)') '(1) You might forget to compile the utility fch2psi.'
   write(6,'(A)') '(2) The file '//TRIM(fchname)//' may be incomplete.'
   write(6,'(A)') '(3) There might exist a bug in the utility fch2psi.'
