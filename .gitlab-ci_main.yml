@@ -1,6 +1,6 @@
 .setup_lib:
   except:
-    conda
+    - conda
   #only:
   #  changes:
   #    - "mokit/__init__.py"

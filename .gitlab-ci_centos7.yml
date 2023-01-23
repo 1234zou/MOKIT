@@ -1,7 +1,7 @@
 # Switch to BFSU mirror for git.nju. No need to do that in GitLab.
 .setup_yum:
   except:
-    conda
+    - conda
   #only:
   #  changes:
   #    - "mokit/__init__.py"
