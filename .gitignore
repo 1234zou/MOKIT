@@ -4,10 +4,16 @@
 /src/*.o
 /src/*.mod
 /src/*.make
+
 *.egg-info/
 build/
 dist/
 *-wheels/
+*.json
+/linux-64/
+/noarch/
+*.html
+
 /test/*/*.fch*
 /test/*/*.chk
 /test/*/*.log

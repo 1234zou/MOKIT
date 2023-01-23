@@ -100,7 +100,7 @@ class MakeBuildExt(build_ext):
         print("Python3: ", sys.executable)
         print("Build Dir: ", os.getcwd())
         #extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmd = ['make', 'automr', 'fch2py', '-f', 'Makefile.gnu_openblas_pip']
+        cmd = ['make', 'automr', 'fch2py', '-f', 'Makefile.gnu_mkl_conda']
         #self.spawn(cmd)
         #if not os.path.exists(self.build_temp):
         #    os.makedirs(self.build_temp)
@@ -149,7 +149,10 @@ setup(
     packages=find_packages(),
     ext_modules = [Extension('mokit_lib_placeholder', [])],
     cmdclass={'build_ext': MakeBuildExt, 'build_scripts': BinBuild},
-    install_requires=['numpy>=1.13,!=1.16,!=1.17'],
+    install_requires=[
+        'numpy>=1.17',
+        'mkl>=2021',
+        'libgfortran5'],
     #extras_require={'h5py':['h5py>=2.7']}
     scripts = ["bin/automr"]
 )
