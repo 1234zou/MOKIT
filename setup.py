@@ -39,10 +39,10 @@ def get_version():
     raise ValueError("Version string not found")
 VERSION = get_version()
 
-class MakeExt(Extension):
-    def __init__(self, name, cmdir="."):
-        Extension.__init__(self, name, [])
-        #self.cmake_lists_dir = os.path.abspath(cmdir)
+#class MakeExt(Extension):
+#    def __init__(self, name, cmdir="."):
+#        Extension.__init__(self, name, [])
+#        #self.cmake_lists_dir = os.path.abspath(cmdir)
 
 from distutils.dep_util import newer
 #from distutils import log
@@ -89,6 +89,11 @@ class BinBuild(build_scripts):
 
 
 class MakeBuildExt(build_ext):
+    def run(self):
+        extension = self.extensions[0]
+        assert extension.name == 'mokit_lib_placeholder'
+        self.build_extensions()
+
     def build_extensions(self):
         self.announce('Building binaries', level=3)
         # Do not use high level parallel compilation
@@ -109,12 +114,17 @@ class MakeBuildExt(build_ext):
 #        filename = build_ext.get_ext_filename(self, ext_name)
 #        name, ext_suffix = os.path.splitext(filename)
 #        return os.path.join(*ext_path) + ext_suffix
+    def get_ext_filename(self, ext_name):
+        ext_path = ext_name.split('.')
+        filename = build_ext.get_ext_filename(self, ext_name)
+        name, ext_suffix = os.path.splitext(filename)
+        return os.path.join(*ext_path) + ext_suffix
 
-#from distutils.command.build import build
-#
-#build.sub_commands = [c for c in build.sub_commands if c[0] == "build_ext"] + [
-#    c for c in build.sub_commands if c[0] != "build_ext"
-#]
+from distutils.command.build import build
+
+build.sub_commands = [c for c in build.sub_commands if c[0] == "build_ext"] + [
+    c for c in build.sub_commands if c[0] != "build_ext"
+]
 
 setup(
     name=NAME,
@@ -135,8 +145,9 @@ setup(
     author=AUTHOR,
     author_email=AUTHOR_EMAIL,
     platforms=PLATFORMS,
+    include_package_data=True,
     packages=find_packages(),
-    ext_modules = [MakeExt('mokit')],
+    ext_modules = [Extension('mokit_lib_placeholder', [])],
     cmdclass={'build_ext': MakeBuildExt, 'build_scripts': BinBuild},
     install_requires=['numpy>=1.13,!=1.16,!=1.17'],
     #extras_require={'h5py':['h5py>=2.7']}

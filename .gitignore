@@ -1,5 +1,5 @@
-/lib/__pycache__
-/lib/*.so
+/mokit/lib/__pycache__
+/mokit/lib/*.so
 /bin/*
 /src/*.o
 /src/*.mod
