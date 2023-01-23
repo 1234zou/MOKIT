@@ -356,6 +356,15 @@ excited: $(OBJ_excited)
 	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(MKL_FLAGS)
 	@mv excited*.so $(LIB)/
 
+exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
+     bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
+     bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com \
+     fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
+     fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
+     gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
+     xml2fch \
+     mo_svd_format solve_ON_matrix 
+
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com \

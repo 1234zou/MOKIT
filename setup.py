@@ -28,7 +28,7 @@ DOWNLOAD_URL     = 'http://gitlab.com/jxzou/mokit'
 LICENSE          = 'Apache License 2.0'
 AUTHOR           = 'MOKIT developers'
 AUTHOR_EMAIL     = 'njumath@sina.cn'
-PLATFORMS        = ['Linux', 'Mac OS-X', 'Unix']
+PLATFORMS        = ['Linux']
 def get_version():
     topdir = os.path.abspath(os.path.join(__file__, '..'))
     with open(os.path.join(topdir, 'mokit', '__init__.py'), 'r') as f:
@@ -100,10 +100,8 @@ class MakeBuildExt(build_ext):
         print("Python3: ", sys.executable)
         print("Build Dir: ", os.getcwd())
         #extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
-        cmd = ['make', 'automr', 'fch2py', '-f', 'Makefile.gnu_mkl_conda']
+        cmd = ['make', 'all', '-f', 'Makefile.gnu_mkl_conda']
         #self.spawn(cmd)
-        #if not os.path.exists(self.build_temp):
-        #    os.makedirs(self.build_temp)
         subprocess.check_call(cmd, cwd='./src')
 
     # To remove the infix string like cpython-37m-x86_64-linux-gnu.so
@@ -125,6 +123,25 @@ from distutils.command.build import build
 build.sub_commands = [c for c in build.sub_commands if c[0] == "build_ext"] + [
     c for c in build.sub_commands if c[0] != "build_ext"
 ]
+
+def find_exes():
+    topdir = os.path.abspath(os.path.join(__file__, '..'))
+    with open(os.path.join(topdir, 'src', 'Makefile.main'), 'r') as f:
+        read = False
+        all_exes = []
+        while(True): 
+            line = f.readline()
+            if line.startswith('exe:'):
+                read = True
+            if read:
+                if len(line.strip())==0:
+                    break
+                exes = line.split()
+                for exe in exes:
+                    if exe != 'exe:' and exe != '\\': all_exes.append(exe)
+    print('all exes', all_exes)
+    return all_exes
+
 
 setup(
     name=NAME,
@@ -154,5 +171,5 @@ setup(
         'mkl>=2021',
         'libgfortran5'],
     #extras_require={'h5py':['h5py>=2.7']}
-    scripts = ["bin/automr"]
+    scripts = find_exes()
 )
