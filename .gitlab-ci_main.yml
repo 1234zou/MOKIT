@@ -1,7 +1,9 @@
 .setup_lib:
-  only:
-    changes:
-      - "mokit/__init__.py"
+  except:
+    conda
+  #only:
+  #  changes:
+  #    - "mokit/__init__.py"
   before_script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  

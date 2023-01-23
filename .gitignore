@@ -1,4 +1,4 @@
-/mokit/lib/__pycache__
+__pycache__/
 /mokit/lib/*.so
 /bin/*
 /src/*.o
@@ -9,9 +9,10 @@
 build/
 dist/
 *-wheels/
+conda_out/
 *.json
-/linux-64/
-/noarch/
+linux-64/
+noarch/
 *.html
 
 /test/*/*.fch*
