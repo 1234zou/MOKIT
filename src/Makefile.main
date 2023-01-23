@@ -363,7 +363,7 @@ exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
      xml2fch \
-     mo_svd_format solve_ON_matrix 
+     solve_ON_matrix 
 
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \

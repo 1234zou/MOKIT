@@ -138,7 +138,7 @@ def find_exes():
                     break
                 exes = line.split()
                 for exe in exes:
-                    if exe != 'exe:' and exe != '\\': all_exes.append(exe)
+                    if exe != 'exe:' and exe != '\\': all_exes.append('bin/'+exe)
     print('all exes', all_exes)
     return all_exes
 

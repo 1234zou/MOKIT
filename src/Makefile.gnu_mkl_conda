@@ -11,7 +11,7 @@ FFLAGS += -O2 -cpp -fPIC
 #MKL_FLAGS = -lmkl_rt
 MKL_FLAGS = -L$(BUILD_PREFIX)/lib -lmkl_rt
 F2PY   = f2py
-F2_FLAGS =
+F2_FLAGS = --quiet
 F2_F90_FLAGS = --f90flags="-cpp"
 
 include Makefile.main
