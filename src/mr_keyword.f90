@@ -340,6 +340,7 @@ contains
   integer(kind=4) :: hostnm
   character(len=8) :: hostname
   character(len=24) :: data_string
+ character(len=240) :: get_mokit_root 
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
@@ -352,7 +353,11 @@ contains
   call fdate(data_string)
   write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
-  call getenv('MOKIT_ROOT', mokit_root)
+  write(6,'(/,A)') 'Read program paths from environment variables:'
+  !call getenv('MOKIT_ROOT', mokit_root)
+  mokit_root = get_mokit_root()
+  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
+  
   call get_gau_path(gau_path)
   call get_molcas_path()
   call check_molcas_is_openmp(openmp_molcas)
@@ -364,8 +369,6 @@ contains
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
   if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
-  write(6,'(/,A)') 'Read program paths from environment variables:'
-  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
   write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
   write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
   write(6,'(A)') 'orca_path   = '//TRIM(orca_path)

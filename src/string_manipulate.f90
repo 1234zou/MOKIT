@@ -820,17 +820,36 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  i = RENAME(TRIM(basname1), TRIM(basname))
 end subroutine add_hyphen_for_elem_in_basfile
 
+function get_mokit_root() result(mokit_root)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: home, mokit_root !, buf
+ mokit_root = ' '
+ call getenv('MOKIT_ROOT', mokit_root)
+ if (len_trim(mokit_root) < 1) then
+  call getenv('HOME', home)
+  open(newunit=fid,file=TRIM(home)//'/.mokitrc',status='old',position='rewind')
+  read(fid,'(A)',iostat=i) mokit_root
+  if (len_trim(mokit_root) < 1) then
+    write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid MOKIT_ROOT'
+    stop
+  end if
+  close(fid)
+ end if
+end function get_mokit_root
+
 ! add MOKIT_ROOT path into basis sets like ANO-RCC-VDZP, DKH-def2-SVP in file
 ! basname because MOKIT has these basis sets in $MOKIT_ROOT/basis/
 subroutine add_mokit_path_to_genbas(basname)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=12) :: sbuf
- character(len=240) :: buf, mokit_root, basname1
+ character(len=240) :: buf, mokit_root, get_mokit_root, basname1
  character(len=240), intent(in) :: basname
 
- mokit_root = ' '
- call getenv('MOKIT_ROOT', mokit_root)
+ !mokit_root = ' '
+ !call getenv('MOKIT_ROOT', mokit_root)
+ mokit_root = get_mokit_root()
  basname1 = TRIM(basname)//'.t'
 
  open(newunit=fid,file=TRIM(basname),status='old',position='rewind')

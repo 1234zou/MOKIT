@@ -56,6 +56,7 @@ program main
   write(6,'(A,/)') '    MRCC_prog=ORCA/NWChem'
   stop
  case('-t','--testprog')
+  call check_mokit_root()
   call read_program_path()
   stop
  end select
@@ -86,6 +87,7 @@ subroutine automr(fname)
 
  gjfname = fname
  ! read paths of various programs from environment variables
+ call check_mokit_root()
  call read_program_path()
  call parse_keyword()
  call check_kywd_compatible()
@@ -110,6 +112,31 @@ subroutine automr(fname)
  call fdate(data_string)
  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
 end subroutine automr
+
+! check if MOKIT_ROOT present. Set it if not present.
+subroutine check_mokit_root()
+ integer :: i, system
+ character(len=240) :: mokit_root
+
+ write(6,'(/,A)') 'Checking MOKIT_ROOT ... '
+ mokit_root = ' '
+ call getenv('MOKIT_ROOT', mokit_root)
+ if (len_trim(mokit_root) < 1) then
+   ! assume we are under conda install
+   i = system("echo `get_mokit_loc.py` > ~/.mokitrc ")
+   !i = system("echo `get_mokit_loc.py` ")
+   !i = system('echo $MOKIT_ROOT')
+   if(i /= 0) then
+    write(6,'(/,A)') 'ERROR in subroutine check_mokit_root: '
+    write(6,'(A)') '    fail to set MOKIT_ROOT for conda-installed MOKIT.'
+    write(6,'(A)') 'If MOKIT is installed via conda, please report this issue.'
+    write(6,'(A)') 'Otherwise, it means your MOKIT_ROOT is not properly set.'
+    stop
+   else
+    write(6,'(A)') 'reset MOKIT_ROOT for conda-installed version'
+   end if
+ endif
+end subroutine check_mokit_root
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
