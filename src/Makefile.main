@@ -356,6 +356,9 @@ excited: $(OBJ_excited)
 	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(MKL_FLAGS)
 	@mv excited*.so $(LIB)/
 
+get_mokit_loc:
+	cp get_mokit_loc.py $(BIN)/
+
 exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com \
@@ -363,7 +366,7 @@ exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
      xml2fch \
-     solve_ON_matrix 
+     solve_ON_matrix
 
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
@@ -372,7 +375,7 @@ all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
      xml2fch py2fch pyuno construct_vir ortho assoc_rot assoc_loc wfn_analysis \
-     lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
+     lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited get_mokit_loc
 
 pymodules: auto_pair chk2py fch2py py2fch pyuno construct_vir ortho assoc_rot \
            assoc_loc wfn_analysis lo mo_svd rwgeom rwwfn excited

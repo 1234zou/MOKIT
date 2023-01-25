@@ -140,7 +140,7 @@ def find_exes():
                 for exe in exes:
                     if exe != 'exe:' and exe != '\\': all_exes.append('bin/'+exe)
     print('all exes', all_exes)
-    return all_exes + ['mo_svd', 'get_mokit_loc.py']
+    return all_exes + ['bin/mo_svd', 'bin/get_mokit_loc.py']
 
 
 setup(
