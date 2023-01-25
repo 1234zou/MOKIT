@@ -67,11 +67,12 @@ make fch2inp
 ```
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+export PYTHONPATH=$MOKIT_ROOT/mokit/lib:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
   Remember to modify the `GMS` path to suit your local environment. 
+  Attention: the PYTHONPATH has changed since MOKIT version 1.2.5rc2.
 
   Note that you
   need to run `source ~/.bashrc` or exit the terminal as well as re-login, in
@@ -81,18 +82,24 @@ export GMS=$HOME/software/gamess/rungms
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
   in [manual](doc/).
 
-### Option 2: Use Pre-compiled MOKIT
+### Option 2: Install from conda (need network)
+
+This is the easiest way, but network is required to auto-download the requirements (like MKL).
+```
+conda install mokit -c mokit
+```
+If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
+
+### Option 3: Use Pre-compiled MOKIT
 * Prerequisites: 
     - Still, you need to have a Python3 environment and NumPy.
 * A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found at [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
 * After downloading the pre-built artifacts, you still need to set all the environment variables mentioned above, and one more:
 
 ```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
-  since the OpenBLAS dynamic library is put in `$MOKIT_ROOT/lib`. 
-
-  There may still be some compatilibity problem when using pre-built MOKIT, so that's less recommended than building from source. Feel free to open an issue for any problems about that.
+  since the OpenBLAS dynamic library is put there. 
 
 Quick Start
 -----------
