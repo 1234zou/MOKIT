@@ -80,8 +80,10 @@ export GMS=$HOME/software/gamess/rungms
 
 ### 第二种选择：从 conda 安装（需要联网）
 
-这是最简单的安装方法，但需要联网以自动下载依赖（例如MKL）
+这是最简单的安装方法，但需要联网以自动下载依赖（例如MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。
 ```
+conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda activate mokit-py37
 conda install mokit -c mokit
 ```
 如果无法联网，但仍不想手动编译，请尝试第三种选择。

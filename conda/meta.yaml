@@ -1,23 +1,25 @@
-{% set data = load_setup_py_data() %}
-
 
 package:
   name: "mokit"
-  version: "{{ data['version'] }}"
+  version: "1.2.5rc4"
 
 source:
   path: ..
 
 build:
-  number: 0
+  number: 5
+  string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
 
 requirements:
   build:
+    - python {{ python }}
     - make
     - mkl
+    - numpy {{ numpy }}
     - {{ compiler('fortran') }}
     - libgfortran5
   run:
-    - mkl>=2021
-    - numpy>1.17
+    - python {{ python }}
+    - mkl
+    - numpy {{ numpy }}
     - libgfortran5

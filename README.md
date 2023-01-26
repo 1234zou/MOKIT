@@ -84,8 +84,11 @@ export GMS=$HOME/software/gamess/rungms
 
 ### Option 2: Install from conda (need network)
 
-This is the easiest way, but network is required to auto-download the requirements (like MKL).
+This is the easiest way, but network is required to auto-download the requirements (like MKL). And, 
+creating a new environment before installing is highly recommended, to avoid changing your base environment.
 ```
+conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda activate mokit-py37
 conda install mokit -c mokit
 ```
 If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
