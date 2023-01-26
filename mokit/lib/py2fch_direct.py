@@ -1,4 +1,4 @@
-from py2fch import molinfo2fch, molecp2fch, py2fch
+from mokit.lib.py2fch import molinfo2fch, molecp2fch, py2fch
 import os
 import numpy as np
 from pyscf import scf, mcscf

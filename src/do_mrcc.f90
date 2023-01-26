@@ -459,7 +459,7 @@ subroutine prt_py_script_to_gen_fcidump(fchname, nacto, nacte, mem, nproc)
  pyname = fchname(1:i-1)//'.py'
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from gaussian import gen_fcidump'
+ write(fid,'(A)') 'from mokit.lib.gaussian import gen_fcidump'
  write(fid,'(4(A,I0),A)') "gen_fcidump('"//TRIM(fchname)//"',", nacto, ',', &
                            nacte, ',', mem*1000, ',', nproc, ')'
  close(fid)
@@ -493,8 +493,8 @@ subroutine prt_py_script_loc_add_gen(fchname, ndb, npair, nopen)
  datname  = fchname(1:i+1)//'.dat'
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from gaussian import loc, gen_fcidump'
- write(fid,'(A)') 'from rwgeom import copy_and_add_pair_coeff'
+ write(fid,'(A)') 'from mokit.lib.gaussian import loc, gen_fcidump'
+ write(fid,'(A)') 'from mokit.lib.rwgeom import copy_and_add_pair_coeff'
  write(fid,'(A)') 'from os import system, rename'
  write(fid,'(A)') 'from shutil import copyfile'
  write(fid,'(/,2(A,I0),A)') "loc(fchname='"//TRIM(fchname)//"',idx=range(",&

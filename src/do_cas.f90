@@ -601,7 +601,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  else
   write(fid2,'(A)') 'from pyscf import mcscf, lib'
  end if
- write(fid2,'(A)') 'from py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
  if(dmrgci .or. dmrgscf) write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX = &
