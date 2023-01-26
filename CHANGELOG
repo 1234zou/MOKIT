@@ -1,5 +1,7 @@
-MOKIT 1.2.5 (Jan 17, 2023)
+MOKIT 1.2.5 (Jan 20, 2023)
 ------------------------
+* add setup.py and requirements.txt
+* add fpm.toml (fpm support)
 * add LMO-EDA interface in frag_guess_wfn
 * add MC-PDFT interface to PySCF and PySCF-forge
 * add '-dft' argument for bas_fch2py

@@ -18,7 +18,6 @@ module fch_content
  integer :: charge, mult     ! charge and spin multiplicity
  integer :: natom            ! number of atoms
  integer :: LenNCZ           ! ECP-LenNCZ
- integer, parameter :: iout = 6              ! print id, default on screen
  integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
  integer, parameter :: shltyp2nbf(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
@@ -96,8 +95,8 @@ subroutine read_ne_from_fch(fchname, ne)
 
  close(fid)
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec'&
-                   & found in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec'&
+                 & found in file "//TRIM(fchname)
   stop
  end if
 
@@ -194,9 +193,9 @@ subroutine read_fch(fchname, uhf)
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
-  write(iout,'(A)') "ERROR in subroutine read_fch: input filename does not&
-                   & contain '.fch' suffix!"
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_fch: input filename does not&
+                 & contain '.fch' suffix!"
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
@@ -220,10 +219,10 @@ subroutine read_fch(fchname, uhf)
 
  nopen = na - nb
  if(nopen < 0) then
-  write(iout,'(A)') 'ERROR in subroutine read_fch: The number of alpha electrons&
-                   & is less than that of beta electrons!'
-  write(iout,'(A)') 'fchname='//TRIM(fchname)
-  write(iout,'(2(A,I0))') 'na=', na, ', nb=', nb
+  write(6,'(A)') 'ERROR in subroutine read_fch: The number of alpha electrons&
+                 & is less than that of beta electrons!'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(2(A,I0))') 'na=', na, ', nb=', nb
   stop
  end if
 
@@ -274,8 +273,8 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(A49,2X,I10)') buf, nprim
   read(fid,'(A49,2X,I10)') buf, ncontr
  else
-  write(iout,'(A,I0)') 'ERROR in subroutine read_fch: invalid i=',i
-  write(iout,'(A)') 'Unsupported file format, or file is incomplete. File='//TRIM(fchname)
+  write(6,'(A,I0)') 'ERROR in subroutine read_fch: invalid i=',i
+  write(6,'(A)') 'Unsupported file format, or file is incomplete. File='//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -396,9 +395,9 @@ subroutine read_fch(fchname, uhf)
  if(uhf) then
   read(fid,'(A)') buf
   if(buf(1:12) /= 'Beta Orbital') then
-   write(iout,'(A)') "ERROR in subroutine read_fch: no 'Beta Orbital' found in&
-                    & this .fch(k) file, but you specify '-uhf'."
-   write(iout,'(A)') 'fchname='//TRIM(fchname)
+   write(6,'(A)') "ERROR in subroutine read_fch: no 'Beta Orbital' found in&
+                  & this .fch(k) file,"
+   write(6,'(A)') "but you specify '-uhf'. fchname="//TRIM(fchname)
    stop
   end if
   allocate(eigen_e_b(nif), source=0d0)
@@ -645,7 +644,6 @@ subroutine check_DKH_in_fch(fchname, order)
 !  0: DKH 0th-order
 !  2: DKH2
 !  4: DKH4 with SO
- integer, parameter :: iout = 6
  character(len=61) :: buf
  character(len=240), intent(in) :: fchname
  character(len=610) :: longbuf
@@ -660,9 +658,10 @@ subroutine check_DKH_in_fch(fchname, order)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine check_DKH_in_fch: neither 'Route'&
-                   & nor 'Charge' is found in file "//TRIM(fchname)//'.'
-  write(iout,'(A)') 'This .fch(k) file is incomplete.'
+  write(6,'(A)') "ERROR in subroutine check_DKH_in_fch: neither 'Route'&
+                 & nor 'Charge'"
+  write(6,'(A)') 'is found in file '//TRIM(fchname)//'.'
+  write(6,'(A)') 'This .fch(k) file is incomplete.'
   stop
  end if
 
@@ -707,7 +706,6 @@ end subroutine check_DKH_in_fch
 subroutine check_X2C_in_fch(fchname, alive)
  implicit none
  integer :: i, fid
- integer, parameter :: iout = 6
  character(len=61) :: buf
  character(len=240), intent(in) :: fchname
  character(len=610) :: longbuf
@@ -722,8 +720,9 @@ subroutine check_X2C_in_fch(fchname, alive)
  end do ! for while
 
  if(i /= 0) then
-  write(iout,'(A)') "ERROR in subroutine check_X2C_in_fch: neither 'Route'&
-                   & not 'Charge' is found in file "//TRIM(fchname)//'.'
+  write(6,'(A)') "ERROR in subroutine check_X2C_in_fch: neither 'Route'&
+                 & not 'Charge' is"
+  write(6,'(A)') 'found in file '//TRIM(fchname)//'.'
   stop
  end if
 
@@ -858,7 +857,6 @@ end subroutine check_nosymm_in_fch
 ! expand MO coefficients from spherical harmonic type functions into Cartesian
 ! type functions
 subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
- use fch_content, only: iout
  use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, nbf
@@ -897,15 +895,15 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
    nbf = nbf + 21; j = j + 11
    shltyp(i) = 5
   case default
-   write(iout,'(A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
-   write(iout,'(A,3I5)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
+   write(6,'(A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
+   write(6,'(A,3I5)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
    stop
   end select
  end do ! for i
 
  if(nbf/=nbf1 .or. j/=nbf0) then
-  write(iout,'(A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
-  write(iout,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
+  write(6,'(A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
+  write(6,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
   stop
  end if
 end subroutine mo_sph2cart

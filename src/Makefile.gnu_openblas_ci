@@ -4,6 +4,7 @@
 # updated by wsr at 20221202: adjust for gitlab ci
 
 BIN = ../bin
+LIB = ../mokit/lib
 
 # --- gfortran + OpenBLAS ---
 F90    = gfortran

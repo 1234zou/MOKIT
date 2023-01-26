@@ -176,7 +176,7 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
  character(len=240), intent(in) :: inpname
  logical :: bohrs
 
- allocate(nuc1(natom), source=0.0d0)
+ allocate(nuc1(natom), source=0d0)
  nuc = 0; coor = 0d0; elem = ' '
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')

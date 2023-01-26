@@ -71,8 +71,8 @@ subroutine fch_mo_copy(fchname1, fchname2, ab, idx1, idx2)
   stop
  end if
 
- allocate(coeff1(nbf,nif), source=0.0d0)
- allocate(coeff2(nbf,nif), source=0.0d0)
+ allocate(coeff1(nbf,nif), source=0d0)
+ allocate(coeff2(nbf,nif), source=0d0)
  call read_mo_from_fch(fchname1, nbf, nif, ab(2:2), coeff1)
  call read_mo_from_fch(fchname2, nbf, nif, ab(3:3), coeff2)
 

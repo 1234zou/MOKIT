@@ -15,30 +15,6 @@
 ! updated by wsr   at 20220726: add subroutines molinfo2fch and molecp2fch
 ! updated by jxzou at 20220815: support PySCF->Gaussian complex GHF
 
-! diagonal elements of overlap matrix using Cartesian functions (6D 10F)
-module Sdiag_parameter
- implicit none
- real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
- real(kind=8), parameter :: p1 = 2d0*DSQRT(PI/15d0)
- real(kind=8), parameter :: p2 = 2d0*DSQRT(PI/5d0)
- real(kind=8), parameter :: p3 = 2d0*DSQRT(PI/7d0)
- real(kind=8), parameter :: p4 = 2d0*DSQRT(PI/35d0)
- real(kind=8), parameter :: p5 = 2d0*DSQRT(PI/105d0)
- real(kind=8), parameter :: p6 = (2d0/3d0)*DSQRT(PI)
- real(kind=8), parameter :: p7 = (2d0/3d0)*DSQRT(PI/7d0)
- real(kind=8), parameter :: p8 = (2d0/3d0)*DSQRT(PI/35d0)
- real(kind=8), parameter :: p9 = 2d0*DSQRT(PI/11d0)
- real(kind=8), parameter :: p10 = (2d0/3d0)*DSQRT(PI/11d0)
- real(kind=8), parameter :: p11 = 2d0*DSQRT(PI/231d0)
- real(kind=8), parameter :: p12 = (2d0/3d0)*DSQRT(PI/77d0)
- real(kind=8), parameter :: p13 = 2d0*DSQRT(PI/1155d0)
- real(kind=8), parameter :: Sdiag_d(6)  = [p2,p1,p1,p2,p1,p2]
- real(kind=8), parameter :: Sdiag_f(10) = [p3,p4,p4,p4,p5,p4,p3,p4,p4,p3]
- real(kind=8), parameter :: Sdiag_g(15) = [p6,p7,p7,p5,p8,p5,p7,p8,p8,p7,p6,p7,p5,p7,p6]
- real(kind=8), parameter :: Sdiag_h(21) = &
-  [p9,p10,p10,p11,p12,p11,p11,p13,p13,p11,p10,p12,p13,p12,p10,p9,p10,p11,p11,p10,p9]
-end module Sdiag_parameter
-
 subroutine molecp2fch(fchname, uhf, &
                   & nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in, &
                   & ielem_in, shell_type_in, prim_per_shell_in, shell2atom_map_in, &
@@ -477,7 +453,6 @@ end subroutine get_permute_idx_from_fch
 
 ! get permutation index list from two arrays (shell_type and shell_to_atom_map)
 subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, nbf0, idx, norm)
- use Sdiag_parameter, only: Sdiag_d, Sdiag_f, Sdiag_g, Sdiag_h
  implicit none
  integer :: i, k, nbf
  integer, intent(in) :: ncontr, nbf0

@@ -9,7 +9,7 @@ subroutine do_mcpdft()
  use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
- real(kind=8) :: ref_e, corr_e
+ real(kind=8) :: ref_e
  character(len=24) :: data_string
  character(len=240) :: fname(3), inpname, outname, cmofch
  character(len=480) :: longbuf

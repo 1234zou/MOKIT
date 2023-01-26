@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年1月17号
+2023年1月20号
 
 安装
 ----------
@@ -65,34 +65,39 @@ make fch2inp
 ```
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/lib:$PYTHONPATH
+export PYTHONPATH=$MOKIT_ROOT/mokit/lib:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
-  GAMESS可执行文件的路径请按照您机器上的实际情况修改。若您下载和使用的是Linux预编
-  译版，您还需增加一条环境变量
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
-```
+  GAMESS可执行文件的路径请按照您机器上的实际情况修改。
+  注意：自 MOKIT 版本 1.2.5rc2以后，PYTHONPATH 发生了变化。
 
-  这是因为OpenBLAS动态库放在`$MOKIT_ROOT/lib`目录下。修改后需执行`source ~/.bashrc`
+  修改后需执行`source ~/.bashrc`
   或退出重登，以使环境变量生效。
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
   因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
 
-### 另一种选择：使用预编译版
+### 第二种选择：从 conda 安装（需要联网）
+
+这是最简单的安装方法，但需要联网以自动下载依赖（例如MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。
+```
+conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda activate mokit-py37
+conda install mokit -c mokit
+```
+如果无法联网，但仍不想手动编译，请尝试第三种选择。
+
+### 第三种选择：使用预编译版
 * 前提
     - 预编译版仍然需要Python3环境和NumPy
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
 * 下载预编译版后, 仍然需要设定上面提到的所有环境变量。还要多设定一个：
 
 ```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
-  因为 OpenBLAS 动态库放在了 `$MOKIT_ROOT/lib`. 
-
-  预编译版本可能仍然有不少依赖问题，所以更推荐从源码编译。欢迎提issue报告相关问题。
+  因为 OpenBLAS 动态库放在那里. 
 
 
 快速开始

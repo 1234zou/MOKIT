@@ -1,0 +1,25 @@
+
+package:
+  name: "mokit"
+  version: "1.2.5rc4"
+
+source:
+  path: ..
+
+build:
+  number: 5
+  string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
+
+requirements:
+  build:
+    - python {{ python }}
+    - make
+    - mkl
+    - numpy {{ numpy }}
+    - {{ compiler('fortran') }}
+    - libgfortran5
+  run:
+    - python {{ python }}
+    - mkl
+    - numpy {{ numpy }}
+    - libgfortran5

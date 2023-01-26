@@ -246,7 +246,7 @@ subroutine fch2com_permute_5d(nif,coeff)
 ! d0 , d+1, d-1, d+2, d-2
 ! d0 , d2-, d1+, d2+, d1-
 
- allocate(coeff2(5,nif), source=0.0d0)
+ allocate(coeff2(5,nif), source=0d0)
  forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -265,7 +265,7 @@ subroutine fch2com_permute_7f(nif,coeff)
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 ! f1+, f1-, f0 , f3+, f2-, f3-, f2+
 
- allocate(coeff2(7,nif), source=0.0d0)
+ allocate(coeff2(7,nif), source=0d0)
  forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -284,7 +284,7 @@ subroutine fch2com_permute_10f(nif,coeff)
 ! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 ! xxx,yyy,zzz,xxy,xxz,xyy,yyz,xzz,yzz,xyz
 
- allocate(coeff2(10,nif), source=0.0d0)
+ allocate(coeff2(10,nif), source=0d0)
  forall(i = 1:10) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -303,7 +303,7 @@ subroutine fch2com_permute_9g(nif,coeff)
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 ! g0 , g2-, g1+, g4+, g1-, g2+, g4-, g3+, g3-
 
- allocate(coeff2(9,nif), source=0.0d0)
+ allocate(coeff2(9,nif), source=0d0)
  forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -322,7 +322,7 @@ subroutine fch2com_permute_15g(nif,coeff)
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 ! xxxx,yyyy,zzzz,xxxy,xxxz,xyyy,yyyz,xzzz,yzzz,xxyy,xxzz,yyzz,xxyz,xyyz,xyzz
 
- allocate(coeff2(15,nif), source=0.0d0)
+ allocate(coeff2(15,nif), source=0d0)
  forall(i = 1:15) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -341,7 +341,7 @@ subroutine fch2com_permute_11h(nif,coeff)
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 ! h1+, h1-, h2+, h3+, h4-, h3-, h4+, h5-, h0 , h5+, h2-
 
- allocate(coeff2(11,nif), source=0.0d0)
+ allocate(coeff2(11,nif), source=0d0)
  forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
  deallocate(coeff2)
@@ -359,7 +359,7 @@ subroutine fch2com_permute_21h(nif,coeff)
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 ! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
 
- allocate(coeff2(21,nif), source=0.0d0)
+ allocate(coeff2(21,nif), source=0d0)
  forall(i = 1:21) coeff2(i,:) = coeff(22-i,:)
  coeff = coeff2
  deallocate(coeff2)

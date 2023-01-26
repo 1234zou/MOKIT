@@ -64,7 +64,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
  end if
 
  allocate(dipole(3,nref,nrot))
- dipole = 0.0d0
+ dipole = 0d0
 
  new_coeff = coeff
  do i = 1, nrot, 1
@@ -77,7 +77,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
  ! perform 2*2 rotation
  niter = 0
  do while(niter <= niter_max)
-  decrease = 0.0d0
+  decrease = 0d0
   do i = 1, nref, 1
    do j = i+1, nrot, 1
     if(j > nref) then
@@ -97,18 +97,18 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, new_coe
     Aij = 0.5d0*Aij
     rtmp = DSQRT(Aij*Aij + Bij*Bij)
     cos_a = Aij/rtmp
-    cos_theta = DSQRT(0.5d0*(1.0d0+cos_a))
-    if(DABS(1.0d0-cos_theta) < threshold1) cycle
+    cos_theta = DSQRT(0.5d0*(1d0+cos_a))
+    if(DABS(1d0-cos_theta) < threshold1) cycle
     ! if theta is very close to zero, not to rotate
     decrease = decrease + Aij - rtmp
-    rtmp = DSQRT(0.5d0*(1.0d0-cos_a))
-    if(Bij > 0.0d0) then
+    rtmp = DSQRT(0.5d0*(1d0-cos_a))
+    if(Bij > 0d0) then
      sin_theta = rtmp
-    else if(Bij < 0.0d0) then
+    else if(Bij < 0d0) then
      sin_theta = -rtmp
     else
-     cos_theta = 1.0d0
-     sin_theta = 0.0d0
+     cos_theta = 1d0
+     sin_theta = 0d0
     end if
     !write(6,*) 'Aij=', Aij, 'Bij=', Bij
     !write(6,*) 'sin_theta=', sin_theta, 'cos_theta=', cos_theta

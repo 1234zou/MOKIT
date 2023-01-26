@@ -60,7 +60,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
- fBoys = 0.0d0
+ fBoys = 0d0
  j = ncore + nocc_lmo
  do i = ncore+1, j, 1
   temp_dipole1 =  mo_dipole(1:3,i,i)
@@ -68,7 +68,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(nocc_lmo))
  write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
- fBoys = 0.0d0
+ fBoys = 0d0
  j = nalpha + npair
  do i = nalpha+1, j, 1
   temp_dipole1 =  mo_dipole(1:3,i,i)
@@ -79,8 +79,8 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  ! calculate the distances between any one active occ orbital and any one active vir orbital
  allocate(dis(nocc_lmo,npair), dis1(nocc_lmo,npair), used(nocc_lmo))
- dis = 0.0d0
- dis1 = 0.0d0
+ dis = 0d0
+ dis1 = 0d0
  used = .false.
  do i = nalpha+1, nalpha+npair, 1
   k = i - nalpha
@@ -98,9 +98,9 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  allocate(pair_idx(npair), opt_pair_idx(npair))
  pair_idx = 0
  opt_pair_idx = 0
- sum_dis = 0.0d0
+ sum_dis = 0d0
  ! the unoccupied LMOs are unchanged; pick proper number of occupied LMOs from occ space
- tempv = MAXVAL(dis) + 1.0d0
+ tempv = MAXVAL(dis) + 1d0
  min_sum = SUM(dis)
 
  do j = 1, npair, 1
@@ -126,7 +126,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
    pair_idx(i) = tmp_idx(1)
    used(tmp_idx(1)) = .true.
   end do
-  sum_dis = 0.0d0
+  sum_dis = 0d0
   do i = 1, npair, 1
    sum_dis = sum_dis + dis(pair_idx(i),i)
   end do
@@ -147,7 +147,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
- coeff1 = 0.0d0
+ coeff1 = 0d0
  coeff1(:,1:ncore) = coeff(:,1:ncore)
  coeff1(:,nalpha-nopen+1:nif) = coeff(:,nalpha-nopen+1:nif)
  forall(i = 1:npair)
@@ -189,7 +189,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  write(6,'(A9,I4,A)') 'There are', nalpha,   ' alpha MOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
- fBoys = 0.0d0
+ fBoys = 0d0
  j = ncore + npair
  do i = ncore+1, j, 1
   temp_dipole1 =  mo_dipole(1:3,i,i)
@@ -197,7 +197,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
  write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
- fBoys = 0.0d0
+ fBoys = 0d0
  j = nalpha + nvir_lmo
  do i = nalpha+1, j, 1
   temp_dipole1 =  mo_dipole(1:3,i,i)
@@ -208,8 +208,8 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
 
  ! calculate the distances between any one active occ orbital and any one active vir orbital
  allocate(dis(nvir_lmo,npair), dis1(nvir_lmo,npair), used(nvir_lmo))
- dis = 0.0d0
- dis1 = 0.0d0
+ dis = 0d0
+ dis1 = 0d0
  used = .false.
  do i = ncore+1, ncore+npair, 1
   k = i - ncore
@@ -227,9 +227,9 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  allocate(pair_idx(npair), opt_pair_idx(npair))
  pair_idx = 0
  opt_pair_idx = 0
- sum_dis = 0.0d0
+ sum_dis = 0d0
  ! the occupied LMOs are unchanged; pick proper number of unoccupied LMOs from occ space
- tempv = MAXVAL(dis) + 1.0d0
+ tempv = MAXVAL(dis) + 1d0
  min_sum = SUM(dis)
 
  do j = 1, npair, 1
@@ -255,7 +255,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
    pair_idx(i) = tmp_idx(1)
    used(tmp_idx(1)) = .true.
   end do
-  sum_dis = 0.0d0
+  sum_dis = 0d0
   do i = 1, npair, 1
    sum_dis = sum_dis + dis(pair_idx(i),i)
   end do
@@ -276,7 +276,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
- coeff1 = 0.0d0
+ coeff1 = 0d0
  coeff1(:,1:nalpha) = coeff(:,1:nalpha)
  coeff1(:,nalpha+nvir_lmo+1:nif) = coeff(:,nalpha+nvir_lmo+1:nif)
  forall(i = 1:npair)
@@ -346,7 +346,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  write(6,'(A9,I4,A)') 'There are', npair,    ' unoccupied LMOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
- fBoys = 0.0d0
+ fBoys = 0d0
  j = ncore + nocc_lmo
  do i = ncore+1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -354,7 +354,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  end do
  fBoys = DSQRT(fBoys/DBLE(nocc_lmo))
  write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
- fBoys = 0.0d0
+ fBoys = 0d0
  j = nalpha + npair
  do i = nalpha+1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -365,8 +365,8 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  ! calculate the transition dipoles between any one active occ orbital and any one active vir orbital
  allocate(tdm(nocc_lmo,npair), tdm1(nocc_lmo,npair), used(nocc_lmo))
- tdm = 0.0d0
- tdm1 = 0.0d0
+ tdm = 0d0
+ tdm1 = 0d0
  used = .false.
  do i = nalpha+1, nalpha+npair, 1
   k = i - nalpha
@@ -383,10 +383,10 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  allocate(pair_idx(npair), opt_pair_idx(npair))
  pair_idx = 0
  opt_pair_idx = 0
- sum_tdm = 0.0d0
+ sum_tdm = 0d0
  ! the unoccupied LMOs are unchanged; pick proper number of occupied LMOs from occ space
- tempv = MINVAL(tdm) - 1.0d0
- max_sum = 0.0d0
+ tempv = MINVAL(tdm) - 1d0
+ max_sum = 0d0
 
  do j = 1, npair, 1
   used = .false.
@@ -414,8 +414,8 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
    used(tmp_idx(1)) = .true.
   end do ! for i
 
-  sum_tdm = 0.0d0
-  min_tdm = tdm(pair_idx(1),1) + 1.0d0
+  sum_tdm = 0d0
+  min_tdm = tdm(pair_idx(1),1) + 1d0
   do i = 1, npair, 1
    tempv1 = tdm(pair_idx(i),i)
    sum_tdm = sum_tdm + tempv1
@@ -444,7 +444,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
- coeff1 = 0.0d0
+ coeff1 = 0d0
  coeff1(:,1:ncore) = coeff(:,1:ncore)
  coeff1(:,nalpha-nopen+1:nif) = coeff(:,nalpha-nopen+1:nif)
  forall(i = 1:npair)
@@ -486,7 +486,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  write(6,'(A9,I4,A)') 'There are', nvir_lmo, ' unoccupied LMOs.'
 
  ! calculate the modified Boys values in occ and vir LMO subspaces, respectively
- fBoys = 0.0d0
+ fBoys = 0d0
  j = ncore + npair
  do i = ncore+1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -494,7 +494,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  end do
  fBoys = DSQRT(fBoys/DBLE(npair))
  write(6,'(A,F12.6)') 'In occ LMO subspace, Modified f(Boys)=', fBoys
- fBoys = 0.0d0
+ fBoys = 0d0
  j = nalpha + nvir_lmo
  do i = nalpha+1, j, 1
   temp_dipole =  mo_dipole(1:3,i,i)
@@ -505,8 +505,8 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
 
  ! calculate the transition dipoles between any one active occ orbital and any one active vir orbital
  allocate(tdm(nvir_lmo,npair), tdm1(nvir_lmo,npair), used(nvir_lmo))
- tdm = 0.0d0
- tdm1 = 0.0d0
+ tdm = 0d0
+ tdm1 = 0d0
  used = .false.
  do i = ncore+1, ncore+npair, 1
   k = i - ncore
@@ -523,10 +523,10 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  allocate(pair_idx(npair), opt_pair_idx(npair))
  pair_idx = 0
  opt_pair_idx = 0
- sum_tdm = 0.0d0
+ sum_tdm = 0d0
  ! the occupied LMOs are unchanged; pick proper number of unoccupied LMOs from occ space
- tempv = MINVAL(tdm) - 1.0d0
- max_sum = 0.0d0
+ tempv = MINVAL(tdm) - 1d0
+ max_sum = 0d0
 
  do j = 1, npair, 1
   used = .false.
@@ -551,8 +551,8 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
    pair_idx(i) = tmp_idx(1)
    used(tmp_idx(1)) = .true.
   end do
-  sum_tdm = 0.0d0
-  min_tdm = tdm(pair_idx(1),1) + 1.0d0
+  sum_tdm = 0d0
+  min_tdm = tdm(pair_idx(1),1) + 1d0
   do i = 1, npair, 1
    tempv1 = tdm(pair_idx(i),i)
    sum_tdm = sum_tdm + tempv1
@@ -580,7 +580,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
 
  ! put new MO into the array coeff
  allocate(coeff1(nbf,nif))
- coeff1 = 0.0d0
+ coeff1 = 0d0
  coeff1(:,1:nalpha) = coeff(:,1:nalpha)
  coeff1(:,nalpha+nvir_lmo+1:nif) = coeff(:,nalpha+nvir_lmo+1:nif)
  forall(i = 1:npair)

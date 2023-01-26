@@ -1,6 +1,11 @@
-# Switch to BFSU mirror for git.nju. No need to do that in GitLab.
-.setup_yum:
+.setup_system:
+  except:
+    - conda
+  #only:
+  #  changes:
+  #    - "mokit/__init__.py"
   before_script:
+    # Switch to BFSU mirror for git.nju. No need to do that in GitLab.
     #- >
     #  sed -e 's|^mirrorlist=|#mirrorlist=|g' 
     #  -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
@@ -16,27 +21,16 @@
     #  -i /etc/yum.repos.d/epel*.repo
     #- yum makecache
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
-
-
-centos7_conda_py37:
-  image: centos:7
-  variables:
-    TARGET: mokit-master_linux_centos7_conda_py37
-  extends: .setup_yum
-  script:
-    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py37_4.10.3-Linux-x86_64.sh
+    - wget -q --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-${MCONDA_VER}-Linux-x86_64.sh
     - >
       { echo ${KEYCODE_ENTER};
       echo "yes";
       echo ${KEYCODE_ENTER};
-      } | sh ./Miniconda3-py37_4.10.3-Linux-x86_64.sh 
+      } | sh ./Miniconda3-${MCONDA_VER}-Linux-x86_64.sh 
     - /root/miniconda3/bin/conda init bash
     - . ~/.bashrc
-    #- >
-    #  { echo "y"; } | conda create -n test37 python=3.7
-    #- conda activate test37
-    - pip install numpy==1.18
-    - cd lib
+  after_script:
+    - cd mokit/lib
     - cp /usr/lib64/libopenblas-r*.so .
     - cp /usr/lib64/libgfortran.so.3.* .
     #    - ls /usr/lib64/libopenblas* -l
@@ -45,12 +39,21 @@ centos7_conda_py37:
     - ln -s libopenblas-r*.so libopenblas.so
     - ln -s libopenblas-r*.so libopenblas.so.0
     - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd ../..
+    - mkdir $TARGET
+    - cp -r bin mokit doc examples CHANGELOG *.md $TARGET
+
+centos7_conda_py37:
+  image: centos:7
+  variables:
+    TARGET: mokit-master_linux_centos7_conda_py37
+    MCONDA_VER: py37_4.10.3
+  extends: .setup_system
+  script:
+    - pip install numpy==1.18
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -61,35 +64,13 @@ centos7_conda_py38:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py38
-  extends: .setup_yum
+    MCONDA_VER: py38_4.10.3
+  extends: .setup_system
   script:
-    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py38_4.10.3-Linux-x86_64.sh
-    - >
-      { echo ${KEYCODE_ENTER};
-      echo "yes";
-      echo ${KEYCODE_ENTER};
-      } | sh ./Miniconda3-py38_4.10.3-Linux-x86_64.sh 
-    - /root/miniconda3/bin/conda init bash
-    - . ~/.bashrc
-    #- >
-    #  { echo "y"; } | conda create -n test38 python=3.8
-    #- conda activate test38
     - conda install numpy
-    - cd lib
-    - cp /usr/lib64/libopenblas-r*.so .
-    - cp /usr/lib64/libgfortran.so.3.* .
-    #    - ls /usr/lib64/libopenblas* -l
-    #- ln -s libopenblasp-r*.so libopenblasp.so
-    #- ln -s libopenblasp-r*.so libopenblasp.so.0
-    - ln -s libopenblas-r*.so libopenblas.so
-    - ln -s libopenblas-r*.so libopenblas.so.0
-    - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:
@@ -99,35 +80,13 @@ centos7_conda_py39:
   image: centos:7
   variables:
     TARGET: mokit-master_linux_centos7_conda_py39
-  extends: .setup_yum
+    MCONDA_VER: py39_4.12.0
+  extends: .setup_system
   script:
-    - wget --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
-    - >
-      { echo ${KEYCODE_ENTER};
-      echo "yes";
-      echo ${KEYCODE_ENTER};
-      } | sh ./Miniconda3-py39_4.12.0-Linux-x86_64.sh 
-    - /root/miniconda3/bin/conda init bash
-    - . ~/.bashrc
-    #- >
-    #  { echo "y"; } | conda create -n test38 python=3.8
-    #- conda activate test38
     - conda install numpy
-    - cd lib
-    - cp /usr/lib64/libopenblas-r*.so .
-    - cp /usr/lib64/libgfortran.so.3.* .
-    #    - ls /usr/lib64/libopenblas* -l
-    #- ln -s libopenblasp-r*.so libopenblasp.so
-    #- ln -s libopenblasp-r*.so libopenblasp.so.0
-    - ln -s libopenblas-r*.so libopenblas.so
-    - ln -s libopenblas-r*.so libopenblas.so.0
-    - ln -s libgfortran.so.3.* libgfortran.so.3
-    - cd ../src
+    - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - mkdir $TARGET
-    - cp -r bin lib doc examples basis CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
   artifacts:
     name: $TARGET
     paths:

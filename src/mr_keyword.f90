@@ -340,10 +340,11 @@ contains
   integer(kind=4) :: hostnm
   character(len=8) :: hostname
   character(len=24) :: data_string
+ character(len=240) :: get_mokit_root 
 
   write(6,'(A)') '----- Output of AutoMR of MOKIT(Molecular Orbital Kit) -----'
   write(6,'(A)') '        GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-17)'
+  write(6,'(A)') '            Version: 1.2.5 (2023-Jan-20)'
   write(6,'(A)') '       (How to cite: see README.md or doc/cite_MOKIT)'
 
   hostname = ' '
@@ -352,7 +353,11 @@ contains
   call fdate(data_string)
   write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
-  call getenv('MOKIT_ROOT', mokit_root)
+  write(6,'(/,A)') 'Read program paths from environment variables:'
+  !call getenv('MOKIT_ROOT', mokit_root)
+  mokit_root = get_mokit_root()
+  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
+  
   call get_gau_path(gau_path)
   call get_molcas_path()
   call check_molcas_is_openmp(openmp_molcas)
@@ -364,8 +369,6 @@ contains
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
   if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
-  write(6,'(/,A)') 'Read program paths from environment variables:'
-  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
   write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
   write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
   write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
@@ -1937,7 +1940,7 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  real(kind=8), parameter :: zero1 = 1.0d-2, zero2 = 1.0d-3
  real(kind=8), allocatable :: r(:,:)
 
- e = 0.0d0
+ e = 0d0
  allocate(r(n,n))
 
  do i = 1, n-1, 1
@@ -2004,7 +2007,7 @@ subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
  real(kind=8), intent(in) :: bgcharge(4,nbgchg), coor(3,natom)
  real(kind=8), intent(out) :: nuc_pt_e
 
- nuc_pt_e = 0.0d0
+ nuc_pt_e = 0d0
 
  do i = 1, nbgchg, 1
   pt_e = bgcharge(4,i)
