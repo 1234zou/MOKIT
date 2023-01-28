@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Jan 26, 2023)
+MOKIT 1.2.5 (Jan 28, 2023)
 ------------------------
 * move basis and lib to mokit/basis and mokit/lib, respectively (by jeanwsr)
 * add conda configuration/distribution (by jeanwsr)
