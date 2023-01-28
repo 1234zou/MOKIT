@@ -1,0 +1,27 @@
+.setup_conda:
+  image: 
+    name: continuumio/miniconda3:latest
+  #except:
+  #  - conda
+  only:
+    changes:
+      - "mokit/__init__.py"
+      - "conda/meta.yaml"
+  before_script:
+    #- apt-get update -qy
+    - conda init bash
+    - source ~/.bashrc
+    - conda create -n mokit-build python=3.7
+    - conda activate mokit-build
+    - conda install anaconda-client conda-build
+    - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
+    #- ldconfig -p | grep libgfort
+    #- ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
+    #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
+
+conda_build:
+  extends: .setup_conda
+  script:
+    - conda build --output-folder ./output conda
+    - anaconda upload ./output/linux-64/mokit*.bz2
+
