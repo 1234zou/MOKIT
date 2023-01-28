@@ -1,8 +1,8 @@
 variables:
   OB_ROOT: /usr/lib/*
 .setup_lib:
-  except:
-    - conda
+  #except:
+  #  - conda
   #only:
   #  changes:
   #    - "mokit/__init__.py"
