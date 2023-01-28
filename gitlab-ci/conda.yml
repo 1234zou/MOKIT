@@ -1,7 +1,7 @@
 .setup_conda:
   image: 
     name: continuumio/miniconda3:latest
-    entrypoint: ["/bin/bash"]
+    entrypoint: ["/bin/bash", "-c"]
   #except:
   #  - conda
   only:
