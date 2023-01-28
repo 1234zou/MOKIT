@@ -1,3 +1,4 @@
 include:
-  - local: '/.gitlab-ci_centos7.yml'
-  - local: '/.gitlab-ci_main.yml'
+  - local: '/gitlab-ci/centos7.yml'
+  - local: '/gitlab-ci/main.yml'
+  - local: '/gitlab-ci/conda.yml'
