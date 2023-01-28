@@ -1,7 +1,7 @@
 # Transfer MOs from PySCF to GAMESS
 
 def py2gms(mf, inpname, npair=None, nopen=None):
-    from py2fch_direct import fchk
+    from mokit.lib.py2fch_direct import fchk
     from os import system, remove
     fchname = inpname[0:inpname.rindex('.inp')]+'.fch'
     fchk(mf, fchname)

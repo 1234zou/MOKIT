@@ -1,7 +1,7 @@
 # Transfer MOs from PySCF to BDF
 
 def py2bdf(mf, inpname, write_no=None):
-    from py2fch_direct import fchk
+    from mokit.lib.py2fch_direct import fchk
     from os import system, remove, rename
     proname = inpname[0:inpname.rindex('.inp')]
     fchname = proname+'.fch'

@@ -1,7 +1,7 @@
 # Transfer MOs from PySCF to Dalton
 
 def py2dalton(mf, inpname):
-    from py2fch_direct import fchk
+    from mokit.lib.py2fch_direct import fchk
     from os import system, remove
     fchname = inpname[0:inpname.rindex('.dal')]+'.fch'
     fchk(mf, fchname)

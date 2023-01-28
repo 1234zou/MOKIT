@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2023-Jan-20'
+  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2023-Jan-28'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -275,8 +275,8 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  write(fid2,'(A)') 'from pyscf import lib'
  write(fid2,'(A)') 'import numpy as np'
- write(fid2,'(A)') 'from mo_svd import mo_svd'
- write(fid2,'(A)') 'from py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.mo_svd import mo_svd'
+ write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A,/)') 'from shutil import copyfile'
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
 
@@ -392,14 +392,14 @@ subroutine prt_auto_pair_script_into_py(pyname)
   stop
  end if
 
- write(fid2,'(A)') 'from rwwfn import get_1e_exp_and_sort_pair as sort_pair'
+ write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort_pair'
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') 'from lo import pm'
+  write(fid2,'(A)') 'from mokit.lib.lo import pm'
  else ! Boys localization
-  write(fid2,'(A)') 'from lo import boys'
+  write(fid2,'(A)') 'from mokit.lib.lo import boys'
  end if
  write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
- write(fid2,'(A,/)') 'from auto_pair import pair_by_tdm'
+ write(fid2,'(A,/)') 'from mokit.lib.auto_pair import pair_by_tdm'
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -494,9 +494,9 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'import numpy as np'
  write(fid2,'(A)') 'import os'
  write(fid2,'(A)') 'from time import sleep'
- write(fid2,'(A)') 'from py2fch import py2fch'
- write(fid2,'(A)') 'from uno import uno'
- write(fid2,'(A,/)') 'from construct_vir import construct_vir'
+ write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.uno import uno'
+ write(fid2,'(A,/)') 'from mokit.lib.construct_vir import construct_vir'
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
 
  do while(.true.)
@@ -588,15 +588,15 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  end if
 
  if(localm == 'pm') then
-  write(fid2,'(A)') 'from lo import pm, boys'
+  write(fid2,'(A)') 'from mokit.lib.lo import pm, boys'
  else
-  write(fid2,'(A)') 'from lo import boys'
+  write(fid2,'(A)') 'from mokit.lib.lo import boys'
  end if
  write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
- write(fid2,'(A)') 'from auto_pair import pair_by_tdm'
- write(fid2,'(A)') 'from assoc_rot import assoc_rot'
- write(fid2,'(A)') 'from mo_svd import proj_occ_get_act_vir'
- write(fid2,'(A)') 'from rwwfn import get_1e_exp_and_sort_pair as sort_pair'
+ write(fid2,'(A)') 'from mokit.lib.auto_pair import pair_by_tdm'
+ write(fid2,'(A)') 'from mokit.lib.assoc_rot import assoc_rot'
+ write(fid2,'(A)') 'from mokit.lib.mo_svd import proj_occ_get_act_vir'
+ write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort_pair'
  write(fid2,'(A,/)') 'from shutil import copyfile'
 
  do while(.true.)
@@ -1129,9 +1129,9 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
 
  open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
  open(newunit=fid3,file=TRIM(pyname),status='replace')
- write(fid3,'(A)') 'from mo_svd import orb_resemble'
- write(fid3,'(A)') 'from py2fch import py2fch'
- write(fid3,'(A)') 'from rwwfn import read_nbf_and_nif_from_fch'
+ write(fid3,'(A)') 'from mokit.lib.mo_svd import orb_resemble'
+ write(fid3,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid3,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch'
  write(fid3,'(A)') 'import numpy as np'
  write(fid3,'(A)') 'from pyscf import lib'
 

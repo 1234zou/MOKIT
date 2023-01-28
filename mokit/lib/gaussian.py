@@ -5,10 +5,10 @@ import random, os, shutil
 import numpy as np
 from pyscf import gto
 from pyscf.lo.boys import dipole_integral
-from fch2py import fch2py
-from py2fch import py2fch
-from rwwfn import read_nbf_and_nif_from_fch
-from lo import boys, pm
+from mokit.lib.fch2py import fch2py
+from mokit.lib.py2fch import py2fch
+from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
+from mokit.lib.lo import boys, pm
 
 def load_mol_from_fch(fchname):
   '''
@@ -16,7 +16,7 @@ def load_mol_from_fch(fchname):
 
   Simple usage::
   >>> from pyscf import scf
-  >>> from gaussian import load_mol_from_fch
+  >>> from mokit.lib.gaussian import load_mol_from_fch
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
   >>> mf = scf.RHF(mol).run()
   '''
@@ -47,7 +47,7 @@ def loc(fchname, idx, method=None):
   Simple usage::
   >>> # perform Pipek-Mezey localization for occupied PI orbitals of benzene
   >>> # a file named benzene_rhf_LMO.fch will be created
-  >>> from gaussian import loc
+  >>> from mokit.lib.gaussian import loc
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
 
@@ -82,12 +82,12 @@ def uno(fchname):
   Simple usage::
   >>> # generate UNOs for a UHF wave function of benzene
   >>> # a file named benzene_uhf_UNO.fch will be created
-  >>> from gaussian import uno
+  >>> from mokit.lib.gaussian import uno
   >>> uno(fchname='benzene_uhf.fch')
   '''
-  import uno as pyuno
-  from construct_vir import construct_vir
-  from rwwfn import read_na_and_nb_from_fch
+  import mokit.lib.uno as pyuno
+  from mokit.lib.construct_vir import construct_vir
+  from mokit.lib.rwwfn import read_na_and_nb_from_fch
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
@@ -109,7 +109,7 @@ def permute_orb(fchname, orb1, orb2):
   '''
   Permute two orbitals in a given Gaussian .fch(k) file
   '''
-  from rwwfn import read_mo_from_fch, write_mo_into_fch, \
+  from mokit.lib.rwwfn import read_mo_from_fch, write_mo_into_fch, \
     read_eigenvalues_from_fch, write_eigenvalues_to_fch
 
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
@@ -132,9 +132,9 @@ def get_dipole(fchname, itype=1):
   Calculate the dipole moment using density in .fch(k) file
   itype=1/3/5/7 for Total SCF/CI/MP2/CC Density. Default: itype=1
   '''
-  from lo import get_e_dipole_using_density_in_fch
-  from rwgeom import read_natom_from_fch, read_elem_and_coor_from_fch, \
-                     get_nuc_dipole
+  from mokit.lib.lo import get_e_dipole_using_density_in_fch
+  from mokit.lib.rwgeom import read_natom_from_fch, read_elem_and_coor_from_fch, \
+                               get_nuc_dipole
   # calculate nuclear dipole
   natom = read_natom_from_fch(fchname)
   elem, nuc, coor, charge, mult = read_elem_and_coor_from_fch(fchname, natom)
@@ -198,8 +198,8 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None):
   nmo: indices 1~nmo MOs in ref_fch will be set as reference MOs
   If nmo is not given, it will be set as na (number of alpha electrons)
   '''
-  from rwwfn import read_na_and_nb_from_fch
-  from mo_svd import orb_resemble
+  from mokit.lib.rwwfn import read_na_and_nb_from_fch
+  from mokit.lib.mo_svd import orb_resemble
   if nmo is None:
     nmo, nb = read_na_and_nb_from_fch(ref_fch)
 

@@ -36,11 +36,40 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年1月20号
+2023年1月28号
 
 安装
 ----------
-### 一种选择：从源码编译
+### 方式1：从 conda 安装（需要联网）
+这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前
+创建一个新环境，以免破坏 base 环境。
+```
+conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda activate mokit-py37
+conda install mokit -c mokit
+```
+如果无法联网，但仍不想手动编译，请尝试方式2。
+
+### 方式2：使用预编译版
+* 前提
+    - 预编译版需要有Python3环境和NumPy
+* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
+* 下载预编译版后, 您需要在`~/.bashrc`文件中设定下述环境变量（假设MOKIT放在`$HOME/software/mokit`）：
+
+```
+export MOKIT_ROOT=$HOME/software/mokit
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
+export GMS=$HOME/software/gamess/rungms
+```
+  此处需要设置`LD_LIBRARY_PATH`是由于OpenBLAS动态库放在那里。
+  GAMESS主程序路径`GMS`请按照您机器上的实际情况修改。
+  注意：自 MOKIT 版本 1.2.5rc2以后，PYTHONPATH 发生了变化。
+
+  修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
+
+### 方式3：从源码编译
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)
@@ -59,46 +88,23 @@ make all
 make fch2inp
 ```
 
-* 在执行'make all'之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
-  例如，假定你的MOKIT安装在`$HOME/software/mokit`目录, 你需要在`~/.bashrc`文件中设定
+* 在执行`make all`之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
+  例如，假定您MOKIT放在`$HOME/software/mokit`目录，您需要在`~/.bashrc`文件中设定
   以下环境变量:
 ```
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/mokit/lib:$PYTHONPATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
   GAMESS可执行文件的路径请按照您机器上的实际情况修改。
   注意：自 MOKIT 版本 1.2.5rc2以后，PYTHONPATH 发生了变化。
 
-  修改后需执行`source ~/.bashrc`
-  或退出重登，以使环境变量生效。
+  修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
   因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
-
-### 第二种选择：从 conda 安装（需要联网）
-
-这是最简单的安装方法，但需要联网以自动下载依赖（例如MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。
-```
-conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
-conda activate mokit-py37
-conda install mokit -c mokit
-```
-如果无法联网，但仍不想手动编译，请尝试第三种选择。
-
-### 第三种选择：使用预编译版
-* 前提
-    - 预编译版仍然需要Python3环境和NumPy
-* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
-* 下载预编译版后, 仍然需要设定上面提到的所有环境变量。还要多设定一个：
-
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
-```
-  因为 OpenBLAS 动态库放在那里. 
-
 
 快速开始
 ----------
@@ -110,7 +116,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
    Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
    Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 
-* 对于lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的readme.txt
+* 对于mokit/lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的readme.txt
 
 * 自动做多参考计算的核心程序automr的输入文件采用的是Gaussian gjf文件的格式。例如，一个O-H
   键长为1.5 A的水分子输入文件'00-h2o_cc-pVDZ_1.5.gjf'示例如下
@@ -155,11 +161,11 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
 汇报Bug
 ----------
-* 若您发现MOKIT的程序错误或bug，或有任何使用建议，可通过电子邮件njumath[at]sina.cn
-  联系开发者jxzou。在邮件中请将您的相关文件（例如.gjf, .fch, .out文件等）打包、
-  压缩并添加为附件发送。
+* 若您发现MOKIT的程序错误或bug，或有任何使用建议，可在此页面[Issues](https://gitlab.com/jxzou/mokit/-/issues)
+  上新建一个问题。
 
-* 您也可以在此页面[Issues](https://gitlab.com/jxzou/mokit/-/issues)上新建一个问题。
+* 您也可以通过电子邮件njumath[at]sina.cn联系开发者jxzou。在邮件中请将您的相关文件
+  （例如.gjf, .fch, .out文件等）打包、压缩并添加为附件发送。
 
 * 还可加入MOKIT用户交流QQ群，群号：470745084
 
@@ -168,8 +174,6 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 * 支持BAGEL, CFOUR, NWCHEM等软件间传轨道
 
 * 开发和实现多参考的激发态计算
-
-* 通过conda发布预编译版
 
 如何引用
 ----------
@@ -185,14 +189,4 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 * 若您在您的研究中使用了MOKIT的任何一个子程序，请在正文参考文献中引用MOKIT。若仅
   在补充材料中引用MOKIT是不够的。更详细的引用说明和示例请见`doc/`目录下的[手册](doc/MOKIT_manual.pdf)，
   目录下也提供了EndNote引用文件。您的规范引用是对开发者的极大鼓励。
-
-Disclaimer
-----------
-Copyright (c) 2023 jxzou
-
-All rights reserved.
-
-Redistribution and use in source and binary forms are permitted provided that the above copyright notice and this paragraph are duplicated in all such forms and that any documentation, advertising materials, and other materials related to such distribution and use acknowledge that the software was developed by the author. The name of the authors may not be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 

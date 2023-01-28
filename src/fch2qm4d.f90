@@ -127,7 +127,7 @@ subroutine fch2qm4d(fchname, binary)
  binname = fchname(1:i-1)//'_0.bin'
 
  ! create the .xyz file
- call write_xyzfile(natom, coor, elem, xyzname)
+ call write_xyzfile(natom, elem, coor, xyzname)
  deallocate(coor)
 
  ! create the QM4D input file

@@ -96,11 +96,11 @@ subroutine bas_gms2py(inpname, cart)
  ! print the coordinates (optional) into .nwc file
  open(newunit=pyid,file=TRIM(pyname),status='replace')
  write(pyid,'(A)') 'from pyscf import gto, scf'
- write(pyid,'(A)') 'from fch2py import fch2py'
+ write(pyid,'(A)') 'from mokit.lib.fch2py import fch2py'
  if(ghf) then
-  write(pyid,'(A)') 'from ortho import check_cghf_orthonormal'
+  write(pyid,'(A)') 'from mokit.lib.ortho import check_cghf_orthonormal'
  else
-  write(pyid,'(A)') 'from ortho import check_orthonormal'
+  write(pyid,'(A)') 'from mokit.lib.ortho import check_orthonormal'
  end if
  write(pyid,'(/,A)') 'mol = gto.M()'
  write(pyid,'(A,I0,A)') '# ',natom,' atom(s)'

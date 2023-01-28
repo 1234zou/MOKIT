@@ -155,7 +155,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') 'from pyscf import mcscf, lib'
  end if
  if(nevpt2) write(fid2,'(A)') 'from pyscf import mrpt'
- write(fid2,'(A)') 'from py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
  if(dmrgscf) then

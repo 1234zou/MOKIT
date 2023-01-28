@@ -820,7 +820,7 @@ end subroutine read_grad_from_bdf_out
 ! read Cartesian xyz coordinates from a .xyz file
 ! Note: 1) return array coor(3,natom) are in unit Angstrom
 !       2) if 'bohr' key is found in the 2nd line of the xyz file,
-!          coor will be 
+!          coor will be multiplied by Bohr_const
 subroutine read_coor_from_xyz(xyzname, natom, coor)
  implicit none
  integer :: i, k, fid
@@ -842,7 +842,7 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  if(index(buf,'bohr') > 0) then
   if(index(buf,'angstrom') > 0) then
    write(6,'(A)') "ERROR in subroutine read_coor_from_xyz: it's confusing&
-                    & because both 'bohr' and 'angstrom'"
+                  & because both 'bohr' and 'angstrom'"
    write(6,'(A)') 'are detected in the 2nd line of file '//TRIM(xyzname)
    close(fid)
    stop
@@ -855,7 +855,7 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
   read(fid,*,iostat=k) elem, coor(1:3,i)
   if(k /= 0) then
    write(6,'(A)') 'ERROR in subroutine read_coor_from_xyz: insufficient&
-                    & number of atoms in file '//TRIM(xyzname)
+                  & number of atoms in file '//TRIM(xyzname)
    write(6,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
    close(fid)
    stop
@@ -865,6 +865,85 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  close(fid)
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
 end subroutine read_coor_from_xyz
+
+! read the number of frames from xyz file
+subroutine read_nframe_from_xyz(xyzname, nframe)
+ implicit none
+ integer :: i, fid, natom
+ integer, intent(out) :: nframe
+ character(len=240) :: buf
+ character*240, intent(in) :: xyzname
+
+ nframe = 0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,*,iostat=i) natom
+  if(i /= 0) exit
+  do i = 1, natom+1, 1
+   read(fid,'(A)') buf
+  end do ! for i
+  nframe = nframe + 1
+ end do ! for while
+
+ close(fid)
+end subroutine read_nframe_from_xyz
+
+! read the i-th frame from a given .xyz file
+subroutine read_iframe_from_xyz(xyzname, ith, natom, elem, coor)
+ implicit none
+ integer :: i, k, fid, nframe
+ integer, intent(in) :: ith, natom
+ real(kind=8), dimension(3,natom), intent(out) :: coor
+ character(len=240) :: buf
+ character*2, dimension(natom), intent(out) :: elem
+ character*240, intent(in) :: xyzname
+
+ nframe = 0; coor = 0d0; elem = ' '
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+
+ if(ith > 1) then
+  do while(.true.)
+   read(fid,*,iostat=i) k
+   if(i /= 0) exit
+   do i = 1, k+1, 1
+    read(fid,'(A)') buf
+   end do ! for i
+   nframe = nframe + 1
+   if(nframe == ith-1) exit
+  end do ! for while
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ do i = 1, natom, 1
+  read(fid,*) elem(i), coor(1:3,i)
+ end do ! for i
+ close(fid)
+end subroutine read_iframe_from_xyz
+
+! read all frames from a given .xyz file
+subroutine read_all_frames_from_xyz(xyzname, nframe, natom, elem, coor)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nframe, natom
+ real(kind=8), dimension(3,natom,nframe), intent(out) :: coor
+ character(len=240) :: buf
+ character*2, dimension(natom,nframe), intent(out) :: elem
+ character*240, intent(in) :: xyzname
+
+ coor = 0d0; elem = ' '
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+
+ do i = 1, nframe, 1
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  do j = 1, natom, 1
+   read(fid,*) elem(j,i), coor(1:3,j,i)
+  end do ! for j
+ end do ! for i
+ close(fid)
+end subroutine read_all_frames_from_xyz
 
 ! read the number of frames from pdb file
 subroutine read_nframe_from_pdb(pdbname, nframe)
@@ -932,7 +1011,7 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  if(i /= 0) then
   if(iframe /= 1) then
    write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read&
-                    & the i-th frame in file '//TRIM(pdbname)
+                  & the i-th frame in file '//TRIM(pdbname)
    write(6,'(A,I0)') 'iframe=', iframe
    close(fid)
    stop
@@ -945,7 +1024,7 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
    end do ! for while
    if(i /= 0) then
     write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read&
-                     & the 1st frame in file '//TRIM(pdbname)
+                   & the 1st frame in file '//TRIM(pdbname)
     close(fid)
     stop
    end if
@@ -1087,17 +1166,23 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
 end subroutine read_coor_from_molpro_out
 
 ! write/create a .xyz file
-subroutine write_xyzfile(natom, coor, elem, xyzname)
+subroutine write_xyzfile(natom, elem, coor, xyzname)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
- real(kind=8), intent(in) :: coor(3,natom)
- character(len=2), intent(in) :: elem(natom)
- character(len=240), intent(in) :: xyzname
+!f2py intent(in) natom
+ real(kind=8), dimension(3,natom), intent(in) :: coor
+!f2py intent(in) coor
+!f2py depend(natom) coor
+ character*2, dimension(natom), intent(in) :: elem
+!f2py intent(in) elem
+!f2py depend(natom) elem
+ character*240, intent(in) :: xyzname
+!f2py intent(in) xyzname
 
  open(newunit=fid,file=TRIM(xyzname),status='replace')
  write(fid,'(I0)') natom
- write(fid,'(A)') 'xyz format file produced by MOKIT'
+ write(fid,'(A)') 'xyz format file produced by rwgeom of MOKIT'
 
  do i = 1, natom, 1
   write(fid,'(A2,3(1X,F18.8))') elem(i), coor(1:3,i)
@@ -1108,7 +1193,7 @@ end subroutine write_xyzfile
 
 ! write a frame of molecule into a given .pdb file
 subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
-                              coor, append)
+                                coor, append)
  implicit none
  integer :: i, fid
  integer, intent(in) :: iframe, natom

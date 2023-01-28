@@ -37,12 +37,47 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jan 20, 2023
+Jan 28, 2023
 
 Installation
 ------------
+### Option 1: Install from conda (need network)
+This is the easiest way, but network is required to auto-download the requirements
+(like Intel MKL). And, creating a new environment before installing is highly
+recommended, to avoid changing your base environment.
+```
+conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda activate mokit-py37
+conda install mokit -c mokit
+```
+If you have no access to network, but still don't want to compile MOKIT manually,
+you can try option 2.
 
-### Option 1: Build from Source
+### Option 2: Use Pre-compiled MOKIT
+* Prerequisites: 
+    - You need to have a Python3 environment and NumPy.
+
+* A detailed guide for choosing the version of pre-built artifacts and resolving
+dependencies can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
+
+* After downloading the pre-built artifacts, you need to set the following environment
+variables (assuming MOKIT is put in `$HOME/software/mokit`) in your `~/.bashrc`:
+
+```
+export MOKIT_ROOT=$HOME/software/mokit
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
+export GMS=$HOME/software/gamess/rungms
+```
+  The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there.
+  Remember to modify the `GMS` path to suit your local environment. 
+  Attention: the PYTHONPATH has changed since MOKIT version 1.2.5rc2.
+
+  Note that you need to run `source ~/.bashrc` or exit the terminal as well as
+  re-login, in order to activate newly written environment variables.
+
+### Option 3: Build from Source
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
     - Intel MKL(recommended) or [OpenBLAS](https://github.com/xianyi/OpenBLAS)
@@ -60,49 +95,26 @@ make all
 make fch2inp
 ```
 
-* After 'make all', you need to set environment variables `MOKIT_ROOT`, `PATH`
+* After `make all`, you need to set environment variables `MOKIT_ROOT`, `PATH`
   and `PYTHONPATH`. E.g. if MOKIT is installed in `$HOME/software/mokit`, the
   following should be set in `~/.bashrc`:
 
 ```
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT/mokit/lib:$PYTHONPATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
   Remember to modify the `GMS` path to suit your local environment. 
   Attention: the PYTHONPATH has changed since MOKIT version 1.2.5rc2.
 
-  Note that you
-  need to run `source ~/.bashrc` or exit the terminal as well as re-login, in
-  order to activate newly written environment variables.
+  Note that you need to run `source ~/.bashrc` or exit the terminal as well as
+  re-login, in order to activate newly written environment variables.
 
 * The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
   can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
   in [manual](doc/).
-
-### Option 2: Install from conda (need network)
-
-This is the easiest way, but network is required to auto-download the requirements (like MKL). And, 
-creating a new environment before installing is highly recommended, to avoid changing your base environment.
-```
-conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
-conda activate mokit-py37
-conda install mokit -c mokit
-```
-If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
-
-### Option 3: Use Pre-compiled MOKIT
-* Prerequisites: 
-    - Still, you need to have a Python3 environment and NumPy.
-* A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found at [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
-* After downloading the pre-built artifacts, you still need to set all the environment variables mentioned above, and one more:
-
-```
-export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
-```
-  since the OpenBLAS dynamic library is put there. 
 
 Quick Start
 -----------
@@ -114,7 +126,7 @@ Quick Start
    Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
    Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 
-* For usages of modules in lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
+* For usages of modules in mokit/lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
 
 * The input syntax of the automr program is like Gaussian gjf. For example, the input
   file '00-h2o_cc-pVDZ_1.5.gjf' of the water molecule at d(O-H) = 1.5 A is shown below
@@ -160,19 +172,17 @@ Some Tips
 
 Bug Report
 ----------
-* If you find any bug frequently occurs or have any suggestions, please contact
-  the developer jxzou via njumath[at]sina.cn, with related files (gjf, fch, out,
-  etc) attached.
+* If you find any bug frequently occurs or have any suggestions, you can open an
+  issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
 
-* You can also open an issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
+* You can also contact the developer jxzou via E-mail njumath[at]sina.cn, with
+  related files (gjf, fch, out, etc) attached.
 
 TODO
 ----
 * MOs trasferring among BAGEL, CFOUR, NWCHEM, etc.
 
 * Develop/Implement black-box strategies of excited state calculations
-
-* Distribute pre-built via conda
 
 Citation
 --------
@@ -191,14 +201,4 @@ Citation
   details and examples of citation can be found in [manual](doc/MOKIT_manual.pdf)
   under the `doc/` directory, in which you can also find EndNote citation files.
   Your proper citation would be a great encouragement to developers.
-
-Disclaimer
-----------
-Copyright (c) 2023 jxzou
-
-All rights reserved.
-
-Redistribution and use in source and binary forms are permitted provided that the above copyright notice and this paragraph are duplicated in all such forms and that any documentation, advertising materials, and other materials related to such distribution and use acknowledge that the software was developed by the author. The name of the authors may not be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
