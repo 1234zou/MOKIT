@@ -23,5 +23,5 @@ conda_build:
   extends: .setup_conda
   script:
     - conda build --output-folder ./output conda
-    - anaconda upload ./output/linux-64/*.bz2
+    - anaconda upload ./output/linux-64/mokit*.bz2
 
