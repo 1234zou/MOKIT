@@ -49,8 +49,39 @@ conda activate mokit-py37
 conda install mokit -c mokit
 ```
 如果无法联网，但仍不想手动编译，请尝试方式2。
+### 方式2:从 homebrew 安装（需要网络和macos）
 
-### 方式2：使用预编译版
+* 前提
+    - 需要安装[homebrew](https://brew.sh)
+    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy
+    
+    注意： 如果你是中国大陆用户请按照[brew 镜像帮助文档](https://mirrors.ustc.edu.cn/help/brew.git.html) and [conda 镜像帮助文档](https://mirrors.ustc.edu.cn/help/anaconda.html)来安装所需依赖
+* 更详细的brew使用方法在*homebrew-mokit* 的github仓库 [homebrew-mokit github repo](https://github.com/ansatzX/homebrew-mokit)
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+```
+brew install --cask miniconda
+conda init bash (or zsh ) 
+conda activate base
+pip install numpy
+```
+
+接着
+
+`brew install ansatzx/homebrew-mokit/mokit`
+
+或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`.
+
+最终按照caveats的提示, 在你的shell 配置文件里添加如下命令
+
+```
+export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
+### 方式3：使用预编译版
 * 前提
     - 预编译版需要有Python3环境和NumPy
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
@@ -68,8 +99,7 @@ export GMS=$HOME/software/gamess/rungms
   注意：自 MOKIT 版本 1.2.5rc2以后，PYTHONPATH 发生了变化。
 
   修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
-
-### 方式3：从源码编译
+### 方式4：从源码编译
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)

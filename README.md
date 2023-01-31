@@ -53,7 +53,39 @@ conda install mokit -c mokit
 If you have no access to network, but still don't want to compile MOKIT manually,
 you can try option 2.
 
-### Option 2: Use Pre-compiled MOKIT
+### Option 2: Use hombrew-toolchains (need network, macos)
+* Prerequisites: 
+    - You need to install [homebrew](https://brew.sh) on your mac 
+    - You need to install conda via brew and install numpy in base env. via pip 
+
+  Notice: if you are China, mainland user, follow [brew mirrors help doc](https://mirrors.ustc.edu.cn/help/brew.git.html) and [conda mirrors help doc](https://mirrors.ustc.edu.cn/help/anaconda.html) to install prerequisites
+* A detailed brew-tap install guideline is located in [homebrew-mokit github repo](https://github.com/ansatzX/homebrew-mokit)
+```
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+```
+brew install --cask miniconda
+conda init bash (or zsh ) 
+conda activate base
+pip install numpy
+```
+
+Then 
+
+`brew install ansatzx/homebrew-mokit/mokit`
+
+Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
+
+Finally, follow caveats guides, add these commmand in your zsh/bash/fish etc. profile.
+
+```
+export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
+export PATH=$MOKIT_ROOT/bin:$PATH
+export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
+export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
+```
+### Option 3: Use Pre-compiled MOKIT
 * Prerequisites: 
     - You need to have a Python3 environment and NumPy.
 
@@ -77,7 +109,7 @@ export GMS=$HOME/software/gamess/rungms
   Note that you need to run `source ~/.bashrc` or exit the terminal as well as
   re-login, in order to activate newly written environment variables.
 
-### Option 3: Build from Source
+### Option 4: Build from Source
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
     - Intel MKL(recommended) or [OpenBLAS](https://github.com/xianyi/OpenBLAS)
