@@ -1,7 +1,7 @@
-*中文版说明请点击[README_zh.md](README_zh.md)*  
-*[Download the program](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
-*&emsp;[GitHub mirror](https://github.com/1234zou/MOKIT)*
-*&emsp;[NJU git mirror](https://git.nju.edu.cn/jxzou/mokit)*
+*中文说明请点击[README_zh.md](README_zh.md)*
+*&emsp;&emsp;[Download the program](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
+*&emsp;&emsp;[GitHub mirror](https://github.com/1234zou/MOKIT)*
+*&emsp;&emsp;[NJU git mirror](https://git.nju.edu.cn/jxzou/mokit)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
@@ -21,11 +21,11 @@ or
   Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;PySCF  
 or   
   RHF      -> GVB   -> CASSCF -> ic-MRCISD+Q  
-  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;OpenMolcas
+  Gaussian&emsp;GAMESS&emsp;PySCF&emsp;OpenMolcas
 
 Negligible energy loss(usually<1e-6 a.u., for the same wave function method in two
 programs) are ensured during transferring MOs, since the basis order of angular
-momentum up to H(i.e. l=5) are considered.
+momentum up to H(i.e. *l*=5) are considered.
 
 Pre-built `Windows* OS` executables of 20 utilities are provided in [Releases](
 https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables can
@@ -41,7 +41,7 @@ Jan 28, 2023
 
 Installation
 ------------
-### Option 1: Install from conda (need network)
+### Option 1: Install from conda
 This is the easiest way, but network is required to auto-download the requirements
 (like Intel MKL). And, creating a new environment before installing is highly
 recommended, to avoid changing your base environment.
@@ -50,10 +50,8 @@ conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
 ```
-If you have no access to network, but still don't want to compile MOKIT manually,
-you can try option 2.
 
-### Option 2: Use hombrew-toolchains (need network, macos)
+### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
     - You need to install [homebrew](https://brew.sh) on your mac 
     - You need to install conda via brew and install numpy in base env. via pip 
@@ -72,19 +70,21 @@ pip install numpy
 ```
 
 Then 
-
 `brew install ansatzx/homebrew-mokit/mokit`
 
 Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
 
-Finally, follow caveats guides, add these commmand in your zsh/bash/fish etc. profile.
-
+Finally, follow caveats guides, add the following in your zsh(bash/fish etc.) profile.
 ```
 export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
+
+If you have no access to network, but still don't want to compile MOKIT manually,
+you can try option 3.
+
 ### Option 3: Use Pre-compiled MOKIT
 * Prerequisites: 
     - You need to have a Python3 environment and NumPy.
@@ -121,12 +121,6 @@ cd src
 make all
 ```
 
-* Compile individual utility or module  
-  E.g.
-```
-make fch2inp
-```
-
 * After `make all`, you need to set environment variables `MOKIT_ROOT`, `PATH`
   and `PYTHONPATH`. E.g. if MOKIT is installed in `$HOME/software/mokit`, the
   following should be set in `~/.bashrc`:
@@ -152,11 +146,12 @@ Quick Start
 -----------
 * Each utility is self-explanatory. For example, run `fch2inp` in Shell,
   you will find
-
-   ERROR in subroutine fch2inp: wrong command line arguments!  
-   Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
-   Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
-   Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+```
+ ERROR in subroutine fch2inp: wrong command line arguments!  
+ Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
+ Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
+ Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+```
 
 * For usages of modules in mokit/lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
 
@@ -201,6 +196,8 @@ Some Tips
 ---------
 * To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
   in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
+
+* Online [documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook). PDF [manual](doc/MOKIT_manual.pdf).
 
 Bug Report
 ----------

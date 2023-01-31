@@ -1,7 +1,7 @@
-*[English](README.md)*  
-*[下载程序](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
-*&emsp;[GitHub镜像](https://github.com/1234zou/MOKIT)*
-*&emsp;[NJU git镜像](https://git.nju.edu.cn/jxzou/mokit)*
+*[English](README.md)*
+*&emsp;&emsp;[下载程序](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
+*&emsp;&emsp;[GitHub镜像](https://github.com/1234zou/MOKIT)*
+*&emsp;&emsp;[NJU git镜像](https://git.nju.edu.cn/jxzou/mokit)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外。
@@ -20,7 +20,7 @@ or
   Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;PySCF  
 or   
   RHF      -> GVB   -> CASSCF -> ic-MRCISD+Q  
-  Gaussian&emsp;&emsp;GAMESS&emsp;&emsp;PySCF&emsp;&emsp;OpenMolcas
+  Gaussian&emsp;GAMESS&emsp;PySCF&emsp;OpenMolcas
 
 整个过程都是自动的。MOKIT在不同量化程序间传轨道时，考虑了基函数角动量的顺序问题（最
 高支持H角动量，相当于C原子用cc-pV5Z基组，Zn原子用cc-pVQZ基组），因此同一种理论方法
@@ -40,7 +40,7 @@ or
 
 安装
 ----------
-### 方式1：从 conda 安装（需要联网）
+### 方式1：conda 联网安装
 这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前
 创建一个新环境，以免破坏 base 环境。
 ```
@@ -48,9 +48,8 @@ conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
 ```
-如果无法联网，但仍不想手动编译，请尝试方式2。
-### 方式2:从 homebrew 安装（需要网络和macos）
 
+### 方式2：homebrew 联网安装（适用于MacOS）
 * 前提
     - 需要安装[homebrew](https://brew.sh)
     - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy
@@ -69,18 +68,20 @@ pip install numpy
 ```
 
 接着
-
 `brew install ansatzx/homebrew-mokit/mokit`
 
 或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`.
 
-最终按照caveats的提示, 在你的shell 配置文件里添加如下命令
-
+最终按照caveats的提示, 在你的shell配置文件里添加如下环境变量
 ```
 export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
+```
+
+如果无法联网，但仍不想手动编译，请尝试方式3。
+
 ### 方式3：使用预编译版
 * 前提
     - 预编译版需要有Python3环境和NumPy
@@ -99,6 +100,7 @@ export GMS=$HOME/software/gamess/rungms
   注意：自 MOKIT 版本 1.2.5rc2以后，PYTHONPATH 发生了变化。
 
   修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
+
 ### 方式4：从源码编译
 
 * 前提（编译器和库要求）
@@ -110,12 +112,6 @@ export GMS=$HOME/software/gamess/rungms
 ```
 cd src
 make all
-```
-
-* 若仅想使用单个子程序，可仅编译单个子程序或模块  
-  例如执行
-```
-make fch2inp
 ```
 
 * 在执行`make all`之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`.  
@@ -140,11 +136,12 @@ export GMS=$HOME/software/gamess/rungms
 ----------
 * 每个小程序的使用十分简单，直接运行即可在屏幕上打印出使用说明。例如在Shell中运行小程
   序`fch2inp`，输出如下
-
-   ERROR in subroutine fch2inp: wrong command line arguments!  
-   Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
-   Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
-   Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+```
+ ERROR in subroutine fch2inp: wrong command line arguments!  
+ Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
+ Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
+ Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+```
 
 * 对于mokit/lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的readme.txt
 
@@ -188,6 +185,8 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ----------
 * 若您想提供.fch(k)文件给`automr`程序读入，请务必在计算前在Gaussian的输入文件中加上
   关键词nosymm int=nobasistransform，以避免后续产生不必要的、不可预见的错误。
+
+* 在线[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook)。PDF[手册](doc/MOKIT_manual.pdf)。
 
 汇报Bug
 ----------

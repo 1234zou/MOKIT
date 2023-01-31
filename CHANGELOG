@@ -1,5 +1,6 @@
 MOKIT 1.2.5 (Jan 28, 2023)
 ------------------------
+* add MacOS homebrew configuration/distribution (by ansatzX)
 * move basis and lib to mokit/basis and mokit/lib, respectively (by jeanwsr)
 * add conda configuration/distribution (by jeanwsr)
 * add setup.py and requirements.txt
