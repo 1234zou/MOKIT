@@ -6,7 +6,7 @@
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
 chemistry software packages. Besides, the automr program in MOKIT can set up and
-run common multi-reference calculations in a block-box way.
+run common multi-reference calculations in a black-box way.
 
 A list of important utilities along with their functions are shown below  
 ![MOKIT utilities with their functions](doc/orbital_transfer.png)
@@ -32,7 +32,7 @@ https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables ca
 be downloaded in `Previous Artifacts` via the download button on the GitLab main
 page.
 
-Note that although MOKIT aims to make the multi-reference calculations block-box,
+Note that although MOKIT aims to make the multi-reference calculations black-box,
 the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
