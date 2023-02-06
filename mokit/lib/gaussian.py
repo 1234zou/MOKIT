@@ -35,6 +35,31 @@ def load_mol_from_fch(fchname):
   shutil.rmtree('__pycache__')
   return molpy.mol
 
+def mo_fch2py(fchname):
+  '''
+  Read MOs from a given Gaussian .fch(k) file, and convert MOs for usage in PySCF
+
+  Simple usage::
+  >>> from mokit.lib.gaussian import mo_fch2py
+  >>> mo = mo_fch2py('h2o.fch')
+  '''
+  from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
+  from mokit.lib.excited import check_uhf_in_fch
+  from mokit.lib.fch2py import fch2py
+
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  stat = check_uhf_in_fch(fchname)
+
+  if stat == 0:
+    mo = fch2py(fchname, nbf, nif, 'a')
+  elif stat == -1:
+    mo_a = fch2py(fchname, nbf, nif, 'a')
+    mo_b = fch2py(fchname, nbf, nif, 'b')
+    mo = (mo_a, mo_b)
+  else:
+    raise ValueError("Neither R(O)HF nor UHF. Confused.")
+  return mo
+
 def loc(fchname, idx, method=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given

@@ -591,7 +591,7 @@ subroutine submit_qchem_job(inpname, nproc)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A,I0,A)') 'qchem -nt ',nproc,' -np 1 '//TRIM(inpname)//' '//&
-                       TRIM(outname)//' '//TRIM(scr_dir)//' >& junk'
+                       TRIM(outname)//' '//TRIM(scr_dir)//' >junk 2>&1'
  write(6,'(A)') '$'//TRIM(buf)
 
  i = system(TRIM(buf))

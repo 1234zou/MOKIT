@@ -469,7 +469,9 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  forall(i = 1:nbf0) idx(i) = i
 
  k = 2*ncontr
- ! REMEMBER to initialize these two arrays as all zero
+ ! REMEMBER to initialize these two arrays as all zero, otherwise uninitialized
+ ! values in shell_type and shell_to_atom_map may not be 0, which may cause
+ ! wrong results
  allocate(shell_type(k), source=0)
  allocate(shell_to_atom_map(k), source=0)
  shell_type(1:ncontr) = shell_type0
@@ -909,7 +911,7 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 
  if(itype<1 .or. itype>10) then
   write(6,'(A,I0)') 'ERROR in subroutine write_pyscf_dm_into_fch: invalid itype&
-                      & = ',itype
+                    & = ',itype
   write(6,'(A)') 'Allowed values are 1~10:'
   do i = 1, 10, 1
    write(6,'(A,I2,A)') 'i=', i,': '//key(i)
@@ -925,8 +927,8 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 
  call read_nbf_from_fch(fchname, i)
  if(i /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsis&
-                    &ent nbf in fchname and input dm.'
+  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsistent nbf&
+                 & in fchname and input dm.'
   write(6,'(2(A,I0))') 'i=', i, ', nbf=', nbf
   write(6,'(A)') 'Related file: '//TRIM(fchname)
   stop

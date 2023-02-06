@@ -78,7 +78,7 @@ subroutine fch2dal(fchname)
  if(uhf) then
   write(6,'(/,A)') 'ERROR in subroutine fch2dal: UHF wave function not supported.'
   write(6,'(A)') 'Because there is no UHF method in Dalton. You can compute&
-                   & ROHF instead.'
+                 & ROHF instead.'
   stop
  end if
 
@@ -93,9 +93,9 @@ subroutine fch2dal(fchname)
 
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
   write(6,'(A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/&
-                   &Cartesian functions detected.'
+                 &Cartesian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                   & default setting is (6D,7F).'
+                 & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shell_type<-1) ) then
@@ -168,33 +168,12 @@ subroutine fch2dal(fchname)
  end do
  deallocate(shell_type)
 
- ! adjust the order of d, f, etc. functions
- do i = 1, n5dmark, 1
-  call fch2dal_permute_5d(nif,coeff(d_mark(i):d_mark(i)+4,:))
- end do
- do i = 1, n6dmark, 1
-  call fch2dal_permute_6d(nif,coeff(d_mark(i):d_mark(i)+5,:))
- end do
- do i = 1, n7fmark, 1
-  call fch2dal_permute_7f(nif,coeff(f_mark(i):f_mark(i)+6,:))
- end do
- do i = 1, n10fmark, 1
-  call fch2dal_permute_10f(nif,coeff(f_mark(i):f_mark(i)+9,:))
- end do
- do i = 1, n9gmark, 1
-  call fch2dal_permute_9g(nif,coeff(g_mark(i):g_mark(i)+8,:))
- end do
- do i = 1, n15gmark, 1
-  call fch2dal_permute_15g(nif,coeff(g_mark(i):g_mark(i)+14,:))
- end do
- do i = 1, n11hmark, 1
-  call fch2dal_permute_11h(nif,coeff(h_mark(i):h_mark(i)+10,:))
- end do
- do i = 1, n21hmark, 1
-  call fch2dal_permute_21h(nif,coeff(h_mark(i):h_mark(i)+20,:))
- end do
+ ! adjust the order of d, f, etc. functions (share subroutines with fch2inporb)
+ call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                             f_mark, g_mark, h_mark, nbf, nif, coeff)
+ call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                              f_mark, g_mark, h_mark, nbf, nif, coeff)
 ! adjustment finished
-
  deallocate(d_mark, f_mark, g_mark, h_mark)
 
  i = index(fchname, '.fch', back=.true.)
@@ -211,8 +190,7 @@ subroutine fch2dal(fchname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine fch2dal: no '' found&
-                   & in file "//TRIM(dalfile)
+  write(6,'(A)') "ERROR in subroutine fch2dal: no '' found in file "//TRIM(dalfile)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -234,154 +212,4 @@ subroutine fch2dal(fchname)
  close(fid1)
  i = RENAME(TRIM(dalfile1), TRIM(dalfile))
 end subroutine fch2dal
-
-subroutine fch2dal_permute_5d(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(5) = [5, 3, 1, 2, 4]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(5,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of spherical d functions in Gaussian
-! To: the order of spherical d functions in Dalton
-! 1    2    3    4    5
-! d0 , d+1, d-1, d+2, d-2
-! d-2, d-1, d0 , d+1, d+2
-
- allocate(coeff2(5,nif), source=0d0)
- forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
- deallocate(coeff2)
-end subroutine fch2dal_permute_5d
-
-subroutine fch2dal_permute_6d(nif,coeff)
- use Sdiag_parameter, only: Sdiag_d
- implicit none
- integer :: i
- integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(6,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian d functions in Gaussian
-! To: the order of Cartesian d functions in Dalton
-! 1  2  3  4  5  6
-! XX,YY,ZZ,XY,XZ,YZ
-! XX,XY,XZ,YY,YZ,ZZ
-
- allocate(coeff2(6,nif), source=coeff)
- forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)/Sdiag_d(i)
- deallocate(coeff2)
-end subroutine fch2dal_permute_6d
-
-subroutine fch2dal_permute_7f(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(7) = [7, 5, 3, 1, 2, 4, 6]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(7,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of spherical f functions in Gaussian
-! To: the order of spherical f functions in Dalton
-! 1    2    3    4    5    6    7
-! f0 , f+1, f-1, f+2, f-2, f+3, f-3
-! f-3, f-2, f-1, f0 , f+1, f+2, f+3
-
- allocate(coeff2(7,nif), source=0d0)
- forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
- deallocate(coeff2)
-end subroutine fch2dal_permute_7f
-
-subroutine fch2dal_permute_10f(nif,coeff)
- use Sdiag_parameter, only: Sdiag_f
- implicit none
- integer :: i
- integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(10,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian f functions in Gaussian
-! To: the order of Cartesian f functions in Dalton
-! 1   2   3   4   5   6   7   8   9   10
-! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
-! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
-
- allocate(coeff2(10,nif), source=coeff)
- forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)/Sdiag_f(i)
- deallocate(coeff2)
-end subroutine fch2dal_permute_10f
-
-subroutine fch2dal_permute_9g(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(9) = [9, 7, 5, 3, 1, 2, 4, 6, 8]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(9,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of spherical g functions in Gaussian
-! To: the order of spherical g functions in Dalton
-! 1    2    3    4    5    6    7    8    9
-! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
-! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
-
- allocate(coeff2(9,nif), source=0d0)
- forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
- deallocate(coeff2)
-end subroutine fch2dal_permute_9g
-
-subroutine fch2dal_permute_15g(nif,coeff)
- use Sdiag_parameter, only: Sdiag_g
- implicit none
- integer :: i
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(15,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian g functions in Gaussian
-! To: the order of Cartesian g functions in Dalton
-! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
-! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
-! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
-
- allocate(coeff2(15,nif), source=coeff)
- forall(i = 1:15) coeff(i,:) = coeff2(16-i,:)/Sdiag_g(i)
- deallocate(coeff2)
-end subroutine fch2dal_permute_15g
-
-subroutine fch2dal_permute_11h(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(11) = [11, 9, 7, 5, 3, 1, 2, 4, 6, 8, 10]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(11,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of spherical h functions in Gaussian
-! To: the order of spherical h functions in Dalton
-! 1    2    3    4    5    6    7    8    9    10   11
-! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
-! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
-
- allocate(coeff2(11,nif), source=0d0)
- forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
- deallocate(coeff2)
-end subroutine fch2dal_permute_11h
-
-subroutine fch2dal_permute_21h(nif,coeff)
- use Sdiag_parameter, only: Sdiag_h
- implicit none
- integer :: i
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(21,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian h functions in Gaussian
-! To: the order of Cartesian h functions in Dalton
-! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
-! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
-! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
-
- allocate(coeff2(21,nif), source=coeff)
- forall(i = 1:21) coeff(i,:) = coeff2(22-i,:)/Sdiag_h(i)
- deallocate(coeff2)
-end subroutine fch2dal_permute_21h
 

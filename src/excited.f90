@@ -422,8 +422,9 @@ subroutine check_uhf_in_fch(fchname, uhf)
   read(fid,'(A)',iostat=i) buf
   if(i < 0) exit ! end-of-file
   if(i > 0) then
-   write(6,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file '&
-                   //TRIM(fchname)
+   write(6,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
+                  & '//TRIM(fchname)
+   close(fid)
    stop
   end if
 
@@ -431,6 +432,11 @@ subroutine check_uhf_in_fch(fchname, uhf)
    uhf = .true.
    exit
   end if
+
+  select case(buf(1:11))
+  case('Orthonormal','Total SCF D','Mulliken Ch')
+   exit
+  end select
  end do ! for while
 
  close(fid)

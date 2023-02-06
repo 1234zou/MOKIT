@@ -349,7 +349,7 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
 
  if(shell_type==0 .or. shell_type==-1) then
   write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
-                   & shell_type is 0 or -1. Impossible.'
+                 & shell_type is 0 or -1. Impossible.'
   write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if

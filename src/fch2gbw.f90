@@ -3,7 +3,7 @@
 program main
  use util_wrapper, only: fch2gbw
  implicit none
- integer :: i
+ integer :: i, j
  character(len=240) :: fchname, gbwname
 
  i = iargc()
@@ -16,6 +16,13 @@ program main
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ j = LEN_TRIM(fchname)
+ if(fchname(j-3:j) == '.chk') then
+  write(6,'(/,A)') ' ERROR in subroutine fch2gbw: .gbw file detected.'
+  write(6,'(A)') ' Please use the utility chk2gbw.'
+  stop
+ end if
 
  gbwname = ' '
  if(i == 1) then

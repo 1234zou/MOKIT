@@ -9,8 +9,8 @@ LIB = ../mokit/lib
 # --- gfortran + OpenBLAS ---
 F90    = gfortran
 FFLAGS = -O2 -cpp -fPIC
-MKL_FLAGS = -L$(HOMEBREW_PREFIX)/opt/openblas/lib  -lopenblas
-F2PY   = source $(HOMEBREW_PREFIX)/Caskroom/miniconda/base/bin/activate base  && python -m numpy.f2py
+MKL_FLAGS = -L$(HOMEBREW_PREFIX)/opt/openblas/lib -lopenblas
+F2PY   = source $(HOMEBREW_PREFIX)/Caskroom/miniconda/base/bin/activate base && python -m numpy.f2py
 F2_FLAGS = 
 F2_F90_FLAGS = --f90flags="-cpp" 
 

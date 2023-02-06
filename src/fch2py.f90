@@ -355,9 +355,8 @@ subroutine fch2py_permute_5d(nif,coeff)
 ! d0 , d+1, d-1, d+2, d-2
 ! d-2, d-1, d0 , d+1, d+2
 
- allocate(coeff2(5,nif), source=0d0)
- forall(i = 1:5) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(5,nif), source=coeff)
+ forall(i = 1:5) coeff(i,:) = coeff2(order(i),:)
  deallocate(coeff2)
 end subroutine fch2py_permute_5d
 
@@ -393,9 +392,8 @@ subroutine fch2py_permute_7f(nif,coeff)
 ! f0 , f+1, f-1, f+2, f-2, f+3, f-3
 ! f-3, f-2, f-1, f0 , f+1, f+2, f+3
 
- allocate(coeff2(7,nif), source=0d0)
- forall(i = 1:7) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(7,nif), source=coeff)
+ forall(i = 1:7) coeff(i,:) = coeff2(order(i),:)
  deallocate(coeff2)
 end subroutine fch2py_permute_7f
 
@@ -431,9 +429,8 @@ subroutine fch2py_permute_9g(nif,coeff)
 ! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
 ! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
 
- allocate(coeff2(9,nif), source=0d0)
- forall(i = 1:9) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(9,nif), source=coeff)
+ forall(i = 1:9) coeff(i,:) = coeff2(order(i),:)
  deallocate(coeff2)
 end subroutine fch2py_permute_9g
 
@@ -468,9 +465,8 @@ subroutine fch2py_permute_11h(nif,coeff)
 ! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
 ! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
 
- allocate(coeff2(11,nif), source=0d0)
- forall(i = 1:11) coeff2(i,:) = coeff(order(i),:)
- coeff = coeff2
+ allocate(coeff2(11,nif), source=coeff)
+ forall(i = 1:11) coeff(i,:) = coeff2(order(i),:)
  deallocate(coeff2)
 end subroutine fch2py_permute_11h
 

@@ -36,7 +36,8 @@ OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o
                  read_fch.o split_sp.o fch2inporb.o
 OBJ_fch2psi = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
               read_fch.o fch2psi.o
-OBJ_fch2qchem = file_op.o string_manipulate.o util_wrapper.o read_fch.o fch2qchem.o
+OBJ_fch2qchem = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
+                fch2qchem.o
 OBJ_fch2qm4d = file_op.o string_manipulate.o read_fch.o rwgeom.o util_wrapper.o \
                fch2qm4d.o
 OBJ_fch_u2r = file_op.o fch_u2r.o

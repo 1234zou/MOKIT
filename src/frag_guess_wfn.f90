@@ -116,7 +116,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  use theory_level
  use phys_cons, only: au2kcal
  implicit none
- integer :: i, j, k, m, fid, ifrag, iatom
+ integer :: i, j, k, m, fid, ifrag0, ifrag, iatom
  integer :: charge, mult, natom, maxfrag
  integer, allocatable :: cm(:), nuc(:)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
@@ -275,8 +275,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  if(mult/=1 .and. eda_type==1) then
   write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
-                 & be applied to RHF. But'
-  write(6,'(A)') 'the total spin is not singlet.'
+                 & be applied to RHF.'
+  write(6,'(A)') 'But the total spin is not singlet.'
   close(fid)
   stop
  end if
@@ -317,7 +317,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  allocate(frags(nfrag))
  frags(:)%wfn_type = wfn_type
 
- forall(i=1:nfrag0)
+ forall(i = 1:nfrag0)
   frags(i)%charge = cm(2*i+1)
   frags(i)%mult = cm(2*i+2)
  end forall
@@ -326,8 +326,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  i = SUM(frags(1:nfrag0)%charge)
  if(i /= charge) then
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: sum of fragment&
-                   & charges is not equal to total charge.'
-  write(6,'(2(A,I0))') 'Total charge=', charge, ', sum(frag_charges)=', i
+                   & charges is not equal to'
+  write(6,'(2(A,I0))') 'total charge. Total charge=', charge, &
+                       ', sum(frag_charges)=', i
   write(6,'(A)') 'Wrong charges in file '//TRIM(gjfname)
   deallocate(frags)
   close(fid)
@@ -335,12 +336,19 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  end if
 
  if(ANY(frags(:)%mult==0) .or. ANY(frags(:)%mult==-1)) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: the spin multiplicity&
-                   & of some fragment is'
-  write(6,'(A)') '0 or -1. This is impossible. Check your file '//TRIM(gjfname)
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: nonsense chare or spin&
+                   & multiplicity'
+  write(6,'(A)') 'Please check your file '//TRIM(gjfname)
   deallocate(frags)
   close(fid)
   stop
+ end if
+
+ if(mult==1 .and. ANY(frags(:)%mult/=1) .and. wfn_type==1) then
+  write(6,'(/,A)') 'Remark: the total spin is singlet but some fragment is open&
+                   &-shell.'
+  write(6,'(A)') 'Automatically switching to wfn_type=3.'
+  wfn_type = 3; frags(:)%wfn_type = 3
  end if
 
  j = 0 ! ne(alpha) - ne(beta)
@@ -377,7 +385,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  allocate(coor(3,natom), source=0d0)
  allocate(elem(natom))
- elem = '  '
+ elem = '  '; ifrag0 = 1
 
  do i = 1, natom, 1
   read(fid,'(A)',iostat=j) buf
@@ -397,12 +405,12 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   read(buf(1:j-1),*) elem(i)
   read(buf(k+1:m-1),*) ifrag
 
-  if(i==1 .and. eda_type/=0 .and. ifrag/=1) then
+  if((i==1 .and. eda_type/=0 .and. ifrag/=1) .or. ifrag<ifrag0) then
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fr&
                     &agment number.'
-   write(6,'(A)') 'EDA input file required. This task requires definition&
-                  & of fragment number'
-   write(6,'(A)') 'monomer1, monomer2, monomer3,...'
+   write(6,'(A)') 'This task requires the definition of fragment number is mon&
+                  &omer1, monomer2, monomer3,...'
+   close(fid)
    stop
   end if
 
@@ -411,6 +419,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                   & detected in Cartesian coordinates is'
    write(6,'(A)') 'larger than that found in charges and spin multiplicities.'
    write(6,'(2(A,I0))') 'ifrag = ', ifrag, ', nfrag0=', nfrag0
+   close(fid)
    stop
   end if
 
@@ -457,6 +466,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    write(6,'(3(A,I0))') 'natom=', natom, ', i=', i, ', ifrag=', ifrag
    stop
   end if
+
+  ifrag0 = ifrag ! update ifrag0
  end do ! for i
 
  close(fid)
@@ -536,6 +547,14 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
         frags(i)%wfn_type, stab_chk)
+  ! or we can use the direct sum of MOs
+  !call sum_frag_density_and_prt_into_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname,&
+  !                            frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
+  !k = 1
+  !if(frags(nfrag)%wfn_type == 3) k = 0
+  !call gen_no_using_density_in_fch(fchname, k)
+  !call unfchk(fchname, chkname)
+  !call modify_guess_only_in_gjf(frags(nfrag)%fname)
   frags(i)%noiter = .false.
   call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
@@ -556,7 +575,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
          ! total SCF density
-  call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(3)%fname)
+  call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(1:2)%pos, &
+                                         frags(3)%fname)
   k = 1
   if(frags(3)%wfn_type == 3) k = 0
   call gen_no_using_density_in_fch(fchname, k)
@@ -983,6 +1003,7 @@ subroutine gen_extend_bas_frag(frag_i, frag_n, frag_k)
  frag_k%charge   = frag_i%charge
  frag_k%mult     = frag_i%mult
  frag_k%wfn_type = frag_i%wfn_type
+ frag_k%pos      = frag_i%pos
  frag_k%coor     = frag_n%coor
  frag_k%elem     = frag_n%elem
 
@@ -1096,6 +1117,7 @@ subroutine gen_inp_of_frags()
  if(eda_type == 4) then ! SAPT in PSI4
   outname = inpname2(1:i-1)//'.out'
   write(6,'(A,/,A)') 'PSI4 (DO NOT delete *.A and', '*.B files) like'
+  write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A,I0,A)') 'psi4 '//TRIM(inpname2)//' '//TRIM(outname)//' -n ',&
                        nproc," &"
  else
@@ -1106,9 +1128,12 @@ subroutine gen_inp_of_frags()
   else
    i = nproc
   end if
+  write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A,I0,A)') 'xeda '//TRIM(inpname2)//' 00 ',i,' >'//TRIM(outname)&
                       //" 2>&1 &"
  end if
+
+ write(6,'(A)') REPEAT('-',79)
 end subroutine gen_inp_of_frags
 
 ! copy content of a provided .inp file and modify it to be SAPT job
@@ -1157,7 +1182,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
 
  write(fid2,'(/,A)') 'dimer = psi4.get_active_molecule()'
  write(fid2,'(/,A)') 'set {'
- write(fid2,'(A)') ' scf_type pk'
+ write(fid2,'(A)') ' scf_type df' ! pk is slow and disk-consuming
  write(fid2,'(A)') ' s_tolerance 1e-6'
  write(fid2,'(A)') ' e_convergence 1e5'
  write(fid2,'(A)') ' d_convergence 1e5'
@@ -1990,7 +2015,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
 end subroutine direct_sum_frag_mo2super_mo
 
 ! sum fragment Total SCF Densities and print the 
-subroutine sum_frag_density_and_prt_into_fch(n, fname0, fname)
+subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
  use util_wrapper, only: formchk
  implicit none
  integer :: i, j, nif, nbf, nbf1
@@ -2001,6 +2026,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, fname)
  real(kind=8), allocatable :: dm(:,:), dm1(:,:)
  logical :: alive
  logical, allocatable :: has_spin_density(:)
+ logical, intent(in) :: pos(n) ! negative spin means to switch alpha/beta
 
  allocate(fchname(n+1))
 
@@ -2054,7 +2080,11 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, fname)
   call detect_spin_scf_density_in_fch(fchname(i), has_spin_density(i))
   if(.not. has_spin_density(i)) cycle
   call read_density_from_fch(fchname(i), 2, nbf, dm1)
-  dm = dm + dm1
+  if(pos(i)) then
+   dm = dm + dm1
+  else
+   dm = dm - dm1 ! interchange alpha/beta spin, which is equal to -dm1
+  end if
  end do ! for i
 
  call detect_spin_scf_density_in_fch(fchname(n+1), alive)

@@ -30,7 +30,7 @@ program main
   call getarg(3, str)
   if(str /= '-no') then
    write(6,'(/,A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
-                      & wrong! Only '-no' is accepted."
+                    & wrong! Only '-no' is accepted."
    write(6,'(A)') "But you specify '"//str//"'."
    stop
   end if
@@ -90,10 +90,10 @@ subroutine bdf2fch(orbname, fchname, prt_no)
 
  if(ANY(shell_type>1)) then
   write(6,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
-                    & detected. Cannot deal with that.'
-  write(6,'(A)') 'BDF supports only spherical harmonic basis functions.'
+                 & detected. Cannot deal with'
+  write(6,'(A)') 'that. BDF supports only spherical harmonic basis functions.'
   write(6,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
-                   & to obtain a new .fch(k) file."
+                 & to obtain a new .fch(k) file."
   stop
  end if
 

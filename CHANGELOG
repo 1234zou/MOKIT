@@ -1,5 +1,7 @@
-MOKIT 1.2.5 (Jan 28, 2023)
+MOKIT 1.2.5 (Feb 6, 2023)
 ------------------------
+* fix uninitialized value bug in dal2fch
+* move PDF manual to [online manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 * add MacOS homebrew configuration/distribution (by ansatzX)
 * move basis and lib to mokit/basis and mokit/lib, respectively (by jeanwsr)
 * add conda configuration/distribution (by jeanwsr)

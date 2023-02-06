@@ -118,7 +118,7 @@ subroutine find_dftname_in_fch(fchname, dftname)
   if(buf(1:5) == 'Route') then
    read(fid,'(A)') buf
    j = index(buf,'/')
-   i = index(buf(1:j-1), ' ')
+   i = index(buf(1:j-1), ' ', back=.true.)
    dftname = buf(i+1:j-1)
    exit
   end if
@@ -165,7 +165,12 @@ subroutine prt_dft_key2pyscf_script(dftname, pyname)
  close(fid,status='delete')
  dftname1 = dftname
  call lower(dftname1)
- if(TRIM(dftname1) == 'b3lyp') dftname1 = 'b3lypg'
+ select case(TRIM(dftname1))
+ case('hf', 'rhf', 'rohf', 'uhf')
+  dftname1 = '?'
+ case('b3lyp')
+  dftname1 = 'b3lypg'
+ end select
  write(fid1,'(A)') 'dm = mf.make_rdm1()'
  write(fid1,'(A)') 'mf = dft.RKS(mol)'
  write(fid1,'(A)') "mf.xc = '"//TRIM(dftname1)//"'"

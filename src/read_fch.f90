@@ -128,6 +128,11 @@ subroutine check_uhf_in_fch(fchname, uhf)
    uhf = .true.
    exit
   end if
+
+  select case(buf(1:11))
+  case('Orthonormal','Total SCF D','Mulliken Ch')
+   exit
+  end select
  end do ! for while
 
  close(fid)

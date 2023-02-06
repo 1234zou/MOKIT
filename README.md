@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Jan 28, 2023
+Feb 6, 2023
 
 Installation
 ------------
@@ -50,6 +50,9 @@ conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
 ```
+
+If you have no access to network, but still don't want to compile MOKIT manually,
+you can try option 3.
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
@@ -81,9 +84,6 @@ export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
-
-If you have no access to network, but still don't want to compile MOKIT manually,
-you can try option 3.
 
 ### Option 3: Use Pre-compiled MOKIT
 * Prerequisites: 
@@ -197,7 +197,7 @@ Some Tips
 * To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
   in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
 
-* Online [documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook). PDF [manual](doc/MOKIT_manual.pdf).
+* Online [documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 
 Bug Report
 ----------

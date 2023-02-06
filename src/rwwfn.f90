@@ -480,17 +480,8 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  read(fid,'(A)') buf
 
  do i = 1, nif, 1
-  nline = nbf/4
-
-  do j = 1, nline, 1
-   read(fid,*,iostat=k) coeff(4*j-3:4*j,i)
-   if(k /= 0) exit
-  end do ! for j
-
-  if(nbf - 4*nline > 0) then
-   read(fid,*,iostat=k) coeff(4*nline+1:nbf,i)
-   if(k /= 0) exit
-  end if
+  read(fid,'(4F18.14)',iostat=k) coeff(:,i)
+  if(k /= 0) exit
  end do ! for i
 
  close(fid)
@@ -502,7 +493,6 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
   close(fid)
   stop
  end if
-
 end subroutine read_mo_from_dalton_mopun
 
 ! read Alpha/Beta eigenvalues in a given .fch(k) file

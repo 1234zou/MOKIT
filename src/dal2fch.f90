@@ -25,8 +25,8 @@ program main
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(6,'(/,1X,A)') "ERROR in subroutine dal2fch: the 3rd argument is&
-                         & wrong! Only '-no' is accepted."
+   write(6,'(/,1X,A)') "ERROR in subroutine dal2fch: the 3rd argument is wrong&
+                       &! Only '-no' is accepted."
    stop
   else
    prt_no = .true.
@@ -51,7 +51,7 @@ subroutine dal2fch(orbname, fchname, prt_no)
 
  call read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  allocate(coeff2(nbf,nif), source=coeff)
- forall(i=1:nbf,j=1:nif) coeff(i,j) = coeff2(idx(i),j)*norm(i)
+ forall(i=1:nbf, j=1:nif) coeff(i,j) = coeff2(idx(i),j)*norm(i)
  deallocate(coeff2, norm, idx)
 
  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff)
@@ -96,12 +96,22 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), intent(out) :: norm(nbf0)
+ logical :: sph
 
  norm = 1d0   ! initialization
  forall(i = 1:nbf0) idx(i) = i
+ if( ANY(shell_type0<-1) ) then
+  sph = .true.
+ else
+  sph = .false.
+ end if
 
  k = 2*ncontr
- allocate(shell_type(k), shell_to_atom_map(k))
+ ! REMEMBER to initialize these two arrays as all zero, otherwise uninitialized
+ ! values in shell_type and shell_to_atom_map may not be 0, which may cause
+ ! wrong results
+ allocate(shell_type(k), source=0)
+ allocate(shell_to_atom_map(k), source=0)
  shell_type(1:ncontr) = shell_type0
  shell_to_atom_map(1:ncontr) = shell_to_atom_map0
  k = ncontr
@@ -179,30 +189,34 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
   stop
  end if
 
- do i = 1,n5dmark,1
-  call dal2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
- end do
- do i = 1,n6dmark,1
-  call dal2fch_permute_6d(idx(d_mark(i):d_mark(i)+5),norm(d_mark(i):d_mark(i)+5))
- end do
- do i = 1,n7fmark,1
-  call dal2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
- end do
- do i = 1,n10fmark,1
-  call dal2fch_permute_10f(idx(f_mark(i):f_mark(i)+9),norm(f_mark(i):f_mark(i)+9))
- end do
- do i = 1,n9gmark,1
-  call dal2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
- end do
- do i = 1,n15gmark,1
-  call dal2fch_permute_15g(idx(g_mark(i):g_mark(i)+14),norm(g_mark(i):g_mark(i)+14))
- end do
- do i = 1,n11hmark,1
-  call dal2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
- end do
- do i = 1,n21hmark,1
-  call dal2fch_permute_21h(idx(h_mark(i):h_mark(i)+20),norm(h_mark(i):h_mark(i)+20))
- end do
+ if(sph) then
+  do i = 1, n5dmark, 1
+   call dal2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
+  end do
+  do i = 1, n7fmark, 1
+   call dal2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
+  end do
+  do i = 1, n9gmark, 1
+   call dal2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
+  end do
+  do i = 1, n11hmark, 1
+   call dal2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
+  end do
+
+ else
+  do i = 1, n6dmark, 1
+   call dal2fch_permute_6d(idx(d_mark(i):d_mark(i)+5),norm(d_mark(i):d_mark(i)+5))
+  end do
+  do i = 1, n10fmark, 1
+   call dal2fch_permute_10f(idx(f_mark(i):f_mark(i)+9),norm(f_mark(i):f_mark(i)+9))
+  end do
+  do i = 1, n15gmark, 1
+   call dal2fch_permute_15g(idx(g_mark(i):g_mark(i)+14),norm(g_mark(i):g_mark(i)+14))
+  end do
+  do i = 1, n21hmark, 1
+   call dal2fch_permute_21h(idx(h_mark(i):h_mark(i)+20),norm(h_mark(i):h_mark(i)+20))
+  end do
+ end if
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
 end subroutine get_permute_idx_from_shell
@@ -261,7 +275,7 @@ subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
   end do
   ith_bas(i) = ith_bas(i-1) + k
   deallocate(tmp_type)
- end do
+ end do ! for i
 
  ! adjust the MOs in each atom
  do i = 1, natom, 1
@@ -270,8 +284,8 @@ subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
   jbegin = ith_bas(i-1) + 1
   jend = ith_bas(i)
   call sort_shell_type_in_each_atom2(iend-ibegin+1, new_shell_type(ibegin:iend))
-  call unsort_mo_in_each_atom(iend-ibegin+1, shell_type(ibegin:iend), new_shell_type(ibegin:iend), &
-       & jend-jbegin+1, idx(jbegin:jend))
+  call unsort_mo_in_each_atom(iend-ibegin+1, shell_type(ibegin:iend), &
+                              new_shell_type(ibegin:iend), jend-jbegin+1, idx(jbegin:jend))
  end do ! for i
  ! adjust the MOs in each atom done
 
@@ -387,23 +401,21 @@ subroutine dal2fch_permute_5d(idx)
 end subroutine dal2fch_permute_5d
 
 subroutine dal2fch_permute_6d(idx, norm)
- use Sdiag_parameter, only: Sdiag_d
+ use root_parameter, only: root3
  implicit none
  integer :: i, idx0(6)
  integer, parameter :: order(6) = [1, 4, 6, 2, 3, 5]
  integer, intent(inout) :: idx(6)
  real(kind=8), intent(out) :: norm(6)
-! From: the order of Cartesian d functions in PySCF
+! From: the order of Cartesian d functions in Molcas
 ! To: the order of Cartesian d functions in Gaussian
 ! 1  2  3  4  5  6
 ! XX,XY,XZ,YY,YZ,ZZ
 ! XX,YY,ZZ,XY,XZ,YZ
 
- idx0 = idx
- forall(i = 1:6)
-  idx(i) = idx0(order(i))
-  norm(i) = Sdiag_d(order(i))
- end forall
+ idx0 = idx; norm = 1d0
+ forall(i = 1:6) idx(i) = idx0(order(i))
+ norm(1:3) = root3
 end subroutine dal2fch_permute_6d
 
 subroutine dal2fch_permute_7f(idx)
@@ -422,23 +434,22 @@ subroutine dal2fch_permute_7f(idx)
 end subroutine dal2fch_permute_7f
 
 subroutine dal2fch_permute_10f(idx, norm)
- use Sdiag_parameter, only: Sdiag_f
+ use root_parameter, only: root3, root15
  implicit none
  integer :: i, idx0(10)
  integer, parameter :: order(10) = [1, 7, 10, 4, 2, 3, 6, 9, 8, 5]
  integer, intent(inout) :: idx(10)
  real(kind=8), intent(out) :: norm(10)
-! From: the order of Cartesian f functions in PySCF
+! From: the order of Cartesian f functions in Molcas
 ! To: the order of Cartesian f functions in Gaussian
 ! 1   2   3   4   5   6   7   8   9   10
 ! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
 ! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 
- idx0 = idx
- forall(i = 1:10)
-  idx(i) = idx0(order(i))
-  norm(i) = Sdiag_f(order(i))
- end forall
+ idx0 = idx; norm = 1d0
+ forall(i = 1:10) idx(i) = idx0(order(i))
+ norm(1:3) = root15
+ norm(4:9) = root3
 end subroutine dal2fch_permute_10f
 
 subroutine dal2fch_permute_9g(idx)
@@ -457,7 +468,7 @@ subroutine dal2fch_permute_9g(idx)
 end subroutine dal2fch_permute_9g
 
 subroutine dal2fch_permute_15g(idx, norm)
- use Sdiag_parameter, only: Sdiag_g
+ use root_parameter, only: root3, root9, root15, root105
  implicit none
  integer :: i, idx0(15)
  integer, intent(inout) :: idx(15)
@@ -469,10 +480,9 @@ subroutine dal2fch_permute_15g(idx, norm)
 ! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 
  idx0 = idx
- forall(i = 1:15)
-  idx(i) = idx0(16-i)
-  norm(i) = Sdiag_g(16-i)
- end forall
+ forall(i = 1:15) idx(i) = idx0(16-i)
+ norm = [root105, root15, root9, root15, root105, root15, root3, root3, &
+         root15, root9, root3, root9, root15, root15, root105]
 end subroutine dal2fch_permute_15g
 
 subroutine dal2fch_permute_11h(idx)
@@ -491,7 +501,7 @@ subroutine dal2fch_permute_11h(idx)
 end subroutine dal2fch_permute_11h
 
 subroutine dal2fch_permute_21h(idx, norm)
- use Sdiag_parameter, only: Sdiag_h
+ use root_parameter
  implicit none
  integer :: i, idx0(21)
  integer, intent(inout) :: idx(21)
@@ -503,9 +513,9 @@ subroutine dal2fch_permute_21h(idx, norm)
 ! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 
  idx0 = idx
- forall(i = 1:21)
-  idx(i) = idx0(22-i)
-  norm(i) = Sdiag_h(22-i)
- end forall
+ forall(i = 1:21) idx(i) = idx0(22-i)
+ norm = [root945, root105, root45, root45, root105, root945, root105, root15, &
+         root9, root15, root105, root45, root9, root9, root45, root45, root15,&
+         root45, root105, root105, root945]
 end subroutine dal2fch_permute_21h
 

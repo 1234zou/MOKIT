@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年1月28号
+2023年2月6号
 
 安装
 ----------
@@ -48,6 +48,8 @@ conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
 ```
+
+如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式2：homebrew 联网安装（适用于MacOS）
 * 前提
@@ -79,8 +81,6 @@ export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
-
-如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式3：使用预编译版
 * 前提
@@ -186,7 +186,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 * 若您想提供.fch(k)文件给`automr`程序读入，请务必在计算前在Gaussian的输入文件中加上
   关键词nosymm int=nobasistransform，以避免后续产生不必要的、不可预见的错误。
 
-* 在线[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook)。PDF[手册](doc/MOKIT_manual.pdf)。
+* 在线[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 
 汇报Bug
 ----------
