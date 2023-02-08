@@ -1,4 +1,4 @@
-%mem=32GB
+%mem=64GB
 %nprocshared=16
 #p CASSCF(4,4)/6-31G(d)
 

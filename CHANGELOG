@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Feb 6, 2023)
+MOKIT 1.2.5 (Feb 7, 2023)
 ------------------------
 * fix uninitialized value bug in dal2fch
 * move PDF manual to [online manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook)

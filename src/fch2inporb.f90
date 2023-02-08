@@ -221,22 +221,13 @@ subroutine fch2inporb(fchname, prt_no, sph)
  end do ! for i
 
  ! adjust the order of d, f, etc. functions
- call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                             f_mark, g_mark, h_mark, nbf, nif, coeff)
- call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+ if(sph) then
+  call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, nif, coeff)
- !do i = 1, n6dmark, 1
- ! call fch2inporb_permute_6d(nif,coeff(d_mark(i):d_mark(i)+5,:))
- !end do
- !do i = 1, n10fmark, 1
- ! call fch2inporb_permute_10f(nif,coeff(f_mark(i):f_mark(i)+9,:))
- !end do
- !do i = 1, n15gmark, 1
- ! call fch2inporb_permute_15g(nif,coeff(g_mark(i):g_mark(i)+14,:))
- !end do
- !do i = 1, n21hmark, 1
- ! call fch2inporb_permute_21h(nif,coeff(h_mark(i):h_mark(i)+20,:))
- !end do
+ else
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                               f_mark, g_mark, h_mark, nbf, nif, coeff)
+ end if
 ! adjustment finished
  deallocate(d_mark, f_mark, g_mark, h_mark)
 
