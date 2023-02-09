@@ -101,11 +101,11 @@ subroutine fch2wfn(fchname, read_no)
  if(ALL(eigen_e_a<up_limit) .and. ALL(eigen_e_a>low_limit) .and. (.not.read_no)) then
   write(6,'(/,A)') REPEAT('-',71)
   write(6,'(A)') 'Warning from subroutine fch2wfn: it seems that this is a&
-                    & .fch(k) file'
+                 & .fch(k) file'
   write(6,'(A)') 'including natural orbitals, since all orbital energies are&
-                    & among [0,2].'
+                 & among [0,2].'
   write(6,'(A)') "But '-no' argument is not found. You should know what you&
-                    & are doing."
+                 & are doing."
   write(6,'(A,/)') REPEAT('-',71)
  end if
 
@@ -196,7 +196,17 @@ subroutine fch2wfn(fchname, read_no)
 
  ! transform MO coefficients from spherical harmonic type into Cartesian type,
  ! if needed
- if(ANY(shell_type < -1)) then ! spherical harmonic type basis functions
+ if(ANY(shell_type > 1)) then ! Cartesian-type basis functions
+  sph = .false.
+  nbf1 = nbf
+  allocate(mo1(nbf1,nmo))
+  if(read_no) then
+   mo1 = alpha_coeff
+  else ! R(O)HF, UHF
+   mo1(:,1:na) = alpha_coeff(:,1:na)
+   if(uhf) mo1(:,na+1:na+nb) = beta_coeff(:,1:nb)
+  end if
+ else ! spherical harmonic type basis functions
   sph = .true.
   allocate(mo0(nbf,nmo))
   if(read_no) then
@@ -211,17 +221,8 @@ subroutine fch2wfn(fchname, read_no)
   allocate(mo1(nbf1,nmo))
   call mo_sph2cart(ncontr, shell_type, nbf, nbf1, nmo, mo0, mo1)
   deallocate(mo0)
- else ! Cartesian-type basis functions
-  sph = .false.
-  nbf1 = nbf
-  allocate(mo1(nbf1,nmo))
-  if(read_no) then
-   mo1 = alpha_coeff
-  else ! R(O)HF, UHF
-   mo1(:,1:na) = alpha_coeff(:,1:na)
-   if(uhf) mo1(:,na+1:na+nb) = beta_coeff(:,1:nb)
-  end if
  end if
+
  deallocate(alpha_coeff)
  if(allocated(beta_coeff)) deallocate(beta_coeff)
  call scale_mo_as_wfn(ncontr, shell_type, nbf1, nmo, mo1)

@@ -137,10 +137,10 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
                    & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
- else if(ANY(shltyp<-1)) then
-  sph = .true.
- else
+ else if( ANY(shltyp>1) ) then
   sph = .false.
+ else
+  sph = .true.
  end if
 
  if(sph) then ! spherical harmonic
@@ -154,7 +154,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  call read_nbf_from_dat(datname, i)
  if(i /= nbf1) then
   write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
-                     & .fch and .dat file.'
+                   & .fch and .dat file.'
   write(6,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
   stop
  end if

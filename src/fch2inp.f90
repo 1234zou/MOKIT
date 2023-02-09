@@ -198,15 +198,15 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
   write(6,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
-                   &Cartesian functions detected.'
+                 &Cartesian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                   & default setting is (6D,7F).'
+                 & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
- else if(ANY(shell_type<-1)) then
-  sph = .true.
- else
+ else if( ANY(shell_type>1) ) then
   sph = .false.
+ else
+  sph = .true.
  end if
 
  if(sph) then

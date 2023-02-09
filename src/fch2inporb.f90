@@ -66,11 +66,12 @@ program main
  end if
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: call utility bas_gms2molcas failed.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: failed to call utility bas_&
+                   &gms2molcas.'
   write(6,'(A)')   'Three possible reasons:'
   write(6,'(A)')   '(1) You forget to compile the utility bas_gms2molcas.'
-  write(6,'(A)')   '(2) The file '//TRIM(fname)//' may be incomplete.'
-  write(6,'(A,/)') '(3) This is a bug of the utility bas_gms2molcas.'
+  write(6,'(A)')   '(2) This is a bug of the utility bas_gms2molcas.'
+  write(6,'(A,/)') '(3) The file '//TRIM(fname)//' may be problematic.'
   stop
  end if
 
@@ -142,10 +143,10 @@ subroutine fch2inporb(fchname, prt_no, sph)
                  & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
- else if( ANY(shell_type<-1) ) then
-  sph = .true.
- else
+ else if( ANY(shell_type>1) ) then
   sph = .false.
+ else
+  sph = .true.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map

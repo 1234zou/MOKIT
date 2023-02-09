@@ -1,5 +1,6 @@
-MOKIT 1.2.5 (Feb 7, 2023)
+MOKIT 1.2.5 (Feb 9, 2023)
 ------------------------
+* add utility fch2cfour
 * fix uninitialized value bug in dal2fch
 * move PDF manual to [online manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 * add MacOS homebrew configuration/distribution (by ansatzX)

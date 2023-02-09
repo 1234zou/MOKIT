@@ -100,10 +100,10 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
 
  norm = 1d0   ! initialization
  forall(i = 1:nbf0) idx(i) = i
- if( ANY(shell_type0<-1) ) then
-  sph = .true.
- else
+ if( ANY(shell_type0>1) ) then
   sph = .false.
+ else
+  sph = .true.
  end if
 
  k = 2*ncontr

@@ -16,8 +16,6 @@ program main
  end if
 
  fchname = ' '
- sph = .true.
-
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -98,10 +96,10 @@ subroutine fch2dal(fchname)
                  & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
- else if( ANY(shell_type<-1) ) then
-  sph = .true.
- else
+ else if( ANY(shell_type>1) ) then
   sph = .false.
+ else
+  sph = .true.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map

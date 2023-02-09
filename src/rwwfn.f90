@@ -2912,7 +2912,8 @@ subroutine check_cart(fchname, cart)
   write(6,'(/,A)') error_warn//' Cartesian functions required. But you provided'
   write(6,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
                  & possible solutions:'
-  write(6,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch file which uses"
+  write(6,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch&
+                 & file which uses"
   write(6,'(A)') 'pure Cartesian functions. fchname='//TRIM(fchname)
   stop
  end if
@@ -2921,7 +2922,8 @@ subroutine check_cart(fchname, cart)
   write(6,'(/,A)') error_warn//' spherical harmonic functions default. But you'
   write(6,'(A)') 'provided a .fch file which has Cartesian functions. Two&
                  & possible solutions:'
-  write(6,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch file which uses pure"
+  write(6,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch fil&
+                 &e which uses pure"
   write(6,'(A)') 'spherical harmonic functions. fchname='//TRIM(fchname)
   stop
  end if
@@ -2936,7 +2938,7 @@ subroutine check_sph(fchname, sph)
  integer, allocatable :: shltyp(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
- character(len=30), parameter :: error_warn='ERROR in subroutine check_sph:'
+ character(len=30), parameter :: error_warn = 'ERROR in subroutine check_sph:'
  logical, intent(out) :: sph
 
  call open_file(fchname, .true., fid)
@@ -2958,11 +2960,11 @@ subroutine check_sph(fchname, sph)
  allocate(shltyp(k), source=0)
  read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
  ! read Shell types done
-
  close(fid)
 
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
+  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions &
+                  &detected.'
   write(6,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
                  & default setting is (6D,7F).'
   write(6,'(A)') 'Only pure Cartesian or spherical harmonic is allowed'
@@ -2973,7 +2975,6 @@ subroutine check_sph(fchname, sph)
  else
   sph = .true.
  end if
-
 end subroutine check_sph
 
 ! read various density matrix from a .fch(k) file

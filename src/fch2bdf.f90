@@ -93,7 +93,7 @@ subroutine fch2bdf(fchname, prt_no)
  if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
   deallocate(shell_type, shell2atom_map)
   write(6,'(A)') 'ERROR in subroutine fch2bdf: Cartesian-type basis functions&
-                   & are not supported in BDF.'
+                 & are not supported in BDF.'
   write(6,'(A)') 'You can use spherical harmonic basis functions.'
   stop
  end if
