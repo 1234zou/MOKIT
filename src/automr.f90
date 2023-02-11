@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc7 :: MOKIT, release date: 2023-Feb-9'
+  write(6,'(A)') 'AutoMR 1.2.5rc8 :: MOKIT, release date: 2023-Feb-11'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -155,25 +155,25 @@ subroutine get_paired_LMO()
  write(6,'(//,A)') 'Enter subroutine get_paired_LMO...'
 
  if(ist == 0) then
-  write(6,'(A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be&
-                   & non-zero before this subroutine.'
+  write(6,'(A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be non-&
+                 &zero before this subroutine.'
   stop
  end if
 
  call calc_ncore() ! calculate the number of core orbitals from array core_orb
  write(6,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
-                         ', Nskip_UNO=', nskip_uno
+                      ', Nskip_UNO=', nskip_uno
 
  i = index(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
 
  if(mo_rhf) then
   if(ist == 6) then
-   write(6,'(A)') 'One set of MOs: GVB/STO-6G -> MO projection -> Rotate has&
-                     & been invoked.'
+   write(6,'(A)') 'One set of MOs: GVB/STO-6G -> MO projection -> Rotate has be&
+                  &en invoked.'
   else
-   write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection ->&
-                    & localization -> paring.'
+   write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection -> localiza&
+                  &tion -> paring.'
    chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
    i = system('bas_fch2py '//TRIM(hf_fch))
    pyname = TRIM(proname)//'_proj_loc_pair.py'
@@ -242,7 +242,7 @@ end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
 subroutine prt_rhf_proj_script_into_py(pyname)
- use mr_keyword, only: mem, nproc, tencycle, hf_fch, dkh2_or_x2c
+ use mr_keyword, only: mem, nproc, hf_fch, dkh2_or_x2c
  use mol, only: natom, nuc, elem
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -250,7 +250,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  character(len=240) :: buf, pyname1, proj_fch, chkname
  character(len=240), intent(in) :: pyname
 
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  buf = ' '
  i = index(hf_fch, '.fch')
  proj_fch = hf_fch(1:i-1)//'_proj.fch'
@@ -266,8 +266,9 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: end-of-file detected.'
-  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(/,A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: end-of-fil&
+                   &e detected.'
+  write(6,'(A)') 'File may be problematic: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -289,28 +290,14 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid2,'(A)') 'mf.kernel()'
 
  do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(1:3) == '#dm') exit
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do
-
- if(tencycle) then
-  write(fid2,'(A)') TRIM(buf(2:))
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf(2:))
-  write(fid2,'(A)') "mf.chkfile = '"//TRIM(chkname)//"'"
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf(2:))
- else ! keep 10 cycle annotated
-  write(fid2,'(A)') TRIM(buf)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
- end if
+ ! keep 10 cycles annotated
 
  close(fid1,status='delete')
- write(fid2,'(/,A)') '# copy this molecule at STO-6G'
+ write(fid2,'(A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
 
  if(ANY(nuc > 54)) then ! atoms > Xe
@@ -354,7 +341,6 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(proj_fch)//"')"
  write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
  write(fid2,'(A)') '# save done'
-
  close(fid2)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
@@ -464,17 +450,17 @@ end subroutine prt_auto_pair_script_into_py
 
 ! print UNO script into a given .py file
 subroutine prt_uno_script_into_py(pyname)
- use mr_keyword, only: mem, nproc, hf_fch, tencycle, uno_thres
+ use mr_keyword, only: mem, nproc, hf_fch, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, uno_fch
  character(len=240), intent(in) :: pyname
 
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  buf = ' '
-
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -483,8 +469,9 @@ subroutine prt_uno_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine prt_uno_script_into_py: end-of-file detected.'
-  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
+  write(6,'(/,A)') 'ERROR in subroutine prt_uno_script_into_py: end-of-file det&
+                   &ected.'
+  write(6,'(A)') 'File may be problematic: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -508,33 +495,20 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'mf.kernel()'
 
  do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(1:3) == '#dm') exit
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do
+ ! keep 10 cycles annotated
 
- if(tencycle) then
-  write(fid2,'(A)') TRIM(buf(2:))
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf(2:))
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf(2:))
- else ! keep 10 cycle annotated
-  write(fid2,'(A)') TRIM(buf)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
- end if
  close(fid1,status='delete')
  close(fid2)
-
  i = RENAME(TRIM(pyname1), TRIM(pyname))
  i = index(hf_fch, '.fch', back=.true.)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
- write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
+ write(fid1,'(A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
  write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
  write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&

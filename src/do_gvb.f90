@@ -443,8 +443,8 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(A,I0,A,/)') '#p GVB(',npair,') chkbasis nosymm int=nobasistransform&
-                        & guess=read geom=allcheck'
+ write(fid,'(A,I0,A,/)') '#p GVB(',npair,') chkbasis nosymm int=nobasistransfor&
+                         &m guess=read geom=allcheck scf(maxcycle=300)'
  allocate(pair(npair))
  pair = ' 2'
  write(fid,'(30A2)') (pair(i),i=1,npair)

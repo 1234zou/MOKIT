@@ -23,9 +23,10 @@ subroutine do_hf()
    call read_natom_from_gjf(gjfname, natom)
    allocate(coor(3,natom), elem(natom), nuc(natom))
    call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+   if(bgchg) call read_bgchg_from_gjf(.false.)
    return
   else
-   write(6,'(A)') 'Provided .fch(k) file. Skip the RHF/UHF step...'
+   write(6,'(A)') 'Provided fch(k) file. Skip the RHF/UHF step...'
    call read_natom_from_fch(hf_fch, natom)
    allocate(coor(3,natom), elem(natom), nuc(natom))
    call read_elem_and_coor_from_fch(hf_fch, natom, elem, nuc, coor, charge, mult)
@@ -36,7 +37,7 @@ subroutine do_hf()
    call check_if_uhf_equal_rhf(hf_fch, eq)
    if(eq) then
     write(6,'(A)') 'This is actually a RHF wave function. Alpha=Beta.&
-                     & Switching to ist=3.'
+                   & Switching to ist=3.'
     i = system('fch_u2r '//TRIM(hf_fch))
     i = index(hf_fch, '.fch', back=.true.)
     hf_fch = hf_fch(1:i-1)//'_r.fch'
@@ -387,6 +388,7 @@ end subroutine generate_hf_gjf
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
  use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path
+ use mol, only: ptchg_e, nuc_pt_e
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, j, hf_type, system, RENAME
@@ -455,6 +457,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
   call prt_hf_pyscf_inp(inpname, hf_type)
+  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   buf = 'python '//TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
   i = system(TRIM(buf))
   if(i /= 0) then
@@ -463,6 +466,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
    stop
   end if
   call read_hf_e_and_ss_from_pyscf_out(outname2, hf_type, e, ssquare)
+  e = e + ptchg_e
 
  case('psi4')
   i = system('fch2psi '//TRIM(fchname))
@@ -476,6 +480,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_hf_e_and_ss_from_psi4_out(outname2, hf_type, e, ssquare)
+  e = e + ptchg_e
+
   call delete_file(inpname)
   i = index(fchname, '.fch', back=.true.)
   prpname1 = fchname(1:i-1)//'2.fch'
@@ -504,7 +510,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
   write(6,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name&
-                   & = '//TRIM(prog_name)
+                 & = '//TRIM(prog_name)
   stop
  end select
 
@@ -577,8 +583,8 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: no&
-                     & 'converged SCF e' found"
+  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: no 'c&
+                   &onverged SCF e' found"
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -600,8 +606,8 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
   i = index(buf,'=')
   read(buf(i+1:),*) ss
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_pyscf_out:&
-                      & invalid wfn_type=', wfn_type
+  write(6,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: inva&
+                    &lid wfn_type=', wfn_type
   close(fid)
   stop
  end select
@@ -842,12 +848,13 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   if(LEN_TRIM(buf) == 0) exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
+
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no blank line &
-                   & found in file "//TRIM(inpname)
-  stop
+                 & found in file "//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
+  stop
  end if
 
  write(fid1,'(A)') 'from pyscf import lib'
@@ -864,7 +871,7 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no 'mf = scf'&
-                   & found in file "//TRIM(inpname)
+                 & found in file "//TRIM(inpname)
   stop
   close(fid)
   close(fid1,status='delete')
@@ -885,8 +892,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no '#dm' found&
-                   & in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no '#dm' found in file&
+                 & "//TRIM(inpname)
   stop
   close(fid)
   close(fid1,status='delete')
@@ -910,9 +917,9 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   write(fid1,'(A)') '  new_e = mf.kernel(dm0=dm1)'
   write(fid1,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
   write(fid1,'(A)') '    break # cannot find lower solution'
-  write(fid1,'(A,/)') '  old_e = new_e'
+  write(fid1,'(A)') '  old_e = new_e'
 
-  write(fid1,'(A)') '# save UHF MOs into .fch file'
+  write(fid1,'(/,A)') '# save UHF MOs into .fch file'
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf.mo_energy[0],False)"
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],'b',mf.mo_energy[1],False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"

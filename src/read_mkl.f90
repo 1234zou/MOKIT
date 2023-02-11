@@ -537,7 +537,7 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
-                  & '$CHAR_M' found in file "//TRIM(mklname)
+                 & '$CHAR_M' found in file "//TRIM(mklname)
   close(fid)
   stop
  end if
@@ -552,7 +552,7 @@ subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, 
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_mkl: no&
-                  & '$COOR' found in file "//TRIM(mklname)
+                 & '$COOR' found in file "//TRIM(mklname)
   close(fid)
   stop
  end if

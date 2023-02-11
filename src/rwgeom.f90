@@ -384,15 +384,10 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
 
- do i = 1, natom, 1
-  elem(i) = ADJUSTL(elem(i))
-  j = IACHAR(elem(i)(1:1))
-  if(j>96 .and. j<123) elem(i)(1:1) = ACHAR(j-32)
-  j = IACHAR(elem(i)(2:2))
-  if(j>64 .and. j<91) elem(i)(2:2) = ACHAR(j+32)
-  write(6,'(A)') elem(i)
- end do ! for i
+ ! standardize a set of elements, e.g. he -> He
+ call standardize_elem(natom, elem)
 
+ ! convert element symbols to atomic order
  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
 
  ne = SUM(nuc) - charge

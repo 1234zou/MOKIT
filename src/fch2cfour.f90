@@ -63,6 +63,10 @@ subroutine fch2cfour(fchname)
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
+  ! TODO: support 6D 10F
+  write(6,'(/,A)') 'ERROR in subroutine fch2cfour: Cartesian-type basis functio&
+                   &ns not supported currently.'
+  stop
  else
   sph = .true.
  end if

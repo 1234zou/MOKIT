@@ -1093,3 +1093,21 @@ subroutine add_force_key2py_script(mem, pyname)
  close(fid)
 end subroutine add_force_key2py_script
 
+! standardize a set of elements, e.g. he -> He
+subroutine standardize_elem(natom, elem)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ character(len=2), intent(inout) :: elem(natom)
+
+ do i = 1, natom, 1
+  elem(i) = ADJUSTL(elem(i))
+
+  j = IACHAR(elem(i)(1:1))
+  if(j>96 .and. j<123) elem(i)(1:1) = ACHAR(j-32)
+
+  j = IACHAR(elem(i)(2:2))
+  if(j>64 .and. j<91) elem(i)(2:2) = ACHAR(j+32)
+ end do ! for i
+end subroutine standardize_elem
+

@@ -156,7 +156,6 @@ module mr_keyword
  logical :: X2C      = .false.    ! scalar relativistic eXact-Two-Component correction
  logical :: dkh2_or_x2c = .false. ! (DKH2 .or. X2C)
  logical :: bgchg    = .false.    ! wthether there is back ground charge(s)
- logical :: tencycle = .true.     ! whether to perform 10 cycles of HF after transferring MOs
  logical :: readrhf  = .false.    ! read RHF MOs from a given .fch(k)
  logical :: readuhf  = .false.    ! read UHF MOs from a given .fch(k)
  logical :: readno   = .false.    ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
@@ -237,8 +236,9 @@ module mr_keyword
  character(len=240) :: molcas_path = ' '
  character(len=240) :: molpro_path = ' '
  character(len=240) :: orca_path = ' '
- character(len=240) :: bdf_path = ' '
  character(len=240) :: psi4_path = ' '
+ character(len=240) :: dalton_path = ' '
+ character(len=240) :: bdf_path = ' '
 
  character(len=11) :: method = ' '  ! model chemistry, theoretical method
  character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
@@ -345,7 +345,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc7 (2023-Feb-9)'
+  write(6,'(A)') '           Version: 1.2.5rc8 (2023-Feb-11)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -363,8 +363,9 @@ contains
   call get_molcas_path()
   call check_molcas_is_openmp(openmp_molcas)
   call get_molpro_path()
-  call get_psi4_path(psi4_path)
   call get_orca_path(orca_path)
+  call get_psi4_path(psi4_path)
+  call get_dalton_path(dalton_path)
   call getenv('GMS', gms_path)
   call getenv('BDF', bdf_path)
   if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
@@ -373,10 +374,11 @@ contains
   write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
   write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
   write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
-  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
   write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
-  write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
   write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
+  write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
+  write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
  end subroutine read_program_path
 
  ! check whether GAMESS path exists
@@ -802,8 +804,6 @@ contains
     CIonly = .true.
     casscf = .false.; casci = .true.
     dmrgscf = .false.; dmrgci = .false.
-   case('no10cycle') ! skip 10 cycle HF
-    tencycle = .false.
    case('maxm')
     read(longbuf(j+1:i-1),*) maxM
    case('hardwfn')
@@ -1023,8 +1023,8 @@ contains
   write(6,'(5(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ',    DKH2,&
        'X2C     = ',    X2C, 'RI      = ',     RI, 'FIC     = ', FIC
 
-  write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
-       'TenCycle= ',tencycle,'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn
+  write(6,'(4(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
+       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn
 
   write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  casscf_force,&
        'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
@@ -1102,10 +1102,18 @@ contains
    end if
   end if
 
-  if(nmr .and. (.not.casscf) .and. iroot==0) then
-   write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
-   write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
-   stop
+  if(nmr) then
+   if((.not.casscf) .and. iroot==0) then
+    write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
+    write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
+    stop
+   end if
+   if(TRIM(dalton_path) == 'NOT FOUND') then
+    write(6,'(/,A)') error_warn//'it seems Dalton is not installed.'
+    stop
+   else
+    call check_exe_exist(dalton_path)
+   end if
   end if
 
   if(DKH2 .and. X2C) then
@@ -1617,8 +1625,8 @@ contains
   close(fid)
 
   call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
-  write(6,'(A,F18.8,A)') 'Coulomb interaction energy of background point&
-                         & charges:', ptchg_e, ' a.u.'
+  write(6,'(A,F18.8,A)') 'Coulomb interaction energy of background point charge&
+                         &s:', ptchg_e, ' a.u.'
   write(6,'(A)') 'This energy is taken into account for all energies below.'
 
   i = index(gjfname, '.gjf', back=.true.)
@@ -2052,8 +2060,8 @@ subroutine check_exe_exist(path)
 
  inquire(file=TRIM(path),exist=alive)
  if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file&
-                   & does not exist.'
+  write(6,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file d&
+                 &oes not exist.'
   write(6,'(A)') 'path='//TRIM(path)
   stop
  end if
@@ -2112,6 +2120,29 @@ subroutine get_orca_path(orca_path)
   end if
  end if
 end subroutine get_orca_path
+
+subroutine get_dalton_path(dalton_path)
+ implicit none
+ integer :: i, fid, system
+ character(len=240), intent(out) :: dalton_path
+
+ dalton_path = ' '
+ i = system("which dalton >mokit.dalton 2>&1")
+
+ open(newunit=fid,file='mokit.dalton',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) dalton_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  dalton_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(dalton_path) == 0) then
+   dalton_path = 'NOT FOUND'
+  else if(index(dalton_path,'no dalton') > 0) then
+   dalton_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_dalton_path
 
 ! check/detect OpenMolcas is OpenMP version or MPI version
 subroutine check_molcas_is_openmp(openmp)
