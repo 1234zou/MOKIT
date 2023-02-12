@@ -45,7 +45,7 @@ Installation
 This is the easiest way, but network is required to auto-download the requirements
 (like Intel MKL). And, creating a new environment before installing is highly
 recommended, to avoid changing your base environment.
-```bash
+```
 conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
@@ -61,7 +61,7 @@ you can try option 3.
     - You need to install [homebrew](https://brew.sh) on your mac. [See here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only) for more tips.
     - You need to install conda via brew and install numpy in base env. via pip, as follows
 
-```zsh
+```
 brew install --cask miniconda
 conda init bash # (or zsh ) 
 conda activate base
