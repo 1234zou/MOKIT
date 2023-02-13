@@ -51,23 +51,19 @@ conda activate mokit-py37
 conda install mokit -c mokit
 ```
 
+You need to keep `mokit-py37` activated when using MOKIT. 
+
 If you have no access to network, but still don't want to compile MOKIT manually,
 you can try option 3.
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
-    - You need to install [homebrew](https://brew.sh) on your mac 
-    - You need to install conda via brew and install numpy in base env. via pip 
-
-  Notice: if you are China, mainland user, follow [brew mirrors help doc](https://mirrors.ustc.edu.cn/help/brew.git.html) and [conda mirrors help doc](https://mirrors.ustc.edu.cn/help/anaconda.html) to install prerequisites
-* A detailed brew-tap install guideline is located in [homebrew-mokit github repo](https://github.com/ansatzX/homebrew-mokit)
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
+    - You need to install [homebrew](https://brew.sh) on your mac. [See here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only) for more tips.
+    - You need to install conda via brew and install numpy in base env. via pip, as follows
 
 ```
 brew install --cask miniconda
-conda init bash (or zsh ) 
+conda init bash # (or zsh ) 
 conda activate base
 pip install numpy
 ```
@@ -78,7 +74,7 @@ Then
 Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
 
 Finally, follow caveats guides, add the following in your zsh(bash/fish etc.) profile.
-```
+```zsh
 export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
@@ -90,12 +86,12 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
     - You need to have a Python3 environment and NumPy.
 
 * A detailed guide for choosing the version of pre-built artifacts and resolving
-dependencies can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)
+dependencies can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)
 
 * After downloading the pre-built artifacts, you need to set the following environment
 variables (assuming MOKIT is put in `$HOME/software/mokit`) in your `~/.bashrc`:
 
-```
+```bash
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
@@ -125,7 +121,7 @@ make all
   and `PYTHONPATH`. E.g. if MOKIT is installed in `$HOME/software/mokit`, the
   following should be set in `~/.bashrc`:
 
-```
+```bash
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
