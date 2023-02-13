@@ -49,22 +49,18 @@ conda activate mokit-py37
 conda install mokit -c mokit
 ```
 
+使用 MOKIT 时仍需保持`mokit-py37`环境处于激活状态。
+
 如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式2：homebrew 联网安装（适用于MacOS）
 * 前提
-    - 需要安装[homebrew](https://brew.sh)
-    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy
+    - 需要安装[homebrew](https://brew.sh)，更多帮助[见此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only)。
+    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy，如下
     
-    注意： 如果你是中国大陆用户请按照[brew 镜像帮助文档](https://mirrors.ustc.edu.cn/help/brew.git.html) and [conda 镜像帮助文档](https://mirrors.ustc.edu.cn/help/anaconda.html)来安装所需依赖
-* 更详细的brew使用方法在*homebrew-mokit* 的github仓库 [homebrew-mokit github repo](https://github.com/ansatzX/homebrew-mokit)
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
 ```
 brew install --cask miniconda
-conda init bash (or zsh ) 
+conda init bash #(or zsh ) 
 conda activate base
 pip install numpy
 ```
@@ -75,7 +71,7 @@ pip install numpy
 或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`.
 
 最终按照caveats的提示, 在你的shell配置文件里添加如下环境变量
-```
+```zsh
 export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
@@ -88,7 +84,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
 * 下载预编译版后, 您需要在`~/.bashrc`文件中设定下述环境变量（假设MOKIT放在`$HOME/software/mokit`）：
 
-```
+```bash
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH

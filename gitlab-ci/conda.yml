@@ -4,6 +4,8 @@
   #except:
   #  - conda
   only:
+    refs:
+      - master
     changes:
       - "mokit/__init__.py"
       - "conda/meta.yaml"
