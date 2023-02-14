@@ -262,7 +262,7 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
 
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine bas_gms2py: No $DATA section found&
-                   & in file '//TRIM(inpname)//'.'
+                 & in file '//TRIM(inpname)//'.'
   close(fid)
   stop
  end if
@@ -360,7 +360,7 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
 
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine read_na_nb_nif_nbf_from_gms_inp: No&
-                   & $DATA section found in'
+                 & $DATA section found in'
   write(6,'(A)') 'file '//TRIM(inpname)//'.'
   close(fid)
   stop
@@ -430,8 +430,8 @@ subroutine read_all_ecp_from_gms_inp(inpname)
    if(j == 1) then
     k = index(buf,'ul')
     if(k == 0) then
-     write(6,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP&
-                      & does not start with '-ul potential'."
+     write(6,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP does&
+                    &not start with '-ul potential'."
      write(6,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(inpname)
      stop
     end if
@@ -776,7 +776,7 @@ subroutine read_mo_from_dat(datname, nbf, nif, coeff)
 
  if(i /= 0) then
   write(6,'(A)') "ERROR in subroutine read_mo_from_dat: No '$VEC' section in&
-                   & file "//TRIM(datname)
+                 & file "//TRIM(datname)
   close(fid)
   stop
  end if

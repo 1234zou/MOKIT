@@ -28,8 +28,15 @@ end module Sdiag_parameter
 module root_parameter
  implicit none
  real(kind=8), parameter :: root3   = DSQRT(3d0)     ! SQRT(3)
+ real(kind=8), parameter :: root6   = DSQRT(6d0)     ! SQRT(6)
+ real(kind=8), parameter :: root7   = DSQRT(7d0)     ! SQRT(7)
  real(kind=8), parameter :: root9   = 3d0            ! SQRT(9)
+ real(kind=8), parameter :: root10  = DSQRT(10d0)    ! SQRT(10)
+ real(kind=8), parameter :: root12  = DSQRT(12d0)    ! SQRT(12)
  real(kind=8), parameter :: root15  = DSQRT(15d0)    ! SQRT(15)
+ real(kind=8), parameter :: root21  = DSQRT(21d0)    ! SQRT(21)
+ real(kind=8), parameter :: root30  = DSQRT(30d0)    ! SQRT(30)
+ real(kind=8), parameter :: root42  = DSQRT(42d0)    ! SQRT(42)
  real(kind=8), parameter :: root45  = DSQRT(45d0)    ! SQRT(45)
  real(kind=8), parameter :: root105 = DSQRT(105d0)   ! SQRT(105)
  real(kind=8), parameter :: root945 = DSQRT(945d0)   ! SQRT(945)

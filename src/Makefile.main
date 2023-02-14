@@ -368,7 +368,7 @@ get_mokit_loc:
 
 exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
-     bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf \
+     bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2cfour \
      fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
@@ -379,7 +379,7 @@ pymodules: auto_pair chk2py fch2py py2fch pyuno construct_vir ortho assoc_rot \
 
 all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
-     bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf \
+     bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2cfour \
      fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \

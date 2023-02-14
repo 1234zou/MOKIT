@@ -37,7 +37,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Feb 11, 2023
+Feb 14, 2023
 
 Installation
 ------------
@@ -129,14 +129,14 @@ export GMS=$HOME/software/gamess/rungms
 ```
 
   Remember to modify the `GMS` path to suit your local environment. 
-  Attention: the PYTHONPATH has changed since MOKIT version 1.2.5rc2.
+  Attention: the `PYTHONPATH` has changed since MOKIT version 1.2.5rc2.
 
   Note that you need to run `source ~/.bashrc` or exit the terminal as well as
   re-login, in order to activate newly written environment variables.
 
-* The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we
-  can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10
-  in [manual](doc/).
+* The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can
+  do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in
+  [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog).
 
 Quick Start
 -----------
@@ -205,9 +205,9 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among BAGEL, CFOUR, NWCHEM, etc.
+* MOs trasferring among NWCHEM, BAGEL, COLUMBUS, etc.
 
-* Develop/Implement black-box strategies of excited state calculations
+* Develop/Implement robust black-box strategies of excited state calculations
 
 Citation
 --------
@@ -223,7 +223,8 @@ Citation
 
 * If you use MOKIT in your work, please cite MOKIT in the main body of your paper.
   Citing MOKIT only in Supporting Information of your paper is insufficient. More
-  details and examples of citation can be found in [manual](doc/MOKIT_manual.pdf)
-  under the `doc/` directory, in which you can also find EndNote citation files.
-  Your proper citation would be a great encouragement to developers.
+  details and examples of citation can be found in
+  [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html), in which you
+  can also find EndNote citation files. Your proper citation would be a great
+  encouragement to developers.
 

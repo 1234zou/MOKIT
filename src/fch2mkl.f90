@@ -82,10 +82,10 @@ subroutine fch2mkl(fchname)
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected&
-                   & in file '//TRIM(fchname)//'.'
-  write(6,'(A)') "ORCA supports only spherical functions. You need to add&
-                  & '5D 7F' keywords in Gaussian."
+  write(6,'(A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected in&
+                 & file '//TRIM(fchname)//'.'
+  write(6,'(A)') "ORCA supports only spherical functions. You need to add '5D &
+                 &7F' keywords in Gaussian."
   stop
  else if( ANY(shell_type < -5) ) then
   write(6,'(A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not supported.'
