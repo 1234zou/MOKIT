@@ -28,8 +28,9 @@ subroutine do_cas(scf)
  real(kind=8) :: e(2)       ! e(1) is CASCI enery, e(2) is CASSCF energy
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
- character(len=240) :: buf, fchname, pyname, inpname, outname, proname, mklname
- character(len=240) :: orbname, xmlname
+ character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
+                       orbname, xmlname
+ character(len=480) :: buf
  logical, intent(in) :: scf
 
  if(scf) then
@@ -292,19 +293,21 @@ subroutine do_cas(scf)
   call copy_file(inpname, casnofch, .false.)
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
+  i = index(casnofch, '_NO.fch', back=.true.)
+  datname = casnofch(1:i-1)//'.dat'
   if(scf) then
-   i = system('dat2fch '//TRIM(datname)//' '//TRIM(casnofch))
+   buf = 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)
+   write(6,'(A)') '$'//TRIM(buf)
+   i = system(TRIM(buf))
    write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                               TRIM(casnofch), idx1, idx2
+   write(6,'(A)') '$'//TRIM(buf)
    i = system(TRIM(buf))
   end if
 
-  ! update datname to *_CASSCF.dat
-  i = index(casnofch, '_NO.fch', back=.true.)
-  datname = casnofch(1:i-1)//'.dat'
-
   ! transfer NOs from .dat to .fch
-  write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no 1 ',idx2
+  write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',idx2
+  write(6,'(A)') '$'//TRIM(buf)
   i = system(TRIM(buf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'

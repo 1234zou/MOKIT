@@ -256,7 +256,7 @@ subroutine fch2qchem(fchname, npair)
                               f_mark, g_mark, h_mark, nbf, nif1, coeff)
  end if
 
- deallocate(d_mark, f_mark, g_mark, h_mark, shell_type)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
  allocate(alpha_coeff(nbf,nif))
  alpha_coeff = coeff(:,1:nif)
  if(uhf) then

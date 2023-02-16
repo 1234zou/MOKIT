@@ -84,7 +84,8 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2inporb(fchname, prt_no, sph)
- use fch_content, only: check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
+  read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, m, length, orbid
  integer :: nalpha, nbeta, nbf, nif
@@ -137,8 +138,8 @@ subroutine fch2inporb(fchname, prt_no, sph)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
+  write(6,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/Car&
+                 &tesian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                  & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
@@ -160,72 +161,17 @@ subroutine fch2inporb(fchname, prt_no, sph)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- n6dmark = 0
- n10fmark = 0
- n15gmark = 0
- n21hmark = 0
- n5dmark = 0
- n7fmark = 0
- n9gmark = 0
- n11hmark = 0
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
- d_mark = 0
- f_mark = 0
- g_mark = 0
- h_mark = 0
- nbf = 0
- do i = 1, k, 1
-  select case(shell_type(i))
-  case( 0)   ! S
-   nbf = nbf + 1
-  case( 1)   ! 3P
-   nbf = nbf + 3
-  case(-1)   ! SP or L
-   nbf = nbf + 4
-  case(-2)   ! 5D
-   n5dmark = n5dmark + 1
-   d_mark(n5dmark) = nbf + 1
-   nbf = nbf + 5
-  case( 2)   ! 6D
-   n6dmark = n6dmark + 1
-   d_mark(n6dmark) = nbf + 1
-   nbf = nbf + 6
-  case(-3)   ! 7F
-   n7fmark = n7fmark + 1
-   f_mark(n7fmark) = nbf + 1
-   nbf = nbf + 7
-  case( 3)   ! 10F
-   n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
-  case(-4)   ! 9G
-   n9gmark = n9gmark + 1
-   g_mark(n9gmark) = nbf + 1
-   nbf = nbf + 9
-  case( 4)   ! 15G
-   n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
-  case(-5)   ! 11H
-   n11hmark = n11hmark + 1
-   h_mark(n11hmark) = nbf + 1
-   nbf = nbf + 11
-  case( 5)   ! 21H
-   n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
-  case default
-   write(6,'(A)') 'ERROR in subroutine fch2inporb: shell_type(i) out of range.'
-   write(6,'(2(A,I0))') 'k=', k, ', i=', i
-   stop
-  end select
- end do ! for i
 
  ! adjust the order of d, f, etc. functions
  if(sph) then
+  call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
+                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, nif, coeff)
  else
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
+                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
   call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
                                f_mark, g_mark, h_mark, nbf, nif, coeff)
  end if

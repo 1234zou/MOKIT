@@ -57,7 +57,8 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
 !  to that of Dalton
 subroutine fch2dal(fchname)
- use fch_content, only: check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
+  read_mark_from_shltyp_cart
  implicit none
  integer :: i, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
@@ -115,64 +116,22 @@ subroutine fch2dal(fchname)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- n6dmark = 0; n10fmark = 0; n15gmark = 0; n21hmark = 0
- n5dmark = 0; n7fmark = 0; n9gmark = 0; n11hmark = 0
- allocate(d_mark(k), source=0)
- allocate(f_mark(k), source=0)
- allocate(g_mark(k), source=0)
- allocate(h_mark(k), source=0)
- nbf = 0
- do i = 1, k, 1
-  select case(shell_type(i))
-  case( 0)   ! S
-   nbf = nbf + 1
-  case( 1)   ! 3P
-   nbf = nbf + 3
-  case(-1)   ! SP or L
-   nbf = nbf + 4
-  case(-2)   ! 5D
-   n5dmark = n5dmark + 1
-   d_mark(n5dmark) = nbf + 1
-   nbf = nbf + 5
-  case( 2)   ! 6D
-   n6dmark = n6dmark + 1
-   d_mark(n6dmark) = nbf + 1
-   nbf = nbf + 6
-  case(-3)   ! 7F
-   n7fmark = n7fmark + 1
-   f_mark(n7fmark) = nbf + 1
-   nbf = nbf + 7
-  case( 3)   ! 10F
-   n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
-  case(-4)   ! 9G
-   n9gmark = n9gmark + 1
-   g_mark(n9gmark) = nbf + 1
-   nbf = nbf + 9
-  case( 4)   ! 15G
-   n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
-  case(-5)   ! 11H
-   n11hmark = n11hmark + 1
-   h_mark(n11hmark) = nbf + 1
-   nbf = nbf + 11
-  case( 5)   ! 21H
-   n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
-  end select
- end do
- deallocate(shell_type)
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
 
  ! adjust the order of d, f, etc. functions (share subroutines with fch2inporb)
- call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                             f_mark, g_mark, h_mark, nbf, nif, coeff)
- call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+ if(sph) then ! spherical harmonic
+  call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
+                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+  call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, nif, coeff)
+ else ! Cartesian-type basis
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
+                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                               f_mark, g_mark, h_mark, nbf, nif, coeff)
+ end if
 ! adjustment finished
- deallocate(d_mark, f_mark, g_mark, h_mark)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
 
  i = index(fchname, '.fch', back=.true.)
  dalfile = fchname(1:i-1)//'.dal'

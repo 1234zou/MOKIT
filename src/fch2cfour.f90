@@ -1,6 +1,9 @@
 ! written by jxzou at 20230209: transfer MOs from Gaussian to CFOUR
 ! limitation: one element with different basis sets is not supported
 
+! currently the basis function order is correct
+! TODO: 1) correct internal coordinates; 2) rotate molecule as CFOUR
+
 module basis_data ! to store basis set data for an atom
  implicit none
  integer :: ncol(0:7), nline(0:7)
@@ -176,24 +179,19 @@ subroutine fch2cfour(fchname)
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
-  ! TODO: support 6D 10F
-  write(6,'(/,A)') 'ERROR in subroutine fch2cfour: Cartesian-type basis functio&
-                   &ns not supported currently.'
-  stop
  else
   sph = .true.
  end if
 
  ! generate the file ZMAT
- call prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, ecp)
+ call prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
+ !call cart2zmat(natom, elem, coor)
  deallocate(coor)
 
  ! generate files GENBAS and ECPDATA(if needed)
  call prt_cfour_genbas(ecp)
 
  if(uhf) then ! UHF
-  write(6,'(/,A)') 'ERROR in subroutine fch2cfour: UHF not supported currently.'
-  stop
   allocate(coeff(nbf,2*nif))
   coeff(:,1:nif) = alpha_coeff
   coeff(:,nif+1:2*nif) = beta_coeff
@@ -246,8 +244,8 @@ subroutine fch2cfour(fchname)
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
   ! adjust the order of 6d, 10f, etc. functions
-!  call fch2cfour_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-!                              f_mark, g_mark, h_mark, nbf, idx, norm)
+  call orb2fch_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
+                            f_mark, g_mark, h_mark, nbf, idx, norm)
  end if
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
@@ -267,12 +265,20 @@ subroutine fch2cfour(fchname)
    nbf = nbf + 3
   case(-2)   ! 5D
    nbf = nbf + 5
+  case( 2)   ! 6D
+   nbf = nbf + 6
   case(-3)   ! 7F
    nbf = nbf + 7
+  case( 3)   ! 10F
+   nbf = nbf + 10
   case(-4)   ! 9G
    nbf = nbf + 9
+  case( 4)   ! 15G
+   nbf = nbf + 15
   case(-5)   ! 11H
    nbf = nbf + 11
+  case( 5)   ! 21H
+   nbf = nbf + 21
   end select
   if(m == 0) cycle
 
@@ -286,7 +292,7 @@ subroutine fch2cfour(fchname)
 
   if(i < k) i = i - 1
   if(length > 1) then
-   call zeta_mv_forwd(nbf1, m, length, nbf0, idx, norm)
+   call zeta_mv_forwd_idx(nbf1, m, length, nbf0, idx, norm)
    nbf = nbf1 + length*(nbf-nbf1)
   end if
  end do ! for while
@@ -308,11 +314,17 @@ subroutine fch2cfour(fchname)
  deallocate(coeff)
 
  ! create/print CFOUR orbital file OLDMOS
- call prt_cfour_oldmos(nbf, nif, alpha_coeff)
+ call prt_cfour_oldmos(nbf, nif, alpha_coeff, .false.)
+
+ if(uhf) then
+  call prt_cfour_oldmos(nbf, nif, beta_coeff, .true.)
+ else
+  if(mult /= 1) call prt_cfour_oldmos(nbf, nif, alpha_coeff, .true.)
+ end if
 end subroutine fch2cfour
 
 ! print/create/write the CFOUR input file ZMAT
-subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, ecp)
+subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
  use fch_content, only: LPSkip
  implicit none
  integer :: i, fid
@@ -320,7 +332,7 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, ecp)
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=2) :: str
  character(len=2), intent(in) :: elem(natom)
- logical, intent(in) :: uhf, ecp
+ logical, intent(in) :: uhf, sph, ecp
 
  str = '  '
  open(newunit=fid,file='ZMAT',status='replace')
@@ -339,8 +351,10 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, ecp)
    write(fid,'(A)',advance='no') 'RO'
   end if
  end if
- write(fid,'(2(A,I0))',advance='no') 'HF,SYM=OFF,FIXGEOM=ON,CHARGE=', charge, &
+ write(fid,'(2(A,I0))',advance='no') 'HF,SYM=OFF,CHARGE=', charge, &
                                      ',MULTI=', mult
+ if(.not. sph) write(fid,'(A)',advance='no') ',SPHERICAL=OFF'
+
  if(ecp) then
   write(fid,'(A)') ',BASIS=SPECIAL,ECP=ON'
  else
@@ -520,14 +534,19 @@ subroutine prt_cfour_genbas(ecp)
 end subroutine prt_cfour_genbas
 
 ! print CFOUR orbital file OLDMOS
-subroutine prt_cfour_oldmos(nbf, nif, coeff)
+subroutine prt_cfour_oldmos(nbf, nif, coeff, append)
  implicit none
  integer :: i, j, k, nb, fid
  integer, intent(in) :: nbf, nif
  real(kind=8), intent(in) :: coeff(nbf,nif)
  character(len=9) :: str
+ logical, intent(in) :: append
 
- open(newunit=fid,file='OLDMOS',status='replace')
+ if(append) then ! usually for printing Beta MOs
+  open(newunit=fid,file='OLDMOS',status='old',position='append')
+ else            ! usually for printing Alpha MOs
+  open(newunit=fid,file='OLDMOS',status='replace')
+ end if
 
  nb = nif/4
  do i = 1, nb, 1
@@ -573,43 +592,6 @@ subroutine fch2cfour_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, &
   call fch2cfour_permute_11h(idx(j:j+10), norm(j:j+10))
  end do ! for i
 end subroutine fch2cfour_permute_sph
-
-! move the 2nd, 3rd, ... Zeta basis functions forward
-subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
- implicit none
- integer :: i, j, k
- integer, intent(in) :: i0, shell_type, length, nbf
- integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
- !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
- integer, intent(inout) :: idx2(nbf)
- integer, allocatable :: idx(:)
- real(kind=8), allocatable :: norm(:)
- real(kind=8), intent(inout) :: norm1(nbf)
-
- if(length == 1) return
-
- if(shell_type==0 .or. shell_type==-1) then
-  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
-                 & shell_type is 0 or -1. Impossible.'
-  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
-  stop
- end if
-
- idx = idx2
- norm = norm1
- k = num0(shell_type)
-
- do i = 1, k, 1
-  do j = 1, length, 1
-   idx(i0+j+(i-1)*length) = idx2(i0+i+(j-1)*k)
-   norm(i0+j+(i-1)*length) = norm1(i0+i+(j-1)*k)
-  end do ! for j
- end do ! for i
-
- idx2 = idx
- norm1 = norm
- deallocate(idx, norm)
-end subroutine zeta_mv_forwd
 
 subroutine fch2cfour_permute_5d(idx, norm)
  use root_parameter, only: root3
@@ -722,4 +704,95 @@ subroutine fch2cfour_permute_11h(idx, norm)
   norm(i) = norm0(order(i))
  end forall
 end subroutine fch2cfour_permute_11h
+
+subroutine cart2zmat(natom, elem, coor)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: coor(3,natom) ! in Angstrom
+ real(kind=8), external :: norm, ang, dih
+ character(len=2), intent(in) :: elem(natom)
+
+ open(newunit=fid,file='ZMAT2.gjf',status='replace')
+ write(fid,'(A)') '#'
+ write(fid,'(/,A)') 'title'
+ write(fid,'(/,A)') '0 1'
+ write(fid,'(A)') TRIM(elem(1))
+ if(natom > 1) write(fid,'(A)') TRIM(elem(2))//' 1 B1'
+ if(natom > 2) write(fid,'(A)') TRIM(elem(3))//' 1 B2 2 A1'
+
+ do i = 4, natom, 1
+  write(fid,'(2(A,I0),1X,I0,A,I0)') TRIM(elem(i))//' 1 B',i-1,' 2 A',i-2, i-1,&
+   ' D',i-3
+ end do ! for i
+
+ write(fid,'(/)',advance='no')
+
+ do i = 2, natom, 1
+  write(fid,'(A,I0,A,F13.7)') 'B',i-1,'=',norm(coor(:,1)-coor(:,i))
+ end do ! for i
+
+ do i = 3, natom, 1
+  write(fid,'(A,I0,A,F13.7)') 'A',i-2,'=',ang(coor(:,2), coor(:,1), coor(:,i))
+ end do ! for i
+
+ do i = 4, natom, 1
+  write(fid,'(A,I0,A,F13.7)') 'D',i-3,'=',dih(coor(:,1),coor(:,2),coor(:,3),coor(:,i))
+ end do ! for i
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+end subroutine cart2zmat
+
+! calculate the norm of a 3D vector
+function norm(c)
+ implicit none
+ real(kind=8) :: norm
+ real(kind=8), intent(in) :: c(3)
+
+ norm = DSQRT(DOT_PRODUCT(c,c))
+end function norm
+
+! calculate bond angle
+function ang(c1, c2, c3)
+ implicit none
+ real(kind=8) :: r1(3), r2(3), ang
+ real(kind=8), external :: norm
+ real(kind=8), intent(in) :: c1(3), c2(3), c3(3)
+
+ r1 = c1 - c2
+ r2 = c3 - c2
+! ang = DACOSD(DOT_PRODUCT(r1,r2)/(norm(r1)*norm(r2)))
+end function ang
+
+! calculate the 4,6,2,5,3ctor (normalized to 1) of two vectors
+subroutine normal_vector(v1, v2, nv)
+ implicit none
+ real(kind=8), external :: norm
+ real(kind=8), intent(in) :: v1(3), v2(3)
+ real(kind=8), intent(out) :: nv(3)
+
+ nv(1) = v1(2)*v2(3) - v1(3)*v2(2)
+ nv(2) = v1(3)*v2(1) - v1(1)*v2(3)
+ nv(3) = v1(1)*v2(2) - v1(2)*v2(1)
+ nv = nv/norm(nv)
+end subroutine normal_vector
+
+function dih(c1, c2, c3, c4)
+ implicit none
+ real(kind=8) :: nv1(3), nv2(3), dih
+ real(kind=8), intent(in) :: c1(3), c2(3), c3(3), c4(3)
+ logical :: revert
+
+ dih = 0d0
+ call normal_vector(c3-c2, c1-c2, nv1)
+ call normal_vector(c2-c3, c4-c3, nv2)
+
+ revert = .false.
+ dih = DOT_PRODUCT(nv1, nv2)
+ if(dih < 0d0) revert = .true.
+
+! dih = 180d0 - DACOSD(dih)
+ if(revert) dih = -dih
+end function dih
 

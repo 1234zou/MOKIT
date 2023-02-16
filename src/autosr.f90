@@ -19,7 +19,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.5rc9 :: MOKIT, release date: 2023-Feb-14'
+  write(6,'(A)') 'AutoSR 1.2.5rc10 :: MOKIT, release date: 2023-Feb-16'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
