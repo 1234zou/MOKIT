@@ -23,6 +23,11 @@ NAME             = 'mokit'
 MAINTAINER       = 'Jingxiang Zou'
 MAINTAINER_EMAIL = 'njumath@sina.cn'
 DESCRIPTION      = 'MOKIT: Molecular Orbital KIT'
+LONG_DESCRIPTION = '''
+MOKIT offers various utilities and modules to transfer MOs among various quantum chemistry software packages. 
+
+Besides, the automr program in MOKIT can set up and run common multi-reference calculations in a black-box way.
+'''
 URL              = 'http://gitlab.com/jxzou/mokit'
 DOWNLOAD_URL     = 'http://gitlab.com/jxzou/mokit'
 LICENSE          = 'Apache License 2.0'
@@ -148,11 +153,11 @@ setup(
     version=VERSION,
     description=DESCRIPTION,
     long_description_content_type="text/markdown",
-    long_description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
     url=URL,
     download_url=DOWNLOAD_URL,
     project_urls={
-        "Documentation": "http://gitlab.com/jxzou/mokit/doc",
+        "Documentation": "http://jeanwsr.gitlab.io/mokit-doc-mdbook",
         "Source Code": "http://gitlab.com/jxzou/mokit/src",
         "Bug Tracker": "http://gitlab.com/jxzou/mokit/-/issues",
     },
