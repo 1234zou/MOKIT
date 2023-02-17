@@ -36,6 +36,8 @@ OBJ_extract_noon2fch = file_op.obj extract_noon2fch.obj
 OBJ_fch2bdf = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj rwgeom.obj read_gms_inp.obj \
               split_sp.obj fch2bdf.obj
+OBJ_fch2cfour = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
+                split_sp.obj fch2cfour.obj
 OBJ_fch2com = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj split_sp.obj fch2com.obj
 OBJ_fch2dal = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
@@ -77,10 +79,10 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 
 .PHONY: clean distclean addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
-        bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2com fch2dal \
-        fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy \
-        fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs \
-        mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
+        bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2cfour \
+        fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
+        fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
+        gvb_sort_pairs mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS) $(MKL_FLAGS)
@@ -154,6 +156,9 @@ fch2bdf: $(OBJ_fch2bdf)
 	$(F90) $(OBJ_fch2bdf) -o $(BIN)\fch2bdf $(FFLAGS) $(LFLAGS)
 	@echo fch2bdf requires utilities fch2inp and bas_gms2bdf, please also compile them
 
+fch2cfour: $(OBJ_fch2cfour)
+	$(F90) $(OBJ_fch2cfour) -o $(BIN)\fch2cfour $(FFLAGS) $(LFLAGS)
+
 fch2com: $(OBJ_fch2com)
 	$(F90) $(OBJ_fch2com) -o $(BIN)\fch2com $(FFLAGS) $(LFLAGS)
 	@echo fch2com requires utilities fch2inp and bas_gms2molpro, please also compile them
@@ -220,8 +225,8 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 
 all: addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas \
      bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch \
-     extract_noon2fch fch2bdf fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi \
-     fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs \
+     extract_noon2fch fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp fch2inporb \
+     fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch xml2fch solve_ON_matrix
 
 clean:

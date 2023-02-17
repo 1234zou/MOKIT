@@ -589,7 +589,7 @@ subroutine unsort_shell_and_mo(ilen, shell_type, shell_to_atom_map, nbf, idx)
  integer, parameter :: ntype = 10
  integer, parameter :: num0(ntype) = [0, 1, -2, 2, -3, 3, -4, 4, -5, 5]
  integer, parameter :: num1(ntype) = [1, 3, 5, 6, 7, 10, 9, 15, 11, 21]
- !                                     S  P  5D 6D 7F 10F 9G 15G 11H 21H
+ !                                    S  P  5D 6D 7F 10F 9G 15G 11H 21H
  integer :: num(ntype)
  integer, intent(in) :: nbf
  integer, intent(inout) :: ilen, idx(nbf)

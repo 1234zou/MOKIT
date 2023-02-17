@@ -36,7 +36,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年2月11号
+2023年2月16号
 
 安装
 ----------
@@ -49,22 +49,18 @@ conda activate mokit-py37
 conda install mokit -c mokit
 ```
 
+使用 MOKIT 时仍需保持`mokit-py37`环境处于激活状态。
+
 如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式2：homebrew 联网安装（适用于MacOS）
 * 前提
-    - 需要安装[homebrew](https://brew.sh)
-    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy
+    - 需要安装[homebrew](https://brew.sh)，更多帮助[见此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only)。
+    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy，如下
     
-    注意： 如果你是中国大陆用户请按照[brew 镜像帮助文档](https://mirrors.ustc.edu.cn/help/brew.git.html) and [conda 镜像帮助文档](https://mirrors.ustc.edu.cn/help/anaconda.html)来安装所需依赖
-* 更详细的brew使用方法在*homebrew-mokit* 的github仓库 [homebrew-mokit github repo](https://github.com/ansatzX/homebrew-mokit)
-```
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
 ```
 brew install --cask miniconda
-conda init bash (or zsh ) 
+conda init bash #(or zsh ) 
 conda activate base
 pip install numpy
 ```
@@ -75,7 +71,7 @@ pip install numpy
 或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`.
 
 最终按照caveats的提示, 在你的shell配置文件里添加如下环境变量
-```
+```zsh
 export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
@@ -88,7 +84,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
 * 下载预编译版后, 您需要在`~/.bashrc`文件中设定下述环境变量（假设MOKIT放在`$HOME/software/mokit`）：
 
-```
+```bash
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
@@ -130,7 +126,8 @@ export GMS=$HOME/software/gamess/rungms
   修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
 
 * 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。
-  因此请阅读[手册](doc/)4.4.10部分使用提供的脚本自动修改GAMESS代码。
+  因此请阅读[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog)
+  4.4.10部分使用提供的脚本自动修改GAMESS代码。
 
 快速开始
 ----------
@@ -200,9 +197,9 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
 下一步计划
 ----------
-* 支持BAGEL, CFOUR, NWCHEM等软件间传轨道
+* 支持NWCHEM, BAGEL, COLUMBUS等软件间传轨道
 
-* 开发和实现多参考的激发态计算
+* 开发和实现稳健的多参考激发态自动计算策略
 
 如何引用
 ----------
@@ -216,6 +213,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
    DOI: 10.1021/acs.jctc.8b00854; DOI: 10.1021/acs.jpca.0c05216.
 
 * 若您在您的研究中使用了MOKIT的任何一个子程序，请在正文参考文献中引用MOKIT。若仅
-  在补充材料中引用MOKIT是不够的。更详细的引用说明和示例请见`doc/`目录下的[手册](doc/MOKIT_manual.pdf)，
-  目录下也提供了EndNote引用文件。您的规范引用是对开发者的极大鼓励。
+  在补充材料中引用MOKIT是不够的。更详细的引用说明和示例请见
+  [手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，目录下也提供了
+  EndNote引用文件。您的规范引用是对开发者的极大鼓励。
 

@@ -3,8 +3,6 @@
 
 import random, os, shutil
 import numpy as np
-from pyscf import gto
-from pyscf.lo.boys import dipole_integral
 from mokit.lib.fch2py import fch2py
 from mokit.lib.py2fch import py2fch
 from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
@@ -43,7 +41,6 @@ def mo_fch2py(fchname):
   >>> from mokit.lib.gaussian import mo_fch2py
   >>> mo = mo_fch2py('h2o.fch')
   '''
-  from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
   from mokit.lib.excited import check_uhf_in_fch
   from mokit.lib.fch2py import fch2py
 
@@ -75,6 +72,7 @@ def loc(fchname, idx, method=None):
   >>> from mokit.lib.gaussian import loc
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
+  from pyscf.lo.boys import dipole_integral
 
   if method is None:
     method = 'pm'
@@ -217,16 +215,18 @@ def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
 def make_orb_resemble(target_fch, ref_fch, nmo=None):
   '''
   make a set of target MOs resembles the reference MOs
-  (different geometries and different basis set in two .fch files are allowed)
+  (different basis set in two .fch files are allowed, but their geometries and
+   orientations should be identical or very similar)
   target_fch: the .fch file which holds MOs to be updated
   ref_fch: the .fch file which holds reference MOs
   nmo: indices 1~nmo MOs in ref_fch will be set as reference MOs
   If nmo is not given, it will be set as na (number of alpha electrons)
   '''
+  from pyscf import gto
   from mokit.lib.rwwfn import read_na_and_nb_from_fch
   from mokit.lib.mo_svd import orb_resemble
   if nmo is None:
-    nmo, nb = read_na_and_nb_from_fch(ref_fch)
+    nmo, nb = read_na_and_nb_from_fch(ref_fch) # set nmo as nalpha
 
   mol1 = load_mol_from_fch(target_fch)
   mol2 = load_mol_from_fch(ref_fch)

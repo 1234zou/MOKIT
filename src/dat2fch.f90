@@ -40,10 +40,10 @@ program main
   stop
  end if
 
- call getarg(1,datname)
+ call getarg(1, datname)
  call require_file_exist(datname)
 
- call getarg(2,fchname)
+ call getarg(2, fchname)
  call require_file_exist(fchname)
  call check_uhf_in_fch(fchname, uhf)
 
@@ -116,8 +116,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  ! check nopen ?= na - nb
  if(gvb_or_uhf_or_cas=='-gvb' .and. nopen/=na-nb) then
   write(6,'(/,A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
-  write(6,'(A)') 'You should check if anything is wrong in .fch(k) file&
-                   & or your command line arguments.'
+  write(6,'(A)') 'You should check if anything is wrong in .fch(k) file or your&
+                 & command line arguments.'
   write(6,'(3(A,I0))') 'nopen=', nopen, ', na=', na, ', nb=', nb
  end if
  ! check done
@@ -132,9 +132,9 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  ! check if any spherical functions
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
   write(6,'(A)') 'ERROR in subroutine dat2fch: mixed spherical harmonic/&
-                   &Cartesian functions detected.'
+                 &Cartesian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                   & default setting is (6D,7F).'
+                 & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shltyp>1) ) then

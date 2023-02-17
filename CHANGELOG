@@ -1,7 +1,7 @@
-MOKIT 1.2.5 (Feb 11, 2023)
+MOKIT 1.2.5 (Feb 16, 2023)
 ------------------------
 * remove the keyword no10cycle
-* add utility fch2cfour
+* add utility fch2cfour and module py2cfour
 * fix uninitialized value bug in dal2fch
 * move PDF manual to [online manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 * add MacOS homebrew configuration/distribution (by ansatzX)

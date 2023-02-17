@@ -388,7 +388,7 @@ end subroutine generate_hf_gjf
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
  use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path
- use mol, only: ptchg_e, nuc_pt_e
+ use mol, only: ptchg_e
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, j, hf_type, system, RENAME

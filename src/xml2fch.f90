@@ -45,10 +45,11 @@ end program main
 ! read the MOs in orbital file of Molpro and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine xml2fch(xmlname, fchname, prt_no)
- use fch_content, only: check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
+  read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, length, na, nb, nbf, nif, nbf0
- integer :: n10fmark, n15gmark, n21hmark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  integer, allocatable :: idx(:), idx2(:)
@@ -56,7 +57,7 @@ subroutine xml2fch(xmlname, fchname, prt_no)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=240), intent(in) :: xmlname, fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:)
- logical :: uhf
+ logical :: uhf, sph
  logical, intent(in) :: prt_no
 
  call check_uhf_in_fch(fchname, uhf)
@@ -86,12 +87,17 @@ subroutine xml2fch(xmlname, fchname, prt_no)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
- if(ANY(shell_type>1) .and. ANY(shell_type<-2)) then
-  write(6,'(A)') 'ERROR in subroutine xml2fch: mixed Cartesian/spherical harmonic&
-                 & functions detected. Cannot deal with that.'
-  write(6,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
-  write(6,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
+ if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
+  write(6,'(A)') 'ERROR in subroutine xml2fch: mixed spherical harmonic/&
+                 &Cartesian functions detected.'
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+                 & default setting is (6D,7F).'
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
+ else if( ANY(shell_type>1) ) then
+  sph = .false.
+ else
+  sph = .true.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
@@ -109,87 +115,40 @@ subroutine xml2fch(xmlname, fchname, prt_no)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- n10fmark = 0
- n15gmark = 0
- n21hmark = 0
- n5dmark = 0
- n7fmark = 0
- n9gmark = 0
- n11hmark = 0
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
- d_mark = 0
- f_mark = 0
- g_mark = 0
- h_mark = 0
- nbf = 0
- do i = 1, k, 1
-  select case(shell_type(i))
-  case( 0)   ! S
-   nbf = nbf + 1
-  case( 1)   ! 3P
-   nbf = nbf + 3
-  case(-1)   ! SP or L
-   nbf = nbf + 4
-  case(-2)   ! 5D
-   n5dmark = n5dmark + 1
-   d_mark(n5dmark) = nbf + 1
-   nbf = nbf + 5
-  case( 2)   ! 6D
-   nbf = nbf + 6
-  case(-3)   ! 7F
-   n7fmark = n7fmark + 1
-   f_mark(n7fmark) = nbf + 1
-   nbf = nbf + 7
-  case( 3)   ! 10F
-   n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
-  case(-4)   ! 9G
-   n9gmark = n9gmark + 1
-   g_mark(n9gmark) = nbf + 1
-   nbf = nbf + 9
-  case( 4)   ! 15G
-   n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
-  case(-5)   ! 11H
-   n11hmark = n11hmark + 1
-   h_mark(n11hmark) = nbf + 1
-   nbf = nbf + 11
-  case( 5)   ! 21H
-   n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
-  end select
- end do ! for i
-
- deallocate(shell_type)
 
  ! adjust the order of d, f, etc. functions
- do i = 1, n5dmark, 1
-  call xml2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
- end do
- do i = 1, n7fmark, 1
-  call xml2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
- end do
- do i = 1, n10fmark, 1
-  call xml2fch_permute_10f(idx(f_mark(i):f_mark(i)+9))
- end do
- do i = 1, n9gmark, 1
-  call xml2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
- end do
- do i = 1, n15gmark, 1
-  call xml2fch_permute_15g(idx(g_mark(i):g_mark(i)+14))
- end do
- do i = 1, n11hmark, 1
-  call xml2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
- end do
- do i = 1, n21hmark, 1
-  call xml2fch_permute_21h(idx(h_mark(i):h_mark(i)+20))
- end do
+ if(sph) then ! spherical harmonic
+  call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
+                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+  do i = 1, n5dmark, 1
+   call xml2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
+  end do
+  do i = 1, n7fmark, 1
+   call xml2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
+  end do
+  do i = 1, n9gmark, 1
+   call xml2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
+  end do
+  do i = 1, n11hmark, 1
+   call xml2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
+  end do
+ else  ! Cartesian-type basis
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
+                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  do i = 1, n10fmark, 1
+   call xml2fch_permute_10f(idx(f_mark(i):f_mark(i)+9))
+  end do
+  do i = 1, n15gmark, 1
+   call xml2fch_permute_15g(idx(g_mark(i):g_mark(i)+14))
+  end do
+  do i = 1, n21hmark, 1
+   call xml2fch_permute_21h(idx(h_mark(i):h_mark(i)+20))
+  end do
+ end if
 ! adjustment finished
 
- deallocate(d_mark, f_mark, g_mark, h_mark)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
 
  nbf = nbf0
  allocate(idx2(nbf), coeff2(nbf,nif))

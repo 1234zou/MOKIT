@@ -47,7 +47,8 @@ end program main
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine orb2fch(orbname, fchname, prt_no)
- use fch_content, only: check_uhf_in_fch
+ use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
+                        read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
@@ -60,7 +61,7 @@ subroutine orb2fch(orbname, fchname, prt_no)
  character(len=240), intent(in) :: orbname, fchname
  ! orbname is one of .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, .UhfOrb file of OpenMolcas
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:), norm(:)
- logical :: uhf
+ logical :: uhf, sph
  logical, intent(in) :: prt_no
 
  call check_uhf_in_fch(fchname, uhf)
@@ -91,18 +92,23 @@ subroutine orb2fch(orbname, fchname, prt_no)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
- if(ANY(shell_type>1) .and. ANY(shell_type<-2)) then
-  write(6,'(A)') 'ERROR in subroutine orb2fch: mixed Cartesian/spherical harmonic&
-                   & functions detected. Cannot deal with that.'
-  write(6,'(A)') 'One possible reason is that you used a Pople-type basis set in Gaussian.'
-  write(6,'(A)') "Its default setting is '6D 7F', you should add keywords '5D 7F' or '6D 10F'."
+ ! check if any spherical functions
+ if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
+  write(6,'(A)') 'ERROR in subroutine orb2fch: mixed spherical harmonic/Cartes&
+                 &ian functions detected.'
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
+                 & default setting is (6D,7F).'
+  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
+ else if( ANY(shell_type>1) ) then
+  sph = .false.
+ else
+  sph = .true.
  end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
  ! 1) split the 'L' into 'S' and 'P', this is to ensure that D comes after L functions
  call split_L_func(k, shell_type, shell2atom_map, length)
-
  allocate(idx(nbf))
  forall(i = 1:nbf) idx(i) = i
  allocate(norm(nbf), source=1d0)
@@ -114,88 +120,20 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- n6dmark = 0
- n10fmark = 0
- n15gmark = 0
- n21hmark = 0
- n5dmark = 0
- n7fmark = 0
- n9gmark = 0
- n11hmark = 0
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
- d_mark = 0
- f_mark = 0
- g_mark = 0
- h_mark = 0
- nbf = 0
- do i = 1, k, 1
-  select case(shell_type(i))
-  case( 0)   ! S
-   nbf = nbf + 1
-  case( 1)   ! 3P
-   nbf = nbf + 3
-  case(-1)   ! SP or L
-   nbf = nbf + 4
-  case(-2)   ! 5D
-   n5dmark = n5dmark + 1
-   d_mark(n5dmark) = nbf + 1
-   nbf = nbf + 5
-  case( 2)   ! 6D
-   n6dmark = n6dmark + 1
-   d_mark(n6dmark) = nbf + 1
-   nbf = nbf + 6
-  case(-3)   ! 7F
-   n7fmark = n7fmark + 1
-   f_mark(n7fmark) = nbf + 1
-   nbf = nbf + 7
-  case( 3)   ! 10F
-   n10fmark = n10fmark + 1
-   f_mark(n10fmark) = nbf + 1
-   nbf = nbf + 10
-  case(-4)   ! 9G
-   n9gmark = n9gmark + 1
-   g_mark(n9gmark) = nbf + 1
-   nbf = nbf + 9
-  case( 4)   ! 15G
-   n15gmark = n15gmark + 1
-   g_mark(n15gmark) = nbf + 1
-   nbf = nbf + 15
-  case(-5)   ! 11H
-   n11hmark = n11hmark + 1
-   h_mark(n11hmark) = nbf + 1
-   nbf = nbf + 11
-  case( 5)   ! 21H
-   n21hmark = n21hmark + 1
-   h_mark(n21hmark) = nbf + 1
-   nbf = nbf + 21
-  end select
- end do
 
  ! adjust the order of d, f, etc. functions
- do i = 1, n5dmark, 1
-  call orb2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
- end do
- do i = 1, n6dmark, 1
-  call orb2fch_permute_6d(idx(d_mark(i):d_mark(i)+5), norm(d_mark(i):d_mark(i)+5))
- end do
- do i = 1, n7fmark, 1
-  call orb2fch_permute_7f(idx(f_mark(i):f_mark(i)+6))
- end do
- do i = 1, n10fmark, 1
-  call orb2fch_permute_10f(idx(f_mark(i):f_mark(i)+9), norm(f_mark(i):f_mark(i)+9))
- end do
- do i = 1, n9gmark, 1
-  call orb2fch_permute_9g(idx(g_mark(i):g_mark(i)+8))
- end do
- do i = 1, n15gmark, 1
-  call orb2fch_permute_15g(idx(g_mark(i):g_mark(i)+14), norm(g_mark(i):g_mark(i)+14))
- end do
- do i = 1, n11hmark, 1
-  call orb2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
- end do
- do i = 1, n21hmark, 1
-  call orb2fch_permute_21h(idx(h_mark(i):h_mark(i)+20), norm(h_mark(i):h_mark(i)+20))
- end do
+ if(sph) then ! spherical harmonic
+  call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
+                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+  call orb2fch_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                           f_mark, g_mark, h_mark, nbf, idx)
+ else ! Cartesian-type basis
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
+                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call orb2fch_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
+                            f_mark, g_mark, h_mark, nbf, idx, norm)
+ end if
 ! adjustment finished
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
@@ -213,8 +151,6 @@ subroutine orb2fch(orbname, fchname, prt_no)
    nbf = nbf + 1
   case( 1)   ! 3P
    nbf = nbf + 3
-  case(-1)   ! SP or L
-   nbf = nbf + 4
   case(-2)   ! 5D
    nbf = nbf + 5
   case( 2)   ! 6D
@@ -244,7 +180,7 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
   if(i < k) i = i - 1
   if(length > 1) then
-   call zeta_mv_forwd(nbf1, m, length, nbf0, idx, norm)
+   call zeta_mv_forwd_idx(nbf1, m, length, nbf0, idx, norm)
    nbf = nbf1 + length*(nbf-nbf1)
   end if
  end do ! for while
@@ -276,201 +212,4 @@ subroutine orb2fch(orbname, fchname, prt_no)
  deallocate(coeff2)
  if(allocated(occ_num)) deallocate(occ_num)
 end subroutine orb2fch
-
-! move the 2nd, 3rd, ... Zeta basis functions forward
-subroutine zeta_mv_forwd(i0, shell_type, length, nbf, idx2, norm1)
- implicit none
- integer :: i, j, k
- integer, intent(in) :: i0, shell_type, length, nbf
- integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
- !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
- integer, intent(inout) :: idx2(nbf)
- integer, allocatable :: idx(:)
- real(kind=8), allocatable :: norm(:)
- real(kind=8), intent(inout) :: norm1(nbf)
-
- if(length == 1) return
-
- if(shell_type==0 .or. shell_type==-1) then
-  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
-                 & shell_type is 0 or -1. Impossible.'
-  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
-  stop
- end if
-
- idx = idx2
- norm = norm1
- k = num0(shell_type)
-
- do i = 1, k, 1
-  do j = 1, length, 1
-   idx(i0+j+(i-1)*length) = idx2(i0+i+(j-1)*k)
-   norm(i0+j+(i-1)*length) = norm1(i0+i+(j-1)*k)
-  end do ! for j
- end do ! for i
-
- idx2 = idx
- norm1 = norm
- deallocate(idx, norm)
-end subroutine zeta_mv_forwd
-
-subroutine orb2fch_permute_5d(idx)
- implicit none
- integer :: i, idx0(5)
- integer, parameter :: order(5) = [5, 3, 1, 2, 4]
- integer, intent(inout) :: idx(5)
-! From: the order of spherical d functions in Gaussian
-! To: the order of spherical d functions in Molcas
-! 1    2    3    4    5
-! d0 , d+1, d-1, d+2, d-2
-! d-2, d-1, d0 , d+1, d+2
-
- idx0 = idx
- forall(i = 1:5) idx(i) = idx0(order(i))
-end subroutine orb2fch_permute_5d
-
-subroutine orb2fch_permute_6d(idx, norm)
- use root_parameter, only: root3
- implicit none
- integer :: i, idx0(6)
- integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
- integer, intent(inout) :: idx(6)
- real(kind=8) :: norm0(6)
- real(kind=8), intent(inout) :: norm(6)
-! From: the order of Cartesian d functions in Gaussian
-! To: the order of Cartesian d functions in Molcas
-! 1  2  3  4  5  6
-! XX,YY,ZZ,XY,XZ,YZ
-! XX,XY,XZ,YY,YZ,ZZ
-
- forall(i=1:3) norm(i) = norm(i)*root3
- norm0 = norm
- idx0 = idx
-
- forall(i = 1:6)
-  idx(i) = idx0(order(i))
-  norm(i) = norm0(order(i))
- end forall
-end subroutine orb2fch_permute_6d
-
-subroutine orb2fch_permute_7f(idx)
- implicit none
- integer :: i, idx0(7)
- integer, parameter :: order(7) = [7, 5, 3, 1, 2, 4, 6]
- integer, intent(inout) :: idx(7)
-! From: the order of spherical f functions in Gaussian
-! To: the order of spherical f functions in Molcas
-! 1    2    3    4    5    6    7
-! f0 , f+1, f-1, f+2, f-2, f+3, f-3
-! f-3, f-2, f-1, f0 , f+1, f+2, f+3
-
- idx0 = idx
- forall(i = 1:7) idx(i) = idx0(order(i))
-end subroutine orb2fch_permute_7f
-
-subroutine orb2fch_permute_10f(idx, norm)
- use root_parameter, only: root3, root15
- implicit none
- integer :: i, idx0(10)
- integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
- integer, intent(inout) :: idx(10)
- real(kind=8) :: norm0(10)
- real(kind=8), intent(inout) :: norm(10)
-! From: the order of Cartesian f functions in Gaussian
-! To: the order of Cartesian f functions in Molcas
-! 1   2   3   4   5   6   7   8   9   10
-! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
-! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
-
- forall(i=1:3) norm(i) = norm(i)*root15
- forall(i=4:9) norm(i) = norm(i)*root3
- norm0 = norm
- idx0 = idx
-
- forall(i = 1:10)
-  idx(i) = idx0(order(i))
-  norm(i) = norm0(order(i))
- end forall
-end subroutine orb2fch_permute_10f
-
-subroutine orb2fch_permute_9g(idx)
- implicit none
- integer :: i, idx0(9)
- integer, parameter :: order(9) = [9, 7, 5, 3, 1, 2, 4, 6, 8]
- integer, intent(inout) :: idx(9)
-! From: the order of spherical g functions in Gaussian
-! To: the order of spherical g functions in Molcas
-! 1    2    3    4    5    6    7    8    9
-! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
-! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
-
- idx0 = idx
- forall(i = 1:9) idx(i) = idx0(order(i))
-end subroutine orb2fch_permute_9g
-
-subroutine orb2fch_permute_15g(idx, norm)
- use root_parameter, only: root3, root9, root15, root105
- implicit none
- integer :: i, idx0(15)
- integer, intent(inout) :: idx(15)
- real(kind=8) :: norm0(15)
- real(kind=8), parameter :: ratio(15) = [root105, root15, root9, root15, root105, &
-  root15, root3, root3, root15, root9, root3, root9, root15, root15, root105]
- real(kind=8), intent(inout) :: norm(15)
-! From: the order of Cartesian g functions in Gaussian
-! To: the order of Cartesian g functions in Molcas
-! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
-! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
-! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
-
- forall(i=1:15) norm(i) = norm(i)*ratio(i)
- norm0 = norm
- idx0 = idx
-
- forall(i = 1:15)
-  idx(i) = idx0(16-i)
-  norm(i) = norm0(16-i)
- end forall
-end subroutine orb2fch_permute_15g
-
-subroutine orb2fch_permute_11h(idx)
- implicit none
- integer :: i, idx0(11)
- integer, parameter :: order(11) = [11, 9, 7, 5, 3, 1, 2, 4, 6, 8, 10]
- integer, intent(inout) :: idx(11)
-! From: the order of spherical h functions in Gaussian
-! To: the order of spherical h functions in Molcas
-! 1    2    3    4    5    6    7    8    9    10   11
-! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
-! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
-
- idx0 = idx
- forall(i = 1:11) idx(i) = idx0(order(i))
-end subroutine orb2fch_permute_11h
-
-subroutine orb2fch_permute_21h(idx, norm)
- use root_parameter
- implicit none
- integer :: i, idx0(21)
- integer, intent(inout) :: idx(21)
- real(kind=8) :: norm0(21)
- real(kind=8), parameter :: ratio(21) = [root945, root105, root45, root45, root105, &
-  root945, root105, root15, root9, root15, root105, root45, root9, root9, root45, &
-  root45, root15, root45, root105, root105, root945]
- real(kind=8), intent(inout) :: norm(21)
-! From: the order of Cartesian h functions in Gaussian
-! To: the order of Cartesian h functions in Molcas
-! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
-! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
-! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
-
- forall(i=1:21) norm(i) = norm(i)*ratio(i)
- norm0 = norm
- idx0 = idx
-
- forall(i = 1:21)
-  idx(i) = idx0(22-i)
-  norm(i) = norm0(22-i)
- end forall
-end subroutine orb2fch_permute_21h
 

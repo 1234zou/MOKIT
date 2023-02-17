@@ -48,7 +48,10 @@ subroutine copy_type_mo_clusters(n, old_c, new_c)
  end do ! for i
 end subroutine copy_type_mo_clusters
 
-! generate the MO-cluster for each occupied MO
+! Generate the MO-cluster for each occupied MO
+! 1) doubly occupied MOs and active occupied MOs are considered
+! 2) singly occupied MOs are not considered here since they should be included in each MO-cluster
+! 3) active unoccupied MOs are not considered here since they are not included in any MO-cluster
 subroutine gen_mo_cluster_per_mo(dis_thres)
  implicit none
  integer :: i, j, k, m, nocc

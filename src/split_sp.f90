@@ -28,8 +28,15 @@ end module Sdiag_parameter
 module root_parameter
  implicit none
  real(kind=8), parameter :: root3   = DSQRT(3d0)     ! SQRT(3)
+ real(kind=8), parameter :: root6   = DSQRT(6d0)     ! SQRT(6)
+ real(kind=8), parameter :: root7   = DSQRT(7d0)     ! SQRT(7)
  real(kind=8), parameter :: root9   = 3d0            ! SQRT(9)
+ real(kind=8), parameter :: root10  = DSQRT(10d0)    ! SQRT(10)
+ real(kind=8), parameter :: root12  = DSQRT(12d0)    ! SQRT(12)
  real(kind=8), parameter :: root15  = DSQRT(15d0)    ! SQRT(15)
+ real(kind=8), parameter :: root21  = DSQRT(21d0)    ! SQRT(21)
+ real(kind=8), parameter :: root30  = DSQRT(30d0)    ! SQRT(30)
+ real(kind=8), parameter :: root42  = DSQRT(42d0)    ! SQRT(42)
  real(kind=8), parameter :: root45  = DSQRT(45d0)    ! SQRT(45)
  real(kind=8), parameter :: root105 = DSQRT(105d0)   ! SQRT(105)
  real(kind=8), parameter :: root945 = DSQRT(945d0)   ! SQRT(945)
@@ -501,4 +508,260 @@ subroutine fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_m
   call fch2inporb_permute_21h(nif,coeff(h_mark(i):h_mark(i)+20,:))
  end do
 end subroutine fch2inporb_permute_cart
+
+subroutine orb2fch_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, &
+                               d_mark, f_mark, g_mark, h_mark, nbf, idx)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n5dmark, n7fmark, n9gmark, n11hmark, k, nbf
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer, intent(inout) :: idx(nbf)
+
+ do i = 1, n5dmark, 1
+  j = d_mark(i)
+  call orb2fch_permute_5d(idx(j:j+4))
+ end do
+
+ do i = 1, n7fmark, 1
+  j = f_mark(i)
+  call orb2fch_permute_7f(idx(j:j+6))
+ end do
+
+ do i = 1, n9gmark, 1
+  j = g_mark(i)
+  call orb2fch_permute_9g(idx(j:j+8))
+ end do
+
+ do i = 1, n11hmark, 1
+  j = h_mark(i)
+  call orb2fch_permute_11h(idx(j:j+10))
+ end do
+end subroutine orb2fch_permute_sph
+
+subroutine orb2fch_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
+  d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer, intent(inout) :: idx(nbf)
+ real(kind=8), intent(out) :: norm(nbf)
+
+ do i = 1, n6dmark, 1
+  j = d_mark(i)
+  call orb2fch_permute_6d(idx(j:j+5), norm(j:j+5))
+ end do ! for i
+
+ do i = 1, n10fmark, 1
+  j = f_mark(i)
+  call orb2fch_permute_10f(idx(j:j+9), norm(j:j+9))
+ end do ! for i
+
+ do i = 1, n15gmark, 1
+  j = g_mark(i)
+  call orb2fch_permute_15g(idx(j:j+14), norm(j:j+14))
+ end do ! for i
+
+ do i = 1, n21hmark, 1
+  j = h_mark(i)
+  call orb2fch_permute_21h(idx(j:j+20), norm(j:j+20))
+ end do ! for i
+end subroutine orb2fch_permute_cart
+
+subroutine orb2fch_permute_5d(idx)
+ implicit none
+ integer :: i, idx0(5)
+ integer, parameter :: order(5) = [5, 3, 1, 2, 4]
+ integer, intent(inout) :: idx(5)
+! From: the order of spherical d functions in Gaussian
+! To: the order of spherical d functions in Molcas
+! 1    2    3    4    5
+! d0 , d+1, d-1, d+2, d-2
+! d-2, d-1, d0 , d+1, d+2
+
+ idx0 = idx
+ forall(i = 1:5) idx(i) = idx0(order(i))
+end subroutine orb2fch_permute_5d
+
+subroutine orb2fch_permute_7f(idx)
+ implicit none
+ integer :: i, idx0(7)
+ integer, parameter :: order(7) = [7, 5, 3, 1, 2, 4, 6]
+ integer, intent(inout) :: idx(7)
+! From: the order of spherical f functions in Gaussian
+! To: the order of spherical f functions in Molcas
+! 1    2    3    4    5    6    7
+! f0 , f+1, f-1, f+2, f-2, f+3, f-3
+! f-3, f-2, f-1, f0 , f+1, f+2, f+3
+
+ idx0 = idx
+ forall(i = 1:7) idx(i) = idx0(order(i))
+end subroutine orb2fch_permute_7f
+
+subroutine orb2fch_permute_9g(idx)
+ implicit none
+ integer :: i, idx0(9)
+ integer, parameter :: order(9) = [9, 7, 5, 3, 1, 2, 4, 6, 8]
+ integer, intent(inout) :: idx(9)
+! From: the order of spherical g functions in Gaussian
+! To: the order of spherical g functions in Molcas
+! 1    2    3    4    5    6    7    8    9
+! g0 , g+1, g-1, g+2, g-2, g+3, g-3, g+4, g-4
+! g-4, g-3, g-2, g-1, g0 , g+1, g+2, g+3, g+4
+
+ idx0 = idx
+ forall(i = 1:9) idx(i) = idx0(order(i))
+end subroutine orb2fch_permute_9g
+
+subroutine orb2fch_permute_11h(idx)
+ implicit none
+ integer :: i, idx0(11)
+ integer, parameter :: order(11) = [11, 9, 7, 5, 3, 1, 2, 4, 6, 8, 10]
+ integer, intent(inout) :: idx(11)
+! From: the order of spherical h functions in Gaussian
+! To: the order of spherical h functions in Molcas
+! 1    2    3    4    5    6    7    8    9    10   11
+! h0 , h+1, h-1, h+2, h-2, h+3, h-3, h+4, h-4, h+5, h-5
+! h-5, h-4, h-3, h-2, h-1, h0 , h+1, h+2, h+3, h+4, h+5
+
+ idx0 = idx
+ forall(i = 1:11) idx(i) = idx0(order(i))
+end subroutine orb2fch_permute_11h
+
+subroutine orb2fch_permute_6d(idx, norm)
+ use root_parameter, only: root3
+ implicit none
+ integer :: i, idx0(6)
+ integer, parameter :: order(6) = [1, 4, 5, 2, 6, 3]
+ integer, intent(inout) :: idx(6)
+ real(kind=8) :: norm0(6)
+ real(kind=8), intent(inout) :: norm(6)
+! From: the order of Cartesian d functions in Gaussian
+! To: the order of Cartesian d functions in Molcas
+! 1  2  3  4  5  6
+! XX,YY,ZZ,XY,XZ,YZ
+! XX,XY,XZ,YY,YZ,ZZ
+
+ forall(i=1:3) norm(i) = norm(i)*root3
+ norm0 = norm
+ idx0 = idx
+
+ forall(i = 1:6)
+  idx(i) = idx0(order(i))
+  norm(i) = norm0(order(i))
+ end forall
+end subroutine orb2fch_permute_6d
+
+subroutine orb2fch_permute_10f(idx, norm)
+ use root_parameter, only: root3, root15
+ implicit none
+ integer :: i, idx0(10)
+ integer, parameter :: order(10) = [1, 5, 6, 4, 10, 7, 2, 9, 8, 3]
+ integer, intent(inout) :: idx(10)
+ real(kind=8) :: norm0(10)
+ real(kind=8), intent(inout) :: norm(10)
+! From: the order of Cartesian f functions in Gaussian
+! To: the order of Cartesian f functions in Molcas
+! 1   2   3   4   5   6   7   8   9   10
+! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
+! XXX,XXY,XXZ,XYY,XYZ,XZZ,YYY,YYZ,YZZ,ZZZ
+
+ forall(i=1:3) norm(i) = norm(i)*root15
+ forall(i=4:9) norm(i) = norm(i)*root3
+ norm0 = norm
+ idx0 = idx
+
+ forall(i = 1:10)
+  idx(i) = idx0(order(i))
+  norm(i) = norm0(order(i))
+ end forall
+end subroutine orb2fch_permute_10f
+
+subroutine orb2fch_permute_15g(idx, norm)
+ use root_parameter, only: root3, root9, root15, root105
+ implicit none
+ integer :: i, idx0(15)
+ integer, intent(inout) :: idx(15)
+ real(kind=8) :: norm0(15)
+ real(kind=8), parameter :: ratio(15) = [root105, root15, root9, root15, root105, &
+  root15, root3, root3, root15, root9, root3, root9, root15, root15, root105]
+ real(kind=8), intent(inout) :: norm(15)
+! From: the order of Cartesian g functions in Gaussian
+! To: the order of Cartesian g functions in Molcas
+! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
+! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
+! xxxx,xxxy,xxxz,xxyy,xxyz,xxzz,xyyy,xyyz,xyzz,xzzz,yyyy,yyyz,yyzz,yzzz,zzzz
+
+ forall(i=1:15) norm(i) = norm(i)*ratio(i)
+ norm0 = norm
+ idx0 = idx
+
+ forall(i = 1:15)
+  idx(i) = idx0(16-i)
+  norm(i) = norm0(16-i)
+ end forall
+end subroutine orb2fch_permute_15g
+
+subroutine orb2fch_permute_21h(idx, norm)
+ use root_parameter
+ implicit none
+ integer :: i, idx0(21)
+ integer, intent(inout) :: idx(21)
+ real(kind=8) :: norm0(21)
+ real(kind=8), parameter :: ratio(21) = [root945, root105, root45, root45, root105, &
+  root945, root105, root15, root9, root15, root105, root45, root9, root9, root45, &
+  root45, root15, root45, root105, root105, root945]
+ real(kind=8), intent(inout) :: norm(21)
+! From: the order of Cartesian h functions in Gaussian
+! To: the order of Cartesian h functions in Molcas
+! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
+! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
+! xxxxx,xxxxy,xxxxz,xxxyy,xxxyz,xxxzz,xxyyy,xxyyz,xxyzz,xxzzz,xyyyy,xyyyz,xyyzz,xyzzz,xzzzz,yyyyy,yyyyz,yyyzz,yyzzz,yzzzz,zzzzz
+
+ forall(i=1:21) norm(i) = norm(i)*ratio(i)
+ norm0 = norm
+ idx0 = idx
+
+ forall(i = 1:21)
+  idx(i) = idx0(22-i)
+  norm(i) = norm0(22-i)
+ end forall
+end subroutine orb2fch_permute_21h
+
+! move the 2nd, 3rd, ... Zeta basis functions forward
+subroutine zeta_mv_forwd_idx(i0, shell_type, length, nbf, idx2, norm1)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: i0, shell_type, length, nbf
+ integer, parameter :: num0(-5:5) = [11, 9, 7, 5, 0, 0, 3, 6, 10, 15, 21]
+ !                                   11H 9G 7F 5D L  S 3P 6D 10F 15G 21H
+ integer, intent(inout) :: idx2(nbf)
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:)
+ real(kind=8), intent(inout) :: norm1(nbf)
+
+ if(length == 1) return
+
+ if(shell_type==0 .or. shell_type==-1) then
+  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd_idx: this element of&
+                 & shell_type is 0 or -1. Impossible.'
+  write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
+  stop
+ end if
+
+ idx = idx2
+ norm = norm1
+ k = num0(shell_type)
+
+ do i = 1, k, 1
+  do j = 1, length, 1
+   idx(i0+j+(i-1)*length) = idx2(i0+i+(j-1)*k)
+   norm(i0+j+(i-1)*length) = norm1(i0+i+(j-1)*k)
+  end do ! for j
+ end do ! for i
+
+ idx2 = idx
+ norm1 = norm
+ deallocate(idx, norm)
+end subroutine zeta_mv_forwd_idx
 

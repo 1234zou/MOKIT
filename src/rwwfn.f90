@@ -469,7 +469,7 @@ end subroutine read_mo_from_bdf_orb
 ! read Alpha MOs from a DALTON.MOPUN format file
 subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  implicit none
- integer :: i, j, k, nline, fid
+ integer :: i, j, k, fid
  integer, intent(in) :: nbf, nif
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname

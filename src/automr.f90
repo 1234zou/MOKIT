@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc8 :: MOKIT, release date: 2023-Feb-11'
+  write(6,'(A)') 'AutoMR 1.2.5rc10 :: MOKIT, release date: 2023-Feb-16'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -292,12 +292,18 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
+  if(buf(1:3) == '#dm') exit
   write(fid2,'(A)') TRIM(buf)
- end do
- ! keep 10 cycles annotated
+ end do ! for while
 
+ write(fid2,'(A)') TRIM(buf(2:))
+ read(fid1,'(A)') buf
+ write(fid2,'(A)') TRIM(buf(2:))
+ write(fid2,'(A)') "mf.chkfile = '"//TRIM(chkname)//"'"
+ read(fid1,'(A)') buf
+ write(fid2,'(A)') TRIM(buf(2:))
  close(fid1,status='delete')
- write(fid2,'(A)') '# copy this molecule at STO-6G'
+ write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
 
  if(ANY(nuc > 54)) then ! atoms > Xe
