@@ -446,6 +446,27 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
  close(fid)
 end subroutine read_frag_guess_from_gjf
 
+! read nuclear charge number from a given .fch file
+subroutine read_nuc_from_fch(fchname, natom, nuc)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, intent(out) :: nuc(natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ nuc = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:14) == 'Atomic numbers') exit
+ end do ! for while
+
+ read(fid,'(6(1X,I11))') (nuc(i),i=1,natom)
+ close(fid)
+end subroutine read_nuc_from_fch
+
 ! read the Cartesian coordinates from a given .fch file
 subroutine read_coor_from_fch(fchname, natom, coor)
  implicit none
@@ -1258,6 +1279,5 @@ function calc_an_int_coor(n, coor) result(val)
   write(6,'(A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
   stop
  end select
-
 end function calc_an_int_coor
 

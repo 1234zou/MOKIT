@@ -1,5 +1,6 @@
-MOKIT 1.2.5 (Feb 16, 2023)
+MOKIT 1.2.5 (Feb 17, 2023)
 ------------------------
+* add qchem2bdf, qchem2cfour, qchem2dalton, qchem2gms, qchem2molcas, qchem2molpro, qchem2psi, qchem2orca
 * remove the keyword no10cycle
 * add utility fch2cfour and module py2cfour
 * fix uninitialized value bug in dal2fch

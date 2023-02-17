@@ -340,12 +340,12 @@ contains
   integer(kind=4) :: hostnm
   character(len=8) :: hostname
   character(len=24) :: data_string
- character(len=240) :: get_mokit_root 
+  character(len=240), external :: get_mokit_root 
 
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc10 (2023-Feb-16)'
+  write(6,'(A)') '           Version: 1.2.5rc11 (2023-Feb-17)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -2031,26 +2031,6 @@ subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
  end do ! for i
 
 end subroutine calc_nuc_pt_e
-
-! read nuclear charge number from a given .fch file
-subroutine read_nuc_from_fch(natom, nuc, fchname)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- integer, intent(out) :: nuc(natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:14) == 'Atomic numbers') exit
- end do ! for while
- read(fid,'(6(1X,I11))') (nuc(i),i=1,natom)
-
- close(fid)
-end subroutine read_nuc_from_fch
 
 ! check whether a given binary file exists
 subroutine check_exe_exist(path)

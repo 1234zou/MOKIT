@@ -824,15 +824,17 @@ function get_mokit_root() result(mokit_root)
  implicit none
  integer :: i, fid
  character(len=240) :: home, mokit_root !, buf
+
  mokit_root = ' '
  call getenv('MOKIT_ROOT', mokit_root)
+
  if (len_trim(mokit_root) < 1) then
   call getenv('HOME', home)
   open(newunit=fid,file=TRIM(home)//'/.mokitrc',status='old',position='rewind')
   read(fid,'(A)',iostat=i) mokit_root
   if (len_trim(mokit_root) < 1) then
-    write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid MOKIT_ROOT'
-    stop
+   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid MOKIT_ROOT'
+   stop
   end if
   close(fid)
  end if

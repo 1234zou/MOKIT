@@ -15,9 +15,10 @@ module fch_content
  integer :: nbf, nif         ! number of basis functions/MOs
  integer :: na, nb, nopen    ! number of alpha/beta/open shell electrons
  integer :: ncontr, nprim    ! Number of contracted/primitive shells
- integer :: charge, mult     ! charge and spin multiplicity
- integer :: natom            ! number of atoms
- integer :: LenNCZ           ! ECP-LenNCZ
+ integer :: charge = 0       ! total charge
+ integer :: mult  = 1        ! spin multiplicity
+ integer :: natom = 0        ! number of atoms
+ integer :: LenNCZ = 0       ! ECP-LenNCZ
  integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
  integer, parameter :: shltyp2nbf(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
@@ -1016,7 +1017,7 @@ subroutine write_fch(fchname)
  write(fid,'(A)') 'ILSW                                       I   N=         100'
  write(fid,'(6I12)') ilsw
  deallocate(ilsw)
- if (LenNCZ > 0) then
+ if(LenNCZ > 0) then
   write(fid,'(A)') 'ECP-MxAtEC                                 I           250000'
   write(fid,'(A)') 'ECP-MaxLECP                                I               10'
   write(fid,'(A)') 'ECP-MaxAtL                                 I          2250000'

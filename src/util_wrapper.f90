@@ -178,8 +178,8 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
 
  if(gvb) then
   if(npair<0 .or. nopen<0) then
-   write(6,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0&
-                    & and/or nopen<0.'
+   write(6,'(A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0 an&
+                  &d/or nopen<0.'
    write(6,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
    stop
   end if
