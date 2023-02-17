@@ -481,16 +481,16 @@ subroutine prt_cfour_genbas(ecp)
   end if
 
   if(.not. cycle_atom) then
+   str2 = elem(iatom)
+   if(str2(2:2) /= ' ') call upper(str2(2:2))
    if(ecp) then
     if(LPSkip(iatom) == 0) then
-     str2 = elem(iatom)
-     if(str2(2:2) /= ' ') call upper(str2(2:2))
      write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
     else
-     write(fid,'(A)') TRIM(elem(iatom))//':PVTZ'
+     write(fid,'(A)') TRIM(str2)//':PVTZ'
     end if
    else
-    write(fid,'(A)') TRIM(elem(iatom))//':PVTZ'
+    write(fid,'(A)') TRIM(str2)//':PVTZ'
    end if
    write(fid,'(A)') c1
    write(fid,'(/,I3)') highest+1
