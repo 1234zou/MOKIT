@@ -9,7 +9,7 @@ LIB = ../mokit/lib
 # --- gfortran + OpenBLAS ---
 F90    = gfortran
 FFLAGS = -O2 -cpp -fPIC
-MKL_FLAGS = -L$$HOME/software/openblas-0.3.21/lib64 -lopenblas -llapack
+MKL_FLAGS = -L$(HOME)/software/openblas-0.3.21/lib64 -lopenblas -llapack
 F2PY   = f2py
 F2_FLAGS =
 F2_F90_FLAGS = --f90flags="-cpp"

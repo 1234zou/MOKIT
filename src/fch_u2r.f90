@@ -12,7 +12,7 @@
 
 program main
  implicit none
- integer :: i
+ integer :: i, j
  character(len=240) :: fchname, newfch
 
  i = iargc()
@@ -26,6 +26,12 @@ program main
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
+ j = index(fchname, '.fch', back=.true.)
+ if(j == 0) then
+  write(6,'(/,A)') "ERROR in program fch_u2r: '.fch' suffix not found in filen&
+                   &ame "//TRIM(fchname)
+  stop
+ end if
 
  newfch = REPEAT(' ',240)
  if(i == 2) call getarg(2, newfch)

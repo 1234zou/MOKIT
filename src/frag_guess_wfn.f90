@@ -68,8 +68,9 @@ module theory_level
  integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
  character(len=9) :: method = ' '
  character(len=21) :: basis = ' '
- character(len=40) :: scrf  = ' '
- character(len=20) :: solvent = ' '
+ character(len=60) :: scrf  = ' '
+ character(len=40) :: solvent = ' '
+ character(len=40) :: solvent_gau = ' '
  logical :: sph = .true.  ! spherical harmonic/Cartesian functions
 end module theory_level
 
@@ -1034,8 +1035,11 @@ subroutine gen_inp_of_frags()
  logical, allocatable :: ghost(:)
 
  if(eda_type == 0) return
+ natom = frags(nfrag)%natom
+
  k = index(frags(1)%fname, '.gjf', back=.true.)
  ! do not change k below in this subroutine
+ inpname1 = ' '; inpname2 = ' '; outname = ' '
 
  do i = 1, nfrag, 1
   fchname = frags(i)%fname(1:k-1)//'.fch'
@@ -1110,7 +1114,7 @@ subroutine gen_inp_of_frags()
 
  deallocate(radii, frags)
  write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)&
-                               //' to '
+                              //' to '
 
  i = index(inpname2, '.inp',back=.true.)
 
@@ -1296,7 +1300,8 @@ end subroutine copy_and_modify_psi4_sapt_file
 ! copy content of a provided .inp file and modify it to be EDA job
 subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  use frag_info, only: nfrag0, frags
- use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, disp_type
+ use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, &
+  solvent_gau, disp_type
  implicit none
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
@@ -1304,6 +1309,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  character(len=9) :: dft_in_gms
  character(len=240) :: buf1, buf2
  character(len=240), intent(in) :: inpname1, inpname2
+ logical :: alive
 
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
@@ -1465,6 +1471,14 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
                   & you can change'
    write(6,'(A)') 'to scrf=PCM or remove scrf=SMD (i.e. gas phase computation).'
   else ! PCM
+   if(TRIM(solvent) == 'INPUT') then
+    select case(TRIM(solvent_gau))
+    case('n,n-dimethylacetamide')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.935 EPS=37.781'
+    case('n,n-dimethylformamide')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.885 EPS=37.219'
+    end select
+   end if
    write(fid2,'(A,/,A)') ' $END',' $PCMCAV ALPHA(1)=1.1'
    j = natom/8
    do i = 1, j, 1
@@ -1633,7 +1647,7 @@ subroutine read_scrf_string_from_buf(longbuf, scrf)
  implicit none
  integer :: i, j
  character(len=1200), intent(in) :: longbuf
- character(len=40), intent(out) :: scrf
+ character(len=60), intent(out) :: scrf
 
  scrf = ' '
  i = index(longbuf, 'scrf')
@@ -1652,14 +1666,22 @@ end subroutine read_scrf_string_from_buf
 ! determine implicit solvent model from the scrf string
 ! Note: the input scrf must be in lower case
 subroutine determine_solvent_from_gau2gms(scrf, solvent)
+ use theory_level, only: solvent_gau
  implicit none
  integer :: i, j, k(3)
- character(len=20) :: solvent_gau
- character(len=40), intent(in) :: scrf
- character(len=20), intent(out) :: solvent
+ character(len=60), intent(in) :: scrf
+ character(len=40), intent(out) :: solvent
 
  solvent = ' '
  if(LEN_TRIM(scrf) == 0) return
+
+ i = index(scrf,'read')
+ if(i > 0) then
+  write(6,'(/,A)') "ERROR in subroutine determine_solvent_from_gau2gms: 'read'&
+                  & in 'scrf()' is not"
+  write(6,'(A)') 'supported for frag_guess_wfn.'
+  stop
+ end if
 
  i = index(scrf,'solvent')
  if(i == 0) then
@@ -1696,20 +1718,23 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'HEXANE'
  case('1,4-dioxane')
   solvent = 'dioxane'
+ case('n,n-dimethylacetamide','n,n-dimethylformamide')
+  solvent = 'INPUT'
  case('water','h2o','methanol','ch3oh','ethanol','hexane','acetonitrile','dmso',&
       'thf','benzene','c6h6','nitromethane','ch3no2','aniline','c6h5nh2',&
       'cyclohexane','c6h12','ccl4','dichloromethane','ch2cl2','toluene','c6h5ch3',&
       'chlorobenzene','c6h5cl')
   solvent = TRIM(solvent_gau)
  case default
-  write(6,'(A)') 'Warning in subroutine determine_solvent_from_gau2gms:&
-                 & implicit solvent name in Gaussian'
-  write(6,'(A)') '.gjf file cannot be identified. You should open GAMESS&
-                 & .inp file and add it by yourself.'
-  write(6,'(A)') 'Solvent in .gjf file: '//TRIM(solvent_gau)
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning in subroutine determine_solvent_from_gau2gms: implic&
+                 &it solvent name in'
+  write(6,'(A)') 'Gaussian .gjf file cannot be identified. You should open GAM&
+                 &ESS .inp file and'
+  write(6,'(A)') 'add it by yourself. Solvent in .gjf file: '//TRIM(solvent_gau)
+  write(6,'(A)') REPEAT('-',79)
   solvent = 'INPUT'
  end select
-
 end subroutine determine_solvent_from_gau2gms
 
 ! convert DFT name of Gaussian to that of GAMESS
