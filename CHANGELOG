@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Feb 21, 2023)
+MOKIT 1.2.5 (Feb 22, 2023)
 ------------------------
 * add qchem2bdf, qchem2cfour, qchem2dalton, qchem2gms, qchem2molcas, qchem2molpro, qchem2psi, qchem2orca
 * remove the keyword no10cycle

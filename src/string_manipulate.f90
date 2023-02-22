@@ -744,7 +744,7 @@ subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) exit
+  ! we cannot use LEN_TRIM(buf)==0 to judge since there may exist ECP
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
