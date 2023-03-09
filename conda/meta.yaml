@@ -8,20 +8,20 @@ source:
   path: ..
 
 build:
-  number: 3
+  number: 4
   string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
 
 requirements:
   build:
     - python {{ python }}
     - make
-    - mkl
+    - mkl {{ mkl }}
     - numpy {{ numpy }}
     - {{ compiler('fortran') }}
     - libgfortran5
   run:
     - python {{ python }}
-    - mkl
+    - mkl {{ mkl }}
     - numpy {{ numpy }}
     - libgfortran5
 

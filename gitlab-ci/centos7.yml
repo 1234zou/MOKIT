@@ -67,7 +67,7 @@ centos7_conda_py38:
     MCONDA_VER: py38_4.10.3
   extends: .setup_system
   script:
-    - conda install numpy mkl=2022
+    - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -83,7 +83,7 @@ centos7_conda_py39:
     MCONDA_VER: py39_4.12.0
   extends: .setup_system
   script:
-    - conda install numpy mkl=2022
+    - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
