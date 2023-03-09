@@ -124,6 +124,8 @@ module mr_keyword
  integer :: iroot = 0 ! the state you are interested in SS-CASSCF
  ! 0 for ground state, 1 for the first excited state
 
+ integer :: xmult = 1 ! spin multiplicity of the target excited state
+
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
 
@@ -346,7 +348,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc14 (2023-Mar-9)'
+  write(6,'(A)') '           Version: 1.2.5rc15 (2023-Mar-9)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -844,6 +846,8 @@ contains
     read(longbuf(j+1:i-1),*) nskip_uno
    case('root')
     read(longbuf(j+1:i-1),*) iroot
+   case('xmult')
+    read(longbuf(j+1:i-1),*) xmult
    case('force')
     casscf_force = .true.
    case('charge')

@@ -1309,7 +1309,6 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  character(len=9) :: dft_in_gms
  character(len=240) :: buf1, buf2
  character(len=240), intent(in) :: inpname1, inpname2
- logical :: alive
 
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')

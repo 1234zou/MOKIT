@@ -793,7 +793,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2d0), ' # GB'
  end if
 
- call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
+ call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
  if(casci .or. casscf) then

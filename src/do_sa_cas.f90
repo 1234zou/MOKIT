@@ -218,7 +218,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'mc.max_cycle = 200'
  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
 
- call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
+ call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
  ss = DBLE(nacta - nactb)*0.5d0
  ss = ss*(ss+1d0)
  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
@@ -263,7 +263,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   else
    write(fid2,'(I0)') nstate+1
   end if
-  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
+  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb,hardwfn,crazywfn,.false.)
   if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
   write(fid2,'(A)') 'mc.verbose = 4'
   write(fid2,'(A)') 'mc.kernel(mo)'

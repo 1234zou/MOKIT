@@ -1505,6 +1505,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  real(kind=8) :: s_square = 0d0, expect = 0d0
  real(kind=8), intent(out) :: e(2)
  logical, intent(in) :: scf, dmrg
+ logical :: state_specific = .false.
 
  e = 0d0
  i = 0; j = 0; k = 0
@@ -1524,6 +1525,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
    if(buf(1:27) == '1-step CASSCF not converged') then
     j = 1; exit
    end if
+   if(buf(1:3) == 'SSS') state_specific = .true.
   end do ! for while
 
  else ! CASCI/DMRG-CASCI
@@ -1547,14 +1549,14 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end if
 
  if(k /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
-                & incomplete file '//TRIM(outname)//'.'
+  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out: problematic fi&
+                 &le '//TRIM(outname)//'.'
   close(fid)
   stop
  else ! k = 0
-  if(j /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out:&
-                 & CASCI or CASSCF not converged.'
+  if(j/=0 .and. (.not.state_specific)) then
+   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out: CASCI or CASS&
+                  &CF not converged.'
    close(fid)
    stop
   end if
@@ -1584,22 +1586,23 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  i = index(buf, '=', back=.true.)
  read(buf(i+1:),*) s_square
 
- if( DABS(expect - s_square) > 1D-3) then
-  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_pyout: <S**2> &
-                   &deviates too much from'
-  write(6,'(2(A,F10.6))') 'the expectation value. Expectation=', expect, &
+ if(DABS(expect - s_square) > 1d-3) then
+  write(6,'(/,A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2>&
+                   & deviates too much'
+  write(6,'(2(A,F10.6))') 'from the expectation value. Expectation=', expect, &
                           ', S_square=', s_square
-  close(fid)
-  stop
+  write(6,'(A)') 'If this is a ground state calculation, then something may be &
+                 &wrong.'
+  write(6,'(A)') 'If this is a excited state calculation where the spin of the &
+                 &target excited'
+  write(6,'(A)') 'state is different from that of the ground state, you can ign&
+                 &ore this warning.'
  end if
 
  ! Note: in a CASSCF job, there is also a CASCI energy, read it.
- ! BACKSPACE is still used since we may want to read CASCI energy of SS-CASSCF
  if(scf) then
-  BACKSPACE(fid)
+  rewind(fid)
   do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
    read(fid,'(A)') buf
    if(buf(1:9) == 'CASCI E =') exit
   end do ! for while
@@ -1610,14 +1613,17 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   read(buf(i+1:),*) s_square
 
   if( DABS(expect - s_square) > 1D-3) then
-   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the&
-                   & 0-th step in this CASSCF job,'
-   write(6,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expecta&
-                  &tion value.'
+   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th&
+                    & step in this CASSCF job,'
+   write(6,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expectation&
+                  & value.'
    write(6,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
-   write(6,'(A)') 'This is probably because Davidson iterative diagonalizat&
-                  &ion is unconverged.'
-   write(6,'(A)') "You may try to add keyword HardWFN or CrazyWFN in mokit{}."
+   write(6,'(A)') 'If this is a ground state calculation, it is probably becaus&
+                  &e Davidson iterative'
+   write(6,'(A)') 'diagonalization is unconverged. You may try to add keyword &
+                  &HardWFN or CrazyWFN in'
+   write(6,'(A)') 'mokit{}. If this is a excited state calculation, you may ign&
+                  &ore this warning.'
   end if
  else
   close(fid)
