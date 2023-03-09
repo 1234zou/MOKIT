@@ -1,7 +1,8 @@
-*中文说明请点击[README_zh.md](README_zh.md)*
+*[中文说明](README_zh.md)*
 *&emsp;&emsp;[Download the program](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 *&emsp;&emsp;[GitHub mirror](https://github.com/1234zou/MOKIT)*
-*&emsp;&emsp;[NJU git mirror](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;&emsp;[NJU-Git mirror](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;&emsp;[Documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook/)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum
@@ -37,7 +38,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Feb 22, 2023
+Mar 9, 2023
 
 Installation
 ------------
@@ -192,8 +193,6 @@ Some Tips
 ---------
 * To avoid unnecessary errors, you must specify keywords 'nosymm int=nobasistransform'
   in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
-
-* Online [documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 
 Bug Report
 ----------

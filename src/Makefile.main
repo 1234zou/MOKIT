@@ -74,11 +74,11 @@ OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
 OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o split_sp.o
-OBJ_pyuno  = pyuno.f90
+OBJ_pyuno = pyuno.f90
 OBJ_qchem = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
                    util_wrapper.f90 rwgeom.f90 qchem.f90 read_fch.o
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
-OBJ_ortho  = math_sub.f90 ortho.f90
+OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
 OBJ_assoc_loc = assoc_loc.f90
 OBJ_wfn_analysis = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \

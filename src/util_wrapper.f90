@@ -435,15 +435,17 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
 end subroutine bas_fch2py_wrap
 
 ! wrapper for subroutine gvb_exclude_XH_A
-subroutine gvb_exclude_XH_A_wrap(datname, gmsname, new_inp)
+subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  implicit none
  integer :: i, fid, system
  character(len=500) :: buf
  character(len=18), parameter :: txt = 'gvb_exclude_XH.txt'
  character(len=240), intent(in) :: datname, gmsname
  character(len=240), intent(out) :: new_inp
+ logical, intent(in) :: reverted
 
  buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
+ if(reverted) buf = TRIM(buf)//' r' ! reverted use of this utility
  write(6,'(/,A)') '$'//TRIM(buf)
  i = system(TRIM(buf)//' >'//txt//" 2>&1")
 

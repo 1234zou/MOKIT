@@ -1593,10 +1593,13 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   stop
  end if
 
- ! Note: in a CASSCF job, there is also a CASCI energy, read it
+ ! Note: in a CASSCF job, there is also a CASCI energy, read it.
+ ! BACKSPACE is still used since we may want to read CASCI energy of SS-CASSCF
  if(scf) then
-  rewind(fid)
+  BACKSPACE(fid)
   do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
    read(fid,'(A)') buf
    if(buf(1:9) == 'CASCI E =') exit
   end do ! for while
@@ -1619,7 +1622,6 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  else
   close(fid)
  end if
-
 end subroutine read_cas_energy_from_pyout
 
 ! read CASCI/CASSCF energy from the GAMESS output file

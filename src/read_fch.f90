@@ -796,8 +796,8 @@ subroutine check_nobasistransform_in_fch(fchname)
  if(index(longbuf,'nobasistransform') == 0) then
   write(6,'(/,A)') REPEAT('-',56)
   write(6,'(A)') "Warning in subroutine check_nobasistransform_in_fch: keyword&
-                 & 'nobasistransform' not"
-  write(6,'(A)') 'detected in file '//TRIM(fchname)
+                 & 'int=nobasistransform'"
+  write(6,'(A)') 'not detected in file '//TRIM(fchname)
   write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
                  &cify this keyword in .gjf file.'
   write(6,'(A)') REPEAT('-',56)

@@ -128,6 +128,12 @@ main = "fch2bdf.f90"
 link = "mkl_rt"
 
 [[executable]]
+name = "fch2cfour"
+source-dir = "src"
+main = "fch2cfour.f90"
+link = "mkl_rt"
+
+[[executable]]
 name = "fch2com"
 source-dir = "src"
 main = "fch2com.f90"

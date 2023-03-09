@@ -1,7 +1,8 @@
 *[English](README.md)*
 *&emsp;&emsp;[下载程序](https://gitlab.com/jxzou/mokit/-/archive/master/mokit-master.zip)*
 *&emsp;&emsp;[GitHub镜像](https://github.com/1234zou/MOKIT)*
-*&emsp;&emsp;[NJU git镜像](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;&emsp;[NJU-Git镜像](https://git.nju.edu.cn/jxzou/mokit)*
+*&emsp;&emsp;[在线文档](https://jeanwsr.gitlab.io/mokit-doc-mdbook/)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外。
@@ -36,7 +37,7 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年2月22号
+2023年3月9号
 
 安装
 ----------
@@ -182,8 +183,6 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ----------
 * 若您想提供.fch(k)文件给`automr`程序读入，请务必在计算前在Gaussian的输入文件中加上
   关键词nosymm int=nobasistransform，以避免后续产生不必要的、不可预见的错误。
-
-* 在线[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 
 汇报Bug
 ----------

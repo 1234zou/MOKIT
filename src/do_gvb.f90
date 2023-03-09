@@ -4,7 +4,8 @@
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
- use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, excludeXH
+ use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, onlyXH,&
+  excludeXH
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
@@ -78,7 +79,7 @@ subroutine do_gvb()
   datname = TRIM(proname1)//'.dat'
   gmsname = TRIM(proname1)//'.gms'
   pair_fch = TRIM(proname1)//'_s.fch'
-  call gvb_exclude_XH_A_wrap(datname, gmsname, inpname)
+  call gvb_exclude_XH_A_wrap(datname, gmsname, onlyXH, inpname)
   call get_npair_from_inpname(inpname, i)
   ndb = ndb + npair - i
   npair = i

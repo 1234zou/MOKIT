@@ -113,9 +113,15 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  implicit none
  integer :: i
  integer, intent(in) :: a1, a2, a3
+!f2py intent(in) :: a1, a2, a3
  integer, allocatable :: ipiv(:)
  real(kind=8), intent(in) :: a(a1,a2), b(a1,a3)
+!f2py intent(in) :: a, b
+!f2py depend(a1,a2) :: a
+!f2py depend(a1,a3) :: b
  real(kind=8), intent(out) :: x(a2,a3)
+!f2py intent(out) :: x
+!f2py depend(a2,a3) :: x
  real(kind=8), allocatable :: a_copy(:,:), b_copy(:,:)
 
  ! mkl Syntax FORTRAN 77:

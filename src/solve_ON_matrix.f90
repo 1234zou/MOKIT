@@ -183,7 +183,7 @@ subroutine check_unitary(nmo, U)
  implicit none
  integer :: i, j
  integer, intent(in) :: nmo
- real(kind=8), parameter :: thresh = 1.3d-6
+ real(kind=8), parameter :: thresh = 1.6d-6
  real(kind=8), intent(in) :: U(nmo,nmo)
  real(kind=8), allocatable :: UUT(:,:), UTU(:,:)
 

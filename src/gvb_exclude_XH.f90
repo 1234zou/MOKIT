@@ -8,23 +8,38 @@
 program main
  implicit none
  integer :: i
+ character(len=1) :: str = ' '
  character(len=240) :: datname, gmsname
+ logical :: onlyxh ! only keep X-H bonds, the reverted use of this program
 
  i = IARGC()
- if(i /= 2) then
-  write(6,'(/,A)') ' ERROR in subroutine gvb_exclude_XH: wrong command line prameter!'
-  write(6,'(A,/)') ' Example: gvb_exclude_XH a.dat a.gms'
+ if(i<2 .or. i>3) then
+  write(6,'(/,A)') ' ERROR in program gvb_exclude_XH: wrong command line parameter!'
+  write(6,'(A)')   ' Example 1: gvb_exclude_XH a.dat a.gms'
+  write(6,'(A,/)') ' Example 2: gvb_exclude_XH a.dat a.gms r'
   stop
  end if
 
  call GETARG(1,datname)
  call GETARG(2,gmsname)
- call gvb_exclude_XH(datname, gmsname)
+
+ onlyxh = .false.
+ if(i == 3) then
+  call getarg(3, str)
+  if(str /= 'r') then
+   write(6,'(/,A)') 'ERROR in program gvb_exclude_XH: wrong command line parameter!'
+   write(6,'(A)') "The 3rd argument can only be 'r'."
+   stop
+  end if
+  onlyxh = .true.
+ end if
+
+ call gvb_exclude_XH(datname, gmsname, onlyxh)
 end program main
 
 ! exclude all X-H pairs out of the GVB active space (except those pairs with
 ! multiconfigurational character)
-subroutine gvb_exclude_XH(datname, gmsname)
+subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
  implicit none
  integer :: i, j, k, m, itmp, itmp1(1), itmp2(1)
  integer :: natom, ncore, nopen, npair, npair2, nbf, nif
@@ -39,6 +54,7 @@ subroutine gvb_exclude_XH(datname, gmsname)
  character(len=240) :: newdat, inpname
  logical, allocatable :: xhbond(:)
  logical :: alive
+ logical, intent(in) :: onlyxh
 
  ! get ncore, nopen and npair
  call read_npair_from_gms(gmsname, ncore, nopen, npair)
@@ -148,6 +164,12 @@ subroutine gvb_exclude_XH(datname, gmsname)
   return
  end if
  write(6,'(I0,A)') npair2, ' X-H bond(s) found in file '//TRIM(gmsname)
+
+ ! Only keep X-H bonds, reverted use of this program, be careful!
+ if(onlyxh) then
+  npair2 = npair - npair2
+  forall(i = 1:npair) xhbond(i) = (.not.xhbond(i))
+ end if
 
  i = index(datname, 'gvb', back=.true.)
  write(inpname,'(A,I0,A)') datname(1:i+2), npair-npair2, '.inp'

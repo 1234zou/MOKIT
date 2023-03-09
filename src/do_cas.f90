@@ -508,7 +508,7 @@ subroutine do_cas(scf)
  call read_cas_energy_from_output(cas_prog, outname, e, scf, nacta-nactb, &
                                   (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
 
- if(gvb .and. 2*npair+nopen==nacto .and. e(1)-gvb_e>2D-6) then
+ if(gvb .and. 2*npair+nopen==nacto .and. iroot==0 .and. e(1)-gvb_e>2D-6) then
   write(6,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS&
                   & are equal, but CASCI/CASSCF'
   write(6,'(A)') 'energy is higher than that of GVB. This is probably due to:&
@@ -636,7 +636,6 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
     write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
    end if
    write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
-   if(iroot > 0) write(fid2,'(A,I0)',advance='no') ').state_specific_(',iroot
    if(RI) then
     write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
    else
@@ -680,14 +679,6 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn, crazywfn)
 
- ! For SS-CASSCF, we need to restrict spin otherwise T1 maybe found if the ground
- ! state is singlet
- if(iroot>0 .and. (.not.crazywfn)) then
-  ss = DBLE(nacta-nactb)*0.5d0
-  ss = ss*(ss+1d0)
-  write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
- end if
-
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
  ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
  ! original MOs to be used in DMRG-NEVPT2/CASPT2 computations. NOs are often
@@ -695,6 +686,19 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  if(.not. dmrgscf) write(fid2,'(A)') 'mc.natorb = True'
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
+
+ if(iroot > 0) then
+  write(fid2,'(/,A)') '# State-Specific CASSCF'
+  write(fid2,'(A,I0,A)') 'mc = mc.state_specific_(',iroot,')'
+  ! For SS-CASSCF, we need to restrict the spin otherwise T1 may be found if
+  ! the ground state is singlet
+  if(.not. crazywfn) then
+   ss = DBLE(nacta-nactb)*0.5d0
+   ss = ss*(ss+1d0)
+   write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+  end if
+  write(fid2,'(A)') 'mc.kernel()'
+ end if
 
  i = index(casnofch, '_NO', back=.true.)
  cmofch = casnofch(1:i)//'CMO.fch'
@@ -1011,7 +1015,7 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  if(put(1:4) /= '{put') then
   close(fid)
   write(6,'(A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
-                   & in the final line of file '//TRIM(inpname)
+                 & in the final line of file '//TRIM(inpname)
   stop
  end if
 
@@ -1460,32 +1464,6 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)/DBLE(i)))
  n = nproc/i
  write(fid,'(A,I0)') 'np = ', n
-! if(MOD(nproc,8) == 0) then
-!  njob = 8
-!  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)*0.125d0))
-!  n = nproc/8
-!  write(fid,'(A,I0)') 'np = ', n
-! else if(MOD(nproc,6) == 0) then
-!  njob = 6
-!  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)/6d0))
-!  n = nproc/6
-!  write(fid,'(A,I0)') 'np = ', n
-! else if(MOD(nproc,4) == 0) then
-!  njob = 4
-!  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)*0.25d0))
-!  n = nproc/4
-!  write(fid,'(A,I0)') 'np = ', n
-! else if(MOD(nproc,3) == 0) then
-!  njob = 3
-!  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)/3d0))
-!  n = nproc/3
-!  write(fid,'(A,I0)') 'np = ', n
-! else
-!  njob = 2
-!  write(fid,'(A,I0)') 'mem = ', MIN(16,CEILING(DBLE(mem)*0.5d0))
-!  n = nproc/2
-!  write(fid,'(A,I0)') 'np = ', n
-! end if
 
  write(fid,'(A)') 'pro = '//TRIM(proname)
  write(fid,'(/,A)',advance='no') 'all:'

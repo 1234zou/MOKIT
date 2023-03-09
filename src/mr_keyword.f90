@@ -204,6 +204,7 @@ module mr_keyword
  logical :: ICSS = .false.        ! whether to calcuate ICSS
  logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
+ logical :: onlyXH = .false.      ! whether to keep only X-H bonds in GVB
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
  logical :: excited = .false.     ! whether to perform excited states calculations
@@ -345,7 +346,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc12 (2023-Feb-22)'
+  write(6,'(A)') '           Version: 1.2.5rc13 (2023-Mar-9)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -883,6 +884,8 @@ contains
     ICSS = .true.; nmr = .true.
    case('excludexh')
     excludeXH = .true.
+   case('onlyxh')
+    excludeXH = .true.; onlyXH = .true.
    case('mixed_spin')
     mixed_spin = .true.
    case('nstates')
@@ -1023,8 +1026,8 @@ contains
   write(6,'(5(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ',    DKH2,&
        'X2C     = ',    X2C, 'RI      = ',     RI, 'FIC     = ', FIC
 
-  write(6,'(4(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
-       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn
+  write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
+       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'OnlyXH  = ', onlyXH
 
   write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  casscf_force,&
        'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
