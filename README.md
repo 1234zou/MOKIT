@@ -47,7 +47,7 @@ This is the easiest way, but network is required to auto-download the requiremen
 (like Intel MKL). And, creating a new environment before installing is highly
 recommended, to avoid changing your base environment.
 ```
-conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
+conda create -n mokit-py37 python=3.7 mkl=2022 # 3.8, 3.9 are also available
 conda activate mokit-py37
 conda install mokit -c mokit
 ```

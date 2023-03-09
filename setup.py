@@ -172,8 +172,8 @@ setup(
     ext_modules = [Extension('mokit_lib_placeholder', [])],
     cmdclass={'build_ext': MakeBuildExt, 'build_scripts': BinBuild},
     install_requires=[
-        'numpy>=1.18',
-        'mkl>=2020',
+        'numpy>=1.21',
+        'mkl>=2022',
         'libgfortran5'],
     #extras_require={'h5py':['h5py>=2.7']}
     scripts = find_exes()
