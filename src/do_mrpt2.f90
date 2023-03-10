@@ -8,7 +8,7 @@ subroutine do_mrpt2()
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
   openmp_molcas, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
-  eist
+  eist, iroot, target_root
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
@@ -369,7 +369,7 @@ subroutine do_mrpt2()
  if(nevpt2) then      ! read NEVPT2 energy
   select case(TRIM(nevpt2_prog))
   case('pyscf')
-   call read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
+   call read_mrpt_energy_from_pyscf_out(outname, target_root, ref_e, corr_e)
    ref_e = ref_e + ptchg_e
   case('molpro')
    if(FIC) then
@@ -449,6 +449,7 @@ subroutine do_mrpt2()
   write(6,'(A,F18.8,1X,A4)') 'E(SDSPT2)    = ', sdspt2_e, 'a.u.'
  end if
 
+ call delete_file('ss-cas.txt')
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mrpt2 at '//TRIM(data_string)
 end subroutine do_mrpt2
@@ -738,9 +739,9 @@ end subroutine prt_caspt2_orca_inp
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI, RIJK_bas, &
-  hardwfn, crazywfn
+  hardwfn, crazywfn, iroot, target_root
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, nroots, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1
  character(len=240), intent(in) :: pyname
@@ -793,13 +794,27 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', CEILING(DBLE(mem)/2d0), ' # GB'
  end if
 
+ if(iroot > 0) then ! NEVPT2 based on SS-CASSCF
+  call read_ss_root_from_txt(nroots, target_root)
+  write(fid2,'(A,I0)') 'mc.fcisolver.nroots = ', nroots
+ end if
+
  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
  write(fid2,'(A)') 'mc.verbose = 5'
- write(fid2,'(A)') 'mc.kernel()'
+ write(fid2,'(A,/)') 'mc.kernel()'
  if(casci .or. casscf) then
-  write(fid2,'(/,A)') 'mrpt.NEVPT(mc).kernel()'
+  if(iroot == 0) then
+   write(fid2,'(A)') 'mrpt.NEVPT(mc).kernel()'
+  else
+   write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc, root=',target_root,').kernel()'
+  end if
  else
-  write(fid2,'(/,A,I0,A)') 'mrpt.NEVPT(mc).compress_approx(maxM=',maxM,').kernel()'
+  if(iroot == 0) then
+   write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc).compress_approx(maxM=',maxM,').kernel()'
+  else
+   write(fid2,'(2(A,I0),A)') 'mrpt.NEVPT(mc,root=',target_root,').compress_a&
+                               &pprox(maxM=',maxM,').kernel()'
+  end if
  end if
  close(fid2)
 
@@ -1053,4 +1068,26 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
  read(buf(35:),*) corr_e
  corr_e = corr_e - ref_e
 end subroutine read_mrpt_energy_from_gau_out
+
+! read nroots and target_root from a plain text file
+subroutine read_ss_root_from_txt(nroots, target_root)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nroots, target_root
+ character(len=50) :: buf
+ character(len=10), parameter :: txtname = 'ss-cas.txt'
+
+ nroots = 3; target_root = 1 ! initialization
+ open(newunit=fid,file=txtname,status='old',position='rewind')
+
+ read(fid,'(A)') buf
+ i = index(buf, '=')
+ read(buf(i+1:),*) nroots
+
+ read(fid,'(A)') buf
+ i = index(buf, '=')
+ read(buf(i+1:),*) target_root
+
+ close(fid)
+end subroutine read_ss_root_from_txt
 

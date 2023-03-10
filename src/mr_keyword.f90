@@ -123,6 +123,7 @@ module mr_keyword
 
  integer :: iroot = 0 ! the state you are interested in SS-CASSCF
  ! 0 for ground state, 1 for the first excited state
+ integer :: target_root = 0 ! the real i-th number of the interested state
 
  integer :: xmult = 1 ! spin multiplicity of the target excited state
 
@@ -348,7 +349,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc15 (2023-Mar-9)'
+  write(6,'(A)') '           Version: 1.2.5rc16 (2023-Mar-10)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -1099,12 +1100,6 @@ contains
 
    if(casci) then
     write(6,'(A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
-    stop
-   end if
-
-   if(dyn_corr) then
-    write(6,'(A)') error_warn//'State-Specific CASSCF based post-CAS methods'
-    write(6,'(A)') 'are not supported currently.'
     stop
    end if
   end if

@@ -18,7 +18,7 @@ subroutine do_cas(scf)
   dmrgci_prog, dmrgscf_prog, gau_path, gms_path, openmp_molcas, molcas_path, &
   orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, &
   casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres, iroot,&
-  xmult
+  xmult, dyn_corr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -570,6 +570,7 @@ subroutine do_cas(scf)
   call gen_icss_cub(proname, nfile)
  end if
 
+ if(.not. dyn_corr) call delete_file('ss-cas.txt')
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_cas at '//TRIM(data_string)
 end subroutine do_cas
@@ -1813,8 +1814,13 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   write(fid,'(4X,A)') 'break'
   ! assume the SS-CASSCF orbital optimization is accomplished, now run a multi
   ! -root CASCI calculation and generate NOs
-  write(fid,'(A)') "print('SSS')"
   ! a label/tag to determine this is a successful state-specific CASSCF job
+  write(fid,'(A)') "print('SSS')"
+  ! print the target state and nroots for possible use of NEVPT2, etc
+  write(fid,'(A)') "f = open('ss-cas.txt', 'w+')"
+  write(fid,'(A)') "f.write('nroots=%i\n' %nroots)"
+  write(fid,'(A)') "f.write('target_root=%i' %j)"
+  write(fid,'(A)') 'f.close()'
   if(dkh2_or_x2c) then
    write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
   else

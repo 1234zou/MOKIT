@@ -2068,15 +2068,17 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
 end subroutine read_cas_energy_from_dalton_out
 
 ! read NEVPT2 energy from PySCF output file
-subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
+subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
  implicit none
- integer :: i, fid
+ integer :: i, k, fid
+ integer, intent(in) :: troot ! 0 for the ground state, >0 for excited state
+ character(len=7), parameter :: str1 = 'CASCI E'
+ character(len=15) :: str2 = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
 
- ref_e = 0d0
- corr_e = 0d0
+ ref_e = 0d0; corr_e = 0d0
  call open_file(outname, .false., fid)
 
  do while(.true.)
@@ -2097,16 +2099,24 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, ref_e, corr_e)
  i = index(buf, '=')
  read(buf(i+1:),*) corr_e
 
+ if(troot == 0) then
+  str2 = str1
+  k = 7
+ else
+  write(str2,'(A,1X,I0)') 'CASCI state', troot
+  k = LEN_TRIM(str2)
+ end if
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:7) == 'CASCI E') exit
+  if(buf(1:k) == TRIM(str2)) exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
   write(6,'(A)') 'No CASCI energy found in file '//TRIM(outname)
   close(fid)
   stop

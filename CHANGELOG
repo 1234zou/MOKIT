@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Mar 9, 2023)
+MOKIT 1.2.5 (Mar 10, 2023)
 ------------------------
 * state-tracking of State-Specific CASSCF orbital optimization
 * change MKL from 2021 to 2022 for the abnormal behavior of frag_guess_wfn in conda
