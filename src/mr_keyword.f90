@@ -5,12 +5,6 @@
 ! updated by jxzou at 20201218: add 'back = .true.' for detecting GAUSS_EXEDIR
 ! updated by jxzou at 20210129: add RI options and aux_basis sets auto-determination
 
-! file unit of printing
-module print_id
- implicit none
- integer :: cid ! file ID of Citation.txt
-end module print_id
-
 module phys_cons ! physics constants
  implicit none
  real(kind=8), parameter :: au2ev = 27.211396d0
@@ -244,7 +238,7 @@ module mr_keyword
  character(len=240) :: dalton_path = ' '
  character(len=240) :: bdf_path = ' '
 
- character(len=11) :: method = ' '  ! model chemistry, theoretical method
+ character(len=15) :: method = ' '  ! model chemistry, theoretical method
  character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
  character(len=21) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
  character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
@@ -277,34 +271,6 @@ contains
    end if
   end if
  end subroutine get_molcas_path
-
- subroutine get_molpro_path()
-  implicit none
-  integer :: i, fid, system
-
-  i = system("which molpro >mokit.molpro 2>&1")
-  if(i /= 0) then
-   molpro_path = 'mokit.molpro'
-   call delete_file(molpro_path)
-   molpro_path = 'NOT FOUND'
-   return
-  end if
-
-  open(newunit=fid,file='mokit.molpro',status='old',position='rewind')
-  read(fid,'(A)',iostat=i) molpro_path
-  close(fid,status='delete')
-
-  if(i /= 0) then
-   molpro_path = 'NOT FOUND'
-  else
-   if(LEN_TRIM(molpro_path) == 0) then
-    molpro_path = 'NOT FOUND'
-   else if(index(molpro_path,'no molpro') > 0) then
-    molpro_path = 'NOT FOUND'
-   end if
-  end if
-
- end subroutine get_molpro_path
 
  ! repalce variables like '$USER' in path into real path
  subroutine replace_env_in_path(path)
@@ -349,7 +315,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc16 (2023-Mar-10)'
+  write(6,'(A)') '           Version: 1.2.5rc17 (2023-Mar-13)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -362,11 +328,11 @@ contains
   !call getenv('MOKIT_ROOT', mokit_root)
   mokit_root = get_mokit_root()
   write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
-  
+
   call get_gau_path(gau_path)
   call get_molcas_path()
   call check_molcas_is_openmp(openmp_molcas)
-  call get_molpro_path()
+  call get_molpro_path(molpro_path)
   call get_orca_path(orca_path)
   call get_psi4_path(psi4_path)
   call get_dalton_path(dalton_path)
@@ -422,47 +388,14 @@ contains
   logical :: alive(2), alive1(5)
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+  call read_mem_nproc_route(fid, mem, nproc, buf)
 
-  do while(.true.)
-   read(fid,'(A)',iostat=ifail) buf
-   if(ifail /= 0) exit
-   if(buf(1:1) == '#') exit
-
-   call lower(buf)
-   if(buf(1:5) == '%mem=') then
-    j = index(buf,'gb')
-    if(j == 0) then
-     write(6,'(A)') 'ERROR in subroutine parse_keyword: memory unit only GB&
-                   & is accepted.'
-     close(fid)
-     stop
-    end if
-    read(buf(6:j-1),*) mem
-   else if(buf(1:6) == '%nproc') then
-    j = index(buf,'=')
-    read(buf(j+1:),*) nproc
-   else
-    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: only %mem and %nproc&
-                    & are allowed.'
-    write(6,'(A)') 'Bot now got '//TRIM(buf)
-    stop
-   end if
-  end do ! for while
-
-  if(ifail /= 0) then
-   write(6,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
-   write(6,'(A)') 'The input file may be incomplete. File='//TRIM(gjfname)
-   close(fid)
-   stop
-  end if
-
-  call lower(buf)
   i = index(buf,'/')
   if(i == 0) then
-   write(6,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected&
-                 & in keyword line."
-   write(6,'(A)') 'The method and basis set must be specified via method/bas&
-                  &is, e.g. CASSCF/cc-pVDZ.'
+   write(6,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected &
+                  &in keyword line."
+   write(6,'(A)') "The method and basis set must be specified via '/' symbol,&
+                  & e.g. CASSCF/cc-pVDZ."
    close(fid)
    stop
   end if
@@ -471,7 +404,7 @@ contains
   j = index(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
    write(6,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
-   write(6,'(A)') "current line '"//TRIM(buf)//"'"
+   write(6,'(A)') "the current line '"//TRIM(buf)//"'"
    stop
   end if
   method0 = buf(j+1:i-1)
@@ -1666,6 +1599,48 @@ contains
 
 end module mr_keyword
 
+! read mem, nproc and Route Section from an opened .gjf file
+subroutine read_mem_nproc_route(fid, mem, nproc, buf)
+ implicit none
+ integer :: i, j, ifail
+ integer, intent(in) :: fid
+ integer, intent(out) :: mem, nproc
+ character(len=240), intent(out) :: buf
+ character(len=42), parameter :: warn_str = 'ERROR in subroutine read_mem_nproc&
+                                             &_route: '
+ buf = ' '
+ do while(.true.)
+  read(fid,'(A)',iostat=ifail) buf
+  if(ifail /= 0) exit
+  call lower(buf)
+  if(buf(1:1) == '#') exit
+  if(buf(1:5) == '%mem=') then
+   j = index(buf,'gb')
+   if(j == 0) then
+    write(6,'(/,A)') warn_str//' memory unit only GB is accepted.'
+    close(fid)
+    stop
+   end if
+   read(buf(6:j-1),*) mem
+  else if(buf(1:6) == '%nproc') then
+   j = index(buf,'=')
+   read(buf(j+1:),*) nproc
+  else
+   write(6,'(/,A)') warn_str//' only %mem and %nproc are allowed.'
+   write(6,'(A)') 'Bot now got '//TRIM(buf)
+   close(fid)
+   stop
+  end if
+ end do ! for while
+
+ if(ifail /= 0) then
+  write(6,'(/,A)') warn_str//' end-of-file detected.'
+  write(6,'(A)') 'The input file is problematic.'
+  close(fid)
+  stop
+ end if
+end subroutine read_mem_nproc_route
+
 ! If RIJK_bas, RIC_bas and F12_cabs are given, check validity
 ! If not given, automatically determine them
 subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
@@ -2048,6 +2023,35 @@ subroutine check_exe_exist(path)
   stop
  end if
 end subroutine check_exe_exist
+
+subroutine get_molpro_path(molpro_path)
+ implicit none
+ integer :: i, fid, system
+ character(len=240), intent(out) :: molpro_path
+
+ molpro_path = ' '
+ i = system("which molpro >mokit.molpro 2>&1")
+ if(i /= 0) then
+  molpro_path = 'mokit.molpro'
+  call delete_file(molpro_path)
+  molpro_path = 'NOT FOUND'
+  return
+ end if
+
+ open(newunit=fid,file='mokit.molpro',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) molpro_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  molpro_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(molpro_path) == 0) then
+   molpro_path = 'NOT FOUND'
+  else if(index(molpro_path,'no molpro') > 0) then
+   molpro_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_molpro_path
 
 subroutine get_psi4_path(psi4_path)
  implicit none

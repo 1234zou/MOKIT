@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc16 :: MOKIT, release date: 2023-Mar-10'
+  write(6,'(A)') 'AutoMR 1.2.5rc17 :: MOKIT, release date: 2023-Mar-13'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -92,7 +92,7 @@ subroutine automr(fname)
  call parse_keyword()
  call check_kywd_compatible()
 
- call do_hf()         ! RHF and/or UHF
+ call do_hf(.true.)          ! RHF and/or UHF
  call do_minimal_basis_gvb() ! GVB/STO-6G, only valid for ist=6
  call get_paired_LMO()
  call do_gvb()        ! GVB

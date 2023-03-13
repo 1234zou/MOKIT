@@ -7,7 +7,7 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
              do_PES_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
-             rwwfn.o read_fch.o rwgeom.o do_hf.o call_qc_calc_int.o autosr.o
+             do_hf.o rwwfn.o read_fch.o rwgeom.o call_qc_calc_int.o autosr.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
 OBJ_bas_gms2bdf = file_op.o string_manipulate.o read_gms_inp.o bas_gms2bdf.o
@@ -372,7 +372,7 @@ excited: $(OBJ_excited)
 get_mokit_loc:
 	cp get_mokit_loc.py $(BIN)/
 
-exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
+exe: add_bgcharge_to_inp addH2singlet automr autosr bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2cfour \
      fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
@@ -383,7 +383,7 @@ exe: add_bgcharge_to_inp addH2singlet automr bas_fch2py bas_gau2molcas \
 pymodules: auto_pair chk2py fch2py py2fch pyuno qchem construct_vir ortho \
            assoc_rot assoc_loc wfn_analysis lo mo_svd rwgeom rwwfn excited
 
-all: add_bgcharge_to_inp addH2singlet automr auto_pair bas_fch2py bas_gau2molcas \
+all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2bdf fch2cfour \
      fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \

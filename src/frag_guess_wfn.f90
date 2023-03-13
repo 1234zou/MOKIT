@@ -38,26 +38,34 @@ module frag_info
  type(frag), allocatable :: frags(:)
 contains
 
- subroutine copy_frag(frag1, frag2)
-  implicit none
-  type(frag), intent(in) :: frag1
-  type(frag), intent(out) :: frag2
+! copy type frag
+subroutine copy_frag(frag1, frag2)
+ implicit none
+ integer :: natom
+ type(frag), intent(in) :: frag1
+ type(frag), intent(out) :: frag2
 
-  frag2%charge = frag1%charge
-  frag2%mult = frag1%mult
-  frag2%natom = frag1%natom
-  frag2%wfn_type = frag1%wfn_type
-  frag2%atm_map = frag1%atm_map
-  frag2%e = frag1%e
-  frag2%ssquare = frag1%ssquare
-  frag2%coor = frag1%coor
-  frag2%elem = frag1%elem
-  frag2%fname = frag1%fname
-  frag2%pos = frag1%pos
-  frag2%noiter = frag1%noiter
-  frag2%ghost = frag1%ghost
- end subroutine copy_frag
-
+ frag2%charge   = frag1%charge
+ frag2%mult     = frag1%mult
+ frag2%wfn_type = frag1%wfn_type
+ frag2%e        = frag1%e
+ frag2%ssquare  = frag1%ssquare
+ frag2%fname    = frag1%fname
+ frag2%pos      = frag1%pos
+ frag2%noiter   = frag1%noiter
+ natom = frag1%natom
+ frag2%natom = natom
+ if(natom > 0) then
+  allocate(frag2%coor(3,natom), source=frag1%coor)
+  allocate(frag2%elem(natom), source=frag1%elem)
+  if(allocated(frag1%atm_map)) then
+   allocate(frag2%atm_map(natom), source=frag1%atm_map)
+  end if
+  if(allocated(frag1%ghost)) then
+   allocate(frag2%ghost(natom), source=frag1%ghost)
+  end if
+ end if
+end subroutine copy_frag
 end module frag_info
 
 module theory_level

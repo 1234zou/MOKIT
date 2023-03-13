@@ -2,7 +2,7 @@
 ! updated by jxzou at 20210305: add interfaces with ORCA and PSI4 (for RI-JK HF)
 
 ! perform RHF/UHF computation using Gaussian/PySCF/PSI4/ORCA
-subroutine do_hf()
+subroutine do_hf(prt_mr_strategy)
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
   charge, mult, rhf_e, uhf_e
  use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
@@ -14,6 +14,7 @@ subroutine do_hf()
  character(len=24) :: data_string = ' '
  character(len=240) :: rhf_gjfname, uhf_gjfname, hf_prog_path
  logical :: eq, noiter
+ logical, intent(in) :: prt_mr_strategy
 
  write(6,'(//,A)') 'Enter subroutine do_hf...'
 
@@ -43,8 +44,10 @@ subroutine do_hf()
     hf_fch = hf_fch(1:i-1)//'_r.fch'
     readuhf = .false.; readrhf = .true.; ist = 3
     vir_proj = .true.; mo_rhf = .true. ; uno = .false.
-    write(6,'(A)') 'Strategy updated:'
-    call prt_strategy()
+    if(prt_mr_strategy) then
+     write(6,'(A)') 'Strategy updated:'
+     call prt_strategy()
+    end if
    else
     write(6,'(A)') 'This seems a truly UHF wave function.'
    end if
@@ -137,8 +140,10 @@ subroutine do_hf()
   hf_fch = gjfname(1:i-1)//'_uhf.fch'
  end if
 
- write(6,'(A)') 'Strategy updated:'
- call prt_strategy()
+ if(prt_mr_strategy) then
+  write(6,'(A)') 'Strategy updated:'
+  call prt_strategy()
+ end if
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
