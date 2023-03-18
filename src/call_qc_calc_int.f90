@@ -262,40 +262,56 @@ subroutine get_gau_path(gau_path)
  integer :: i
  character(len=240) :: g(3)
  character(len=240), intent(out) :: gau_path
+ character(len=480) :: buf
  logical :: alive
 
  gau_path = ' '
- call getenv('GAUSS_EXEDIR', gau_path)
+ call getenv('GAUSS_EXEDIR', buf)
+ ! in case that the $GAUSS_EXEDIR is too long, use buf to store it
 
 #ifdef _WIN32
- i = index(gau_path, '\', back=.true.)
+ i = index(buf, '\', back=.true.)
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in&
-                  & gau_path="//TRIM(gau_path)
+  write(6,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in gau&
+                 &_path="//TRIM(buf)
   stop
  end if
- gau_path = """"//TRIM(gau_path)//'\g'//gau_path(i+2:i+3)//".exe"""
+ buf = """"//TRIM(buf)//'\g'//buf(i+2:i+3)//".exe"""
+ i = LEN_TRIM(buf)
+ if(i > 240) then
+  write(6,'(/,A)') 'ERROR in subroutine get_gau_path: Gaussian path is too long!'
+  write(6,'(A)') 'Please install your Gaussian program in a shorter path.'
+  stop
+ end if
+ gau_path = TRIM(buf)
 
 #else
- i = index(gau_path, ':', back=.true.)
+ i = index(buf, ':', back=.true.)
  if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found&
-                  & in gau_path="//TRIM(gau_path)
-  write(6,'(/,A)') 'This error often occurs when your machine has no (or has&
-                  & incorrect) Gaussian'
+  write(6,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found in g&
+                   &au_path="//TRIM(buf)
+  write(6,'(/,A)') 'This error often occurs when your machine has no (or has i&
+                   &ncorrect) Gaussian'
   write(6,'(A)') 'environment variables. Here I offer a correct example:'
   write(6,'(A)') REPEAT('-',45)
   write(6,'(A)') ' export g16root=/opt'
   write(6,'(A)') ' source $g16root/g16/bsd/g16.profile'
   write(6,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
   write(6,'(A)') REPEAT('-',45)
-  write(6,'(A)') 'Please check your Gaussian environment variables according&
-                   & to the example shown above.'
+  write(6,'(A)') 'Please check your Gaussian environment variables according to&
+                 & the example shown above.'
   write(6,'(A,/)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
   stop
  end if
 
- gau_path = gau_path(i+1:)
+ buf = buf(i+1:)
+ i = LEN_TRIM(buf)
+ if(i > 240) then
+  write(6,'(/,A)') 'ERROR in subroutine get_gau_path: Gaussian path is too long!'
+  write(6,'(A)') 'Please install your Gaussian program in a shorter path.'
+  stop
+ end if
+ gau_path = TRIM(buf)
  g(1) = TRIM(gau_path)//'/g03'
  g(2) = TRIM(gau_path)//'/g09'
  g(3) = TRIM(gau_path)//'/g16'
@@ -601,6 +617,30 @@ subroutine submit_qchem_job(inpname, nproc)
   stop
  end if
 end subroutine submit_qchem_job
+
+subroutine submit_molpro_job(inpname, mem, nproc)
+ implicit none
+ integer :: i, SYSTEM
+ integer, intent(in) :: mem ! total memory in GB
+ integer, intent(in) :: nproc ! number of processors
+ character(len=270) :: buf = ' '
+ character(len=240) :: outname = ' '
+ character(len=240), intent(in) :: inpname
+
+ i = index(inpname, '.com', back=.true.)
+ outname = inpname(1:i-1)//'.out'
+
+ i = CEILING(DBLE(mem*125)/DBLE(nproc))
+ write(buf,'(2(A,I0),A)') 'molpro -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)
+ write(6,'(A)') '$'//TRIM(buf)
+
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_molpro_job: Molpro job failed.'
+  write(6,'(A)') 'You can open the file '//TRIM(outname)//' and check why.'
+  stop
+ end if
+end subroutine submit_molpro_job
 
 ! submit a GVB-BCCI job
 subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)

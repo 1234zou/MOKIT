@@ -25,9 +25,21 @@ def load_mol_from_fch(fchname):
   os.system('bas_fch2py '+tmp_fch)
   os.remove(tmp_fch)
 
-  os.system("sed -i '1,3d' "+tmp_py)
-  os.system("sed -i '1i from pyscf import gto' "+tmp_py)
-  os.system("sed -i '/build/{p;:a;N;$!ba;d}' "+tmp_py)
+  # remove GNU sed dependence
+  #os.system("sed -i '1,3d' "+tmp_py)
+  #os.system("sed -i '1i from pyscf import gto' "+tmp_py)
+  #os.system("sed -i '/build/{p;:a;N;$!ba;d}' "+tmp_py)
+  with open(tmp_py, 'r+') as fp:
+    lines = fp.readlines()
+    fp.seek(0)
+    fp.truncate()
+    fp.writelines('from pyscf import gto\n')
+    for i, line in enumerate(lines):
+      if('mol.build' in line):
+        j = i + 1
+        break
+    fp.writelines(lines[3:j])
+
   molpy = __import__(proname)
   os.remove(tmp_py)
   shutil.rmtree('__pycache__')

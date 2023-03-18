@@ -192,6 +192,7 @@ module mr_keyword
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation
  logical :: casscf_force = .false.! whether to calculate CASSCF force
+ logical :: dmrg_no = .true.      ! whether to generate NO in a DMRG-CASCI job
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
@@ -315,7 +316,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc17 (2023-Mar-13)'
+  write(6,'(A)') '           Version: 1.2.5rc18 (2023-Mar-17)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -832,12 +833,14 @@ contains
     eist = 1
    case('tdhf')
     TDHF = .true.
-   case('noQD')
+   case('noqd')
     noQD = .true.
    case('fcgvb')
     fcgvb = .true.
    case('hfonly')
     HFonly = .true.
+   case('nodmrgno')
+    dmrg_no = .false.
    case default
     write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                     //"' not recognized in {}."
@@ -1602,7 +1605,7 @@ end module mr_keyword
 ! read mem, nproc and Route Section from an opened .gjf file
 subroutine read_mem_nproc_route(fid, mem, nproc, buf)
  implicit none
- integer :: i, j, ifail
+ integer :: i, ifail
  integer, intent(in) :: fid
  integer, intent(out) :: mem, nproc
  character(len=240), intent(out) :: buf
@@ -1615,16 +1618,16 @@ subroutine read_mem_nproc_route(fid, mem, nproc, buf)
   call lower(buf)
   if(buf(1:1) == '#') exit
   if(buf(1:5) == '%mem=') then
-   j = index(buf,'gb')
-   if(j == 0) then
+   i = index(buf,'gb')
+   if(i == 0) then
     write(6,'(/,A)') warn_str//' memory unit only GB is accepted.'
     close(fid)
     stop
    end if
-   read(buf(6:j-1),*) mem
+   read(buf(6:i-1),*) mem
   else if(buf(1:6) == '%nproc') then
-   j = index(buf,'=')
-   read(buf(j+1:),*) nproc
+   i = index(buf,'=')
+   read(buf(i+1:),*) nproc
   else
    write(6,'(/,A)') warn_str//' only %mem and %nproc are allowed.'
    write(6,'(A)') 'Bot now got '//TRIM(buf)

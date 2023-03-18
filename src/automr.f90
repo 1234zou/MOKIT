@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc17 :: MOKIT, release date: 2023-Mar-13'
+  write(6,'(A)') 'AutoMR 1.2.5rc18 :: MOKIT, release date: 2023-Mar-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -723,7 +723,7 @@ subroutine calc_ncore()
  read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
  close(fid)
 
- ecp_core = INT(SUM(RNFroz))
+ ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
 end subroutine calc_ncore
 
 ! perform GVB/STO-6G, only valid for ist=6

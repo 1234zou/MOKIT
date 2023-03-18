@@ -15,6 +15,7 @@ module sr_keyword
  character(len=10) :: mp2_prog = 'orca'
  character(len=10) :: cc_prog = 'orca'
  character(len=10) :: adc_prog = 'pyscf'
+ logical :: uhf_based = .true. ! UHF based MP2 or CC
  logical :: noRI = .false. ! turn on RI by default
  logical :: mp2 = .false.
  logical :: ccd = .false.
@@ -39,7 +40,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.5rc17 (2023-Mar-13)'
+ write(6,'(A)') '           Version: 1.2.5rc18 (2023-Mar-17)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -95,7 +96,8 @@ subroutine parse_sr_keyword()
   method = method0(1:i-1)
 
   select case(TRIM(method))
-  case('dlpno-ccsd','dlpno-ccsd(t)','dlpno-ccsd(t0)','dlpno-ccsd(t1)')
+  case('ccd','ccsd','ccsd(t)','ccsd(t)-f12','dlpno-ccsd','dlpno-ccsd(t)',&
+       'dlpno-ccsd(t0)','dlpno-ccsd(t1)')
   case default
    write(6,'(/,A)') 'ERROR in subroutine parse_sr_keyword: unsupported method '&
                    //TRIM(method)
@@ -116,6 +118,8 @@ subroutine parse_sr_keyword()
   ccsd = .true.
  case('ccsd(t)')
   ccsd_t = .true.
+ case('ccsd(t)-f12')
+  ccsd_t = .true.; F12 = .true.
  case('dlpno-mp2')
   mp2 = .true.; DLPNO = .true.
  case('dlpno-ccsd')
@@ -276,6 +280,13 @@ end subroutine parse_sr_keyword
 subroutine check_sr_kywd_compatible()
  implicit none
 
+ if(ccd .and. TRIM(cc_prog)=='molpro') then
+  write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CC_prog=Molpr&
+                   &o is incompatible with'
+  write(6,'(A)') 'the CCD method, you may want to try CC_prog=ORCA.'
+  stop
+ end if
+
  if(RI .eqv. noRI) then
   write(6,'(A)') 'ERROR in subroutine check_sr_kywd_compatible: RI=noRI. Confus&
                  &ed keywords.'
@@ -331,7 +342,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.5rc17 :: MOKIT, release date: 2023-Mar-13'
+  write(6,'(A)') 'AutoSR 1.2.5rc18 :: MOKIT, release date: 2023-Mar-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -417,10 +428,9 @@ subroutine do_mp2()
 end subroutine do_mp2
 
 subroutine do_cc()
- use sr_keyword, only: ccsd, ccsd_t, bgchg, RI, F12, DLPNO, RIJK_bas, RIC_bas,&
-  F12_cabs, hf_fch, chgname, cc_prog, orca_path, method, ccsd_e, ccsd_t_e, &
-  ref_e, corr_e
- use util_wrapper, only: fch2mkl_wrap, mkl2gbw
+ use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, bgchg, hf_fch, chgname, &
+  cc_prog, orca_path, method, ccsd_e, ccsd_t_e, ref_e, corr_e
+ use util_wrapper, only: fch2mkl_wrap, mkl2gbw, fch2com_wrap
  implicit none
  integer :: i, RENAME, SYSTEM
  real(kind=8) :: e = 0d0
@@ -428,19 +438,20 @@ subroutine do_cc()
  character(len=24) :: data_string = ' '
  character(len=240) :: old_inp, inpname, mklname, outname
 
- if(.not. (ccsd .or. ccsd_t)) return
+ if(.not. (ccd .or. ccsd .or. ccsd_t)) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
+ write(6,'(A)') 'CC using program '//TRIM(cc_prog)
 
  method0 = method
  call upper(method0)
  i = index(hf_fch, '.fch', back=.true.)
- old_inp = hf_fch(1:i-1)//'_o.inp'
- inpname = hf_fch(1:i-1)//'_DLPNO-CC.inp'
- outname = hf_fch(1:i-1)//'_DLPNO-CC.out'
+ outname = hf_fch(1:i-1)//'_CC.out'
 
  select case(TRIM(cc_prog))
  case('orca')
-  mklname = hf_fch(1:i-1)//'_DLPNO-CC.mkl'
+  inpname = hf_fch(1:i-1)//'_CC.inp'
+  old_inp = hf_fch(1:i-1)//'_o.inp'
+  mklname = hf_fch(1:i-1)//'_CC.mkl'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -449,12 +460,19 @@ subroutine do_cc()
   call delete_file(mklname)
   call prt_cc_orca_inp(inpname)
   call submit_orca_job(orca_path, inpname)
+  call read_cc_e_from_orca_out(outname, ref_e, e)
+ case('molpro')
+  inpname = hf_fch(1:i-1)//'_CC.com'
+  call fch2com_wrap(hf_fch, inpname)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  call prt_cc_molpro_inp(inpname)
+  call submit_molpro_job(inpname, mem, nproc)
+  call read_cc_e_from_molpro_out(outname, ref_e, e)
  case default
   write(6,'(A)') 'ERROR in subroutine do_cc: invalid CC_prog='//TRIM(cc_prog)
   stop
  end select
 
- call read_cc_e_from_orca_out(outname, ref_e, e)
  if(ccsd) then
   ccsd_e = e
  else
@@ -507,8 +525,8 @@ end subroutine do_eomcc
 
 ! add CC keywords into a ORCA input file
 subroutine prt_cc_orca_inp(inpname)
- use sr_keyword, only: mem, nproc, DLPNO, RIJK_bas, RIC_bas, mo_rhf, ccsd_t, &
-  iterative_t
+ use sr_keyword, only: mem, nproc, DLPNO, F12, RIJK_bas, RIC_bas, F12_cabs, &
+  mo_rhf, ccd, ccsd, ccsd_t, iterative_t
  use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -540,20 +558,32 @@ subroutine prt_cc_orca_inp(inpname)
  end if
  write(fid1,'(A)',advance='no') 'HF TightSCF RIJK '//TRIM(RIJK_bas)//' '//&
                                 TRIM(RIC_bas)
+ if(F12) write(fid1,'(A)',advance='no') ' '//TRIM(F12_cabs)
+
  if(DLPNO) then
   write(fid1,'(A)',advance='no') ' TightPNO DLPNO-CCSD'
- else
-  write(fid1,'(A)',advance='no') ' CCSD'
- end if
-
- if(iterative_t) then
-  write(fid1,'(A)') '(T1)'
+  if(iterative_t) then
+   write(fid1,'(A)',advance='no') '(T1)'
+  else if(ccsd_t) then
+   write(fid1,'(A)',advance='no') '(T)'
+  end if
  else
   if(ccsd_t) then
-   write(fid1,'(A)') '(T)'
-  else
-   write(fid1,'(/)',advance='no')
+   write(fid1,'(A)',advance='no') ' CCSD(T)'
+  else if(ccsd) then
+   write(fid1,'(A)',advance='no') ' CCSD'
+  else if(ccd) then
+   write(fid1,'(A)',advance='no') ' CCD'
   end if
+ end if
+ if(F12) then
+  if(DLPNO) then
+   write(fid1,'(A)') '-F12'
+  else
+   write(fid1,'(A)') '-F12/RI'
+  end if
+ else
+  write(fid1,'(/)',advance='no')
  end if
 
  write(fid1,'(A)') TRIM(buf)
@@ -567,6 +597,68 @@ subroutine prt_cc_orca_inp(inpname)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_cc_orca_inp
+
+subroutine prt_cc_molpro_inp(inpname)
+ use sr_keyword, only: ccsd, ccsd_t, RI, F12, mo_rhf, uhf_based, basis, RIJK_bas,&
+  RIC_bas
+ use mol, only: mult
+ implicit none
+ integer :: i, fid
+ character(len=21) :: MP2FIT_bas, RIJK_bas1
+ character(len=240), intent(in) :: inpname
+
+ call auxbas_convert(RIJK_bas, RIJK_bas1, 2)
+ i = index(RIJK_bas, '/')
+ RIC_bas = RIJK_bas(1:i)//'optri'
+ MP2FIT_bas = RIJK_bas(1:i)//'mp2fit'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ BACKSPACE(fid)
+
+ if(RI) then
+  ! do 1 cycle of R(O)HF, let molpro recognize auxiliary basis sets
+  write(fid,'(A,/,A)') 'basis='//TRIM(basis), 'DF-HF'
+  write(fid,'(A)') 'basis={'
+  write(fid,'(A,/,A)') 'set,df', 'default,'//TRIM(MP2FIT_bas)
+  write(fid,'(A,/,A)') 'set,jk', 'default,'//TRIM(RIJK_bas1)
+  if(F12) then
+   write(fid,'(A,/,A)') 'set,ri', 'default,'//TRIM(RIC_bas)
+  end if
+  write(fid,'(A)') '}'
+  write(fid,'(A)',advance='no') 'DF-'
+  if(mult /= 1) then
+   if(mo_rhf) then
+    if(uhf_based) then  ! ROHF-UCCSD
+     write(fid,'(A)',advance='no') 'U'
+    else                ! ROHF-ROCCSD
+     write(fid,'(A)',advance='no') 'R'
+    end if
+   else
+    write(6,'(A)') 'ERROR in subroutine prt_cc_molpro_inp: UHF-based CC is not&
+                   & supported in Molpro.'
+    close(fid)
+    stop
+   end if
+  end if
+  write(fid,'(A)',advance='no') 'CCSD'
+  if(ccsd_t) write(fid,'(A)',advance='no') '(T)'
+  if(F12) write(fid,'(A)',advance='no') '-F12,ri_basis=ri'
+  write(fid,'(A)') ',df_basis=df,df_basis_exch=jk'
+
+ else ! RI is turned off
+  if(ccsd_t) then
+   write(fid,'(A)',advance='no') 'CCSD(T)'
+  else if(ccsd) then
+   write(fid,'(A)',advance='no') 'CCSD'
+  end if
+  if(F12) then
+   write(fid,'(A)') '-F12'
+  else
+   write(fid,'(/)',advance='no')
+  end if
+ end if
+
+ close(fid)
+end subroutine prt_cc_molpro_inp
 
 subroutine read_cc_e_from_orca_out(outname, ref_e, tot_e)
  implicit none
@@ -609,4 +701,38 @@ subroutine read_cc_e_from_orca_out(outname, ref_e, tot_e)
 
  read(buf(26:),*) tot_e
 end subroutine read_cc_e_from_orca_out
+
+subroutine read_cc_e_from_molpro_out(outname, ref_e, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:9) == 'Checking') then
+   i = -1
+   exit
+  end if
+  if(index(buf,'HF-SCF') > 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'Total Ener' n&
+                   &ot found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) tot_e, ref_e
+ close(fid)
+end subroutine read_cc_e_from_molpro_out
 

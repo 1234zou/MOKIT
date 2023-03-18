@@ -9,9 +9,10 @@
 
 program modify_GMS2
  implicit none
- integer :: i, j, k, fid1, fid2
+ integer :: i, j, k, fid1, fid2, RENAME
  integer, parameter :: nfile = 23
  integer, parameter :: len_max = 72
+ character(len=6) :: str6
  character(len=30) :: fname1, fname2
  character(len=200) :: buf
  character(len=10) :: filelist(nfile)
@@ -20,9 +21,7 @@ program modify_GMS2
   'guess','hess','hss1c','hss2a','hss2b','hss2c','locpol','mexing','parley',&
   'prppop','qmfm','scflib','statpt','vector','vvos'/
 
- fname1 = ' '
- fname2 = ' '
- buf = ' '
+ fname1 = ' '; fname2 = ' '; buf = ' '; str6 = ' '
 
  do i = 1, nfile, 1
   fname1 = TRIM(filelist(i))//'.src'
@@ -40,8 +39,8 @@ program modify_GMS2
    read(fid1,'(A)',iostat=k) buf
    if(k /= 0) exit
    if(buf(1:1)=='C' .or. buf(1:1)=='c' .or. buf(1:1)=='!') then
-     write(fid2,'(A)') TRIM(buf)
-     cycle
+    write(fid2,'(A)') TRIM(buf)
+    cycle
    end if
 
    j = LEN_TRIM(buf)
@@ -53,19 +52,22 @@ program modify_GMS2
     j = min(j,k)
    end if
 
-   if(j > len_max) then
-     if(j==73 .and. buf(j:j)=="&") then
-       write(fid2,'(A)') TRIM(buf)
-     else if(buf(j:j) == ',') then
-       buf(j:j) = ' '
-       k = SCAN(buf(1:len_max),',',.true.)
-       write(fid2,'(A)') buf(1:k)
-       write(fid2,'(A)') '     *                '//TRIM(buf(k+1:))//','
-     else
-       k = SCAN(buf(1:len_max),',',.true.)
-       write(fid2,'(A)') buf(1:k)
-       write(fid2,'(A)') '     *                '//TRIM(buf(k+1:))
-     end if
+   str6 = buf(7:12)
+   call upper(str6)
+
+   if(j>len_max .and. str6=='COMMON') then
+    if(j==73 .and. buf(j:j)=="&") then
+      write(fid2,'(A)') TRIM(buf)
+    else if(buf(j:j) == ',') then
+      buf(j:j) = ' '
+      k = SCAN(buf(1:len_max),',',.true.)
+      write(fid2,'(A)') buf(1:k)
+      write(fid2,'(A)') '     *                '//TRIM(buf(k+1:))//','
+    else
+      k = SCAN(buf(1:len_max),',',.true.)
+      write(fid2,'(A)') buf(1:k)
+      write(fid2,'(A)') '     *                '//TRIM(buf(k+1:))
+    end if
    else
     write(fid2,'(A)') TRIM(buf)
    end if
@@ -76,4 +78,16 @@ program modify_GMS2
   k = RENAME(fname2, fname1)
  end do ! for i
 end program modify_GMS2
+
+! transform a string into upper case
+subroutine upper(buf)
+ implicit none
+ integer :: i, k
+ character(len=*), intent(inout) :: buf
+
+ do i = 1, LEN(buf), 1
+  k = ICHAR(buf(i:i))
+  if(k>=97 .and. k<=122) buf(i:i) = CHAR(k-32)
+ end do
+end subroutine upper
 

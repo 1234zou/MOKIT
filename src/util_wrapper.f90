@@ -434,6 +434,34 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  end if
 end subroutine bas_fch2py_wrap
 
+subroutine fch2com_wrap(fchname, inpname)
+ implicit none
+ integer :: i, system, RENAME
+ character(len=240) :: inpname1
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: inpname
+
+#ifdef _WIN32
+ i = system('fch2com '//TRIM(fchname)//' > NUL')
+#else
+ i = system('fch2com '//TRIM(fchname)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine fch2com_wrap: failed to call utility fch2com.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(present(inpname)) then
+  i = index(fchname, '.fch')
+  inpname1 = fchname(1:i-1)//'.com'
+  if(TRIM(inpname) /= TRIM(inpname1)) then
+   i = RENAME(TRIM(inpname1), TRIM(inpname))
+  end if
+ end if
+end subroutine fch2com_wrap
+
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  implicit none

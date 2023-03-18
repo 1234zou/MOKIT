@@ -2,46 +2,60 @@
 !  BDF, to that in Gaussian .fch(k) file
 ! Originally copied from bdf2fch.f90, some modifications are made
 ! updated by jxzou at 20210111: transfer orbital energies when transferring HF/DFT orbitals
+! updated by jxzou at 20230316: add an optional argument new_fch
 
 program main
  implicit none
  integer :: i
- character(len=3) :: str
- character(len=240) :: fchname, orbname
+ character(len=3) :: str = ' '
+ character(len=240) :: orbname, fchname, new_fch
  logical :: prt_no
 
  i = iargc()
- if(.not. (i==2 .or. i==3)) then
+ if(i<2 .or. i>4) then
   write(6,'(/,A)') ' ERROR in subroutine bdf2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF): bdf2fch a.scforb a.fch'
-  write(6,'(A)')   ' Example 2 (for CAS)        : bdf2fch a.casorb a.fch'
-  write(6,'(A,/)') ' Example 3 (for CAS NO)     : bdf2fch a.casorb a.fch -no'
+  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF): bdf2fch a.scforb a.fch'
+  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF): bdf2fch a.scforb a.fch a_new.fch'
+  write(6,'(A)')   ' Example 3 (for CAS)       : bdf2fch a.casorb a.fch'
+  write(6,'(A)')   ' Example 4 (for CAS)       : bdf2fch a.casorb a.fch a_new.fch'
+  write(6,'(A)')   ' Example 5 (for CAS NO)    : bdf2fch a.casorb a.fch -no'
+  write(6,'(A,/)') ' Example 6 (for CAS NO)    : bdf2fch a.casorb a.fch a_new.fch -no'
   stop
  end if
 
- str = ' '; fchname = ' '
- call getarg(1,orbname)
+ str = ' '; orbname = ' '; fchname = ' '; new_fch = ' '
+ call getarg(1, orbname)
  call require_file_exist(orbname)
 
- call getarg(2,fchname)
+ call getarg(2, fchname)
  call require_file_exist(fchname)
 
+ prt_no = .false.
  if(i == 3) then
-  call getarg(3, str)
-  if(str /= '-no') then
-   write(6,'(/,A)') "ERROR in subroutine bdf2fch: the 3rd argument is&
-                    & wrong! Only '-no' is accepted."
-   write(6,'(A)') "But you specify '"//str//"'."
-   stop
+  call getarg(3, new_fch)
+  if(TRIM(new_fch) == '-no') then
+   prt_no = .true.
+   new_fch = ' ' ! update new_fch
   end if
  end if
 
- call bdf2fch(orbname, fchname, prt_no)
+ if(i == 4) then
+  call getarg(4, str)
+  if(str /= '-no') then
+   write(6,'(/,A)') "ERROR in subroutine bdf2fch: the 4th argument is wrong! O&
+                    &nly '-no' is accepted."
+   write(6,'(A)') "But you specify '"//str//"'."
+   stop
+  end if
+  prt_no = .true.
+ end if
+
+ call bdf2fch(orbname, fchname, new_fch, prt_no)
 end program main
 
 ! read the MOs in orbital file of BDF and adjust its p,d,f,g,h functions
 !  order to that of Gaussian
-subroutine bdf2fch(orbname, fchname, prt_no)
+subroutine bdf2fch(orbname, fchname, new_fch, prt_no)
  use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
@@ -52,7 +66,10 @@ subroutine bdf2fch(orbname, fchname, prt_no)
  ! mark the index where p, d, f, g, h functions begin
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  character(len=240), intent(in) :: orbname, fchname
- ! orbname is one of .scforb, .casorb, .casorb1, canorb, file of BDF
+ ! orbname: one of .scforb, .casorb, .casorb1, canorb, file of BDF
+ character(len=240), intent(inout) :: new_fch
+ ! If the user provides the filename new_fch, use the filename; if not, replace
+ ! orbitals in fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:)
  real(kind=8), allocatable :: occ_num(:), ev(:)
  logical :: uhf
@@ -224,20 +241,26 @@ subroutine bdf2fch(orbname, fchname, prt_no)
  forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)
  deallocate(idx, idx2, coeff)
 
+ if(LEN_TRIM(new_fch) == 0) then
+  new_fch = fchname
+ else
+  call copy_file(fchname, new_fch, .false.)
+ end if
+
  ! print MOs and orbital energies/occupation numbers into .fch(k) file
  if(uhf) then
   nif = nif/2
-  call write_eigenvalues_to_fch(fchname, nif, 'a', ev(1:nif), .true.)
-  call write_eigenvalues_to_fch(fchname, nif, 'b', ev(nif+1:2*nif), .true.)
-  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
-  call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
+  call write_eigenvalues_to_fch(new_fch, nif, 'a', ev(1:nif), .true.)
+  call write_eigenvalues_to_fch(new_fch, nif, 'b', ev(nif+1:2*nif), .true.)
+  call write_mo_into_fch(new_fch, nbf, nif, 'a', coeff2(:,1:nif))
+  call write_mo_into_fch(new_fch, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
  else
   if(prt_no) then
-   call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
-   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+   call write_eigenvalues_to_fch(new_fch, nif, 'a', occ_num, .true.)
+   call write_mo_into_fch(new_fch, nbf, nif, 'a', coeff2)
   else
-   call write_eigenvalues_to_fch(fchname, nif, 'a', ev, .true.)
-   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
+   call write_eigenvalues_to_fch(new_fch, nif, 'a', ev, .true.)
+   call write_mo_into_fch(new_fch, nbf, nif, 'a', coeff2)
   end if
  end if
 

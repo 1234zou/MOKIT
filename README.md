@@ -38,10 +38,12 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Mar 13, 2023
+Mar 17, 2023
 
 Installation
 ------------
+You can choose any of the four options shown below to install MOKIT, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+
 ### Option 1: Install from conda
 This is the easiest way, but network is required to auto-download the requirements
 (like Intel MKL). And, creating a new environment before installing is highly

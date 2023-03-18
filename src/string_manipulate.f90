@@ -846,7 +846,8 @@ subroutine add_mokit_path_to_genbas(basname)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=12) :: sbuf
- character(len=240) :: buf, mokit_root, get_mokit_root, basname1
+ character(len=240) :: buf, mokit_root, basname1
+ character(len=240), external :: get_mokit_root
  character(len=240), intent(in) :: basname
 
  !mokit_root = ' '
@@ -860,7 +861,6 @@ subroutine add_mokit_path_to_genbas(basname)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) exit
   sbuf = TRIM(buf(1:12))
   call upper(sbuf)
   if(sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or. sbuf(1:8)=='DKH-DEF2' &
@@ -872,7 +872,6 @@ subroutine add_mokit_path_to_genbas(basname)
  end do ! for while
 
  close(fid,status='delete')
- write(fid1,'(/)')
  close(fid1)
  i = RENAME(TRIM(basname1), TRIM(basname))
 end subroutine add_mokit_path_to_genbas
@@ -1081,6 +1080,7 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
  i = RENAME(TRIM(new_dat), TRIM(addH_dat))
 end subroutine copy_and_add_pair_coeff
 
+! add the force keyword into a PySCF input file
 subroutine add_force_key2py_script(mem, pyname)
  implicit none
  integer :: fid
@@ -1112,4 +1112,62 @@ subroutine standardize_elem(natom, elem)
   if(j>64 .and. j<91) elem(i)(2:2) = ACHAR(j+32)
  end do ! for i
 end subroutine standardize_elem
+
+! add the force keyword into a GAMESS input file
+subroutine add_force_key2gms_inp(inpname)
+ implicit none
+ integer :: i, j, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do i = 1, 2
+  read(fid,'(A)') buf
+  j = index(buf,'RUNTYP=ENERGY')
+  if(j > 0) buf = buf(1:j+6)//'GRADIENT'//TRIM(buf(j+13:))
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_force_key2gms_inp
+
+! add the force keyword into an ORCA input file
+subroutine add_force_key2orca_inp(inpname)
+ implicit none
+ integer :: i, j, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do i = 1, 5
+  read(fid,'(A)') buf
+  j = index(buf,'TightSCF')
+  if(j > 0) buf = buf(1:j+7)//' EnGrad'//TRIM(buf(j+8:))
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_force_key2orca_inp
 

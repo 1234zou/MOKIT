@@ -37,10 +37,12 @@ or
 您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以
 正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年3月13号
+2023年3月17号
 
 安装
 ----------
+您可以从以下展示的4种安装方式中任选一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，还有更简洁的安装方式，见[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn)。
+
 ### 方式1：conda 联网安装
 这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前
 创建一个新环境，以免破坏 base 环境。

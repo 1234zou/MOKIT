@@ -13,12 +13,12 @@ end module icss_param
 ! do CASCI(npair<=7) or DMRG-CASCI(npair>7) when scf=.False.
 ! do CASSCF(npair<=7) or DMRG-CASSCF(npair>7) when scf=.True.
 subroutine do_cas(scf)
- use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, hf_fch,&
-  datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, casscf_prog, &
-  dmrgci_prog, dmrgscf_prog, gau_path, gms_path, openmp_molcas, molcas_path, &
-  orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg, chgname, &
-  casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres, iroot,&
-  xmult, dyn_corr
+ use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, dmrg_no, &
+  ist, hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
+  casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, gms_path, openmp_molcas, &
+  molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg,&
+  chgname, casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres,&
+  iroot, xmult, dyn_corr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
@@ -279,7 +279,7 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.gms'
   call prt_cas_gms_inp(inpname, idx1-1, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(casscf_force) i = system("sed -i '1,1s/ENERGY/GRADIENT/' "//TRIM(inpname))
+  if(casscf_force) call add_force_key2gms_inp(inpname)
 
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
@@ -359,7 +359,7 @@ subroutine do_cas(scf)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
-  if(casscf_force) i = system("sed -i '3,3s/TightSCF/TightSCF EnGrad/' "//TRIM(inpname))
+  if(casscf_force) call add_force_key2orca_inp(inpname)
 
   call submit_orca_job(orca_path, inpname)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
@@ -486,10 +486,10 @@ subroutine do_cas(scf)
   call delete_file(orbname)
 
  case default
-  write(6,'(A)') 'ERROR in subroutine do_cas: Allowed programs are Gaussian,&
-                & GAMESS, PySCF,'
-  write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got &
-                 &CAS_prog='//TRIM(cas_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_cas: allowed programs are Gaussian,&
+                   & GAMESS, PySCF,'
+  write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got CAS_&
+                 &prog='//TRIM(cas_prog)
   stop
  end select
 
@@ -526,7 +526,9 @@ subroutine do_cas(scf)
   write(6,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
  end if
 
- call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
+ if((dmrgci .and. dmrg_no) .or. (.not. dmrgci)) then
+  call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
+ end if
 
  if(casscf_force) then
   allocate(grad(3*natom))
@@ -578,7 +580,7 @@ end subroutine do_cas
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, maxM,&
+ use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, dmrg_no, maxM, &
   hardwfn, crazywfn, casnofch, dkh2_or_x2c, RI, RIJK_bas, iroot
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -668,7 +670,13 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
  ! original MOs to be used in DMRG-NEVPT2/CASPT2 computations. NOs are often
  ! more delocalized than original MOs.
- if(.not. dmrgscf) write(fid2,'(A)') 'mc.natorb = True'
+ if(.not. dmrgscf) then
+  if(dmrgci) then ! DMRG-CASCI
+   if(dmrg_no) write(fid2,'(A)') 'mc.natorb = True'
+  else            ! CASCI/CASSCF
+   write(fid2,'(A)') 'mc.natorb = True'
+  end if
+ end if
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 
@@ -688,10 +696,13 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(A)') 'mc.kernel()'
  end if
 
- write(fid2,'(/,A)') '# save NOs into .fch file'
- write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(casnofch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True)"
- ! mc.mo_occ only exists for PySCF >= 1.7.4
+ if((dmrgci .and. dmrg_no) .or. (.not. dmrgci)) then
+  write(fid2,'(/,A)') '# save NOs into .fch file'
+  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(casnofch)//"')"
+  write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.&
+                    &mo_occ,True)"
+  ! mc.mo_occ only exists for PySCF >= 1.7.4
+ end if
 
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
