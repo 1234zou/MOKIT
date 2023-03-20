@@ -1214,6 +1214,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  end select
  write(fid2,'(A)') '}'
  write(fid2,'(A)') 'df_basis_sapt {'
+ if(basis(1:4) == 'def2') basis = 'def2-'//TRIM(basis(5:))
  write(fid2,'(A)') ' assign '//TRIM(basis)//'-ri'
  if(TRIM(basis) == 'jun-cc-pvdz') then
   natom = frags(3)%natom

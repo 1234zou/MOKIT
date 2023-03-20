@@ -12,6 +12,7 @@ module sr_keyword
  real(kind=8) :: ccd_e = 0d0    ! CCD total energy
  real(kind=8) :: ccsd_e = 0d0   ! CCSD total energy
  real(kind=8) :: ccsd_t_e = 0d0 ! CCSD(T) total energy
+ real(kind=8) :: t1diag = 0d0   ! T1 diagnostic
  character(len=10) :: mp2_prog = 'orca'
  character(len=10) :: cc_prog = 'orca'
  character(len=10) :: adc_prog = 'pyscf'
@@ -40,7 +41,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.5rc18 (2023-Mar-17)'
+ write(6,'(A)') '           Version: 1.2.5rc19 (2023-Mar-20)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -342,7 +343,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.5rc18 :: MOKIT, release date: 2023-Mar-17'
+  write(6,'(A)') 'AutoSR 1.2.5rc19 :: MOKIT, release date: 2023-Mar-20'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -429,7 +430,7 @@ end subroutine do_mp2
 
 subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, bgchg, hf_fch, chgname, &
-  cc_prog, orca_path, method, ccsd_e, ccsd_t_e, ref_e, corr_e
+  cc_prog, orca_path, method, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw, fch2com_wrap
  implicit none
  integer :: i, RENAME, SYSTEM
@@ -460,14 +461,14 @@ subroutine do_cc()
   call delete_file(mklname)
   call prt_cc_orca_inp(inpname)
   call submit_orca_job(orca_path, inpname)
-  call read_cc_e_from_orca_out(outname, ref_e, e)
+  call read_cc_e_from_orca_out(outname, (.not.ccd), t1diag, ref_e, e)
  case('molpro')
   inpname = hf_fch(1:i-1)//'_CC.com'
   call fch2com_wrap(hf_fch, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_cc_molpro_inp(inpname)
   call submit_molpro_job(inpname, mem, nproc)
-  call read_cc_e_from_molpro_out(outname, ref_e, e)
+  call read_cc_e_from_molpro_out(outname, (.not.ccd), t1diag, ref_e, e)
  case default
   write(6,'(A)') 'ERROR in subroutine do_cc: invalid CC_prog='//TRIM(cc_prog)
   stop
@@ -482,6 +483,7 @@ subroutine do_cc()
  write(6,'(/,A,F18.8,A)')'E(ref)  = ', ref_e, ' a.u.'
  write(6,'(A,F18.8,A)')  'E(corr) = ', corr_e, ' a.u.'
  write(6,'(A,F18.8,A)')  'E('//TRIM(method0)//') = ', e, ' a.u.'
+ if(.not. ccd) write(6,'(A,F10.5,A)')  'T1diag = ', t1diag
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_cc at '//TRIM(data_string)
@@ -660,14 +662,15 @@ subroutine prt_cc_molpro_inp(inpname)
  close(fid)
 end subroutine prt_cc_molpro_inp
 
-subroutine read_cc_e_from_orca_out(outname, ref_e, tot_e)
+subroutine read_cc_e_from_orca_out(outname, read_t1diag, t1diag, ref_e, tot_e)
  implicit none
  integer :: i, fid
- real(kind=8), intent(out) :: ref_e, tot_e
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+ logical, intent(in) :: read_t1diag
 
- ref_e = 0d0; tot_e = 0d0
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
@@ -686,6 +689,15 @@ subroutine read_cc_e_from_orca_out(outname, ref_e, tot_e)
  i = index(buf, ':')
  read(buf(i+1:),*) ref_e
 
+ if(read_t1diag) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:10) == 'T1 diagnos') exit
+  end do ! for while
+  read(buf(47:),*) t1diag
+ end if
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -702,14 +714,15 @@ subroutine read_cc_e_from_orca_out(outname, ref_e, tot_e)
  read(buf(26:),*) tot_e
 end subroutine read_cc_e_from_orca_out
 
-subroutine read_cc_e_from_molpro_out(outname, ref_e, tot_e)
+subroutine read_cc_e_from_molpro_out(outname, read_t1diag, t1diag, ref_e, tot_e)
  implicit none
  integer :: i, fid
- real(kind=8), intent(out) :: ref_e, tot_e
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+ logical, intent(in) :: read_t1diag
 
- ref_e = 0d0; tot_e = 0d0
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
@@ -733,6 +746,30 @@ subroutine read_cc_e_from_molpro_out(outname, ref_e, tot_e)
  end if
 
  read(fid,*) tot_e, ref_e
+
+ if(read_t1diag) then
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(2:9) == 'Checking') then
+    i = -1
+    exit
+   end if
+   if(index(buf,'T1 diag') > 0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'T1 diag' not&
+                   & found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = index(buf, 'T1 diagnostic:')
+  read(buf(i+14:),*) t1diag
+ end if
+
  close(fid)
 end subroutine read_cc_e_from_molpro_out
 

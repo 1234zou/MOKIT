@@ -841,14 +841,15 @@ function get_mokit_root() result(mokit_root)
 end function get_mokit_root
 
 ! add MOKIT_ROOT path into basis sets like ANO-RCC-VDZP, DKH-def2-SVP in file
-! basname because MOKIT has these basis sets in $MOKIT_ROOT/basis/
+! basname because MOKIT has these basis sets in $MOKIT_ROOT/mokit/basis/
 subroutine add_mokit_path_to_genbas(basname)
  implicit none
  integer :: i, fid, fid1, RENAME
- character(len=12) :: sbuf
- character(len=240) :: buf, mokit_root, basname1
+ character(len=12) :: sbuf = ' '
+ character(len=240) :: mokit_root, basname1
  character(len=240), external :: get_mokit_root
  character(len=240), intent(in) :: basname
+ character(len=480) :: buf = ' '
 
  !mokit_root = ' '
  !call getenv('MOKIT_ROOT', mokit_root)
@@ -866,7 +867,7 @@ subroutine add_mokit_path_to_genbas(basname)
   if(sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or. sbuf(1:8)=='DKH-DEF2' &
      .or. sbuf(1:9)=='ZORA-DEF2' .or. sbuf(1:11)=='MA-DKH-DEF2' .or. &
      sbuf(1:12)=='MA-ZORA-DEF2') then
-   buf = '@'//TRIM(mokit_root)//'/basis/'//TRIM(buf)
+   buf = '@'//TRIM(mokit_root)//'/mokit/basis/'//TRIM(buf)
   end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while

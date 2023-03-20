@@ -1728,54 +1728,62 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+ character(len=53), parameter :: error_warn = 'ERROR in subroutine read_cas_en&
+                                              &ergy_from_molcas_out: '
  logical, intent(in) :: scf
 
  call open_file(outname, .true., fid)
+ e = 0d0; add = 0d0
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:21) == 'Nr of preliminary CI') exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ if(index(buf,'No convergence') > 0) then
+  if(scf) then
+   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_molcas_out:'
+   write(6,'(A)') 'The CASCI iterative diagonalization fails to converge. This &
+                  &is a defect'
+   write(6,'(A)') 'of OpenMolcas when doing CASSCF. If you want a correct CASCI&
+                  & energy, please'
+   write(6,'(A)') 'run a single CASCI job. This may or may not affect the final&
+                  & CASSCF result,'
+   write(6,'(A)') 'so the program will continue.'
+  else ! CASCI
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'The CASCI iterative diagonalization fails to converge.'
+   close(fid)
+   stop
+  end if
+  read(fid,'(A)') buf
+ end if
+
+ if(index(buf,'Total energies') > 0) then
+  i = index(buf,'Add'); j = index(buf,'au')
+  read(buf(i+3:j-1),*) add
+  read(fid,'(A)') buf
+ end if
+
+ read(buf,*) i, j, i, j, e(1) ! CASCI energy
+ e(1) = e(1) + add
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(7:27) == 'RASSCF root number  1') exit
+  if(index(buf,'Convergence after') > 0) exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molcas_out: no&
-                 & 'RASSCF root number  1' found in file "//TRIM(outname)//'.'
+  close(fid)
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') "'Convergence after' is not found in file "//TRIM(outname)
   stop
  end if
 
- e = 0d0; add = 0d0
- i = index(buf,':',back=.true.)
- if(scf) then   ! CASSCF
-  read(buf(i+1:),*) e(2)
-  rewind(fid)   ! read CASCI energy in CASSCF job
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(buf(2:21) == 'Nr of preliminary CI') exit
-  end do ! for while
-
-  read(fid,'(A)') buf
-  if(index(buf,'No convergence') /= 0) then
-   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_molcas_out:'
-   write(6,'(A)') 'The 0-th step in CASSCF, i.e. the CASCI (in the CASSCF)&
-                  & iterative diagonalization fails to converge.'
-   write(6,'(A)') 'This is a defect of OpenMolcas when doing CASSCF. If you want a'
-   write(6,'(A)') 'correct CASCI energy, please run a single CASCI job.'
-   write(6,'(A)') 'This may or may not affect the final CASSCF result, so continue.'
-   read(fid,'(A)') buf
-  end if
-  if(index(buf,'Total energies') /= 0) then
-   i = index(buf,'Add'); j = index(buf,'au')
-   read(buf(i+3:j-1),*) add
-   read(fid,'(A)') buf
-  end if
-
-  read(buf,*) i, j, i, j, e(1)
-  e(1) = e(1) + add
-
- else           ! CASCI
-  read(buf(i+1:),*) e(1)
- end if
-
+ read(fid,*) i, j, i, j, e(2) ! CASSCF energy
+ e(2) = e(2) + add
  close(fid)
 end subroutine read_cas_energy_from_molcas_out
 
@@ -3733,4 +3741,43 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  call write_eigenvalues_to_fch(mo_fch, nif, 'a', noon, .true.)
  deallocate(noon)
 end subroutine get_1e_exp_and_sort_pair
+
+! sort NOs by ascending order of NOONs in a .fch file
+subroutine sort_no_by_noon(fchname, i1, i2)
+ implicit none
+ integer :: i, j, nbf, nif
+ integer, intent(in) :: i1, i2 ! initial/final index of active orbitals
+ real(kind=8) :: r1, r2
+ real(kind=8), allocatable :: noon(:), coeff(:,:), rtmp(:)
+ character(len=240), intent(in) :: fchname
+
+ if(i1 == i2) return
+ if(i1<1 .or. i2<1 .or. i1>i2) then
+  write(6,'(A)') 'ERROR in subroutine sort_no_by_noon: invalid orbital index!'
+  write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2
+  stop
+ end if
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(noon(nif))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
+ allocate(coeff(nbf,nif), rtmp(nbf))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+
+ do i = i1, i2-1, 1
+  r1 = noon(i); rtmp = coeff(:,i)
+  do j = i+1, i2, 1
+   r2 = noon(j)
+   if(r2 > r1) then
+    r1 = r2; noon(j) = noon(i); noon(i) = r1
+    rtmp = coeff(:,j); coeff(:,j) = coeff(:,i); coeff(:,i) = rtmp
+   end if
+  end do ! for j
+ end do ! for i
+
+ deallocate(rtmp)
+ call write_mo_into_fch(fchname, nbf, nif, 'a', coeff)
+ deallocate(coeff)
+ call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+ deallocate(noon)
+end subroutine sort_no_by_noon
 

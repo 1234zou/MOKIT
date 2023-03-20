@@ -119,18 +119,18 @@ subroutine do_cas(scf)
 
  if(i == 0) then
   write(6,'(/,A)') 'There is no active orbital/electron. AutoMR terminated.'
-  write(6,'(/,A)') 'The reason is this molecule has little multi-configurational&
-                  & or multi-reference'
-  write(6,'(A)') 'character. This molecule can be well described by single&
-                & reference methods, e.g.'
-  write(6,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation&
-                 &. But if you still want'
-  write(6,'(A)') 'to do it, you can manually specify the size of acitve spac&
-                 &e in .gjf file. For ex-'
-  write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for meth&
-                 &ane(CH4). The maximum'
-  write(6,'(A)') 'number of active orbitals is 2*npair. You can find npair &
-                 &in GVB computations above.'
+  write(6,'(/,A)') 'The reason is this molecule has little multi-configurationa&
+                   &l or multi-reference'
+  write(6,'(A)') 'character. This molecule can be well described by single ref&
+                 &erence methods, e.g.'
+  write(6,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation. &
+                 & But if you still want'
+  write(6,'(A)') 'to do it, you can manually specify the size of acitve space &
+                 &in .gjf file. For ex-'
+  write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for methan&
+                 &e(CH4). The maximum'
+  write(6,'(A)') 'number of active orbitals is 2*npair. You can find npair in &
+                 &GVB computations above.'
   write(6,'(A,I0)') 'For this molecule, npair=', npair
   stop
  end if
@@ -329,7 +329,7 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.input'
   i = RENAME(TRIM(outname),TRIM(inpname))
   outname = TRIM(proname)//'.out'
-  orbname = TRIM(proname)//'.RasOrb.1'
+  write(orbname,'(A,I0)') TRIM(proname)//'.RasOrb.', iroot+1
   call prt_cas_molcas_inp(inpname, scf)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
@@ -340,6 +340,8 @@ subroutine do_cas(scf)
   call copy_file(fchname, casnofch, .false.)
   ! transfer NOs from .dat to .fch
   i = system('orb2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
+  ! OpenMolcas CASSCF NOs may not be in ascending order, sort them
+  call sort_no_by_noon(casnofch, idx1, idx2)
 
  case('orca')
   call check_exe_exist(orca_path)
@@ -885,18 +887,18 @@ subroutine prt_cas_molcas_inp(inpname, scf)
 
  ! if RIJK is on, we need to generate the fitting basis set file for OpenMolcas
  if(RI) then
-  i = system('cp '//TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' .')
+  i = system('cp '//TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' .')
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy&
-                  & file from'
-   write(6,'(A)') TRIM(mokit_root)//'/basis/'//TRIM(RIJK_bas1)//' to '//&
-                 ' current directory.'
+   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy file&
+                  & from'
+   write(6,'(A)') TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' to the&
+                 & current directory.'
    stop
   end if
   i = system('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call&
-                  & utility bas_gau2molcas.'
+   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call util&
+                  &ity bas_gau2molcas.'
    write(6,'(A)') 'Did you forget to compile it?'
    stop
   end if
@@ -905,7 +907,6 @@ subroutine prt_cas_molcas_inp(inpname, scf)
   call upper(RIJK_bas1)
   i = system('mv '//TRIM(RIJK_bas1)//' $MOLCAS/basis_library/jk_Basis/')
  end if
-
 end subroutine prt_cas_molcas_inp
 
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
@@ -1603,25 +1604,33 @@ end subroutine read_shieldings_from_dalton_out
 
 ! print (Open)Molcas (DMRG-)CASCI/CASSCF input file keywords
 subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
- use mr_keyword, only: hardwfn, crazywfn, MaxM
+ use mr_keyword, only: hardwfn, crazywfn, MaxM, iroot, xmult
  use mol, only: nacte, nacto, charge, mult
  implicit none
- integer :: i
+ integer :: i, nroots, lroots
  integer, intent(in) :: fid
+ integer, allocatable :: weight(:)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: dmrg, nevpt, chemps2, CIonly
 
+ if(mult /= xmult) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_molcas_cas_para: Xmult/=mult!'
+  write(6,'(A)') 'When using OpenMolcas, the ground state spin must be equal t&
+                 &o the excited state spin.'
+  stop
+ end if
+
  if(dmrg) then
   write(fid,'(/,A)') "&DMRGSCF"
-  write(fid,'(A)') 'ActiveSpaceOptimizer = QCMaquis'
-  write(fid,'(A)') 'Fiedler = ON'
+  write(fid,'(A)') 'ActiveSpaceOptimizer= QCMaquis'
+  write(fid,'(A)') 'Fiedler= ON'
   write(fid,'(A)') 'DMRGSettings'
-  write(fid,'(A)') ' nsweeps = 5'
-  write(fid,'(A,I0)') ' max_bond_dimension = ', MaxM
+  write(fid,'(A)') ' nsweeps= 5'
+  write(fid,'(A,I0)') ' max_bond_dimension= ', MaxM
   write(fid,'(A)') 'EndDMRGSettings'
   write(fid,'(A)') 'OOptimizationSettings'
   if(chemps2) then
-   write(fid,'(A,I0)') 'DMRG = ', maxM
+   write(fid,'(A,I0)') 'DMRG= ', maxM
    write(fid,'(A)') '3RDM'
   end if
  else
@@ -1635,12 +1644,30 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   end if
  end if
 
- write(fid,'(A,I0)') ' Spin = ', mult
- write(fid,'(A,I0)') ' Charge = ', charge
+ write(fid,'(A,I0)') ' Spin= ', mult
+ write(fid,'(A,I0)') ' Charge= ', charge
  write(fid,'(A,I0)') ' nActEl= ', nacte
- write(fid,'(A,I0)') ' RAS2 = ', nacto
+ write(fid,'(A,I0)') ' RAS2= ', nacto
+ if(iroot > 9) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine prt_molcas_cas_para: iroot>9. Please c&
+                   &ontact the MOKIT'
+  write(6,'(A)') 'developers to modify the input file print format.'
+  stop
+ end if
+ if(iroot > 0) then
+  nroots = iroot + 1
+  lroots = iroot + 3
+  if(nacte==2 .and. nacto==2) lroots = 3 ! CAS(2,2)
+  allocate(weight(nroots), source=0)
+  weight(nroots) = 1
+  write(fid,'(A,2(1X,I0),A)',advance='no') ' CIroot=',nroots,lroots,';'
+  write(fid,'(9I2)',advance='no') (i,i=1,nroots)
+  write(fid,'(A,9I2)') ';', weight
+  deallocate(weight)
+ end if
  i = index(inpname, '.input', back=.true.)
- write(fid,'(A)') ' FILEORB = '//inpname(1:i-1)//'.INPORB'
+ write(fid,'(A)') ' FILEORB= '//inpname(1:i-1)//'.INPORB'
 
  if(CIonly) write(fid,'(A)') ' CIonly'
  if(nevpt) write(fid,'(A,/,A)') 'NEVPT2Prep','EvRDM'
@@ -1754,7 +1781,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   xmult
  implicit none
  integer, intent(in) :: fid
- integer, parameter :: maxcycles = 250
+ integer, parameter :: maxcyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
  character(len=21), intent(in) :: RIJK_bas1
 
@@ -1767,7 +1794,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
   end if
-  write(fid,'(A,I0,A)') 'for i in range(',maxcycles,'):'
+  write(fid,'(A,I0,A)') 'for i in range(',maxcyc,'):'
   write(fid,'(2X,A)') "print('ITER=',i)"
   if(dkh2_or_x2c) then
    write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'

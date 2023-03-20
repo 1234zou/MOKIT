@@ -6,7 +6,7 @@
 program main
  implicit none
  integer :: i
- character(len=3) :: str
+ character(len=3) :: str = ' '
  character(len=240) :: fchname, orbname
  logical :: prt_no
 
@@ -21,20 +21,19 @@ program main
   stop
  end if
 
- orbname = ' '
- fchname = ' '
+ fchname = ' '; orbname = ' '
  call getarg(1,orbname)
  call require_file_exist(orbname)
 
  call getarg(2,fchname)
  call require_file_exist(fchname)
- prt_no = .false.
 
+ prt_no = .false.
  if(i == 3) then
   call getarg(3, str)
   if(str /= '-no') then
-   write(6,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is&
-                    & wrong! Only '-no' is accepted."
+   write(6,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is wrong! O&
+                    &nly '-no' is accepted."
    stop
   else
    prt_no = .true.

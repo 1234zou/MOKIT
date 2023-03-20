@@ -633,10 +633,10 @@ program main
 
  i = iargc()
  if(i<3 .or. i>4) then
-  write(6,'(/,A)') 'ERROR in program obf: wrong command line arguments.'
-  write(6,'(A)') 'Example 1: obf tetracene_uno_asrot.fch 52 60'
-  write(6,'(A)') 'Example 2: obf tetracene_uno_asrot.fch 52 60 4.0'
-  write(6,'(A,/)') 'Note: do not include any singly occupied orbital.'
+  write(6,'(/,A)') ' ERROR in program obf: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1: obf tetracene_uno_asrot.fch 52 60'
+  write(6,'(A)')   ' Example 2: obf tetracene_uno_asrot.fch 52 60 4.0'
+  write(6,'(A,/)') ' Note: do not include any singly occupied orbital.'
   stop
  end if
 

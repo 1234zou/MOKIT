@@ -1,9 +1,10 @@
-MOKIT 1.2.5 (Mar 17, 2023)
+MOKIT 1.2.5 (Mar 20, 2023)
 ------------------------
+* add SS-CASSCF interface with OpenMolcas
 * remove GNU sed dependence
 * fix genecp and ecp_core bug
 * add CC and DLPNO-CC interfaces in autosr
-* state-tracking of State-Specific CASSCF orbital optimization
+* state-tracking of SS-CASSCF orbital optimization using PySCF
 * change MKL from 2021 to 2022 for the abnormal behavior of frag_guess_wfn in conda
 * add keyword OnlyXH and update utility gvb_exclude_XH
 * add modules qchem2bdf, qchem2cfour, qchem2dalton, qchem2gms, qchem2molcas, etc
