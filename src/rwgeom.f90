@@ -3,8 +3,8 @@
 module periodic_table
  implicit none
  integer, parameter :: period_nelem = 112
- character(len=2), parameter :: period_elem(period_nelem) = &
- (/'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+ character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
+   'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
    'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
    'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
    'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
@@ -204,8 +204,8 @@ subroutine read_natom_from_xyz(xyzname, natom)
  close(fid)
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read&
-                   & natom from file '//TRIM(xyzname)
+  write(6,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read natom&
+                 & from file '//TRIM(xyzname)
   stop
  end if
 end subroutine read_natom_from_xyz
@@ -376,16 +376,19 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   if(k /= 0) then
    write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-column&
                  & format is supported.'
+   close(fid)
    stop
   end if
  end do ! for i
 
  close(fid)
-
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
 
  ! standardize a set of elements, e.g. he -> He
  call standardize_elem(natom, elem)
+
+ ! convert atomic numbers to atomic symbols if the user uses atomic numbers
+ call possible_nuc2elem(natom, elem)
 
  ! convert element symbols to atomic order
  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
@@ -393,11 +396,28 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  ne = SUM(nuc) - charge
  if(MOD(ne,2) /= MOD(mult-1,2)) then
   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf:'
-  write(6,'(2(A,I0),A)') 'The combination of multiplicity ',mult,' and ',&
-                          ne,' electrons is impossible.'
+  write(6,'(2(A,I0),A)') 'The combination of multiplicity ', mult, ' and ', ne,&
+                         &' electrons is impossible.'
   stop
  end if
 end subroutine read_elem_and_coor_from_gjf
+
+! convert atomic numbers to atomic symbols if the user uses atomic numbers
+subroutine possible_nuc2elem(natom, elem)
+ use periodic_table, only: period_elem
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ character(len=2), intent(inout) :: elem(natom)
+
+ do i = 1, natom, 1
+  j = IACHAR(elem(i)(1:1))
+  if(j>47 .and. j<58) then
+   read(elem(i),*) j
+   elem(i) = period_elem(j)
+  end if
+ end do ! for i
+end subroutine possible_nuc2elem
 
 ! read charge, spin multiplicities and atom2frag from a given .gjf file
 subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)

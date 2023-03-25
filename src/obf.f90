@@ -15,6 +15,7 @@ module obf   ! orbital-based fragmentation
  real(kind=8), parameter :: dis_thres0 = 4d0  ! Angstrom
  real(kind=8), allocatable :: cluster_e(:) ! size n_tot
  character(len=240) :: fchname = ' '
+ logical :: calc_no = .false.
  type(mo_cluster), allocatable :: cluster(:), cluster0(:), cluster1(:)
 
 contains
@@ -615,21 +616,21 @@ subroutine gen_permute_fch()
 
  deallocate(mo, mo1)
 end subroutine gen_permute_fch
-
 end module obf
 
 program main
  use population, only: mulliken_pop_of_mo
- use obf, only: dis_thres0, n_tot, icoeff, cluster, fchname, gen_prim_cluster,&
-  gen_deri_cluster, merge_mo_cluster, add_paired_vir2cluster, gen_permute_fch
+ use obf, only: calc_no, dis_thres0, n_tot, icoeff, cluster, fchname, &
+  gen_prim_cluster, gen_deri_cluster, merge_mo_cluster, add_paired_vir2cluster,&
+  gen_permute_fch
  implicit none
  integer :: i, ibegin, iend
  ! ibegin: the beginning index of active occupied MOs
  ! iend: the final index of active occupied MOs, singly occupied not included
  integer(kind=4) :: hostnm
+ real(kind=8) :: dis_thres
  character(len=5) :: str = ' '
  character(len=24) :: hostname, data_string
- real(kind=8) :: dis_thres
 
  i = iargc()
  if(i<3 .or. i>4) then
@@ -657,6 +658,7 @@ program main
  write(6,'(A)') 'Obf program begins at '//TRIM(data_string)
  i = hostnm(hostname)
  write(6,'(A)') 'HOST '//TRIM(hostname)
+ write(6,'(/,A)') 'fchname='//TRIM(fchname)
  write(6,'(2(A,I0),A,F5.2)') 'ibegin=',ibegin,', iend=',iend,', dis_thres=',&
                               dis_thres
 
@@ -685,11 +687,13 @@ program main
   write(6,'(I2,A1,23I4)') icoeff(i),':',cluster(i)%occ_idx
  end do ! for i
 
+ write(6,'(A)') 'Checkpoint. STOP'
+ stop
  ! generate all .fch files with active orbitals permuted near HONO or LUNO
  call gen_permute_fch()
 
  ! generate all automr input files(.gjf) and submit one by one
- call gen_automr_gjf_and_submit()
+ call gen_automr_gjf_and_submit(calc_no)
  deallocate(cluster)
 
  call read_cluster_e_from_out()
@@ -866,12 +870,13 @@ end subroutine permute_mo_in_sub_cluster
 
 ! generate all automr input files(.gjf) and submit one by one
 ! TODO: if file 'hosts' exists, then run on multiple nodes.
-subroutine gen_automr_gjf_and_submit()
+subroutine gen_automr_gjf_and_submit(calc_no)
  use obf, only: fchname, n_tot, cluster
  implicit none
  integer :: i, ne, fid
  integer, parameter :: nproc = 24, mem = 170
  character(len=240) :: proname, gjfname, new_fch
+ logical, intent(in) :: calc_no
 
  i = index(fchname, '.fch', back=.true.)
  proname = fchname(1:i-1)
@@ -884,7 +889,9 @@ subroutine gen_automr_gjf_and_submit()
   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
   ne = cluster(i)%nocc
   write(fid,'(2(A,I0),A)') '#p CASCI(',ne,',',ne,')/cc-pVDZ'
-  write(fid,'(/,A)') "mokit{ist=5,readno='"//TRIM(new_fch)//"'}"
+  write(fid,'(/,A)',advance='no') "mokit{ist=5,readno='"//TRIM(new_fch)//"'"
+  if(.not. calc_no) write(fid,'(A)',advance='no') ',noDMRGNO'
+  write(fid,'(A)') '}'
   close(fid)
  end do ! for i
 

@@ -431,6 +431,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   stop
  end if
 
+ call delete_file('fort.7')
  if(noiter) return ! no energy read
 
  call formchk(chkname, fchname)
@@ -463,13 +464,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
   call prt_hf_pyscf_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  buf = 'python '//TRIM(inpname)//' >'//TRIM(outname2)//" 2>&1"
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: PySCF SCF job failed.'
-   write(6,'(A)') 'You can open file '//TRIM(outname2)//' and see why.'
-   stop
-  end if
+  call submit_pyscf_job(inpname)
   call read_hf_e_and_ss_from_pyscf_out(outname2, hf_type, e, ssquare)
   e = e + ptchg_e
 
@@ -518,7 +513,6 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
                  & = '//TRIM(prog_name)
   stop
  end select
-
 end subroutine do_scf_and_read_e
 
 ! read HF electronic energy from a Gaussian .log/.out file
@@ -613,11 +607,8 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
  case default
   write(6,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: inva&
                     &lid wfn_type=', wfn_type
-  close(fid)
   stop
  end select
-
- close(fid)
 end subroutine read_hf_e_and_ss_from_pyscf_out
 
 ! read HF electronic energy from a PSI4 .out file
@@ -712,8 +703,8 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no&
-                     & 'Total Energy' found in"
+  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no 'To&
+                   &tal Energy' found in"
   write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
@@ -1069,8 +1060,8 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'mf'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'mf' fou&
+                 &nd in file "//TRIM(inpname)
   stop
  end if
 
@@ -1081,8 +1072,8 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
  else if(index(buf,'HF') > 0) then
   hf_type = 3
  else 
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'HF'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'HF' fou&
+                 &nd in file "//TRIM(inpname)
   close(fid)
   stop
  end if

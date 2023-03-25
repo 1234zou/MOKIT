@@ -12,7 +12,6 @@ subroutine do_mcpdft()
  real(kind=8) :: ref_e
  character(len=24) :: data_string
  character(len=240) :: fname(3), inpname, outname, cmofch
- character(len=480) :: longbuf
  logical :: dmrg
 
  if(eist == 1) return ! excited state calculation
@@ -67,14 +66,7 @@ subroutine do_mcpdft()
   call bas_fch2py_wrap(casnofch, .false., inpname)
   call prt_mcpdft_script_into_py(inpname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  longbuf = 'python '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$'//TRIM(longbuf)
-  i = system(TRIM(longbuf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: PySCF MC-PDFT jobs failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check why.'
-   stop
-  end if
+  call submit_pyscf_job(inpname)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)

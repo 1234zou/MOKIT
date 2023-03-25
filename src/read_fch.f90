@@ -1081,3 +1081,50 @@ subroutine write_fch(fchname)
  close(fid)
 end subroutine write_fch
 
+! calculate/determine the number of core orbitals
+subroutine calc_ncore(fchname, chem_core, ecp_core)
+ use fch_content, only: core_orb, RNFroz
+ implicit none
+ integer :: i, natom, fid
+ integer, intent(out) :: chem_core, ecp_core
+ integer, allocatable :: nuc(:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ chem_core = 0; ecp_core = 0; buf = ' ' ! initialization
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:14) == 'Number of atom') exit
+ end do ! for i
+ read(buf(45:),*) natom
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:14) == 'Atomic numbers') exit
+ end do ! for while
+ allocate(nuc(natom), source=0)
+ read(fid,'(6(1X,I11))') (nuc(i), i=1,natom)
+
+ do i = 1, natom, 1
+  chem_core = chem_core + core_orb(nuc(i))
+ end do ! for i
+ deallocate(nuc)
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:10) == 'ECP-RNFroz') exit
+  if(buf(1:7) == 'Alpha O') then
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ if(allocated(RNFroz)) deallocate(RNFroz)
+ allocate(RNFroz(natom), source=0d0)
+ read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
+ close(fid)
+ ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
+end subroutine calc_ncore
+

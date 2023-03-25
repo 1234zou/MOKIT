@@ -1,7 +1,7 @@
 ! written by jxzou at 20210831: do rigid/relaxed scan
 
 ! currently only rigid scan is supported
-subroutine do_PES_scan()
+subroutine do_pes_scan()
  use mr_keyword, only: rigid_scan, relaxed_scan, scan_nstep, scan_val
  implicit none
  integer :: i
@@ -9,7 +9,7 @@ subroutine do_PES_scan()
  character(len=24) :: data_string = ' '
 
  if(.not. (rigid_scan .or. relaxed_scan)) return
- write(6,'(//,A)') 'Enter subroutine do_PES_scan...'
+ write(6,'(//,A)') 'Enter subroutine do_pes_scan...'
 
  call read_scan_var_from_gjf()
  if(rigid_scan) then
@@ -20,8 +20,8 @@ subroutine do_PES_scan()
  write(6,'(10F6.3)') (scan_val(i),i=1,scan_nstep)
 
  call fdate(data_string)
- write(6,'(A)') 'Leave subroutine do_PES_scan at '//TRIM(data_string)
-end subroutine do_PES_scan
+ write(6,'(A)') 'Leave subroutine do_pes_scan at '//TRIM(data_string)
+end subroutine do_pes_scan
 
 ! read scan variables/coordinates from gjf
 subroutine read_scan_var_from_gjf()

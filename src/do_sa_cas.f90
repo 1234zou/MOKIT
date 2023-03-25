@@ -480,26 +480,6 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_sacas_gms_inp
 
-subroutine submit_pyscf_job(pyname)
- implicit none
- integer :: i, system
- character(len=240) :: outname
- character(len=480) :: buf
- character(len=240), intent(in) :: pyname
-
- i = index(pyname, '.py', back=.true.)
- outname = pyname(1:i-1)//'.out'
-
- write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_pyscf_job: PySCF job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-  stop
- end if
-end subroutine submit_pyscf_job
-
 subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
                                             sa_cas_e, ci_mult)
  use mol, only: mult

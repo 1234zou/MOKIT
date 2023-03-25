@@ -8,7 +8,7 @@ subroutine do_mrpt2()
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
   openmp_molcas, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
-  eist, iroot, target_root
+  eist, target_root
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
@@ -143,7 +143,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(inpname), TRIM(pyname))
    call prt_nevpt2_script_into_py(pyname)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-   i = system('python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1")
+   call submit_pyscf_job(pyname)
 
   case('molpro')
    call check_exe_exist(molpro_path)

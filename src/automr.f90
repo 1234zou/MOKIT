@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc19 :: MOKIT, release date: 2023-Mar-20'
+  write(6,'(A)') 'AutoMR 1.2.5rc20 :: MOKIT, release date: 2023-Mar-25'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -107,7 +107,7 @@ subroutine automr(fname)
 
  call do_cis()        ! CIS/TDHF
  call do_sa_cas()     ! SA-CASSCF
- call do_PES_scan()   ! PES scan
+ call do_pes_scan()   ! PES scan
 
  call fdate(data_string)
  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
@@ -148,7 +148,7 @@ subroutine get_paired_LMO()
  integer :: i, system, RENAME
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
- character(len=240) :: buf, proname, pyname, chkname, outname, fchname
+ character(len=240) :: proname, pyname, chkname, outname, fchname
 
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return ! no need for this subroutine
@@ -160,7 +160,8 @@ subroutine get_paired_LMO()
   stop
  end if
 
- call calc_ncore() ! calculate the number of core orbitals from array core_orb
+ ! calculate the number of core orbitals from array core_orb
+ call calc_ncore(hf_fch, chem_core, ecp_core)
  write(6,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
                       ', Nskip_UNO=', nskip_uno
 
@@ -182,10 +183,7 @@ subroutine get_paired_LMO()
 
    call prt_rhf_proj_script_into_py(pyname)
    call prt_auto_pair_script_into_py(pyname)
-   write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(proname)//&
-                    '_proj_loc_pair.out 2>&1'
-   write(6,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
+   call submit_pyscf_job(pyname)
    call delete_file(chkname)
   end if
 
@@ -212,15 +210,7 @@ subroutine get_paired_LMO()
 
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$'//TRIM(buf)
-
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine get_paired_LMO: PySCF job fails.'
-   write(6,'(A)') 'Please check file '//TRIM(outname)
-   stop
-  end if
+  call submit_pyscf_job(pyname)
   call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
 
   ! when ist=2, GVB will not be performed, so we need to read variables before CASCI
@@ -691,41 +681,6 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  close(fid1)
 end subroutine prt_assoc_rot_script_into_py
 
-! calculate/determine the number of core orbitals
-subroutine calc_ncore()
- use mr_keyword, only: hf_fch
- use mol, only: natom, nuc, chem_core, ecp_core
- use fch_content, only: core_orb, RNFroz
- implicit none
- integer :: i, fid
- character(len=240) :: buf
-
- chem_core = 0 ! initialization
- ecp_core = 0
- buf = ' '
-
- do i = 1, natom, 1
-  chem_core = chem_core + core_orb(nuc(i))
- end do ! for i
-
- open(newunit=fid,file=TRIM(hf_fch),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:10) == 'ECP-RNFroz') exit
-  if(buf(1:7) == 'Alpha O') then
-   close(fid)
-   return
-  end if
- end do ! for while
-
- if(allocated(RNFroz)) deallocate(RNFroz)
- allocate(RNFroz(natom), source=0d0)
- read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
- close(fid)
-
- ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
-end subroutine calc_ncore
-
 ! perform GVB/STO-6G, only valid for ist=6
 subroutine do_minimal_basis_gvb()
  use mol, only: mult, nbf, nif, nopen, ndb, npair
@@ -789,15 +744,7 @@ subroutine do_minimal_basis_gvb()
 
  call gen_fch_from_gjf(gjfname, hf_fch)
  call prt_orb_resemble_py_script(nproc, hf_fch, gvb_nofch, pyname)
-
- buf = 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine do_minimal_basis_gvb: PySCF job failed.'
-  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
-  stop
- end if
+ call submit_pyscf_job(pyname)
 
  ! Read GVB NOON of minimal basis set. The GVB/STO-6G may have many pairs, but
  ! we are only interested in moderate/strong-correlated pairs.

@@ -584,7 +584,7 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A,I0)') TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
- write(6,'(A)') '$psi4 '//TRIM(buf)
+ write(6,'(A)') '$'//TRIM(psi4_path)//' '//TRIM(buf)
 
  i = system(TRIM(psi4_path)//' '//TRIM(buf))
  if(i /= 0) then
@@ -717,4 +717,24 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
   stop
  end if
 end subroutine submit_gvb_bccc_job
+
+subroutine submit_pyscf_job(pyname)
+ implicit none
+ integer :: i, system
+ character(len=240) :: outname
+ character(len=480) :: buf
+ character(len=240), intent(in) :: pyname
+
+ i = index(pyname, '.py', back=.true.)
+ outname = pyname(1:i-1)//'.out'
+
+ write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+ i = system(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subrouitine submit_pyscf_job: PySCF job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_pyscf_job
 

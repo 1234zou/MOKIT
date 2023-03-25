@@ -601,8 +601,8 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   end do ! for while
   if(i /= 0) then
    close(fid1)
-   write(6,'(A)') "ERROR in subroutine calc_davidson_corr_from_out: no 'mo&
-                     &st impor' found in"
+   write(6,'(A)') "ERROR in subroutine calc_davidson_corr_from_out: no 'most i&
+                  &mpor' found in"
    write(6,'(A)') 'file '//TRIM(outname)
    stop
   end if
@@ -634,8 +634,8 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' &
-                       &found in "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine calc_davidson_corr: no 'conf/sym' fou&
+                    &nd in "//TRIM(outname)
    close(fid1)
    stop
   end if
@@ -668,7 +668,7 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
-                        //TRIM(pyname)
+                   //TRIM(pyname)
    stop
   end if
   open(newunit=fid2,file=TRIM(pyout),status='old')

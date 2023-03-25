@@ -239,15 +239,7 @@ subroutine do_cas(scf)
   if(casscf_force) call add_force_key2py_script(mem, inpname)
   j = index(inpname, '.py', back=.true.)
   outname = inpname(1:j-1)//'.out'
-
-  write(buf,'(A)') 'python '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
-  write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: PySCF CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-   stop
-  end if
+  call submit_pyscf_job(inpname)
 
  case('gaussian')
   call check_exe_exist(gau_path)
@@ -1613,7 +1605,7 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: dmrg, nevpt, chemps2, CIonly
 
- if(mult /= xmult) then
+ if(iroot>0 .and. mult/=xmult) then
   write(6,'(/,A)') 'ERROR in subroutine prt_molcas_cas_para: Xmult/=mult!'
   write(6,'(A)') 'When using OpenMolcas, the ground state spin must be equal t&
                  &o the excited state spin.'
