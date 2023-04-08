@@ -249,6 +249,7 @@ subroutine bas_gms2py(inpname, cart)
    write(pyid,'(A)') 'mf = scf.UHF(mol)'
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
+  write(pyid,'(A)') "mf.init_guess = '1e'"
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') 'nbf = mf.mo_coeff[0].shape[0]'
@@ -308,6 +309,7 @@ subroutine bas_gms2py(inpname, cart)
    end if
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
+  write(pyid,'(A)') "mf.init_guess = '1e'"
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') 'nbf = mf.mo_coeff.shape[0]'

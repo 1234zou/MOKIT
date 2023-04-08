@@ -1374,11 +1374,12 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  end do
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB&
-                   & energy found in file '//TRIM(gmsname)
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB energ&
+                   &y found in'
+  write(6,'()') 'file '//TRIM(gmsname)
   write(6,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
-  write(6,'(A)') 'If yes, reducing the number of processors and re-run may&
-                 & do dome help.'
+  write(6,'(A)') 'If yes, reducing the number of processors and re-run may do&
+                 & dome help.'
   write(6,'(A)') "If not, check if there is any error message like 'gamess.01.x&
                  & could not be found'."
   write(6,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
@@ -1392,10 +1393,10 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  read(buf(i+2:j-1),*) e
 
  if(DABS(e) < 1d-5) then
-  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems&
-                     & that GVB computation does not'
-  write(6,'(A)') 'converge. You can try to reduce the number of processors&
-                   & and re-run.'
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems tha&
+                   &t GVB computation does not'
+  write(6,'(A)') 'converge. You can try to reduce the number of processors and&
+                 & re-run.'
   stop
  end if
 end subroutine read_gvb_energy_from_gms
@@ -1438,12 +1439,11 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg,&
   call read_cas_energy_from_dalton_out(outname, e, scf)
   e = e + ptchg_e
  case default
-  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_output: cas_prog&
-                & cannot be identified.'
-  write(6,'(A)') 'cas_prog='//TRIM(cas_prog)
+  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog can&
+                 &not be identified.'
+  write(6,'(A)') 'CAS_prog='//TRIM(cas_prog)
   stop
  end select
-
 end subroutine read_cas_energy_from_output
 
 ! read CASCI/CASSCF energy from a Gaussian .log file
@@ -1805,11 +1805,11 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(buf(1:8) == 'ROOT   0') exit
+   if(buf(1:9) == '   E(CAS)') exit
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') error_warn//"'ROOT   0' not found in file "//TRIM(outname)
+   write(6,'(A)') error_warn//"'   E(CAS)' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if

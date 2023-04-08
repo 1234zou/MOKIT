@@ -317,8 +317,8 @@ end subroutine prt_sacas_gjf
 subroutine prt_sacas_orca_inp(inpname, hf_fch)
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  use mol, only: nacto, nacte, mult
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, nevpt2, FIC, DLPNO, F12, RI, &
-  RIJK_bas, mixed_spin, nstate, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, nevpt2, FIC, DLPNO, F12, RI, RIJK_bas, &
+  mixed_spin, nstate, hardwfn, crazywfn
  implicit none
  integer :: i, fid, fid1
  character(len=240) :: buf, mklname, gbwname, inpname1
@@ -343,12 +343,6 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  if(RI) write(fid1,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
  write(fid1,'(A)') ' VeryTightSCF'
 
- if(dkh2_or_x2c) then
-  write(fid1,'(A)') '%rel'
-  write(fid1,'(A)') ' method DKH'
-  write(fid1,'(A)') ' order 2'
-  write(fid1,'(A)') 'end'
- end if
  write(fid1,'(A)') '%casscf'
  write(fid1,'(A,I0)') ' nel ', nacte
  write(fid1,'(A,I0)') ' norb ', nacto

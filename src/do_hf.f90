@@ -37,8 +37,8 @@ subroutine do_hf(prt_mr_strategy)
    write(6,'(A)') 'Check whether provided UHF wavefunction is equivalent to RHF...'
    call check_if_uhf_equal_rhf(hf_fch, eq)
    if(eq) then
-    write(6,'(A)') 'This is actually a RHF wave function. Alpha=Beta.&
-                   & Switching to ist=3.'
+    write(6,'(A)') 'This is actually a RHF wave function. Alpha=Beta. Switching&
+                   & to ist=3.'
     i = system('fch_u2r '//TRIM(hf_fch))
     i = index(hf_fch, '.fch', back=.true.)
     hf_fch = hf_fch(1:i-1)//'_r.fch'
@@ -392,7 +392,7 @@ end subroutine generate_hf_gjf
 ! Note: parameters {nproc, bgchg, chgname} are taken from
 !  module mr_keyword. You need to initilize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
- use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path
+ use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path, DKH2, X2C
  use mol, only: ptchg_e
  use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
@@ -436,7 +436,17 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
+
  if(TRIM(hf_prog_path) == TRIM(gau_path)) then
+  ! For g09 or older, add DKH2/X2C into Route Section if needed
+  if(index(gau_path,'g03')>0 .or. index(gau_path,'g09')>0) then
+   if(DKH2) then
+    call add_DKH2_into_fch(fchname)
+   else if(X2C) then
+    call add_X2C_into_fch(fchname)
+   end if
+  end if
+
   call read_hf_e_and_ss_from_gau_out(outname1, e, ssquare)
 !  call delete_file(gjfname)
   return
@@ -509,8 +519,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call update_density_using_mo_in_fch(fchname)
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
-  write(6,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name&
-                 & = '//TRIM(prog_name)
+  write(6,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name = '&
+                //TRIM(prog_name)
   stop
  end select
 end subroutine do_scf_and_read_e

@@ -57,9 +57,16 @@ subroutine do_cas(scf)
   write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
    & user specifies CAS(',nacte_wish,'e,',nacto_wish, 'o). Trying to fulfill...'
 
+  if(MOD(nacte_wish-nopen,2) /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong active space specified.'
+   write(6,'(3(A,I0),A)') 'Nopen=',nopen,' is incompatible with CAS(',nacte_wish,&
+                          'e,',nacto_wish,'o)'
+   stop
+  end if
+
   if(ist == 5) then
    if(nacte_wish > nacte) then
-    write(6,'(A)') 'ERROR in subroutine do_cas: too large active space required.'
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: too large active space required.'
     write(6,'(2(A,I0),A)') 'Maximum allowed: CAS(',nacte,',',nacte,')'
     stop
    else if(nacte_wish < nacte) then
@@ -73,12 +80,14 @@ subroutine do_cas(scf)
 
   else ! ist /= 5
    if(2*npair+nopen < nacte_wish) then
-    write(6,'(A)') 'ERROR in subroutine do_cas: too large space specified. Cannot fulfilled.'
-    write(6,'(2(A,I0))') '2*npair+nopen=', 2*npair+nopen, ', nacte_wish=', nacte_wish
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: too large space specified. Ca&
+                     &nnot be fulfilled.'
+    write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen, ', nacte_wish=',nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
     if(MOD(nacte_wish-nopen,2) /= 0) then
-     write(6,'(A)') 'ERROR in subroutine do_cas: wrong space specified. Cannot fulfilled.'
+     write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong space specified. Canno&
+                      &t be fulfilled.'
      write(6,'(A)') 'nacte_wish-nopen is not an even integer.'
      write(6,'(2(A,I0))') 'nopen=', nopen, ', nacte_wish=', nacte_wish
      stop
@@ -258,6 +267,7 @@ subroutine do_cas(scf)
    write(6,'(A)') 'Please open file '//TRIM(inpname)//' and check.'
    stop
   end if
+  call delete_file('fort.7')
   call formchk(mklname, casnofch)
   call modify_IROHF_in_fch(casnofch, 0)
 
@@ -704,7 +714,7 @@ end subroutine prt_cas_script_into_py
 
 ! print a CASCI or CASSCF .gjf file
 subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
- use mr_keyword, only: mem, nproc, dkh2_or_x2c
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, iroot
  implicit none
  integer :: i, fid
  integer, intent(in) :: nacto, nacte
@@ -716,8 +726,9 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(2(A,I0),A)',advance='no') '#p CAS(',nacte,',',nacto,')'
- write(fid,'(A)',advance='no') ' chkbasis nosymm guess=read geom=allcheck'
+ write(fid,'(2(A,I0))',advance='no') '#p CAS(',nacte,',',nacto
+ if(iroot > 0) write(fid,'(A,I0)',advance='no') ',qc,nroot=',iroot+1
+ write(fid,'(A)',advance='no') ') chkbasis nosymm guess=read geom=allcheck'
 
  if(dkh2_or_x2c) then
   write(fid,'(A)',advance='no') ' int(nobasistransform,DKH2) iop(3/93=1)'
@@ -727,7 +738,7 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(scf) then ! CASSCF
-  write(fid,'(A)') ' scf(maxcycle=128)'
+  write(fid,'(A)') ' scf(maxcycle=200)'
  else         ! CASCI
   write(fid,'(A)') ' scf(maxcycle=-2)'
   ! to obtain CASCI NOs, we need to use -2, since -1 only calculates CASCI energy
@@ -765,7 +776,8 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  if(scf) then   ! CASSCF
   write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF RUNTYP=ENERGY ICHARG='
  else           ! CASCI
-  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=NONE CITYP=ALDET RUNTYP=ENERGY ICHARG='
+  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=NONE CITYP=ALDET RUNTYP=ENERG&
+                                 &Y ICHARG='
  end if
  write(fid2,'(2(I0,A))') charge, ' MULT=', mult, ' NOSYM=1'
 
@@ -778,15 +790,16 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
   write(fid2,'(A)') ' $END'
  end if
 
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)), ' $END'
-
+ write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)),&
+                        ' $END'
  if(scf) then   ! CASSCF
   write(fid2,'(A)',advance='no') ' $DET'
  else
   write(fid2,'(A)',advance='no') ' $CIDET'
  end if
 
- write(fid2,'(3(A,I0),A)',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',nacto,' ITERMX=500'
+ write(fid2,'(3(A,I0),A)',advance='no') ' NCORE=', ncore, ' NELS=', nacte, &
+                                        ' NACT=', nacto, ' ITERMX=500'
  if(hardwfn) then
   write(fid2,'(A)') ' NSTATE=5 $END'
  else if(crazywfn) then
@@ -903,22 +916,29 @@ end subroutine prt_cas_molcas_inp
 
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
 subroutine prt_cas_orca_inp(inpname, scf)
- use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, dkh2_or_x2c, RI,RIJK_bas, hardwfn, crazywfn
+ use mol, only: nacte, nacto, mult
+ use mr_keyword, only: mem, nproc, RI, RIJK_bas, hardwfn, crazywfn, iroot, xmult
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, j, fid1, fid2, RENAME
+ character(len=3), allocatable :: weight(:)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
 
- inpname1 = TRIM(inpname)//'.tmp'
+ if(iroot > 19) then
+  write(6,'(A)') 'ERROR in subroutine prt_cas_orca_inp: please contact the MOKI&
+                 &T developers to'
+  write(6,'(A)') 'modify the printing format.'
+  stop
+ end if
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', CEILING(1000d0*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
@@ -927,19 +947,30 @@ subroutine prt_cas_orca_inp(inpname, scf)
  if(RI) write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
  write(fid2,'(A)') ' TightSCF'
 
- if(dkh2_or_x2c) then
-  write(fid2,'(A)') '%rel'
-  write(fid2,'(A)') ' method DKH'
-  write(fid2,'(A)') ' order 2'
-  write(fid2,'(A)') 'end'
- end if
-
  if(scf) then ! CASSCF
   write(fid2,'(A)') '%casscf'
   write(fid2,'(A,I0)') ' nel ', nacte
   write(fid2,'(A,I0)') ' norb ', nacto
   write(fid2,'(A)') ' maxiter 200'
   write(fid2,'(A)') ' ActOrbs NatOrbs'
+  if(iroot > 0) then ! SS-CASSCF
+   write(fid2,'(A,I0)') ' mult ', xmult
+   j = 2
+   if(xmult /= mult) j = 1
+   write(fid2,'(A,I0)') ' nroots ', iroot+j+1
+   allocate(weight(iroot+j))
+   weight = '0.0'
+   write(fid2,'(A)',advance='no') ' weights[0]='
+   if(xmult == mult) then
+    write(fid2,'(19A4)',advance='no') (weight(i)//',',i=1,iroot)
+   else ! xmult /= mult
+    if(iroot > 1) then
+     write(fid2,'(19A4)',advance='no') (weight(i)//',',i=1,iroot-1)
+    end if
+   end if
+   write(fid2,'(A)') '1.0,0.0,0.0'
+   deallocate(weight)
+  end if
   call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
  else ! CASCI
   write(fid2,'(A)') '%mrci'
@@ -1607,8 +1638,9 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
 
  if(iroot>0 .and. mult/=xmult) then
   write(6,'(/,A)') 'ERROR in subroutine prt_molcas_cas_para: Xmult/=mult!'
-  write(6,'(A)') 'When using OpenMolcas, the ground state spin must be equal t&
-                 &o the excited state spin.'
+  write(6,'(A)') 'When calling OpenMolcas, the ground state spin must be equal &
+                 &to the excited'
+  write(6,'(A)') 'state spin.'
   stop
  end if
 
@@ -1843,8 +1875,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   write(fid,'(2X,A)') 'if(abs(e - mc.e_tot) < 1e-7):'
   write(fid,'(4X,A)') 'break'
   ! assume the SS-CASSCF orbital optimization is accomplished, now run a multi
-  ! -root CASCI calculation and generate NOs
-  ! a label/tag to determine this is a successful state-specific CASSCF job
+  !  -root CASCI calculation and generate NOs
+  ! print a label to show that this is a successful SS-CASSCF job
   write(fid,'(A)') "print('SSS')"
   ! print the target state and nroots for possible use of NEVPT2, etc
   write(fid,'(A)') "f = open('ss-cas.txt', 'w+')"
@@ -1870,8 +1902,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
  else ! DMRG-CASSCF
   write(6,'(/,A)') 'ERROR in subroutine prt_es_casscf_kywrd_py: excited state &
-                   &DMRG calculations are'
-  write(6,'(A)') 'not supported by MOKIT currently.'
+                   &SS-DMRG-CAS calculations'
+  write(6,'(A)') 'are not supported by MOKIT currently.'
   stop
  end if
 end subroutine prt_es_casscf_kywrd_py

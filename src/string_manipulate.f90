@@ -253,17 +253,14 @@ subroutine add_DKH2_into_fch(fchname)
  character(len=1200) :: longbuf, longbuf1
  logical :: no_route, alive(3)
 
- buf = ' '
- fchname1 = ' '
- longbuf = ' '
- nterm = 0
+ buf = ' '; longbuf = ' '; nterm = 0
  i = index(fchname, '.fch', back=.true.)
- fchname1 = fchname(1:i-1)//'.tmp'
+ fchname1 = fchname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
-
  no_route = .false.
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -281,7 +278,7 @@ subroutine add_DKH2_into_fch(fchname)
   write(fid1,'(A)') '#p int(nobasistransform,DKH2) nosymm'
  else
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k)  file.'
+   write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch file.'
    write(6,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
@@ -296,7 +293,7 @@ subroutine add_DKH2_into_fch(fchname)
    end do ! for while
 
    if(i /= 0) then
-    write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch(k) file.'
+    write(6,'(A)') 'ERROR in subroutine add_DKH2_into_fch: incomplete .fch file.'
     write(6,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
     close(fid)
     close(fid1,status='delete')
@@ -348,17 +345,14 @@ subroutine add_X2C_into_fch(fchname)
  character(len=1200) :: longbuf, longbuf1
  logical :: no_route
 
- buf = ' '
- fchname1 = ' '
- longbuf = ' '
- nterm = 0
+ buf = ' '; longbuf = ' '; nterm = 0
  i = index(fchname, '.fch', back=.true.)
- fchname1 = fchname(1:i-1)//'.tmp'
+ fchname1 = fchname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
-
  no_route = .false.
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -376,7 +370,7 @@ subroutine add_X2C_into_fch(fchname)
   write(fid1,'(A)') '#p int(nobasistransform,X2C) nosymm'
  else
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k)  file.'
+   write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch file.'
    write(6,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
@@ -391,7 +385,7 @@ subroutine add_X2C_into_fch(fchname)
    end do ! for while
 
    if(i /= 0) then
-    write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch(k) file.'
+    write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch file.'
     write(6,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
     close(fid)
     close(fid1,status='delete')

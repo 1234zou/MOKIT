@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5rc20 :: MOKIT, release date: 2023-Mar-25'
+  write(6,'(A)') 'AutoMR 1.2.5rc22 :: MOKIT, release date: 2023-Apr-8'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -53,7 +53,7 @@ program main
   write(6,'(A)')   '  MCPDFT_prog=OpenMolcas/PySCF/GAMESS'
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC-MRCISD'
-  write(6,'(A,/)') '    MRCC_prog=ORCA/NWChem'
+  write(6,'(A,/)') '    MRCC_prog=ORCA'
   stop
  case('-t','--testprog')
   call check_mokit_root()
@@ -317,6 +317,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
   write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
  end if
  write(fid2,'(A)') 'mf2.max_cycle = 150'
+ write(fid2,'(A,I0,A)') 'mf2.max_memory = ', mem*1000, ' # MB'
  write(fid2,'(A)') "dm = mf2.from_chk('"//TRIM(chkname)//"')"
  write(fid2,'(A)') 'mf2.kernel(dm)'
  write(fid2,'(A)') 'nbf2 = mf2.mo_coeff.shape[0]'
@@ -420,9 +421,9 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# pair the active orbitals'
  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff)'
- write(fid2,'(A)') 'nalpha = np.sum(mf.mo_occ > 0)'
- write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore,npair,nopen,nalpha,nvir_lmo,&
-                   &nbf,nif,mf.mo_coeff,mo_dipole)'
+ write(fid2,'(A)') 'na = np.sum(mf.mo_occ > 0)'
+ write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore,npair,nopen,na,nvir_lmo,nbf&
+                   &,nif,mf.mo_coeff,mo_dipole)'
  write(fid2,'(A)') 'mf.mo_coeff = alpha_coeff.copy()'
  write(fid2,'(A)') '# pair done'
 
@@ -437,7 +438,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(A)') "f.write('nif=%i\n\n' %nif)"
  write(fid2,'(A)') 'idx1 = idx2 - npair'
  write(fid2,'(A)') "f.write('ndb=%i\n\n' %idx1)"
- write(fid2,'(A)') "f.write('idx=%i %i %i' %(idx1+1,nalpha+npair+1,nopen))"
+ write(fid2,'(A)') "f.write('idx=%i %i %i' %(idx1+1,na+npair+1,nopen))"
  write(fid2,'(A)') 'f.close()'
  close(fid2)
 

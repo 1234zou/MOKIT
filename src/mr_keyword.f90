@@ -316,7 +316,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5rc20 (2023-Mar-25)'
+  write(6,'(A)') '           Version: 1.2.5rc22 (2023-Apr-8)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -868,8 +868,9 @@ contains
                   &...) will not be used.'
    write(6,'(A79)') REPEAT('-',79)
    if(frag_guess) then
-    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only&
-                  & be used when none of readrhf/readuhf/readno is used.'
+    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only be &
+                   &used when none of'
+    write(6,'(A)') 'readrhf/readuhf/readno is used.'
     stop
    end if
    call require_file_exist(hf_fch)
@@ -890,10 +891,10 @@ contains
     call check_X2C_in_fch(hf_fch, alive(1))
     if(alive(1)) then
      write(6,'(/,A)') REPEAT('-',55)
-     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword&
-                   & detected in file"
-     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}.&
-                  & If you do"
+     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword detect&
+                    &ed in file"
+     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}. If&
+                    & you do"
      write(6,'(A)') 'not want to perform X2C computations, please kill this job&
                    & immediately'
      write(6,'(A)') "and delete 'X2C' in .fch."
@@ -904,9 +905,9 @@ contains
     if(i /= -2) then
      write(6,'(/,A)') REPEAT('-',55)
      write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
-                      & detected in file'
-     write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}.&
-                  & If you do"
+                    & detected in file'
+     write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}. If&
+                   & you do"
      write(6,'(A)') 'not want to perform DKH2 computations, please kill this job&
                    & immediately'
      write(6,'(A)') 'and delete DKH related keywords in .fch.'

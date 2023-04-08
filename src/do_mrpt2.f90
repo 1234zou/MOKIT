@@ -664,8 +664,8 @@ end subroutine prt_nevpt2_orca_inp
 ! print CASPT2 keywords in to a given ORCA .inp file
 subroutine prt_caspt2_orca_inp(inpname)
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, caspt2k, DKH2, X2C, CIonly, RI, &
-  RIJK_bas, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, caspt2k, X2C, CIonly, RI, RIJK_bas, &
+  hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -690,14 +690,9 @@ subroutine prt_caspt2_orca_inp(inpname)
  end if
  write(fid2,'(A)') ' TightSCF'
 
- if(DKH2) then
-  write(fid2,'(A)') '%rel'
-  write(fid2,'(A)') ' method DKH'
-  write(fid2,'(A)') ' order 2'
-  write(fid2,'(A)') 'end'
- else if(X2C) then
-  write(6,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C&
-                   & is not supported in ORCA.'
+ if(X2C) then
+  write(6,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C is n&
+                 &ot supported in ORCA.'
   write(6,'(A)') 'You can specify CASPT2_prog=Molpro or OpenMolcas.'
   close(fid2,status='delete')
   close(fid1)
@@ -747,7 +742,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
  character(len=240), intent(in) :: pyname
 
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
 
@@ -812,12 +807,12 @@ subroutine prt_nevpt2_script_into_py(pyname)
   if(iroot == 0) then
    write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc).compress_approx(maxM=',maxM,').kernel()'
   else
-   write(fid2,'(2(A,I0),A)') 'mrpt.NEVPT(mc,root=',target_root,').compress_a&
-                               &pprox(maxM=',maxM,').kernel()'
+   write(fid2,'(2(A,I0),A)') 'mrpt.NEVPT(mc,root=',target_root,').compress_app&
+                             &rox(maxM=',maxM,').kernel()'
   end if
  end if
- close(fid2)
 
+ close(fid2)
  i = RENAME(pyname1, pyname)
 end subroutine prt_nevpt2_script_into_py
 

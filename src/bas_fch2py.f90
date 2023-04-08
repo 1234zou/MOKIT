@@ -1,8 +1,8 @@
-! written by jxzou at 20200512: generate PySCF format basis set (.py file) from Gaussian .fch(k) file
+! written by jxzou at 20200512: generate PySCF input file (.py) from Gaussian .fch(k) file
 ! updated by jxzou at 20200809: combined with util_wrapper.f90
 
-! Note: this subroutine is actually a wrapper of two utilities 'fch2inp' and 'bas_gms2py',
-!       thus 'fch2inp' and 'bas_gms2py' must be compiled as well.
+! Note: this subroutine is actually a wrapper of two utilities 'fch2inp' and
+! 'bas_gms2py', thus they must be compiled as well.
 
 program main
  use util_wrapper, only: formchk
@@ -64,6 +64,13 @@ subroutine bas_fch2py(fchname, prt_dft)
                  &lename "//TRIM(fchname)
   stop
  end if
+
+ ! if the user provides a .fchk file, copy this file to .fch
+ if(index(fchname, '.fchk') > 0) then
+  inpname = fchname(1:i-1)//'.fch'
+  call copy_file(TRIM(fchname), TRIM(inpname), .false.)
+ end if
+
  inpname = fchname(1:i-1)//'.inp'
  inpname1 = fchname(1:i-1)//'.t'
  pyname = fchname(1:i-1)//'.py'
