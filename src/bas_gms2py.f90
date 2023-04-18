@@ -64,6 +64,7 @@ subroutine bas_gms2py(inpname, cart)
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  logical :: ecp, uhf, ghf, lin_dep
  logical, intent(in) :: cart
+ logical, allocatable :: ghost(:) ! size natom
 
  buf = ' '
  pyname = ' '
@@ -85,8 +86,8 @@ subroutine bas_gms2py(inpname, cart)
  end if
 
  call read_natom_from_gms_inp(inpname, natom)
- allocate(elem(natom), nuc(natom), coor(3,natom))
- call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
+ allocate(elem(natom), nuc(natom), coor(3,natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
  deallocate(nuc)
 
  ! find the number of times of each atom occurs
@@ -107,11 +108,15 @@ subroutine bas_gms2py(inpname, cart)
  write(pyid,'(A)') "mol.atom = '''"
 
  do i = 1, natom, 1
-  write(buf(1:6),'(A,I0)') TRIM(elem(i)), ntimes(i)
-  write(pyid,'(A6,2X,3(1X,F17.8))') buf(1:6), coor(1:3,i)
+  if(ghost(i)) then
+   write(buf,'(A,I0)') 'X-'//TRIM(elem(i)), ntimes(i)
+  else
+   write(buf,'(A,I0)') TRIM(elem(i)), ntimes(i)
+  end if
+  write(pyid,'(A,2X,3(1X,F17.8))') TRIM(buf), coor(1:3,i)
  end do ! for i
  write(pyid,'(A)') "'''"
- deallocate(coor)
+ deallocate(ghost, coor)
  ! print coordinates done
 
  open(newunit=inpid,file=TRIM(inpname),status='old',position='rewind')

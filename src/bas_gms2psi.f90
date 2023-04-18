@@ -47,6 +47,7 @@ subroutine bas_gms2psi(inpname, sph)
  character(len=240), intent(in) :: inpname
  logical :: uhf, ghf, X2C
  logical, intent(in) :: sph
+ logical, allocatable :: ghost(:)
 
  i = index(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'_psi.inp'
@@ -55,9 +56,9 @@ subroutine bas_gms2psi(inpname, sph)
 
  call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
- allocate(elem(natom), coor(3,natom), ntimes(natom), ram(natom))
- call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, ram, coor)
- deallocate(ram)
+ allocate(elem(natom), coor(3,natom), ntimes(natom), ram(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, ram, coor, ghost)
+ deallocate(ram, ghost)
  call calc_ntimes(natom, elem, ntimes)
 
  open(newunit=fid2,file=TRIM(inpname1),status='replace')

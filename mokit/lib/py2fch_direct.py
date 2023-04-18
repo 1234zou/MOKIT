@@ -22,7 +22,16 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
     charge = mol.charge
     mult = mol.spin+1
     natom = mol.natm
-    ielem = [elements.charge(mol.atom_symbol(a)) for a in range(natom)]
+    #ielem = [elements.charge(mol.atom_symbol(a)) for a in range(natom)]
+    ielem = np.zeros(natom, dtype='int32')
+    ghost = [False for i in range(natom)]
+    for i in range(natom):
+        symb = mol.atom_symbol(i)
+        if(symb[0:2] == 'X-'):
+            ielem[i] = elements.charge(symb[2:])
+            ghost[i] = True
+        else:
+            ielem[i] = elements.charge(symb)
     ncontr = 0
     nprimitive = 0
     shell_type = []
@@ -118,13 +127,13 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
     
     if LenNCZ > 0:
         molecp2fch(fchname, uhf, nbf, nif, na, nb, ncontr, nprimitive, charge, mult, natom, LenNCZ, 
-             ielem, shell_type, prim_per_shell, shell2atom_map, 
+             ielem, ghost, shell_type, prim_per_shell, shell2atom_map, 
              virial, tot_e, coor, prim_exp, contr_coeff, #contr_coeff_sp,
              KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
              )
     else:
         molinfo2fch(fchname, uhf, nbf, nif, na, nb, ncontr, nprimitive, charge, mult, natom, LenNCZ, 
-             ielem, shell_type, prim_per_shell, shell2atom_map, 
+             ielem, ghost, shell_type, prim_per_shell, shell2atom_map, 
              virial, tot_e, coor, prim_exp, contr_coeff, #contr_coeff_sp,
              #KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
              )

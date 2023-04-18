@@ -243,10 +243,12 @@ subroutine add_bgcharge_to_gms_inp(inpname, n, charge)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
+ logical, allocatable :: ghost(:)
 
  call read_natom_from_gms_inp(inpname, natom)
- allocate(coor(3,natom), nuc(natom), elem(natom))
- call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
+ allocate(coor(3,natom), nuc(natom), elem(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
+ deallocate(ghost)
 
  inpname1 = TRIM(inpname)//'.tmp'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')

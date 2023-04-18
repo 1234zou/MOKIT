@@ -305,8 +305,8 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
   write(fid,'(A)',advance='no') ' RHF/'//TRIM(basis1)
   if(noiter) write(fid,'(A)',advance='no') ' guess(only,save)'
   if(mult /= 1) then
-   write(6,'(A)') 'ERROR in subroutine generate_hf_gjf: this molecule is&
-                    & not spin singlet, but RHF is specified.'
+   write(6,'(A)') 'ERROR in subroutine generate_hf_gjf: this molecule is not sp&
+                  &in singlet, but RHF is specified.'
    close(fid)
    stop
   end if
@@ -426,7 +426,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  i = system(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job fai&
+                   &iled.'
   write(6,'(A)') 'You can open file '//TRIM(outname1)//' and check why.'
   stop
  end if
@@ -608,7 +609,8 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
   i = index(outname, '.out', back=.true.)
   inpname = outname(1:i-1)//'.py'
   call read_mult_from_pyscf_inp(inpname, mult)
-  ss = DBLE(mult*(mult+1))
+  ss = DBLE((mult-1))*0.5d0
+  ss = DBLE(ss*(ss+1))
  case(3)   ! UHF
   i = index(buf,'=')
   buf(i:i) = ' '
@@ -772,8 +774,8 @@ subroutine read_mult_from_pyscf_inp(inpname, mult)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mult_from_pyscf_inp: no 'mol.spin'&
-                   & found in"
+  write(6,'(A)') "ERROR in subroutine read_mult_from_pyscf_inp: no 'mol.spin' &
+                & found in"
   write(6,'(A)') 'file '//TRIM(inpname)
   stop
  end if
@@ -1027,8 +1029,8 @@ subroutine prt_hf_orca_inp(inpname, hf_type)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in&
-                   & file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in file&
+                 & "//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -1144,8 +1146,8 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no '!'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no '!' found&
+                 & in file "//TRIM(inpname)
   stop
  end if
 
@@ -1158,8 +1160,8 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
  else if(index(buf,'HF') > 0) then
   hf_type = 0
  else 
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no 'HF'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no 'HF' found&
+                & in file "//TRIM(inpname)
   close(fid)
   stop
  end if
@@ -1193,10 +1195,10 @@ subroutine check_frag_guess_in_gjf(gjfname)
  close(fid)
  call lower(buf)
  if(index(buf,'fragment') > 0) then
-  write(6,'(/,A)') 'ERROR in subroutine check_frag_guess_in_gjf: fragment info&
-                   &rmation found in coordinate'
-  write(6,'(A)') "section. But 'guess(fragment=N)' keyword not found in file "&
-                 //TRIM(gjfname)//'.'
+  write(6,'(/,A)') 'ERROR in subroutine check_frag_guess_in_gjf: fragment infor&
+                   &mation found in'
+  write(6,'(A)') "coordinate section. But 'guess(fragment=N)' keyword not found&
+                & in file "//TRIM(gjfname)//'.'
   write(6,'(A)') 'It seems that you forgot to write necessary keywords.'
   stop
  end if

@@ -326,19 +326,17 @@ end subroutine cholesky
 subroutine boys(nbf, nif, coeff, mo_dipole, new_coeff)
  implicit none
  integer :: t0, t1, time
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
-
- real(kind=8) :: coeff(nbf,nif), new_coeff(nbf,nif)
- real(kind=8) :: mo_dipole(3,nif,nif)
+ real(kind=8), intent(in) :: coeff(nbf,nif)
 !f2py intent(in) :: coeff
-!f2py intent(in,copy) :: mo_dipole
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: new_coeff(nbf,nif)
 !f2py intent(out) :: new_coeff
-!f2py depend(nbf,nif) :: coeff, new_coeff
+!f2py depend(nbf,nif) :: new_coeff
+ real(kind=8) :: mo_dipole(3,nif,nif)
+!f2py intent(in,copy) :: mo_dipole
 !f2py depend(nif) :: mo_dipole
- ! coeff: all orbitals
- ! new_coeff: updated coeff
- ! mo_dipole: the whole MO basis dipole integrals matrix
 
  t0 = time()
  write(6,'(/,A)') 'Boys orbital localization begins:'
@@ -360,7 +358,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  implicit none
  integer :: i, j, k, natom, t0, t1, time, i1, i2, i3
  integer :: lwork, liwork
- integer :: nshl, nbf, nif
+ integer, intent(in) :: nshl, nbf, nif
 !f2py intent(in) :: nshl, nbf, nif
 
  integer :: shl2atm(nshl), ang(nshl), ibas(nshl)
@@ -388,8 +386,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  ! e: eigenvalues of S after diagonalization
  ! ev: eigenvectors
  real(kind=8), allocatable :: e(:), ev(:,:), work(:)
-
- logical :: cart
+ logical, intent(in) :: cart
 !f2py intent(in) :: cart
 
  t0 = time()
@@ -618,10 +615,10 @@ end subroutine serial2by2
 ! get the value of the modified Boys function
 subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
  implicit none
- integer i, j, nocc
- integer nif, ncore, npair, nopen
+ integer :: i, j, nocc
+ integer, intent(in) :: nif, ncore, npair, nopen
 !f2py intent(in) :: nif, nocc, npair, nopen
- real(kind=8) :: mo_dipole(3,nif,nif)
+ real(kind=8), intent(in) :: mo_dipole(3,nif,nif)
 !f2py intent(in) :: mo_dipole
 !f2py depend(nif) mo_dipole
  real(kind=8) :: ddot, fBoys, temp_dipole(3)
@@ -743,13 +740,116 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
  deallocate(lo_coeff1)
 end subroutine get_u
 
+subroutine idx_map_2d(n, k, p, q)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n, k
+ integer, intent(out) :: p, q
+
+ p = k/n
+ if(k - n*p > 0) p = p+1
+ q = k - (p-1)*n
+end subroutine idx_map_2d
+
 ! A non-iterative Boys orbital localization solver
 subroutine boys_noiter(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  implicit none
+ integer :: i, j, k, m, p, q, nmo_s
  integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8) :: rtmp(3)
  real(kind=8), intent(in) :: mo_coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+!f2py intent(in) :: mo_coeff, mo_dipole
+!f2py depend(nbf,nmo) :: mo_coeff
+!f2py depend(nmo) :: mo_dipole
  real(kind=8), intent(out) :: new_coeff(nbf,nmo)
+!f2py intent(out) :: new_coeff
+!f2py depend(nbf,nmo) :: new_coeff
+ real(kind=8), allocatable :: e(:), u(:,:), y(:,:), vtmp(:)
 
- new_coeff = 0d0
+ if(nmo == 1) then
+  new_coeff = mo_coeff
+  return
+ else
+  new_coeff = 0d0 ! initialization
+ end if
+
+ nmo_s = nmo*nmo
+ allocate(y(nmo_s,nmo_s), source=0d0)
+
+ ! diagonal elements
+ do i = 1, nmo_s, 1
+  call idx_map_2d(nmo, i, k, m)
+  rtmp = mo_dipole(:,m,k)
+  y(i,i) = DOT_PRODUCT(rtmp, rtmp)
+ end do ! for i
+
+ ! non-diagonal elements
+ do i = 1, nmo_s-1, 1
+  call idx_map_2d(nmo, i, k, m)
+  rtmp = mo_dipole(:,m,k)
+  do j = i+1, nmo_s, 1
+   call idx_map_2d(nmo, j, p, q)
+   y(j,i) = DOT_PRODUCT(rtmp, mo_dipole(:,q,p))
+   y(i,j) = y(j,i)
+  end do ! for j
+ end do ! for i
+
+ allocate(e(nmo_s)) ! ((X')^T)Y(X') = (-1/2)(\epsilon)
+ call diag_get_e_and_vec(nmo_s, y, e)
+ write(6,'(5F18.12)') e
+ stop
+ ! interestingly, there ae only 3 non-zero eigenvalues in the array e, maybe
+ ! because the dipole moment has only 3 components
+
+ ! reverse the oerder of eigenvalues and eigenvectors
+ allocate(vtmp(nmo_s), source=e)
+ forall(i = 1:nmo_s) e(i) = vtmp(nmo_s-i+1)
+ do i = 1, nmo_s/2, 1
+  vtmp = y(:,i); y(:,i) = y(:,nmo_s-i+1); y(:,nmo_s-i+1) = vtmp
+ end do ! for i
+ deallocate(vtmp)
+
+ ! solve the unitary matrix U
+ allocate(u(nmo,nmo), source=0d0)
+ do i = 1, nmo, 1
+  do j = 1, nmo, 1
+   rtmp(1) = y(j,(i-1)*nmo+i)
+   if(rtmp(1) < -1d-5) then
+    write(6,'(A)') 'ERROR in subroutine boys_noiter: too negative.'
+    write(6,'(A,F16.8)') 'rtmp(1)=', rtmp(1)
+    stop
+   else if(rtmp(1) > 0d0) then
+    u(j,i) = DABS(rtmp(1))
+   end if
+   ! for -1d-5 < rtmp(1) < 0d0, u(j,i) is set to zero (the initialized value)
+  end do ! for j
+ end do ! for i
+
+ ! set u(:,1) > 0, determine the signs of other elements in matrix u
+ do i = 2, nmo, 1
+  do j = 1, nmo, 1
+   if(y(j,i) < 0d0) u(j,i) = -u(j,i)
+  end do ! for j
+ end do ! for i
+
+ deallocate(y)
+ allocate(y(nmo,nmo), source=0d0)
+ y = MATMUL(u, TRANSPOSE(u))
+ forall(i = 1:nmo) y(i,i) = y(i,i) - 1d0
+ y = DABS(y)
+ write(6,'(A,F12.6)') 'max(U)=', MAXVAL(u)
+ write(6,'(A,F12.6)') 'sum(U(U^T) - I)=', SUM(y)
+ stop
+
+! y = MATMUL(TRANSPOSE(u), u)
+! forall(i = 1:nmo) y(i,i) = y(i,i) - 1d0
+! y = DABS(y)
+! write(6,'(A,F12.6)') 'max(U)=', MAXVAL(u)
+! write(6,'(A,F12.6)') 'sum((U^T)U - I)=', SUM(y)
+
+ deallocate(y)
+ call dgemm('N','N',nbf,nmo,nmo, 1d0,mo_coeff,nbf, u,nmo, 0d0, new_coeff,nbf)
+ deallocate(u)
 end subroutine boys_noiter
 

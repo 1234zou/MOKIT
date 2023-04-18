@@ -59,17 +59,17 @@ subroutine bas_gms2molcas(fort7, spherical)
  character(len=21) :: str1, str2
  logical, intent(in) :: spherical
  logical :: uhf, ghf, X2C
+ logical, allocatable :: ghost(:)
 
- ! initialization
- buf = ' '
- input = ' '
+ buf = ' '; input = ' ' ! initialization
 
  i = index(fort7, '.', back=.true.)
  input = fort7(1:i-1)//'.input'
 
  call read_natom_from_gms_inp(fort7, natom)
- allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ deallocate(ghost)
  ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)

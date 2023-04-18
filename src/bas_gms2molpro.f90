@@ -52,6 +52,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=1) :: stype
  logical, intent(in) :: spherical
  logical :: uhf, ghf, X2C
+ logical, allocatable :: ghost(:)
 
  ! initialization
  buf = ' '
@@ -64,8 +65,9 @@ subroutine bas_gms2molpro(fort7, spherical)
  input = fort7(1:i)//'com'
 
  call read_natom_from_gms_inp(fort7, natom)
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ deallocate(ghost)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_molpro will use it
 
  call calc_ntimes(natom, elem, ntimes)

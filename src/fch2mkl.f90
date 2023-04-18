@@ -64,8 +64,8 @@ subroutine fch2mkl(fchname)
 
  i = INDEX(fchname,'.fch',back=.true.)
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine fch2mkl: input filename does not&
-                   & contain '.fch' suffix!"
+  write(6,'(A)') "ERROR in subroutine fch2mkl: input filename does not contain&
+                 & '.fch' suffix!"
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
@@ -220,12 +220,12 @@ subroutine fch2mkl(fchname)
  write(fid2,'(A)') '%pal nprocs 4 end'
  write(fid2,'(A)') '%maxcore 1000'
  if(uhf) then
-  write(fid2,'(A)') '! UHF VeryTightSCF'
+  write(fid2,'(A)') '! UHF VeryTightSCF noTRAH'
  else
   if(nopen == 0) then
-   write(fid2,'(A)') '! RHF VeryTightSCF'
+   write(fid2,'(A)') '! RHF VeryTightSCF noTRAH'
   else ! nopen > 0
-   write(fid2,'(A)') '! ROHF VeryTightSCF'
+   write(fid2,'(A)') '! ROHF VeryTightSCF noTRAH'
   end if
  end if
 

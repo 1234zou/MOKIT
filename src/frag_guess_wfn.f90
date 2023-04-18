@@ -130,7 +130,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  integer, allocatable :: cm(:), nuc(:)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
- character(len=240) :: buf, chkname, fchname, logname, basname
+ character(len=10) :: hf_prog ! only gaussian or pyscf
+ character(len=240) :: buf, chkname, fchname, logname, basname, hf_prog_path
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf
  logical :: guess_read, stab_chk
@@ -138,28 +139,45 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  buf = ' '; longbuf = ' '
 
- call read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
+ call read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
+ select case(TRIM(hf_prog))
+ case('gaussian')
+  hf_prog_path = gau_path
+ case('pyscf')
+  hf_prog_path = 'python'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: HF_prog not supported &
+                   &by frag_guess_wfn'
+  write(6,'(A)') 'currently. You input HF_prog='//TRIM(hf_prog)
+  stop
+ end select
+
  if(.not. stab_chk) then
-  write(6,'(/,A)') 'Warning from subroutine frag_guess_wfn: wave function stabili&
-                   &ty check is turned'
-  write(6,'(A,/)') 'off. Not recommended. You should know what you are doing.'
+  write(6,'(A)') REPEAT('-', 79)
+  write(6,'(A)') 'Warning from subroutine frag_guess_wfn: wave function stabili&
+                 &ty check is'
+  write(6,'(A)') 'turned off. Not recommended. You should know what you are doi&
+                 &ng.'
+  write(6,'(A)') REPEAT('-', 79)
  end if
 
  call read_disp_ver_from_gjf(gjfname, disp_type)
  if(eda_type==4 .and. disp_type>0) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction&
-                   & cannot be used in SAPT.'
-  write(6,'(A)') 'It may be supported in DFT-SAPT, but this method is not&
-                 & supported for frag_guess_wfn.'
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction c&
+                   &annot be used in'
+  write(6,'(A)') 'SAPT. It may be supported in DFT-SAPT, but this method is not&
+                 & supported by frag_guess_wfn'
+  write(6,'(A)') 'currently.'
   stop
  end if
 
  call check_sph_in_gjf(gjfname, sph)
  if(sph .and. eda_type==1) then
-  write(6,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic&
-                 & functions (5D 7F) cannot be'
-  write(6,'(A)') 'used in Morokuma-EDA method in GAMESS. Automatically switch&
-                 & to Cartesian functions (6D 10F).'
+  write(6,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic func&
+                 &tions (5D 7F) cannot'
+  write(6,'(A)') 'be used in Morokuma-EDA method in GAMESS. Automatically switc&
+                 &h to Cartesian functions'
+  write(6,'(A)') '(6D 10F).'
   sph = .false.
  end if
 
@@ -407,8 +425,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in&
                     & file '//TRIM(gjfname)//'.'
    write(6,'(A)') 'Please read examples in Section 5.3.2 ~ 5.3.4 of MOKIT&
-                  & manual and learn how to'
-   write(6,'(A)') 'write a valid input file.'
+                  & manual and learn'
+   write(6,'(A)') 'how to write a valid input file.'
    stop
   end if
   read(buf(1:j-1),*) elem(i)
@@ -418,15 +436,17 @@ subroutine frag_guess_wfn(gau_path, gjfname)
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fr&
                     &agment number.'
    write(6,'(A)') 'This task requires the definition of fragment number is mon&
-                  &omer1, monomer2, monomer3,...'
+                  &omer1, monomer2,'
+   write(6,'(A)') 'monomer3, ...'
    close(fid)
    stop
   end if
 
   if(ifrag > nfrag0) then
    write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: the number of fragments&
-                  & detected in Cartesian coordinates is'
-   write(6,'(A)') 'larger than that found in charges and spin multiplicities.'
+                  & detected in Cartesian'
+   write(6,'(A)') 'coordinates is larger than that found in charges and spin m&
+                  &ultiplicities.'
    write(6,'(2(A,I0))') 'ifrag = ', ifrag, ', nfrag0=', nfrag0
    close(fid)
    stop
@@ -531,7 +551,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  ! do SCF computations one by one
  do i = 1, nfrag, 1
-  call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter, &
+  call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
   if(i < nfrag) then
    write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
@@ -565,7 +585,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   !call unfchk(fchname, chkname)
   !call modify_guess_only_in_gjf(frags(nfrag)%fname)
   frags(i)%noiter = .false.
-  call do_scf_and_read_e(gau_path, gau_path, frags(i)%fname, frags(i)%noiter,&
+  call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
   write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
                                    ', frags(i)%ssquare=', frags(i)%ssquare
@@ -592,7 +612,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call unfchk(fchname, chkname)
   frags(3)%noiter = .false.
   call modify_guess_only_in_gjf(frags(3)%fname)
-  call do_scf_and_read_e(gau_path, gau_path, frags(3)%fname, frags(3)%noiter, &
+  call do_scf_and_read_e(gau_path, hf_prog_path, frags(3)%fname, frags(3)%noiter, &
                          frags(3)%e, frags(3)%ssquare)
   write(6,'(A,F18.9,A,F6.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
                               ', frags(i)%ssquare=', frags(3)%ssquare
@@ -609,17 +629,18 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 end subroutine frag_guess_wfn
 
 ! read the parameter eda_type from a given .gjf file
-subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
+subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
  implicit none
  integer :: i, j, k, len_buf, fid
  integer, intent(out) :: eda_type
  character(len=240) :: buf
+ character(len=10), intent(out) :: hf_prog
  character(len=240), intent(in) :: gjfname
  character(len=69), parameter :: error_str = 'ERROR in subroutine read_eda_type&
   &_from_gjf: wrong syntax in gjf file.'
  logical, intent(out) :: stab_chk ! True/False for 'stable=opt' or not
 
- eda_type = 0; stab_chk = .true.
+ eda_type = 0; stab_chk = .true.; hf_prog = 'gaussian'; buf = ' '
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
  do while(.true.)
@@ -663,8 +684,8 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
  case default
   write(6,'(/,A)') error_str
   write(6,'(A)') 'You are supposed to write one of {morokuma}, {lmo}, {gks} or&
-                 & {sapt,bronze} in'
-  write(6,'(A)') 'the Title Card line.'
+                 & {sapt,bronze}'
+  write(6,'(A)') 'in the Title Card line.'
   stop
  end select
 
@@ -676,13 +697,14 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk)
   case('bronze') ! SAPT,bronze
   case('nostab')
    stab_chk = .false.
+  case('hf_prog=pyscf')
+   hf_prog = 'pyscf'
   case default
    write(6,'(/,A)') error_str
    write(6,'(A)') "Invalid keyword '"//TRIM(buf)//"'"
    stop
   end select
  end if
-
 end subroutine read_eda_type_from_gjf
 
 ! read memory and nprocshared from a given .gjf file

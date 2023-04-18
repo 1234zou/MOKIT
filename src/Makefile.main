@@ -80,7 +80,6 @@ OBJ_qchem = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
-OBJ_assoc_loc = assoc_loc.f90
 OBJ_wfn_analysis = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
                    util_wrapper.f90 call_qc_calc_int.f90 rwgeom.f90 \
                    wfn_analysis.f90 read_gms_inp.o
@@ -331,10 +330,6 @@ assoc_rot: $(OBJ_assoc_rot)
 	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(MKL_FLAGS)
 	@mv assoc_rot*.so $(LIB)/
 
-assoc_loc: $(OBJ_assoc_loc)
-	$(F2PY) -c $(OBJ_assoc_loc) -m assoc_loc $(F2_FLAGS)
-	@mv assoc_loc*.so $(LIB)/
-
 wfn_analysis: $(OBJ_wfn_analysis)
 	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
 	@mv wfn_analysis*.so $(LIB)/
@@ -381,7 +376,7 @@ exe: add_bgcharge_to_inp addH2singlet automr autosr bas_fch2py bas_gau2molcas \
      xml2fch solve_ON_matrix
 
 pymodules: auto_pair chk2py fch2py py2fch pyuno qchem construct_vir ortho \
-           assoc_rot assoc_loc wfn_analysis lo mo_svd rwgeom rwwfn excited
+           assoc_rot wfn_analysis lo mo_svd rwgeom rwwfn excited
 
 all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
@@ -389,9 +384,8 @@ all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair bas_fch2py bas_gau
      fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
      fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair \
      gvb_exclude_XH gvb_sort_pairs mkl2fch mkl2gjf orb2fch replace_xyz_in_inp \
-     xml2fch py2fch pyuno qchem construct_vir ortho assoc_rot assoc_loc \
-     wfn_analysis lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited \
-     get_mokit_loc
+     xml2fch py2fch pyuno qchem construct_vir ortho assoc_rot wfn_analysis lo \
+     mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited get_mokit_loc
 
 clean:
 	rm -f *.o *.mod

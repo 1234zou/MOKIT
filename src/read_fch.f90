@@ -22,6 +22,7 @@ module fch_content
  integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
  integer, parameter :: shltyp2nbf(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
+ integer, allocatable :: iatom_type(:)       ! Int Atom Types
  integer, allocatable :: shell_type(:)       ! Shell types
  integer, allocatable :: prim_per_shell(:)   ! Number of primitives per shell
  integer, allocatable :: shell2atom_map(:)   ! Shell to atom map
@@ -256,6 +257,15 @@ subroutine read_fch(fchname, uhf)
  coor = RESHAPE(coor0,(/3,natom/))
  deallocate(coor0)
  coor = coor*Bohr_const ! convert Bohr to Anstrom
+
+ ! find and read 'Int Atom Types'
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:12) == 'Int Atom Typ') exit
+ end do
+ allocate(iatom_type(natom), source=0)
+ read(fid,'(6(1X,I11))') iatom_type
+ ! 0 for real atoms, 1000 for ghost atoms
 
  ! find and read variables ncontr, nprim
  i = 0
@@ -992,6 +1002,9 @@ subroutine write_fch(fchname)
  write(fid,'(A,I12)') 'Current cartesian coordinates              R   N=',natom*3
  write(fid,'(5(1X,ES15.8))') coor1
  deallocate(coor1)
+ if(.not. allocated(iatom_type)) allocate(iatom_type(natom), source=0)
+ write(fid,'(A,I12)') 'Int Atom Types                             I   N=',natom
+ write(fid,'(6I12)') iatom_type
  write(fid,'(A,I17)') 'Number of contracted shells                I',ncontr
  write(fid,'(A,I17)') 'Number of primitive shells                 I',nprim
  write(fid,'(A,I17)') 'Highest angular momentum                   I',nhigh

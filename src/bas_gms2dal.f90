@@ -48,6 +48,7 @@ subroutine bas_gms2dal(fort7, spherical)
  character(len=1) :: stype
  logical :: uhf, ghf
  logical, intent(in) :: spherical
+ logical, allocatable :: ghost(:)
 
  buf = ' '   ! initialization
  i = index(fort7, '.', back=.true.)
@@ -55,8 +56,9 @@ subroutine bas_gms2dal(fort7, spherical)
  molfile = fort7(1:i-1)//'.mol'
 
  call read_natom_from_gms_inp(fort7, natom)
- allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ deallocate(ghost)
  ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)

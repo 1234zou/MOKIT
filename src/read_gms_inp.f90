@@ -162,7 +162,7 @@ subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ec
 end subroutine read_charge_and_mult_from_gms_inp
 
 ! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file
-subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
+subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
  implicit none
  integer :: i, k, fid, nline
  integer, intent(in) :: natom
@@ -175,9 +175,10 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  logical :: bohrs
+ logical, intent(out) :: ghost(natom) ! size natom
 
  allocate(nuc1(natom), source=0d0)
- nuc = 0; coor = 0d0; elem = ' '
+ nuc = 0; coor = 0d0; elem = ' '; ghost = .false.
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  ! find in the first 6 lines whether the coordinates are in Angstrom or Bohr
@@ -204,6 +205,10 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor)
 
  do k = 1, natom, 1
   read(fid,*) elem(k), nuc1(k), coor(1:3,k)
+  if(nuc1(k) < 0d0) then ! ghost atom (0 charge, has basis function)
+   nuc1(k) = -nuc1(k)
+   ghost(k) = .true.
+  end if
 
   do while(.true.)
    read(fid,'(A)') buf

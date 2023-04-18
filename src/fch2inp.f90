@@ -232,6 +232,10 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
                             DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
+ ! for ghost atoms (0 charge, has basis fucntion), make ielem(i) negative,
+ ! which can be recognized by GAMESS
+ forall(i=1:natom, iatom_type(i)==1000) ielem(i) = -ielem(i)
+
  ! print basis sets into the .inp file
  write(fid,'(A2,2X,I3,A1,3(1X,F18.8))') elem(1), ielem(1), '.', coor(1:3,1)
  k = 0
@@ -260,11 +264,16 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end do ! for i
 
  k = shell2atom_map(ncontr)
- if(k < natom) then ! ghost atom
-  do i = k+1, natom, 1
-   write(fid,'(A2,2X,I3,A1,3(1X,F18.8),/)') elem(i), ielem(i), '.', coor(1:3,i)
-  end do ! for i
+ if(k < natom) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: shell2atom_map(ncontr)<natom.'
+  write(6,'(A)') 'I cannot imagine this case. So stop and check.'
+  stop
  end if
+ !if(k < natom) then ! ghost or dummy atoms?
+ ! do i = k+1, natom, 1
+ !  write(fid,'(A2,2X,I3,A1,3(1X,F18.8),/)') elem(i), ielem(i), '.', coor(1:3,i)
+ ! end do ! for i
+ !end if
  deallocate(ielem, elem, coor)
  deallocate(shell2atom_map, prim_per_shell, prim_exp, contr_coeff, contr_coeff_sp)
  write(fid,'(A)') ' $END'

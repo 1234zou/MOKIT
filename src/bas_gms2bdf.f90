@@ -35,11 +35,10 @@ subroutine bas_gms2bdf(fort7)
  ! if you do not like the suffix .bdf, you can change it into .inp
  character(len=1) :: stype
  logical :: X2C, uhf, ghf, lin
+ logical, allocatable :: ghost(:)
 
  ! initialization
- buf = ' '
- input = ' '
- basfile = ' '
+ buf = ' '; input = ' '; basfile = ' '
 
  call read_nbf_and_nif_from_gms_inp(fort7, nbf, nif)
  if(nbf > nif) then
@@ -51,8 +50,9 @@ subroutine bas_gms2bdf(fort7)
  k = index(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
  call read_natom_from_gms_inp(fort7, natom)
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor)
+ allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ deallocate(ghost)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
  call calc_ntimes(natom, elem, ntimes)
