@@ -438,11 +438,12 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
   if(nblank == 2) exit
  end do ! for while
 
- read(fid,*,iostat=i) charge, mult, ((frag_char_mult(j,i),j=1,2),i=1,nfrag)
- if(i /= 0) then
+ read(fid,*,iostat=k) charge, mult, ((frag_char_mult(j,i),j=1,2),i=1,nfrag)
+ if(k /= 0) then
   write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
-                   & charges and spin multiplicities of fragments.'
-  write(6,'(A)') 'Please check syntax in file '//TRIM(gjfname)
+                & charges and spin'
+  write(6,'(A)') 'multiplicities of fragments. Please check syntax in file '//&
+                 TRIM(gjfname)
   close(fid)
   stop
  end if
@@ -453,7 +454,7 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
 
   if(j*k == 0) then
    write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
-                     & atom2frag.'
+                  & atom2frag.'
    write(6,'(A)') 'Problematic line: '//TRIM(buf)
    write(6,'(A)') 'Please check syntax in file '//TRIM(gjfname)
    close(fid)

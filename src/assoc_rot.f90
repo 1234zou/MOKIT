@@ -3,7 +3,7 @@
 module polyn_info
  implicit none
  real(kind=8), parameter :: zero = 1d-8
- real(kind=8), parameter :: alpha = -0.75d0
+ real(kind=8), parameter :: alpha = 0.01d0
  real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-5
 ! threshold1: threshold to decide whether to rotate (and update MOs, dipole integrals)
 ! threshold2: threshold to decide if rotation/localization converged
@@ -93,7 +93,7 @@ subroutine assoc_loc2(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
                    &bitals is larger'
   write(6,'(A)') 'than that of rotated orbitals. Not allowed.'
   write(6,'(4(A,I3))') 'ref1=',ref1,', ref2=',ref2,', rot1=',rot1,', rot2=',rot2
-  return
+  stop
  end if
 
  new_coeff = coeff
@@ -182,7 +182,7 @@ end subroutine assoc_loc2
 ! ref1: the begin index of reference orbitals
 ! ref2: the end index of reference orbitals
 ! coeff: all MO coefficients of a molecule
-! new_coeff: all MO coefficients with coeff(:,rot1,rot2) updated
+! new_coeff: all MO coefficients with coeff(:,rot1+1:rot2) updated
 ! mo_dipole: MO based dipole integrals of all MOs
 subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
                      new_coeff)
@@ -204,8 +204,8 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
  real(kind=8) :: increase, vt(3,6), motmp(nbf,2), sin_2t, cos_2t
  real(kind=8) :: Aij, Bij, Cij, Dij, cos_a, cos_theta, sin_theta, cc, ss
  real(kind=8), allocatable :: diptmp(:,:)
- real(kind=8), allocatable :: r(:,:,:) ! size (3,ref,rot)
- real(kind=8), allocatable :: d(:,:,:) ! size (3,rot,rot)
+ real(kind=8), allocatable :: r(:,:,:) ! size (3,nref,nrot)
+ real(kind=8), allocatable :: d(:,:,:) ! size (3,nrot,nrot)
 
  nrot = rot2 - rot1
  nref = ref2 - ref1
@@ -215,7 +215,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
                    &bitals is larger'
   write(6,'(A)') 'than that of rotated orbitals. Not allowed.'
   write(6,'(4(A,I3))') 'ref1=',ref1,', ref2=',ref2,', rot1=',rot1,', rot2=',rot2
-  return
+  stop
  end if
 
  new_coeff = coeff
@@ -281,7 +281,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
     diptmp(:,3) = d(:,j,j)
     d(:,i,i) = cc*diptmp(:,1) + ss*diptmp(:,3) - sin_2t*diptmp(:,2)
     d(:,j,j) = ss*diptmp(:,1) + cc*diptmp(:,3) + sin_2t*diptmp(:,2)
-    d(:,j,i) = cos_2t*diptmp(:,2) - 0.5d0*sin_2t*vt(:,6)
+    d(:,j,i) = cos_2t*diptmp(:,2) + 0.5d0*sin_2t*vt(:,6)
     d(:,i,j) = d(:,j,i)
     do k = 1, nrot, 1
      if(k==i .or. k==j) cycle

@@ -9,25 +9,18 @@
 subroutine no(nbf, nif, P, S, noon, new_coeff)
  implicit none
  integer :: i, j, lwork, liwork
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- ! nbf: the number of atomic basis functions
- ! nif: the number of independent basis functions, i.e., the number of MOs
  ! Note: nif<nbf when linear dependence occurs (be cautious)
-
  integer, allocatable :: isuppz(:), iwork(:)
-
  real(kind=8) :: P(nbf,nbf), S(nbf,nbf), new_coeff(nbf,nif)
 !f2py intent(in) :: P
 !f2py intent(in,copy) :: S
 !f2py intent(out) :: new_coeff
 !f2py depend(nbf,nif) :: new_coeff
 !f2py depend(nbf) :: P, S
-
- real(kind=8) :: noon(nif)
-!f2py intent(out) :: noon
+ real(kind=8), intent(out) :: noon(nif)
 !f2py depend(nif) :: noon
-
  real(kind=8), allocatable :: sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 
