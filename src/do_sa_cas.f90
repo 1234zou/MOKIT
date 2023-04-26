@@ -90,12 +90,12 @@ subroutine do_sa_cas()
  allocate(e_ev(nstate), source=0d0)
  forall(i = 1:nstate) e_ev(i) = (sa_cas_e(i) - sa_cas_e(0))*au2ev
  write(6,'(A)') 'Multi-root energies in SA-CASSCF(0 for ground state):'
- write(6,'(A,A)') REPEAT(' ',52),'E_ex/eV'
- write(6,'(A,I3,A,F16.8,A,F6.3)') 'State ',0,', E =',sa_cas_e(0),' a.u., <S**2> =',&
+ write(6,'(A,A)') REPEAT(' ',51),'E_ex/eV'
+ write(6,'(A,I3,A,F16.8,A,F6.3)') 'State ',0,', E =',sa_cas_e(0),' a.u. <S**2> =',&
                                    ci_mult(0)
  do i = 1, nstate, 1
   write(6,'(A,I3,A,F16.8,A,F6.3,2X,F6.2)') 'State ',i,', E =',sa_cas_e(i),&
-                                     ' a.u., <S**2> =', ci_mult(i), e_ev(i)
+                                     ' a.u. <S**2> =', ci_mult(i), e_ev(i)
  end do ! for i
  deallocate(e_ev)
 
@@ -123,21 +123,26 @@ end subroutine do_sa_cas
 
 ! print (DMRG-)SA-CASSCF script into a given .py file
 subroutine prt_sacas_script_into_py(pyname, gvb_fch)
- use mol, only: nacto, nacta, nactb
+ use mol, only: nacto, nacte, nacta, nactb
  use mr_keyword, only: mem, nproc, casscf, dmrgscf, maxM, hardwfn, crazywfn, &
   dkh2_or_x2c, RI, RIJK_bas, hf_fch, mixed_spin, nstate, nevpt2
+ use util_wrapper, only: bas_fch2py_wrap
  implicit none
- integer :: i, fid1, fid2, system, RENAME
+ integer :: i, nacta1, nactb1, fid1, fid2, RENAME
  real(kind=8) :: ss ! spin square S(S+1)
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
  character(len=240), intent(in) :: pyname, gvb_fch
 
- i = system('bas_fch2py '//TRIM(gvb_fch))
- i = index(gvb_fch, '.fch', back=.true.)
- pyname1 = gvb_fch(1:i-1)//'.py'
- i = RENAME(TRIM(pyname1), TRIM(pyname))
-
+ if(mixed_spin) then
+  ! set as the lowest spin in order to obtain different spins in SA-CASSCF
+  nactb1 = nacte/2
+  nacta1 = nacte - nactb1
+ else
+  nacta1 = nacta
+  nactb1 = nactb
+ end if
+ call bas_fch2py_wrap(gvb_fch, .false., pyname)
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
@@ -147,7 +152,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   read(fid1,'(A)') buf
   if(LEN_TRIM(buf) == 0) exit
   write(fid2,'(A)') TRIM(buf)
- end do
+ end do ! for while
 
  if(dmrgscf) then
   write(fid2,'(A)') 'from pyscf import mcscf, dmrgscf, lib'
@@ -186,7 +191,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   else
    write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
   end if
-  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
   if(RI) then
    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -199,7 +204,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   else
    write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
   end if
-  write(fid2,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
+  write(fid2,'(3(I0,A))') nacto,',(',nacta1,',',nactb1,'))'
   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
  end if
@@ -216,7 +221,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'mc.conv_tol = 1e-9'
  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
  write(fid2,'(A)') 'mc.max_cycle = 200'
- write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
+ if(.not. mixed_spin) write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
 
  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
  ss = DBLE(nacta - nactb)*0.5d0
@@ -241,7 +246,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   else
    write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
   end if
-  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
 
   if(casscf) then ! CASSCF
    if(RI) then
@@ -664,9 +669,9 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
  if(no_conv) then
   write(6,'(A)') REPEAT('-',79)
   write(6,'(A)') 'Warning in subroutine read_multiroot_nevpt2_from_pyscf: CASCI&
-                & not converged.'
-  write(6,'(A)') 'You should be cautious about the CASCI and NEVPT2 energies.&
-                & You are recommended'
+                 & not converged.'
+  write(6,'(A)') 'You should be cautious about the CASCI and NEVPT2 energies. Y&
+                 &ou are recommended'
   write(6,'(A)') 'to open file '//TRIM(outname)//' and check.'
   write(6,'(A)') 'The program will not stop but continue...'
   write(6,'(A)') REPEAT('-',79)
@@ -680,17 +685,17 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
 
  i = 0
  do while(.true.)
+  if(i == nstate+1) exit
   read(fid,'(A)') buf
   if(buf(1:8) == 'Nevpt2 E') then
    j = index(buf,'=')
    read(buf(j+1:),*) nevpt2_e(i)
    i = i + 1
-   if(i == nstate) exit
   end if
  end do ! for while
 
  close(fid)
- nevpt2_e = nevpt2_e + casci_e
+ nevpt2_e = casci_e + nevpt2_e
 
  forall(i = 1:nstate) casci_e(i) = (nevpt2_e(i)-nevpt2_e(0))*au2ev
  write(6,'(/,A)') 'NEVPT2 energies:                    E_ex/eV'
