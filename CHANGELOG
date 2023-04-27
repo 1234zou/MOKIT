@@ -1,4 +1,4 @@
-MOKIT 1.2.5 (Apr 26, 2023)
+MOKIT 1.2.5 (Apr 27, 2023)
 ------------------------
 * add support for ghost atoms in fch2inp, bas_gms2py and bas_fch2py
 * fix DKH2/X2C bug when ist=0 and using old Gaussian (<= g09)

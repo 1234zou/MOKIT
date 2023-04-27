@@ -289,6 +289,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
 
   call write_density_into_fch(fchname1, nbf, .true., dm)
   deallocate(dm, coeff)
+  call write_eigenvalues_to_fch(fchname1, nif, 'a', noon(:,5), .true.)
  end if
 
  deallocate(noon)
