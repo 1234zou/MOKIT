@@ -1,5 +1,5 @@
 from pyscf import gto, scf
-from py2orca import py2orca
+from mokit.lib.py2orca import py2orca
 
 mol = gto.M(atom='''
 O  -0.49390246   0.93902438   0.0

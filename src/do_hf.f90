@@ -908,7 +908,7 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end if
  write(fid1,'(A)') 'dm = mf.make_rdm1()'
  write(fid1,'(A)') 'mf.max_cycle = 500'
- write(fid1,'(A,/)') 'old_e = mf.kernel(dm)'
+ write(fid1,'(A,/)') 'old_e = mf.kernel(dm0=dm)'
 
  select case(hf_type)
  case(1,2) ! R(O)HF

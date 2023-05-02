@@ -1,5 +1,5 @@
 from pyscf import gto
-from py2fch_direct import fchk
+from mokit.lib.py2fch_direct import fchk
 
 mol = gto.M(atom='Cu 0.0 0.0 0.1; Au 0.0 0.0 3.1', 
         basis= 'lanl2dz', ecp = 'lanl2dz',

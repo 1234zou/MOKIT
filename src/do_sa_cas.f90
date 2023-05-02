@@ -80,7 +80,7 @@ subroutine do_sa_cas()
   call prt_sacas_gms_inp(inpname, hf_fch)
  case default
   write(6,'(A)') 'ERROR in subroutine do_sa_cas: CASSCF_prog='//TRIM(cas_prog)&
-                 //' unrecognized or unsupported.'
+                //' unrecognized or unsupported.'
   stop
  end select
 

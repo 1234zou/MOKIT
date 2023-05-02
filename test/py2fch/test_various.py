@@ -1,5 +1,5 @@
 from pyscf import gto
-from py2fch_direct import fchk
+from mokit.lib.py2fch_direct import fchk
 
 mol = gto.M(atom='O 0.0 0.0 0.1; H 0.0 0.0 1.0', 
         basis='cc-pvtz', 

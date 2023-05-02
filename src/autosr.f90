@@ -42,7 +42,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.5 (2023-Apr-27)'
+ write(6,'(A)') '           Version: 1.2.6rc1 (2023-May-2)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -346,7 +346,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.5 :: MOKIT, release date: 2023-Apr-27'
+  write(6,'(A)') 'AutoSR 1.2.6rc1 :: MOKIT, release date: 2023-May-2'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
