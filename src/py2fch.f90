@@ -166,6 +166,41 @@ subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
  deallocate(contr_coeff)
 end subroutine molinfo2fch
 
+subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, gen_density)
+! use, intrinsic :: iso_c_binding
+ implicit none
+! character(len=:, kind=c_char), pointer :: buffer
+ integer, intent(in) :: fchname_len
+! type(c_ptr) :: fchname_c
+ character(len=240), intent(in) :: fchname_c
+ character(len=240) :: fchname
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: coeff2(nbf,nif)
+ character(len=1), intent(in) :: ab
+ real(kind=8), intent(in) :: ev(nif)
+ logical :: alive
+ logical, intent(in) :: gen_density
+
+! interface
+! integer(c_size_t) function strlen(s) bind(c,name="strlen")
+!      import c_size_t, c_ptr
+!      type(c_ptr), intent(in), value :: s
+! end function
+! end interface
+!
+! l = strlen(fchname_c)
+! block
+!   character(len=l, kind=c_char), pointer :: s
+!   call c_f_pointer(fchname_c, s)
+!   buffer => s
+! end block
+! write(*,*) fchname_len
+ fchname = fchname_c(1:fchname_len)
+ write(*,*) 'fchname from REST', fchname
+ call py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
+end subroutine rest2fch
+
+
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
 subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)

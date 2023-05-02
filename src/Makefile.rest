@@ -13,10 +13,8 @@ F2PY   = f2py
 F2_FLAGS =
 F2_F90_FLAGS = --f90flags="-cpp"
 
-#include Makefile.main
+include Makefile.main
 
-
-OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o split_sp.o
 rest2fch: $(OBJ_py2fch)
-	$(F90) -shared $(FFLAGS) -o rest2fch.so  $(OBJ_py2fch)
-	@mv rest2fch.so $(LIB)/
+	$(F90) -shared $(FFLAGS) -o librest2fch.so  $(OBJ_py2fch)
+	@mv librest2fch.so $(LIB)/
