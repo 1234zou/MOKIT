@@ -328,7 +328,7 @@ subroutine bas_gms2py(inpname, cart)
 
  write(pyid,'(/,A)') '#dm = mf.make_rdm1()'
  write(pyid,'(A)')   '#mf.max_cycle = 10'
- write(pyid,'(A,/)') '#mf.kernel(dm)'
+ write(pyid,'(A,/)') '#mf.kernel(dm0=dm)'
  close(pyid)
 end subroutine bas_gms2py
 

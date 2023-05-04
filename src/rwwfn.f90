@@ -3241,12 +3241,13 @@ subroutine update_density_using_mo_in_fch(fchname)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(alpha_coeff(nbf,nif), total_dm(nbf,nbf))
+ allocate(total_dm(nbf,nbf), source=0d0)
+ allocate(alpha_coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', alpha_coeff)
  call add_density_str_into_fch(fchname, 1)
 
  if(uhf) then
-  allocate(dm_a(nbf,nbf))
+  allocate(dm_a(nbf,nbf), source=0d0)
 
   do i = 1, nbf, 1
    do j = i, nbf, 1
@@ -3258,7 +3259,8 @@ subroutine update_density_using_mo_in_fch(fchname)
   end do ! for i
   deallocate(alpha_coeff)
 
-  allocate(beta_coeff(nbf,nif), dm_b(nbf,nbf))
+  allocate(dm_b(nbf,nbf), source=0d0)
+  allocate(beta_coeff(nbf,nif))
   call read_mo_from_fch(fchname, nbf, nif, 'b', beta_coeff)
   do i = 1, nbf, 1
    do j = i, nbf, 1

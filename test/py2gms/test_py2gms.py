@@ -1,5 +1,5 @@
 from pyscf import gto, scf
-from py2gms import py2gms
+from mokit.lib.py2gms import py2gms
 
 mol = gto.M(atom='''
 O  -0.49390246   0.93902438   0.0

@@ -80,7 +80,7 @@ subroutine do_sa_cas()
   call prt_sacas_gms_inp(inpname, hf_fch)
  case default
   write(6,'(A)') 'ERROR in subroutine do_sa_cas: CASSCF_prog='//TRIM(cas_prog)&
-                 //' unrecognized or unsupported.'
+                //' unrecognized or unsupported.'
   stop
  end select
 
@@ -236,7 +236,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(/,A)') '# save MOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
  write(fid2,'(A)') 'noon = np.zeros(nif)'
- write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,F&
+                   &alse,False)"
  ! mc.mo_occ only exists for PySCF >= 1.7.4
 
  if(nevpt2) then

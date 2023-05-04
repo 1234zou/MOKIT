@@ -1111,7 +1111,7 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
   read(fid,'(A)') buf
   if(buf(1:14) == 'Number of atom') exit
  end do ! for i
- read(buf(45:),*) natom
+ read(buf(51:),*) natom
 
  do while(.true.)
   read(fid,'(A)') buf

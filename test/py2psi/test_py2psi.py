@@ -1,5 +1,5 @@
 from pyscf import gto, scf
-from py2psi import py2psi
+from mokit.lib.py2psi import py2psi
 
 mol = gto.M(atom='''
 O  -0.49390246   0.93902438   0.0

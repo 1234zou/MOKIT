@@ -5,7 +5,7 @@ mf = mol.RHF()
 mf.conv_tol *= 0.1 # tighten converge tolerence
 mf.run()
 
-from py2fch_direct import fchk
+from mokit.lib.py2fch_direct import fchk
 fchk(mf, '07-OH.fch')
 
 # To run this example, at least py2fch need to be compiled by `make py2fch`

@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.5 :: MOKIT, release date: 2023-Apr-27'
+  write(6,'(A)') 'AutoMR 1.2.6rc2 :: MOKIT, release date: 2023-May-4'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -336,7 +336,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# save projected MOs into a new .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(proj_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
  write(fid2,'(A)') '# save done'
  close(fid2)
 
@@ -353,7 +353,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  character(len=240), intent(in) :: pyname
 
  ncore = chem_core - ecp_core
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  buf = ' '
  i = index(hf_fch, '.fch')
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
@@ -429,7 +429,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
  write(fid2,'(A)') "sort_pair('"//TRIM(loc_fch)//"','"//TRIM(hf_fch)//"',npair)"
  write(fid2,'(A)') '# save done'
 
@@ -523,7 +523,7 @@ subroutine prt_uno_script_into_py(pyname)
                     //"')\"
  write(fid1,'(A)') ' as run:'
  write(fid1,'(A)') '  null = run.read()'
- write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True)"
+ write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
 end subroutine prt_uno_script_into_py
@@ -677,7 +677,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
  write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,False)"
+ write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
  write(fid1,'(A)') "sort_pair('"//TRIM(assoc_fch)//"','"//TRIM(uno_fch)//"',npair)"
  close(fid1)
 end subroutine prt_assoc_rot_script_into_py
@@ -1098,8 +1098,8 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  write(fid3,'(A)') "mo2 = fch2py('"//TRIM(fchname2)//"', nbf2, nif2, 'a')"
  write(fid3,'(A)') "mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nif2, mo2, cross_S)"
  write(fid3,'(A)') 'noon = np.zeros(nif1)'
- write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"', nbf1, nif1, mo3, 'a', noon,&
-                  & False)"
+ write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"', nbf1, nif1, mo3, 'a', noon, &
+                   &False, False)"
  i = RENAME(TRIM(pyname), TRIM(pyname1))
  pyname = pyname1
 end subroutine prt_orb_resemble_py_script

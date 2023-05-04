@@ -1,8 +1,7 @@
-import os
-import numpy as np
 from pyscf import gto, scf, mcscf
-from fch2py import fch2py
-from py2fch import py2fch
+from mokit.lib.fch2py import fch2py
+from mokit.lib.py2fch import py2fch
+from shutil import copyfile
 
 mol = gto.M()
 #  12 atom(s)
@@ -277,9 +276,7 @@ mf.kernel()
 # read MOs from .fch(k) file
 nbf = mf.mo_coeff.shape[0]
 nif = mf.mo_coeff.shape[1]
-S = mol.intor_symmetric('int1e_ovlp')
-Sdiag = S.diagonal()
-mf.mo_coeff = fch2py('03-ben_cc-pVDZ_6D10F_gvb3.fch', nbf, nif, Sdiag, 'a')
+mf.mo_coeff = fch2py('03-ben_cc-pVDZ_6D10F_gvb3.fch', nbf, nif, 'a')
 # read done
 
 mc = mcscf.CASSCF(mf, 6, 6)
@@ -288,7 +285,5 @@ mc.natorb = True
 mc.kernel()
 
 # export MOs into a new .fch(k) file
-os.system('cp 03-ben_cc-pVDZ_6D10F_gvb3.fch 03-ben_cc-pVDZ_6D10F_CASSCF66_NO.fch')
-noon = np.zeros(nif)
-py2fch('03-ben_cc-pVDZ_6D10F_CASSCF66_NO.fch', nbf, nif, mc.mo_coeff, Sdiag, 'a', noon)
-
+copyfile('03-ben_cc-pVDZ_6D10F_gvb3.fch','03-ben_cc-pVDZ_6D10F_CASSCF66_NO.fch')
+py2fch('03-ben_cc-pVDZ_6D10F_CASSCF66_NO.fch',nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True,True)

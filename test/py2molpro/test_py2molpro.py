@@ -1,5 +1,5 @@
 from pyscf import gto, scf
-from py2molpro import py2molpro
+from mokit.lib.py2molpro import py2molpro
 
 mol = gto.M(atom='''
 O  -0.49390246   0.93902438   0.0

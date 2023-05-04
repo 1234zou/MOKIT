@@ -1,6 +1,6 @@
 from pyscf import gto, scf
-from fch2py import fch2py
-from py2gms import py2gms
+from mokit.lib.fch2py import fch2py
+from mokit.lib.py2gms import py2gms
 
 mol = gto.M()
 # 12 atom(s)

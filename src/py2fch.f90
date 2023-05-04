@@ -91,14 +91,7 @@ subroutine molecp2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
  deallocate(prim_exp)
  deallocate(contr_coeff)
  if(LenNCZ > 0) then
-  deallocate(KFirst)
-  deallocate(KLast)
-  deallocate(Lmax)
-  deallocate(LPSkip) 
-  deallocate(NLP)
-  deallocate(RNFroz) 
-  deallocate(CLP)
-  deallocate(ZLP)
+  deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
   if(allocated(CLP2)) deallocate(CLP2)
  end if
 end subroutine molecp2fch
@@ -157,13 +150,8 @@ subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
 ! end if
 
  call write_fch(fchname)
-
- deallocate(shell_type)
- deallocate(prim_per_shell)
- deallocate(shell2atom_map)
- deallocate(coor)
- deallocate(prim_exp)
- deallocate(contr_coeff)
+ deallocate(iatom_type, shell_type, prim_per_shell, shell2atom_map, coor, &
+            prim_exp, contr_coeff)
 end subroutine molinfo2fch
 
 subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, gen_density)
@@ -203,13 +191,12 @@ end subroutine rest2fch
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
-subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
+subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
  implicit none
- integer :: i, j, k, ncoeff, fid, fid1, RENAME
+ integer :: i, j, k, na, nb, ncoeff, fid, fid1, RENAME
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  integer, allocatable :: idx(:)
-
  real(kind=8), intent(in) :: coeff2(nbf,nif)
 !f2py intent(in) :: coeff2
 !f2py depend(nbf,nif) :: coeff2
@@ -218,7 +205,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
 !f2py depend(nif) :: ev
 ! ev will be printed into the Alpha/Beta Orbital Energies section
  real(kind=8), allocatable :: coeff(:), den(:,:), norm(:), coeff3(:,:)
-
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=8) :: key0, key
@@ -227,16 +213,17 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  character(len=8), parameter :: key3 = 'Alpha Or'
  character(len=7), parameter :: key4 = 'Beta Or'
  character(len=49) :: str
- character(len=240) :: fchname1, buf
+ character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
-
  logical :: alive
- logical, intent(in) :: gen_density
-!f2py intent(in) :: gen_density
+ logical, intent(in) :: natorb, gen_density
+!f2py intent(in) :: natorb, gen_density
 
-! If gen_density = .True., generate total density using input MOs and
-! occupation numbers (stored in ev)
+! If gen_density = .True., generate total density using input MOs and occupation
+!  numbers.
+! If natorb = .True., use occupation numbers stored in ev
+! If natorb = .False., generate occupation numbers 0/1/2 based on na and nb
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
@@ -257,7 +244,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   key0 = key4//'b'
  case default
   write(6,'(/,A)') 'ERROR in subroutine py2fch: wrong data type of ab!'
-  write(6,'(A)') "This argument can only be 'a'/'b'. But your input"
+  write(6,'(A)') "This argument can only be 'a'/'b'. But your input is"
   write(6,*) 'ab=', ab
   stop
  end select
@@ -268,6 +255,28 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  ! write the MOs into the .fchk file
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:15) == 'Number of alpha') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine py2fch: 'Number of alpha' not found in &
+                   &file "//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ read(buf(52:),*) na
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)
+ read(buf(52:),*) nb
+ ! read na and nb for generating density later
+
  do while(.true.)
   read(fid,'(A)') buf
   write(fid1,'(A)') TRIM(buf)
@@ -293,9 +302,9 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  if(ncoeff /= nbf*nif) then
   close(fid)
   close(fid1,status='delete')
-  write(6,'(/,A)') 'ERROR in subroutine py2fch: ncoeff/=nbf*nif! Inconsistent&
-                   & basis sets'
-  write(6,'(A)') 'in PySCF script and file '//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine py2fch: ncoeff/=nbf*nif! Inconsistent &
+                   &basis sets in'
+  write(6,'(A)') 'PySCF script and file '//TRIM(fchname)
   write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nif=', nif, ', nbf=', nbf
   stop
  end if
@@ -309,7 +318,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  write(fid1,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
  deallocate(coeff)
 
- ! copy the rest of the .fchk file
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(49:49) == '=') exit
@@ -318,15 +326,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
  BACKSPACE(fid)
 
  if(gen_density) then
-  if( ANY(ev<-0.1D0) ) then
-   write(6,'(A)') 'ERROR in subroutine py2fch: occupation numbers of some&
-                 & orbitals < -0.1 a.u.'
-   write(6,'(A)') 'Did you mistake orbital energies for occupation numbers?'
-   close(fid1)
-   close(fid,status='delete')
-   stop
-  end if
-
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -343,16 +342,25 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   end if
 
   allocate(den(nbf,nbf), source=0d0)
+  if(natorb) then
+   allocate(norm(nif), source=ev)
+  else
+   allocate(norm(nif), source=0d0)
+   norm(1:nb) = 2d0
+   if(na > nb) norm(nb+1:na) = 1d0
+  end if
+
   ! only den(j,i) j<=i will be assigned values
   do i = 1, nbf, 1
    do j = 1, i, 1
     do k = 1, nif, 1
-     if(DABS(ev(k)) < 1D-7) cycle
-     den(j,i) = den(j,i) + ev(k)*coeff3(j,k)*coeff3(i,k)
+     if(DABS(norm(k)) < 1d-7) cycle
+     den(j,i) = den(j,i) + norm(k)*coeff3(j,k)*coeff3(i,k)
     end do ! for k
    end do ! for j
   end do ! for i
 
+  deallocate(norm)
   write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
   deallocate(den)
 
@@ -372,7 +380,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
   if(i /= 0) exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
- ! writing new fchk file done
 
  close(fid1)
  close(fid, status='delete')

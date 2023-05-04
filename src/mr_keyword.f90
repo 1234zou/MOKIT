@@ -316,7 +316,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.5 (2023-Apr-27)'
+  write(6,'(A)') '           Version: 1.2.6rc2 (2023-May-4)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -2177,4 +2177,12 @@ subroutine check_molcas_is_openmp(openmp)
   stop
  end select
 end subroutine check_molcas_is_openmp
+
+! set memory and nproc in the module mr_keyword
+subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)
+ use mr_keyword, only: mem, nproc
+ integer, intent(in) :: mem_in, np_in
+ mem = mem_in
+ nproc = np_in
+end subroutine set_mem_and_np_in_mr_keyword
 

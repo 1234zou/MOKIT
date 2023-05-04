@@ -106,7 +106,7 @@ def loc(fchname, idx, method=None):
   mo_coeff[:,idx] = loc_orb.copy()
   noon = np.zeros(nif)
   shutil.copyfile(fchname, fchname1)
-  py2fch(fchname1, nbf, nif, mo_coeff, 'a', noon, False)
+  py2fch(fchname1, nbf, nif, mo_coeff, 'a', noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
 
 def uno(fchname):
@@ -137,7 +137,7 @@ def uno(fchname):
   idx, noon, alpha_coeff = pyuno.uno(nbf, nif, na, nb, alpha_mo, beta_mo, S, 1e-5)
   alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)
   os.remove('uno.out')
-  py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True)
+  py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True, True)
   print('UNOs exported to file '+fchname1)
 
 def permute_orb(fchname, orb1, orb2):
@@ -250,5 +250,5 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None):
   mo2 = fch2py(ref_fch, nbf2, nif2, 'a')
   mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
   noon = np.zeros(nif1)
-  py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False)
+  py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False, False)
 

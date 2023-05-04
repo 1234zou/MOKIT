@@ -1,7 +1,7 @@
 from pyscf import gto, scf
-from fch2py import fch2py
-from ortho import check_cghf_orthonormal
-from py2fch import py2fch_cghf
+from mokit.lib.fch2py import fch2py
+from mokit.lib.ortho import check_cghf_orthonormal
+from mokit.lib.py2fch import py2fch_cghf
 from shutil import copyfile
 
 mol = gto.M()
