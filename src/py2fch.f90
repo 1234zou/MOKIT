@@ -154,7 +154,7 @@ subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
             prim_exp, contr_coeff)
 end subroutine molinfo2fch
 
-subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, gen_density)
+subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, natorb, gen_density)
 ! use, intrinsic :: iso_c_binding
  implicit none
 ! character(len=:, kind=c_char), pointer :: buffer
@@ -167,7 +167,7 @@ subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, gen_densit
  character(len=1), intent(in) :: ab
  real(kind=8), intent(in) :: ev(nif)
  logical :: alive
- logical, intent(in) :: gen_density
+ logical, intent(in) :: natorb, gen_density
 
 ! interface
 ! integer(c_size_t) function strlen(s) bind(c,name="strlen")
@@ -185,7 +185,7 @@ subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, gen_densit
 ! write(*,*) fchname_len
  fchname = fchname_c(1:fchname_len)
  write(*,*) 'fchname from REST', fchname
- call py2fch(fchname, nbf, nif, coeff2, ab, ev, gen_density)
+ call py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
 end subroutine rest2fch
 
 
