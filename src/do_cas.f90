@@ -693,7 +693,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(/,A)') '# save CMOs into .fch file'
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(cmofch)//"')"
   write(fid2,'(A)') 'noon = np.zeros(nif)'
-  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False)"
+  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False,False)"
   write(fid2,'(/,A)') 'import os'
   write(fid2,'(A)') "os.system('date')"
   write(fid2,'(A)') 'mc.natorb = True'
@@ -704,7 +704,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   write(fid2,'(/,A)') '# save NOs into .fch file'
   write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(casnofch)//"')"
   write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.&
-                    &mo_occ,True)"
+                    &mo_occ,True,True)"
   ! mc.mo_occ only exists for PySCF >= 1.7.4
  end if
 

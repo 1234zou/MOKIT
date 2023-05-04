@@ -10,5 +10,5 @@ mf.run()
 
 fchk(mf, 'testcu.fch')
 #mol2fch(mol, 'testcu.fch', uhf=True)
-#py2fch('testcu.fch', mol.nao, mol.nao, mf.mo_coeff[0], 'a', mf.mo_energy[0], 0)
-#py2fch('testcu.fch', mol.nao, mol.nao, mf.mo_coeff[1], 'b', mf.mo_energy[1], 0)
+#py2fch('testcu.fch', mol.nao, mol.nao, mf.mo_coeff[0], 'a', mf.mo_energy[0], False, False)
+#py2fch('testcu.fch', mol.nao, mol.nao, mf.mo_coeff[1], 'b', mf.mo_energy[1], False, False)

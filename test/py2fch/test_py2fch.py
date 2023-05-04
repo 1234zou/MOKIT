@@ -14,5 +14,4 @@ fchk(mf, 'test.fch')
 #from mokit.lib.py2fch_direct import mol2fch
 #from mokit.lib.py2fch import py2fch
 #mol2fch(mol, 'test.fch')
-#py2fch('test.fch', mol.nao, mol.nao, mf.mo_coeff, 'a', mf.mo_energy, 0)
-
+#py2fch('test.fch', mol.nao, mol.nao, mf.mo_coeff, 'a', mf.mo_energy, False, True)

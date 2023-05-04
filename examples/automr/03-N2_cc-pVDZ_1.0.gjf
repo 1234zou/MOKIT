@@ -2,7 +2,7 @@
 %nprocshared=4
 #p CASSCF/cc-pVDZ
 
-mokit{readuhf='N2_cc-pVDZ_1.0_uhf.fchk',ist=1}
+mokit{ist=1,readuhf='N2_cc-pVDZ_1.0_uhf.fchk'}
 
 # This example shows you how to read MOs from a provided UHF .fch(k) file
 # The UHF wave function in N2_cc-pVDZ_1.0_uhf.fchk is actually equivalent

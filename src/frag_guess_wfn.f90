@@ -175,7 +175,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  if(sph .and. eda_type==1) then
   write(6,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic func&
                  &tions (5D 7F) cannot'
-  write(6,'(A)') 'be used in Morokuma-EDA method in GAMESS. Automatically switc&
+  write(6,'(A)') 'be used for the Morokuma-EDA method in GAMESS. Automatically switc&
                  &h to Cartesian functions'
   write(6,'(A)') '(6D 10F).'
   sph = .false.
@@ -184,6 +184,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
  write(6,'(A,I0,A)') '%mem=', mem, 'MB'
  write(6,'(A,I0)') '%nprocshared=', nproc
+ call set_mem_and_np_in_mr_keyword(INT(DBLE(mem)/1d3), nproc)
  call read_natom_from_gjf(gjfname, natom) ! read the total number of atoms
  write(6,'(A,I0)') 'natom=', natom
 
@@ -539,6 +540,10 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call copy_frag(tmp_frag2, frags(2)) ! overwrite frags(2)
  end select
 
+ ! temporarily change frags(1:nfrag-1)%noiter to .True., in order to generate
+ ! proper gjf files
+ if(TRIM(hf_prog_path) == 'python') frags(1:nfrag-1)%noiter = .true.
+
  ! generate these SCF .gjf files
  do i = 1, nfrag, 1
   write(frags(i)%fname,'(I3.3,A)') i, '-'//TRIM(gjfname)
@@ -546,6 +551,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 !  if(eda_type==3 .and. i>nfrag0 .and. i<nfrag) guess_read = .true.
   call gen_gjf_from_type_frag(frags(i), guess_read, stab_chk, basname)
  end do ! for i
+
+ ! change frags(1:nfrag-1)%noiter back to .False.
+ if(TRIM(hf_prog_path) == 'python') frags(1:nfrag-1)%noiter = .false.
 
  j = index(frags(1)%fname, '.gjf', back=.true.)
 

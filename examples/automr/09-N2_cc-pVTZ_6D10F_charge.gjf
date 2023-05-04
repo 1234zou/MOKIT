@@ -11,6 +11,8 @@ N  0.0   0.0   0.6
  4.0  0.0  0.0  0.1
 -4.0  0.0  0.0  0.1
 
-# This example shows you how to perform CASSCF computation with background charges
+# This example shows you how to perform CASSCF computation with background charges.
+# Here the keyword 'cart' is specified for comparison with 08-N2_cc-pVTZ_6D10F_charge_uhf.gjf
+# If you do not need to compare with that, there is no need to specify 'cart'
 
 # To run this example, you need to install Gaussian, PySCF and GAMESS

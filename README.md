@@ -38,7 +38,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-May 2, 2023
+May 4, 2023
 
 Installation
 ------------

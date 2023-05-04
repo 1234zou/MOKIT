@@ -349,36 +349,34 @@ end subroutine boys
 ! perform Pipek-Mezey orbital localization (Jacobian 2*2 rotations) on a set of MOs
 subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff)
  implicit none
- integer :: i, j, k, natom, t0, t1, time, i1, i2, i3
- integer :: lwork, liwork
+ integer :: i, j, k, natom, t0, t1, time, i1, i2, i3, lwork, liwork
  integer, intent(in) :: nshl, nbf, nif
 !f2py intent(in) :: nshl, nbf, nif
-
- integer :: shl2atm(nshl), ang(nshl), ibas(nshl)
+ integer, intent(in) :: shl2atm(nshl), ibas(nshl)
 !f2py intent(in) :: shl2atm, ibas
+!f2py depend(nshl) :: shl2atm, ibas
+ integer :: ang(nshl)
 !f2py intent(in,copy) :: ang
-!f2py depend(nshl) :: shl2atm, ang, ibas
-
+!f2py depend(nshl) :: ang
  integer, allocatable :: bfirst(:) ! size natom
  ! bfirst: the beginning index of basis func. of each atom
  integer, allocatable :: iwork(:), isuppz(:)
-
  character(len=*), intent(in) :: pop ! 'mulliken' or 'lowdin'
-
- real(kind=8) :: coeff(nbf,nif), S(nbf,nbf), new_coeff(nbf,nif)
+!f2py intent(in) :: pop
+ real(kind=8), intent(in) :: coeff(nbf,nif), S(nbf,nbf)
 !f2py intent(in) :: coeff, S
-!f2py intent(out) :: new_coeff
 !f2py depend(nbf) :: S
-!f2py depend(nbf,nif) :: coeff, new_coeff
-
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: new_coeff(nbf,nif)
+!f2py intent(out) :: new_coeff
+!f2py depend(nbf,nif) :: new_coeff
  real(kind=8) :: ddot, rtmp
- real(kind=8), allocatable :: gross(:,:,:), SC(:,:), rootS(:,:)
- ! gross0: old gross population of an orthonormalized MO, (natom,nif,nif)
+ real(kind=8), allocatable :: gross(:,:,:), SC(:,:), rootS(:,:), e(:), ev(:,:), work(:)
+ ! gross: gross population of an orthonormalized MO, (natom,nif,nif)
  ! SC: MATMUL(S,C)
  ! rootS: S^-1/2
  ! e: eigenvalues of S after diagonalization
  ! ev: eigenvectors
- real(kind=8), allocatable :: e(:), ev(:,:), work(:)
  logical, intent(in) :: cart
 !f2py intent(in) :: cart
 

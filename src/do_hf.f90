@@ -394,13 +394,14 @@ end subroutine generate_hf_gjf
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare)
  use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path, DKH2, X2C
  use mol, only: ptchg_e
- use util_wrapper, only: formchk, mkl2gbw, gbw2mkl, mkl2fch_wrap
+ use util_wrapper, only: formchk, bas_fch2py_wrap, fch2psi_wrap, fch2mkl_wrap,&
+  mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
- integer :: i, j, hf_type, system, RENAME
+ integer :: i, hf_type, system, RENAME
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
- character(len=240) :: buf, chkname, fchname, inpname, outname1, outname2
- character(len=240) :: mklname, gbwname, prpname1, prpname2
+ character(len=240) :: chkname, fchname, inpname, outname1, outname2, mklname
+ character(len=240) :: gbwname, prpname1, prpname2, inpname1
  character(len=240), intent(in) :: gau_path, hf_prog_path, gjfname
  ! gau_path is always the path of Gaussian
  ! when Gaussian is used to compute SCF, gau_path = hf_prog_path
@@ -470,8 +471,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  select case(prog_name)
  case('pyscf')
-  i = system('bas_fch2py '//TRIM(fchname))
-
+  call bas_fch2py_wrap(fchname, .true.)
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
   call prt_hf_pyscf_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -480,11 +480,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   e = e + ptchg_e
 
  case('psi4')
-  i = system('fch2psi '//TRIM(fchname))
-  i = index(fchname, '.fch', back=.true.)
-  prpname1 = gjfname(1:i-1)//'_psi.inp'
-  i = RENAME(TRIM(prpname1), TRIM(inpname))
-
+  call fch2psi_wrap(fchname, inpname)
   call read_hf_type_from_psi4_inp(inpname, hf_type)
   call prt_hf_psi4_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -499,20 +495,16 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call copy_orb_and_den_in_fch(prpname1, fchname, .true.)
 
  case('orca')
-  i = system('fch2mkl '//TRIM(fchname))
-  j = index(gjfname, '.gjf', back=.true.)
-  buf = gjfname(1:j-1)//'_o.inp'
-  i = RENAME(TRIM(buf), TRIM(inpname))
-  buf = gjfname(1:j-1)//'_o.mkl'
-  i = RENAME(TRIM(buf), TRIM(mklname))
-
+  call fch2mkl_wrap(fchname, mklname)
+  i = index(gjfname, '.gjf', back=.true.)
+  inpname1 = gjfname(1:i-1)//'_o.inp'
+  i = RENAME(TRIM(inpname1), TRIM(inpname))
   call read_hf_type_from_orca_inp(inpname, hf_type)
   call prt_hf_orca_inp(inpname, hf_type)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
-
   call submit_orca_job(orca_path, inpname)
   call read_hf_e_and_ss_from_orca_out(outname2, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
@@ -866,7 +858,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end if
 
  write(fid1,'(A)') 'from pyscf import lib'
- write(fid1,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
+ if(hf_type > 2) write(fid1,'(A)') 'from mokit.lib.rwwfn import update_density_&
+                                   &using_mo_in_fch'
  write(fid1,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid1,'(A,I0,A,/)') 'lib.num_threads(',nproc,')'
 
@@ -892,29 +885,24 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end if
  write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
 
+ i = 0
  do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:3) == '#dm') exit
+  read(fid,'(A)') buf
+  if(buf(1:9) == 'mf.kernel') then
+   i = i + 1
+   if(i == 2) exit
+  end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no '#dm' found in file&
-                 & "//TRIM(inpname)
-  stop
-  close(fid)
-  close(fid1,status='delete')
- end if
- write(fid1,'(A)') 'dm = mf.make_rdm1()'
- write(fid1,'(A)') 'mf.max_cycle = 500'
+ write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
  write(fid1,'(A,/)') 'old_e = mf.kernel(dm0=dm)'
 
  select case(hf_type)
  case(1,2) ! R(O)HF
   write(fid1,'(A)') '# save R(O)HF MOs into .fch file'
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_energy,False)"
-  write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,'a',mf.mo&
+                    &_energy,False,True)"
  case(3)   ! UHF
   ! loop to check wave function stability
   write(fid1,'(A)') 'new_e = old_e + 2e-5'
@@ -928,8 +916,10 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   write(fid1,'(A)') '  old_e = new_e'
 
   write(fid1,'(/,A)') '# save UHF MOs into .fch file'
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf.mo_energy[0],False)"
-  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],'b',mf.mo_energy[1],False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf&
+                    &.mo_energy[0],False,False)"
+  write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[1],'b',mf&
+                    &.mo_energy[1],False,False)"
   write(fid1,'(A)') "update_density_using_mo_in_fch('"//TRIM(fchname)//"')"
  case default
   write(6,'(A,I0)') 'ERROR in subroutine prt_hf_pyscf_inp: invalid hf_type=',&

@@ -1,5 +1,7 @@
-MOKIT 1.2.6 (May 2, 2023)
+MOKIT 1.2.6 (May 4, 2023)
 ------------------------
+* support HF_prog=PySCF in frag_guess_wfn
+* add attribute natorb in subroutine py2fch
 * update examples and tests (add prefix mokit.lib when importing Python modules)
 
 MOKIT 1.2.5 (Apr 27, 2023)

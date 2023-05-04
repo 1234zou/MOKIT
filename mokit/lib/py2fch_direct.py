@@ -141,7 +141,7 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
 def fchk_uno(mf, fchname, uno, unoon, density=False, overwrite_mol=False):
     if (not os.path.isfile(fchname)) or overwrite_mol:
         mol2fch(mf.mol, fchname, False, uno)
-    py2fch(fchname, uno.shape[0], uno.shape[1], uno, 'a', unoon, density)
+    py2fch(fchname, uno.shape[0], uno.shape[1], uno, 'a', unoon, True, density)
 
 def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=None):
     is_uhf = isinstance(mf, scf.uhf.UHF)
@@ -155,15 +155,15 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
             raise NotImplementedError('GHF/DHF not supported in py2fch')
         if not is_uhf: # ROHF is also RHF here
-            py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, density)
+            py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, False, density)
         else:
-            py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], density)
-            py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], density)
+            py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], False, density)
+            py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], False, density)
     elif isinstance(mf, mcscf.casci.CASCI):
         if mf.mo_occ is None and mo_occ is None:
             if density is True:
                 raise NotImplementedError('mf.mo_occ is None, indicating natural orbital not used here.'
-                                          'Dumping CASSCF density without natural orbitals is not supported yet. '
+                                          'Dumping CASSCF density without natural orbitals is not supported yet.'
                                           'Use mf.natorb=True if you want to dump density.')
             else:
                 mf.mo_occ = np.zeros(mf.mo_coeff.shape[1])
@@ -171,8 +171,8 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
             occ = mo_occ
         else:
             occ = mf.mo_occ
-        
-        py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', occ, density)
+
+        py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', occ, True, density)
     else:
         raise TypeError('cannot dump fchk for %s job' %mf.__class__ )
 
