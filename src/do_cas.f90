@@ -53,29 +53,34 @@ subroutine do_cas(scf)
   i = 2*npair0 + nopen; j = i
  end if
 
- if(nacte_wish>0 .and. i/=nacte_wish) then
+ if(nacte_wish>0 .and. nacte_wish/=i) then
   write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
-   & user specifies CAS(',nacte_wish,'e,',nacto_wish, 'o). Trying to fulfill...'
+   & user specifies CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
 
+  ! check the odevity of nacte_wish, in case that the user requires a nonsense
+  ! nacte_wish
   if(MOD(nacte_wish-nopen,2) /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong active space specified.'
-   write(6,'(3(A,I0),A)') 'Nopen=',nopen,' is incompatible with CAS(',nacte_wish,&
+   write(6,'(3(A,I0),A)') 'Nopen=',nopen,'. Incompatible with CAS(',nacte_wish,&
                           'e,',nacto_wish,'o)'
    stop
   end if
 
   if(ist == 5) then
    if(nacte_wish > nacte) then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: too large active space required.'
-    write(6,'(2(A,I0),A)') 'Maximum allowed: CAS(',nacte,',',nacte,')'
-    stop
-   else if(nacte_wish < nacte) then
-    i = nacte_wish; j = nacto_wish
-    npair0 = (i-nopen)/2;   npair = npair0
-    ndb = ndb + nactb - npair
-    nacta = npair0 + nopen; nactb = npair0
-    nacto = nacto_wish;     nacte = nacto_wish
+    write(6,'(A)') REPEAT('-',79)
+    write(6,'(A)') 'Warning from subroutine do_cas: You request a larger active&
+                   & space than recommended.'
+    write(6,'(A)') 'You should clearly know what you are calculating, otherwise&
+                   & nonsense results may be'
+    write(6,'(A)') 'obtained.'
+    write(6,'(A)') REPEAT('-',79)
    end if
+   i = nacte_wish; j = nacto_wish
+   npair0 = (i-nopen)/2;   npair = npair0
+   ndb = ndb + nactb - npair
+   nacta = npair0 + nopen; nactb = npair0
+   nacto = nacto_wish;     nacte = nacto_wish
    write(6,'(A)') 'OK, fulfilled.'
 
   else ! ist /= 5
@@ -85,14 +90,6 @@ subroutine do_cas(scf)
     write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen, ', nacte_wish=',nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
-    if(MOD(nacte_wish-nopen,2) /= 0) then
-     write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong space specified. Canno&
-                      &t be fulfilled.'
-     write(6,'(A)') 'nacte_wish-nopen is not an even integer.'
-     write(6,'(2(A,I0))') 'nopen=', nopen, ', nacte_wish=', nacte_wish
-     stop
-    end if
-
     write(6,'(A)') 'OK, fulfilled.'
     npair0 = (nacte_wish-nopen)/2
     i = 2*npair0 + nopen
@@ -549,7 +546,7 @@ subroutine do_cas(scf)
   case('orca')
    call read_grad_from_orca_out(outname, natom, grad)
   case('molpro')
-   call read_grad_from_molpro_out(outname, natom, grad)
+   call read_grad_from_molpro_out(outname, 1, natom, grad)
   case('bdf')
    call read_grad_from_bdf_out(outname, natom, grad)
   case default
@@ -558,7 +555,7 @@ subroutine do_cas(scf)
    stop
   end select
 
-  write(6,'(A)') 'Cartesian gradient (HARTREE/BOHR):'
+  write(6,'(A)') 'Cartesian gradients (HARTREE/BOHR):'
   write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  end if
 

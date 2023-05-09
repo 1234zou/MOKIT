@@ -8,12 +8,12 @@ subroutine do_mrpt2()
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
   openmp_molcas, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
-  eist, target_root
+  eist, target_root, caspt2_force
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
-  ptchg_e, nuc_pt_e
+  ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
  implicit none
- integer :: i, mem0, RENAME, system
+ integer :: i, RENAME, system
  character(len=24) :: data_string
  character(len=240) :: string, pyname, outname, inpname, inporb
  character(len=240) :: mklname, cmofch
@@ -24,7 +24,6 @@ subroutine do_mrpt2()
  alive = [caspt2, nevpt2, mrmp2, ovbmp2, sdspt2]
  if(ALL(alive .eqv. .false.)) return
  write(6,'(//,A)') 'Enter subroutine do_mrpt2...'
- mem0 = CEILING(DBLE(mem*125)/DBLE(nproc))
 
  if((dmrgci .or. dmrgscf)) then
   if(mrmp2) then
@@ -163,9 +162,7 @@ subroutine do_mrpt2()
 
    call prt_mrpt_molpro_inp(inpname, 1)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0,&
-                            'm '//TRIM(inpname)
-   i = system(TRIM(string))
+   call submit_molpro_job(inpname, mem, nproc)
 
   case('openmolcas')
    call check_exe_exist(molcas_path)
@@ -274,9 +271,7 @@ subroutine do_mrpt2()
 
    call prt_mrpt_molpro_inp(inpname, 2)
    if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0,&
-                            'm '//TRIM(inpname)
-   i = system(TRIM(string))
+   call submit_molpro_job(inpname, mem, nproc)
 
   case('orca')
    call check_exe_exist(orca_path)
@@ -418,7 +413,13 @@ subroutine do_mrpt2()
  write(6,'(/,A,F18.8,1X,A4)')'E(ref)       = ', ref_e, 'a.u.'
 
  if(caspt2) then
-  if(.not.caspt2k) write(6,'(A)') 'IP-EA shift  =         0.25 (default)'
+  if(.not. caspt2k) then
+   if(caspt2_force) then
+    write(6,'(A)') 'IP-EA shift  =         0.0 (for gradient)'
+   else
+    write(6,'(A)') 'IP-EA shift  =         0.25 (default)'
+   end if
+  end if
   caspt2_e = ref_e + corr_e
   write(6,'(A,F18.8,1X,A4)') 'E(corr)      = ', corr_e, 'a.u.'
   if(caspt2k) then
@@ -450,13 +451,32 @@ subroutine do_mrpt2()
  end if
 
  call delete_file('ss-cas.txt')
+
+ if(caspt2_force) then
+  allocate(grad(3*natom))
+
+  select case(caspt2_prog)
+  case('molpro')
+   call read_grad_from_molpro_out(outname, 2, natom, grad)
+  case('openmolcas')
+   call read_grad_from_molcas_out(outname, natom, grad)
+  case default
+   write(6,'(A)') 'ERROR in subroutine do_mrpt2: program cannot be identified.'
+   write(6,'(A)') 'CASPT2_prog='//TRIM(caspt2_prog)
+   stop
+  end select
+
+  write(6,'(A)') 'Cartesian gradients (HARTREE/BOHR):'
+  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+ end if
+
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mrpt2 at '//TRIM(data_string)
 end subroutine do_mrpt2
 
 ! print NEVPT2/CASPT2/CASPT3 keywords into Molpro input file
 subroutine prt_mrpt_molpro_inp(inpname, itype)
- use mr_keyword, only: CIonly
+ use mr_keyword, only: CIonly, caspt2_force
  use mol, only: ndb, npair, npair0, nacto
  implicit none
  integer :: fid, nclosed, nocc
@@ -475,7 +495,8 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  if(put(1:4) /= '{put') then
   close(fid)
   write(6,'(A)') 'ERROR in subroutine prt_mrpt_molpro_inp: wrong content found&
-                   & in the final line of file '//TRIM(inpname)
+                 & in the final'
+  write(6,'(A)') 'line of file '//TRIM(inpname)
   stop
  end if
 
@@ -506,13 +527,16 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  case(1) ! NEVPT2
   write(fid,'(A)') '{NEVPT2;CORE}'
  case(2) ! CASPT2
-  write(fid,'(A)') '{RS2C,IPEA=0.25;CORE}'
+  if(caspt2_force) then
+   write(fid,'(A,/,A)') '{RS2,IPEA=0.0;CORE}','Force'
+  else
+   write(fid,'(A)') '{RS2C,IPEA=0.25;CORE}'
+  end if
  case(3) ! CASPT3
   write(fid,'(A)') '{RS3,IPEA=0.25;CORE}'
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine prt_mrpt_molpro_inp: invalid&
-                      & itype=',itype
-  write(6,'(A,I0)') 'Valid itype=1/2/3 for NEVPT2/CASPT2/CASPT3.'
+  write(6,'(A,I0)') 'ERROR in subroutine prt_mrpt_molpro_inp: invalid itype=',itype
+  write(6,'(A,I0)') 'Allowed itype=1/2/3 for NEVPT2/CASPT2/CASPT3.'
   close(fid)
   stop
  end select
@@ -886,7 +910,7 @@ end subroutine prt_nevpt2_molcas_inp
 
 ! print CASTP2 keywords into OpenMolcas .input file
 subroutine prt_caspt2_molcas_inp(inputname)
- use mr_keyword, only: CIonly, dmrgci, dmrgscf
+ use mr_keyword, only: CIonly, dmrgci, dmrgscf, caspt2_force
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inputname1
@@ -924,18 +948,28 @@ subroutine prt_caspt2_molcas_inp(inputname)
 
  if(CIonly) then
   if(dmrgci) then
-   write(6,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not&
-                    & allowed in DMRG-CASPT2.'
+   write(6,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not all&
+                  &owed in DMRG-CASPT2.'
    write(6,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'
    stop
   end if
  end if
 
+ if(caspt2_force) write(fid2,'(/,A)') '>>> Export MOLCAS_NPROCS=1'
+ ! currently MPI is not supported for the CASPT2 gradient in OpenMolcas-v23.02
+
  write(fid2,'(/,A)') "&CASPT2"
- write(fid2,'(A)') 'MultiState= 1 1'
- if(dmrgscf) write(fid2,'(A)') 'CheMPS2'
- write(fid2,'(A)') 'Frozen= 0'
- write(fid2,'(A,/,A,/)') 'MaxIter','300'
+ if(dmrgscf) write(fid2,'(A)') ' CheMPS2'
+ write(fid2,'(A)') ' Frozen= 0'
+ write(fid2,'(A,/,A)') ' MaxIter',' 500'
+
+ if(caspt2_force) then
+  write(fid2,'(A)') ' GRDT'
+  write(fid2,'(A)') ' IPEA= 0.0'
+  write(fid2,'(/,A,/)') "&ALASKA"
+ else
+  write(fid2,'(/)',advance='no')
+ end if
 
  close(fid2)
  i = RENAME(inputname1, inputname)

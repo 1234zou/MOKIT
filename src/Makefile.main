@@ -290,7 +290,7 @@ py2fch: $(OBJ_py2fch)
 	@mv py2fch*.so $(LIB)/
 
 rest2fch: $(OBJ_py2fch)
-	$(F90) -shared $(FFLAGS) -o librest2fch.so  $(OBJ_py2fch)
+	$(F90) -shared $(FFLAGS) -o librest2fch.so $(OBJ_py2fch)
 	@mv librest2fch.so $(LIB)/
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)

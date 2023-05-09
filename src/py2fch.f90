@@ -182,12 +182,11 @@ subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, natorb, ge
 !   call c_f_pointer(fchname_c, s)
 !   buffer => s
 ! end block
-! write(*,*) fchname_len
+! write(6,'(I0)') fchname_len
  fchname = fchname_c(1:fchname_len)
- write(*,*) 'fchname from REST', fchname
+ write(6,'(A)') 'fchname from REST '//TRIM(fchname)
  call py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
 end subroutine rest2fch
-
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
@@ -348,6 +347,13 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
    allocate(norm(nif), source=0d0)
    norm(1:nb) = 2d0
    if(na > nb) norm(nb+1:na) = 1d0
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Remark from subroutine py2fch: natorb=.False. and gen_densit&
+                  &ty=.True. found. The'
+   write(6,'(A)') 'Total SCF Density will be calculated based on the occupation&
+                  & numbers according'
+   write(6,'(A)') 'to the aufbau principle.'
+   write(6,'(A)') REPEAT('-',79)
   end if
 
   ! only den(j,i) j<=i will be assigned values

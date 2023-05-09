@@ -562,7 +562,7 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  write(fid,'(A)') TRIM(buf)
  close(fid)
 
- i = system('sh '//TRIM(shname))
+ i = system('/bin/bash '//TRIM(shname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
@@ -665,7 +665,7 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
  write(fid,'(A)') 'gvb_bcci2b '//TRIM(inpname)//' 2 >'//TRIM(outname)//" 2>&1"
  close(fid)
 
- i = system('sh '//TRIM(shname))
+ i = system('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: Linearized BCCC job&
@@ -708,7 +708,7 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
                   " 2>&1"
  close(fid)
 
- i = system('sh '//TRIM(shname))
+ i = system('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: Linearized BCCC job&

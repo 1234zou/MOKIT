@@ -38,7 +38,7 @@ the users are still required to have practical experiences of quantum chemistry
 computations (e.g. familiar with routine DFT calculations in Gaussian). You are
 encouraged to learn how to use Gaussian if you are a fresh hand.
 
-May 4, 2023
+May 9, 2023
 
 Installation
 ------------
@@ -66,7 +66,7 @@ you can try option 3.
 
 ```
 brew install --cask miniconda
-conda init bash # (or zsh ) 
+conda init bash # (or zsh) 
 conda activate base
 pip install numpy
 ```

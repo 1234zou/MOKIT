@@ -70,7 +70,8 @@ end module frag_info
 
 module theory_level
  implicit none
- integer :: mem, nproc ! mem is in MB
+ integer :: mem = 4000 ! Note: in MB
+ integer :: nproc = 4
  integer :: wfn_type = 0  ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
  integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
@@ -79,6 +80,7 @@ module theory_level
  character(len=60) :: scrf  = ' '
  character(len=40) :: solvent = ' '
  character(len=40) :: solvent_gau = ' '
+ character(len=240) :: hf_prog_path = ' '
  logical :: sph = .true.  ! spherical harmonic/Cartesian functions
 end module theory_level
 
@@ -131,7 +133,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=10) :: hf_prog ! only gaussian or pyscf
- character(len=240) :: buf, chkname, fchname, logname, basname, hf_prog_path
+ character(len=240) :: buf, chkname, fchname, logname, basname
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf
  logical :: guess_read, stab_chk
@@ -1340,7 +1342,7 @@ end subroutine copy_and_modify_psi4_sapt_file
 subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  use frag_info, only: nfrag0, frags
  use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, &
-  solvent_gau, disp_type
+  solvent_gau, disp_type, hf_prog_path
  implicit none
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
@@ -1439,7 +1441,13 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
    if(eda_type == 1) then
     buf1 = ' $SCF DIRSCF=.F. $END'
    else
-    if(TRIM(dft_in_gms) /= 'NONE') buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. $END'
+    if(TRIM(dft_in_gms) /= 'NONE') then
+     if(TRIM(hf_prog_path) == 'python') then
+      buf1 = ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
+     else
+      buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. $END'
+     end if
+    end if
    end if
   end if
   write(fid2,'(A)') TRIM(buf1)

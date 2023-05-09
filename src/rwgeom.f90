@@ -745,13 +745,13 @@ subroutine read_grad_from_molcas_out(outname, natom, grad)
  integer :: i, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: grad(3*natom)
- character(len=2) :: elem = ' '
+ character(len=8) :: str = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  grad = 0d0
-
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -764,7 +764,7 @@ subroutine read_grad_from_molcas_out(outname, natom, grad)
  end do ! for i
 
  do i = 1, natom, 1
-  read(fid,*) elem, grad(3*i-2:3*i)
+  read(fid,*) str, grad(3*i-2:3*i)
  end do ! for i
 
  close(fid)
@@ -801,22 +801,39 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  close(fid)
 end subroutine read_grad_from_orca_out
 
-! read Cartesian gradient from a given Molpro .out file
-subroutine read_grad_from_molpro_out(outname, natom, grad)
+! read CASSCF or CASPT2 Cartesian gradients from a given Molpro output file
+subroutine read_grad_from_molpro_out(outname, itype, natom, grad)
  implicit none
  integer :: i, k, fid
- integer, intent(in) :: natom
+ integer, intent(in) :: itype, natom
+ ! itype: 1/2 for CASSCF/CASPT2
  real(kind=8), intent(out) :: grad(3*natom)
+ character(len=10) :: key = ' '
+ character(len=10), parameter :: key1 = 'MC GRADIEN'
+ character(len=10), parameter :: key2 = 'RSPT2 GRAD'
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  grad = 0d0
+ select case(itype)
+ case(1) ! CASSCF
+  key = key1
+ case(2) ! CASPT2
+  key = key2
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_grad_from_molpro_out: invalid &
+                      &itype=', itype
+  write(6,'(A)') 'Allowed values of itype are only 1 and 2.'
+  stop
+ end select
+
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(2:8) == 'MC GRAD') exit
+  if(buf(2:11) == key) exit
  end do ! for while
 
  do i = 1, 3

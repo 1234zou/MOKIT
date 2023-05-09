@@ -202,7 +202,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
 !f2py intent(in) :: mo_dipole
 !f2py depend(nif) mo_dipole
  real(kind=8) :: increase, vt(3,6), motmp(nbf,2), sin_2t, cos_2t
- real(kind=8) :: Aij, Bij, Cij, Dij, cos_a, cos_theta, sin_theta, cc, ss
+ real(kind=8) :: Aij, Bij, Cij, Dij, cos_theta, sin_theta, cc, ss
  real(kind=8), allocatable :: diptmp(:,:)
  real(kind=8), allocatable :: r(:,:,:) ! size (3,nref,nrot)
  real(kind=8), allocatable :: d(:,:,:) ! size (3,nrot,nrot)
@@ -549,7 +549,7 @@ subroutine general_biquadratic_solver(a, b, c, nroot, root)
  use polyn_info, only: zero
  implicit none
  integer, intent(out) :: nroot
- real(kind=8) :: r1, r2, delta
+ real(kind=8) :: r1, r2
  real(kind=8), intent(in) :: a, b, c
  real(kind=8), intent(out) :: root(4)
 

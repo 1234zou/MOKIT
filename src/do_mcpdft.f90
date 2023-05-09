@@ -4,8 +4,8 @@
 subroutine do_mcpdft()
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
   casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
-  gms_scr_path, eist
- use mol, only: ptchg_e, mcpdft_e
+  gms_scr_path, mcpdft_force, eist
+ use mol, only: ptchg_e, mcpdft_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
@@ -117,6 +117,26 @@ subroutine do_mcpdft()
   write(6,'(A,F18.8,1X,A4)') 'E(MC-PDFT)  = ', mcpdft_e, 'a.u.'
  end if
 
+ if(mcpdft_force) then
+  allocate(grad(3*natom))
+
+  select case(mcpdft_prog)
+  case('pyscf')
+   call read_grad_from_pyscf_out(outname, natom, grad)
+  case('gamess')
+   call read_grad_from_gms_dat(fname(2), natom, grad)
+  case('openmolcas')
+   call read_grad_from_molcas_out(outname, natom, grad)
+  case default
+   write(6,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
+   write(6,'(A)') 'MCPDFT_prog='//TRIM(mcpdft_prog)
+   stop
+  end select
+
+  write(6,'(A)') 'Cartesian gradient (HARTREE/BOHR):'
+  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+ end if
+
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mcpdft at '//TRIM(data_string)
 end subroutine do_mcpdft
@@ -124,7 +144,7 @@ end subroutine do_mcpdft
 ! print MC-PDFT or DMRG-PDFT keywords into PySCF .py file
 subroutine prt_mcpdft_script_into_py(inpname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: dmrgci, dmrgscf, otpdf, mem
+ use mr_keyword, only: dmrgci, dmrgscf, otpdf, mem, mcpdft_force
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -153,18 +173,20 @@ subroutine prt_mcpdft_script_into_py(inpname)
  end do ! for while
 
  close(fid,status='delete')
- write(fid1,'(3(A,I0),A)') "mmp = mcpdft.CASCI(mf,'"//TRIM(otpdf)//"',",nacto,&
+ write(fid1,'(3(A,I0),A)') "mc = mcpdft.CASCI(mf,'"//TRIM(otpdf)//"',",nacto, &
                            ',(',nacta,',',nactb,'))'
- write(fid1,'(A)') 'mmp.grids.atom_grid = (99,590)'
- write(fid1,'(A,I0,A)') 'mmp.max_memory = ',mem*1000,' # MB'
- write(fid1,'(A)') 'mmp.kernel()'
+ write(fid1,'(A)') 'mc.grids.atom_grid = (99,590)'
+ write(fid1,'(A,I0,A)') 'mc.max_memory = ',mem*1000,' # MB'
+ write(fid1,'(A)') 'mc.kernel()'
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
+
+ if(mcpdft_force) call add_force_key2py_script(mem, inpname)
 end subroutine prt_mcpdft_script_into_py
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
- use mr_keyword, only: dmrgci, dmrgscf, otpdf, DKH2
+ use mr_keyword, only: dmrgci, dmrgscf, otpdf, DKH2, mcpdft_force
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -207,6 +229,12 @@ subroutine prt_mcpdft_molcas_inp(inpname)
 
  write(fid2,'(/,A)') "&MCPDFT"
  write(fid2,'(A)') 'KSDFT='//TRIM(otpdf)
+
+ if(mcpdft_force) then
+  write(fid2,'(A)') 'Grad'
+  write(fid2,'(/,A,/)') '&ALASKA'
+ end if
+
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_mcpdft_molcas_inp
@@ -214,7 +242,8 @@ end subroutine prt_mcpdft_molcas_inp
 ! print MC-PDFT keywords into GAMESS .inp file
 subroutine prt_mcpdft_gms_inp(inpname)
  use mol, only: charge, mult, ndb, nacte, nacto, npair, npair0
- use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly
+ use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly, &
+  mcpdft_force
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -274,6 +303,7 @@ subroutine prt_mcpdft_gms_inp(inpname)
  close(fid2)
 
  i = RENAME(TRIM(inpname1), TRIM(inpname))
+ if(mcpdft_force) call add_force_key2gms_inp(inpname)
 end subroutine prt_mcpdft_gms_inp
 
 ! detect the OpenMolcas version and update otpdf if needed

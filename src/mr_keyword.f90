@@ -190,8 +190,12 @@ module mr_keyword
  logical :: fcgvb   = .false. ! GVB with all doubly occupied orbitals frozen
  logical :: HFonly  = .false. ! stop after HF calculations
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
- logical :: dyn_corr= .false.     ! dynamic correlation
+ logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
+ logical :: force = .false.       ! whether this is a force calculation
  logical :: casscf_force = .false.! whether to calculate CASSCF force
+ logical :: caspt2_force = .false.! whether to calculate CASPT2 force
+ logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
+ logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: dmrg_no = .true.      ! whether to generate NO in a DMRG-CASCI job
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
@@ -316,7 +320,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc2 (2023-May-4)'
+  write(6,'(A)') '           Version: 1.2.6rc3 (2023-May-9)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -784,7 +788,7 @@ contains
    case('xmult')
     read(longbuf(j+1:i-1),*) xmult
    case('force')
-    casscf_force = .true.
+    force = .true.
    case('charge')
     bgchg = .true.
    case('inherit')
@@ -971,7 +975,7 @@ contains
   write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
        'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'OnlyXH  = ', onlyXH
 
-  write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  casscf_force,&
+  write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  force,&
        'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
 
   write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
@@ -1401,15 +1405,16 @@ contains
   case('orca','nwchem')
   case default
    write(6,'(A)') error_warn
-   write(6,'(A)') 'Currently MRCC is only supported by ORCA/NWChem. But got&
-                  & mrcc_prog='//TRIM(mrcc_prog)
+   write(6,'(A)') 'Currently the MRCC method is only supported by ORCA/NWChem. &
+                  & But got MRCC_prog='//TRIM(mrcc_prog)
    stop
   end select
 
-  if(casscf_force .and. (.not.casscf)) then
-   write(6,'(A)') error_warn//"'force' keyword is only avaible for CASSCF."
-   write(6,'(A)') 'But CASSCF is not activated.'
-   stop
+  if(force) then
+   if(casscf .and. (.not.dyn_corr)) casscf_force = .true.
+   if(caspt2) caspt2_force = .true.
+   if(nevpt2) nevpt2_force = .true.
+   if(mcpdft) mcpdft_force = .true.
   end if
 
   if(casscf_force .and. cart .and. casscf_prog=='pyscf') then
@@ -1419,7 +1424,8 @@ contains
   end if
 
   if(mrmp2 .and. X2C) then
-   write(6,'(A)') error_warn//'MRMP2 with GAEMSS is incompatible with X2C.'
+   write(6,'(A)') error_warn//'MRMP2 with GAMESS is incompatible with X2C.'
+   write(6,'(A)') 'You can use the DKH2 Hamiltonian instead.'
    stop
   end if
 
@@ -1457,8 +1463,9 @@ contains
 
   if((DKH2 .or. X2C) .and. cart) then
    write(6,'(A)') error_warn//'relativistic calculations using Cartesian'
-   write(6,'(A)') 'functions may cause severe numerical instability. Please&
-                    & use spherical harmonic type basis set.'
+   write(6,'(A)') 'functions may cause severe numerical instability. Please use&
+                  & spherical harmonic'
+   write(6,'(A)') 'type basis set.'
    stop
   end if
 
