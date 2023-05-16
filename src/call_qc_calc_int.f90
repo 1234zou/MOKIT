@@ -624,11 +624,13 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  integer, intent(in) :: mem ! total memory in GB
  integer, intent(in) :: nproc ! number of processors
  character(len=270) :: buf = ' '
- character(len=240) :: outname = ' '
+ character(len=240) :: outname, xmlname
  character(len=240), intent(in) :: inpname
 
  i = index(inpname, '.com', back=.true.)
  outname = inpname(1:i-1)//'.out'
+ xmlname = inpname(1:i-1)//'.xml'
+ call delete_files(2, [outname, xmlname]) ! clean old files (if any)
 
  i = CEILING(DBLE(mem*125)/DBLE(nproc))
  write(buf,'(2(A,I0),A)') 'molpro -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)

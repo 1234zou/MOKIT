@@ -347,7 +347,6 @@ subroutine mo2ao_tdm(nbf, nif, mo, nae, nav, exc, total, tdm)
  logical, intent(in) :: total
 
  tdm = 0d0
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  allocate(mo_ci(nbf,nav), source=0d0)
  call dgemm('N','N',nbf,nav,nae,1d0,mo(:,1:nae),nbf,exc,nae,0d0,mo_ci,nbf)
 
@@ -441,4 +440,55 @@ subroutine check_uhf_in_fch(fchname, uhf)
 
  close(fid)
 end subroutine check_uhf_in_fch
+
+! calculate the AO-based transition density matrix and oscillator strength,
+! generate particle and hole NTOs, respectively
+subroutine gen_nto_and_fosc_from_mo_tdm(nbf, nmo, mo, mo_tdm, ao_dip, ao_ovlp, &
+                                        delta_e, ev, part_mo, hole_mo, fosc)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8) :: td(3) ! transition dipole moment
+ real(kind=8), intent(in) :: mo(nbf,nmo), mo_tdm(nmo,nmo), ao_dip(3,nbf,nbf), &
+  ao_ovlp(nbf,nbf), delta_e
+!f2py intent(in) :: mo, mo_tdm, ao_dip, ao_ovlp, delta_e
+!f2py depend(nbf,nmo) :: mo
+!f2py depend(nbf) :: ao_dip, ao_ovlp
+!f2py depend(nmo) :: mo_tdm
+ real(kind=8), intent(out) :: ev(nmo), part_mo(nbf,nmo), hole_mo(nbf,nmo), fosc
+!f2py intent(out) :: ev, part_mo, hole_mo, fosc
+!f2py depend(nbf,nmo) :: part_mo, hole_mo
+!f2py depend(nmo) :: ev
+ real(kind=8), allocatable :: ao_tdm(:,:), ttd(:,:)
+
+ ev = 0d0; part_mo = 0d0; hole_mo = 0d0; fosc = 0d0
+ allocate(ao_tdm(nbf,nbf))
+ call calc_CXCT(nbf, nmo, mo, mo_tdm, ao_tdm)
+
+ do i = 1, 3
+  call get_ne_from_PS(nbf, ao_tdm, ao_dip(i,:,:), td(i))
+ end do ! for i
+
+ deallocate(ao_tdm)
+ fosc = 2d0*DOT_PRODUCT(td, td)*delta_e/3d0
+
+ ! T*(T^dagger)
+ allocate(ttd(nmo,nmo), source=0d0)
+ call dgemm('N','T',nmo,nmo,nmo, 1d0, mo_tdm, nmo, mo_tdm, nmo, 0d0, ttd, nmo)
+ call diag_get_e_and_vec(nmo, ttd, ev)
+ ev = ev/SUM(ev)
+ ! compute particle NTO, C_NTO = CU
+ call dgemm('N','N',nbf,nmo,nmo, 1d0, mo, nbf, ttd, nmo, 0d0, part_mo, nbf)
+
+ ! (T^dagger)*T
+ ttd = 0d0
+ call dgemm('T','N',nmo,nmo,nmo, 1d0, mo_tdm, nmo, mo_tdm, nmo, 0d0, ttd, nmo)
+ call diag_get_e_and_vec(nmo, ttd, ev)
+ ev = ev/SUM(ev)
+ ! compute hole NTO, C_NTO = CU
+ call dgemm('N','N',nbf,nmo,nmo, 1d0, mo, nbf, ttd, nmo, 0d0, hole_mo, nbf)
+
+ deallocate(ttd)
+end subroutine gen_nto_and_fosc_from_mo_tdm
 

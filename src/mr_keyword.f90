@@ -73,6 +73,7 @@ module mol
  real(kind=8), allocatable :: sa_cas_e(:) ! multi-root CASCI energies in SA-CASSCF
  real(kind=8), allocatable :: ci_mult(:)  ! spin multiplicities of excited states
  ! size 0:nstate, the ground states is included as 0
+ real(kind=8), allocatable :: fosc(:)     ! oscillator strengths, size nstate
 
  character(len=2), allocatable :: elem(:)   ! element symbols
 end module mol
@@ -320,7 +321,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc3 (2023-May-9)'
+  write(6,'(A)') '           Version: 1.2.6rc4 (2023-May-15)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -866,18 +867,23 @@ contains
 
   if(readrhf .or. readuhf .or. readno) then
    write(6,'(A79)') REPEAT('-',79)
-   write(6,'(A)') 'Note: read user-specified .fch file. The basis set and ECP&
-                  &(if any) will be imported'
-   write(6,'(A)') 'from .fch file. The basis set you wrote in Route Section(#p&
-                  &...) will not be used.'
-   write(6,'(A79)') REPEAT('-',79)
+   write(6,'(A)') 'Note: read user-specified .fch file. The basis set and ECP(i&
+                  &f any) will be im-'
+   write(6,'(A)') 'ported from .fch file. The basis set you wrote in Route Sect&
+                  &ion(#p ...) will not'
+
    if(frag_guess) then
-    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only be &
-                   &used when none of'
+    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only be u&
+                   &sed when none of'
     write(6,'(A)') 'readrhf/readuhf/readno is used.'
     stop
    end if
+
    call require_file_exist(hf_fch)
+   call read_basis_name_from_fch(hf_fch, buf)
+   write(6,'(A)') "be used. The basis set name copied from specified .fch file &
+                  &is: '"//TRIM(buf)//"'"
+   write(6,'(A79)') REPEAT('-',79)
 
    skiphf = .true.
    i = index(hf_fch, '.fchk', back=.true.)
@@ -1934,7 +1940,7 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
  ! charge(1:3,i) is the Cartesian coordinates of the i-th point charge
  ! charge(4,i) is the electronic charge of the i-th point charge
  real(kind=8), intent(out) :: e
- real(kind=8), parameter :: zero1 = 1.0d-2, zero2 = 1.0d-3
+ real(kind=8), parameter :: zero1 = 1d-2, zero2 = 1d-3
  real(kind=8), allocatable :: r(:,:)
 
  e = 0d0

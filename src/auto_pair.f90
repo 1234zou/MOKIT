@@ -45,7 +45,7 @@ subroutine pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  real(kind=8), allocatable :: dis(:,:), dis1(:,:)
 !                               occ vir
  real(kind=8) fBoys, tempv, sum_dis, min_sum
- real(kind=8), parameter :: rdiff = 1.0d-4
+ real(kind=8), parameter :: rdiff = 1d-4
  real(kind=8) temp_dipole1(3), temp_dipole2(3)
  real(kind=8), allocatable :: coeff1(:,:)
  logical, allocatable :: used(:)
@@ -176,7 +176,7 @@ subroutine pair_by_dis2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  real(kind=8), allocatable :: dis(:,:), dis1(:,:)
 !                               vir occ
  real(kind=8) fBoys, tempv, sum_dis, min_sum
- real(kind=8), parameter :: rdiff = 1.0d-4
+ real(kind=8), parameter :: rdiff = 1d-4
  real(kind=8) temp_dipole1(3), temp_dipole2(3)
  real(kind=8), allocatable :: coeff1(:,:)
  logical, allocatable :: used(:)
@@ -330,7 +330,7 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
  real(kind=8), intent(in) :: mo_dipole(3,nif,nif)
  real(kind=8) fBoys, sum_tdm, max_sum, min_tdm
  real(kind=8) tempv, tempv1, temp_dipole(3)
- real(kind=8), parameter :: rdiff1 = 1.0d-4, rdiff2 = 1.0d-2
+ real(kind=8), parameter :: rdiff1 = 1d-4, rdiff2 = 1d-2
  real(kind=8), allocatable :: coeff1(:,:)
  real(kind=8), allocatable :: tdm(:,:), tdm1(:,:)
 !                               occ vir
@@ -472,7 +472,7 @@ subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, 
  real(kind=8), intent(in) :: mo_dipole(3,nif,nif)
  real(kind=8) fBoys, sum_tdm, max_sum, min_tdm
  real(kind=8) tempv, tempv1, temp_dipole(3)
- real(kind=8), parameter :: rdiff1 = 1.0d-4, rdiff2 = 1.0d-2
+ real(kind=8), parameter :: rdiff1 = 1d-4, rdiff2 = 1d-2
  real(kind=8), allocatable :: coeff1(:,:)
  real(kind=8), allocatable :: tdm(:,:), tdm1(:,:)
 !                               vir occ

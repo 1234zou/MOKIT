@@ -543,9 +543,9 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_gau_out: no&
-                     & 'SCF Done' found in"
-  write(6,'(A)') 'file '//TRIM(logname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_gau_out: 'SCF Don&
+                   &e' not found"
+  write(6,'(A)') 'in file '//TRIM(logname)
   close(fid)
   stop
  end if
@@ -720,6 +720,7 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  select case(hf_type)
  case(1,2) ! R(O)HF
   close(fid)
+  ! pure spin state, simply calculate the spin square
   call read_mult_from_orca_out(outname, mult)
   ss = DBLE(mult*(mult+1))
 
@@ -732,21 +733,21 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
 
   close(fid)
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no&
-                    & 'Expectation val' found in"
-   write(6,'(A)') 'file '//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no 'Ex&
+                    &pectation val' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    stop
   end if
   i = index(buf, ':', back=.true.)
   read(buf(i+1:),*) ss
 
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_orca_out:&
-                      & invalid hf_type=', hf_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_orca_out: inva&
+                      &lid hf_type=', hf_type
   write(6,'(A)') 'outname='//TRIM(outname)
+  close(fid)
   stop
  end select
-
 end subroutine read_hf_e_and_ss_from_orca_out
 
 ! read spin multiplicity from a PySCF .py file

@@ -1664,7 +1664,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   i = index(buf,'=',back=.true.)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1.0D-2) then
+  if( DABS(expect - s_square) > 1D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
                   & CASSCF job, the 0-th step, i.e., the CASCI'
    write(6,'(A)') '<S**2> deviates too much from the expectation value.'
@@ -1681,7 +1681,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   i = index(buf,'S=')
   read(buf(i+2:),*) s_square
   s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1.0D-2) then
+  if( DABS(expect - s_square) > 1D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
                   & <S**2> deviates too much from the expectation value.'
    write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
@@ -1704,7 +1704,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   i = index(buf,'=', back=.true.)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1.0D-2) then
+  if( DABS(expect - s_square) > 1D-2) then
    write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
                   & <S**2> deviates too much from the expectation value.'
    write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
@@ -3586,6 +3586,7 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 
+ noon = 0d0; new_coeff = 0d0 ! initialization
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
@@ -3615,7 +3616,6 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  deallocate(isuppz, work, iwork, S)
  ! eigenvalues in array e are in ascending order
 
- noon = 0d0
  forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
  deallocate(e)
 

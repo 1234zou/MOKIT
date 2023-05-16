@@ -26,7 +26,7 @@ subroutine find_mc_pair(gmsname)
  integer, parameter :: fid = 11
  integer, allocatable :: pair(:,:)
  real(kind=8) tmp_coeff(2), tmp_coeff1(2), tmp_coeff2(2)
- real(kind=8), parameter :: threshold = -1.0d-5
+ real(kind=8), parameter :: threshold = -1d-5
  real(kind=8), allocatable :: pair_coeff(:,:)
  character(len=240) buffer
  character(len=240), intent(in) :: gmsname

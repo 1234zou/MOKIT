@@ -3,10 +3,10 @@
 ! perform SA-CASSCF calculations
 subroutine do_sa_cas()
  use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
-  npair0, sa_cas_e, ci_mult
- use mr_keyword, only: ist, nacto_wish, nacte_wish, hf_fch, casscf, bgchg, &
-  casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
-  caspt2, noQD, on_thres, orca_path
+  npair0, sa_cas_e, ci_mult, fosc
+ use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
+  bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
+  caspt2, noQD, on_thres, orca_path, openmp_molcas
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -60,44 +60,50 @@ subroutine do_sa_cas()
  i = index(hf_fch, '.fch', back=.true.)
  select case(TRIM(cas_prog))
  case('pyscf')
-  inpname = hf_fch(1:i-1)//'_SA.py'
-  outname = hf_fch(1:i-1)//'_SA.out'
+  inpname = hf_fch(1:i-1)//'_SA-CAS.py'
+  outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_script_into_py(inpname, hf_fch)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_pyscf_job(inpname)
  case('gaussian')
-  inpname = hf_fch(1:i-1)//'_SA.gjf'
-  outname = hf_fch(1:i-1)//'_SA.log'
+  inpname = hf_fch(1:i-1)//'_SA-CAS.gjf'
+  outname = hf_fch(1:i-1)//'_SA-CAS.log'
   call prt_sacas_gjf(inpname, hf_fch)
  case('orca')
-  inpname = hf_fch(1:i-1)//'_SA.inp'
-  outname = hf_fch(1:i-1)//'_SA.out'
+  inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
+  outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_orca_inp(inpname, hf_fch)
   call submit_orca_job(orca_path, inpname)
  case('gamess')
-  inpname = hf_fch(1:i-1)//'_SA.inp'
-  outname = hf_fch(1:i-1)//'_SA.gms'
+  inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
+  outname = hf_fch(1:i-1)//'_SA-CAS.gms'
   call prt_sacas_gms_inp(inpname, hf_fch)
+ case('openmolcas')
+  inpname = hf_fch(1:i-1)//'_SA-CAS.input'
+  outname = hf_fch(1:i-1)//'_SA-CAS.out'
+  call prt_sacas_molcas_inp(inpname, hf_fch)
+  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call copy_nto_from_orb2fch(hf_fch, nstate)
  case default
   write(6,'(A)') 'ERROR in subroutine do_sa_cas: CASSCF_prog='//TRIM(cas_prog)&
                 //' unrecognized or unsupported.'
   stop
  end select
 
- allocate(sa_cas_e(0:nstate), ci_mult(0:nstate)) ! 0 means ground state
+ allocate(sa_cas_e(0:nstate), ci_mult(0:nstate), fosc(nstate))
  call read_sa_cas_energies_from_output(cas_prog,outname,nstate,sa_cas_e,ci_mult)
+ call read_fosc_from_output(cas_prog, outname, nstate, fosc)
 
  allocate(e_ev(nstate), source=0d0)
  forall(i = 1:nstate) e_ev(i) = (sa_cas_e(i) - sa_cas_e(0))*au2ev
- write(6,'(A)') 'Multi-root energies in SA-CASSCF(0 for ground state):'
- write(6,'(A,A)') REPEAT(' ',51),'E_ex/eV'
+ write(6,'(A)') 'CASCI energies after SA-CASSCF(0 for ground state):   E_ex/eV &
+                &  fosc'
  write(6,'(A,I3,A,F16.8,A,F6.3)') 'State ',0,', E =',sa_cas_e(0),' a.u. <S**2> =',&
                                    ci_mult(0)
  do i = 1, nstate, 1
-  write(6,'(A,I3,A,F16.8,A,F6.3,2X,F6.2)') 'State ',i,', E =',sa_cas_e(i),&
-                                     ' a.u. <S**2> =', ci_mult(i), e_ev(i)
+  write(6,'(A,I3,A,F16.8,A,F6.3,2X,F7.3,2X,F7.4)') 'State ', i, ', E =', &
+               sa_cas_e(i), ' a.u. <S**2> =', ci_mult(i), e_ev(i), fosc(i)
  end do ! for i
- deallocate(e_ev)
 
  if(nevpt2) then
   if(TRIM(nevpt2_prog) /= TRIM(cas_prog)) then
@@ -117,8 +123,18 @@ subroutine do_sa_cas()
   case default
    stop
   end select
+
+  forall(i = 1:nstate) e_ev(i) = (nevpt2_e(i) - nevpt2_e(0))*au2ev
+  write(6,'(/,A)') 'NEVPT2 energies:                     E_ex/eV'
+  write(6,'(A,I3,A,F16.8,A)') 'State ',0,', E =',nevpt2_e(0),' a.u.'
+  do i = 1, nstate, 1
+   write(6,'(A,I3,A,F16.8,A,2X,F7.3)') 'State ',i,', E =',nevpt2_e(i),' a.u.',&
+                                       e_ev(i)
+  end do ! for i
   deallocate(nevpt2_e)
  end if
+
+ deallocate(e_ev)
 end subroutine do_sa_cas
 
 ! print (DMRG-)SA-CASSCF script into a given .py file
@@ -154,13 +170,12 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
- if(dmrgscf) then
-  write(fid2,'(A)') 'from pyscf import mcscf, dmrgscf, lib'
- else
-  write(fid2,'(A)') 'from pyscf import mcscf, lib'
- end if
- if(nevpt2) write(fid2,'(A)') 'from pyscf import mrpt'
+ write(fid2,'(A)',advance='no') 'from pyscf import mcscf'
+ if(dmrgscf) write(fid2,'(A)',advance='no') ', dmrgscf'
+ if(nevpt2) write(fid2,'(A)',advance='no') ', mrpt'
+ write(fid2,'(A)') ', lib'
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.excited import gen_nto_and_fosc_from_mo_tdm'
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
  if(dmrgscf) then
@@ -227,60 +242,90 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  ss = DBLE(nacta - nactb)*0.5d0
  ss = ss*(ss+1d0)
  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
- write(fid2,'(A)') 'mc.verbose = 5'
+ write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel()'
- if(nevpt2) write(fid2,'(A)') 'mo = mc.mo_coeff.copy()'
+ write(fid2,'(A)') 'mo = mc.mo_coeff.copy() # backup'
 
  i = index(hf_fch, '.fch', back=.true.)
- cmofch = hf_fch(1:i-1)//'_SA.fch'
+ cmofch = hf_fch(1:i-1)//'_SA-CAS.fch'
  write(fid2,'(/,A)') '# save MOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
  write(fid2,'(A)') 'noon = np.zeros(nif)'
- write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,F&
-                   &alse,False)"
+ write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mo,'a',noon,False,False)"
  ! mc.mo_occ only exists for PySCF >= 1.7.4
 
- if(nevpt2) then
-  write(fid2,'(/,A)') '# perform multi-root CASCI'
-  if(dkh2_or_x2c) then
-   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
-  else
-   write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
-  end if
-  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
-
-  if(casscf) then ! CASSCF
-   if(RI) then
-    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-   else
-    write(fid2,'(A)') ')'
-   end if
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
-  else            ! DMRG-SA-CASSCF
-   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
-   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
-  end if
-
-  write(fid2,'(A)',advance='no') 'mc.fcisolver.nroots = '
-  if(hardwfn) then
-   write(fid2,'(I0)') nstate+4
-  else if(crazywfn) then
-   write(fid2,'(I0)') nstate+7
-  else
-   write(fid2,'(I0)') nstate+1
-  end if
-  call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb,hardwfn,crazywfn,.false.)
-  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
-  write(fid2,'(A)') 'mc.verbose = 4'
-  write(fid2,'(A)') 'mc.kernel(mo)'
-
-  write(fid2,'(/,A)') '# NEVPT2 based on multi-root CASCI'
-  do i = 0, nstate, 1
-   write(fid2,'(A,I0,A)') 'mrpt.NEVPT(mc, root=',i,').kernel()'
-  end do ! for i
+ write(fid2,'(/,A)') '# perform multi-root CASCI'
+ if(dkh2_or_x2c) then
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
+ else
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
  end if
- close(fid2)
+ write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
 
+ if(casscf) then ! CASCI
+  if(RI) then
+   write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+  else
+   write(fid2,'(A)') ')'
+  end if
+  write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
+ else            ! DMRG-SA-CASCI
+  write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
+  write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
+ end if
+
+ write(fid2,'(A)',advance='no') 'mc.fcisolver.nroots = '
+ if(hardwfn) then
+  write(fid2,'(I0)') nstate+4
+ else if(crazywfn) then
+  write(fid2,'(I0)') nstate+7
+ else
+  write(fid2,'(I0)') nstate+1
+ end if
+ call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb,hardwfn,crazywfn,.false.)
+ if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+ write(fid2,'(A)') 'mc.verbose = 4'
+ write(fid2,'(A)') 'mc.kernel(mo)'
+
+ ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
+ write(fid2,'(/,A)') '# calculate oscillator strength and NTOs of transition |0&
+                     &> -> |i>'
+ write(fid2,'(A)') 'charges = mol.atom_charges()'
+ write(fid2,'(A)') 'coords = mol.atom_coords()'
+ write(fid2,'(A)') "charge_center = np.einsum('z,zx->x', charges, coords)/charg&
+                   &es.sum()"
+ write(fid2,'(A)') 'with mol.with_common_origin(charge_center):'
+ write(fid2,'(A)') "  dip_int = mol.intor('int1e_r')"
+ write(fid2,'(A)') 'nroots = mc.fcisolver.nroots'
+ write(fid2,'(A)') 'nacto = mc.ncas'
+ write(fid2,'(A)') 'idx1 = mc.ncore + 1'
+ write(fid2,'(A)') 'idx2 = mc.ncore + nacto'
+ write(fid2,'(A)') 'mo_cas = mo[:,mc.ncore:idx2].copy()'
+ write(fid2,'(A)') 'for i in range(1,nroots):'
+ i = index(cmofch, '.fch', back=.true.)
+ write(fid2,'(A)') "  part_fch = '"//cmofch(1:i-1)//"_NTO_P0'+str(i)+'.fch'"
+ write(fid2,'(A)') "  hole_fch = '"//cmofch(1:i-1)//"_NTO_H0'+str(i)+'.fch'"
+ write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', part_fch)"
+ write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', hole_fch)"
+ write(fid2,'(A)') '  tdm = mc.fcisolver.trans_rdm1(mc.ci[0],mc.ci[i], nacto, m&
+                   &c.nelecas)'
+ write(fid2,'(A)') '  ev, part_mo, hole_mo, fosc = gen_nto_and_fosc_from_mo_tdm&
+                   &(nbf, nacto, mo_cas, \'
+ write(fid2,'(A)') '                  tdm, dip_int, S, mc.e_tot[i]-mc.e_tot[0])'
+ write(fid2,'(A)') '  noon[mc.ncore:idx2] = ev.copy()'
+ write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = part_mo.copy()'
+ write(fid2,'(A)') "  py2fch(part_fch,nbf,nif,mo,'a',noon,False,False)"
+ write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = hole_mo.copy()'
+ write(fid2,'(A)') "  py2fch(hole_fch,nbf,nif,mo,'a',noon,False,False)"
+ write(fid2,'(A)') "  print('|0> -> |%d>'%(i),', fosc =',fosc)"
+
+ if(nevpt2) then
+  write(fid2,'(/,A)') '# NEVPT2 based on multi-root CASCI'
+  write(fid2,'(A)') 'for i in range(nroots):'
+  write(fid2,'(A)') '  mrpt.NEVPT(mc, root=i).kernel()'
+ end if
+
+ close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine prt_sacas_script_into_py
 
@@ -391,6 +436,17 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
   write(fid1,'(A)') 'end'
  end if
 
+ !write(fid1,'(A)') '%mrci'
+ !write(fid1,'(A)') ' tsel 0.0'
+ !write(fid1,'(A)') ' tpre 0.0'
+ !write(fid1,'(A)') ' Etol 1e-7'
+ !write(fid1,'(A)') ' Rtol 1e-7'
+ !write(fid1,'(A)') ' MaxIter 100'
+ !write(fid1,'(A)') ' densities 0,1'
+ !write(fid1,'(3(A,I0),A)') ' NewBlock 1 * nroots ',nstate+1,' excitations none &
+ !                          &refs cas(',nacte,',',nacto,') end end'
+ !write(fid1,'(A)') 'end'
+
  do i = 1, 3   ! skip 3 lines
   read(fid,'(A)') buf
  end do ! for i
@@ -480,6 +536,26 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_sacas_gms_inp
 
+! print SA-CASSCF input file of OpenMolcas
+subroutine prt_sacas_molcas_inp(inpname, hf_fch)
+ use mr_keyword, only: molcas_path
+ use util_wrapper, only: fch2inporb_wrap
+ implicit none
+ integer :: i, RENAME
+ character(len=240) :: old_orb, inporb
+ character(len=240), intent(in) :: inpname, hf_fch
+
+ call check_exe_exist(molcas_path)
+ call fch2inporb_wrap(hf_fch, inpname)
+ i = index(inpname, '.input', back=.true.)
+ inporb = inpname(1:i-1)//'.INPORB'
+ i = index(hf_fch, '.fch', back=.true.)
+ old_orb = hf_fch(1:i-1)//'.INPORB'
+ i = RENAME(TRIM(old_orb), TRIM(inporb))
+ call prt_cas_molcas_inp(inpname, .true.)
+end subroutine prt_sacas_molcas_inp
+
+! read SA-CASSCF energies from various output files
 subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
                                             sa_cas_e, ci_mult)
  use mol, only: mult
@@ -494,9 +570,11 @@ subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
 !  call read_sa_cas_energies_from_gau_log(outname, nstate, sa_cas_e)
   ci_mult = mult
  case('pyscf')
-  call read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
+  call read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
  case('orca')
-  call read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+  call read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+ case('openmolcas')
+  call read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_sa_cas_energies_from_output: &
                    &cas_prog cannot be recognized.'
@@ -505,7 +583,8 @@ subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
  end select
 end subroutine read_sa_cas_energies_from_output
 
-subroutine read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
+! read SA-CASSCF energies from PySCF output
+subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nstate
@@ -525,8 +604,8 @@ subroutine read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mul
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_energies_from_pyscf_out:&
-                  & no 'CASCI energy for'"
+  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_e_from_pyscf_out: no 'CASCI&
+                  & energy for'"
   write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
@@ -541,9 +620,10 @@ subroutine read_sa_cas_energies_from_pyscf_out(outname, nstate, sa_cas_e, ci_mul
  end do ! for i
 
  close(fid)
-end subroutine read_sa_cas_energies_from_pyscf_out
+end subroutine read_sa_cas_e_from_pyscf_out
 
-subroutine read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+! read SA-CASSCF energies from ORCA output
+subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
  implicit none
  integer :: i, j, k, m, mult, fid
  integer, intent(in) :: nstate
@@ -552,9 +632,9 @@ subroutine read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult
  real(kind=8) :: s
  real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
 
- sa_cas_e = 0d0; ci_mult = 0d0
-
+ sa_cas_e = 0d0; ci_mult = 1d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -563,8 +643,8 @@ subroutine read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult
 
  if(i /= 0) then
   close(fid)
-  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_energies_from_orca_out: no&
-                  & 'CAS-SCF STATES FOR BLOCK'"
+  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_e_from_orca_out: no 'CAS-SC&
+                  &F STATES FOR BLOCK'"
   write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
@@ -628,7 +708,58 @@ subroutine read_sa_cas_energies_from_orca_out(outname, nstate, sa_cas_e, ci_mult
    end if
   end do ! for i
  end do ! for j
-end subroutine read_sa_cas_energies_from_orca_out
+end subroutine read_sa_cas_e_from_orca_out
+
+! read SA-CASSCF energies from OpenMolcas output
+subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8) :: s
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+
+ sa_cas_e = 0d0; ci_mult = 1d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(7:19) == 'Final state e') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_sa_cas_e_from_molcas_out: no 'Fina&
+                   &l state e' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf ! skip 2 lines
+ read(fid,'(A)') buf
+
+ do i = 0, nstate, 1
+  read(fid,'(A)') buf
+  j = index(buf, ':', back=.true.)
+  read(buf(j+1:),*) sa_cas_e(i)
+ end do ! for i
+
+ i = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(4:12) == 'SPIN MULT') then
+   read(buf(40:),*) j
+   s = 0.5d0*DBLE(j-1)
+   ci_mult(i) = s*(s+1d0)
+   i = i + 1
+   if(i == nstate+1) exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine read_sa_cas_e_from_molcas_out
 
 ! read multi-root CASCI-based NEVPT2 energies from a PySCF out file
 subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
@@ -697,30 +828,212 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
 
  close(fid)
  nevpt2_e = casci_e + nevpt2_e
-
- forall(i = 1:nstate) casci_e(i) = (nevpt2_e(i)-nevpt2_e(0))*au2ev
- write(6,'(/,A)') 'NEVPT2 energies:                    E_ex/eV'
- write(6,'(A,I3,A,F16.8,A)') 'State ',0,', E =',nevpt2_e(0),' a.u.'
- do i = 1, nstate, 1
-  write(6,'(A,I3,A,F16.8,A,2X,F6.2)') 'State ',i,', E =',nevpt2_e(i),' a.u.',&
-                                      casci_e(i)
- end do ! for i
-
  deallocate(casci_e)
 end subroutine read_multiroot_nevpt2_from_pyscf
 
 ! read multi-root CASCI-based NEVPT2 energies from an ORCA out file
 subroutine read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
  use phys_cons, only: au2ev
- integer :: fid
+ implicit none
+ integer :: i, j, k, fid
  integer, intent(in) :: nstate
- !character(len=240) :: buf
+ character(len=240) :: buf
  character(len=240), intent(in) :: outname
- !real(kind=8), allocatable :: casci_e(:)
  real(kind=8), intent(out) :: nevpt2_e(0:nstate)
 
  nevpt2_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ i = 0
+ do while(.true.)
+  read(fid,'(A)',iostat=j) buf
+  if(j /= 0) exit
+  if(index(buf,'Total Energy (') > 0) then
+   k = index(buf, '=')
+   read(buf(k+1:),*) nevpt2_e(i)
+   i = i + 1
+   if(i == nstate+1) exit
+  end if
+ end do ! for while
+
  close(fid)
 end subroutine read_multiroot_nevpt2_from_orca
+
+! read oscillator strengths from various output file
+subroutine read_fosc_from_output(cas_prog, outname, nstate, fosc)
+ implicit none
+ integer, intent(in) :: nstate
+ character(len=10), intent(in) :: cas_prog
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: fosc(nstate)
+
+ select case(TRIM(cas_prog))
+ case('pyscf')
+  call read_fosc_from_pyscf_out(outname, nstate, fosc)
+ case('orca')
+  call read_fosc_from_orca_out(outname, nstate, fosc)
+ case('openmolcas')
+  call read_fosc_from_molcas_out(outname, nstate, fosc)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_output: program cannot b&
+                   &e recognized.'
+  write(6,'(A)') 'CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
+  stop
+ end select
+end subroutine read_fosc_from_output
+
+! read oscillator strengths from PySCF output file
+subroutine read_fosc_from_pyscf_out(outname, nstate, fosc)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: fosc(nstate)
+
+ fosc = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == '|0>') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_fosc_from_pyscf_out: no '|0>' foun&
+                   &d in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  j = index(buf, '=')
+  read(buf(j+1:),*) fosc(i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_fosc_from_pyscf_out
+
+! read oscillator strengths from ORCA output file
+subroutine read_fosc_from_orca_out(outname, nstate, fosc)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: fosc(nstate)
+
+ fosc = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(36:48) == 'O   R   C   A') then
+   i = -1
+   exit
+  end if
+  if(buf(1:8) == '  States') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_fosc_from_orca_out: no '  States' &
+                   &found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf ! slip 2 lines
+ read(fid,'(A)') buf
+
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  read(buf(39:),*) fosc(i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_fosc_from_orca_out
+
+! read oscillator strengths from OpenMolcas output file
+subroutine read_fosc_from_molcas_out(outname, nstate, fosc)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: fosc(nstate)
+
+ fosc = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:11) == '++ Dipole t') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_fosc_from_molcas_out: no '++ Dipol&
+                   &e t' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 4   ! skip 4 lines
+  read(fid,'(A)') buf
+ end do ! for i
+
+ ! it is possible that all oscillator strengths < 1e-5, simply return
+ if(index(buf,'is only') > 0) then
+  close(fid)
+  return
+ else
+  read(fid,'(A)') buf ! skip 1 line
+ end if
+
+ !do i = 1, nstate, 1
+ ! read(fid,*) j, j, fosc(i)
+ !end do ! for i
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(index(buf,'---') > 0) exit
+  read(buf,*) i, j, rtmp
+  if(i == 1) fosc(j-1) = rtmp
+ end do ! for while
+
+ close(fid)
+end subroutine read_fosc_from_molcas_out
+
+subroutine copy_nto_from_orb2fch(hf_fch, nstate)
+ implicit none
+ integer :: i, j, k, SYSTEM
+ integer, intent(in) :: nstate
+ character(len=240) :: part_orb, hole_orb, part_fch, hole_fch
+ character(len=240), intent(in) :: hf_fch
+
+ k = index(hf_fch, '.fch', back=.true.)
+
+ do i = 2, nstate+1, 1
+  write(part_orb,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS.NTOrb.1_',i,'.a.PART'
+  write(hole_orb,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS.NTOrb.1_',i,'.a.HOLE'
+  write(part_fch,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS_NTO_P0',i-1,'.fch'
+  write(hole_fch,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS_NTO_H0',i-1,'.fch'
+  call copy_file(hf_fch, part_fch, .false.)
+  call copy_file(hf_fch, hole_fch, .false.)
+  j = SYSTEM('orb2fch '//TRIM(part_orb)//' '//TRIM(part_fch)//' -no')
+  j = SYSTEM('orb2fch '//TRIM(hole_orb)//' '//TRIM(hole_fch)//' -no')
+  call delete_files(2, [part_orb, hole_orb])
+ end do ! for i
+end subroutine copy_nto_from_orb2fch
 

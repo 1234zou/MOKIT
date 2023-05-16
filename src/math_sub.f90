@@ -47,7 +47,7 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  integer, allocatable :: iwork(:), isuppz(:)
 
  real(kind=8), parameter :: lin_dep = 1d-6
- ! 1.0D-6 is the default threshold of linear dependence in Gaussian and GAMESS
+ ! 1D-6 is the default threshold of linear dependence in Gaussian and GAMESS
  ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
  real(kind=8), intent(in) :: a0(n,n)
  real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n)
@@ -181,4 +181,19 @@ subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SCp, nbf, 0d0, CTSCp, nif)
  deallocate(SCp)
 end subroutine calc_CTSCp
+
+! calculate CX(C^T), where X is a square matrix (symmetric is not required)
+subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
+ implicit none
+ integer, intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: C(nbf,nmo), X(nmo,nmo)
+ real(kind=8), intent(out) :: CXCT(nbf,nbf)
+ real(kind=8), allocatable :: CX(:,:)
+
+ CXCT = 0d0
+ allocate(CX(nbf,nmo), source=0d0)
+ call dgemm('N', 'N', nbf, nmo, nmo, 1d0, C, nbf, X, nmo, 0d0, CX, nbf)
+ call dgemm('N', 'T', nbf, nbf, nmo, 1d0, CX, nbf, C, nbf, 0d0, CXCT, nbf)
+ deallocate(CX)
+end subroutine calc_CXCT
 

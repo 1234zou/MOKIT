@@ -399,7 +399,7 @@ subroutine prt_mrcisd_gau_inp(order, gjfname)
  write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(6(A,I0),A)',advance='no') '#p CAS(',ne,',',nif,',ras(',order,',',&
+ write(fid,'(6(A,I0),A)',advance='no') '#p CASSCF(',ne,',',nif,',ras(',order,',',&
   idx,',',order,',',nvir,')) chkbasis nosymm guess=read geom=allcheck scf(maxcycle=-1)'
 
  if(DKH2) then

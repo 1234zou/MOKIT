@@ -30,7 +30,7 @@ subroutine do_cas(scf)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
-                       orbname, xmlname
+                       orbname, xmlname, gradname
  character(len=480) :: buf
  logical, intent(in) :: scf
 
@@ -352,6 +352,7 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.inp'
   mklname = TRIM(proname)//'.mkl'
   outname = TRIM(proname)//'.out'
+  gradname = TRIM(proname)//'.engrad'
   i = RENAME(TRIM(orbname),TRIM(mklname))
   i = RENAME(TRIM(pyname),TRIM(inpname))
 
@@ -544,9 +545,9 @@ subroutine do_cas(scf)
   case('openmolcas')
    call read_grad_from_molcas_out(outname, natom, grad)
   case('orca')
-   call read_grad_from_orca_out(outname, natom, grad)
+   call read_grad_from_engrad(gradname, natom, grad)
   case('molpro')
-   call read_grad_from_molpro_out(outname, 1, natom, grad)
+   call read_grad_from_molpro_out(outname, natom, grad)
   case('bdf')
    call read_grad_from_bdf_out(outname, natom, grad)
   case default
@@ -555,7 +556,7 @@ subroutine do_cas(scf)
    stop
   end select
 
-  write(6,'(A)') 'Cartesian gradients (HARTREE/BOHR):'
+  write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
   write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  end if
 
@@ -709,7 +710,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine prt_cas_script_into_py
 
-! print a CASCI or CASSCF .gjf file
+! print a CASCI or CASSCF gjf file
 subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  use mr_keyword, only: mem, nproc, dkh2_or_x2c, iroot
  implicit none
@@ -723,7 +724,7 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(2(A,I0))',advance='no') '#p CAS(',nacte,',',nacto
+ write(fid,'(2(A,I0))',advance='no') '#p CASSCF(',nacte,',',nacto
  if(iroot > 0) write(fid,'(A,I0)',advance='no') ',qc,nroot=',iroot+1
  write(fid,'(A)',advance='no') ') chkbasis nosymm guess=read geom=allcheck'
 
@@ -1624,7 +1625,7 @@ end subroutine read_shieldings_from_dalton_out
 
 ! print (Open)Molcas (DMRG-)CASCI/CASSCF input file keywords
 subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
- use mr_keyword, only: hardwfn, crazywfn, MaxM, iroot, xmult
+ use mr_keyword, only: hardwfn, crazywfn, MaxM, iroot, xmult, nstate
  use mol, only: nacte, nacto, charge, mult
  implicit none
  integer :: i, nroots, lroots
@@ -1665,10 +1666,10 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   end if
  end if
 
- write(fid,'(A,I0)') ' Spin= ', mult
- write(fid,'(A,I0)') ' Charge= ', charge
- write(fid,'(A,I0)') ' nActEl= ', nacte
- write(fid,'(A,I0)') ' RAS2= ', nacto
+ write(fid,'(A,I0)') 'Spin= ', mult
+ write(fid,'(A,I0)') 'Charge= ', charge
+ write(fid,'(A,I0)') 'nActEl= ', nacte
+ write(fid,'(A,I0)') 'RAS2= ', nacto
  if(iroot > 9) then
   close(fid)
   write(6,'(/,A)') 'ERROR in subroutine prt_molcas_cas_para: iroot>9. Please c&
@@ -1676,23 +1677,50 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   write(6,'(A)') 'developers to modify the input file print format.'
   stop
  end if
+
+ ! SS-CASCI
  if(iroot > 0) then
   nroots = iroot + 1
   lroots = iroot + 3
   if(nacte==2 .and. nacto==2) lroots = 3 ! CAS(2,2)
   allocate(weight(nroots), source=0)
   weight(nroots) = 1
-  write(fid,'(A,2(1X,I0),A)',advance='no') ' CIroot=',nroots,lroots,';'
+  write(fid,'(A,2(1X,I0),A)',advance='no') 'CIroot=',nroots,lroots,';'
   write(fid,'(9I2)',advance='no') (i,i=1,nroots)
   write(fid,'(A,9I2)') ';', weight
   deallocate(weight)
  end if
- i = index(inpname, '.input', back=.true.)
- write(fid,'(A)') ' FILEORB= '//inpname(1:i-1)//'.INPORB'
 
- if(CIonly) write(fid,'(A)') ' CIonly'
+ ! multi-root CASCI
+ if(nstate > 0) then
+  nroots = nstate + 1
+  lroots = nstate + 3
+  if(nacte==2 .and. nacto==2) lroots = 3 ! CAS(2,2)
+  write(fid,'(A,2(1X,I0),A)') 'CIroot=',nroots,lroots,' 1'
+ end if
+
+ i = index(inpname, '.input', back=.true.)
+ write(fid,'(A)') 'FILEORB= '//inpname(1:i-1)//'.INPORB'
+
+ if(CIonly) write(fid,'(A)') 'CIonly'
  if(nevpt) write(fid,'(A,/,A)') 'NEVPT2Prep','EvRDM'
  if(dmrg) write(fid,'(A)') 'EndOOptimizationSettings'
+
+ if(nstate > 0) then   ! generate hole and particle NTOs
+  write(fid,'(/)',advance='no')
+  ! these CASCI states share the same basis set and the same MOs, so copy from
+  ! one common $Project.JobIph
+  do i = 1, nstate+1, 1
+   write(fid,'(A,I3.3)') '>> COPY $Project.JobIph JOB',i
+  end do ! for i
+  write(fid,'(/,A)') "&RASSI"
+  write(fid,'(A)') 'NTOC'
+  write(fid,'(A,I0,99I2)') 'Nr of JobIphs=',nstate+1,(1,i=1,nstate+1)
+  do i = 1, nstate, 1
+   write(fid,'(I0,A1)',advance='no') i,';'
+  end do ! for i
+  write(fid,'(I0)') nstate+1
+ end if
 end subroutine prt_molcas_cas_para
 
 ! print PySCF FCI solver keywords

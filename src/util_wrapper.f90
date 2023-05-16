@@ -7,7 +7,7 @@ contains
 ! wrapper of the Gaussian utility formchk
 subroutine formchk(chkname, fchname)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: fchname0
  character(len=500) :: buf
  character(len=240), intent(in) :: chkname
@@ -35,9 +35,9 @@ subroutine formchk(chkname, fchname)
  buf = 'formchk '//TRIM(chkname)//' '//TRIM(fchname0)
 
 #ifdef _WIN32
- i = system(TRIM(buf)//' > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = system(TRIM(buf)//' > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then
@@ -51,7 +51,7 @@ end subroutine formchk
 ! wrapper of the Gaussian utility unfchk
 subroutine unfchk(fchname, chkname)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: chkname0
  character(len=500) :: buf
  character(len=240), intent(in) :: fchname
@@ -66,9 +66,9 @@ subroutine unfchk(fchname, chkname)
  buf = 'unfchk '//TRIM(fchname)//' '//TRIM(chkname0)
 
 #ifdef _WIN32
- i = system(TRIM(buf)//' > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = system(TRIM(buf)//' > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then
@@ -82,7 +82,7 @@ end subroutine unfchk
 ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
 subroutine gbw2mkl(gbwname, mklname)
  implicit none
- integer :: i, k, system, RENAME
+ integer :: i, k, SYSTEM, RENAME
  character(len=240), intent(in) :: gbwname
  character(len=240), optional :: mklname
  logical :: alive
@@ -96,9 +96,9 @@ subroutine gbw2mkl(gbwname, mklname)
 
  k = index(gbwname, '.gbw', back=.true.)
 #ifdef _WIN32
- i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > NUL')
+ i = SYSTEM('orca_2mkl '//gbwname(1:k-1)//' -mkl > NUL')
 #else
- i = system('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
+ i = SYSTEM('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
 #endif
 
  if(i /= 0) call prt_orca_2mkl_error(gbwname)
@@ -113,15 +113,15 @@ end subroutine gbw2mkl
 ! wrapper of the ORCA utility orca_2mkl, only .mkl -> .gbw
 subroutine mkl2gbw(mklname, gbwname)
  implicit none
- integer :: i, k, system, RENAME
+ integer :: i, k, SYSTEM, RENAME
  character(len=240), intent(in) :: mklname
  character(len=240), optional :: gbwname
 
  k = index(mklname, '.mkl', back=.true.)
 #ifdef _WIN32
- i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > NUL')
+ i = SYSTEM('orca_2mkl '//mklname(1:k-1)//' -gbw > NUL')
 #else
- i = system('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
+ i = SYSTEM('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
 #endif
 
  if(i /= 0) call prt_orca_2mkl_error(mklname)
@@ -148,23 +148,18 @@ end subroutine prt_orca_2mkl_error
 ! wrapper of the utility fch2psi
 subroutine fch2psi_wrap(fchname, inpname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=240) :: inpname1
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: inpname
 
 #ifdef _WIN32
- i = system('fch2psi '//TRIM(fchname)//' > NUL')
+ i = SYSTEM('fch2psi '//TRIM(fchname)//' > NUL')
 #else
- i = system('fch2psi '//TRIM(fchname)//' > /dev/null')
+ i = SYSTEM('fch2psi '//TRIM(fchname)//' > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2psi_wrap: failed to call utility f&
-                   &ch2psi.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ if(i /= 0) call prt_call_util_error('fch2psi', fchname)
 
  if(present(inpname)) then
   i = index(fchname, '.fch')
@@ -178,7 +173,7 @@ end subroutine fch2psi_wrap
 ! wrapper of the utility fch2inp
 subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  integer, intent(in) :: npair, nopen
  character(len=240) :: buf = ' ', buf2 = ' '
  character(len=240), intent(in) :: fchname
@@ -203,16 +198,16 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
   end if
 
 #ifdef _WIN32
-  i = system(TRIM(buf2)//' > NUL')
+  i = SYSTEM(TRIM(buf2)//' > NUL')
 #else
-  i = system(TRIM(buf2)//' > /dev/null')
+  i = SYSTEM(TRIM(buf2)//' > /dev/null')
 #endif
 
  else ! R(O)HF, UHF, CAS
 #ifdef _WIN32
-  i = system('fch2inp '//TRIM(fchname)//' > NUL')
+  i = SYSTEM('fch2inp '//TRIM(fchname)//' > NUL')
 #else
-  i = system('fch2inp '//TRIM(fchname)//' > /dev/null')
+  i = SYSTEM('fch2inp '//TRIM(fchname)//' > /dev/null')
 #endif
  end if
 
@@ -226,7 +221,7 @@ end subroutine fch2inp_wrap
 
 subroutine mkl2fch_wrap(mklname, fchname, prt_no)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240), intent(in) :: mklname, fchname
  character(len=500) :: buf
  logical, intent(in) :: prt_no
@@ -235,9 +230,9 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
  if(prt_no) buf = TRIM(buf)//' -no'
 
 #ifdef _WIN32
- i = system(TRIM(buf)//' > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = system(TRIM(buf)//' > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) then
@@ -250,22 +245,18 @@ end subroutine mkl2fch_wrap
 
 subroutine fch2mkl_wrap(fchname, mklname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=240) :: mklname1
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: mklname
 
 #ifdef _WIN32
- i = system('fch2mkl '//TRIM(fchname)//' > NUL')
+ i = SYSTEM('fch2mkl '//TRIM(fchname)//' > NUL')
 #else
- i = system('fch2mkl '//TRIM(fchname)//' > /dev/null')
+ i = SYSTEM('fch2mkl '//TRIM(fchname)//' > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2mkl_wrap: failed to call utility fch2mkl.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ if(i /= 0) call prt_call_util_error('fch2mkl', fchname)
 
  if(present(mklname)) then
   i = index(fchname, '.fch')
@@ -328,32 +319,22 @@ end subroutine chk2gbw
 
 subroutine fch_u2r_wrap(fchname)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240), intent(in) :: fchname
 
- i = system('fch_u2r '//TRIM(fchname))
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch_u2r_wrap: failed to call utility&
-                   & fch_u2r.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ i = SYSTEM('fch_u2r '//TRIM(fchname))
+ if(i /= 0) call prt_call_util_error('fch_u2r', fchname)
 end subroutine fch_u2r_wrap
 
 subroutine fch2dal_wrap(fchname, dalname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=240) :: molname, dalname1, molname1
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: dalname
 
- i = system('fch2dal '//TRIM(fchname))
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2dal_wrap: failed to call utility&
-                   & fch2dal.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ i = SYSTEM('fch2dal '//TRIM(fchname))
+ if(i /= 0) call prt_call_util_error('fch2dal', fchname)
 
  if(present(dalname)) then
   i = index(dalname, '.dal')
@@ -370,7 +351,7 @@ end subroutine fch2dal_wrap
 ! wrapper of utility fch2qchem
 subroutine fch2qchem_wrap(fchname, npair, inpname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  integer, intent(in) :: npair
  character(len=240) :: inpname0, dirname
  character(len=240), intent(in) :: fchname
@@ -382,17 +363,12 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
  if(npair > 0) write(buf,'(A,I0)') TRIM(buf)//' -gvb ', npair
 
 #ifdef _WIN32
- i = system(TRIM(buf)//' > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = system(TRIM(buf)//' > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2qchem_wrap: failed to call utility&
-                & fch2qchem.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ if(i /= 0) call prt_call_util_error('fch2qchem', fchname)
 
  if(present(inpname)) then
   dirname = ' '
@@ -412,7 +388,7 @@ end subroutine fch2qchem_wrap
 
 subroutine bas_fch2py_wrap(fchname, dft, pyname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=240) :: pyname0
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: pyname
@@ -423,17 +399,12 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  if(dft) buf = TRIM(buf)//' -dft'
 
 #ifdef _WIN32
- i = system(TRIM(buf)//' > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = system(TRIM(buf)//' > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_fch2py_wrap: failed to call utility&
-                & bas_fch2py.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ if(i /= 0) call prt_call_util_error('bas_fch2py', fchname)
 
  if(present(pyname)) then
   i = index(fchname, '.fch', back=.true.)
@@ -444,22 +415,18 @@ end subroutine bas_fch2py_wrap
 
 subroutine fch2com_wrap(fchname, inpname)
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=240) :: inpname1
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: inpname
 
 #ifdef _WIN32
- i = system('fch2com '//TRIM(fchname)//' > NUL')
+ i = SYSTEM('fch2com '//TRIM(fchname)//' > NUL')
 #else
- i = system('fch2com '//TRIM(fchname)//' > /dev/null')
+ i = SYSTEM('fch2com '//TRIM(fchname)//' > /dev/null')
 #endif
 
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2com_wrap: failed to call utility fch2com.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ if(i /= 0) call prt_call_util_error('fch2com', fchname)
 
  if(present(inpname)) then
   i = index(fchname, '.fch')
@@ -470,10 +437,34 @@ subroutine fch2com_wrap(fchname, inpname)
  end if
 end subroutine fch2com_wrap
 
+subroutine fch2inporb_wrap(fchname, inpname)
+ implicit none
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: inpname1
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: inpname
+
+#ifdef _WIN32
+ i = SYSTEM('fch2inporb '//TRIM(fchname)//' > NUL')
+#else
+ i = SYSTEM('fch2inporb '//TRIM(fchname)//' > /dev/null')
+#endif
+
+ if(i /= 0) call prt_call_util_error('fch2inporb', fchname)
+
+ if(present(inpname)) then
+  i = index(fchname, '.fch')
+  inpname1 = fchname(1:i-1)//'.input'
+  if(TRIM(inpname) /= TRIM(inpname1)) then
+   i = RENAME(TRIM(inpname1), TRIM(inpname))
+  end if
+ end if
+end subroutine fch2inporb_wrap
+
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  character(len=500) :: buf
  character(len=18), parameter :: txt = 'gvb_exclude_XH.txt'
  character(len=240), intent(in) :: datname, gmsname
@@ -483,7 +474,7 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
  if(reverted) buf = TRIM(buf)//' r' ! reverted use of this utility
  write(6,'(/,A)') '$'//TRIM(buf)
- i = system(TRIM(buf)//' >'//txt//" 2>&1")
+ i = SYSTEM(TRIM(buf)//' >'//txt//" 2>&1")
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine gvb_exclude_XH_A_wrap: failed to call&
@@ -502,6 +493,17 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  i = index(buf, ':')
  read(buf(i+1:),*) new_inp
 end subroutine gvb_exclude_XH_A_wrap
+
+subroutine prt_call_util_error(utilname, fchname)
+ implicit none
+ character(len=*), intent(in) :: utilname
+ character(len=240), intent(in) :: fchname
+
+ write(6,'(/,A)') 'ERROR in subroutine '//utilname//'_wrap: failed to call util&
+                  &ity '//utilname//'.'
+ write(6,'(A)') 'fchname='//TRIM(fchname)
+ stop
+end subroutine prt_call_util_error
 
 end module util_wrapper
 

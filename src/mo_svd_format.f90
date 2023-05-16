@@ -81,7 +81,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  do i = 1, nif, 1
   do j = i, nif, 1
    if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1d0
-   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
+   if(DABS(mo_ovlp(j,i)) > 1d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
  mo_ovlp = MATMUL(TRANSPOSE(coeff2), MATMUL(S,coeff2))
@@ -89,7 +89,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  do i = 1, nif, 1
   do j = i, nif, 1
    if(j==i) mo_ovlp(j,i) = mo_ovlp(j,i) - 1d0
-   if(DABS(mo_ovlp(j,i)) > 1.0d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
+   if(DABS(mo_ovlp(j,i)) > 1d-6) write(6,'(2I6,F15.8)') j, i, mo_ovlp(j,i)
   end do ! for j
  end do ! for i
  deallocate(mo_ovlp)

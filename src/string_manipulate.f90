@@ -1166,3 +1166,23 @@ subroutine add_force_key2orca_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_force_key2orca_inp
 
+! read the basis set name from the 2nd line of a specified .fch file
+subroutine read_basis_name_from_fch(fchname, basname)
+ implicit none
+ integer :: i, k, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ character(len=240), intent(out) :: basname
+
+ basname = ' '
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ buf = TRIM(buf)
+ k = LEN_TRIM(buf)
+ i = index(buf(1:k), ' ', back=.true.)
+ basname = TRIM(buf(i+1:))
+end subroutine read_basis_name_from_fch
+

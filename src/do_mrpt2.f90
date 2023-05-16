@@ -457,7 +457,7 @@ subroutine do_mrpt2()
 
   select case(caspt2_prog)
   case('molpro')
-   call read_grad_from_molpro_out(outname, 2, natom, grad)
+   call read_grad_from_molpro_out(outname, 'RSPT2', natom, grad)
   case('openmolcas')
    call read_grad_from_molcas_out(outname, natom, grad)
   case default
@@ -466,7 +466,7 @@ subroutine do_mrpt2()
    stop
   end select
 
-  write(6,'(A)') 'Cartesian gradients (HARTREE/BOHR):'
+  write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
   write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
  end if
 
@@ -1045,7 +1045,7 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
  write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(4(A,I0),A)',advance='no') '#p CAS(',nacte,',',nacto,') MP2&
+ write(fid,'(4(A,I0),A)',advance='no') '#p CASSCF(',nacte,',',nacto,') MP2&
  & chkbasis nosymm guess=read geom=allcheck iop(5/52=100)'
  ! IOp(5/52): configuration cutoff for mp2
  ! i     float(1/i)

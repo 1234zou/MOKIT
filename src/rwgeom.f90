@@ -801,44 +801,62 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  close(fid)
 end subroutine read_grad_from_orca_out
 
-! read CASSCF or CASPT2 Cartesian gradients from a given Molpro output file
-subroutine read_grad_from_molpro_out(outname, itype, natom, grad)
+! read Cartesian gradients from a given ORCA .engrad file
+subroutine read_grad_from_engrad(outname, natom, grad)
  implicit none
  integer :: i, k, fid
- integer, intent(in) :: itype, natom
- ! itype: 1/2 for CASSCF/CASPT2
+ integer, intent(in) :: natom
  real(kind=8), intent(out) :: grad(3*natom)
- character(len=10) :: key = ' '
- character(len=10), parameter :: key1 = 'MC GRADIEN'
- character(len=10), parameter :: key2 = 'RSPT2 GRAD'
+ character(len=1) :: str = ' '
+ character(len=2) :: elem = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
  grad = 0d0
- select case(itype)
- case(1) ! CASSCF
-  key = key1
- case(2) ! CASPT2
-  key = key2
- case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine read_grad_from_molpro_out: invalid &
-                      &itype=', itype
-  write(6,'(A)') 'Allowed values of itype are only 1 and 2.'
-  stop
- end select
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:18) == '# The current grad') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_grad_from_engrad: no '# The curren&
+                   &t grad' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(F21.12)') grad
+ close(fid)
+end subroutine read_grad_from_engrad
+
+! read CASSCF or CASPT2 Cartesian gradients from a given Molpro output file
+subroutine read_grad_from_molpro_out(outname, natom, grad)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ ! itype: 1/2 for CASSCF/CASPT2
+ real(kind=8), intent(out) :: grad(3*natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ grad = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(2:11) == key) exit
+  if(index(buf,'GRADIENT FOR S') > 0) exit
  end do ! for while
 
  do i = 1, 3
   read(fid,'(A)') buf
- end do
+ end do ! for i
 
  do i = 1, natom, 1
   read(fid,*) k, grad(3*i-2:3*i)
@@ -875,6 +893,43 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
 
  close(fid)
 end subroutine read_grad_from_bdf_out
+
+subroutine read_grad_from_psi4_out(outname, natom, grad)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ character(len=10) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: grad(3*natom)
+
+ grad = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(4:13) == 'Total grad') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_grad_from_psi4_out: no 'Total grad&
+                   &' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ do i = 1, natom, 1
+  read(fid,*) str, grad(3*i-2:3*i)
+ end do ! for i
+ close(fid)
+end subroutine read_grad_from_psi4_out
 
 ! read Cartesian xyz coordinates from a .xyz file
 ! Note: 1) return array coor(3,natom) are in unit Angstrom
