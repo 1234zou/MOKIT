@@ -27,7 +27,7 @@ program main
  mklname = ' '
  call getarg(1, mklname)
  call require_file_exist(mklname)
- call mkl2gjf(mklname, .true.)
+ call mkl2gjf(mklname)
 end program main
 
 ! generate Gaussian .gjf from ORCA .mkl file
