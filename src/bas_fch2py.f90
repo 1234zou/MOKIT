@@ -113,6 +113,7 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
  implicit none
  integer :: i, j, fid
  character(len=240) :: buf
+ character(len=480) :: longbuf
  character(len=240), intent(in) :: fchname
  character(len=15), intent(out) :: dftname
  logical, intent(out) :: is_hf, rotype, untype
@@ -125,9 +126,17 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
   if(i /= 0) exit
   if(buf(1:5) == 'Route') then
    read(fid,'(A)') buf
-   j = index(buf,'/')
-   i = index(buf(1:j-1), ' ', back=.true.)
-   dftname = buf(i+1:j-1)
+   ! in case that the Route Section is long and be divided into 2 lines, let's
+   ! read one more line
+   read(fid,'(A)') longbuf
+   if(longbuf(1:6) == 'Charge') then
+    longbuf = buf
+   else
+    longbuf = TRIM(buf)//TRIM(longbuf)
+   end if
+   j = index(longbuf,'/')
+   i = index(longbuf(1:j-1), ' ', back=.true.)
+   dftname = longbuf(i+1:j-1)
    exit
   end if
  end do ! for while

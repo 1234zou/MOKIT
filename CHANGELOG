@@ -1,4 +1,4 @@
-MOKIT 1.2.6 (May 15, 2023)
+MOKIT 1.2.6 (May 17, 2023)
 ------------------------
 * add RI-CCD/CCSD/CCSD(T) and analytical gradients interfaces in autosr
 * call programs to get analytical gradients of CASPT2 and MC-PDFT
