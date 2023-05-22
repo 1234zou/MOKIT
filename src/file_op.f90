@@ -193,3 +193,89 @@ subroutine remove_dir(dirname)
 #endif
 end subroutine remove_dir
 
+! export a real(kind=8) array into a plain .txt file
+subroutine export_rarray2txt(txtname, label, n, a)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ real(kind=8), intent(in) :: a(n)
+!f2py intent(in) :: a
+!f2py depend(n) :: a
+ character(len=25), parameter :: star = '*************************'
+ character(len=*), intent(in) :: label
+!f2py intent(in) :: label
+ character(len=240), intent(in) :: txtname
+!f2py intent(in) :: txtname
+
+ open(newunit=fid,file=TRIM(txtname),status='replace')
+ write(fid,'(A,I0)') 'n=', n
+ write(fid,'(A)') ' '//star//' '//label//' '//star
+
+ do i = 1, n, 1
+  write(fid,'(I5,1X,F11.5)') i, a(i)
+ end do ! for i
+
+ close(fid)
+end subroutine export_rarray2txt
+
+! export a square matrix into a plain .txt file
+subroutine export_mat_into_txt(txtname, n, mat, lower, label)
+ implicit none
+ integer :: i, j, k, m, na, fid
+ integer, intent(in) :: n
+ integer, allocatable :: a(:)
+ real(kind=8), intent(in) :: mat(n,n)
+ character(len=25), parameter :: star = '*************************'
+ character(len=25), intent(in) :: label
+ character(len=240), intent(in) :: txtname
+ logical, intent(in) :: lower ! True: lower triangle
+
+ open(newunit=fid,file=TRIM(txtname),status='replace')
+ write(fid,'(A,L1)') 'Lower_Triangle=',lower
+ write(fid,'(A,I0)') 'n=', n
+ write(fid,'(A)') ' '//star//' '//label//' '//star
+
+ m = n/5
+ if(n-5*m > 0) m = m + 1
+
+ if(lower) then ! lower triangle
+  do i = 1, m, 1
+   if(i < m) then
+    na = 5
+   else
+    na = n - 5*(m-1)
+   end if
+   allocate(a(na))
+   forall(j=1:na) a(j) = 5*i - 5 + j
+   write(fid,'(5I14)') a(1:na)
+   deallocate(a)
+
+   k = 5*i - 4
+   do j = k, n, 1
+    write(fid,'(I6,5(1X,ES15.8))') j, mat(k:min(k+4,j),j)
+   end do ! for j
+  end do ! for i
+
+ else           ! full matrix
+  do i = 1, m, 1
+   if(i < m) then
+    na = 5
+   else
+    na = n - 5*(m-1)
+   end if
+   allocate(a(na))
+   forall(j=1:na) a(j) = 5*i - 5 + j
+   write(fid,'(5I14)') a(1:na)
+   deallocate(a)
+
+   k = 5*i - 4
+   do j = 1, n, 1
+    write(fid,'(I6,5(1X,ES15.8))') j, mat(j,k:k+na-1)
+   end do ! for j
+  end do ! for i
+ end if
+
+ close(fid)
+end subroutine export_mat_into_txt
+

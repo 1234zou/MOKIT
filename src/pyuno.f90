@@ -242,54 +242,48 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
  end if
 end subroutine svd_on_ovlp
 
-subroutine svd_and_rotate(nalpha,nbeta,nbf,c_alpha,c_beta,alpha_beta_ovlp,sv,reverse)
+subroutine svd_and_rotate(na, nb, nbf, c_alpha, c_beta, ab_ovlp, sv, reverse)
  implicit none
  integer :: i
- integer, intent(in) :: nalpha, nbeta, nbf
- real(kind=8), intent(inout) :: c_alpha(nbf,nalpha), c_beta(nbf,nbeta)
- real(kind=8), intent(in) :: alpha_beta_ovlp(nalpha,nbeta)
- real(kind=8), intent(out) :: sv(nalpha)
- real(kind=8) :: u(nalpha,nalpha), vt(nbeta,nbeta)
+ integer, intent(in) :: na, nb, nbf
+ real(kind=8), intent(inout) :: c_alpha(nbf,na), c_beta(nbf,nb)
+ real(kind=8), intent(in) :: ab_ovlp(na,nb)
+ real(kind=8), intent(out) :: sv(na)
+ real(kind=8) :: u(na,na), vt(nb,nb)
  real(kind=8), allocatable :: sv2(:), u2(:,:), vt2(:,:)
  logical, intent(in) :: reverse
 
- sv = 0d0
- u = 0d0
- vt = 0d0
+ sv = 0d0; u = 0d0; vt = 0d0
 
  ! perform SVD on alpha_beta_ovlp of occupied or virtual orbitals
- call svd_on_ovlp(nalpha, nbeta, alpha_beta_ovlp, u, vt, sv)
+ call svd_on_ovlp(na, nb, ab_ovlp, u, vt, sv)
 
  ! rotate occupied or virtual orbitals
  if(reverse) then
-  allocate(sv2(nalpha))
-  forall(i = 1:nalpha) sv2(i) = sv(nalpha-i+1)
+  allocate(sv2(na))
+  forall(i = 1:na) sv2(i) = sv(na-i+1)
   sv = sv2
   deallocate(sv2)
-  allocate(u2(nalpha,nalpha), vt2(nbeta,nbeta))
-  forall(i = 1:nalpha) u2(:,i) = u(:,nalpha-i+1)
+  allocate(u2(na,na), vt2(nb,nb))
+  forall(i = 1:na) u2(:,i) = u(:,na-i+1)
   u = u2
-  forall(i = 1:nbeta) vt2(i,:) = vt(nbeta-i+1,:)
+  forall(i = 1:nb) vt2(i,:) = vt(nb-i+1,:)
   vt = vt2
   deallocate(u2, vt2)
  end if
 
- ! ?gemm: Computes a matrix-matrix product with general matrices
- ! Syntax FORTRAN 77:
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- allocate(u2(nbf,nalpha), source=0d0)
- allocate(vt2(nbf,nbeta), source=0d0)
- call dgemm('N', 'N', nbf, nalpha, nalpha, 1d0, c_alpha, nbf, u, nalpha, 0d0, u2, nbf)
- call dgemm('N', 'T', nbf, nbeta, nbeta, 1d0, c_beta, nbf, vt, nbeta, 0d0, vt2, nbf)
+ allocate(u2(nbf,na), source=0d0)
+ allocate(vt2(nbf,nb), source=0d0)
+ call dgemm('N', 'N', nbf, na, na, 1d0, c_alpha, nbf, u, na, 0d0, u2, nbf)
+ call dgemm('N', 'T', nbf, nb, nb, 1d0, c_beta, nbf, vt, nb, 0d0, vt2, nbf)
 
- c_alpha = u2
- c_beta = vt2
+ c_alpha = u2; c_beta = vt2
  deallocate(u2, vt2)
 end subroutine svd_and_rotate
 
 subroutine check_unity(n, a, maxv, abs_mean)
  implicit none
- integer :: i, j
+ integer :: i
  integer, intent(in) :: n
  real(kind=8), intent(in) :: a(n,n)
  real(kind=8), intent(out) :: maxv, abs_mean
@@ -297,8 +291,7 @@ subroutine check_unity(n, a, maxv, abs_mean)
 
  b = a
  forall(i = 1:n) b(i,i) = b(i,i) - 1d0
- forall(i=1:n, j=1:n) b(i,j) = DABS(b(i,j))
-
+ b = DABS(b)
  maxv = MAXVAL(b)
  abs_mean = SUM(b)/DBLE(n*n)
 end subroutine check_unity

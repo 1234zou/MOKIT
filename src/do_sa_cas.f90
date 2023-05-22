@@ -311,7 +311,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
                    &c.nelecas)'
  write(fid2,'(A)') '  ev, part_mo, hole_mo, fosc = gen_nto_and_fosc_from_mo_tdm&
                    &(nbf, nacto, mo_cas, \'
- write(fid2,'(A)') '                  tdm, dip_int, S, mc.e_tot[i]-mc.e_tot[0])'
+ write(fid2,'(A)') '                  tdm, dip_int, mc.e_tot[i]-mc.e_tot[0])'
  write(fid2,'(A)') '  noon[mc.ncore:idx2] = ev.copy()'
  write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = part_mo.copy()'
  write(fid2,'(A)') "  py2fch(part_fch,nbf,nif,mo,'a',noon,False,False)"

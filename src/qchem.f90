@@ -1,5 +1,32 @@
 ! written by jxzou at 20230217
 
+! Q-Chem .fch(k) -> AMESP (.aip, .amo)
+subroutine qchem2amesp(fchname, aipname)
+ implicit none
+ integer :: i, system, RENAME
+ character(len=240) :: std_fch, std_aip, std_orb, orbname
+ character(len=240), intent(in) :: fchname, aipname
+
+ i = index(aipname, '.inp', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine qchem2amesp: aipname must include '.aip&
+                   &' as suffix!"
+  stop
+ end if
+ orbname = aipname(1:i-1)//'.amo'
+
+ i = index(fchname, '.', back=.true.)
+ std_fch = fchname(1:i-1)//'_std.fch'
+ std_aip = fchname(1:i-1)//'_std.aip'
+ std_orb = fchname(1:i-1)//'_std.amo'
+
+ call standardize_fch(fchname)
+ i = system('fch2amo '//TRIM(std_fch))
+ call delete_file(std_fch)
+ i = RENAME(TRIM(std_aip), TRIM(aipname))
+ i = RENAME(TRIM(std_orb), TRIM(orbname))
+end subroutine qchem2amesp
+
 ! Q-Chem .fch(k) -> BDF (.inp, .scforb, .BAS)
 subroutine qchem2bdf(fchname, inpname)
  implicit none

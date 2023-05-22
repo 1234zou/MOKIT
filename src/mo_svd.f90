@@ -162,9 +162,6 @@ contains
   u = 0d0; vt = 0d0; s = 0d0
   allocate(a_copy(m,n), source=a)
  
-  ! ?gesvd: Computes the singular value decomposition of a general rectangular matrix
-  ! Syntax FORTRAN 77:
-  ! call dgesvd(jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info)
   lwork = -1
   allocate(work(1), source=0d0)
   call dgesvd('A', 'A', m, n, a_copy, m, s, u, m, vt, n, work, lwork, info)
@@ -192,19 +189,15 @@ subroutine mo_svd(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, reverse)
  integer :: i
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
-
  real(kind=8) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2)
 !f2py intent(inout) :: coeff1, coeff2
 !f2py depend(nbf1,nmo1) :: coeff1
 !f2py depend(nbf2,nmo2) :: coeff2
-
  real(kind=8) :: ao_ovlp(nbf1,nbf2)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf1,nbf2) :: ao_ovlp
-
  logical :: reverse
 !f2py intent(in) :: reverse
-
  real(kind=8), allocatable :: mo_ovlp(:,:), sv(:)
 
  ! compute MO basis overlap
@@ -301,13 +294,11 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
  integer :: i
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
-
  real(kind=8) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2), mo_e(nmo1)
 !f2py intent(inout) :: coeff1, coeff2, mo_e
 !f2py depend(nbf1,nmo1) :: coeff1
 !f2py depend(nbf2,nmo2) :: coeff2
 !f2py depend(nmo1) :: mo_e
-
  real(kind=8) :: ao_ovlp(nbf1,nbf2)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf1,nbf2) :: ao_ovlp
@@ -643,7 +634,7 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  new_mo1 = 0d0 ! C' = CU
  call dgemm('N','N', nbf1,nmo1,nmo1, 1d0,mo1,nbf1, u,nmo1, 0d0, new_mo1,nbf1)
  deallocate(u)
- ! now the 1~nmo2 spaces of twp basis set have maximum overlap, then rotate to
+ ! now the 1~nmo2 spaces of two basis set have maximum overlap, then rotate to
  ! resemble
  if(nmo2 == 1) return
 

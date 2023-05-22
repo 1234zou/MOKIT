@@ -11,6 +11,7 @@ subroutine do_hf(prt_mr_strategy)
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0d0
+ real(kind=8), parameter :: r_u_diff = 1d-5 ! a.u.
  character(len=24) :: data_string = ' '
  character(len=240) :: rhf_gjfname, uhf_gjfname, hf_prog_path
  logical :: eq, noiter
@@ -114,7 +115,7 @@ subroutine do_hf(prt_mr_strategy)
   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
   write(6,'(A,F18.8,1X,A,F7.3)')   'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
 
-  if(rhf_e - uhf_e > 1D-6) then
+  if(rhf_e - uhf_e > r_u_diff) then
    write(6,'(A)') 'UHF energy is lower, choose UHF wave function.'
    ist = 1
    mo_rhf = .false.

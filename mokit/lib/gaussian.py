@@ -252,3 +252,15 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None):
   noon = np.zeros(nif1)
   py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False, False)
 
+def export_mo_ev2txt(fchname):
+  '''
+  export the data of Alpha Orbital Energies section in a specified .fch file
+  into a plain text file
+  '''
+  from mokit.lib.rwwfn import read_eigenvalues_from_fch, export_rarray2txt
+
+  txtname = fchname[0:fchname.rindex('.fch')]+'.txt'
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  ev = read_eigenvalues_from_fch(fchname, nif, 'a')
+  export_rarray2txt(txtname, 'MO Eigenvalues', nif, ev)
+

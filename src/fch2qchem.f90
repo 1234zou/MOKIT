@@ -1,4 +1,4 @@
-! written by jxzou at 20220816: transfer MOs from Gaussian->Q-Chem
+! written by jxzou at 20220816: transfer MOs from Gaussian -> Q-Chem
 ! Thanks to wsr for the previous version of fch2qchem (https://gitlab.com/jeanwsr/mokit)
 
 ! Current limitations:
@@ -198,7 +198,7 @@ subroutine fch2qchem(fchname, npair)
   do i = 1, natom, 1
    if(LPSkip(i) /= 0) cycle
    write(fid,'(A)') elem(i)//'     0'
-   write(fid,'(A,2X,I2,2X,I3)') elem(i)//'-ECP', LMax(i), INT(RNFroz(i))
+   write(fid,'(A,2X,I2,2X,I3)') TRIM(elem(i))//'-ECP', LMax(i), INT(RNFroz(i))
    str = am_type1(LMax(i))
 
    do j = 1, 10, 1

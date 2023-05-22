@@ -443,18 +443,18 @@ end subroutine check_uhf_in_fch
 
 ! calculate the AO-based transition density matrix and oscillator strength,
 ! generate particle and hole NTOs, respectively
-subroutine gen_nto_and_fosc_from_mo_tdm(nbf, nmo, mo, mo_tdm, ao_dip, ao_ovlp, &
-                                        delta_e, ev, part_mo, hole_mo, fosc)
+subroutine gen_nto_and_fosc_from_mo_tdm(nbf, nmo, mo, mo_tdm, ao_dip, delta_e, &
+                                        ev, part_mo, hole_mo, fosc)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
  real(kind=8) :: td(3) ! transition dipole moment
  real(kind=8), intent(in) :: mo(nbf,nmo), mo_tdm(nmo,nmo), ao_dip(3,nbf,nbf), &
-  ao_ovlp(nbf,nbf), delta_e
-!f2py intent(in) :: mo, mo_tdm, ao_dip, ao_ovlp, delta_e
+  delta_e
+!f2py intent(in) :: mo, mo_tdm, ao_dip, delta_e
 !f2py depend(nbf,nmo) :: mo
-!f2py depend(nbf) :: ao_dip, ao_ovlp
+!f2py depend(nbf) :: ao_dip
 !f2py depend(nmo) :: mo_tdm
  real(kind=8), intent(out) :: ev(nmo), part_mo(nbf,nmo), hole_mo(nbf,nmo), fosc
 !f2py intent(out) :: ev, part_mo, hole_mo, fosc

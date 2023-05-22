@@ -804,11 +804,9 @@ end subroutine read_grad_from_orca_out
 ! read Cartesian gradients from a given ORCA .engrad file
 subroutine read_grad_from_engrad(outname, natom, grad)
  implicit none
- integer :: i, k, fid
+ integer :: i, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: grad(3*natom)
- character(len=1) :: str = ' '
- character(len=2) :: elem = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 

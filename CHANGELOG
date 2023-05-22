@@ -1,6 +1,8 @@
-MOKIT 1.2.6 (May 17, 2023)
+MOKIT 1.2.6 (May 21, 2023)
 ------------------------
-* add RI-CCD/CCSD/CCSD(T) and analytical gradients interfaces in autosr
+* add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> AMESP
+* add module mirror_wfn
+* add interfaces of RI-MP2/CCD/CCSD/CCSD(T) analytical gradients in autosr
 * call programs to get analytical gradients of CASPT2 and MC-PDFT
 * support HF_prog=PySCF in frag_guess_wfn
 * add attribute natorb in subroutine py2fch

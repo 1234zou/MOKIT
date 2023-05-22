@@ -124,27 +124,27 @@ module mr_keyword
 
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
-
  real(kind=8) :: on_thres = 2d-2 ! threshold for NO occupation number, ist=5
-
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
  character(len=4) :: GVB_conv = '1d-5'
- ! density matrix convergence criterion of GVB in GAMESS
- ! Default in GAMESS: 1d-5. If modified, 5d-4 recommended
- character(len=4)   :: localm = 'pm'  ! localization method: boys/pm
+ ! density matrix convergence criterion of GVB (1d-5 default in GAMESS)
+ ! TODO:
+ ! If a GVB or post-GVB calculation is requested, set to 1d-5 automatically
+ ! If a CASSCF or post-CAS calculation is requested, set to 5d-4 automatically
+ character(len=4) :: localm = 'pm'    ! localization method: boys/pm
+ character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
  character(len=240) :: gjfname = ' '  ! filename of the input .gjf file
  character(len=240) :: chgname = ' '  ! filename of the .chg file (background point charges)
  character(len=240) :: hf_fch = ' '   ! filename of the given .fch(k) file
  character(len=240) :: datname = ' '  ! filename of GAMESS GVB .dat file
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
  character(len=240) :: basname = ' '  ! file to store gen/genecp data
- character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
 
  logical :: openmp_molcas = .true. ! OpenMP/MPI version of OpenMolcas
- ! True/False for OpenMP/MPI. To be determined when running
+ ! True/False for OpenMP/MPI, automatically detected
 
- logical :: mo_rhf  = .false.      ! whether the initial wfn is RHF/UHF for True/False
+ logical :: mo_rhf  = .false.     ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
  ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
  ! the rhf/uhf variable/flag will be used in utilities like fch2inp
@@ -189,7 +189,10 @@ module mr_keyword
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
  logical :: fcgvb   = .false. ! GVB with all doubly occupied orbitals frozen
- logical :: HFonly  = .false. ! stop after HF calculations
+ ! TODO:
+ ! If a GVB or post-GVB calculation is performed, set to .False. automatically
+ ! If a CASSCF or post-CAS calculation is performed, set to .True. automatically
+ logical :: HFonly  = .false. ! stop after the HF calculations
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
  logical :: force = .false.       ! whether this is a force calculation
@@ -321,7 +324,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc4 (2023-May-17)'
+  write(6,'(A)') '           Version: 1.2.6rc5 (2023-May-21)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -833,7 +836,7 @@ contains
    case('mixed_spin')
     mixed_spin = .true.
    case('nstates')
-    read(longbuf(j+1:i-1),*) nstate ! used in SA-CASSCF (ground state not included)
+    read(longbuf(j+1:i-1),*) nstate ! SA-CASSCF (ground state not included)
     gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
     eist = 1
    case('tdhf')
@@ -1333,14 +1336,15 @@ contains
     case default
      write(6,'(A)') error_warn
      write(6,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
-                    & But you specify mrcisd_prog='//TRIM(mrcisd_prog)
+                    & But you specify'
+     write(6,'(A)') 'MRCISD_prog='//TRIM(mrcisd_prog)
      stop
     end select
    case(3) ! FIC-MRCISD
     if(mrcisd_prog /= 'orca') then
      write(6,'(A)') error_warn
-     write(6,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current&
-                      & mrcisd_prog='//TRIM(mrcisd_prog)
+     write(6,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current MRCI&
+                    &SD_prog='//TRIM(mrcisd_prog)
      stop
     end if
     if(X2C) then
@@ -1349,10 +1353,10 @@ contains
     end if
    case default
     write(6,'(/,A)') error_warn//'invalid CtrType.'
-    write(6,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17&
-                       & MRCISD_prog in MOKIT manual.'
+    write(6,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17 MRCI&
+                     &SD_prog in MOKIT manual.'
     write(6,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
-                     & MRCISD, respectively.'
+                   & MRCISD, respectively.'
     stop
    end select
 

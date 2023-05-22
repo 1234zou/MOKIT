@@ -735,7 +735,16 @@ subroutine prt_caspt2_orca_inp(inpname)
   write(fid2,'(A)') ' PTMethod FIC_CASPT2'
  end if
  write(fid2,'(A)') ' PTSettings'
- if(.not. caspt2k) write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
+ if(caspt2k) then
+  write(fid2,'(A)') '  TReg 2e-2'
+  ! According to my experience, assuming we are use the same converged CASSCF
+  !  orbitals but with different TReg, the default Treg=1e-2 sometimes makes
+  !  the CASCI ref weight too small, e.g. for a transition state geometry.
+  ! But 2e-2, 5e-2 or 1e-1 give similar and numerically stable results, and
+  !  the calculated CASCI ref weight is close to 0.8, so 2e-2 is used here.
+ else
+  write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
+ end if
  write(fid2,'(A)') '  MaxIter 200'
  write(fid2,'(A)') ' end'
  write(fid2,'(A)') 'end'

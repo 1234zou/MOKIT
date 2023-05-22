@@ -122,6 +122,11 @@ source-dir = "src"
 main = "extract_noon2fch.f90"
 
 [[executable]]
+name = "fch2amo"
+source-dir = "src"
+main = "fch2amo.f90"
+
+[[executable]]
 name = "fch2bdf"
 source-dir = "src"
 main = "fch2bdf.f90"
