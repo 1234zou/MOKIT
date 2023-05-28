@@ -155,7 +155,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  ! modify the input file for GVB with all doubly occupied orbitals frozen
  if(fcgvb) then
-  write(6,'(A)') 'Remark: fcgvb=.T. GVB with all doubly occupied orbitals frozen.'
+  write(6,'(A)') 'Remark: FcGVB=.T. GVB with all doubly occupied orbitals frozen.'
   call add_frz2gms_inp(inpname)
  end if
 
@@ -695,10 +695,11 @@ subroutine add_gvb_conv(inpname, GVB_conv)
 
  if(GVB_conv=='1d-5' .or. GVB_conv=='1D-5') return
  i =  index(inpname, '.inp', back=.true.)
- inpname1 = inpname(1:i-1)//'.tmp'
+ inpname1 = inpname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:5) == '$SCF') exit

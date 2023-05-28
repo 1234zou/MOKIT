@@ -68,14 +68,13 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  integer, intent(in) :: idx1, idx2
  ! idx1: the beginning index of target MOs (Fortran convention, 1,...)
  ! idx2: the final index of target MOs (Fortran convention, 1,...)
- integer, parameter :: iter_max = 1000
+ integer, parameter :: iter_max = 999
  integer, allocatable :: target_pair_idx(:), ideal_idx(:)
- real(kind=8), allocatable :: coeff(:,:), coeff1(:,:)
- real(kind=8), allocatable :: angle(:,:)
- real(kind=8), allocatable :: tmp_coeff(:), norm(:)
+ real(kind=8), allocatable :: coeff(:,:), coeff1(:,:), angle(:,:), norm(:)
+ real(kind=8), allocatable :: tmp_coeff(:)
  real(kind=8) :: tmp_norm
  character(len=240), intent(in) :: fchname
- logical :: same_idx
+ logical :: same_idx, in_bonding
  logical, intent(in) :: gau
  logical, allocatable :: paired(:)
 
@@ -90,31 +89,36 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  ! Task: sort the angles between any two orbitals by ascent order and pair them
  ! 1st step: turn all target MO coefficients into positive and calculate their norms
  nmo = idx2 - idx1 + 1
- allocate(coeff1(nbf,nmo), source=0d0)
- allocate(norm(nmo), source=0d0)
- forall(i = 1:nmo, j = 1:nbf) coeff1(j,i) = DABS(coeff(j,idx1-1+i))
- forall(i = 1:nmo) norm(i) = DOT_PRODUCT(coeff1(:,i), coeff1(:,i))
- forall(i = 1:nmo) norm(i) = DSQRT(norm(i))
+ allocate(coeff1(nbf,nmo), source=DABS(coeff(:,idx1:idx2)))
+ allocate(norm(nmo))
+ forall(i = 1:nmo) norm(i) = DSQRT(DOT_PRODUCT(coeff1(:,i), coeff1(:,i)))
 
  ! 2nd step: calculate the angles between any two active orbitals
  ! the angle here and below are in fact in its COSINE value
  allocate(angle(nmo, nmo), source=0d0)
  allocate(tmp_coeff(nbf), source=0d0)
  do i = 1, nmo-1, 1
+  if(i > nmo/2) then
+   in_bonding = .false.
+  else
+   in_bonding = .true.
+  end if
   tmp_norm = norm(i)
   tmp_coeff = coeff1(:,i)
 
   do j = i+1, nmo, 1
-   angle(j,i) = DOT_PRODUCT(coeff1(:,j),tmp_coeff)/(norm(j)*tmp_norm)
+   angle(j,i) = DOT_PRODUCT(coeff1(:,j), tmp_coeff)/(norm(j)*tmp_norm)
+   ! magnify the possible bond -> antibonding transition dipoles
+   if(in_bonding .and. j>nmo/2) angle(j,i) = angle(j,i)*1.25d0
    angle(i,j) = angle(j,i)
   end do ! for j
  end do ! for i
 
  deallocate(coeff1, norm, tmp_coeff)
  write(6,'(A)') 'Angle matrix:'
- do i = 1, nmo, 1
-  do j = 1, nmo, 1
-   write(6,'(2I4,F10.6)') j, i, angle(j,i)
+ do i = 1, nmo-1, 1
+  do j = i+1, nmo, 1
+   write(6,'(2I4,F10.6)') idx1-1+j, idx1-1+i, angle(j,i)
   end do ! for j
  end do ! for i
 
@@ -132,7 +136,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
  ! 4th step: iterate to achieve consistency
  tmp_idx = 0; iter = 0
  same_idx = .true.
- write(*,'(6I5)') target_pair_idx
+ write(6,'(6I5)') target_pair_idx
  do while(same_idx)
   same_idx = .false.
 
@@ -143,7 +147,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
     n = target_pair_idx(j)
 
     if(n==m .and. n/=0) then
-     if(angle(n,j) <= angle(n,i)) then
+     if(angle(n,j) < angle(n,i)) then
       tmp_norm = angle(n,j)
       angle(n,j) = -0.1d0
       tmp_idx = MAXLOC(angle(:,j))
@@ -158,8 +162,8 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
       paired(i) = .true.; paired(tmp_idx(1)) = .true.
       target_pair_idx(i) = tmp_idx(1)
       m = tmp_idx(1) ! udpate m
-      write(*,'(3I5,2F10.6)') i, j, n, angle(n,j), angle(n,i)
-      write(*,'(6I5)') target_pair_idx
+      write(6,'(3I5,2F10.6)') i, j, n, angle(n,j), angle(n,i)
+      write(6,'(6I5)') target_pair_idx
      end if
      same_idx = .true.
     end if
@@ -168,14 +172,13 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
   end do ! for i
 
   iter = iter + 1
-  if(iter >= iter_max) exit
-  if(iter == 4) stop
+  if(iter > iter_max) exit
  end do ! for while
 
  write(6,'(/,A,I0)') 'iter = ', iter
- if(iter >= iter_max) then
+ if(iter > iter_max) then
   write(6,'(A)') 'ERROR in subroutine gvb_correct_pairs: iter exceeds max_cycle&
-                 & 1000.'
+                 & 999.'
   stop
  end if
 
@@ -215,7 +218,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
   else
    write(6,'(A)') 'Warning: subroutine gvb_correct_pairs detected these&
                   & orbtials are not'
-   write(6,'(A)') 'strictly in GAMES GVB MO order.'
+   write(6,'(A)') 'strictly in GAMESS GVB MO order.'
   end if
   write(6,'(A)') 'Trying to re-pair...'
  else
@@ -231,9 +234,9 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
   j = target_pair_idx(i)
 
   if(j /= 0) then
-   write(6,'(3(I5,1X),F10.6)') i, i, j, angle(j,i)
+   write(6,'(3(I5,1X),F10.6)') i, idx1-1+i, idx1-1+j, angle(j,i)
   else
-   write(6,'(2(I5,1X),A)') i, i, 'singly occupied'
+   write(6,'(2(I5,1X),A)') i, idx1-1+i, 'singly occupied'
   end if
  end do ! for i
  deallocate(angle)

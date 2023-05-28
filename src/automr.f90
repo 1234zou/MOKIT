@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc5 :: MOKIT, release date: 2023-May-21'
+  write(6,'(A)') 'AutoMR 1.2.6rc6 :: MOKIT, release date: 2023-May-28'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -686,7 +686,7 @@ end subroutine prt_assoc_rot_script_into_py
 subroutine do_minimal_basis_gvb()
  use mol, only: mult, nbf, nif, nopen, ndb, npair
  use mr_keyword, only: nproc, ist, npair_wish, gjfname, localm, hf_fch, mo_rhf,&
-  nskip_uno, bgchg, fcgvb, inherit
+  nskip_uno, bgchg, inherit
  implicit none
  integer :: i, fid, system
  real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
@@ -709,7 +709,7 @@ subroutine do_minimal_basis_gvb()
  outname = gjfname(1:i-1)//'_proj_rem.out'
 
  call prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair_wish, nskip_uno, localm, &
-                            bgchg, fcgvb, inherit)
+                            bgchg, .true., inherit)
  call submit_automr_job(mbgjf)
  call read_hf_and_gvb_e_from_automr_out(mbout, e, uhf_s2)
  call read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
@@ -761,14 +761,15 @@ subroutine do_minimal_basis_gvb()
  if(i == 0) then
   if(nopen == 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_minimal_basis_gvb: GVB/STO-6G &
-                    &results shows that'
-   write(6,'(A)') 'this is a closed-shell singlet molecule.'
+                    &results shows'
+   write(6,'(A)') 'that this is a closed-shell singlet molecule.'
    stop
   else ! nopen > 0
-   write(6,'(/,A)') 'Warning from subroutine do_minimal_basis_gvb: GVB/STO-6G&
-                   & shows that this molecule'
-   write(6,'(A)') 'has npair=0. Calculation will be proceeded, but GVB and/or&
-                 & CASSCF will be identical to ROHF.'
+   write(6,'(/,A)') 'Warning from subroutine do_minimal_basis_gvb: GVB/STO-6G s&
+                   &hows that this'
+   write(6,'(A)') 'molecule has npair=0. Calculation will be proceeded, but GVB&
+                  & and/or CASSCF will'
+   write(6,'(A)') 'be identical to ROHF.'
   end if
  end if
 
@@ -824,7 +825,7 @@ subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
  end if
 
  if(bgchg) write(fid2,'(A)',advance='no') ',charge'
- write(fid2,'(A,/)') ',GVB_conv=5D-4}'
+ write(fid2,'(A,/)') ',GVB_conv=5d-4}'
 
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf

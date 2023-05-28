@@ -127,11 +127,8 @@ module mr_keyword
  real(kind=8) :: on_thres = 2d-2 ! threshold for NO occupation number, ist=5
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
- character(len=4) :: GVB_conv = '1d-5'
+ character(len=4) :: GVB_conv = '5d-4'
  ! density matrix convergence criterion of GVB (1d-5 default in GAMESS)
- ! TODO:
- ! If a GVB or post-GVB calculation is requested, set to 1d-5 automatically
- ! If a CASSCF or post-CAS calculation is requested, set to 5d-4 automatically
  character(len=4) :: localm = 'pm'    ! localization method: boys/pm
  character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
  character(len=240) :: gjfname = ' '  ! filename of the input .gjf file
@@ -188,10 +185,9 @@ module mr_keyword
  logical :: mrcisdt = .false. ! uncontracted MRCISDT
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
- logical :: fcgvb   = .false. ! GVB with all doubly occupied orbitals frozen
- ! TODO:
- ! If a GVB or post-GVB calculation is performed, set to .False. automatically
- ! If a CASSCF or post-CAS calculation is performed, set to .True. automatically
+ logical :: fcgvb   = .true.  ! GVB with all doubly occupied orbitals frozen
+ logical :: c_fcgvb = .false. ! whether the user has changed defaultFcGVB
+ logical :: c_gvb_conv = .false. ! whether the user has changed default GVB_conv
  logical :: HFonly  = .false. ! stop after the HF calculations
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
@@ -324,7 +320,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc5 (2023-May-21)'
+  write(6,'(A)') '           Version: 1.2.6rc6 (2023-May-28)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -785,6 +781,7 @@ contains
     read(longbuf(j+1:i-1),*) mrcc_prog
    case('gvb_conv')
     read(longbuf(j+1:i-1),*) GVB_conv
+    c_gvb_conv = .true.
    case('skip_uno')
     read(longbuf(j+1:i-1),*) nskip_uno
    case('root')
@@ -844,7 +841,9 @@ contains
    case('noqd')
     noQD = .true.
    case('fcgvb')
-    fcgvb = .true.
+    fcgvb = .true.; c_fcgvb = .true.
+   case('nofcgvb')
+    fcgvb = .false.
    case('hfonly')
     HFonly = .true.
    case('nodmrgno')
@@ -1031,13 +1030,13 @@ contains
   end if
 
   if(on_thres<0d0 .or. on_thres>1d0) then
-   write(6,'(A)') error_warn//'ON_thres must be in [0.0,1.0].'
+   write(6,'(/,A)') error_warn//'ON_thres must be in [0.0,1.0].'
    write(6,'(A,E12.5)') 'Your input ON_thres=', on_thres
    stop
   end if
 
   if(uno_thres<0d0 .or. uno_thres>1d0) then
-   write(6,'(A)') error_warn//'uno_thres must be in [0.0,1.0].'
+   write(6,'(/,A)') error_warn//'uno_thres must be in [0.0,1.0].'
    write(6,'(A,E12.5)') 'Your input uno_thres=', uno_thres
    stop
   end if
@@ -1183,9 +1182,15 @@ contains
   end select
 
   alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
-  if(X2C .and. alive(1)) then
-   write(6,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
-   stop
+  if(alive(1)) then
+   ! if (post-)GVB calculation is requested, set to GAMESS default
+   ! if (post-)CASSCF calculation is requested, use 5d-4 and FcGVB=.T.
+   if(.not. c_gvb_conv) GVB_conv = '1d-5'
+   if(.not. c_fcgvb) fcgvb = .false.
+   if(X2C) then
+    write(6,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
+    stop
+   end if
   end if
 
   if(hardwfn .and. crazywfn) then
@@ -1195,15 +1200,15 @@ contains
 
   if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
    write(6,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
-   write(6,'(A)') 'Wrong localm='//TRIM(localm)
+   write(6,'(A)') 'Wrong LocalM='//TRIM(localm)
    stop
   end if
 
   alive = [readrhf, readuhf, readno]
   i = COUNT(alive .eqv. .true.)
   if(i > 1) then
-   write(6,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'readno'&
-                   & are set as .True."
+   write(6,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'read&
+                 &no' are specified."
    write(6,'(A)') 'These three keywords are mutually exclusive.'
    stop
   end if
@@ -1214,7 +1219,8 @@ contains
   end if
 
   if(.not.readrhf .and. (ist==3 .or. ist==4)) then
-   write(6,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined with 'readrhf'."
+   write(6,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined w&
+                 &ith 'readrhf'."
    stop
   end if
 
@@ -1224,7 +1230,8 @@ contains
   end if
 
   if(.not.readuhf .and. (ist==1 .or. ist==2)) then
-   write(6,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined with 'readuhf'."
+   write(6,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined w&
+                 &ith 'readuhf'."
    stop
   end if
 
@@ -1474,8 +1481,8 @@ contains
   if((DKH2 .or. X2C) .and. cart) then
    write(6,'(A)') error_warn//'relativistic calculations using Cartesian'
    write(6,'(A)') 'functions may cause severe numerical instability. Please use&
-                  & spherical harmonic'
-   write(6,'(A)') 'type basis set.'
+                  & spherical'
+   write(6,'(A)') 'harmonic type basis set.'
    stop
   end if
 

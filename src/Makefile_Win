@@ -34,7 +34,7 @@ OBJ_dat2fch = file_op.obj string_manipulate.obj read_fch.obj math_sub.obj rwwfn.
               dat2fch.obj
 OBJ_extract_noon2fch = file_op.obj extract_noon2fch.obj
 OBJ_fch2amo = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
-              fch2amo.obj
+              split_sp.obj fch2amo.obj
 OBJ_fch2bdf = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj rwgeom.obj read_gms_inp.obj \
               split_sp.obj fch2bdf.obj
