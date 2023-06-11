@@ -107,6 +107,57 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  deallocate(e, e1, U, Ue)
 end subroutine mat_dsqrt
 
+! find the absolute value of the determinant of a square matrix by LU decomposition
+! A=PLU, where
+! P is a permutation matrix whose determinant is 1 or -1
+! L is lower triangular with unit diagonal elements, so its determinant is 1
+! U is upper triangular, so calculate the product of all diagonal elements
+function abs_det(n, a) result(res)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ integer, allocatable :: ipiv(:)
+ real(kind=8) :: res
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), allocatable :: a_copy(:,:), diag(:)
+
+ res = 0d0
+ allocate(ipiv(n), a_copy(n,n))
+ a_copy = a
+ call dgetrf(n, n, a_copy, n, ipiv, i) ! L/U is stored in a_copy
+ deallocate(ipiv)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in function det: info/=0 in subroutine dgetrf.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+
+ allocate(diag(n))
+ forall(i = 1:n) diag(i) = a_copy(i,i)
+ deallocate(a_copy)
+
+ res = PRODUCT(diag)
+ deallocate(diag)
+ if(res < 0d0) res = -res
+end function abs_det
+
+! solve the inverse matrix of a square matrix A (the user should make sure that
+! A is reversible)
+subroutine inverse(n, a, inv)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), intent(out) :: inv(n,n)
+ real(kind=8), allocatable :: identity(:,:)
+
+ allocate(identity(n,n), source=0d0)
+ forall(i = 1:n) identity(i,i) = 1d0
+ call solve_multi_lin_eqs(n, n, a, n, identity, inv)
+ deallocate(identity)
+end subroutine inverse
+
 ! solving systems of linear equations with multiple right-hand sides
 ! Ax = b, x can be with multiple right-hand sides
 subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
@@ -124,26 +175,26 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
 !f2py depend(a2,a3) :: x
  real(kind=8), allocatable :: a_copy(:,:), b_copy(:,:)
 
- ! mkl Syntax FORTRAN 77:
- ! ?getrf: Computes the LU factorization of a general m-by-n matrix
- ! call dgetrf(m, n, a, lda, ipiv, info)
-
- ! ?getrs: Solves a system of linear equations with an LU-factored square
- !  matrix, with multiple right-hand sides.
- ! call dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
+ x = 0d0
  allocate(a_copy(a1,a2), source=a)
  allocate(b_copy(a1,a3), source=b)
  allocate(ipiv(min(a1,a2)), source=0)
 
  call dgetrf(a1, a2, a_copy, a1, ipiv, i)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine solve_multi_lin_eqs: MKL subroutine&
-                     & dgetrf failed.'
+  write(6,'(/,A)') 'ERROR in subroutine solve_multi_lin_eqs: MKL subroutine dge&
+                   &trf failed.'
   write(6,'(A,I0)') 'info=', i
   stop
  end if
 
  call dgetrs('N', a2, a3, a_copy, a1, ipiv, b_copy, a1, i)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine solve_multi_lin_eqs: MKL subroutine dge&
+                   &trs failed.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
  deallocate(ipiv, a_copy)
 
  x = b_copy(1:a2,1:a3)

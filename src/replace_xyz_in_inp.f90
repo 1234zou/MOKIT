@@ -48,14 +48,16 @@ subroutine replace_xyz_in_inp(xyzname, inpname, itype)
  integer :: i, natom
  integer, intent(in) :: itype ! 1/2 for Molcas/Molpro/GAMESS
  real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: xyzname, inpname
 
  i = LEN_TRIM(xyzname)
 
  if(xyzname(i-3:i) == '.xyz') then
   call read_natom_from_xyz(xyzname, natom)
-  allocate(coor(3,natom))
-  call read_coor_from_xyz(xyzname, natom, coor)
+  allocate(elem(natom), coor(3,natom))
+  call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+  deallocate(elem)
  else
   select case(itype)
   case(1)

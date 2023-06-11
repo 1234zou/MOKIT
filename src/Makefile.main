@@ -83,7 +83,8 @@ OBJ_qchem = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
-OBJ_mirror_wfn = mirror_wfn.f90 file_op.o string_manipulate.o util_wrapper.o read_fch.o
+OBJ_mirror_wfn = mirror_wfn.f90 file_op.o string_manipulate.o util_wrapper.o \
+                 rwgeom.o math_sub.o read_fch.o
 OBJ_wfn_analysis = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
                    util_wrapper.f90 call_qc_calc_int.f90 rwgeom.f90 \
                    wfn_analysis.f90 read_gms_inp.o

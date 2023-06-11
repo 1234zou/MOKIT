@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (May 28, 2023)
+MOKIT 1.2.6 (Jun 11, 2023)
 ------------------------
+* add subroutines rotate_atoms_wfn and geom_lin_intrplt
 * set GVB_conv=5d-4 and FcGVB as default in (post-)CASSCF calculations
 * add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> AMESP
 * add module mirror_wfn

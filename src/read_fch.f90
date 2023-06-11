@@ -1141,3 +1141,68 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
  ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
 end subroutine calc_ncore
 
+! read the position marks of (P,SP)/5D/6D/7F/10F/9G/15G/11H/21H from the array
+! shell_type
+subroutine read_pdfgh_mark_from_shltyp(ncontr, shltyp, no_mark, mark)
+ implicit none
+ integer :: i, nbf
+ integer, intent(in) :: ncontr
+ integer, intent(in) :: shltyp(ncontr)
+ integer, intent(out) :: no_mark(9) ! No. of marks per angular momentum
+ integer, intent(out) :: mark(ncontr,9)
+ ! 9: P, 5D, 6D, 7F, 10F, 9G, 15G, 11H, 21H
+
+ nbf = 0; no_mark = 0; mark = 0
+
+ do i = 1, ncontr, 1
+  select case(shltyp(i))
+  case( 0)   ! S
+   nbf = nbf + 1
+  case( 1)   ! 3P
+   no_mark(1) = no_mark(1) + 1
+   mark(no_mark(1),1) = nbf + 1
+   nbf = nbf + 3
+  case(-1)   ! SP or L
+   no_mark(1) = no_mark(1) + 1
+   mark(no_mark(1),1) = nbf + 2
+   nbf = nbf + 4
+  case(-2)   ! 5D
+   no_mark(2) = no_mark(2) + 1
+   mark(no_mark(2),2) = nbf + 1
+   nbf = nbf + 5
+  case( 2)   ! 6D
+   no_mark(3) = no_mark(3) + 1
+   mark(no_mark(3),3) = nbf + 1
+   nbf = nbf + 6
+  case(-3)   ! 7F
+   no_mark(4) = no_mark(4) + 1
+   mark(no_mark(4),4) = nbf + 1
+   nbf = nbf + 7
+  case( 3)   ! 10F
+   no_mark(5) = no_mark(5) + 1
+   mark(no_mark(5),5) = nbf + 1
+   nbf = nbf + 10
+  case(-4)   ! 9G
+   no_mark(6) = no_mark(6) + 1
+   mark(no_mark(6),6) = nbf + 1
+   nbf = nbf + 9
+  case( 4)   ! 15G
+   no_mark(7) = no_mark(7) + 1
+   mark(no_mark(7),7) = nbf + 1
+   nbf = nbf + 15
+  case(-5)   ! 11H
+   no_mark(8) = no_mark(8) + 1
+   mark(no_mark(8),8) = nbf + 1
+   nbf = nbf + 11
+  case( 5)   ! 21H
+   no_mark(9) = no_mark(9) + 1
+   mark(no_mark(9),9) = nbf + 1
+   nbf = nbf + 21
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine read_pdfgh_mark_from_shltyp:'
+   write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
+   stop
+  end select
+ end do ! for i
+end subroutine read_pdfgh_mark_from_shltyp
+

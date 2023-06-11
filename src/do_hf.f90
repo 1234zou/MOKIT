@@ -554,10 +554,16 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  i = index(buf, '=')
  read(buf(i+1:),*) e
 
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = index(buf, 'S**2')
- if(i /= 0) read(buf(i+6:),*) ss
+ ! We do not read <S**2> below 'SCF Done' because when the spin is very high,
+ !  the format here would become <S**2>=******* due to Fortran features.
+ ! Instead, we search the 'S**2 before annihilation' below 'SCF Done'
+ do i = 1, 7
+  read(fid,'(A)') buf
+  if(buf(2:14) == 'S**2 before a') then
+   read(buf(26:),*) ss
+   exit
+  end if
+ end do ! for i
 
  close(fid)
 end subroutine read_hf_e_and_ss_from_gau_out

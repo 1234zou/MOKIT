@@ -564,7 +564,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
   if(i < nfrag) then
-   write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
+   write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
                                     ', frags(i)%ssquare=', frags(i)%ssquare
   end if
   chkname = frags(i)%fname(1:j-1)//'.chk'
@@ -597,7 +597,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   frags(i)%noiter = .false.
   call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
                          frags(i)%e, frags(i)%ssquare)
-  write(6,'(A,I3,A,F18.9,A,F6.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
+  write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
                                    ', frags(i)%ssquare=', frags(i)%ssquare
   write(6,'(/,A)') 'If you are performing a GKS-EDA calculation using DFT or a &
                    &LMO-EDA calculation'
@@ -624,7 +624,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call modify_guess_only_in_gjf(frags(3)%fname)
   call do_scf_and_read_e(gau_path, hf_prog_path, frags(3)%fname, frags(3)%noiter, &
                          frags(3)%e, frags(3)%ssquare)
-  write(6,'(A,F18.9,A,F6.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
+  write(6,'(A,F18.9,A,F7.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
                               ', frags(i)%ssquare=', frags(3)%ssquare
  end select
  call delete_file(frags(nfrag)%fname)

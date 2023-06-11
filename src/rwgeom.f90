@@ -324,6 +324,27 @@ subroutine read_natom_from_molpro_out(outname, natom)
  close(fid)
 end subroutine read_natom_from_molpro_out
 
+subroutine read_coor_from_gjf_or_xyz(fname, natom, coor)
+ implicit none
+ integer :: i, charge, mult
+ integer, intent(in) :: natom
+ integer, allocatable :: nuc(:)
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: fname
+
+ i = index(fname, '.xyz', back=.true.)
+ if(i > 0) then
+  allocate(elem(natom))
+  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
+  deallocate(elem)
+ else ! not .xyz, assume it be .gjf
+  allocate(elem(natom), nuc(natom))
+  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
+  deallocate(elem, nuc)
+ end if
+end subroutine read_coor_from_gjf_or_xyz
+
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
@@ -933,18 +954,18 @@ end subroutine read_grad_from_psi4_out
 ! Note: 1) return array coor(3,natom) are in unit Angstrom
 !       2) if 'bohr' key is found in the 2nd line of the xyz file,
 !          coor will be multiplied by Bohr_const
-subroutine read_coor_from_xyz(xyzname, natom, coor)
+subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
- character(len=3) :: elem
+ character(len=2), intent(out) :: elem(natom)
  character(len=240) :: buf
  character(len=240), intent(in) :: xyzname
  logical :: bohr
 
- coor = 0d0
+ elem = '  '; coor = 0d0
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
  read(fid,'(A)') buf
  read(fid,'(A)') buf
@@ -953,9 +974,10 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  call lower(buf)
  if(index(buf,'bohr') > 0) then
   if(index(buf,'angstrom') > 0) then
-   write(6,'(A)') "ERROR in subroutine read_coor_from_xyz: it's confusing&
-                  & because both 'bohr' and 'angstrom'"
-   write(6,'(A)') 'are detected in the 2nd line of file '//TRIM(xyzname)
+   write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_xyz: it's confus&
+                  &ing because both"
+   write(6,'(A)') "'bohr' and 'angstrom' are detected in the 2nd line of file "&
+                  //TRIM(xyzname)
    close(fid)
    stop
   else
@@ -964,10 +986,11 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
  end if
 
  do i = 1, natom, 1
-  read(fid,*,iostat=k) elem, coor(1:3,i)
+  read(fid,*,iostat=k) elem(i), coor(1:3,i)
   if(k /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_coor_from_xyz: insufficient&
-                  & number of atoms in file '//TRIM(xyzname)
+   write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_xyz: insufficien&
+                  &t number of atoms'
+   write(6,'(A)') 'in file '//TRIM(xyzname)
    write(6,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
    close(fid)
    stop
@@ -976,7 +999,7 @@ subroutine read_coor_from_xyz(xyzname, natom, coor)
 
  close(fid)
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
-end subroutine read_coor_from_xyz
+end subroutine read_elem_and_coor_from_xyz
 
 ! read the number of frames from xyz file
 subroutine read_nframe_from_xyz(xyzname, nframe)
@@ -1277,6 +1300,38 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
  close(fid)
 end subroutine read_coor_from_molpro_out
 
+! write/create a .gjf file
+subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: charge, mult, natom
+ real(kind=8), intent(in) :: coor(3,natom)
+ character(len=240) :: chkname
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: gjfname
+
+ i = index(gjfname, '.gjf', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine write_gjf: no '.gjf' suffix found in fi&
+                   &lename "//TRIM(gjfname)
+  stop
+ end if
+ chkname = gjfname(1:i-1)//'.chk'
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
+ write(fid,'(A)') '%nprocshared=4'
+ write(fid,'(A)') '%mem=2GB'
+ write(fid,'(A,//,A,//,I0,1X,I0)') '#p B3LYP/6-31G(d,p) em=GD3BJ', 'Title', &
+                                    charge, mult
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+ end do ! for i
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+end subroutine write_gjf
+
 ! write/create a .xyz file
 subroutine write_xyzfile(natom, elem, coor, xyzname)
  implicit none
@@ -1371,4 +1426,57 @@ function calc_an_int_coor(n, coor) result(val)
   stop
  end select
 end function calc_an_int_coor
+
+! convert a .gjf file into a .xyz file
+subroutine gjf2xyz(gjfname)
+ implicit none
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: xyzname
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ i = index(gjfname, '.gjf', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine gjf2xyz: '.gjf' suffix not found in fil&
+                   &ename "//TRIM(gjfname)
+  stop
+ end if
+ xyzname = gjfname(1:i-1)//'.xyz'
+
+ call read_natom_from_gjf(gjfname, natom)
+ allocate(elem(natom), nuc(natom), coor(3,natom))
+ call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+ deallocate(nuc)
+ call write_xyzfile(natom, elem, coor, xyzname)
+ deallocate(elem, coor)
+end subroutine gjf2xyz
+
+! convert a .xyz file into a .gjf file
+subroutine xyz2gjf(xyzname)
+ implicit none
+ integer :: i, natom, charge, mult
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: gjfname
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+
+ i = index(xyzname, '.xyz', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine xyz2gjf: '.xyz' suffix not found in fil&
+                   &ename "//TRIM(xyzname)
+  stop
+ end if
+ gjfname = xyzname(1:i-1)//'.gjf'
+ charge = 0; mult = 1  ! initialization
+
+ call read_natom_from_xyz(xyzname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+ call write_gjf(gjfname, charge, mult, natom, elem, coor)
+ deallocate(elem, coor)
+end subroutine xyz2gjf
 
