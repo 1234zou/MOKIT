@@ -536,7 +536,7 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
    write(fid2,'(A)') ' DIRSCF=.T. $END'
   else ! nopen >= 3
    write(fid2,'(A)') ' DIRSCF=.T. COUPLE=.T.'
-   call prt_gvb_couple_coeff(fid2, nopen)
+   call prt_gvb_couple_coeff(fid2, ncore, nopen)
    write(fid2,'(A)') ' $END'
   end if
  end if

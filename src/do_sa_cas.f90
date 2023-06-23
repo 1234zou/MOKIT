@@ -288,8 +288,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'mc.kernel(mo)'
 
  ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
- write(fid2,'(/,A)') '# calculate oscillator strength and NTOs of transition |0&
-                     &> -> |i>'
+ write(fid2,'(/,A)') '# calculate oscillator strengths and NTOs of transition |&
+                     &0> -> |i>'
  write(fid2,'(A)') 'charges = mol.atom_charges()'
  write(fid2,'(A)') 'coords = mol.atom_coords()'
  write(fid2,'(A)') "charge_center = np.einsum('z,zx->x', charges, coords)/charg&

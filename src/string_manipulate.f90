@@ -977,24 +977,43 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
 end subroutine read_disp_ver_from_gjf
 
 ! print Fock operator coupling coefficients for ROGVB when nopen>=3
-subroutine prt_gvb_couple_coeff(fid, nopen)
+subroutine prt_gvb_couple_coeff(fid, ndb, nopen)
  implicit none
  integer :: i, ia
- integer, intent(in) :: fid, nopen
+ integer, intent(in) :: fid, ndb, nopen
  character(len=3), allocatable :: f(:), alpha(:)
  character(len=4), allocatable :: beta(:)
 
+ if(nopen < 3) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_gvb_couple_coeff: nopen<3.'
+  close(fid)
+  stop
+ end if
+
  allocate(f(nopen))
  f = '0.5'
- ia = nopen*(nopen+3)/2
+ if(ndb > 0) then
+  ia = nopen*(nopen+3)/2
+ else
+  ia = nopen*(nopen+1)/2
+ end if
  allocate(alpha(ia))
  alpha = '0.5'
- forall(i = 1:nopen) alpha(i*(i+1)/2) = '1.0'
+ if(ndb > 0) then
+  forall(i = 1:nopen) alpha(i*(i+1)/2) = '1.0'
+ end if
  allocate(beta(ia))
  beta = '-0.5'
- write(fid,'(A,10(A1,A3))') '  F(1)=1.0', (',',f(i),i=1,nopen)
- write(fid,'(A,15(A1,A3))') '  ALPHA(1)=2.0', (',',alpha(i),i=1,ia)
- write(fid,'(A,12(A1,A4))') '  BETA(1)=-1.0', (',',beta(i),i=1,ia)
+
+ if(ndb > 0) then
+  write(fid,'(A,17(A1,A3))') '  F(1)=1.0', (',',f(i),i=1,nopen)
+  write(fid,'(A,15(A1,A3))') '  ALPHA(1)=2.0', (',',alpha(i),i=1,ia)
+  write(fid,'(A,12(A1,A4))') '  BETA(1)=-1.0', (',',beta(i),i=1,ia)
+ else
+  write(fid,'(A,17(A3,A1))') '  F(1)=', (f(i),',',i=1,nopen)
+  write(fid,'(A,16(A3,A1))') '  ALPHA(1)=', (alpha(i),',',i=1,ia)
+  write(fid,'(A,13(A4,A1))') '  BETA(1)=', (beta(i),',',i=1,ia)
+ end if
 
  deallocate(f, alpha, beta)
 end subroutine prt_gvb_couple_coeff

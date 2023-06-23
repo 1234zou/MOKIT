@@ -1380,7 +1380,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
   write(6,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
   write(6,'(A)') 'If yes, reducing the number of processors and re-run may do&
                  & dome help.'
-  write(6,'(A)') "If not, check if there is any error message like 'gamess.01.x&
+  write(6,'(A)') "If no, check if there is any error message like 'gamess.01.x&
                  & could not be found'."
   write(6,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
                  & manual.'

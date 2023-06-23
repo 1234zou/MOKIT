@@ -5,7 +5,8 @@ OBJ_align_orbitals = file_op.o math_sub.o rwwfn.o align_orbitals.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rwwfn.o read_fch.o rwgeom.o read_gms_inp.o do_hf.o do_gvb.o do_cas.o \
              do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o call_qc_calc_int.o \
-             do_pes_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o automr.o
+             do_pes_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o lo.o \
+             automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              do_hf.o rwwfn.o read_fch.o rwgeom.o call_qc_calc_int.o autosr.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o

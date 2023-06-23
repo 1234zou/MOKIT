@@ -1322,8 +1322,8 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A)') '%nprocshared=4'
  write(fid,'(A)') '%mem=2GB'
- write(fid,'(A,//,A,//,I0,1X,I0)') '#p B3LYP/6-31G(d,p) em=GD3BJ', 'Title', &
-                                    charge, mult
+ write(fid,'(A,//,A,//,I0,1X,I0)') '#p B3LYP/6-31G(d,p) em=GD3BJ nosymm', &
+                                   'Title', charge, mult
  do i = 1, natom, 1
   write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
  end do ! for i

@@ -67,6 +67,67 @@
 ! deallocate(U)
 !end subroutine no
 
+! localize singly occupied orbitals in a .fch file
+subroutine localize_singly_occ_orb(fchname)
+ implicit none
+ integer :: na, nb
+ character(len=240), intent(in) :: fchname
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ call localize_orb(fchname, nb+1, na)
+end subroutine localize_singly_occ_orb
+
+! the loc() function in mokit.lib.gaussian is called to localize specified
+! orbitals in a .fch(k) file using the PM method
+subroutine localize_orb(fchname, i1, i2)
+ implicit none
+ integer :: i, nbf, nif, fid, RENAME, SYSTEM
+ integer, intent(in) :: i1, i2 ! Fortran convention
+ real(kind=8), allocatable :: noon(:)
+ character(len=240) :: lmofch, pyname
+ character(len=240), intent(in) :: fchname
+ logical :: alive
+
+ i = index(fchname, '.fch', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine localize_orb: no '.fch' suffix found in&
+                   & filename "//TRIM(fchname)
+  stop
+ end if
+ lmofch = fchname(1:i-1)//'_LMO.fch'
+ pyname = fchname(1:i-1)//'.py'
+
+ if(i2 < i1) then
+  write(6,'(/,A)') 'ERROR in subroutine localize_orb: i2<i1. Invalid values.'
+  write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2
+  stop
+ end if
+
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from mokit.lib.gaussian import loc'
+ write(fid,'(2(A,I0),A)') "loc(fchname='"//TRIM(fchname)//"',idx=range(", i1-1,&
+                          ',',i2,'))'
+ close(fid)
+
+ i = SYSTEM('python '//TRIM(pyname)//' > /dev/null')
+ call delete_file(pyname)
+
+ inquire(file=TRIM(lmofch),exist=alive)
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine localize_orb: file '//TRIM(lmofch)//' d&
+                   &oes not exist.'
+  stop
+ end if
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(noon(nif))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
+ call write_eigenvalues_to_fch(lmofch, nif, 'a', noon, .true.)
+ deallocate(noon)
+
+ i = RENAME(TRIM(lmofch), TRIM(fchname))
+end subroutine localize_orb
+
 ! generate AO-basis density matrix based on a .fch file
 ! Note: be careful about the itype!
 subroutine gen_ao_dm_from_fch(fchname, itype, nbf, dm)
@@ -737,7 +798,6 @@ end subroutine get_u
 
 subroutine idx_map_2d(n, k, p, q)
  implicit none
- integer :: i
  integer, intent(in) :: n, k
  integer, intent(out) :: p, q
 

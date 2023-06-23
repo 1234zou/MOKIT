@@ -506,7 +506,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   else ! mult >=4, i.e. >=3 e-
    write(fid,'(A)') ' DIRSCF=.T. COUPLE=.T.'
    if(DIIS) write(fid,'(A)') '  DIIS=.T. SOSCF=.F.'
-   call prt_gvb_couple_coeff(fid, nopen)
+   call prt_gvb_couple_coeff(fid, ncore, nopen)
    write(fid,'(A)') ' $END'
   end if
  case default

@@ -12,7 +12,8 @@ subroutine do_gvb()
  implicit none
  integer :: i
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, proname1, pair_fch, inpname, datname, gmsname
+ character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, datname,&
+                       gmsname
 
  if(.not. gvb) return
  write(6,'(//,A)') 'Enter subroutine do_gvb...'
@@ -69,13 +70,20 @@ subroutine do_gvb()
   stop
  end select
 
+ if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+  write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+ else ! paired LMOs obtained from associated rotation of UNOs
+  write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
+ end if
+
+ ! localize singly occupied orbitals (if any)
+ if(nopen > 0) then
+  sort_fch = TRIM(proname1)//'_s.fch'
+  call localize_singly_occ_orb(sort_fch)
+ end if
+
  ! exclude X-H bonds with little multi-reference characters from GVB active space
  if(excludeXH) then
-  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-   write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
-  else ! paired LMOs obtained from associated rotation of UNOs
-   write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
-  end if
   datname = TRIM(proname1)//'.dat'
   gmsname = TRIM(proname1)//'.gms'
   pair_fch = TRIM(proname1)//'_s.fch'
@@ -86,7 +94,7 @@ subroutine do_gvb()
   call do_gvb_gms(inpname, pair_fch, .true.)
  end if
 
- ! determine the number of orbitals/electrons in following CAS/DMRG computations
+ ! determine the number of orbitals/electrons in subsequent CAS/DMRG computations
  nacta = npair0 + nopen
  nactb = npair0
  nacte = nacta + nactb
@@ -708,11 +716,18 @@ subroutine add_gvb_conv(inpname, GVB_conv)
 
  i = index(buf, '$END')
  if(i > 0) then
-  buf = buf(1:i-1)//' CONV='//GVB_conv//' $END'
+  buf = buf(1:i-1)//'CONV='//GVB_conv//' $END'
  else
   buf = TRIM(buf)//' CONV='//GVB_conv
  end if
- write(fid1,'(A)') TRIM(buf)
+
+ if(LEN_TRIM(buf) > 79) then
+  i = index(buf(1:79), ' ', back=.true.)
+  write(fid1,'(A)') buf(1:i-1)
+  write(fid1,'(A)') ' '//TRIM(buf(i+1:))
+ else
+  write(fid1,'(A)') TRIM(buf)
+ end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -761,9 +776,15 @@ subroutine add_frz2gms_inp(inpname)
   end do ! for while
  end if
 
- write(fid1,'(A)',advance='no') ' $MOFRZ FRZ=.T. IFRZ(1)='
- write(fid1,'(19(I0,A1))') (i,',',i=1,ncore)
- write(fid1,'(A)') ' $END'
+ if(ncore > 0) then
+  write(fid1,'(A)',advance='no') ' $MOFRZ FRZ=.T. IFRZ(1)='
+  if(ncore > 1) then
+   write(fid1,'(19(I0,A1))') (i,',',i=1,ncore)
+  else ! ncore == 1
+   write(fid1,'(A)') '1'
+  end if
+  write(fid1,'(A)') ' $END'
+ end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

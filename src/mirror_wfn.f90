@@ -3,23 +3,29 @@
 
 module bas_rot
  implicit none
- real(kind=8), parameter :: root3 = DSQRT(3d0), root5 = DSQRT(5d0), &
-  root10 = DSQRT(10d0), root14 = DSQRT(14d0), root15 = DSQRT(15d0), &
-  root35 = DSQRT(35d0), root70 = DSQRT(70d0), root105 = DSQRT(105d0)
- real(kind=8), parameter :: vec7f(3,7) = RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, &
-  1d0,root3,1d0, 1d0,0d0,1d0, 0d0,1d0,1d0, 1d0,1d0,0d0, root3,1d0,root5], [3,7])
- real(kind=8), parameter :: vec9g(3,9) = RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, &
+ real(kind=8), parameter :: root2 = DSQRT(2d0), root3 = DSQRT(3d0), &
+  root5 = DSQRT(5d0), root7 = DSQRT(7d0), root10 = DSQRT(10d0), &
+  root14 = DSQRT(14d0), root15 = DSQRT(15d0), root21 = DSQRT(21d0), &
+  root30 = DSQRT(30d0), root35 = DSQRT(35d0), root70 = DSQRT(70d0), &
+  root105 = DSQRT(105d0)
+
+ ! Note: there is no need to declare vec7f, vec9g, etc, we can simply use
+ ! part of the array vec21h
+ real(kind=8), parameter :: vec21h(3,21) = RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, &
   1d0,root3,1d0, 1d0,0d0,1d0, 0d0,1d0,1d0, 1d0,1d0,0d0, root3,1d0,root5, &
-  root5,1d0,root3, root5,root3,1d0], [3,9])
- real(kind=8), parameter :: vec11h(3,11) = RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, &
-  1d0,root3,1d0, 1d0,0d0,1d0, 0d0,1d0,1d0, 1d0,1d0,0d0, root3,1d0,root5, &
-  root5,1d0,root3, root5,root3,1d0, root3,10d0,-root14, root3,-root14,10d0], &
-  [3,11])
- real(kind=8), allocatable :: A_7f(:,:), A_9g(:,:), A_11h(:,:), invA_7f(:,:), &
-  invA_9g(:,:), invA_11h(:,:)
+  root5,1d0,root3, root5,root3,1d0, root3,-10d0,-root14, -root3,-root14,10d0, &
+  -root10,7d0,-root15, -root10,-root15,7d0, 7d0,-root10,-root15, &
+  7d0,-root15,-root10, -root14,root3,-10d0, -root14,-10d0,root3, & 
+  -root21,5d0,root7, -root21,root7,5d0, root7,-root21,5d0, root7,5d0,-root21],&
+  [3,21])
+
+ real(kind=8), allocatable :: A_7f(:,:), A_10f(:,:), A_9g(:,:), A_15g(:,:), &
+  A_11h(:,:), A_21h(:,:), invA_7f(:,:), invA_10f(:,:), invA_9g(:,:), &
+  invA_15g(:,:), invA_11h(:,:), invA_21h(:,:)
+
 contains
 
-! Hard-coding of invA_7f, invA_9g, or invA_11h is so tedious that typos will
+! Hard-coding of invA_7f, invA_9g, or higher is so tedious that typos will
 !  probably occur, so here we solve the three inverse matrices numerically.
 ! The invA_5d is hard-coded in the subroutine get_rot_mat_5d.
 subroutine get_invA(n)
@@ -28,21 +34,36 @@ subroutine get_invA(n)
  integer, intent(in) :: n
 
  select case(n)
- case(7)
+ case(7) ! 7F
   allocate(A_7f(7,7), invA_7f(7,7))
-  forall(i = 1:7) A_7f(:,i) = get7f_vector(vec7f(:,i))
+  forall(i = 1:7) A_7f(:,i) = get7f_vector(vec21h(:,i))
   call inverse(7, A_7f, invA_7f)
   deallocate(A_7f)
- case(9)
+ case(10) ! 10F
+  allocate(A_10f(10,10), invA_10f(10,10))
+  forall(i = 1:10) A_10f(:,i) = get10f_vector(vec21h(:,i))
+  call inverse(10, A_10f, invA_10f)
+  deallocate(A_10f)
+ case(9) ! 9G
   allocate(A_9g(9,9), invA_9g(9,9))
-  forall(i = 1:9) A_9g(:,i) = get9g_vector(vec9g(:,i))
+  forall(i = 1:9) A_9g(:,i) = get9g_vector(vec21h(:,i))
   call inverse(9, A_9g, invA_9g)
   deallocate(A_9g)
- case(11)
+ case(15) ! 15G
+  allocate(A_15g(15,15), invA_15g(15,15))
+  forall(i = 1:15) A_15g(:,i) = get15g_vector(vec21h(:,i))
+  call inverse(15, A_15g, invA_15g)
+  deallocate(A_15g)
+ case(11) ! 11H
   allocate(A_11h(11,11), invA_11h(11,11))
-  forall(i = 1:11) A_11h(:,i) = get11h_vector(vec11h(:,i))
+  forall(i = 1:11) A_11h(:,i) = get11h_vector(vec21h(:,i))
   call inverse(11, A_11h, invA_11h)
   deallocate(A_11h)
+ case(21) ! 21H
+  allocate(A_21h(21,21), invA_21h(21,21))
+  forall(i = 1:21) A_21h(:,i) = get21h_vector(vec21h(:,i))
+  call inverse(21, A_21h, invA_21h)
+  deallocate(A_21h)
  case default
   write(6,'(/,A,I0)') 'ERROR in subroutine get_invA: invalid n=', n
   stop
@@ -80,10 +101,37 @@ end subroutine get_rot_mat_5d
 
 subroutine get_rot_mat_6d(rotation, rot6d)
  implicit none
+ integer :: i
+ real(kind=8) :: vecs(3,6)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot6d(6,6)
+ real(kind=8), parameter :: s = 4d0*DSQRT(DATAN(1d0)/15d0)
+ real(kind=8), parameter :: t1 = 1d0/3d0, t2 = 1.2d0, t3 = -0.3d0
+ real(kind=8), parameter :: vecs0(3,6) = &
+  RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, 1d0,1d0,0d0, 1d0,0d0,1d0, 0d0,1d0,1d0, &
+           0d0,1d0,0d0], [3,6])
+ ! The inverse of square matrix A is hard-coded here
+ real(kind=8), parameter :: invA(6,6) = RESHAPE([root3,0d0,0d0,0d0,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,root3, 0d0,root3,0d0,0d0,0d0,0d0, &
+  -1d0,0d0,2d0,0d0,0d0,-1d0, -1d0,-1d0,0d0,2d0,0d0,0d0, &
+  0d0,-1d0,0d0,0d0,2d0,-1d0], [6,6])
+ real(kind=8), parameter :: ovlp(6,6) = RESHAPE([1d0,t1,t1,0d0,0d0,0d0, &
+  t1,1d0,t1,0d0,0d0,0d0, t1,t1,1d0,0d0,0d0,0d0, 0d0,0d0,0d0,1d0,0d0,0d0, &
+  0d0,0d0,0d0,0d0,1d0,0d0, 0d0,0d0,0d0,0d0,0d0,1d0], [6,6])
+ real(kind=8), parameter :: invS(6,6) = RESHAPE([t2,t3,t3,0d0,0d0,0d0, &
+  t3,t2,t3,0d0,0d0,0d0, t3,t3,t2,0d0,0d0,0d0, 0d0,0d0,0d0,1d0,0d0,0d0, &
+  0d0,0d0,0d0,0d0,1d0,0d0, 0d0,0d0,0d0,0d0,0d0,1d0], [6,6])
+ ! invS = (ovlp)^(-1)
 
- rot6d = 0d0
+ vecs = MATMUL(TRANSPOSE(rotation), vecs0)
+
+ forall(i = 1:6) rot6d(:,i) = get6d_vector(vecs(:,i))
+
+ rot6d = MATMUL(rot6d, s*invA)
+
+ ! Note: the (x2,y2,z2) in 6D are not orthogonal, so we need the overlap matrix
+ ! and its inverse
+ rot6d = MATMUL(MATMUL(invS, rot6d), ovlp)
 end subroutine get_rot_mat_6d
 
 subroutine get_rot_mat_7f(rotation, rot7f)
@@ -93,11 +141,43 @@ subroutine get_rot_mat_7f(rotation, rot7f)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot7f(7,7)
 
- vecs = MATMUL(TRANSPOSE(rotation), vec7f)
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:7))
  forall(i = 1:7) rot7f(:,i) = get7f_vector(vecs(:,i))
  rot7f = MATMUL(rot7f, invA_7f)
  deallocate(invA_7f)
 end subroutine get_rot_mat_7f
+
+subroutine get_rot_mat_10f(rotation, rot10f)
+ implicit none
+ integer :: i
+ real(kind=8) :: vecs(3,10)
+ real(kind=8), intent(in) :: rotation(3,3)
+ real(kind=8), intent(out) :: rot10f(10,10)
+ real(kind=8), parameter :: t1 = 1d0/DSQRT(5d0), t2 = 1d0/3d0, t3 = 10d0/7d0, &
+  t4 = -3d0*DSQRT(5d0)/14d0, t5 = 9d0/7d0, t6 = -3d0/14d0
+ real(kind=8), parameter :: ovlp(10,10) = RESHAPE([&
+  1d0,0d0,0d0,t1,0d0,0d0,t1,0d0,0d0,0d0, 0d0,1d0,0d0,0d0,t1,0d0,0d0,t1,0d0,0d0,&
+  0d0,0d0,1d0,0d0,0d0,t1,0d0,0d0,t1,0d0, t1,0d0,0d0,1d0,0d0,0d0,t2,0d0,0d0,0d0,&
+  0d0,t1,0d0,0d0,1d0,0d0,0d0,t2,0d0,0d0, 0d0,0d0,t1,0d0,0d0,1d0,0d0,0d0,t2,0d0,&
+  t1,0d0,0d0,t2,0d0,0d0,1d0,0d0,0d0,0d0, 0d0,t1,0d0,0d0,t2,0d0,0d0,1d0,0d0,0d0,&
+  0d0,0d0,t1,0d0,0d0,t2,0d0,0d0,1d0,0d0, 0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0, &
+  1d0], [10,10])
+ real(kind=8), parameter :: invS(10,10) = RESHAPE([&
+  t3,0d0,0d0,t4,0d0,0d0,t4,0d0,0d0,0d0, 0d0,t3,0d0,0d0,t4,0d0,0d0,t4,0d0,0d0, &
+  0d0,0d0,t3,0d0,0d0,t4,0d0,0d0,t4,0d0, t4,0d0,0d0,t5,0d0,0d0,t6,0d0,0d0,0d0, &
+  0d0,t4,0d0,0d0,t5,0d0,0d0,t6,0d0,0d0, 0d0,0d0,t4,0d0,0d0,t5,0d0,0d0,t6,0d0, &
+  t4,0d0,0d0,t6,0d0,0d0,t5,0d0,0d0,0d0, 0d0,t4,0d0,0d0,t6,0d0,0d0,t5,0d0,0d0, &
+  0d0,0d0,t4,0d0,0d0,t6,0d0,0d0,t5,0d0, 0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0, &
+  1d0], [10,10])
+
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:10))
+ forall(i = 1:10) rot10f(:,i) = get10f_vector(vecs(:,i))
+ rot10f = MATMUL(rot10f, invA_10f)
+ deallocate(invA_10f)
+
+ ! Note: the 10F are not orthogonal, so we need the overlap matrix and its inverse
+ rot10f = MATMUL(MATMUL(invS, rot10f), ovlp)
+end subroutine get_rot_mat_10f
 
 subroutine get_rot_mat_9g(rotation, rot9g)
  implicit none
@@ -106,11 +186,29 @@ subroutine get_rot_mat_9g(rotation, rot9g)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot9g(9,9)
 
- vecs = MATMUL(TRANSPOSE(rotation), vec9g)
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:9))
  forall(i = 1:9) rot9g(:,i) = get9g_vector(vecs(:,i))
  rot9g = MATMUL(rot9g, invA_9g)
  deallocate(invA_9g)
 end subroutine get_rot_mat_9g
+
+subroutine get_rot_mat_15g(rotation, rot15g)
+ implicit none
+ integer :: i
+ real(kind=8) :: vecs(3,15)
+ real(kind=8), intent(in) :: rotation(3,3)
+ real(kind=8), intent(out) :: rot15g(15,15)
+! real(kind=8), parameter :: ovlp(15,15) = RESHAPE([], [15,15])
+! real(kind=8), parameter :: invS(15,15) = RESHAPE([], [15,15])
+
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:15))
+ forall(i = 1:15) rot15g(:,i) = get15g_vector(vecs(:,i))
+ rot15g = MATMUL(rot15g, invA_15g)
+ deallocate(invA_15g)
+
+ ! Note: the 15G are not orthogonal, so we need the overlap matrix and its inverse
+! rot15g = MATMUL(MATMUL(invS, rot15g), ovlp)
+end subroutine get_rot_mat_15g
 
 subroutine get_rot_mat_11h(rotation, rot11h)
  implicit none
@@ -119,11 +217,29 @@ subroutine get_rot_mat_11h(rotation, rot11h)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot11h(11,11)
 
- vecs = MATMUL(TRANSPOSE(rotation), vec11h)
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:11))
  forall(i = 1:11) rot11h(:,i) = get11h_vector(vecs(:,i))
  rot11h = MATMUL(rot11h, invA_11h)
  deallocate(invA_11h)
 end subroutine get_rot_mat_11h
+
+subroutine get_rot_mat_21h(rotation, rot21h)
+ implicit none
+ integer :: i
+ real(kind=8) :: vecs(3,21)
+ real(kind=8), intent(in) :: rotation(3,3)
+ real(kind=8), intent(out) :: rot21h(21,21)
+! real(kind=8), parameter :: ovlp(21,21) = RESHAPE([], [21,21])
+! real(kind=8), parameter :: invS(21,21) = RESHAPE([], [21,21])
+
+ vecs = MATMUL(TRANSPOSE(rotation), vec21h)
+ forall(i = 1:21) rot21h(:,i) = get21h_vector(vecs(:,i))
+ rot21h = MATMUL(rot21h, invA_21h)
+ deallocate(invA_21h)
+
+ ! Note: the 21H are not orthogonal, so we need the overlap matrix and its inverse
+! rot21h = MATMUL(MATMUL(invS, rot21h), ovlp)
+end subroutine get_rot_mat_21h
 
 ! input a 3D-vector (x,y,z), calculate the values of spherical harmonic 5D functions
 pure function get5d_vector(v1) result(v2)
@@ -132,13 +248,26 @@ pure function get5d_vector(v1) result(v2)
  real(kind=8), intent(in) :: v1(3)
 
  r2 = DOT_PRODUCT(v1, v1)
- v2(1) = (3d0*v1(3)*v1(3) - r2)/DSQRT(3d0)
+ v2(1) = (3d0*v1(3)*v1(3) - r2)/root3
  v2(2) = 2d0*v1(1)*v1(3)
  v2(3) = 2d0*v1(2)*v1(3)
  v2(4) = v1(1)*v1(1) - v1(2)*v1(2)
  v2(5) = 2d0*v1(1)*v1(2)
  v2 = v2*0.25d0*DSQRT(3.75d0/DATAN(1d0))/r2
 end function get5d_vector
+
+! input a 3D-vector (x,y,z), calculate the values of Cartesian 6D functions
+pure function get6d_vector(v1) result(v2)
+ implicit none
+ real(kind=8) :: x, y, z, x2, y2, z2, r2, v2(6)
+ real(kind=8), intent(in) :: v1(3)
+
+ x = v1(1); y = v1(2); z = v1(3)
+ x2 = x*x; y2 = y*y; z2 = z*z
+ r2 = x2 + y2 + z2
+ v2 = [x2, y2, z2, root3*x*y, root3*x*z, root3*y*z]
+ v2 = 0.5d0*v2*DSQRT(1.25d0/DATAN(1d0))/r2
+end function get6d_vector
 
 pure function get7f_vector(v1) result(v2)
  implicit none
@@ -149,15 +278,30 @@ pure function get7f_vector(v1) result(v2)
  r2 = x2 + y2 + z2
  r3 = r2*DSQRT(r2)
  fivez2 = 5d0*z2
- v2(1) = DSQRT(2d0)*(fivez2 - 3d0*r2)*v1(3)
- v2(2) = DSQRT(3d0)*(fivez2 - r2)*v1(1)
- v2(3) = DSQRT(3d0)*(fivez2 - r2)*v1(2)
- v2(4) = DSQRT(30d0)*(x2 - y2)*v1(3)
- v2(5) = 2d0*DSQRT(30d0)*v1(1)*v1(2)*v1(3)
- v2(6) = DSQRT(5d0)*v1(1)*(x2 - 3d0*y2)
- v2(7) = DSQRT(5d0)*v1(2)*(3d0*x2 - y2)
+ v2(1) = root2*(fivez2 - 3d0*r2)*v1(3)
+ v2(2) = root3*(fivez2 - r2)*v1(1)
+ v2(3) = root3*(fivez2 - r2)*v1(2)
+ v2(4) = root30*(x2 - y2)*v1(3)
+ v2(5) = 2d0*root30*v1(1)*v1(2)*v1(3)
+ v2(6) = root5*v1(1)*(x2 - 3d0*y2)
+ v2(7) = root5*v1(2)*(3d0*x2 - y2)
  v2 = v2*0.125d0*DSQRT(3.5d0/DATAN(1d0))/r3
 end function get7f_vector
+
+pure function get10f_vector(v1) result(v2)
+ implicit none
+ real(kind=8) :: x, y, z, x2, y2, z2, r2, r3, v2(10)
+ real(kind=8), intent(in) :: v1(3)
+
+ x = v1(1); y = v1(2); z = v1(3)
+ x2 = v1(1)*v1(1); y2 = v1(2)*v1(2); z2 = v1(3)*v1(3)
+ r2 = x2 + y2 + z2
+ r3 = r2*DSQRT(r2)
+ v2 = [x2*x, y2*y, z2*z, x*y2, x2*y, x2*z, x*z2, y*z2, y2*z, x*y*z]
+ v2(4:9) = root5*v2(4:9)
+ v2(10) = root15*v2(10)
+ v2 = 0.5d0*v2*DSQRT(1.75/DATAN(1d0))/r3
+end function get10f_vector
 
 pure function get9g_vector(v1) result(v2)
  implicit none
@@ -181,6 +325,27 @@ pure function get9g_vector(v1) result(v2)
  v2(9) = 4d0*root35*x2_y2*xy
  v2 = v2*3d0/(r4*32d0*DSQRT(DATAN(1d0)))
 end function get9g_vector
+
+pure function get15g_vector(v1) result(v2)
+ implicit none
+ integer :: i
+ integer, parameter :: idx1(6) = [2,4,6,9,13,14]
+ integer, parameter :: idx2(3) = [3,10,12]
+ integer, parameter :: idx3(3) = [7,8,11]
+ real(kind=8) :: x, y, z, x2, y2, z2, x3, y3, z3, r2, v2(15)
+ real(kind=8), intent(in) :: v1(3)
+
+ x = v1(1); y = v1(2); z = v1(3)
+ x2 = x*x; y2 = y*y; z2 = z*z
+ r2 = x2 + y2 + z2
+ x3 = x2*x; y3 = y2*y; z3 = z2*z
+ v2 = [z2*z2, y*z3, y2*z2, y3*z, y2*y2, x*z3, x*y*z2, x*y2*z, x*y3, x2*z2, &
+       x2*y*z, x2*y2, x3*z, x3*y, x2*x2]
+ forall(i = 1:6) v2(idx1(i)) = v2(idx1(i))*DSQRT(7d0)
+ forall(i = 1:3) v2(idx2(i)) = v2(idx2(i))*DSQRT(105d0)/3d0
+ forall(i = 1:3) v2(idx3(i)) = v2(idx3(i))*DSQRT(35d0)
+ v2 = 0.75d0*v2/(r2*r2*DSQRT(DATAN(1d0)))
+end function get15g_vector
 
 pure function get11h_vector(v1) result(v2)
  implicit none
@@ -212,6 +377,33 @@ pure function get11h_vector(v1) result(v2)
  v2(11) = 3d0*root14*(5d0*x2*x2 - 10d0*x2*y2 + y2*y2)*v1(2)/r5
  v2 = v2*DSQRT(2.75d0/DATAN(1d0))/32d0
 end function get11h_vector
+
+pure function get21h_vector(v1) result(v2)
+ implicit none
+ integer :: i
+ integer, parameter :: idx1(6) = [2,5,7,11,19,20]
+ integer, parameter :: idx2(6) = [3,4,12,15,16,18]
+ integer, parameter :: idx3(3) = [8,10,17]
+ integer, parameter :: idx4(3) = [9,13,14]
+ real(kind=8) :: x, y, z, x2, y2, z2, x3, y3, z3, x4, y4, z4, r2, r5, v2(21)
+ real(kind=8), intent(in) :: v1(3)
+
+ x = v1(1); y = v1(2); z = v1(3)
+ x2 = x*x; y2 = y*y; z2 = z*z
+ r2 = x2 + y2 + z2
+ r5 = r2*r2*DSQRT(r2)
+ x3 = x2*x; y3 = y2*y; z3 = z2*z
+ x4 = x2*x2; y4 = y2*y2; z4 = z2*z2
+ v2 = [z*z4, y*z4, y2*z3, y3*z2, y4*z, y4*y, x*z4, x*y*z3, x*y2*z2, x*y3*z, &
+       x*y4, x2*z3, x2*y*z2, x2*y2*z, x2*y3, x3*z2, x3*y*z, x3*y2, x4*z, &
+       x4*y, x4*x]
+ forall(i = 1:6) v2(idx1(i)) = v2(idx1(i))*3d0
+ forall(i = 1:6) v2(idx2(i)) = v2(idx2(i))*root21
+ forall(i = 1:3) v2(idx3(i)) = v2(idx3(i))*root7*3d0
+ forall(i = 1:3) v2(idx4(i)) = v2(idx4(i))*root105
+ v2 = 0.25d0*v2*DSQRT(11d0/DATAN(1d0))/r5
+end function get21h_vector
+
 end module bas_rot
 
 ! Get the wave function of a rotated molecule. The original coordinates are
@@ -272,14 +464,17 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  use fch_content, only: nbf, nif, is_uhf, ncontr, shell_type, alpha_coeff, &
   beta_coeff, tot_dm, spin_dm, check_uhf_in_fch, read_fch, coor0=>coor
  use bas_rot, only: get_invA, get_rot_mat_5d, get_rot_mat_6d, get_rot_mat_7f, &
-  get_rot_mat_9g, get_rot_mat_11h
+  get_rot_mat_10f, get_rot_mat_9g, get_rot_mat_15g, get_rot_mat_11h, &
+  get_rot_mat_21h
  implicit none
  integer :: i, j, nif1
  integer, intent(in) :: natom
 !f2py intent(in) :: natom
  integer, allocatable :: no_mark(:), mark(:,:)
  real(kind=8) :: rmsd_v, trans1(3), trans2(3), rotation(3,3), rot5d(5,5), &
-  rot6d(6,6), rot7f(7,7), rot9g(9,9), rot11h(11,11)
+  rot6d(6,6)
+ real(kind=8), allocatable :: rot7f(:,:), rot10f(:,:), rot9g(:,:), rot15g(:,:),&
+  rot11h(:,:), rot21h(:,:)
  real(kind=8), intent(in) :: coor(3,natom)
 !f2py intent(in) :: coor
 !f2py depend(natom) :: coor
@@ -320,10 +515,10 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  allocate(no_mark(9), mark(ncontr,9))
  call read_pdfgh_mark_from_shltyp(ncontr, shell_type, no_mark, mark)
 
- if(ANY(shell_type > 1)) then
-  write(6,'(/,A)') 'ERROR in subroutine rotate_atoms_wfn2: Cartesian-type basis&
-                  & functions 6D'
-  write(6,'(A)') '(or higher) are not supported currently.'
+ if(ANY(IABS(shell_type)>5)) then
+  write(6,'(/,A)') 'ERROR in subroutine rotate_atoms_wfn2: basis functions with&
+                   & angular momentum'
+  write(6,'(A)') 'higher than H are not supported currently.'
   stop
  end if
 
@@ -370,6 +565,7 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  ! 7F
  if(no_mark(4) > 0) then
   call get_invA(7)
+  allocate(rot7f(7,7))
   call get_rot_mat_7f(rotation, rot7f)
   allocate(rtmp(7,nif1), source=0d0)
   do i = 1, no_mark(4), 1
@@ -377,12 +573,27 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
    rtmp = coeff(j:j+6,:)
    call dgemm('N', 'N', 7, nif1, 7, 1d0,rot7f,7, rtmp,7, 0d0,coeff(j:j+6,:),7)
   end do ! for i
-  deallocate(rtmp)
+  deallocate(rot7f, rtmp)
+ end if
+
+ ! 10F
+ if(no_mark(5) > 0) then
+  call get_invA(10)
+  allocate(rot10f(10,10))
+  call get_rot_mat_10f(rotation, rot10f)
+  allocate(rtmp(10,nif1), source=0d0)
+  do i = 1, no_mark(5), 1
+   j = mark(i,5)
+   rtmp = coeff(j:j+9,:)
+   call dgemm('N', 'N', 10, nif1, 10, 1d0,rot10f,10, rtmp,10, 0d0,coeff(j:j+9,:),10)
+  end do ! for i
+  deallocate(rot10f, rtmp)
  end if
 
  ! 9G
  if(no_mark(6) > 0) then
   call get_invA(9)
+  allocate(rot9g(9,9))
   call get_rot_mat_9g(rotation, rot9g)
   allocate(rtmp(9,nif1), source=0d0)
   do i = 1, no_mark(6), 1
@@ -390,12 +601,27 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
    rtmp = coeff(j:j+8,:)
    call dgemm('N', 'N', 9, nif1, 9, 1d0,rot9g,9, rtmp,9, 0d0,coeff(j:j+8,:),9)
   end do ! for i
-  deallocate(rtmp)
+  deallocate(rot9g, rtmp)
+ end if
+
+ ! 15G
+ if(no_mark(7) > 0) then
+  call get_invA(15)
+  allocate(rot15g(15,15))
+  call get_rot_mat_15g(rotation, rot15g)
+  allocate(rtmp(15,nif1), source=0d0)
+  do i = 1, no_mark(7), 1
+   j = mark(i,7)
+   rtmp = coeff(j:j+14,:)
+   call dgemm('N', 'N', 15, nif1, 15, 1d0,rot15g,15, rtmp,15, 0d0,coeff(j:j+14,:),15)
+  end do ! for i
+  deallocate(rot15g, rtmp)
  end if
 
  ! 11H
  if(no_mark(8) > 0) then
   call get_invA(11)
+  allocate(rot11h(11,11))
   call get_rot_mat_11h(rotation, rot11h)
   allocate(rtmp(11,nif1), source=0d0)
   do i = 1, no_mark(8), 1
@@ -403,7 +629,21 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
    rtmp = coeff(j:j+10,:)
    call dgemm('N', 'N', 11, nif1, 11, 1d0,rot11h,11, rtmp,11, 0d0,coeff(j:j+10,:),11)
   end do ! for i
-  deallocate(rtmp)
+  deallocate(rot11h, rtmp)
+ end if
+
+ ! 21H
+ if(no_mark(9) > 0) then
+  call get_invA(21)
+  allocate(rot21h(21,21))
+  call get_rot_mat_21h(rotation, rot21h)
+  allocate(rtmp(21,nif1), source=0d0)
+  do i = 1, no_mark(9), 1
+   j = mark(i,9)
+   rtmp = coeff(j:j+20,:)
+   call dgemm('N', 'N', 21, nif1, 21, 1d0,rot21h,21, rtmp,21, 0d0,coeff(j:j+20,:),21)
+  end do ! for i
+  deallocate(rot21h, rtmp)
  end if
 
  deallocate(no_mark, mark)
