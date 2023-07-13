@@ -138,6 +138,12 @@ help:
 	echo " all       : all executables and *.so files" ;\
 	echo " clean     : delete *.mod *.o" ;\
 	echo " distclean : delete *.mod *.o and clean $(LIB) ../bin" ;\
+	echo ;\
+	echo " This Makefile uses ifort and MKL by default, if other compilation toolset " ;\
+	echo "is desired, try one of these" ;\
+	echo "   make [target] -f Makefile.gnu_openblas" ;\
+	echo "   make [target] -f Makefile.gnu_mkl" ;\
+	echo " read https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html#235-compiler-notes for more info." ;\
 	echo
 
 add_bgcharge_to_inp: $(OBJ_add_bgcharge_to_inp)
@@ -345,7 +351,7 @@ assoc_rot: $(OBJ_assoc_rot)
 	@mv assoc_rot*.so $(LIB)/
 
 mirror_wfn: $(OBJ_mirror_wfn)
-	$(F2PY) -c $(OBJ_mirror_wfn) -m mirror_wfn $(F2_FLAGS) $(F2_F90_FLAGS)
+	$(F2PY) -c $(OBJ_mirror_wfn) -m mirror_wfn $(F2_FLAGS) $(MKL_FLAGS)
 	@mv mirror_wfn*.so $(LIB)/
 
 wfn_analysis: $(OBJ_wfn_analysis)
