@@ -237,25 +237,6 @@ subroutine get_e_dipole_from_PD(nbf, P, D, e_dipole)
  deallocate(r)
 end subroutine get_e_dipole_from_PD
 
-! get a random integer
-subroutine get_a_random_int(i)
- implicit none
- integer :: n, clock
- integer, intent(out) :: i
- integer, allocatable :: seed(:)
- real(kind=4) :: r
-
- call random_seed(size=n)
- allocate(seed(n))
- call system_clock(count=clock)
- seed = clock
- call random_seed(put=seed)
- call random_number(r)
- deallocate(seed)
-
- i = CEILING(r*1e6)
-end subroutine get_a_random_int
-
 ! read the path of the Gaussian binary executable file 
 subroutine get_gau_path(gau_path)
  implicit none

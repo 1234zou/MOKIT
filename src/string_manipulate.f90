@@ -1201,7 +1201,41 @@ subroutine read_basis_name_from_fch(fchname, basname)
 
  buf = TRIM(buf)
  k = LEN_TRIM(buf)
- i = index(buf(1:k), ' ', back=.true.)
+ i = INDEX(buf(1:k), ' ', back=.true.)
  basname = TRIM(buf(i+1:))
 end subroutine read_basis_name_from_fch
+
+subroutine find_specified_suffix(fname, suffix, i)
+ implicit none
+ integer, intent(out) :: i
+ character(len=*), intent(in) :: suffix
+ character(len=240), intent(in) :: fname
+
+ i = INDEX(fname, suffix, back=.true.)
+
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_specified_suffix: suffix '"//&
+                   suffix//"' not found"
+  write(6,'(A)') 'in filename '//TRIM(fname)
+  stop
+ end if
+end subroutine find_specified_suffix
+
+subroutine strip_ip_ea_eom(method)
+ implicit none
+ character(len=15), intent(inout) :: method
+
+ call upper(method)
+ select case(method(1:7))
+ case('IP-EOM-','EOM-IP-','EA-EOM-','EOM-EA-')
+  method = method(8:)
+  return
+ end select
+
+ if(method(1:4) == 'EOM-') then
+  method = method(5:)
+ else if(method(1:3) == 'EOM') then
+  method = method(4:)
+ end if
+end subroutine strip_ip_ea_eom
 

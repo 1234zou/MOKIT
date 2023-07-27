@@ -62,13 +62,7 @@ subroutine fch2mkl(fchname)
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp, X2C
 
- i = INDEX(fchname,'.fch',back=.true.)
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine fch2mkl: input filename does not contain&
-                 & '.fch' suffix!"
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
  inpname = fchname(1:i-1)//'_o.inp'
 

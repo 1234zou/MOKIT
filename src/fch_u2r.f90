@@ -12,7 +12,7 @@
 
 program main
  implicit none
- integer :: i, j
+ integer :: i
  character(len=240) :: fchname, newfch
 
  i = iargc()
@@ -26,12 +26,6 @@ program main
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
- j = index(fchname, '.fch', back=.true.)
- if(j == 0) then
-  write(6,'(/,A)') "ERROR in program fch_u2r: '.fch' suffix not found in filen&
-                   &ame "//TRIM(fchname)
-  stop
- end if
 
  newfch = REPEAT(' ',240)
  if(i == 2) call getarg(2, newfch)
@@ -48,7 +42,7 @@ subroutine fch_u2r(fchname, newfch)
 
  k = 0; buf = ' '; fchname1 = ' '; rhf = .false.; no_remain = .false.
 
- k = index(fchname,'.fch',back=.true.)
+ call find_specified_suffix(fchname, '.fch', k)
  fchname1 = fchname(1:k-1)//'_r.fch'
  open(newunit=fchid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fchid1,file=TRIM(fchname1),status='replace')

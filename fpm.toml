@@ -227,6 +227,12 @@ source-dir = "src"
 main = "gvb_sort_pairs.f90"
 
 [[executable]]
+name = "mkl2com"
+source-dir = "src"
+main = "mkl2com.f90"
+link = "mkl_rt"
+
+[[executable]]
 name = "mkl2fch"
 source-dir = "src"
 main = "mkl2fch.f90"

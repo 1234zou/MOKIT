@@ -166,7 +166,6 @@ subroutine rest2fch(fchname_c, fchname_len, nbf, nif, coeff2, ab, ev, natorb, ge
  real(kind=8), intent(in) :: coeff2(nbf,nif)
  character(len=1), intent(in) :: ab
  real(kind=8), intent(in) :: ev(nif)
- logical :: alive
  logical, intent(in) :: natorb, gen_density
 
 ! interface
@@ -951,7 +950,6 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  integer :: i, j, fid, fid1, RENAME
  integer :: nbf, itype
 !f2py intent(in) :: nbf, itype
-
  integer, allocatable :: idx(:)
  real(kind=8) :: dm(nbf,nbf)
 !f2py intent(in,copy) :: dm
@@ -1064,21 +1062,17 @@ subroutine py2fch_cghf(fchname, nbf, nif, coeff, ev, gen_density)
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  integer, allocatable :: idx(:)
-
  complex(kind=8), intent(in) :: coeff(nbf,nif)
 !f2py intent(in) :: coeff
 !f2py depend(nbf,nif) :: coeff
-
  real(kind=8), intent(in) :: ev(nif)
 !f2py intent(in) :: ev
 !f2py depend(nif) :: ev
  real(kind=8), allocatable :: coeff2(:,:,:), den(:,:), norm(:)
-
  character(len=49) :: str
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
-
  logical :: alive
  logical, intent(in) :: gen_density
 !f2py intent(in) :: gen_density

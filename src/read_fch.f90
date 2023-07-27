@@ -198,15 +198,8 @@ subroutine read_fch(fchname, uhf)
  logical, intent(in) :: uhf
  logical :: ecp
 
- i = INDEX(fchname,'.fch',back=.true.)
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine read_fch: input filename does not&
-                 & contain '.fch' suffix!"
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
-
  buf = ' '
+ call find_specified_suffix(fchname, '.fch', i)
  call open_file(fchname, .true., fid)
 
  ! find variables: charge, mult, na, nb, nbf, nif
@@ -300,7 +293,7 @@ subroutine read_fch(fchname, uhf)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:14) == 'Shell types') exit
- end do
+ end do ! for while
  allocate(shell_type(ncontr), source=0)
  read(fid,'(6(1X,I11))') (shell_type(i), i=1,ncontr)
 

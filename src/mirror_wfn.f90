@@ -198,8 +198,43 @@ subroutine get_rot_mat_15g(rotation, rot15g)
  real(kind=8) :: vecs(3,15)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot15g(15,15)
-! real(kind=8), parameter :: ovlp(15,15) = RESHAPE([], [15,15])
-! real(kind=8), parameter :: invS(15,15) = RESHAPE([], [15,15])
+ real(kind=8), parameter :: t1 = DSQRT(105d0)/21d0, t2 = 3d0/35d0, &
+  t3 = 1d0/DSQRT(105d0), t4 = 0.6d0, t5 = 1d0/DSQRT(5d0), t6 = 1d0/3d0, &
+  t7 = 5d0/3d0, t8 = -DSQRT(105d0)/14d0, t9 = 5d0/24d0, t10=DSQRT(105d0)/84d0, &
+  t11 = -5d0/6d0, t12 = -DSQRT(5d0)/6d0, t13 = 51d0/28d0, t14 = -5d0/28d0, &
+  t15 = 4d0/3d0
+ real(kind=8), parameter :: ovlp(15,15) = RESHAPE([&
+  1d0,0d0,t1,0d0,t2,0d0,0d0,0d0,0d0,t1,0d0,t3,0d0,0d0,t2, &
+  0d0,1d0,0d0,t4,0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,0d0,0d0,0d0, &
+  t1,0d0,1d0,0d0,t1,0d0,0d0,0d0,0d0,t6,0d0,t6,0d0,0d0,t3, &
+  0d0,t4,0d0,1d0,0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,0d0,0d0,0d0, &
+  t2,0d0,t1,0d0,1d0,0d0,0d0,0d0,0d0,t3,0d0,t1,0d0,0d0,t2, &
+  0d0,0d0,0d0,0d0,0d0,1d0,0d0,t5,0d0,0d0,0d0,0d0,t4,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,t5,0d0,0d0,0d0,0d0,t5,0d0, &
+  0d0,0d0,0d0,0d0,0d0,t5,0d0,1d0,0d0,0d0,0d0,0d0,t5,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,1d0,0d0,0d0,0d0,0d0,t4,0d0, &
+  t1,0d0,t6,0d0,t3,0d0,0d0,0d0,0d0,1d0,0d0,t6,0d0,0d0,t1, &
+  0d0,t5,0d0,t5,0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,0d0,0d0,0d0, &
+  t3,0d0,t6,0d0,t1,0d0,0d0,0d0,0d0,t6,0d0,1d0,0d0,0d0,t1, &
+  0d0,0d0,0d0,0d0,0d0,t4,0d0,t5,0d0,0d0,0d0,0d0,1d0,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,t4,0d0,0d0,0d0,0d0,1d0,0d0, &
+  t2,0d0,t3,0d0,t2,0d0,0d0,0d0,0d0,t1,0d0,t1,0d0,0d0,1d0], [15,15])
+ real(kind=8), parameter :: invS(15,15) = RESHAPE([&
+  t7,0d0,t8,0d0,t9,0d0,0d0,0d0,0d0,t8,0d0,t10,0d0,0d0,t9, &
+  0d0,t7,0d0,t11,0d0,0d0,0d0,0d0,0d0,0d0,t12,0d0,0d0,0d0,0d0, &
+  t8,0d0,t13,0d0,t8,0d0,0d0,0d0,0d0,t14,0d0,t14,0d0,0d0,t10, &
+  0d0,t11,0d0,t7,0d0,0d0,0d0,0d0,0d0,0d0,t12,0d0,0d0,0d0,0d0, &
+  t9,0d0,t8,0d0,t7,0d0,0d0,0d0,0d0,t10,0d0,t8,0d0,0d0,t9, &
+  0d0,0d0,0d0,0d0,0d0,t7,0d0,t12,0d0,0d0,0d0,0d0,t11,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,t15,0d0,t12,0d0,0d0,0d0,0d0,t12,0d0, &
+  0d0,0d0,0d0,0d0,0d0,t12,0d0,t15,0d0,0d0,0d0,0d0,t12,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,t12,0d0,t7,0d0,0d0,0d0,0d0,t11,0d0, &
+  t8,0d0,t14,0d0,t10,0d0,0d0,0d0,0d0,t13,0d0,t14,0d0,0d0,t8, &
+  0d0,t12,0d0,t12,0d0,0d0,0d0,0d0,0d0,0d0,t15,0d0,0d0,0d0,0d0, &
+  t10,0d0,t14,0d0,t8,0d0,0d0,0d0,0d0,t14,0d0,t13,0d0,0d0,t8, &
+  0d0,0d0,0d0,0d0,0d0,t11,0d0,t12,0d0,0d0,0d0,0d0,t7,0d0,0d0, &
+  0d0,0d0,0d0,0d0,0d0,0d0,t12,0d0,t11,0d0,0d0,0d0,0d0,t7,0d0, &
+  t9,0d0,t10,0d0,t9,0d0,0d0,0d0,0d0,t8,0d0,t8,0d0,0d0,t7], [15,15])
 
  vecs = MATMUL(TRANSPOSE(rotation), vec21h(:,1:15))
  forall(i = 1:15) rot15g(:,i) = get15g_vector(vecs(:,i))
@@ -207,7 +242,7 @@ subroutine get_rot_mat_15g(rotation, rot15g)
  deallocate(invA_15g)
 
  ! Note: the 15G are not orthogonal, so we need the overlap matrix and its inverse
-! rot15g = MATMUL(MATMUL(invS, rot15g), ovlp)
+ rot15g = MATMUL(MATMUL(invS, rot15g), ovlp)
 end subroutine get_rot_mat_15g
 
 subroutine get_rot_mat_11h(rotation, rot11h)
@@ -229,8 +264,60 @@ subroutine get_rot_mat_21h(rotation, rot21h)
  real(kind=8) :: vecs(3,21)
  real(kind=8), intent(in) :: rotation(3,3)
  real(kind=8), intent(out) :: rot21h(21,21)
-! real(kind=8), parameter :: ovlp(21,21) = RESHAPE([], [21,21])
-! real(kind=8), parameter :: invS(21,21) = RESHAPE([], [21,21])
+ real(kind=8), parameter :: t1 = DSQRT(21d0)/9d0, t2 = 1d0/7d0, &
+  t3 = DSQRT(105d0)/63d0, t4 = DSQRT(21d0)/7d0, t5 = DSQRT(105d0)/21d0, &
+  t6 = DSQRT(21d0)/35d0, t7 = 3d0/35d0, t8 = 1d0/3d0, t9 = 1d0/DSQRT(5d0), &
+  t10 = 0.6d0, t11 = 21d0/11d0, t12 = -5d0*DSQRT(21d0)/22d0, t13 = 35d0/88d0, &
+  t14 = DSQRT(105d0)/44d0, t15 = 70d0/33d0, t16 = -10d0*DSQRT(21d0)/33d0, &
+  t17 = -2d0*DSQRT(105d0)/33d0, t18 = 5d0*DSQRT(21d0)/132d0, t19 = 35d0/264d0, &
+  t20 = 115d0/44d0, t21 = -5d0/44d0, t22 = -7d0*DSQRT(5d0)/44d0, t23=20d0/11d0,&
+  t24 = -15d0/22d0, t25 = 83d0/44d0
+ real(kind=8), parameter :: ovlp(21,21) = RESHAPE([&
+ 1d0,0d0,t1,0d0,t2,0d0,0d0,0d0,0d0,0d0,0d0,t1,0d0,t3,0d0,0d0,0d0,0d0,t2,0d0,0d0,&
+ 0d0,1d0,0d0,t4,0d0,t2,0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,t6,0d0,0d0,0d0,0d0,t7,0d0,&
+ t1,0d0,1d0,0d0,t4,0d0,0d0,0d0,0d0,0d0,0d0,t8,0d0,t9,0d0,0d0,0d0,0d0,t6,0d0,0d0,&
+ 0d0,t4,0d0,1d0,0d0,t1,0d0,0d0,0d0,0d0,0d0,0d0,t9,0d0,t8,0d0,0d0,0d0,0d0,t6,0d0,&
+ t2,0d0,t4,0d0,1d0,0d0,0d0,0d0,0d0,0d0,0d0,t6,0d0,t5,0d0,0d0,0d0,0d0,t7,0d0,0d0,&
+ 0d0,t2,0d0,t1,0d0,1d0,0d0,0d0,0d0,0d0,0d0,0d0,t3,0d0,t1,0d0,0d0,0d0,0d0,t2,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,t5,0d0,t7,0d0,0d0,0d0,0d0,t4,0d0,t6,0d0,0d0,t2,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,t10,0d0,0d0,0d0,0d0,0d0,0d0,t10,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,1d0,0d0,t5,0d0,0d0,0d0,0d0,t9,0d0,t9,0d0,0d0,t3,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,t10,0d0,1d0,0d0,0d0,0d0,0d0,0d0,0d0,t10,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t7,0d0,t5,0d0,1d0,0d0,0d0,0d0,0d0,t6,0d0,t4,0d0,0d0,t2,&
+ t1,0d0,t8,0d0,t6,0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,t9,0d0,0d0,0d0,0d0,t4,0d0,0d0,&
+ 0d0,t5,0d0,t9,0d0,t3,0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,t9,0d0,0d0,0d0,0d0,t5,0d0,&
+ t3,0d0,t9,0d0,t5,0d0,0d0,0d0,0d0,0d0,0d0,t9,0d0,1d0,0d0,0d0,0d0,0d0,t5,0d0,0d0,&
+ 0d0,t6,0d0,t8,0d0,t1,0d0,0d0,0d0,0d0,0d0,0d0,t9,0d0,1d0,0d0,0d0,0d0,0d0,t4,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t4,0d0,t9,0d0,t6,0d0,0d0,0d0,0d0,1d0,0d0,t8,0d0,0d0,t1,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,t10,0d0,t10,0d0,0d0,0d0,0d0,0d0,0d0,1d0,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t6,0d0,t9,0d0,t4,0d0,0d0,0d0,0d0,t8,0d0,1d0,0d0,0d0,t1,&
+ t2,0d0,t6,0d0,t7,0d0,0d0,0d0,0d0,0d0,0d0,t4,0d0,t5,0d0,0d0,0d0,0d0,1d0,0d0,0d0,&
+ 0d0,t7,0d0,t6,0d0,t2,0d0,0d0,0d0,0d0,0d0,0d0,t5,0d0,t4,0d0,0d0,0d0,0d0,1d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t2,0d0,t3,0d0,t2,0d0,0d0,0d0,0d0,t1,0d0,t1,0d0,0d0,1d0],&
+ [21,21])
+ real(kind=8), parameter :: invS(21,21) = RESHAPE([&
+ t11,0d0,t12,0d0,t13,0d0,0d0,0d0,0d0,0d0,0d0,t12,0d0,t14,0d0,0d0,0d0,0d0,t13,0d0,0d0,&
+ 0d0,t15,0d0,t16,0d0,t13,0d0,0d0,0d0,0d0,0d0,0d0,t17,0d0,t18,0d0,0d0,0d0,0d0,t19,0d0,&
+ t12,0d0,t20,0d0,t16,0d0,0d0,0d0,0d0,0d0,0d0,t21,0d0,t22,0d0,0d0,0d0,0d0,t18,0d0,0d0,&
+ 0d0,t16,0d0,t20,0d0,t12,0d0,0d0,0d0,0d0,0d0,0d0,t22,0d0,t21,0d0,0d0,0d0,0d0,t18,0d0,&
+ t13,0d0,t16,0d0,t15,0d0,0d0,0d0,0d0,0d0,0d0,t18,0d0,t17,0d0,0d0,0d0,0d0,t19,0d0,0d0,&
+ 0d0,t13,0d0,t12,0d0,t11,0d0,0d0,0d0,0d0,0d0,0d0,t14,0d0,t12,0d0,0d0,0d0,0d0,t13,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t15,0d0,t17,0d0,t19,0d0,0d0,0d0,0d0,t16,0d0,t18,0d0,0d0,t13,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,t23,0d0,t24,0d0,0d0,0d0,0d0,0d0,0d0,t24,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t17,0d0,t25,0d0,t17,0d0,0d0,0d0,0d0,t22,0d0,t22,0d0,0d0,t14,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,t24,0d0,t23,0d0,0d0,0d0,0d0,0d0,0d0,t24,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t19,0d0,t17,0d0,t15,0d0,0d0,0d0,0d0,t18,0d0,t16,0d0,0d0,t13,&
+ t12,0d0,t21,0d0,t18,0d0,0d0,0d0,0d0,0d0,0d0,t20,0d0,t22,0d0,0d0,0d0,0d0,t16,0d0,0d0,&
+ 0d0,t17,0d0,t22,0d0,t14,0d0,0d0,0d0,0d0,0d0,0d0,t25,0d0,t22,0d0,0d0,0d0,0d0,t17,0d0,&
+ t14,0d0,t22,0d0,t17,0d0,0d0,0d0,0d0,0d0,0d0,t22,0d0,t25,0d0,0d0,0d0,0d0,t17,0d0,0d0,&
+ 0d0,t18,0d0,t21,0d0,t12,0d0,0d0,0d0,0d0,0d0,0d0,t22,0d0,t20,0d0,0d0,0d0,0d0,t16,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t16,0d0,t22,0d0,t18,0d0,0d0,0d0,0d0,t20,0d0,t21,0d0,0d0,t12,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,0d0,t24,0d0,t24,0d0,0d0,0d0,0d0,0d0,0d0,t23,0d0,0d0,0d0,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t18,0d0,t22,0d0,t16,0d0,0d0,0d0,0d0,t21,0d0,t20,0d0,0d0,t12,&
+ t13,0d0,t18,0d0,t19,0d0,0d0,0d0,0d0,0d0,0d0,t16,0d0,t17,0d0,0d0,0d0,0d0,t15,0d0,0d0,&
+ 0d0,t19,0d0,t18,0d0,t13,0d0,0d0,0d0,0d0,0d0,0d0,t17,0d0,t16,0d0,0d0,0d0,0d0,t15,0d0,&
+ 0d0,0d0,0d0,0d0,0d0,0d0,t13,0d0,t14,0d0,t13,0d0,0d0,0d0,0d0,t12,0d0,t12,0d0,0d0,t11],&
+ [21,21])
 
  vecs = MATMUL(TRANSPOSE(rotation), vec21h)
  forall(i = 1:21) rot21h(:,i) = get21h_vector(vecs(:,i))
@@ -238,7 +325,7 @@ subroutine get_rot_mat_21h(rotation, rot21h)
  deallocate(invA_21h)
 
  ! Note: the 21H are not orthogonal, so we need the overlap matrix and its inverse
-! rot21h = MATMUL(MATMUL(invS, rot21h), ovlp)
+ rot21h = MATMUL(MATMUL(invS, rot21h), ovlp)
 end subroutine get_rot_mat_21h
 
 ! input a 3D-vector (x,y,z), calculate the values of spherical harmonic 5D functions
@@ -420,13 +507,7 @@ subroutine rotate_atoms_wfn(fchname, coor_file)
  character(len=240), intent(in) :: fchname, coor_file
 !f2py intent(in) :: fchname, coor_file
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine rotate_atoms_wfn: '.fch' suffix not fou&
-                   &nd in"
-  write(6,'(A)') 'filename '//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  ! the filename to store rotated molecule and wfn
  new_fch = fchname(1:i-1)//'_r.fch'
 
@@ -658,10 +739,35 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  call write_fch(new_fch)
 end subroutine rotate_atoms_wfn2
 
+! Get the wavefunction (MO coefficients, actually) of a molecule after some
+!  atoms are permuted (permuted coordinates are stored in coor_file).
+!subroutine permute_atoms_wfn(fchname, coor_file)
+! implicit none
+! character(len=240) :: new_fch
+! character(len=240), intent(in) :: fchname, coor_file
+!!f2py intent(in) :: fchname, coor_file
+!
+!end subroutine permute_atoms_wfn
+
+! Get the wavefunction (MO coefficients, actually) of a molecule after some
+!  atoms are permuted (permuted indices are stored in the integer array idx).
+! The updated wavefunction is stored in new_fch.
+!subroutine permute_atoms_wfn2(fchname, natom, idx, new_fch)
+! implicit none
+! integer, intent(in) :: natom
+!!f2py intent(in) :: natom
+! integer, intent(in) :: idx(natom)
+!!f2py depend(natom) :: idx
+!!f2py intent(in) :: idx
+! character(len=240), intent(in) :: fchname, new_fch
+!!f2py intent(in) :: fchname, new_fch
+!
+!end subroutine permute_atoms_wfn2
+
 ! calculate the RMSD value of two sets of coordinates
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
  implicit none
- integer :: i, j, lwork
+ integer :: i, lwork
  integer, intent(in) :: natom
  real(kind=8), intent(inout) :: coor1(3,natom)
  real(kind=8), intent(in) :: coor2(3,natom)
@@ -783,12 +889,7 @@ subroutine mirror_wfn(fchname)
  logical :: uhf
 
  call require_file_exist(fchname)
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine mirror_wfn: '.fch' suffix not found in&
-                   & file "//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  new_fch = fchname(1:i-1)//'_m.fch'
 
  call check_uhf_in_fch(fchname, uhf)

@@ -412,7 +412,9 @@ subroutine check_uhf_in_fch(fchname, uhf)
  integer :: i, fid
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical, intent(out) :: uhf
+!f2py intent(out) :: uhf
 
  uhf = .false.
  call open_file(fchname, .true., fid)

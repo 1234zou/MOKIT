@@ -598,7 +598,7 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  real(kind=8) :: Aij, Bij, r1, r2, rtmp, sin_a, cos_a, alpha, sum_change
  real(kind=8), parameter :: threshold1 = 1d-7, threshold2 = 1d-6
  ! threshold1: determine whether to rotate (and update MOs and overlap integrals)
- ! threshold2: determine whether rotation converged
+ ! threshold2: determine whether orbital rotations converged
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
 
  real(kind=8) :: mo1(nbf1,nmo1), mo2(nbf2,nmo2), cross_S(nbf1,nbf2)

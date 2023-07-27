@@ -88,12 +88,7 @@ subroutine localize_orb(fchname, i1, i2)
  character(len=240), intent(in) :: fchname
  logical :: alive
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine localize_orb: no '.fch' suffix found in&
-                   & filename "//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  lmofch = fchname(1:i-1)//'_LMO.fch'
  pyname = fchname(1:i-1)//'.py'
 

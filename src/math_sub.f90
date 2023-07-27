@@ -248,3 +248,43 @@ subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
  deallocate(CX)
 end subroutine calc_CXCT
 
+! calculate density matrix using MO coefficients and occupation numbers
+subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: nbf, nif
+ real(kind=8), parameter :: zero = 1d-8
+ real(kind=8), intent(in) :: mo(nbf,nif), noon(nif)
+ real(kind=8), intent(out) :: dm(nbf,nbf)
+
+ dm = 0d0 ! initialization
+
+ do i = 1, nbf, 1
+  do j = 1, i, 1
+   do k = 1, nif, 1
+    if(DABS(noon(k)) < zero) cycle
+    dm(j,i) = dm(j,i) + noon(k)*mo(j,k)*mo(i,k)
+   end do ! for k
+  end do ! for j
+ end do ! for i
+end subroutine calc_dm_using_mo_and_on
+
+! get a random integer
+subroutine get_a_random_int(i)
+ implicit none
+ integer :: n, clock
+ integer, intent(out) :: i
+ integer, allocatable :: seed(:)
+ real(kind=4) :: r
+
+ call random_seed(size=n)
+ allocate(seed(n))
+ call system_clock(count=clock)
+ seed = clock
+ call random_seed(put=seed)
+ call random_number(r)
+ deallocate(seed)
+
+ i = CEILING(r*1e6)
+end subroutine get_a_random_int
+

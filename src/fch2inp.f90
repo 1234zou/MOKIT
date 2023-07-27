@@ -114,13 +114,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  uhf = .false.; ghf = .false.; ecp = .false.; so_ecp = .false.
 
- i = INDEX(fchname,'.fch',back=.true.)
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine fch2inp: input filename does not&
-                 & contain '.fch' suffix!"
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  inpname = fchname(1:i-1)//'.inp'
 
  call check_nobasistransform_in_fch(fchname)

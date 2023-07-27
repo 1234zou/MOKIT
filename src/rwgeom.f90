@@ -1310,12 +1310,7 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  character(len=2), intent(in) :: elem(natom)
  character(len=240), intent(in) :: gjfname
 
- i = index(gjfname, '.gjf', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine write_gjf: no '.gjf' suffix found in fi&
-                   &lename "//TRIM(gjfname)
-  stop
- end if
+ call find_specified_suffix(gjfname, '.gjf', i)
  chkname = gjfname(1:i-1)//'.chk'
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
@@ -1427,6 +1422,28 @@ function calc_an_int_coor(n, coor) result(val)
  end select
 end function calc_an_int_coor
 
+! convert a .fch(k) file into a .xyz file
+subroutine fch2xyz(fchname)
+ implicit none
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: xyzname
+ character(len=240), intent(in) :: fchname
+
+ call find_specified_suffix(fchname, '.fch', i)
+ xyzname = fchname(1:i-1)//'.xyz'
+
+ call read_natom_from_fch(fchname, natom)
+ allocate(nuc(natom), coor(3,natom), elem(natom))
+ call read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
+ deallocate(nuc)
+
+ call write_xyzfile(natom, elem, coor, xyzname)
+ deallocate(elem, coor)
+end subroutine fch2xyz
+
 ! convert a .gjf file into a .xyz file
 subroutine gjf2xyz(gjfname)
  implicit none
@@ -1438,12 +1455,7 @@ subroutine gjf2xyz(gjfname)
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
 
- i = index(gjfname, '.gjf', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine gjf2xyz: '.gjf' suffix not found in fil&
-                   &ename "//TRIM(gjfname)
-  stop
- end if
+ call find_specified_suffix(gjfname, '.gjf', i)
  xyzname = gjfname(1:i-1)//'.xyz'
 
  call read_natom_from_gjf(gjfname, natom)
@@ -1464,12 +1476,7 @@ subroutine xyz2gjf(xyzname)
  character(len=240), intent(in) :: xyzname
 !f2py intent(in) :: xyzname
 
- i = index(xyzname, '.xyz', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine xyz2gjf: '.xyz' suffix not found in fil&
-                   &ename "//TRIM(xyzname)
-  stop
- end if
+ call find_specified_suffix(xyzname, '.xyz', i)
  gjfname = xyzname(1:i-1)//'.gjf'
  charge = 0; mult = 1  ! initialization
 

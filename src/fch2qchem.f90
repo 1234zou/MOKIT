@@ -73,12 +73,7 @@ subroutine fch2qchem(fchname, npair)
  real(kind=8), allocatable :: coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch2qchem: '.fch' suffix not found in&
-                  & file "//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  proname = fchname(1:i-1)
  inpname = fchname(1:i-1)//'.in'
  call check_nobasistransform_in_fch(fchname)

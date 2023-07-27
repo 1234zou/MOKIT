@@ -54,13 +54,7 @@ subroutine fch2amo(fchname)
  logical :: uhf, sph, has_sp, ecp
  logical, allocatable :: skip_elem(:) ! .True. for skipping this element
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch2amo: '.fch' suffix not found in fil&
-                   &ename "//TRIM(fchname)
-  stop
- end if
-
+ call find_specified_suffix(fchname, '.fch', i)
  inpname = fchname(1:i-1)//'.aip'
  amoname = fchname(1:i-1)//'.amo'
  call check_nobasistransform_in_fch(fchname)

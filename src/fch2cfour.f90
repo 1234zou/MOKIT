@@ -154,12 +154,7 @@ subroutine fch2cfour(fchname)
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch2cfour: '.fch' suffix not found in &
-                   &file "//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 

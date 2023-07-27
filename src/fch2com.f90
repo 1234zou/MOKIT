@@ -17,7 +17,6 @@ program main
  end if
 
  fchname = ' '
-
  call getarg(1, fchname)
  call require_file_exist(fchname)
 

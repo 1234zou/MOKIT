@@ -58,12 +58,7 @@ subroutine bas_fch2py(fchname, prt_dft)
  logical :: alive, cart, is_hf, rotype, untype
  logical, intent(in) :: prt_dft
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine bas_fch2py: '.fch' suffix not found in fi&
-                 &lename "//TRIM(fchname)
-  stop
- end if
+ call find_specified_suffix(fchname, '.fch', i)
 
  ! if the user provides a .fchk file, copy this file to .fch
  if(index(fchname, '.fchk') > 0) then

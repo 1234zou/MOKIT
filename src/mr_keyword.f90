@@ -320,7 +320,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc8 (2023-Jul-13)'
+  write(6,'(A)') '           Version: 1.2.6rc9 (2023-Jul-27)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -426,9 +426,10 @@ contains
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3','caspt2',&
-        'caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf','casci',&
-        'dmrgci','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)')
+   case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
+        'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
+        'casci','dmrgci','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd', &
+        'bwmrccsd(t)')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
@@ -461,10 +462,10 @@ contains
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3','caspt2',&
-       'caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf','casci','dmrgci',&
-       'gvb','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrccsd(t)',&
-       'bccc2b','bccc3b')
+  case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
+       'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
+       'casci','dmrgci','gvb','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd', &
+       'bwmrccsd(t)','bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
@@ -479,7 +480,7 @@ contains
   end select
 
   select case(TRIM(method))
-  case('mcpdft')
+  case('mcpdft','mc-pdft')
    mcpdft = .true.
    casscf = .true.
   case('mrcisd')
@@ -1041,12 +1042,15 @@ contains
    stop
   end if
 
-  if(iroot > 0) then ! State-Specific CASSCF
+  if(iroot < 0) then
+   write(6,'(A)') error_warn//'iroot must be non-negative.'
+   write(6,'(A,I0)') 'Your input iroot=', iroot
+   stop
+  else if(iroot > 0) then ! State-Specific CASSCF
    if(nstate > 0) then
     write(6,'(A)') error_warn//'you can specify only one of Nstates and Root.'
     stop
    end if
-
    if(casci) then
     write(6,'(A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
     stop

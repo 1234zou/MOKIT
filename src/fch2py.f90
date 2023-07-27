@@ -494,12 +494,10 @@ subroutine fch2py_cghf(fchname, nbf, nif, coeff)
  integer :: i, j
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
-
  complex(kind=8), intent(out) :: coeff(nbf,nif)
 !f2py intent(out) :: coeff
 !f2py depend(nbf,nif) :: coeff
  real(kind=8), allocatable :: real_c(:,:), imag_c(:,:)
-
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 

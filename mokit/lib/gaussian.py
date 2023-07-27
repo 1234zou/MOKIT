@@ -25,10 +25,6 @@ def load_mol_from_fch(fchname):
   os.system('bas_fch2py '+tmp_fch)
   os.remove(tmp_fch)
 
-  # remove GNU sed dependence
-  #os.system("sed -i '1,3d' "+tmp_py)
-  #os.system("sed -i '1i from pyscf import gto' "+tmp_py)
-  #os.system("sed -i '/build/{p;:a;N;$!ba;d}' "+tmp_py)
   with open(tmp_py, 'r+') as fp:
     lines = fp.readlines()
     fp.seek(0)
@@ -51,22 +47,25 @@ def mo_fch2py(fchname):
 
   Simple usage::
   >>> from mokit.lib.gaussian import mo_fch2py
-  >>> mo = mo_fch2py('h2o.fch')
+  >>> mf.mo_coeff = mo_fch2py('h2o.fch')
   '''
-  from mokit.lib.excited import check_uhf_in_fch
-  from mokit.lib.fch2py import fch2py
+  from mokit.lib.qchem import read_hf_type_from_fch
+  from mokit.lib.fch2py import fch2py, fch2py_cghf
 
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
-  stat = check_uhf_in_fch(fchname)
+  ihf = read_hf_type_from_fch(fchname)
+  # 1/2/7/101 for real RHF, real UHF, complex GHF, real ROHF, respectively
 
-  if stat == 0:
+  if ihf==1 or ihf==101: # real RHF, ROHF
     mo = fch2py(fchname, nbf, nif, 'a')
-  elif stat == -1:
+  elif ihf == 2:         # real UHF
     mo_a = fch2py(fchname, nbf, nif, 'a')
     mo_b = fch2py(fchname, nbf, nif, 'b')
     mo = (mo_a, mo_b)
+  elif ihf == 7:         # complex GHF
+    mo = fch2py_cghf(fchname, 2*nbf, 2*nif)
   else:
-    raise ValueError("Neither R(O)HF nor UHF. Confused.")
+    raise ValueError("Confused HF_type.")
   return mo
 
 def loc(fchname, idx, method=None):
@@ -224,30 +223,48 @@ def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
   int_file = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
   from_integrals(int_file, h1eff, eri_cas, nacto, nacte, ecore, ms=mol.spin)
 
-def make_orb_resemble(target_fch, ref_fch, nmo=None):
+def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
   '''
   make a set of target MOs resembles the reference MOs
-  (different basis set in two .fch files are allowed, but their geometries and
-   orientations should be identical or very similar)
+  (Different basis set in two .fch files are allowed, but their geometries
+   should be identical or very similar. If two geometries are in different
+   orientations, remember to set align=True)
   target_fch: the .fch file which holds MOs to be updated
   ref_fch: the .fch file which holds reference MOs
-  nmo: indices 1~nmo MOs in ref_fch will be set as reference MOs
+  nmo: indices 1~nmo MOs in ref_fch will be labeled as reference MOs
+  align: whether to align two molecules
   If nmo is not given, it will be set as na (number of alpha electrons)
   '''
   from pyscf import gto
   from mokit.lib.rwwfn import read_na_and_nb_from_fch
+  from mokit.lib.rwgeom import read_natom_from_fch, read_coor_from_fch
+  from mokit.lib.mirror_wfn import rotate_atoms_wfn2
   from mokit.lib.mo_svd import orb_resemble
+
   if nmo is None:
-    nmo, nb = read_na_and_nb_from_fch(ref_fch) # set nmo as nalpha
+    nmo, nb = read_na_and_nb_from_fch(ref_fch)
+    # set nmo as the number of alpha occupied orbitals
+
+  if align is True:
+    natom = read_natom_from_fch(target_fch)
+    coor = read_coor_from_fch(target_fch, natom)
+    ref_fch1 = ref_fch[0:ref_fch.rindex('.fch')]+'_rot.fch'
+    rotate_atoms_wfn2(ref_fch, natom, coor, ref_fch1)
+  else:
+    ref_fch1 = ref_fch
 
   mol1 = load_mol_from_fch(target_fch)
-  mol2 = load_mol_from_fch(ref_fch)
-  nbf1, nif1 = read_nbf_and_nif_from_fch(target_fch)
-  nbf2, nif2 = read_nbf_and_nif_from_fch(ref_fch)
+  mol2 = load_mol_from_fch(ref_fch1)
   # rotate MOs of target molecule at target basis to resemble known orbitals
   cross_S = gto.intor_cross('int1e_ovlp', mol1, mol2)
+
+  nbf1, nif1 = read_nbf_and_nif_from_fch(target_fch)
   mo1 = fch2py(target_fch, nbf1, nif1, 'a')
-  mo2 = fch2py(ref_fch, nbf2, nif2, 'a')
+  nbf2, nif2 = read_nbf_and_nif_from_fch(ref_fch1)
+  mo2 = fch2py(ref_fch1, nbf2, nif2, 'a')
+  if align is True:
+    os.remove(ref_fch1)
+
   mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
   noon = np.zeros(nif1)
   py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False, False)

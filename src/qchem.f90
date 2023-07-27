@@ -413,3 +413,43 @@ subroutine calc_ne_from_fch(fchname, ne)
  ne = SUM(nuc) - charge
 end subroutine calc_ne_from_fch
 
+! read the type of HF from a .fch file
+subroutine read_hf_type_from_fch(fchname, hf_type)
+ use fch_content, only: check_ghf_in_fch, check_uhf_in_fch
+ implicit none
+ integer :: fid, na, nb
+ integer, intent(out) :: hf_type
+!f2py intent(out) :: hf_type
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical :: ghf, uhf
+
+ hf_type = 1 ! default: real RHF, IOP(3/116=1)
+
+ call check_ghf_in_fch(fchname, ghf)
+ if(ghf) then
+  hf_type = 7 ! complex GHF, IOP(3/116=7)
+  return
+ end if
+
+ call check_uhf_in_fch(fchname, uhf)
+ if(uhf) then
+  hf_type = 2 ! real UHF, IOP(3/116=2)
+  return
+ end if
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:15) == 'Number of alpha') exit
+ end do ! for while
+
+ BACKSPACE(fid)
+ read(fid,'(A49,2X,I10)') buf, na
+ read(fid,'(A49,2X,I10)') buf, nb
+ close(fid)
+
+ if(na /= nb) hf_type = 101 ! real ROHF, IOP(3/116=101)
+end subroutine read_hf_type_from_fch
+
