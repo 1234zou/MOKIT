@@ -48,12 +48,12 @@ end program main
 subroutine fch2mkl(fchname)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, am
- integer :: nf3mark, ng3mark, nh3mark
+ integer :: i, j, k, m, n, n1, n2, am, nf3mark, ng3mark, nh3mark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
  integer :: rel        ! the order of DKH, or RESC
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ real(kind=8), allocatable :: coeff(:,:)
 
  ! six types of angular momentum
  character(len=1), parameter :: am_type(0:5) = ['S','P','D','F','G','H']
@@ -76,78 +76,45 @@ subroutine fch2mkl(fchname)
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected in&
-                 & file '//TRIM(fchname)//'.'
-  write(6,'(A)') "ORCA supports only spherical functions. You need to add '5D &
-                 &7F' keywords in Gaussian."
+  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected i&
+                   &n file '//TRIM(fchname)//'.'
+  write(6,'(A)') "ORCA supports only spherical functions. You need to add '5D 7&
+                 &F' keywords in Gaussian."
   stop
  else if( ANY(shell_type < -5) ) then
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not supported.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not&
+                   & supported.'
   stop
  end if
  ! check done
 
+ ! update MO coefficients
+ if(uhf) then ! UHF
+  k = 2*nif
+  allocate(coeff(nbf,k))
+  coeff(:,1:nif) = alpha_coeff
+  coeff(:,nif+1:) = beta_coeff
+ else         ! R(O)HF
+  k = nif
+  allocate(coeff(nbf,k), source=alpha_coeff)
+ end if
+
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- nf3mark = 0; ng3mark = 0; nh3mark = 0
- allocate(f3_mark(nbf), source=0)
- allocate(g3_mark(nbf), source=0)
- allocate(h3_mark(nbf), source=0)
- k = 0
- do i = 1, ncontr, 1
-  select case(shell_type(i))
-  case(0) ! S
-   k = k + 1
-  case(1) ! P
-   k = k + 3
-  case(-1) ! L
-   k = k + 4
-  case(-2) ! D
-   k = k + 5
-  case(-3) ! F
-   k = k + 7
-   nf3mark = nf3mark + 1
-   f3_mark(nf3mark) = k - 1
-  case(-4) ! G
-   k = k + 9
-   ng3mark = ng3mark + 1
-   g3_mark(ng3mark) = k - 3
-  case(-5) ! H
-   k = k + 11
-   nh3mark = nh3mark + 1
-   h3_mark(nh3mark) = k - 5
-  end select
- end do ! for i
-
- if(k /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: k /= nbf!'
-  write(6,'(2(A,I0))') 'k=', k, ', nbf=', nbf
-  stop
- end if
-
- do i = 1, nf3mark, 1
-  alpha_coeff(f3_mark(i),:) = -alpha_coeff(f3_mark(i),:)
-  alpha_coeff(f3_mark(i)+1,:) = -alpha_coeff(f3_mark(i)+1,:)
- end do ! for i
- do i = 1, ng3mark, 1
-  alpha_coeff(g3_mark(i):g3_mark(i)+3,:) = -alpha_coeff(g3_mark(i):g3_mark(i)+3,:)
- end do ! for i
- do i = 1, nh3mark, 1
-  alpha_coeff(h3_mark(i):h3_mark(i)+3,:) = -alpha_coeff(h3_mark(i):h3_mark(i)+3,:)
- end do ! for i
-
- if(uhf) then
-  do i = 1, nf3mark, 1
-   beta_coeff(f3_mark(i),:) = -beta_coeff(f3_mark(i),:)
-   beta_coeff(f3_mark(i)+1,:) = -beta_coeff(f3_mark(i)+1,:)
-  end do ! for i
-  do i = 1, ng3mark, 1
-   beta_coeff(g3_mark(i):g3_mark(i)+3,:) = -beta_coeff(g3_mark(i):g3_mark(i)+3,:)
-  end do ! for i
-  do i = 1, nh3mark, 1
-   beta_coeff(h3_mark(i):h3_mark(i)+3,:) = -beta_coeff(h3_mark(i):h3_mark(i)+3,:)
-  end do ! for i
- end if
+ allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
+ call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
+                               nh3mark, f3_mark, g3_mark, h3_mark)
+ call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
+                               g3_mark, h3_mark, coeff)
  deallocate(f3_mark, g3_mark, h3_mark)
+
+ if(uhf) then ! UHF
+  alpha_coeff = coeff(:,1:nif)
+  beta_coeff = coeff(:,nif+1:)
+ else         ! R(O)HF
+  alpha_coeff = coeff
+ end if
+ deallocate(coeff)
+ ! update MO coefficients done
 
  ! print elements and coordinates into .mkl file
  open(newunit=fid1,file=TRIM(mklname),status='replace')
@@ -389,7 +356,6 @@ subroutine fch2mkl(fchname)
   write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
   write(fid1,'(5(F14.8,1X))') (eigen_e_a(i),i=k+1,j)
   do i = 1, nbf, 1
-!   write(fid1,'(5(F14.9,1X))') (alpha_coeff(i,m),m=k+1,j)
    write(fid1,'(5(ES15.8,1X))') (alpha_coeff(i,m),m=k+1,j)
   end do ! for i
   k = j

@@ -2,7 +2,7 @@
 
 program mkl2com
  implicit none
- integer :: i, k, RENAME
+ integer :: i, k, SYSTEM, RENAME
  character(len=240) :: mklname, fchname, comname0, comname
  character(len=240) :: a_file0, b_file0, a_file, b_file
  character(len=500) :: buf
@@ -47,7 +47,7 @@ program mkl2com
   stop
  end if
 
- i = system('fch2com '//TRIM(fchname))
+ i = SYSTEM('fch2com '//TRIM(fchname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in program mkl2com: failed to call utility fch2com.'
   write(6,'(A)') 'mkl2com is a wrapper of mkl2fch and fch2com, so fch2com is re&
@@ -78,11 +78,14 @@ program mkl2com
  call modify_orbname_in_com(comname, a_file)
 end program mkl2com
 
+! modify the orbital filename in .com file
 subroutine modify_orbname_in_com(comname, a_file)
  implicit none
  integer :: i, j, k, fid, fid1, RENAME
- character(len=240) :: buf, comname1, b_file
+ character(len=240) :: comname1, b_file
  character(len=240), intent(in) :: comname, a_file
+ character(len=500) :: buf
+ ! Note: the length of a line in Molpro .com file might exceed 240 characters
 
  call find_specified_suffix(comname, '.com', i)
  comname1 = comname(1:i-1)//'.t'

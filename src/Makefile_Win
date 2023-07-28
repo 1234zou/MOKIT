@@ -45,7 +45,7 @@ OBJ_fch2com = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 OBJ_fch2dal = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj split_sp.obj fch2dal.obj
 OBJ_fch2mkl = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
-              fch2mkl.obj
+              read_mkl.obj fch2mkl.obj
 OBJ_fch2inp = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
               fch2inp.obj
 OBJ_fch2inporb = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \

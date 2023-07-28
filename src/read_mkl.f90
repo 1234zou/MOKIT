@@ -815,17 +815,23 @@ subroutine update_mo_using_bas_mark(nbf, nif, nf3mark, ng3mark, nh3mark, &
  integer, intent(in) :: f3_mark(nbf), g3_mark(nbf), h3_mark(nbf)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
- do i = 1, nf3mark, 1
+ forall(i = 1:nf3mark)
   coeff(f3_mark(i),:) = -coeff(f3_mark(i),:)
   coeff(f3_mark(i)+1,:) = -coeff(f3_mark(i)+1,:)
- end do ! for i
+ end forall
 
- do i = 1, ng3mark, 1
-  coeff(g3_mark(i):g3_mark(i)+3,:) = -coeff(g3_mark(i):g3_mark(i)+3,:)
- end do ! for i
+ forall(i = 1:ng3mark)
+  coeff(g3_mark(i),:)   = -coeff(g3_mark(i),:)
+  coeff(g3_mark(i)+1,:) = -coeff(g3_mark(i)+1,:)
+  coeff(g3_mark(i)+2,:) = -coeff(g3_mark(i)+2,:)
+  coeff(g3_mark(i)+3,:) = -coeff(g3_mark(i)+3,:)
+ end forall
 
- do i = 1, nh3mark, 1
-  coeff(h3_mark(i):h3_mark(i)+3,:) = -coeff(h3_mark(i):h3_mark(i)+3,:)
- end do ! for i
+ forall(i = 1:nh3mark)
+  coeff(h3_mark(i),:) = -coeff(h3_mark(i),:)
+  coeff(h3_mark(i)+1,:) = -coeff(h3_mark(i)+1,:)
+  coeff(h3_mark(i)+2,:) = -coeff(h3_mark(i)+2,:)
+  coeff(h3_mark(i)+3,:) = -coeff(h3_mark(i)+3,:)
+ end forall
 end subroutine update_mo_using_bas_mark
 

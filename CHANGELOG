@@ -1,4 +1,4 @@
-MOKIT 1.2.6 (Jul 27, 2023)
+MOKIT 1.2.6 (Jul 28, 2023)
 ------------------------
 * add utility mkl2com
 * update utility mkl2fch for generating .fch file from scratch

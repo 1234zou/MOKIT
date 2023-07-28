@@ -7,7 +7,7 @@ LIB = ../mokit/lib
 
 # --- ifort + Intel MKL ----
 F90    = ifort
-FFLAGS = -O2 -fpp -fPIC -warn unused
+FFLAGS = -O2 -fpp -fPIC
 MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -lmkl_rt
 F2PY   = f2py
 F2_FLAGS = --fcompiler=intelem

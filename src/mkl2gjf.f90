@@ -68,7 +68,8 @@ subroutine mkl2gjf(mklname, gjfname)
                  &gjf file. You'
   write(6,'(A)') "should manually add ECP data into .gjf, and change 'gen' into&
                  & 'genecp'. If"
-  write(6,'(A,/)') 'you use any all-electron basis set, there is no problem.'
+  write(6,'(A,/)') 'you are using an all-electron basis set, there is no proble&
+                   &m.'
  end if
  deallocate(nuc)
 

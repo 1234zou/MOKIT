@@ -27,10 +27,10 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
+ call find_specified_suffix(fchname, '.fch', i)
+ inpname = fchname(1:i-1)//'.inp'
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
- i = index(fchname, '.fch', back=.true.)
- inpname = fchname(1:i-1)//'.inp'
 
  call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
 

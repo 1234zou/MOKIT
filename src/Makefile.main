@@ -34,7 +34,8 @@ OBJ_fch2com = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
               read_fch.o split_sp.o fch2com.o
 OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
               read_fch.o split_sp.o fch2dal.o
-OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2mkl.o
+OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o util_wrapper.o read_mkl.o \
+              fch2mkl.o
 OBJ_fch2gbw = file_op.o util_wrapper.o fch2gbw.o
 OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \

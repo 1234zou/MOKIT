@@ -205,6 +205,18 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  allocate(ielem(natom))
  forall(i = 1:natom) ielem(i) = elem2nuc(elem0(i))
  deallocate(elem0)
+ if(ANY(ielem > 18)) then
+  write(6,'(/,A)') "Warning in subroutine mkl2fch_direct: element(s)>'Ar' detec&
+                   &ted."
+  write(6,'(A)') 'NOTE: the .mkl file does not contain ECP/PP information. If y&
+                 &ou use ECP/PP'
+  write(6,'(A)') '(in ORCA .inp file), there would be no ECP in the generated i&
+                 &nput file. You'
+  write(6,'(A)') 'should manually add ECP data into the generated input file. I&
+                 &f you are using'
+  write(6,'(A,/)') 'an all-electron basis set, there is no problem.'
+ end if
+
  ne = SUM(ielem) - charge
  nopen = mult - 1
  na = (ne + nopen)/2
