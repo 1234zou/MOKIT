@@ -134,8 +134,8 @@ subroutine do_cas(scf)
                  &ut if you still want'
   write(6,'(A)') 'to do it, you can manually specify the size of acitve space i&
                  &n .gjf file. For ex-'
-  write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for methan &
-                 &e(CH4). The maximum'
+  write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for methane&
+                 &(CH4). The maximum'
   write(6,'(A)') 'number of active orbitals is 2*npair. You can find npair in G&
                  &VB computations above.'
   write(6,'(A,I0)') 'For this molecule, npair=', npair

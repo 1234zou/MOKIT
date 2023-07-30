@@ -501,7 +501,7 @@ end module bas_rot
 ! Assuming the input file is a.fch, the output file would be a_r.fch
 subroutine rotate_atoms_wfn(fchname, coor_file)
  implicit none
- integer :: i, natom, natom1
+ integer :: i, natom
  real(kind=8), allocatable :: coor(:,:)
  character(len=240) :: new_fch
  character(len=240), intent(in) :: fchname, coor_file
@@ -511,23 +511,7 @@ subroutine rotate_atoms_wfn(fchname, coor_file)
  ! the filename to store rotated molecule and wfn
  new_fch = fchname(1:i-1)//'_r.fch'
 
- i = index(coor_file, '.xyz', back=.true.)
- if(i > 0) then
-  call read_natom_from_xyz(coor_file, natom)
- else ! not .xyz, assume it be .gjf
-  call read_natom_from_gjf(coor_file, natom)
- end if
-
- call read_natom_from_fch(fchname, natom1)
- if(natom1 /= natom) then
-  write(6,'(/,A)') 'ERROR in subroutine rotate_atoms_wfn: the number of atoms i&
-                   &s not equal to'
-  write(6,'(A)') 'each other in two files.'
-  write(6,'(A,I0)') 'fchname = '//TRIM(fchname)//', natom1 = ', natom1
-  write(6,'(A,I0)') 'coor_file = '//TRIM(coor_file)//', natom = ', natom
-  stop
- end if
-
+ call check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
  allocate(coor(3,natom))
  call read_coor_from_gjf_or_xyz(coor_file, natom, coor)
 
@@ -741,28 +725,45 @@ end subroutine rotate_atoms_wfn2
 
 ! Get the wavefunction (MO coefficients, actually) of a molecule after some
 !  atoms are permuted (permuted coordinates are stored in coor_file).
-!subroutine permute_atoms_wfn(fchname, coor_file)
-! implicit none
-! character(len=240) :: new_fch
-! character(len=240), intent(in) :: fchname, coor_file
-!!f2py intent(in) :: fchname, coor_file
-!
-!end subroutine permute_atoms_wfn
+subroutine permute_atoms_wfn(fchname, coor_file)
+ implicit none
+ integer :: i, natom
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: coor1(:,:), coor2(:,:)
+ character(len=240) :: new_fch
+ character(len=240), intent(in) :: fchname, coor_file
+!f2py intent(in) :: fchname, coor_file
+
+ call find_specified_suffix(fchname, '.fch', i)
+ ! the filename to store molecule and wfn after permutation
+ new_fch = fchname(1:i-1)//'_p.fch'
+
+ call check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
+
+ allocate(coor1(3,natom), coor2(3,natom), idx(natom))
+ call read_coor_from_fch(fchname, natom, coor1)
+ call read_coor_from_gjf_or_xyz(coor_file, natom, coor2)
+ call get_atom_map_idx(natom, coor1, coor2, idx)
+ deallocate(coor1, coor2)
+
+ call permute_atoms_wfn2(fchname, natom, idx, new_fch)
+ deallocate(idx)
+end subroutine permute_atoms_wfn
 
 ! Get the wavefunction (MO coefficients, actually) of a molecule after some
 !  atoms are permuted (permuted indices are stored in the integer array idx).
 ! The updated wavefunction is stored in new_fch.
-!subroutine permute_atoms_wfn2(fchname, natom, idx, new_fch)
-! implicit none
-! integer, intent(in) :: natom
-!!f2py intent(in) :: natom
-! integer, intent(in) :: idx(natom)
-!!f2py depend(natom) :: idx
-!!f2py intent(in) :: idx
-! character(len=240), intent(in) :: fchname, new_fch
-!!f2py intent(in) :: fchname, new_fch
-!
-!end subroutine permute_atoms_wfn2
+subroutine permute_atoms_wfn2(fchname, natom, idx, new_fch)
+ implicit none
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, intent(in) :: idx(natom)
+!f2py depend(natom) :: idx
+!f2py intent(in) :: idx
+ character(len=240), intent(in) :: fchname, new_fch
+!f2py intent(in) :: fchname, new_fch
+
+end subroutine permute_atoms_wfn2
 
 ! calculate the RMSD value of two sets of coordinates
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
@@ -1050,4 +1051,43 @@ subroutine geom_lin_intrplt(gjfname1, gjfname2, n)
 
  deallocate(coor1, coor2, elem, coor)
 end subroutine geom_lin_intrplt
+
+! check whether natom in a .fch file and a .gjf/.xyz file are the same
+subroutine check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
+ implicit none
+ integer :: i, natom1
+ integer, intent(out) :: natom
+ character(len=240), intent(in) :: fchname, coor_file
+
+ natom = 0 
+
+ i = index(coor_file, '.xyz', back=.true.)
+ if(i > 0) then
+  call read_natom_from_xyz(coor_file, natom)
+ else ! not .xyz, assume it be .gjf
+  call read_natom_from_gjf(coor_file, natom)
+ end if
+
+ call read_natom_from_fch(fchname, natom1)
+ if(natom1 /= natom) then
+  write(6,'(/,A)') 'ERROR in subroutine check_natom_eq_in_fch_and_gjf_or_xyz: t&
+                   &he number of atoms'
+  write(6,'(A)') 'is not equal to each other in two files.'
+  write(6,'(A,I0)') 'fchname = '//TRIM(fchname)//', natom1 = ', natom1
+  write(6,'(A,I0)') 'coor_file = '//TRIM(coor_file)//', natom = ', natom
+  stop
+ end if
+end subroutine check_natom_eq_in_fch_and_gjf_or_xyz
+
+! get the atomic correspondence indices of two geometries
+subroutine get_atom_map_idx(natom, coor1, coor2, idx)
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, intent(out) :: idx(natom)
+ real(kind=8), intent(in) :: coor1(3,natom), coor2(3,natom)
+
+ idx = 0 ! initialization
+
+end subroutine get_atom_map_idx
 

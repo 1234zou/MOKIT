@@ -5,7 +5,7 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: fchname, inpname
  logical :: sph
 
@@ -36,9 +36,9 @@ program main
 
  call check_sph(fchname, sph)
  if(sph) then
-  i = system('bas_gms2molpro '//TRIM(inpname)//' -sph')
+  i = SYSTEM('bas_gms2molpro '//TRIM(inpname)//' -sph')
  else
-  i = system('bas_gms2molpro '//TRIM(inpname))
+  i = SYSTEM('bas_gms2molpro '//TRIM(inpname))
  end if
 
  if(i /= 0) then
@@ -96,11 +96,12 @@ subroutine fch2com(fchname)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(/,A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/Carte&
+                   &sian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') "setting is 6D 7F. You need to add '5D 7F' or '6D 10F' keyword&
+                 &s in Gaussian."
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
@@ -160,7 +161,6 @@ subroutine fch2com(fchname)
  fileB = fchname
  call convert2molpro_fname(fileA, '.a')
  call convert2molpro_fname(fileB, '.b')
-
  if(uhf) nif = nif/2
 
  open(newunit=orbid,file=TRIM(fileA),status='replace')

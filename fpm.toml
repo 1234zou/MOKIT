@@ -227,9 +227,27 @@ source-dir = "src"
 main = "gvb_sort_pairs.f90"
 
 [[executable]]
+name = "mkl2amo"
+source-dir = "src"
+main = "mkl2amo.f90"
+link = "mkl_rt"
+
+[[executable]]
+name = "mkl2cfour"
+source-dir = "src"
+main = "mkl2cfour.f90"
+link = "mkl_rt"
+
+[[executable]]
 name = "mkl2com"
 source-dir = "src"
 main = "mkl2com.f90"
+link = "mkl_rt"
+
+[[executable]]
+name = "mkl2dal"
+source-dir = "src"
+main = "mkl2dal.f90"
 link = "mkl_rt"
 
 [[executable]]
@@ -239,9 +257,38 @@ main = "mkl2fch.f90"
 link = "mkl_rt"
 
 [[executable]]
+name = "mkl2inp"
+source-dir = "src"
+main = "mkl2inp.f90"
+link = "mkl_rt"
+
+[[executable]]
+name = "mkl2inporb"
+source-dir = "src"
+main = "mkl2inporb.f90"
+link = "mkl_rt"
+
+[[executable]]
 name = "mkl2gjf"
 source-dir = "src"
 main = "mkl2gjf.f90"
+
+[[executable]]
+name = "mkl2psi"
+source-dir = "src"
+main = "mkl2psi.f90"
+link = "mkl_rt"
+
+[[executable]]
+name = "mkl2py"
+source-dir = "src"
+main = "mkl2py.f90"
+
+[[executable]]
+name = "mkl2qchem"
+source-dir = "src"
+main = "mkl2qchem.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "orb2fch"

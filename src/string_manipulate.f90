@@ -163,32 +163,30 @@ subroutine check_sph_in_gjf(gjfname, sph)
  if(index(longbuf,'6D')>0 .or. index(longbuf,'6d')>0) sph = .false.
 end subroutine check_sph_in_gjf
 
-! convert a filename into which molpro requires, i.e.
-! length <32 and in lowercase
+! convert a filename into which molpro requires, i.e. in lowercase
 subroutine convert2molpro_fname(fname, suffix)
  implicit none
- integer :: len1, len2
+ integer :: i
  character(len=240), intent(inout) :: fname
- character(len=*), intent(in) :: suffix
+ character(len=2), intent(in) :: suffix
 
  if(LEN_TRIM(fname) == 0) then
-  write(6,'(A)') 'ERROR in subroutine convert2molpro_fname: input fname is NULL.'
+  write(6,'(/,A)') 'ERROR in subroutine convert2molpro_fname: input fname is NU&
+                   &LL.'
   stop
  end if
 
  if(fname(1:1) == ' ') fname = ADJUSTL(fname)
 
- len1 = INDEX(fname, '.', back=.true.) - 1
- if(len1 == -1) len1 = LEN_TRIM(fname)
- len2 = LEN(suffix)
-
- if(len1+len2 > 15) then
-  fname = fname(1:16-len2)//suffix
- else
-  fname = fname(1:len1)//suffix
+ i = INDEX(fname, '.', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine convert2molpro_fname: '.' character not&
+                   & found in file "//TRIM(fname)
+  stop
  end if
 
- call lower(fname(1:16))
+ fname = fname(1:i-1)//suffix
+ call lower(fname)
 end subroutine convert2molpro_fname
 
 ! add DKH2 related keywords into a given GAMESS .inp file,

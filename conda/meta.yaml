@@ -8,7 +8,7 @@ source:
   path: ..
 
 build:
-  number: 6
+  number: 4
   string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
 
 requirements:

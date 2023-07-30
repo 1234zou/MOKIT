@@ -1,6 +1,6 @@
-MOKIT 1.2.6 (Jul 28, 2023)
+MOKIT 1.2.6 (Jul 30, 2023)
 ------------------------
-* add utility mkl2com
+* add utilities mkl2amo, mkl2cfour, mkl2com, mkl2dal, mkl2inp, mkl2inporb, mkl2psi, mkl2py, mkl2qchem
 * update utility mkl2fch for generating .fch file from scratch
 * fix bug of generating the F() array when NCO=0 in a GVB computation
 * add subroutines rotate_atoms_wfn and geom_lin_intrplt

@@ -12,7 +12,7 @@
 
 program main
  implicit none
- integer :: i, no_type
+ integer :: i, j, no_type
  character(len=4) :: str = ' '
  character(len=240) :: mklname, fchname
  logical :: alive
@@ -33,13 +33,15 @@ program main
  call getarg(1, mklname)
  call require_file_exist(mklname)
 
- select case(i)
- case(1)
-  call find_specified_suffix(mklname, '.mkl', i)
-  fchname = mklname(1:i-1)//'.fch'
- case(2)
+ if(i == 1) then
+  call find_specified_suffix(mklname, '.mkl', j)
+  fchname = mklname(1:j-1)//'.fch'
+ else
   call getarg(2, fchname)
- case(3)
+  call find_specified_suffix(fchname, '.fch', j)
+ end if
+
+ if(i > 2) then
   call getarg(3, str)
 
   select case(TRIM(str))
@@ -53,7 +55,7 @@ program main
    write(6,'(A)') "But you specify '"//TRIM(str)//"'."
    stop
   end select
- end select
+ end if
 
  inquire(file=TRIM(fchname),exist=alive)
 

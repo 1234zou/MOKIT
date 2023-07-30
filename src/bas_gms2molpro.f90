@@ -18,10 +18,8 @@ program main
   stop
  end if
 
- str = ' '
- fname = ' '
- spherical = .false.
- call getarg(1,fname)
+ str = ' '; fname = ' '; spherical = .false.
+ call getarg(1, fname)
  call require_file_exist(fname)
 
  if(i == 2) then
@@ -54,15 +52,20 @@ subroutine bas_gms2molpro(fort7, spherical)
  logical :: uhf, ghf, X2C
  logical, allocatable :: ghost(:)
 
- ! initialization
- buf = ' '
- input = ' '
+ buf = ' '; input = ' ' ! initialization
+
+ i = INDEX(fort7, '.', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine bas_gms2molpro: no '.' character found &
+                   &in filename "//TRIM(fort7)
+  stop
+ end if
+
+ input = fort7(1:i-1)//'.com'
  orbfile = fort7
  orbfile2 = fort7
  call convert2molpro_fname(orbfile, '.a')
  call convert2molpro_fname(orbfile2, '.b')
- i = index(fort7, '.', back=.true.)
- input = fort7(1:i)//'com'
 
  call read_natom_from_gms_inp(fort7, natom)
  allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))

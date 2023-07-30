@@ -2800,13 +2800,14 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  integer :: i, k, datid
  integer, intent(in) :: npair
  integer, intent(out) :: npair0
+ real(kind=8) :: rtmp
  real(kind=8), allocatable :: pair_coeff(:,:)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
  if(npair == 0) then
   npair0 = 0
-  write(6,'(A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
+  write(6,'(/,A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
   return
  end if
 
@@ -2816,10 +2817,12 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
   read(datid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(index(buf,'CICOEF(') /= 0) exit
- end do
+ end do ! for while
+
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine find_npair0_from_dat: no 'CICOEF(' found!"
-  write(6,'(A)') 'The input file '//TRIM(datname)//' is not complete!'
+  write(6,'(/,A)') "ERROR in subroutine find_npair0_from_dat: 'CICOEF(' keyword&
+                   & not found in"
+  write(6,'(A)') 'file '//TRIM(datname)
   close(datid)
   stop
  end if
@@ -2833,12 +2836,25 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
   read(buf(k+1:),*) pair_coeff(1,i)
   k = index(buf,',')
   read(buf(k+1:),*) pair_coeff(2,i)
- end do
+ end do ! for i
  ! pair coefficients read done
 
  close(datid)
-
  npair0 = COUNT(pair_coeff(2,:) <= -0.1d0)
+
+ do i = 1, npair, 1
+  rtmp = pair_coeff(2,i) + 0.1d0
+  if(rtmp>0d0 .and. rtmp<2.6d-3) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine find_npair0_from_dat: some occupatio&
+                  &n number is very'
+   write(6,'(A)') 'close to ON_thres. You may consider enlarge the active space&
+                  & size slightly in'
+   write(6,'(A,I0)') 'later CAS calculation. Check No. pair: ', i
+   write(6,'(A)') REPEAT('-',79)
+  end if
+ end do ! for i
+
  deallocate(pair_coeff)
 end subroutine find_npair0_from_dat
 
@@ -2860,18 +2876,20 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
  allocate(noon(nif), source=0d0)
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
  if( ANY(noon < -1d-2) ) then
-  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists&
-                   & negative occupation number(s),'
-  write(6,'(A)') 'this is not possible. Do you mistake the energy levels&
-                 & for occupation numbers?'
-  write(6,'(A)') 'Or do you use relaxed density of MP2/CI/CC/TD- methods?'
+  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists neg&
+                   &ative occupation'
+  write(6,'(A)') 'number(s), this is not possible. Do you mistake the energy le&
+                 &vels for occupation'
+  write(6,'(A)') 'numbers? Or do you use relaxed density of MP2/CI/CC/TD- metho&
+                 &ds?'
   stop
  end if
 
  if(on_thres<0d0 .or. on_thres>1d0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: input on_thres&
-                   & is invalid.'
+  write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: input on_thres i&
+                   &s invalid.'
   write(6,'(A)') '0.0 < on_thres < 1.0 is required.'
+  write(6,'(A,F12.6)') 'Current on_thres = ', on_thres
   stop
  end if
 
@@ -2884,6 +2902,14 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
    else if(i <= na) then
     nacta = nacta + 1
    end if
+  else if(on_thres-noon(i)>0d0 .and. on_thres-noon(i)<1d-3) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine read_no_info_from_fch: some occupati&
+                  &on number is very'
+   write(6,'(A)') 'close to ON_thres. You may consider enlarge the active space&
+                  & size slightly.'
+   write(6,'(A,I0)') 'Check No. orbital: ', i
+   write(6,'(A)') REPEAT('-',79)
   end if
  end do ! for i
 

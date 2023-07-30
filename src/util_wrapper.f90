@@ -236,9 +236,11 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
 #endif
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine mkl2fch_wrap: failed to call utility mkl2fch.'
-  write(6,'(A)') 'mklname='//TRIM(mklname)//', fchname='//TRIM(fchname)
-  write(6,'(A,L1)') 'prt_no=', prt_no
+  write(6,'(/,A)') 'ERROR in subroutine mkl2fch_wrap: failed to call utility mk&
+                   &l2fch.'
+  write(6,'(A)') 'mklname = '//TRIM(mklname)
+  write(6,'(A)') 'fchname = '//TRIM(fchname)
+  write(6,'(A,L1)') 'prt_no = ', prt_no
   stop
  end if
 end subroutine mkl2fch_wrap
