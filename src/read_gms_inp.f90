@@ -400,9 +400,9 @@ subroutine read_all_ecp_from_gms_inp(inpname)
  character(len=240), intent(in) :: inpname
 
  if(natom == 0) then
-  write(6,'(A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: natom = 0.'
-  write(6,'(A)') 'The variable natom should be initialized before calling&
-                   & this subroutine.'
+  write(6,'(/,A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: natom = 0.'
+  write(6,'(A)') 'The variable natom should be initialized before calling this &
+                 &subroutine.'
   stop
  end if
 
@@ -454,6 +454,7 @@ subroutine read_all_ecp_from_gms_inp(inpname)
   end do ! for j
  end do ! for i
 
+ close(fid)
 end subroutine read_all_ecp_from_gms_inp
 
 ! deallocate the allocatable arrays in array prim_gau

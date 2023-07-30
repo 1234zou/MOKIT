@@ -42,7 +42,7 @@ Jul 30, 2023
 
 Installation
 ------------
-nou can choose any of the four options shown below to install MOKIT, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+You can choose any of the four options shown below to install MOKIT, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
 
 ### Option 1: Install from conda
 This is the easiest way, but network is required to auto-download the requirements

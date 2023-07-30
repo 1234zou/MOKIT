@@ -207,18 +207,6 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  allocate(ielem(natom))
  forall(i = 1:natom) ielem(i) = elem2nuc(elem0(i))
  deallocate(elem0)
- if(ANY(ielem > 18)) then
-  write(6,'(/,A)') "Warning in subroutine mkl2fch_direct: element(s)>'Ar' detec&
-                   &ted."
-  write(6,'(A)') 'NOTE: the .mkl file does not contain ECP/PP information. If y&
-                 &ou use ECP/PP'
-  write(6,'(A)') '(in ORCA .inp file), there would be no ECP in the generated i&
-                 &nput file. You'
-  write(6,'(A)') 'should manually add ECP data into the generated input file. I&
-                 &f you are using'
-  write(6,'(A,/)') 'an all-electron basis set, there is no problem.'
- end if
-
  ne = SUM(ielem) - charge
  nopen = mult - 1
  na = (ne + nopen)/2
@@ -301,6 +289,7 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  allocate(eigen_e_a(nif), tot_dm(nbf,nbf))
  select case(no_type)
  case(0) ! canonical orbitals
+  call check_na_nb_ecp_in_mkl(mklname, is_uhf, nif, ne, na, nb)
   eigen_e_a = ev_a
   ev_a = 0d0
   if(is_uhf) then ! UHF
@@ -351,4 +340,63 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  if(allocated(spin_dm)) deallocate(spin_dm)
  if(is_uhf) deallocate(eigen_e_b, beta_coeff)
 end subroutine mkl2fch_direct
+
+! check na, nb with those calculated from $OCC_ALPHA(and $OCC_BETA) in .mkl file
+subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
+ use mkl_content, only: read_on_from_mkl
+ implicit none
+ integer :: i, ne1, na1, nb1
+ integer, intent(in) :: nif
+ integer, intent(inout) :: ne, na, nb
+ real(kind=8), parameter :: diff = 1d-4
+ real(kind=8), allocatable :: on_a(:), on_b(:)
+ character(len=240), intent(in) :: mklname
+ logical, intent(in) :: uhf
+
+ if(uhf) then ! UHF
+  allocate(on_a(nif), on_b(nif))
+  call read_on_from_mkl(mklname, nif, 'a', on_a)
+  call read_on_from_mkl(mklname, nif, 'b', on_b)
+  na1 = INT(SUM(on_a))
+  nb1 = INT(SUM(on_b))
+  deallocate(on_a, on_b)
+ else         ! R(O)HF
+  allocate(on_a(nif))
+  call read_on_from_mkl(mklname, nif, 'a', on_a)
+  na1 = 0; nb1 = 0
+  do i = 1, nif, 1
+   if(DABS(on_a(i) - 2d0) < diff) then
+    na1 = na1 + 1
+    nb1 = nb1 + 1
+   else if(DABS(on_a(i) - 1d0) < diff) then
+    na1 = na1 + 1
+   else if(on_a(i) < diff) then
+    exit
+   end if
+  end do ! for i
+  deallocate(on_a)
+ end if
+
+ ne1 = na1 + nb1
+
+ if((na==na1 .and. nb/=nb1) .or. (na/=na1 .and. nb==nb1) .or. na1>na .or. nb1>nb) then
+  write(6,'(/,A)') 'ERROR in subroutine check_na_nb_ecp_in_mkl: internal error.'
+  write(6,'(A,4I4)') 'na, nb, na1, nb1=', na, nb, na1, nb1 
+  stop
+ end if
+
+ if(na1<na .and. nb1<nb) then
+  write(6,'(/,A)') 'Warning from subroutine check_na_nb_ecp_in_mkl: ECP/PP dete&
+                   &cted.'
+  write(6,'(A)') 'NOTE: the .mkl file does not contain ECP/PP information. If y&
+                 &ou use ECP/PP'
+  write(6,'(A)') '(in ORCA .inp file), there would be no ECP in the generated i&
+                 &nput file. You'
+  write(6,'(A)') 'should manually add ECP data into the generated input file. I&
+                 &f you are using'
+  write(6,'(A,/)') 'an all-electron basis set, there is no problem.'
+  ! update the number of electrons
+  na = na1; nb = nb1; ne = ne1
+ end if
+end subroutine check_na_nb_ecp_in_mkl
 
