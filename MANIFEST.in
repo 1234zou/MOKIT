@@ -1,5 +1,7 @@
 include MANIFEST.in
-include README.md setup.py CHANGELOG
-
-recursive-include mokit/lib *.so
+include README.md CHANGELOG
+recursive-include bin *
+include mokit/*.py 
+recursive-include mokit/lib *.py *.so
+recursive-include mokit/basis *
 

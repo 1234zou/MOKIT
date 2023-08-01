@@ -3,6 +3,7 @@ variables:
 .setup_lib:
   except:
     - conda
+    - newconda2
   #only:
   #  changes:
   #    - "mokit/__init__.py"

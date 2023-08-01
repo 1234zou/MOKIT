@@ -1,20 +1,13 @@
 .setup_conda:
   image: 
     name: continuumio/miniconda3:latest
-  only:
-    refs:
-      - master
-      - conda
-    changes:
-      - "mokit/__init__.py"
-      - "conda/meta.yaml"
   before_script:
     #- apt-get update -qy
     - conda init bash
     - source ~/.bashrc
-    - conda create -n mokit-build python=3.7
+    - conda create -n mokit-build python=3.8
     - conda activate mokit-build
-    - conda install anaconda-client conda-build
+    - conda install anaconda-client conda-build setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
     #- ldconfig -p | grep libgfort
     #- ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
@@ -22,7 +15,31 @@
 
 conda_build:
   extends: .setup_conda
+  only:
+    refs:
+      - master
+      #- conda
+      #- newconda2
+    changes:
+      - "mokit/__init__.py"
+      - "conda/*/meta.yaml"
   script:
-    - conda build --output-folder ./output conda
-    - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing
+    - conda build --output-folder ./output conda/conda37
+    - conda build --output-folder ./output conda/conda38p
+    - conda build --output-folder ./output conda/conda39p
+    - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing 
+
+conda_build_test:
+  extends: .setup_conda
+  only:
+    refs:
+      - newconda2
+    changes:
+      - "mokit/__init__.py"
+      - "conda/*/meta.yaml"
+  script:
+    - conda build --output-folder ./output conda/conda37
+    - conda build --output-folder ./output conda/conda38p
+    - conda build --output-folder ./output conda/conda39p
+    - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing --label test
 
