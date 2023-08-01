@@ -1,0 +1,45 @@
+# Copyright 2020-2023 The MOKIT Developers. All Rights Reserved.
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+classifiers = [
+'Development Status :: 5 - Production/Stable',
+'Intended Audience :: Science/Research',
+'Intended Audience :: Developers',
+'License :: OSI Approved :: Apache Software License',
+'Programming Language :: Fortran',
+'Programming Language :: Python :: 3',
+'Topic :: Software Development',
+'Topic :: Scientific/Engineering',
+'Operating System :: POSIX',
+]
+name             = 'mokit'
+authors = [
+          { name = 'Jingxiang Zou', email = 'njumath@sina.cn'},]
+description      = 'MOKIT: Molecular Orbital KIT'
+license = {text  = 'Apache License 2.0'}
+keywords         = ['quantum-chemistry', 'computational-chemistry']
+version          = "1.2.6rc10"
+#dynamic          = ["version"]
+requires-python  = ">=3.7"
+#dependencies     = [
+#        'numpy>=1.21',
+#        'mkl>=2022',
+#        'libgfortran5'
+#]
+
+[project.urls]
+Homepage         = 'http://gitlab.com/jxzou/mokit'
+Repository       = 'http://gitlab.com/jxzou/mokit'
+Documentation    = "http://jeanwsr.gitlab.io/mokit-doc-mdbook"
+#PLATFORMS        = ['Linux']
+
+#[tool.setuptools.packages.find]
+#where = ["."]
+#include = ["mokit", "mokit.*"]
+#
+#[tool.setuptools.dynamic]
+#version = { attr = "mokit.__version__"}
+#readme =  { file = "README.md"}

@@ -1,10 +1,13 @@
 from mokit.lib.py2fch import molinfo2fch, molecp2fch, py2fch
 import os
 import numpy as np
-from pyscf import scf, mcscf
-from pyscf.data import elements, nist
-from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
+try:
+    from pyscf import scf, mcscf
+    from pyscf.data import elements, nist
+    from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
         gto_norm
+except:
+    print("Warning: pyscf not found. All py2xxx functionality cannot work, although you can import them.")
 
 
 def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):

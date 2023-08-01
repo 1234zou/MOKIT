@@ -1,6 +1,7 @@
 .setup_system:
   except:
     - conda
+    - newconda2
   #only:
   #  changes:
   #    - "mokit/__init__.py"

@@ -10,6 +10,7 @@ build/
 dist/
 *-wheels/
 conda_out/
+conda_build/
 *.json
 linux-64/
 noarch/
