@@ -9,7 +9,7 @@ module bas_rot
   root30 = DSQRT(30d0), root35 = DSQRT(35d0), root70 = DSQRT(70d0), &
   root105 = DSQRT(105d0)
 
- ! Note: there is no need to declare vec7f, vec9g, etc, we can simply use
+ ! Note: there is no need to declare arrays vec7f, vec9g, etc, we can simply use
  ! part of the array vec21h
  real(kind=8), parameter :: vec21h(3,21) = RESHAPE([1d0,0d0,0d0, 0d0,0d0,1d0, &
   1d0,root3,1d0, 1d0,0d0,1d0, 0d0,1d0,1d0, 1d0,1d0,0d0, root3,1d0,root5, &
@@ -527,7 +527,8 @@ end subroutine rotate_atoms_wfn
 ! Assuming the input file is a.fch, the output file would be a_r.fch
 subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  use fch_content, only: nbf, nif, is_uhf, ncontr, shell_type, alpha_coeff, &
-  beta_coeff, tot_dm, spin_dm, check_uhf_in_fch, read_fch, coor0=>coor
+  beta_coeff, tot_dm, spin_dm, check_uhf_in_fch, read_fch, coor0=>coor, &
+  free_arrays_in_fch_content
  use bas_rot, only: get_invA, get_rot_mat_5d, get_rot_mat_6d, get_rot_mat_7f, &
   get_rot_mat_10f, get_rot_mat_9g, get_rot_mat_15g, get_rot_mat_11h, &
   get_rot_mat_21h
@@ -721,6 +722,7 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  if(is_uhf) spin_dm = 0d0
 
  call write_fch(new_fch)
+ call free_arrays_in_fch_content()
 end subroutine rotate_atoms_wfn2
 
 ! Get the wavefunction (MO coefficients, actually) of a molecule after some
@@ -743,7 +745,7 @@ subroutine permute_atoms_wfn(fchname, coor_file)
  allocate(coor1(3,natom), coor2(3,natom), idx(natom))
  call read_coor_from_fch(fchname, natom, coor1)
  call read_coor_from_gjf_or_xyz(coor_file, natom, coor2)
- call get_atom_map_idx(natom, coor1, coor2, idx)
+ call get_atom_map_idx_from_coor(natom, coor1, coor2, idx)
  deallocate(coor1, coor2)
 
  call permute_atoms_wfn2(fchname, natom, idx, new_fch)
@@ -753,17 +755,225 @@ end subroutine permute_atoms_wfn
 ! Get the wavefunction (MO coefficients, actually) of a molecule after some
 !  atoms are permuted (permuted indices are stored in the integer array idx).
 ! The updated wavefunction is stored in new_fch.
-subroutine permute_atoms_wfn2(fchname, natom, idx, new_fch)
+subroutine permute_atoms_wfn2(fchname, natm, idx, new_fch)
+ use fch_content
  implicit none
- integer, intent(in) :: natom
-!f2py intent(in) :: natom
- integer, intent(in) :: idx(natom)
-!f2py depend(natom) :: idx
+ integer :: i, j, k, m
+ integer, intent(in) :: natm
+!f2py intent(in) :: natm
+ integer, intent(in) :: idx(natm)
+!f2py depend(natm) :: idx
 !f2py intent(in) :: idx
+ integer, allocatable :: i1(:), begin_idx(:), bas_idx(:), shl2atmp(:), &
+  kfirst1(:,:), klast1(:,:)
+ real(kind=8), allocatable :: prim_exp1(:), contr_coeff1(:), contr_coeff_sp1(:),&
+  r2(:,:)
  character(len=240), intent(in) :: fchname, new_fch
 !f2py intent(in) :: fchname, new_fch
+ logical :: has_sp
 
+ if(natm < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine permute_atoms_wfn2: input natm<1.'
+  stop
+ else if(natm==1 .and. idx(1)/=1) then
+  write(6,'(/,A)') 'ERROR in subroutine permute_atoms_wfn2: natm=1 but idx/=1.'
+  write(6,'(A)') 'Input parameters/arguments are wrong.'
+  stop
+ end if
+
+ ! check whether the integer array idx = {1,2,3,...}
+ allocate(i1(natm))
+ forall(i = 1:natm) i1(i) = i
+ if(ALL(i1 == idx)) then
+  deallocate(i1)
+  call copy_file(fchname, new_fch)
+  return
+ end if
+ ! now idx is not {1,2,3,...}
+
+ call check_uhf_in_fch(fchname, is_uhf)
+ call read_fch(fchname, is_uhf)
+
+ has_sp = .false.
+ if(allocated(contr_coeff_sp)) has_sp = .true.
+
+ if(natm /= natom) then
+  write(6,'(/,A)') 'ERROR in subroutine permute_atoms_wfn2: natm/=natom.'
+  write(6,'(A,2I5)') 'natm, natom=', natm, natom
+  stop
+ end if
+ ! natom is used in the module fch_content, and natm is used for idx. They are
+ ! supposed to be equal.
+
+ ! permute arrays ielem and coor
+ i1 = ielem
+ allocate(r2(3,natom), source=coor)
+ forall(i = 1:natom)
+  ielem(i) = i1(idx(i))
+  coor(:,i) = r2(:,idx(i))
+ end forall
+ deallocate(i1, r2)
+
+ ! find beginning indices of primitive functions of each atom
+ allocate(begin_idx(natom+1), source=0)
+ j = 2; begin_idx(1) = 1
+ if(ncontr > 1) begin_idx(2) = 1
+
+ do i = 1, ncontr, 1
+  begin_idx(j) = begin_idx(j) + prim_per_shell(i)
+  if(i < ncontr) then
+   if(j == shell2atom_map(i+1)) then
+    j = j + 1
+    begin_idx(j) = begin_idx(j-1)
+   end if
+  else ! i = ncontr
+   exit
+  end if
+ end do ! for i
+
+ if(begin_idx(natom+1) /= nprim+1) then
+  write(6,'(/,A)') 'ERROR in subroutine permute_atoms_wfn2: begin_idx(natom+1) &
+                   &/= nprim+1.'
+  write(6,'(A,2I5)') 'begin_idx(natom+1), nprim=', begin_idx(natom+1), nprim
+  stop
+ end if
+
+ ! permute arrays prim_exp, contr_coeff, and (possible) contr_coeff_sp1
+ allocate(prim_exp1(nprim), source=prim_exp)
+ allocate(contr_coeff1(nprim), source=contr_coeff)
+ j = 1
+ do i = 1, natom, 1
+  k = begin_idx(idx(i))
+  m = begin_idx(idx(i)+1) - k
+  prim_exp(j:j+m-1) = prim_exp1(k:k+m-1)
+  contr_coeff(j:j+m-1) = contr_coeff1(k:k+m-1)
+  j = j + m
+ end do ! for i
+ deallocate(prim_exp1, contr_coeff1)
+
+ if(has_sp) then
+  allocate(contr_coeff_sp1(nprim), source=contr_coeff_sp)
+  j = 1
+  do i = 1, natom, 1
+   k = begin_idx(idx(i))
+   m = begin_idx(idx(i)+1) - k
+   contr_coeff_sp(j:j+m-1) = contr_coeff_sp1(k:k+m-1)
+   j = j + m
+  end do ! for i
+  deallocate(contr_coeff_sp1)
+ end if
+
+ ! find basis function permutation indices
+ call get_bas_begin_idx_from_shltyp(ncontr, shell_type, shell2atom_map, natom, &
+                                    begin_idx)
+ allocate(bas_idx(nbf), source=0)
+ allocate(i1(nbf))
+ forall(i = 1:nbf) i1(i) = i
+ j = 1
+ do i = 1, natom, 1
+  k = begin_idx(idx(i))
+  m = begin_idx(idx(i)+1) - k
+  bas_idx(j:j+m-1) = i1(k:k+m-1)
+  j = j + m
+ end do ! for i
+ deallocate(i1)
+
+ ! permute MO coefficients, total density matrix and (possible) spin density
+ ! matrix
+ allocate(r2(nbf,nbf), source=0d0)
+ r2(:,1:nif) = alpha_coeff
+ forall(i = 1:nbf) alpha_coeff(i,:) = r2(bas_idx(i),1:nif)
+ r2 = tot_dm
+ forall(i=1:nbf, j=1:nbf) tot_dm(i,j) = r2(bas_idx(i),bas_idx(j))
+
+ if(is_uhf) then
+  r2(:,1:nif) = beta_coeff
+  forall(i = 1:nbf) beta_coeff(i,:) = r2(bas_idx(i),1:nif)
+  if(allocated(spin_dm)) then
+   r2 = spin_dm
+   forall(i=1:nbf, j=1:nbf) spin_dm(i,j) = r2(bas_idx(i),bas_idx(j))
+  end if
+ end if
+
+ deallocate(bas_idx, r2)
+
+ ! permute arrays shell_type, prim_per_shell and shell2atom_map
+ begin_idx = 0; begin_idx(1) = 1; begin_idx(natom+1) = ncontr+1
+ j = 2
+ do i = 2, ncontr, 1
+  if(shell2atom_map(i-1)+1 == shell2atom_map(i)) then
+   begin_idx(j) = i
+   j = j + 1
+  end if
+ end do ! for i
+
+ allocate(i1(ncontr), source=shell_type)
+ allocate(bas_idx(ncontr), source=prim_per_shell)
+ allocate(shl2atmp(ncontr), source=shell2atom_map)
+ j = 1
+ do i = 1, natom, 1
+  k = begin_idx(idx(i))
+  m = begin_idx(idx(i)+1) - k
+  shell_type(j:j+m-1) = i1(k:k+m-1)
+  prim_per_shell(j:j+m-1) = bas_idx(k:k+m-1)
+  shell2atom_map(j:j+m-1) = shl2atmp(k:k+m-1)
+  j = j + m
+ end do ! for i
+
+ deallocate(i1, bas_idx, begin_idx)
+ allocate(i1(natom))
+ forall(i = 1:natom) i1(idx(i)) = i
+ shl2atmp = shell2atom_map
+ forall(i = 1:ncontr) shell2atom_map(i) = i1(shl2atmp(i))
+ deallocate(shl2atmp)
+
+ if(LenNCZ > 0) then ! If ECP/PP is used, permute ECP data
+  i1 = Lmax
+  allocate(bas_idx(natom), source=LPSkip)
+  allocate(kfirst1(natom,10), source=KFirst)
+  allocate(klast1(natom,10), source=KLast)
+  allocate(prim_exp1(natom), source=RNFroz)
+  forall(i = 1:natom)
+   Lmax(i) = i1(idx(i))
+   LPSkip(i) = bas_idx(idx(i))
+   KFirst(i,:) = kfirst1(idx(i),:)
+   KLast(i,:) = klast1(idx(i),:)
+   RNFroz(i) = prim_exp1(idx(i))
+  end forall
+  deallocate(i1, bas_idx, kfirst1, klast1, prim_exp1)
+  ! There is no need to permute arrays NLP, CLP1, CLP2 and ZLP
+ end if
+
+ call write_fch(new_fch)
+ call free_arrays_in_fch_content()
 end subroutine permute_atoms_wfn2
+
+! get the basis function beginning indices of each atom
+subroutine get_bas_begin_idx_from_shltyp(ncontr, shell_type, shell2atom_map, &
+                                         natom, begin_idx)
+ implicit none
+ integer :: i, j
+ integer, parameter :: shltyp2nbas(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
+ integer, intent(in) :: ncontr, natom
+ integer, intent(in) :: shell_type(ncontr), shell2atom_map(ncontr)
+ integer, intent(out) :: begin_idx(natom+1)
+
+ begin_idx = 0
+ j = 2; begin_idx(1) = 1
+ if(ncontr > 1) begin_idx(2) = 1
+
+ do i = 1, ncontr, 1
+  begin_idx(j) = begin_idx(j) + shltyp2nbas(shell_type(i))
+  if(i < ncontr) then
+   if(j == shell2atom_map(i+1)) then
+    j = j + 1
+    begin_idx(j) = begin_idx(j-1)
+   end if
+  else ! i = ncontr
+   exit
+  end if
+ end do ! for i
+end subroutine get_bas_begin_idx_from_shltyp
 
 ! calculate the RMSD value of two sets of coordinates
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
@@ -873,7 +1083,7 @@ end subroutine mirror_c2c
 ! 11H: H+2, H-2, H+4, H-4
 subroutine mirror_wfn(fchname)
  use fch_content, only: nbf, nif, ncontr, alpha_coeff, beta_coeff, shell_type, &
-  is_uhf, coor, tot_dm, spin_dm, check_uhf_in_fch, read_fch
+  is_uhf, coor, tot_dm, spin_dm, check_uhf_in_fch, read_fch, free_arrays_in_fch_content
  implicit none
  integer :: i, j, k, nif1
  integer, parameter :: a1(3) = [1,4,5]
@@ -984,6 +1194,7 @@ subroutine mirror_wfn(fchname)
 
  ! generate a new .fch file
  call write_fch(new_fch)
+ call free_arrays_in_fch_content()
 end subroutine mirror_wfn
 
 ! generate geometries using linear interpolation of Cartesian coordinates
@@ -1080,14 +1291,44 @@ subroutine check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
 end subroutine check_natom_eq_in_fch_and_gjf_or_xyz
 
 ! get the atomic correspondence indices of two geometries
-subroutine get_atom_map_idx(natom, coor1, coor2, idx)
+subroutine get_atom_map_idx_from_coor(natom, coor1, coor2, idx)
  implicit none
- integer :: i
+ integer :: i, j
  integer, intent(in) :: natom
  integer, intent(out) :: idx(natom)
+ real(kind=8) :: norm, rtmp1(3), rtmp2(3)
+ real(kind=8), parameter :: thres = 1d-5
  real(kind=8), intent(in) :: coor1(3,natom), coor2(3,natom)
+ logical, allocatable :: used1(:), used2(:)
 
  idx = 0 ! initialization
+ allocate(used1(natom), used2(natom))
+ used1 = .false.; used2 = .false.
 
-end subroutine get_atom_map_idx
+ do i = 1, natom, 1
+  rtmp1 = coor1(:,i)
+
+  do j = 1, natom, 1
+   if(used2(j)) cycle
+   rtmp2 = coor2(:,j) - rtmp1
+   norm = DOT_PRODUCT(rtmp2, rtmp2)
+   if(norm < thres) then
+    used1(i) = .true.; used2(j) = .true.
+    idx(j) = i
+    exit
+   end if
+  end do ! for j
+
+ end do ! for i
+
+ if(ANY(used1 .eqv. .false.) .or. ANY(used2 .eqv. .false.)) then
+  write(6,'(/,A)') 'ERROR in subroutine get_atom_map_idx_from_coor: one-to-one &
+                   &correspondence'
+  write(6,'(A)') 'cannot be built for these two geometries.'
+  write(6,'(A,I0)') 'natom=', natom
+  stop
+ end if
+
+ deallocate(used1, used2)
+end subroutine get_atom_map_idx_from_coor
 

@@ -320,7 +320,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc10 (2023-Jul-30)'
+  write(6,'(A)') '           Version: 1.2.6rc11 (2023-Aug-10)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -901,28 +901,25 @@ contains
    else if(X2C) then
     call add_X2C_into_fch(hf_fch)
    else
-    call check_X2C_in_fch(hf_fch, alive(1))
-    if(alive(1)) then
+    call find_irel_in_fch(hf_fch, i)
+    if(i == -3) then
      write(6,'(/,A)') REPEAT('-',55)
-     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword detect&
-                    &ed in file"
-     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}. If&
-                    & you do"
+     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword detecte&
+                    &d in file"
+     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}. If &
+                   &you do"
      write(6,'(A)') 'not want to perform X2C computations, please kill this job&
-                   & immediately'
-     write(6,'(A)') "and delete 'X2C' in .fch."
+                    & immediately and'
+     write(6,'(A)') "delete 'X2C' in .fch."
      write(6,'(A)') REPEAT('-',55)
-    end if
-
-    call check_DKH_in_fch(hf_fch, i)
-    if(i /= -2) then
+    else if(i > 0) then
      write(6,'(/,A)') REPEAT('-',55)
-     write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords&
-                    & detected in file'
+     write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords &
+                    &detected in file'
      write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}. If&
-                   & you do"
-     write(6,'(A)') 'not want to perform DKH2 computations, please kill this job&
-                   & immediately'
+                    & you do"
+     write(6,'(A)') 'not want to perform DKH2 computations, please kill this jo&
+                    &b immediately'
      write(6,'(A)') 'and delete DKH related keywords in .fch.'
      write(6,'(A)') REPEAT('-',55)
     end if

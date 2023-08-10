@@ -4,13 +4,13 @@ import numpy as np
 try:
     from pyscf import scf, mcscf
     from pyscf.data import elements, nist
-    from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, \
-        gto_norm
+    from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, gto_norm
 except:
     print("Warning: pyscf not found. All py2xxx functionality cannot work, although you can import them.")
 
 
-def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
+def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, irel=-1, trim_zeros=True):
+    # irel=-3/-2/-1/0/2/4 for sfX2C/RESC/None/DKH0/DKH2/DKH4 relativistic Hamiltonian
     nbf = mol.nao
     if mo is not None:
         if uhf:
@@ -135,15 +135,31 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, trim_zeros=True):
              KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
              )
     else:
-        molinfo2fch(fchname, uhf, nbf, nif, na, nb, ncontr, nprimitive, charge, mult, natom, LenNCZ, 
-             ielem, ghost, shell_type, prim_per_shell, shell2atom_map, 
-             virial, tot_e, coor, prim_exp, contr_coeff, #contr_coeff_sp,
+        molinfo2fch(fchname, uhf, irel, nbf, nif, na, nb, ncontr, nprimitive, 
+             charge, mult, natom, LenNCZ, ielem, ghost, shell_type, prim_per_shell,
+             shell2atom_map, virial, tot_e, coor, prim_exp, contr_coeff, #contr_coeff_sp,
              #KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP
              )
 
+def find_irel_from_mf(mf):
+    irel = -1 # initialization
+
+    if isinstance(mf, scf.hf.SCF):
+        if hasattr(mf, 'with_x2c'):
+            if mf.with_x2c is not False:
+                irel = -3 # sf-X2C1e
+    elif isinstance(mf, mcscf.casci.CASCI):
+        if hasattr(mf._scf, 'with_x2c'):
+            if mf._scf.with_x2c is not False:
+                irel = -3 # sf-X2C1e
+    else:
+        raise NotImplementedError('Input obj cannot be recognized in find_irel_from_mf.')
+    return irel
+
 def fchk_uno(mf, fchname, uno, unoon, density=False, overwrite_mol=False):
     if (not os.path.isfile(fchname)) or overwrite_mol:
-        mol2fch(mf.mol, fchname, False, uno)
+        irel = find_irel_from_mf(mf)
+        mol2fch(mf.mol, fchname, False, uno, irel)
     py2fch(fchname, uno.shape[0], uno.shape[1], uno, 'a', unoon, True, density)
 
 def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=None):
@@ -153,10 +169,11 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
     else:
         mo = mo_coeff
     if (not os.path.isfile(fchname)) or overwrite_mol:
-        mol2fch(mf.mol, fchname, is_uhf, mo)
+        irel = find_irel_from_mf(mf)
+        mol2fch(mf.mol, fchname, is_uhf, mo, irel)
     if isinstance(mf, scf.hf.SCF):
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
-            raise NotImplementedError('GHF/DHF not supported in py2fch')
+            raise NotImplementedError('GHF/DHF not supported in py2fch currently.')
         if not is_uhf: # ROHF is also RHF here
             py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, False, density)
         else:
@@ -169,7 +186,13 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
                                           'Dumping CASSCF density without natural orbitals is not supported yet.'
                                           'Use mf.natorb=True if you want to dump density.')
             else:
-                mf.mo_occ = np.zeros(mf.mo_coeff.shape[1])
+                occ = mf.mo_energy
+                # Here we assume that HF canonical orbitals are stored in CASCI obj.
+                # For BDF program, the HF canonical orbital energies must be written
+                #  into the .scforb file, otherwise SCF in BDF cannot be converged in
+                #  1 cycle. For non-BDF programs, this section is useless.
+                # For non-canonical orbitals, this section is useless, either.
+                # Considering all cases above, occ = mf.mo_energy seems a good choice.
         elif mo_occ is not None:
             occ = mo_occ
         else:

@@ -212,7 +212,8 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname)
  dftname1 = dftname
  select case(TRIM(dftname1))
  case('b3lyp')
-  dftname1 = 'b3lypg'
+  dftname1 = 'b3lyp' ! since PySCF-2.3, B3LYP in PySCF is the same to that in
+  ! Gaussian. For older versions of PySCF, the user should use 'b3lypg'
  case('pbepbe')
   dftname1 = 'pbe,pbe'
  end select

@@ -1376,7 +1376,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB energ&
                    &y found in'
-  write(6,'()') 'file '//TRIM(gmsname)
+  write(6,'(A)') 'file '//TRIM(gmsname)
   write(6,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
   write(6,'(A)') 'If yes, reducing the number of processors and re-run may do&
                  & dome help.'
@@ -3546,9 +3546,15 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  implicit none
  integer :: i, j, lwork, liwork
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  integer, allocatable :: isuppz(:), iwork(:)
  real(kind=8), intent(in) :: P(nbf,nbf), ao_ovlp(nbf,nbf)
+!f2py intent(in) :: P, ao_ovlp
+!f2py depend(nbf) :: P, ao_ovlp
  real(kind=8), intent(out) :: noon(nif), new_coeff(nbf,nif)
+!f2py intent(out) :: noon, new_coeff
+!f2py depend(nif) :: noon
+!f2py depend(nbf,nif) :: new_coeff
  real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 

@@ -18,18 +18,15 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  integer :: i, j, k, length, nbf0, ncoeff, fchid
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
-
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
-
  real(kind=8), intent(out) :: coeff2(nbf,nif)
 !f2py depend(nbf,nif) :: coeff2
 !f2py intent(out) :: coeff2
  real(kind=8), allocatable :: coeff(:)
-
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
 

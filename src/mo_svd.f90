@@ -222,16 +222,16 @@ subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, co
  implicit none
  integer :: i, j, nmo2, nvir1, nvir2
  integer :: nbf1, nmo1, nbf2, na_np
-!f2py intent(in) nbf1, nmo1, nbf2, na_np
+!f2py intent(in) :: nbf1, nmo1, nbf2, na_np
  real(kind=8) :: S2(nbf2,nbf2), cross_S(nbf1,nbf2)
-!f2py intent(in,copy) S2
-!f2py intent(in) cross_S
-!f2py depend(nbf2) S2
-!f2py depend(nbf1,nbf2) cross_S
+!f2py intent(in,copy) :: S2
+!f2py intent(in) :: cross_S
+!f2py depend(nbf2) :: S2
+!f2py depend(nbf1,nbf2) :: cross_S
  real(kind=8) :: coeff1(nbf1,nmo1), coeff(nbf1,nmo1)
-!f2py intent(in,copy) coeff1
+!f2py intent(in,copy) :: coeff1
 !f2py intent(out) :: coeff
-!f2py depend(nbf1,nmo1) coeff, coeff1
+!f2py depend(nbf1,nmo1) :: coeff, coeff1
  real(kind=8), allocatable :: coeff2(:,:), mo_ovlp(:,:), sv(:), sv2(:,:)
  
 ! na_np: the number of alpha orbitals + unoccupied localized UNOs in coeff1
@@ -302,7 +302,6 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
  real(kind=8) :: ao_ovlp(nbf1,nbf2)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf1,nbf2) :: ao_ovlp
-
  real(kind=8), allocatable :: mo_ovlp(:,:), sv(:)
 
  ! compute MO basis overlap
@@ -592,22 +591,18 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  integer :: i, j, niter
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
- integer, parameter :: niter_max = 9999
- ! niter_max: max number of iterations
-
+ integer, parameter :: niter_max = 9999   ! max number of iterations
  real(kind=8) :: Aij, Bij, r1, r2, rtmp, sin_a, cos_a, alpha, sum_change
  real(kind=8), parameter :: threshold1 = 1d-7, threshold2 = 1d-6
  ! threshold1: determine whether to rotate (and update MOs and overlap integrals)
  ! threshold2: determine whether orbital rotations converged
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
-
  real(kind=8) :: mo1(nbf1,nmo1), mo2(nbf2,nmo2), cross_S(nbf1,nbf2)
 !f2py intent(in) :: mo1, mo2, cross_S
 !f2py depend(nbf1,nmo1) :: mo1
 !f2py depend(nbf2,nmo2) :: mo2
 !f2py depend(nbf1,nbf2) :: cross_S
 ! cross_S is the cross AO overlap integral matrix
-
  real(kind=8) :: new_mo1(nbf1,nmo1)
 !f2py intent(out) :: new_mo1
 !f2py depend(nbf1,nmo1) :: new_mo1

@@ -72,6 +72,8 @@ OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 OBJ_gvb_sort_pairs = file_op.obj gvb_sort_pairs.obj
 OBJ_mkl2amo = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2amo.obj
+OBJ_mkl2bdf = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
+              mkl2bdf.obj
 OBJ_mkl2cfour = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
                 mkl2cfour.obj
 OBJ_mkl2com = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
@@ -102,8 +104,8 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
         bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour \
         fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
         fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
-        gvb_sort_pairs mkl2amo mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb \
-        mkl2gjf mkl2psi mkl2py mkl2qchem orb2fch xml2fch solve_ON_matrix
+        gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
+        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem orb2fch xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS) $(MKL_FLAGS)
@@ -237,6 +239,9 @@ gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
 mkl2amo: $(OBJ_mkl2amo)
 	$(F90) $(OBJ_mkl2amo) -o $(BIN)\mkl2amo $(FFLAGS) $(LFLAGS)
 
+mkl2bdf: $(OBJ_mkl2bdf)
+	$(F90) $(OBJ_mkl2bdf) -o $(BIN)\mkl2bdf $(FFLAGS) $(LFLAGS)
+
 mkl2cfour: $(OBJ_mkl2cfour)
 	$(F90) $(OBJ_mkl2cfour) -o $(BIN)\mkl2cfour $(FFLAGS) $(LFLAGS)
 
@@ -283,7 +288,7 @@ all: addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molc
      bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch \
      extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp \
      fch2inporb fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn \
-     gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2cfour mkl2com mkl2dal mkl2fch \
+     gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch \
      mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem orb2fch xml2fch solve_ON_matrix
 
 clean:

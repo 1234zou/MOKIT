@@ -11,7 +11,9 @@
 
 module fch_content
  implicit none
- logical :: is_uhf           ! is UHF or not
+ logical :: is_uhf = .false. ! is UHF or not
+ integer :: irel = -1        ! -3/-2/-1/0/2/4 for sfX2C/RESC/None/DKH0/DKH2/DKH4
+ ! relativistic Hamiltonian. Note that irel=0 means DKH0, not None
  integer :: nbf, nif         ! number of basis functions/MOs
  integer :: na, nb, nopen    ! number of alpha/beta/open shell electrons
  integer :: ncontr, nprim    ! Number of contracted/primitive shells
@@ -442,6 +444,7 @@ subroutine read_fch(fchname, uhf)
   end if
   if(buf(1:9) == 'Total SCF') exit
  end do ! for while
+
  allocate(tot_dm(nbf,nbf))
  read(fid,'(5(1X,ES15.8))') ((tot_dm(j,i),j=1,i),i=1,nbf)
  forall(i=1:nbf,j=1:nbf,i>j) tot_dm(i,j) = tot_dm(j,i)
@@ -585,6 +588,20 @@ pure function elem2nuc(s) result(i)
  end do ! for i
 end function elem2nuc
 
+subroutine free_arrays_in_fch_content()
+ implicit none
+
+ deallocate(ielem, iatom_type, shell_type, prim_per_shell, shell2atom_map,coor,&
+            prim_exp, contr_coeff, eigen_e_a, alpha_coeff)
+ if(is_uhf) deallocate(eigen_e_b, beta_coeff)
+ if(LenNCZ > 0) deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2,&
+                           ZLP)
+ if(allocated(elem)) deallocate(elem)
+ if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
+ if(allocated(tot_dm)) deallocate(tot_dm)
+ if(allocated(spin_dm)) deallocate(spin_dm)
+ if(allocated(mull_char)) deallocate(mull_char)
+end subroutine free_arrays_in_fch_content
 end module fch_content
 
 ! expansion coefficients matrices of spherical harmonic -> Cartesian functions
@@ -643,23 +660,27 @@ rh(21,11) = RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22,
                     [21,11])
 end module r_5D_2_6D
 
-! check whether there exists DKH keywords in a given .fch(k) file
-subroutine check_DKH_in_fch(fchname, order)
+! check whether there exists DKH/X2C keywords in a given .fch(k) file
+subroutine find_irel_in_fch(fchname, irel)
  implicit none
  integer :: i, fid
- integer, intent(out) :: order
-! -2: no DKH
-! -1: RESC
+ integer, intent(out) :: irel
+!f2py intent(out) :: irel
+! -3: X2C, i.e. sf-x2c1e
+! -2: RESC
+! -1: no relativity
 !  0: DKH 0th-order
 !  2: DKH2
 !  4: DKH4 with SO
  character(len=61) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(ib) :: fchname
  character(len=610) :: longbuf
- logical :: alive(6)
+ logical :: alive(7)
 
- order = -2 ! default value, no DKH
+ irel = -1   ! default: no relativity
  call open_file(fchname, .true., fid)
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -667,10 +688,10 @@ subroutine check_DKH_in_fch(fchname, order)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine check_DKH_in_fch: neither 'Route'&
-                 & nor 'Charge'"
-  write(6,'(A)') 'is found in file '//TRIM(fchname)//'.'
-  write(6,'(A)') 'This .fch(k) file is incomplete.'
+  write(6,'(/,A)') "ERROR in subroutine find_irel_in_fch: neither 'Route' nor '&
+                   &Charge' is found"
+  write(6,'(A)') 'in file '//TRIM(fchname)//'.'
+  write(6,'(A)') 'This .fch(k) file maybe incomplete.'
   stop
  end if
 
@@ -689,66 +710,25 @@ subroutine check_DKH_in_fch(fchname, order)
 
  call upper(longbuf)
 
- alive = [(index(longbuf,'DKH0')/=0), (index(longbuf,'DKHSO')/=0), &
-          (index(longbuf,'DKH')/=0 .and. index(longbuf,'NODKH')==0), &
-          (index(longbuf,'DKH2')/=0), &
-          (index(longbuf,'DOUGLASKROLLHESS')/=0), (index(longbuf,'RESC')/=0)]
+ alive = [(index(longbuf,'DKH0')>0), (index(longbuf,'DKHSO')>0), &
+          (index(longbuf,'DKH')>0 .and. index(longbuf,'NODKH')==0), &
+          (index(longbuf,'DKH2')>0), (index(longbuf,'DOUGLASKROLLHESS')>0), &
+          (index(longbuf,'RESC')>0), (index(longbuf,'X2C')>0)]
 
- if(alive(1)) then      ! DKH 0th order
-  order = 0
- else if(alive(2)) then ! DKH 4th order
-  order = 4
+ if(alive(1)) then      ! DKH0
+  irel = 0
+ else if(alive(2)) then ! DKH4, DKHSO
+  irel = 4
  else if(alive(6)) then ! RESC
-  order = -1
- else if(alive(3) .or. alive(4) .or. alive(5)) then ! DKH 2nd order
-  order = 2
+  irel = -2
+ else if(alive(7)) then ! X2C
+  irel = -3
+ else if(alive(3) .or. alive(4) .or. alive(5)) then ! DKH2
+  irel = 2
  else
-  order = -2           ! no relativistic
+  irel = -1             ! no relativity
  end if
-
-end subroutine check_DKH_in_fch
-
-! check whether there exists X2C keyword in a given .fch(k) file
-! Note: normally the 'X2C' keyword is not possbible to be written in the
-!  Gaussian .fch(k) file. This is merely because automr will write X2C into
-!  the .fch(k) file.
-subroutine check_X2C_in_fch(fchname, alive)
- implicit none
- integer :: i, fid
- character(len=61) :: buf
- character(len=240), intent(in) :: fchname
- character(len=610) :: longbuf
- logical, intent(out) :: alive
-
- alive = .false. ! default value
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:5)=='Route' .or. buf(1:6)=='Charge') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine check_X2C_in_fch: neither 'Route'&
-                 & not 'Charge' is"
-  write(6,'(A)') 'found in file '//TRIM(fchname)//'.'
-  stop
- end if
-
- if(buf(1:5)=='Route') then
-  longbuf = ' '
-  do i = 1, 5
-   read(fid,'(A)') buf
-   if(buf(1:6) == 'Charge') exit
-   longbuf = TRIM(longbuf)//TRIM(buf)
-  end do ! for i
-
-  call upper(longbuf)
-  if(index(longbuf,'X2C') /= 0) alive = .true.
- end if
-
- close(fid)
-end subroutine check_X2C_in_fch
+end subroutine find_irel_in_fch
 
 ! check whether 'nobasistransform' exists in a given .fch(k) file
 ! if not, print warning
@@ -924,6 +904,7 @@ subroutine write_fch(fchname)
  integer :: i, j, ncoeff, nhigh, ncontr_l, len_dm, fid
  integer, allocatable :: ilsw(:)
  real(kind=8), allocatable :: relem(:), shell_coor(:), coor1(:)
+ character(len=4) :: hf_str
  character(len=240), intent(in) :: fchname
  logical :: uhf
 
@@ -944,6 +925,8 @@ subroutine write_fch(fchname)
 
  allocate(relem(natom), coor1(3*natom))
  forall(i = 1:natom) relem(i) = DBLE(ielem(i))
+ ! If ECP/PP is used, the pseudo core electrons need to be substracted
+ if(allocated(RNFroz)) relem = relem - RNFroz
  forall(i = 1:natom) coor1(3*i-2:3*i) = coor(:,i)
  coor1 = coor1/Bohr_const
 
@@ -970,16 +953,51 @@ subroutine write_fch(fchname)
  ilsw(70) = natom
  ilsw(72) = 1
 
+ if(uhf) then
+  hf_str = 'UHF '
+ else
+  if(mult == 1) then
+   hf_str = 'RHF '
+  else
+   hf_str = 'ROHF'
+  end if
+ end if
+
  open(newunit=fid,file=TRIM(fchname),status='replace')
  write(fid,'(A)') 'Generated by MOKIT'
- write(fid,'(A,8X)',advance='no') 'SP'
- if(uhf) then
-  write(fid,'(A)',advance='no') 'UHF'
+ write(fid,'(A,8X,A)',advance='no') 'SP ',TRIM(hf_str)
+ if((.not.uhf) .and. mult>1) then
+  write(fid,'(56X,A)') 'MYBAS' ! ROHF
  else
-  write(fid,'(A)',advance='no') 'RHF'
+  write(fid,'(57X,A)') 'MYBAS' ! RHF/UHF
  end if
- write(fid,'(57X,A)') 'MYBAS'
  write(fid,'(A,I17)') 'Number of atoms                            I',natom
+
+ ! The Route Section is not necessary for a fch file. But when the DKH/X2C key-
+ ! words are written into the fch file, fch2xxx utilities will recognize it and
+ ! write related relativistic keywords into generated files
+ if(irel /= -1) then
+  write(fid,'(A,38X,A,3X,A,I12)') 'Route','C','N=',5
+  write(fid,'(A)',advance='no') '#p '//TRIM(hf_str)//' chkbasis nosymm int(noba&
+                                &sistransform,'
+  select case(irel)
+  case(-3)
+   write(fid,'(A)') 'X2C)'
+  case(-2)
+   write(fid,'(A)') 'RESC)'
+  case(0)
+   write(fid,'(A)') 'DKH0)'
+  case(2)
+   write(fid,'(A)') 'DKH2)'
+  case(4)
+   write(fid,'(A)') 'DKHSO)'
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine write_fch: irel out of range.'
+   write(6,'(A,I0)') 'irel=', irel
+   stop
+  end select
+ end if
+
  write(fid,'(A,I17)') 'Charge                                     I',charge
  write(fid,'(A,I17)') 'Multiplicity                               I',mult
  write(fid,'(A,I17)') 'Number of electrons                        I',na+nb
@@ -1033,7 +1051,7 @@ subroutine write_fch(fchname)
   write(fid,'(6I12)') KFirst
   write(fid,'(A,I12)') 'ECP-KLast                                  I   N=',10*natom
   write(fid,'(6I12)') KLast
-  write(fid,'(A,I12)') 'ECP-Lmax                                   I   N=',natom
+  write(fid,'(A,I12)') 'ECP-LMax                                   I   N=',natom
   write(fid,'(6I12)') Lmax
   write(fid,'(A,I12)') 'ECP-LPSkip                                 I   N=',natom
   write(fid,'(6I12)') LPSkip

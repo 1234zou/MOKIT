@@ -83,31 +83,27 @@ subroutine molecp2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
  end if
 
  call write_fch(fchname)
- 
- deallocate(shell_type)
- deallocate(prim_per_shell)
- deallocate(shell2atom_map)
- deallocate(coor)
- deallocate(prim_exp)
- deallocate(contr_coeff)
+
+ deallocate(coor, shell_type, prim_per_shell, shell2atom_map, prim_exp, &
+            contr_coeff)
  if(LenNCZ > 0) then
   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
   if(allocated(CLP2)) deallocate(CLP2)
  end if
 end subroutine molecp2fch
 
-subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
- nprim_in, charge_in, mult_in, natom_in, LenNCZ_in, ielem_in, ghost, shell_type_in, &
- prim_per_shell_in, shell2atom_map_in, virial_in, tot_e_in, coor_in, prim_exp_in,&
- contr_coeff_in)
- use fch_content, only: is_uhf, nbf, nif, na, nb, ncontr, nprim, charge, mult, &
-  natom, LenNCZ, ielem, iatom_type, shell_type, prim_per_shell, shell2atom_map,&
-  virial, tot_e, coor, prim_exp, contr_coeff, contr_coeff_sp
+subroutine molinfo2fch(fchname, uhf, irel_in, nbf_in, nif_in, na_in, nb_in, &
+ ncontr_in, nprim_in, charge_in, mult_in, natom_in, LenNCZ_in, ielem_in, ghost, &
+ shell_type_in, prim_per_shell_in, shell2atom_map_in, virial_in, tot_e_in, coor_in,&
+ prim_exp_in, contr_coeff_in)
+ use fch_content, only: is_uhf, irel, nbf, nif, na, nb, ncontr, nprim, charge, &
+  mult, natom, LenNCZ, ielem, iatom_type, shell_type, prim_per_shell, virial, &
+  tot_e, shell2atom_map, coor, prim_exp, contr_coeff, contr_coeff_sp
  implicit none
  integer :: i
  character(len=240), intent(in) :: fchname
- integer, intent(in) :: nbf_in, nif_in, na_in, nb_in, ncontr_in, nprim_in, &
-                        charge_in, mult_in, natom_in, LenNCZ_in
+ integer, intent(in) :: irel_in, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
+  nprim_in, charge_in, mult_in, natom_in, LenNCZ_in
  integer, intent(in) :: ielem_in(natom_in), shell_type_in(ncontr_in), &
                         prim_per_shell_in(ncontr_in), shell2atom_map_in(ncontr_in)
  real(kind=8), intent(in) :: virial_in, tot_e_in 
@@ -121,6 +117,7 @@ subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
 !f2py depend(natom_in) :: ghost
 
  is_uhf = uhf
+ irel = irel_in
  nbf = nbf_in
  nif = nif_in
  na = na_in
@@ -135,14 +132,11 @@ subroutine molinfo2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
  allocate(iatom_type(natom), source=0)
  forall(i=1:natom, (ghost(i))) iatom_type(i) = 1000
  allocate(shell_type(ncontr), source=shell_type_in)
-! write(*,*) shell_type
  allocate(prim_per_shell(ncontr), source=prim_per_shell_in)
  allocate(shell2atom_map(ncontr), source=shell2atom_map_in)
  virial = virial_in
  tot_e = tot_e_in
-! write(*,*) tot_e
  allocate(coor(3,natom), source=coor_in)
-! write(*,*) coor
  allocate(prim_exp(nprim), source=prim_exp_in)
  allocate(contr_coeff(nprim), source=contr_coeff_in)
 ! if (ALL(contr_coeff_sp_in==0d0)) then 

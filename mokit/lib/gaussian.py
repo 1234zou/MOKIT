@@ -41,6 +41,7 @@ def load_mol_from_fch(fchname):
   shutil.rmtree('__pycache__')
   return molpy.mol
 
+
 def mo_fch2py(fchname):
   '''
   Read MOs from a given Gaussian .fch(k) file, and convert MOs for usage in PySCF
@@ -65,8 +66,9 @@ def mo_fch2py(fchname):
   elif ihf == 7:         # complex GHF
     mo = fch2py_cghf(fchname, 2*nbf, 2*nif)
   else:
-    raise ValueError("Confused HF_type.")
+    raise ValueError('Confused HF_type.')
   return mo
+
 
 def loc(fchname, idx, method=None):
   '''
@@ -100,13 +102,14 @@ def loc(fchname, idx, method=None):
     mo_dipole = dipole_integral(mol, mo_coeff[:,idx])
     loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)
   else:
-    raise ValueError("Localization method cannot be recognized.")
+    raise ValueError('Localization method cannot be recognized.')
 
   mo_coeff[:,idx] = loc_orb.copy()
   noon = np.zeros(nif)
   shutil.copyfile(fchname, fchname1)
   py2fch(fchname1, nbf, nif, mo_coeff, 'a', noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
+
 
 def uno(fchname):
   '''
@@ -139,9 +142,11 @@ def uno(fchname):
   py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True, True)
   print('UNOs exported to file '+fchname1)
 
+
 def permute_orb(fchname, orb1, orb2):
   '''
-  Permute two orbitals in a given Gaussian .fch(k) file
+  Permute two orbitals in a given Gaussian .fch(k) file.
+  Note: orb1/orb2 are in Fortran convention (starts from 1)
   '''
   from mokit.lib.rwwfn import read_mo_from_fch, write_mo_into_fch, \
     read_eigenvalues_from_fch, write_eigenvalues_to_fch
@@ -160,6 +165,28 @@ def permute_orb(fchname, orb1, orb2):
 
   write_mo_into_fch(fchname, nbf, nif, 'a', mo)
   write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
+
+
+def lin_comb_two_mo(fchname, orb1, orb2):
+  '''
+  Perform root2/2 (mo1+mo2) and root2/2 (mo1-mo2) unitary transformation for two
+   specified MOs in a Gaussian .fch file.
+  When the sigma and pi orbitals of a multiple bond are mixed (banana bond), this
+   can be used to make them separated.
+  Note: orb1/orb2 are in Python convention (starts from 0)
+  '''
+  import math
+  from mokit.lib.rwwfn import read_mo_from_fch, write_mo_into_fch
+
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  mo = read_mo_from_fch(fchname, nbf, nif, 'a')
+  mo1 = mo[:,orb1].copy()
+  mo2 = mo[:,orb2].copy()
+  cons = math.sqrt(2e0)
+  mo[:,orb1] = cons*(mo1 + mo2)
+  mo[:,orb2] = cons*(mo1 - mo2)
+  write_mo_into_fch(fchname, nbf, nif, 'a', mo)
+
 
 def get_dipole(fchname, itype=1):
   '''
@@ -183,6 +210,7 @@ def get_dipole(fchname, itype=1):
   dipole = e_dip + n_dip
   print(' Dipole moment (a.u.):', dipole)
   return dipole
+
 
 def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
   '''
@@ -223,6 +251,7 @@ def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
   int_file = fchname[0:fchname.rindex('.fch')]+'.FCIDUMP'
   from_integrals(int_file, h1eff, eri_cas, nacto, nacte, ecore, ms=mol.spin)
 
+
 def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
   '''
   make a set of target MOs resembles the reference MOs
@@ -233,13 +262,14 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
   ref_fch: the .fch file which holds reference MOs
   nmo: indices 1~nmo MOs in ref_fch will be labeled as reference MOs
   align: whether to align two molecules
-  If nmo is not given, it will be set as na (number of alpha electrons)
+  If nmo is not given, it will be set as na (the number of alpha electrons)
   '''
   from pyscf import gto
   from mokit.lib.rwwfn import read_na_and_nb_from_fch
   from mokit.lib.rwgeom import read_natom_from_fch, read_coor_from_fch
   from mokit.lib.mirror_wfn import rotate_atoms_wfn2
   from mokit.lib.mo_svd import orb_resemble
+  from mokit.lib.qchem import read_hf_type_from_fch
 
   if nmo is None:
     nmo, nb = read_na_and_nb_from_fch(ref_fch)
@@ -255,24 +285,87 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
 
   mol1 = load_mol_from_fch(target_fch)
   mol2 = load_mol_from_fch(ref_fch1)
-  # rotate MOs of target molecule at target basis to resemble known orbitals
   cross_S = gto.intor_cross('int1e_ovlp', mol1, mol2)
 
   nbf1, nif1 = read_nbf_and_nif_from_fch(target_fch)
   mo1 = fch2py(target_fch, nbf1, nif1, 'a')
   nbf2, nif2 = read_nbf_and_nif_from_fch(ref_fch1)
   mo2 = fch2py(ref_fch1, nbf2, nif2, 'a')
-  if align is True:
-    os.remove(ref_fch1)
 
+  # rotate alpha MOs of target molecule at target basis to resemble known orbitals
   mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
   noon = np.zeros(nif1)
   py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False, False)
 
-def export_mo_ev2txt(fchname):
+  # If UHF, rotate beta MOs, too
+  ihf = read_hf_type_from_fch(ref_fch1)
+  if ihf==1 or ihf==101: # real R(O)HF
+    if align is True:
+      os.remove(ref_fch1)
+  elif ihf == 2: # UHF
+    if nmo is None:
+      na, nmo = read_na_and_nb_from_fch(ref_fch1)
+      # set nmo as the number of beta occupied orbitals
+    mo1 = fch2py(target_fch, nbf1, nif1, 'b')
+    mo2 = fch2py(ref_fch1, nbf2, nif2, 'b')
+    if align is True:
+      os.remove(ref_fch1)
+    mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
+    py2fch(target_fch, nbf1, nif1, mo3, 'b', noon, False, False)
+  else:
+    raise NotImplementedError('make_orb_resemble supports only R(O)HF/UHF currently.')
+
+
+def proj2target_basis(fchname, target_basis='cc-pVTZ', cart=False):
   '''
-  export the data of Alpha Orbital Energies section in a specified .fch file
-  into a plain text file
+  Project MOs of the original basis set onto the target basis set.
+  cart: True/False for Cartesian-type or spherical harmonic type functions
+  '''
+  from pyscf import scf
+  from mokit.lib.qchem import read_hf_type_from_fch
+  from mokit.lib.rwwfn import get_no_from_density_and_ao_ovlp
+  from mokit.lib.py2fch_direct import fchk
+
+  mol = load_mol_from_fch(fchname)
+  mol.basis = target_basis
+  mol.cart = cart
+  mol.build()
+
+  ihf = read_hf_type_from_fch(fchname)
+  if ihf == 1:     # real RHF
+    mf = scf.RHF(mol)
+  elif ihf == 2:   # UHF
+    mf = scf.UHF(mol)
+  elif ihf == 101: # real ROHF
+    mf = scf.ROHF(mol)
+  else:
+    raise NotImplementedError('proj2target_basis supports only R(O)HF/UHF currently.')
+
+  S = mol.intor_symmetric('int1e_ovlp')
+  nbf = S.shape[0]
+  nif = nbf
+  # we cannot check linear dependency of basis functions here, so set nif to nbf
+
+  dm0 = mf.get_init_guess(mol, '1e')
+  if ihf == 1:   # real RHF
+    mf.mo_energy, mf.mo_coeff = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+  elif ihf == 2: # UHF
+    dm0 = dm0[0] + dm0[1]
+    mo_e_a, alpha_mo = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy = (mo_e_a, mo_e_a)
+    mf.mo_coeff = (alpha_mo, alpha_mo)
+  if ihf == 101: # real ROHF
+    dm0 = dm0[0] + dm0[1]
+    mf.mo_energy, mf.mo_coeff = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+
+  target_fch = fchname[0:fchname.rindex('.fch')]+'_proj.fch'
+  fchk(mf, target_fch)
+  make_orb_resemble(target_fch, fchname)
+
+
+def export_mo_e2txt(fchname):
+  '''
+  export the data of Alpha Orbital Energies in a .fch file into a plain text file
   '''
   from mokit.lib.rwwfn import read_eigenvalues_from_fch, export_rarray2txt
 
@@ -280,4 +373,5 @@ def export_mo_ev2txt(fchname):
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   ev = read_eigenvalues_from_fch(fchname, nif, 'a')
   export_rarray2txt(txtname, 'MO Eigenvalues', nif, ev)
+
 

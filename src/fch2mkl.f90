@@ -50,7 +50,6 @@ subroutine fch2mkl(fchname)
  implicit none
  integer :: i, j, k, m, n, n1, n2, am, nf3mark, ng3mark, nh3mark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
- integer :: rel        ! the order of DKH, or RESC
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
@@ -60,7 +59,7 @@ subroutine fch2mkl(fchname)
  character(len=1), parameter :: am_type1(0:5) = ['s','p','d','f','g','h']
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp, X2C
+ logical :: uhf, ecp
 
  call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
@@ -68,7 +67,7 @@ subroutine fch2mkl(fchname)
 
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
- call check_DKH_in_fch(fchname, rel)
+ call find_irel_in_fch(fchname, irel)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file
  ecp = .false.
@@ -190,44 +189,41 @@ subroutine fch2mkl(fchname)
   end if
  end if
 
- select case(rel)
- case(-2) ! no relativistic
-  call check_X2C_in_fch(fchname, X2C)
-  if(X2C) then
-   write(6,'(A)') 'Warning in subroutine fch2mkl: X2C detected.'
-   write(6,'(A)') 'But ORCA does not support X2C.'
-   write(6,'(A)') 'DKH2 keywords will be printed into ORCA .inp file.'
-   rel = 2 ! mimic X2C as DKH2
-  end if
- case(-1)
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in&
-                   & file '//TRIM(fchname)//'.'
+ select case(irel)
+ case(-3) ! X2C, i.e. sf-x2c1e
+  write(6,'(/,A)') 'Warning in subroutine fch2mkl: X2C detected. But ORCA does &
+                   &not support X2C.'
+  write(6,'(A)') 'DKH2 keywords will be printed into ORCA .inp file.'
+ case(-2) ! RESC
+  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in file &
+                   &'//TRIM(fchname)//'.'
   write(6,'(A)') 'But ORCA does not support RESC.'
   stop
+ case(-1,2) ! none/DKH2
  case(0) ! DKH0
-  write(6,'(A)') 'Warning in subroutine fch2mkl: DKH0 detected in file '//TRIM(fchname)
-  write(6,'(A)') 'But ORCA does not support DKH0. DKH2 keywords will&
-                   & be printed into ORCA .inp file.'
-  rel = 2
- case(2) ! DKH2
+  write(6,'(/,A)') 'Warning in subroutine fch2mkl: DKH0 detected in file '//&
+                   TRIM(fchname)
+  write(6,'(A)') 'But ORCA does not support DKH0. DKH2 keywords will be printed&
+                 & into ORCA .inp file.'
  case(4) ! DKHSO, DKH4 with SO
-  write(6,'(A)') 'Warning in subroutine fch2mkl: DKHSO detected in&
-                   & file '//TRIM(fchname)//'.'
-  write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keywords will&
-                   & be printed into ORCA .inp file.'
-  rel = 2
+  write(6,'(/,A)') 'Warning in subroutine fch2mkl: DKHSO detected in file '//&
+                    TRIM(fchname)//'.'
+  write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keywords will be printe&
+                 &d into ORCA .inp file.'
  case default
-  write(6,'(A)') 'ERROR in subroutine fch2mkl: rel out of range!'
-  write(6,'(A,I0)') 'rel=', rel
+  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: irel out of range!'
+  write(6,'(A,I0)') 'irel=', irel
   stop
  end select
 
- if(rel == 2) then
-  write(fid2,'(A)') '%rel'
-  write(fid2,'(A)') ' method DKH'
-  write(fid2,'(A)') ' order 2'
-  write(fid2,'(A)') 'end'
+ if(irel > 0) then
+  write(fid2,'(A,/,A)') '%rel',' method DKH'
+  write(fid2,'(A,I0,/,A)') ' order ', irel, 'end'
+ else if(irel == -3) then
+ ! we assume that ORCA-6.0 will add sfX2C and it is just like this
+  write(fid2,'(A,/,A,/,A)') '%rel',' method X2C','end'
  end if
+
  write(fid2,'(A)') '%scf'
  write(fid2,'(A)') ' Thresh 1e-12'
  write(fid2,'(A)') ' Tcut 1e-14'

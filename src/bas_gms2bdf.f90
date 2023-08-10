@@ -94,10 +94,10 @@ subroutine bas_gms2bdf(fort7)
   write(fid2,'(A)') 'Scalar'
 
   if(rel>-1 .and. (.not.X2C)) then
-   write(6,'(A)') 'Warning in subroutine bas_gms2bdf: BDF program does&
-                    & not support DKH Hamiltonian.'
-   write(6,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN&
-                    & instead."
+   write(6,'(/,A)') 'Warning in subroutine bas_gms2bdf: BDF program does not su&
+                    &pport DKH Hamiltonian.'
+   write(6,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN inst&
+                  &ead."
   end if
  end if
 

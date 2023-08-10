@@ -92,7 +92,6 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nline, nleft, fid
- integer :: rel     ! the order of DKH, or RESC
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
@@ -121,31 +120,25 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  call check_nosymm_in_fch(fchname)
 
  X2C = .false. ! default
- call check_DKH_in_fch(fchname, rel)
- select case(rel)
- case(-1) ! RESC
+ call find_irel_in_fch(fchname, irel)
+ select case(irel)
+ case(-3) ! X2C, i.e. sf-x2c1e
+  X2C = .true.
+  write(6,'(/,A)') 'Warning in subroutine fch2inp: X2C detected. But GAMESS doe&
+                   &s not support'
+  write(6,'(A)') 'X2C. DKH2 keywords will be printed into GAMESS .inp file.'
+ case(-2,-1,2) ! RESC/none/DKH2
  case(0)  ! DKH0
-  write(6,'(A)') 'Warning in subroutine fch2inp: DKH0 detected.'
+  write(6,'(/,A)') 'Warning in subroutine fch2inp: DKH0 detected.'
   write(6,'(A)') 'But GAMESS does not support this DKH 0-th order correction.'
   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
-  rel = 2
- case(2) ! DKH2
  case(4) ! DKH4
-  write(6,'(A)') 'Warning in subroutine fch2inp: DKHSO detected.'
+  write(6,'(/,A)') 'Warning in subroutine fch2inp: DKHSO detected.'
   write(6,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
-  rel = 2
- case(-2) ! no, or X2C
-  call check_X2C_in_fch(fchname, X2C)
-  if(X2C) then
-   write(6,'(A)') 'Warning in subroutine fch2inp: X2C detected.'
-   write(6,'(A)') 'But GAMESS does not support X2C.'
-   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
-   rel = 2 ! mimic X2C as DKH2
-  end if
  case default
-  write(6,'(A)') 'Warning in subroutine fch2inp: rel out of range.'
-  write(6,'(A,I0)') 'rel=', rel
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: irel out of range.'
+  write(6,'(A,I0)') 'irel=', irel
   stop
  end select
 
@@ -222,8 +215,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  ! create the GAMESS .inp file and print the keywords information
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, &
-                            nbf, gvb_or_uhf, ghf, ecp, sph, rel, X2C, na, nb, &
-                            DIIS)
+                       nbf, gvb_or_uhf, ghf, ecp, sph, irel, X2C, na, nb, DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! for ghost atoms (0 charge, has basis fucntion), make ielem(i) negative,
@@ -423,10 +415,11 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ghf, ecp, sph, rel, X2C, na, nb, DIIS)
+           nif, nbf, gvb_or_uhf, ghf, ecp, sph, irel, X2C, na, nb, DIIS)
  implicit none
  integer :: fid
- integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, rel, na, nb
+ integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, irel, na,&
+                        nb
  character(len=2), allocatable :: ideg(:)
  character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
@@ -464,9 +457,9 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(/,A)',advance='no') '  MAXIT=200'
  end select
 
- if(rel == -1) then
+ if(irel == -2) then
   write(fid,'(A)',advance='no') ' RELWFN=RESC'
- else if(rel /= -2) then
+ else if(irel /= -1) then
   write(fid,'(A)',advance='no') ' RELWFN=DK'
  end if
 
@@ -480,7 +473,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  write(fid,'(A)') ' $SYSTEM MWORDS=300 $END'
 
- if(rel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
+ if(irel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
 
  select case(gvb_or_uhf)
  case('-gvb')
@@ -504,7 +497,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    write(fid,'(A)') ' $END'
   end if
  case default
-  if(rel==0 .or. rel==2 .or. rel==4) then
+  if(irel==0 .or. irel==2 .or. irel==4) then
    write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
   else
    write(fid,'(A)') ' $SCF DIRSCF=.T. $END'

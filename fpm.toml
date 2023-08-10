@@ -233,6 +233,12 @@ main = "mkl2amo.f90"
 link = "mkl_rt"
 
 [[executable]]
+name = "mkl2bdf"
+source-dir = "src"
+main = "mkl2bdf.f90"
+link = "mkl_rt"
+
+[[executable]]
 name = "mkl2cfour"
 source-dir = "src"
 main = "mkl2cfour.f90"
