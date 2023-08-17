@@ -1,0 +1,21 @@
+[flake8]
+ignore = 
+        # Indentation 
+        E122, E124, E127, E128, 
+        # Whitespaces
+        E201, E202, E203, E221, E225, E226, E231, E251, W291,
+        # Comments
+        E261, E262, E265,
+        # Blank lines
+        E302, E305, W293, W391,
+        # Imports
+        E401, E402, F401, F403,
+        # Other
+        E701, E722
+
+exclude = build, .git, __pycache__
+max-line-length = 120
+
+per-file-ignores =
+    mokit/lib/gaussian.py: E111, E114
+    examples/utilities/*: F601 

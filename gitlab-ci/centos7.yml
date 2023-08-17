@@ -23,11 +23,7 @@
     #- yum makecache
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
     - wget -q --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-${MCONDA_VER}-Linux-x86_64.sh
-    - >
-      { echo ${KEYCODE_ENTER};
-      echo "yes";
-      echo ${KEYCODE_ENTER};
-      } | sh ./Miniconda3-${MCONDA_VER}-Linux-x86_64.sh 
+    - sh ./Miniconda3-${MCONDA_VER}-Linux-x86_64.sh -b
     - /root/miniconda3/bin/conda init bash
     - . ~/.bashrc
   after_script:
@@ -51,7 +47,7 @@ centos7_conda_py37:
     MCONDA_VER: py37_4.10.3
   extends: .setup_system
   script:
-    - pip install numpy==1.18
+    - conda install numpy
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -68,7 +64,7 @@ centos7_conda_py38:
     MCONDA_VER: py38_4.10.3
   extends: .setup_system
   script:
-    - conda install numpy==1.21.2
+    - conda install numpy=1.21
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -84,7 +80,7 @@ centos7_conda_py39:
     MCONDA_VER: py39_4.12.0
   extends: .setup_system
   script:
-    - conda install numpy==1.21.2
+    - conda install numpy=1.21
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..

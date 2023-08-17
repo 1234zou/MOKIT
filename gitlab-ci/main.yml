@@ -25,19 +25,25 @@ variables:
     - cp -r bin mokit doc examples CHANGELOG *.md $TARGET
     #- tar czvf $TARGET.tar.gz $TARGET
 
-py37_gcc8:
-  image: python:3.7-buster
-  variables:
-    TARGET: mokit-master_linux_py37_gcc8
-  extends: .setup_lib
+#py37_gcc8:
+#  image: python:3.7-buster
+#  variables:
+#    TARGET: mokit-master_linux_py37_gcc8
+#  extends: .setup_lib
+#  script:
+#    - cd src
+#    - make all -f Makefile.gnu_openblas_ci
+#    - cd ..
+#  artifacts:
+#    name: $TARGET
+#    paths:
+#      - ./$TARGET/
+
+lint:
+  image: python:3.8-buster
   script:
-    - cd src
-    - make all -f Makefile.gnu_openblas_ci
-    - cd ..
-  artifacts:
-    name: $TARGET
-    paths:
-      - ./$TARGET/
+    - pip install flake8
+    - flake8 --config .flake8 
 
 py38_gcc8:
   image: python:3.8-buster

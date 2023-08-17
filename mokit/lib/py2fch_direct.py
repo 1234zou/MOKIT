@@ -30,7 +30,7 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, irel=-1, trim_zeros=Tru
     ghost = [False for i in range(natom)]
     for i in range(natom):
         symb = mol.atom_symbol(i)
-        if(symb[0:2] == 'X-'):
+        if (symb[0:2] == 'X-'):
             ielem[i] = elements.charge(symb[2:])
             ghost[i] = True
         else:
@@ -71,7 +71,7 @@ def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, irel=-1, trim_zeros=Tru
     #print(mol._basis)
     prim_exp = np.concatenate(exps)
     contr_coeff = np.concatenate(ccoeffs)
-    contr_coeff_sp = np.zeros(1)
+    #contr_coeff_sp = np.zeros(1)
     virial = 0.0
     tot_e = 0.0
     coor = np.array([mol._atom[a][1] for a in range(natom)]).T
