@@ -5,13 +5,6 @@
 ! updated by jxzou at 20201218: add 'back = .true.' for detecting GAUSS_EXEDIR
 ! updated by jxzou at 20210129: add RI options and aux_basis sets auto-determination
 
-module phys_cons ! physics constants
- implicit none
- real(kind=8), parameter :: au2ev = 27.211396d0
- real(kind=8), parameter :: au2kcal = 627.51d0 ! a.u. to kcal/mol
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
-end module phys_cons
-
 ! molecular information
 module mol
  implicit none
@@ -320,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc11 (2023-Aug-10)'
+  write(6,'(A)') '           Version: 1.2.6rc12 (2023-Aug-27)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -2207,6 +2200,7 @@ end subroutine check_molcas_is_openmp
 subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)
  use mr_keyword, only: mem, nproc
  integer, intent(in) :: mem_in, np_in
+
  mem = mem_in
  nproc = np_in
 end subroutine set_mem_and_np_in_mr_keyword

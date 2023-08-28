@@ -375,3 +375,81 @@ def export_mo_e2txt(fchname):
   export_rarray2txt(txtname, 'MO Eigenvalues', nif, ev)
 
 
+def mo_g_int(fnames, x, na=None, nb=None):
+  '''
+  Generate occupied MOs of a new geometry using Grassmann interpolation.
+  fnames: a series of .fch(k) files and a .gjf file
+  x     : a series of the changed variable (bond distance, angle, dihedral, even
+          composite coordinate)
+  na    : the number of alpha occupied orbitals
+  nb    : the number of beta occupied orbitals
+  Note: 1) currently only available for R(O)HF and UHF;
+        2) the size of arrays fnames and x must be the same.
+  Example:
+    mo_g_int(['h2o_105.fch', 'h2o_115.fch', 'h2o_120.fch', 'h2o_109_5.gjf'],
+             [105.0, 115.0, 120.0, 109.5])
+  '''
+  from mokit.lib.qchem import read_hf_type_from_fch
+  from mokit.lib.rwwfn import read_na_and_nb_from_fch
+  from mokit.lib.mirror_wfn import mo_grassmann_intrplt
+  from mokit.lib.rwgeom import replace_coor_in_fch_by_gjf
+  from mokit.lib.construct_vir import construct_vir
+
+  nfile = len(fnames)
+  if nfile < 2:
+    raise ValueError('At least two files must be provided.')
+  if len(x) != nfile:
+    raise ValueError('Size of arrays fnames and x are not equal.')
+
+  # copy a .fch file and replace coordinates therein by coordinates from .gjf
+  gjfname = fnames[nfile-1]
+  new_fch = gjfname[0:gjfname.rindex('.gjf')]+'.fch'
+  shutil.copyfile(fnames[0], new_fch)
+  replace_coor_in_fch_by_gjf(gjfname, new_fch)
+
+  nbf, nif = read_nbf_and_nif_from_fch(fnames[0])
+  na0, nb0 = read_na_and_nb_from_fch(fnames[0])
+  if na is None:
+    na = na0
+  if nb is None:
+    nb = nb0
+
+  S = np.zeros([nbf,nbf,nfile])
+  mo = np.zeros([nbf,na,nfile-1])
+
+  for i in range(nfile-1):
+    mol = load_mol_from_fch(fnames[i])
+    S[:,:,i] = mol.intor_symmetric('int1e_ovlp')
+    coeff = fch2py(fnames[i], nbf, nif, 'a')
+    mo[:,0:na,i] = coeff[:,0:na]
+
+  mol = load_mol_from_fch(new_fch)
+  S[:,:,nfile-1] = mol.intor_symmetric('int1e_ovlp')
+
+  # generate alpha occupied MOs of the new geometry
+  new_mo = mo_grassmann_intrplt(nbf, na, nfile, x, S, mo)
+  coeff0 = np.zeros([nbf,nif])
+  coeff0[:,0:na] = new_mo[:,0:na]
+
+  # construct alpha virtual MOs of the new geometry using PAO
+  coeff = construct_vir(nbf, nif, na+1, coeff0, S[:,:,nfile-1])
+
+  # export alpha MOs to .fch file
+  mo_e = np.zeros(nif)
+  py2fch(new_fch, nbf, nif, coeff, 'a', mo_e, False, False)
+
+# Note: DO NOT merge beta occupied MOs into the array mo for UHF, otherwise MOs
+#       in the array mo are non-orthogonal. In fact, alpha/beta should be dealt
+#       with separately.
+  ihf = read_hf_type_from_fch(fnames[0])
+  if ihf == 2:   # real UHF
+    mo = np.zeros([nbf,nb,nfile-1])
+    for i in range(nfile-1):
+      coeff = fch2py(fnames[i], nbf, nif, 'b')
+      mo[:,0:nb,i] = coeff[:,0:nb]
+    # construct beta virtual MOs of the new geometry using PAO
+    new_mo = mo_grassmann_intrplt(nbf, nb, nfile, x, S, mo)
+    coeff0[:,0:nb] = new_mo[:,0:nb]
+    coeff = construct_vir(nbf, nif, nb+1, coeff0, S[:,:,nfile-1])
+    py2fch(new_fch, nbf, nif, coeff, 'b', mo_e, False, False)
+

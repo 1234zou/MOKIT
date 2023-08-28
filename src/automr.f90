@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc11 :: MOKIT, release date: 2023-Aug-10'
+  write(6,'(A)') 'AutoMR 1.2.6rc12 :: MOKIT, release date: 2023-Aug-27'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -1118,7 +1118,7 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: noon(:)
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit

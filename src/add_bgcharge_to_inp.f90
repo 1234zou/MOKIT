@@ -386,11 +386,11 @@ end subroutine add_bgcharge_to_orca_inp
 
 ! add background charges into a (Open)Molcas .input file
 subroutine add_bgcharge_to_molcas_input(input, n, charge)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: n
  real(kind=8), intent(in) :: charge(4,n)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=240) :: buf, input1
  character(len=240), intent(in) :: input
 

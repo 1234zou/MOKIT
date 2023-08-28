@@ -24,18 +24,13 @@
 !!f2py depend(nbf) :: P, S
 ! real(kind=8), intent(out) :: noon(nif)
 !!f2py depend(nif) :: noon
-! real(kind=8), allocatable :: sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
+! real(kind=8), allocatable :: sqrt_S(:,:), n_sqrt_S(:,:)
 ! real(kind=8), allocatable :: e(:), U(:,:), work(:)
 !
 ! allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
 ! call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
-!
-! allocate(PS12(nbf,nbf), source=0d0)
-! call dsymm('R', 'L', nbf, nbf, 1d0, sqrt_S, nbf, P, nbf, 0d0, PS12, nbf)
-! call dgemm('N', 'N', nbf, nbf, nbf, 1d0, sqrt_S, nbf, PS12, nbf, 0d0, S, nbf)
-! ! use S to store (S^1/2)P(S^1/2)
-!
-! deallocate(PS12, sqrt_S)
+! call calc_SPS(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
+! deallocate(sqrt_S)
 !
 ! lwork = -1; liwork = -1
 ! allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
@@ -57,7 +52,8 @@
 ! deallocate(e)
 !
 ! new_coeff = 0d0
-! call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0d0, new_coeff, nbf)
+! call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
+!            nbf, 0d0, new_coeff, nbf)
 ! deallocate(n_sqrt_S, U)
 !
 ! ! reverse the order of MOs
@@ -236,13 +232,11 @@ subroutine get_mo_based_dm(nbf, nif, coeff, S, P, dm)
  real(kind=8), allocatable :: SC(:,:), PSC(:,:)
 
  allocate(SC(nbf,nif), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, coeff, nbf, 0d0, SC, nbf)
 
  allocate(PSC(nbf,nif), source=0d0)
  call dsymm('L', 'L', nbf, nif, 1d0, P, nbf, SC, nbf, 0d0, PSC, nbf)
 
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, SC, nbf, PSC, nbf, 0d0, dm, nif)
 
  write(6,'(A)') 'MO-based density matrix (Final one electron symbolic density matrix):'
@@ -713,7 +707,6 @@ subroutine boys_diag(nbf, nmo, mo_coeff, mo_dipole, new_coeff)
  real(kind=8), allocatable :: f(:,:), w(:)
 
  allocate(f(nmo,nmo), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
@@ -738,7 +731,6 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  real(kind=8), allocatable :: f(:,:), U(:,:), fU(:,:), lamda(:,:)
 
  allocate(f(nmo,nmo), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(1,:,:),nmo, mo_dipole(1,:,:),nmo, 0d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
@@ -749,7 +741,6 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  call dsymm('L','L',nmo,nmo, 1d0,f,nmo, U,nmo, 0d0,fU,nmo)
  deallocate(f)
  allocate(lamda(nmo,nmo), source=0d0)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('T', 'N', nmo,nmo,nmo, -4d0, U,nmo, fU,nmo, 0d0, lamda,nmo)
  deallocate(fU, U)
 

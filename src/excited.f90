@@ -417,7 +417,7 @@ subroutine check_uhf_in_fch(fchname, uhf)
 !f2py intent(out) :: uhf
 
  uhf = .false.
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

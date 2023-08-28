@@ -98,10 +98,8 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
 
  ! D = (U^T)nU
  allocate(nU(nmo,nmo), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L', 'L', nmo, nmo, 1d0, n, nmo, U, nmo, 0d0, nU, nmo)
  n = 0d0
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('T', 'N', nmo, nmo, nmo, 1d0, U, nmo, nU, nmo, 0d0, n, nmo)
  deallocate(U, nU)
 

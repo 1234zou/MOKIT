@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Aug 10, 2023)
+MOKIT 1.2.6 (Aug 27, 2023)
 ------------------------
+* add subroutine mo_grassmann_intrplt
 * add subroutine permute_atoms_wfn
 * fix the bug of using CASCI obj in module fchk()
 * add utilities mkl2amo, mkl2bdf, mkl2cfour, mkl2com, mkl2dal, mkl2inp, mkl2inporb, mkl2psi, mkl2py, mkl2qchem

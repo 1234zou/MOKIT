@@ -33,16 +33,10 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  end if
 
  ! Step 1: P = sigma_i(Cui*Cvi)
- ! ?gemm: Computes a matrix-matrix product with general matrices
- ! Syntax FORTRAN 77:
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  allocate(p(nbf,nbf), source=0d0)
  call dgemm('N', 'T', nbf, nbf, idx-1, 1d0, coeff(1:nbf,1:idx-1), nbf, coeff(1:nbf,1:idx-1), nbf, 0d0, p, nbf)
 
  ! Step 2: V = 1 - PS
- ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric
- ! Syntax FORTRAN 77:
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  allocate(v(nbf, nbf), source=0d0)
  forall(i = 1:nbf) v(i,i) = 1d0
  call dsymm('R', 'U', nbf, nbf, -1d0, ovlp, nbf, p, nbf, 1d0, v, nbf)

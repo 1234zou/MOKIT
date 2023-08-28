@@ -788,80 +788,6 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  end if
 end subroutine read_on_from_dalton_mopun
 
-! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_ncontr_from_fch(fchname, ncontr)
- implicit none
- integer :: i, fid
- integer, intent(out) :: ncontr
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- ncontr = 0
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:18) == 'Number of contract') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                 & 'Number of contract' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, ncontr
- close(fid)
-end subroutine read_ncontr_from_fch
-
-! read shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
- implicit none
- integer :: i, fid
- integer, intent(in) :: k
- integer, intent(out) :: shltyp(k), shl2atm(k)
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- call open_file(fchname, .true., fid)
- ! find and read Shell types
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == 'Shell types') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                 & missing 'Shell types' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shltyp = 0
- read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- ! read Shell types done
-
- ! find and read Shell to atom map
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:13) == 'Shell to atom') exit
- end do
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                 & missing 'Shell to atom map' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shl2atm = 0
- read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
- close(fid)
-end subroutine read_shltyp_and_shl2atm_from_fch
-
 ! read AO-basis 1-e integral matrix from a Gaussian output file
 ! stype: overlap, kinetic, potential, core
 subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
@@ -1593,8 +1519,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
                           ', S_square=', s_square
   write(6,'(A)') 'If this is a ground state calculation, then something may be &
                  &wrong.'
-  write(6,'(A)') 'If this is a excited state calculation where the spin of the &
-                 &target excited'
+  write(6,'(A)') 'If this is an excited state calculation where the spin of the&
+                 & target excited'
   write(6,'(A)') 'state is different from that of the ground state, you can ign&
                  &ore this warning.'
  end if
@@ -1620,10 +1546,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
    write(6,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
    write(6,'(A)') 'If this is a ground state calculation, it is probably becaus&
                   &e Davidson iterative'
-   write(6,'(A)') 'diagonalization is unconverged. You may try to add keyword &
-                  &HardWFN or CrazyWFN in'
-   write(6,'(A)') 'mokit{}. If this is a excited state calculation, you may ign&
-                  &ore this warning.'
+   write(6,'(A)') 'diagonalization is unconverged. You may try to add keyword H&
+                  &ardWFN or CrazyWFN in'
+   write(6,'(A)') 'mokit{}. If this is an excited state calculation, you may ig&
+                  &nore this warning.'
   end if
  else
   close(fid)
@@ -3555,44 +3481,35 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
 !f2py intent(out) :: noon, new_coeff
 !f2py depend(nif) :: noon
 !f2py depend(nbf,nif) :: new_coeff
- real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:), PS12(:,:)
+ real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:)
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 
  noon = 0d0; new_coeff = 0d0 ! initialization
+
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
+ call calc_SPS(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
+ deallocate(sqrt_S)
 
- allocate(PS12(nbf,nbf), source=0d0)
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- call dsymm('R', 'L', nbf, nbf, 1d0, sqrt_S, nbf, P, nbf, 0d0, PS12, nbf)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'N', nbf, nbf, nbf, 1d0, sqrt_S, nbf, PS12, nbf, 0d0, S, nbf)
- ! use S to store (S^1/2)P(S^1/2)
-
- deallocate(PS12, sqrt_S)
-
- ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
- ! ldz, isuppz, work, lwork, iwork, liwork, info)
- lwork = -1
- liwork = -1
+ lwork = -1; liwork = -1
  allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
-             U, nbf, isuppz, work, lwork, iwork, liwork, j)
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
+             isuppz, work, lwork, iwork, liwork, j)
  lwork = CEILING(work(1))
  liwork = iwork(1)
  deallocate(work, iwork)
  allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
-             U, nbf, isuppz, work, lwork, iwork, liwork, j)
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
+             isuppz, work, lwork, iwork, liwork, j)
  deallocate(isuppz, work, iwork, S)
  ! eigenvalues in array e are in ascending order
 
  forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
  deallocate(e)
 
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
- call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), nbf, 0d0, new_coeff, nbf)
+ call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
+            nbf, 0d0, new_coeff, nbf)
  deallocate(n_sqrt_S, U)
 
  ! reverse the order of MOs

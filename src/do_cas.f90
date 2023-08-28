@@ -1029,13 +1029,13 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
                                 //TRIM(RIJK_bas1)
  end if
 
+ write(fid,'(2(A,I0))',advance='no') ';closed,', nclosed, ';occ,', nocc
  ! Note: we need 'NoExtra' to completely close symmetry.
  ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
-  write(fid,'(2(A,I0),A)') ';closed,',nclosed,';occ,',nocc,';NoExtra}'
+  write(fid,'(A)') ';NoExtra;MaxIter,200}'
  else
-  write(fid,'(2(A,I0),A)') ';closed,',nclosed,';occ,',nocc,&
-                           ';DONT,ORBITAL;NoExtra}'
+  write(fid,'(A)') ';NoExtra;DONT,ORBITAL}'
  end if
 
  if(force) write(fid,'(A)') 'Forces'

@@ -21,8 +21,9 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
   allocate(dm(nbf,nbf), spin_dm(nbf,nbf))
   call read_density_from_fch(fchname, 1, nbf, dm) ! Total SCF Density
   call read_density_from_fch(fchname, 2, nbf, spin_dm) ! Spin SCF Density
-  dm_a = 0.5d0*(dm + spin_dm) ! auto-allocation
-  dm_b = 0.5d0*(dm - spin_dm) ! auto-allocation
+  allocate(dm_a(nbf,nbf), dm_b(nbf,nbf))
+  dm_a = 0.5d0*(dm + spin_dm)
+  dm_b = 0.5d0*(dm - spin_dm)
   deallocate(dm, spin_dm)
  else
   allocate(dm_a(nbf,nbf))

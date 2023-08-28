@@ -45,7 +45,6 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  integer :: i, m, lwork, liwork
  integer, intent(in) :: n
  integer, allocatable :: iwork(:), isuppz(:)
-
  real(kind=8), parameter :: lin_dep = 1d-6
  ! 1D-6 is the default threshold of linear dependence in Gaussian and GAMESS
  ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
@@ -60,8 +59,6 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  ! Ue: U*e
 
  allocate(a(n,n), source=a0)
- ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
- ! ldz, isuppz, work, lwork, iwork, liwork, info)
  lwork = -1
  liwork = -1
  allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
@@ -76,13 +73,13 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
 
  deallocate(a, work, iwork, isuppz)
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
+  write(6,'(/,A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
   write(6,'(A,I0)') 'i=', i
   stop
  end if
 
  if(e(1) < -1d-6) then
-  write(6,'(A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
+  write(6,'(/,A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
   write(6,'(A,F16.9)') 'e(1)=', e(1)
   stop
  end if
@@ -91,17 +88,13 @@ subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
  allocate(Ue(n,n), source=0d0)
  sqrt_a = 0d0
  forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
 
  e1 = 0d0
  n_sqrt_a = 0d0
  forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
 
  deallocate(e, e1, U, Ue)
@@ -201,6 +194,77 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  deallocate(b_copy)
 end subroutine solve_multi_lin_eqs
 
+! perform SVD on a matrix
+subroutine do_svd(m, n, a, u, vt, s)
+ implicit none
+ integer :: i, lwork
+ integer, intent(in) :: m, n
+ real(kind=8), intent(in) :: a(m,n)
+ real(kind=8), intent(out) :: u(m,m), vt(n,n), s(m)
+ real(kind=8), allocatable :: work(:), a_copy(:,:)
+
+ u = 0d0; vt = 0d0; s = 0d0
+ allocate(a_copy(m,n), source=a)
+
+ lwork = -1
+ allocate(work(1), source=0d0)
+ call dgesvd('A', 'A', m, n, a_copy, m, s, u, m, vt, n, work, lwork, i)
+
+ lwork = CEILING(work(1))
+ deallocate(work)
+ allocate(work(lwork),source=0d0)
+ call dgesvd('A', 'A', m, n, a_copy, m, s, u, m, vt, n, work, lwork, i)
+ deallocate(work, a_copy)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine do_svd: info/=0! Please check why.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+end subroutine do_svd
+
+! compute the GAMMA_k matrix using the reference MOs and MOs of geometry/point k
+! Note: here mo_ref and mo_k are both expressed at the orthogonal basis, i.e.
+!  C' = (S^1/2)C
+subroutine grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: mo_ref(nbf,nmo)
+ real(kind=8), intent(inout) :: mo_k(nbf,nmo) ! return G_k in mo_k
+ real(kind=8), allocatable :: CTC(:,:), inv_CTC(:,:), u(:,:), vt(:,:), s(:), &
+  s1(:,:), us(:,:), L_k(:,:)
+
+ ! (mo_ref^T)mo_k
+ allocate(CTC(nmo,nmo))
+ call dgemm('T','N', nmo, nmo, nbf, 1d0, mo_ref, nbf, mo_k, nbf, 0d0, CTC, nmo)
+
+ ! ((mo_ref^T)mo_k)^(-1)
+ allocate(inv_CTC(nmo,nmo))
+ call inverse(nmo, CTC, inv_CTC)
+ ! Maybe using SVD to calculate the inverse would be more efficient
+ deallocate(CTC)
+
+ ! L_k = mo_k((mo_ref^T)mo_k)^(-1) - mo_ref
+ allocate(L_k(nbf,nmo), source=mo_ref)
+ call dgemm('N','N', nbf, nmo, nmo, 1d0, mo_k, nbf, inv_CTC, nmo, -1d0, L_k, nbf)
+ deallocate(inv_CTC)
+
+ allocate(u(nbf,nbf), vt(nmo,nmo), s(nbf))
+ call do_svd(nbf, nmo, L_k, u, vt, s)
+ deallocate(L_k)
+
+ allocate(s1(nbf,nmo), source=0d0)
+ forall(i = 1:nmo) s1(i,i) = DATAN(s(i))
+ deallocate(s)
+
+ allocate(us(nbf,nmo))
+ call dgemm('N', 'N', nbf, nmo, nbf, 1d0, u, nbf, s1, nbf, 0d0, us, nbf)
+ deallocate(u, s1)
+ call dgemm('N', 'N', nbf, nmo, nmo, 1d0, us, nbf, vt, nmo, 0d0, mo_k, nbf)
+ deallocate(vt, us)
+end subroutine grassmann_C2GAMMA
+
 ! calculate (C^T)SC, S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
@@ -248,12 +312,27 @@ subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
  deallocate(CX)
 end subroutine calc_CXCT
 
+! calculate SPS, where S and P are both symmetric matrices
+subroutine calc_SPS(nbf, P, S, SPS)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+ real(kind=8), intent(out) :: SPS(nbf,nbf)
+ real(kind=8), allocatable :: PS(:,:)
+
+ SPS = 0d0
+ allocate(PS(nbf,nbf), source=0d0)
+ call dsymm('R', 'L', nbf, nbf, 1d0, S, nbf, P, nbf, 0d0, PS, nbf)
+ call dsymm('L', 'L', nbf, nbf, 1d0, S, nbf, PS, nbf, 0d0, SPS, nbf)
+ deallocate(PS)
+end subroutine calc_SPS
+
 ! calculate density matrix using MO coefficients and occupation numbers
 subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  implicit none
  integer :: i, j, k
  integer, intent(in) :: nbf, nif
- real(kind=8), parameter :: zero = 1d-8
+ real(kind=8), parameter :: thres = 1d-8
  real(kind=8), intent(in) :: mo(nbf,nif), noon(nif)
  real(kind=8), intent(out) :: dm(nbf,nbf)
 
@@ -262,7 +341,7 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  do i = 1, nbf, 1
   do j = 1, i, 1
    do k = 1, nif, 1
-    if(DABS(noon(k)) < zero) cycle
+    if(DABS(noon(k)) < thres) cycle
     dm(j,i) = dm(j,i) + noon(k)*mo(j,k)*mo(i,k)
    end do ! for k
   end do ! for j

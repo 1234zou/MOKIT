@@ -203,9 +203,6 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  ! ao_ovlp now is a nif*nif diagonal matrix
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
- ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric.
- ! Syntax FORTRAN 77:
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('R', 'U', nbf, nif, 1d0, ao_ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
 
  deallocate(U)
@@ -250,16 +247,10 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
  deallocate(s)
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
- ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric.
- ! Syntax FORTRAN 77:
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
  allocate(X(nbf,nbf), source=0d0)
  call dsymm('R', 'U', nbf, nbf, 1d0, ao_ovlp, nbf, U, nbf, 0d0, X, nbf)
 
  ! compute X1*U^T, where X1 is Us^(-1/2)
- ! ?gemm: Computes a matrix-matrix product with general matrices.
- ! Syntax FORTRAN 77:
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('N', 'T', nbf, nbf, nbf, 1d0, X, nbf, U, nbf, 0d0, mo_coeff, nbf)
 
  deallocate(X, U)

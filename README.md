@@ -28,7 +28,7 @@ Pre-built `Windows* OS` executables are provided in [Releases](https://gitlab.co
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Aug 10, 2023
+Aug 27, 2023
 
 
 Dependencies
@@ -36,7 +36,9 @@ Dependencies
 Dependencies on quantum chemistry packages are different for each executable or module. Here the minimum requirements for binary executables `automr`, `frag_guess_wfn` and Python modules `py2xxx` are listed:
 1. `automr`: Gaussian, GAMESS, PySCF
 2. `frag_guess_wfn`: Gaussian
-3. `py2gau`, `py2orca`, `py2molpro`, etc: PySCF
+3. Most of the utilities do not depend on quantum chemistry packages except that the modules `py2gau`, `py2orca`, `py2molpro`, etc, work with PySCF installed.
+
+Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog).
 
 Installation
 ------------
@@ -45,12 +47,12 @@ You can choose any of the four options shown below to install MOKIT, and they ar
 ### Option 1: Install from conda
 This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
 ```
-conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
-conda activate mokit-py37
+conda create -n mokit-py39 python=3.9 # 3.7~3.11 are available
+conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-You need to keep `mokit-py37` activated when using MOKIT. 
+You need to keep `mokit-py39` activated when using MOKIT. 
 
 If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
 
@@ -122,8 +124,6 @@ export GMS=$HOME/software/gamess/rungms
 Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2.
 
 Note that you need to run `source ~/.bashrc` or exit the terminal as well as re-login, in order to activate newly written environment variables.
-
-* The original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog).
 
 Quick Start
 -----------

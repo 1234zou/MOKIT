@@ -858,8 +858,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no blank line &
-                 & found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_hf_pyscf_inp: no blank line found i&
+                   &n file "//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -879,8 +879,8 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_pyscf_inp: no 'mf = scf'&
-                 & found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_hf_pyscf_inp: no 'mf = scf' found i&
+                   &n file "//TRIM(inpname)
   stop
   close(fid)
   close(fid1,status='delete')
@@ -904,7 +904,11 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  end do ! for while
 
  write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
- write(fid1,'(A,/)') 'old_e = mf.kernel(dm0=dm)'
+ write(fid1,'(A)') 'old_e = mf.kernel(dm0=dm)'
+ ! If SCF is not converged, use the Newton method to continue
+ write(fid1,'(/,A)') 'if mf.converged is False:'
+ write(fid1,'(A)') '  mf = mf.newton()'
+ write(fid1,'(A,/)') '  old_e = mf.kernel()'
 
  select case(hf_type)
  case(1,2) ! R(O)HF

@@ -308,7 +308,7 @@ end subroutine read_prim_per_shell
 ! If this section exists but contains all zero elements, has_sp is still .T.
 function has_pople_sp(fchname) result(has_sp)
  implicit none
- integer :: i, fid
+ integer :: fid
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
  logical :: has_sp

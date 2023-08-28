@@ -14,7 +14,7 @@
 # fpm currently. You should enter `src/` and run `make pymodules`.
 #
 name = "MOKIT"
-version = "1.2.5"
+version = "1.2.6"
 license = "Apache License 2.0"
 author = "Jingxiang Zou"
 maintainer = "Jingxiang Zou"

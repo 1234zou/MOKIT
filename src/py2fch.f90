@@ -311,9 +311,20 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
  deallocate(coeff)
 
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(49:49) == '=') exit
- end do
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine py2fch: please add a zero 'Total SCF D'&
+                  & section into"
+  write(6,'(A)') 'file '//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
  ! here should be 'Orthonormal basis' or 'Total SCF Density'
  BACKSPACE(fid)
 
@@ -328,8 +339,8 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
                  & file "//TRIM(fchname)
-   close(fid1)
-   close(fid,status='delete')
+   close(fid)
+   close(fid1,status='delete')
    stop
   end if
 
@@ -342,7 +353,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
    if(na > nb) norm(nb+1:na) = 1d0
    write(6,'(A)') REPEAT('-',79)
    write(6,'(A)') 'Remark from subroutine py2fch: natorb=.False. and gen_densit&
-                  &ty=.True. found. The'
+                  &y=.True. found. The'
    write(6,'(A)') 'Total SCF Density will be calculated based on the occupation&
                   & numbers according'
    write(6,'(A)') 'to the aufbau principle.'
@@ -412,81 +423,6 @@ subroutine read_nbf_from_fch(fchname, nbf)
  read(fid,'(A49,2X,I10)') buf, nbf
  close(fid)
 end subroutine read_nbf_from_fch
-
-! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_ncontr_from_fch(fchname, ncontr)
- implicit none
- integer :: i, fid
- integer, intent(out) :: ncontr
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- ncontr = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:18) == 'Number of contract') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                & 'Number of contract' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, ncontr
- close(fid)
-end subroutine read_ncontr_from_fch
-
-! read shell_type and shell_to_atom_map from a given .fch(k) file
-subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
- implicit none
- integer :: i, fid
- integer, intent(in) :: k
- integer, intent(out) :: shltyp(k), shl2atm(k)
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- ! find and read Shell types
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == 'Shell types') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                & missing 'Shell types' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shltyp = 0
- read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- ! read Shell types done
-
- ! find and read Shell to atom map
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:13) == 'Shell to atom') exit
- end do
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                & missing 'Shell to atom map' section in file "//TRIM(fchname)
-  close(fid)
-  return
- end if
-
- shl2atm = 0
- read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
- close(fid)
-end subroutine read_shltyp_and_shl2atm_from_fch
 
 ! get permutation index list from a given .fch(k) file
 subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
@@ -948,7 +884,6 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  real(kind=8) :: dm(nbf,nbf)
 !f2py intent(in,copy) :: dm
 !f2py depend(nbf) :: dm
-
  real(kind=8), allocatable :: norm(:), den(:,:)
  character(len=23), parameter :: key(10) = ['Total SCF Density      ',&
   'Spin SCF Density       ','Total CI Density       ','Spin CI Density        ',&

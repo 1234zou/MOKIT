@@ -198,11 +198,6 @@ subroutine gen_mo_dis_from_mo_center(fchname)
  end do ! for i
 
  deallocate(dis, mo_center)
-! do i = i1, i2-1, 1
-!  do j = i+1, i2, 1
-!   write(6,'(2I4,F7.3)') j, i, mo_dis(j,i)
-!  end do ! for j
-! end do ! for i
 end subroutine gen_mo_dis_from_mo_center
 
 end module population
@@ -231,7 +226,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  call read_mult_from_fch(fchname, mult)
 
  if(mult == 1) then
-  call open_file(fchname, .true., fid)
+  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -265,7 +260,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  if(gen_dm) then
   i = index(fchname, '.fch')
   fchname1 = fchname(1:i-1)//'_unpaired.fch'
-  call open_file(fchname, .true., fid)
+  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
   open(newunit=fid1,file=TRIM(fchname1),status='replace')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf

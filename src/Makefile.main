@@ -88,7 +88,7 @@ OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_
 OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
-OBJ_py2fch = py2fch.f90 read_fch.o file_op.o string_manipulate.o split_sp.o
+OBJ_py2fch = py2fch.f90 file_op.o string_manipulate.o split_sp.o read_fch.o
 OBJ_pyuno = pyuno.f90
 OBJ_qchem = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
             util_wrapper.f90 rwgeom.f90 qchem.f90 read_fch.o
@@ -97,16 +97,16 @@ OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
 OBJ_mirror_wfn = mirror_wfn.f90 file_op.o string_manipulate.o util_wrapper.o \
                  rwgeom.o math_sub.o read_fch.o
-OBJ_wfn_analysis = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
-                   util_wrapper.f90 call_qc_calc_int.f90 rwgeom.f90 \
-                   wfn_analysis.f90 read_gms_inp.o
-OBJ_lo = string_manipulate.f90 math_sub.f90 file_op.f90 util_wrapper.f90 \
-         rwwfn.f90 call_qc_calc_int.f90 lo.f90 read_gms_inp.o
+OBJ_wfn_analysis = file_op.o string_manipulate.o read_gms_inp.o math_sub.f90 \
+                   rwwfn.f90 util_wrapper.f90 call_qc_calc_int.f90 rwgeom.f90 \
+                   wfn_analysis.f90
+OBJ_lo = file_op.o string_manipulate.o read_gms_inp.o math_sub.f90 util_wrapper.f90 \
+         rwwfn.f90 call_qc_calc_int.f90 lo.f90
 OBJ_mo_svd = math_sub.f90 mo_svd.f90
 OBJ_rwgeom = string_manipulate.f90 rwgeom.f90
 OBJ_rwwfn = file_op.f90 math_sub.f90 rwwfn.f90
-OBJ_excited = file_op.f90 string_manipulate.f90 util_wrapper.f90 rwwfn.f90 \
-              math_sub.f90 lo.f90 call_qc_calc_int.f90 excited.f90 read_gms_inp.o
+OBJ_excited = file_op.o string_manipulate.o read_gms_inp.o util_wrapper.f90 \
+              rwwfn.f90 math_sub.f90 lo.f90 call_qc_calc_int.f90 excited.f90
 
 .PHONY: exe pymodules all clean pyclean distclean addH2singlet add_bgcharge_to_inp \
         align_orbitals automr autosr bas_fch2py bas_gau2molcas bas_gms2bdf \

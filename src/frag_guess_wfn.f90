@@ -1255,7 +1255,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
    if(i > 2) then
     if(ANY(frags(3)%elem(1:i-1) == str)) cycle
    end if
-   if(j==3 .or. j==11 .or. (j>18 .and. j<31) .or. j>36) then
+   if(j==3 .or. j==4 .or. j==11 .or. j==12 .or. (j>18 .and. j<31) .or. j>36) then
     write(fid2,'(A)') ' assign '//TRIM(str)//' def2-qzvpp-ri'
    end if
   end do ! for i

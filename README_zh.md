@@ -28,14 +28,16 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年8月10号
+2023年8月27号
 
 依赖
 ----------
 每个可执行文件或模块依赖于量子化学程序的情况不同。以下列出了最常用可执行文件`automr`，`frag_guess_wfn`和Python模块`py2xxx`的最少依赖：
 1. `automr`: Gaussian, GAMESS, PySCF
 2. `frag_guess_wfn`: Gaussian
-3. `py2gau`, `py2orca`, `py2molpro`等等: PySCF
+3. 绝大多数传轨道的小程序没有依赖，除了`py2gau`, `py2orca`, `py2molpro`这些Python模块需要在安装有PySCF时才能正常使用
+
+注意官方GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。因此请阅读[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog)4.4.10部分使用提供的脚本自动修改GAMESS代码。
 
 安装
 ----------
@@ -45,12 +47,12 @@ or
 这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前
 创建一个新环境，以免破坏 base 环境。
 ```
-conda create -n mokit-py37 python=3.7 # 3.8, 3.9 are also available
-conda activate mokit-py37
+conda create -n mokit-py39 python=3.9 # 3.7~3.11 are available
+conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-使用 MOKIT 时仍需保持`mokit-py37`环境处于激活状态。
+使用 MOKIT 时仍需保持`mokit-py39`环境处于激活状态。
 
 如果无法联网，但仍不想手动编译，请尝试方式3。
 
@@ -120,8 +122,6 @@ export GMS=$HOME/software/gamess/rungms
 GAMESS可执行文件的路径请按照您机器上的实际情况修改。注意：自MOKIT-v1.2.5rc2以后，`PYTHONPATH` 发生了变化。
 
 修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
-
-* 原始GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。因此请阅读[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog)4.4.10部分使用提供的脚本自动修改GAMESS代码。
 
 快速开始
 ----------

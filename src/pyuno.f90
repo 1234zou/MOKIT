@@ -200,11 +200,6 @@ subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_basis_ovl
  s_c_beta = 0d0
  mo_basis_ovlp = 0d0
 
- ! ?symm: Computes a matrix-matrix product where one input matrix is symmetric
- ! ?gemm: Computes a matrix-matrix product with general matrices
- ! Syntax FORTRAN 77:
- ! call dsymm(side, uplo, m, n, alpha, a, lda, b, ldb, beta, c, ldc)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dsymm('L', 'U', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
  call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_basis_ovlp, na)
 end subroutine get_mo_basis_ovlp
@@ -222,9 +217,6 @@ subroutine svd_on_ovlp(m, n, a, u, vt, s)
  a_copy = a
  u = 0d0; vt = 0d0; s = 0d0
 
- ! ?gesvd: Computes the singular value decomposition of a general rectangular matrix
- ! Syntax FORTRAN 77:
- ! call dgesvd(jobu, jobvt, m, n, a, lda, s, u, ldu, vt, ldvt, work, lwork, info)
  lwork = -1
  allocate(work(1))
  work = 0

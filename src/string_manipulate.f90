@@ -1,5 +1,12 @@
 ! written by jxzou at 20201208: move string manipulation subroutines into this file
 
+module phys_cons ! physics constants
+ implicit none
+ real(kind=8), parameter :: au2ev = 27.211396d0
+ real(kind=8), parameter :: au2kcal = 627.51d0 ! a.u. to kcal/mol
+ real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+end module phys_cons
+
 ! transform a string into upper case
 subroutine upper(buf)
  implicit none
@@ -1236,4 +1243,168 @@ subroutine strip_ip_ea_eom(method)
   method = method(4:)
  end if
 end subroutine strip_ip_ea_eom
+
+! calculate the integer array shell_coor ('Coordinates of each shell' in fch)
+subroutine calc_shell_coor(ncontr, natom, shl2atm, coor, shell_coor)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: ncontr, natom
+ integer, intent(in) :: shl2atm(ncontr)
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(out) :: shell_coor(3*ncontr)
+
+ shell_coor = 0d0
+ do i = 1, ncontr, 1
+  j = shl2atm(i)
+  shell_coor(3*i-2:3*i) = coor(:,j)/Bohr_const
+ end do ! for i
+end subroutine calc_shell_coor
+
+! read the array size of shell_type and shell_to_atom_map from a given .fch(k) file
+subroutine read_ncontr_from_fch(fchname, ncontr)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: ncontr
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ ncontr = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:18) == 'Number of contract') exit
+ end do
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
+                 & 'Number of contract' section in file "//TRIM(fchname)
+  close(fid)
+  return
+ end if
+
+ BACKSPACE(fid)
+ read(fid,'(A49,2X,I10)') buf, ncontr
+ close(fid)
+end subroutine read_ncontr_from_fch
+
+! read shell_type and shell_to_atom_map from a given .fch(k) file
+subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: k
+ integer, intent(out) :: shltyp(k), shl2atm(k)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ ! find and read Shell types
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == 'Shell types') exit
+ end do
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+                 & missing 'Shell types' section in file "//TRIM(fchname)
+  close(fid)
+  return
+ end if
+
+ shltyp = 0
+ read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
+ ! read Shell types done
+
+ ! find and read Shell to atom map
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:13) == 'Shell to atom') exit
+ end do
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
+                 & missing 'Shell to atom map' section in file "//TRIM(fchname)
+  close(fid)
+  return
+ end if
+
+ shl2atm = 0
+ read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
+ close(fid)
+end subroutine read_shltyp_and_shl2atm_from_fch
+
+! replace Cartesian coordinates in fch
+subroutine replace_coor_in_fch(fchname, natom, coor)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, ncontr, nline, len_dm, fid, fid1, RENAME
+ integer, intent(in) :: natom
+ integer, allocatable :: shltyp(:), shl2atm(:)
+ real(kind=8), intent(in) :: coor(3,natom) ! in Angstrom
+ real(kind=8), allocatable :: shell_coor(:)
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+
+ call read_ncontr_from_fch(fchname, ncontr)
+ allocate(shltyp(ncontr), shl2atm(ncontr))
+ call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)
+ deallocate(shltyp)
+ allocate(shell_coor(3*ncontr))
+ call calc_shell_coor(ncontr, natom, shl2atm, coor, shell_coor)
+ deallocate(shl2atm)
+
+ call find_specified_suffix(fchname, '.fch', i)
+ fchname1 = fchname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:12) == 'Current cart') exit
+ end do ! for while
+ write(fid1,'(5(1X,ES15.8))') coor/Bohr_const
+
+ ! skip 'Current cartesian coordinates' in the old file
+ nline = 3*natom/5
+ if(3*natom - 5*nline > 0) nline = nline + 1
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:12) == 'Coordinates ') exit
+ end do ! for while
+ write(fid1,'(5(1X,ES15.8))') shell_coor
+ deallocate(shell_coor)
+
+ ! skip 'Coordinates of each shell' in the old file
+ nline = 3*ncontr/5
+ if(3*ncontr - 5*nline > 0) nline = nline + 1
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:11)=='Orthonormal' .or. buf(1:11)=='Total SCF D') exit
+ end do ! for while
+
+ close(fid,status='delete')
+
+ ! add a zero 'Total SCF D' section
+ read(buf(50:),*) len_dm
+ write(fid1,'(5(1X,ES15.8))') (0d0,i=1,len_dm) ! ugly workaround for EOF
+
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+end subroutine replace_coor_in_fch
 

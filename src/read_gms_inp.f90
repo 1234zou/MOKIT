@@ -163,11 +163,11 @@ end subroutine read_charge_and_mult_from_gms_inp
 
 ! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file
 subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, k, fid, nline
  integer, intent(in) :: natom
  integer, intent(out) :: nuc(natom)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), allocatable :: nuc1(:)
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=1) :: str

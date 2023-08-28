@@ -348,13 +348,13 @@ end subroutine read_coor_from_gjf_or_xyz
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+ use phys_cons, only: Bohr_const
  use periodic_table, only: elem2nuc
  implicit none
  integer :: i, j, k, fid, nblank, ne
  integer, intent(in) :: natom
  integer, intent(out) :: nuc(natom), charge, mult
  real(kind=8), intent(out) :: coor(3,natom)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=2), intent(out) :: elem(natom)
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
@@ -511,12 +511,12 @@ end subroutine read_nuc_from_fch
 
 ! read the Cartesian coordinates from a given .fch file
 subroutine read_coor_from_fch(fchname, natom, coor)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
@@ -548,6 +548,7 @@ end subroutine read_coor_from_fch
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .fch file
 subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
+ use phys_cons, only: Bohr_const
  use periodic_table, only: nuc2elem
  implicit none
  integer :: i, fid
@@ -556,7 +557,6 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  integer, intent(out) :: charge, mult, nuc(natom)
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=2), intent(out) :: elem(natom)
 !f2py intent(out) :: elem, nuc, coor, charge, mult
 !f2py depend(natom) :: elem, nuc, coor
@@ -600,6 +600,7 @@ end subroutine read_elem_and_coor_from_fch
 
 ! calculate the nuclear dipole moment from
 subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i
  integer, intent(in) :: natom
@@ -611,7 +612,6 @@ subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
 !f2py depend(natom) :: nuc, coor
  real(kind=8), intent(out) :: n_dipole(3) ! x,y,z 3-components
 !f2py intent(out) :: n_dipole
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
 
  allocate(rnuc(natom))
  forall(i = 1:natom) rnuc(i) = DBLE(nuc(i))
@@ -955,11 +955,11 @@ end subroutine read_grad_from_psi4_out
 !       2) if 'bohr' key is found in the 2nd line of the xyz file,
 !          coor will be multiplied by Bohr_const
 subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+ use phys_cons, only: Bohr_const
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: coor(3,natom)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  character(len=2), intent(out) :: elem(natom)
  character(len=240) :: buf
  character(len=240), intent(in) :: xyzname
@@ -1422,6 +1422,21 @@ function calc_an_int_coor(n, coor) result(val)
  end select
 end function calc_an_int_coor
 
+! replace Cartesian coordinates in .fch(k) file by coordinates from .gjf
+subroutine replace_coor_in_fch_by_gjf(gjfname, fchname)
+ implicit none
+ integer :: natom
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=240), intent(in) :: gjfname, fchname
+!f2py intent(in) :: gjfname, fchname
+
+ call read_natom_from_gjf(gjfname, natom)
+ allocate(coor(3,natom))
+ call read_coor_from_gjf_or_xyz(gjfname, natom, coor)
+ call replace_coor_in_fch(fchname, natom, coor)
+ deallocate(coor)
+end subroutine replace_coor_in_fch_by_gjf
+
 ! convert a .fch(k) file into a .xyz file
 subroutine fch2xyz(fchname)
  implicit none
@@ -1431,6 +1446,7 @@ subroutine fch2xyz(fchname)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: xyzname
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  call find_specified_suffix(fchname, '.fch', i)
  xyzname = fchname(1:i-1)//'.xyz'

@@ -555,8 +555,8 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  ! coor0 will be translated to its own center and rotated after calling the
  ! subroutine rmsd
 
- if(rmsd_v > 2d-2) then
-  write(6,'(/,A)') 'Warning in subroutine rotate_atoms_wfn2: RMSD value > 0.02.'
+ if(rmsd_v > 0.03d0) then
+  write(6,'(/,A)') 'Warning in subroutine rotate_atoms_wfn2: RMSD value > 0.03.'
   write(6,'(A)') 'Anyway, the program will continue, but you should be aware of&
                  & what you are'
   write(6,'(A,I0)') 'doing. fchname='//TRIM(fchname)//', natom=', natom
@@ -1196,6 +1196,176 @@ subroutine mirror_wfn(fchname)
  call write_fch(new_fch)
  call free_arrays_in_fch_content()
 end subroutine mirror_wfn
+
+! calculate weights of 1D Lagrange's interpolation
+subroutine calc_1d_lagrange_w(n, x, weight)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8) :: p, r
+ real(kind=8), parameter :: diff = 1d-7
+ real(kind=8), intent(in) :: x(n)
+ real(kind=8), intent(out) :: weight(n-1)
+ real(kind=8), allocatable :: numerator(:), denominator(:), x_xi(:)
+
+ select case(n)
+ case(1)
+  write(6,'(/,A)') 'ERROR in subroutine calc_1d_lagrange_w: invalid n=1.'
+  stop
+ case(2)
+  weight(1) = 1d0 ! we have no choice but 1.0
+  return
+ case default
+  weight = 0d0   ! initialization
+ end select
+
+ ! if some x(i) is extremely close to x(n), set its weight as 1.0 and return
+ do i = 1, n-1, 1
+  r = x(n) - x(i)
+  if(DABS(r) < diff) then
+   weight(i) = 1d0
+   return
+  end if
+ end do ! for i
+
+ allocate(x_xi(n-1))
+ forall(i = 1:n-1) x_xi(i) = x(n) - x(i)
+ p = PRODUCT(x_xi)
+ deallocate(x_xi)
+
+ allocate(numerator(n-1))
+ do i = 1, n-1, 1
+  r = x(n) - x(i)
+
+  if(DABS(r) > diff) then
+   numerator(i) = p/r
+  else
+   numerator(i) = 1d0
+   do j = 1, n-1, 1
+    if(j == i) cycle
+    numerator(i) = numerator(i)*(x(n) - x(j))
+   end do ! for j
+  end if
+ end do ! for i
+
+ allocate(denominator(n-1), source=1d0)
+ do i = 1, n-1, 1
+  do j = 1, n-1, 1
+   if(j == i) cycle
+   denominator(i) = denominator(i)*(x(i) - x(j))
+  end do ! for j
+ end do ! for i
+
+ weight = numerator/denominator
+ deallocate(numerator, denominator)
+end subroutine calc_1d_lagrange_w
+
+! Perform Grassmann interpolation to generate occupied MOs of a new geometry,
+!  using known occupied MOs of known geometries.
+! nmo: Usually the number of occupied MOs, i.e. na for R(O)HF, na+nb for UHF.
+!      But can also be set as other numbers. E.g. na+npair for GVB.
+! nfile: the number of .fch(k) files, i.e. the number of known geometries and
+!        known MOs, plus a .gjf file with unknown MOs
+! S: AO overlap matrices of each known geometry and the new geometry
+!    S(:,:,nfile) is the overlap matrix of the the new geometry
+! mo: occupied MOs of each known geometry
+! new_mo: occupied MOs of the new geometry
+subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
+ implicit none
+ integer :: i, k, itmp(1)
+ integer, intent(in) :: nbf, nmo, nfile
+!f2py intent(in) :: nbf, nmo, nfile
+ real(kind=8), intent(in) :: x(nfile), S(nbf,nbf,nfile), mo(nbf,nmo,nfile-1)
+!f2py intent(in) :: x, S, mo
+!f2py depend(nfile) :: x
+!f2py depend(nbf,nfile) :: S
+!f2py depend(nbf,nmo,nfile) :: mo
+ real(kind=8), intent(out) :: new_mo(nbf,nmo)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nmo) :: new_mo
+ real(kind=8), parameter :: diff = 1d-7
+ real(kind=8), allocatable :: sqrt_S(:,:), n_sqrt_S(:,:), mo_ref(:,:), mo_k(:,:),&
+  u(:,:), vt(:,:), sv(:), sin_s(:,:), cos_s(:,:), u_sin_s(:,:), mo_ref_v(:,:), &
+  weight(:)
+
+ allocate(weight(nfile-1))
+ call calc_1d_lagrange_w(nfile, x, weight)
+ write(6,'(/,A)') "Weights of Lagrange's interpolation:"
+ write(6,'(5(1X,ES15.8))') weight
+
+ ! In Ref 10.1063/5.0137775 and Ref 10.1063/5.0153440, the authors found that for
+ !  RHF/UHF, it does not matter which geometry is set as the reference geometry.
+
+ ! I've checked that is true. And choosing the geometry whose weight is closest
+ !  to 1.0 will usually make the result slightly better, for RHF/UHF.
+ ! For ROHF, I find the result is sensitive to the choice of reference geometry.
+ !  So here we choose the geometry whose weight is closest to 1.0.
+ itmp = MINLOC(DABS(weight-1d0))
+ k = itmp(1)
+ ! even if the maximum weight is 1.0 and other weights are 0, the following step
+ ! is needed
+
+ ! Calculate S^1/2, S^(-1/2) of the 1st geometry
+ allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
+ call mat_dsqrt(nbf, S(:,:,k), sqrt_S, n_sqrt_S)
+
+ ! C_ref' = (S^1/2)C_ref. MOs at orthogonal basis of the reference geometry
+ allocate(mo_ref(nbf,nmo))
+ call dsymm('L', 'L', nbf, nmo, 1d0, sqrt_S,nbf, mo(:,:,k),nbf, 0d0, mo_ref,nbf)
+ allocate(mo_k(nbf,nmo), source=mo_ref)
+ call grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k) ! GAMMA_1 stored in mo_k
+ new_mo = weight(k)*mo_k
+
+ ! GAMMA matrix of the new geometry would be stored in the array mo_k temporarily
+ do i = 1, nfile-1, 1
+  if(i == k) cycle
+  if(DABS(weight(i)) < diff) cycle
+
+  call mat_dsqrt(nbf, S(:,:,i), sqrt_S, n_sqrt_S)
+  call dsymm('L', 'L', nbf, nmo, 1d0, sqrt_S, nbf, mo(:,:,i),nbf, 0d0, mo_k,nbf)
+  call grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k) ! GAMMA_i stored in mo_k
+  new_mo = new_mo + weight(i)*mo_k               ! linear combination of GAMMA_i
+ end do ! for i
+ deallocate(sqrt_S, n_sqrt_S, mo_k, weight)
+
+ ! GAMMA = U(SIGMA)V^T
+ allocate(u(nbf,nbf), vt(nmo,nmo), sv(nbf))
+ call do_svd(nbf, nmo, new_mo, u, vt, sv)
+
+ ! U*sin(SIGMA)
+ allocate(sin_s(nbf,nmo), source=0d0)
+ forall(i = 1:nmo) sin_s(i,i) = DSIN(sv(i))
+ allocate(u_sin_s(nbf,nmo))
+ call dgemm('N', 'N', nbf, nmo, nbf, 1d0, u, nbf, sin_s, nbf, 0d0, u_sin_s,nbf)
+ deallocate(u, sin_s)
+
+ ! (C_ref')V
+ allocate(mo_ref_v(nbf,nmo))
+ call dgemm('N', 'T', nbf, nmo, nmo, 1d0, mo_ref,nbf, vt,nmo, 0d0,mo_ref_v,nbf)
+ deallocate(mo_ref)
+
+ ! (C_ref')V*cos(SIGMA) + U*sin(SIGMA)
+ allocate(cos_s(nmo,nmo), source=0d0)
+ forall(i = 1:nmo) cos_s(i,i) = DCOS(sv(i))
+ deallocate(sv)
+ call dgemm('N','N', nbf,nmo,nmo, 1d0,mo_ref_v,nbf, cos_s,nmo, 1d0,u_sin_s,nbf)
+ deallocate(mo_ref_v, cos_s)
+
+ ! C_unk' = ((C_ref')V*cos(SIGMA) + U*sin(SIGMA))(V^T), unk: unknown
+ call dgemm('N','N', nbf,nmo,nmo, 1d0, u_sin_s, nbf, vt, nmo, 0d0, new_mo, nbf)
+ deallocate(u_sin_s, vt)
+
+ ! C_unk = (S^(-1/2))(C_unk')
+ allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
+ call mat_dsqrt(nbf, S(:,:,nfile), sqrt_S, n_sqrt_S)
+ deallocate(sqrt_S)
+ allocate(mo_ref(nbf,nmo))
+ call dsymm('L', 'L', nbf, nmo, 1d0,n_sqrt_S,nbf, new_mo, nbf, 0d0, mo_ref,nbf)
+ deallocate(n_sqrt_S)
+
+ new_mo = mo_ref
+ deallocate(mo_ref)
+end subroutine mo_grassmann_intrplt
 
 ! generate geometries using linear interpolation of Cartesian coordinates
 ! fname1: .gjf file which includes the initial geometry

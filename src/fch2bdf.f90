@@ -64,7 +64,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order
 !  of Gaussian to that of BDF
 subroutine fch2bdf(fchname, prt_no)
- use fch_content, only: check_uhf_in_fch
+ use fch_content, only: Bohr_const, check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, natom, orbid
  integer :: na, nb, nif, nbf, nbf0, nbf1, mult
@@ -73,7 +73,6 @@ subroutine fch2bdf(fchname, prt_no)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  integer, allocatable :: nuc(:), ntimes(:)
- real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), allocatable :: coeff(:,:), occ_num(:), coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: orbfile
