@@ -75,7 +75,7 @@ module theory_level
  integer :: wfn_type = 0  ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
  integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
- character(len=9) :: method = ' '
+ character(len=11) :: method = ' '
  character(len=21) :: basis = ' '
  character(len=60) :: scrf  = ' '
  character(len=40) :: solvent = ' '
@@ -586,7 +586,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
         frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
         frags(i)%wfn_type, stab_chk)
-  ! or we can use the direct sum of MOs
+  ! According to my tests, the fragment MOs guess above is slightly better than
+  !  the sum of fragment densities below
   !call sum_frag_density_and_prt_into_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname,&
   !                            frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
   !k = 1
@@ -778,7 +779,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  integer :: i, j
  integer, intent(out) :: wfn_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  character(len=1200), intent(in) :: buf
- character(len=9), intent(out) :: method
+ character(len=11), intent(out) :: method
  character(len=21), intent(out) :: basis
 
  j = index(buf, '/')
@@ -793,7 +794,6 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  end if
 
  i = index(buf(1:j-1), ' ', back=.true.)
- method = ' '
  method = buf(i+1:j-1)
 
  if(method(1:1) == 'u') then
@@ -867,7 +867,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  use theory_level, only: mem, nproc, method, basis, scrf, sph, eda_type, disp_type
  implicit none
  integer :: i, k(3),fid
- character(len=9) :: method0, method1
+ character(len=11) :: method0, method1
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
  logical, intent(in) :: guess_read, stab_chk
@@ -1786,7 +1786,7 @@ end subroutine determine_solvent_from_gau2gms
 ! convert DFT name of Gaussian to that of GAMESS
 subroutine convert_dft_name_gau2gms(method, dft_in_gms)
  implicit none
- character(len=9), intent(in) :: method
+ character(len=11), intent(in) :: method
  character(len=9), intent(out) :: dft_in_gms
 
  dft_in_gms = ' '

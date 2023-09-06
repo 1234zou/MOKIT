@@ -90,14 +90,13 @@ subroutine copy_file(fname1, fname2, delete)
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
+ close(fid2)
 
  if(delete) then
   close(fid1, status='delete')
  else
   close(fid1)
  end if
-
- close(fid2)
 end subroutine copy_file
 
 ! copy binary file (if delete=.True., delete fname1)

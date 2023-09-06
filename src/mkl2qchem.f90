@@ -29,7 +29,7 @@ program mkl2qchem
  call get_a_random_int(k)
  write(fchname,'(A,I0,A)') mklname(1:j-1)//'_',k,'.fch'
 
- call mkl2fch_wrap(mklname, fchname, .false.)
+ call mkl2fch_wrap(mklname, fchname)
  call fch2qchem_wrap(fchname, 0, inpname)
  call delete_file(fchname)
 end program mkl2qchem

@@ -878,7 +878,7 @@ end subroutine py2fch_permute_21h
 subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  implicit none
  integer :: i, j, fid, fid1, RENAME
- integer :: nbf, itype
+ integer, intent(in) :: nbf, itype
 !f2py intent(in) :: nbf, itype
  integer, allocatable :: idx(:)
  real(kind=8) :: dm(nbf,nbf)
@@ -892,9 +892,9 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  character(len=23), parameter :: endkey(3) = ['Mulliken Charges       ',&
   'Anisotropic Hyperfine t','QEq coupling tensors   ']
  character(len=23) :: key0, key1
- character(len=240) :: buf, fchname, fchname1
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
-
  logical :: force
 !f2py intent(in) :: force
 

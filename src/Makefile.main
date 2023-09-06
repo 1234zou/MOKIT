@@ -8,7 +8,8 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              do_pes_scan.o do_cis.o do_sa_cas.o excited.o wfn_analysis.o lo.o \
              automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
-             do_hf.o rwwfn.o read_fch.o rwgeom.o call_qc_calc_int.o autosr.o
+             do_hf.o rwwfn.o read_fch.o read_mkl.o rwgeom.o call_qc_calc_int.o \
+             read_gms_inp.o lo.o autosr.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
 OBJ_bas_gms2bdf = file_op.o string_manipulate.o read_gms_inp.o bas_gms2bdf.o

@@ -191,24 +191,40 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  if(i > 0) basis(i:i+5) = 'genecp'
  i = index(basis, 'GEN')
  if(i > 0) basis(i:i+2) = 'gen'
+ i = index(basis, 'X2C')
+ if(i > 0) basis(i:i+2) = 'x2c'
+ i = index(basis, 'ALL')
+ if(i > 0) basis(i:i+2) = 'all'
 
  rel = .false.
  select case(TRIM(basis))
- case('DKH-def2-SV(P)','DKH-def2-SVP','DKH-def2-TZVP','DKH-def2-TZVP(-f)',&
-      'DKH-def2-TZVPP','DKH-def2-QZVPP','ZORA-def2-SV(P)','ZORA-def2-SVP',&
-      'ZORA-def2-TZVP','ZORA-def2-TZVP(-f)','ZORA-def2-TZVPP','ZORA-def2-QZVPP',&
-      'ma-ma-DKH-def2-SV(P)','ma-DKH-def2-SVP','ma-DKH-def2-TZVP',&
-      'ma-DKH-def2-TZVP(-f)','ma-DKH-def2-TZVPP','ma-DKH-def2-QZVPP',&
-      'ma-ZORA-def2-SVP','ma-ZORA-def2-SV(P)','ma-ZORA-def2-TZVP',&
-      'ma-ZORA-def2-TZVP(-f)','ma-ZORA-def2-TZVPP','ma-ZORA-def2-QZVPP')
+ case('DKH-def2-SV(P)','DKH-def2-SVP','DKH-def2-TZVP','DKH-def2-TZVP(-f)', &
+      'DKH-def2-TZVPP','DKH-def2-QZVPP','ma-DKH-def2-SV(P)','ma-DKH-def2-SVP',&
+      'ma-DKH-def2-TZVP','ma-DKH-def2-TZVP(-f)','ma-DKH-def2-TZVPP', &
+      'ma-DKH-def2-QZVPP')
   basis1 = 'gen'
   rel = .true.
 
   do i = 1, natom, 1
    if(nuc(i) > 36) then
     write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets DKH-def2-&
-                     & or ZORA-def2- series'
-    write(6,'(A)') "have no definition on element '"//TRIM(elem(i))//"'."
+                     & series have'
+    write(6,'(A)') "no definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+  create = .true.
+
+ case('x2c-SV(P)all','x2c-SVPall','x2c-TZVPall','x2c-TZVPPall','x2c-QZVPall',&
+      'x2c-QZVPPall')
+  basis1 = 'gen'
+  rel = .true.
+
+  do i = 1, natom, 1
+   if(nuc(i) > 86) then
+    write(6,'(/,A)') 'ERROR in subroutine generate_hf_gjf: basis sets x2c- seri&
+                     &es have no'
+    write(6,'(A)') "definition on element '"//TRIM(elem(i))//"'."
     stop
    end if
   end do ! for i
@@ -463,12 +479,14 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  else
   i = index(hf_prog_path, '/', back=.true.)
   if(i == 0) then
-   write(6,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol&
-                  & found in string '"//TRIM(hf_prog_path)//"'."
+   write(6,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol found i&
+                  &n string '"//TRIM(hf_prog_path)//"'."
    stop
   end if
   prog_name = TRIM(hf_prog_path(i+1:))
  end if
+
+ if(X2C) call add_X2C_into_fch(fchname)
 
  select case(prog_name)
  case('pyscf')
@@ -509,7 +527,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call submit_orca_job(orca_path, inpname)
   call read_hf_e_and_ss_from_orca_out(outname2, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
-  call mkl2fch_wrap(mklname, fchname, .false.)
+  call mkl2fch_wrap(mklname, fchname)
   call update_density_using_mo_in_fch(fchname)
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
@@ -907,18 +925,21 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  write(fid1,'(A)') 'old_e = mf.kernel(dm0=dm)'
  ! If SCF is not converged, use the Newton method to continue
  write(fid1,'(/,A)') 'if mf.converged is False:'
- write(fid1,'(A)') '  mf = mf.newton()'
+ write(fid1,'(A)')   '  mf = mf.newton()'
  write(fid1,'(A,/)') '  old_e = mf.kernel()'
 
  select case(hf_type)
  case(1,2) ! R(O)HF
-  write(fid1,'(A)') '# save R(O)HF MOs into .fch file'
+  write(fid1,'(A)') 'if mf.converged is False:'
+  write(fid1,'(A)') "  raise OSError('PySCF R(O)HF job failed.')"
+  write(fid1,'(/,A)') '# save R(O)HF MOs into .fch file'
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff,'a',mf.mo&
                     &_energy,False,True)"
  case(3)   ! UHF
   ! loop to check wave function stability
   write(fid1,'(A)') 'new_e = old_e + 2e-5'
-  write(fid1,'(A)') 'for i in range(0,10):'
+  write(fid1,'(A)') 'i = 0'
+  write(fid1,'(A)') 'while(i < 10):'
   write(fid1,'(A)') '  mo1 = mf.stability()[0]'
   write(fid1,'(A)') '  dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
   write(fid1,'(A)') '  mf = mf.newton()'
@@ -926,6 +947,9 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
   write(fid1,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
   write(fid1,'(A)') '    break # cannot find lower solution'
   write(fid1,'(A)') '  old_e = new_e'
+  write(fid1,'(A)') '  i += 1'
+  write(fid1,'(A)') 'if i == 10:'
+  write(fid1,'(A)') "  raise OSError('PySCF stable=opt failed after 10 attempts.')"
 
   write(fid1,'(/,A)') '# save UHF MOs into .fch file'
   write(fid1,'(A)') "py2fch('"//TRIM(fchname)//"',nbf,nif,mf.mo_coeff[0],'a',mf&

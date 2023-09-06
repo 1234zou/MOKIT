@@ -1211,6 +1211,7 @@ subroutine calc_1d_lagrange_w(n, x, weight)
  select case(n)
  case(1)
   write(6,'(/,A)') 'ERROR in subroutine calc_1d_lagrange_w: invalid n=1.'
+  write(6,'(A)') 'n>1 is required.'
   stop
  case(2)
   weight(1) = 1d0 ! we have no choice but 1.0

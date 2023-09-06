@@ -182,18 +182,15 @@ subroutine gen_no_from_nso(fchname)
  use util_wrapper, only: fch_u2r_wrap
  implicit none
  integer :: i, nbf, nif
- character(len=240) :: nofch, rfch
+ character(len=240) :: no_fch
  character(len=240), intent(in) :: fchname ! must have NSO in it
  real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
 
  i = index(fchname,'.fch',back=.true.)
- nofch = fchname(1:i-1)//'_NO.fch'
- rfch = fchname(1:i-1)//'_r.fch'
+ no_fch = fchname(1:i-1)//'_NO.fch'
+ call fch_u2r_wrap(fchname, no_fch)
 
- call fch_u2r_wrap(fchname)
- call copy_file(rfch, nofch, .true.)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
-
  allocate(dm(nbf,nbf))
  call gen_ao_dm_from_fch(fchname, 3, nbf, dm) ! alpha NSO
 
@@ -202,6 +199,7 @@ subroutine gen_no_from_nso(fchname)
 
  dm = dm + dm_b ! total density
  deallocate(dm_b)
+ call write_density_into_fch(no_fch, nbf, .true., dm)
 
  allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, S)
@@ -209,9 +207,10 @@ subroutine gen_no_from_nso(fchname)
  call get_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 
- call write_mo_into_fch(nofch, nbf, nif, 'a', mo)
+ call write_mo_into_fch(no_fch, nbf, nif, 'a', mo)
  deallocate(mo)
- call write_eigenvalues_to_fch(nofch, nif, 'a', noon, .true.)
+
+ call write_eigenvalues_to_fch(no_fch, nif, 'a', noon, .true.)
  deallocate(noon)
 end subroutine gen_no_from_nso
 

@@ -34,7 +34,7 @@ program mkl2psi
  call get_a_random_int(k)
  write(fchname,'(A,I0,A)') mklname(1:i-1)//'_',k,'.fch'
 
- call mkl2fch_wrap(mklname, fchname, .false.)
+ call mkl2fch_wrap(mklname, fchname)
 
  i = SYSTEM('fch2psi '//TRIM(fchname))
  if(i /= 0) then

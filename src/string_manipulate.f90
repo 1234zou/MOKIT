@@ -173,7 +173,7 @@ end subroutine check_sph_in_gjf
 ! convert a filename into which molpro requires, i.e. in lowercase
 subroutine convert2molpro_fname(fname, suffix)
  implicit none
- integer :: i
+ integer :: i, len1, len2
  character(len=240), intent(inout) :: fname
  character(len=2), intent(in) :: suffix
 
@@ -188,11 +188,21 @@ subroutine convert2molpro_fname(fname, suffix)
  i = INDEX(fname, '.', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine convert2molpro_fname: '.' character not&
-                   & found in file "//TRIM(fname)
+                   & found in"
+  write(6,'(A)') 'filename '//TRIM(fname)
   stop
  end if
 
- fname = fname(1:i-1)//suffix
+ len1 = INDEX(fname, '.', back=.true.) - 1
+ if(len1 == -1) len1 = LEN_TRIM(fname)
+ len2 = LEN(suffix)
+
+ if(len1+len2 > 32) then
+  fname = fname(1:32-len2)//suffix
+ else
+  fname = fname(1:len1)//suffix
+ end if
+
  call lower(fname)
 end subroutine convert2molpro_fname
 
@@ -449,8 +459,8 @@ subroutine add_X2C_into_py(pyname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in&
-                   & file "//TRIM(pyname)
+  write(6,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in file&
+                 & "//TRIM(pyname)
   stop
  end if
 
@@ -861,11 +871,10 @@ subroutine add_mokit_path_to_genbas(basname)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  sbuf = TRIM(buf(1:12))
+  sbuf = TRIM(buf(1:11))
   call upper(sbuf)
-  if(sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or. sbuf(1:8)=='DKH-DEF2' &
-     .or. sbuf(1:9)=='ZORA-DEF2' .or. sbuf(1:11)=='MA-DKH-DEF2' .or. &
-     sbuf(1:12)=='MA-ZORA-DEF2') then
+  if(sbuf(1:3)=='X2C' .or. sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or.&
+     sbuf(1:8)=='DKH-DEF2' .or. sbuf(1:11)=='MA-DKH-DEF2') then
    buf = '@'//TRIM(mokit_root)//'/mokit/basis/'//TRIM(buf)
   end if
   write(fid1,'(A)') TRIM(buf)

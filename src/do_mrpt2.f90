@@ -640,11 +640,12 @@ subroutine prt_nevpt2_orca_inp(inpname)
   write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
  end if
  if(F12) write(fid2,'(A)',advance='no') ' '//TRIM(F12_cabs)
+ if(DLPNO) write(fid2,'(A)',advance='no') ' TightPNO'
  write(fid2,'(A)') ' TightSCF'
 
  if(X2C) then
-  write(6,'(A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C&
-                   & is not supported in ORCA.'
+  write(6,'(/,A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C is&
+                   & not supported in ORCA.'
   write(6,'(A)') 'You can specify NEVPT2_prog=Molpro or OpenMolcas.'
   stop
  end if

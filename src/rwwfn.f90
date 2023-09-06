@@ -3267,14 +3267,13 @@ subroutine update_density_using_no_and_on(fchname)
  character(len=240), intent(in) :: fchname
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(noon(nif), source=0d0)
+ allocate(noon(nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
 
- allocate(coeff(nbf,nif), source=0d0)
+ allocate(coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
 
  allocate(dm(nbf,nbf), source=0d0)
-
  do i = 1, nbf, 1
   do j = 1, i, 1
    do k = 1, nif, 1

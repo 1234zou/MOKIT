@@ -30,7 +30,7 @@ program mkl2py
  call find_specified_suffix(mklname, '.mkl', i)
  fchname = mklname(1:i-1)//'.fch'
 
- call mkl2fch_wrap(mklname, fchname, .false.)
+ call mkl2fch_wrap(mklname, fchname)
 
  i = SYSTEM('bas_fch2py '//TRIM(fchname))
  if(i /= 0) then

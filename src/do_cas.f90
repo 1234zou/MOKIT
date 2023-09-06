@@ -377,7 +377,7 @@ subroutine do_cas(scf)
 
   call gbw2mkl(orbname)
   mklname = TRIM(proname)//'.mkl'
-  call mkl2fch_wrap(mklname, casnofch, .true.)
+  call mkl2fch_wrap(mklname, casnofch, 1)
 
  case('molpro')
   call check_exe_exist(molpro_path)
@@ -397,15 +397,7 @@ subroutine do_cas(scf)
   call prt_cas_molpro_inp(inpname, scf, casscf_force)
   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  i = CEILING(DBLE(mem*125)/DBLE(nproc))
-  write(buf,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ', i,&
-                           'm '//TRIM(inpname)
-  write(6,'(2(A,I0),A)') '$molpro -n ',nproc,' -t 1 -m ',i,'m '//TRIM(inpname)
-  i = system(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_cas: Molpro CASCI/CASSCF job failed.'
-   stop
-  end if
+  call submit_molpro_job(inpname, mem, nproc)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   i = system('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
 
@@ -428,7 +420,7 @@ subroutine do_cas(scf)
   write(6,'(A)') '$$BDF '//TRIM(proname)
   i = system(TRIM(bdf_path)//' '//TRIM(proname))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
    stop
   end if
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
@@ -452,8 +444,8 @@ subroutine do_cas(scf)
                              TRIM(casnofch), idx1, idx2
   i = system(TRIM(buf))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_cas: failed to call utility &
-                  &extract_noon2fch.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility extract&
+                    &_noon2fch.'
    stop
   end if
 

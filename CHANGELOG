@@ -1,5 +1,7 @@
-MOKIT 1.2.6 (Aug 27, 2023)
+MOKIT 1.2.6 (Sep 6, 2023)
 ------------------------
+* remove ZORA related basis sets
+* put basis sets x2c-SVPall, x2c-TZVPall, etc into $MOKIT_ROOT/mokit/basis/
 * add subroutine mo_grassmann_intrplt
 * add subroutine permute_atoms_wfn
 * fix the bug of using CASCI obj in module fchk()

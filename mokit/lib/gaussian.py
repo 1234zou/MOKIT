@@ -316,7 +316,7 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
     raise NotImplementedError('make_orb_resemble supports only R(O)HF/UHF currently.')
 
 
-def proj2target_basis(fchname, target_basis='cc-pVTZ', cart=False):
+def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   '''
   Project MOs of the original basis set onto the target basis set.
   cart: True/False for Cartesian-type or spherical harmonic type functions
@@ -360,7 +360,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', cart=False):
 
   target_fch = fchname[0:fchname.rindex('.fch')]+'_proj.fch'
   fchk(mf, target_fch)
-  make_orb_resemble(target_fch, fchname)
+  make_orb_resemble(target_fch, fchname, nmo=nmo, align=False)
 
 
 def export_mo_e2txt(fchname):
@@ -375,16 +375,16 @@ def export_mo_e2txt(fchname):
   export_rarray2txt(txtname, 'MO Eigenvalues', nif, ev)
 
 
-def mo_g_int(fnames, x, na=None, nb=None):
+def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
   '''
-  Generate occupied MOs of a new geometry using Grassmann interpolation.
-  fnames: a series of .fch(k) files and a .gjf file
-  x     : a series of the changed variable (bond distance, angle, dihedral, even
-          composite coordinate)
-  na    : the number of alpha occupied orbitals
-  nb    : the number of beta occupied orbitals
-  Note: 1) currently only available for R(O)HF and UHF;
-        2) the size of arrays fnames and x must be the same.
+  Generate occupied MOs of a new geometry using Grassmann interpolation. Currently
+   only available for R(O)HF and UHF.
+  fnames  : a series of .fch(k) files and a .gjf file
+  x       : a series of the changed variable (bond distance, angle, dihedral, even
+            composite coordinate)
+  na      : the number of alpha occupied orbitals
+  nb      : the number of beta occupied orbitals
+  trace_PS: whether to calculate trace(PS) to check the number of electrons
   Example:
     mo_g_int(['h2o_105.fch', 'h2o_115.fch', 'h2o_120.fch', 'h2o_109_5.gjf'],
              [105.0, 115.0, 120.0, 109.5])
@@ -421,7 +421,7 @@ def mo_g_int(fnames, x, na=None, nb=None):
     mol = load_mol_from_fch(fnames[i])
     S[:,:,i] = mol.intor_symmetric('int1e_ovlp')
     coeff = fch2py(fnames[i], nbf, nif, 'a')
-    mo[:,0:na,i] = coeff[:,0:na]
+    mo[:,:na,i] = coeff[:,:na]
 
   mol = load_mol_from_fch(new_fch)
   S[:,:,nfile-1] = mol.intor_symmetric('int1e_ovlp')
@@ -429,7 +429,7 @@ def mo_g_int(fnames, x, na=None, nb=None):
   # generate alpha occupied MOs of the new geometry
   new_mo = mo_grassmann_intrplt(nbf, na, nfile, x, S, mo)
   coeff0 = np.zeros([nbf,nif])
-  coeff0[:,0:na] = new_mo[:,0:na]
+  coeff0[:,:na] = new_mo[:,:na]
 
   # construct alpha virtual MOs of the new geometry using PAO
   coeff = construct_vir(nbf, nif, na+1, coeff0, S[:,:,nfile-1])
@@ -437,6 +437,18 @@ def mo_g_int(fnames, x, na=None, nb=None):
   # export alpha MOs to .fch file
   mo_e = np.zeros(nif)
   py2fch(new_fch, nbf, nif, coeff, 'a', mo_e, False, False)
+
+  # check the numeber of alpha electrons
+  if trace_PS is True:
+    dm = np.dot(coeff[:,:na], coeff[:,:na].transpose())
+    #SS = S[:,:,nfile-1]
+    #SP = np.dot(SS,dm)
+    #PSP = np.dot(dm, SP)
+    #dm_new = 3.0*PSP - 2.0*np.dot(PSP, SP) - dm
+    #dm_new = np.absolute(dm_new)
+    #print(dm_new.max())
+    ne_a = np.trace(np.dot(dm,S[:,:,nfile-1]))
+    print('No. alpha electrons: %.4f' %ne_a)
 
 # Note: DO NOT merge beta occupied MOs into the array mo for UHF, otherwise MOs
 #       in the array mo are non-orthogonal. In fact, alpha/beta should be dealt
@@ -446,10 +458,23 @@ def mo_g_int(fnames, x, na=None, nb=None):
     mo = np.zeros([nbf,nb,nfile-1])
     for i in range(nfile-1):
       coeff = fch2py(fnames[i], nbf, nif, 'b')
-      mo[:,0:nb,i] = coeff[:,0:nb]
-    # construct beta virtual MOs of the new geometry using PAO
+      mo[:,:nb,i] = coeff[:,:nb]
+    # generate beta occupied MOs of the new geometry
     new_mo = mo_grassmann_intrplt(nbf, nb, nfile, x, S, mo)
-    coeff0[:,0:nb] = new_mo[:,0:nb]
+    coeff0[:,:nb] = new_mo[:,:nb]
+    # construct beta virtual MOs of the new geometry using PAO
     coeff = construct_vir(nbf, nif, nb+1, coeff0, S[:,:,nfile-1])
+    # export beta MOs to .fch file
     py2fch(new_fch, nbf, nif, coeff, 'b', mo_e, False, False)
+    # check the numeber of beta electrons
+    if trace_PS is True:
+      dm = np.dot(coeff[:,:nb], coeff[:,:nb].transpose())
+      #SS = S[:,:,nfile-1]
+      #SP = np.dot(SS,dm)
+      #PSP = np.dot(dm, SP)
+      #dm_new = 3.0*PSP - 2.0*np.dot(PSP, SP) - dm
+      #dm_new = np.absolute(dm_new)
+      #print(dm_new.max())
+      ne_b = np.trace(np.dot(dm,S[:,:,nfile-1]))
+    print('No. beta electrons: %.4f' %ne_b)
 

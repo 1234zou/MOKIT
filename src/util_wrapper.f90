@@ -89,8 +89,8 @@ subroutine gbw2mkl(gbwname, mklname)
 
  inquire(file=TRIM(gbwname), exist=alive)
  if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine gbw2mkl: file does not exist!'
-  write(6,'(A)') 'gbwname='//TRIM(gbwname)
+  write(6,'(/,A)') 'ERROR in subroutine gbw2mkl: file does not exist!'
+  write(6,'(A)') 'Input gbwname='//TRIM(gbwname)
   stop
  end if
 
@@ -219,15 +219,28 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  end if
 end subroutine fch2inp_wrap
 
-subroutine mkl2fch_wrap(mklname, fchname, prt_no)
+subroutine mkl2fch_wrap(mklname, fchname, ino)
  implicit none
  integer :: i, SYSTEM
+ integer, optional :: ino
  character(len=240), intent(in) :: mklname, fchname
  character(len=500) :: buf
- logical, intent(in) :: prt_no
 
  buf = 'mkl2fch '//TRIM(mklname)//' '//TRIM(fchname)
- if(prt_no) buf = TRIM(buf)//' -no'
+
+ if(present(ino)) then
+  select case(ino)
+  case(0) ! do nothing
+  case(1)
+   buf = TRIM(buf)//' -no'
+  case(2)
+   buf = TRIM(buf)//' -nso'
+  case default
+   write(6,'(/,A,I0)') 'ERROR in subroutine mkl2fch_wrap: invalid ino=', ino
+   write(6,'(A)') 'Only {0,1,2} are allowed.'
+   stop
+  end select
+ end if
 
 #ifdef _WIN32
  i = SYSTEM(TRIM(buf)//' > NUL')
@@ -240,7 +253,7 @@ subroutine mkl2fch_wrap(mklname, fchname, prt_no)
                    &l2fch.'
   write(6,'(A)') 'mklname = '//TRIM(mklname)
   write(6,'(A)') 'fchname = '//TRIM(fchname)
-  write(6,'(A,L1)') 'prt_no = ', prt_no
+  if(present(ino)) write(6,'(A,I0)') 'ino = ', ino
   stop
  end if
 end subroutine mkl2fch_wrap
@@ -319,13 +332,21 @@ subroutine chk2gbw(chkname)
  close(unit=i,status='delete')
 end subroutine chk2gbw
 
-subroutine fch_u2r_wrap(fchname)
+subroutine fch_u2r_wrap(fchname, new_fch)
  implicit none
- integer :: i, SYSTEM
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: rfch
  character(len=240), intent(in) :: fchname
+ character(len=240), optional :: new_fch
 
  i = SYSTEM('fch_u2r '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch_u2r', fchname)
+
+ if(present(new_fch)) then
+  i = INDEX(fchname, '.fch', back=.true.)
+  rfch = fchname(1:i-1)//'_r.fch'
+  i = RENAME(TRIM(rfch), TRIM(new_fch))
+ end if
 end subroutine fch_u2r_wrap
 
 subroutine fch2dal_wrap(fchname, dalname)

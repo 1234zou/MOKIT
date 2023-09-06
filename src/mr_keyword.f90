@@ -313,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc12 (2023-Aug-27)'
+  write(6,'(A)') '           Version: 1.2.6rc13 (2023-Sep-5)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -1066,13 +1066,19 @@ contains
    stop
   end if
 
-  if(DKH2 .and. hf_prog=='pyscf') then
+  if(DKH2 .and. TRIM(hf_prog)=='pyscf') then
    write(6,'(/,A)') 'Warning: DKH2 not supported in PySCF. HF in PySCF will use&
                     & X2C Hamiltonian'
    write(6,'(A)') 'instead. MOs obtained by these two Hamiltonians are usually&
                  & very similar.'
    write(6,'(A)') 'If you want to use DKH2 during HF calculations, you can spec&
                   &ify HF_prog=PSI4/ORCA.'
+  end if
+
+  if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4')) then
+   write(6,'(/,A)') error_warn//'invalid HF_prog.'
+   write(6,'(A)') 'When X2C is activated, HF_prog can only be PySCF or PSI4.'
+   stop
   end if
 
   if(casci .or. casscf) then
@@ -1695,9 +1701,10 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
     stop
    end if
    if(index(RIC_bas, '/c') == 0) then
-    write(6,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlat&
-                   & ion computations activated. But'
-    write(6,'(A)') "your provided RIC_bas does not contain key '/C'. Caution!"
+    write(6,'(/,A)') 'Warning in subroutine determine_auxbas: dynamic correlati&
+                     &on computations'
+    write(6,'(A)') "activated. But your provided RIC_bas does not include key '&
+                   &/C'. Caution!"
    end if
   end if
  else   ! no dynamic correlation computation

@@ -34,6 +34,8 @@ module sr_keyword
  logical :: ip = .false.
  logical :: ea = .false.
  logical :: iterative_t = .false. ! default DLPNO-CCSD(T0)
+ logical :: gen_no = .false.     ! whether to generate NOs
+ logical :: relaxed_dm = .false. ! relaxed/unrelaxed density matrix
  logical :: mp2_force = .false.
  logical :: ccd_force = .false.
  logical :: ccsd_force = .false.
@@ -55,7 +57,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc12 (2023-Aug-27)'
+ write(6,'(A)') '           Version: 1.2.6rc13 (2023-Sep-6)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -299,6 +301,10 @@ subroutine parse_sr_keyword()
    DLPNO = .true.; RI = .true.
   case('hfonly')
    HFonly = .true.
+  case('no')
+   gen_no = .true.
+  case('relaxed_dm')
+   relaxed_dm = .true.
   case default
    write(6,'(/,A)') "ERROR in subroutine parse_sr_keyword: keyword '"//longbuf(1:j-1)&
                    //"' not recognized in {}."
@@ -315,23 +321,36 @@ end subroutine parse_sr_keyword
 ! check the compatiblity of keywords in single reference calculations
 subroutine check_sr_kywd_compatible()
  implicit none
-
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&
+                                              &d_compatible: '
  cc_enabled = (ccd .or. ccsd .or. ccsd_t)
 
  if(customized_core) then
   if(core_wish < 0) then
-   write(6,'(/,A,I0)') 'ERROR in subroutine check_sr_kywd_compatible: invalid c&
-                       &ore_wish=', core_wish
+   write(6,'(/,A,I0)') error_warn//'invalid core_wish=', core_wish
    write(6,'(A)') 'The number of frozen core orbitals must be non-negative.'
    stop
   end if
  end if
 
  if(ccd .and. TRIM(cc_prog)=='molpro') then
-  write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CC_prog=Molpr&
-                   &o is incompatible with'
+  write(6,'(/,A)') error_warn//'CC_prog=Molpro is incompatible with'
   write(6,'(A)') 'the CCD method, you may want to try CC_prog=ORCA.'
   stop
+ end if
+
+ if(gen_no) then
+  if(cc_enabled .and. relaxed_dm .and. TRIM(CC_prog)=='orca') then
+   write(6,'(/,A)') error_warn//'CC relaxed density are'
+   write(6,'(A)') 'not supported when CC_prog=ORCA.'
+   stop
+  end if
+  if(ccsd_t .and. (TRIM(CC_prog)=='orca' .or. TRIM(CC_prog)=='gaussian')) then
+   write(6,'(/,A)') error_warn//'CCSD(T) density is not'
+   write(6,'(A)') 'supported by Gaussian/ORCA. You may try CC_prog=Molpro or PS&
+                  &I4.'
+   stop
+  end if
  end if
 
  if(RI) then
@@ -444,7 +463,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc12 :: MOKIT, release date: 2023-Aug-27'
+  write(6,'(A)') 'AutoSR 1.2.6rc13 :: MOKIT, release date: 2023-Sep-6'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -549,7 +568,7 @@ end subroutine prt_fc_info
 subroutine do_mp2()
  use sr_keyword, only: mem, nproc, hf_fch, bgchg, chgname, ref_e, corr_e, mp2_e,&
   mp2, mp2_prog, chem_core, ecp_core, customized_core, core_wish, gau_path, &
-  psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, force
+  psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, gen_no, force
  use util_wrapper, only: unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap, &
   fch2com_wrap, fch2psi_wrap, fch2inp_wrap
  use mol, only: natom, grad
@@ -557,7 +576,8 @@ subroutine do_mp2()
  integer :: i, RENAME, SYSTEM
  real(kind=8) :: rtmp
  character(len=24) :: data_string = ' '
- character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname
+ character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname, &
+  no_chk
 
  if(.not. mp2) return
  write(6,'(//,A)') 'Enter subroutine do_mp2...'
@@ -609,6 +629,7 @@ subroutine do_mp2()
   old_inp = hf_fch(1:i-1)//'_o.inp'
   chkname = hf_fch(1:i-1)//'_MP2.engrad'
   mklname = hf_fch(1:i-1)//'_MP2.mkl'
+  no_chk = hf_fch(1:i-1)//'_MP2.mp2nat'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -618,6 +639,7 @@ subroutine do_mp2()
   call prt_posthf_orca_inp(inpname, .false.)
   call submit_orca_job(orca_path, inpname)
   call read_posthf_e_from_orca_out(outname, .false., rtmp, ref_e, mp2_e)
+  if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
   inpname = hf_fch(1:i-1)//'_MP2.com'
   call fch2com_wrap(hf_fch, inpname)
@@ -634,7 +656,8 @@ subroutine do_mp2()
   !call read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
   stop
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//TRIM(mp2_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//&
+                   TRIM(mp2_prog)
   stop
  end select
 
@@ -675,7 +698,7 @@ subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, cc_enabled, bgchg, hf_fch,&
   chgname, cc_prog, method, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, chem_core,&
   ecp_core, customized_core, core_wish, RI, gau_path, orca_path, psi4_path, &
-  gms_path, gms_scr_path, check_gms_path, force
+  gms_path, gms_scr_path, check_gms_path, gen_no, force
  use util_wrapper, only: unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
   bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap
  use mol, only: natom, grad
@@ -684,7 +707,7 @@ subroutine do_cc()
  real(kind=8) :: e = 0d0
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
- character(len=240) :: chkname, old_inp, inpname, mklname, outname
+ character(len=240) :: chkname, old_inp, inpname, mklname, outname, no_chk
 
  if(.not. cc_enabled) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
@@ -747,6 +770,7 @@ subroutine do_cc()
   inpname = hf_fch(1:i-1)//'_CC.inp'
   old_inp = hf_fch(1:i-1)//'_o.inp'
   mklname = hf_fch(1:i-1)//'_CC.mkl'
+  no_chk = hf_fch(1:i-1)//'_CC.mdci.nat'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -756,6 +780,7 @@ subroutine do_cc()
   call prt_posthf_orca_inp(inpname, .false.)
   call submit_orca_job(orca_path, inpname)
   call read_posthf_e_from_orca_out(outname, (.not.ccd), t1diag, ref_e, e)
+  if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
   inpname = hf_fch(1:i-1)//'_CC.com'
   call fch2com_wrap(hf_fch, inpname)
@@ -1008,7 +1033,8 @@ end subroutine prt_posthf_gau_inp
 ! add CC keywords into a ORCA input file
 subroutine prt_posthf_orca_inp(inpname, excited)
  use sr_keyword, only: mem, nproc, RI, DLPNO, F12, RIJK_bas, RIC_bas, F12_cabs,&
-  mo_rhf, mp2, ccd, ccsd, ccsd_t, iterative_t, ip, ea, nstate, chem_core, force
+  mo_rhf, mp2, ccd, ccsd, ccsd_t, iterative_t, gen_no, relaxed_dm, ip, ea, &
+  nstate, chem_core, force
  use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -1100,8 +1126,21 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   end if
   write(fid1,'(A)') 'end'
  end if
- write(fid1,'(A)') TRIM(buf)
 
+ if(gen_no) then
+  if(mp2) then
+   write(fid1,'(A)') '%mp2'
+   if(relaxed_dm) then
+    write(fid1,'(A)') ' density relaxed'
+   else
+    write(fid1,'(A)') ' density unrelaxed'
+   end if
+  end if
+  if(ccd .or. ccsd) write(fid1,'(A,/,A)') '%mdci',' density unrelaxed'
+  write(fid1,'(A,/,A)') ' NatOrbs True','end'
+ end if
+
+ write(fid1,'(A)') TRIM(buf)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2308,4 +2347,48 @@ subroutine read_eomcc_e_from_psi4_out(outname, nstate, e, mult, fosc)
 
  close(fid)
 end subroutine read_eomcc_e_from_psi4_out
+
+! dump ORCA MP2/CC NOs from .gbw to .fch
+subroutine dump_orca_no_gbw2fch(no_gbw, fchname)
+ use mkl_content, only: check_uhf_in_mkl
+ use util_wrapper, only: mkl2fch_wrap, fch_u2r_wrap
+ use fch_content, only: check_uhf_in_fch
+ implicit none
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: mklname, tmp_out, no_fch, nso_fch, nso_no
+ character(len=240), intent(in) :: no_gbw, fchname
+ logical :: uhf, uhf1
+
+ i = INDEX(no_gbw, '.mdci.nat', back=.true.)
+ if(i == 0) i = INDEX(no_gbw, '.', back=.true.)
+ mklname = no_gbw(1:i-1)//'.mkl'
+ tmp_out = no_gbw(1:i-1)//'.t'
+ no_fch = no_gbw(1:i-1)//'_NO.fch'
+ nso_fch = no_gbw(1:i-1)//'_NSO.fch'
+ nso_no = no_gbw(1:i-1)//'_NSO_NO.fch'
+
+ i = SYSTEM('orca_2mkl '//TRIM(no_gbw)//' '//TRIM(mklname)//' -mkl -anyorbs >'&
+            //TRIM(tmp_out)//" 2>&1")
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine dump_orca_no_into_fch: failed to call u&
+                   &tility orca_2mkl.'
+  stop
+ end if
+
+ call check_uhf_in_mkl(mklname, uhf)
+ if(uhf) then
+  call copy_file(fchname, nso_fch, .false.)
+  call mkl2fch_wrap(mklname, nso_fch, 2) ! '-nso'
+  call gen_no_from_nso(nso_fch)
+  i = RENAME(TRIM(nso_no), TRIM(no_fch))
+ else
+  call copy_file(fchname, no_fch, .false.)
+  call check_uhf_in_fch(no_fch, uhf1)
+  if(uhf1) call fch_u2r_wrap(no_fch, no_fch)
+  call mkl2fch_wrap(mklname, no_fch, 1) ! '-no'
+  call update_density_using_no_and_on(no_fch)
+ end if
+
+ call delete_files(3, [no_gbw, mklname, tmp_out])
+end subroutine dump_orca_no_gbw2fch
 
