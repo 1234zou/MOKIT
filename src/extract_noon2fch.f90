@@ -18,14 +18,15 @@ program main
  i = iargc()
  if(i<2 .or. i>6) then
   write(6,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
-  write(6,'(A)')   ' Format: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
+  write(6,'(A)')   ' Syntax: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
   write(6,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
   write(6,'(A)')   ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
   write(6,'(A)')   ' Example 3 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0 -gau'
   write(6,'(A)')   ' Example 4 (GAMESS CAS): extract_noon2fch a.gms a.fch 19 24'
-  write(6,'(A)')   ' Example 5 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
-  write(6,'(A)')   ' Example 6 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
-  write(6,'(A,/)') ' Example 7 (Q-Chem GVB): extract_noon2fch a.out a.fch'
+  write(6,'(A)')   ' Example 5 (GAMESS MP2): extract_noon2fch a.gms a.fch -mp2'
+  write(6,'(A)')   ' Example 6 (ORCA CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A)')   ' Example 7 (PSI4 CAS)  : extract_noon2fch a.out a.fch 19 24'
+  write(6,'(A,/)') ' Example 8 (Q-Chem GVB): extract_noon2fch a.out a.fch'
   stop
  end if
 
@@ -35,13 +36,14 @@ program main
  call getarg(2, fchname)
  call require_file_exist(fchname)
 
- if(i > 2) then
+ if(i==2 .or. i==3) then
+  ! Q-Chem case, or the GAMESS MP2 NOs case, fake two integers
+  idx1 = 1; idx2 = 2
+ else
   call getarg(3, buf)
   read(buf,*) idx1
   call getarg(4, buf)
   read(buf,*) idx2
- else ! i == 2, Q-Chem case, fake two integers
-  idx1 = 1; idx2 = 2
  end if
 
  gau_order = .false.
@@ -49,40 +51,42 @@ program main
   call getarg(5, buf)
   read(buf,*,iostat=j) nopen
   if(j /= 0) then
-   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
-                  & arguments. Failed to read integer nopen.'
+   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
+                    &rguments. Failed'
+   write(6,'(A)') 'to read integer nopen.'
    stop
   end if
   if(nopen < 0) then
-   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line&
-                  & arguments. nopen<0.'
+   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
+                    &rguments. nopen<0.'
    stop
   end if
  end if
 
  if(i == 6) then
   call getarg(6, buf)
-  if(index(buf,'-gau') /= 0) then
+  if(INDEX(buf,'-gau') /= 0) then
    gau_order = .true.
   else
-   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong command line arg&
-                  &uments.'
+   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
+                    &rguments.'
    write(6,'(A)') 'The 5th argument='//TRIM(buf)
    stop
   end if
  end if
 
- i = idx2 - idx1
- if(i < 1) then
-  write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.'
+ j = idx2 - idx1
+ if(j < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.'
   write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
   stop
  end if
 
- if(index(outname,'.dat',back=.true.) /= 0) then
-  if(MOD(i+1-nopen,2) /= 0) then
-   write(6,'(A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
-                  & In this case idx2-idx1+1-nopen must be an even integer.'
+ if(INDEX(outname,'.dat',back=.true.)>0 .and. i/=3) then
+  if(MOD(j+1-nopen,2) /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
+                   & In this case'
+   write(6,'(A)') 'idx2-idx1+1-nopen must be an even integer.'
    write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
    stop
   end if
@@ -104,9 +108,9 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  nmo = idx2 - idx1 + 1   ! Note: here nmo is 2*npair + nopen for GVB
  allocate(noon(nmo))
 
- if(index(outname,'.dat',back=.true.) /= 0) then
+ if(INDEX(outname,'.dat',back=.true.) > 0) then
   call read_noon_from_dat(nmo, noon, outname, nopen, gau_order) ! GVB NOONs
- else if(index(outname,'.gms',back=.true.) /= 0) then
+ else if(INDEX(outname,'.gms',back=.true.) > 0) then
   call read_noon_from_gmsgms(idx1, nmo, noon, outname) ! CASCI/CASSCF NOONs
  else
   call identify_itype_of_out(outname, itype)
@@ -131,15 +135,16 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  end if
 
  ! read nif in file fchname, and copy into file fchname1 by the way
+ fchname1 = TRIM(fchname)//'.t'
  open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')
- i = index(fchname, '.fch')
- fchname1 = fchname(1:i-1)//'_noon.fch'
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)') buf
   write(fid2,'(A)') TRIM(buf)
   if(buf(1:13) == 'Number of ind') exit
  end do
+
  BACKSPACE(fid1)
  read(fid1,'(A49,2X,I10)') buf, nif
 
@@ -185,7 +190,7 @@ end subroutine extract_noon2fch
 subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  implicit none
  integer :: i, j, k, m, npair, fid
- integer, intent(in) :: nmo ! must be an even integer
+ integer, intent(in) :: nmo   ! must be an even integer
  integer, intent(in) :: nopen ! number of singly occupied orbitals
  real(kind=8), allocatable :: cicoeff(:)
  real(kind=8), intent(out) :: noon(nmo)
@@ -195,8 +200,8 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
 
  npair = (nmo - nopen)/2
  if(npair == 0) then
-  write(6,'(A)') 'Warning in subroutine read_noon_from_dat: npair=0. High&
-                 & spin ROHF wfn assumed.'
+  write(6,'(/,A)') 'Warning in subroutine read_noon_from_dat: npair=0. High spi&
+                   &n ROHF wfn assumed.'
   noon = 1d0
   return
  end if
@@ -210,11 +215,12 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_noon_from_dat: no '$SCF'&
-                   & found in file "//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_dat: no '$SCF' found in &
+                   &file "//TRIM(datname)
   close(fid)
   stop
  end if
+
  k = 1
  if(index(buf,'CICOEF') /= 0) then
   i = index(buf,'='); j = index(buf,',')
@@ -266,8 +272,8 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M'&
-                   & found in file "//TRIM(gmsname)
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M' fo&
+                   &und in file "//TRIM(gmsname)
   stop
  end if
 

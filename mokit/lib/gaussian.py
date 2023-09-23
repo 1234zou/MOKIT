@@ -476,5 +476,5 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
       #dm_new = np.absolute(dm_new)
       #print(dm_new.max())
       ne_b = np.trace(np.dot(dm,S[:,:,nfile-1]))
-    print('No. beta electrons: %.4f' %ne_b)
+      print('No. beta electrons: %.4f' %ne_b)
 

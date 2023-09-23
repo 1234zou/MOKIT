@@ -26,6 +26,15 @@ else
  exit
 fi
 
+if command -v gfortran >/dev/null 2>&1 ; then
+ gfortran modify_GMS2.f90 -o modify_GMS2.exe
+elif command -v ifort >/dev/null 2>&1 ; then
+ ifort modify_GMS2.f90 -o modify_GMS2.exe
+else
+ echo 'Neither gfortran nor ifort is found in the machine.'
+ exit
+fi
+
 echo 'Modifying the source code...'
 
 filelist='comp cphf cprohf fmoh2c fmohss grd1 grd2a gvb guess hess hss1c hss2a hss2b hss2c locpol mexing parley prppop qmfm scflib statpt vector vvos'
@@ -53,7 +62,6 @@ sed -i 's/NHAMX\ =\ 25/NHAMX\ =\ 999/g'    scflib.src
 sed -i 's/NPAIRX\ =\ 12/NPAIRX\ =\ 499/g'  scflib.src
 sed -i 's/200) T/500) T/g' inputa.src
 
-gfortran modify_GMS2.f90 -o modify_GMS2.exe
 ./modify_GMS2.exe
 echo 'Modification finished.'
 

@@ -2138,10 +2138,10 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
    write(6,'(2(A,I0))') 'nbf1=', nbf1, ', nbf=', nbf
    stop
   end if
-  call read_density_from_fch(fchname(i), 1, nbf, dm1)
+  call read_dm_from_fch(fchname(i), 1, nbf, dm1)
   dm = dm + dm1
  end do ! for i
- call write_density_into_fch(fchname(n+1), nbf, .true., dm)
+ call write_dm_into_fch(fchname(n+1), nbf, .true., dm)
 
  allocate(has_spin_density(n))
  has_spin_density = .false.
@@ -2150,7 +2150,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
  do i = 1, n, 1
   call detect_spin_scf_density_in_fch(fchname(i), has_spin_density(i))
   if(.not. has_spin_density(i)) cycle
-  call read_density_from_fch(fchname(i), 2, nbf, dm1)
+  call read_dm_from_fch(fchname(i), 2, nbf, dm1)
   if(pos(i)) then
    dm = dm + dm1
   else
@@ -2162,7 +2162,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
 
  if(ANY(has_spin_density .eqv. .true.)) then
   if(alive) then
-   call write_density_into_fch(fchname(n+1), nbf, .false., dm)
+   call write_dm_into_fch(fchname(n+1), nbf, .false., dm)
   else ! no Spin SCF Density in the total system .fch file
    write(6,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: so&
                   &me fragment has UHF-type wave'
@@ -2171,7 +2171,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
    stop
   end if
  else ! all fragments has RHF-type wave function
-  if(alive) call write_density_into_fch(fchname(n+1), nbf, .false., dm)
+  if(alive) call write_dm_into_fch(fchname(n+1), nbf, .false., dm)
  end if
 
  deallocate(fchname, dm, dm1, has_spin_density)

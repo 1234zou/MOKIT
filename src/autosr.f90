@@ -5,7 +5,7 @@ module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
   nstate, readrhf, readuhf, mo_rhf, hf_prog, hfonly, hf_fch, chgname, gau_path,&
-  orca_path, psi4_path, gms_path, gms_scr_path, check_gms_path
+  orca_path, psi4_path, gms_path, gms_scr_path, check_gms_path, nmr
  use mol, only: chem_core, ecp_core
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -21,8 +21,9 @@ module sr_keyword
  character(len=10) :: cc_prog = 'orca'
  character(len=10) :: adc_prog = 'pyscf'
  character(len=10) :: eom_prog = 'orca'
+ character(len=240) :: no_fch = ' ' ! filename which includes MP2/CC NOs
  logical :: uhf_based = .false. ! UHF based MP2 or CC
- logical :: noRI = .false. ! turn on RI by default
+ logical :: noRI = .false.      ! turn on RI by default
  logical :: mp2 = .false.
  logical :: ccd = .false.
  logical :: ccsd = .false.
@@ -57,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc13 (2023-Sep-6)'
+ write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-22)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -340,16 +341,28 @@ subroutine check_sr_kywd_compatible()
  end if
 
  if(gen_no) then
-  if(cc_enabled .and. relaxed_dm .and. TRIM(CC_prog)=='orca') then
+  if(cc_enabled .and. relaxed_dm .and. TRIM(cc_prog)=='orca') then
    write(6,'(/,A)') error_warn//'CC relaxed density are'
    write(6,'(A)') 'not supported when CC_prog=ORCA.'
    stop
   end if
-  if(ccsd_t .and. (TRIM(CC_prog)=='orca' .or. TRIM(CC_prog)=='gaussian')) then
+  if(ccsd_t .and. (TRIM(cc_prog)=='orca' .or. TRIM(cc_prog)=='gaussian')) then
    write(6,'(/,A)') error_warn//'CCSD(T) density is not'
    write(6,'(A)') 'supported by Gaussian/ORCA. You may try CC_prog=Molpro or PS&
                   &I4.'
    stop
+  end if
+  if(cc_enabled .and. (.not. relaxed_dm) .and. TRIM(cc_prog)=='gaussian') then
+   write(6,'(/,A)') error_warn//'CC unrelaxed density are'
+   write(6,'(A)') 'not supported when CC_prog=Gaussian.'
+   stop
+  end if
+  if(mp2) then
+   if(noRI .and. TRIM(mp2_prog)=='psi4') then
+    write(6,'(/,A)') error_warn//'MP2 density is not supported'
+    write(6,'(A)') 'for MP2_prog=PSI4 when RI is turned off. Please turn RI on.'
+    stop
+   end if
   end if
  end if
 
@@ -463,7 +476,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc13 :: MOKIT, release date: 2023-Sep-6'
+  write(6,'(A)') 'AutoSR 1.2.6rc14 :: MOKIT, release date: 2023-Sep-22'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -568,8 +581,9 @@ end subroutine prt_fc_info
 subroutine do_mp2()
  use sr_keyword, only: mem, nproc, hf_fch, bgchg, chgname, ref_e, corr_e, mp2_e,&
   mp2, mp2_prog, chem_core, ecp_core, customized_core, core_wish, gau_path, &
-  psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, gen_no, force
- use util_wrapper, only: unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap, &
+  psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, gen_no, no_fch,&
+  relaxed_dm, force
+ use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
   fch2com_wrap, fch2psi_wrap, fch2inp_wrap
  use mol, only: natom, grad
  implicit none
@@ -594,6 +608,7 @@ subroutine do_mp2()
 
  i = index(hf_fch, '.fch', back=.true.)
  outname = hf_fch(1:i-1)//'_MP2.out'
+ no_fch = hf_fch(1:i-1)//'_MP2_NO.fch'
 
  select case(TRIM(mp2_prog))
  case('pyscf')
@@ -612,6 +627,15 @@ subroutine do_mp2()
   call prt_posthf_gau_inp(inpname, .false.)
   call submit_gau_job(gau_path, inpname)
   call read_mp2_e_from_gau_out(outname, ref_e, mp2_e)
+  if(gen_no) then
+   call formchk(chkname, no_fch)
+   if(relaxed_dm) then ! relaxed density
+    call copy_dm_and_gen_no(no_fch, hf_fch, 5)
+   else                ! unrelaxed density
+    call copy_dm_and_gen_no(no_fch, hf_fch,11)
+   end if
+  end if
+  call delete_file(TRIM(chkname))
  case('gamess')
   call check_gms_path()
   datname = hf_fch(1:i-1)//'_MP2.dat'
@@ -624,6 +648,10 @@ subroutine do_mp2()
   call prt_posthf_gms_inp(inpname, .false.)
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
   call read_mp2_e_from_gms_out(outname, ref_e, mp2_e)
+  if(gen_no) then
+   call copy_file(hf_fch, no_fch, .false.)
+   call dump_gms_no_dat2fch(datname, no_fch)
+  end if
  case('orca')
   inpname = hf_fch(1:i-1)//'_MP2.inp'
   old_inp = hf_fch(1:i-1)//'_o.inp'
@@ -635,29 +663,46 @@ subroutine do_mp2()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
-  call delete_file(mklname)
+  call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
   call submit_orca_job(orca_path, inpname)
   call read_posthf_e_from_orca_out(outname, .false., rtmp, ref_e, mp2_e)
   if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
   inpname = hf_fch(1:i-1)//'_MP2.com'
+  mklname = hf_fch(1:i-1)//'_MP2.xml'
   call fch2com_wrap(hf_fch, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_molpro_inp(inpname)
   call submit_molpro_job(inpname, mem, nproc)
   call read_mp2_e_from_molpro_out(outname, ref_e, mp2_e)
+  if(gen_no) then
+   call copy_file(hf_fch, no_fch, .false.)
+   i = SYSTEM('xml2fch '//TRIM(mklname)//' '//TRIM(no_fch)//' -no')
+  end if
  case('psi4')
   inpname = hf_fch(1:i-1)//'_MP2.inp'
+  old_inp = hf_fch(1:i-1)//'_MP2.log'
   call fch2psi_wrap(hf_fch, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_psi4_inp(inpname, .false.)
   call submit_psi4_job(psi4_path, inpname, nproc)
-  !call read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
-  stop
+  call read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
+  call delete_file(TRIM(old_inp))
+  ! We cannot simply use the .fch file generated by PSI4, because:
+  ! 1) The Cartesian coordinates in the PSI4-generated .fch may be translated.
+  !    Although the MO coefficients and AO density are not affected by translation,
+  !    always using the input coordinates should be adopted. So we need to copy
+  !    density into a Gaussian-generated .fch file and generate NOs there.
+  ! 2) The density in the PSI4-generated .fch are at MP2, but MOs are at HF, so
+  !    we need to generate NOs using the MP2 density.
+  ! 3) I hope the post-HF total/spin densities are stored in the 'Total SCF Density'/
+  !    'Spin SCF Density' sections, and there is no 'Total MP2 Density'/'Spin MP2 Density'
+  !    section.
+  ! Considering these things, we call a subroutine to do the job.
+  if(gen_no) call copy_dm_and_gen_no(no_fch, hf_fch, 5)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//&
-                   TRIM(mp2_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//TRIM(mp2_prog)
   stop
  end select
 
@@ -698,8 +743,8 @@ subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, cc_enabled, bgchg, hf_fch,&
   chgname, cc_prog, method, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, chem_core,&
   ecp_core, customized_core, core_wish, RI, gau_path, orca_path, psi4_path, &
-  gms_path, gms_scr_path, check_gms_path, gen_no, force
- use util_wrapper, only: unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
+  gms_path, gms_scr_path, check_gms_path, gen_no, no_fch, force
+ use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
   bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap
  use mol, only: natom, grad
  implicit none
@@ -748,11 +793,14 @@ subroutine do_cc()
   inpname = hf_fch(1:i-1)//'_CC.gjf'
   chkname = hf_fch(1:i-1)//'_CC.chk'
   outname = hf_fch(1:i-1)//'_CC.log'
+  no_fch = hf_fch(1:i-1)//'_CC_NO.fch'
   call unfchk(hf_fch, chkname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gau_inp(inpname, .false.)
   call submit_gau_job(gau_path, inpname)
   call read_cc_e_from_gau_out(outname, t1diag, ref_e, e)
+  if(gen_no) call formchk(chkname, no_fch)
+  call delete_file(TRIM(chkname))
  case('gamess')
   call check_gms_path()
   inpname = hf_fch(1:i-1)//'_CC.inp'
@@ -776,7 +824,7 @@ subroutine do_cc()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
-  call delete_file(mklname)
+  call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
   call submit_orca_job(orca_path, inpname)
   call read_posthf_e_from_orca_out(outname, (.not.ccd), t1diag, ref_e, e)
@@ -922,7 +970,7 @@ subroutine do_eomcc()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
-  call delete_file(mklname)
+  call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .true.)
   call submit_orca_job(orca_path, inpname)
   call read_eomcc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, &
@@ -987,7 +1035,7 @@ end subroutine do_eomcc
 ! print a Gaussian MP2/CCSD/CCSD/CCSD(T) gjf file
 subroutine prt_posthf_gau_inp(gjfname, excited)
  use sr_keyword, only: mem, nproc, DKH2, mp2, ccd, ccsd, ccsd_t, chem_core, &
-  eom, nstate, force
+  eom, nstate, gen_no, relaxed_dm, force
  implicit none
  integer :: i, fid
  character(len=240), intent(in) :: gjfname
@@ -1025,6 +1073,11 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
 
  write(fid,'(A,I0,A)',advance='no') ' window=(',chem_core+1,',0)'
  if(force) write(fid,'(A)',advance='no') ' force'
+
+ if(gen_no) then
+  write(fid,'(A)',advance='no') ' density'
+  if(.not. relaxed_dm) write(fid,'(A)',advance='no') '=Rho2 trans=conventional'
+ end if
 
  write(fid,'(/)',advance='no')
  close(fid)
@@ -1154,12 +1207,19 @@ end subroutine prt_posthf_orca_inp
 
 subroutine prt_posthf_molpro_inp(inpname)
  use sr_keyword, only: mp2, ccsd_t, RI, F12, mo_rhf, uhf_based, basis, RIJK_bas,&
-  RIC_bas, chem_core, force
+  RIC_bas, chem_core, gen_no, relaxed_dm, force
  use mol, only: mult
  implicit none
  integer :: i, fid
  character(len=21) :: MP2FIT_bas, RIJK_bas1
  character(len=240), intent(in) :: inpname
+
+ if(((.not.mo_rhf) .or. uhf_based) .and. mp2 .and. gen_no) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UMP2 NOs are not&
+                  & supported in'
+  write(6,'(A)') 'Molpro. Please change another MP2_prog.'
+  stop
+ end if
 
  if(RI) then
   call auxbas_convert(RIJK_bas, RIJK_bas1, 2)
@@ -1206,16 +1266,24 @@ subroutine prt_posthf_molpro_inp(inpname)
   write(fid,'(A)',advance='no') ',df_basis=df,df_basis_exch=jk'
 
  else ! RI is turned off
+  write(fid,'(A)',advance='no') '{'
+  if(uhf_based) write(fid,'(A)',advance='no') 'U'
   if(mp2) then
-   write(fid,'(A)',advance='no') '{MP2'
+   write(fid,'(A)',advance='no') 'MP2'
   else
-   write(fid,'(A)',advance='no') '{CCSD'
+   write(fid,'(A)',advance='no') 'CCSD'
   end if
   if(ccsd_t) write(fid,'(A)',advance='no') '(T)'
   if(F12) write(fid,'(A)',advance='no') '-F12'
  end if
 
- write(fid,'(A,I0,A)') ';core,',chem_core,'}'
+ write(fid,'(A,I0,A)',advance='no') ';core,',chem_core
+ if(gen_no) then
+  if(.not. relaxed_dm) write(fid,'(A)',advance='no') ';expec,norelax'
+  write(fid,'(A)',advance='no') ';natorb,5200.2'
+ end if
+ write(fid,'(A)') '}'
+ if(gen_no) write(fid,'(A)') '{put,xml;orbital,5200.2;keepspherical}'
  if(force) write(fid,'(A)') 'Force'
  close(fid)
 end subroutine prt_posthf_molpro_inp
@@ -1311,7 +1379,8 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
 end subroutine prt_posthf_pyscf_inp
 
 subroutine prt_posthf_psi4_inp(inpname, excited)
- use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, chem_core, RI, force, nstate
+ use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, RI, &
+  gen_no, relaxed_dm, force, no_fch, nstate
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -1349,11 +1418,13 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
 
  close(fid, status='delete')
  write(fid1,'(A,I0)') 'set freeze_core ', chem_core
+ if(gen_no .and. (.not.relaxed_dm)) write(fid1,'(A)') 'set OPDM_RELAX False'
 
  if(RI) then
-  write(fid1,'(A)') 'set cc_type df'
+  if(cc_enabled) write(fid1,'(A)') 'set cc_type df'
  else
-  write(fid1,'(A)') 'set cc_type conv'
+  if(mp2) write(fid1,'(A)') 'set mp2_type conv'
+  if(cc_enabled) write(fid1,'(A)') 'set cc_type conv'
   if(ccd) then
    write(6,'(/,A)') 'ERROR in subroutine prt_posthf_psi4_inp: conventional CCD &
                     &is not supported'
@@ -1370,7 +1441,11 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
   if(excited) then
    write(fid1,'(A)',advance='no') "properties('"
   else
-   write(fid1,'(A)',advance='no') "energy('"
+   if(gen_no) then
+    write(fid1,'(A)',advance='no') "grad, wfn = gradient('"
+   else
+    write(fid1,'(A)',advance='no') "energy('"
+   end if
   end if
  end if
 
@@ -1378,14 +1453,20 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
   write(fid1,'(A)') "eom-ccsd',properties=['oscillator_strength'])"
  else
   if(mp2) then
-   write(fid1,'(A)') "mp2')"
+   write(fid1,'(A)',advance='no') "mp2'"
   else if(ccd) then
-   write(fid1,'(A)') "ccd')"
+   write(fid1,'(A)',advance='no') "ccd'"
   else if(ccsd) then
-   write(fid1,'(A)') "ccsd')"
+   write(fid1,'(A)',advance='no') "ccsd'"
   else if(ccsd_t) then
-   write(fid1,'(A)') "ccsd(t)')"
+   write(fid1,'(A)',advance='no') "ccsd(t)'"
   end if
+  if(gen_no) write(fid1,'(A)',advance='no') ', return_wfn=True'
+  write(fid1,'(A)') ')'
+ end if
+
+ if(gen_no) then
+  write(fid1,'(A)') "fchk(wfn, '"//TRIM(no_fch)//"')"
  end if
 
  if(.not. (mp2 .or. ccd .or. excited)) write(fid1,'(A)') "print_variables()"
@@ -1395,7 +1476,7 @@ end subroutine prt_posthf_psi4_inp
 
 subroutine prt_posthf_gms_inp(inpname, excited)
  use sr_keyword, only: mem, nproc, mp2, ccd, ccsd, ccsd_t, cc_enabled, force, &
-  chem_core, RI, uhf_based, ip, ea, nstate
+  chem_core, RI, uhf_based, gen_no, ip, ea, nstate
  implicit none
  integer :: i, j, fid, fid1, RENAME
  character(len=14) :: method
@@ -1446,6 +1527,7 @@ subroutine prt_posthf_gms_inp(inpname, excited)
  if(mp2) then
   write(fid1,'(A,I0)',advance='no') " $MP2 NACORE=", chem_core
   if(uhf_based) write(fid1,'(A,I0)',advance='no') " NBCORE=", chem_core
+  if(gen_no) write(fid1,'(A)',advance='no') ' MP2PRP=.T.'
  else if(cc_enabled) then
   write(fid1,'(A,I0)',advance='no') " $CCINP NCORE=", chem_core
  end if
@@ -1499,7 +1581,7 @@ subroutine read_mp2_e_from_gau_out(outname, ref_e, tot_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(28:34) == 'EUMP2 =') exit
+  if(buf(28:34)=='EUMP2 =' .or. buf(35:40)=='EUMP2=') exit
  end do ! for while
 
  if(i /= 0) then
@@ -1510,7 +1592,8 @@ subroutine read_mp2_e_from_gau_out(outname, ref_e, tot_e)
   stop
  end if
 
- read(buf(35:),*) tot_e ! MP2 total energy
+ i = INDEX(buf, '=', back=.true.)
+ read(buf(i+1:),*) tot_e ! MP2 total energy
  close(fid)
 end subroutine read_mp2_e_from_gau_out
 
@@ -1630,6 +1713,79 @@ subroutine read_mp2_e_from_gms_out(outname, ref_e, tot_e)
  i = index(buf,'E(MP2)=')
  read(buf(i+7:),*) tot_e
 end subroutine read_mp2_e_from_gms_out
+
+subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, mp2_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: uhf_based
+ ! we will find the value of uhf_based in this subroutine, not using intent(in)
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:11) == '    Total E') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'Total E' &
+                   &found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) ref_e
+
+ uhf_based = .false.
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ if(buf(3:8) == 'UHF NO') uhf_based = .true.
+
+ if(uhf_based) then ! UHF-UMP2
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(INDEX(buf,'DF-MP2 Total E') > 0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'DF-MP2 T&
+                    &otal E' found in file"
+   write(6,'(A)') TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = index(buf, ':')
+
+ else               ! RHF-RMP2
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(INDEX(buf,'Total Energy') > 0) exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'Total En&
+                    &ergy' found in file"
+   write(6,'(A)') TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = index(buf, '=')
+ end if
+
+ close(fid)
+ read(buf(i+1:),*) mp2_e
+end subroutine read_mp2_e_from_psi4_out
 
 subroutine read_cc_e_from_gau_out(outname, t1diag, ref_e, tot_e)
  implicit none
@@ -2348,7 +2504,55 @@ subroutine read_eomcc_e_from_psi4_out(outname, nstate, e, mult, fosc)
  close(fid)
 end subroutine read_eomcc_e_from_psi4_out
 
-! dump ORCA MP2/CC NOs from .gbw to .fch
+! dump GAMESS MP2/CC NOs from .dat to .fch, and make sure that Total SCF Density
+! in .fch is corresponding (un)relaxed density matrix
+subroutine dump_gms_no_dat2fch(datname, no_fch)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=240) :: gmsname
+ character(len=240), intent(in) :: datname, no_fch
+ character(len=500) :: buf
+
+ call del_vec_in_dat(datname)
+
+ buf = 'dat2fch '//TRIM(datname)//' '//TRIM(no_fch)
+ write(6,'(A)') '$'//TRIM(buf)
+ i = SYSTEM(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine dump_gms_no_dat2fch: failed to call uti&
+                   &lity dat2fch.'
+  write(6,'(A)') 'datname='//TRIM(datname)
+  write(6,'(A)') 'no_fch='//TRIM(no_fch)
+  stop
+ end if
+
+ call find_specified_suffix(datname, '.gms', i)
+ gmsname = datname(1:i-1)//'.gms'
+
+ write(6,'(A)') REPEAT('-',79)
+ write(6,'(A)') 'Warning from subroutine dump_gms_no_dat2fch: only 4-digit occu&
+                &pation numbers are'
+ write(6,'(A)') 'given in .gms file. So the NOONs and density matrix in .fch fi&
+                &le are not very'
+ write(6,'(A)') 'accurate. If you care about this, please use another MP2_prog.'
+ write(6,'(A)') REPEAT('-',79)
+
+ buf = 'extract_noon2fch '//TRIM(gmsname)//' '//TRIM(no_fch)//' -mp2'
+ write(6,'(A)') '$'//TRIM(buf)
+ i = SYSTEM(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine dump_gms_no_dat2fch: failed to call uti&
+                   &lity extract_noon2fch.'
+  write(6,'(A)') 'gmsname='//TRIM(gmsname)
+  write(6,'(A)') 'no_fch='//TRIM(no_fch)
+  stop
+ end if
+
+ call update_density_using_no_and_on(no_fch)
+end subroutine dump_gms_no_dat2fch
+
+! dump ORCA MP2/CC NOs from .gbw to .fch, and make sure that Total SCF Density
+! in .fch is corresponding (un)relaxed density matrix
 subroutine dump_orca_no_gbw2fch(no_gbw, fchname)
  use mkl_content, only: check_uhf_in_mkl
  use util_wrapper, only: mkl2fch_wrap, fch_u2r_wrap
@@ -2368,7 +2572,7 @@ subroutine dump_orca_no_gbw2fch(no_gbw, fchname)
  nso_no = no_gbw(1:i-1)//'_NSO_NO.fch'
 
  i = SYSTEM('orca_2mkl '//TRIM(no_gbw)//' '//TRIM(mklname)//' -mkl -anyorbs >'&
-            //TRIM(tmp_out)//" 2>&1")
+          //TRIM(tmp_out)//" 2>&1")
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine dump_orca_no_into_fch: failed to call u&
                    &tility orca_2mkl.'
@@ -2391,4 +2595,50 @@ subroutine dump_orca_no_gbw2fch(no_gbw, fchname)
 
  call delete_files(3, [no_gbw, mklname, tmp_out])
 end subroutine dump_orca_no_gbw2fch
+
+! copy specified density from no_fch to a copy of hf_fch, and generate NOs in
+! the copied file
+subroutine copy_dm_and_gen_no(no_fch, hf_fch, itype)
+ use fch_content, only: check_uhf_in_fch
+ use util_wrapper, only: fch_u2r_wrap
+ implicit none
+ integer :: i, RENAME
+ integer, intent(in) :: itype
+ ! itype in subroutine read_density_from_fch, e.g.
+ ! 5/6/7/8: 'Total MP2 D'/'Spin MP2 De'/'Total CC De'/'Spin CC Den'
+ character(len=240) :: no_fch1, nso_fch
+ character(len=240), intent(in) :: no_fch, hf_fch
+ ! files no_fch and hf_fch both exist before calling this subroutine
+ logical :: uhf
+
+ call check_uhf_in_fch(hf_fch, uhf)
+ i = LEN_TRIM(no_fch)
+
+ if(uhf) then
+  if(no_fch(i-6:i) /= '_NO.fch') then
+   write(6,'(/,A)') "ERROR in subroutine copy_dm_and_gen_no: '_NO.fch' suffix n&
+                    &ot found in filename "
+   write(6,'(A)') TRIM(no_fch)
+   stop
+  end if
+  nso_fch = no_fch(1:i-7)//'_NSO.fch'
+  call copy_file(hf_fch, nso_fch, .false.)
+ end if
+
+ ! generate spatial NOs using total density
+ no_fch1 = no_fch(1:i-4)//'1.fch'
+ call copy_file(hf_fch, no_fch1, .false.)
+ if(uhf) call fch_u2r_wrap(no_fch1, no_fch1)
+ call copy_dm_between_fch(no_fch, no_fch1, itype, .true.)
+ call gen_no_using_density_in_fch(no_fch1, 1)
+
+ ! generate natural spin orbitals (NSOs) using alpha/beta density, respectively
+ if(uhf) then
+  call copy_dm_between_fch(no_fch, nso_fch, itype, .true.)
+  call copy_dm_between_fch(no_fch, nso_fch, itype+1, .false.)
+  call gen_no_using_density_in_fch(nso_fch, 0)
+ end if
+
+ i = RENAME(TRIM(no_fch1), TRIM(no_fch))
+end subroutine copy_dm_and_gen_no
 

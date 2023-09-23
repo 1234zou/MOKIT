@@ -457,6 +457,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  call delete_file(chkname)
 
  if(TRIM(hf_prog_path) == TRIM(gau_path)) then
+  call simplify_fch(fchname)
+
   ! For g09 or older, add DKH2/X2C into Route Section if needed
   if(index(gau_path,'g03')>0 .or. index(gau_path,'g09')>0) then
    if(DKH2) then
@@ -531,8 +533,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call update_density_using_mo_in_fch(fchname)
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
  case default
-  write(6,'(A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name = '&
-                //TRIM(prog_name)
+  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name='&
+                  //TRIM(prog_name)
   stop
  end select
 end subroutine do_scf_and_read_e

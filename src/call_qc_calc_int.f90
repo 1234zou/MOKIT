@@ -19,15 +19,15 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
 
  if(itype == 0) then
   allocate(dm(nbf,nbf), spin_dm(nbf,nbf))
-  call read_density_from_fch(fchname, 1, nbf, dm) ! Total SCF Density
-  call read_density_from_fch(fchname, 2, nbf, spin_dm) ! Spin SCF Density
+  call read_dm_from_fch(fchname, 1, nbf, dm) ! Total SCF Density
+  call read_dm_from_fch(fchname, 2, nbf, spin_dm) ! Spin SCF Density
   allocate(dm_a(nbf,nbf), dm_b(nbf,nbf))
   dm_a = 0.5d0*(dm + spin_dm)
   dm_b = 0.5d0*(dm - spin_dm)
   deallocate(dm, spin_dm)
  else
   allocate(dm_a(nbf,nbf))
-  call read_density_from_fch(fchname, itype, nbf, dm_a)
+  call read_dm_from_fch(fchname, itype, nbf, dm_a)
  end if
 
  allocate(S(nbf,nbf))
@@ -83,7 +83,7 @@ subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
 
  ! read desired AO-basis density matrix
  allocate(dm(nbf,nbf))
- call read_density_from_fch(fchname, itype, nbf, dm)
+ call read_dm_from_fch(fchname, itype, nbf, dm)
 
  ! generate and read AO-basis dipole integrals
  allocate(D(nbf,nbf,3))
@@ -327,7 +327,7 @@ subroutine get_ne_from_fch(fchname)
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(den(nbf,nbf), S(nbf,nbf))
- call read_density_from_fch(fchname, 1, nbf, den)
+ call read_dm_from_fch(fchname, 1, nbf, den)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
  call get_ne_from_PS(nbf, den, S, ne)
  deallocate(den, S)

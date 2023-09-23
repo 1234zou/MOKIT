@@ -250,7 +250,7 @@ contains
   i = system("which pymolcas >mokit.pymolcas 2>&1")
   if(i /= 0) then
    molcas_path = 'mokit.pymolcas'
-   call delete_file(molcas_path)
+   call delete_file(TRIM(molcas_path))
    molcas_path = 'NOT FOUND'
    return
   end if
@@ -313,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc13 (2023-Sep-5)'
+  write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-21)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -2062,7 +2062,7 @@ subroutine get_molpro_path(molpro_path)
  i = system("which molpro >mokit.molpro 2>&1")
  if(i /= 0) then
   molpro_path = 'mokit.molpro'
-  call delete_file(molpro_path)
+  call delete_file(TRIM(molpro_path))
   molpro_path = 'NOT FOUND'
   return
  end if
@@ -2172,7 +2172,7 @@ subroutine check_molcas_is_openmp(openmp)
  openmp = .true.
  i = system('pymolcas --banner >'//ftmp//" 2>&1")
  if(i /= 0) then
-  call delete_file(ftmp)
+  call delete_file(TRIM(ftmp))
   return
  end if
  ! maybe OpenMolcas not installed, assume OpenMP version

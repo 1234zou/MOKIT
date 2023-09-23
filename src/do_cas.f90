@@ -1022,7 +1022,7 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  end if
 
  write(fid,'(2(A,I0))',advance='no') ';closed,', nclosed, ';occ,', nocc
- ! Note: we need 'NoExtra' to completely close symmetry.
+ ! Note: we need 'NoExtra' to completely turn off symmetry.
  ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
   write(fid,'(A)') ';NoExtra;MaxIter,200}'

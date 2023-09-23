@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc13 :: MOKIT, release date: 2023-Sep-6'
+  write(6,'(A)') 'AutoMR 1.2.6rc14 :: MOKIT, release date: 2023-Sep-22'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -184,7 +184,7 @@ subroutine get_paired_LMO()
    call prt_rhf_proj_script_into_py(pyname)
    call prt_auto_pair_script_into_py(pyname)
    call submit_pyscf_job(pyname)
-   call delete_file(chkname)
+   call delete_file(TRIM(chkname))
   end if
 
  else
@@ -773,7 +773,7 @@ subroutine do_minimal_basis_gvb()
   end if
  end if
 
- call delete_file(gvb_nofch)
+ call delete_file(TRIM(gvb_nofch))
  mo_rhf = .true. ! set to .True., actually ist=6, but mimicking ist=3
 
  call read_nbf_and_nif_from_fch(hf_fch, nbf, nif)

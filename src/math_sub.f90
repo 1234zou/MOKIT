@@ -346,6 +346,7 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
    end do ! for k
   end do ! for j
  end do ! for i
+ ! Note that dm(i,j) is not assigned
 end subroutine calc_dm_using_mo_and_on
 
 ! get a random integer

@@ -22,7 +22,7 @@ subroutine qchem2amesp(fchname, aipname)
 
  call standardize_fch(fchname)
  i = system('fch2amo '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_aip), TRIM(aipname))
  i = RENAME(TRIM(std_orb), TRIM(orbname))
 end subroutine qchem2amesp
@@ -49,7 +49,7 @@ subroutine qchem2bdf(fchname, inpname)
 
  call standardize_fch(fchname)
  i = system('fch2bdf '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
  i = RENAME(TRIM(std_orb), TRIM(orbname))
 end subroutine qchem2bdf
@@ -65,7 +65,7 @@ subroutine qchem2cfour(fchname)
  std_fch = fchname(1:i-1)//'_std.fch'
  call standardize_fch(fchname)
  i = system('fch2cfour '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
 end subroutine qchem2cfour
 
 ! Q-Chem .fch(k) -> Dalton (.dal, .mol)
@@ -90,7 +90,7 @@ subroutine qchem2dalton(fchname, dalname)
 
  call standardize_fch(fchname)
  i = system('fch2dal '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_dal), TRIM(dalname))
  i = RENAME(TRIM(std_mol), TRIM(molname))
 end subroutine qchem2dalton
@@ -107,7 +107,7 @@ subroutine qchem2gms(fchname, inpname)
  std_inp = fchname(1:i-1)//'_std.inp'
  call standardize_fch(fchname)
  i = system('fch2inp '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2gms
 
@@ -131,7 +131,7 @@ subroutine qchem2molcas(fchname, inpname)
 
  call standardize_fch(fchname)
  i = system('fch2inporb '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2molcas
 
@@ -155,7 +155,7 @@ subroutine qchem2molpro(fchname, inpname)
 
  call standardize_fch(fchname)
  i = system('fch2com '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2molpro
 
@@ -179,7 +179,7 @@ subroutine qchem2psi(fchname, inpname)
 
  call standardize_fch(fchname)
  i = system('fch2psi '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2psi
 
@@ -207,7 +207,7 @@ subroutine qchem2orca(fchname, inpname)
 
  call standardize_fch(fchname)
  i = system('fch2mkl '//TRIM(std_fch))
- call delete_file(std_fch)
+ call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
  i = RENAME(TRIM(std_mkl), TRIM(mklname))
  call mkl2gbw(mklname, gbwname)
@@ -251,14 +251,14 @@ subroutine standardize_fch(fchname)
  allocate(eigen_e_a(nif), alpha_coeff(nbf,nif), tot_dm(nbf,nbf))
  call read_eigenvalues_from_fch(fchname, nif, 'a', eigen_e_a)
  call read_mo_from_fch(fchname, nbf, nif, 'a', alpha_coeff)
- call read_density_from_fch(fchname, 1, nbf, tot_dm)
+ call read_dm_from_fch(fchname, 1, nbf, tot_dm)
 
  call check_uhf_in_fch(fchname, is_uhf)
  if(is_uhf) then
   allocate(eigen_e_b(nif), beta_coeff(nbf,nif), spin_dm(nbf,nbf))
   call read_eigenvalues_from_fch(fchname, nif, 'b', eigen_e_b)
   call read_mo_from_fch(fchname, nbf, nif, 'b', beta_coeff)
-  call read_density_from_fch(fchname, 2, nbf, spin_dm)
+  call read_dm_from_fch(fchname, 2, nbf, spin_dm)
  end if
 
  call write_fch(new_fch)

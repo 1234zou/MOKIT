@@ -951,3 +951,36 @@ subroutine write_mo_into_dat(datname, nbf, nif, coeff, replace)
  end if
 end subroutine write_mo_into_dat
 
+! delete the first $VEC section in a specified .dat file
+subroutine del_vec_in_dat(datname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, datname1
+ character(len=240), intent(in) :: datname
+
+ datname1 = TRIM(datname)//'.t'
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(datname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:5) == '$VEC') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:5) == '$END') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(datname1), TRIM(datname))
+end subroutine del_vec_in_dat
+

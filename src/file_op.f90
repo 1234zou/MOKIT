@@ -278,3 +278,36 @@ subroutine export_mat_into_txt(txtname, n, mat, lower, label)
  close(fid)
 end subroutine export_mat_into_txt
 
+! simplify a .fch(k) file
+subroutine simplify_fch(fchname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+
+ i = INDEX(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.t'
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12)=='Mulliken Cha' .or. buf(1:12)=='Number of ex') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine simplify_fch: keywords for termination no&
+                 &t found in file '//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+end subroutine simplify_fch
+

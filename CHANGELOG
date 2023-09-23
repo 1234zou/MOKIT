@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Sep 6, 2023)
+MOKIT 1.2.6 (Sep 22, 2023)
 ------------------------
+* add interfaces for MP2 NOs in autosr
 * remove ZORA related basis sets
 * put basis sets x2c-SVPall, x2c-TZVPall, etc into $MOKIT_ROOT/mokit/basis/
 * add subroutine mo_grassmann_intrplt

@@ -940,7 +940,7 @@ subroutine read_cluster_e_from_out()
   k = index(buf, '=')
   read(buf(k+1:),*) cluster_e(i)
 
-  call read_density_from_fch(fchname1, 1, nbf, den1)
+  call read_dm_from_fch(fchname1, 1, nbf, den1)
   den0 = den0 + DBLE(icoeff(i))*den1
 
   longbuf = 'tar -zcf '//TRIM(proname1)//'.tar.gz '//TRIM(proname1)//'.* '//&
@@ -955,7 +955,7 @@ subroutine read_cluster_e_from_out()
  deallocate(cluster_e)
  write(6,'(/,A,F18.8,A)') 'E_tot = ',e_tot,' a.u.'
 
- call write_density_into_fch(fchname2, nbf, .true., den0)
+ call write_dm_into_fch(fchname2, nbf, .true., den0)
  deallocate(den0)
  call gen_no_using_density_in_fch(fchname2, 1) 
 end subroutine read_cluster_e_from_out

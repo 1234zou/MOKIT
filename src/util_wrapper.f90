@@ -16,20 +16,15 @@ subroutine formchk(chkname, fchname)
 
  inquire(file=TRIM(chkname), exist=alive)
  if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine formchk: file does not exist!'
+  write(6,'(/,A)') 'ERROR in subroutine formchk: file does not exist!'
   write(6,'(A)') 'chkname='//TRIM(chkname)
   stop
  end if
 
- if(present(fchname)) then
+ if(PRESENT(fchname)) then
   fchname0 = fchname
  else
-  i = index(chkname, '.chk', back=.true.)
-  if(i == 0) then
-   write(6,'(A)') 'ERROR in subroutine formchk: .chk suffix not found!'
-   write(6,'(A)') 'chkname='//TRIM(chkname)
-   stop
-  end if
+  i = INDEX(chkname, '.chk', back=.true.)
   fchname0 = chkname(1:i-1)//'.fch'
  end if
  buf = 'formchk '//TRIM(chkname)//' '//TRIM(fchname0)
@@ -41,9 +36,10 @@ subroutine formchk(chkname, fchname)
 #endif
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utility formchk.'
-  write(6,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or Gaussian&
-                   & utility formchk does not exist.'
+  write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utilit&
+                   &y formchk.'
+  write(6,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or the utilit&
+                 &yformchk does not exist.'
   stop
  end if
 end subroutine formchk
@@ -57,10 +53,10 @@ subroutine unfchk(fchname, chkname)
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: chkname
 
- if(present(chkname)) then
+ if(PRESENT(chkname)) then
   chkname0 = chkname
  else
-  i = index(fchname, '.fch', back=.true.)
+  i = INDEX(fchname, '.fch', back=.true.)
   chkname0 = fchname(1:i-1)//'.chk'
  end if
  buf = 'unfchk '//TRIM(fchname)//' '//TRIM(chkname0)
@@ -94,7 +90,7 @@ subroutine gbw2mkl(gbwname, mklname)
   stop
  end if
 
- k = index(gbwname, '.gbw', back=.true.)
+ k = INDEX(gbwname, '.gbw', back=.true.)
 #ifdef _WIN32
  i = SYSTEM('orca_2mkl '//gbwname(1:k-1)//' -mkl > NUL')
 #else
@@ -103,7 +99,7 @@ subroutine gbw2mkl(gbwname, mklname)
 
  if(i /= 0) call prt_orca_2mkl_error(gbwname)
 
- if(present(mklname)) then
+ if(PRESENT(mklname)) then
   if(TRIM(mklname) /= gbwname(1:k-1)//'.mkl') then
    i = RENAME(gbwname(1:k-1)//'.mkl', TRIM(mklname))
   end if
@@ -117,7 +113,7 @@ subroutine mkl2gbw(mklname, gbwname)
  character(len=240), intent(in) :: mklname
  character(len=240), optional :: gbwname
 
- k = index(mklname, '.mkl', back=.true.)
+ k = INDEX(mklname, '.mkl', back=.true.)
 #ifdef _WIN32
  i = SYSTEM('orca_2mkl '//mklname(1:k-1)//' -gbw > NUL')
 #else
@@ -126,7 +122,7 @@ subroutine mkl2gbw(mklname, gbwname)
 
  if(i /= 0) call prt_orca_2mkl_error(mklname)
 
- if(present(gbwname)) then
+ if(PRESENT(gbwname)) then
   if(TRIM(gbwname) /= mklname(1:k-1)//'.gbw') then
    i = RENAME(mklname(1:k-1)//'.gbw', TRIM(gbwname))
   end if
@@ -161,8 +157,8 @@ subroutine fch2psi_wrap(fchname, inpname)
 
  if(i /= 0) call prt_call_util_error('fch2psi', fchname)
 
- if(present(inpname)) then
-  i = index(fchname, '.fch')
+ if(PRESENT(inpname)) then
+  i = INDEX(fchname, '.fch')
   inpname1 = fchname(1:i-1)//'_psi.inp'
   if(TRIM(inpname) /= TRIM(inpname1)) then
    i = RENAME(TRIM(inpname1), TRIM(inpname))
@@ -228,7 +224,7 @@ subroutine mkl2fch_wrap(mklname, fchname, ino)
 
  buf = 'mkl2fch '//TRIM(mklname)//' '//TRIM(fchname)
 
- if(present(ino)) then
+ if(PRESENT(ino)) then
   select case(ino)
   case(0) ! do nothing
   case(1)
@@ -253,7 +249,7 @@ subroutine mkl2fch_wrap(mklname, fchname, ino)
                    &l2fch.'
   write(6,'(A)') 'mklname = '//TRIM(mklname)
   write(6,'(A)') 'fchname = '//TRIM(fchname)
-  if(present(ino)) write(6,'(A,I0)') 'ino = ', ino
+  if(PRESENT(ino)) write(6,'(A,I0)') 'ino = ', ino
   stop
  end if
 end subroutine mkl2fch_wrap
@@ -273,8 +269,8 @@ subroutine fch2mkl_wrap(fchname, mklname)
 
  if(i /= 0) call prt_call_util_error('fch2mkl', fchname)
 
- if(present(mklname)) then
-  i = index(fchname, '.fch')
+ if(PRESENT(mklname)) then
+  i = INDEX(fchname, '.fch')
   mklname1 = fchname(1:i-1)//'_o.mkl'
   if(TRIM(mklname) /= TRIM(mklname1)) then
    i = RENAME(TRIM(mklname1), TRIM(mklname))
@@ -289,11 +285,11 @@ subroutine fch2gbw(fchname, gbwname)
  character(len=240), intent(in) :: fchname
  character(len=240), optional :: gbwname
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'_o.inp'
 
- if(present(gbwname)) then
-  i = index(gbwname, '.gbw', back=.true.)
+ if(PRESENT(gbwname)) then
+  i = INDEX(gbwname, '.gbw', back=.true.)
   mklname = gbwname(1:i-1)//'.mkl'
  else
   mklname = fchname(1:i-1)//'.mkl'
@@ -314,7 +310,7 @@ subroutine chk2gbw(chkname)
  character(len=240) :: fchname, inpname, mklname, gbwname
  character(len=240), intent(in) :: chkname
 
- i = index(chkname, '.chk')
+ i = INDEX(chkname, '.chk')
  fchname = chkname(1:i-1)//'.fch'
  inpname = chkname(1:i-1)//'_o.inp'
  mklname = chkname(1:i-1)//'_o.mkl'
@@ -342,7 +338,7 @@ subroutine fch_u2r_wrap(fchname, new_fch)
  i = SYSTEM('fch_u2r '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch_u2r', fchname)
 
- if(present(new_fch)) then
+ if(PRESENT(new_fch)) then
   i = INDEX(fchname, '.fch', back=.true.)
   rfch = fchname(1:i-1)//'_r.fch'
   i = RENAME(TRIM(rfch), TRIM(new_fch))
@@ -359,10 +355,10 @@ subroutine fch2dal_wrap(fchname, dalname)
  i = SYSTEM('fch2dal '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2dal', fchname)
 
- if(present(dalname)) then
-  i = index(dalname, '.dal')
+ if(PRESENT(dalname)) then
+  i = INDEX(dalname, '.dal')
   molname = dalname(1:i-1)//'.mol'
-  i = index(fchname, '.fch')
+  i = INDEX(fchname, '.fch')
   dalname1 = fchname(1:i-1)//'.dal'
   molname1 = fchname(1:i-1)//'.mol'
   i = RENAME(TRIM(dalname1), TRIM(dalname))
@@ -393,16 +389,16 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
 
  if(i /= 0) call prt_call_util_error('fch2qchem', fchname)
 
- if(present(inpname)) then
+ if(PRESENT(inpname)) then
   dirname = ' '
   call getenv('QCSCRATCH', dirname)
 
-  i = index(fchname, '.fch', back=.true.)
+  i = INDEX(fchname, '.fch', back=.true.)
   scr_dir0 = TRIM(dirname)//'/'//fchname(1:i-1)
   inpname0 = fchname(1:i-1)//'.in'
   i = RENAME(TRIM(inpname0), TRIM(inpname))
 
-  i = index(inpname, '.in', back=.true.)
+  i = INDEX(inpname, '.in', back=.true.)
   scr_dir = TRIM(dirname)//'/'//inpname(1:i-1)
   call remove_dir(TRIM(scr_dir))
   i = RENAME(TRIM(scr_dir0), TRIM(scr_dir))
@@ -429,8 +425,8 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
 
  if(i /= 0) call prt_call_util_error('bas_fch2py', fchname)
 
- if(present(pyname)) then
-  i = index(fchname, '.fch', back=.true.)
+ if(PRESENT(pyname)) then
+  i = INDEX(fchname, '.fch', back=.true.)
   pyname0 = fchname(1:i-1)//'.py'
   i = RENAME(TRIM(pyname0), TRIM(pyname))
  end if
@@ -451,8 +447,8 @@ subroutine fch2com_wrap(fchname, inpname)
 
  if(i /= 0) call prt_call_util_error('fch2com', fchname)
 
- if(present(inpname)) then
-  i = index(fchname, '.fch')
+ if(PRESENT(inpname)) then
+  i = INDEX(fchname, '.fch')
   inpname1 = fchname(1:i-1)//'.com'
   if(TRIM(inpname) /= TRIM(inpname1)) then
    i = RENAME(TRIM(inpname1), TRIM(inpname))
@@ -475,8 +471,8 @@ subroutine fch2inporb_wrap(fchname, inpname)
 
  if(i /= 0) call prt_call_util_error('fch2inporb', fchname)
 
- if(present(inpname)) then
-  i = index(fchname, '.fch')
+ if(PRESENT(inpname)) then
+  i = INDEX(fchname, '.fch')
   inpname1 = fchname(1:i-1)//'.input'
   if(TRIM(inpname) /= TRIM(inpname1)) then
    i = RENAME(TRIM(inpname1), TRIM(inpname))
@@ -513,7 +509,7 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  end do ! for i
  close(fid,status='delete')
 
- i = index(buf, ':')
+ i = INDEX(buf, ':')
  read(buf(i+1:),*) new_inp
 end subroutine gvb_exclude_XH_A_wrap
 

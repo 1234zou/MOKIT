@@ -129,9 +129,11 @@ subroutine gen_ao_dm_from_fch(fchname, itype, nbf, dm)
  real(kind=8), intent(out) :: dm(nbf,nbf)
  character(len=240), intent(in) :: fchname
 
+ dm = 0d0 ! initialization
+
  call read_nbf_and_nif_from_fch(fchname, nbf0, nif)
  if(nbf0 /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine gen_ao_dm_from_fch: nbf0/=nbf.'
+  write(6,'(/,A)') 'ERROR in subroutine gen_ao_dm_from_fch: nbf0/=nbf.'
   write(6,'(A,2I6)') 'nbf0, nbf=', nbf0, nbf
   stop
  end if
@@ -170,8 +172,8 @@ subroutine gen_ao_dm_from_fch(fchname, itype, nbf, dm)
  end select
 
  allocate(Cn(nbf,nif), source=0d0)
- dm = 0d0 ! P = CnC^
- call dgemm('N', 'N', nbf, nif, nif, 1d0, mo, nbf, n, nif, 0d0, Cn, nbf)
+ ! P = Cn(C^T)
+ call dsymm('R', 'L', nbf, nif, 1d0, mo, nbf, n, nif, 0d0, Cn, nbf)
  deallocate(n)
  call dgemm('N', 'T', nbf, nbf, nif, 1d0, Cn, nbf, mo, nbf, 0d0, dm, nbf)
  deallocate(Cn, mo)
@@ -199,7 +201,7 @@ subroutine gen_no_from_nso(fchname)
 
  dm = dm + dm_b ! total density
  deallocate(dm_b)
- call write_density_into_fch(no_fch, nbf, .true., dm)
+ call write_dm_into_fch(no_fch, nbf, .true., dm)
 
  allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, S)

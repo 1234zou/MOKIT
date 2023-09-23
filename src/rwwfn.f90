@@ -2955,30 +2955,27 @@ subroutine check_sph(fchname, sph)
  end if
 end subroutine check_sph
 
-! read various density matrix from a .fch(k) file
-subroutine read_density_from_fch(fchname, itype, nbf, dm)
+! read various AO density matrix from a .fch(k) file
+subroutine read_dm_from_fch(fchname, itype, nbf, dm)
  implicit none
- integer :: i, k, fid, ncoeff1, ncoeff2
+ integer :: i, j, fid, ncoeff1, ncoeff2
  integer, intent(in) :: itype, nbf
  real(kind=8), intent(out) :: dm(nbf,nbf)
- character(len=11), parameter :: key(10) = ['Total SCF D', 'Spin SCF De',&
+ character(len=11), parameter :: key(12) = ['Total SCF D', 'Spin SCF De',&
    'Total CI De', 'Spin CI Den', 'Total MP2 D', 'Spin MP2 De',&
-   'Total CC De', 'Spin CC Den', 'Total CI Rh', 'Spin CI Rho']
+   'Total CC De', 'Spin CC Den', 'Total CI Rh', 'Spin CI Rho',&
+   'Total 2nd O', 'Spin 2nd Or']
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 
  dm = 0d0
- if(itype<1 .or. itype>10) then
-  write(6,'(A,I0)') 'ERROR in subroutine read_density_from_fch: invalid itype&
-                    & = ',itype
-  write(6,'(A)') 'Allowed values are 1~10:'
-  do i = 1, 10, 1
-   write(6,'(I2,A)') i,': '//key(i)
-  end do ! for i
+ if(itype<1 .or. itype>12) then
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_dm_from_fch: invalid itype=',itype
+  write(6,'(A)') 'Allowed values are 1~11:'
   stop
  end if
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2986,8 +2983,9 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_density_from_fch: no key '"//&
-                 & key(itype)//"' found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_dm_from_fch: no key '"//key(itype)&
+                 //"' found in file "
+  write(6,'(A)') TRIM(fchname)
   close(fid)
   stop
  end if
@@ -2995,26 +2993,30 @@ subroutine read_density_from_fch(fchname, itype, nbf, dm)
  ncoeff2 = (nbf*nbf + nbf)/2
  read(buf(50:),*) ncoeff1
  if(ncoeff1 /= ncoeff2) then
-  write(6,'(A)') 'ERROR in subroutine read_density_from_fch: inconsistent&
-                 & dimension between .fch(k) file and input nbf!'
+  write(6,'(/,A)') 'ERROR in subroutine read_dm_from_fch: inconsistent dimensio&
+                   &n between the .fch(k)'
+  write(6,'(A)') 'file and input nbf!'
   write(6,'(2(A,I0))') 'nbf=', nbf, ', ncoeff1=', ncoeff1
+  close(fid)
   stop
  end if
 
- read(fid,'(5(1X,ES15.8))') ((dm(k,i),k=1,i),i=1,nbf)
+ read(fid,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
  close(fid)
 
- ! make density matrix symmetric
- do i = 1, nbf-1, 1
-  do k = i+1, nbf, 1
-   dm(k,i) = dm(i,k)
-  end do ! for k
- end do ! for i
-end subroutine read_density_from_fch
+ ! symmetrize the density matrix
+ forall(i=1:nbf-1, j=1:nbf, j>i) dm(j,i) = dm(i,j)
+ !do i = 1, nbf-1, 1
+ ! do j = i+1, nbf, 1
+ !  dm(j,i) = dm(i,j)
+ ! end do ! for j
+ !end do ! for i
+end subroutine read_dm_from_fch
 
-! write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file
-! Note: the dm(j,i) j<=i will be used
-subroutine write_density_into_fch(fchname, nbf, total, dm)
+! Write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file.
+! Note: (1) the dm(j,i) j<=i will be used; (2) the density matrix elements in
+!  the array dm must be in Gaussian angular momentum order.
+subroutine write_dm_into_fch(fchname, nbf, total, dm)
  implicit none
  integer :: i, j, k, fid, fid1, RENAME
  integer, intent(in) :: nbf
@@ -3042,8 +3044,8 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine write_density_into_fch: no key '"&
-                 &//key//"' found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine write_dm_into_fch: no key '"//key//"' f&
+                   &ound in file "//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -3068,7 +3070,22 @@ subroutine write_density_into_fch(fchname, nbf, total, dm)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
-end subroutine write_density_into_fch
+end subroutine write_dm_into_fch
+
+subroutine copy_dm_between_fch(fchname1, fchname2, itype, total)
+ implicit none
+ integer :: nbf, nif
+ integer, intent(in) :: itype
+ real(kind=8), allocatable :: dm(:,:)
+ character(len=240), intent(in) :: fchname1, fchname2
+ logical, intent(in) :: total
+
+ call read_nbf_and_nif_from_fch(fchname1, nbf, nif)
+ allocate(dm(nbf,nbf))
+ call read_dm_from_fch(fchname1, itype, nbf, dm)
+ call write_dm_into_fch(fchname2, nbf, total, dm)
+ deallocate(dm)
+end subroutine copy_dm_between_fch
 
 ! detect whether there exists 'Spin SCF Density' in a given .fch file
 subroutine detect_spin_scf_density_in_fch(fchname, alive)
@@ -3229,7 +3246,7 @@ subroutine update_density_using_mo_in_fch(fchname)
   spin_dm = dm_a - dm_b
   deallocate(dm_a, dm_b)
   call add_density_str_into_fch(fchname, 2)
-  call write_density_into_fch(fchname, nbf, .false., spin_dm)
+  call write_dm_into_fch(fchname, nbf, .false., spin_dm)
   deallocate(spin_dm)
 
  else ! R(O)HF
@@ -3255,7 +3272,7 @@ subroutine update_density_using_mo_in_fch(fchname)
   end if
  end if
 
- call write_density_into_fch(fchname, nbf, .true., total_dm)
+ call write_dm_into_fch(fchname, nbf, .true., total_dm)
  deallocate(total_dm)
 end subroutine update_density_using_mo_in_fch
 
@@ -3284,7 +3301,7 @@ subroutine update_density_using_no_and_on(fchname)
  end do ! for i
 
  deallocate(coeff, noon)
- call write_density_into_fch(fchname, nbf, .true., dm)
+ call write_dm_into_fch(fchname, nbf, .true., dm)
  deallocate(dm)
 end subroutine update_density_using_no_and_on
 
@@ -3414,12 +3431,12 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
 
  call add_density_str_into_fch(fchname2, 1)
  allocate(dm(nbf,nbf))
- call read_density_from_fch(fchname1, 1, nbf, dm)
- call write_density_into_fch(fchname2, nbf, .true., dm)
+ call read_dm_from_fch(fchname1, 1, nbf, dm)
+ call write_dm_into_fch(fchname2, nbf, .true., dm)
  if(uhf) then
   call add_density_str_into_fch(fchname2, 2)
-  call read_density_from_fch(fchname1, 2, nbf, dm)
-  call write_density_into_fch(fchname2, nbf, .false., dm)
+  call read_dm_from_fch(fchname1, 2, nbf, dm)
+  call write_dm_into_fch(fchname2, nbf, .false., dm)
  end if
  deallocate(dm)
 

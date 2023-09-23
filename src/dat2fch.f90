@@ -215,7 +215,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  end if
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine dat2fch: No '$VEC' section in file "//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine dat2fch: No '$VEC' section in file "//&
+                    TRIM(datname)
   close(datid)
   stop
  end if
