@@ -877,7 +877,7 @@ end subroutine py2fch_permute_21h
 ! write density (in PySCF format) into a given Gaussian .fch(k) file
 subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  implicit none
- integer :: i, j, fid, fid1, RENAME
+ integer :: i, j, fid, fid1, nline, ncoeff, RENAME
  integer, intent(in) :: nbf, itype
 !f2py intent(in) :: nbf, itype
  integer, allocatable :: idx(:)
@@ -945,8 +945,8 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: all required&
-                & strings are not found.'
+  write(6,'(/,A)') 'ERROR in subroutine write_pyscf_dm_into_fch: all required s&
+                   &trings are not found.'
   write(6,'(A)') 'File '//TRIM(fchname)//' may be incomplete.'
   close(fid)
   close(fid1,status='delete')
@@ -954,24 +954,25 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  end if
 
  if((key1/=key0) .and. (.not.force)) then
-  write(6,'(A)') "ERROR in subroutine write_pyscf_dm_into_fch: required&
-                & string '"//key0//"' is"
+  write(6,'(/,A)') "ERROR in subroutine write_pyscf_dm_into_fch: required strin&
+                   &g '"//key0//"' is"
   write(6,'(A)') 'not found in file '//TRIM(fchname)//'.'
   close(fid)
   close(fid1,status='delete')
   stop
  end if
 
- write(fid1,'(A,20X,A,2X,I10)') key0, 'R   N=', nbf*(nbf+1)/2
+ ncoeff = nbf*(nbf+1)/2
+ write(fid1,'(A,20X,A,2X,I10)') key0, 'R   N=', ncoeff
  write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
 
- if(key1 == key0) then
-  do while(.true.) ! skip density in the original .fch file
+ if(key1 == key0) then ! skip density in the original .fch file
+  nline = ncoeff/5
+  if(ncoeff-5*nline > 0) nline = nline + 1
+  do i = 1, nline, 1
    read(fid,'(A)') buf
-   if(buf(49:49) == '=') exit
-  end do ! for while
+  end do ! for i
  end if
- BACKSPACE(fid)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

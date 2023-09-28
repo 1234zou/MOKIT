@@ -110,7 +110,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  nline = 0
  nleft = 0
 
- fchname1 = TRIM(fchname)//'_d2f.tmp'
+ fchname1 = TRIM(fchname)//'_d2f.t'
  call read_na_and_nb_from_fch(fchname, na, nb)
 
  ! check nopen ?= na - nb
@@ -131,10 +131,10 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
 
  ! check if any spherical functions
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(6,'(A)') 'ERROR in subroutine dat2fch: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
+  write(6,'(/,A)') 'ERROR in subroutine dat2fch: mixed spherical harmonic/Carte&
+                   &sian functions detected.'
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its &
+                 &default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shltyp>1) ) then
@@ -153,8 +153,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
 
  call read_nbf_from_dat(datname, i)
  if(i /= nbf1) then
-  write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between&
-                   & .fch and .dat file.'
+  write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between .fch &
+                   &and .dat file.'
   write(6,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
   stop
  end if

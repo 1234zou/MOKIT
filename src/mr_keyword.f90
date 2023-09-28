@@ -313,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-21)'
+  write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-28)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -1915,7 +1915,7 @@ subroutine auxbas_convert(inbas, outbas, itype)
   case(2) ! Molpro
    outbas = TRIM(inbas)//'fit'
   case default
-   write(6,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
    write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
    stop
   end select
@@ -1929,16 +1929,15 @@ subroutine auxbas_convert(inbas, outbas, itype)
    ! But so far there is a tiny bug for definition of def2-universal-JKFIT in
    ! Molpro, thus we have to use 'qzvpp/jkfit'. And these two are identical in fact.
   case default
-   write(6,'(A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
+   write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
    write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
    stop
   end select
  case default
-  write(6,'(A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
+  write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
   write(6,'(A)') 'inbas1='//TRIM(inbas1)
   stop
  end select
-
 end subroutine auxbas_convert
 
 ! calculate the Coulomb interaction energy of point charges

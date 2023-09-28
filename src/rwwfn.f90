@@ -1094,7 +1094,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
 
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
- fchname1 = TRIM(fchname)//'.tmp'
+ fchname1 = TRIM(fchname)//'.t'
 
  call open_file(fchname, .true., fid1)
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
@@ -3006,11 +3006,6 @@ subroutine read_dm_from_fch(fchname, itype, nbf, dm)
 
  ! symmetrize the density matrix
  forall(i=1:nbf-1, j=1:nbf, j>i) dm(j,i) = dm(i,j)
- !do i = 1, nbf-1, 1
- ! do j = i+1, nbf, 1
- !  dm(j,i) = dm(i,j)
- ! end do ! for j
- !end do ! for i
 end subroutine read_dm_from_fch
 
 ! Write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file.

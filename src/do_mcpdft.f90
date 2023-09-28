@@ -250,7 +250,7 @@ subroutine prt_mcpdft_gms_inp(inpname)
  character(len=240), intent(in) :: inpname
 
  ncore = ndb + npair - npair0
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
 
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
  if(CIonly) then

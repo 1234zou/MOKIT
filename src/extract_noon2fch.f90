@@ -13,8 +13,6 @@ program main
  character(len=240) :: outname, fchname
  logical :: gau_order
 
- nopen = 0
-
  i = iargc()
  if(i<2 .or. i>6) then
   write(6,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
@@ -30,23 +28,32 @@ program main
   stop
  end if
 
+ nopen = 0
+ gau_order = .false. ! initialization
+
  call getarg(1, outname)
  call require_file_exist(outname)
 
  call getarg(2, fchname)
  call require_file_exist(fchname)
 
- if(i==2 .or. i==3) then
-  ! Q-Chem case, or the GAMESS MP2 NOs case, fake two integers
+ select case(i)
+ case(2)
+  ! Q-Chem case, fake two integers
   idx1 = 1; idx2 = 2
- else
+ case(3)
+  ! GAMESS MP2 NOs case. Here we use the variable gau_order=.T. to represent the
+  ! MP2 NOs case
+  gau_order = .true.
+  idx1 = 1
+  call read_nif_from_fch(fchname, idx2)
+ case default
   call getarg(3, buf)
   read(buf,*) idx1
   call getarg(4, buf)
   read(buf,*) idx2
- end if
+ end select
 
- gau_order = .false.
  if(i > 4) then
   call getarg(5, buf)
   read(buf,*,iostat=j) nopen
@@ -105,22 +112,26 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  real(kind=8), allocatable :: noon(:), ev(:)
  logical, intent(in) :: gau_order
 
- nmo = idx2 - idx1 + 1   ! Note: here nmo is 2*npair + nopen for GVB
+ nmo = idx2 - idx1 + 1 ! Note: here nmo is 2*npair + nopen for GVB
  allocate(noon(nmo))
 
  if(INDEX(outname,'.dat',back=.true.) > 0) then
-  call read_noon_from_dat(nmo, noon, outname, nopen, gau_order) ! GVB NOONs
+  call read_noon_from_dat(outname, nmo, noon, nopen, gau_order) ! GVB NOONs
  else if(INDEX(outname,'.gms',back=.true.) > 0) then
-  call read_noon_from_gmsgms(idx1, nmo, noon, outname) ! CASCI/CASSCF NOONs
+  if(gau_order) then ! MP2 NOONs
+   call read_mp2_on_from_gmsgms(outname, nmo, noon)
+  else               ! CASCI/CASSCF NOONs
+   call read_noon_from_gmsgms(outname, idx1, nmo, noon)
+  end if
  else
   call identify_itype_of_out(outname, itype)
   select case(itype)
   case(1)
-   call read_noon_from_pyout(nmo, noon, outname)
+   call read_noon_from_pyout(outname, nmo, noon)
   case(2)
-   call read_noon_from_orca_out(nmo, noon, outname)
+   call read_noon_from_orca_out(outname, nmo, noon)
   case(3)
-   call read_noon_from_psi4_out(nmo, noon, outname)
+   call read_noon_from_psi4_out(outname, nmo, noon)
   case(4)
    deallocate(noon)
    call read_nfocc_nif_from_qchem_gvb_out(outname, nfocc, nmo)
@@ -134,19 +145,11 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
   end select
  end if
 
- ! read nif in file fchname, and copy into file fchname1 by the way
+ call read_nif_from_fch(fchname, nif)
+
  fchname1 = TRIM(fchname)//'.t'
  open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)') buf
-  write(fid2,'(A)') TRIM(buf)
-  if(buf(1:13) == 'Number of ind') exit
- end do
-
- BACKSPACE(fid1)
- read(fid1,'(A49,2X,I10)') buf, nif
 
  ! process to 'Alpha Orbital Energies'
  do while(.true.)
@@ -170,7 +173,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
  ! skip the 'Alpha Orbital Energies' in file fchname
  do while(.true.)
   read(fid1,'(A)') buf
-  if(index(buf,'=') /= 0) exit
+  if(INDEX(buf,'=') > 0) exit
  end do ! for while
 
  ! copy remaining content
@@ -187,7 +190,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
 end subroutine extract_noon2fch
 
 ! read GVB NOONs from .dat file of GAMESS
-subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
+subroutine read_noon_from_dat(datname, nmo, noon, nopen, gau_order)
  implicit none
  integer :: i, j, k, m, npair, fid
  integer, intent(in) :: nmo   ! must be an even integer
@@ -254,8 +257,8 @@ subroutine read_noon_from_dat(nmo, noon, datname, nopen, gau_order)
 end subroutine read_noon_from_dat
 
 ! read CASSCF NOONs from .gms file of GAMESS
-! Note: CASCI NOONs are recorded in .dat file and no need to handle here
-subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
+! Note: CASCI NOONs are recorded in .dat file and no need to be handled here
+subroutine read_noon_from_gmsgms(gmsname, idx1, nmo, noon)
  implicit none
  integer :: i, j, k, fid, n, nmo1
  integer, intent(in) :: idx1, nmo
@@ -302,8 +305,40 @@ subroutine read_noon_from_gmsgms(idx1, nmo, noon, gmsname)
  noon = on(idx1:)
 end subroutine read_noon_from_gmsgms
 
+! read MP2 NOONs from a GAMESS .gms file
+subroutine read_mp2_on_from_gmsgms(gmsname, nif, noon)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nif
+ real(kind=8), intent(out) :: noon(nif)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gmsname
+
+ noon = 0d0
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:8) == 'MP2 NAT') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mp2_on_from_gmsgms: no 'MP2 NAT' f&
+                   &ound in file "//TRIM(gmsname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(5(1X,ES15.8))') noon
+ close(fid)
+end subroutine read_mp2_on_from_gmsgms
+
 ! read NOONs from .out file of PySCF
-subroutine read_noon_from_pyout(nmo, noon, outname)
+subroutine read_noon_from_pyout(outname, nmo, noon)
  implicit none
  integer :: i, j, k, nline, fid
  integer, intent(in) :: nmo
@@ -356,7 +391,7 @@ subroutine read_noon_from_pyout(nmo, noon, outname)
 end subroutine read_noon_from_pyout
 
 ! read CASCI/CASSCF NOONs from ORCA .out file
-subroutine read_noon_from_orca_out(nmo, noon, outname)
+subroutine read_noon_from_orca_out(outname, nmo, noon)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nmo
@@ -387,7 +422,7 @@ subroutine read_noon_from_orca_out(nmo, noon, outname)
 end subroutine read_noon_from_orca_out
 
 ! read CASCI/CASSCF NOONs from a PSI4 .out file
-subroutine read_noon_from_psi4_out(nmo, noon, outname)
+subroutine read_noon_from_psi4_out(outname, nmo, noon)
  implicit none
  integer :: i, nline, fid
  integer, intent(in) :: nmo
@@ -532,4 +567,31 @@ subroutine read_noon_from_qchem_out(outname, nfocc, noon)
 
  close(fid)
 end subroutine read_noon_from_qchem_out
+
+! read the number of MOs from a Gaussian .fch(k) file
+subroutine read_nif_from_fch(fchname, nif)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ nif = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:13) == 'Number of ind') exit
+ end do
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nif_from_fch: no 'Number of ind' f&
+                   &ound in file "//TRIM(fchname)
+  stop
+ end if
+
+ read(buf(45:),*) nif
+end subroutine read_nif_from_fch
 

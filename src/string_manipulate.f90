@@ -214,7 +214,7 @@ subroutine add_DKH2_into_gms_inp(inpname)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -447,7 +447,7 @@ subroutine add_X2C_into_py(pyname)
  character(len=240) :: buf, pyname1
  character(len=240), intent(in) :: pyname
 
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(pyname1),status='replace')
 
@@ -509,7 +509,7 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 

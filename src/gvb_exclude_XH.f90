@@ -425,7 +425,7 @@ subroutine print_ci_coeff_into_dat(datname, npair, coeff, replace)
 
  i = index(datname,'.dat',.true.)
  if(i == 0) i = index(datname,'.inp',.true.)
- newdat = datname(1:i-1)//'.tmp'
+ newdat = datname(1:i-1)//'.t'
 
  open(newunit=fid1,file=TRIM(datname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(newdat),status='replace')

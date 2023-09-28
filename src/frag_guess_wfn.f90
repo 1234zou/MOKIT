@@ -1842,7 +1842,6 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
  integer :: i, j, nbat1, nbat2, fid, fid1, RENAME
  integer :: nblank, natom
  character(len=2), allocatable :: elem(:)
- character(len=3) :: str
  character(len=6) :: str1
  character(len=240) :: buf, gjfname1
  character(len=240), intent(in) :: gjfname
@@ -1869,31 +1868,14 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
 
  if(LEN_TRIM(buf) > 0) then
   do while(.true.)
-   read(buf,*) str
-   str = ADJUSTL(str)
-   if(str(1:1) == '-') str = str(2:)
-
-   j = IACHAR(str(1:1))
-   if(j>96 .and. j<123) str(1:1) = ACHAR(j-32)
-   j = IACHAR(str(2:2))
-   if(j>64 .and. j<91) str(2:2) = ACHAR(j+32)
-
-   skipped = .false.
-   do i = 1, natom, 1
-    if(elem(i) == TRIM(str)) then
-     if(ghost(i)) then
-      skipped = .true.
-      exit
-     end if
-    end if
-   end do ! for i
+   call del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
 
    if(.not. skipped) write(fid1,'(A)') TRIM(buf)
    read(fid,'(A)') buf
    read(buf,*,iostat=i) str1, nbat1
 
    if(skipped) then
-    if(i == 0) then ! ECP/PP data, not name
+    if(i == 0) then ! ECP/PP detailed data, not built-in ECP name
      nbat1 = nbat1 + 1
      do i = 1, nbat1, 1
       read(fid,'(A)') buf
@@ -2215,4 +2197,64 @@ subroutine modify_guess_only_in_gjf(gjfname)
  close(fid2)
  i = RENAME(TRIM(fname), TRIM(gjfname))
 end subroutine modify_guess_only_in_gjf
+
+subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
+ implicit none
+ integer :: i, j, ncol
+ integer, intent(in) :: natom
+ integer, external :: detect_ncol_in_buf
+ character(len=3), allocatable :: str(:)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(inout) :: buf
+ logical, intent(in) :: ghost(natom)
+ logical, intent(out) :: skipped
+ logical, allocatable :: ghost2(:)
+
+ skipped = .false.
+ ncol = detect_ncol_in_buf(buf)
+ allocate(str(ncol))
+ read(buf,*) (str(i),i=1,ncol)
+
+ if(str(ncol)(1:1) /= '0') then
+  write(6,'(/,A)') 'ERROR in surboutine del_ecp_of_ghost_in_buf: elements in EC&
+                   &P section do not'
+  write(6,'(A)') "end with the '0' symbol."
+  write(6,'(A)') "buf='"//TRIM(buf)//"'"
+  stop
+ end if
+
+ allocate(ghost2(ncol-1))
+ ghost2 = .false.
+
+ do i = 1, ncol-1, 1
+  if(str(i)(1:1) == '-') str(i) = str(i)(2:3)//' '
+
+  j = IACHAR(str(i)(1:1))
+  if(j>96 .and. j<123) str(i)(1:1) = ACHAR(j-32)
+  j = IACHAR(str(i)(2:2))
+  if(j>64 .and. j<91) str(i)(2:2) = ACHAR(j+32)
+
+  do j = 1, natom, 1
+   if(elem(j)==str(i)(1:2) .and. ghost(j)) then
+    ghost2(i) = .true.
+    exit
+   end if
+  end do ! for j
+ end do ! for i
+
+ if(ALL(ghost2 .eqv. .true.)) then
+  skipped = .true.
+  buf = ' '
+ else
+  read(buf,*) (str(i),i=1,ncol)
+  buf = ' '
+  do i = 1, ncol, 1
+   if(ghost2(i)) cycle
+   buf= TRIM(buf)//' '//TRIM(str(i))
+  end do ! for i
+  buf = ADJUSTL(buf)
+ end if
+
+ deallocate(str, ghost2)
+end subroutine del_ecp_of_ghost_in_buf
 

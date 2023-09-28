@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc14 :: MOKIT, release date: 2023-Sep-22'
+  write(6,'(A)') 'AutoMR 1.2.6rc14 :: MOKIT, release date: 2023-Sep-28'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -540,7 +540,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  character(len=240), intent(in) :: pyname
 
  ncore = chem_core - ecp_core
- pyname1 = TRIM(pyname)//'.tmp'
+ pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
  do while(.true.)

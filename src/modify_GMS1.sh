@@ -62,6 +62,9 @@ sed -i 's/NHAMX\ =\ 25/NHAMX\ =\ 999/g'    scflib.src
 sed -i 's/NPAIRX\ =\ 12/NPAIRX\ =\ 499/g'  scflib.src
 sed -i 's/200) T/500) T/g' inputa.src
 
+# For MP2 NOONs, not for GVB
+sed -i 's/9120 FORMAT(1X,10F7.4)/9120 FORMAT(5(1X,ES15.8))/' mp2.src
+
 ./modify_GMS2.exe
 echo 'Modification finished.'
 
@@ -83,6 +86,7 @@ do
 done
 
 ./comp inputa
+./comp mp2
 echo 'Finish recompling.'
 
 echo 'Try to link all object files...'

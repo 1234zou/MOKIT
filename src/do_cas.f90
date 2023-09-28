@@ -586,7 +586,6 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  logical :: dmrg
 
  dmrg = (dmrgci .or. dmrgscf)
- RIJK_bas1 = ' '
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  pyname1 = TRIM(pyname)//'.t'
  i = index(pyname, '.py', back=.true.)
@@ -742,7 +741,7 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 

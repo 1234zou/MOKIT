@@ -5,9 +5,11 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  implicit none
  integer :: i, j, nbf, nif
  integer, intent(in) :: itype ! 1/2 for Total/Spin SCF Density
+!f2py intent(in) :: itype
  ! itype has values [1,10] in subroutine read_density_from_fch
  ! here I use itype=0 to stand for alpha/beta natural spin orbitals
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  real(kind=8) :: na, nb, ne1, ne2
  real(kind=8), allocatable :: dm(:,:), spin_dm(:,:), dm_a(:,:), dm_b(:,:)
  real(kind=8), allocatable :: coeff_a(:,:), coeff_b(:,:), S(:,:)
@@ -110,6 +112,7 @@ end subroutine get_ao_ovlp_using_fch
 
 ! call Gaussian to compute AO-basis dipole integrals using the given .fch file
 subroutine get_ao_dipole_using_fch(fchname, nbf, D)
+ use phys_cons, only: Bohr_const
  implicit none
  integer, intent(in) :: nbf
  real(kind=8), intent(out) :: D(nbf,nbf,3)
@@ -119,6 +122,7 @@ subroutine get_ao_dipole_using_fch(fchname, nbf, D)
  call call_gaussian_gen47_from_fch(fchname, file47)
  call read_ao_dipole_from_47(file47, nbf, D)
  call delete_file(file47)
+ D = D/Bohr_const   ! important
 end subroutine get_ao_dipole_using_fch
 
 ! call Gaussian program to generate .47 file from a given .fch(k) file
@@ -132,18 +136,10 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
  character(len=240), intent(out) :: file47
  character(len=240) :: gau_path, proname, chkname, gjfname, logname
 
- str = REPEAT(' ',10)
  call get_a_random_int(i)
  write(str,'(I0)') i
 
- i = index(fchname, '.fch', back=.true.)
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine call_gaussian_gen47_from_fch: no '.fch'&
-                & suffix found in"
-  write(6,'(A)') 'filename '//TRIM(fchname)
-  stop
- end if
-
+ call find_specified_suffix(fchname, '.fch', i)
  proname = fchname(1:i-1)//TRIM(str)
  chkname = TRIM(proname)//'.chk'
  gjfname = TRIM(proname)//'.gjf'
@@ -215,7 +211,7 @@ subroutine read_ao_dipole_from_47(file47, nbf, D)
  close(fid)
 
  ! remember to symmetrize the dipole integral matrix
- forall(i=1:3,j=1:nbf,k=1:nbf,j<k) D(k,j,i) = D(j,k,i)
+ forall(i=1:3, j=1:nbf-1, k=1:nbf, j<k) D(k,j,i) = D(j,k,i)
 end subroutine read_ao_dipole_from_47
 
 ! calculate the electronic dipole moment from AO-basis density matrix and
@@ -351,20 +347,20 @@ subroutine get_ne_from_PS(nbf, P, S, ne)
 end subroutine get_ne_from_PS
 
 ! check whether two double precision values equal to each other
-subroutine check_two_real8_eq(r1, r2, diff)
+subroutine check_two_real8_eq(r1, r2, thres)
  implicit none
- real(kind=8), intent(in) :: r1, r2, diff
+ real(kind=8), intent(in) :: r1, r2, thres
 
- if(diff < 0d0) then
-  write(6,'(A)') 'ERROR in subroutine check_two_real8_eq: input diff<0.'
-  write(6,'(A,F14.8,A)') 'diff=',diff,', but diff>0 is required.'
+ if(thres < 0d0) then
+  write(6,'(/,A)') 'ERROR in subroutine check_two_real8_eq: input thres<0.'
+  write(6,'(A,F14.8,A)') 'thres=',thres,', but thres>0 is required.'
   stop
  end if
 
- if(DABS(r1-r2) > diff) then
-  write(6,'(A)') 'ERROR in subroutine check_two_real8_eq: two double precisi&
-                    &on values differ larger than the'
-  write(6,'(3(A,F14.8))') 'tolerance diff. r1=',r1,', r2=',r2,', diff=',diff
+ if(DABS(r1-r2) > thres) then
+  write(6,'(/,A)') 'ERROR in subroutine check_two_real8_eq: two double precisi&
+                    &on values differ larger'
+  write(6,'(A,3F14.8)') 'than the threshold. r1, r2, thres=', r1, r2, thres
   stop
  end if
 end subroutine check_two_real8_eq
@@ -377,7 +373,7 @@ subroutine submit_gms_fzgvb_job(gms_path, gms_scr_path, inpname, nproc)
  character(len=240) :: buf, inpname1, datname1
  character(len=240), intent(in) :: gms_path, gms_scr_path, inpname
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'_f.inp'
  datname1 = inpname(1:i-1)//'_f.dat'
  call submit_gms_job(gms_path, gms_scr_path, inpname1, nproc)
@@ -413,12 +409,7 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  character(len=500) :: longbuf
  character(len=240), intent(in) :: gms_path, gms_scr_path, inpname
 
- i = index(inpname, '.inp', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine submit_gms_job: '.inp' suffix not &
-                      &found in filename "//TRIM(inpname)
-  stop
- end if
+ call find_specified_suffix(inpname, '.inp', i)
 
  ! delete scratch files, if any
  datname = inpname(1:i-1)//'.dat'
@@ -456,7 +447,7 @@ subroutine submit_automr_job(gjfname)
  character(len=240) :: buf, outname
  character(len=240), intent(in) :: gjfname
 
- i = index(gjfname,'.gjf',back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
  outname = gjfname(1:i-1)//'.out'
  buf = 'automr '//TRIM(gjfname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
@@ -475,7 +466,7 @@ subroutine submit_gau_job(gau_path, gjfname)
  character(len=240) :: logname
  character(len=240), intent(in) :: gau_path, gjfname
 
- i = index(gjfname, '.gjf', back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
 #ifdef _WIN32
  logname = gjfname(1:i-1)//'.out'
 #else
@@ -499,7 +490,7 @@ subroutine submit_orca_job(orca_path, inpname)
  character(len=480) :: buf
  character(len=240), intent(in) :: orca_path, inpname
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
@@ -522,7 +513,7 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: openmp
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  shname = inpname(1:i-1)//'.sh'
  outname = inpname(1:i-1)//'.out'
 
@@ -562,7 +553,7 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
  character(len=480) :: buf
  character(len=240), intent(in) :: psi4_path, inpname
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A,I0)') TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
@@ -584,7 +575,7 @@ subroutine submit_qchem_job(inpname, nproc)
  character(len=500) :: buf
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.in', back=.true.)
+ call find_specified_suffix(inpname, '.in', i)
  scr_dir = inpname(1:i-1)
  outname = inpname(1:i-1)//'.out'
 
@@ -609,7 +600,7 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  character(len=240) :: outname, xmlname
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.com', back=.true.)
+ call find_specified_suffix(inpname, '.com', i)
  outname = inpname(1:i-1)//'.out'
  xmlname = inpname(1:i-1)//'.xml'
  call delete_files(2, [outname, xmlname]) ! clean old files (if any)
@@ -641,7 +632,7 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
   stop
  end if
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  shname = inpname(1:i-1)//'.sh'
  open(newunit=fid,file=TRIM(shname),status='replace')
  write(fid,'(A)') 'export OMP_STACKSIZE=2G'
@@ -683,7 +674,7 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
   stop
  end select
 
- i = index(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  shname = inpname(1:i-1)//'.sh'
  open(newunit=fid,file=TRIM(shname),status='replace')
  write(fid,'(A)') 'export OMP_STACKSIZE=2G'
@@ -705,11 +696,12 @@ end subroutine submit_gvb_bccc_job
 subroutine submit_pyscf_job(pyname)
  implicit none
  integer :: i, system
- character(len=240) :: outname
+ character(len=240) :: outname, shname
  character(len=480) :: buf
  character(len=240), intent(in) :: pyname
 
- i = index(pyname, '.py', back=.true.)
+ call find_specified_suffix(pyname, '.py', i)
+ shname = pyname(1:i-1)//'.sh'
  outname = pyname(1:i-1)//'.out'
 
  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"

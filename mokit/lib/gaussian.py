@@ -202,13 +202,14 @@ def get_dipole(fchname, itype=1):
   n_dip = get_nuc_dipole(natom, nuc, coor)
   print('\n Dipole moment from nuclear charges (a.u.):', n_dip)
 
-  # call Gaussian to calculate dipole integrals and calculate electronic dipole
+  # call Gaussian to calculate dipole integrals and the electronic dipole
   e_dip = get_e_dipole_using_density_in_fch(fchname, itype)
   print(' Dipole moment from electrons (a.u.):', e_dip)
 
-  # (total) electric dipole moment
+  # total electric dipole moment
   dipole = e_dip + n_dip
   print(' Dipole moment (a.u.):', dipole)
+  print(' Dipole moment (Debye):', dipole*2.541746231)
   return dipole
 
 

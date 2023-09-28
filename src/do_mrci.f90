@@ -325,7 +325,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
 
- inpname2 = TRIM(inpname1)//'.tmp'
+ inpname2 = TRIM(inpname1)//'.t'
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'

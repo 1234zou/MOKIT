@@ -622,7 +622,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -996,7 +996,7 @@ subroutine prt_mrmp2_gms_inp(inpname)
 
  ncore = ndb + npair - npair0
 
- inpname1 = TRIM(inpname)//'.tmp'
+ inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF RUNTYP=ENERGY ICHARG='
