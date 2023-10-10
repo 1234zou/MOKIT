@@ -82,7 +82,6 @@ end program main
 ! transform MOs in .dat file into .fchk file
 subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
- use fch_content, only: read_mark_from_shltyp_cart
  implicit none
  integer :: i, j, k, datid, nline, nleft
  integer :: nbf, nif, na, nb

@@ -9,7 +9,7 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              do_hf.o rwwfn.o read_fch.o read_mkl.o rwgeom.o call_qc_calc_int.o \
-             read_gms_inp.o lo.o autosr.o
+             read_gms_inp.o lo.o split_sp.o qchem.o autosr.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rwwfn.o bas_fch2py.o
 OBJ_bas_gau2molcas = file_op.o string_manipulate.o read_gms_inp.o read_fch.o bas_gau2molcas.o
 OBJ_bas_gms2bdf = file_op.o string_manipulate.o read_gms_inp.o bas_gms2bdf.o
@@ -23,7 +23,8 @@ OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o split_
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
 OBJ_chk2gbw = file_op.o util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o split_sp.o dal2fch.o
-OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o math_sub.o rwwfn.o dat2fch.o
+OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o math_sub.o rwwfn.o split_sp.o \
+              dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o
 OBJ_fch2amo = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
               fch2amo.o
@@ -38,7 +39,8 @@ OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
 OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o util_wrapper.o read_mkl.o \
               fch2mkl.o
 OBJ_fch2gbw = file_op.o util_wrapper.o fch2gbw.o
-OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2inp.o
+OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o split_sp.o \
+              fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
                  read_fch.o split_sp.o fch2inporb.o
 OBJ_fch2psi = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
@@ -91,8 +93,8 @@ OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
 OBJ_py2fch = py2fch.f90 file_op.o string_manipulate.o split_sp.o read_fch.o
 OBJ_pyuno = pyuno.f90
-OBJ_qchem = file_op.f90 string_manipulate.f90 math_sub.f90 rwwfn.f90 \
-            util_wrapper.f90 rwgeom.f90 qchem.f90 read_fch.o
+OBJ_qchem = file_op.f90 math_sub.f90 rwwfn.f90 util_wrapper.f90 rwgeom.f90 \
+            split_sp.f90 qchem.f90 string_manipulate.o read_fch.o
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90

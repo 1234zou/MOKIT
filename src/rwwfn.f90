@@ -1694,6 +1694,10 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
 
  read(buf,*) i, j, i, j, e(1) ! CASCI energy
  e(1) = e(1) + add
+ if(.not. scf) then ! CASCI
+  close(fid)
+  return
+ end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3011,7 +3015,7 @@ end subroutine read_dm_from_fch
 ! Write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file.
 ! Note: (1) the dm(j,i) j<=i will be used; (2) the density matrix elements in
 !  the array dm must be in Gaussian angular momentum order.
-subroutine write_dm_into_fch(fchname, nbf, total, dm)
+subroutine write_dm_into_fch(fchname, total, nbf, dm)
  implicit none
  integer :: i, j, k, fid, fid1, RENAME
  integer, intent(in) :: nbf
@@ -3078,7 +3082,7 @@ subroutine copy_dm_between_fch(fchname1, fchname2, itype, total)
  call read_nbf_and_nif_from_fch(fchname1, nbf, nif)
  allocate(dm(nbf,nbf))
  call read_dm_from_fch(fchname1, itype, nbf, dm)
- call write_dm_into_fch(fchname2, nbf, total, dm)
+ call write_dm_into_fch(fchname2, total, nbf, dm)
  deallocate(dm)
 end subroutine copy_dm_between_fch
 
@@ -3241,7 +3245,7 @@ subroutine update_density_using_mo_in_fch(fchname)
   spin_dm = dm_a - dm_b
   deallocate(dm_a, dm_b)
   call add_density_str_into_fch(fchname, 2)
-  call write_dm_into_fch(fchname, nbf, .false., spin_dm)
+  call write_dm_into_fch(fchname, .false., nbf, spin_dm)
   deallocate(spin_dm)
 
  else ! R(O)HF
@@ -3267,7 +3271,7 @@ subroutine update_density_using_mo_in_fch(fchname)
   end if
  end if
 
- call write_dm_into_fch(fchname, nbf, .true., total_dm)
+ call write_dm_into_fch(fchname, .true., nbf, total_dm)
  deallocate(total_dm)
 end subroutine update_density_using_mo_in_fch
 
@@ -3296,7 +3300,7 @@ subroutine update_density_using_no_and_on(fchname)
  end do ! for i
 
  deallocate(coeff, noon)
- call write_dm_into_fch(fchname, nbf, .true., dm)
+ call write_dm_into_fch(fchname, .true., nbf, dm)
  deallocate(dm)
 end subroutine update_density_using_no_and_on
 
@@ -3427,11 +3431,11 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
  call add_density_str_into_fch(fchname2, 1)
  allocate(dm(nbf,nbf))
  call read_dm_from_fch(fchname1, 1, nbf, dm)
- call write_dm_into_fch(fchname2, nbf, .true., dm)
+ call write_dm_into_fch(fchname2, .true., nbf, dm)
  if(uhf) then
   call add_density_str_into_fch(fchname2, 2)
   call read_dm_from_fch(fchname1, 2, nbf, dm)
-  call write_dm_into_fch(fchname2, nbf, .false., dm)
+  call write_dm_into_fch(fchname2, .false., nbf, dm)
  end if
  deallocate(dm)
 

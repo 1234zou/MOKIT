@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-28)'
+ write(6,'(A)') '           Version: 1.2.6rc15 (2023-Oct-10)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -324,6 +324,12 @@ subroutine check_sr_kywd_compatible()
  implicit none
  character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&
                                               &d_compatible: '
+ if(force .and. (.not.relaxed_dm)) then
+  write(6,'(/,A)') error_warn//'force v.s. unrelaxed density is'
+  write(6,'(A)') 'incompatible.'
+  stop
+ end if
+
  cc_enabled = (ccd .or. ccsd .or. ccsd_t)
 
  if(customized_core) then
@@ -346,11 +352,14 @@ subroutine check_sr_kywd_compatible()
    write(6,'(A)') 'not supported when CC_prog=ORCA.'
    stop
   end if
-  if(ccsd_t .and. (TRIM(cc_prog)=='orca' .or. TRIM(cc_prog)=='gaussian')) then
-   write(6,'(/,A)') error_warn//'CCSD(T) density is not'
-   write(6,'(A)') 'supported by Gaussian/ORCA. You may try CC_prog=Molpro or PS&
-                  &I4.'
-   stop
+  if(ccsd_t) then
+   select case(TRIM(cc_prog))
+   case('orca','gaussian','qchem')
+    write(6,'(/,A)') error_warn//'CCSD(T) density is not'
+    write(6,'(A)') 'supported by Gaussian/ORCA/Q-Chem. You may try CC_prog=Molp&
+                   &ro/PSI4.'
+    stop
+   end select
   end if
   if(cc_enabled .and. (.not. relaxed_dm) .and. TRIM(cc_prog)=='gaussian') then
    write(6,'(/,A)') error_warn//'CC unrelaxed density is'
@@ -375,11 +384,19 @@ subroutine check_sr_kywd_compatible()
     write(6,'(A)') 'using GAMESS, you can calculate relaxed density instead.'
     stop
    end if
-   if(noRI .and. TRIM(mp2_prog)=='pyscf' .and. (.not. relaxed_dm)) then
-    write(6,'(/,A)') error_warn//'MP2 unrelaxed density is not'
-    write(6,'(A)') 'supported MP2_prog=PySCF. You can use another MP2_prog. If&
-                   & you insist on'
-    write(6,'(A)') 'using PySCF, you need to turn on the RI approximation.'
+   if(noRI .and. TRIM(mp2_prog)=='pyscf' .and. relaxed_dm) then
+    write(6,'(/,A)') error_warn//'MP2 relaxed density is not'
+    write(6,'(A)') 'supported when MP2_prog=PySCF. You can use another MP2_prog&
+                   &. If you insist'
+    write(6,'(A)') 'on using PySCF, you need to turn on the RI approximation.'
+    stop
+   end if
+   if((.not.relaxed_dm) .and. TRIM(mp2_prog)=='qchem') then
+    write(6,'(/,A)') error_warn//'MP2 unrelaxed density is'
+    write(6,'(A)') 'not supported when MP2_prog=QChem. You can use another MP2_&
+                   &prog. If you'
+    write(6,'(A)') 'insist on using QChem, you can calculate the relaxed densit&
+                   &y instead.'
     stop
    end if
   end if
@@ -495,7 +512,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc14 :: MOKIT, release date: 2023-Sep-28'
+  write(6,'(A)') 'AutoSR 1.2.6rc15 :: MOKIT, release date: 2023-Oct-10'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -599,12 +616,12 @@ subroutine prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
 end subroutine prt_fc_info
 
 subroutine do_mp2()
- use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, bgchg, chgname, ref_e, corr_e,&
-  mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, core_wish, gau_path,&
-  psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, gen_no, no_fch,&
-  relaxed_dm, force
+ use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, uhf_based, bgchg, chgname, &
+  ref_e, corr_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, &
+  core_wish, gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path,&
+  gen_no, no_fch, relaxed_dm, force
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
-  fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap
+  fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap
  use mol, only: natom, grad
  implicit none
  integer :: i, RENAME, SYSTEM
@@ -623,6 +640,14 @@ subroutine do_mp2()
                    &CF cannot be run'
   write(6,'(A)') 'using frozen core. If you still want to use PySCF, you need t&
                  &o write FC=0 in mokit{}.'
+  stop
+ end if
+ if(gen_no .and. uhf_based .and. (.not.relaxed_dm) .and. TRIM(MP2_prog)=='psi4') then
+  write(6,'(/,A)') 'ERROR in subroutine do_mp2: UMP2 unrelaxed density is not s&
+                   &upported in PSI4'
+  write(6,'(A)') 'currently. You can either calculate the relaxed density, or c&
+                 &hange another MP2_prog.'
+  write(6,'(A)') 'For example, MP2_prog=ORCA.'
   stop
  end if
 
@@ -723,6 +748,21 @@ subroutine do_mp2()
   !    section.
   ! Considering these things, we call a subroutine to do the job.
   if(gen_no) call copy_dm_and_gen_no(no_fch, hf_fch, 5)
+ case('qchem')
+  inpname = hf_fch(1:i-1)//'_MP2.in'
+  old_inp = hf_fch(1:i-1)//'_MP2.0.FChk'
+  call fch2qchem_wrap(hf_fch, 0, inpname)
+  call prt_posthf_qchem_inp(inpname, .false.)
+  call submit_qchem_job(inpname, nproc)
+  call read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
+  call delete_file('junk')
+  call delete_file('pathtable')
+  call delete_file(TRIM(old_inp))
+  if(gen_no) then
+   mklname = hf_fch(1:i-1)//'_MP2.FChk'
+   i = RENAME(TRIM(mklname), TRIM(no_fch))
+   call copy_dm_and_gen_no(no_fch, hf_fch, 1)
+  end if
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//TRIM(mp2_prog)
   stop
@@ -765,9 +805,9 @@ subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, cc_enabled, bgchg, hf_fch,&
   chgname, cc_prog, method, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, chem_core,&
   ecp_core, customized_core, core_wish, RI, gau_path, orca_path, psi4_path, &
-  gms_path, gms_scr_path, check_gms_path, gen_no, no_fch, force
+  gms_path, gms_scr_path, check_gms_path, gen_no, relaxed_dm, no_fch, force
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
-  bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap
+  bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap
  use mol, only: natom, grad
  implicit none
  integer :: i, RENAME, SYSTEM
@@ -775,6 +815,7 @@ subroutine do_cc()
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: chkname, old_inp, inpname, mklname, outname, no_chk
+! character(len=480) :: qcscratch
 
  if(.not. cc_enabled) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
@@ -796,6 +837,15 @@ subroutine do_cc()
                   & write FC=0 in mokit{}.'
    stop
   end select
+ end if
+ if(gen_no .and. (.not.relaxed_dm) .and. RI .and. ccsd_t .and. &
+    TRIM(CC_prog)=='psi4') then
+  write(6,'(/,A)') 'ERROR in subroutine do_cc: DF-CCSD(T) unrelaxed density is &
+                   &not supported in'
+  write(6,'(A)') 'PSI4 currently. You can either calculate the relaxed density,&
+                 & or change another'
+  write(6,'(A)') 'CC_prog. For example, CC_prog=Molpro.'
+  stop
  end if
 
  method0 = method
@@ -821,7 +871,10 @@ subroutine do_cc()
   call prt_posthf_gau_inp(inpname, .false.)
   call submit_gau_job(gau_path, inpname)
   call read_cc_e_from_gau_out(outname, t1diag, ref_e, e)
-  if(gen_no) call formchk(chkname, no_fch)
+  if(gen_no) then
+   call formchk(chkname, no_fch)
+   call copy_dm_and_gen_no(no_fch, hf_fch, 7)
+  end if
   call delete_file(TRIM(chkname))
  case('gamess')
   call check_gms_path()
@@ -879,6 +932,28 @@ subroutine do_cc()
   call delete_file('timer.dat')
   call delete_file(TRIM(old_inp))
   if(gen_no) call copy_dm_and_gen_no(no_fch, hf_fch, 7)
+ case('qchem')
+  inpname = hf_fch(1:i-1)//'_CC.in'
+  old_inp = hf_fch(1:i-1)//'_CC.0.FChk'
+  call fch2qchem_wrap(hf_fch, 0, inpname)
+  call prt_posthf_qchem_inp(inpname, .false.)
+  call submit_qchem_job(inpname, nproc)
+  call read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
+  call delete_file('junk')
+  call delete_file('pathtable')
+  call delete_file(TRIM(old_inp))
+  if(gen_no) then
+   mklname = hf_fch(1:i-1)//'_CC.FChk'
+   i = RENAME(TRIM(mklname), TRIM(no_fch))
+   call copy_dm_and_gen_no(no_fch, hf_fch, 1)
+  ! call copy_file(hf_fch, no_fch, .false.)
+  ! no_chk = hf_fch(1:i-1)//'_CC/54.0'
+  ! call getenv('QCSCRATCH', qcscratch)
+  ! call copy_bin_file(TRIM(qcscratch)//'/'//TRIM(no_chk), '54.0', .false.)
+  ! call transfer_dm_qchem2gau(no_fch)
+  ! call delete_file('54.0')
+  ! call gen_no_using_density_in_fch(no_fch, 1)
+  end if
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_cc: invalid CC_prog='//TRIM(cc_prog)
   stop
@@ -951,7 +1026,7 @@ subroutine do_eomcc()
   psi4_path, ex_elec_e
  use mol, only: ci_mult, fosc
  use util_wrapper, only: bas_fch2py_wrap, unfchk, fch2inp_wrap, fch2mkl_wrap, &
-  mkl2gbw, fch2psi_wrap
+  mkl2gbw, fch2psi_wrap, fch2qchem_wrap
  use phys_cons, only: au2ev
  implicit none
  integer :: i, RENAME, SYSTEM
@@ -974,7 +1049,8 @@ subroutine do_eomcc()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_pyscf_inp(inpname, .true.)
   call submit_pyscf_job(inpname)
-  call read_eomcc_e_from_pyscf_out(outname, (ip .or. ea), nstate, ex_elec_e, ci_mult, fosc)
+  call read_eomcc_e_from_pyscf_out(outname, (ip .or. ea), nstate, ex_elec_e, &
+                                   ci_mult, fosc)
  case('gaussian')
   inpname = hf_fch(1:i-1)//'_EOMCC.gjf'
   chkname = hf_fch(1:i-1)//'_EOMCC.chk'
@@ -1011,7 +1087,7 @@ subroutine do_eomcc()
   call submit_orca_job(orca_path, inpname)
   call read_eomcc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, &
                                   ci_mult, fosc)
- case('molpro')
+ !case('molpro')
  case('psi4')
   inpname = hf_fch(1:i-1)//'_EOMCC.inp'
   outname = hf_fch(1:i-1)//'_EOMCC.out'
@@ -1020,7 +1096,15 @@ subroutine do_eomcc()
   call prt_posthf_psi4_inp(inpname, .true.)
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_eomcc_e_from_psi4_out(outname, nstate, ex_elec_e, ci_mult, fosc)
+ case('qchem')
+  inpname = hf_fch(1:i-1)//'_EOMCC.in'
+  outname = hf_fch(1:i-1)//'_EOMCC.out'
+  call fch2qchem_wrap(hf_fch, 0, inpname)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  call prt_posthf_qchem_inp(inpname, .true.)
+  stop
  case default
+  write(6,'(/,A)') 'ERROR in subroutine do_eomcc: invalid EOM_prog='//TRIM(eom_prog)
   stop
  end select
 
@@ -1088,15 +1172,15 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
  if(mp2) then
   write(fid,'(A)',advance='no') 'MP2'
  else if(ccd) then
-  write(fid,'(A)',advance='no') 'CCD(SaveAmplitudes)'
+  write(fid,'(A)',advance='no') 'CCD'
  else if(ccsd) then
   if(excited) then
    if(eom) write(fid,'(A,I0,A)',advance='no') 'EOMCCSD(nstates=',nstate,')'
   else
-   write(fid,'(A)',advance='no') 'CCSD(T1diag,SaveAmplitudes)'
+   write(fid,'(A)',advance='no') 'CCSD(T1diag)'
   end if
  else if(ccsd_t) then
-  write(fid,'(A)',advance='no') 'CCSD(T,T1diag,SaveAmplitudes)'
+  write(fid,'(A)',advance='no') 'CCSD(T1diag,T)'
  end if
 
  write(fid,'(A)',advance='no') ' chkbasis nosymm guess=read geom=allcheck'
@@ -1107,7 +1191,7 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
   write(fid,'(A)',advance='no') ' int=nobasistransform'
  end if
 
- write(fid,'(A,I0,A)',advance='no') ' window=(',chem_core+1,',0)'
+ write(fid,'(A,I0,A)',advance='no') ' window(',chem_core+1,',0)'
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(gen_no) then
@@ -1670,6 +1754,71 @@ subroutine prt_posthf_gms_inp(inpname, excited)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_posthf_gms_inp
 
+! print post-HF keywords into a Q-Chem input(.in) file
+subroutine prt_posthf_qchem_inp(inpname, excited)
+ use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, RI, &
+  gen_no, relaxed_dm, basis
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: excited
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'method') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(mp2) then
+  if(RI) then
+   write(fid1,'(A)') 'method RIMP2'
+   write(fid1,'(A)') 'aux_basis rimp2-'//TRIM(basis)
+  else
+   write(fid1,'(A)') 'method MP2'
+  end if
+  if(gen_no) write(fid1,'(A)') 'jobtype force'
+ else if(cc_enabled) then
+  if(ccd) then
+   write(fid1,'(A)') 'method CCD'
+  else if(ccsd) then
+   write(fid1,'(A)') 'method CCSD'
+  else if(ccsd_t) then
+   write(fid1,'(A)') 'method CCSD(T)'
+  end if
+  if(gen_no) then
+   write(fid1,'(A)') 'cc_ref_prop true'
+   if(relaxed_dm) write(fid1,'(A)') 'cc_fullresponse true'
+  end if
+ end if
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:7) == 'mem_tot') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A,I0)') 'mem_total ', mem*1000 ! MB
+ i = min(2000, mem*200)
+ write(fid1,'(A,I0)') 'mem_static ', i ! MB
+ if(cc_enabled) write(fid1,'(A,I0)') 'cc_memory ', mem*1000-i
+ write(fid1,'(A,I0)') 'n_frozen_core ', chem_core
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine prt_posthf_qchem_inp
+
 subroutine read_mp2_e_from_gau_out(outname, ref_e, tot_e)
  implicit none
  integer :: i, fid
@@ -1919,6 +2068,44 @@ subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
  close(fid)
  read(buf(i+1:),*) mp2_e
 end subroutine read_mp2_e_from_psi4_out
+
+subroutine read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, mp2_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; mp2_e = 0d0
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:11)=='Total  MP2' .or. buf(2:13)=='Total  RIMP2' .or. &
+     buf(2:11)=='RI-MP2 COR') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "EEROR in subroutine read_mp2_e_from_qchem_out: MP2 energy k&
+                   &eywords not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) ref_e ! correlation energy here
+ read(fid,'(A)') buf
+ close(fid)
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) mp2_e
+ ref_e = mp2_e - ref_e
+end subroutine read_mp2_e_from_qchem_out
 
 subroutine read_cc_e_from_gau_out(outname, t1diag, ref_e, tot_e)
  implicit none
@@ -2382,12 +2569,12 @@ subroutine read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf, key) > 0) exit
+  if(INDEX(buf, key) > 0) exit
  end do ! for while
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cc_e_from_gms_out: key '"//key//"'"
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_gms_out: key '"//key//"'"
   write(6,'(A)') 'not found in file '//TRIM(outname)
   stop
  end if
@@ -2395,6 +2582,99 @@ subroutine read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
  i = index(buf, ':')
  read(buf(i+1:),*) tot_e
 end subroutine read_cc_e_from_gms_out
+
+subroutine read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, na, nb, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=10) :: key
+ character(len=10), parameter :: key0(3) = ['CCD total ','CCSD total','CCSD(T) to']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccd, ccsd, ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0;  tot_e = 0d0
+ if(ccd) then
+  key = key0(1)
+ else if(ccsd) then
+  key = key0(2)
+ else if(ccsd_t) then
+  key = key0(3)
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:8) == 'SCF ene') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_qchem_out: 'SCF ene' not&
+                   & found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) ref_e ! SCF energy
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:11) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_qchem_out: key '"//key//"'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) tot_e
+
+ if(.not. ccd) then ! read T1diag
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) t1diag
+  if(t1diag < 5d-3) then
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine read_cc_e_from_qchem_out: T1^2 in Q-&
+                  &Chem output file'
+   write(6,'(A)') 'has too few digits. This does not affect the electronic ener&
+                  &gy at all, but will'
+   write(6,'(A)') 'lead to inaccurate T1diag value. If you care about T1diag, y&
+                  &ou should use'
+   write(6,'(A)') 'another CC_prog.'
+   write(6,'(A)') REPEAT('-',79)
+  end if
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(2:10) == 'Alpha orb') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(20:),*) i, na
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:9) == 'Beta orb') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(20:),*) i, nb
+  t1diag = DSQRT(t1diag/DBLE(2*(na+nb)))
+ end if
+
+ close(fid)
+end subroutine read_cc_e_from_qchem_out
 
 subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, mult, fosc)
  implicit none

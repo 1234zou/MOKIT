@@ -3,7 +3,7 @@
 
 ! Current limitations:
 ! 1) not supported for GHF
-! 2) not supported for different basis set for the same element
+! 2) not supported for different basis sets for the same element
 
 program main
  use util_wrapper, only: formchk
@@ -58,19 +58,16 @@ end program main
 subroutine fch2qchem(fchname, npair)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4)
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer :: SYSTEM
+ integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4), SYSTEM
  integer, intent(in) :: npair
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: idx(:)
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
  character(len=240) :: proname, inpname, dirname
  character(len=240), intent(in) :: fchname
- real(kind=8), allocatable :: coeff(:,:)
+ real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
 
  call find_specified_suffix(fchname, '.fch', i)
@@ -131,7 +128,6 @@ subroutine fch2qchem(fchname, npair)
  write(fid,'(A)') 'scf_convergence 8'
  write(fid,'(A)') 'thresh 12'
  write(fid,'(A,1X,4I0)') 'purecart', (purecart(i),i=1,4)
- !write(fid,'(A)') 'symmetry off' ! warning: this is useless
  write(fid,'(A)') 'sym_ignore true'
  if(npair > 0) then
   write(fid,'(A)') 'correlation pp'
@@ -183,9 +179,8 @@ subroutine fch2qchem(fchname, npair)
  end do ! for i
 
  write(fid,'(A4,/,A)') '****','$end'
- deallocate(ielem, prim_per_shell, prim_exp, contr_coeff)
+ deallocate(ielem, prim_per_shell, prim_exp, contr_coeff, shell2atom_map)
  if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
- deallocate(shell2atom_map)
 
  if(ecp) then
   write(fid,'(/,A)') '$ecp'
@@ -234,30 +229,15 @@ subroutine fch2qchem(fchname, npair)
   nif1 = nif
  end if
 
- ! record the indices of d, f, g and h functions
- allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(coeff0(nbf,nif1), source=coeff)
+ allocate(idx(nbf))
+ call get_fch2qchem_permute_idx(sph, ncontr, shell_type, nbf, idx)
 
- if(sph) then
-  call read_mark_from_shltyp_sph(ncontr, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
-  ! adjust the order of 5d, 7f, etc. functions
-  call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                              f_mark, g_mark, h_mark, nbf, nif1, coeff)
- else
-  call read_mark_from_shltyp_cart(ncontr, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
-  ! adjust the order of 6d, 10f, etc. functions
-  call fch2qchem_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-                              f_mark, g_mark, h_mark, nbf, nif1, coeff)
- end if
+ forall(i=1:nif1, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
+ deallocate(shell_type, coeff0, idx)
 
- deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
- allocate(alpha_coeff(nbf,nif))
- alpha_coeff = coeff(:,1:nif)
- if(uhf) then
-  allocate(beta_coeff(nbf,nif))
-  beta_coeff = coeff(:,nif+1:2*nif)
- end if
+ allocate(alpha_coeff(nbf,nif), source=coeff(:,1:nif))
+ if(uhf) allocate(beta_coeff(nbf,nif), source=coeff(:,nif+1:2*nif))
  deallocate(coeff)
 
  call create_dir(proname)
@@ -311,102 +291,4 @@ subroutine fch2qchem(fchname, npair)
   end if
  end if
 end subroutine fch2qchem
-
-subroutine fch2qchem_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
-                                  f_mark, g_mark, h_mark, nbf, nif, coeff2)
- implicit none
- integer :: i
- integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf, nif
- integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
- real(kind=8), intent(inout) :: coeff2(nbf,nif)
-
- if(n6dmark==0 .and. n10fmark==0 .and. n15gmark==0 .and. n21hmark==0) return
-
- do i = 1, n6dmark, 1
-  call fch2qchem_permute_6d(nif, coeff2(d_mark(i):d_mark(i)+5,:))
- end do
- do i = 1, n10fmark, 1
-  call fch2qchem_permute_10f(nif, coeff2(f_mark(i):f_mark(i)+9,:))
- end do
- do i = 1, n15gmark, 1
-  call fch2qchem_permute_15g(nif, coeff2(g_mark(i):g_mark(i)+14,:))
- end do
- do i = 1, n21hmark, 1
-  call fch2qchem_permute_21h(nif, coeff2(h_mark(i):h_mark(i)+20,:))
- end do
-
-end subroutine fch2qchem_permute_cart
-
-subroutine fch2qchem_permute_6d(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(6) = [1, 4, 2, 5, 6, 3]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(6,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian d functions in Gaussian
-! To: the order of Cartesian d functions in QChem
-! 1  2  3  4  5  6
-! XX,YY,ZZ,XY,XZ,YZ
-! XX,XY,YY,XZ,YZ,ZZ
-
- allocate(coeff2(6,nif), source=coeff)
- forall(i = 1:6) coeff(i,:) = coeff2(order(i),:)
- deallocate(coeff2)
-end subroutine fch2qchem_permute_6d
-
-subroutine fch2qchem_permute_10f(nif,coeff)
- implicit none
- integer :: i
- integer, parameter :: order(10) = [1, 5, 4, 2, 6, 10, 9, 7, 8, 3]
- integer, intent(in) :: nif
- real(kind=8), intent(inout) :: coeff(10,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian f functions in Gaussian
-! To: the order of Cartesian f functions in Qchem
-! 1   2   3   4   5   6   7   8   9   10
-! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
-! XXX,XXY,XYY,YYY,XXZ,XYZ,YYZ,XZZ,YZZ,ZZZ
-
- allocate(coeff2(10,nif), source=coeff)
- forall(i = 1:10) coeff(i,:) = coeff2(order(i),:)
- deallocate(coeff2)
-end subroutine fch2qchem_permute_10f
-
-subroutine fch2qchem_permute_15g(nif,coeff)
- implicit none
- integer :: i
- integer, intent(in) :: nif
- integer, parameter :: order(15) = [15, 14, 12, 9, 5, 13, 11, 8, 4, 10, 7, 3, 6, 2, 1]
- real(kind=8), intent(inout) :: coeff(15,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian g functions in Gaussian
-! To: the order of Cartesian g functions in QChem
-! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
-! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
-! xxxx,xxxy,xxyy,xyyy,yyyy,xxxz,xxyz,xyyz,yyyz,xxzz,xyzz,yyzz,xzzz,yzzz,zzzz
-
- allocate(coeff2(15,nif), source=coeff)
- forall(i = 1:15) coeff(i,:) = coeff2(order(i),:)
- deallocate(coeff2)
-end subroutine fch2qchem_permute_15g
-
-subroutine fch2qchem_permute_21h(nif,coeff)
- implicit none
- integer :: i
- integer, intent(in) :: nif
- integer, parameter :: order(21) = [21, 20, 18, 15, 11, 6, 19, 17, 14, 10, 5, &
-                                    16, 13, 9, 4, 12, 8, 3, 7, 2, 1]
- real(kind=8), intent(inout) :: coeff(21,nif)
- real(kind=8), allocatable :: coeff2(:,:)
-! From: the order of Cartesian h functions in Gaussian
-! To: the order of Cartesian h functions in QChem
-! 1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
-! ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
-! xxxxx,xxxxy,xxxyy,xxyyy,xyyyy,yyyyy,xxxxz,xxxyz,xxyyz,xyyyz,yyyyz,xxxzz,xxyzz,xyyzz,yyyzz,xxzzz,xyzzz,yyzzz,xzzzz,yzzzz,zzzzz
-
- allocate(coeff2(21,nif), source=coeff)
- forall(i = 1:21) coeff(i,:) = coeff2(order(i),:)
- deallocate(coeff2)
-end subroutine fch2qchem_permute_21h
 

@@ -1,4 +1,4 @@
-MOKIT 1.2.6 (Sep 28, 2023)
+MOKIT 1.2.6 (Oct 10, 2023)
 ------------------------
 * add interfaces for MP2, CCSD, CCSD(T) NOs in autosr
 * remove ZORA related basis sets

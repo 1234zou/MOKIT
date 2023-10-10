@@ -453,3 +453,71 @@ subroutine read_hf_type_from_fch(fchname, hf_type)
  if(na /= nb) hf_type = 101 ! real ROHF, IOP(3/116=101)
 end subroutine read_hf_type_from_fch
 
+! transfer Q-Chem AO-based density matrix from file 54.0 to Gaussian .fch(k)
+! file
+subroutine transfer_dm_qchem2gau(fchname)
+ implicit none
+ integer :: nbf, nif
+ real(kind=8), allocatable :: dm(:,:)
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(dm(nbf,nbf))
+ call read_dm_from_54(nbf, dm)
+ call write_qchem_dm_into_fch(fchname, nbf, dm)
+ deallocate(dm)
+end subroutine transfer_dm_qchem2gau
+
+! read Q-Chem AO-based density matrix from file 54.0 (assuming it is in the
+!  current directory)
+subroutine read_dm_from_54(nbf, dm)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: dm(nbf,nbf)
+
+ open(newunit=fid,file='54.0',status='old',access='stream')
+ read(unit=fid,iostat=i) dm
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_qchem_dm_from_54: failed to read f&
+                   &ile 54.0'
+  stop
+ end if
+ dm = dm*2d0
+end subroutine read_dm_from_54
+
+! write Q-Chem AO-based density matrix to a specified Gaussian .fch(k) file
+subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
+ implicit none
+ integer :: i, j, ncontr
+ integer, intent(in) :: nbf
+ integer, allocatable :: shltyp(:), shl2atm(:)
+ integer, allocatable :: idx(:)
+ real(kind=8), intent(in) :: dm(nbf,nbf) ! in Q-Chem basis convention
+ real(kind=8), allocatable :: dm0(:,:)
+ character(len=240), intent(in) :: fchname
+ logical :: sph ! spherical harmonic or Cartesian-type basis functions
+
+ call check_sph(fchname, sph)
+
+ call read_ncontr_from_fch(fchname, ncontr)
+ allocate(shltyp(ncontr), shl2atm(ncontr))
+ call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)
+ deallocate(shl2atm)
+
+ allocate(idx(nbf))
+ call get_fch2qchem_permute_idx(sph, ncontr, shltyp, nbf, idx)
+ deallocate(shltyp)
+
+ ! the array idx contains Gaussian -> Qchem conversion relationship, here we
+ ! need the inverse relationship
+ allocate(dm0(nbf,nbf))
+ forall(i=1:nbf, j=1:nbf) dm0(idx(j),idx(i)) = dm(j,i)
+ deallocate(idx)
+
+ call write_dm_into_fch(fchname, .true., nbf, dm0)
+ deallocate(dm0)
+end subroutine write_qchem_dm_into_fch
+

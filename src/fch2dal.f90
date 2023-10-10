@@ -57,16 +57,15 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
 !  to that of Dalton
 subroutine fch2dal(fchname)
- use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
-  read_mark_from_shltyp_cart
+ use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, k, length, fid, fid1, nbf, nif, RENAME
+ integer :: i, j, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
- integer, allocatable :: shell_type(:), shell2atom_map(:)
+ integer, allocatable :: shell_type(:), shell2atom_map(:), idx(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- real(kind=8), allocatable :: coeff(:,:)
+ real(kind=8), allocatable :: coeff0(:,:), coeff(:,:), norm(:)
  character(len=24) :: data_string
  character(len=240) :: buf, dalfile, dalfile1
  character(len=240), intent(in) :: fchname
@@ -76,8 +75,8 @@ subroutine fch2dal(fchname)
  call check_uhf_in_fch(fchname, uhf)
  if(uhf) then
   write(6,'(/,A)') 'ERROR in subroutine fch2dal: UHF wave function not supported.'
-  write(6,'(A)') 'Because there is no UHF method in Dalton. You can compute&
-                 & ROHF instead.'
+  write(6,'(A)') 'Because there is no UHF method in Dalton. You can compute ROH&
+                 &F instead.'
   stop
  end if
 
@@ -119,19 +118,26 @@ subroutine fch2dal(fchname)
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
 
  ! adjust the order of d, f, etc. functions (share subroutines with fch2inporb)
+ allocate(idx(nbf))
+ forall(i = 1:nbf) idx(i) = i ! initialization
+ allocate(coeff0(nbf,nif), source=coeff)
  if(sph) then ! spherical harmonic
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
                                  n11hmark, d_mark, f_mark, g_mark, h_mark)
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                              f_mark, g_mark, h_mark, nbf, nif, coeff)
+                              f_mark, g_mark, h_mark, nbf, idx)
+  forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
  else ! Cartesian-type basis
+  allocate(norm(nbf), source=1d0)
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
   call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
-                               f_mark, g_mark, h_mark, nbf, nif, coeff)
+                               f_mark, g_mark, h_mark, nbf, idx, norm)
+  forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
+  deallocate(norm)
  end if
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, coeff0, idx)
 ! adjustment finished
- deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
 
  i = index(fchname, '.fch', back=.true.)
  dalfile = fchname(1:i-1)//'.dal'

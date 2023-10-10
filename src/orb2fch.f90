@@ -46,8 +46,7 @@ end program main
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine orb2fch(orbname, fchname, prt_no)
- use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
-                        read_mark_from_shltyp_cart
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1

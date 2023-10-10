@@ -201,7 +201,7 @@ subroutine gen_no_from_nso(fchname)
 
  dm = dm + dm_b ! total density
  deallocate(dm_b)
- call write_dm_into_fch(no_fch, nbf, .true., dm)
+ call write_dm_into_fch(no_fch, .true., nbf, dm)
 
  allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, S)

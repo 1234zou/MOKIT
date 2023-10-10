@@ -84,8 +84,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2inporb(fchname, prt_no, sph)
- use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
-  read_mark_from_shltyp_cart
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length, orbid
  integer :: nalpha, nbeta, nbf, nif
@@ -95,18 +94,17 @@ subroutine fch2inporb(fchname, prt_no, sph)
  integer(kind=4) :: getpid, hostnm
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), idx(:)
  character(len=8) :: hostname
  character(len=24) :: data_string
  character(len=240), intent(in) :: fchname
  character(len=240) :: orbfile   ! INPORB file of (Open)Molcas
- real(kind=8), allocatable :: coeff(:,:), occ_num(:)
+ real(kind=8), allocatable :: coeff(:,:), coeff0(:,:), norm(:), occ_num(:)
  logical :: uhf
  logical, intent(in) :: prt_no
  logical, intent(out) :: sph
 
  sph = .true. ! default value
- orbfile = ' '
 
  call read_na_and_nb_from_fch(fchname, nalpha, nbeta)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -164,19 +162,26 @@ subroutine fch2inporb(fchname, prt_no, sph)
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
 
  ! adjust the order of d, f, etc. functions
+ allocate(idx(nbf))
+ forall(i = 1:nbf) idx(i) = i ! initialization
+ allocate(coeff0(nbf,nif), source=coeff)
  if(sph) then
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
                                  n11hmark, d_mark, f_mark, g_mark, h_mark)
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                              f_mark, g_mark, h_mark, nbf, nif, coeff)
+                              f_mark, g_mark, h_mark, nbf, idx)
+  forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
  else
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
+  allocate(norm(nbf), source=1d0)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
-  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
-                               f_mark, g_mark, h_mark, nbf, nif, coeff)
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
+                               f_mark, g_mark, h_mark, nbf, idx, norm)
+  forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
+  deallocate(norm)
  end if
+ deallocate(d_mark, f_mark, g_mark, h_mark, coeff0, idx)
 ! adjustment finished
- deallocate(d_mark, f_mark, g_mark, h_mark)
 
 ! move the 2nd, 3rd, ... Zeta basis functions forward
  i = 0

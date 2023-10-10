@@ -955,7 +955,7 @@ subroutine read_cluster_e_from_out()
  deallocate(cluster_e)
  write(6,'(/,A,F18.8,A)') 'E_tot = ',e_tot,' a.u.'
 
- call write_dm_into_fch(fchname2, nbf, .true., den0)
+ call write_dm_into_fch(fchname2, .true., nbf, den0)
  deallocate(den0)
  call gen_no_using_density_in_fch(fchname2, 1) 
 end subroutine read_cluster_e_from_out

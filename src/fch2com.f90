@@ -59,8 +59,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2com(fchname)
- use fch_content, only: check_uhf_in_fch, read_mark_from_shltyp_sph, &
-  read_mark_from_shltyp_cart
+ use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, orbid
  integer :: nalpha, nbeta, nbf, nif, nbf0

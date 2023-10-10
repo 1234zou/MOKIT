@@ -6,7 +6,7 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  integer :: i, j, nbf, nif
  integer, intent(in) :: itype ! 1/2 for Total/Spin SCF Density
 !f2py intent(in) :: itype
- ! itype has values [1,10] in subroutine read_density_from_fch
+ ! itype has values [1,10] in subroutine read_dm_from_fch
  ! here I use itype=0 to stand for alpha/beta natural spin orbitals
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
@@ -523,14 +523,16 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
   write(fid,'(A,I0,A)') 'export MOLCAS_MEM=',mem,'Gb'
   write(fid,'(A)') 'export MOLCAS_NPROCS=1'
   write(fid,'(A,I0)') 'export OMP_NUM_THREADS=',nproc
+  write(buf,'(A,I0)') 'pymolcas -nt ', nproc
  else ! MPI version
   write(fid,'(A)') '#MPI'
   write(fid,'(A,I0)') 'export MOLCAS_MEM=',INT(DBLE(mem)*1d3/DBLE(nproc))
   write(fid,'(A,I0)') 'export MOLCAS_NPROCS=',nproc
   write(fid,'(A)') 'export OMP_NUM_THREADS=1'
+  write(buf,'(A,I0)') 'pymolcas -np ', nproc
  end if
 
- write(buf,'(A)') 'pymolcas '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
+ buf = TRIM(buf)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
  write(fid,'(A)') TRIM(buf)
  close(fid)

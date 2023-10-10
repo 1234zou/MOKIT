@@ -313,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc14 (2023-Sep-28)'
+  write(6,'(A)') '           Version: 1.2.6rc15 (2023-Oct-10)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -1091,13 +1091,14 @@ contains
 
   if(RI) then
    if(DKH2 .or. X2C) then
-    write(6,'(A)') error_warn//'currently RI cannot be applied in DKH2/X2C&
-                  & computations.'
+    write(6,'(/,A)') error_warn//'currently RI cannot be applied in DKH2/X2C co&
+                    &mputations.'
     stop
    end if
 
    if(.not. (casci .or. casscf)) then
-    write(6,'(A)') error_warn//'RI activated. But neither CASCI nor CASSCF is invoked.'
+    write(6,'(/,A)') error_warn//'RI activated. But neither CASCI nor CASSCF is&
+                    & invoked.'
     stop
    end if
    select case(cas_prog)
@@ -1113,30 +1114,30 @@ contains
 
   if(F12) then
    if(.not. RI) then
-    write(6,'(A)') error_warn//'F12 must be combined with RI. But RI is set'
+    write(6,'(/,A)') error_warn//'F12 must be combined with RI. But RI is set'
     write(6,'(A)') 'to be False. Impossible.'
     stop
    end if
    if(.not. (nevpt2 .or. mrcisd)) then
-    write(6,'(A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
+    write(6,'(/,A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
     write(6,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
     stop
    end if
    if(nevpt2) then
     if(nevpt2_prog /= 'orca') then
-     write(6,'(A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
+     write(6,'(/,A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
      write(6,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
      stop
     end if
     if(.not. FIC) then
-     write(6,'(A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
+     write(6,'(/,A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
      write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
                      & keyword FIC in mokit{}.'
      stop
     end if
    end if
    if(mrcisd .and. mrcisd_prog/='molpro') then
-    write(6,'(A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
+    write(6,'(/,A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
     write(6,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
     stop
    end if

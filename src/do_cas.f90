@@ -132,7 +132,7 @@ subroutine do_cas(scf)
                  &rence methods, e.g.'
   write(6,'(A)') 'MP2, CCSD(T). Thus no need for multi-reference computation. B&
                  &ut if you still want'
-  write(6,'(A)') 'to do it, you can manually specify the size of acitve space i&
+  write(6,'(A)') 'to do it, you can manually specify the size of active space i&
                  &n .gjf file. For ex-'
   write(6,'(A)') 'ample, CASSCF(4,4) for water(H2O), or CASSCF(8,8) for methane&
                  &(CH4). The maximum'
@@ -1763,6 +1763,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mr_keyword, only: mem, nproc, casscf, dkh2_or_x2c, RI, maxM, hardwfn, &
   crazywfn
  implicit none
+ integer :: i
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
 
@@ -1778,22 +1779,24 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(A)') ')'
   end if
-  write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
+  write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
   write(fid,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
   write(fid,'(A)') 'mc.natorb = True'
  else ! DMRG-CASSCF
+  i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
   if(dkh2_or_x2c) then
    write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
   else
    write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
   end if
   write(fid,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
+  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
-  write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
+  write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
  end if
 
- write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
  write(fid,'(A)') 'mc.max_cycle = 200'
 end subroutine prt_gs_casscf_kywrd_py
 
@@ -1831,8 +1834,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(A)') ')'
   end if
-  write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
-  write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*200, ' # MB'
+  write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
   write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
   write(fid,'(2X,A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.true.)
@@ -1863,8 +1866,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(A)') ')'
   end if
-  write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
-  write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*200, ' # MB'
+  write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
   write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
   write(fid,'(2X,A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb, hardwfn,crazywfn,.true.)
@@ -1895,8 +1898,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(A)') ')'
   end if
-  write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
-  write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*200, ' # MB'
+  write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
   write(fid,'(A)') 'mc.fcisolver.nroots = nroots'
   write(fid,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
@@ -1914,6 +1917,7 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
  use mr_keyword, only: dmrgscf, dkh2_or_x2c, iroot, RI, mem, casci, hardwfn, &
   crazywfn, maxM, nproc
  implicit none
+ integer :: i
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
  logical, intent(in) :: natorb
@@ -1936,15 +1940,17 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
   else
    write(fid,'(A)') ')'
   end if
-  write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
   if(casci) then ! CASCI
-   write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*200, ' # MB'
+   write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+   write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
    write(fid,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
    call prt_hard_or_crazy_casci_pyscf(fid,nacta-nactb,hardwfn,crazywfn,.false.)
    write(fid,'(A)') 'mc.natorb = True'
   else           ! DMRG-CASCI
+   i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
+   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
    write(fid,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
-   write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
+   write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
   end if
  end if
 

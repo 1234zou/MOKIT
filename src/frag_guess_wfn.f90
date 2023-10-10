@@ -600,9 +600,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                          frags(i)%e, frags(i)%ssquare)
   write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
                                    ', frags(i)%ssquare=', frags(i)%ssquare
-  write(6,'(/,A)') 'If you are performing a GKS-EDA calculation using DFT or a &
-                   &LMO-EDA calculation'
-  write(6,'(A)') "using HF, then the following energy should be close to 'TOTAL&
+  write(6,'(/,A)') 'If you are performing a GKS-EDA calculation using DFT (or a&
+                   & LMO-EDA calculation'
+  write(6,'(A)') "using HF), then the following energy should be close to 'TOTAL&
                  & INTERACTION ENERGY'"
   write(6,'(A)') "of 'OWN BASIS SET' section in GAMESS output:"
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(1:nfrag0)%e))*au2kcal, ' kcal/mol'
@@ -612,7 +612,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   write(6,'(A)') "'ALL BASIS SET' section in GAMESS output:"
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(nfrag0+1:2*nfrag0)%e))*au2kcal,&
                        ' kcal/mol'
-
+  write(6,'(/,A)') 'If the deviations are too large, probably something is wrong. '
  case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
          ! total SCF density
   call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(1:2)%pos, &
@@ -1178,6 +1178,9 @@ subroutine gen_inp_of_frags()
  end if
 
  write(6,'(A)') REPEAT('-',79)
+ write(6,'(/,A)') "If you still find SCF convergence failure in .gms file, you &
+                 &can modify 'DIIS=.F. SOSCF=.T.'"
+ write(6,'(A)') "to 'DIIS=.T. SOSCF=.F.' in .inp file."
 end subroutine gen_inp_of_frags
 
 ! copy content of a provided .inp file and modify it to be SAPT job
@@ -2123,7 +2126,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
   call read_dm_from_fch(fchname(i), 1, nbf, dm1)
   dm = dm + dm1
  end do ! for i
- call write_dm_into_fch(fchname(n+1), nbf, .true., dm)
+ call write_dm_into_fch(fchname(n+1), .true., nbf, dm)
 
  allocate(has_spin_density(n))
  has_spin_density = .false.
@@ -2144,7 +2147,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
 
  if(ANY(has_spin_density .eqv. .true.)) then
   if(alive) then
-   call write_dm_into_fch(fchname(n+1), nbf, .false., dm)
+   call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
   else ! no Spin SCF Density in the total system .fch file
    write(6,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: so&
                   &me fragment has UHF-type wave'
@@ -2153,7 +2156,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
    stop
   end if
  else ! all fragments has RHF-type wave function
-  if(alive) call write_dm_into_fch(fchname(n+1), nbf, .false., dm)
+  if(alive) call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
  end if
 
  deallocate(fchname, dm, dm1, has_spin_density)
