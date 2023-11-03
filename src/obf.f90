@@ -601,7 +601,7 @@ subroutine gen_permute_fch()
  real(kind=8), allocatable :: mo(:,:), mo1(:,:)
 
  proname = ' '; new_fch = ' '
- i = index(fchname,'.fch', back=.true.)
+ i = INDEX(fchname,'.fch', back=.true.)
  proname = fchname(1:i-1)
 
  allocate(mo(nbf,nif), mo1(nbf,nif))
@@ -878,7 +878,7 @@ subroutine gen_automr_gjf_and_submit(calc_no)
  character(len=240) :: proname, gjfname, new_fch
  logical, intent(in) :: calc_no
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  proname = fchname(1:i-1)
 
  do i = 1, n_tot, 1
@@ -916,7 +916,7 @@ subroutine read_cluster_e_from_out()
  allocate(den0(nbf,nbf), source=0d0)
  allocate(den1(nbf,nbf), source=0d0)
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  proname = fchname(1:i-1)
  fchname2 = fchname(1:i-1)//'_NO.fch'
  call copy_file(fchname, fchname2, .false.)
@@ -937,7 +937,7 @@ subroutine read_cluster_e_from_out()
                  & found at the end of "//TRIM(outname)
    stop
   end if
-  k = index(buf, '=')
+  k = INDEX(buf, '=')
   read(buf(k+1:),*) cluster_e(i)
 
   call read_dm_from_fch(fchname1, 1, nbf, den1)
@@ -945,7 +945,7 @@ subroutine read_cluster_e_from_out()
 
   longbuf = 'tar -zcf '//TRIM(proname1)//'.tar.gz '//TRIM(proname1)//'.* '//&
             TRIM(proname1)//'_* --remove-files'
-  k = system(longbuf)
+  k = SYSTEM(longbuf)
   if(k /= 0) write(6,'(A)') 'ERROR in subroutine read_cluster_e_from_out: faile&
                             &d to create package '//TRIM(proname1)//'.tar.gz'
  end do ! for i

@@ -28,20 +28,20 @@ subroutine read_noa_nob_from_gau_log(logname, nfc, nif_ex, noa, nob)
  end if
 
  read(fid,'(A)') buf
- i = index(buf, 'NFC=')
+ i = INDEX(buf, 'NFC=')
  read(buf(i+4:),*) nfc
 
  read(fid,'(A)') buf
  close(fid)
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) nif_ex
  buf(i:i) = ' '
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) noa
  buf(i:i) = ' '
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) nob
 end subroutine read_noa_nob_from_gau_log
 
@@ -115,8 +115,8 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:11)=='This state' .or. buf(2:7)=='SavETr' .or. LEN_TRIM(buf)==0) exit
-  i = index(buf,'->')
-  if(i == 0) i = index(buf,'<-') ! de-excitation
+  i = INDEX(buf,'->')
+  if(i == 0) i = INDEX(buf,'<-') ! de-excitation
   if(i == 0) then
    close(fid)
    write(6,'(A)') "ERROR in subroutine read_ex_coeff_from_gau_log: no '->'&
@@ -178,8 +178,8 @@ subroutine read_ex_coeff_from_gau_log2(logname, istate, nocc_a, nvir_a, nocc_b,&
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:11)=='This state' .or. LEN_TRIM(buf)==0) exit
-  i = index(buf,'->')
-  if(i == 0) i = index(buf,'<-') ! de-excitation
+  i = INDEX(buf,'->')
+  if(i == 0) i = INDEX(buf,'<-') ! de-excitation
   if(i == 0) then
    close(fid)
    write(6,'(A)') "ERROR in subroutine read_ex_coeff_from_gau_log2: no '->'&

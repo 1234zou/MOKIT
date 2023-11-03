@@ -171,7 +171,7 @@ subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
   forall(i = 1:npair) xhbond(i) = (.not.xhbond(i))
  end if
 
- i = index(datname, 'gvb', back=.true.)
+ i = INDEX(datname, 'gvb', back=.true.)
  write(inpname,'(A,I0,A)') datname(1:i+2), npair-npair2, '.inp'
  write(6,'(A)') 'Newly generated file: '//TRIM(inpname)
 
@@ -249,8 +249,8 @@ subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
  deallocate(coeff, ci_coeff2)
  ! Note that a new .dat file will be generated
 
- i = index(datname,'.dat', back=.true.)
- if(i == 0) i = index(datname,'.inp',back=.true.)
+ i = INDEX(datname,'.dat', back=.true.)
+ if(i == 0) i = INDEX(datname,'.inp',back=.true.)
  newdat = datname(1:i-1)//'_new.dat'
 
  call create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore+npair2,&
@@ -283,7 +283,7 @@ subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) nbf
  ! This is actually the number of Cartesian basis functions, but we just need
  ! this number, because MOs in .dat file are expressed in Cartesian basis
@@ -297,7 +297,7 @@ subroutine read_nbf_and_nif_from_gms(gmsname, nbf, nif)
 
  read(fid,'(A)') buf   ! skip one line
  read(fid,'(A)') buf
- i = index(buf, 'NORB  =')
+ i = INDEX(buf, 'NORB  =')
  read(buf(i+7:),*) nif
  close(fid)
 end subroutine read_nbf_and_nif_from_gms
@@ -317,8 +317,8 @@ subroutine chk_ci_coeff_in_dat(fname, alive)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  j = index(buf,'CICOEF(')
-  if(j == 0) j = index(buf,'cicoef(')
+  j = INDEX(buf,'CICOEF(')
+  if(j == 0) j = INDEX(buf,'cicoef(')
   if(j /= 0) exit
  end do
  close(fid)
@@ -352,7 +352,7 @@ subroutine read_natom_from_gms(gmsfile, natom)
   stop
  end if
 
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) natom
 end subroutine read_natom_from_gms
 
@@ -423,8 +423,8 @@ subroutine print_ci_coeff_into_dat(datname, npair, coeff, replace)
  buf = ' '; newdat = ' '
  call chk_ci_coeff_in_dat(datname, alive)
 
- i = index(datname,'.dat',.true.)
- if(i == 0) i = index(datname,'.inp',.true.)
+ i = INDEX(datname,'.dat',.true.)
+ if(i == 0) i = INDEX(datname,'.inp',.true.)
  newdat = datname(1:i-1)//'.t'
 
  open(newunit=fid1,file=TRIM(datname),status='old',position='rewind')
@@ -433,8 +433,8 @@ subroutine print_ci_coeff_into_dat(datname, npair, coeff, replace)
  if(alive) then
   do while(.true.)
    read(fid1,'(A)') buf
-   i = index(buf,'CICOEF')
-   if(i == 0) i = index(buf,'cicoef')
+   i = INDEX(buf,'CICOEF')
+   if(i == 0) i = INDEX(buf,'cicoef')
    if(i /= 0) exit
    write(fid2,'(A)') TRIM(buf)
   end do ! for while

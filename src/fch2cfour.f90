@@ -364,14 +364,13 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
    write(fid,'(A)',advance='no') 'RO'
   end if
  end if
- write(fid,'(2(A,I0))',advance='no') 'HF,SYM=OFF,CHARGE=', charge, &
-                                     ',MULTI=', mult
- if(.not. sph) write(fid,'(A)',advance='no') ',SPHERICAL=OFF'
+ write(fid,'(2(A,I0))') 'HF,SYM=OFF,CHARGE=', charge, ',MULTI=', mult
 
+ if(.not. sph) write(fid,'(A)') 'SPHERICAL=OFF'
  if(ecp) then
-  write(fid,'(A,/)') ',BASIS=SPECIAL,ECP=ON)'
+  write(fid,'(A,/)') 'BASIS=SPECIAL,ECP=ON)'
  else
-  write(fid,'(A,/)') ',BASIS=PVTZ)'
+  write(fid,'(A,/)') 'BASIS=PVTZ)'
  end if
 
  if(ecp) then

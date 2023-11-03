@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc15 :: MOKIT, release date: 2023-Oct-10'
+  write(6,'(A)') 'AutoMR 1.2.6rc16 :: MOKIT, release date: 2023-Nov-2'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -61,8 +61,8 @@ program main
   stop
  end select
 
- i = index(fname, '.gjf', back=.true.)
- j = index(fname, '.fch', back=.true.)
+ i = INDEX(fname, '.gjf', back=.true.)
+ j = INDEX(fname, '.fch', back=.true.)
  if(i/=0 .and. j/=0) then
   write(6,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys&
                      & detected in filename "//TRIM(fname)//'.'
@@ -115,7 +115,7 @@ end subroutine automr
 
 ! check if MOKIT_ROOT present. Set it if not present.
 subroutine check_mokit_root()
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: mokit_root
 
  write(6,'(/,A)') 'Checking MOKIT_ROOT ... '
@@ -123,9 +123,9 @@ subroutine check_mokit_root()
  call getenv('MOKIT_ROOT', mokit_root)
  if (len_trim(mokit_root) < 1) then
    ! assume we are under conda install
-   i = system("echo `get_mokit_loc.py` > ~/.mokitrc ")
-   !i = system("echo `get_mokit_loc.py` ")
-   !i = system('echo $MOKIT_ROOT')
+   i = SYSTEM("echo `get_mokit_loc.py` > ~/.mokitrc ")
+   !i = SYSTEM("echo `get_mokit_loc.py` ")
+   !i = SYSTEM('echo $MOKIT_ROOT')
    if(i /= 0) then
     write(6,'(/,A)') 'ERROR in subroutine check_mokit_root: '
     write(6,'(A)') '    fail to set MOKIT_ROOT for conda-installed MOKIT.'
@@ -145,7 +145,7 @@ subroutine get_paired_LMO()
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, pyname, chkname, outname, fchname
@@ -165,7 +165,7 @@ subroutine get_paired_LMO()
  write(6,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
                       ', Nskip_UNO=', nskip_uno
 
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
 
  if(mo_rhf) then
@@ -176,7 +176,7 @@ subroutine get_paired_LMO()
    write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection -> localiza&
                   &tion -> paring.'
    chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
-   i = system('bas_fch2py '//TRIM(hf_fch))
+   i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
    pyname = TRIM(proname)//'_proj_loc_pair.py'
    i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
    if(dkh2_or_x2c) call add_X2C_into_py(pyname)
@@ -195,7 +195,7 @@ subroutine get_paired_LMO()
   end if
 
   fchname = hf_fch(1:i-1)//'_uno.fch'
-  i = system('bas_fch2py '//TRIM(hf_fch))
+  i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
   if(ist == 1) then
    pyname = TRIM(proname)//'_uno_asrot.py'
    outname = TRIM(proname)//'_uno_asrot.out'
@@ -209,7 +209,7 @@ subroutine get_paired_LMO()
   call prt_uno_script_into_py(pyname)
 
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
   call submit_pyscf_job(pyname)
   call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
 
@@ -242,7 +242,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
 
  pyname1 = TRIM(pyname)//'.t'
  buf = ' '
- i = index(hf_fch, '.fch')
+ i = INDEX(hf_fch, '.fch')
  proj_fch = hf_fch(1:i-1)//'_proj.fch'
  chkname = hf_fch(1:i-1)//'_proj.chk' ! for PySCF STO-6G, not Gaussian .chk
 
@@ -310,7 +310,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
   write(fid2,'(A)') "mol2.basis = 'STO-6G'"
  end if
 
- write(fid2,'(A)') 'mol2.build()'
+ write(fid2,'(A)') 'mol2.build(parse_arg=False)'
  if(dkh2_or_x2c) then
   write(fid2,'(A)') 'mf2 = scf.RHF(mol2).x2c1e()'
  else
@@ -355,7 +355,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.t'
  buf = ' '
- i = index(hf_fch, '.fch')
+ i = INDEX(hf_fch, '.fch')
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
@@ -501,7 +501,7 @@ subroutine prt_uno_script_into_py(pyname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
@@ -579,7 +579,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  close(fid2)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
  assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
 
@@ -628,7 +628,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
 ! else
 !  write(fid1,'(A)') "mol2.basis = 'STO-6G'"
 ! end if
-! write(fid1,'(A)') 'mol2.build()'
+! write(fid1,'(A)') 'mol2.build(parse_arg=False)'
 ! write(fid1,'(A)') 'nshl = mol2.nbas'
 ! write(fid1,'(A)') 'ang = mol2._bas[:,1].copy()'
 ! write(fid1,'(A)') 'if(mol2.cart == True):'
@@ -688,7 +688,7 @@ subroutine do_minimal_basis_gvb()
  use mr_keyword, only: nproc, ist, npair_wish, gjfname, localm, hf_fch, mo_rhf,&
   nskip_uno, bgchg, inherit
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
  real(kind=8) :: gvb_mult     ! GVB spin mult
  real(kind=8), allocatable :: noon(:)
@@ -700,7 +700,7 @@ subroutine do_minimal_basis_gvb()
  i = (mult - 1)/2
  gvb_mult = DBLE(i*(i+1))
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  proname = gjfname(1:i-1)
  mbgjf = gjfname(1:i-1)//'_mb.gjf'
  mbout = gjfname(1:i-1)//'_mb.out'
@@ -727,7 +727,7 @@ subroutine do_minimal_basis_gvb()
  buf = 'tar -zcf '//TRIM(proname)//'_minb.tar.gz '//TRIM(proname)//&
        '_mb* --remove-files'
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
 
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compress&
@@ -738,7 +738,7 @@ subroutine do_minimal_basis_gvb()
  ! decompress the gvb_nofch file
  buf = 'tar -zxf '//TRIM(proname)//'_minb.tar.gz '//TRIM(gvb_nofch)
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
 
  write(6,'(A)') 'GVB/STO-6G finished. Rotate MOs at target basis to resemble&
                & GVB/STO-6G orbitals...'
@@ -812,8 +812,8 @@ subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
 
  if(inherit) then
   if(npair > 0) write(fid2,'(A,I0,A)',advance='no') '(',npair,')'
-  i = index(buf,'/')
-  j = index(buf(i+1:),' ')
+  i = INDEX(buf,'/')
+  j = INDEX(buf(i+1:),' ')
   buf = '/STO-6G'//buf(i+j:)
   write(fid2,'(A,//,A)',advance='no') TRIM(buf),'mokit{LocalM='//TRIM(localm)
   if(nskip_uno > 0) then
@@ -844,11 +844,11 @@ end subroutine prt_automr_mb_gvb_gjf
 ! search the _mb_*s.fch filename
 subroutine find_mb_gvb_nofch(proname, gvb_nofch)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  character(len=240), intent(in) :: proname
  character(len=240), intent(out) :: gvb_nofch
 
- i = system('ls '//TRIM(proname)//'_mb_*s.fch >mb.txt')
+ i = SYSTEM('ls '//TRIM(proname)//'_mb_*s.fch >mb.txt')
  open(newunit=fid,file='mb.txt',status='old',position='rewind')
  read(fid,'(A)') gvb_nofch
  close(fid,status='delete')
@@ -880,14 +880,14 @@ subroutine read_hf_and_gvb_e_from_automr_out(outname, e, uhf_s2)
  end if
 
  if(buf(1:6) == 'E(RHF)') then
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) e(1)
   read(fid,'(A)') buf ! read E(UHF) line
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) e(2)
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) uhf_s2
 
  do while(.true.)
@@ -904,7 +904,7 @@ subroutine read_hf_and_gvb_e_from_automr_out(outname, e, uhf_s2)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) e(3)
  close(fid)
 end subroutine read_hf_and_gvb_e_from_automr_out
@@ -936,15 +936,15 @@ subroutine read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
  read(fid,'(A)') buf
  close(fid)
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) ndb
  buf(i:i) = ' '
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) npair
  buf(i:i) = ' '
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) nopen
 end subroutine read_ndb_npair_nopen_from_automr_out
 
@@ -953,7 +953,7 @@ subroutine gen_fch_from_gjf(gjfname, hf_fch)
  use util_wrapper, only: formchk
  use mr_keyword, only: gau_path
  implicit none
- integer :: i, j, mult, fid1, fid2, system
+ integer :: i, j, mult, fid1, fid2, SYSTEM
  character(len=4) :: method
  character(len=240) :: buf, tmpchk, tmpgjf, tmpout
  character(len=240), intent(in) :: gjfname, hf_fch
@@ -977,8 +977,8 @@ subroutine gen_fch_from_gjf(gjfname, hf_fch)
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
- i = index(buf,' ')
- j = index(buf,'/')
+ i = INDEX(buf,' ')
+ j = INDEX(buf,'/')
  if(i > j) then
   write(6,'(A)') 'ERROR in subroutine gen_fch_from_gjf: wrong syntax in file '&
                   //TRIM(gjfname)
@@ -999,7 +999,7 @@ subroutine gen_fch_from_gjf(gjfname, hf_fch)
  close(fid1)
  close(fid2)
 
- i = system(TRIM(gau_path)//' '//TRIM(tmpgjf))
+ i = SYSTEM(TRIM(gau_path)//' '//TRIM(tmpgjf))
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine gen_fch_from_gjf: Gaussian 'ONLY'-type&
                   & job failed."
@@ -1049,11 +1049,11 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  call read_nbf_and_nif_from_fch(fchname1, nbf1, nif1)
  call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
 
- i = index(fchname1, '.fch', back=.true.)
+ i = INDEX(fchname1, '.fch', back=.true.)
  pyname = fchname1(1:i-1)//'.py0'
  pyname1 = fchname1(1:i-1)//'.py'
 
- i = index(fchname2, '.fch', back=.true.)
+ i = INDEX(fchname2, '.fch', back=.true.)
  pyname2 = fchname2(1:i-1)//'.py'
 
  open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
@@ -1088,7 +1088,7 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  end do ! for while
 
  close(fid2,status='delete')
- write(fid3,'(A)') 'mol2.build()'
+ write(fid3,'(A)') 'mol2.build(parse_arg=False)'
  write(fid3,'(/,A)') "nbf1, nif1 = read_nbf_and_nif_from_fch('"//TRIM(fchname1)//"')"
  write(fid3,'(A)') "nbf2, nif2 = read_nbf_and_nif_from_fch('"//TRIM(fchname2)//"')"
 

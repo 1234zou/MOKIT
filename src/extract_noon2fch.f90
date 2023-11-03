@@ -226,14 +226,14 @@ subroutine read_noon_from_dat(datname, nmo, noon, nopen, gau_order)
 
  k = 1
  if(index(buf,'CICOEF') /= 0) then
-  i = index(buf,'='); j = index(buf,',')
+  i = INDEX(buf,'='); j = INDEX(buf,',')
   read(buf(i+1:j-1),*) cicoeff(1)
   k = k + 1
  end if
 
  do i = k, npair, 1
   read(fid,'(A)') buf
-  j = index(buf,'='); m = index(buf,',')
+  j = INDEX(buf,'='); m = INDEX(buf,',')
   read(buf(j+1:m-1),*) cicoeff(i)
  end do ! for i
  close(fid)
@@ -363,7 +363,7 @@ subroutine read_noon_from_pyout(outname, nmo, noon)
   if(index(buf,'Natural occ') /= 0) exit
  end do ! for while
 
- j = index(buf,'['); k = index(buf,']')
+ j = INDEX(buf,'['); k = INDEX(buf,']')
  if(k == 0) then
   read(buf(j+1:),*) noon(1:6)
  else
@@ -374,7 +374,7 @@ subroutine read_noon_from_pyout(outname, nmo, noon)
   nline = nmo/6 - 1
   do i = 1, nline, 1
    read(fid,'(A)') buf
-   j = index(buf,']')  ! in case nmo is 6N
+   j = INDEX(buf,']')  ! in case nmo is 6N
    if(j == 0) j = LEN_TRIM(buf) + 1
    read(buf(1:j-1),*) noon(6*i+1 : 6*i+6)
   end do ! for i
@@ -382,7 +382,7 @@ subroutine read_noon_from_pyout(outname, nmo, noon)
   k = nmo - (nline+1)*6
   if(k > 0) then
    read(fid,'(A)') buf
-   j = index(buf,']')
+   j = INDEX(buf,']')
    read(buf(1:j-1),*) (noon(i), i=nmo-k+1, nmo)
   end if
  end if
@@ -417,7 +417,7 @@ subroutine read_noon_from_orca_out(outname, nmo, noon)
  end if
  close(fid)
 
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) (noon(i),i=1,nmo)
 end subroutine read_noon_from_orca_out
 
@@ -458,8 +458,8 @@ subroutine read_noon_from_psi4_out(outname, nmo, noon)
 
  if(nmo - 3*nline > 0) then
   read(fid,'(A)') buf
-  i = index(buf,'A'); buf(i:i) = ' '
-  i = index(buf,'A')
+  i = INDEX(buf,'A'); buf(i:i) = ' '
+  i = INDEX(buf,'A')
   if(i > 0) buf(i:i) = ' '
   read(buf,*) noon(3*nline+1:nmo)
  end if
@@ -522,7 +522,7 @@ subroutine read_nfocc_nif_from_qchem_gvb_out(outname, nfocc, nif)
  end if
 
  read(buf(8:),*) ndb
- i = index(buf,',')
+ i = INDEX(buf,',')
  read(buf(i+1:),*) npair
  read(fid,*) nvir
  close(fid)

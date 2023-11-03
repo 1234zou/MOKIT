@@ -8,7 +8,7 @@ program main
  integer :: i
  character(len=4) :: str
  character(len=240) :: fname
- ! fname: input file contains basis sets and Cartesian coordinates in GAMESS format
+ ! input file contains basis sets and Cartesian coordinates in GAMESS format
  logical :: spherical
 
  i = iargc()
@@ -32,7 +32,6 @@ program main
    write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
-
  end if
 
  call bas_gms2molpro(fname, spherical)
@@ -42,11 +41,10 @@ end program main
 subroutine bas_gms2molpro(fort7, spherical)
  use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
- integer :: i, nline, rc, rel, charge, mult, fid1, fid2
+ integer :: i, nb, nline, rc, rel, charge, mult, fid1, fid2
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
- character(len=240) :: buf, input ! input is the Molpro .com file
- character(len=240) :: orbfile, orbfile2 ! Molpro MOs, plain text file
+ character(len=240) :: buf, input, orbfile, orbfile2
  character(len=1) :: stype
  logical, intent(in) :: spherical
  logical :: uhf, ghf, X2C
@@ -67,11 +65,15 @@ subroutine bas_gms2molpro(fort7, spherical)
  call convert2molpro_fname(orbfile, '.a')
  call convert2molpro_fname(orbfile2, '.b')
 
+ ! read the number of beta electrons from a GAMESS .inp file
+ call read_nb_from_gms_inp(fort7, nb)
+
+ ! read the number of atoms from a GAMESS .inp file
  call read_natom_from_gms_inp(fort7, natom)
+
  allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))
  call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
- deallocate(ghost)
- ! ram cannot be deallocated here since subroutine prt_prim_gau_molpro will use it
+ deallocate(ram, ghost)
 
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
@@ -105,8 +107,8 @@ subroutine bas_gms2molpro(fort7, spherical)
  end do ! for while
 
  if(rc /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found&
-                   & in file '//TRIM(fort7)
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found &
+                   &in file '//TRIM(fort7)
   close(fid1)
   stop
  end if
@@ -121,7 +123,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  ! read and print basis set data
  do i = 1, natom, 1
   read(fid1,'(A)',iostat=rc) buf
-  ! 'buf' contains the element, ram and coordinates
+  ! 'buf' contains the element, atomic number and coordinates
   if(rc /= 0) exit
   write(fid2,'(A)') '! '//TRIM(elem(i))
 
@@ -141,13 +143,13 @@ subroutine bas_gms2molpro(fort7, spherical)
   call clear_prim_gau()
  end do ! for i
 
- deallocate(ram, ntimes, elem, all_ecp)
+ deallocate(ntimes, elem, all_ecp)
  close(fid1)
 
  if(rc /= 0) then
-  write(6,'(A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA'&
-                   & has no corresponding '$END'."
-  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
+  write(6,'(/,A)') "ERROR in subroutine bas_gms2molpro: it seems the '$DATA' ha&
+                   &s no corresponding '$END'."
+  write(6,'(A)') 'Problematic file: '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if
@@ -156,7 +158,8 @@ subroutine bas_gms2molpro(fort7, spherical)
 
  call check_DKH_in_gms_inp(fort7, rel)
  if(rel>-1 .and. rel<2) then
-  write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not supported.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molpro: DKH0 or DKH1 not suppor&
+                   &ted.'
   write(6,'(A)') 'Please use DKH2 at least.'
   stop
  else if(rel > 1) then ! at least DKH2
@@ -176,13 +179,20 @@ subroutine bas_gms2molpro(fort7, spherical)
   write(fid2,'(A)') 'save,mo,2200.2,ORBITALS,ALPHA;'
   write(fid2,'(A)') 'read,mo,ORB,file='//TRIM(orbfile2)//';'
   write(fid2,'(A)') 'save,mo,2200.2,ORBITALS,BETA}'
-  write(fid2,'(A)') '{UHF;start,2200.2}'
+  write(fid2,'(A)',advance='no') '{UHF;start,2200.2'
  else
   write(fid2,'(A)') 'save,mo,2100.2,ORBITALS}'
-  write(fid2,'(A)') '{HF;start,2100.2}'
+  write(fid2,'(A)',advance='no') '{HF;start,2100.2'
  end if
  ! For Molpro <= 2019.2, only 'HF' is enough. But Molpro 2021 changes its
  ! default settings, we should use '{HF;start,2100.2}' now.
+
+ ! For Molpro 2015, the number of doubly occupied orbitals should be specified
+ ! for high-spin molecules
+ if(mult > 1) then
+  write(fid2,'(A,I0)',advance='no') ';closed,', nb
+ end if
+ write(fid2,'(A)') '}'
 
  write(fid2,'(A)',advance='no') '{put,xml'
  if(spherical) write(fid2,'(A)',advance='no') ';keepspherical'
@@ -247,6 +257,33 @@ subroutine prt_prim_gau_molpro(iatom, fid)
    end do ! for j
   end do ! for i
  end if
-
 end subroutine prt_prim_gau_molpro
+
+! read the number of atoms from a GAMESS .inp file
+subroutine read_nb_from_gms_inp(inpname, nb)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nb
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ nb = 0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'GAMESS inp') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_nb_from_gms_inp: failed to read nb&
+                   & from file '//TRIM(inpname)
+  stop
+ end if
+
+ i = INDEX(buf, 'nb=')
+ read(buf(i+3:),*) nb
+end subroutine read_nb_from_gms_inp
 

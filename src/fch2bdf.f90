@@ -48,9 +48,9 @@ program main
  call fch2bdf(fchname, prt_no)
  call fch2inp_wrap(fchname, .false., 0, 0)
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
- i = system('bas_gms2bdf '//TRIM(inpname))
+ i = SYSTEM('bas_gms2bdf '//TRIM(inpname))
 
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms2bdf.'
@@ -240,7 +240,7 @@ subroutine fch2bdf(fchname, prt_no)
 ! move done
 
 ! print MOs into BDF .scforb or .inporb
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  if(prt_no) then
   orbfile = fchname(1:i-1)//'_bdf.inporb'
  else

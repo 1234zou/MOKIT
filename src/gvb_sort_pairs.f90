@@ -64,8 +64,8 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  str1 = ' '
  str2 = ' '
  buf = ' '
- i = index(datname,'.dat')
- if(i == 0) i = index(datname,'.inp')
+ i = INDEX(datname,'.dat')
+ if(i == 0) i = INDEX(datname,'.inp')
  fname = datname(1:i-1)//'_s.dat'
 
  if(nocc+nopen+2*npair > nif) then
@@ -100,9 +100,9 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  allocate(pair_coeff(2,npair), source=0d0)
  do i = 1, npair, 1
   read(datid,'(A)') buf
-  k = index(buf,'=')
+  k = INDEX(buf,'=')
   read(buf(k+1:),*) pair_coeff(1,i)
-  k = index(buf,',')
+  k = INDEX(buf,',')
   read(buf(k+1:),*) pair_coeff(2,i)
  end do
  ! pair coefficients read done

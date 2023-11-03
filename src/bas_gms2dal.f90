@@ -51,7 +51,7 @@ subroutine bas_gms2dal(fort7, spherical)
  logical, allocatable :: ghost(:)
 
  buf = ' '   ! initialization
- i = index(fort7, '.', back=.true.)
+ i = INDEX(fort7, '.', back=.true.)
  dalfile = fort7(1:i-1)//'.dal'
  molfile = fort7(1:i-1)//'.mol'
 

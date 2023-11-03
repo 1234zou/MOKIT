@@ -41,11 +41,11 @@ subroutine do_mrcc()
   write(6,'(A)') '      3) FIC-MRCC is supported since ORCA 5.0. Do not use&
                   & any older version.'
   call check_exe_exist(orca_path)
-  i = system('fch2mkl '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2mkl '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   chkname = casnofch(1:i-1)//'_o.mkl'
   string  = casnofch(1:i-1)//'_o.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCC.mkl'
   inpname = casnofch(1:i)//'MRCC.inp'
   outname = casnofch(1:i)//'MRCC.out'
@@ -53,7 +53,7 @@ subroutine do_mrcc()
   i = RENAME(TRIM(string), TRIM(inpname))
   chkname = ' '
   call prt_mrcc_orca_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
@@ -247,7 +247,7 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
    stop
   end if
 
-  i = index(buf,'EC=')
+  i = INDEX(buf,'EC=')
   read(buf(i+3:),*) corr_e(1)
 
  case('gvb_bcci2b','gvb_bccc2b','gvb_bccc3b')
@@ -266,7 +266,7 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
    stop
   end if
 
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) ref_e
 
   ! find if any 'ERROR: amplitude iterations fail'
@@ -299,11 +299,11 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) corr_e(1) ! GVB-BCCCnb correlation energy
 
   read(fid,'(A)') buf
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) corr_e(2) ! GVB-BCCCnb total energy
   close(fid)
 
@@ -365,7 +365,7 @@ subroutine do_gvb_bccc()
   write(6,'(A)') REPEAT('-',79)
  end if
 
- i = index(datname, '_s.dat', back=.true.)
+ i = INDEX(datname, '_s.dat', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine do_gvb_bccc: '_s.dat' suffix not found&
                    & in filname "//TRIM(datname)
@@ -381,7 +381,7 @@ subroutine do_gvb_bccc()
   outname = datname(1:i-1)//'.out'
   fcidump = datname(1:i-1)//'.FCIDUMP'
   call copy_file(fchname1, fchname2, .false.)
-  i = system('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
+  i = SYSTEM('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
   i = 2*npair + nopen
   call prt_py_script_to_gen_fcidump(fchname2, i, i, mem, nproc)
   call submit_pyscf_job(pyname)
@@ -399,7 +399,7 @@ subroutine do_gvb_bccc()
   npair1 = npair + nopen
  end if
 
- i = index(datname, '_s.dat', back=.true.)
+ i = INDEX(datname, '_s.dat', back=.true.)
  inpname = datname(1:i-1)//'_bccc.input'
  outname = datname(1:i-1)//'_linbccc2b.out'
  ampname1 = datname(1:i-1)//'_linbccc2b.amp'
@@ -456,7 +456,7 @@ subroutine prt_py_script_to_gen_fcidump(fchname, nacto, nacte, mem, nproc)
  character(len=240) :: pyname
  character(len=240), intent(in) :: fchname
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  pyname = fchname(1:i-1)//'.py'
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
@@ -478,7 +478,7 @@ subroutine prt_py_script_loc_add_gen(fchname, ndb, npair, nopen)
  character(len=240), intent(in) :: fchname
 
  k = ndb + npair
- i = index(fchname, '_s.fch', back=.true.)
+ i = INDEX(fchname, '_s.fch', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine prt_py_script_loc_add_gen: no '_s.fch'&
                    & suffix found in"

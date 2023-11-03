@@ -64,12 +64,12 @@ subroutine do_mrpt3()
   write(6,'(A)') 'CASPT3 using program molpro'
   call check_exe_exist(molpro_path)
 
-  i = system('fch2com '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2com '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   pyname = casnofch(1:i-1)//'.com'
   string = casnofch
   call convert2molpro_fname(string, '.a')
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i-1)//'_CASPT3.com'
   outname = casnofch(1:i-1)//'_CASPT3.out'
   inporb = inpname
@@ -78,20 +78,20 @@ subroutine do_mrpt3()
   i = RENAME(TRIM(string), TRIM(inporb))
 
   call prt_mrpt_molpro_inp(inpname, 3) ! 1/2/3 for NEVPT2/CASPT2/CASPT3
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   write(string,'(2(A,I0),A)') TRIM(molpro_path)//' -n ',nproc,' -t 1 -m ',mem0, &
                            'm '//TRIM(inpname)
-  i = system(TRIM(string))
+  i = SYSTEM(TRIM(string))
 
  else ! FIC-NEVPT3
   write(6,'(A)') 'NEVPT3 using program bdf'
   call check_exe_exist(bdf_path)
 
-  i = system('fch2bdf '//TRIM(casnofch)//' -no')
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+  i = INDEX(casnofch, '.fch', back=.true.)
   inporb = casnofch(1:i-1)//'_bdf.inporb'
   string = casnofch(1:i-1)//'_bdf.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'NEVPT3.inporb'
   inpname = casnofch(1:i)//'NEVPT3.inp'
   outname = casnofch(1:i)//'NEVPT3.out'
@@ -99,10 +99,10 @@ subroutine do_mrpt3()
   i = RENAME(TRIM(string), TRIM(inpname))
 
   call prt_mrpt_bdf_inp(inpname, 3) ! 1/2/3 for SDSPT2/NEVPT2/NEVPT3
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = index(inpname, '.inp', back=.true.)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = INDEX(inpname, '.inp', back=.true.)
   string = inpname(1:i-1)
-  i = system(TRIM(bdf_path)//' '//TRIM(string))
+  i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
  end if
 
  if(i /= 0) then
@@ -172,7 +172,7 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
   stop
  end if
 
- i = index(buf,'ergy')
+ i = INDEX(buf,'ergy')
  read(buf(i+4:),*) ref_e
 
  do while(.true.)
@@ -188,7 +188,7 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
   stop
  end if
 
- i = index(buf,'ergy')
+ i = INDEX(buf,'ergy')
  read(buf(i+4:),*) corr2_e
  corr2_e = corr2_e - ref_e
 
@@ -205,7 +205,7 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
   stop
  end if
 
- i = index(buf,'ergy')
+ i = INDEX(buf,'ergy')
  read(buf(i+4:),*) corr3_e
  corr3_e = corr3_e - ref_e
 end subroutine read_caspt3_energy_from_molpro_out

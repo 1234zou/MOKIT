@@ -63,7 +63,7 @@ subroutine bas_gms2molcas(fort7, spherical)
 
  buf = ' '; input = ' ' ! initialization
 
- i = index(fort7, '.', back=.true.)
+ i = INDEX(fort7, '.', back=.true.)
  input = fort7(1:i-1)//'.input'
 
  call read_natom_from_gms_inp(fort7, natom)

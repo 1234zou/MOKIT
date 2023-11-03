@@ -23,7 +23,7 @@ subroutine do_gvb()
   stop
  end if
 
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
 
  ! In RHF virtual MO projection, it will generate a file uno.out additionally
@@ -123,14 +123,14 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  if(name_determined) then
   inpname = proname
-  i = index(inpname, '.inp', back=.true.)
+  i = INDEX(inpname, '.inp', back=.true.)
   datname = inpname(1:i-1)//'.dat'
   gmsname = inpname(1:i-1)//'.gms'
  else ! not determined
   if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
    write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
    write(6,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
+   i = SYSTEM(TRIM(buf))
    if(ist == 6) then
     write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
     write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
@@ -145,7 +145,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   else ! paired LMOs obtained from associated rotation of UNOs
    write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
    write(6,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
+   i = SYSTEM(TRIM(buf))
    write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
    write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
    write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
@@ -155,7 +155,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  call modify_memory_in_gms_inp(inpname, mem, nproc)
  call add_gvb_conv(inpname, GVB_conv)
- if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+ if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
  ! perform GVB with all doubly occupied orbitals frozen
 ! call add_frz2gms_inp(inpname)
@@ -183,7 +183,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
 
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
                   & gvb_sort_pairs.'
@@ -193,13 +193,13 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  end if
 
  ! generate corresponding .fch file from _s.dat file
- i = index(datname, '.dat')
+ i = INDEX(datname, '.dat')
  inpname = datname(1:i-1)//'_s.fch'
  datname = datname(1:i-1)//'_s.dat'
  call copy_file(pair_fch, inpname, .false.)
  write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
                              npair, ' -open ', nopen
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
                   & dat2fch.'
@@ -210,7 +210,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  ! extract NOONs from the above .dat file and print them into .fch file
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
                   & extract_noon2fch.'
@@ -262,7 +262,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  call fch2qchem_wrap(pair_fch, npair, inpname)
  ! Note: nopen is determined automatically in fch2qchem
 
- if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+ if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
  call modify_memory_in_qchem_inp(mem, inpname)
  call submit_qchem_job(inpname, nproc)
 
@@ -290,7 +290,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  ! copy NOONs from output file into fch file
  longbuf = 'extract_noon2fch '//TRIM(outname)//' '//TRIM(fchname)
  write(6,'(A)') '$'//TRIM(longbuf)
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: failed to call utility ex&
                    &tract_noon.'
@@ -350,11 +350,11 @@ subroutine do_gvb_gau(proname, pair_fch)
  datname = TRIM(buf)//'.dat'
  call unfchk(pair_fch, chkname)
  call prt_gvb_gau_inp(gjfname, mem, nproc, npair)
- if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(gjfname))
+ if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(gjfname))
 
  buf = TRIM(gau_path)//' '//TRIM(gjfname)
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: Gaussian GVB job failed.'
   write(6,'(A)') 'Please open file '//TRIM(logname)//' and check why.'
@@ -372,7 +372,7 @@ subroutine do_gvb_gau(proname, pair_fch)
   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
  end if
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
                   & fch2inp.'
@@ -395,7 +395,7 @@ subroutine do_gvb_gau(proname, pair_fch)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
  write(6,'(A)') '$'//TRIM(longbuf)
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
                   & gvb_sort_pairs.'
@@ -405,14 +405,14 @@ subroutine do_gvb_gau(proname, pair_fch)
  end if
 
  ! generate corresponding .fch file from _s.dat file
- i = index(datname, '.dat')
+ i = INDEX(datname, '.dat')
  inpname = datname(1:i-1)//'_s.fch'
  datname = datname(1:i-1)//'_s.dat'
  call copy_file(fchname, inpname, .false.)
  write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
                              npair, ' -open ', nopen
  write(6,'(A)') '$'//TRIM(longbuf)
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
                   & dat2fch.'
@@ -424,7 +424,7 @@ subroutine do_gvb_gau(proname, pair_fch)
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  write(6,'(A)') '$'//TRIM(longbuf)
- i = system(TRIM(longbuf))
+ i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
                    & extract_noon2fch.'
@@ -445,7 +445,7 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
@@ -586,10 +586,10 @@ subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  read(fid,'(A)') buf
  do i = 1, npair, 1
   read(fid,'(A)') buf
-  j = index(buf, '(')
+  j = INDEX(buf, '(')
   read(buf(19:j-1),*) coeff(1,i)
-  j = index(buf, ')')
-  k = index(buf, '(', back=.true.)
+  j = INDEX(buf, ')')
+  k = INDEX(buf, '(', back=.true.)
   read(buf(j+1:k-1),*) coeff(2,i)
  end do ! for i
 
@@ -627,7 +627,7 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
   close(fid1,status='delete')
   stop
  end if
- i = index(buf, '$END')
+ i = INDEX(buf, '$END')
  write(fid1,'(A)') buf(1:i-1)
 
  do i = 1, npair, 1
@@ -682,8 +682,8 @@ subroutine get_npair_from_inpname(inpname, npair)
  character(len=240), intent(in) :: inpname
 
  npair = 0
- i = index(inpname, 'gvb', back=.true.)
- j = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, 'gvb', back=.true.)
+ j = INDEX(inpname, '.inp', back=.true.)
  if(i==0 .or. j==0) then
   write(6,'(A)') 'ERROR in subroutine get_npair_from_inpname: invalid filename&
                  &='//TRIM(inpname)
@@ -714,7 +714,7 @@ subroutine add_gvb_conv(inpname, GVB_conv)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- i = index(buf, '$END')
+ i = INDEX(buf, '$END')
  if(i > 0) then
   buf = buf(1:i-1)//'CONV='//GVB_conv//' $END'
  else
@@ -722,7 +722,7 @@ subroutine add_gvb_conv(inpname, GVB_conv)
  end if
 
  if(LEN_TRIM(buf) > 79) then
-  i = index(buf(1:79), ' ', back=.true.)
+  i = INDEX(buf(1:79), ' ', back=.true.)
   write(fid1,'(A)') buf(1:i-1)
   write(fid1,'(A)') ' '//TRIM(buf(i+1:))
  else
@@ -747,7 +747,7 @@ subroutine add_frz2gms_inp(inpname)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'_f.inp'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
@@ -758,7 +758,7 @@ subroutine add_frz2gms_inp(inpname)
   if(buf(2:5) == '$SCF') exit
  end do ! for while
 
- i = index(buf, 'NCO')
+ i = INDEX(buf, 'NCO')
  if(i == 0) then
   close(fid)
   close(fid1, status='delete')

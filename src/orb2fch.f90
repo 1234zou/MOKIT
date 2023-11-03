@@ -22,10 +22,10 @@ program main
  end if
 
  fchname = ' '; orbname = ' '
- call getarg(1,orbname)
+ call getarg(1, orbname)
  call require_file_exist(orbname)
 
- call getarg(2,fchname)
+ call getarg(2, fchname)
  call require_file_exist(fchname)
 
  prt_no = .false.

@@ -43,7 +43,7 @@ subroutine align_orbitals(fname1,fname2, idx1, idx2)
  real(kind=8), allocatable :: diff(:)
  logical :: gau
 
- i = index(fname1, '.fch', back=.true.)
+ i = INDEX(fname1, '.fch', back=.true.)
  if(i /= 0) then
   gau = .true.
  else

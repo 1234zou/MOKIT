@@ -931,7 +931,7 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  deallocate(den, norm, idx)
 
  ! then we can write this density matrix into the given .fch(k) file
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')

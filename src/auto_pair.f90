@@ -296,25 +296,27 @@ end subroutine pair_by_dis2
 ! paired by maximizing the sum of orbital transition dipoles <i|r|j>**2
 subroutine pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole, new_coeff)
  implicit none
- integer ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
+ integer :: i
+ integer :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
 !f2py intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
- real(kind=8) coeff(nbf,nif), mo_dipole(3,nif,nif), new_coeff(nbf,nif)
+ real(kind=8) :: coeff(nbf,nif), mo_dipole(3,nif,nif), new_coeff(nbf,nif)
 !f2py intent(in,copy) :: coeff
-!f2py depend(nbf,nif) coeff
 !f2py intent(in) :: mo_dipole
-!f2py depend(nif) mo_dipole
 !f2py intent(out) :: new_coeff
-!f2py depend(nbf,nif) new_coeff
+!f2py depend(nbf,nif) :: coeff, new_coeff
+!f2py depend(nif) :: mo_dipole
 
- if(nalpha-nopen-ncore>=npair .and. nvir_lmo==npair) then
+ i = nalpha - nopen - ncore
+
+ if(i>=npair .and. nvir_lmo==npair) then
   call pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)
   new_coeff = coeff
- else if(nalpha-nopen-ncore==npair .and. nvir_lmo>npair) then
+ else if(i==npair .and. nvir_lmo>npair) then
   call pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, mo_dipole)
   new_coeff = coeff
  else
-  write(6,'(A,I4)') 'ERROR in subroutine pair_by_tdm: nalpha-nopen-ncore=', nalpha-nopen-ncore
-  write(6,'(A,I4,A,I4)') 'And nvir_lmo=', nvir_lmo, ', But npair=', npair
+  write(6,'(/,A,I0)') 'ERROR in subroutine pair_by_tdm: nalpha-nopen-ncore = ', i
+  write(6,'(2(A,I0))') 'And nvir_lmo = ', nvir_lmo, ', But npair = ', npair
   stop
  end if
 end subroutine pair_by_tdm

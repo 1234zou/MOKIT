@@ -206,9 +206,9 @@ module mr_keyword
  logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
  logical :: TDHF = .false.        ! True/False for CIS/TDHF
  logical :: sa_cas = .false.      ! State-Averaged CASSCF
- logical :: noQD = .false.
- ! True : multi-root CASCI-based NEVPT2 or CASPT2
- ! False: QD-NEVPT2 or (X)MS-CASPT2
+ logical :: QD = .false.
+ ! False: multi-root CASCI-based NEVPT2 or CASPT2
+ ! True : QD-NEVPT2 or (X)MS-CASPT2
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
@@ -247,7 +247,7 @@ contains
   implicit none
   integer :: i, fid, system
 
-  i = system("which pymolcas >mokit.pymolcas 2>&1")
+  i = SYSTEM("which pymolcas >mokit.pymolcas 2>&1")
   if(i /= 0) then
    molcas_path = 'mokit.pymolcas'
    call delete_file(TRIM(molcas_path))
@@ -278,10 +278,10 @@ contains
   character(len=240) :: buf
   character(len=240), intent(inout) :: path
 
-  i = index(path, '$')
+  i = INDEX(path, '$')
   if(i == 0) return
 
-  j = index(path(i+1:),'/')
+  j = INDEX(path(i+1:),'/')
   if(j == 0) then
    j = LEN_TRIM(path) + 1
   else
@@ -313,7 +313,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc15 (2023-Oct-10)'
+  write(6,'(A)') '           Version: 1.2.6rc16 (2023-Nov-2)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -371,7 +371,7 @@ contains
   end do ! for while
   close(fid)
 
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   gms_scr_path = buf(i+1:)
   call replace_env_in_path(gms_scr_path)
   write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
@@ -388,7 +388,7 @@ contains
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
   call read_mem_nproc_route(fid, mem, nproc, buf)
 
-  i = index(buf,'/')
+  i = INDEX(buf,'/')
   if(i == 0) then
    write(6,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected &
                   &in keyword line."
@@ -399,7 +399,7 @@ contains
   end if
   if(index(buf,'scan') > 0) rigid_scan = .true.
 
-  j = index(buf(1:i-1),' ', back=.true.)
+  j = INDEX(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
    write(6,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
    write(6,'(A)') "the current line '"//TRIM(buf)//"'"
@@ -407,7 +407,7 @@ contains
   end if
   method0 = buf(j+1:i-1)
 
-  i = index(method0, '('); j = index(method0, ','); k = index(method0, ')')
+  i = INDEX(method0, '('); j = INDEX(method0, ','); k = INDEX(method0, ')')
   alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
   if(.not. (alive(1) .or. alive(2)) ) then
    write(6,'(A)') 'ERROR in subroutine parse_keyword: incomplete method specified.'
@@ -536,7 +536,7 @@ contains
   case('gvb')
   end select
 
-  i = index(buf,'/')
+  i = INDEX(buf,'/')
   j = i - 1 + index(buf(i+1:),' ')
   if(j == 0) j = LEN_TRIM(buf)
   basis = buf(i+1:j)
@@ -568,7 +568,7 @@ contains
   if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
-  i = index(buf, 'guess=')
+  i = INDEX(buf, 'guess=')
   if(i > 0) then
    write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess=' syntax&
                  & not supported in automr."
@@ -576,10 +576,10 @@ contains
    stop
   end if
 
-  i = index(buf, 'guess(')
+  i = INDEX(buf, 'guess(')
   if(i > 0) then
    frag_guess = .true.
-   j = index(buf(i+6:),'='); k = index(buf(i+6:),')')
+   j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
    if(j*k == 0)then
     write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)'&
                   & syntax is wrong in file "//TRIM(gjfname)
@@ -601,7 +601,7 @@ contains
    stop
   end if
 
-  j = index(buf,'}')
+  j = INDEX(buf,'}')
   if(j==7 .or. (j>7 .and. LEN_TRIM(buf(7:j-1))==0)) then ! mokit{}
    close(fid)
    return
@@ -705,10 +705,10 @@ contains
   end if
 
   do while(.true.)
-   i = index(longbuf,',')
+   i = INDEX(longbuf,',')
    if(i == 0) i = LEN_TRIM(longbuf) + 1
 
-   j = index(longbuf(1:i-1),'=')
+   j = INDEX(longbuf(1:i-1),'=')
    if(j == 0) j = i   ! in case this keyword has no value assigned
 
    select case(longbuf(1:j-1))
@@ -832,8 +832,8 @@ contains
     eist = 1
    case('tdhf')
     TDHF = .true.
-   case('noqd')
-    noQD = .true.
+   case('qd')
+    QD = .true.
    case('fcgvb')
     fcgvb = .true.; c_fcgvb = .true.
    case('nofcgvb')
@@ -882,7 +882,7 @@ contains
    write(6,'(A79)') REPEAT('-',79)
 
    skiphf = .true.
-   i = index(hf_fch, '.fchk', back=.true.)
+   i = INDEX(hf_fch, '.fchk', back=.true.)
    if(i /= 0) then
     buf = hf_fch(1:i-1)//'.fch'
     call copy_file(hf_fch, buf, .false.)
@@ -978,7 +978,7 @@ contains
        'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
 
   write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
-       'Excited = ',excited, 'noQD    = ',   noQD, 'SOC     = ', SOC
+       'Excited = ',excited, 'QD      = ',     QD, 'SOC     = ', SOC
 
   write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
        rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
@@ -1143,8 +1143,14 @@ contains
    end if
   end if
 
-  alive(1) = (casci_prog=='gaussian' .or. casci_prog=='gamess' .or. casci_prog=='orca')
-  alive(2) = (casscf_prog=='gaussian' .or. casscf_prog=='gamess' .or. casscf_prog=='orca')
+  select case(TRIM(casci_prog))
+  case('gaussian','gamess','orca')
+   alive(1) = .true.
+  end select
+  select case(TRIM(casscf_prog))
+  case('gaussian','gamess','orca')
+   alive(2) = .true.
+  end select
   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(X2C .and. alive(3)) then
    write(6,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
@@ -1153,8 +1159,14 @@ contains
    stop
   end if
 
-  alive(1) = (casci_prog=='pyscf' .or. casci_prog=='bdf')
-  alive(2) = (casscf_prog=='pyscf' .or. casscf_prog=='bdf')
+  select case(TRIM(casci_prog))
+  case('pyscf','bdf')
+   alive(1) = .true.
+  end select
+  select case(TRIM(casscf_prog))
+  case('pyscf','bdf')
+   alive(2) = .true.
+  end select
   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(DKH2 .and. alive(3)) then
    write(6,'(/,A)') error_warn//'CASCI/CASSCF with DKH2 is not'
@@ -1254,7 +1266,7 @@ contains
    stop
   end if
 
-  if(CIonly .and. nevpt2_prog=='bdf') then
+  if(CIonly .and. TRIM(nevpt2_prog)=='bdf') then
    write(6,'(A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF program.'
    write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
    stop
@@ -1328,16 +1340,18 @@ contains
    select case(CtrType)
    case(1) ! uncontracted MRCISD
     if(mrcisd_prog == 'molpro') then
-     write(6,'(A)') error_warn
+     write(6,'(/,A)') error_warn
      write(6,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
      stop
     end if
-    if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='orca' .or. &
-        mrcisd_prog=='gamess') .and. X2C) then
-     write(6,'(A)') error_warn
-     write(6,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
-     stop
-    end if
+    select case(TRIM(mrcisd_prog))
+    case('gaussian','orca','gamess')
+     if(X2C) then
+      write(6,'(/,A)') error_warn
+      write(6,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
+      stop
+     end if
+    end select
    case(2) ! ic-MRCISD
     select case(TRIM(mrcisd_prog))
     case('openmolcas', 'molpro')
@@ -1368,15 +1382,17 @@ contains
     stop
    end select
 
-   if((mrcisd_prog=='gaussian' .or. mrcisd_prog=='psi4' .or. mrcisd_prog=='dalton'&
-       .or. mrcisd_prog=='gamess') .and. (CtrType/=1)) then
-    write(6,'(A)') error_warn
-    write(6,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
-    write(6,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
-    stop
-   end if
+   select case(TRIM(mrcisd_prog))
+   case('gaussian','psi4','dalton','gamess')
+    if(CtrType /= 1) then
+     write(6,'(A)') error_warn
+     write(6,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
+     write(6,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
+     stop
+    end if
+   end select
 
-   if(mrcisd_prog=='orca' .and. cart) then
+   if(TRIM(mrcisd_prog)=='orca' .and. cart) then
     write(6,'(A)') error_warn//'conflict settings.'
     write(6,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
                    & harmonic functions, but'
@@ -1386,11 +1402,13 @@ contains
    end if
   end if
 
-  if((casci_prog=='orca' .or. casscf_prog=='orca') .and. cart) then
+  if((TRIM(casci_prog)=='orca' .or. TRIM(casscf_prog)=='orca') .and. cart) then
    write(6,'(A)') error_warn
-   write(6,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports&
-                  & spherical harmonic functions, but Cart = True.'
-   write(6,'(A)') 'Use another program or provide a .fch file with spherical harmonic functions.'
+   write(6,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports &
+                  &spherical harmonic'
+   write(6,'(A)') 'functions, but Cart=True. Please use another program or prov&
+                  &ide a .fch file'
+   write(6,'(A)') 'with spherical harmonic functions.'
    stop
   end if
 
@@ -1433,9 +1451,15 @@ contains
    if(caspt2) caspt2_force = .true.
    if(nevpt2) nevpt2_force = .true.
    if(mcpdft) mcpdft_force = .true.
+   if(TRIM(casscf_prog) == 'psi4') then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Plea&
+                   &se use another CASSCF_prog.'
+    stop
+   end if
   end if
 
-  if(casscf_force .and. cart .and. casscf_prog=='pyscf') then
+  if(casscf_force .and. cart .and. TRIM(casscf_prog)=='pyscf') then
    write(6,'(A)') error_warn//"current version of PySCF can only compute force"
    write(6,'(A)') 'using spherical harmonic basis fucntions.'
    stop
@@ -1448,26 +1472,26 @@ contains
   end if
 
   if(nevpt2) then
-   if(DKH2 .and. (nevpt2_prog=='pyscf' .or. nevpt2_prog=='bdf')) then
+   if(DKH2 .and. (TRIM(nevpt2_prog)=='pyscf' .or. TRIM(nevpt2_prog)=='bdf')) then
     write(6,'(A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
     write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
     stop
-   else if(X2C .and. nevpt2_prog=='orca') then
+   else if(X2C .and. TRIM(nevpt2_prog)=='orca') then
     write(6,'(A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
     write(6,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
     stop
    end if
-   if(nevpt2_prog=='bdf' .and. bgchg) then
+   if(TRIM(nevpt2_prog)=='bdf' .and. bgchg) then
     write(6,'(A)') error_warn//'NEVPT2 with BDF program is incompatible with'
     write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
     stop
    end if
-   if(FIC .and. nevpt2_prog=='pyscf') then
+   if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then
     write(6,'(A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
     write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
     stop
    end if
-   if(RI .and. nevpt2_prog=='openmolcas') then
+   if(RI .and. TRIM(nevpt2_prog)=='openmolcas') then
     write(6,'(A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
     stop
    end if
@@ -1508,8 +1532,8 @@ contains
   integer :: i, j, k1, k2
   character(len=240), intent(inout) :: buf
 
-  k1 = index(buf,"'")
-  k2 = index(buf,"'",back=.true.)
+  k1 = INDEX(buf,"'")
+  k2 = INDEX(buf,"'",back=.true.)
 
   do i = 1, LEN_TRIM(buf), 1
    if(i>k1 .and. i<k2) cycle
@@ -1593,7 +1617,7 @@ contains
                          &s:', ptchg_e, ' a.u.'
   write(6,'(A)') 'This energy is taken into account for all energies below.'
 
-  i = index(gjfname, '.gjf', back=.true.)
+  i = INDEX(gjfname, '.gjf', back=.true.)
   chgname = gjfname(1:i-1)//'.chg'
   call write_charge_into_chg(nbgchg, bgcharge, chgname)
 
@@ -1644,7 +1668,7 @@ subroutine read_mem_nproc_route(fid, mem, nproc, buf)
   call lower(buf)
   if(buf(1:1) == '#') exit
   if(buf(1:5) == '%mem=') then
-   i = index(buf,'gb')
+   i = INDEX(buf,'gb')
    if(i == 0) then
     write(6,'(/,A)') warn_str//' memory unit only GB is accepted.'
     close(fid)
@@ -1652,7 +1676,7 @@ subroutine read_mem_nproc_route(fid, mem, nproc, buf)
    end if
    read(buf(6:i-1),*) mem
   else if(buf(1:6) == '%nproc') then
-   i = index(buf,'=')
+   i = INDEX(buf,'=')
    read(buf(i+1:),*) nproc
   else
    write(6,'(/,A)') warn_str//' only %mem and %nproc are allowed.'
@@ -1789,7 +1813,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
 
  case('cc-pwcvdz','cc-pwcvtz','cc-pwcvqz','cc-pwcv5z','aug-cc-pwcvdz',&
       'aug-cc-pwcvtz','aug-cc-pwcvqz','aug-cc-pwcv5z')
-  i = index(basis, 'wc')
+  i = INDEX(basis, 'wc')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+2:)
   if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
@@ -1804,14 +1828,14 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
 
  case('cc-pvdz-pp','cc-pvtz-pp','cc-pvqz-pp','aug-cc-pvdz-pp','aug-cc-pvtz-pp',&
       'aug-cc-pvqz-pp')
-  i = index(basis, '-pp')
+  i = INDEX(basis, '-pp')
   basis1 = basis(1:i-1)
   if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
 
  case('cc-pwcvdz-pp','cc-pwcvtz-pp','cc-pwcvqz-pp','aug-cc-pwcvdz-pp',&
       'aug-cc-pwcvtz-pp','aug-cc-pwcvqz-pp')
-  i = index(basis, 'wc'); j = index(basis, '-pp')
+  i = INDEX(basis, 'wc'); j = INDEX(basis, '-pp')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+2:j-1)
   if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
@@ -1819,7 +1843,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
 
  case('cc-pvdz-f12','cc-pvtz-f12','cc-pvqz-f12')
   if(RIJK_bas == 'NONE') then
-   i = index(basis, '-f12', back=.true.)
+   i = INDEX(basis, '-f12', back=.true.)
    RIJK_bas = basis(1:i-1)//'/JK'
   end if
   if(dyn .and. RIC_bas=='NONE') then
@@ -1835,7 +1859,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12) F12_cabs = TRIM(basis)//'-CABS'
 
  case('cc-pcvdz-f12','cc-pcvtz-f12','cc-pcvqz-f12')
-  i = index(basis, 'c'); j = index(basis, '-f12')
+  i = INDEX(basis, 'c'); j = INDEX(basis, '-f12')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+1:j-1)
   if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
@@ -1852,8 +1876,8 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12) F12_cabs = TRIM(basis1)//'-F12-CABS'
 
  case('cc-pvdz-pp-f12','cc-pvtz-pp-f12','cc-pvqz-pp-f12')
-  i = index(basis, '-pp')
-  j = index(basis, '-f12')
+  i = INDEX(basis, '-pp')
+  j = INDEX(basis, '-f12')
   if(RIJK_bas == 'NONE') RIJK_bas = basis(1:i-1)//'/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = basis(1:j-1)//'/C'
   if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
@@ -1911,7 +1935,7 @@ subroutine auxbas_convert(inbas, outbas, itype)
       'jun-cc-pv5z/jk')
   select case(itype)
   case(1) ! PySCF
-   i = index(inbas1, '/jk')
+   i = INDEX(inbas1, '/jk')
    outbas = inbas(1:i-1)//'-jkfit'
   case(2) ! Molpro
    outbas = TRIM(inbas)//'fit'
@@ -2059,7 +2083,7 @@ subroutine get_molpro_path(molpro_path)
  character(len=240), intent(out) :: molpro_path
 
  molpro_path = ' '
- i = system("which molpro >mokit.molpro 2>&1")
+ i = SYSTEM("which molpro >mokit.molpro 2>&1")
  if(i /= 0) then
   molpro_path = 'mokit.molpro'
   call delete_file(TRIM(molpro_path))
@@ -2092,7 +2116,7 @@ subroutine get_psi4_path(psi4_path)
  if(LEN_TRIM(psi4_path) > 0) return
  ! $PSI4 has higher priority than 'which psi4'
 
- i = system("which psi4 >mokit.psi4 2>&1")
+ i = SYSTEM("which psi4 >mokit.psi4 2>&1")
  open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
 
  read(fid,'(A)',iostat=i) psi4_path
@@ -2119,7 +2143,7 @@ subroutine get_orca_path(orca_path)
  ! on the current machine, the content 'which: no orca in...' will be printed
  ! into the automr output file, so I change it to the original version, simply
  ! which orca
- i = system("which orca >mokit.orca 2>&1")
+ i = SYSTEM("which orca >mokit.orca 2>&1")
 
  open(newunit=fid,file='mokit.orca',status='old',position='rewind')
  read(fid,'(A)',iostat=i) orca_path
@@ -2142,7 +2166,7 @@ subroutine get_dalton_path(dalton_path)
  character(len=240), intent(out) :: dalton_path
 
  dalton_path = ' '
- i = system("which dalton >mokit.dalton 2>&1")
+ i = SYSTEM("which dalton >mokit.dalton 2>&1")
 
  open(newunit=fid,file='mokit.dalton',status='old',position='rewind')
  read(fid,'(A)',iostat=i) dalton_path
@@ -2162,7 +2186,7 @@ end subroutine get_dalton_path
 ! check/detect OpenMolcas is OpenMP version or MPI version
 subroutine check_molcas_is_openmp(openmp)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  character(len=3) :: str
  character(len=10), parameter :: ftmp = 'molcas.ver'
  character(len=240) :: buf
@@ -2170,13 +2194,15 @@ subroutine check_molcas_is_openmp(openmp)
 
  str = ' '
  openmp = .true.
- i = system('pymolcas --banner >'//ftmp//" 2>&1")
+ i = SYSTEM('pymolcas --banner >'//ftmp//" 2>&1")
+
+ ! maybe OpenMolcas not installed, assume OpenMP version
  if(i /= 0) then
   call delete_file(TRIM(ftmp))
   return
  end if
- ! maybe OpenMolcas not installed, assume OpenMP version
 
+ ! OK, now it is installed
  open(newunit=fid,file=ftmp,status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -2187,7 +2213,7 @@ subroutine check_molcas_is_openmp(openmp)
  if(i /= 0) return 
  ! maybe 'bash: pymolcas: command not found', assume OpenMP version
 
- i = index(buf,':')
+ i = INDEX(buf,':')
  read(buf(i+1:),*) str
  close(fid,status='delete')
  str = ADJUSTL(str)

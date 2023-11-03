@@ -330,7 +330,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   mol = load_mol_from_fch(fchname)
   mol.basis = target_basis
   mol.cart = cart
-  mol.build()
+  mol.build(parse_arg=False)
 
   ihf = read_hf_type_from_fch(fchname)
   if ihf == 1:     # real RHF
@@ -442,12 +442,6 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
   # check the numeber of alpha electrons
   if trace_PS is True:
     dm = np.dot(coeff[:,:na], coeff[:,:na].transpose())
-    #SS = S[:,:,nfile-1]
-    #SP = np.dot(SS,dm)
-    #PSP = np.dot(dm, SP)
-    #dm_new = 3.0*PSP - 2.0*np.dot(PSP, SP) - dm
-    #dm_new = np.absolute(dm_new)
-    #print(dm_new.max())
     ne_a = np.trace(np.dot(dm,S[:,:,nfile-1]))
     print('No. alpha electrons: %.4f' %ne_a)
 
@@ -470,12 +464,6 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
     # check the numeber of beta electrons
     if trace_PS is True:
       dm = np.dot(coeff[:,:nb], coeff[:,:nb].transpose())
-      #SS = S[:,:,nfile-1]
-      #SP = np.dot(SS,dm)
-      #PSP = np.dot(dm, SP)
-      #dm_new = 3.0*PSP - 2.0*np.dot(PSP, SP) - dm
-      #dm_new = np.absolute(dm_new)
-      #print(dm_new.max())
       ne_b = np.trace(np.dot(dm,S[:,:,nfile-1]))
       print('No. beta electrons: %.4f' %ne_b)
 

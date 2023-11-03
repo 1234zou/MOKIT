@@ -488,6 +488,7 @@ pure function elem2nuc(s) result(i)
  end do ! for i
 end function elem2nuc
 
+! deallocate arays in module fch_content
 subroutine free_arrays_in_fch_content()
  implicit none
 
@@ -523,10 +524,8 @@ module r_5D_2_6D
 
 ! The transformation table (rd,rf,rg,rh) is originally copied from http://sobereva.com/97
  real(kind=8), parameter :: rd(6,5) = RESHAPE([-r1, -r1, 1d0, 0d0, 0d0, 0d0,&
-                                               0d0, 0d0, 0d0, 0d0, 1d0, 0d0,&
-                                               0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
-                                                r2, -r2, 0d0, 0d0, 0d0, 0d0,&
-                                               0d0, 0d0, 0d0, 1d0, 0d0, 0d0],[6,5])
+  0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, &
+   r2, -r2, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0], [6,5])
  real(kind=8), parameter :: &
   rf(10,7) = RESHAPE([0d0, 0d0, 1d0, 0d0, 0d0, -r3, 0d0, 0d0, -r3, 0d0,&
                       -r4, 0d0, 0d0, -r5, 0d0, 0d0,  r6, 0d0, 0d0, 0d0,&
@@ -566,15 +565,12 @@ subroutine find_irel_in_fch(fchname, irel)
  integer :: i, fid
  integer, intent(out) :: irel
 !f2py intent(out) :: irel
-! -3: X2C, i.e. sf-x2c1e
-! -2: RESC
-! -1: no relativity
-!  0: DKH 0th-order
-!  2: DKH2
-!  4: DKH4 with SO
+! -3: X2C, i.e. sf-x2c1e | -2: RESC
+! -1: no relativity      |  0: DKH 0th-order
+!  2: DKH2               |  4: DKH4 with SO
  character(len=61) :: buf
  character(len=240), intent(in) :: fchname
-!f2py intent(ib) :: fchname
+!f2py intent(in) :: fchname
  character(len=610) :: longbuf
  logical :: alive(7)
 
@@ -784,14 +780,14 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
    nbf = nbf + 21; j = j + 11
    shltyp(i) = 5
   case default
-   write(6,'(A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
+   write(6,'(/,A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
    write(6,'(A,3I5)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
    stop
   end select
  end do ! for i
 
  if(nbf/=nbf1 .or. j/=nbf0) then
-  write(6,'(A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
+  write(6,'(/,A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
   write(6,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
   stop
  end if
@@ -1037,6 +1033,7 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
  allocate(RNFroz(natom), source=0d0)
  read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
  close(fid)
+
  ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
 end subroutine calc_ncore
 

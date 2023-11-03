@@ -29,16 +29,16 @@ program main
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
 
  call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
 
  call check_sph(fchname, sph)
  if(sph) then
-  i = system('bas_gms2dal '//TRIM(inpname)//' -sph')
+  i = SYSTEM('bas_gms2dal '//TRIM(inpname)//' -sph')
  else
-  i = system('bas_gms2dal '//TRIM(inpname))
+  i = SYSTEM('bas_gms2dal '//TRIM(inpname))
  end if
 
  if(i /= 0) then
@@ -139,7 +139,7 @@ subroutine fch2dal(fchname)
  deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, coeff0, idx)
 ! adjustment finished
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  dalfile = fchname(1:i-1)//'.dal'
  dalfile1 = fchname(1:i-1)//'.dal1'
  open(newunit=fid,file=TRIM(dalfile),status='old',position='rewind')
@@ -175,4 +175,9 @@ subroutine fch2dal(fchname)
  close(fid1)
  i = RENAME(TRIM(dalfile1), TRIM(dalfile))
 end subroutine fch2dal
+
+! ultrafine in Dalton is
+!*DFT INPUT
+!.ULTRAF
+! which may be used in the future
 

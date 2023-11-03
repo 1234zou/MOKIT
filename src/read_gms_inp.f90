@@ -140,9 +140,9 @@ subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ec
  if(index(buf1,'UHF') > 0) uhf = .true.
  if(index(buf1,'GHF') > 0) ghf = .true.
 
- i = index(buf1,'ICHAR')
+ i = INDEX(buf1,'ICHAR')
  if(i > 0) read(buf1(i+7:),*) charge
- i = index(buf1,'MULT')
+ i = INDEX(buf1,'MULT')
  if(i > 0) read(buf1(i+5:),*) mult
 
  do while(.true.)
@@ -245,7 +245,7 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   call upper(buf)
-  j = index(buf,'$GUESS'); k = index(buf,'NORB=')
+  j = INDEX(buf,'$GUESS'); k = INDEX(buf,'NORB=')
   if(j/=0 .and. k/=0) then
    read(buf(k+5:),*) nif
    exit
@@ -274,7 +274,7 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
 
  ! read the Title Card line, find nbf in it
  read(fid,'(A)') buf
- i = index(buf,'nbf=')
+ i = INDEX(buf,'nbf=')
  if(i == 0) then ! if not found, set to nif
   nbf = nif
  else
@@ -375,19 +375,19 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
  read(fid,'(A)') buf
  close(fid)
 
- i = index(buf,'nbf=')
+ i = INDEX(buf,'nbf=')
  read(buf(i+4:),*) nbf
  buf(i-1:) = ' '
 
- i = index(buf,'nif=')
+ i = INDEX(buf,'nif=')
  read(buf(i+4:),*) nif
  buf(i-1:) = ' '
 
- i = index(buf,'nb=')
+ i = INDEX(buf,'nb=')
  read(buf(i+3:),*) nb
  buf(i-1:) = ' '
 
- i = index(buf,'na=')
+ i = INDEX(buf,'na=')
  read(buf(i+3:),*) na
 end subroutine read_na_nb_nif_nbf_from_gms_inp
 
@@ -425,7 +425,7 @@ subroutine read_all_ecp_from_gms_inp(inpname)
   if(index(buf,'NONE') /= 0) cycle
 
   all_ecp(i)%ecp = .true.
-  k = index(buf,'GEN')
+  k = INDEX(buf,'GEN')
   read(buf(k+3:),*) all_ecp(i)%core_e, m
   all_ecp(i)%highest = m
   allocate(all_ecp(i)%potential(m+1))
@@ -433,7 +433,7 @@ subroutine read_all_ecp_from_gms_inp(inpname)
   do j = 1, m+1, 1
    read(fid,'(A)') buf
    if(j == 1) then
-    k = index(buf,'ul')
+    k = INDEX(buf,'ul')
     if(k == 0) then
      write(6,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP does&
                     &not start with '-ul potential'."
@@ -839,7 +839,7 @@ subroutine read_npair_from_dat(datname, npair)
  BACKSPACE(fid)
  do while(.true.)
   read(fid,'(A)') buf
-  i = index(buf, 'CICOEF')
+  i = INDEX(buf, 'CICOEF')
   if(i > 0) npair = npair + 1
   if(index(buf,'END')>0 .or. index(buf,'VEC')>0) exit
  end do ! for while
@@ -861,8 +861,8 @@ subroutine read_ci_coeff_from_dat(fname, npair, coeff)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  j = index(buf,'CICOEF(')
-  if(j == 0) j = index(buf,'cicoef(')
+  j = INDEX(buf,'CICOEF(')
+  if(j == 0) j = INDEX(buf,'cicoef(')
   if(j /= 0) exit
  end do ! for while
 
@@ -876,8 +876,8 @@ subroutine read_ci_coeff_from_dat(fname, npair, coeff)
  BACKSPACE(fid)
  do i = 1, npair, 1
   read(fid,'(A)') buf
-  j = index(buf,'=')
-  k = index(buf,',')
+  j = INDEX(buf,'=')
+  k = INDEX(buf,',')
   read(buf(j+1:k-1),*) coeff(1,i)
   read(buf(k+1:),*) coeff(2,i)
  end do ! for i
@@ -898,8 +898,8 @@ subroutine write_mo_into_dat(datname, nbf, nif, coeff, replace)
  logical, intent(in) :: replace
 
  buf = ' '; newdat = ' '
- i = index(datname,'.dat',.true.)
- if(i == 0) i = index(datname,'.inp',.true.)
+ i = INDEX(datname,'.dat',.true.)
+ if(i == 0) i = INDEX(datname,'.inp',.true.)
  newdat = datname(1:i-1)//'_new.dat'
 
  open(newunit=fid1,file=TRIM(datname),status='old',position='rewind')

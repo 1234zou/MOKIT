@@ -48,7 +48,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
  real(kind=8), allocatable :: u(:,:), vt(:,:), ev(:)
  logical :: gau
 
- i = index(fname1, '.txt', back=.true.)
+ i = INDEX(fname1, '.txt', back=.true.)
  if(i /= 0) then ! Gaussian case
   gau = .true.
   call read_nbf_and_nif_from_fch(fname1, nbf, nif)

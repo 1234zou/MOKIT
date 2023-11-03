@@ -73,7 +73,7 @@ subroutine fch2wfn(fchname, read_no)
  logical :: uhf, sph
  logical, intent(in) :: read_no
 
- i = index(fchname,'.fch')
+ i = INDEX(fchname,'.fch')
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine fch2wfn: '.fch' key not found in file&
                     &name "//TRIM(fchname)

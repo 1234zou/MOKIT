@@ -21,7 +21,7 @@ OBJ_bas_gms2py = file_op.o string_manipulate.o read_gms_inp.o bas_gms2py.o
 OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o split_sp.o \
               bdf2fch.o
 OBJ_bdf2mkl = file_op.o bdf2mkl.o
-OBJ_chk2gbw = file_op.o util_wrapper.o chk2gbw.o
+OBJ_chk2gbw = file_op.o string_manipulate.o util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o split_sp.o dal2fch.o
 OBJ_dat2fch = file_op.o string_manipulate.o read_fch.o math_sub.o rwwfn.o split_sp.o \
               dat2fch.o
@@ -38,7 +38,7 @@ OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \
               read_fch.o split_sp.o fch2dal.o
 OBJ_fch2mkl = file_op.o string_manipulate.o read_fch.o util_wrapper.o read_mkl.o \
               fch2mkl.o
-OBJ_fch2gbw = file_op.o util_wrapper.o fch2gbw.o
+OBJ_fch2gbw = file_op.o string_manipulate.o util_wrapper.o fch2gbw.o
 OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o split_sp.o \
               fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rwwfn.o util_wrapper.o \

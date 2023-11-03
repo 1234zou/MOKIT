@@ -224,7 +224,7 @@ subroutine addH2singlet(fchname, gvb_no)
  allocate(mull_char(natom), source=0d0)
 
  ! create/generate a new .fch file
- i = index(fchname, '.fch')
+ i = INDEX(fchname, '.fch')
  new_fch = fchname(1:i-1)//'aH.fch'
  call write_fch(new_fch)
 end subroutine addH2singlet

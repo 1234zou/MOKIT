@@ -40,7 +40,7 @@ subroutine fch247(fchname)
  call check_uhf_in_fch(fchname, uhf)
  call read_fch(fchname, uhf)
 
- i = index(fchname, '.fch')
+ i = INDEX(fchname, '.fch')
  f47 = fchname(1:i-1)//'.47'
  open(newunit=fid,file=TRIM(f47),status='replace')
  write(fid,'(A,I0,A,I0)',advance='no') ' $GENNBO  NATOMS=',natom,'  NBAS=',nbf

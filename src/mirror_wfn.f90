@@ -1067,7 +1067,7 @@ subroutine mirror_c2c(chkname)
 !f2py intent(in) :: chkname
 
  call formchk(chkname)
- i = index(chkname, '.chk', back=.true.)
+ i = INDEX(chkname, '.chk', back=.true.)
  fchname1 = chkname(1:i-1)//'.fch'
  fchname2 = chkname(1:i-1)//'_m.fch'
  call mirror_wfn(fchname1)
@@ -1221,13 +1221,13 @@ subroutine calc_1d_lagrange_w(n, x, weight)
  end select
 
  ! if some x(i) is extremely close to x(n), set its weight as 1.0 and return
- do i = 1, n-1, 1
-  r = x(n) - x(i)
-  if(DABS(r) < diff) then
-   weight(i) = 1d0
-   return
-  end if
- end do ! for i
+! do i = 1, n-1, 1
+!  r = x(n) - x(i)
+!  if(DABS(r) < diff) then
+!   weight(i) = 1d0
+!   return
+!  end if
+! end do ! for i
 
  allocate(x_xi(n-1))
  forall(i = 1:n-1) x_xi(i) = x(n) - x(i)
@@ -1289,8 +1289,10 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
   u(:,:), vt(:,:), sv(:), sin_s(:,:), cos_s(:,:), u_sin_s(:,:), mo_ref_v(:,:), &
   weight(:)
 
- allocate(weight(nfile-1))
- call calc_1d_lagrange_w(nfile, x, weight)
+! allocate(weight(nfile-1))
+! call calc_1d_lagrange_w(nfile, x, weight)
+ allocate(weight(2:nfile-1))
+ call calc_1d_lagrange_w(nfile-1, x(2:), weight)
  write(6,'(/,A)') "Weights of Lagrange's interpolation:"
  write(6,'(5(1X,ES15.8))') weight
 
@@ -1301,8 +1303,9 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
  !  to 1.0 will usually make the result slightly better, for RHF/UHF.
  ! For ROHF, I find the result is sensitive to the choice of reference geometry.
  !  So here we choose the geometry whose weight is closest to 1.0.
- itmp = MINLOC(DABS(weight-1d0))
- k = itmp(1)
+ !itmp = MINLOC(DABS(weight-1d0))
+ !k = itmp(1)
+ k = 1
  ! even if the maximum weight is 1.0 and other weights are 0, the following step
  ! is needed
 
@@ -1315,11 +1318,12 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
  call dsymm('L', 'L', nbf, nmo, 1d0, sqrt_S,nbf, mo(:,:,k),nbf, 0d0, mo_ref,nbf)
  allocate(mo_k(nbf,nmo), source=mo_ref)
  call grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k) ! GAMMA_1 stored in mo_k
- new_mo = weight(k)*mo_k
+ !new_mo = weight(k)*mo_k
+ new_mo = 0d0
 
  ! GAMMA matrix of the new geometry would be stored in the array mo_k temporarily
- do i = 1, nfile-1, 1
-  if(i == k) cycle
+ do i = 2, nfile-1, 1
+  !if(i == k) cycle
   if(DABS(weight(i)) < diff) cycle
 
   call mat_dsqrt(nbf, S(:,:,i), sqrt_S, n_sqrt_S)
@@ -1388,7 +1392,7 @@ subroutine geom_lin_intrplt(gjfname1, gjfname2, n)
 !f2py intent(in) :: gjfname1, gjfname2
  character(len=240), allocatable :: elem(:)
 
- k = index(gjfname1, '.gjf', back=.true.)
+ k = INDEX(gjfname1, '.gjf', back=.true.)
  if(k == 0) then
   write(6,'(/,A)') "ERROR in subroutine geom_lin_intrplt: '.gjf' suffix not fou&
                    &nd in filename "//TRIM(gjfname1)
@@ -1443,7 +1447,7 @@ subroutine check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
 
  natom = 0 
 
- i = index(coor_file, '.xyz', back=.true.)
+ i = INDEX(coor_file, '.xyz', back=.true.)
  if(i > 0) then
   call read_natom_from_xyz(coor_file, natom)
  else ! not .xyz, assume it be .gjf

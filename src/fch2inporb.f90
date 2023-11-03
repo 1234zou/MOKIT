@@ -56,13 +56,13 @@ program main
  call fch2inporb(fname, prt_no, sph)
  call fch2inp_wrap(fname, .false., 0, 0)
 
- k = index(fname,'.fch', back=.true.)
+ k = INDEX(fname,'.fch', back=.true.)
  inpname = fname(1:k-1)//'.inp'
 
  if(sph) then
-  i = system('bas_gms2molcas '//TRIM(inpname)//' -sph')
+  i = SYSTEM('bas_gms2molcas '//TRIM(inpname)//' -sph')
  else
-  i = system('bas_gms2molcas '//TRIM(inpname))
+  i = SYSTEM('bas_gms2molcas '//TRIM(inpname))
  end if
 
  if(i /= 0) then

@@ -169,7 +169,7 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
  call unfchk(fchname, chkname)
 
  call get_gau_path(gau_path)
- i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+ i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine call_gaussian_gen47_from_fch: Gaussian&
                   & job failed.'
@@ -248,7 +248,7 @@ subroutine get_gau_path(gau_path)
  ! in case that the $GAUSS_EXEDIR is too long, use buf to store it
 
 #ifdef _WIN32
- i = index(buf, '\', back=.true.)
+ i = INDEX(buf, '\', back=.true.)
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in gau&
                  &_path="//TRIM(buf)
@@ -264,7 +264,7 @@ subroutine get_gau_path(gau_path)
  gau_path = TRIM(buf)
 
 #else
- i = index(buf, ':', back=.true.)
+ i = INDEX(buf, ':', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine get_gau_path: no ':' symbol found in g&
                    &au_path="//TRIM(buf)
@@ -423,7 +423,7 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
  write(6,'(A)') '$$GMS '//TRIM(longbuf)
 
- i = system(TRIM(gms_path)//' '//TRIM(longbuf))
+ i = SYSTEM(TRIM(gms_path)//' '//TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine submit_gms_job: GAMESS job failed.'
   write(6,'(A)') 'You can open file '//TRIM(gmsname)//' and check why.'
@@ -431,7 +431,7 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  end if
 
  ! move the .dat file into current directory
- i = system('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
+ i = SYSTEM('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_gms_job: fail to move file. Possi&
                  &bly wrong gms_scr_path.'
@@ -452,7 +452,7 @@ subroutine submit_automr_job(gjfname)
  buf = 'automr '//TRIM(gjfname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
 
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine submit_automr_job: automr job failed.'
   write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
@@ -474,7 +474,7 @@ subroutine submit_gau_job(gau_path, gjfname)
 #endif
 
  write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(gjfname)
- i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+ i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_gau_job: Gaussian job failed.'
@@ -495,7 +495,7 @@ subroutine submit_orca_job(orca_path, inpname)
 
  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$orca '//TRIM(buf)
- i = system(TRIM(orca_path)//' '//TRIM(buf))
+ i = SYSTEM(TRIM(orca_path)//' '//TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_orca_job: ORCA job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
@@ -508,13 +508,17 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  implicit none
  integer :: i, fid, system
  integer, intent(in) :: mem, nproc ! mem in GB
- character(len=240) :: shname, outname
+ character(len=240) :: shname, statname, gssorb, gss_h5, gss_molden, outname
  character(len=480) :: buf
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: openmp
 
  call find_specified_suffix(inpname, '.inp', i)
  shname = inpname(1:i-1)//'.sh'
+ statname = inpname(1:i-1)//'.status'
+ gssorb = inpname(1:i-1)//'.GssOrb'
+ gss_h5 = inpname(1:i-1)//'.guessorb.h5'
+ gss_molden = inpname(1:i-1)//'.guessorb.molden'
  outname = inpname(1:i-1)//'.out'
 
  open(newunit=fid,file=TRIM(shname),status='replace')
@@ -537,15 +541,45 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  write(fid,'(A)') TRIM(buf)
  close(fid)
 
- i = system('/bin/bash '//TRIM(shname))
+ i = SYSTEM('/bin/bash '//TRIM(shname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
 
- call delete_file(shname)
+ call delete_files(5, [shname, statname, gssorb, gss_h5, gss_molden])
 end subroutine submit_molcas_job
+
+! some default settings are different among different versions of PSI4, so we
+! have to find its version
+subroutine get_psi4_version(version)
+ implicit none
+ integer :: i, fid, SYSTEM
+ character(len=8), parameter :: ftmp = 'psi4.ver'
+ character(len=10), intent(out) :: version
+ character(len=240) :: psi4_path
+
+ version = ' '; psi4_path = ' '
+ call getenv('PSI4', psi4_path)
+
+ if(LEN_TRIM(psi4_path) > 0) then
+  i = SYSTEM('$PSI4 --version >'//ftmp//" 2>&1")
+ else
+  i = SYSTEM('psi4 --version >'//ftmp//" 2>&1")
+ end if
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_psi4_version: failed to find PSI4 v&
+                   &ersion.'
+  write(6,'(A)') 'Please check whether your PSI4 has been installed correctly.'
+  stop
+ end if
+
+ open(newunit=fid,file=ftmp,status='old',position='rewind')
+ read(fid,'(A)') version
+ close(fid,status='delete')
+end subroutine get_psi4_version
 
 subroutine submit_psi4_job(psi4_path, inpname, nproc)
  implicit none
@@ -561,12 +595,15 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
  write(buf,'(A,I0)') TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
  write(6,'(A)') '$'//TRIM(psi4_path)//' '//TRIM(buf)
 
- i = system(TRIM(psi4_path)//' '//TRIM(buf))
+ i = SYSTEM(TRIM(psi4_path)//' '//TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_psi4_job: PSI4 job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
+
+ call delete_file('timer.dat')
+ call delete_file('ijk.dat')
 end subroutine submit_psi4_job
 
 subroutine submit_qchem_job(inpname, nproc)
@@ -585,7 +622,7 @@ subroutine submit_qchem_job(inpname, nproc)
                        TRIM(outname)//' '//TRIM(scr_dir)//' >junk 2>&1'
  write(6,'(A)') '$'//TRIM(buf)
 
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_qchem_job: QChem job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
@@ -611,7 +648,7 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  write(buf,'(2(A,I0),A)') 'molpro -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)
  write(6,'(A)') '$'//TRIM(buf)
 
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine submit_molpro_job: Molpro job failed.'
   write(6,'(A)') 'You can open the file '//TRIM(outname)//' and check why.'
@@ -642,7 +679,7 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
  write(fid,'(A)') 'gvb_bcci2b '//TRIM(inpname)//' 2 >'//TRIM(outname)//" 2>&1"
  close(fid)
 
- i = system('/bin/bash '//TRIM(shname))
+ i = SYSTEM('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: Linearized BCCC job&
@@ -685,7 +722,7 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
                   " 2>&1"
  close(fid)
 
- i = system('/bin/bash '//TRIM(shname))
+ i = SYSTEM('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: Linearized BCCC job&
@@ -708,11 +745,71 @@ subroutine submit_pyscf_job(pyname)
 
  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_pyscf_job: PySCF job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
 end subroutine submit_pyscf_job
+
+! Submit a CFOUR job. Note: the CFOUR input file is always ZMAT, so there is no
+!  need to specify an input name, but specifying an outname is required here
+subroutine submit_cfour_job(nproc, openmp, outname)
+ implicit none
+ integer :: i, fid, SYSTEM
+ integer, intent(in) :: nproc
+ character(len=30) :: shname
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: openmp
+
+ call get_a_random_int(i)
+ write(shname,'(I0,A)') i, '.sh'
+ open(newunit=fid,file=TRIM(shname),status='replace')
+
+ if(openmp) then ! OpenMP
+  write(fid,'(A)') 'export CFOUR_NUM_CORES=1'
+  write(fid,'(A,I0)') 'export OMP_NUM_THREADS=', nproc
+ else            ! MPI
+  write(fid,'(A,I0)') 'export CFOUR_NUM_CORES=', nproc
+  write(fid,'(A)') 'export OMP_NUM_THREADS=1'
+ end if
+ write(fid,'(A)') "xcfour >"//TRIM(outname)//" 2>&1"
+ close(fid)
+
+ i = SYSTEM('/bin/bash '//TRIM(shname))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_cfour_job: CFOUR job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ else
+  call delete_file(TRIM(shname))
+  call delete_cfour_tmp_files(nproc)
+ end if
+end subroutine submit_cfour_job
+
+subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
+ implicit none
+ integer :: i, SYSTEM
+ integer, intent(in) :: mem, nproc
+ character(len=480) :: buf
+ character(len=240), intent(in) :: proname
+ logical, intent(in) :: sirius, noarch, del_sout
+
+ write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -omp ',nproc
+ if(sirius) buf = TRIM(buf)//" -put ""SIRIUS.RST"""
+ if(noarch) buf = TRIM(buf)//' -noarch'
+ buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
+ write(6,'(A)') '$'//TRIM(buf)
+ i = SYSTEM(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine do_cas: Dalton job failed.'
+  write(6,'(A)') 'Please open files '//TRIM(proname)//'.out and '//TRIM(proname)&
+                  //'.sout and check why.'
+  stop
+ end if
+
+ if(del_sout) call delete_file(TRIM(proname)//'.sout')
+ if(.not. noarch) i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
+end subroutine submit_dalton_job
 

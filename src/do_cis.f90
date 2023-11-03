@@ -23,7 +23,7 @@ subroutine do_cis()
 
  select case(cis_prog)
  case('gaussian')
-  i = index(gjfname, '.gjf', back=.true.)
+  i = INDEX(gjfname, '.gjf', back=.true.)
   cisgjf = gjfname(1:i-1)//'_CIS.gjf'
   cischk = gjfname(1:i-1)//'_CIS.chk'
   cisfch = gjfname(1:i-1)//'_CIS.fch'
@@ -35,7 +35,7 @@ subroutine do_cis()
   call unfchk(hf_fch, cischk)
 
   write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(cisgjf)
-  i = system(TRIM(gau_path)//' '//TRIM(cisgjf))
+  i = SYSTEM(TRIM(gau_path)//' '//TRIM(cisgjf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cis: Gaussian CIS job failed.'
    write(6,'(A)') 'Please open file '//TRIM(cisgjf)//' and check.'
@@ -68,7 +68,7 @@ subroutine prt_cis_gjf(cisgjf, nstate, nproc, mem, TDHF)
  character(len=240), intent(in) :: cisgjf
  logical, intent(in) :: TDHF
 
- i = index(cisgjf, '.gjf', back=.true.)
+ i = INDEX(cisgjf, '.gjf', back=.true.)
  cischk = cisgjf(1:i-1)//'.chk'
 
  open(newunit=fid,file=TRIM(cisgjf),status='replace')

@@ -54,7 +54,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  logical :: gau
 
  gau = .false.
- i = index(fname1,'.fch', back=.true.)
+ i = INDEX(fname1,'.fch', back=.true.)
  if(i /= 0) gau = .true. ! two Gaussian .fch(k) files
 
  if(gau) then
@@ -107,9 +107,9 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  forall(i=1:nmo) noon(idx1+i-1) = n(i,i)
 
  if(gau) then
-  j = index(fname1,'.fch',back=.true.)
+  j = INDEX(fname1,'.fch',back=.true.)
  else
-  j = index(fname1,'.',back=.true.)
+  j = INDEX(fname1,'.',back=.true.)
  end if
  fname = fname1(1:j-1)//'_D.txt'
 

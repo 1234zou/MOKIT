@@ -5,7 +5,8 @@ module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
   nstate, readrhf, readuhf, mo_rhf, hf_prog, hfonly, hf_fch, chgname, gau_path,&
-  orca_path, psi4_path, gms_path, gms_scr_path, check_gms_path, nmr
+  orca_path, psi4_path, gms_path, gms_scr_path, check_gms_path, openmp_molcas, &
+  nmr
  use mol, only: chem_core, ecp_core
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -22,8 +23,8 @@ module sr_keyword
  character(len=10) :: adc_prog = 'pyscf'
  character(len=10) :: eom_prog = 'orca'
  character(len=240) :: no_fch = ' ' ! filename which includes MP2/CC NOs
- logical :: uhf_based = .false. ! UHF based MP2 or CC
- logical :: noRI = .false.      ! turn on RI by default
+ logical :: uhf_based = .false.     ! UHF based MP2 or CC
+ logical :: noRI = .false.          ! turn on RI by default
  logical :: mp2 = .false.
  logical :: ccd = .false.
  logical :: ccsd = .false.
@@ -35,12 +36,12 @@ module sr_keyword
  logical :: ip = .false.
  logical :: ea = .false.
  logical :: iterative_t = .false. ! default DLPNO-CCSD(T0)
- logical :: gen_no = .false.     ! whether to generate NOs
- logical :: relaxed_dm = .false. ! relaxed/unrelaxed density matrix
- logical :: mp2_force = .false.
- logical :: ccd_force = .false.
- logical :: ccsd_force = .false.
- logical :: ccsd_t_force = .false.
+ logical :: gen_no = .false.      ! whether to generate NOs
+ logical :: relaxed_dm = .false.  ! relaxed/unrelaxed density matrix
+! logical :: mp2_force = .false.
+! logical :: ccd_force = .false.
+! logical :: ccsd_force = .false.
+! logical :: ccsd_t_force = .false.
  logical :: customized_core = .false.
  ! whether the user has specified the number of frozen core orbitals
 
@@ -58,7 +59,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc15 (2023-Oct-10)'
+ write(6,'(A)') '           Version: 1.2.6rc16 (2023-Nov-2)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -97,7 +98,7 @@ subroutine parse_sr_keyword()
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
  call read_mem_nproc_route(fid, mem, nproc, buf)
 
- i = index(buf,'/')
+ i = INDEX(buf,'/')
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine parse_sr_keyword: no '/' symbol detected&
                  &in keyword line."
@@ -107,7 +108,7 @@ subroutine parse_sr_keyword()
   stop
  end if
 
- j = index(buf(1:i-1),' ', back=.true.)
+ j = INDEX(buf(1:i-1),' ', back=.true.)
  if(j == 0) then
   write(6,'(A)') 'ERROR in subroutine parse_sr_keyword: syntax error detected in'
   write(6,'(A)') "the current line '"//TRIM(buf)//"'"
@@ -164,8 +165,8 @@ subroutine parse_sr_keyword()
   stop
  end select
 
- i = index(buf,'/')
- j = i - 1 + index(buf(i+1:),' ')
+ i = INDEX(buf,'/')
+ j = i - 1 + INDEX(buf(i+1:),' ')
  if(j == 0) j = LEN_TRIM(buf)
  basis = buf(i+1:j)
  write(6,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
@@ -204,7 +205,7 @@ subroutine parse_sr_keyword()
   stop
  end if
 
- j = index(buf,'}')
+ j = INDEX(buf,'}')
  if(j==7 .or. (j>7 .and. LEN_TRIM(buf(7:j-1))==0)) then ! mokit{}
   close(fid)
   return
@@ -217,18 +218,18 @@ subroutine parse_sr_keyword()
  longbuf(1:j-7) = buf(7:j-1) ! some keywords specified
  k = j - 6 ! the beginning index for next keyword in longbuf
 
- if(index(buf,'}') == 0) then ! keywords are written in at least two lines
+ if(INDEX(buf,'}') == 0) then ! keywords are written in at least two lines
   do while(.true.)
    read(fid,'(A)',iostat=ifail) buf
    if(ifail /= 0) exit
 
    call lower(buf)
    i = LEN_TRIM(buf)
-   if(index(buf,'}') > 0) i = i - 1
+   if(INDEX(buf,'}') > 0) i = i - 1
    longbuf(k:k+i-1) = buf(1:i)
    k = k + i
 
-   if(index(buf,'}') > 0) exit
+   if(INDEX(buf,'}') > 0) exit
   end do ! for while
 
   if(ifail /= 0) then
@@ -246,10 +247,10 @@ subroutine parse_sr_keyword()
  write(6,'(A)') TRIM(longbuf)
 
  do while(.true.)
-  i = index(longbuf,',')
+  i = INDEX(longbuf,',')
   if(i == 0) i = LEN_TRIM(longbuf) + 1
 
-  j = index(longbuf(1:i-1),'=')
+  j = INDEX(longbuf(1:i-1),'=')
   if(j == 0) j = i   ! in case this keyword has no value assigned
 
   select case(longbuf(1:j-1))
@@ -324,12 +325,6 @@ subroutine check_sr_kywd_compatible()
  implicit none
  character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&
                                               &d_compatible: '
- if(force .and. (.not.relaxed_dm)) then
-  write(6,'(/,A)') error_warn//'force v.s. unrelaxed density is'
-  write(6,'(A)') 'incompatible.'
-  stop
- end if
-
  cc_enabled = (ccd .or. ccsd .or. ccsd_t)
 
  if(customized_core) then
@@ -340,13 +335,21 @@ subroutine check_sr_kywd_compatible()
   end if
  end if
 
- if(ccd .and. TRIM(cc_prog)=='molpro') then
-  write(6,'(/,A)') error_warn//'CC_prog=Molpro is incompatible with'
-  write(6,'(A)') 'the CCD method, you may want to try CC_prog=ORCA.'
-  stop
+ if(ccd) then
+  select case(TRIM(cc_prog))
+  case('molpro','openmolcas')
+   write(6,'(/,A)') error_warn//'CCD not supported for the current CC_prog.'
+   write(6,'(A)') 'You can specify another CC_prog.'
+   stop
+  end select
  end if
 
  if(gen_no) then
+  if(force .and. (.not.relaxed_dm)) then
+   write(6,'(/,A)') error_warn//'force v.s. unrelaxed density is'
+   write(6,'(A)') 'incompatible.'
+   stop
+  end if
   if(cc_enabled .and. relaxed_dm .and. TRIM(cc_prog)=='orca') then
    write(6,'(/,A)') error_warn//'CC relaxed density are'
    write(6,'(A)') 'not supported when CC_prog=ORCA.'
@@ -419,34 +422,39 @@ subroutine check_sr_kywd_compatible()
  end if
 
  if(force) then
-  if(mp2) mp2_force = .true.
-  if(ccd) ccd_force = .true.
-  if(ccsd) ccsd_force = .true.
-  if(ccsd_t) ccsd_t_force = .true.
   if(RI .and. TRIM(mp2_prog)=='gamess') then
    write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: RI-MP2 analy&
                     &tical gradients'
    write(6,'(A)') 'are not supported in GAMESS.'
    stop
   end if
-  if(cc_enabled .and. TRIM(cc_prog)=='orca') then
-   write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CC analytica&
-                    &l gradients are'
-   write(6,'(A)') 'not supported in ORCA. You can choose CC_prog=Molpro/PySCF/P&
-                  &SI4, etc.'
+  if(cc_enabled) then
+   select case(TRIM(cc_prog))
+   case('orca','gamess','openmolcas')
+    write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CC analytic&
+                     &al gradients are'
+    write(6,'(A)') 'not supported for the current CC_prog. You can use CC_prog=&
+                   &Molpro/PySCF/PSI4, etc.'
+    stop
+   end select
+  end if
+  if((ccd.or.ccsd_t) .and. TRIM(cc_prog)=='qchem') then
+   write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CCD or CCSD(&
+                    &T) analytical grad-'
+   write(6,'(A)') 'ients are not supported in QChem.'
    stop
   end if
   if(ccsd_t .and. TRIM(cc_prog)=='gaussian') then
    write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CCSD(T) anal&
                     &ytical gradients'
    write(6,'(A)') 'are not supported in Gaussian. You can choose CC_prog=Molpro&
-                  &/PSI4/PySCF.'
+                  &/CFOUR/PSI4.'
    stop
   end if
-  if(TRIM(cc_prog) == 'gamess') then
-   write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CC analytica&
-                    &l gradient is not'
-   write(6,'(A)') 'supported in GAMESS.'
+  if(ccd .and. (.not.RI) .and. TRIM(cc_prog)=='psi4') then
+   write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: CCD analytic&
+                    &al gradients'
+   write(6,'(A)') 'in PSI4 should be used with RI.'
    stop
   end if
  end if
@@ -512,7 +520,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc15 :: MOKIT, release date: 2023-Oct-10'
+  write(6,'(A)') 'AutoSR 1.2.6rc16 :: MOKIT, release date: 2023-Nov-2'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -531,20 +539,20 @@ program main
                    &(D), ROCIS, XCIS, SF-XCIS,'
   write(6,'(A)')   '  SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
-  write(6,'(A)')   '     HF_prog=Gaussian/PySCF/ORCA/PSI4'
-  write(6,'(A)')   '    MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem'
-  write(6,'(A)')   '     CC_prog=Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/PySCF/Dalton/QChem'
-  write(6,'(A)')   '    CIS_prog=Molpro/ORCA/Gaussian/QChem'
-  write(6,'(A)')   '    ADC_prog=Molpro/ORCA/PySCF/QChem'
-  write(6,'(A,/)') '    EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
+  write(6,'(A)')   '  HF_prog=Gaussian/PySCF/ORCA/PSI4'
+  write(6,'(A)')   ' MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem/CFOUR'
+  write(6,'(A)')   '  CC_prog=Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/PySCF/Dalton/QChem'
+  write(6,'(A)')   ' CIS_prog=Molpro/ORCA/Gaussian/QChem'
+  write(6,'(A)')   ' ADC_prog=Molpro/ORCA/PySCF/QChem'
+  write(6,'(A,/)') ' EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
   call read_sr_program_path()
   stop
  end select
 
- i = index(fname, '.gjf', back=.true.)
- j = index(fname, '.fch', back=.true.)
+ i = INDEX(fname, '.gjf', back=.true.)
+ j = INDEX(fname, '.fch', back=.true.)
  if(i>0 .and. j>0) then
   write(6,'(/,A)') "ERROR in subroutine autosr: both '.gjf' and '.fch' keys&
                    & detected in filename "//TRIM(fname)//'.'
@@ -619,16 +627,17 @@ subroutine do_mp2()
  use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, uhf_based, bgchg, chgname, &
   ref_e, corr_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, &
   core_wish, gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path,&
-  gen_no, no_fch, relaxed_dm, force
+  gen_no, no_fch, relaxed_dm, force, openmp_molcas
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
-  fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap
+  fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap, &
+  fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
  use mol, only: natom, grad
  implicit none
  integer :: i, RENAME, SYSTEM
  real(kind=8) :: rtmp
  character(len=24) :: data_string = ' '
  character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname, &
-  no_chk
+  no_chk, qcscratch
 
  if(.not. mp2) return
  write(6,'(//,A)') 'Enter subroutine do_mp2...'
@@ -651,7 +660,7 @@ subroutine do_mp2()
   stop
  end if
 
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  outname = hf_fch(1:i-1)//'_MP2.out'
  no_fch = hf_fch(1:i-1)//'_MP2_NO.fch'
 
@@ -734,7 +743,6 @@ subroutine do_mp2()
   call prt_posthf_psi4_inp(inpname, .false.)
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
-  call delete_file('timer.dat')
   call delete_file(TRIM(old_inp))
   ! We cannot simply use the .fch file generated by PSI4, because:
   ! 1) The Cartesian coordinates in the PSI4-generated .fch may be translated.
@@ -752,17 +760,42 @@ subroutine do_mp2()
   inpname = hf_fch(1:i-1)//'_MP2.in'
   old_inp = hf_fch(1:i-1)//'_MP2.0.FChk'
   call fch2qchem_wrap(hf_fch, 0, inpname)
-  call prt_posthf_qchem_inp(inpname, .false.)
+  call prt_posthf_qchem_inp(inpname)
   call submit_qchem_job(inpname, nproc)
   call read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
-  call delete_file('junk')
-  call delete_file('pathtable')
-  call delete_file(TRIM(old_inp))
+  if(force) then
+   datname = hf_fch(1:i-1)//'_MP2/131.0'
+   call getenv('QCSCRATCH', qcscratch)
+   call copy_bin_file(TRIM(qcscratch)//'/'//TRIM(datname), '131.0', .false.)
+  end if
   if(gen_no) then
    mklname = hf_fch(1:i-1)//'_MP2.FChk'
    i = RENAME(TRIM(mklname), TRIM(no_fch))
    call copy_dm_and_gen_no(no_fch, hf_fch, 1)
   end if
+  call delete_file('junk')
+  call delete_file('pathtable')
+  call delete_file(TRIM(old_inp))
+ case('cfour')
+  inpname = 'ZMAT'
+  call fch2cfour_wrap(hf_fch)
+  call prt_posthf_cfour_inp()
+  call submit_cfour_job(nproc, .false., outname)
+  call read_mp2_e_from_cfour_out(outname, ref_e, mp2_e)
+ case('dalton')
+  old_inp = hf_fch(1:i-1)//'_MP2'
+  inpname = hf_fch(1:i-1)//'_MP2.dal'
+  call fch2dal_wrap(hf_fch, inpname)
+  call prt_posthf_dalton_inp(inpname)
+  call submit_dalton_job(old_inp, mem, nproc, .false., .false., .false.)
+  call read_posthf_e_from_dalton_out(outname, .true., .false., .false., .false.,&
+                                     rtmp, ref_e, mp2_e)
+ case('openmolcas')
+  inpname = hf_fch(1:i-1)//'_MP2.input'
+  call fch2inporb_wrap(hf_fch, .false., inpname)
+  call prt_posthf_molcas_inp(inpname)
+  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call read_mp2_e_from_molcas_out(outname, ref_e, mp2_e)
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//TRIM(mp2_prog)
   stop
@@ -774,27 +807,15 @@ subroutine do_mp2()
  write(6,'(A,F18.8,A)')  'E(MP2)  = ', mp2_e, ' a.u.'
 
  if(force) then
-  allocate(grad(3*natom))
-
-  select case(mp2_prog)
-  case('pyscf')
-   call read_grad_from_pyscf_out(outname, natom, grad)
-  case('gaussian')
-   call read_grad_from_gau_log(outname, natom, grad)
+  ! rename outname to use subroutine read_grad_from_output
+  select case(TRIM(mp2_prog))
   case('gamess')
-   call read_grad_from_gms_dat(datname, natom, grad)
+   outname = datname
   case('orca')
-   call read_grad_from_engrad(chkname, natom, grad)
-  case('molpro')
-   call read_grad_from_molpro_out(outname, natom, grad)
-  case default
-   write(6,'(A)') 'ERROR in subroutine do_mp2: program cannot be identified.'
-   write(6,'(A)') 'MP2_prog='//TRIM(mp2_prog)
-   stop
+   outname = chkname
   end select
-
-  write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
-  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+  allocate(grad(3*natom))
+  call read_grad_from_output(mp2_prog, outname, natom, grad)
  end if
 
  call fdate(data_string)
@@ -803,26 +824,28 @@ end subroutine do_mp2
 
 subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, cc_enabled, bgchg, hf_fch,&
-  chgname, cc_prog, method, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, chem_core,&
-  ecp_core, customized_core, core_wish, RI, gau_path, orca_path, psi4_path, &
-  gms_path, gms_scr_path, check_gms_path, gen_no, relaxed_dm, no_fch, force
+  chgname, cc_prog, method, ccd_e, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, &
+  chem_core, ecp_core, customized_core, core_wish, RI, gau_path, orca_path, &
+  psi4_path, gms_path, gms_scr_path, check_gms_path, gen_no, relaxed_dm, no_fch,&
+  force, openmp_molcas
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
-  bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap
+  bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap, fch2cfour_wrap, &
+  fch2dal_wrap, fch2inporb_wrap
  use mol, only: natom, grad
  implicit none
  integer :: i, RENAME, SYSTEM
  real(kind=8) :: e = 0d0
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
- character(len=240) :: chkname, old_inp, inpname, mklname, outname, no_chk
-! character(len=480) :: qcscratch
+ character(len=240) :: chkname, old_inp, inpname, mklname, outname, no_chk, &
+  qcscratch
 
  if(.not. cc_enabled) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
  write(6,'(A)') 'CC using program '//TRIM(cc_prog)
  call prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
 
- if(chem_core > 0) then
+ if(force .and. chem_core>0) then
   select case(TRIM(cc_prog))
   case('pyscf')
    write(6,'(/,A)') 'ERROR in subroutine do_cc: CC analytical gradients in PySCF&
@@ -838,6 +861,7 @@ subroutine do_cc()
    stop
   end select
  end if
+
  if(gen_no .and. (.not.relaxed_dm) .and. RI .and. ccsd_t .and. &
     TRIM(CC_prog)=='psi4') then
   write(6,'(/,A)') 'ERROR in subroutine do_cc: DF-CCSD(T) unrelaxed density is &
@@ -850,7 +874,7 @@ subroutine do_cc()
 
  method0 = method
  call strip_ip_ea_eom(method0)
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  outname = hf_fch(1:i-1)//'_CC.out'
  no_fch = hf_fch(1:i-1)//'_CC_NO.fch'
 
@@ -929,41 +953,61 @@ subroutine do_cc()
   else
    call read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
   end if
-  call delete_file('timer.dat')
-  call delete_file(TRIM(old_inp))
   if(gen_no) call copy_dm_and_gen_no(no_fch, hf_fch, 7)
+  call delete_file(TRIM(old_inp))
  case('qchem')
   inpname = hf_fch(1:i-1)//'_CC.in'
   old_inp = hf_fch(1:i-1)//'_CC.0.FChk'
   call fch2qchem_wrap(hf_fch, 0, inpname)
-  call prt_posthf_qchem_inp(inpname, .false.)
+  call prt_posthf_qchem_inp(inpname)
   call submit_qchem_job(inpname, nproc)
   call read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
-  call delete_file('junk')
-  call delete_file('pathtable')
-  call delete_file(TRIM(old_inp))
+  if(force) then
+   mklname = hf_fch(1:i-1)//'_CC/131.0'
+   call getenv('QCSCRATCH', qcscratch)
+   call copy_bin_file(TRIM(qcscratch)//'/'//TRIM(mklname), '131.0', .false.)
+  end if
   if(gen_no) then
    mklname = hf_fch(1:i-1)//'_CC.FChk'
    i = RENAME(TRIM(mklname), TRIM(no_fch))
    call copy_dm_and_gen_no(no_fch, hf_fch, 1)
-  ! call copy_file(hf_fch, no_fch, .false.)
-  ! no_chk = hf_fch(1:i-1)//'_CC/54.0'
-  ! call getenv('QCSCRATCH', qcscratch)
-  ! call copy_bin_file(TRIM(qcscratch)//'/'//TRIM(no_chk), '54.0', .false.)
-  ! call transfer_dm_qchem2gau(no_fch)
-  ! call delete_file('54.0')
-  ! call gen_no_using_density_in_fch(no_fch, 1)
   end if
+  call delete_file('junk')
+  call delete_file('pathtable')
+  call delete_file(TRIM(old_inp))
+ case('cfour')
+  inpname = 'ZMAT'
+  call fch2cfour_wrap(hf_fch)
+  call prt_posthf_cfour_inp()
+  call submit_cfour_job(nproc, .false., outname)
+  call read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
+ case('dalton')
+  old_inp = hf_fch(1:i-1)//'_CC'
+  inpname = hf_fch(1:i-1)//'_CC.dal'
+  call fch2dal_wrap(hf_fch, inpname)
+  call prt_posthf_dalton_inp(inpname)
+  call submit_dalton_job(old_inp, mem, nproc, .false., .false., .false.)
+  call read_posthf_e_from_dalton_out(outname, .false., ccd, ccsd, ccsd_t, t1diag,&
+                                     ref_e, e)
+ case('openmolcas')
+  inpname = hf_fch(1:i-1)//'_CC.input'
+  call fch2inporb_wrap(hf_fch, .false., inpname)
+  call prt_posthf_molcas_inp(inpname)
+  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call read_cc_e_from_molcas_out(outname, ccsd_t, t1diag, ref_e, e)
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_cc: invalid CC_prog='//TRIM(cc_prog)
   stop
  end select
 
- if(ccsd) then
+ if(ccd) then
+  ccd_e = e
+ else if(ccsd) then
   ccsd_e = e
- else
+ else if(ccsd_t) then
   ccsd_t_e = e
  end if
+
  corr_e = e - ref_e
  write(6,'(/,A,F18.8,A)')'E(ref)  = ', ref_e, ' a.u.'
  write(6,'(A,F18.8,A)')  'E(corr) = ', corr_e, ' a.u.'
@@ -972,24 +1016,7 @@ subroutine do_cc()
 
  if(force) then
   allocate(grad(3*natom))
-
-  select case(cc_prog)
-  case('pyscf')
-   call read_grad_from_pyscf_out(outname, natom, grad)
-  case('gaussian')
-   call read_grad_from_gau_log(outname, natom, grad)
-  case('molpro')
-   call read_grad_from_molpro_out(outname, natom, grad)
-  case('psi4')
-   call read_grad_from_psi4_out(outname, natom, grad)
-  case default
-   write(6,'(A)') 'ERROR in subroutine do_cc: program cannot be identified.'
-   write(6,'(A)') 'CC_prog='//TRIM(cc_prog)
-   stop
-  end select
-
-  write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
-  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+  call read_grad_from_output(cc_prog, outname, natom, grad)
  end if
 
  call fdate(data_string)
@@ -1036,7 +1063,7 @@ subroutine do_eomcc()
 
  if(.not. eom) return
  write(6,'(//,A)') 'Enter subroutine do_eomcc...'
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
 
  if(nstate == 0) nstate = 3
  allocate(ex_elec_e(0:nstate), ci_mult(0:nstate), fosc(nstate))
@@ -1101,7 +1128,7 @@ subroutine do_eomcc()
   outname = hf_fch(1:i-1)//'_EOMCC.out'
   call fch2qchem_wrap(hf_fch, 0, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call prt_posthf_qchem_inp(inpname, .true.)
+  call prt_posthf_qchem_inp(inpname)
   stop
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_eomcc: invalid EOM_prog='//TRIM(eom_prog)
@@ -1161,7 +1188,7 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: excited
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  open(newunit=fid,file=TRIM(gjfname),status='replace')
 
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
@@ -1191,7 +1218,7 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
   write(fid,'(A)',advance='no') ' int=nobasistransform'
  end if
 
- write(fid,'(A,I0,A)',advance='no') ' window(',chem_core+1,',0)'
+ write(fid,'(A,I0,A)',advance='no') ' window=(', chem_core+1 ,',0)'
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(gen_no) then
@@ -1215,7 +1242,7 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
@@ -1343,7 +1370,7 @@ subroutine prt_posthf_molpro_inp(inpname)
 
  if(RI) then
   call auxbas_convert(RIJK_bas, RIJK_bas1, 2)
-  i = index(RIJK_bas, '/')
+  i = INDEX(RIJK_bas, '/')
   RIC_bas = RIJK_bas(1:i)//'optri'
   MP2FIT_bas = RIJK_bas(1:i)//'mp2fit'
  end if
@@ -1418,7 +1445,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: excited
 
- i = index(pyname, '.py', back=.true.)
+ i = INDEX(pyname, '.py', back=.true.)
  pyname1 = pyname(1:i-1)//'.t'
  no_fch = pyname(1:i-1)//'_NO.fch'
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
@@ -1554,7 +1581,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
 
  close(fid1)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- if(force) call add_force_key2py_script(mem, pyname)
+ if(force) call add_force_key2py_script(mem, pyname, ccsd_t)
 end subroutine prt_posthf_pyscf_inp
 
 subroutine prt_posthf_psi4_inp(inpname, excited)
@@ -1562,6 +1589,7 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
   RIJK_bas, RIC_bas, gen_no, relaxed_dm, force, no_fch, nstate
  implicit none
  integer :: i, fid, fid1, RENAME
+ character(len=10) :: psi4_ver
  character(len=21) :: RIJK_bas1, RIC_bas1
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
@@ -1613,17 +1641,15 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
  else
   if(mp2) write(fid1,'(A)') 'set mp2_type conv'
   if(cc_enabled) write(fid1,'(A)') 'set cc_type conv'
-  if(ccd) then
-   write(6,'(/,A)') 'ERROR in subroutine prt_posthf_psi4_inp: conventional CCD &
-                    &is not supported'
-   write(6,'(A)') 'in PSI4. Please turn on the RI approximation.'
-   close(fid1)
-   stop
-  end if
  end if
  if(excited) write(fid1,'(A,I0)') 'set roots_per_irrep ', nstate
 
  if(force) then
+  ! PSI4 >=1.8, extra keywords are needed to calculate CCSD(T) analytical gradients
+  if(ccsd_t .and. (.not.RI)) then
+   call get_psi4_version(psi4_ver)
+   if(psi4_ver(1:3) == '1.8') write(fid1,'(A)') 'set qc_module ccenergy'
+  end if
   write(fid1,'(A)',advance='no') "gradient('"
  else
   if(excited) then
@@ -1698,13 +1724,13 @@ subroutine prt_posthf_gms_inp(inpname, excited)
 
  read(fid,'(A)') buf
  if(force) then
-  i = index(buf, 'ENERGY')
+  i = INDEX(buf, 'ENERGY')
   buf = buf(1:i-1)//'GRADIENT'//TRIM(buf(i+6:))
  end if
  write(fid1,'(A)') TRIM(buf)
 
  read(fid,'(A)') buf
- i = index(buf, '$END')
+ i = INDEX(buf, '$END')
  write(fid1,'(A)') buf(1:i-1)//TRIM(method)//' $END'
 
  read(fid,'(A)') buf ! assuming this is $SYSTEM
@@ -1755,14 +1781,13 @@ subroutine prt_posthf_gms_inp(inpname, excited)
 end subroutine prt_posthf_gms_inp
 
 ! print post-HF keywords into a Q-Chem input(.in) file
-subroutine prt_posthf_qchem_inp(inpname, excited)
+subroutine prt_posthf_qchem_inp(inpname)
  use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, RI, &
-  gen_no, relaxed_dm, basis
+  force, gen_no, relaxed_dm, basis
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: excited
 
  inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -1781,7 +1806,7 @@ subroutine prt_posthf_qchem_inp(inpname, excited)
   else
    write(fid1,'(A)') 'method MP2'
   end if
-  if(gen_no) write(fid1,'(A)') 'jobtype force'
+  if(gen_no .and. (.not.force)) write(fid1,'(A)') 'jobtype force'
  else if(cc_enabled) then
   if(ccd) then
    write(fid1,'(A)') 'method CCD'
@@ -1795,6 +1820,7 @@ subroutine prt_posthf_qchem_inp(inpname, excited)
    if(relaxed_dm) write(fid1,'(A)') 'cc_fullresponse true'
   end if
  end if
+ if(force) write(fid1,'(A)') 'jobtype force'
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -1818,6 +1844,189 @@ subroutine prt_posthf_qchem_inp(inpname, excited)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_posthf_qchem_inp
+
+! print post-HF keywords into a Q-Chem input(.in) file
+subroutine prt_posthf_cfour_inp()
+ use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, &
+  force, uhf_based
+ use mol, only: mult
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf
+
+ open(newunit=fid,file='ZMAT',status='old',position='rewind')
+ open(newunit=fid1,file='ZMAT1',status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == '*CFOUR') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine prt_posthf_cfour_inp: keyword '*CFOUR' &
+                   &not found in file ZMAT."
+  close(fid1,status='delete')
+  close(fid)
+  stop
+ end if
+
+ write(fid1,'(A)',advance='no') '*CFOUR(CALC='
+
+ if(mp2) then
+  write(fid1,'(A)',advance='no') 'MP2'
+ else if(cc_enabled) then
+  if(ccd) then
+   write(fid1,'(A)',advance='no') 'CCD'
+  else if(ccsd) then
+   write(fid1,'(A)',advance='no') 'CCSD'
+  else if(ccsd_t) then
+   write(fid1,'(A)',advance='no') 'CCSD(T)'
+  end if
+  write(fid1,'(A)',advance='no') ',CC_PROGRAM='
+  if(mult==1 .and. (.not. uhf_based)) then
+   write(fid1,'(A)',advance='no') 'NCC'
+  else
+   write(fid1,'(A)',advance='no') 'ECC'
+  endif
+ end if
+
+ i = INDEX(buf, ',')
+ write(fid1,'(A)') TRIM(buf(i:))
+
+ if(.not. ccd) write(fid1,'(A)') 'ABCDTYPE=AOBASIS'
+
+ if(chem_core > 0) then
+  if(chem_core == 1) then
+   write(fid1,'(A)') 'DROPMO=1'
+  else
+   write(fid1,'(A,I0)') 'DROPMO=1>', chem_core
+  end if
+ end if
+
+ write(fid1,'(A,I0,A)') 'MEMORY=', mem ,',MEM_UNIT=GB'
+ if(force) then
+  write(fid1,'(A)') 'DERIV_LEVEL=1,FCGRADNEW=NEW'
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME('ZMAT1', 'ZMAT')
+end subroutine prt_posthf_cfour_inp
+
+! print post-HF keywords into a Dalton input file (.dal)
+subroutine prt_posthf_dalton_inp(inpname)
+ use sr_keyword, only: mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, force
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ write(fid1,'(A,/,A)') '**DALTON INPUT', '.RUN WAVE FUNCTIONS'
+ if(force) write(fid1,'(A,/,A,/,A,/,A)') '**INTEGRAL','.DIPLEN','.DEROVL','.DERHAM'
+ write(fid1,'(A)') '**WAVE FUNCTIONS'
+
+ write(fid1,'(A,/,A)') '.CC', '*CC INPUT'
+ if(mp2) then
+  write(fid1,'(A)') '.MP2'
+ else if(cc_enabled) then
+  if(ccd) then
+   write(fid1,'(A)') '.CCD'
+  else if(ccsd) then
+   write(fid1,'(A)') '.CCSD'
+  else if(ccsd_t) then
+   write(fid1,'(A)') '.CC(T)'
+  end if
+ end if
+ if(chem_core > 0) write(fid1,'(A,/,I0,A)') '.FREEZE', chem_core, ' 0'
+
+ if(force) write(fid1,'(A)') '*DERIVATIVES'
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:8) == '*ORBITAL') exit
+ end do ! for while
+
+ write(fid1,'(A)') '*ORBITAL INPUT'
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine prt_posthf_dalton_inp
+
+! print post-HF keywords into a OpenMolcas input file (.input)
+subroutine prt_posthf_molcas_inp(inpname)
+ use sr_keyword, only: mp2, ccsd, ccsd_t, cc_enabled, chem_core, force, RI
+ use mol, only: charge, mult
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf, orbname
+ character(len=240), intent(in) :: inpname
+
+ if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
+
+ call find_specified_suffix(inpname, '.input', i)
+ orbname = inpname(1:i-1)//'.INPORB'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+
+ ! the RASSCF module is required to perform SCF for conventional CC
+ if((.not.RI) .and. cc_enabled) then
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:4) == "&SCF") exit
+  end do ! for while
+  BACKSPACE(fid)
+  write(fid,'(A)') "&RASSCF"
+  write(fid,'(A,I0)') 'Spin = ', mult
+  write(fid,'(A,I0)') 'Charge = ', charge
+  write(fid,'(A,/,A)') 'nActEl = 0', 'RAS2 = 0'
+  write(fid,'(A)') 'FILEORB = '//TRIM(orbname)
+  write(fid,'(A)') 'OutOrbitals = Canonical'
+  write(fid,'(/,A,/,A)') "&MOTRA", 'JobIph'
+  write(fid,'(A,I0)')'Frozen = ', chem_core
+ end if
+
+ if(mp2) then
+  write(fid,'(/,A)') "&MBPT2"
+  write(fid,'(A,I0)') 'Frozen = ', chem_core
+  if(force) write(fid,'(A,//,A)') 'GRDT', "&ALASKA"
+ else if(cc_enabled) then
+  if(RI) then
+   write(fid,'(/,A,/,A)') "&CHCC", 'MAXITERATIONS = 300'
+   write(fid,'(A,I0)') 'Frozen = ', chem_core
+   if(ccsd_t) write(fid,'(/,A,/,A,I0)') "&CHT3", 'Frozen = ', chem_core
+  else
+   write(fid,'(/,A)') "&CCSDT"
+   if(ccsd) then
+    write(fid,'(A)') 'CCSD'
+   else if(ccsd_t) then
+    write(fid,'(A,/,A)') 'CCT','TRIPLES = 2'
+   end if
+   write(fid,'(A)') 'ITERATIONS = 300'
+  end if
+ end if
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+end subroutine prt_posthf_molcas_inp
 
 subroutine read_mp2_e_from_gau_out(outname, ref_e, tot_e)
  implicit none
@@ -1866,7 +2075,7 @@ subroutine read_mp2_e_from_molpro_out(outname, ref_e, tot_e)
   BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
   read(fid,'(A)') buf
-  if(index(buf,'MP2') > 0) exit 
+  if(INDEX(buf,'MP2') > 0) exit 
  end do ! for while
 
  read(fid,*) tot_e, ref_e
@@ -1909,13 +2118,13 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
 
  select case(icase)
  case(1) ! MP2
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) tot_e
-  i = index(buf, '=', back=.true.)
+  i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) ref_e ! here is MP2 correlation energy
   ref_e = tot_e - ref_e
  case(2) ! DF-MP2
-  i = index(buf, ':')
+  i = INDEX(buf, ':')
   read(buf(i+1:),*) tot_e ! here is DF-MP2 correlation energy
 
   do while(.true.)
@@ -1924,7 +2133,7 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
    read(fid,'(A)') buf
    if(buf(1:15) == 'converged SCF e') exit
   end do ! for while
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) ref_e
   tot_e = tot_e + ref_e
  case default
@@ -2045,7 +2254,7 @@ subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
    close(fid)
    stop
   end if
-  i = index(buf, ':')
+  i = INDEX(buf, ':')
 
  else               ! RHF-RMP2
 
@@ -2062,7 +2271,7 @@ subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
    close(fid)
    stop
   end if
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
  end if
 
  close(fid)
@@ -2077,7 +2286,6 @@ subroutine read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0; mp2_e = 0d0
-
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
@@ -2107,6 +2315,88 @@ subroutine read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
  ref_e = mp2_e - ref_e
 end subroutine read_mp2_e_from_qchem_out
 
+subroutine read_mp2_e_from_cfour_out(outname, ref_e, mp2_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, mp2_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; mp2_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(3:15) == 'Total MBPT(2)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "EEROR in subroutine read_mp2_e_from_cfour_out: MP2 energy k&
+                   &eywords not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) mp2_e
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(4:17) == 'The total corr') exit
+ end do ! for while
+
+ i = INDEX(buf, 'is')
+ read(buf(i+2:),*) ref_e
+ ref_e = mp2_e - ref_e
+end subroutine read_mp2_e_from_cfour_out
+
+subroutine read_mp2_e_from_molcas_out(outname, ref_e, mp2_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, mp2_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; mp2_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:19) == 'Total MBPT2 e') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "EEROR in subroutine read_mp2_e_from_molcas_out: MP2 energy &
+                   &keywords not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(25:),*) mp2_e
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(8:12) == 'SCF e') exit
+ end do ! for while
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) ref_e
+end subroutine read_mp2_e_from_molcas_out
+
 subroutine read_cc_e_from_gau_out(outname, t1diag, ref_e, tot_e)
  implicit none
  integer :: i, fid
@@ -2133,12 +2423,12 @@ subroutine read_cc_e_from_gau_out(outname, t1diag, ref_e, tot_e)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) tot_e ! CCD/CCSD total energy
 
  read(fid,'(A)') buf
  if(buf(2:8) == 'T1 Diag') then
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) t1diag
  end if
 
@@ -2146,7 +2436,7 @@ subroutine read_cc_e_from_gau_out(outname, t1diag, ref_e, tot_e)
   read(fid,'(A)') buf
   if(buf(2:14) == 'Discarding MO') exit
   if(buf(2:8) == 'CCSD(T)') then
-   i = index(buf, '=')
+   i = INDEX(buf, '=')
    read(buf(i+1:),*) tot_e ! CCSD(T) total energy
    exit
   end if
@@ -2179,7 +2469,7 @@ subroutine find_hf_type_in_orca_out(outname, hf_type)
   stop
  end if
 
- i = index(buf, '.', back=.true.)
+ i = INDEX(buf, '.', back=.true.)
  read(buf(i+1:),*) str
 
  select case(TRIM(str))
@@ -2258,7 +2548,7 @@ subroutine read_cc_e_from_molpro_out(outname, read_t1diag, t1diag, ref_e, tot_e)
    i = -1
    exit
   end if
-  if(index(buf,'HF-SCF') > 0) exit
+  if(INDEX(buf,'HF-SCF') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -2281,7 +2571,7 @@ subroutine read_cc_e_from_molpro_out(outname, read_t1diag, t1diag, ref_e, tot_e)
     i = -1
     exit
    end if
-   if(index(buf,'T1 diag') > 0) exit
+   if(INDEX(buf,'T1 diag') > 0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'T1 diag' not&
@@ -2289,7 +2579,7 @@ subroutine read_cc_e_from_molpro_out(outname, read_t1diag, t1diag, ref_e, tot_e)
    close(fid)
    stop
   end if
-  i = index(buf, 'T1 diagnostic:')
+  i = INDEX(buf, 'T1 diagnostic:')
   read(buf(i+14:),*) t1diag
  end if
 
@@ -2317,7 +2607,7 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
 
   select case(buf(1:9))
   case('CCSD(T) c')
-   k = index(buf, '=')
+   k = INDEX(buf, '=')
    read(buf(k+1:),*) ccsd_t_corr
   case('E(CCSD) =')
    read(buf(10:),*) tot_e
@@ -2337,7 +2627,7 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
   stop
  end if
 
- k = index(buf, '=')
+ k = INDEX(buf, '=')
  read(buf(k+1:),*) ref_e
  tot_e = tot_e + ccsd_t_corr
 end subroutine read_cc_e_from_pyscf_out
@@ -2398,7 +2688,7 @@ subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
    write(6,'(A)') 'found in file '//TRIM(outname)
    stop
   end if
-  i = index(buf, ':', back=.true.)
+  i = INDEX(buf, ':', back=.true.)
 
  else ! no RI
   ! read T1diag
@@ -2434,7 +2724,7 @@ subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
    write(6,'(A)') 'found in file '//TRIM(outname)
    stop
   end if
-  i = index(buf, '=', back=.true.)
+  i = INDEX(buf, '=', back=.true.)
  end if
 
  read(buf(i+1:),*) tot_e
@@ -2481,10 +2771,10 @@ subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e
    if(buf(1:6) == 'memory') then
     i = -1; exit
    end if
-   if(index(buf,'T1 DIAG')>0 .or. index(buf,'T1 diag')>0) exit
+   if(INDEX(buf,'T1 DIAG')>0 .or. INDEX(buf,'T1 diag')>0) exit
   end do ! for while
-  i = index(buf, '=>')
-  if(i == 0) i = index(buf, ':')
+  i = INDEX(buf, '=>')
+  if(i == 0) i = INDEX(buf, ':')
   read(buf(i+2:),*) t1diag
  end if
 
@@ -2492,7 +2782,7 @@ subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf, key) > 0) exit
+  if(INDEX(buf, key) > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -2503,8 +2793,8 @@ subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e
   stop
  end if
 
- i = index(buf, '=')
- if(i == 0) i = index(buf, ':')
+ i = INDEX(buf, '=')
+ if(i == 0) i = INDEX(buf, ':')
  read(buf(i+1:),*) tot_e
 
  do while(.true.)
@@ -2516,7 +2806,7 @@ subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e
   if(buf(1:6) == 'memory') then
    i = -1; exit
   end if
-  if(index(buf,'SCF E')>0 .or. index(buf,'SCF e')>0) exit
+  if(INDEX(buf,'SCF E')>0 .or. INDEX(buf,'SCF e')>0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -2528,8 +2818,8 @@ subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e
  end if
 
  close(fid)
- i = index(buf, '=')
- if(i == 0) i = index(buf, ':')
+ i = INDEX(buf, '=')
+ if(i == 0) i = INDEX(buf, ':')
  read(buf(i+1:),*) ref_e
 end subroutine read_cc_e_from_psi4_out
 
@@ -2562,7 +2852,7 @@ subroutine read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
    read(fid,'(A)') buf
    if(buf(2:8) == 'T1 DIAG') exit
   end do ! for while
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) t1diag
  end if
 
@@ -2579,7 +2869,7 @@ subroutine read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
   stop
  end if
 
- i = index(buf, ':')
+ i = INDEX(buf, ':')
  read(buf(i+1:),*) tot_e
 end subroutine read_cc_e_from_gms_out
 
@@ -2676,6 +2966,325 @@ subroutine read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, t
  close(fid)
 end subroutine read_cc_e_from_qchem_out
 
+subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, nocc, fid
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=13) :: key
+ character(len=13), parameter :: key0(3) = ['Total CCD ene','Total CCSD en','To&
+                                            &tal CCSD(T)']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccd, ccsd, ccsd_t
+
+ ref_e = 0d0; tot_e = 0d0
+ if(ccd) then
+  key = key0(1)
+ else if(ccsd) then
+  key = key0(2)
+ else if(ccsd_t) then
+  key = key0(3)
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:13) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: key '"//key//"'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e ! total electronic energy
+
+ do i = 1, 5
+  BACKSPACE(fid)
+ end do
+
+ if(ccsd_t) then ! read (T) correlation energy
+  read(fid,'(A)') buf
+  i = INDEX(buf, ':')
+  read(buf(i+1:),*) rtmp
+  do i = 1, 8
+   BACKSPACE(fid)
+  end do
+ end if
+
+ read(fid,*) i, ref_e ! read CCD/CCSD correlation energy
+ close(fid)
+ if(ccsd_t) ref_e = ref_e + rtmp
+ ref_e = tot_e - ref_e
+
+ if(.not. ccd) then
+  call read_nocc_from_cfour_out(outname, nocc)
+  call read_t1diag_from_cfour_t1(nocc, t1diag)
+ end if
+end subroutine read_cc_e_from_cfour_out
+
+subroutine read_posthf_e_from_dalton_out(outname, mp2, ccd, ccsd, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=14) :: key
+ character(len=14), parameter :: key0(5) = ['Total SCF   en','Total MP2   en',&
+                           'Total CCD   en','Total CCSD  en','Total energy C']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: mp2, ccd, ccsd, ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ if(mp2) then
+  key = key0(2)
+ else if(ccd) then
+  key = key0(3)
+ else if(ccsd) then
+  key = key0(4)
+ else if(ccsd_t) then
+  key = key0(5)
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(13:26) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_dalton_out: key '"//key//"'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e ! total electronic energy
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(13:26) == key0(1)) exit
+ end do ! for while
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) ref_e ! SCF electronic energy
+ close(fid)
+end subroutine read_posthf_e_from_dalton_out
+
+subroutine read_cc_e_from_molcas_out(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: ricd, cholesky
+ logical, intent(in) :: ccsd_t
+
+ ricd = .false.     ! initialization
+ cholesky = .false.
+
+ ! determine RICD/CHOLESKY/noRI
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'RICD') then
+   ricd = .true.
+   exit
+  end if
+  if(buf(1:8) == 'CHOLESKY') then
+   cholesky = .true.
+   exit
+  end if
+  if(buf(1:4) == '()()') exit
+ end do ! for while
+ close(fid)
+
+ if(ricd .or. cholesky) then
+  call read_cc_e_from_molcas_out1(outname, ccsd_t, t1diag, ref_e, tot_e)
+ else
+  call read_cc_e_from_molcas_out2(outname, ccsd_t, t1diag, ref_e, tot_e)
+ end if
+end subroutine read_cc_e_from_molcas_out
+
+! read CCSD/CCSD(T) energies from a (Open)Molcas output file (for RICD)
+subroutine read_cc_e_from_molcas_out1(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, j, nocc, fid
+ real(kind=8) :: r(2), corr_e
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf, proname
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ call read_nocc_from_molcas_out(outname, nocc)
+ call find_specified_suffix(outname, '.out', i)
+ proname = outname(1:i-1)
+ call read_t1diag_from_rstfil(proname, nocc, t1diag)
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ if(ccsd_t) then
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(4:15) == 'CCSD(T) corr') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'CC&
+                    &SD(T) corr' not"
+   write(6,'(A)') 'found in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) corr_e ! CCSD(T) corr e
+ end if
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(3:16) == 'Final CCSD ene') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'Fi&
+                   &nal CCSD energy' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 2   ! read CCSD correlation e
+  read(fid,'(A)') buf
+  j = INDEX(buf, ':')
+  read(buf(j+1:),*) r(i)
+ end do ! for i
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:17) == 'Total SCF e') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'To&
+                   &tal SCF e' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ read(buf(23:),*) ref_e ! SCF e
+
+ if(ccsd_t) then ! CCSD(T)
+  tot_e = ref_e + corr_e
+ else            ! CCSD
+  tot_e = ref_e + r(1) + r(2)
+ end if
+end subroutine read_cc_e_from_molcas_out1
+
+! read CCSD/CCSD(T) energies from a (Open)Molcas output file (no RI)
+subroutine read_cc_e_from_molcas_out2(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, nocc, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:18) == 'Total energy') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out2: keyword 'To&
+                   &tal energy' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ ! read CCSD energy
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e
+
+ ! read SCF energy
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) ref_e
+
+ ! read t1 diag
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:15) == 'Euclidian norm') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out2: keyword 'Eu&
+                   &clidian norm' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) t1diag
+
+ call read_nocc_from_molcas_out(outname, nocc)
+ t1diag = DSQRT(t1diag*t1diag/DBLE(2*nocc))
+
+ if(ccsd_t) then ! read CCSD(T) energy
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(8:16) == 'CCSD + T3') exit
+  end do ! for while
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) tot_e
+ end if
+
+ close(fid)
+end subroutine read_cc_e_from_molcas_out2
+
 subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, mult, fosc)
  implicit none
  integer :: i, j, fid
@@ -2713,7 +3322,7 @@ subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, mult, fosc)
  BACKSPACE(fid)
  do i = 1, nstate, 1
   read(fid,'(A)') buf
-  j = index(buf, '=')
+  j = INDEX(buf, '=')
   read(buf(j+1:),*) e(i)
  end do ! for i
 
@@ -2749,7 +3358,7 @@ subroutine read_eomcc_e_from_gau_out(outname, nstate, e, mult, fosc)
   stop
  end if
 
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) e(0)
 
  do while(.true.)
@@ -2824,7 +3433,7 @@ subroutine read_eomcc_e_from_orca_out(outname, ip_or_ea, nstate, e, mult, fosc)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:6) == 'IROOT=') then
-   i = index(buf, ':')
+   i = INDEX(buf, ':')
    read(buf(7:i-1),*) j
    read(buf(i+1:),*) e(j)
    if(j == nstate) exit
@@ -2922,7 +3531,7 @@ subroutine read_eomcc_e_from_gms_out(outname, ip, ea, nstate, e, mult, fosc)
   stop
  end if
 
- i = index(buf, ':')
+ i = INDEX(buf, ':')
  read(buf(i+1:),*) e(0)
 
  ! if EOM-CCSD, read oscillator strengths
@@ -2977,7 +3586,7 @@ subroutine read_eomcc_e_from_psi4_out(outname, nstate, e, mult, fosc)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) e(0)
 
  ! read EOM-CCSD electronic energies
@@ -2997,7 +3606,7 @@ subroutine read_eomcc_e_from_psi4_out(outname, nstate, e, mult, fosc)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'Ground State -> Excited State T') > 0) exit
+  if(INDEX(buf,'Ground State -> Excited State T') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -3147,4 +3756,175 @@ subroutine copy_dm_and_gen_no(no_fch, hf_fch, itype)
 
  i = RENAME(TRIM(no_fch1), TRIM(no_fch))
 end subroutine copy_dm_and_gen_no
+
+! read the number of doubly occupied orbitals (frozen core orbitals not
+!  included) from CFOUR output file
+subroutine read_nocc_from_cfour_out(outname, nocc)
+ implicit none
+ integer :: i, na, nf, fid
+ integer, intent(out) :: nocc
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: frozen
+
+ nocc = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(11:26) == 'Alpha population') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_cfour_out: keyword 'Alph&
+                   &a population' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) na ! number of alpha spin orbitals
+
+ frozen = .true.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(3:15) == 'The following') exit
+  if(buf(3:12) == 'Summary of') then
+   frozen = .false.
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_cfour_out: keyword 'The &
+                   &following' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ if(frozen) then
+  read(buf(16:),*) nf ! number of frozen core orbitals
+ else
+  nf = 0
+ end if
+ close(fid)
+
+ nocc = na - nf
+end subroutine read_nocc_from_cfour_out
+
+! read T1 diagnostic value from a CFOUR T1 binary file
+subroutine read_t1diag_from_cfour_t1(nocc, t1diag)
+ implicit none
+ integer :: i, nvir, fid
+ integer(kind=4) :: ibuf(13)
+ integer, intent(in) :: nocc
+! nocc: the number of doubly occupied orbitals (frozen core not included)
+ real(kind=8), intent(out) :: t1diag
+ real(kind=8), allocatable :: t1(:)
+
+ t1diag = 0d0
+
+ ! determine nvir from the file size of T1
+ call STAT('T1', ibuf)
+ nvir = ibuf(8)/(8*nocc)
+
+ allocate(t1(nocc*nvir), source=0d0)
+ open(newunit=fid,file='T1',status='old',access='stream')
+ read(fid,iostat=i) t1
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_cfour_t1: failed to re&
+                   &ad t1 amplitudes'
+  write(6,'(A)') 'from CFOUR T1 file.'
+  write(6,'(A,2I6)') 'nocc, nvir=', nocc, nvir
+  deallocate(t1)
+  stop
+ else
+  t1diag = DSQRT(DOT_PRODUCT(t1,t1)/DBLE(nocc*2))
+  deallocate(t1)
+ end if
+end subroutine read_t1diag_from_cfour_t1
+
+! read T1 diagnostic value from an (Open)Molcas .RstFil unformatted file
+subroutine read_t1diag_from_rstfil(proname, nocc, t1diag)
+ implicit none
+ integer :: i, nvir, fid
+ integer(kind=4) :: ibuf(13)
+ integer, intent(in) :: nocc
+! nocc: the number of doubly occupied orbitals (frozen core not included)
+ real(kind=8), intent(out) :: t1diag
+ real(kind=8), allocatable :: t1(:)
+ character(len=840) :: fullpath
+ character(len=240), intent(in) :: proname
+
+ t1diag = 0d0
+ call getenv('MOLCAS_WORKDIR', fullpath)
+ fullpath = TRIM(fullpath)//'/'//TRIM(proname)//'/'//TRIM(proname)//'.RstFil'
+
+ ! Determine nvir from the file size of .RstFil. Here 40 means E1 CCSD energy,
+ !  E2 CCSD energy and the number of CCSD iterations, so it is excluded.
+ call STAT(TRIM(fullpath), ibuf)
+ nvir = (ibuf(8)-40)/(8*nocc)
+
+ allocate(t1(nocc*nvir), source=0d0)
+ open(newunit=fid,file=TRIM(fullpath),status='old',form='unformatted')
+ read(fid,iostat=i) t1
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_rstfil: failed to read&
+                   & t1 amplitudes'
+  write(6,'(A)') 'from Molcas .RstFil file.'
+  write(6,'(A)') 'File prefix='//TRIM(proname)
+  write(6,'(A,2I6)') 'nocc, nvir=', nocc, nvir
+  deallocate(t1)
+  stop
+ else
+  t1diag = DSQRT(DOT_PRODUCT(t1,t1)/DBLE(nocc*2))
+  deallocate(t1)
+ end if
+end subroutine read_t1diag_from_rstfil
+
+! find the number of occupied orbtials from a (Open)Molcas output file (frozen
+! core orbitals not included)
+subroutine read_nocc_from_molcas_out(outname, nocc)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nocc
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ nocc = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:37)=='No. of occupied orbitals with a' .or. buf(2:9)=='Occupied') exit
+ end do ! for while
+
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_molcas_out: nocc cannot &
+                   &be found in file"
+  write(6,'(A)') TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ if(i > 0) then
+  read(buf(i+1:),*) nocc
+ else
+  read(buf(47:),*) nocc
+ end if
+end subroutine read_nocc_from_molcas_out
 

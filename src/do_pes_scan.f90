@@ -105,7 +105,7 @@ subroutine read_scan_var_from_gjf()
  j = LEN_TRIM(buf)
 
  if(buf(j:j) == '}') then ! given a set of values {}
-  i = index(buf, '{')
+  i = INDEX(buf, '{')
   read(buf(i+1:j-1),fmt=*,iostat=m) (scan_val(k),k=1,scan_nstep)
   if(m /= 0) then
    write(6,'(/,A)') error_warn//' wrong scan syntax.'
@@ -124,7 +124,7 @@ subroutine read_scan_var_from_gjf()
   deallocate(coor)
   rtmp0 = calc_an_int_coor(k, rtmp(:,1:k))
   deallocate(rtmp)
-  i = index(buf(1:j), ' ', back=.true.)
+  i = INDEX(buf(1:j), ' ', back=.true.)
   read(buf(i+1:j),*) stepsize
   forall(i = 1:scan_nstep) scan_val(i) = rtmp0 + DBLE(i)*stepsize
  end if

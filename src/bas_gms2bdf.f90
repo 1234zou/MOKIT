@@ -47,7 +47,7 @@ subroutine bas_gms2bdf(fort7)
   lin = .false. ! no linear dependence
  end if
 
- k = index(fort7, '.', back=.true.)
+ k = INDEX(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
  call read_natom_from_gms_inp(fort7, natom)
  allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))

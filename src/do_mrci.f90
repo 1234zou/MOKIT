@@ -6,7 +6,7 @@ subroutine do_mrcisd()
   casnofch, openmp_molcas, molcas_path, orca_path, gau_path, gms_path, &
   gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
  use mol, only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: unfchk, mkl2gbw
+ use util_wrapper, only: unfchk, mkl2gbw, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: e
@@ -20,7 +20,8 @@ subroutine do_mrcisd()
  write(6,'(//,A)') 'Enter subroutine do_mrcisd...'
 
  if(npair0 > 7) then
-  write(6,'(A)') 'ERROR in subroutine do_mrcisd: reference wfn larger than (14,14).'
+  write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: reference wfn larger than (1&
+                   &4,14).'
   write(6,'(A)') 'DMRG-MRCISD is not supported currently.'
   stop
  end if
@@ -29,49 +30,45 @@ subroutine do_mrcisd()
 
  if(.not. CIonly) then
   if(TRIM(casscf_prog) == 'orca') then
-   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver,&
-                    & the NO coefficients in .mkl file are only 7-digits.'
-   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
-                    & Such small error is usually not important.'
-   write(6,'(A)') 'If you care about the accuracy, please use another CASSCF solver.'
+   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO coefficie&
+                  &nts in .mkl file are only 7-digits.'
+   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u. Such small e&
+                  &rror is usually not important.'
+   write(6,'(A)') 'If you care about the accuracy, please use another CASSCF so&
+                  &lver.'
   end if
  else ! CIonly = .True.
   if(TRIM(casci_prog) == 'orca') then
-   write(6,'(A)') 'Warning: ORCA is used as the CASCI solver,&
-                    & the NO coefficients in .mkl file are only 7-digits.'
-   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u.&
-                    & Such small error is usually not important.'
-   write(6,'(A)') 'If you care about the accuracy, please use another CASCI solver.'
+   write(6,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO coefficien&
+                  &ts in .mkl file are only 7-digits.'
+   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u. Such small e&
+                  &rror is usually not important.'
+   write(6,'(A)') 'If you care about the accuracy, please use another CASCI sol&
+                  &ver.'
   end if
  end if
 
- write(6,'(A)') 'Frozen_Core = F, MRCISD computation using program '//TRIM(mrcisd_prog)
+ write(6,'(A)') 'Frozen_Core = F, MRCISD computation using program '//&
+                 TRIM(mrcisd_prog)
 
  select case(TRIM(mrcisd_prog))
  case('openmolcas')
   call check_exe_exist(molcas_path)
-  i = system('fch2inporb '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  chkname = casnofch(1:i-1)//'.INPORB'
-  string  = casnofch(1:i-1)//'.input'
-  i = index(casnofch, '_NO', back=.true.)
-  mklname = casnofch(1:i)//'MRCISD.INPORB'
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISD.input'
   outname = casnofch(1:i)//'MRCISD.out'
-  i = RENAME(TRIM(chkname), TRIM(mklname))
-  i = RENAME(TRIM(string), TRIM(inpname))
-  chkname = ' '
+  call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mrci_molcas_inp(2, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
  case('orca')
   call check_exe_exist(orca_path)
-  i = system('fch2mkl '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2mkl '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   chkname = casnofch(1:i-1)//'_o.mkl'
   string  = casnofch(1:i-1)//'_o.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD.mkl'
   inpname = casnofch(1:i)//'MRCISD.inp'
   outname = casnofch(1:i)//'MRCISD.out'
@@ -79,7 +76,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
   chkname = ' '
   call prt_mrcisd_orca_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
@@ -87,25 +84,25 @@ subroutine do_mrcisd()
 
  case('gaussian')
   call check_exe_exist(gau_path)
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   chkname = casnofch(1:i)//'MRCISD.chk'
   inpname = casnofch(1:i)//'MRCISD.gjf'
   outname = casnofch(1:i)//'MRCISD.log'
   call unfchk(casnofch, chkname)
   call prt_mrcisd_gau_inp(2, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gau_job(gau_path, inpname)
 
  case('molpro')
   call check_exe_exist(molpro_path)
 
-  i = system('fch2com '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2com '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.com'
   chkname = casnofch
   call convert2molpro_fname(chkname, '.a')
 
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISD.com'
   outname = casnofch(1:i)//'MRCISD.out'
   mklname = inpname
@@ -121,11 +118,11 @@ subroutine do_mrcisd()
  case('psi4')
   call check_exe_exist(psi4_path)
 
-  i = system('fch2psi '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2psi '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'_psi.inp'
 
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISD.inp'
   outname = casnofch(1:i)//'MRCISD.out'
   i = RENAME(TRIM(string), TRIM(inpname))
@@ -134,47 +131,48 @@ subroutine do_mrcisd()
   call submit_psi4_job(psi4_path, inpname, nproc)
 
  case('dalton')
-  i = system('fch2dal '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2dal '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.dal'
   chkname = casnofch(1:i-1)//'.mol'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISD.dal'
   mklname = casnofch(1:i)//'MRCISD.mol'
   outname = casnofch(1:i)//'MRCISD.out'
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
   call prt_mrci_dalton_inp(2, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD'
   chkname = casnofch(1:i)//'MRCISD.sout'
   call submit_dalton_job(mklname, mem, nproc, .false., .false., .false.)
 
  case('gamess')
-  i = system('fch2inp '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2inp '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISD.inp'
   mklname = casnofch(1:i)//'MRCISD.dat'
   outname = casnofch(1:i)//'MRCISD.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(2, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  case default
-  write(6,'(A)') 'ERROR in subroutine do_mrcisd: invalid program='//TRIM(mrcisd_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: invalid program='//&
+                   TRIM(mrcisd_prog)
   stop
  end select
 
  if(TRIM(mrcisd_prog) == 'molpro') then
   write(6,'(A)') '$'//TRIM(datpath)
-  i = system(TRIM(datpath))
+  i = SYSTEM(TRIM(datpath))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine do_mrcisd: Molpro MRCISD job failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: Molpro MRCISD job failed.'
    write(6,'(A)') 'Please open file '//TRIM(outname)//' and check why.'
    stop
   end if
@@ -264,7 +262,7 @@ subroutine prt_mrci_molcas_inp(order, inpname)
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, inporb
 
- i = index(inpname, '.input', back=.true.)
+ i = INDEX(inpname, '.input', back=.true.)
  inporb = inpname(1:i-1)//'.INPORB'
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
@@ -395,7 +393,7 @@ subroutine prt_mrcisd_gau_inp(order, gjfname)
  ne = 2*idx + nacta + nactb ! all electrons
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
@@ -622,7 +620,7 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   deallocate(det_occ,ci)
  else ! openmolcas
   str = REPEAT(' ',nif)
-  i = index(outname, '.', back=.true.)
+  i = INDEX(outname, '.', back=.true.)
   h5name = outname(1:i-1)//'.rasscf.h5'
   pyname = outname(1:i-1)//'_ci.py'
   pyout = outname(1:i-1)//'_ci.o'
@@ -665,7 +663,7 @@ subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
   write(fid2,'(A)') 'f.close()'
   write(fid2,'(A)') "print('%.12e' %ref_weight)"
   close(fid2)
-  i = system('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
+  i = SYSTEM('python '//TRIM(pyname)//" >"//TRIM(pyout)//" 2>&1")
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine calc_davidson_corr: failed to run '&
                    //TRIM(pyname)
@@ -698,7 +696,7 @@ subroutine det_str2occ_psi4(buf, nif, det_occ)
  read(buf,*) (str(i),i=1,ncol)
 
  do i = 1, ncol, 1
-  k = index(str(i),'A')
+  k = INDEX(str(i),'A')
   read(str(i)(1:k-1),*) iorb
   select case(str(i)(k+1:k+1))
   case('A')
@@ -750,7 +748,7 @@ subroutine do_mrcisdt()
   molcas_path, gau_path, psi4_path, gms_path, gms_scr_path, casnofch, chgname,&
   CIonly, bgchg, CtrType
  use mol , only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: unfchk
+ use util_wrapper, only: unfchk, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: e
@@ -774,38 +772,31 @@ subroutine do_mrcisdt()
  select case(TRIM(mrcisdt_prog))
  case('openmolcas')
   call check_exe_exist(molcas_path)
-  i = system('fch2inporb '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  chkname = casnofch(1:i-1)//'.INPORB'
-  string  = casnofch(1:i-1)//'.input'
-  i = index(casnofch, '_NO', back=.true.)
-  mklname = casnofch(1:i)//'MRCISDT.INPORB'
+  call fch2inporb_wrap(casnofch, .false., inpname)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISDT.input'
   outname = casnofch(1:i)//'MRCISDT.out'
-  i = RENAME(TRIM(chkname), TRIM(mklname))
-  i = RENAME(TRIM(string), TRIM(inpname))
-  chkname = ' '
   call prt_mrci_molcas_inp(3, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
  case('gaussian')
   call check_exe_exist(gau_path)
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   chkname = casnofch(1:i)//'MRCISDT.chk'
   inpname = casnofch(1:i)//'MRCISDT.gjf'
   outname = casnofch(1:i)//'MRCISDT.log'
   call unfchk(casnofch, chkname)
   call prt_mrcisd_gau_inp(3, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gau_job(gau_path, inpname)
 
  case('psi4')
   call check_exe_exist(psi4_path)
-  i = system('fch2psi '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2psi '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'_psi.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISDT.inp'
   outname = casnofch(1:i)//'MRCISDT.out'
   i = RENAME(TRIM(string), TRIM(inpname))
@@ -813,39 +804,39 @@ subroutine do_mrcisdt()
   call submit_psi4_job(psi4_path, inpname, nproc)
 
  case('dalton')
-  i = system('fch2dal '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2dal '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.dal'
   chkname = casnofch(1:i-1)//'.mol'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISDT.dal'
   mklname = casnofch(1:i)//'MRCISDT.mol'
   outname = casnofch(1:i)//'MRCISDT.out'
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
   call prt_mrci_dalton_inp(3, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = index(casnofch, '_NO', back=.true.)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISDT'
   chkname = casnofch(1:i)//'MRCISDT.sout'
   call submit_dalton_job(mklname, mem, nproc, .false., .false., .false.)
 
  case('gamess')
-  i = system('fch2inp '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2inp '//TRIM(casnofch))
+  i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i)//'MRCISDT.inp'
   mklname = casnofch(1:i)//'MRCISDT.dat'
   outname = casnofch(1:i)//'MRCISDT.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(3, inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  case default
-  write(6,'(A)') 'ERROR in subroutine do_mrcisdt: invalid program='//&
-                  TRIM(mrcisdt_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_mrcisdt: invalid program='//&
+                   TRIM(mrcisdt_prog)
   stop
  end select
 

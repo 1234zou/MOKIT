@@ -102,7 +102,7 @@ subroutine replace_coor_in_molcas_inp(inpname, natom, coor)
  character(len=240) :: buf0, buf, inpname1
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'_new.input'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
@@ -157,7 +157,7 @@ subroutine replace_coor_in_molpro_inp(inpname, natom, coor)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.com', back=.true.)
+ i = INDEX(inpname, '.com', back=.true.)
  inpname1 = inpname(1:i-1)//'_new.com'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')

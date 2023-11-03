@@ -85,9 +85,9 @@ subroutine fch_u2r(fchname, newfch)
      BACKSPACE(fchid)
      exit
     end if
-    k = index(buf,'UHF')
-    if(k == 0) k = index(buf,'uhf')
-    if(k == 0) k = index(buf,'Uhf')
+    k = INDEX(buf,'UHF')
+    if(k == 0) k = INDEX(buf,'uhf')
+    if(k == 0) k = INDEX(buf,'Uhf')
     if(k /= 0) then
      buf(k+4:240) = buf(k+3:239)
      buf(k:k+3) = 'ROHF'

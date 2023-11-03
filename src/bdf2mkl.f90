@@ -43,14 +43,14 @@ subroutine bdf2mkl(orbname, fchname, str)
  character(len=3), intent(in) :: str
  character(len=240), intent(in) :: orbname, fchname
 
- i = system('bdf2fch '//TRIM(orbname)//' '//TRIM(fchname)//' '//str)
+ i = SYSTEM('bdf2fch '//TRIM(orbname)//' '//TRIM(fchname)//' '//str)
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine bdf2mkl: failed to call utility bdf2fch.'
   write(6,'(A)') 'Did you forget to compile utility bdf2fch?'
   stop
  end if
 
- i = system('fch2mkl '//TRIM(fchname))
+ i = SYSTEM('fch2mkl '//TRIM(fchname))
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine bdf2mkl: failed to call utility fch2mkl.'
   write(6,'(A)') 'Did you forget to compile utility fch2mkl?'

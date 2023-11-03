@@ -13,7 +13,7 @@ subroutine modify_IROHF_in_fch(fchname, k)
  character(len=240), intent(in) :: fchname
 
  buf = ' '
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
 
  call open_file(fchname, .true., fid)
@@ -378,8 +378,8 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,"type=""ALPH")/=0 .or. index(buf,"type=""CANO")/=0 .or. &
-      index(buf,"type=""NATU")/=0) exit
+   if(INDEX(buf,"type=""ALPH")/=0 .or. INDEX(buf,"type=""CANO")/=0 .or. &
+      INDEX(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH',&
@@ -392,7 +392,7 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,"type=""BETA") /= 0) exit
+   if(INDEX(buf,"type=""BETA") /= 0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
@@ -559,7 +559,7 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,TRIM(key)) /= 0) exit
+  if(INDEX(buf,TRIM(key)) /= 0) exit
  end do
 
  if(i /= 0) then
@@ -631,8 +631,8 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,"type=""ALPH")/=0 .or. index(buf,"type=""CANO")/=0 .or. &
-      index(buf,"type=""NATU")/=0) exit
+   if(INDEX(buf,"type=""ALPH")/=0 .or. INDEX(buf,"type=""CANO")/=0 .or. &
+      INDEX(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH',&
@@ -645,7 +645,7 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,"type=""BETA") /= 0) exit
+   if(INDEX(buf,"type=""BETA") /= 0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
@@ -659,8 +659,8 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
  do i = 1, nmo, 1
   read(fid,'(A)',iostat=k) buf
   if(k /= 0) exit
-  j = index(buf, """")
-  k = index(buf(j+1:), """")
+  j = INDEX(buf, """")
+  k = INDEX(buf(j+1:), """")
   read(buf(j+1:j+k-1),*) on(i)
 
   do j = 1, nline+1, 1
@@ -754,10 +754,10 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  close(fid)
 end subroutine read_ev_from_bdf_orb
 
-! read CAS NOONs from a given .fch(k) file
+! read CAS NOONs from a DALTON.MOPUN format file
 subroutine read_on_from_dalton_mopun(orbname, nif, on)
  implicit none
- integer :: i, k, fid
+ integer :: i, fid
  integer, intent(in) :: nif
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
@@ -765,6 +765,7 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
 
  on = 0d0
  call open_file(orbname, .true., fid)
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -772,21 +773,50 @@ subroutine read_on_from_dalton_mopun(orbname, nif, on)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC'&
-                 & found in file "//TRIM(orbname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC&
+                  &' found in file "//TRIM(orbname)//'.'
   close(fid)
   stop
  end if
 
- read(fid,*,iostat=k) (on(i),i=1,nif)
+ read(fid,*) on
  close(fid)
+end subroutine read_on_from_dalton_mopun
 
- if(k /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_on_from_dalton_mopun: failed to&
-                 & read occupation numbers from file '//TRIM(orbname)
+! read CAS NOONs from a Dalton output file
+! Note: only occupation numbers of active orbitals are printed in the Dalton output
+subroutine read_on_from_dalton_out(outname, nacto, on)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nacto
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: on(nacto)
+
+ on = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:19) == 'Occupancies of nat') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_on_from_dalton_out: 'Occupancies o&
+                   &f nat' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
   stop
  end if
-end subroutine read_on_from_dalton_mopun
+
+ do i = 1, 4
+  read(fid,'(A)') buf
+ end do
+
+ read(fid,*) on
+ close(fid)
+end subroutine read_on_from_dalton_out
 
 ! read AO-basis 1-e integral matrix from a Gaussian output file
 ! stype: overlap, kinetic, potential, core
@@ -877,7 +907,7 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
   read(fid,'(A)') buf
  end do ! for i
 
- i = index(buf, 'x')
+ i = INDEX(buf, 'x')
  read(buf(i+1:),*) j
  if(j /= nbf) then
   write(6,'(A)') 'ERROR in subroutine read_ovlp_from_molcas_out: inconsistent&
@@ -931,7 +961,7 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  if(ab/='a' .and. ab/='A') key = key2//'b'
 
  call open_file(fchname, .true., fid1)
- i = index(fchname,'.fch',back=.true.)
+ i = INDEX(fchname,'.fch',back=.true.)
  fchname1 = fchname(1:i-1)//'_D.fch'
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
 
@@ -955,7 +985,7 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  ! skip the Alpha/Beta Orbital Energies in fname1
  do while(.true.)
   read(fid1,'(A)') buf
-  if(index(buf,'=') /= 0) exit
+  if(INDEX(buf,'=') /= 0) exit
  end do
  BACKSPACE(fid1)
 
@@ -991,7 +1021,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  logical, intent(in) :: replace
 
  call open_file(orbname, .true., fid1)
- i = index(orbname,'.',back=.true.)
+ i = INDEX(orbname,'.',back=.true.)
  orbname1 = orbname(1:i-1)//'_D.Orb'
  open(newunit=fid2,file=TRIM(orbname1),status='replace')
 
@@ -1002,7 +1032,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
-  if(index(buf,TRIM(key)) /= 0) exit
+  if(INDEX(buf,TRIM(key)) /= 0) exit
  end do
 
  if(i /= 0) then
@@ -1029,7 +1059,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
-  if(index(buf,TRIM(key)) /= 0) exit
+  if(INDEX(buf,TRIM(key)) /= 0) exit
  end do
 
  if(i /= 0) then
@@ -1131,7 +1161,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
 
  do while(.true.) ! skip MOs in fchname
   read(fid1,'(A)') buf
-  if(index(buf,'=') /= 0) exit
+  if(INDEX(buf,'=') /= 0) exit
  end do ! for while
 
  BACKSPACE(fid1)
@@ -1221,11 +1251,11 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  call open_file(unofile, .true., fid)
 
  read(fid,'(A)') buf
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) nbf
 
  read(fid,'(A)') buf
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) nif
 
  if(nbf > nif) then
@@ -1254,7 +1284,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
   stop
  end if
 
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) ndb
 
  do while(.true.)
@@ -1271,7 +1301,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end if
 
  idx = 0
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) idx(1:3)
  close(fid,status='delete')
 
@@ -1315,7 +1345,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
  end if
  close(fid)
 
- i = index(buf,'IS'); j = index(buf,'AFTER')
+ i = INDEX(buf,'IS'); j = INDEX(buf,'AFTER')
  read(buf(i+2:j-1),*) e
 
  if(DABS(e) < 1d-5) then
@@ -1400,8 +1430,8 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  end if
  close(fid)
 
- i = index(buf,'lue')
- if(i == 0) i = index(buf,'LUE')
+ i = INDEX(buf,'lue')
+ if(i == 0) i = INDEX(buf,'LUE')
 
  if(scf) then
   read(buf(i+3:),*) e(2) ! CASSCF
@@ -1416,7 +1446,7 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
    if(buf(2:8) == 'ITN=  1') exit
   end do ! for while
   close(fid)
-  i = index(buf,'E=')
+  i = INDEX(buf,'E=')
   read(buf(i+2:),*) e(1)
  end if
 end subroutine read_cas_energy_from_gaulog
@@ -1502,14 +1532,14 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  if(scf) then
   read(buf(i+1:),*) e(2)
  else
   read(buf(i+1:),*) e(1)
  end if
 
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) s_square
 
  if(DABS(expect - s_square) > 1d-3) then
@@ -1535,7 +1565,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   close(fid)
   read(buf(10:),*) e(1)
 
-  i = index(buf, '=', back=.true.)
+  i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) s_square
 
   if( DABS(expect - s_square) > 1D-3) then
@@ -1585,9 +1615,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end if
 
   read(fid,'(A)') buf
-  i = index(buf,'ENERGY=')
+  i = INDEX(buf,'ENERGY=')
   read(buf(i+7:),*) e(1)   ! CASCI energy in the CASSCF job
-  i = index(buf,'=',back=.true.)
+  i = INDEX(buf,'=',back=.true.)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
@@ -1602,9 +1632,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
    read(fid,'(A)') buf
    if(buf(2:13) == 'STATE   1  E') exit
   end do ! for while
-  i = index(buf,'ENERGY=')
+  i = INDEX(buf,'ENERGY=')
   read(buf(i+7:),*) e(2)   ! CASSCF energy
-  i = index(buf,'S=')
+  i = INDEX(buf,'S=')
   read(buf(i+2:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
@@ -1627,7 +1657,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
    stop
   end if
  
-  i = index(buf,'=', back=.true.)
+  i = INDEX(buf,'=', back=.true.)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
@@ -1639,7 +1669,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
 
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  i = index(buf,'=', back=.true.)
+  i = INDEX(buf,'=', back=.true.)
   read(buf(i+1:),*) e(1)
  end if
 
@@ -1667,7 +1697,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  end do ! for while
 
  read(fid,'(A)') buf
- if(index(buf,'No convergence') > 0) then
+ if(INDEX(buf,'No convergence') > 0) then
   if(scf) then
    write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_molcas_out:'
    write(6,'(A)') 'The CASCI iterative diagonalization fails to converge. This &
@@ -1686,8 +1716,8 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
   read(fid,'(A)') buf
  end if
 
- if(index(buf,'Total energies') > 0) then
-  i = index(buf,'Add'); j = index(buf,'au')
+ if(INDEX(buf,'Total energies') > 0) then
+  i = INDEX(buf,'Add'); j = INDEX(buf,'au')
   read(buf(i+3:j-1),*) add
   read(fid,'(A)') buf
  end if
@@ -1702,7 +1732,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'Convergence after') > 0) exit
+  if(INDEX(buf,'Convergence after') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -1743,7 +1773,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
    close(fid)
    stop
   end if
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(i+1:),*) e(1)
 
   do while(.true.)
@@ -1758,7 +1788,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
    close(fid)
    stop
   end if
-  i = index(buf,':')
+  i = INDEX(buf,':')
   read(buf(i+1:),*) e(2)
 
  else ! CASCI
@@ -1773,7 +1803,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
    close(fid)
    stop
   end if
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(i+1:),*) e(1)
  end if
 
@@ -1827,7 +1857,7 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
    close(fid)
    stop
   end if
-  i = index(buf, 'Energy')
+  i = INDEX(buf, 'Energy')
   read(buf(i+6:),*) e(2) ! CASSCF energy
  end if
 
@@ -1878,7 +1908,7 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
   stop
  end if
 
- i = index(buf,':', back=.true.)
+ i = INDEX(buf,':', back=.true.)
  if(scf) then
   read(buf(i+1:),*) e(2) ! CASSCF energy in CASSCF job
  else
@@ -1918,7 +1948,7 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
 
  if(.not. scf) then ! CASCI
   close(fid)
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(i+1:),*) e(1)
   return
  end if
@@ -1926,20 +1956,20 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  read(fid,'(A)') buf
  ! sometimes there will be extra output in PSI4, e.g.
  ! '(sem_iter): H0block_->H0b_diag'...
- if(index(buf,'MCSCF  1:') == 0) then
+ if(INDEX(buf,'MCSCF  1:') == 0) then
   do while(.true.)
    read(fid,'(A)') buf
-   if(index(buf,'MCSCF  1:') > 0) exit
+   if(INDEX(buf,'MCSCF  1:') > 0) exit
   end do ! for while
  end if
 
- i = index(buf,':')
+ i = INDEX(buf,':')
  read(buf(i+1:),*) e(1)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'MCSCF Final E') > 0) exit
+  if(INDEX(buf,'MCSCF Final E') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -1949,7 +1979,7 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
   stop
  end if
 
- i = index(buf,':')
+ i = INDEX(buf,':')
  read(buf(i+1:),*) e(2)
  close(fid)
 end subroutine read_cas_energy_from_psi4_out
@@ -2000,7 +2030,7 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
   stop
  end if
 
- i = index(buf,':')
+ i = INDEX(buf,':')
  read(buf(i+1:),*) e(2)
  close(fid)
 end subroutine read_cas_energy_from_dalton_out
@@ -2034,7 +2064,7 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) corr_e
 
  if(troot == 0) then
@@ -2061,7 +2091,7 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
  end if
  close(fid)
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) ref_e
 end subroutine read_mrpt_energy_from_pyscf_out
 
@@ -2102,7 +2132,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
 
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) ref_e
 
   do while(.true.)
@@ -2151,14 +2181,14 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
    stop
   end if
 
-  i = index(buf,':')
+  i = INDEX(buf,':')
   read(buf(i+1:),*) ref_e
 
   do i = 1, 3
    read(fid,'(A)') buf
   end do ! for i 
 
-  i = index(buf, ':')
+  i = INDEX(buf, ':')
   read(buf(i+1:),*) corr_e
   corr_e = corr_e - ref_e
 
@@ -2204,7 +2234,7 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
   stop
  end if
 
- i = index(buf,'ergy')
+ i = INDEX(buf,'ergy')
  read(buf(i+4:),*) ref_e
 
  do while(.true.)
@@ -2221,7 +2251,7 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  end if
  close(fid)
 
- i = index(buf,'ergy')
+ i = INDEX(buf,'ergy')
  read(buf(i+4:),*) corr_e
  corr_e = corr_e - ref_e
 end subroutine read_mrpt_energy_from_molpro_out
@@ -2244,7 +2274,7 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,'Total Energy C') /=0) exit
+   if(INDEX(buf,'Total Energy C') /=0) exit
   end do ! for while
 
   if(i /= 0) then
@@ -2254,11 +2284,11 @@ subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
    stop
   end if
 
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) corr_e
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  i = index(buf, '=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) ref_e
  case default
   write(6,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
@@ -2294,7 +2324,7 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) ref_e
 
  do while(.true.)
@@ -2310,7 +2340,7 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) corr_e
  close(fid)
 end subroutine read_mrpt_energy_from_gms_out
@@ -2353,7 +2383,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  do i = 1, 4
   read(fid,'(A)') buf
  end do ! for i
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) ref_e ! CASCI/CASSCF energy
 
  if(itype == 1) then
@@ -2405,7 +2435,7 @@ function has_davidson_q(outname) result(alive)
  close(fid)
  if(i /= 0) return
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) alive
 end function has_davidson_q
 
@@ -2436,7 +2466,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(1:29) == '::    RASSCF root number  1 T') exit
    end do ! for while
-   i = index(buf,':',back=.true.)
+   i = INDEX(buf,':',back=.true.)
    read(buf(i+1:),*) e
   else if(CtrType == 2) then ! ic-MRCISD
    do while(.true.)
@@ -2445,10 +2475,10 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(23:31) == 'CI ENERGY') exit
    end do ! for while
-   i = index(buf,':',back=.true.)
+   i = INDEX(buf,':',back=.true.)
    read(buf(i+1:),*) e
    read(fid,'(A)') buf
-   i = index(buf,':',back=.true.)
+   i = INDEX(buf,':',back=.true.)
    read(buf(i+1:),*)  davidson_e
   end if
   e = e + ptchg_e
@@ -2491,11 +2521,11 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(1:5) == 'ETOT ') exit
    end do ! for while
-   i = index(buf,'...',back=.true.)
+   i = INDEX(buf,'...',back=.true.)
    read(buf(i+3:),*) e
    read(fid,'(A)') buf
    read(fid,'(A)') buf
-   i = index(buf,'...',back=.true.)
+   i = INDEX(buf,'...',back=.true.)
    read(buf(i+3:),*) davidson_e
   end if
 
@@ -2507,8 +2537,8 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    !               Davidson                           Lanczos
    if(buf(17:32)=='Final Eigenvalue' .or. buf(20:29)=='EIGENVALUE') exit
   end do ! for while
-  i = index(buf,'lue',back=.true.)
-  if(i == 0) i = index(buf,'LUE',back=.true.)
+  i = INDEX(buf,'lue',back=.true.)
+  if(i == 0) i = INDEX(buf,'LUE',back=.true.)
   read(buf(i+3:),*) e
 
  case('molpro')
@@ -2519,11 +2549,11 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    if(buf(3:10) == '!Total e') exit
   end do ! for while
 
-  i = index(buf,':')
+  i = INDEX(buf,':')
   read(buf(i+1:),*) e
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  i = index(buf,':')
+  i = INDEX(buf,':')
   read(buf(i+1:),*) davidson_e
   davidson_e = davidson_e - e
   e = e + ptchg_e
@@ -2543,7 +2573,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    end if
   end do ! for while
 
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(i+1:),*) e
   e = e + ptchg_e + nuc_pt_e
 
@@ -2587,7 +2617,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(2:7) == 'E(REF)') exit
    end do ! for while
-   i = index(buf, '=')
+   i = INDEX(buf, '=')
    read(buf(i+1:),*) casci_e
 
    ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
@@ -2603,7 +2633,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    end do ! for while
 
    close(fid)
-   i = index(buf, '=')
+   i = INDEX(buf, '=')
    read(buf(i+1:),*) e
   end if
 
@@ -2652,14 +2682,14 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
    if(buf(1:9) == 'MC-PDFT E') exit
   end do ! for while
 
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(12:),*) pdft_e
 
  case('openmolcas')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,'MCSCF reference e') /= 0) exit
+   if(INDEX(buf,'MCSCF reference e') /= 0) exit
   end do ! for while
 
   if(i /= 0) then
@@ -2673,7 +2703,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,'Total MC-PDFT') /= 0) exit
+   if(INDEX(buf,'Total MC-PDFT') /= 0) exit
   end do ! for while
 
   if(i /= 0) then
@@ -2688,7 +2718,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(index(buf,'TOTAL MC-PDFT') /= 0) exit
+   if(INDEX(buf,'TOTAL MC-PDFT') /= 0) exit
   end do ! for while
 
   if(i /= 0) then
@@ -2697,7 +2727,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
    close(fid)
    stop
   end if
-  i = index(buf, '=', back=.true.)
+  i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) pdft_e
 
   do while(.true.)
@@ -2716,7 +2746,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
    close(fid)
    stop
   end if
-  i = index(buf, 'Y=', back=.true.)
+  i = INDEX(buf, 'Y=', back=.true.)
   read(buf(i+2:),*) ref_e
  end select
 
@@ -2746,7 +2776,7 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  do while(.true.)
   read(datid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'CICOEF(') /= 0) exit
+  if(INDEX(buf,'CICOEF(') /= 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -2762,9 +2792,9 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  allocate(pair_coeff(2,npair), source=0d0)
  do i = 1, npair, 1
   read(datid,'(A)') buf
-  k = index(buf,'=')
+  k = INDEX(buf,'=')
   read(buf(k+1:),*) pair_coeff(1,i)
-  k = index(buf,',')
+  k = INDEX(buf,',')
   read(buf(k+1:),*) pair_coeff(2,i)
  end do ! for i
  ! pair coefficients read done
@@ -2872,7 +2902,7 @@ subroutine check_cart(fchname, cart)
   return
  end if
 
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) k
  allocate(shltyp(k), source=0)
  read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
@@ -2937,7 +2967,7 @@ subroutine check_sph(fchname, sph)
   return
  end if
 
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) k
  allocate(shltyp(k), source=0)
  read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
@@ -3030,7 +3060,7 @@ subroutine write_dm_into_fch(fchname, total, nbf, dm)
  key = key1
  if(.not. total) key = key2
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
  call open_file(fchname, .true., fid)
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
@@ -3572,7 +3602,7 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  character(len=240), intent(in) :: mo_fch, no_fch
  logical :: nat_orb, changed
 
- i = system('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
+ i = SYSTEM('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to &
                   & call utility solve_ON_matrix.'
@@ -3584,7 +3614,7 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  call read_na_and_nb_from_fch(mo_fch, na, nb)
  nopen = na  - nb; ndb = nb
 
- i = index(mo_fch, '.fch', back=.true.)
+ i = INDEX(mo_fch, '.fch', back=.true.)
  dname = mo_fch(1:i-1)//'_D.txt'
  open(newunit=i,file=TRIM(dname),status='old')
  close(unit=i,status='delete')

@@ -22,11 +22,12 @@ subroutine do_cas(scf)
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
-  mkl2fch_wrap
+  mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)       ! e(1) is CASCI enery, e(2) is CASSCF energy
+ real(kind=8), allocatable :: noon(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
@@ -197,11 +198,11 @@ subroutine do_cas(scf)
 
  select case(ist)
  case(1,3,6)
-  i = index(datname, '.dat', back=.true.)
+  i = INDEX(datname, '.dat', back=.true.)
   fchname = datname(1:i-1)//'.fch'
   pyname = datname(1:i-1)//'.py'
  case(2) ! UHF -> UNO -> CASCI/CASSCF
-  i = index(hf_fch, '.fch', back=.true.)
+  i = INDEX(hf_fch, '.fch', back=.true.)
   fchname = hf_fch(1:i-1)//'_uno.fch'
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
@@ -209,12 +210,12 @@ subroutine do_cas(scf)
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another filename
  case(5)
   fchname = hf_fch
-  i = index(hf_fch, '.fch', back=.true.)
+  i = INDEX(hf_fch, '.fch', back=.true.)
   pyname = hf_fch(1:i-1)//'.py'
  end select
 
  proname = ' '
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  select case(ist)
  case(1,3,6)
   if(scf) then
@@ -239,13 +240,13 @@ subroutine do_cas(scf)
 
  select case(TRIM(cas_prog))
  case('pyscf')
-  i = system('bas_fch2py '//TRIM(fchname))
+  i = SYSTEM('bas_fch2py '//TRIM(fchname))
   inpname = TRIM(proname)//'.py'
   i = RENAME(TRIM(pyname), TRIM(inpname))
   call prt_cas_script_into_py(inpname, fchname, scf)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(casscf_force) call add_force_key2py_script(mem, inpname)
-  j = index(inpname, '.py', back=.true.)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(casscf_force) call add_force_key2py_script(mem, inpname, .false.)
+  j = INDEX(inpname, '.py', back=.true.)
   outname = inpname(1:j-1)//'.out'
   call submit_pyscf_job(inpname)
 
@@ -256,11 +257,11 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.log'
   mklname = TRIM(proname)//'.chk'
   call prt_cas_gjf(inpname, nacto, nacte, scf, casscf_force)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
 
   write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(inpname)
-  i = system(TRIM(gau_path)//' '//TRIM(inpname))
+  i = SYSTEM(TRIM(gau_path)//' '//TRIM(inpname))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CASCI/CASSCF job failed.'
    write(6,'(A)') 'Please open file '//TRIM(inpname)//' and check.'
@@ -273,44 +274,44 @@ subroutine do_cas(scf)
  case('gamess')
   call check_gms_path()
   call fch2inp_wrap(fchname, .false., 0, 0)
-  i = index(fchname, '.fch', back=.true.)
+  i = INDEX(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'
   i = RENAME(TRIM(outname), TRIM(inpname))
   outname = TRIM(proname)//'.gms'
   call prt_cas_gms_inp(inpname, idx1-1, scf)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2gms_inp(inpname)
 
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
   ! make a copy of the .fch file to save NOs
   if(ist /= 2) then ! datname is a GVB job .dat file
-   i = index(datname, '.dat', back=.true.)
+   i = INDEX(datname, '.dat', back=.true.)
    inpname = datname(1:i-1)//'.fch'
   else              ! no GVB job
-   i = index(hf_fch, '.fch')
+   i = INDEX(hf_fch, '.fch')
    inpname = hf_fch(1:i-1)//'_uno.fch'
   end if
   call copy_file(inpname, casnofch, .false.)
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
-  i = index(casnofch, '_NO.fch', back=.true.)
+  i = INDEX(casnofch, '_NO.fch', back=.true.)
   datname = casnofch(1:i-1)//'.dat'
   if(scf) then
    buf = 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)
    write(6,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
+   i = SYSTEM(TRIM(buf))
    write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                               TRIM(casnofch), idx1, idx2
    write(6,'(A)') '$'//TRIM(buf)
-   i = system(TRIM(buf))
+   i = SYSTEM(TRIM(buf))
   end if
 
   ! transfer NOs from .dat to .fch
   write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',idx2
   write(6,'(A)') '$'//TRIM(buf)
-  i = system(TRIM(buf))
+  i = SYSTEM(TRIM(buf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'
    write(6,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
@@ -319,36 +320,25 @@ subroutine do_cas(scf)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)
-
-  i = system('fch2inporb '//TRIM(fchname))
-  i = index(fchname, '.fch', back=.true.)
-  outname = fchname(1:i-1)//'.INPORB'
-  inpname = TRIM(proname)//'.INPORB'
-  i = RENAME(TRIM(outname),TRIM(inpname))
-  i = index(fchname, '.fch', back=.true.)
-  outname = fchname(1:i-1)//'.input'
   inpname = TRIM(proname)//'.input'
-  i = RENAME(TRIM(outname),TRIM(inpname))
   outname = TRIM(proname)//'.out'
+  call fch2inporb_wrap(fchname, .false., inpname)
   write(orbname,'(A,I0)') TRIM(proname)//'.RasOrb.', iroot+1
   call prt_cas_molcas_inp(inpname, scf)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(casscf_force) i = system("echo '&ALASKA' >> "//TRIM(inpname))
-
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(casscf_force) i = SYSTEM("echo '&ALASKA' >> "//TRIM(inpname))
   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
-  ! make a copy of the .fch file to save NOs
-  call copy_file(fchname, casnofch, .false.)
-  ! transfer NOs from .dat to .fch
-  i = system('orb2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
+  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
+  call orb2fch_wrap(orbname, casnofch, .true.) ! transfer NOs from .dat to .fch
   ! OpenMolcas CASSCF NOs may not be in ascending order, sort them
   call sort_no_by_noon(casnofch, idx1, idx2)
 
  case('orca')
   call check_exe_exist(orca_path)
-  i = system('fch2mkl '//TRIM(fchname))
+  i = SYSTEM('fch2mkl '//TRIM(fchname))
 
-  i = index(fchname, '.fch', back=.true.)
+  i = INDEX(fchname, '.fch', back=.true.)
   pyname  = fchname(1:i-1)//'_o.inp'
   orbname = fchname(1:i-1)//'_o.mkl'
   inpname = TRIM(proname)//'.inp'
@@ -359,7 +349,7 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname),TRIM(inpname))
 
   call prt_cas_orca_inp(inpname, scf)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
@@ -382,8 +372,8 @@ subroutine do_cas(scf)
  case('molpro')
   call check_exe_exist(molpro_path)
 
-  i = system('fch2com '//TRIM(fchname)) ! generate .com and .txt
-  i = index(fchname, '.fch', back=.true.)
+  i = SYSTEM('fch2com '//TRIM(fchname)) ! generate .com and .txt
+  i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'.com'
   pyname = fchname
   call convert2molpro_fname(pyname, '.a')
@@ -395,17 +385,17 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(orbname))
   call prt_cas_molpro_inp(inpname, scf, casscf_force)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   call submit_molpro_job(inpname, mem, nproc)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  i = system('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
+  i = SYSTEM('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
 
  case('bdf')
   call check_exe_exist(bdf_path)
 
-  i = system('fch2bdf '//TRIM(fchname)//' -no') ! generate _bdf.inp, .BAS, .inporb
-  i = index(fchname, '.fch', back=.true.)
+  i = SYSTEM('fch2bdf '//TRIM(fchname)//' -no')
+  i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'_bdf.inp'
   pyname  = fchname(1:i-1)//'_bdf.inporb'
   inpname = TRIM(proname)//'.inp'
@@ -415,20 +405,20 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(xmlname))
   call prt_cas_bdf_inp(inpname, scf, casscf_force)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   write(6,'(A)') '$$BDF '//TRIM(proname)
-  i = system(TRIM(bdf_path)//' '//TRIM(proname))
+  i = SYSTEM(TRIM(bdf_path)//' '//TRIM(proname))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
    stop
   end if
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  i = system('bdf2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
+  i = SYSTEM('bdf2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
 
  case('psi4')
-  i = system('fch2psi '//TRIM(fchname))
-  i = index(fchname, '.fch', back=.true.)
+  i = SYSTEM('fch2psi '//TRIM(fchname))
+  i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'_psi.inp'
   pyname  = fchname(1:i-1)//'_psi.A'
   inpname = TRIM(proname)//'.inp'
@@ -436,13 +426,13 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.out'
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(xmlname))
-  call prt_cas_psi4_inp(inpname, scf, casscf_force)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  call prt_cas_psi4_inp(inpname, scf)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                              TRIM(casnofch), idx1, idx2
-  i = system(TRIM(buf))
+  i = SYSTEM(TRIM(buf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility extract&
                     &_noon2fch.'
@@ -450,11 +440,11 @@ subroutine do_cas(scf)
   end if
 
  case('dalton')
-  write(6,'(/,A)') 'Warning: you should use OpenMP version of Dalton. If you &
-                   &are using MPI-'
-  write(6,'(A,/)') 'parallelized Dalton, you should kill the job.'
-  i = system('fch2dal '//TRIM(fchname))
-  i = index(fchname, '.fch', back=.true.)
+  write(6,'(/,A)') 'Warning: Currently automr only supports the OpenMP version &
+                   &of Dalton. If you'
+  write(6,'(A,/)') 'are using MPI version of Dalton, you should kill the job.'
+  i = SYSTEM('fch2dal '//TRIM(fchname))
+  i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'.dal'
   pyname  = fchname(1:i-1)//'.mol'
   inpname = TRIM(proname)//'.dal'
@@ -464,22 +454,36 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(xmlname))
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
                                              ! sirius, noarch, del_sout
   call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
 
-  ! untar/unzip the compressed package
-  i = system('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
-  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  i = system('dal2fch DALTON.MOPUN '//TRIM(casnofch)//' -no')
+  ! untar/unzip the compressed package to get DALTON.MOPUN
+  i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
+
+  ! make a copy to save NOs
+  call copy_file(fchname, casnofch, .false.)
+
+  ! transfer NOs (and NOONs, if any) from DALTON.MOPUN to .fch file
+  buf = 'dal2fch DALTON.MOPUN '//TRIM(casnofch)
+  if(.not. casscf_force) buf = TRIM(buf)//' -no'
+  ! when force=.T., NOONs are not in DALTON.MOPUN, so we only transfer NOs here
+  i = SYSTEM(TRIM(buf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dal2fch.'
    write(6,'(A)') 'Please open files DALTON.MOPUN and '//TRIM(casnofch)//&
                  &' and check.'
    stop
   end if
-  orbname = 'DALTON.MOPUN'
-  call delete_file(orbname)
+
+  ! Now transfer NOONs when force=.T.
+  if(casscf_force) then
+   allocate(noon(nif), source=0d0)
+   call read_on_from_dalton_out(outname, idx2, noon(1:idx2))
+   call write_eigenvalues_to_fch(casnofch, nif, 'a', noon, .true.)
+   deallocate(noon)
+  end if
+  call delete_file('DALTON.MOPUN')
 
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_cas: allowed programs are Gaussian,&
@@ -495,7 +499,7 @@ subroutine do_cas(scf)
  if(TRIM(cas_prog) /= 'pyscf') call update_density_using_no_and_on(casnofch)
 
  if(ist == 2) then
-  i = index(hf_fch, '.fch', back=.true.)
+  i = INDEX(hf_fch, '.fch', back=.true.)
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
   i = RENAME(TRIM(inpname), TRIM(pyname)) ! rename it back
@@ -528,30 +532,14 @@ subroutine do_cas(scf)
 
  if(casscf_force) then
   allocate(grad(3*natom))
-
-  select case(cas_prog)
-  case('pyscf')
-   call read_grad_from_pyscf_out(outname, natom, grad)
-  case('gaussian')
-   call read_grad_from_gau_log(outname, natom, grad)
+  ! rename outname to use subroutine read_grad_from_output
+  select case(TRIM(cas_prog))
   case('gamess')
-   call read_grad_from_gms_dat(datname, natom, grad)
-  case('openmolcas')
-   call read_grad_from_molcas_out(outname, natom, grad)
+   outname = datname
   case('orca')
-   call read_grad_from_engrad(gradname, natom, grad)
-  case('molpro')
-   call read_grad_from_molpro_out(outname, natom, grad)
-  case('bdf')
-   call read_grad_from_bdf_out(outname, natom, grad)
-  case default
-   write(6,'(A)') 'ERROR in subroutine do_cas: program cannot be identified.'
-   write(6,'(A)') 'cas_prog='//TRIM(cas_prog)
-   stop
+   outname = gradname
   end select
-
-  write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
-  write(6,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
+  call read_grad_from_output(cas_prog, outname, natom, grad)
  end if
 
  if(nmr) then
@@ -588,7 +576,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  dmrg = (dmrgci .or. dmrgscf)
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  pyname1 = TRIM(pyname)//'.t'
- i = index(pyname, '.py', back=.true.)
+ i = INDEX(pyname, '.py', back=.true.)
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -652,7 +640,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 
- i = index(casnofch, '_NO', back=.true.)
+ i = INDEX(casnofch, '_NO', back=.true.)
  cmofch = casnofch(1:i)//'CMO.fch'
  if(dmrgci) then
   write(fid2,'(/,A)') '# copy original MOs into .fch file'
@@ -693,7 +681,7 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: scf, force
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  open(newunit=fid,file=TRIM(gjfname),status='replace')
  write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
@@ -816,14 +804,15 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(2:7) == 'SEWARD') exit
-  j = index(buf, '...')
+  j = INDEX(buf, '...')
   if(j > 0) then
    if(RI) then
-    j = index(buf, '.')
+    j = INDEX(buf, '.')
     write(fid2,'(A)') buf(1:j)//TRIM(RIJK_bas1)//'..'//TRIM(buf(j+3:))
    else
     write(fid2,'(A)') TRIM(buf)
@@ -834,8 +823,8 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD' found&
-                & in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD' found i&
+                   &n file "//TRIM(inpname)
   stop
  end if
 
@@ -850,8 +839,8 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF'&
-                 & found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF' found in f&
+                   &ile "//TRIM(inpname)
   stop
  end if
 
@@ -864,7 +853,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
 
  ! if RIJK is on, we need to generate the fitting basis set file for OpenMolcas
  if(RI) then
-  i = system('cp '//TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' .')
+  i = SYSTEM('cp '//TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' .')
   if(i /= 0) then
    write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy file&
                   & from'
@@ -872,7 +861,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
                  & current directory.'
    stop
   end if
-  i = system('bas_gau2molcas '//TRIM(RIJK_bas1))
+  i = SYSTEM('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
    write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call util&
                   &ity bas_gau2molcas.'
@@ -882,7 +871,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
 
   call delete_file(RIJK_bas1)
   call upper(RIJK_bas1)
-  i = system('mv '//TRIM(RIJK_bas1)//' $MOLCAS/basis_library/jk_Basis/')
+  i = SYSTEM('mv '//TRIM(RIJK_bas1)//' $MOLCAS/basis_library/jk_Basis/')
  end if
 end subroutine prt_cas_molcas_inp
 
@@ -1085,7 +1074,7 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
 end subroutine prt_cas_bdf_inp
 
 ! print CASCI/CASSCF keywords into a given PSI4 input file
-subroutine prt_cas_psi4_inp(inpname, scf, force)
+subroutine prt_cas_psi4_inp(inpname, scf)
  use mol, only: ndb, npair, npair0, nacte
  use mr_keyword, only: mem, hardwfn, crazywfn, RI, RIJK_bas
  implicit none
@@ -1093,10 +1082,10 @@ subroutine prt_cas_psi4_inp(inpname, scf, force)
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, casnofch
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: scf, force
+ logical, intent(in) :: scf
 
  call modify_memory_in_psi4_inp(inpname, mem)
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  casnofch = inpname(1:i-1)//'_NO.fch'
  nclosed = ndb + npair - npair0
 
@@ -1168,7 +1157,11 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
  if(DKH2) write(fid1,'(A)') '.DOUGLAS-KROLL'
- write(fid1,'(A)') '.RUN WAVE FUNCTION'
+ if(force) then
+  write(fid1,'(A)') '.RUN PROPERTIES'
+ else
+  write(fid1,'(A)') '.RUN WAVE FUNCTIONS'
+ end if
  write(fid1,'(A,/,A)') '**WAVE FUNCTIONS','.HF'
  if(scf) then
   write(fid1,'(A)') '.MCSCF'
@@ -1208,14 +1201,14 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_cas_dalton_inp: no '**END OF INP'&
-                   & found in"
-  write(6,'(A)') 'file '//TRIM(inpname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine prt_cas_dalton_inp: no '**END OF INP' f&
+                   &ound in file "//TRIM(inpname)
   close(fid1,status='delete')
   close(fid)
   stop
  end if
 
+ if(force) write(fid1,'(A,/,A)') '**PROPERTIES', '.MOLGRA'
  write(fid1,'(A)') '**END OF INPUT'
  close(fid,status='delete')
  close(fid1)
@@ -1236,12 +1229,12 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: scf, ICSS
 
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  olddal = fchname(1:i-1)//'.dal'
  oldmol = fchname(1:i-1)//'.mol'
 
- i = index(fchname, '_NO.fch', back=.true.)
- if(i == 0) i = index(fchname, '.fch')
+ i = INDEX(fchname, '_NO.fch', back=.true.)
+ if(i == 0) i = INDEX(fchname, '.fch')
  dalname = fchname(1:i-1)//'_NMR.dal'
  molname = fchname(1:i-1)//'_NMR.mol'
  call fch2dal_wrap(fchname)
@@ -1316,8 +1309,8 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
  write(6,'(A,F6.3,A,3I5)') 'Interval=', interval, '. Ngrid along x,y,z are', &
                            (ngrid(i),i=1,3)
 
- i = index(inpname, '.dal', back=.true.)
- j = index(inpname, '_NMR.dal', back=.true.)
+ i = INDEX(inpname, '.dal', back=.true.)
+ j = INDEX(inpname, '_NMR.dal', back=.true.)
  proname = inpname(1:j-1)
  molname = inpname(1:i-1)//'.mol'
  dalname = inpname(1:i-1)//'.dal'
@@ -1378,7 +1371,7 @@ subroutine copy_mol_and_add_atomtypes(molname, molname1)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- i = index(buf, ' ')
+ i = INDEX(buf, ' ')
  read(buf(11:i-1),*) natom
  write(fid1,'(A,I0,A)') 'AtomTypes=', natom+1, ' Integrals=1.0D-14 Charge=0 &
                         &NoSymmetry Angstrom'
@@ -1393,31 +1386,6 @@ subroutine copy_mol_and_add_atomtypes(molname, molname1)
  close(fid)
  close(fid1)
 end subroutine copy_mol_and_add_atomtypes
-
-subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
- implicit none
- integer :: i, system
- integer, intent(in) :: mem, nproc
- character(len=480) :: buf
- character(len=240), intent(in) :: proname
- logical, intent(in) :: sirius, noarch, del_sout
-
- write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -omp ',nproc
- if(sirius) buf = TRIM(buf)//" -put ""SIRIUS.RST"""
- if(noarch) buf = TRIM(buf)//' -noarch'
- buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
- write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: Dalton job failed.'
-  write(6,'(A)') 'Please open files '//TRIM(proname)//'.out and '//TRIM(proname)&
-                  //'.sout and check why.'
-  stop
- end if
-
- if(del_sout) call delete_file(TRIM(proname)//'.sout')
- if(.not. noarch) i = system('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
-end subroutine submit_dalton_job
 
 subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  implicit none
@@ -1462,7 +1430,7 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
 
  write(buf,'(A,I0,A)') 'make -j',njob,' -f '//TRIM(makefile)//' all'
  write(6,'(A)') '$'//TRIM(buf)
- i = system(TRIM(buf))
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine submit_dalton_icss_job: failed to run&
                 & Dalton ICSS jobs.'
@@ -1590,7 +1558,7 @@ subroutine read_shieldings_from_dalton_out(outname)
  write(6,'(/,A)') 'Chemical shieldings copied from Dalton output:'
  do while(.true.)
   read(fid,'(A)') buf
-  if(index(buf,'Intera')>0 .or. index(buf,'intera')>0) exit
+  if(INDEX(buf,'Intera')>0 .or. INDEX(buf,'intera')>0) exit
   write(6,'(A)') TRIM(buf)
  end do ! for while
 
@@ -1673,7 +1641,7 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   write(fid,'(A,2(1X,I0),A)') 'CIroot=',nroots,lroots,' 1'
  end if
 
- i = index(inpname, '.input', back=.true.)
+ i = INDEX(inpname, '.input', back=.true.)
  write(fid,'(A)') 'FILEORB= '//inpname(1:i-1)//'.INPORB'
 
  if(CIonly) write(fid,'(A)') 'CIonly'

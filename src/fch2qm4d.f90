@@ -120,7 +120,7 @@ subroutine fch2qm4d(fchname, binary)
   stop
  end if
 
- i = index(fchname,'.fch',back=.true.)
+ i = INDEX(fchname,'.fch',back=.true.)
  inpname = fchname(1:i-1)//'.inp'
  xyzname = fchname(1:i-1)//'.xyz'
  xmlname = fchname(1:i-1)//'_0.xml'
@@ -277,7 +277,7 @@ subroutine write_qm4d_inp(inpname, uhf, binary)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: uhf, binary
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  xml0name = inpname(1:i-1)//'_0.xml'
  xmlname = inpname(1:i-1)//'.xml'
  binname = inpname(1:i-1)//'.bin'

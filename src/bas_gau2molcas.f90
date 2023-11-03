@@ -36,15 +36,15 @@ subroutine bas_gau2molcas(inpname)
  buf = ' '
  outname = ' '
 
- i = index(inpname, '.gjf')
- if(i == 0) i = index(inpname, '.com')
+ i = INDEX(inpname, '.gjf')
+ if(i == 0) i = INDEX(inpname, '.com')
  if(i > 0) then
   write(6,'(A)') 'ERROR in subroutine bas_gau2molcas: .gjf/.com file not&
                    & supported currently.'
   stop
  end if
 
- i = index(inpname, '.gbs', back=.true.)
+ i = INDEX(inpname, '.gbs', back=.true.)
  if(i == 0) then
   i = LEN_TRIM(inpname)
  else

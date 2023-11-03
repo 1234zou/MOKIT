@@ -37,7 +37,7 @@ subroutine find_mc_pair(gmsname)
  ! find the number of pairs
  do while(.true.)
   read(fid,'(A)') buffer
-  i = index(buffer,'ROHF-GVB INPUT')
+  i = INDEX(buffer,'ROHF-GVB INPUT')
   if(i /= 0) exit
  end do
  if(i == 0) then
@@ -53,7 +53,7 @@ subroutine find_mc_pair(gmsname)
  end do
 
  read(fid,'(A)') buffer
- i = index(buffer,'=')
+ i = INDEX(buffer,'=')
  buffer(1:i) = ' '
  buffer = ADJUSTL(buffer)
  read(buffer,*) npair
@@ -66,7 +66,7 @@ subroutine find_mc_pair(gmsname)
  ! find the pair coefficients
  do while(.true.)
   read(fid,'(A)') buffer
-  i = index(buffer,'PAIR INFORMATION')
+  i = INDEX(buffer,'PAIR INFORMATION')
   if(i /= 0) exit
  end do
  if(i == 0) then

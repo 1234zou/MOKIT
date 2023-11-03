@@ -82,7 +82,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   stop
  end if
 
- i = index(inpname, '.', back=.true.)
+ i = INDEX(inpname, '.', back=.true.)
 
  select case(TRIM(inpname(i+1:)))
  case('gjf')
@@ -305,7 +305,7 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  character(len=240), intent(in) :: inpname
  logical :: begin
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  mklname = inpname(1:i-1)//'.mkl'
  mklname1 = TRIM(mklname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='append')
@@ -441,7 +441,7 @@ subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  character(len=240), intent(in) :: inpname
 
  inpname1 = TRIM(inpname)//'.t'
- i = index(inpname, '.', back=.true.)
+ i = INDEX(inpname, '.', back=.true.)
  chgname = inpname(1:i-1)//'.chg1'
  call lower(chgname)
 
@@ -498,7 +498,7 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  character(len=240), intent(in) :: inpname
 
  str = ' '
- i = index(inpname, '.', back=.true.)
+ i = INDEX(inpname, '.', back=.true.)
  chgname = inpname(1:i-1)//'.extcharge'
  inpname1 = inpname(1:i-1)//'.t'
 

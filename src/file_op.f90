@@ -73,6 +73,30 @@ subroutine delete_files_in_path(path, n, fname)
  end do ! for i
 end subroutine delete_files_in_path
 
+subroutine delete_cfour_tmp_files(nproc)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nproc
+ integer, parameter :: nfile = 25
+ character(len=7) :: dirname
+ character(len=12) :: filelist(nfile)
+ data filelist /'BASINFO.DATA','DIPOL','FILES','fort.81','fort.82','fort.83',&
+  'GAMLAM','HFNES1','HFNES2','HFNES3','HFNES4','HFNES5','HFNES6','HFNES7',&
+  'IIII','JAINDX','JMOLplot','JOBARC','MOABCD','MOINTS','MOL','MOLDEN','ncpu',&
+  'NTOTAL','OPTARC'/
+
+ if(nproc > 0) then
+  do i = 0, nproc-1, 1
+   write(dirname,'(A4,I3.3)') 'rank', i
+   call remove_dir(TRIM(dirname))
+  end do ! for i
+ end if
+
+ do i = 1, nfile, 1
+  call delete_file(TRIM(filelist(i)))
+ end do ! for i
+end subroutine delete_cfour_tmp_files
+
 ! copy file fname1 to fname2 (if delete=.True., delete fname1)
 subroutine copy_file(fname1, fname2, delete)
  implicit none
@@ -90,8 +114,8 @@ subroutine copy_file(fname1, fname2, delete)
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
- close(fid2)
 
+ close(fid2)
  if(delete) then
   close(fid1, status='delete')
  else
@@ -99,7 +123,8 @@ subroutine copy_file(fname1, fname2, delete)
  end if
 end subroutine copy_file
 
-! copy binary file (if delete=.True., delete fname1)
+! Copy a file using system commands (not restricted to copying a binary file)
+! If delete=.True., delete fname1.
 subroutine copy_bin_file(fname1, fname2, delete)
  implicit none
  integer :: i, SYSTEM
@@ -121,12 +146,29 @@ subroutine copy_bin_file(fname1, fname2, delete)
  end if
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine copy_bin_file: fail to copy binary file&
-                & from'
+  write(6,'(/,A)') 'ERROR in subroutine copy_bin_file: fail to copy binary file&
+                   & from'
   write(6,'(A)') TRIM(fname1)//' to '//TRIM(fname2)
   stop
  end if
 end subroutine copy_bin_file
+
+! copy a file from a path/directory to the current directory
+subroutine copy_file_from_a_path(path, fname)
+ implicit none
+ character(len=1) :: s
+ character(len=700) :: buf
+ character(len=*), intent(in) :: path, fname
+
+#ifdef _WIN32
+ s = '\'
+#else
+ s = '/'
+#endif
+
+ buf = TRIM(path)//s//TRIM(fname)
+ call copy_bin_file(TRIM(buf), TRIM(fname), .false.)
+end subroutine copy_file_from_a_path
 
 ! create a directory
 subroutine create_dir(dirname)
@@ -155,6 +197,7 @@ subroutine remove_dir(dirname)
 #ifdef _WIN32
  i = SYSTEM('rd '//dirname)
 #else
+ ! in case that important directories are deleted, check the dirname firstly
  i = LEN_TRIM(dirname)
  if(i == 1) then
   write(6,'(A)') 'ERROR in subroutine remove_dir: wrong directory name: '//&

@@ -14,7 +14,7 @@ program inp2gjf
  end if
 
  call getarg(1, inpname)
- j = index(inpname, '.', back=.true.)
+ j = INDEX(inpname, '.', back=.true.)
  if(j == 0) then
   write(6,'(/,A)') 'ERROR in program inp2gjf: no suffix found in filename '//&
                     TRIM(inpname)
@@ -54,9 +54,9 @@ subroutine inp2gjf_cp2k(inpname, gjfname)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  j = index(buf, "&")
+  j = INDEX(buf, "&")
   if(j == 0) cycle
-  k = index(buf(j+1:), " ")
+  k = INDEX(buf(j+1:), " ")
   str5 = buf(j+1:j+k-1)
   call upper(str5)
   if(str5 == 'COORD') exit
@@ -75,9 +75,9 @@ subroutine inp2gjf_cp2k(inpname, gjfname)
 
  do while(.true.)
   read(fid1,'(A)') buf
-  i = index(buf, "&")
+  i = INDEX(buf, "&")
   if(i > 0) then
-   j = index(buf(i+1:), " ")
+   j = INDEX(buf(i+1:), " ")
    str3 = buf(i+1:i+j-1)
    call upper(str3)
    if(str3 == 'END') exit
@@ -91,9 +91,9 @@ subroutine inp2gjf_cp2k(inpname, gjfname)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  j = index(buf, "&")
+  j = INDEX(buf, "&")
   if(j == 0) cycle
-  k = index(buf(j+1:), " ")
+  k = INDEX(buf(j+1:), " ")
   str8 = buf(j+1:j+k-1)
   call upper(str8)
   if(str8(1:4)=='CELL' .and. str8(5:8)/='_OPT') exit
@@ -102,7 +102,7 @@ subroutine inp2gjf_cp2k(inpname, gjfname)
  do i = 1, 3
   read(fid1,'(A)') buf
   buf = ADJUSTL(buf)
-  j = index(buf, ' ')
+  j = INDEX(buf, ' ')
   write(fid2,'(A)') 'Tv '//TRIM(buf(j+1:))
  end do ! for i
 
@@ -126,10 +126,10 @@ subroutine read_charge_and_mult_from_cp2k_inp(inpname, charge, mult)
   if(i /= 0) exit
   call upper(buf)
 
-  i = index(buf, 'CHARGE')
+  i = INDEX(buf, 'CHARGE')
   if(i > 0) read(buf(i+6:),*) charge
 
-  i = index(buf, 'MULTIPLICITY')
+  i = INDEX(buf, 'MULTIPLICITY')
   if(i > 0) read(buf(i+12:),*) mult
  end do ! for while
 

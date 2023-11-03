@@ -83,17 +83,17 @@ subroutine check_DKH_in_gms_inp(inpname, order)
   read(fid,'(A)') buf
   longbuf = TRIM(longbuf)//TRIM(buf)
   call upper(buf)
-  if(index(buf,'$END') /= 0) exit
+  if(INDEX(buf,'$END') /= 0) exit
  end do ! for while
  close(fid)
 
  call upper(longbuf)
 
  order = -2
- if(index(longbuf,'RELWFN') == 0) then
+ if(INDEX(longbuf,'RELWFN') == 0) then
   return
  else
-  if(index(longbuf,'RELWFN=DK') == 0) then
+  if(INDEX(longbuf,'RELWFN=DK') == 0) then
    write(6,'(A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported&
                     & relativistic method detected.'
    write(6,'(A)') '(Open)Molcas does not support RELWFN=LUT-IOTC, IOTC,&
@@ -109,12 +109,12 @@ subroutine check_DKH_in_gms_inp(inpname, order)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   call upper(buf)
-  if(index(buf,'$RELWFN') /= 0) exit
+  if(INDEX(buf,'$RELWFN') /= 0) exit
  end do ! for while
  close(fid)
 
  if(i == 0) then
-  k = index(buf,'NORDER=')
+  k = INDEX(buf,'NORDER=')
   if(k /= 0) then
    read(buf(k+7:),*) order
   end if
@@ -136,8 +136,8 @@ subroutine check_X2C_in_gms_inp(inpname, X2C)
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  do i = 1, 5
   read(fid,'(A)') buf
-  if(index(buf,'X2C') /= 0) X2C = .true.
-  if(index(buf,'$END') /= 0) exit
+  if(INDEX(buf,'X2C') /= 0) X2C = .true.
+  if(INDEX(buf,'$END') /= 0) exit
  end do ! for i
 
  close(fid)
@@ -167,7 +167,7 @@ subroutine check_sph_in_gjf(gjfname, sph)
  end do ! for i
 
  close(fid)
- if(index(longbuf,'6D')>0 .or. index(longbuf,'6d')>0) sph = .false.
+ if(INDEX(longbuf,'6D')>0 .or. INDEX(longbuf,'6d')>0) sph = .false.
 end subroutine check_sph_in_gjf
 
 ! convert a filename into which molpro requires, i.e. in lowercase
@@ -221,13 +221,13 @@ subroutine add_DKH2_into_gms_inp(inpname)
  do i = 1, 3
   read(fid1,'(A)') buf
 
-  if(index(buf, 'RELWFN=DK') /= 0) then
+  if(INDEX(buf, 'RELWFN=DK') /= 0) then
    close(fid1)
    close(fid2,status='delete')
    return
   end if
 
-  k = index(buf,'$END')
+  k = INDEX(buf,'$END')
   if(k /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for i
@@ -236,9 +236,9 @@ subroutine add_DKH2_into_gms_inp(inpname)
 
  do while(.true.)
   read(fid1,'(A)') buf
-  k = index(buf,'$END')
+  k = INDEX(buf,'$END')
   if(k /= 0) exit
-  if(index(buf,'$DATA') /= 0) exit
+  if(INDEX(buf,'$DATA') /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
@@ -269,7 +269,7 @@ subroutine add_DKH2_into_fch(fchname)
  logical :: no_route, alive(3)
 
  buf = ' '; longbuf = ' '; nterm = 0
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -299,7 +299,7 @@ subroutine add_DKH2_into_fch(fchname)
    close(fid1,status='delete')
    stop
   else
-   k = index(buf, '='); read(buf(k+1:),*) nterm
+   k = INDEX(buf, '='); read(buf(k+1:),*) nterm
    do while(.true.)
     read(fid,'(A)',iostat=i) buf
     if(i /= 0) exit
@@ -316,9 +316,9 @@ subroutine add_DKH2_into_fch(fchname)
    else
     longbuf1 = longbuf
     call upper(longbuf1)
-    alive = [(index(longbuf1,'DKH2')/=0),(index(longbuf1,'DOUGLASKROLLHESS')/=0),&
-             (index(longbuf1,'DKH')/=0 .and. index(longbuf1,'DKH4')==0 .and. &
-              index(longbuf1,'NODKH')==0 .and. index(longbuf1,'DKHSO')==0)]
+    alive = [(INDEX(longbuf1,'DKH2')/=0),(INDEX(longbuf1,'DOUGLASKROLLHESS')/=0),&
+             (INDEX(longbuf1,'DKH')/=0 .and. INDEX(longbuf1,'DKH4')==0 .and. &
+              INDEX(longbuf1,'NODKH')==0 .and. INDEX(longbuf1,'DKHSO')==0)]
     if(ALL(alive .eqv. .false.)) then
      nterm = nterm + 1
      longbuf = TRIM(longbuf)//' int=DKH2'
@@ -361,7 +361,7 @@ subroutine add_X2C_into_fch(fchname)
  logical :: no_route
 
  buf = ' '; longbuf = ' '; nterm = 0
- i = index(fchname, '.fch', back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  fchname1 = fchname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -391,7 +391,7 @@ subroutine add_X2C_into_fch(fchname)
    close(fid1,status='delete')
    stop
   else
-   k = index(buf, '='); read(buf(k+1:),*) nterm
+   k = INDEX(buf, '='); read(buf(k+1:),*) nterm
    do while(.true.)
     read(fid,'(A)',iostat=i) buf
     if(i /= 0) exit
@@ -408,7 +408,7 @@ subroutine add_X2C_into_fch(fchname)
    else
     longbuf1 = longbuf
     call upper(longbuf1)
-    j = index(longbuf1, 'DKH'); k = index(longbuf1, 'NODKH')
+    j = INDEX(longbuf1, 'DKH'); k = INDEX(longbuf1, 'NODKH')
     if(j/=0 .and. k==0) then
      longbuf(j:j+2) = 'X2C'
     else
@@ -516,7 +516,7 @@ subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'MWORDS') /= 0) exit
+  if(INDEX(buf,'MWORDS') /= 0) exit
   write(fid2,'(A)') TRIM(buf)
  end do
 
@@ -580,7 +580,7 @@ subroutine modify_memory_in_qchem_inp(mem, inpname)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.in', back=.true.)
+ i = INDEX(inpname, '.in', back=.true.)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
@@ -661,7 +661,7 @@ function detect_charge_key_in_gjf(gjfname) result(has_charge)
   read(fid,'(A)') buf
   if(buf(1:1) == '#') then
    call lower(buf)
-   if(index(buf,'charge') > 0) then
+   if(INDEX(buf,'charge') > 0) then
     close(fid)
     return
    end if
@@ -672,11 +672,11 @@ function detect_charge_key_in_gjf(gjfname) result(has_charge)
 
  read(fid,'(A)') buf
  close(fid)
- i = index(buf,'{')
- j = index(buf,'}')
+ i = INDEX(buf,'{')
+ j = INDEX(buf,'}')
  if(i>0 .and. j>0) then
   call lower(buf(i+1:j-1))
-  if(index(buf(i+1:j-1),'charge') > 0) return
+  if(INDEX(buf(i+1:j-1),'charge') > 0) return
  end if
  has_charge = .false.
 end function detect_charge_key_in_gjf
@@ -697,7 +697,7 @@ subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  else
   nblank0 = 3
  end if
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  basname = gjfname(1:i-1)//'.bas'
 
  open(newunit=fid1,file=TRIM(gjfname),status='old',position='rewind')
@@ -983,9 +983,9 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
  end if
 
  call lower(buf)
- if(index(buf,'em=gd3bj')>0 .or. index(buf,'empiricaldispersion=gd3bj')>0) then
+ if(INDEX(buf,'em=gd3bj')>0 .or. INDEX(buf,'empiricaldispersion=gd3bj')>0) then
   itype = 2
- else if(index(buf,'em=gd3')>0 .or. index(buf,'empiricaldispersion=gd3')>0) then
+ else if(INDEX(buf,'em=gd3')>0 .or. INDEX(buf,'empiricaldispersion=gd3')>0) then
   itype = 1
  end if
 end subroutine read_disp_ver_from_gjf
@@ -1041,7 +1041,7 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
  character(len=240) :: buf, new_dat
  character(len=240), intent(in) :: addH_dat, datname
 
- i = index(addH_dat, '.dat', back=.true.)
+ i = INDEX(addH_dat, '.dat', back=.true.)
  new_dat = addH_dat(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(addH_dat),status='old',position='rewind')
  do while(.true.)
@@ -1064,7 +1064,7 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
   if(buf(2:5) == '$SCF') exit
  end do ! for while
 
- i = index(buf, 'CICOEF')
+ i = INDEX(buf, 'CICOEF')
  if(i > 0) then
   write(fid2,'(A)') TRIM(buf)
   npair = 1
@@ -1074,9 +1074,9 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
 
  do while(.true.)
   read(fid3,'(A)') buf
-  i = index(buf, 'CICOEF')
+  i = INDEX(buf, 'CICOEF')
   if(i > 0) then
-   j = index(buf, '$END')
+   j = INDEX(buf, '$END')
    if(j > 0) then
     buf(j:j+3) = '    '
     write(fid2,'(A)') TRIM(buf)
@@ -1109,15 +1109,22 @@ subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
 end subroutine copy_and_add_pair_coeff
 
 ! add the force keyword into a PySCF input file
-subroutine add_force_key2py_script(mem, pyname)
+subroutine add_force_key2py_script(mem, pyname, ccsd_t)
  implicit none
  integer :: fid
  integer, intent(in) :: mem ! GB
  character(len=240), intent(in) :: pyname
+ logical, intent(in) :: ccsd_t
 
  open(newunit=fid,file=TRIM(pyname),status='old',position='append')
- write(fid,'(A)') 'from pyscf import grad'
- write(fid,'(A)') 'mcg = mc.Gradients()'
+ if(ccsd_t) then
+  write(fid,'(A)') 'from pyscf.grad import ccsd_t as ccsd_t_grad'
+  write(fid,'(A)') 'mcg = ccsd_t_grad.Gradients(mc)'
+ else
+  write(fid,'(A)') 'from pyscf import grad'
+  write(fid,'(A)') 'mcg = mc.Gradients()'
+ end if
+
  write(fid,'(A,I0,A)') 'mcg.max_memory = ',mem*1000,' # MB'
  write(fid,'(A)') 'mcg.kernel()'
  close(fid)
@@ -1154,7 +1161,7 @@ subroutine add_force_key2gms_inp(inpname)
 
  do i = 1, 2
   read(fid,'(A)') buf
-  j = index(buf,'RUNTYP=ENERGY')
+  j = INDEX(buf,'RUNTYP=ENERGY')
   if(j > 0) buf = buf(1:j+6)//'GRADIENT'//TRIM(buf(j+13:))
   write(fid1,'(A)') TRIM(buf)
  end do ! for i
@@ -1183,7 +1190,7 @@ subroutine add_force_key2orca_inp(inpname)
 
  do i = 1, 5
   read(fid,'(A)') buf
-  j = index(buf,'TightSCF')
+  j = INDEX(buf,'TightSCF')
   if(j > 0) buf = buf(1:j+7)//' EnGrad'//TRIM(buf(j+8:))
   write(fid1,'(A)') TRIM(buf)
  end do ! for i
@@ -1416,4 +1423,42 @@ subroutine replace_coor_in_fch(fchname, natom, coor)
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine replace_coor_in_fch
+
+subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: ricd ! T/F for RICD/Cholesky
+
+ inpname1 = TRIM(inpname)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ if(ricd) then
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  write(fid1,'(A,/)') 'RICD'
+ else
+  do while(.true.)
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:7) == "&SEWARD") exit 
+  end do ! for while
+  write(fid1,'(A,/,A,/,A)') 'CHOLESKY','Threshold = 1d-14','Cutoff = 1d-16'
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_RI_kywd_into_molcas_inp
 

@@ -63,15 +63,15 @@ subroutine fch2psi(fchname)
  call fch2inp_wrap(fchname, .false., 0, 0)
  call check_sph(fchname, sph)
 
- i = index(fchname,'.fch', back=.true.)
+ i = INDEX(fchname,'.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
  fileA = fchname(1:i-1)//'.A'
  fileB = fchname(1:i-1)//'.B'
 
  if(sph) then
-  i = system('bas_gms2psi '//TRIM(inpname)//' -sph')
+  i = SYSTEM('bas_gms2psi '//TRIM(inpname)//' -sph')
  else
-  i = system('bas_gms2psi '//TRIM(inpname))
+  i = SYSTEM('bas_gms2psi '//TRIM(inpname))
  end if
 
  if(i /= 0) then
@@ -83,7 +83,7 @@ subroutine fch2psi(fchname)
  end if
  call delete_file(inpname)
 
- i = index(fchname,'.fch', back=.true.)
+ i = INDEX(fchname,'.fch', back=.true.)
  inpname = fchname(1:i-1)//'_psi.inp'
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)

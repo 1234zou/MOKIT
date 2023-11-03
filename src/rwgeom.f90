@@ -244,7 +244,7 @@ subroutine read_natom_from_pdb(pdbname, natom)
  end if
  close(fid)
 
- i = index(buf, ' ')
+ i = INDEX(buf, ' ')
  read(buf(i+1:),*) natom
 end subroutine read_natom_from_pdb
 
@@ -333,7 +333,7 @@ subroutine read_coor_from_gjf_or_xyz(fname, natom, coor)
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: fname
 
- i = index(fname, '.xyz', back=.true.)
+ i = INDEX(fname, '.xyz', back=.true.)
  if(i > 0) then
   allocate(elem(natom))
   call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
@@ -370,7 +370,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   if(nblank == 2) exit
 
   if(buf(1:1) =='#') then
-   if(index(buf,'units=au') /= 0) bohr = .true.
+   if(INDEX(buf,'units=au') /= 0) bohr = .true.
   end if
  end do ! for while
 
@@ -390,7 +390,7 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
  do i = 1, natom, 1
   read(fid,'(A)') buf
-  j = index(buf,'('); k = index(buf,')') ! in case for the fragment guess wfn
+  j = INDEX(buf,'('); k = INDEX(buf,')') ! in case for the fragment guess wfn
   if(j*k /= 0) buf(j:k) = ' '
 
   read(buf,*,iostat=k) elem(i), coor(1:3,i)
@@ -471,7 +471,7 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
 
  do i = 1, natom, 1
   read(fid,'(A)') buf
-  j = index(buf,'='); k = index(buf,')')
+  j = INDEX(buf,'='); k = INDEX(buf,')')
 
   if(j*k == 0) then
    write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
@@ -625,6 +625,48 @@ subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
  n_dipole = n_dipole/Bohr_const
 end subroutine get_nuc_dipole
 
+! read Cartesian gradient from a given file
+subroutine read_grad_from_output(prog_name, outname, natom, grad)
+ implicit none
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: grad(3*natom)
+ character(len=10), intent(in) :: prog_name
+ character(len=240), intent(in) :: outname
+
+ select case(prog_name)
+ case('bdf')
+  call read_grad_from_bdf_out(outname, natom, grad)
+ case('cfour')
+  call read_grad_from_cfour_out(outname, natom, grad)
+ case('dalton')
+  call read_grad_from_dalton_out(outname, natom, grad)
+ case('gamess')
+  call read_grad_from_gms_dat(outname, natom, grad)
+ case('gaussian')
+  call read_grad_from_gau_log(outname, natom, grad)
+ case('molpro')
+  call read_grad_from_molpro_out(outname, natom, grad)
+ case('orca')
+  call read_grad_from_engrad(outname, natom, grad)
+ case('psi4')
+  call read_grad_from_psi4_out(outname, natom, grad)
+ case('pyscf')
+  call read_grad_from_pyscf_out(outname, natom, grad)
+ case('qchem')
+  call read_grad_from_qchem131(natom, grad, .true.)
+ case('openmolcas')
+  call read_grad_from_molcas_out(outname, natom, grad)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_grad_from_output: program cannot b&
+                   &e identified.'
+  write(6,'(A)') 'prog_name='//TRIM(prog_name)
+  stop
+ end select
+
+ write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
+ write(6,'(5(1X,ES15.8))') grad
+end subroutine read_grad_from_output
+
 ! read Cartesian gradient from a given PySCF output file
 subroutine read_grad_from_pyscf_out(outname, natom, grad)
  implicit none
@@ -641,7 +683,7 @@ subroutine read_grad_from_pyscf_out(outname, natom, grad)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(index(buf,'gradients') /= 0) exit
+  if(INDEX(buf,'gradients') /= 0) exit
  end do ! for while
 
  read(fid,'(A)') buf
@@ -760,7 +802,7 @@ subroutine read_grad_from_gms_dat(datname, natom, grad)
  close(fid)
 end subroutine read_grad_from_gms_dat
 
-! read Cartesian gradient from a given MOLCAS/OpenMolcas .out file
+! read Cartesian gradient from a given (Open)Molcas .out file
 subroutine read_grad_from_molcas_out(outname, natom, grad)
  implicit none
  integer :: i, fid
@@ -803,8 +845,8 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
  character(len=240), intent(in) :: outname
 
  grad = 0d0
-
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -858,7 +900,6 @@ subroutine read_grad_from_molpro_out(outname, natom, grad)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: natom
- ! itype: 1/2 for CASSCF/CASPT2
  real(kind=8), intent(out) :: grad(3*natom)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -870,7 +911,7 @@ subroutine read_grad_from_molpro_out(outname, natom, grad)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(index(buf,'GRADIENT FOR S') > 0) exit
+  if(INDEX(buf,'GRADIENT FOR S') > 0) exit
  end do ! for while
 
  do i = 1, 3
@@ -900,7 +941,7 @@ subroutine read_grad_from_bdf_out(outname, natom, grad)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(index(buf,'Molecular gradient - Mol') /= 0) exit
+  if(INDEX(buf,'Molecular gradient - Mol') /= 0) exit
  end do ! for while
 
  read(fid,'(A)') buf
@@ -950,6 +991,103 @@ subroutine read_grad_from_psi4_out(outname, natom, grad)
  close(fid)
 end subroutine read_grad_from_psi4_out
 
+subroutine read_grad_from_qchem131(natom, grad, deleted)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: grad(3*natom)
+ logical, intent(in) :: deleted
+
+ grad = 0d0
+ open(newunit=fid,file='131.0',status='old',access='stream')
+ read(fid,iostat=i) grad
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_grad_from_qchem_out: failed to rea&
+                   &d nuclear gradients'
+  write(6,'(A)') 'from file 131.0'
+  close(fid)
+  stop
+ else ! read successfully
+  if(deleted) then
+   close(fid,status='delete')
+  else
+   close(fid)
+  end if
+ end if
+end subroutine read_grad_from_qchem131
+
+subroutine read_grad_from_cfour_out(outname, natom, grad)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: grad(3*natom)
+
+ grad = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(3:10) == 'gradient') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_grad_from_cfour_out: keyword 'grad&
+                   &ient' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) grad
+ close(fid)
+end subroutine read_grad_from_cfour_out
+
+subroutine read_grad_from_dalton_out(outname, natom, grad)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ character(len=3) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: grad(3*natom)
+
+ grad = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(30:43)=='Molecular grad' .or. buf(33:46)=='Molecular grad') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_grad_from_dalton_out: keyword 'Mol&
+                   &ecular grad' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do i = 1, natom, 1
+  read(fid,*) str, grad(3*i-2:3*i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_grad_from_dalton_out
+
 ! read Cartesian xyz coordinates from a .xyz file
 ! Note: 1) return array coor(3,natom) are in unit Angstrom
 !       2) if 'bohr' key is found in the 2nd line of the xyz file,
@@ -972,8 +1110,8 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
 
  bohr = .false.
  call lower(buf)
- if(index(buf,'bohr') > 0) then
-  if(index(buf,'angstrom') > 0) then
+ if(INDEX(buf,'bohr') > 0) then
+  if(INDEX(buf,'angstrom') > 0) then
    write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_xyz: it's confus&
                   &ing because both"
    write(6,'(A)') "'bohr' and 'angstrom' are detected in the 2nd line of file "&
@@ -1102,7 +1240,7 @@ subroutine read_nframe_from_pdb(pdbname, nframe)
  close(fid)
  if(i /= 0) return ! assume 1 frame
 
- i = index(buf, ' ')
+ i = INDEX(buf, ' ')
  read(buf(i+1:),*) nframe
 end subroutine read_nframe_from_pdb
 

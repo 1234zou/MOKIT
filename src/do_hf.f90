@@ -40,8 +40,8 @@ subroutine do_hf(prt_mr_strategy)
    if(eq) then
     write(6,'(A)') 'This is actually a RHF wave function. Alpha=Beta. Switching&
                    & to ist=3.'
-    i = system('fch_u2r '//TRIM(hf_fch))
-    i = index(hf_fch, '.fch', back=.true.)
+    i = SYSTEM('fch_u2r '//TRIM(hf_fch))
+    i = INDEX(hf_fch, '.fch', back=.true.)
     hf_fch = hf_fch(1:i-1)//'_r.fch'
     readuhf = .false.; readrhf = .true.; ist = 3
     vir_proj = .true.; mo_rhf = .true. ; uno = .false.
@@ -73,7 +73,7 @@ subroutine do_hf(prt_mr_strategy)
  end if
  if(bgchg) call read_bgchg_from_gjf(.false.)
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  rhf_gjfname = gjfname(1:i-1)//'_rhf.gjf'
  uhf_gjfname = gjfname(1:i-1)//'_uhf.gjf'
 
@@ -106,12 +106,12 @@ subroutine do_hf(prt_mr_strategy)
 
  if(mult==1 .and. (.not.frag_guess)) then
   call generate_hf_gjf(rhf_gjfname, .false., noiter)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_gjfname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_gjfname))
   call do_scf_and_read_e(gau_path, hf_prog_path, rhf_gjfname, .false., rhf_e, ssquare)
   write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(RHF) = ',rhf_e,'a.u., <S**2>=',0.0
 
   call generate_hf_gjf(uhf_gjfname, .true., noiter)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
   write(6,'(A,F18.8,1X,A,F7.3)')   'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
 
@@ -119,25 +119,25 @@ subroutine do_hf(prt_mr_strategy)
    write(6,'(A)') 'UHF energy is lower, choose UHF wave function.'
    ist = 1
    mo_rhf = .false.
-   i = index(gjfname, '.gjf', back=.true.)
+   i = INDEX(gjfname, '.gjf', back=.true.)
    hf_fch = gjfname(1:i-1)//'_uhf.fch'
   else
    write(6,'(A)') 'RHF/UHF energy is equal, or has little difference, choose RHF.'
    ist = 3
    vir_proj = .true.; mo_rhf = .true.; uno = .false.
-   i = index(gjfname, '.gjf', back=.true.)
+   i = INDEX(gjfname, '.gjf', back=.true.)
    hf_fch = gjfname(1:i-1)//'_rhf.fch'
   end if
 
  else ! only perform UHF
 
   call generate_hf_gjf(uhf_gjfname, .true., noiter)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_gjfname))
   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_gjfname, .false., uhf_e, ssquare)
   write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
   ist = 1
   mo_rhf = .false.
-  i = index(gjfname, '.gjf', back=.true.)
+  i = INDEX(gjfname, '.gjf', back=.true.)
   hf_fch = gjfname(1:i-1)//'_uhf.fch'
  end if
 
@@ -179,21 +179,21 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  end if
 
  call upper(basis)
- i = index(basis, 'MA')
+ i = INDEX(basis, 'MA')
  if(i > 0) basis(i:i+1) = 'ma'
- i = index(basis, 'DEF')
+ i = INDEX(basis, 'DEF')
  if(i > 0) basis(i:i+2) = 'def'
- i = index(basis, 'CC-P')
+ i = INDEX(basis, 'CC-P')
  if(i > 0) basis(i:i+3) = 'cc-p'
- i = index(basis, 'PCSSEG')
+ i = INDEX(basis, 'PCSSEG')
  if(i > 0) basis(i:i+5) = 'pcSseg'
- i = index(basis, 'GENECP')
+ i = INDEX(basis, 'GENECP')
  if(i > 0) basis(i:i+5) = 'genecp'
- i = index(basis, 'GEN')
+ i = INDEX(basis, 'GEN')
  if(i > 0) basis(i:i+2) = 'gen'
- i = index(basis, 'X2C')
+ i = INDEX(basis, 'X2C')
  if(i > 0) basis(i:i+2) = 'x2c'
- i = index(basis, 'ALL')
+ i = INDEX(basis, 'ALL')
  if(i > 0) basis(i:i+2) = 'all'
 
  rel = .false.
@@ -268,7 +268,7 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
   write(6,'(A61)') REPEAT('-',61)
  end if
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
@@ -356,7 +356,7 @@ subroutine generate_hf_gjf(gjfname, uhf, noiter)
  end if
 
  if(create) then
-  i = index(origin_gjf, '.gjf')
+  i = INDEX(origin_gjf, '.gjf')
   basname = origin_gjf(1:i-1)//'.bas'
   call create_basfile(basname, TRIM(basis))
  end if
@@ -427,7 +427,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  e = 0d0; ssquare = 0d0
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
  fchname = gjfname(1:i-1)//'.fch'
  mklname = gjfname(1:i-1)//'.mkl'
@@ -442,7 +442,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  outname1 = gjfname(1:i-1)//'.log' ! Gaussian output file under Linux
 #endif
 
- i = system(TRIM(gau_path)//' '//TRIM(gjfname))
+ i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job fai&
                    &iled.'
@@ -476,10 +476,10 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
 
  if(TRIM(hf_prog_path) == 'python') then
   prog_name = 'pyscf'
-  i = index(gjfname, '.gjf', back=.true.)
+  i = INDEX(gjfname, '.gjf', back=.true.)
   inpname = gjfname(1:i-1)//'.py'
  else
-  i = index(hf_prog_path, '/', back=.true.)
+  i = INDEX(hf_prog_path, '/', back=.true.)
   if(i == 0) then
    write(6,'(A)') "ERROR in subroutine do_scf_and_read_e: no '/' symbol found i&
                   &n string '"//TRIM(hf_prog_path)//"'."
@@ -495,7 +495,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call bas_fch2py_wrap(fchname, .true.)
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
   call prt_hf_pyscf_inp(inpname, hf_type)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_pyscf_job(inpname)
   call read_hf_e_and_ss_from_pyscf_out(outname2, hf_type, e, ssquare)
   e = e + ptchg_e
@@ -504,25 +504,25 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call fch2psi_wrap(fchname, inpname)
   call read_hf_type_from_psi4_inp(inpname, hf_type)
   call prt_hf_psi4_inp(inpname, hf_type)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_hf_e_and_ss_from_psi4_out(outname2, hf_type, e, ssquare)
   e = e + ptchg_e
 
   call delete_file(inpname)
-  i = index(fchname, '.fch', back=.true.)
+  i = INDEX(fchname, '.fch', back=.true.)
   prpname1 = fchname(1:i-1)//'2.fch'
   call copy_orb_and_den_in_fch(prpname1, fchname, .true.)
 
  case('orca')
   call fch2mkl_wrap(fchname, mklname)
-  i = index(gjfname, '.gjf', back=.true.)
+  i = INDEX(gjfname, '.gjf', back=.true.)
   inpname1 = gjfname(1:i-1)//'_o.inp'
   i = RENAME(TRIM(inpname1), TRIM(inpname))
   call read_hf_type_from_orca_inp(inpname, hf_type)
   call prt_hf_orca_inp(inpname, hf_type)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
@@ -571,7 +571,7 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) e
 
  ! We do not read <S**2> below 'SCF Done' because when the spin is very high,
@@ -619,21 +619,21 @@ subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)
   stop
  end if
 
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) e
  close(fid)
 
  select case(wfn_type)
  case(1,2) ! R(O)HF
-  i = index(outname, '.out', back=.true.)
+  i = INDEX(outname, '.out', back=.true.)
   inpname = outname(1:i-1)//'.py'
   call read_mult_from_pyscf_inp(inpname, mult)
   ss = DBLE((mult-1))*0.5d0
   ss = DBLE(ss*(ss+1))
  case(3)   ! UHF
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   buf(i:i) = ' '
-  i = index(buf,'=')
+  i = INDEX(buf,'=')
   read(buf(i+1:),*) ss
  case default
   write(6,'(A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_pyscf_out: inva&
@@ -671,7 +671,7 @@ subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
   stop
  end if
 
- i = index(buf, ':')
+ i = INDEX(buf, ':')
  read(buf(i+1:),*) e
 
  select case(hf_type)
@@ -697,7 +697,7 @@ subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
    write(6,'(A)') 'file '//TRIM(outname)
    stop
   end if
-  i = index(buf, ':', back=.true.)
+  i = INDEX(buf, ':', back=.true.)
   read(buf(i+1:),*) ss
 
  case default
@@ -741,7 +741,7 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
   stop
  end if
 
- i = index(buf, ':')
+ i = INDEX(buf, ':')
  read(buf(i+1:),*) e
 
  select case(hf_type)
@@ -765,7 +765,7 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
    write(6,'(A)') 'in file '//TRIM(outname)
    stop
   end if
-  i = index(buf, ':', back=.true.)
+  i = INDEX(buf, ':', back=.true.)
   read(buf(i+1:),*) ss
 
  case default
@@ -800,7 +800,7 @@ subroutine read_mult_from_pyscf_inp(inpname, mult)
   stop
  end if
 
- i = index(buf,'=')
+ i = INDEX(buf,'=')
  read(buf(i+1:),*) mult ! this is No.(alpha-beta)
  mult = mult + 1
 end subroutine read_mult_from_pyscf_inp
@@ -826,7 +826,7 @@ subroutine read_mult_from_psi4_out(outname, mult)
                  &y' found in file "//TRIM(outname)
   stop
  end if
- i = index(buf,'=',back=.true.)
+ i = INDEX(buf,'=',back=.true.)
  read(buf(i+1:),*) mult
 end subroutine read_mult_from_psi4_out
 
@@ -851,7 +851,7 @@ subroutine read_mult_from_orca_out(outname, mult)
                     &licity' found in file "//TRIM(outname)
   stop
  end if
- i = index(buf,'.',back=.true.)
+ i = INDEX(buf,'.',back=.true.)
  read(buf(i+1:),*) mult
 end subroutine read_mult_from_orca_out
 
@@ -864,7 +864,7 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  character(len=240) :: buf, inpname1, fchname
  character(len=240), intent(in) :: inpname
 
- i = index(inpname, '.py', back=.true.)
+ i = INDEX(inpname, '.py', back=.true.)
  fchname = inpname(1:i-1)//'.fch'
  inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -980,7 +980,7 @@ subroutine prt_hf_psi4_inp(inpname, hf_type)
  character(len=240), intent(in) :: inpname
 
  inpname1 = TRIM(inpname)//'.t'
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  fchname = inpname(1:i-1)//'2.fch'
  ! Why append '2' in the filename: the generated .fch file will not be directly
  ! used. The utility fch_mo_copy will be called to copy alpha (and beta) MOs

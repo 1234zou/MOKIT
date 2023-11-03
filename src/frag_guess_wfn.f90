@@ -132,7 +132,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  integer, allocatable :: cm(:), nuc(:)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
- character(len=10) :: hf_prog ! only gaussian or pyscf
+ character(len=10) :: hf_prog ! only Gaussian/PySCF supported
  character(len=240) :: buf, chkname, fchname, logname, basname
  character(len=240), intent(in) :: gau_path, gjfname
  character(len=1200) :: longbuf
@@ -343,7 +343,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
 
  ! Initially, the restricted/unrestricted type of wfn of each fragment is
  !  inherited from the method of the total system.
- ! This type may be updated when reading Cartesian coordinates
+ ! This paramter type may be updated when reading Cartesian coordinates
  allocate(frags(nfrag))
  frags(:)%wfn_type = wfn_type
 
@@ -421,9 +421,9 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   read(fid,'(A)',iostat=j) buf
   if(j/=0 .or. LEN_TRIM(buf)==0) exit
 
-  j = index(buf,'(')
-  k = index(buf,'=')
-  m = index(buf,')')
+  j = INDEX(buf,'(')
+  k = INDEX(buf,'=')
+  m = INDEX(buf,')')
   if(j*k*m == 0) then
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in&
                     & file '//TRIM(gjfname)//'.'
@@ -557,7 +557,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  ! change frags(1:nfrag-1)%noiter back to .False.
  if(TRIM(hf_prog_path) == 'python') frags(1:nfrag-1)%noiter = .false.
 
- j = index(frags(1)%fname, '.gjf', back=.true.)
+ j = INDEX(frags(1)%fname, '.gjf', back=.true.)
 
  ! do SCF computations one by one
  do i = 1, nfrag, 1
@@ -629,7 +629,6 @@ subroutine frag_guess_wfn(gau_path, gjfname)
                               ', frags(i)%ssquare=', frags(3)%ssquare
  end select
  call delete_file(frags(nfrag)%fname)
-! call delete_files(2, [frags(nfrag)%fname, logname])
 
  if(eda_type == 4) then ! SAPT in PSI4
   write(6,'(A)') 'All SCF computations finished. Generating PSI4 input file...'
@@ -663,8 +662,8 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
  close(fid)
  len_buf = LEN_TRIM(buf)
 
- i = index(buf, '{')
- j = index(buf, '}')
+ i = INDEX(buf, '{')
+ j = INDEX(buf, '}')
  if(i==0 .or. j==0) then
   write(6,'(/,A)') error_str
   write(6,'(A)') "No '{' or '}' found in file "//TRIM(gjfname)
@@ -672,7 +671,7 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
  end if
 
  buf = ADJUSTL(buf(i+1:j-1))
- k = index(buf,',')
+ k = INDEX(buf,',')
  if(k > 0) j = k
  if(j < i) then
   write(6,'(/,A)') error_str
@@ -700,12 +699,12 @@ subroutine read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
   stop
  end select
 
- k = index(buf,',')
+ k = INDEX(buf,',')
 
  if(k > 0) then
   buf = buf(k+1:)
   select case(TRIM(buf))
-  case('bronze') ! SAPT,bronze
+  case('bronze') ! SAPT, bronze
   case('nostab')
    stab_chk = .false.
   case('hf_prog=pyscf')
@@ -739,7 +738,7 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
   if(buf(1:1) == '#') exit
 
   j = LEN_TRIM(buf)
-  k = index(buf,'=')
+  k = INDEX(buf,'=')
   if(buf(1:4) == '%mem') then
    read(buf(k+1:j-2),*) mem
    select case(buf(j-1:j))
@@ -782,7 +781,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  character(len=11), intent(out) :: method
  character(len=21), intent(out) :: basis
 
- j = index(buf, '/')
+ j = INDEX(buf, '/')
  if(j == 0) then
   write(6,'(/,A)') "ERROR in subroutine read_method_and_basis_from_buf: no '/'&
                    & symbol found in"
@@ -793,7 +792,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
   stop
  end if
 
- i = index(buf(1:j-1), ' ', back=.true.)
+ i = INDEX(buf(1:j-1), ' ', back=.true.)
  method = buf(i+1:j-1)
 
  if(method(1:1) == 'u') then
@@ -809,7 +808,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
   wfn_type = 0 ! undetermined
  end if
 
- i = index(buf(j+1:), ' ')
+ i = INDEX(buf(j+1:), ' ')
  basis = ' '
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
@@ -823,7 +822,7 @@ subroutine read_nfrag_from_buf(buf, nfrag)
  integer, intent(out) :: nfrag
  character(len=1200), intent(in) :: buf
 
- i = index(buf, 'guess')
+ i = INDEX(buf, 'guess')
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine read_nfrag_from_buf: keyword 'guess'&
                    & not found in buf."
@@ -932,7 +931,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  end if
 
  open(newunit=fid,file=TRIM(frag0%fname),status='replace')
- i = index(frag0%fname, '.gjf', back=.true.)
+ i = INDEX(frag0%fname, '.gjf', back=.true.)
  write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
@@ -1008,7 +1007,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  if((.not.guess_read) .and. (.not.frag0%noiter) .and. frag0%wfn_type==3) then
   open(newunit=fid,file=TRIM(frag0%fname),status='old',position='append')
   write(fid,'(/,A)') '--Link1--'
-  i = index(frag0%fname, '.gjf', back=.true.)
+  i = INDEX(frag0%fname, '.gjf', back=.true.)
   write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
   write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
@@ -1077,7 +1076,7 @@ subroutine gen_inp_of_frags()
  if(eda_type == 0) return
  natom = frags(nfrag)%natom
 
- k = index(frags(1)%fname, '.gjf', back=.true.)
+ k = INDEX(frags(1)%fname, '.gjf', back=.true.)
  ! do not change k below in this subroutine
  inpname1 = ' '; inpname2 = ' '; outname = ' '
 
@@ -1093,7 +1092,7 @@ subroutine gen_inp_of_frags()
   end if
  end do ! for i
 
- i = index(frags(nfrag)%fname, '-')
+ i = INDEX(frags(nfrag)%fname, '-')
  if(eda_type == 4) then ! SAPT in PSI4
   inpname1 = frags(nfrag)%fname(1:k-1)//'_psi.inp'
  else
@@ -1156,7 +1155,7 @@ subroutine gen_inp_of_frags()
  write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)&
                               //' to '
 
- i = index(inpname2, '.inp',back=.true.)
+ i = INDEX(inpname2, '.inp',back=.true.)
 
  if(eda_type == 4) then ! SAPT in PSI4
   outname = inpname2(1:i-1)//'.out'
@@ -1270,7 +1269,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  write(fid2,'(A)') "Edim, wfn_dimer = energy('scf', molecule=dimer, return_wfn=True)"
  write(fid2,'(A)') 'set df_ints_io load'
  write(fid2,'(A)') '# the above scf makes every array allocated'
- i = index(inpname2, '.inp', back=.true.)
+ i = INDEX(inpname2, '.inp', back=.true.)
  write(fileA,'(I3.3,A)') nfrag, '-'//inpname2(1:i-1)//'.A'
  write(fileB,'(I3.3,A)') nfrag, '-'//inpname2(1:i-1)//'.B'
  write(fid2,'(A)') "wfn_dimer.Ca().load('"//TRIM(fileA)//"')"
@@ -1292,7 +1291,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  write(fid2,'(A)') '}'
  write(fid2,'(A)') "EmonA, wfn_monA = energy('scf', molecule=monomerA, return_wfn=True)"
  write(fid2,'(A)') '# the above scf makes every array allocated'
- i = index(inpname2, '.inp', back=.true.)
+ i = INDEX(inpname2, '.inp', back=.true.)
  write(fileA,'(A)') '001-'//inpname2(1:i-1)//'.A'
  write(fileB,'(A)') '001-'//inpname2(1:i-1)//'.B'
  write(fid2,'(A)') "wfn_monA.Ca().load('"//TRIM(fileA)//"')"
@@ -1314,7 +1313,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  write(fid2,'(A)') '}'
  write(fid2,'(A)') "EmonB, wfn_monB = energy('scf', molecule=monomerB, return_wfn=True)"
  write(fid2,'(A)') '# the above scf makes every array allocated'
- i = index(inpname2, '.inp', back=.true.)
+ i = INDEX(inpname2, '.inp', back=.true.)
  write(fileA,'(A)') '002-'//inpname2(1:i-1)//'.A'
  write(fileB,'(A)') '002-'//inpname2(1:i-1)//'.B'
  write(fid2,'(A)') "wfn_monB.Ca().load('"//TRIM(fileA)//"')"
@@ -1358,14 +1357,14 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
  read(fid1,'(A)') buf1
- i = index(buf1, 'RUNTYP=ENERGY')
+ i = INDEX(buf1, 'RUNTYP=ENERGY')
  buf2 = buf1(1:i+6)//'EDA'//TRIM(buf1(i+13:))
  write(fid2,'(A)') TRIM(buf2)
 
  call convert_dft_name_gau2gms(method, dft_in_gms)
  read(fid1,'(A)') buf1
 
- i = index(buf1, '$END')
+ i = INDEX(buf1, '$END')
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found&
                  & in the 2nd"
@@ -1699,10 +1698,10 @@ subroutine read_scrf_string_from_buf(longbuf, scrf)
  character(len=60), intent(out) :: scrf
 
  scrf = ' '
- i = index(longbuf, 'scrf')
+ i = INDEX(longbuf, 'scrf')
  if(i == 0) return
 
- j = index(longbuf(i:), ' ')
+ j = INDEX(longbuf(i:), ' ')
  if(j == 0) then
   j = i + 3
  else
@@ -1724,7 +1723,7 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
  solvent = ' '
  if(LEN_TRIM(scrf) == 0) return
 
- i = index(scrf,'read')
+ i = INDEX(scrf,'read')
  if(i > 0) then
   write(6,'(/,A)') "ERROR in subroutine determine_solvent_from_gau2gms: 'read'&
                   & in 'scrf()' is not"
@@ -1732,7 +1731,7 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   stop
  end if
 
- i = index(scrf,'solvent')
+ i = INDEX(scrf,'solvent')
  if(i == 0) then
   solvent = 'H2O'
   return
@@ -1938,7 +1937,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
  logical :: alive
  logical, intent(in) :: pos(n), stab_chk
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  if(i == 0) then
   write(6,'(A)') "ERROR in subroutine direct_sum_frag_mo2super_mo: no '.gjf'&
                 & string found in file "//TRIM(gjfname)
@@ -1963,16 +1962,16 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
  open(newunit=fid,file=TRIM(fchname),status='replace')
  do while(.true.)
   read(fid0,'(A)') buf
-  i = index(buf,'guess')
+  i = INDEX(buf,'guess')
   if(i > 0) then
    buf = buf(1:i+4)//'=read geom=allcheck'
-   i = index(buf,'/')
-   j = index(buf(i+1:),' ')
+   i = INDEX(buf,'/')
+   j = INDEX(buf(i+1:),' ')
    buf = buf(1:i)//'chkbasis'//buf(i+j:)
 
-   i = index(buf,',conver=')
+   i = INDEX(buf,',conver=')
    if(i > 0) then
-    j = index(buf(i+1:),')')
+    j = INDEX(buf(i+1:),')')
     buf = buf(1:i-1)//')'//buf(i+j+1:)
    end if
 
@@ -1986,7 +1985,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
  i = RENAME(TRIM(fchname), TRIM(gjfname))
  ! modify done
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  fchname = gjfname(1:i-1)//'.fch'
  chkname = gjfname(1:i-1)//'.chk'
  inquire(file=TRIM(fchname), exist=alive)
@@ -2000,7 +1999,7 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
  k1 = 0; k2 = 0; k5 = 0
 
  do i = 1, n, 1
-  j = index(gjfname0(i), '.gjf', back=.true.)
+  j = INDEX(gjfname0(i), '.gjf', back=.true.)
   fchname0 = gjfname0(i)(1:j-1)//'.fch'
   call read_nbf_and_nif_from_fch(fchname0, nbf0, nif0)
   allocate(mo_a0(nbf0,nif0))
@@ -2088,22 +2087,22 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
 
  ! if fname0(n) and fname are .gjf files, convert filenames into .fch
  do i = 1, n, 1
-  j = index(fname0(i), '.fch', back=.true.)
+  j = INDEX(fname0(i), '.fch', back=.true.)
   if(j == 0) then
-   j = index(fname0(i), '.gjf', back=.true.)
+   j = INDEX(fname0(i), '.gjf', back=.true.)
    fchname(i) = fname0(i)(1:j-1)//'.fch'
   else ! j > 0
    fchname(i) = fname0(i)
   end if
  end do ! for i
 
- j = index(fname, '.fch', back=.true.)
+ j = INDEX(fname, '.fch', back=.true.)
  if(j == 0) then
-  j = index(fname, '.gjf', back=.true.)
+  j = INDEX(fname, '.gjf', back=.true.)
   fchname(n+1) = fname(1:j-1)//'.fch'
  else ! j > 0
   fchname(n+1) = fname
-  j = index(fname, '.fch', back=.true.)
+  j = INDEX(fname, '.fch', back=.true.)
  end if
  chkname = fname(1:j-1)//'.chk'
  inquire(file=TRIM(fchname(n+1)), exist=alive)
@@ -2181,18 +2180,18 @@ subroutine modify_guess_only_in_gjf(gjfname)
 
  close(fid1,status='delete')
 
- i = index(buf, '/')
- j = index(buf(i+1:),' ') + i - 1
+ i = INDEX(buf, '/')
+ j = INDEX(buf(i+1:),' ') + i - 1
  buf = buf(1:i-1)//' chkbasis'//buf(j+1:)
 
- i = index(buf, 'guess')
+ i = INDEX(buf, 'guess')
  buf(i:) = 'guess=read geom=allcheck'
 
  ! assuming '#p R...' or '#p U...'
  if(buf(4:4)=='u' .or. buf(4:4)=='U') then
   buf = TRIM(buf)//' stable=opt'
-  i = index(buf, ',conver=6')
-  if(i == 0) i = index(buf, ',conver=7')
+  i = INDEX(buf, ',conver=6')
+  if(i == 0) i = INDEX(buf, ',conver=7')
   if(i > 0) buf = buf(1:i-1)//buf(i+9:)
  end if
 

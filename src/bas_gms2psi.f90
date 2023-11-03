@@ -49,7 +49,7 @@ subroutine bas_gms2psi(inpname, sph)
  logical, intent(in) :: sph
  logical, allocatable :: ghost(:)
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'_psi.inp'
  fileA = inpname(1:i-1)//'.A'
  fileB = inpname(1:i-1)//'.B'

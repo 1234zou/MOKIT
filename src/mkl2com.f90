@@ -95,11 +95,11 @@ subroutine modify_orbname_in_com(comname, a_file)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
 
-  i = index(buf, 'file=')
+  i = INDEX(buf, 'file=')
   if(i > 0) then
-   j = index(buf, '.a', back=.true.)
+   j = INDEX(buf, '.a', back=.true.)
    if(j > 0) buf = buf(1:i+4)//TRIM(a_file)//';'
-   k = index(buf, '.b', back=.true.)
+   k = INDEX(buf, '.b', back=.true.)
    if(k > 0) buf = buf(1:i+4)//TRIM(b_file)//';'
   end if
   write(fid1,'(A)') TRIM(buf)

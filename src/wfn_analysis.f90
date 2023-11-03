@@ -258,7 +258,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  unpaired_e = upe(3)
 
  if(gen_dm) then
-  i = index(fchname, '.fch')
+  i = INDEX(fchname, '.fch')
   fchname1 = fchname(1:i-1)//'_unpaired.fch'
   open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
   open(newunit=fid1,file=TRIM(fchname1),status='replace')

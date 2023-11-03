@@ -11,7 +11,7 @@ subroutine do_mrpt2()
   eist, target_root, caspt2_force
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e, natom, grad
- use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk
+ use util_wrapper, only: mkl2gbw, fch2inp_wrap, unfchk, fch2inporb_wrap
  implicit none
  integer :: i, RENAME, system
  character(len=24) :: data_string
@@ -124,35 +124,35 @@ subroutine do_mrpt2()
   case('pyscf')
    ! For DMRG-NEVPT2, use CMOs rather than NOs
    if(dmrgci .or. dmrgscf) then
-    i = index(casnofch, '_NO', back=.true.)
+    i = INDEX(casnofch, '_NO', back=.true.)
     cmofch = casnofch(1:i)//'CMO.fch'
     casnofch = cmofch
    end if
 
-   i = system('bas_fch2py '//TRIM(casnofch))
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('bas_fch2py '//TRIM(casnofch))
+   i = INDEX(casnofch, '.fch', back=.true.)
    inpname = casnofch(1:i-1)//'.py'
    if(dmrgci .or. dmrgscf) then
-    i = index(casnofch, '_CMO', back=.true.)
+    i = INDEX(casnofch, '_CMO', back=.true.)
    else
-    i = index(casnofch, '_NO', back=.true.)
+    i = INDEX(casnofch, '_NO', back=.true.)
    end if
    pyname  = casnofch(1:i)//'NEVPT2.py'
    outname = casnofch(1:i)//'NEVPT2.out'
    i = RENAME(TRIM(inpname), TRIM(pyname))
    call prt_nevpt2_script_into_py(pyname)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
    call submit_pyscf_job(pyname)
 
   case('molpro')
    call check_exe_exist(molpro_path)
 
-   i = system('fch2com '//TRIM(casnofch))
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('fch2com '//TRIM(casnofch))
+   i = INDEX(casnofch, '.fch', back=.true.)
    pyname = casnofch(1:i-1)//'.com'
    string = casnofch
    call convert2molpro_fname(string, '.a')
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    inpname = casnofch(1:i-1)//'_NEVPT2.com'
    outname = casnofch(1:i-1)//'_NEVPT2.out'
    inporb = inpname
@@ -161,33 +161,27 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inporb))
 
    call prt_mrpt_molpro_inp(inpname, 1)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    call submit_molpro_job(inpname, mem, nproc)
 
   case('openmolcas')
    call check_exe_exist(molcas_path)
-   i = system('fch2inporb '//TRIM(casnofch)//' -no') ! generate .input and .INPORB
-   i = index(casnofch, '.fch', back=.true.)
-   pyname  = casnofch(1:i-1)//'.input'
-   mklname = casnofch(1:i-1)//'.INPORB'
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    inpname = casnofch(1:i)//'NEVPT2.input'
-   inporb  = casnofch(1:i)//'NEVPT2.INPORB'
    outname = casnofch(1:i)//'NEVPT2.out'
-   i = RENAME(TRIM(pyname), TRIM(inpname))
-   i = RENAME(TRIM(mklname), TRIM(inporb))
- 
+   call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_nevpt2_molcas_inp(inpname)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+   i = 0 ! the value of i will be checked below
 
   case('orca')
    call check_exe_exist(orca_path)
-   i = system('fch2mkl '//TRIM(casnofch))
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('fch2mkl '//TRIM(casnofch))
+   i = INDEX(casnofch, '.fch', back=.true.)
    inporb = casnofch(1:i-1)//'_o.mkl'
    string = casnofch(1:i-1)//'_o.inp'
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'NEVPT2.mkl'
    inpname = casnofch(1:i)//'NEVPT2.inp'
    outname = casnofch(1:i)//'NEVPT2.out'
@@ -195,7 +189,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_nevpt2_orca_inp(inpname)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
@@ -203,11 +197,11 @@ subroutine do_mrpt2()
 
   case('bdf')
    call check_exe_exist(bdf_path)
-   i = system('fch2bdf '//TRIM(casnofch)//' -no')
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+   i = INDEX(casnofch, '.fch', back=.true.)
    inporb = casnofch(1:i-1)//'_bdf.inporb'
    string = casnofch(1:i-1)//'_bdf.inp'
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'NEVPT2.inporb'
    inpname = casnofch(1:i)//'NEVPT2.inp'
    outname = casnofch(1:i)//'NEVPT2.out'
@@ -215,10 +209,10 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_mrpt_bdf_inp(inpname, 2)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = index(inpname, '.inp', back=.true.)
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   i = INDEX(inpname, '.inp', back=.true.)
    string = inpname(1:i-1)
-   i = system(TRIM(bdf_path)//' '//TRIM(string))
+   i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
   end select
 
  else if(caspt2) then ! CASPT2
@@ -228,40 +222,29 @@ subroutine do_mrpt2()
   case('openmolcas')
    call check_exe_exist(molcas_path)
    ! For DMRG-CASPT2, use CMOs rather than NOs
+   i = INDEX(casnofch, '_NO', back=.true.)
    if(dmrgci .or. dmrgscf) then
-    i = index(casnofch, '_NO', back=.true.)
     cmofch = casnofch(1:i)//'CMO.fch'
     casnofch = cmofch
    end if
-
-   i = system('fch2inporb '//TRIM(casnofch)//' -no') ! generate .input and .INPORB
-   i = index(casnofch, '.fch', back=.true.)
-   pyname = casnofch(1:i-1)//'.input'
-   string = casnofch(1:i-1)//'.INPORB'
-   if(dmrgci .or. dmrgscf) then
-    i = index(casnofch, '_CMO', back=.true.)
-   else
-    i = index(casnofch, '_NO', back=.true.)
-   end if
    inpname = casnofch(1:i-1)//'_CASPT2.input'
-   inporb  = casnofch(1:i-1)//'_CASPT2.INPORB'
    outname = casnofch(1:i-1)//'_CASPT2.out'
-   i = RENAME(pyname, inpname)
-   i = RENAME(string, inporb)
- 
+
+   call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_caspt2_molcas_inp(inpname)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+   i = 0 ! the value of i will be checked below
 
   case('molpro')
    call check_exe_exist(molpro_path)
 
-   i = system('fch2com '//TRIM(casnofch))
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('fch2com '//TRIM(casnofch))
+   i = INDEX(casnofch, '.fch', back=.true.)
    pyname = casnofch(1:i-1)//'.com'
    string = casnofch
    call convert2molpro_fname(string, '.a')
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    inpname = casnofch(1:i-1)//'_CASPT2.com'
    outname = casnofch(1:i-1)//'_CASPT2.out'
    inporb = inpname
@@ -270,17 +253,17 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inporb))
 
    call prt_mrpt_molpro_inp(inpname, 2)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    call submit_molpro_job(inpname, mem, nproc)
 
   case('orca')
    call check_exe_exist(orca_path)
 
-   i = system('fch2mkl '//TRIM(casnofch))
-   i = index(casnofch, '.fch', back=.true.)
+   i = SYSTEM('fch2mkl '//TRIM(casnofch))
+   i = INDEX(casnofch, '.fch', back=.true.)
    inporb = casnofch(1:i-1)//'_o.mkl'
    string = casnofch(1:i-1)//'_o.inp'
-   i = index(casnofch, '_NO', back=.true.)
+   i = INDEX(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'CASPT2.mkl'
    inpname = casnofch(1:i)//'CASPT2.inp'
    outname = casnofch(1:i)//'CASPT2.out'
@@ -288,7 +271,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_caspt2_orca_inp(inpname)
-   if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
@@ -300,40 +283,40 @@ subroutine do_mrpt2()
   call check_gms_path()
 
   call fch2inp_wrap(casnofch, .false., 0, 0)
-  i = index(casnofch, '.fch')
+  i = INDEX(casnofch, '.fch')
   pyname = casnofch(1:i-1)//'.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   inpname = casnofch(1:i-1)//'_MRMP2.inp'
 
   outname = casnofch(1:i-1)//'_MRMP2.gms'
   i = RENAME(pyname, inpname)
   call prt_mrmp2_gms_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
   write(6,'(A)') 'OVB-MP2 using program gaussian'
   call check_exe_exist(gau_path)
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'OVBMP2.chk'
   inpname = casnofch(1:i)//'OVBMP2.gjf'
   outname = casnofch(1:i)//'OVBMP2.log'
   call unfchk(casnofch, mklname)
   call prt_ovbmp2_gau_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   string = TRIM(gau_path)//' '//TRIM(inpname)
   write(6,'(A)') '$'//TRIM(string)
-  i = system(TRIM(string))
+  i = SYSTEM(TRIM(string))
 
  else ! CASSCF-SDSPT2
   write(6,'(A)') 'SDSPT2 using program bdf'
   call check_exe_exist(bdf_path)
 
-  i = system('fch2bdf '//TRIM(casnofch)//' -no')
-  i = index(casnofch, '.fch', back=.true.)
+  i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+  i = INDEX(casnofch, '.fch', back=.true.)
   inporb = casnofch(1:i-1)//'_bdf.inporb'
   string = casnofch(1:i-1)//'_bdf.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'SDSPT2.inporb'
   inpname = casnofch(1:i)//'SDSPT2.inp'
   outname = casnofch(1:i)//'SDSPT2.out'
@@ -341,10 +324,10 @@ subroutine do_mrpt2()
   i = RENAME(TRIM(string), TRIM(inpname))
 
   call prt_mrpt_bdf_inp(inpname, 1)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = index(inpname, '.inp', back=.true.)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  i = INDEX(inpname, '.inp', back=.true.)
   string = inpname(1:i-1)
-  i = system(TRIM(bdf_path)//' '//TRIM(string))
+  i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
  end if
 
  if(i /= 0) then
@@ -646,7 +629,7 @@ subroutine prt_nevpt2_orca_inp(inpname)
  if(X2C) then
   write(6,'(/,A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C is&
                    & not supported in ORCA.'
-  write(6,'(A)') 'You can specify NEVPT2_prog=Molpro or OpenMolcas.'
+  write(6,'(A)') 'You can specify NEVPT2_prog=Molpro/OpenMolcas.'
   stop
  end if
 
@@ -870,10 +853,10 @@ subroutine prt_nevpt2_molcas_inp(inpname)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(2:7) == 'SEWARD') exit
-  j = index(buf, '...')
+  j = INDEX(buf, '...')
   if(j > 0) then
    if(RI) then
-    j = index(buf, '.')
+    j = INDEX(buf, '.')
     write(fid2,'(A)') buf(1:j)//TRIM(RIJK_bas1)//'..'//TRIM(buf(j+3:))
    else
     write(fid2,'(A)') TRIM(buf)
@@ -1051,7 +1034,7 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
  character(len=240), intent(in) :: gjfname
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  write(fid,'(A,I0)') '%chk='//gjfname(1:i-1)//'.chk'
  write(fid,'(A5,I0,A2)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
@@ -1120,11 +1103,11 @@ subroutine read_ss_root_from_txt(nroots, target_root)
  open(newunit=fid,file=txtname,status='old',position='rewind')
 
  read(fid,'(A)') buf
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) nroots
 
  read(fid,'(A)') buf
- i = index(buf, '=')
+ i = INDEX(buf, '=')
  read(buf(i+1:),*) target_root
 
  close(fid)

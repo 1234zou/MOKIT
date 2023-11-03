@@ -6,7 +6,7 @@ subroutine do_sa_cas()
   npair0, sa_cas_e, ci_mult, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
   bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
-  caspt2, noQD, on_thres, orca_path, openmp_molcas
+  on_thres, orca_path, openmp_molcas
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -57,13 +57,13 @@ subroutine do_sa_cas()
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
                           'o) using program '//TRIM(cas_prog)
 
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  select case(TRIM(cas_prog))
  case('pyscf')
   inpname = hf_fch(1:i-1)//'_SA-CAS.py'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_script_into_py(inpname, hf_fch)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_pyscf_job(inpname)
  case('gaussian')
   inpname = hf_fch(1:i-1)//'_SA-CAS.gjf'
@@ -246,7 +246,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'mc.kernel()'
  write(fid2,'(A)') 'mo = mc.mo_coeff.copy() # backup'
 
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  cmofch = hf_fch(1:i-1)//'_SA-CAS.fch'
  write(fid2,'(/,A)') '# save MOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
@@ -302,7 +302,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'idx2 = mc.ncore + nacto'
  write(fid2,'(A)') 'mo_cas = mo[:,mc.ncore:idx2].copy()'
  write(fid2,'(A)') 'for i in range(1,nroots):'
- i = index(cmofch, '.fch', back=.true.)
+ i = INDEX(cmofch, '.fch', back=.true.)
  write(fid2,'(A)') "  part_fch = '"//cmofch(1:i-1)//"_NTO_P0'+str(i)+'.fch'"
  write(fid2,'(A)') "  hole_fch = '"//cmofch(1:i-1)//"_NTO_H0'+str(i)+'.fch'"
  write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', part_fch)"
@@ -340,7 +340,7 @@ subroutine prt_sacas_gjf(gjfname, hf_fch)
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname, hf_fch
 
- i = index(gjfname, '.gjf', back=.true.)
+ i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
  call unfchk(hf_fch, chkname)
 
@@ -368,7 +368,7 @@ end subroutine prt_sacas_gjf
 subroutine prt_sacas_orca_inp(inpname, hf_fch)
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  use mol, only: nacto, nacte, mult
- use mr_keyword, only: mem, nproc, nevpt2, FIC, DLPNO, F12, RI, RIJK_bas, &
+ use mr_keyword, only: mem, nproc, nevpt2, QD, FIC, DLPNO, F12, RI, RIJK_bas, &
   mixed_spin, nstate, hardwfn, crazywfn
  implicit none
  integer :: i, fid, fid1
@@ -376,11 +376,11 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  character(len=240), intent(in) :: inpname, hf_fch
 
  call fch2mkl_wrap(hf_fch)
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  inpname1 = hf_fch(1:i-1)//'_o.inp'
  mklname = hf_fch(1:i-1)//'_o.mkl'
 
- i = index(inpname, '.inp', back=.true.)
+ i = INDEX(inpname, '.inp', back=.true.)
  gbwname = inpname(1:i-1)//'.gbw'
  call mkl2gbw(mklname, gbwname)
  call delete_file(mklname)
@@ -422,9 +422,10 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
   else
    write(fid1,'(A)') ' PTMethod SC_NEVPT2'
   end if
-  if(F12) then
+  if(QD .or. F12) then
    write(fid1,'(A)') ' PTSettings'
-   write(fid1,'(A)') '  F12 true'
+   if(QD) write(fid1,'(A)') '  QDType QD_VanVleck'
+   if(F12) write(fid1,'(A)') '  F12 true'
    write(fid1,'(A)') ' end'
   end if
  end if
@@ -475,7 +476,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
 
  ncore = ndb + npair - npair0
  call fch2inp_wrap(hf_fch, .false., 0, 0)
- i = index(hf_fch, '.fch', back=.true.)
+ i = INDEX(hf_fch, '.fch', back=.true.)
  inpname1 = hf_fch(1:i-1)//'.inp'
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  inpname1 = TRIM(inpname)//'.t'
@@ -541,17 +542,10 @@ subroutine prt_sacas_molcas_inp(inpname, hf_fch)
  use mr_keyword, only: molcas_path
  use util_wrapper, only: fch2inporb_wrap
  implicit none
- integer :: i, RENAME
- character(len=240) :: old_orb, inporb
  character(len=240), intent(in) :: inpname, hf_fch
 
  call check_exe_exist(molcas_path)
- call fch2inporb_wrap(hf_fch, inpname)
- i = index(inpname, '.input', back=.true.)
- inporb = inpname(1:i-1)//'.INPORB'
- i = index(hf_fch, '.fch', back=.true.)
- old_orb = hf_fch(1:i-1)//'.INPORB'
- i = RENAME(TRIM(old_orb), TRIM(inporb))
+ call fch2inporb_wrap(hf_fch, .false., inpname)
  call prt_cas_molcas_inp(inpname, .true.)
 end subroutine prt_sacas_molcas_inp
 
@@ -612,10 +606,10 @@ subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
 
  do i = 0, nstate, 1
   read(fid,'(A)') buf
-  j = index(buf, '=')
+  j = INDEX(buf, '=')
   read(buf(j+1:),*) sa_cas_e(i)
   buf(j:j) = ' '
-  j = index(buf, '=')
+  j = INDEX(buf, '=')
   read(buf(j+1:),*) ci_mult(i)
  end do ! for i
 
@@ -650,10 +644,10 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
  end if
 
  ! CAS-SCF STATES FOR BLOCK  1 MULT= 3 NROOTS= 3
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) k
 
- j = index(buf, '=')
+ j = INDEX(buf, '=')
  read(buf(j+1:),*) mult
  s = 0.5d0*DBLE(mult-1)
  ci_mult(0:k-1) = s*(s+1d0)
@@ -663,7 +657,7 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
   read(fid,'(A)') buf
   if(buf(1:4) == 'ROOT') then
    m = m + 1
-   i = index(buf, '=')
+   i = INDEX(buf, '=')
    read(buf(i+1:),*) sa_cas_e(m)
    if(m+1 == k) exit
   end if
@@ -679,10 +673,10 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
   if(buf(1:24) == 'CAS-SCF STATES FOR BLOCK') exit
  end do ! for while
 
- i = index(buf, '=', back=.true.)
+ i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) k
 
- j = index(buf, '=')
+ j = INDEX(buf, '=')
  read(buf(j+1:),*) mult
  s = 0.5d0*DBLE(mult-1)
  ci_mult(m+1:) = s*(s+1d0)
@@ -691,7 +685,7 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
   read(fid,'(A)') buf
   if(buf(1:4) == 'ROOT') then
    m = m + 1
-   i = index(buf, '=')
+   i = INDEX(buf, '=')
    read(buf(i+1:),*) sa_cas_e(m)
    if(m == nstate) exit
   end if
@@ -742,7 +736,7 @@ subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
 
  do i = 0, nstate, 1
   read(fid,'(A)') buf
-  j = index(buf, ':', back=.true.)
+  j = INDEX(buf, ':', back=.true.)
   read(buf(j+1:),*) sa_cas_e(i)
  end do ! for i
 
@@ -811,7 +805,7 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
 
  do i = 0, nstate, 1
   read(fid,'(A)') buf
-  j = index(buf,'=')
+  j = INDEX(buf,'=')
   read(buf(j+1:),*) casci_e(i)
  end do ! for i
 
@@ -820,7 +814,7 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
   if(i == nstate+1) exit
   read(fid,'(A)') buf
   if(buf(1:8) == 'Nevpt2 E') then
-   j = index(buf,'=')
+   j = INDEX(buf,'=')
    read(buf(j+1:),*) nevpt2_e(i)
    i = i + 1
   end if
@@ -849,7 +843,7 @@ subroutine read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
   read(fid,'(A)',iostat=j) buf
   if(j /= 0) exit
   if(index(buf,'Total Energy (') > 0) then
-   k = index(buf, '=')
+   k = INDEX(buf, '=')
    read(buf(k+1:),*) nevpt2_e(i)
    i = i + 1
    if(i == nstate+1) exit
@@ -910,7 +904,7 @@ subroutine read_fosc_from_pyscf_out(outname, nstate, fosc)
  BACKSPACE(fid)
  do i = 1, nstate, 1
   read(fid,'(A)') buf
-  j = index(buf, '=')
+  j = INDEX(buf, '=')
   read(buf(j+1:),*) fosc(i)
  end do ! for i
 
@@ -1015,14 +1009,16 @@ subroutine read_fosc_from_molcas_out(outname, nstate, fosc)
  close(fid)
 end subroutine read_fosc_from_molcas_out
 
+! copy NTOs from OpenMolcas orbital files to .fch files
 subroutine copy_nto_from_orb2fch(hf_fch, nstate)
+ use util_wrapper, only: orb2fch_wrap
  implicit none
- integer :: i, j, k, SYSTEM
+ integer :: i, k
  integer, intent(in) :: nstate
  character(len=240) :: part_orb, hole_orb, part_fch, hole_fch
  character(len=240), intent(in) :: hf_fch
 
- k = index(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', k)
 
  do i = 2, nstate+1, 1
   write(part_orb,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS.NTOrb.1_',i,'.a.PART'
@@ -1031,9 +1027,65 @@ subroutine copy_nto_from_orb2fch(hf_fch, nstate)
   write(hole_fch,'(A,I0,A)') hf_fch(1:k-1)//'_SA-CAS_NTO_H0',i-1,'.fch'
   call copy_file(hf_fch, part_fch, .false.)
   call copy_file(hf_fch, hole_fch, .false.)
-  j = SYSTEM('orb2fch '//TRIM(part_orb)//' '//TRIM(part_fch)//' -no')
-  j = SYSTEM('orb2fch '//TRIM(hole_orb)//' '//TRIM(hole_fch)//' -no')
+
+  call check_molcas_nto_file_exist(part_orb)
+  call orb2fch_wrap(part_orb, part_fch, .true.)
+
+  call check_molcas_nto_file_exist(hole_orb)
+  call orb2fch_wrap(hole_orb, hole_fch, .true.)
+
   call delete_files(2, [part_orb, hole_orb])
  end do ! for i
 end subroutine copy_nto_from_orb2fch
+
+! Check whether a specied NTO orbital file exists. If not, change the filename
+!  and check again. If still not found, copy it from the $MOLCAS_WORKDIR/
+!  directory.
+! If you are running on a Cluster and the $MOLCAS_WORKDIR/ is network-mounted,
+!  this could cause latency or timestamp mismatches. In such case OpenMolcas
+!  might fail to copy some of the NTO files back into current directory. So we
+!  need to do the copy (see https://gitlab.com/Molcas/OpenMolcas/-/issues/425)
+subroutine check_molcas_nto_file_exist(orbname)
+ implicit none
+ integer :: i, k
+ character(len=600) :: scr_path
+ character(len=240) :: orbname1
+ character(len=240), intent(inout) :: orbname ! allowed to be changed
+ logical :: alive
+
+ scr_path = ' '
+ k = LEN_TRIM(orbname)
+ inquire(file=orbname(1:k),exist=alive)
+ if(alive) return
+
+! For OpenMolcas < 23.10, NTO filenames are like xx.NTOrb.1_2.a.HOLE
+! For OpenMolcas >=23.10, NTO filenames are like xx.NTOrb.SF.1_2.a.HOLE
+! 'SF' for Spin-Free. Here we have to check two types of filenames.
+ call find_specified_suffix(orbname, '.NTOrb', i)
+ orbname1 = orbname(1:i+5)//'.SF'//orbname(i+6:k)
+ inquire(file=orbname1(1:k+3),exist=alive)
+ if(alive) then
+  orbname = orbname1
+  return
+ end if
+
+ call getenv('MOLCAS_WORKDIR', scr_path)
+ scr_path = TRIM(scr_path)//'/'//orbname(1:i-1)
+
+ inquire(file=TRIM(scr_path)//'/'//orbname(1:k),exist=alive)
+ if(alive) then
+  call copy_file_from_a_path(scr_path, orbname)
+ else
+  inquire(file=TRIM(scr_path)//'/'//orbname1(1:k+3),exist=alive)
+  if(alive) then
+   call copy_file_from_a_path(scr_path, orbname1)
+   orbname = orbname1
+  else
+   write(6,'(/,A)') 'ERROR in subroutne check_molcas_nto_file_exist: NTO files &
+                    &not found.'
+   write(6,'(A)') 'Filename='//orbname(1:k)
+   write(6,'(A)') 'Filename='//orbname1(1:k+3)
+  end if
+ end if
+end subroutine check_molcas_nto_file_exist
 

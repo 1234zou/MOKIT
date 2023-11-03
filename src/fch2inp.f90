@@ -520,7 +520,7 @@ subroutine fch2inp_permute_10f(nif,coeff)
  implicit none
  integer :: i
  integer, intent(in) :: nif
- integer, parameter :: order(6) = (/2, 3, 1, 6, 4, 5/)
+ integer, parameter :: order(6) = [2, 3, 1, 6, 4, 5]
  real(kind=8), intent(inout) :: coeff(6,nif)
  real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian f functions in Gaussian
@@ -539,7 +539,8 @@ subroutine fch2inp_permute_15g(nif,coeff)
  implicit none
  integer :: i
  integer, intent(in) :: nif
- integer, parameter :: order(15) = (/15, 5, 1, 14, 13, 9, 4, 6, 2, 12, 10, 3, 11, 8, 7/)
+ integer, parameter :: order(15) = [15, 5, 1, 14, 13, 9, 4, 6, 2, 12, 10, 3, &
+                                    11, 8, 7]
  real(kind=8), intent(inout) :: coeff(15,nif)
  real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian g functions in Gaussian
@@ -558,8 +559,8 @@ subroutine fch2inp_permute_21h(nif,coeff)
  implicit none
  integer :: i
  integer, intent(in) :: nif
- integer, parameter :: order(21) = (/21, 6, 1, 20, 19, 11, 5, 7, 2, 18, 16, &
-                                     15, 4, 12, 3, 17, 10, 8, 14, 13, 9/)
+ integer, parameter :: order(21) = [21, 6, 1, 20, 19, 11, 5, 7, 2, 18, 16, 15, &
+                                    4, 12, 3, 17, 10, 8, 14, 13, 9]
  real(kind=8),intent(inout) :: coeff(21,nif)
  real(kind=8), allocatable :: coeff2(:,:)
 ! From: the order of Cartesian h functions in Gaussian

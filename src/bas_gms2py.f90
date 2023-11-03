@@ -194,7 +194,7 @@ subroutine bas_gms2py(inpname, cart)
    if(index(buf,'NONE') /= 0) cycle
 
    write(pyid,'(A,I0,A)') "'"//TRIM(elem(m)),ntimes(m),"': gto.basis.parse_ecp('''"
-   i = index(buf,'GEN')
+   i = INDEX(buf,'GEN')
    read(buf(i+3:),*) k, lmax
    write(pyid,'(A,I3)') TRIM(elem(m))//' nelec ', k
 
@@ -242,7 +242,7 @@ subroutine bas_gms2py(inpname, cart)
  write(pyid,'(A,I0)') 'mol.spin = ', mult-1
  write(pyid,'(A)') 'mol.verbose = 4'
  if(cart) write(pyid,'(A)') 'mol.cart = True'
- write(pyid,'(A,/)') 'mol.build()'
+ write(pyid,'(A,/)') 'mol.build(parse_arg=False)'
 
  i = INDEX(inpname, '.', back=.true.)
 

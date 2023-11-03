@@ -446,7 +446,7 @@ subroutine get_int_after_flag(buf, flag, k)
  character(len=1), intent(in) :: flag
  character(len=240), intent(in) :: buf
 
- i = index(buf, flag)
+ i = INDEX(buf, flag)
  if(i == 0) then
   write(*,'(A)') "ERROR in subroutine get_int_after_flag: no keyword '"//flag &
                & //"' found in the string '"//TRIM(buf)//"'."

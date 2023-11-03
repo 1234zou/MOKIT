@@ -188,7 +188,7 @@ subroutine gen_no_from_nso(fchname)
  character(len=240), intent(in) :: fchname ! must have NSO in it
  real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
 
- i = index(fchname,'.fch',back=.true.)
+ i = INDEX(fchname,'.fch',back=.true.)
  no_fch = fchname(1:i-1)//'_NO.fch'
  call fch_u2r_wrap(fchname, no_fch)
 

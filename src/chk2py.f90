@@ -42,11 +42,11 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
   stop
  end if
 
- i = index(chkname,'.chk')
+ i = INDEX(chkname,'.chk')
  txtname = chkname(1:i-1)//'_chk.txt'
 
  ! Step1: tranform .chk to _chk.txt using Gaussian utility chkchk
- i = system('chkchk -p '//TRIM(chkname)//' > '//TRIM(txtname))
+ i = SYSTEM('chkchk -p '//TRIM(chkname)//' > '//TRIM(txtname))
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine chk2py: fail to transform the .chk file t&
                  &o *_chk.txt file'
@@ -80,9 +80,9 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
 
 
  ! Step2: tranform .chk to _tmp.fchk using Gaussian utility formchk
- i = index(chkname,'.chk')
+ i = INDEX(chkname,'.chk')
  txtname = chkname(1:i-1)//'_tmp.fchk'
- i = system('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
+ i = SYSTEM('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
                    & to _tmp.fchk file, using Gaussian utility formchk.'

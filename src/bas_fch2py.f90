@@ -78,13 +78,14 @@ subroutine bas_fch2py(fchname, prt_dft)
  call fch2inp_wrap(fchname, .false., 0, 0)
 
  if(cart) then ! Cartesian functions
-  i = system('bas_gms2py '//TRIM(inpname))
+  i = SYSTEM('bas_gms2py '//TRIM(inpname))
  else          ! sperical harmonic functions
-  i = system('bas_gms2py '//TRIM(inpname)//' -sph')
+  i = SYSTEM('bas_gms2py '//TRIM(inpname)//' -sph')
  end if
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py failed.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py fai&
+                   &led.'
   write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if
@@ -129,8 +130,8 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
    else
     longbuf = TRIM(buf)//TRIM(longbuf)
    end if
-   j = index(longbuf,'/')
-   i = index(longbuf(1:j-1), ' ', back=.true.)
+   j = INDEX(longbuf,'/')
+   i = INDEX(longbuf(1:j-1), ' ', back=.true.)
    dftname = longbuf(i+1:j-1)
    exit
   end if

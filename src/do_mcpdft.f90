@@ -6,12 +6,12 @@ subroutine do_mcpdft()
   casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
   gms_scr_path, mcpdft_force, eist
  use mol, only: ptchg_e, mcpdft_e, natom, grad
- use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap
+ use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: ref_e
  character(len=24) :: data_string
- character(len=240) :: fname(3), inpname, outname, cmofch
+ character(len=240) :: fname(2), inpname, outname, cmofch
  logical :: dmrg
 
  if(eist == 1) return ! excited state calculation
@@ -53,52 +53,44 @@ subroutine do_mcpdft()
 
  ! For DMRG-PDFT, use input orbitals or pseudo-canonical MOs rather than NOs
  if(dmrg) then
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   cmofch = casnofch(1:i)//'CMO.fch'
   casnofch = cmofch
  end if
 
  select case(TRIM(mcpdft_prog))
  case('pyscf')
-  i = index(casnofch, '_', back=.true.)
+  i = INDEX(casnofch, '_', back=.true.)
   inpname = casnofch(1:i)//'MCPDFT.py'
   outname = casnofch(1:i)//'MCPDFT.out'
   call bas_fch2py_wrap(casnofch, .false., inpname)
   call prt_mcpdft_script_into_py(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_pyscf_job(inpname)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)
-
-  i = system('fch2inporb '//TRIM(casnofch))
-  i = index(casnofch, '.fch', back=.true.)
-  fname(1) = casnofch(1:i-1)//'.INPORB'
-  fname(2) = casnofch(1:i-1)//'.input'
-  i = index(casnofch, '_', back=.true.)
-  fname(3) = casnofch(1:i)//'MCPDFT.INPORB'
-  inpname  = casnofch(1:i)//'MCPDFT.input'
-  outname  = casnofch(1:i)//'MCPDFT.out'
-  i = RENAME(TRIM(fname(1)), TRIM(fname(3)))
-  i = RENAME(TRIM(fname(2)), TRIM(inpname))
- 
+  i = INDEX(casnofch, '_', back=.true.)
+  inpname = casnofch(1:i)//'MCPDFT.input'
+  outname = casnofch(1:i)//'MCPDFT.out'
+  call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mcpdft_molcas_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
 
  case('gamess')
   call check_gms_path()
   call fch2inp_wrap(casnofch, .false., 0, 0)
-  i = index(casnofch, '.fch', back=.true.)
+  i = INDEX(casnofch, '.fch', back=.true.)
   fname(1) = casnofch(1:i-1)//'.inp'
-  i = index(casnofch, '_NO', back=.true.)
+  i = INDEX(casnofch, '_NO', back=.true.)
   fname(2) = casnofch(1:i)//'MCPDFT.dat'
   inpname = casnofch(1:i)//'MCPDFT.inp'
   outname = casnofch(1:i)//'MCPDFT.gms'
   i = RENAME(TRIM(fname(1)), TRIM(inpname))
 
   call prt_mcpdft_gms_inp(inpname)
-  if(bgchg) i = system('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, 1)
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
  end select
@@ -181,7 +173,7 @@ subroutine prt_mcpdft_script_into_py(inpname)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 
- if(mcpdft_force) call add_force_key2py_script(mem, inpname)
+ if(mcpdft_force) call add_force_key2py_script(mem, inpname, .false.)
 end subroutine prt_mcpdft_script_into_py
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
@@ -324,13 +316,13 @@ subroutine detect_and_change_otpdf(otpdf)
  end if
 
  ! find the OpenMolcas version
- i = system('pymolcas --banner >'//ftmp)
+ i = SYSTEM('pymolcas --banner >'//ftmp)
  open(newunit=fid,file=ftmp,status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  k = index(buf,'version:')
+  k = INDEX(buf,'version:')
   if(k > 0) exit
  end do ! for while
 
@@ -338,7 +330,7 @@ subroutine detect_and_change_otpdf(otpdf)
  if(i /= 0) return
  ! if something like 'version: v22.06' not found, just return
 
- i = index(buf, '.')
+ i = INDEX(buf, '.')
  read(buf(k+8:i-1),*) sv     ! 'v22'
  read(sv(2:3),*,iostat=i) iv ! 22
  if(i /= 0) return
@@ -346,7 +338,7 @@ subroutine detect_and_change_otpdf(otpdf)
 
  call lower(otpdf)
  if(iv >= 22) then ! T:PBE, FT:PBE
-  i = index(otpdf, ':')
+  i = INDEX(otpdf, ':')
   if(i == 0) then
    select case(otpdf(1:1))
    case('t')
@@ -361,7 +353,7 @@ subroutine detect_and_change_otpdf(otpdf)
   end if
 
  else ! tPBE, ftPBE
-  i = index(otpdf, ':')
+  i = INDEX(otpdf, ':')
   if(i > 0) then
    select case(otpdf(1:1))
    case('t')
