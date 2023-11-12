@@ -23,7 +23,8 @@ variables:
     - cd ../..
     - mkdir $TARGET
     - cp -r bin mokit doc examples CHANGELOG *.md $TARGET
-    #- tar czvf $TARGET.tar.gz $TARGET
+    - mkdir $TARGET/src
+    - cp src/modify* $TARGET/src
 
 #py37_gcc8:
 #  image: python:3.7-buster
