@@ -24,8 +24,6 @@ or
 
 Negligible energy loss(usually<1e-6 a.u., for the same wave function method in two programs) are ensured during transferring MOs, since the basis order of angular momentum up to H(i.e. *l*=5) are considered.
 
-Pre-built `Windows* OS` executables are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). Pre-built `Linux* OS` executables can be downloaded in `Previous Artifacts` via the download button on the GitLab main page.
-
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
 Nov 2, 2023
@@ -42,9 +40,10 @@ Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowada
 
 Installation
 ------------
-You can choose any of the four options shown below to install MOKIT, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+Pre-built `Windows* OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
-### Option 1: Install from conda
+### Option 1: Install from conda (for Linux only)
 This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
 ```
 conda create -n mokit-py39 python=3.9 # 3.7~3.11 are available
@@ -82,8 +81,10 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 ```
 
 ### Option 3: Use Pre-compiled MOKIT
-* Prerequisites: 
-    - You need to have a Python3 environment and NumPy.
+
+Pre-built `Linux* OS` executables can be downloaded in `Previous Artifacts` via the download button on the GitLab main page.
+
+* Prerequisites: Python3 environment and NumPy.
 
 * A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)
 

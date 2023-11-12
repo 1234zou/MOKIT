@@ -39,6 +39,8 @@
     - cd ../..
     - mkdir $TARGET
     - cp -r bin mokit doc examples CHANGELOG *.md $TARGET
+    - mkdir $TARGET/src
+    - cp src/modify* $TARGET/src
 
 centos7_conda_py37:
   image: centos:7
