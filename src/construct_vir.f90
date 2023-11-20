@@ -13,8 +13,8 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  ! idx: the beginning index (Fortran convention) of the virtual MOs
 
  real(kind=8) :: coeff(nbf,nif), ovlp(nbf,nbf), new_coeff(nbf,nif)
-!f2py depend(nbf,nif) coeff, new_coeff
-!f2py depend(nbf) ovlp
+!f2py depend(nbf,nif) :: coeff, new_coeff
+!f2py depend(nbf) :: ovlp
 !f2py intent(in) :: ovlp
 !f2py intent(in,copy) :: coeff
 !f2py intent(out) :: new_coeff
@@ -34,7 +34,8 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
 
  ! Step 1: P = sigma_i(Cui*Cvi)
  allocate(p(nbf,nbf), source=0d0)
- call dgemm('N', 'T', nbf, nbf, idx-1, 1d0, coeff(1:nbf,1:idx-1), nbf, coeff(1:nbf,1:idx-1), nbf, 0d0, p, nbf)
+ call dgemm('N','T', nbf,nbf,idx-1, 1d0,coeff(1:nbf,1:idx-1),nbf, &
+            coeff(1:nbf,1:idx-1),nbf, 0d0,p,nbf)
 
  ! Step 2: V = 1 - PS
  allocate(v(nbf, nbf), source=0d0)
@@ -43,7 +44,7 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  deallocate(p)
 
  ! Step 3: S1 = (VT)SV
- allocate(s1(nbf,nbf), source=0d0)
+ allocate(s1(nbf,nbf))
  call calc_CTSC(nbf, nbf, v, ovlp, s1)
 
  ! Step 4: diagonalize S1 (note that S1 is symmetric) and get X
@@ -56,12 +57,12 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  deallocate(ev, s1)
 
  ! Step 5: get new virtual MO coefficients
- call dgemm('N', 'N', nbf, nvir, nbf, 1d0, v, nbf, x, nbf, 0d0, coeff(:,idx:nif), nbf)
+ call dgemm('N','N', nbf,nvir,nbf, 1d0,v,nbf, x,nbf, 0d0,coeff(:,idx:nif),nbf)
  deallocate(x, v)
  new_coeff = coeff
 
  ! Step 6: check orthonormality
- allocate(x(nif,nif), source=0d0)
+ allocate(x(nif,nif))
  call calc_CTSC(nbf, nif, coeff, ovlp, x)
 
  forall(i = 1:nif) x(i,i) = x(i,i) - 1d0

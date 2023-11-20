@@ -223,6 +223,22 @@ subroutine do_svd(m, n, a, u, vt, s)
  end if
 end subroutine do_svd
 
+! perform SVD on the square matrix a, return U(V^T) and singular values
+subroutine do_svd_get_uvt_s(n, a, uvt, s)
+ implicit none
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), intent(out) :: uvt(n,n), s(n)
+ real(kind=8), allocatable :: u(:,:), vt(:,:)
+
+ allocate(u(n,n), vt(n,n))
+ call do_svd(n, n, a, u, vt, s)
+
+ uvt = 0d0
+ call dgemm('N', 'N', n, n, n, 1d0, u, n, vt, n, 0d0, uvt, n)
+ deallocate(u, vt)
+end subroutine do_svd_get_uvt_s
+
 ! compute the GAMMA_k matrix using the reference MOs and MOs of geometry/point k
 ! Note: here mo_ref and mo_k are both expressed at the orthogonal basis, i.e.
 !  C' = (S^1/2)C
@@ -367,4 +383,148 @@ subroutine get_a_random_int(i)
 
  i = CEILING(r*1e6)
 end subroutine get_a_random_int
+
+subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
+ implicit none
+ integer :: nocc, nvir
+ integer, intent(in) :: nocc1,nvir1, nocc2,nvir2
+!f2py intent(in) :: nocc1,nvir1, nocc2,nvir2
+ real(kind=8), intent(in) :: t1_1(nocc1,nvir1), t1_2(nocc2,nvir2)
+!f2py intent(in) :: t1_1, t1_2
+!f2py depend(nocc1,nvir1) :: t1_1
+!f2py depend(nocc2,nvir2) :: t1_2
+ real(kind=8), intent(out) :: t1(nocc1+nocc2,nvir1+nvir2)
+!f2py intent(out) :: t1
+!f2py depend(nocc1,nocc2,nvir1,nvir2) :: t1
+
+ t1 = 0d0
+ nocc = nocc1 + nocc2
+ nvir = nvir1 + nvir2
+ t1(1:nocc1,nvir2+1:nvir) = t1_1
+ t1(nocc1+1:nocc,1:nvir2) = t1_2
+end subroutine merge_two_sets_of_t1
+
+subroutine merge_two_sets_of_t2(nocc1,nvir1,t2_1, nocc2,nvir2,t2_2, t2)
+ implicit none
+ integer :: nocc, nvir
+ integer, intent(in) :: nocc1,nvir1, nocc2,nvir2
+!f2py intent(in) :: nocc1,nvir1, nocc2,nvir2
+ real(kind=8), intent(in) :: t2_1(nocc1,nocc1,nvir1,nvir1)
+!f2py intent(in) :: t2_1
+!f2py depend(nocc1,nvir1) :: t2_1
+ real(kind=8), intent(in) :: t2_2(nocc2,nocc2,nvir2,nvir2)
+!f2py intent(in) :: t2_2
+!f2py depend(nocc2,nvir2) :: t2_2
+ real(kind=8), intent(out) :: t2(nocc1+nocc2,nocc1+nocc2,nvir1+nvir2,nvir1+nvir2)
+!f2py intent(out) :: t2
+!f2py depend(nocc1,nocc2,nvir1,nvir2) :: t2
+
+ t2 = 0d0
+ nocc = nocc1 + nocc2
+ nvir = nvir1 + nvir2
+ t2(1:nocc1,1:nocc1,nvir2+1:nvir,nvir2+1:nvir) = t2_1
+ t2(nocc1+1:nocc,nocc1+1:nocc,1:nvir2,1:nvir2) = t2_2
+end subroutine merge_two_sets_of_t2
+
+! Rotate old t1 and t2 amplitudes accoording to old MOs and new MOs.
+! Note: in this subroutine, the old MOs and new MOs share the same geometry and
+!  basis set, so they share one AO overlap integral matrix
+subroutine rotate_t1_t2_amp(nbf, nmo, mo0, mo1, nocc, t1, t2, ovlp)
+ implicit none
+ integer :: nvir
+ integer, intent(in) :: nbf, nmo, nocc
+!f2py intent(in) :: nbf, nmo, nocc
+ real(kind=8), intent(in) :: mo0(nbf,nmo), mo1(nbf,nmo)
+!f2py intent(in) :: mo0, mo1
+!f2py depend(nbf,nmo) :: mo0, mo1
+ real(kind=8), intent(inout) :: t1(nocc,nmo-nocc), t2(nocc,nocc,nmo-nocc,nmo-nocc)
+!f2py intent(inout) :: t1, t2
+!f2py depend(nocc,nmo) :: t1, t2
+ real(kind=8), intent(in) :: ovlp(nbf,nbf)
+!f2py intent(in) :: ovlp
+!f2py depend(nbf) :: ovlp
+ real(kind=8), allocatable :: uvt0(:,:),uvt1(:,:),s0(:),s1(:),CTSCp(:,:),r(:,:)
+
+ nvir = nmo - nocc
+
+ ! perform SVD on the overlap of occ MOs
+ allocate(CTSCp(nocc,nocc))
+ call calc_CTSCp(nbf, nocc, mo0(:,1:nocc), ovlp, mo1(:,1:nocc), CTSCp)
+ allocate(uvt0(nocc,nocc), s0(nocc))
+ call do_svd_get_uvt_s(nocc, CTSCp, uvt0, s0)
+ write(6,'(A)') 's0='
+ write(6,'(5(1X,ES15.8))') s0
+ deallocate(CTSCp, s0)
+
+ ! perform SVD on the overlap of vir MOs
+ allocate(CTSCp(nvir,nvir))
+ call calc_CTSCp(nbf, nvir, mo0(:,nocc+1:nmo), ovlp, mo1(:,nocc+1:nmo), CTSCp)
+ allocate(uvt1(nvir,nvir), s1(nvir))
+ call do_svd_get_uvt_s(nvir, CTSCp, uvt1, s1)
+ write(6,'(A)') 's1='
+ write(6,'(5(1X,ES15.8))') s1
+ deallocate(CTSCp, s1)
+
+ ! get new t1, O(N^3)
+ allocate(r(nocc,nvir), source=0d0)
+ call dgemm('N','N', nocc,nvir,nvir, 1d0,t1,nocc, uvt1,nvir, 0d0,r,nocc)
+ t1 = 0d0
+ call dgemm('T','N', nocc,nvir,nocc, 1d0,uvt0,nocc, r,nocc, 0d0,t1,nocc)
+ deallocate(r)
+
+ ! get new t2, O(N^5), like ao2mo
+ call update_t2_using_p_occ_p_vir(nocc, nvir, uvt0, uvt1, t2)
+ deallocate(uvt0, uvt1)
+end subroutine rotate_t1_t2_amp
+
+subroutine update_t2_using_p_occ_p_vir(nocc, nvir, p_occ, p_vir, t2)
+ implicit none
+ integer :: i, j, a, b
+ integer, intent(in) :: nocc, nvir
+ real(kind=8), intent(in) :: p_occ(nocc,nocc), p_vir(nvir,nvir)
+ real(kind=8), intent(inout) :: t2(nocc,nocc,nvir,nvir)
+ real(kind=8), allocatable :: r(:,:), s(:,:), r1(:,:,:,:), r2(:,:,:,:)
+
+ allocate(r(nocc,nocc), s(nocc,nocc), r1(nocc,nocc,nvir,nvir))
+ do b = 1, nvir, 1
+  do a = 1, nvir, 1
+   r = t2(:,:,a,b); s = 0d0
+   call dgemm('T','N', nocc,nocc,nocc, 1d0,p_occ,nocc, r,nocc, 0d0,s,nocc)
+  end do ! for a
+  r1(:,:,a,b) = TRANSPOSE(s)
+ end do ! for b
+
+ allocate(r2(nocc,nocc,nvir,nvir))
+ do b = 1, nvir, 1
+  do a = 1, nvir, 1
+   r = r1(:,:,a,b); s = 0d0
+   call dgemm('T','N', nocc,nocc,nocc, 1d0,p_occ,nocc, r,nocc, 0d0,s,nocc)
+  end do ! for a
+  r2(a,b,:,:) = s
+ end do ! for b
+ deallocate(r, s, r1)
+
+ allocate(r(nvir,nvir), s(nvir,nvir), r1(nvir,nvir,nocc,nocc))
+ do i = 1, nocc, 1
+  do j = 1, nocc, 1
+   r = r2(:,:,j,i); s = 0d0
+   call dgemm('T','N', nvir,nvir,nvir, 1d0,p_vir,nvir, r,nvir, 0d0,s,nvir)
+  end do ! for j
+  r1(:,:,j,i) = TRANSPOSE(s)
+ end do ! for i
+ deallocate(r2)
+
+ allocate(r2(nvir,nvir,nocc,nocc))
+ do i = 1, nocc, 1
+  do j = 1, nocc, 1
+   r = r1(:,:,j,i); s = 0d0
+   call dgemm('T','N', nvir,nvir,nvir, 1d0,p_vir,nvir, r,nvir, 0d0,s,nvir)
+  end do ! for j
+  r2(:,:,j,i) = TRANSPOSE(s)
+ end do ! for i
+ deallocate(r, s, r1)
+
+ forall(i=1:nocc,j=1:nocc,a=1:nvir,b=1:nvir) t2(i,j,a,b) = r2(a,b,j,i)
+ deallocate(r2)
+end subroutine update_t2_using_p_occ_p_vir
 

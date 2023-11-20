@@ -2211,25 +2211,25 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- ref_e = 0d0
- corr_e = 0d0
+ ref_e = 0d0; corr_e = 0d0
  if(itype<1 .or. itype>3) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: itype&
-                 & out of range.'
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: itype&
+                   & out of range.'
   write(6,'(A,I0,A)') 'itype=', itype, ', outname='//TRIM(outname)
   stop
  end if
 
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:20) == '!MCSCF STATE  1.1 E') exit
+  if(buf(2:20)=='!MCSCF STATE  1.1 E' .or. buf(2:19)=='!MCSCF STATE 1.1 E') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
-  write(6,'(A)') "'!MCSCF STATE  1.1 E' not found in file "//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out: CASSC&
+                   &F energy cannot'
+  write(6,'(A)') "be found in file "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2243,13 +2243,12 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
   if(buf(2:9) == key(itype)) exit
  end do ! for while
 
+ close(fid)
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molpro_out:'
   write(6,'(A)') "'"//key(itype)//"' not found in file "//TRIM(outname)
-  close(fid)
   stop
  end if
- close(fid)
 
  i = INDEX(buf,'ergy')
  read(buf(i+4:),*) corr_e

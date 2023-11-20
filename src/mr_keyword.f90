@@ -131,7 +131,7 @@ module mr_keyword
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
  character(len=240) :: basname = ' '  ! file to store gen/genecp data
 
- logical :: openmp_molcas = .true. ! OpenMP/MPI version of OpenMolcas
+ logical :: molcas_omp = .true. ! OpenMP/MPI version of OpenMolcas
  ! True/False for OpenMP/MPI, automatically detected
 
  logical :: mo_rhf  = .false.     ! whether the initial wfn is RHF/UHF for True/False
@@ -190,6 +190,7 @@ module mr_keyword
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
  logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: dmrg_no = .true.      ! whether to generate NO in a DMRG-CASCI job
+ logical :: block_mpi = .false.   ! OpenMP or MPI calling the Block program
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
@@ -313,7 +314,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc16 (2023-Nov-2)'
+  write(6,'(A)') '           Version: 1.2.6rc17 (2023-Nov-19)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -329,7 +330,7 @@ contains
 
   call get_gau_path(gau_path)
   call get_molcas_path()
-  call check_molcas_is_openmp(openmp_molcas)
+  call check_molcas_is_omp(molcas_omp)
   call get_molpro_path(molpro_path)
   call get_orca_path(orca_path)
   call get_psi4_path(psi4_path)
@@ -544,10 +545,10 @@ contains
   write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
 
   if(basis(1:5) == 'def2-') then
-   write(6,'(A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detec&
-                  &ted in given basis set."
-   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not&
-                  & def2-TZVP.'
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detected&
+                    & in given basis set."
+   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not de&
+                  &f2-TZVP.'
    stop
   end if
 
@@ -564,14 +565,14 @@ contains
    end do ! for while
   end if
 
-  if(npair_wish > 0) write(6,'(A,I0)') 'User specified GVB npair = ', npair_wish
+  if(npair_wish > 0) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
   i = INDEX(buf, 'guess=')
   if(i > 0) then
-   write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess=' syntax&
-                 & not supported in automr."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'guess=' syntax not sup&
+                    &ported in automr."
    write(6,'(A)') "You can use 'guess()' syntax instead."
    stop
   end if
@@ -581,8 +582,8 @@ contains
    frag_guess = .true.
    j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
    if(j*k == 0)then
-    write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)'&
-                  & syntax is wrong in file "//TRIM(gjfname)
+    write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)' synt&
+                   &ax is wrong in file "//TRIM(gjfname)
     close(fid)
     stop
    end if
@@ -592,12 +593,14 @@ contains
   read(fid,'(A)') buf ! skip a blank line
   read(fid,'(A)') buf ! Title Card, the 1st line of keywords
   call lower(buf)
+  ! Note: this lower() is not from string_manipulate.f90, but defined in this
+  ! module
 
   if(buf(1:6) /= 'mokit{') then
-   write(6,'(A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected&
-                 & in file "//TRIM(gjfname)
-   write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position&
-                 & of the Title Card line."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected i&
+                    &n file "//TRIM(gjfname)
+   write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position of t&
+                  &he Title Card line."
    stop
   end if
 
@@ -629,7 +632,7 @@ contains
    end do ! for while
 
    if(ifail /= 0) then
-    write(6,'(A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
+    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
     write(6,'(A)') 'The provided .gjf file may be incomplete.'
     close(fid)
     stop
@@ -742,6 +745,8 @@ contains
     dmrgscf = .false.; dmrgci = .false.
    case('maxm')
     read(longbuf(j+1:i-1),*) maxM
+   case('block_mpi')
+    block_mpi = .true.
    case('hardwfn')
     hardwfn = .true.
    case('crazywfn')
@@ -862,61 +867,14 @@ contains
   end if
 
   if(readrhf .or. readuhf .or. readno) then
-   write(6,'(A79)') REPEAT('-',79)
-   write(6,'(A)') 'Note: read user-specified .fch file. The basis set and ECP(i&
-                  &f any) will be im-'
-   write(6,'(A)') 'ported from .fch file. The basis set you wrote in Route Sect&
-                  &ion(#p ...) will not'
-
    if(frag_guess) then
-    write(6,'(A)') 'ERROR in subroutine parse_keyword: frag_guess can only be u&
-                   &sed when none of'
-    write(6,'(A)') 'readrhf/readuhf/readno is used.'
+    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: frag_guess can only be&
+                    & used when none'
+    write(6,'(A)') 'of readrhf/readuhf/readno is used.'
     stop
    end if
-
-   call require_file_exist(hf_fch)
-   call read_basis_name_from_fch(hf_fch, buf)
-   write(6,'(A)') "be used. The basis set name copied from specified .fch file &
-                  &is: '"//TRIM(buf)//"'"
-   write(6,'(A79)') REPEAT('-',79)
-
    skiphf = .true.
-   i = INDEX(hf_fch, '.fchk', back=.true.)
-   if(i /= 0) then
-    buf = hf_fch(1:i-1)//'.fch'
-    call copy_file(hf_fch, buf, .false.)
-    hf_fch = buf
-   end if
-
-   if(DKH2) then
-    call add_DKH2_into_fch(hf_fch)
-   else if(X2C) then
-    call add_X2C_into_fch(hf_fch)
-   else
-    call find_irel_in_fch(hf_fch, i)
-    if(i == -3) then
-     write(6,'(/,A)') REPEAT('-',55)
-     write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword detecte&
-                    &d in file"
-     write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}. If &
-                   &you do"
-     write(6,'(A)') 'not want to perform X2C computations, please kill this job&
-                    & immediately and'
-     write(6,'(A)') "delete 'X2C' in .fch."
-     write(6,'(A)') REPEAT('-',55)
-    else if(i > 0) then
-     write(6,'(/,A)') REPEAT('-',55)
-     write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords &
-                    &detected in file'
-     write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}. If&
-                    & you do"
-     write(6,'(A)') 'not want to perform DKH2 computations, please kill this jo&
-                    &b immediately'
-     write(6,'(A)') 'and delete DKH related keywords in .fch.'
-     write(6,'(A)') REPEAT('-',55)
-    end if
-   end if
+   call check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
   end if
 
   select case(ist)
@@ -1529,13 +1487,14 @@ contains
  ! turn letters in buf into lower case, except those in symbol ''
  subroutine lower(buf)
   implicit none
-  integer :: i, j, k1, k2
+  integer :: i, j, k, k1, k2
   character(len=240), intent(inout) :: buf
 
+  k = LEN_TRIM(buf)
   k1 = INDEX(buf,"'")
   k2 = INDEX(buf,"'",back=.true.)
 
-  do i = 1, LEN_TRIM(buf), 1
+  do i = 1, k, 1
    if(i>k1 .and. i<k2) cycle
 
    j = IACHAR(buf(i:i))
@@ -2184,16 +2143,16 @@ subroutine get_dalton_path(dalton_path)
 end subroutine get_dalton_path
 
 ! check/detect OpenMolcas is OpenMP version or MPI version
-subroutine check_molcas_is_openmp(openmp)
+subroutine check_molcas_is_omp(omp)
  implicit none
  integer :: i, fid, SYSTEM
  character(len=3) :: str
  character(len=10), parameter :: ftmp = 'molcas.ver'
  character(len=240) :: buf
- logical, intent(out) :: openmp
+ logical, intent(out) :: omp
 
  str = ' '
- openmp = .true.
+ omp = .true.
  i = SYSTEM('pymolcas --banner >'//ftmp//" 2>&1")
 
  ! maybe OpenMolcas not installed, assume OpenMP version
@@ -2220,14 +2179,14 @@ subroutine check_molcas_is_openmp(openmp)
 
  select case(TRIM(str))
  case('ON') ! MPI version
-  openmp = .false.
+  omp = .false.
  case('OFF') ! OpenMP version
  case default
-  write(6,'(A)') 'ERROR in subroutine check_molcas_is_openmp: unrecognized para&
+  write(6,'(A)') 'ERROR in subroutine check_molcas_is_omp: unrecognized para&
                  &llel type='//str
   stop
  end select
-end subroutine check_molcas_is_openmp
+end subroutine check_molcas_is_omp
 
 ! set memory and nproc in the module mr_keyword
 subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)
@@ -2237,4 +2196,61 @@ subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)
  mem = mem_in
  nproc = np_in
 end subroutine set_mem_and_np_in_mr_keyword
+
+! check the sanity of the user-provided .fch(k) file (when readrhf/readuhf/readno
+!  is specified)
+subroutine check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
+ implicit none
+ integer :: i
+ character(len=240) :: buf
+ character(len=240), intent(inout) :: hf_fch
+ logical, intent(in) :: DKH2, X2C
+
+ call require_file_exist(hf_fch)
+ call read_basis_name_from_fch(hf_fch, buf)
+ write(6,'(A79)') REPEAT('-',79)
+ write(6,'(A)') 'Note: read user-specified .fch file. The basis set and ECP(i&
+                &f any) will be im-'
+ write(6,'(A)') 'ported from .fch file. The basis set you wrote in Route Sect&
+                &ion(#p ...) will not'
+ write(6,'(A)') "be used. The basis set name copied from specified .fch file &
+                &is: '"//TRIM(buf)//"'"
+ write(6,'(A79)') REPEAT('-',79)
+
+ i = INDEX(hf_fch, '.fchk', back=.true.)
+ if(i /= 0) then
+  buf = hf_fch(1:i-1)//'.fch'
+  call sys_copy_file(hf_fch, buf, .false.)
+  hf_fch = buf
+ end if
+
+ if(DKH2) then
+  call add_DKH2_into_fch(hf_fch)
+ else if(X2C) then
+  call add_X2C_into_fch(hf_fch)
+ else
+  call find_irel_in_fch(hf_fch, i)
+  if(i == -3) then
+   write(6,'(/,A)') REPEAT('-',55)
+   write(6,'(A)') "Warning in subroutine parse_keyword: 'X2C' keyword detecte&
+                  &d in file"
+   write(6,'(A)') TRIM(hf_fch)//". But no 'X2C' keyword found in mokit{}. If &
+                 &you do"
+   write(6,'(A)') 'not want to perform X2C computations, please kill this job&
+                  & immediately and'
+   write(6,'(A)') "delete 'X2C' in .fch."
+   write(6,'(A)') REPEAT('-',55)
+  else if(i > 0) then
+   write(6,'(/,A)') REPEAT('-',55)
+   write(6,'(A)') 'Warning in subroutine parse_keyword: DKH related keywords &
+                  &detected in file'
+   write(6,'(A)') TRIM(hf_fch)//". But no 'DKH2' keyword found in mokit{}. If&
+                  & you do"
+   write(6,'(A)') 'not want to perform DKH2 computations, please kill this jo&
+                  &b immediately'
+   write(6,'(A)') 'and delete DKH related keywords in .fch.'
+   write(6,'(A)') REPEAT('-',55)
+  end if
+ end if
+end subroutine check_sanity_of_provided_fch
 

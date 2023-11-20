@@ -38,7 +38,8 @@ program main
   if(str == '-sph') then
    spherical = .true.
   else
-   write(6,'(A)') 'ERROR in subroutine bas_gms2molcas: wrong command line arguments!'
+   write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: wrong command line arg&
+                    &uments!'
    write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
@@ -51,7 +52,7 @@ end program main
 subroutine bas_gms2molcas(fort7, spherical)
  use pg, only: natom, ram, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
  implicit none
- integer :: i, nline, rc, rel, charge, mult, fid1, fid2
+ integer :: i, na, nb, nline, rc, rel, charge, mult, fid1, fid2
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input
  ! input is the (Open)Molcas .input file
@@ -144,12 +145,17 @@ subroutine bas_gms2molcas(fort7, spherical)
  deallocate(ram, elem, ntimes, coor, all_ecp)
 
  if(rc /= 0) then
-  write(6,'(A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA'&
-                   & has no corresponding '$END'."
+  write(6,'(/,A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA' ha&
+                   &s no corresponding '$END'."
   write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop
  end if
+
+ ! RICD becomes default when MOLCAS_NEW_DEFAULTS=YES. To control RI behavior in
+ ! MOKIT, we have to write noCD here. In utilities like automr/autosr, noCD will
+ ! be checked and deleted if RI is required.
+ write(fid2,'(A)') 'noCD'
 
  call check_X2C_in_gms_inp(fort7, X2C)
  if(X2C) write(fid2,'(A)') 'RX2C'
@@ -159,31 +165,46 @@ subroutine bas_gms2molcas(fort7, spherical)
  select case(rel)
  case(-2) ! nothing
  case(-1) ! RESC
-  write(6,'(A)') 'ERROR in subroutine bas_gms2molcas: RESC keywords detected.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: RESC keywords detected.'
   write(6,'(A)') 'But RESC is not supported in (Open)Molcas.'
   stop
  case(0,1,2,4)  ! DKH0/1/2/4
-  if(.not. X2C) write(fid2,'(A,I2.2,A)') 'Relativistic = R',rel,'O'
+  if(.not. X2C) write(fid2,'(A,I2.2,A)') 'Relativistic= R',rel,'O'
   !if(.not. X2C) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
  case default
-  write(6,'(A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
   write(6,'(A,I0)') 'rel=', rel
   close(fid2,status='delete')
   stop
  end select
 
- write(fid2,'(/,A)') "&SCF"
- if(uhf) write(fid2,'(A)') 'UHF'
- write(fid2,'(A,I0)') 'Charge = ', charge
- write(fid2,'(A,I0)') 'Spin = ', mult
+ if((.not.uhf) .and. (mult/=1)) then ! ROHF
+  write(fid2,'(/,A)') "&RASSCF"
+  write(fid2,'(A,I0)') 'Charge= ', charge
+  write(fid2,'(A,I0)') 'Spin= ', mult
+  write(fid2,'(A)') 'CIMX= 200'
+  write(fid2,'(A)') 'Tight= 5d-8 5d-6'
+  write(fid2,'(A,I0)') 'nActEl= ', mult-1
+  write(fid2,'(A,I0)') 'RAS2= ', mult-1
+  write(fid2,'(A)') 'OutOrbitals= Canonical'
+ else
+  write(fid2,'(/,A)') "&SCF"
+  if(uhf) then ! UHF
+   write(fid2,'(A)') 'UHF'
+   call read_na_and_nb_from_gms_inp(fort7, na, nb)
+   write(fid2,'(A,/,I0,/,I0)') 'Occupied', na, nb
+   ! For OpenMolcas>=23.02, default initial occupation number scheme is changed,
+   ! we cannot use (and no need to use) the "Fermi aufbau" since we have converged
+   ! orbitals
+  else         ! RHF
+   write(fid2,'(A,I0)') 'Charge= ', charge
+   write(fid2,'(A,I0)') 'Spin= ', mult
+  end if
+ end if
+
  i = INDEX(fort7, '.', back=.true.)
  input = fort7(1:i-1)//'.INPORB'
- write(fid2,'(A)') 'FILEORB = '//TRIM(input)
-
- if((.not.uhf) .and. (mult/=1)) then ! ROHF
-  write(fid2,'(A)') "* ROHF is not directly supported in (Open)Molcas. You&
-                    & need to write &RASSCF module to realize ROHF."
- end if
+ write(fid2,'(A)') 'FILEORB= '//TRIM(input)
 
  close(fid2)
 end subroutine bas_gms2molcas

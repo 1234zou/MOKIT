@@ -27,7 +27,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc16 :: MOKIT, release date: 2023-Nov-2'
+  write(6,'(A)') 'AutoMR 1.2.6rc17 :: MOKIT, release date: 2023-Nov-19'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
@@ -144,8 +144,9 @@ subroutine get_paired_LMO()
   nskip_uno
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
+ use util_wrapper, only: bas_fch2py_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, SYSTEM
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, pyname, chkname, outname, fchname
@@ -176,9 +177,11 @@ subroutine get_paired_LMO()
    write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection -> localiza&
                   &tion -> paring.'
    chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
-   i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
    pyname = TRIM(proname)//'_proj_loc_pair.py'
-   i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
+   call bas_fch2py_wrap(hf_fch, .false., pyname)
+   !i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
+   !pyname = TRIM(proname)//'_proj_loc_pair.py'
+   !i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
    if(dkh2_or_x2c) call add_X2C_into_py(pyname)
 
    call prt_rhf_proj_script_into_py(pyname)
@@ -195,7 +198,7 @@ subroutine get_paired_LMO()
   end if
 
   fchname = hf_fch(1:i-1)//'_uno.fch'
-  i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
+  !i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
   if(ist == 1) then
    pyname = TRIM(proname)//'_uno_asrot.py'
    outname = TRIM(proname)//'_uno_asrot.out'
@@ -203,8 +206,9 @@ subroutine get_paired_LMO()
    pyname = TRIM(proname)//'_uno.py'
    outname = TRIM(proname)//'_uno.out'
   end if
+  call bas_fch2py_wrap(hf_fch, .false., pyname)
+  !i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
 
-  i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
   call prt_uno_script_into_py(pyname)
 

@@ -22,13 +22,14 @@ end subroutine upper
 ! transform a string into lower case
 subroutine lower(buf)
  implicit none
- integer :: i, k
+ integer :: i, j, k
  character(len=*), intent(inout) :: buf
 
- do i = 1, LEN(buf), 1
-  k = ICHAR(buf(i:i))
-  if (k>=65 .and. k<=90) buf(i:i) = CHAR(k+32)
- end do
+ k = LEN_TRIM(buf)
+ do i = 1, k, 1
+  j = ICHAR(buf(i:i))
+  if(j>=65 .and. j<=90) buf(i:i) = CHAR(j+32)
+ end do ! for i
 end subroutine lower
 
 ! convert a (character) stype to (integer) itype
@@ -1438,10 +1439,10 @@ subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
  if(ricd) then
   do while(.true.)
    read(fid,'(A)') buf
-   if(LEN_TRIM(buf) == 0) exit
+   if(buf(1:4) == 'noCD') exit
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
-  write(fid1,'(A,/)') 'RICD'
+  write(fid1,'(A)') 'RICD'
  else
   do while(.true.)
    read(fid,'(A)') buf

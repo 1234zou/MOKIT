@@ -984,3 +984,34 @@ subroutine del_vec_in_dat(datname)
  i = RENAME(TRIM(datname1), TRIM(datname))
 end subroutine del_vec_in_dat
 
+! read the number of alpha/beta electrons from a GAMESS .inp file
+subroutine read_na_and_nb_from_gms_inp(inpname, na, nb)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: na, nb
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ na = 0; nb = 0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'GAMESS inp') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_nb_from_gms_inp: failed to read nb&
+                   & from file '//TRIM(inpname)
+  stop
+ end if
+
+ i = INDEX(buf, 'na=')
+ read(buf(i+3:),*) na
+
+ i = INDEX(buf, 'nb=')
+ read(buf(i+3:),*) nb
+end subroutine read_na_and_nb_from_gms_inp
+

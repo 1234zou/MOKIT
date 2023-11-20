@@ -504,14 +504,14 @@ subroutine submit_orca_job(orca_path, inpname)
 end subroutine submit_orca_job
 
 ! need to distinguish between OpenMP version and MPI version of OpenMolcas
-subroutine submit_molcas_job(inpname, mem, nproc, openmp)
+subroutine submit_molcas_job(inpname, mem, nproc, omp)
  implicit none
  integer :: i, fid, system
  integer, intent(in) :: mem, nproc ! mem in GB
  character(len=240) :: shname, statname, gssorb, gss_h5, gss_molden, outname
- character(len=480) :: buf
+ character(len=500) :: buf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: openmp
+ logical, intent(in) :: omp
 
  call find_specified_suffix(inpname, '.inp', i)
  shname = inpname(1:i-1)//'.sh'
@@ -522,7 +522,7 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
  outname = inpname(1:i-1)//'.out'
 
  open(newunit=fid,file=TRIM(shname),status='replace')
- if(openmp) then ! OpenMP version
+ if(omp) then ! OpenMP version
   write(fid,'(A)') '#OpenMP'
   write(fid,'(A,I0,A)') 'export MOLCAS_MEM=',mem,'Gb'
   write(fid,'(A)') 'export MOLCAS_NPROCS=1'
@@ -533,7 +533,7 @@ subroutine submit_molcas_job(inpname, mem, nproc, openmp)
   write(fid,'(A,I0)') 'export MOLCAS_MEM=',INT(DBLE(mem)*1d3/DBLE(nproc))
   write(fid,'(A,I0)') 'export MOLCAS_NPROCS=',nproc
   write(fid,'(A)') 'export OMP_NUM_THREADS=1'
-  write(buf,'(A,I0)') 'pymolcas -np ', nproc
+  write(buf,'(A,I0)') 'pymolcas -nt 1 -np ', nproc
  end if
 
  buf = TRIM(buf)//' '//TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
@@ -628,6 +628,9 @@ subroutine submit_qchem_job(inpname, nproc)
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
+
+ call delete_file('junk')
+ call delete_file('pathtable')
 end subroutine submit_qchem_job
 
 subroutine submit_molpro_job(inpname, mem, nproc)
@@ -645,7 +648,7 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  call delete_files(2, [outname, xmlname]) ! clean old files (if any)
 
  i = CEILING(DBLE(mem*125)/DBLE(nproc))
- write(buf,'(2(A,I0),A)') 'molpro -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)
+ write(buf,'(2(A,I0),A)') 'molpro -W ./ -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)
  write(6,'(A)') '$'//TRIM(buf)
 
  i = SYSTEM(TRIM(buf))
@@ -755,22 +758,22 @@ end subroutine submit_pyscf_job
 
 ! Submit a CFOUR job. Note: the CFOUR input file is always ZMAT, so there is no
 !  need to specify an input name, but specifying an outname is required here
-subroutine submit_cfour_job(nproc, openmp, outname)
+subroutine submit_cfour_job(nproc, outname, omp)
  implicit none
  integer :: i, fid, SYSTEM
  integer, intent(in) :: nproc
  character(len=30) :: shname
  character(len=240), intent(in) :: outname
- logical, intent(in) :: openmp
+ logical, intent(in) :: omp
 
  call get_a_random_int(i)
  write(shname,'(I0,A)') i, '.sh'
  open(newunit=fid,file=TRIM(shname),status='replace')
 
- if(openmp) then ! OpenMP
+ if(omp) then ! OpenMP
   write(fid,'(A)') 'export CFOUR_NUM_CORES=1'
   write(fid,'(A,I0)') 'export OMP_NUM_THREADS=', nproc
- else            ! MPI
+ else         ! MPI
   write(fid,'(A,I0)') 'export CFOUR_NUM_CORES=', nproc
   write(fid,'(A)') 'export OMP_NUM_THREADS=1'
  end if

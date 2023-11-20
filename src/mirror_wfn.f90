@@ -560,6 +560,7 @@ subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
   write(6,'(A)') 'Anyway, the program will continue, but you should be aware of&
                  & what you are'
   write(6,'(A,I0)') 'doing. fchname='//TRIM(fchname)//', natom=', natom
+  write(6,'(A,F12.6)') 'RMSD=', rmsd_v
  end if
 
  ! now translate coor0 to the frame of coor

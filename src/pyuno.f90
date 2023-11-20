@@ -189,19 +189,17 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  deallocate(sv_occ0)
 end subroutine uno
 
-subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_basis_ovlp)
+subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_ovlp)
  implicit none
  integer, intent(in) :: na, nb, nbf
  real(kind=8), intent(in) :: c_alpha(nbf,na), c_beta(nbf,nb)
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
- real(kind=8), intent(out) :: mo_basis_ovlp(na,nb)
+ real(kind=8), intent(out) :: mo_ovlp(na,nb)
  real(kind=8) :: s_c_beta(nbf, nb)
 
- s_c_beta = 0d0
- mo_basis_ovlp = 0d0
-
+ s_c_beta = 0d0; mo_ovlp = 0d0
  call dsymm('L', 'U', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
- call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_basis_ovlp, na)
+ call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_ovlp, na)
 end subroutine get_mo_basis_ovlp
 
 ! perform SVD on a given overlap matrix

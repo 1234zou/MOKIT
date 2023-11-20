@@ -41,7 +41,7 @@ end program main
 subroutine bas_gms2molpro(fort7, spherical)
  use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
- integer :: i, nb, nline, rc, rel, charge, mult, fid1, fid2
+ integer :: i, na, nb, nline, rc, rel, charge, mult, fid1, fid2
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input, orbfile, orbfile2
@@ -65,8 +65,8 @@ subroutine bas_gms2molpro(fort7, spherical)
  call convert2molpro_fname(orbfile, '.a')
  call convert2molpro_fname(orbfile2, '.b')
 
- ! read the number of beta electrons from a GAMESS .inp file
- call read_nb_from_gms_inp(fort7, nb)
+ ! read the number of alpha/beta electrons from a GAMESS .inp file
+ call read_na_and_nb_from_gms_inp(fort7, na, nb)
 
  ! read the number of atoms from a GAMESS .inp file
  call read_natom_from_gms_inp(fort7, natom)
@@ -258,32 +258,4 @@ subroutine prt_prim_gau_molpro(iatom, fid)
   end do ! for i
  end if
 end subroutine prt_prim_gau_molpro
-
-! read the number of atoms from a GAMESS .inp file
-subroutine read_nb_from_gms_inp(inpname, nb)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nb
- character(len=240) :: buf
- character(len=240), intent(in) :: inpname
-
- nb = 0
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:10) == 'GAMESS inp') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_nb_from_gms_inp: failed to read nb&
-                   & from file '//TRIM(inpname)
-  stop
- end if
-
- i = INDEX(buf, 'nb=')
- read(buf(i+3:),*) nb
-end subroutine read_nb_from_gms_inp
 

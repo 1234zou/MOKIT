@@ -230,7 +230,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname)
    write(fid1,'(A)') 'mf = dft.RKS(mol)'
   end if
   write(fid1,'(A)') "mf.xc = '"//TRIM(dftname1)//"'"
-  write(fid1,'(A)') 'mf.grids.atom_grid = (99,590)'
+  write(fid1,'(A)') 'mf.grids.atom_grid = (99,590)' ! ultrafine
  end if
 
  write(fid1,'(A)') 'mf.verbose = 4'

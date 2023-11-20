@@ -15,7 +15,7 @@ end module icss_param
 subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, dmrg_no, &
   ist, hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
-  casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, gms_path, openmp_molcas, &
+  casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_omp, &
   molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg,&
   chgname, casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres,&
   iroot, xmult, dyn_corr
@@ -327,7 +327,7 @@ subroutine do_cas(scf)
   call prt_cas_molcas_inp(inpname, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) i = SYSTEM("echo '&ALASKA' >> "//TRIM(inpname))
-  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   call orb2fch_wrap(orbname, casnofch, .true.) ! transfer NOs from .dat to .fch
@@ -563,8 +563,8 @@ end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
- use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, casnofch, RI, &
-  RIJK_bas, iroot
+ use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, block_mpi, RI, &
+  RIJK_bas, iroot, casnofch
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -596,7 +596,9 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
  if(dmrg) then
-  write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX = 'mpirun -n ", nproc, "'"
+  write(fid2,'(A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
+  if(block_mpi) write(fid2,'(A,I0)',advance='no') "mpirun -n ", nproc
+  write(fid2,'(A)') "'"
  end if
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
 
@@ -633,7 +635,7 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
   else
    call prt_es_casscf_kywrd_py(fid2, RIJK_bas1) ! print excited state CASSCF keywords
   end if
- else ! CASCI/DMRG-CASCI
+ else ! (DMRG-)CASCI
   call prt_casci_kywrd_py(fid2, RIJK_bas1, .false.)
  end if
 
@@ -808,7 +810,7 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:7) == 'SEWARD') exit
+  if(buf(1:4) == 'noCD') exit
   j = INDEX(buf, '...')
   if(j > 0) then
    if(RI) then
@@ -825,22 +827,26 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD' found i&
                    &n file "//TRIM(inpname)
+  close(fid1)
+  close(fid2,status='delete')
   stop
  end if
 
  if(RI) write(fid2,'(A)') 'RIJK'
- write(fid2,'(A)') "&SEWARD"
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:4) == "&SCF") exit
+  if(buf(1:4)=="&SCF" .or. buf(1:7)=="&RASSCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SCF' found in f&
-                   &ile "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: '&SCF'  or '&RASSCF&
+                   &' not found in"
+  write(6,'(A)') 'file '//TRIM(inpname)
+  close(fid1)
+  close(fid2,status='delete')
   stop
  end if
 
@@ -855,16 +861,16 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  if(RI) then
   i = SYSTEM('cp '//TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' .')
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy file&
-                  & from'
+   write(6,'(/,A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy fil&
+                    &e from'
    write(6,'(A)') TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' to the&
                  & current directory.'
    stop
   end if
   i = SYSTEM('bas_gau2molcas '//TRIM(RIJK_bas1))
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call util&
-                  &ity bas_gau2molcas.'
+   write(6,'(/,A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call uti&
+                    &lity bas_gau2molcas.'
    write(6,'(A)') 'Did you forget to compile it?'
    stop
   end if
@@ -1729,7 +1735,7 @@ end subroutine prt_hard_or_crazy_casci_orca
 subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casscf, dkh2_or_x2c, RI, maxM, hardwfn, &
-  crazywfn
+  crazywfn, block_mpi
  implicit none
  integer :: i
  integer, intent(in) :: fid
@@ -1753,16 +1759,22 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
   write(fid,'(A)') 'mc.natorb = True'
  else ! DMRG-CASSCF
-  i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
   if(dkh2_or_x2c) then
    write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
   else
    write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
   end if
   write(fid,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
-  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
-  write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
+  if(block_mpi) then
+   i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
+   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
+  else
+   i = CEILING(0.4d0*DBLE(mem))
+   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
+   write(fid,'(A,I0)') 'mc.fcisolver.threads = ', nproc
+  end if
   write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
+  write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
  end if
 
  write(fid,'(A)') 'mc.max_cycle = 200'
@@ -1873,9 +1885,9 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
   write(fid,'(A)') 'mc.natorb = True'
  else ! DMRG-CASSCF
-  write(6,'(/,A)') 'ERROR in subroutine prt_es_casscf_kywrd_py: excited state &
-                   &SS-DMRG-CAS calculations'
-  write(6,'(A)') 'are not supported by MOKIT currently.'
+  write(6,'(/,A)') 'ERROR in subroutine prt_es_casscf_kywrd_py: the excited sta&
+                   &te SS-DMRG-CASSCF'
+  write(6,'(A)') 'job is not supported by MOKIT currently.'
   stop
  end if
 end subroutine prt_es_casscf_kywrd_py
@@ -1883,7 +1895,7 @@ end subroutine prt_es_casscf_kywrd_py
 subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: dmrgscf, dkh2_or_x2c, iroot, RI, mem, casci, hardwfn, &
-  crazywfn, maxM, nproc
+  crazywfn, maxM, nproc, block_mpi
  implicit none
  integer :: i
  integer, intent(in) :: fid
@@ -1915,17 +1927,21 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
    call prt_hard_or_crazy_casci_pyscf(fid,nacta-nactb,hardwfn,crazywfn,.false.)
    write(fid,'(A)') 'mc.natorb = True'
   else           ! DMRG-CASCI
-   i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
-   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
    write(fid,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
+   if(block_mpi) then
+    i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
+    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
+   else
+    i = CEILING(0.4d0*DBLE(mem))
+    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc)*1000, ' # MB'
+    write(fid,'(A,I0)') 'mc.fcisolver.threads = ', nproc
+   end if
    write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
   end if
  end if
 
  if(natorb) then
-  write(fid,'(A)') 'mc.natorb = True'
-  write(fid,'(A)') 'mc.verbose = 4'
-  write(fid,'(A)') 'mc.kernel()'
+  write(fid,'(A,/,A,/,A)') 'mc.natorb = True','mc.verbose = 4','mc.kernel()'
  end if
 end subroutine prt_casci_kywrd_py
 

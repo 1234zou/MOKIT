@@ -117,19 +117,19 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  deallocate(B)
 end subroutine check_cghf_orthonormal
 
-! orthonormalize a set of non-orthogonal MOs
-! Note: this subroutine can only be used for no linear dependence
+! perform canonical orthonormalization on a set of non-orthogonal MOs
 subroutine orthonormalize_orb(nbf, nif, ao_ovlp, old_mo, new_mo)
  implicit none
  integer :: i, j
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- real(kind=8) :: ao_ovlp(nbf,nbf), old_mo(nbf,nif), new_mo(nbf,nif)
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nif)
+!f2py intent(in) :: ao_ovlp, old_mo
 !f2py depend(nbf) :: ao_ovlp
-!f2py intent(in) :: ao_ovlp
-!f2py depend(nbf,nif) :: mo_coeff, new_mo
-!f2py intent(in) :: mo_coeff
+!f2py depend(nbf,nif) :: old_mo
+ real(kind=8), intent(out) :: new_mo(nbf,nif)
 !f2py intent(out) :: new_mo
+!f2py depend(nbf,nif) :: new_mo
  real(kind=8), allocatable :: X(:,:), ev(:)
  real(kind=8), allocatable :: Sp(:,:) ! S', S prime
 
@@ -142,8 +142,8 @@ subroutine orthonormalize_orb(nbf, nif, ao_ovlp, old_mo, new_mo)
  call diag_get_e_and_vec(nif, Sp, ev) ! S' = U(s')(U^T), U stored in Sp
 
  if(ANY(ev < 0d0)) then
-  write(6,'(A)') 'ERROR in subroutine orthonormalize_orb: some eigenvalues are&
-                & negative. ev='
+  write(6,'(/,A)') 'ERROR in subroutine orthonormalize_orb: some eigenvalues ar&
+                   &e negative. ev='
   write(6,'(5(1X,ES15.8))') ev
   stop
  end if
@@ -173,14 +173,14 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  real(kind=8), allocatable :: U(:,:), s(:)
 
  mo_coeff = 0d0
- allocate(s(nbf), source=0d0)
+ allocate(s(nbf))
  call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
 
  nif0 = COUNT(s > thresh)
  if(nif0 /= nif) then
-  write(6,'(A)') 'ERROR in subroutine can_ortho: nif /= nif0. This is because&
-                   & the linear dependence threshold here and outside subroutine&
-                   & is not consistent.'
+  write(6,'(/,A)') 'ERROR in subroutine can_ortho: nif /= nif0. This is because&
+                   & the linear dependence'
+  write(6,'(A)') 'threshold here and outside subroutine is inconsistent.'
   write(6,'(A,ES15.8)') 'Default threshold here:', thresh
   stop
  end if
@@ -222,11 +222,12 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
  real(kind=8), allocatable :: X(:,:), U(:,:), s(:)
 
  mo_coeff = 0d0
- allocate(s(nbf), source=0d0)
+ allocate(s(nbf))
  call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
 
  if(ANY(s<thresh)) then
-  write(6,'(A)') 'Warning: linear dependence detected in symmetric orthogonalization!'
+  write(6,'(/,A)') 'Warning: linear dependence detected in symmetric orthogonal&
+                   &ization!'
   write(6,'(A,ES15.8)') 'Default threshold here:', thresh
  end if
 

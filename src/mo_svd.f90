@@ -693,3 +693,66 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  end if
 end subroutine orb_resemble
 
+! Note: nocc is the number of doubly occupied orbitals in post-HF calculation,
+!  the number of frozen core orbitals are not included in it
+subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, new_t1, new_t2)
+ implicit none
+ integer :: i, j, k, m, nfz, nmo
+ integer, intent(in) :: nbf, nif, nocc, nvir
+!f2py intent(in) :: nbf, nif, nocc, nvir
+ real(kind=8), parameter :: thres = 1d-4
+ real(kind=8), intent(in) :: old_mo(nbf,nif), new_mo(nbf,nif)
+!f2py intent(in) :: old_mo, new_mo
+!f2py depend(nbf,nif) :: old_mo, new_mo
+ real(kind=8), intent(in) :: t1(nocc,nvir), t2(nocc,nocc,nvir,nvir)
+!f2py intent(in) :: t1, t2
+!f2py depend(nocc,nvir) :: t1, t2
+ real(kind=8), intent(out) :: new_t1(nocc,nvir), new_t2(nocc,nocc,nvir,nvir)
+!f2py intent(out) :: new_t1, new_t2
+!f2py depend(nocc,nvir) :: new_t1, new_t2
+ real(kind=8), allocatable :: sum_of_diff(:)
+ logical, allocatable :: pos(:), pos1(:,:), pos2(:,:,:,:)
+
+ nmo = nocc + nvir
+ nfz = nif - nmo   ! the number of frozen cores
+ allocate(sum_of_diff(nmo), source=0d0)
+ forall(i = nfz+1:nif) sum_of_diff(i-nfz) = SUM(DABS(old_mo(:,i) - new_mo(:,i)))
+
+ if(ANY(sum_of_diff > thres)) then
+  allocate(pos(nmo))
+  pos = .true.
+  forall(i=1:nmo, sum_of_diff(i)>1d-4)
+   sum_of_diff(i) = SUM(DABS(old_mo(:,i+nfz) + new_mo(:,i+nfz)))
+   pos(i) = .false.
+  end forall
+ end if
+
+ if(ANY(sum_of_diff > thres)) then
+  write(6,'(/,A)') 'ERROR in subroutine update_amp_from_mo: the difference betw&
+                   &een old and new MOs'
+  write(6,'(A)') 'are not simple positive-negative relationship. Consider doing&
+                 &orbital projection.'
+  deallocate(sum_of_diff)
+  stop
+ end if
+
+ deallocate(sum_of_diff)
+ new_t1 = t1
+ new_t2 = t2
+
+ if(allocated(pos)) then
+  allocate(pos1(nocc,nvir))
+  forall(i=1:nocc, j=1:nvir) pos1(i,j) = (pos(i) .eqv. pos(j+nocc))
+  forall(i=1:nocc, j=1:nvir, (.not.pos1(i,j))) new_t1(i,j) = -t1(i,j)
+  allocate(pos2(nocc,nocc,nvir,nvir))
+  forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir)
+   pos2(i,j,k,m) = (pos1(i,k) .eqv. pos1(j,m))
+  end forall
+  deallocate(pos1)
+  forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir, (.not.pos2(i,j,k,m)))
+   new_t2(i,j,k,m) = -t2(i,j,k,m)
+  end forall
+  deallocate(pos, pos2)
+ end if
+end subroutine update_amp_from_mo
+

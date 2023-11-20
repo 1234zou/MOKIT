@@ -227,6 +227,7 @@ subroutine fch2mkl(fchname)
  write(fid2,'(A)') '%scf'
  write(fid2,'(A)') ' Thresh 1e-12'
  write(fid2,'(A)') ' Tcut 1e-14'
+ write(fid2,'(A)') ' CNVDamp False'
  if(nif < nbf)  write(fid2,'(A)') ' sthresh 1e-6'
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%coords'

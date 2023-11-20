@@ -123,9 +123,8 @@ subroutine copy_file(fname1, fname2, delete)
  end if
 end subroutine copy_file
 
-! Copy a file using system commands (not restricted to copying a binary file)
-! If delete=.True., delete fname1.
-subroutine copy_bin_file(fname1, fname2, delete)
+! Copy a file using system commands. If delete=.True., delete fname1.
+subroutine sys_copy_file(fname1, fname2, delete)
  implicit none
  integer :: i, SYSTEM
  character(len=*), intent(in) :: fname1, fname2
@@ -146,12 +145,11 @@ subroutine copy_bin_file(fname1, fname2, delete)
  end if
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine copy_bin_file: fail to copy binary file&
-                   & from'
+  write(6,'(/,A)') 'ERROR in subroutine sys_copy_file: fail to copy file from'
   write(6,'(A)') TRIM(fname1)//' to '//TRIM(fname2)
   stop
  end if
-end subroutine copy_bin_file
+end subroutine sys_copy_file
 
 ! copy a file from a path/directory to the current directory
 subroutine copy_file_from_a_path(path, fname)
@@ -167,7 +165,7 @@ subroutine copy_file_from_a_path(path, fname)
 #endif
 
  buf = TRIM(path)//s//TRIM(fname)
- call copy_bin_file(TRIM(buf), TRIM(fname), .false.)
+ call sys_copy_file(TRIM(buf), TRIM(fname), .false.)
 end subroutine copy_file_from_a_path
 
 ! create a directory

@@ -3,7 +3,7 @@
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
  use mr_keyword, only: mem, nproc, CIonly, eist, mrcisd, mrcisd_prog, CtrType,&
-  casnofch, openmp_molcas, molcas_path, orca_path, gau_path, gms_path, &
+  casnofch, molcas_omp, molcas_path, orca_path, gau_path, gms_path, &
   gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
  use mol, only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, mkl2gbw, fch2inporb_wrap
@@ -60,7 +60,7 @@ subroutine do_mrcisd()
   call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mrci_molcas_inp(2, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
  case('orca')
   call check_exe_exist(orca_path)
@@ -744,7 +744,7 @@ end subroutine prt_mrci_orb_type
 
 ! do uncontacted MRCISDT using one of Gaussian/OpenMolcas/Dalton
 subroutine do_mrcisdt()
- use mr_keyword, only: mem, nproc, eist, mrcisdt, mrcisdt_prog, openmp_molcas,&
+ use mr_keyword, only: mem, nproc, eist, mrcisdt, mrcisdt_prog, molcas_omp, &
   molcas_path, gau_path, psi4_path, gms_path, gms_scr_path, casnofch, chgname,&
   CIonly, bgchg, CtrType
  use mol , only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
@@ -778,7 +778,7 @@ subroutine do_mrcisdt()
   outname = casnofch(1:i)//'MRCISDT.out'
   call prt_mrci_molcas_inp(3, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
  case('gaussian')
   call check_exe_exist(gau_path)

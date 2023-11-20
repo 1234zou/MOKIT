@@ -263,7 +263,7 @@ subroutine fch2qchem(fchname, npair)
  deallocate(alpha_coeff, eigen_e_a)
  close(fid)
  if(npair > 0) then
-  call copy_bin_file(TRIM(proname)//'/53.0', TRIM(proname)//'/169.0', .false.)
+  call sys_copy_file(TRIM(proname)//'/53.0', TRIM(proname)//'/169.0', .false.)
   !if(nopen > 0) ??
  end if
 

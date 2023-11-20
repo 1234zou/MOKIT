@@ -3,7 +3,7 @@
 ! do MC-PDFT, valid for CASCI/CASSCF based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
-  casnofch, openmp_molcas, molcas_path, gms_path, bgchg, chgname, check_gms_path,&
+  casnofch, molcas_omp, molcas_path, gms_path, bgchg, chgname, check_gms_path, &
   gms_scr_path, mcpdft_force, eist
  use mol, only: ptchg_e, mcpdft_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap, fch2inporb_wrap
@@ -76,7 +76,7 @@ subroutine do_mcpdft()
   call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mcpdft_molcas_inp(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
  case('gamess')
   call check_gms_path()

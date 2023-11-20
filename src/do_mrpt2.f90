@@ -7,7 +7,7 @@ subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
   caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
-  openmp_molcas, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
+  molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
   eist, target_root, caspt2_force
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e, natom, grad
@@ -54,12 +54,15 @@ subroutine do_mrpt2()
 
  if(.not. CIonly) then
   if(casscf_prog == 'orca') then
-   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO&
-                    & coefficients in .mkl file are'
-   write(6,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5&
-                    & a.u. Such small error'
-   write(6,'(A)') 'is usually not important. If you care about the accuracy,&
-                    & please use another CASSCF solver.'
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO coefficie&
+                  &nts in .mkl file are'
+   write(6,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5 a&
+                  &.u. Such small error'
+   write(6,'(A)') 'is usually not important. If you care about the accuracy, pl&
+                  &ease use another'
+   write(6,'(A)') 'CASSCF solver.'
+   write(6,'(A)') REPEAT('-',79)
   end if
 
   if(casscf) then
@@ -172,7 +175,7 @@ subroutine do_mrpt2()
    call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_nevpt2_molcas_inp(inpname)
    if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
    i = 0 ! the value of i will be checked below
 
   case('orca')
@@ -233,7 +236,7 @@ subroutine do_mrpt2()
    call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_caspt2_molcas_inp(inpname)
    if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
    i = 0 ! the value of i will be checked below
 
   case('molpro')
@@ -751,7 +754,7 @@ end subroutine prt_caspt2_orca_inp
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI, RIJK_bas, &
-  hardwfn, crazywfn, iroot, target_root
+  hardwfn, crazywfn, iroot, target_root, block_mpi
  implicit none
  integer :: i, nroots, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -773,9 +776,11 @@ subroutine prt_nevpt2_script_into_py(pyname)
 
  if(.not. (casci .or. casscf)) then
   write(fid2,'(A,/)') 'from pyscf import dmrgscf'
-  write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX ='mpirun -n ",nproc,"'"
+  write(fid2,'(A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
+  if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
+  write(fid2,'(A)') "'"
  end if
- write(fid2,'(A,I0,A1)') 'lib.num_threads(',nproc,')'
+ write(fid2,'(A,I0,A)') 'lib.num_threads(',nproc,')'
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -878,7 +883,7 @@ subroutine prt_nevpt2_molcas_inp(inpname)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:4) == "&SCF") exit
+  if(buf(1:4)=="&SCF" .or. buf(1:7)=="&RASSCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
@@ -931,13 +936,12 @@ subroutine prt_caspt2_molcas_inp(inputname)
  do while(.true.)
   read(fid1,'(A)') buf
   if(LEN_TRIM(buf) == 0) exit
-  if(buf(1:4) == "&SCF") exit
+  if(buf(1:4)=="&SCF" .or. buf(1:7)=="&RASSCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
  close(fid1,status='delete')
 
  call prt_molcas_cas_para(fid2, dmrg, .false., dmrg, CIonly, inputname)
- !write(fid2,'(A,I0,A)') 'nActEl= ', nacte, ' 0 0'
 
  if(CIonly) then
   if(dmrgci) then
@@ -953,6 +957,9 @@ subroutine prt_caspt2_molcas_inp(inputname)
 
  write(fid2,'(/,A)') "&CASPT2"
  if(dmrgscf) write(fid2,'(A)') ' CheMPS2'
+ if(.not. caspt2_force) write(fid2,'(A)') ' IPEA= 0.25'
+ ! OpenMolcas has an environment variable $MOLCAS_NEW_DEFAULTS, which will
+ !  affect the default value of IPEA shift. So here we write it explicitly.
  write(fid2,'(A)') ' Frozen= 0'
  write(fid2,'(A,/,A)') ' MaxIter',' 500'
 

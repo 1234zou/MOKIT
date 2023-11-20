@@ -1,5 +1,8 @@
-MOKIT 1.2.6 (Nov 2, 2023)
+MOKIT 1.2.6 (Nov 19, 2023)
 ------------------------
+* update fch2inporb to fit OpenMolcas>=23.02
+* add readrhf/readuhf support in autosr
+* change default MPI to OpenMP when calling Block
 * add interfaces for MP2, CCSD, CCSD(T) gradients in autosr
 * add interfaces for MP2, CCSD, CCSD(T) NOs in autosr
 * remove ZORA related basis sets

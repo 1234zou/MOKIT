@@ -6,7 +6,7 @@ subroutine do_sa_cas()
   npair0, sa_cas_e, ci_mult, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
   bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
-  on_thres, orca_path, openmp_molcas
+  on_thres, orca_path, molcas_omp
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -82,7 +82,7 @@ subroutine do_sa_cas()
   inpname = hf_fch(1:i-1)//'_SA-CAS.input'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_molcas_inp(inpname, hf_fch)
-  call submit_molcas_job(inpname, mem, nproc, openmp_molcas)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
   call copy_nto_from_orb2fch(hf_fch, nstate)
  case default
   write(6,'(A)') 'ERROR in subroutine do_sa_cas: CASSCF_prog='//TRIM(cas_prog)&
@@ -140,8 +140,8 @@ end subroutine do_sa_cas
 ! print (DMRG-)SA-CASSCF script into a given .py file
 subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  use mol, only: nacto, nacte, nacta, nactb
- use mr_keyword, only: mem, nproc, casscf, dmrgscf, maxM, hardwfn, crazywfn, &
-  dkh2_or_x2c, RI, RIJK_bas, hf_fch, mixed_spin, nstate, nevpt2
+ use mr_keyword, only: mem, nproc, casscf, dmrgscf, maxM, block_mpi, hardwfn, &
+  crazywfn, dkh2_or_x2c, RI, RIJK_bas, hf_fch, mixed_spin, nstate, nevpt2
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
  integer :: i, nacta1, nactb1, fid1, fid2, RENAME
@@ -179,7 +179,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
  if(dmrgscf) then
-  write(fid2,'(A,I0,A)') "dmrgscf.settings.MPIPREFIX ='mpirun -n ",nproc,"'"
+  write(fid2,'(A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
+  if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
+  write(fid2,'(A)') "'"
  end if
  write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
 
@@ -201,12 +203,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to make them half
  if(casscf) then ! SA-CASSCF
-  if(dkh2_or_x2c) then
-   write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
-  else
-   write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
-  end if
-  write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASSCF(mf'
+  if(dkh2_or_x2c) write(fid2,'(A)',advance='no') '.x2c1e()'
+  write(fid2,'(3(A,I0),A)',advance='no') ',',nacto,',(',nacta1,',',nactb1,')'
   if(RI) then
    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -214,12 +213,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   end if
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
  else ! DMRG-SA-CASSCF
-  if(dkh2_or_x2c) then
-   write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
-  else
-   write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
-  end if
-  write(fid2,'(3(I0,A))') nacto,',(',nacta1,',',nactb1,'))'
+  write(fid2,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf'
+  if(dkh2_or_x2c) write(fid2,'(A)',advance='no') '.x2c1e()'
+  write(fid2,'(3(A,I0),A)') ',', nacto, ',(', nacta1, ',', nactb1, '))'
   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
  end if
@@ -252,15 +248,12 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
  write(fid2,'(A)') 'noon = np.zeros(nif)'
  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mo,'a',noon,False,False)"
- ! mc.mo_occ only exists for PySCF >= 1.7.4
+ ! Note: mc.mo_occ only exists for PySCF >= 1.7.4
 
  write(fid2,'(/,A)') '# perform multi-root CASCI'
- if(dkh2_or_x2c) then
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
- else
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
- end if
- write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta1,',',nactb1,')'
+ write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf'
+ if(dkh2_or_x2c) write(fid2,'(A)',advance='no') '.x2c1e()'
+ write(fid2,'(3(A,I0),A)',advance='no') ',',nacto,',(',nacta1,',',nactb1,')'
 
  if(casscf) then ! CASCI
   if(RI) then
