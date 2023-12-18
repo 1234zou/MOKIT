@@ -168,11 +168,11 @@ subroutine fch247(fchname)
  write(fid,'(A)') ' $OVERLAP'
  allocate(S(nbf,nbf))
  if(nbf == nif) then
-  call solve_ovlp_from_ctsc(nbf, alpha_coeff, S)
+  call solve_ovlp_from_cct(nbf, alpha_coeff, S)
  else
   write(6,'(/,A)') 'ERROR in subroutine fch247: nbf/=nif, linear dependence&
                   & detected.'
-  write(6,'(A)') 'Computing overlap integrals not supported currently.'
+  write(6,'(A)') 'Solving overlap integrals not supported currently.'
   stop
  end if
  write(fid,'(2X,5E15.7)') ((S(j,i),j=1,i),i=1,nbf)
@@ -213,18 +213,21 @@ subroutine fch247(fchname)
  end if
  deallocate(F)
  write(fid,'(A)') ' $END'
+
  write(fid,'(A)') ' $LCAOMO'
  write(fid,'(2X,5E15.7)') alpha_coeff
  if(uhf) write(fid,'(2X,5E15.7)') beta_coeff
  write(fid,'(A)') ' $END'
- write(fid,'(A)') ' $DIPOLE'
- allocate(D(nbf,nbf,3))
- call calc_dipole_mat_using_fch(fchname, nbf, D)
- do i = 1, 3
-  write(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
- end do ! for i
- deallocate(D)
- write(fid,'(A)') ' $END'
+
+! write(fid,'(A)') ' $DIPOLE'
+! allocate(D(nbf,nbf,3))
+! call calc_dipole_mat_using_fch(fchname, nbf, D)
+! do i = 1, 3
+!  write(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
+! end do ! for i
+! deallocate(D)
+! write(fid,'(A)') ' $END'
+
  close(fid)
 end subroutine fch247
 

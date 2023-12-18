@@ -674,11 +674,12 @@ subroutine check_nobasistransform_in_fch(fchname)
 
  if(index(longbuf,'nobasistransform') == 0) then
   write(6,'(/,A)') REPEAT('-',56)
-  write(6,'(A)') "Warning in subroutine check_nobasistransform_in_fch: keyword&
-                 & 'int=nobasistransform'"
+  write(6,'(A)') "Warning in subroutine check_nobasistransform_in_fch: keyword &
+                 &'int=nobasistransform'"
   write(6,'(A)') 'not detected in file '//TRIM(fchname)
-  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
-                 &cify this keyword in .gjf file.'
+  write(6,'(A)') 'It might be dangerous to transfer orbitals if you did not spe&
+                 &cify this keyword'
+  write(6,'(A)') 'in .gjf file.'
   write(6,'(A)') REPEAT('-',56)
  end if
 end subroutine check_nobasistransform_in_fch
@@ -731,10 +732,12 @@ subroutine check_nosymm_in_fch(fchname)
 
  if(index(longbuf,'nosymm') == 0) then
   write(6,'(/,A)') REPEAT('-',56)
-  write(6,'(A)') "Warning in subroutine check_nosymm_in_fch: keyword 'nosymm' &
-                 &not detected in file "//TRIM(fchname)
-  write(6,'(A)') 'It is dangerous to transfer orbitals if you did not spe&
-                 &cify this keyword in .gjf file.'
+  write(6,'(A)') "Warning in subroutine check_nosymm_in_fch: keyword 'nosymm' n&
+                 &ot detected in"
+  write(6,'(A)') 'file '//TRIM(fchname)
+  write(6,'(A)') 'It might be dangerous to transfer orbitals if you did not spe&
+                 &cify this keyword'
+  write(6,'(A)') 'in .gjf file.'
   write(6,'(A)') REPEAT('-',56)
  end if
 end subroutine check_nosymm_in_fch
@@ -998,8 +1001,9 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
  integer, allocatable :: nuc(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+ logical :: ecp
 
- chem_core = 0; ecp_core = 0; buf = ' ' ! initialization
+ chem_core = 0; buf = ' ' ! initialization
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
@@ -1015,26 +1019,39 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
  allocate(nuc(natom), source=0)
  read(fid,'(6(1X,I11))') (nuc(i), i=1,natom)
 
- do i = 1, natom, 1
-  chem_core = chem_core + core_orb(nuc(i))
- end do ! for i
- deallocate(nuc)
-
+ ecp = .false.
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:10) == 'ECP-RNFroz') exit
+  if(buf(1:10) == 'ECP-RNFroz') then
+   ecp = .true.
+   exit
+  end if
   if(buf(1:7) == 'Alpha O') then
    close(fid)
-   return
+   exit
   end if
  end do ! for while
 
- if(allocated(RNFroz)) deallocate(RNFroz)
- allocate(RNFroz(natom), source=0d0)
- read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
- close(fid)
+ if(ecp) then
+  if(allocated(RNFroz)) deallocate(RNFroz)
+  allocate(RNFroz(natom), source=0d0)
+  read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
+  close(fid)
+  ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
+  ! Sometimes the user would use large-core ECP/PP, so here the larger one
+  ! between core_orb(nuc(i)) and RNFroz(i) should be taken. And chem_core
+  ! may be large than sum_i core_orb(nuc(i))
+  do i = 1, natom, 1
+   chem_core = chem_core + MAX(core_orb(nuc(i)), INT(0.5d0*RNFroz(i)))
+  end do ! for i
+  deallocate(RNFroz)
+ else ! all-electron basis set
+  do i = 1, natom, 1
+   chem_core = chem_core + core_orb(nuc(i))
+  end do ! for i
+ end if
 
- ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
+ deallocate(nuc)
 end subroutine calc_ncore
 
 ! read the position marks of (P,SP)/5D/6D/7F/10F/9G/15G/11H/21H from the array

@@ -17,8 +17,7 @@ program main
  i = iargc()
  if(i /= 1) then
   write(6,'(/,A)') ' ERROR in subroutine automr: wrong command line argument!'
-  write(6,'(A)')   " Example 1 (in bash): automr a.gjf >& a.out &"
-  write(6,'(A)')   " Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(6,'(A)')   " Example: automr h2o.gjf >h2o.out 2>&1 &"
   write(6,'(A,/)') ' See help: automr -h'
   stop
  end if
@@ -27,12 +26,11 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc17 :: MOKIT, release date: 2023-Nov-19'
+  write(6,'(A)') 'AutoMR 1.2.6rc18 :: MOKIT, release date: 2023-Dec-18'
   stop
  case('-h','-help','--help')
-  write(6,'(/,A)') "Usage: automr [gjfname] >& [outname]"
-  write(6,'(A)')   "  Example 1 (in bash): automr a.gjf >& a.out &"
-  write(6,'(A)')   "  Example 2 (in dash): automr a.gjf >a.out 2>&1 &"
+  write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
+  write(6,'(A)')   "  Example: automr h2o.gjf >h2o.out 2>&1 &"
   write(6,'(/,A)') 'Options:'
   write(6,'(A)')   '  -h, -help, --help: Print this message and exit.'
   write(6,'(A)')   '  -v, -V, --version: Print the version number of automr and exit.'
@@ -63,14 +61,15 @@ program main
 
  i = INDEX(fname, '.gjf', back=.true.)
  j = INDEX(fname, '.fch', back=.true.)
- if(i/=0 .and. j/=0) then
-  write(6,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys&
-                     & detected in filename "//TRIM(fname)//'.'
+ if(i>0 .and. j>0) then
+  write(6,'(/,A)') "ERROR in subroutine automr: both '.gjf' and '.fch' keys det&
+                   &ected in"
+  write(6,'(A)') 'filename '//TRIM(fname)//'.'
   write(6,'(A)') "Better to use a filename only with suffix '.gjf'."
   stop
  else if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine automr: '.gjf' key not found in&
-                     & filename "//TRIM(fname)
+  write(6,'(/,A)') "ERROR in subroutine automr: '.gjf' key not found in filenam&
+                   &e "//TRIM(fname)
   stop
  end if
 
@@ -179,11 +178,7 @@ subroutine get_paired_LMO()
    chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
    pyname = TRIM(proname)//'_proj_loc_pair.py'
    call bas_fch2py_wrap(hf_fch, .false., pyname)
-   !i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
-   !pyname = TRIM(proname)//'_proj_loc_pair.py'
-   !i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
    if(dkh2_or_x2c) call add_X2C_into_py(pyname)
-
    call prt_rhf_proj_script_into_py(pyname)
    call prt_auto_pair_script_into_py(pyname)
    call submit_pyscf_job(pyname)
@@ -198,7 +193,6 @@ subroutine get_paired_LMO()
   end if
 
   fchname = hf_fch(1:i-1)//'_uno.fch'
-  !i = SYSTEM('bas_fch2py '//TRIM(hf_fch))
   if(ist == 1) then
    pyname = TRIM(proname)//'_uno_asrot.py'
    outname = TRIM(proname)//'_uno_asrot.out'
@@ -207,11 +201,8 @@ subroutine get_paired_LMO()
    outname = TRIM(proname)//'_uno.out'
   end if
   call bas_fch2py_wrap(hf_fch, .false., pyname)
-  !i = RENAME(TRIM(proname)//'.py', TRIM(pyname))
-
   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
   call prt_uno_script_into_py(pyname)
-
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
   call submit_pyscf_job(pyname)
@@ -297,6 +288,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  read(fid1,'(A)') buf
  write(fid2,'(A)') TRIM(buf(2:))
  close(fid1,status='delete')
+
  write(fid2,'(/,A)') '# copy this molecule at STO-6G'
  write(fid2,'(A)') 'mol2 = mol.copy()'
 
@@ -322,8 +314,8 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  end if
  write(fid2,'(A)') 'mf2.max_cycle = 150'
  write(fid2,'(A,I0,A)') 'mf2.max_memory = ', mem*1000, ' # MB'
- write(fid2,'(A)') "dm = mf2.from_chk('"//TRIM(chkname)//"')"
- write(fid2,'(A)') 'mf2.kernel(dm)'
+ write(fid2,'(A)') "dm = mf2.from_chk(mf.chkfile)"
+ write(fid2,'(A)') 'mf2.kernel(dm0=dm)'
  write(fid2,'(A)') 'nbf2 = mf2.mo_coeff.shape[0]'
  write(fid2,'(A)') 'nif2 = mf2.mo_coeff.shape[1]'
  write(fid2,'(/,A)') '# project virtual MOs onto those of RHF/STO-6G'
@@ -339,8 +331,9 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid2,'(A)') '# project done'
 
  write(fid2,'(/,A)') '# save projected MOs into a new .fch file'
- write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(proj_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(proj_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
+ write(fid2,'(A)') "proj_fch = '"//TRIM(proj_fch)//"'"
+ write(fid2,'(A)') "copyfile(hf_fch, proj_fch)"
+ write(fid2,'(A)') "py2fch(proj_fch,nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
  write(fid2,'(A)') '# save done'
  close(fid2)
 
@@ -356,14 +349,15 @@ subroutine prt_auto_pair_script_into_py(pyname)
  character(len=240) :: buf, pyname1, loc_fch
  character(len=240), intent(in) :: pyname
 
+ buf = ' '
  ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.t'
- buf = ' '
- i = INDEX(hf_fch, '.fch')
+ i = INDEX(hf_fch, '.fch', back=.true.)
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -372,7 +366,8 @@ subroutine prt_auto_pair_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-file detected.'
+  write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-fi&
+                   &le detected.'
   write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
@@ -406,17 +401,18 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(A)') 'npair = idx1 # update'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                    &mol._bas[:,3],mol.cart,nbf,'
+  write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
+                    &_bas[:,3],mol.cart,nbf,'
   write(fid2,'(17X,A)') "idx2-ncore,mf.mo_coeff[:,occ_idx],S,'mulliken')"
-  write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                    &mol._bas[:,3],mol.cart,nbf,'
+  write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
+                    &_bas[:,3],mol.cart,nbf,'
   write(fid2,'(17X,A)') "nif2-idx2-nopen,mf.mo_coeff[:,vir_idx],S,'mulliken')"
  else ! Boys localization
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,occ_idx])'
   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, idx2-ncore, mf.mo_coeff[:,occ_idx], mo_dipole)'
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,vir_idx])'
-  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2-nopen, mf.mo_coeff[:,vir_idx], mo_dipole)'
+  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2-nopen, mf.mo_coeff[:,vir&
+                    &_idx], mo_dipole)'
  end if
 
  write(fid2,'(A)') 'mf.mo_coeff[:,occ_idx] = occ_loc_orb.copy()'
@@ -432,9 +428,11 @@ subroutine prt_auto_pair_script_into_py(pyname)
  write(fid2,'(A)') '# pair done'
 
  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
- write(fid2,'(A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(loc_fch)//"')"
- write(fid2,'(A)') "py2fch('"//TRIM(loc_fch)//"',nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
- write(fid2,'(A)') "sort_pair('"//TRIM(loc_fch)//"','"//TRIM(hf_fch)//"',npair)"
+ write(fid2,'(A)') "loc_fch = '"//TRIM(loc_fch)//"'"
+ write(fid2,'(A)') "copyfile(hf_fch, loc_fch)"
+ write(fid2,'(A)') "py2fch(loc_fch, nbf, nif, mf.mo_coeff, 'a', mf.mo_occ, Fals&
+                   &e, False)"
+ write(fid2,'(A)') "sort_pair(loc_fch, hf_fch, npair)"
  write(fid2,'(A)') '# save done'
 
  write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
@@ -509,7 +507,8 @@ subroutine prt_uno_script_into_py(pyname)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
- write(fid1,'(A)') '# transform UHF canonical orbitals to UNO'
+ write(fid1,'(A)') "uno_fch = '"//TRIM(uno_fch)//"'"
+ write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
  write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
  write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&
@@ -523,11 +522,9 @@ subroutine prt_uno_script_into_py(pyname)
  !write(fid1,'(A)') 'sleep(1) # in some node, py2fch begins when fch_u2r unfinished'
  ! Thanks to the suggestion of Kalinite. The problem in the above two lines
  ! does not exist now.
- write(fid1,'(A)') "with os.popen('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)&
-                    //"')\"
- write(fid1,'(A)') ' as run:'
+ write(fid1,'(A)') "with os.popen('fch_u2r '+hf_fch+' '+uno_fch) as run:"
  write(fid1,'(A)') '  null = run.read()'
- write(fid1,'(A)') "py2fch('"//TRIM(uno_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,True,True)"
+ write(fid1,'(A)') "py2fch(uno_fch,nbf,nif,mf.mo_coeff[0],'a',noon,True,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
 end subroutine prt_uno_script_into_py
@@ -540,13 +537,14 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
 ! integer, allocatable :: ntimes(:)
- character(len=240) :: buf, pyname1, uno_fch, assoc_fch
+ character(len=240) :: buf, pyname1, assoc_fch
  character(len=240), intent(in) :: pyname
 
  ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -555,7 +553,8 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine prt_assoc_rot_script_into_py: end-of-file detected.'
+  write(6,'(/,A)') 'ERROR in subroutine prt_assoc_rot_script_into_py: end-of-fi&
+                   &le detected.'
   write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
   close(fid1)
   close(fid2,status='delete')
@@ -584,10 +583,10 @@ subroutine prt_assoc_rot_script_into_py(pyname)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
  i = INDEX(hf_fch, '.fch', back=.true.)
- uno_fch = hf_fch(1:i-1)//'_uno.fch'
  assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
+ write(fid1,'(/,A)') "assoc_fch = '"//TRIM(assoc_fch)//"'"
  write(fid1,'(/,A)') '# associated rotation'
  write(fid1,'(A)') 'npair = np.int64((idx[1]-idx[0]-idx[2])/2)'
  write(fid1,'(A)') 'if(npair > 0):'
@@ -601,17 +600,18 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') '  vir_idx = range(idx3+i,idx4)'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid1,'(A)') "  occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],&
-                    &mol._bas[:,3],mol.cart,nbf,"
+  write(fid1,'(A)') "  occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mo&
+                    &l._bas[:,3],mol.cart,nbf,"
   write(fid1,'(19X,A)') "npair-i,mf.mo_coeff[0][:,occ_idx],S,'mulliken')"
  else ! Boys localization
-  write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
-  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair-i, mf.mo_coeff[0][:,&
-                     & occ_idx], mo_dipole)'
+  write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_id&
+                      &x])'
+  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair-i, mf.mo_coeff[0][:,occ_id&
+                      &x], mo_dipole)'
  end if
 
- write(fid1,'(A)') '  vir_loc_orb = assoc_rot(nbf, npair-i, mf.mo_coeff[0][:,occ_idx],&
-                    & occ_loc_orb,'
+ write(fid1,'(A)') '  vir_loc_orb = assoc_rot(nbf, npair-i, mf.mo_coeff[0][:,oc&
+                     &c_idx], occ_loc_orb,'
  write(fid1,'(26X,A)') 'mf.mo_coeff[0][:,vir_idx])'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = occ_loc_orb.copy()'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
@@ -679,10 +679,11 @@ subroutine prt_assoc_rot_script_into_py(pyname)
 ! write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = alpha_coeff[:,vir_idx1].copy()'
 
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
- write(fid1,'(A)') "copyfile('"//TRIM(uno_fch)//"', '"//TRIM(assoc_fch)//"')"
+ write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
  write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') "py2fch('"//TRIM(assoc_fch)//"',nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
- write(fid1,'(A)') "sort_pair('"//TRIM(assoc_fch)//"','"//TRIM(uno_fch)//"',npair)"
+ write(fid1,'(A)') "py2fch(assoc_fch, nbf, nif, mf.mo_coeff[0], 'a', noon, Fals&
+                   &e, False)"
+ write(fid1,'(A)') 'sort_pair(assoc_fch, uno_fch, npair)'
  close(fid1)
 end subroutine prt_assoc_rot_script_into_py
 

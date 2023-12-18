@@ -73,7 +73,7 @@ subroutine do_sa_cas()
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_orca_inp(inpname, hf_fch)
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
  case('gamess')
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
   outname = hf_fch(1:i-1)//'_SA-CAS.gms'
@@ -263,6 +263,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   end if
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
  else            ! DMRG-SA-CASCI
+  write(fid2,'(A)') ')'
   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
  end if

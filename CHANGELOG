@@ -1,5 +1,8 @@
-MOKIT 1.2.6 (Nov 19, 2023)
+MOKIT 1.2.6 (Dec 18, 2023)
 ------------------------
+* fix bug of frozen core counting when large core ECP is used
+* fix bug of DMRG excited calculation keywords
+* fix bug in subroutine solve_ovlp_from_ctsc
 * update fch2inporb to fit OpenMolcas>=23.02
 * add readrhf/readuhf support in autosr
 * change default MPI to OpenMP when calling Block

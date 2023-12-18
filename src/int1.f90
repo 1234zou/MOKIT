@@ -1,40 +1,5 @@
 ! written by jxzou at 20220302: generate/calculate 1-e integrals
 
-! solver AO-based overlap matrix (S) from condition (C^T)SC=I
-! Note: this subroutine only applies to nbf=nif, i.e. no linear dependence
-subroutine solve_ovlp_from_ctsc(nbf, C, S)
- implicit none
- integer :: i
- integer, intent(in) :: nbf
- real(kind=8), intent(in) :: C(nbf,nbf)
- real(kind=8), intent(out) :: S(nbf,nbf)
- real(kind=8), allocatable :: SC(:,:)
-
- forall(i = 1:nbf) S(i,i) = 1d0 ! unit matrix I
- allocate(SC(nbf,nbf), source=0d0)
- call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, S, SC)
- ! SC = X -> (C^T)S = X^T
- call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, TRANSPOSE(SC), S)
-end subroutine solve_ovlp_from_ctsc
-
-! solver AO-based Fock matrix (F) from condition (C^T)FC=E
-subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
- implicit none
- integer :: i
- integer, intent(in) :: nbf, nif
- real(kind=8), intent(in) :: C(nbf,nif), E(nif)
- real(kind=8), intent(out) :: F(nbf,nbf)
- real(kind=8), allocatable :: FC(:,:), E1(:,:)
-
- allocate(E1(nif,nif), source=0d0)
- forall(i = 1:nif) E1(i,i) = E(i) ! diagonal matrix
- allocate(FC(nbf,nif), source=0d0)
- call solve_multi_lin_eqs(nif, nbf, TRANSPOSE(C), nif, E1, FC)
- deallocate(E1)
- ! FC = X -> (C^T)(F^T) = X^T, (F^T) = F
- call solve_multi_lin_eqs(nif, nbf, TRANSPOSE(C), nif, TRANSPOSE(FC), F)
-end subroutine solve_fock_from_ctfc
-
 ! explicitly calculate the AO-based overlap matrix (S) using basis set data
 ! in a given .fch(k) file
 !TODO: implement this subroutine
@@ -52,7 +17,7 @@ subroutine calc_ovlp_using_fch(fchname, nbf1, S)
  S = 0d0
  call read_fch(fchname, .false.)
  if(nbf1 /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine calc_ovlp_using_fch: nbf1/=nbf.'
+  write(6,'(/,A)') 'ERROR in subroutine calc_ovlp_using_fch: nbf1/=nbf.'
   write(6,'(A)') 'Input number of basis functions is not equal to that in &
                  &file '//TRIM(fchname)
   stop
@@ -103,14 +68,4 @@ subroutine calc_dipole_mat_using_fch(fchname, nbf, D)
   call symmetrize_dmat(nbf, D(:,:,i))
  end do ! for i
 end subroutine calc_dipole_mat_using_fch
-
-! symmetrize a double precision matrix
-subroutine symmetrize_dmat(n, a)
- implicit none
- integer :: i, j
- integer, intent(in) :: n
- real(kind=8), intent(inout) :: a(n,n)
-
- forall(i=1:n,j=1:n,j>i) a(i,j) = a(j,i)
-end subroutine symmetrize_dmat
 

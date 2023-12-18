@@ -21,8 +21,8 @@ subroutine do_cas(scf)
   iroot, xmult, dyn_corr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
- use util_wrapper, only: formchk, unfchk, gbw2mkl, mkl2gbw, fch2inp_wrap, &
-  mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
+ use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
+  fch2inp_wrap, mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
@@ -184,15 +184,15 @@ subroutine do_cas(scf)
  end if
 
  if(ist<1 .or. ist>6) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: ist out of range.'
+  write(6,'(/,A)') 'ERROR in subroutine do_cas: invalid ist.'
   write(6,'(A,I0)') 'Allowed values are 1~6. But got ist=', ist
   stop
  end if
 
- if((dmrgci .or. dmrgscf) .and. cas_prog/='pyscf') then
-  write(6,'(A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation&
-                & is only supported by PySCF.'
-  write(6,'(A)') 'Wrong casci_prog or casscf_prog: '//TRIM(cas_prog)
+ if((dmrgci .or. dmrgscf) .and. TRIM(cas_prog)/='pyscf') then
+  write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation i&
+                   &s only supported by'
+  write(6,'(A)') 'PySCF. Wrong CASCI_prog/CASSCF_prog='//TRIM(cas_prog)
   stop
  end if
 
@@ -200,7 +200,6 @@ subroutine do_cas(scf)
  case(1,3,6)
   i = INDEX(datname, '.dat', back=.true.)
   fchname = datname(1:i-1)//'.fch'
-  pyname = datname(1:i-1)//'.py'
  case(2) ! UHF -> UNO -> CASCI/CASSCF
   i = INDEX(hf_fch, '.fch', back=.true.)
   fchname = hf_fch(1:i-1)//'_uno.fch'
@@ -210,8 +209,6 @@ subroutine do_cas(scf)
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another filename
  case(5)
   fchname = hf_fch
-  i = INDEX(hf_fch, '.fch', back=.true.)
-  pyname = hf_fch(1:i-1)//'.py'
  end select
 
  proname = ' '
@@ -240,14 +237,12 @@ subroutine do_cas(scf)
 
  select case(TRIM(cas_prog))
  case('pyscf')
-  i = SYSTEM('bas_fch2py '//TRIM(fchname))
   inpname = TRIM(proname)//'.py'
-  i = RENAME(TRIM(pyname), TRIM(inpname))
-  call prt_cas_script_into_py(inpname, fchname, scf)
+  outname = TRIM(proname)//'.out'
+  call bas_fch2py_wrap(fchname, .false., inpname)
+  call prt_cas_script_into_py(inpname, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2py_script(mem, inpname, .false.)
-  j = INDEX(inpname, '.py', back=.true.)
-  outname = inpname(1:j-1)//'.out'
   call submit_pyscf_job(inpname)
 
  case('gaussian')
@@ -259,15 +254,7 @@ subroutine do_cas(scf)
   call prt_cas_gjf(inpname, nacto, nacte, scf, casscf_force)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
-
-  write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(inpname)
-  i = SYSTEM(TRIM(gau_path)//' '//TRIM(inpname))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: Gaussian CASCI/CASSCF job failed.'
-   write(6,'(A)') 'Please open file '//TRIM(inpname)//' and check.'
-   stop
-  end if
-  call delete_file('fort.7')
+  call submit_gau_job(gau_path, inpname)
   call formchk(mklname, casnofch)
   call modify_IROHF_in_fch(casnofch, 0)
 
@@ -355,7 +342,7 @@ subroutine do_cas(scf)
   call delete_file(mklname)
   if(casscf_force) call add_force_key2orca_inp(inpname)
 
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   if(scf) then ! CASSCF
    orbname = TRIM(proname)//'.gbw'
@@ -562,14 +549,14 @@ subroutine do_cas(scf)
 end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
-subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
+subroutine prt_cas_script_into_py(pyname, scf)
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, block_mpi, RI, &
   RIJK_bas, iroot, casnofch
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
- character(len=240), intent(in) :: pyname, gvb_fch
+ character(len=240), intent(in) :: pyname
  logical, intent(in) :: scf
  logical :: dmrg
 
@@ -644,14 +631,15 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  i = INDEX(casnofch, '_NO', back=.true.)
  cmofch = casnofch(1:i)//'CMO.fch'
+ if(dmrg) write(fid2,'(/,A)') "cmofch = '"//TRIM(cmofch)//"'"
  if(dmrgci) then
-  write(fid2,'(/,A)') '# copy original MOs into .fch file'
-  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(cmofch)//"')"
+  write(fid2,'(/,A)') '# backup original MOs to cmofch file'
+  write(fid2,'(A)') 'copyfile(hf_fch, cmofch)'
  else if(dmrgscf) then
-  write(fid2,'(/,A)') '# save CMOs into .fch file'
-  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(cmofch)//"')"
+  write(fid2,'(/,A)') '# save conveged MOs into .fch file'
+  write(fid2,'(A)') 'copyfile(hf_fch, cmofch)'
   write(fid2,'(A)') 'noon = np.zeros(nif)'
-  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mc.mo_coeff,'a',noon,False,False)"
+  write(fid2,'(A)') "py2fch(cmofch, nbf, nif, mc.mo_coeff, 'a', noon, False, False)"
  end if
 
  if(dmrg) then
@@ -664,9 +652,10 @@ subroutine prt_cas_script_into_py(pyname, gvb_fch, scf)
 
  if((dmrg .and. dmrg_no) .or. (.not. dmrg)) then
   write(fid2,'(/,A)') '# save NOs into .fch file'
-  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(casnofch)//"')"
-  write(fid2,'(A)') "py2fch('"//TRIM(casnofch)//"',nbf,nif,mc.mo_coeff,'a',mc.&
-                    &mo_occ,True,True)"
+  write(fid2,'(A)') "casnofch = '"//TRIM(casnofch)//"'"
+  write(fid2,'(A)') "copyfile(hf_fch, casnofch)"
+  write(fid2,'(A)') "py2fch(casnofch, nbf, nif, mc.mo_coeff, 'a', mc.mo_occ, Tr&
+                    &ue, True)"
   ! Note: mc.mo_occ is only valid for PySCF >= 1.7.4
  end if
 

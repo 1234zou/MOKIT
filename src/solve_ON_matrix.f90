@@ -117,7 +117,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  write(fid,'(A)') 'Occupation matrix:'
  do i = 1, nmo, 1
   do j = i, nmo, 1
-   write(fid,'(2(I4,1X),F9.5)') j, i, n(j,i)
+   write(fid,'(2(I4,1X),F11.5)') j, i, n(j,i)
   end do ! for j
  end do ! for i
  close(fid)
@@ -181,7 +181,7 @@ subroutine check_unitary(nmo, U)
  implicit none
  integer :: i, j
  integer, intent(in) :: nmo
- real(kind=8), parameter :: thresh = 1.6d-6
+ real(kind=8), parameter :: thresh = 1d-5
  real(kind=8), intent(in) :: U(nmo,nmo)
  real(kind=8), allocatable :: UUT(:,:), UTU(:,:)
 
@@ -192,7 +192,7 @@ subroutine check_unitary(nmo, U)
  do i = 1, nmo, 1
   do j = i, nmo, 1
    if(DABS(UUT(j,i)) > thresh) then
-    write(6,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
+    write(6,'(/,A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
     write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
     write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UUT(j,i)=', UUT(j,i)
     stop
@@ -208,7 +208,7 @@ subroutine check_unitary(nmo, U)
  do i = 1, nmo, 1
   do j = i, nmo, 1
    if(DABS(UTU(j,i)) > thresh) then
-    write(6,'(A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
+    write(6,'(/,A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
     write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
     write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UTU(j,i)=', UTU(j,i)
     stop

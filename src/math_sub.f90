@@ -31,7 +31,7 @@ subroutine diag_get_e_and_vec(n, a, w)
  call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, i)
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine diag_get_e_and_vec: info/=0 in dsyevd.'
+  write(6,'(/,A)') 'ERROR in subroutine diag_get_e_and_vec: info/=0 in dsyevd.'
   write(6,'(2(A,I0))') 'n=', n, ', info=', i
   stop
  end if
@@ -147,6 +147,7 @@ subroutine inverse(n, a, inv)
 
  allocate(identity(n,n), source=0d0)
  forall(i = 1:n) identity(i,i) = 1d0
+
  call solve_multi_lin_eqs(n, n, a, n, identity, inv)
  deallocate(identity)
 end subroutine inverse
@@ -343,6 +344,41 @@ subroutine calc_SPS(nbf, P, S, SPS)
  deallocate(PS)
 end subroutine calc_SPS
 
+! perform density matrix purification
+subroutine purify_dm(nbf, S, P)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf
+ integer, parameter :: max_it = 5
+ real(kind=8) :: max_diff, mean_diff
+ real(kind=8), intent(in) :: S(nbf,nbf)
+ real(kind=8), intent(inout) :: P(nbf,nbf)
+ real(kind=8), allocatable :: P0(:,:), SP(:,:), PSP(:,:), PSPSP(:,:)
+
+ allocate(P0(nbf,nbf), PSP(nbf,nbf), SP(nbf,nbf), PSPSP(nbf,nbf))
+
+ do i = 1, max_it, 1
+  P0 = P
+  call calc_SPS(nbf, S, P, PSP)
+
+  SP = 0d0
+  call dsymm('L', 'L', nbf, nbf, 1d0, S, nbf, P, nbf, 0d0, SP, nbf)
+
+  PSPSP = 0d0
+  call dsymm('L', 'L', nbf, nbf, 1d0, PSP, nbf, SP, nbf, 0d0, PSPSP, nbf)
+
+  P = 0.5d0*(3d0*PSP - PSPSP)
+
+  P0 = DABS(P0 - P)
+  max_diff = MAXVAL(P0)
+  mean_diff = SUM(P0)/DBLE(nbf*nbf)
+  write(6,'(2(A,F20.8))') 'max_v=', max_diff, ', mean_v=', mean_diff
+  if(max_diff<1d-4 .and. mean_diff<1d-5) exit
+ end do ! for i
+
+ deallocate(P0, SP, PSP, PSPSP)
+end subroutine purify_dm
+
 ! calculate density matrix using MO coefficients and occupation numbers
 subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  implicit none
@@ -373,16 +409,81 @@ subroutine get_a_random_int(i)
  integer, allocatable :: seed(:)
  real(kind=4) :: r
 
- call random_seed(size=n)
+ call RANDOM_SEED(size=n)
  allocate(seed(n))
- call system_clock(count=clock)
+ call SYSTEM_CLOCK(count=clock)
  seed = clock
- call random_seed(put=seed)
- call random_number(r)
+ call RANDOM_SEED(put=seed)
+ call RANDOM_NUMBER(r)
  deallocate(seed)
 
  i = CEILING(r*1e6)
 end subroutine get_a_random_int
+
+! solver AO-based overlap matrix (S) from condition (C^T)SC=I
+! Note: this subroutine only applies to nbf=nif, i.e. no linear dependence
+subroutine solve_ovlp_from_ctsc(nbf, C, S)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf
+ real(kind=8), intent(in) :: C(nbf,nbf)
+ real(kind=8), intent(out) :: S(nbf,nbf)
+ real(kind=8), allocatable :: SC(:,:)
+
+ S = 0d0   ! this initialization is important
+ forall(i = 1:nbf) S(i,i) = 1d0 ! unit matrix I
+
+ allocate(SC(nbf,nbf))
+ call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, S, SC)
+ ! SC = X -> (C^T)S = X^T
+ call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, TRANSPOSE(SC), S)
+end subroutine solve_ovlp_from_ctsc
+
+! solver AO-based overlap matrix (S) by calculating (C(C^T))^(-1)
+! This subroutine has the same result as subroutine solve_ovlp_from_ctsc.
+subroutine solve_ovlp_from_cct(nbf, C, S)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8), intent(in) :: C(nbf,nbf)
+ real(kind=8), intent(out) :: S(nbf,nbf)
+ real(kind=8), allocatable :: CCT(:,:)
+
+ ! calculate C(C^T)
+ allocate(CCT(nbf,nbf), source=0d0)
+ call dgemm('N','T', nbf,nbf,nbf, 1d0,C,nbf, C,nbf, 0d0,CCT,nbf)
+
+ ! calculate (C(C^T))^(-1)
+ call inverse(nbf, CCT, S)
+ deallocate(CCT)
+end subroutine solve_ovlp_from_cct
+
+! solver AO-based Fock matrix (F) from condition (C^T)FC=E
+subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: C(nbf,nif), E(nif)
+ real(kind=8), intent(out) :: F(nbf,nbf)
+ real(kind=8), allocatable :: FC(:,:), E1(:,:)
+
+ allocate(E1(nif,nif), source=0d0)
+ forall(i = 1:nif) E1(i,i) = E(i) ! diagonal matrix
+ allocate(FC(nbf,nif))
+ call solve_multi_lin_eqs(nif, nbf, TRANSPOSE(C), nif, E1, FC)
+ deallocate(E1)
+ ! FC = X -> (C^T)(F^T) = X^T, (F^T) = F
+ call solve_multi_lin_eqs(nif, nbf, TRANSPOSE(C), nif, TRANSPOSE(FC), F)
+end subroutine solve_fock_from_ctfc
+
+! symmetrize a double precision matrix
+subroutine symmetrize_dmat(n, a)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8), intent(inout) :: a(n,n)
+
+ forall(i=1:n, j=1:n, j>i) a(i,j) = a(j,i)
+end subroutine symmetrize_dmat
 
 subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
  implicit none

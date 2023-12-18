@@ -23,7 +23,6 @@ module sr_keyword
  character(len=10) :: adc_prog = 'pyscf'
  character(len=10) :: eom_prog = 'orca'
  character(len=240) :: no_fch = ' ' ! filename which includes MP2/CC NOs
- logical :: uhf_based = .false.     ! UHF based MP2 or CC
  logical :: noRI = .false.          ! turn on RI by default
  logical :: mp2 = .false.
  logical :: ccd = .false.
@@ -38,10 +37,6 @@ module sr_keyword
  logical :: iterative_t = .false. ! default DLPNO-CCSD(T0)
  logical :: gen_no = .false.      ! whether to generate NOs
  logical :: relaxed_dm = .false.  ! relaxed/unrelaxed density matrix
-! logical :: mp2_force = .false.
-! logical :: ccd_force = .false.
-! logical :: ccsd_force = .false.
-! logical :: ccsd_t_force = .false.
  logical :: customized_core = .false.
  ! whether the user has specified the number of frozen core orbitals
 
@@ -59,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc17 (2023-Nov-19)'
+ write(6,'(A)') '           Version: 1.2.6rc18 (2023-Dec-18)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -265,6 +260,7 @@ subroutine parse_sr_keyword()
    readrhf = .true.
    read(longbuf(j+1:i-1),*) hf_fch
   case('readuhf')
+   mo_rhf = .false.
    readuhf = .true.
    read(longbuf(j+1:i-1),*) hf_fch
   case('force')
@@ -337,6 +333,15 @@ subroutine check_sr_kywd_compatible()
  character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&
                                               &d_compatible: '
  cc_enabled = (ccd .or. ccsd .or. ccsd_t)
+
+ if(cc_enabled .and. DLPNO .and. TRIM(cc_prog)/='orca') then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine check_sr_kywd_compatible: a DLPNO-CC &
+                 &job is requested.'
+  write(6,'(A)') 'CC_prog is automatically switched to ORCA.'
+  write(6,'(A)') REPEAT('-',79)
+  cc_prog = 'orca'
+ end if
 
  if(customized_core) then
   if(core_wish < 0) then
@@ -424,8 +429,8 @@ subroutine check_sr_kywd_compatible()
  end if
 
  if(RI .eqv. noRI) then
-  write(6,'(A)') 'ERROR in subroutine check_sr_kywd_compatible: RI=noRI. Confus&
-                 &ed keywords.'
+  write(6,'(/,A)') 'ERROR in subroutine check_sr_kywd_compatible: RI=noRI. Conf&
+                   &used keywords.'
   stop
  end if
 
@@ -486,15 +491,19 @@ subroutine prt_sr_strategy()
  implicit none
 
  if(DLPNO .and. ccsd_t .and. (.not.iterative_t)) then
-  write(6,'(/,A)') 'Remark: DLPNO-CCSD(T) is DLPNO-CCSD(T0) by default in ORCA.&
-                   & If you want higher'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Remark: DLPNO-CCSD(T) is DLPNO-CCSD(T0) by default in ORCA. I&
+                 &f you want higher'
   write(6,'(A)') 'accuracy, it is recommended to use the DLPNO-CCSD(T1) method.'
+  write(6,'(A)') REPEAT('-',79)
  end if
 
  if(.not. RI) then
-  write(6,'(/,A)') 'Remark: RI is turned off currently. It is strongly recomme&
-                   &nded to turn'
-  write(6,'(A)') 'on RI if you are running an MP2 job.'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Remark: RI is turned off currently. It is strongly recommende&
+                 &d to turn on'
+  write(6,'(A)') 'RI if you are running an MP2 job.'
+  write(6,'(A)') REPEAT('-',79)
  end if
 
  write(6,'(/,A)') 'Internal variables:'
@@ -518,8 +527,7 @@ program main
  i = iargc()
  if(i /= 1) then
   write(6,'(/,A)') ' ERROR in subroutine autosr: wrong command line argument!'
-  write(6,'(A)')   " Example 1 (in bash): autosr a.gjf >& a.out &"
-  write(6,'(A)')   " Example 2 (in dash): autosr a.gjf >a.out 2>&1 &"
+  write(6,'(A)')   " Example: autosr h2o.gjf >& h2o.out &"
   write(6,'(A,/)') ' See help: autosr -h'
   stop
  end if
@@ -528,12 +536,11 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc17 :: MOKIT, release date: 2023-Nov-19'
+  write(6,'(A)') 'AutoSR 1.2.6rc18 :: MOKIT, release date: 2023-Dec-18'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
-  write(6,'(A)')   "  Example 1 (in bash): autosr a.gjf >& a.out &"
-  write(6,'(A)')   "  Example 2 (in dash): autosr a.gjf >a.out 2>&1 &"
+  write(6,'(A)')   "  Example: autosr h2o.gjf >& h2o.out &"
   write(6,'(/,A)') 'Options:'
   write(6,'(A)')   '  -h, -help, --help: Print this message and exit.'
   write(6,'(A)')   '  -v, -V, --version: Print the version number of autosr and exit.'
@@ -598,7 +605,6 @@ subroutine autosr(fname)
  call do_adc()   ! ADC(2), ADC(3)
  call do_eomcc() ! EOM-CCSD, EOM-SF-CCSD
 
- call delete_file('fort.7')
  call fdate(data_string)
  write(6,'(/,A)') 'Normal termination of AutoSR at '//TRIM(data_string)
 end subroutine autosr
@@ -632,10 +638,10 @@ subroutine prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
 end subroutine prt_fc_info
 
 subroutine do_mp2()
- use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, uhf_based, bgchg, chgname, &
-  ref_e, corr_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, &
-  core_wish, gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path,&
-  gen_no, no_fch, relaxed_dm, force, molcas_omp
+ use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, bgchg, chgname, ref_e, &
+  corr_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, core_wish,&
+  gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, &
+  gen_no, no_fch, relaxed_dm, force, molcas_omp, RI
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
   fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap, &
   fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
@@ -652,14 +658,25 @@ subroutine do_mp2()
  write(6,'(A)') 'MP2 using program '//TRIM(mp2_prog)
  call prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
 
- if(force .and. chem_core>0 .and. TRIM(mp2_prog)=='pyscf') then
-  write(6,'(/,A)') 'ERROR in subroutine do_mp2: MP2 analytical gradients in PyS&
-                   &CF cannot be run'
-  write(6,'(A)') 'using frozen core. If you still want to use PySCF, you need t&
-                 &o write FC=0 in mokit{}.'
-  stop
+ if(force .and. chem_core>0) then
+  if(TRIM(mp2_prog) == 'pyscf') then
+   write(6,'(/,A)') 'ERROR in subroutine do_mp2: MP2 analytical gradients in Py&
+                    &SCF cannot be run'
+   write(6,'(A)') 'using frozen core. If you still want to use PySCF, you need &
+                  &to write FC=0 in mokit{}.'
+   stop
+  end if
+  if((.not.RI) .and. TRIM(mp2_prog)=='psi4') then
+   write(6,'(/,A)') 'ERROR in subroutine do_mp2: conventional MP2 analytical gr&
+                    &adients in PSI4'
+   write(6,'(A)') 'cannot be run using frozen core. If you still want to use PS&
+                  &I4, you can either'
+   write(6,'(A)') 'write FC=0 in mokit{}, or switch to RI-MP2.'
+   stop
+  end if
  end if
- if(gen_no .and. uhf_based .and. (.not.relaxed_dm) .and. TRIM(MP2_prog)=='psi4') then
+
+ if(gen_no .and. (.not.mo_rhf) .and. (.not.relaxed_dm) .and. TRIM(MP2_prog)=='psi4') then
   write(6,'(/,A)') 'ERROR in subroutine do_mp2: UMP2 unrelaxed density is not s&
                    &upported in PSI4'
   write(6,'(A)') 'currently. You can either calculate the relaxed density, or c&
@@ -728,7 +745,7 @@ subroutine do_mp2()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
   call read_posthf_e_from_orca_out(outname, .false., rtmp, ref_e, mp2_e)
   if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
@@ -878,6 +895,14 @@ subroutine do_cc()
   stop
  end if
 
+ if((force .or. gen_no) .and. chem_core>0 .and. (.not.RI) .and. relaxed_dm) then
+  write(6,'(/,A)') 'ERROR in subroutine do_cc: conventional CCSD(T) relaxed den&
+                   &sity or analytical'
+  write(6,'(A)') 'gradients in PSI4 can only be used when no core orbitals are &
+                 &frozen, i.e. FC=0.'
+  stop
+ end if
+
  method0 = method
  call strip_ip_ea_eom(method0)
  i = INDEX(hf_fch, '.fch', back=.true.)
@@ -931,7 +956,7 @@ subroutine do_cc()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
   call read_posthf_e_from_orca_out(outname, (.not.ccd), t1diag, ref_e, e)
   if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
@@ -1115,7 +1140,7 @@ subroutine do_eomcc()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .true.)
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
   call read_eomcc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, &
                                   ci_mult, fosc)
  !case('molpro')
@@ -1248,6 +1273,7 @@ subroutine prt_posthf_orca_inp(inpname, excited)
 
  i = INDEX(inpname, '.inp', back=.true.)
  inpname1 = inpname(1:i-1)//'.t'
+
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
@@ -1270,12 +1296,14 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   write(fid1,'(A)',advance='no') '! U'
  end if
  write(fid1,'(A)',advance='no') 'HF VeryTightSCF'
- if(.not. excited) then
-  if(RI) then
-   write(fid1,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
+ if(RI) then
+  if(TRIM(RIJK_bas) == 'autoaux') then
+   write(fid1,'(A)',advance='no') ' RIJK AutoAux'
   else
-   write(fid1,'(A)',advance='no') ' noRI'
+   write(fid1,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
   end if
+ else
+  write(fid1,'(A)',advance='no') ' noRI'
  end if
  if(F12) write(fid1,'(A)',advance='no') ' '//TRIM(F12_cabs)
  if(chem_core == 0) write(fid1,'(A)',advance='no') ' NoFrozenCore'
@@ -1364,8 +1392,8 @@ subroutine prt_posthf_orca_inp(inpname, excited)
 end subroutine prt_posthf_orca_inp
 
 subroutine prt_posthf_molpro_inp(inpname)
- use sr_keyword, only: mp2, ccd, ccsd_t, RI, F12, mo_rhf, uhf_based, basis, &
-  RIJK_bas, RIC_bas, chem_core, gen_no, relaxed_dm, force
+ use sr_keyword, only: mp2, ccd, ccsd_t, RI, F12, mo_rhf, basis, RIJK_bas, &
+  RIC_bas, chem_core, gen_no, relaxed_dm, force
  use mol, only: mult
  implicit none
  integer :: i, fid
@@ -1374,7 +1402,7 @@ subroutine prt_posthf_molpro_inp(inpname)
  character(len=240), intent(in) :: inpname
  logical :: alive
 
- if(((.not.mo_rhf) .or. uhf_based) .and. mp2 .and. gen_no) then
+ if((.not.mo_rhf) .and. mp2 .and. gen_no) then
   write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UMP2 NOs are not&
                   & supported in'
   write(6,'(A)') 'Molpro. Please change another MP2_prog.'
@@ -1415,19 +1443,14 @@ subroutine prt_posthf_molpro_inp(inpname)
   end if
   write(fid,'(A)') '}'
   write(fid,'(A)',advance='no') '{DF-'
-  if(mult /= 1) then
-   if(mo_rhf) then
-    if(uhf_based) then  ! ROHF-UCCSD
-     write(fid,'(A)',advance='no') 'U'
-    else                ! ROHF-ROCCSD
-     write(fid,'(A)',advance='no') 'R'
-    end if
-   else
-    write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UHF-based CC i&
-                     &s not supported in Molpro.'
-    close(fid)
-    stop
-   end if
+  if(mo_rhf) then
+    if(mult /= 1) write(fid,'(A)',advance='no') 'U' ! ROHF-UCCSD
+    ! ROHF-ROCCSD interface is currently not supported in autosr
+  else
+   write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UHF-based CC i&
+                    &s not supported in Molpro.'
+   close(fid)
+   stop
   end if
   if(mp2) then
    write(fid,'(A)',advance='no') 'MP2'
@@ -1440,7 +1463,7 @@ subroutine prt_posthf_molpro_inp(inpname)
 
  else ! RI is turned off
   write(fid,'(A)',advance='no') '{'
-  if(uhf_based) write(fid,'(A)',advance='no') 'U'
+  if(.not. mo_rhf) write(fid,'(A)',advance='no') 'U'
   if(mp2) then
    write(fid,'(A)',advance='no') 'MP2'
   else
@@ -1475,7 +1498,7 @@ end subroutine prt_posthf_molpro_inp
 
 subroutine prt_posthf_pyscf_inp(pyname, excited)
  use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, hf_fch,&
-  force, gen_no, relaxed_dm, uhf_based, RI, RIJK_bas, RIC_bas, ip, ea, nstate
+  force, gen_no, relaxed_dm, mo_rhf, RI, RIJK_bas, RIC_bas, ip, ea, nstate
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
@@ -1496,10 +1519,10 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  if(mp2) then
   write(fid1,'(A)') ', mp'
   if(RI) then
-   if(uhf_based) then
-    write(fid1,'(A)') 'from pyscf.mp.dfump2_native import DFMP2'
-   else
+   if(mo_rhf) then
     write(fid1,'(A)') 'from pyscf.mp.dfmp2_native import DFMP2'
+   else
+    write(fid1,'(A)') 'from pyscf.mp.dfump2_native import DFMP2'
    end if
   end if
  else
@@ -1709,11 +1732,12 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
  end if
  if(excited) write(fid1,'(A,I0)') 'set roots_per_irrep ', nstate
 
+ if(ccsd_t .and. (.not.RI)) call get_psi4_version(psi4_ver)
+
  if(force) then
   ! PSI4 >=1.8, extra keywords are needed to calculate CCSD(T) analytical gradients
-  if(ccsd_t .and. (.not.RI)) then
-   call get_psi4_version(psi4_ver)
-   if(psi4_ver(1:3) == '1.8') write(fid1,'(A)') 'set qc_module ccenergy'
+  if(ccsd_t .and. (.not.RI) .and. psi4_ver(1:3)=='1.8') then
+   write(fid1,'(A)') 'set qc_module ccenergy'
   end if
   write(fid1,'(A)',advance='no') "gradient('"
  else
@@ -1721,6 +1745,9 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
    write(fid1,'(A)',advance='no') "properties('"
   else
    if(gen_no) then
+    if(ccsd_t .and. (.not.RI) .and. psi4_ver(1:3)=='1.8') then
+     write(fid1,'(A)') 'set qc_module ccenergy'
+    end if
     write(fid1,'(A)',advance='no') "grad, wfn = gradient('"
    else
     write(fid1,'(A)',advance='no') "energy('"
@@ -1755,7 +1782,7 @@ end subroutine prt_posthf_psi4_inp
 
 subroutine prt_posthf_gms_inp(inpname, excited)
  use sr_keyword, only: mem, nproc, mp2, ccd, ccsd, ccsd_t, cc_enabled, force, &
-  chem_core, RI, uhf_based, gen_no, ip, ea, nstate
+  chem_core, RI, mo_rhf, gen_no, ip, ea, nstate
  implicit none
  integer :: i, j, fid, fid1, RENAME
  character(len=14) :: method
@@ -1805,7 +1832,7 @@ subroutine prt_posthf_gms_inp(inpname, excited)
 
  if(mp2) then
   write(fid1,'(A,I0)',advance='no') " $MP2 NACORE=", chem_core
-  if(uhf_based) write(fid1,'(A,I0)',advance='no') " NBCORE=", chem_core
+  if(.not. mo_rhf) write(fid1,'(A,I0)',advance='no') " NBCORE=", chem_core
   if(gen_no) write(fid1,'(A)',advance='no') ' MP2PRP=.T.'
  else if(cc_enabled) then
   write(fid1,'(A,I0)',advance='no') " $CCINP NCORE=", chem_core
@@ -2282,9 +2309,9 @@ subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
  real(kind=8), intent(out) :: ref_e, mp2_e
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- logical :: uhf_based
- ! we will find the value of uhf_based in this subroutine, not using intent(in)
+ logical :: ri
 
+ ri = .false.
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
@@ -2293,60 +2320,43 @@ subroutine read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
   BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
   read(fid,'(A)') buf
-  if(buf(1:11) == '    Total E') exit
+  if(INDEX(buf,'REF Energy') > 0) exit
+  if(INDEX(buf,'Reference Energy') > 0) then
+   ri = .true.
+   exit
+  end if
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'Total E' &
-                   &found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: SCF energy no&
+                   &t found in file "//TRIM(outname)
   close(fid)
   stop
  end if
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) ref_e
-
- uhf_based = .false.
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- if(buf(3:8) == 'UHF NO') uhf_based = .true.
-
- if(uhf_based) then ! UHF-UMP2
+ if(ri) then ! RI
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) ref_e
   do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,'DF-MP2 Total E') > 0) exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'DF-MP2 T&
-                    &otal E' found in file"
-   write(6,'(A)') TRIM(outname)
-   close(fid)
-   stop
-  end if
-  i = INDEX(buf, ':')
-
- else               ! RHF-RMP2
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
+   read(fid,'(A)') buf
    if(INDEX(buf,'Total Energy') > 0) exit
   end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mp2_e_from_psi4_out: no 'Total En&
-                    &ergy' found in file"
-   write(6,'(A)') TRIM(outname)
-   close(fid)
-   stop
-  end if
   i = INDEX(buf, '=')
+ else        ! noRI
+  i = INDEX(buf, ':')
+  read(buf(i+1:),*) ref_e
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(INDEX(buf,'=====') > 0) exit
+  end do ! for while
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  i = INDEX(buf, ':')
  end if
 
- close(fid)
  read(buf(i+1:),*) mp2_e
+ close(fid)
 end subroutine read_mp2_e_from_psi4_out
 
 subroutine read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)

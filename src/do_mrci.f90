@@ -80,7 +80,7 @@ subroutine do_mrcisd()
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
 
  case('gaussian')
   call check_exe_exist(gau_path)

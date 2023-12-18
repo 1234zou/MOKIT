@@ -313,6 +313,33 @@ subroutine get_gau_path(gau_path)
 #endif
 end subroutine get_gau_path
 
+subroutine get_orca_path(orca_path)
+ implicit none
+ integer :: i, fid, SYSTEM
+ character(len=240), intent(out) :: orca_path
+
+ orca_path = ' '
+ ! Previously, I use "echo `\which orca` >mokit.orca". But if no ORCA installed
+ ! on the current machine, the content 'which: no orca in...' will be printed
+ ! into the automr output file, so I change it to the original version, simply
+ ! `which orca`
+ i = SYSTEM("which orca >mokit.orca 2>&1")
+
+ open(newunit=fid,file='mokit.orca',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) orca_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  orca_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(orca_path) == 0) then
+   orca_path = 'NOT FOUND'
+  else if(index(orca_path,'no orca') > 0) then
+   orca_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_orca_path
+
 ! calculate the total number of electrons using total density in a .fch file
 subroutine get_ne_from_fch(fchname)
  implicit none
@@ -481,20 +508,24 @@ subroutine submit_gau_job(gau_path, gjfname)
   write(6,'(A)') 'Please open file '//TRIM(logname)//' and check.'
   stop
  end if
+
+ call delete_file('fort.7')
 end subroutine submit_gau_job
 
-subroutine submit_orca_job(orca_path, inpname)
+subroutine submit_orca_job(orca_path, inpname, prt)
  implicit none
  integer :: i, system
  character(len=240) :: outname
  character(len=480) :: buf
  character(len=240), intent(in) :: orca_path, inpname
+ logical, intent(in) :: prt
 
  call find_specified_suffix(inpname, '.inp', i)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$orca '//TRIM(buf)
+ if(prt) write(6,'(A)') '$orca '//TRIM(buf)
+
  i = SYSTEM(TRIM(orca_path)//' '//TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_orca_job: ORCA job failed.'

@@ -26,7 +26,7 @@ module mol
  integer :: natom = 0      ! number of atoms
  integer :: nbgchg = 0     ! number of background point charges
  integer :: nfrag = 0      ! number of fragments
- integer :: chem_core = 0  ! core orbitals calculated from the array core_orb
+ integer :: chem_core = 0  ! ECP plus core orbitals of the molecule
  integer :: ecp_core = 0   ! core orbitals replaced by PP/ECP during computing
  integer :: scan_itype = 0 ! the type of scanning, 1/2/3 for bond/angle/dihedral
  integer :: scan_atoms(4)  ! 2/3/4 atoms to be scanned
@@ -314,7 +314,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc17 (2023-Nov-19)'
+  write(6,'(A)') '           Version: 1.2.6rc18 (2023-Dec-18)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -1033,7 +1033,8 @@ contains
                   &ify HF_prog=PSI4/ORCA.'
   end if
 
-  if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4')) then
+  if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4') .and. &
+     (.not.skiphf)) then
    write(6,'(/,A)') error_warn//'invalid HF_prog.'
    write(6,'(A)') 'When X2C is activated, HF_prog can only be PySCF or PSI4.'
    stop
@@ -1101,6 +1102,7 @@ contains
    end if
   end if
 
+  alive = .false. ! remember to initialize
   select case(TRIM(casci_prog))
   case('gaussian','gamess','orca')
    alive(1) = .true.
@@ -1111,12 +1113,13 @@ contains
   end select
   alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
   if(X2C .and. alive(3)) then
-   write(6,'(A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
-                 & incompatible with X2C.'
-   write(6,'(A)') 'You can use Molpro or OpenMolcas.'
+   write(6,'(/,A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
+                   & incompatible with'
+   write(6,'(A)') 'X2C. You can use PySCF/Molpro/OpenMolcas.'
    stop
   end if
 
+  alive = .false. ! remember to initialize
   select case(TRIM(casci_prog))
   case('pyscf','bdf')
    alive(1) = .true.
@@ -1669,9 +1672,12 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  if(RIJK_bas /= 'NONE') then
   call lower(RIJK_bas)
   if(index(RIJK_bas, '/jk') == 0) then
-   write(6,'(A)') "Warning in subroutine determine_auxbas: RI-JK auxiliary&
-                  & basis set does not contain key '/JK'."
-   write(6,'(A)') 'Did you specify wrong auxiliary basis set? Caution!'
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning in subroutine determine_auxbas: RI-JK auxiliary basi&
+                  &s set does not'
+   write(6,'(A)') "contain key '/JK'. Did you specify wrong auxiliary basis set&
+                  &? Caution!"
+   write(6,'(A)') REPEAT('-',79)
   end if
  end if
 
@@ -1679,23 +1685,25 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(RIC_bas /= 'NONE') then
    call lower(RIC_bas)
    if(RIC_bas(1:5) == 'def2-') then
-    write(6,'(A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix&
-                   & is not supported as Gaussian syntax."
-    write(6,'(A)') "You should change it to 'def2' prefix."
+    write(6,'(/,A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix is n&
+                     &ot supported as"
+    write(6,'(A)') "Gaussian syntax. You should change it to 'def2' prefix."
     stop
    end if
    if(index(RIC_bas, '/c') == 0) then
-    write(6,'(/,A)') 'Warning in subroutine determine_auxbas: dynamic correlati&
-                     &on computations'
+    write(6,'(/,A)') REPEAT('-',79)
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlation&
+                   & computations'
     write(6,'(A)') "activated. But your provided RIC_bas does not include key '&
                    &/C'. Caution!"
+    write(6,'(A)') REPEAT('-',79)
    end if
   end if
  else   ! no dynamic correlation computation
   if(RIC_bas /= 'NONE') then
-   write(6,'(A)') 'ERROR in subroutine determine_auxbas: no dynamic correl&
-                  &ation computation is activated. But'
-   write(6,'(A)') 'you provide RIC_bas='//TRIM(RIC_bas)//'.'
+   write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: no dynamic correlati&
+                    &on computation is'
+   write(6,'(A)') 'activated. But you provide RIC_bas='//TRIM(RIC_bas)//'.'
    stop
   end if
  end if
@@ -1704,20 +1712,25 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12_cabs /= 'NONE') then
    call lower(F12_cabs)
    if(index(basis,'-f12') == 0) then
-    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
-                   & activated. But your provided'
-    write(6,'(A)') "basis set does not contain key '-F12'. Caution!"
+    write(6,'(/,A)') REPEAT('-',79)
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation act&
+                   &ivated. But your'
+    write(6,'(A)') "provided basis set does not contain key '-F12'. Caution!"
+    write(6,'(A)') REPEAT('-',79)
    end if
    if(index(F12_cabs,'-cabs') == 0) then
-    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation&
-                     & activated. But your provided'
-    write(6,'(A)') "F12_cabs does not contain key '-cabs'. Caution!"
+    write(6,'(/,A)') REPEAT('-',79)
+    write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation act&
+                   &ivated. But your'
+    write(6,'(A)') "provided F12_cabs does not contain key '-cabs'. Caution!"
+    write(6,'(A)') REPEAT('-',79)
    end if
   end if
  else
   if(F12_cabs /= 'NONE') then
-   write(6,'(A)') 'ERROR in subroutine determine_auxbas: F12 not activated,&
-                  & but you provide F12_cabs='//TRIM(F12_cabs)//'.'
+   write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: F12 not activated, b&
+                    &ut you provide'
+   write(6,'(A)') 'F12_cabs='//TRIM(F12_cabs)//'.'
    stop
   end if
  end if
@@ -1842,33 +1855,41 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
 
  case('STO-3G','STO-6G','3-21G','6-31G','6-31G(d)','6-31G*','6-31G(d,p)','6-31G**')
-  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
-                 & you want to use Pople-type basis set?'
-  write(6,'(A)') 'This is less recommended. But automr will continue.'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that you&
+                 & want to use'
+  write(6,'(A)') 'Pople-type basis set? This is less recommended. But automr wi&
+                 &ll continue.'
+  write(6,'(A)') REPEAT('-',79)
   RIJK_bas = 'def2/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2SVP/C'
 
  case('6-311G','6-311G(d)','6-311G*','6-311G(d,p)','6-311G**')
-  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that&
-                 & you want to use Pople-type basis set?'
-  write(6,'(A)') 'This is less recommended. But automr will continue.'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning in subroutine determine_auxbas: are you sure that you&
+                 & want to use'
+  write(6,'(A)') 'Pople-type basis set? This is less recommended. But automr wi&
+                 &ll continue.'
+  write(6,'(A)') REPEAT('-',79)
   RIJK_bas = 'def2/JK'
   if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2TZVP/C'  
 
  case default
   if(RIJK_bas=='NONE' .or. (dyn .and. RIC_bas=='NONE')) then
-   write(6,'(A)') "ERROR in subroutine determine_auxbas: auxiliary basis&
-                  & '/JK' or '/C' cannot be automatically determined."
-   write(6,'(A)') 'You should provide them in mokit{}.'
+   write(6,'(/,A)') "ERROR in subroutine determine_auxbas: auxiliary basis '/JK&
+                    &' or '/C' cannot"
+   write(6,'(A)') 'be automatically determined. You should provide them in moki&
+                  &t{}.'
    stop
   end if
  end select
 
  if(F12 .and. F12_cabs=='NONE') then
-  write(6,'(A)') 'ERROR in subroutine determine_auxbas: near-complete&
-                 & auxiliary basis set for F12 calculations'
-  write(6,'(A)') "'-CABS' cannot be automatically determined. You should&
-                 & provide them in mokit{}."
+  write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: near-complete auxilia&
+                   &ry basis set for'
+  write(6,'(A)') "F12 calculations '-CABS' cannot be automatically determined. &
+                 &You should provide"
+  write(6,'(A)') 'them in mokit{}.'
   stop
  end if
 end subroutine determine_auxbas
@@ -2091,33 +2112,6 @@ subroutine get_psi4_path(psi4_path)
   end if
  end if
 end subroutine get_psi4_path
-
-subroutine get_orca_path(orca_path)
- implicit none
- integer :: i, fid, system
- character(len=240), intent(out) :: orca_path
-
- orca_path = ' '
- ! Previously, I use "echo `\which orca` >mokit.orca". But if no ORCA installed
- ! on the current machine, the content 'which: no orca in...' will be printed
- ! into the automr output file, so I change it to the original version, simply
- ! which orca
- i = SYSTEM("which orca >mokit.orca 2>&1")
-
- open(newunit=fid,file='mokit.orca',status='old',position='rewind')
- read(fid,'(A)',iostat=i) orca_path
- close(fid,status='delete')
-
- if(i /= 0) then
-  orca_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(orca_path) == 0) then
-   orca_path = 'NOT FOUND'
-  else if(index(orca_path,'no orca') > 0) then
-   orca_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_orca_path
 
 subroutine get_dalton_path(dalton_path)
  implicit none

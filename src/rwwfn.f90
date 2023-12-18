@@ -144,8 +144,8 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
 
  if(i /= 0) then
   close(fid)
-  write(6,'(A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of bas&
-                 &sis f' not found in"
+  write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of b&
+                   &asis f' not found in"
   write(6,'(A)') 'file '//TRIM(fchname)
   stop
  end if
@@ -157,8 +157,8 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) then
    close(fid)
-   write(6,'(A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of i&
-                  &ndepen' not found in"
+   write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of &
+                    &indepen' not found in"
    write(6,'(A)') 'file '//TRIM(fchname)
    stop
   end if
@@ -1460,6 +1460,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  character(len=240), intent(in) :: outname
  real(kind=8) :: s_square = 0d0, expect = 0d0
  real(kind=8), intent(out) :: e(2)
+ real(kind=8), parameter :: max_diff = 1d-3
  logical, intent(in) :: scf, dmrg
  logical :: state_specific = .false.
 
@@ -1526,8 +1527,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_out:&
-                & 'CASCI E' not found in "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_out: 'CASCI E' not&
+                   & found in "//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1542,9 +1543,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) s_square
 
- if(DABS(expect - s_square) > 1d-3) then
-  write(6,'(/,A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2>&
-                   & deviates too much'
+ if(DABS(expect - s_square) > max_diff) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2> de&
+                 &viates too much'
   write(6,'(2(A,F10.6))') 'from the expectation value. Expectation=', expect, &
                           ', S_square=', s_square
   write(6,'(A)') 'If this is a ground state calculation, then something may be &
@@ -1553,6 +1555,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
                  & target excited'
   write(6,'(A)') 'state is different from that of the ground state, you can ign&
                  &ore this warning.'
+  write(6,'(A)') REPEAT('-',79)
  end if
 
  ! Note: in a CASSCF job, there is also a CASCI energy, read it.
@@ -1568,9 +1571,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) s_square
 
-  if( DABS(expect - s_square) > 1D-3) then
-   write(6,'(/,A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th&
-                    & step in this CASSCF job,'
+  if( DABS(expect - s_square) > max_diff) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th s&
+                  &tep in this CASSCF job,'
    write(6,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expectation&
                   & value.'
    write(6,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
@@ -1580,6 +1584,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
                   &ardWFN or CrazyWFN in'
    write(6,'(A)') 'mokit{}. If this is an excited state calculation, you may ig&
                   &nore this warning.'
+   write(6,'(A)') REPEAT('-',79)
   end if
  else
   close(fid)
@@ -3493,8 +3498,8 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  end do ! for while
 
  if(i /= 0) then
-  write(fid,'(A)') 'ERROR in subroutine read_ao_ovlp_from_47: failed to read&
-                  & AO overlap'
+  write(fid,'(/,A)') 'ERROR in subroutine read_ao_ovlp_from_47: failed to read &
+                     &AO overlap'
   write(fid,'(A)') 'from file '//TRIM(file47)
   close(fid)
   stop

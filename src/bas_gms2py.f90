@@ -59,7 +59,7 @@ subroutine bas_gms2py(inpname, cart)
  character(len=1) :: bastype
  character(len=2) :: new_bastype
  character(len=2), allocatable :: elem(:)
- character(len=240) :: buf, pyname
+ character(len=240) :: buf, pyname, hf_fch
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  logical :: ecp, uhf, ghf, lin_dep
@@ -72,6 +72,7 @@ subroutine bas_gms2py(inpname, cart)
  new_bastype = ' '
  i = INDEX(inpname, '.', back=.true.)
  pyname = inpname(1:i-1)//'.py'
+ hf_fch = inpname(1:i-1)//'.fch'
 
  call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
  call read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
@@ -257,10 +258,11 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A)') "mf.init_guess = '1e'"
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
+  write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
   write(pyid,'(A)') 'nbf = mf.mo_coeff[0].shape[0]'
   write(pyid,'(A)') 'nif = mf.mo_coeff[0].shape[1]'
-  write(pyid,'(A)') "alpha_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'a')"
-  write(pyid,'(A)') "beta_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'b')"
+  write(pyid,'(A)') "alpha_coeff = fch2py(hf_fch, nbf, nif, 'a')"
+  write(pyid,'(A)') "beta_coeff = fch2py(hf_fch, nbf, nif, 'b')"
   write(pyid,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
@@ -288,10 +290,11 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A)') 'mf.max_cycle = 1'
   write(pyid,'(A)') 'mf.kernel(dm0=dm)'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
+  write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
   write(pyid,'(A)') 'nbf = mf.mo_coeff.shape[0]'
   write(pyid,'(A)') 'nif = mf.mo_coeff.shape[1]'
-  write(pyid,'(A)') "mf.mo_coeff.real = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'r')"
-  write(pyid,'(A)') "mf.mo_coeff.imag = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'i')"
+  write(pyid,'(A)') "mf.mo_coeff.real = fch2py(hf_fch, nbf, nif, 'r')"
+  write(pyid,'(A)') "mf.mo_coeff.imag = fch2py(hf_fch, nbf, nif, 'i')"
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
@@ -317,9 +320,10 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A)') "mf.init_guess = '1e'"
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
+  write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
   write(pyid,'(A)') 'nbf = mf.mo_coeff.shape[0]'
   write(pyid,'(A)') 'nif = mf.mo_coeff.shape[1]'
-  write(pyid,'(A)') "mf.mo_coeff = fch2py('"//inpname(1:i-1)//".fch', nbf, nif, 'a')"
+  write(pyid,'(A)') "mf.mo_coeff = fch2py(hf_fch, nbf, nif, 'a')"
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"

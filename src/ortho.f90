@@ -118,20 +118,16 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
 end subroutine check_cghf_orthonormal
 
 ! perform canonical orthonormalization on a set of non-orthogonal MOs
-subroutine orthonormalize_orb(nbf, nif, ao_ovlp, old_mo, new_mo)
+subroutine orthonormalize_orb(sym_ortho, nbf, nif, ao_ovlp, old_mo, new_mo)
  implicit none
  integer :: i, j
  integer, intent(in) :: nbf, nif
-!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nif)
-!f2py intent(in) :: ao_ovlp, old_mo
-!f2py depend(nbf) :: ao_ovlp
-!f2py depend(nbf,nif) :: old_mo
  real(kind=8), intent(out) :: new_mo(nbf,nif)
-!f2py intent(out) :: new_mo
-!f2py depend(nbf,nif) :: new_mo
- real(kind=8), allocatable :: X(:,:), ev(:)
+ real(kind=8), allocatable :: X(:,:), Y(:,:), ev(:)
  real(kind=8), allocatable :: Sp(:,:) ! S', S prime
+ logical, intent(in) :: sym_ortho
+ ! True/False for symmetric/canonical orthonormalization
 
  new_mo = 0d0
  allocate(Sp(nif,nif))
@@ -151,7 +147,14 @@ subroutine orthonormalize_orb(nbf, nif, ao_ovlp, old_mo, new_mo)
  forall(i = 1:nif) ev(i) = 1d0/DSQRT(ev(i))
  allocate(X(nif,nif))   ! X = U((s')^(-1/2))
  forall(i=1:nif, j=1:nif) X(i,j) = Sp(i,j)*ev(j)
- deallocate(Sp, ev)
+ deallocate(ev)
+ if(sym_ortho) then     ! X = X(U^T)
+  allocate(Y(nif,nif), source=0d0)
+  call dgemm('N','T', nif,nif,nif, 1d0,X,nif, Sp,nif, 0d0,Y,nif)
+  X = Y
+  deallocate(Y)
+ end if
+ deallocate(Sp)
 
  ! C' = CX
  call dgemm('N','N', nbf,nif,nif, 1d0,old_mo,nbf, X,nif, 0d0,new_mo,nbf)

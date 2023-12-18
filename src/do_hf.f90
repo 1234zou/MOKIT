@@ -442,15 +442,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  outname1 = gjfname(1:i-1)//'.log' ! Gaussian output file under Linux
 #endif
 
- i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: Gaussian SCF job fai&
-                   &iled.'
-  write(6,'(A)') 'You can open file '//TRIM(outname1)//' and check why.'
-  stop
- end if
-
- call delete_file('fort.7')
+ call submit_gau_job(gau_path, gjfname)
  if(noiter) return ! no energy read
 
  call formchk(chkname, fchname)
@@ -526,7 +518,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
-  call submit_orca_job(orca_path, inpname)
+  call submit_orca_job(orca_path, inpname, .true.)
   call read_hf_e_and_ss_from_orca_out(outname2, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
   call mkl2fch_wrap(mklname, fchname)

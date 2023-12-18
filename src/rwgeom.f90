@@ -324,6 +324,32 @@ subroutine read_natom_from_molpro_out(outname, natom)
  close(fid)
 end subroutine read_natom_from_molpro_out
 
+! read the number of atoms from ORCA .engrad file
+subroutine read_natom_from_engrad(fname, natom)
+ implicit none
+ integer :: fid
+ integer, intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ if(buf(1:16) /= '# Number of atom') then
+  write(6,'(/,A)') "ERROR in subroutine read_natom_from_engrad: '# Number of at&
+                   &om' expected, but"
+  write(6,'(A)') "got '"//TRIM(buf)//"'"
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,*) natom
+ close(fid)
+end subroutine read_natom_from_engrad
+
 subroutine read_coor_from_gjf_or_xyz(fname, natom, coor)
  implicit none
  integer :: i, charge, mult
@@ -629,6 +655,7 @@ end subroutine get_nuc_dipole
 subroutine read_grad_from_output(prog_name, outname, natom, grad)
  implicit none
  integer, intent(in) :: natom
+ real(kind=8) :: e
  real(kind=8), intent(out) :: grad(3*natom)
  character(len=10), intent(in) :: prog_name
  character(len=240), intent(in) :: outname
@@ -647,7 +674,7 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
  case('molpro')
   call read_grad_from_molpro_out(outname, natom, grad)
  case('orca')
-  call read_grad_from_engrad(outname, natom, grad)
+  call read_grad_from_engrad(outname, natom, e, grad)
  case('psi4')
   call read_grad_from_psi4_out(outname, natom, grad)
  case('pyscf')
@@ -865,33 +892,39 @@ subroutine read_grad_from_orca_out(outname, natom, grad)
 end subroutine read_grad_from_orca_out
 
 ! read Cartesian gradients from a given ORCA .engrad file
-subroutine read_grad_from_engrad(outname, natom, grad)
+subroutine read_grad_from_engrad(engrad, natom, e, grad)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
+ real(kind=8), intent(out) :: e, grad(3*natom)
  character(len=240) :: buf
- character(len=240), intent(in) :: outname
+ character(len=240), intent(in) :: engrad
 
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ e = 0d0; grad = 0d0
+ open(newunit=fid,file=TRIM(engrad),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:18) == '# The current grad') exit
+  if(buf(1:17) == '# The current tot') exit
  end do ! for while
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_grad_from_engrad: no '# The curren&
-                   &t grad' found"
-  write(6,'(A)') 'in file '//TRIM(outname)
+                   &t tot' found in"
+  write(6,'(A)') 'file '//TRIM(engrad)
   close(fid)
   stop
  end if
 
  read(fid,'(A)') buf
- read(fid,'(F21.12)') grad
+ read(fid,*) e
+
+ do i = 1, 3
+  read(fid,'(A)') buf
+ end do
+ read(fid,*) grad
+
  close(fid)
 end subroutine read_grad_from_engrad
 
@@ -972,11 +1005,11 @@ subroutine read_grad_from_psi4_out(outname, natom, grad)
   BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
   read(fid,'(A)') buf
-  if(buf(4:13) == 'Total grad') exit
+  if(buf(4:13)=='Total Grad' .or. buf(4:13)=='Total grad') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_grad_from_psi4_out: no 'Total grad&
+  write(6,'(/,A)') "ERROR in subroutine read_grad_from_psi4_out: no 'Total Grad&
                    &' found in"
   write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
@@ -1438,6 +1471,48 @@ subroutine read_coor_from_molpro_out(outname, natom, coor)
  close(fid)
 end subroutine read_coor_from_molpro_out
 
+! read Cartesian coordinates from an ORCA .engrad file
+subroutine read_coor_from_engrad(engrad, natom, coor)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: engrad
+
+ coor = 0d0
+ open(newunit=fid,file=TRIM(engrad),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:14) == '# The atomic n') exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ do i = 1, natom, 1
+  read(fid,*) j, coor(:,i) ! unit in Bohr
+ end do ! for i
+
+ close(fid)
+ coor = coor*Bohr_const
+end subroutine read_coor_from_engrad
+
+! write/create a Gaussian .EOu file
+subroutine write_EOu(EOu, e, natom, grad)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: e, grad(3*natom)
+ character(len=720), intent(in) :: EOu
+
+ open(newunit=fid,file=TRIM(EOu),status='replace',position='rewind')
+ write(fid,'(4D20.12)') e, 0d0,0d0,0d0
+ write(fid,'(3D20.12)') grad
+ close(fid)
+end subroutine write_EOu
+
 ! write/create a .gjf file
 subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  implicit none
@@ -1575,6 +1650,21 @@ subroutine replace_coor_in_fch_by_gjf(gjfname, fchname)
  deallocate(coor)
 end subroutine replace_coor_in_fch_by_gjf
 
+! replace Cartesian coordinates in .fch(k) file by coordinates from .engrad
+subroutine replace_coor_in_fch_by_engrad(engrad, fchname)
+ implicit none
+ integer :: natom
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=240), intent(in) :: engrad, fchname
+!f2py intent(in) :: engrad, fchname
+
+ call read_natom_from_engrad(engrad, natom)
+ allocate(coor(3,natom))
+ call read_coor_from_engrad(engrad, natom, coor)
+ call replace_coor_in_fch(fchname, natom, coor)
+ deallocate(coor)
+end subroutine replace_coor_in_fch_by_engrad
+
 ! convert a .fch(k) file into a .xyz file
 subroutine fch2xyz(fchname)
  implicit none
@@ -1640,4 +1730,19 @@ subroutine xyz2gjf(xyzname)
  call write_gjf(gjfname, charge, mult, natom, elem, coor)
  deallocate(elem, coor)
 end subroutine xyz2gjf
+
+subroutine engrad2EOu(engrad, EOu)
+ implicit none
+ integer :: natom
+ real(kind=8) :: e
+ real(kind=8), allocatable :: grad(:)
+ character(len=240), intent(in) :: engrad
+ character(len=720), intent(in) :: EOu
+
+ call read_natom_from_engrad(engrad, natom)
+ allocate(grad(3*natom))
+ call read_grad_from_engrad(engrad, natom, e, grad)
+ call write_EOu(EOu, e, natom, grad)
+ deallocate(grad)
+end subroutine engrad2EOu
 

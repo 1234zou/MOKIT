@@ -1463,3 +1463,99 @@ subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_RI_kywd_into_molcas_inp
 
+! read memory and nprocshared from a given .gjf file
+subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(out) :: mem, np
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ ! default settings
+ mem = 1000 ! 1000 MB
+ np = 1     ! 1 core
+
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  call lower(buf)
+  if(buf(1:1) == '#') exit
+
+  j = LEN_TRIM(buf)
+  k = INDEX(buf,'=')
+  if(buf(1:4) == '%mem') then
+   read(buf(k+1:j-2),*) mem
+   select case(buf(j-1:j))
+   case('gb')
+    mem = 1000*mem ! You like 1024? I prefer 1000
+   case('mb')
+   case('gw')
+    mem = 1000*8*mem
+   case('mw')
+    mem = 8*mem
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: memory&
+                    & unit cannot be recognized.'
+    write(6,'(A)') "Only 'GB', 'MB', 'GW', and 'MW' are accepted."
+    write(6,'(A)') 'unit = '//TRIM(buf(j-1:j))
+    stop
+   end select
+  else if(buf(1:6) == '%nproc') then
+   read(buf(k+1:),*) np
+  end if
+ end do ! for while
+
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
+                & file '//TRIM(gjfname)
+  stop
+ end if
+end subroutine read_mem_and_nproc_from_gjf
+
+! read the method and basis set from a string
+! Note: please call subroutine lower before calling this subroutine,
+!       in order to transform all letters to lower case
+subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
+ implicit none
+ integer :: i, j
+ integer, intent(out) :: wfn_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
+ character(len=1200), intent(in) :: buf
+ character(len=11), intent(out) :: method
+ character(len=21), intent(out) :: basis
+
+ j = INDEX(buf, '/')
+ if(j == 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_method_and_basis_from_buf: no '/'&
+                   & symbol found in"
+  write(6,'(A)') "the '#' line. Failed to identify the method name. This utilit&
+                 &y does not support"
+  write(6,'(A)') "support syntax like 'M062X cc-pVDZ'. You should use the '/' &
+                 &symbol like 'M062X/cc-pVDZ'."
+  stop
+ end if
+
+ i = INDEX(buf(1:j-1), ' ', back=.true.)
+ method = buf(i+1:j-1)
+
+ if(method(1:1) == 'u') then
+  wfn_type = 3 ! UHF
+  method = method(2:)
+ else if(method(1:2) == 'ro') then
+  wfn_type = 2 ! ROHF
+  method = method(3:)
+ else if(method(1:1) == 'r') then
+  wfn_type = 1 ! RHF
+  method = method(2:)
+ else
+  wfn_type = 0 ! undetermined
+ end if
+
+ i = INDEX(buf(j+1:), ' ')
+ basis = ' '
+ basis = buf(j+1:j+i-1)
+end subroutine read_method_and_basis_from_buf
+
