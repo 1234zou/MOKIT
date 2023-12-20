@@ -1635,6 +1635,41 @@ function calc_an_int_coor(n, coor) result(val)
  end select
 end function calc_an_int_coor
 
+subroutine geom_h_ring(numh, d_h_h, gjfname)
+ implicit none
+ integer :: i, mult
+ integer, intent(in) :: numh
+!f2py intent(in) :: numh
+ real(kind=8) :: r, theta, c
+ real(kind=8), intent(in) :: d_h_h
+!f2py intent(in) :: d_h_h
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ mult = 1
+ if(MOD(numh,2) == 1) mult = 2
+ allocate(coor(3,numh), source=0d0)
+
+ theta = 2d0*PI/DBLE(numh)
+ r = d_h_h*DSIN((PI-theta)*0.5d0)/DSIN(theta)
+
+ do i = 1, numh, 1
+  c = theta*DBLE(i-1)
+  coor(1,i) = DCOS(c)
+  coor(2,i) = DSIN(c)
+ end do ! for i
+ coor = coor*r
+
+ allocate(elem(numh))
+ elem = 'H '
+
+ call write_gjf(gjfname, 0, mult, numh, elem, coor)
+ deallocate(elem, coor)
+end subroutine geom_h_ring
+
 ! replace Cartesian coordinates in .fch(k) file by coordinates from .gjf
 subroutine replace_coor_in_fch_by_gjf(gjfname, fchname)
  implicit none

@@ -70,14 +70,14 @@ def mo_fch2py(fchname):
   return mo
 
 
-def loc(fchname, idx, method=None):
+def loc(fchname, idx, method='pm', alpha=True):
   '''
   Perform orbital localization for a specified set of orbitals in a given
   Gaussian .fch(k) file.
   (The following 1e AO-basis integrals are computed using PySCF:
    1) overlap integrals for Pipek-Mezey localization;
    2) dipole integrals for Boys localization.)
-  The method can be 'pm' or 'boys'.
+  The method can be either 'pm' or 'boys'.
 
   Simple usage::
   >>> # perform Pipek-Mezey localization for occupied PI orbitals of benzene
@@ -87,12 +87,14 @@ def loc(fchname, idx, method=None):
   '''
   from pyscf.lo.boys import dipole_integral
 
-  if method is None:
-    method = 'pm'
+  if alpha is True:
+    spin = 'a'
+  else:
+    spin = 'b'
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_LMO.fch'
   mol = load_mol_from_fch(fchname)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
-  mo_coeff = fch2py(fchname, nbf, nif, 'a')
+  mo_coeff = fch2py(fchname, nbf, nif, spin)
   nmo = len(idx)
 
   if method == 'pm':
@@ -107,7 +109,7 @@ def loc(fchname, idx, method=None):
   mo_coeff[:,idx] = loc_orb.copy()
   noon = np.zeros(nif)
   shutil.copyfile(fchname, fchname1)
-  py2fch(fchname1, nbf, nif, mo_coeff, 'a', noon, False, False)
+  py2fch(fchname1, nbf, nif, mo_coeff, spin, noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
 
 

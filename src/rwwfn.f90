@@ -1113,14 +1113,6 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
- logical :: alive
-
- inquire(file=TRIM(fchname),exist=alive)
- if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine write_mo_into_fch: file '//TRIM(fchname)&
-                  //' does not exist.'
-  stop
- end if
 
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
@@ -1137,8 +1129,8 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine write_mo_into_fch: no '"//key//"' found&
-                 & in file "//TRIM(fchname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine write_mo_into_fch: no '"//key//"' found&
+                   & in file "//TRIM(fchname)//'.'
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -1147,29 +1139,32 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  BACKSPACE(fid1)
  read(fid1,'(A49,2X,I10)') buf, ncoeff
  if(ncoeff /= nbf*nif) then
-  write(6,'(A)') 'ERROR in subroutine write_mo_into_fch: ncoeff /= nbf*nif.'
-  write(6,'(A)') 'Inconsistency found between input nbf,nif and those&
-                 & in file '//TRIM(fchname)//'.'
+  write(6,'(/,A)') 'ERROR in subroutine write_mo_into_fch: ncoeff /= nbf*nif.'
+  write(6,'(A)') 'Inconsistency found between input nbf,nif and those in file&
+                 & '//TRIM(fchname)//'.'
   write(6,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
   stop
  end if
 
  allocate(coeff(ncoeff), source=0d0)
-         coeff = RESHAPE(mo, (/ncoeff/))
+ coeff = RESHAPE(mo, (/ncoeff/))
  write(fid2,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
  deallocate(coeff)
 
  do while(.true.) ! skip MOs in fchname
-  read(fid1,'(A)') buf
-  if(INDEX(buf,'=') /= 0) exit
- end do ! for while
-
- BACKSPACE(fid1)
- do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
+  if(INDEX(buf,'=') > 0) exit
  end do ! for while
+
+ if(i == 0) then
+  BACKSPACE(fid1)
+  do while(.true.)
+   read(fid1,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid2,'(A)') TRIM(buf)
+  end do ! for while
+ end if
 
  close(fid1,status='delete')
  close(fid2)
