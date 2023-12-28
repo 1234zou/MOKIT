@@ -15,6 +15,7 @@ module mol_comp_info
  character(len=2), allocatable :: elem(:) ! elem(natom)
  character(len=11) :: method = 'wB97M-V'
  character(len=21) :: basis = 'def2TZVP'
+ character(len=240) :: gau_path
  logical :: numfreq = .false. ! numerical frequency
  logical :: init_scf = .false.
  ! True: perform an SCF computation using Gaussian for the initial geometry, and
@@ -94,12 +95,12 @@ end subroutine init_mol_comp_info
 end module mol_comp_info
 
 program geom_opt
- use mol_comp_info, only: init_mol_comp_info
+ use mol_comp_info, only: init_mol_comp_info, gau_path
  use util_wrapper, only: gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, fid, RENAME
- character(len=240) :: gjfname, gjfname1, gjfname2, hfile, gau_path, gbwname, &
-  gesname, engrad, mklname, fchname1, fchname2
+ character(len=240) :: gjfname, gjfname1, gjfname2, hfile, gbwname, gesname, &
+  engrad, mklname, fchname1, fchname2
 
  i = iargc()
  if(i /= 1) then
@@ -132,9 +133,8 @@ program geom_opt
  open(newunit=fid,file=TRIM(hfile),status='replace')
  close(fid)
 
- call get_gau_path(gau_path)
- call submit_gau_job(gau_path, gjfname2)
-
+ call submit_gau_job(gau_path, gjfname2, .false.)
+ stop
  call gbw2mkl(gbwname)
  call replace_coor_in_fch_by_engrad(engrad, fchname1)
  call mkl2fch_wrap(mklname, fchname1)
@@ -208,16 +208,16 @@ subroutine del_kywrd_in_buf(buf, key)
 end subroutine del_kywrd_in_buf
 
 subroutine gen_orca_inp_gbw(gjfname)
- use mol_comp_info, only: mem, nproc
+ use mol_comp_info, only: mem, nproc, method, gau_path
  use util_wrapper, only: formchk, fch2mkl_wrap, mkl2gbw
  implicit none
  integer :: i, k, fid, fid1
- character(len=240) :: buf, proname, gau_path, chkname, fchname, mklname, &
-  old_inp, inpname, logname
+ character(len=240) :: buf, proname, chkname, fchname, mklname, old_inp, &
+  inpname, logname
  character(len=240), intent(in) :: gjfname
 
  call get_gau_path(gau_path)
- call submit_gau_job(gau_path, gjfname)
+ call submit_gau_job(gau_path, gjfname, .false.)
 
  i = INDEX(gjfname, '.gjf', back=.true.)
  if(i == 0) i = INDEX(gjfname, '.com', back=.true.)
@@ -229,6 +229,7 @@ subroutine gen_orca_inp_gbw(gjfname)
  old_inp = gjfname(1:i-1)//'_o.inp'
  inpname = gjfname(1:i-1)//'.inp'
  call formchk(chkname)
+ call simplify_fch(fchname)
  call fch2mkl_wrap(fchname, mklname)
  call mkl2gbw(mklname)
  call delete_files(4, [chkname, gjfname, mklname, logname])
@@ -246,7 +247,7 @@ subroutine gen_orca_inp_gbw(gjfname)
 
  i = INDEX(buf, 'HF')
  k = INDEX(buf(1:i-1), ' ', back=.true.)
- buf = buf(1:k)//'wB97M-V'//TRIM(buf(i+2:))
+ buf = buf(1:k)//TRIM(method)//TRIM(buf(i+2:))
 
  i = INDEX(buf, 'VeryTightSCF')
  if(i > 0) buf = buf(1:i-1)//TRIM(buf(i+4:))

@@ -254,7 +254,7 @@ subroutine do_cas(scf)
   call prt_cas_gjf(inpname, nacto, nacte, scf, casscf_force)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call unfchk(fchname, mklname)
-  call submit_gau_job(gau_path, inpname)
+  call submit_gau_job(gau_path, inpname, .true.)
   call formchk(mklname, casnofch)
   call modify_IROHF_in_fch(casnofch, 0)
 

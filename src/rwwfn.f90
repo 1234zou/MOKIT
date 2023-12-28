@@ -3563,30 +3563,6 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  deallocate(U)
 end subroutine get_no_from_density_and_ao_ovlp
 
-! read spin multipliticity from a given .fch(k) file
-subroutine read_mult_from_fch(fchname, mult)
- implicit none
- integer :: i, fid
- integer, intent(out) :: mult
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:4) == 'Mult') exit
- end do ! for while
- close(fid)
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mult_from_fch: no 'Mult' found in&
-                & file "//TRIM(fchname)
-  stop
- end if
- read(buf(50:),*) mult
-end subroutine read_mult_from_fch
-
 ! 1) compute 1e expectation values of MOs in file mo_fch, using information from
 ! file no_fch (which usually includes NOs)
 ! 2) sort paired MOs in mo_fch by 1e expectation values
@@ -3715,4 +3691,28 @@ subroutine sort_no_by_noon(fchname, i1, i2)
  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
  deallocate(noon)
 end subroutine sort_no_by_noon
+
+! Get the index of core-valence orbital separation. The input file fchname must
+! include orbital energies (or Fock expectation values) in 'Alpha Or'.
+subroutine get_core_valence_sep_idx(fchname, idx)
+ implicit none
+ integer :: nif, na, nb
+ integer, intent(out) :: idx
+!f2py intent(out) :: idx
+ real(kind=8), parameter :: thres = 0.3d0
+ real(kind=8), allocatable :: ev(:)
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call read_nif_from_fch(fchname, nif)
+ allocate(ev(nif))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', ev)
+ call read_na_and_nb_from_fch(fchname, na, nb)
+
+ do idx = nb, 2, -1
+  if(DABS(ev(idx) - ev(idx-1)) > thres) exit
+ end do ! for i
+
+ deallocate(ev)
+end subroutine get_core_valence_sep_idx
 

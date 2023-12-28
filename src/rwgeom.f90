@@ -1637,11 +1637,27 @@ end function calc_an_int_coor
 
 subroutine geom_h_ring(numh, d_h_h, gjfname)
  implicit none
+ integer, intent(in) :: numh
+!f2py intent(in) :: numh
+ real(kind=8), intent(in) :: d_h_h
+!f2py intent(in) :: d_h_h
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ write(6,'(/,A)') 'ERROR in module rwgeom: the function geom_h_ring has been re&
+                  &named to gen_h_ring'
+ write(6,'(A)') 'since MOKIT-1.2.6rc19. Please use gen_h_ring now.'
+ stop
+end subroutine geom_h_ring
+
+! generate a Hydrogen ring
+subroutine gen_h_ring(numh, d_h_h, gjfname)
+ implicit none
  integer :: i, mult
  integer, intent(in) :: numh
 !f2py intent(in) :: numh
  real(kind=8) :: r, theta, c
- real(kind=8), intent(in) :: d_h_h
+ real(kind=8), intent(in) :: d_h_h ! in Angstrom
 !f2py intent(in) :: d_h_h
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
  real(kind=8), allocatable :: coor(:,:)
@@ -1668,7 +1684,35 @@ subroutine geom_h_ring(numh, d_h_h, gjfname)
 
  call write_gjf(gjfname, 0, mult, numh, elem, coor)
  deallocate(elem, coor)
-end subroutine geom_h_ring
+end subroutine gen_h_ring
+
+! generate a linear Hydrogen chain
+subroutine gen_h_chain(numh, d_h_h, gjfname)
+ implicit none
+ integer :: i, mult
+ integer, intent(in) :: numh
+!f2py intent(in) :: numh
+ real(kind=8), intent(in) :: d_h_h ! in Angstrom
+!f2py intent(in) :: d_h_h
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ mult = 1
+ if(MOD(numh,2) == 1) mult = 2
+ allocate(coor(3,numh), source=0d0)
+
+ do i = 1, numh, 1
+  coor(3,i) = DBLE(i-1)*d_h_h
+ end do ! for i
+
+ allocate(elem(numh))
+ elem = 'H '
+
+ call write_gjf(gjfname, 0, mult, numh, elem, coor)
+ deallocate(elem, coor)
+end subroutine gen_h_chain
 
 ! replace Cartesian coordinates in .fch(k) file by coordinates from .gjf
 subroutine replace_coor_in_fch_by_gjf(gjfname, fchname)

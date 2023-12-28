@@ -38,8 +38,8 @@ subroutine formchk(chkname, fchname)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utilit&
                    &y formchk.'
-  write(6,'(A)') 'The file '//TRIM(chkname)//' may be incomplete, or the utilit&
-                 &yformchk does not exist.'
+  write(6,'(A)') 'The file '//TRIM(chkname)//' may be problematic, or the utili&
+                 &ty formchk does not exist.'
   stop
  end if
 end subroutine formchk

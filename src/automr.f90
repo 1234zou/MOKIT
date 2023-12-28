@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc18 :: MOKIT, release date: 2023-Dec-20'
+  write(6,'(A)') 'AutoMR 1.2.6rc19 :: MOKIT, release date: 2023-Dec-28'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -148,7 +148,7 @@ subroutine get_paired_LMO()
  integer :: i, SYSTEM
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, pyname, chkname, outname, fchname
+ character(len=240) :: proname, pyname, outname, fchname
 
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return ! no need for this subroutine
@@ -175,14 +175,10 @@ subroutine get_paired_LMO()
   else
    write(6,'(A)') 'One set of MOs: invoke RHF virtual MO projection -> localiza&
                   &tion -> paring.'
-   chkname = hf_fch(1:i-1)//'_proj.chk' ! this is PySCF chk file, not Gaussian
    pyname = TRIM(proname)//'_proj_loc_pair.py'
-   call bas_fch2py_wrap(hf_fch, .false., pyname)
-   if(dkh2_or_x2c) call add_X2C_into_py(pyname)
    call prt_rhf_proj_script_into_py(pyname)
    call prt_auto_pair_script_into_py(pyname)
    call submit_pyscf_job(pyname)
-   call delete_file(TRIM(chkname))
   end if
 
  else
@@ -227,224 +223,203 @@ end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
 subroutine prt_rhf_proj_script_into_py(pyname)
- use mr_keyword, only: mem, nproc, hf_fch, dkh2_or_x2c
- use mol, only: natom, nuc, elem
+ use mr_keyword, only: hf_fch
+ use mol, only: nuc, beyond_xe
  implicit none
- integer :: i, fid1, fid2, RENAME
- integer, allocatable :: ntimes(:)
- character(len=240) :: buf, pyname1, proj_fch, chkname
+ integer :: i, fid
+ character(len=240) :: proj_fch, proname, minbas_fch
  character(len=240), intent(in) :: pyname
 
- pyname1 = TRIM(pyname)//'.t'
- buf = ' '
- i = INDEX(hf_fch, '.fch')
+ call find_specified_suffix(hf_fch, '.fch', i)
  proj_fch = hf_fch(1:i-1)//'_proj.fch'
- chkname = hf_fch(1:i-1)//'_proj.chk' ! for PySCF STO-6G, not Gaussian .chk
+ proname = hf_fch(1:i-1)//'_minb'
+ minbas_fch = hf_fch(1:i-1)//'_minb.fch'
+ if(ANY(nuc > 54)) beyond_xe = .true.
 
- open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(pyname1),status='replace')
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
+ ! Perform a HF/STO-6G calculation using Gaussian.
+ ! STO-6G in PySCF ranges from H~Kr, but in Gaussian ranges from H~Xe, so
+ ! currently Gaussian is chosen. Maybe in the future we need to remove too
+ ! much dependence on Gaussian.
+ if(.not. beyond_xe) call do_min_bas_hf(proname)
+ if(beyond_xe) return
 
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: end-of-fil&
-                   &e detected.'
-  write(6,'(A)') 'File may be problematic: '//TRIM(pyname)
-  close(fid1)
-  close(fid2,status='delete')
-  stop
- end if
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from pyscf import gto'
+ write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_&
+                  &na_and_nb_from_fch, get_occ_from_na_nb'
+ write(fid,'(A)') 'from mokit.lib.mo_svd import mo_svd'
+ write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
+ write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid,'(A,/)') 'from shutil import copyfile'
 
- write(fid2,'(A)') 'from pyscf import lib'
- write(fid2,'(A)') 'import numpy as np'
- write(fid2,'(A)') 'from mokit.lib.mo_svd import mo_svd'
- write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
- write(fid2,'(A,/)') 'from shutil import copyfile'
- write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
+ write(fid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
+ write(fid,'(A)') 'mol = load_mol_from_fch(hf_fch)'
+ write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(hf_fch)'
+ write(fid,'(A,/)') "mo = fch2py(hf_fch, nbf, nif, 'a')"
 
- do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(1:9) == 'mf.kernel') exit
-  write(fid2,'(A)') TRIM(buf)
- end do
- write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
- write(fid2,'(A)') 'mf.kernel()'
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:3) == '#dm') exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- write(fid2,'(A)') TRIM(buf(2:))
- read(fid1,'(A)') buf
- write(fid2,'(A)') TRIM(buf(2:))
- write(fid2,'(A)') "mf.chkfile = '"//TRIM(chkname)//"'"
- read(fid1,'(A)') buf
- write(fid2,'(A)') TRIM(buf(2:))
- close(fid1,status='delete')
-
- write(fid2,'(/,A)') '# copy this molecule at STO-6G'
- write(fid2,'(A)') 'mol2 = mol.copy()'
-
- if(ANY(nuc > 54)) then ! atoms > Xe
-  allocate(ntimes(natom))
-  call calc_ntimes(natom, elem, ntimes)
-  write(fid2,'(A)') "mol2.basis = {'default':'STO-6G',"
-  do i = 1, natom, 1
-   if(nuc(i) > 54) write(fid2,'(A,I0,A)') "'"//TRIM(elem(i)),ntimes(i),"':'def2-SVP',"
-  end do ! for i
-  write(fid2,'(A)') '}'
-  write(fid2,'(A)') 'mol2.ecp = mol.ecp.copy()'
-  deallocate(ntimes)
- else
-  write(fid2,'(A)') "mol2.basis = 'STO-6G'"
- end if
-
- write(fid2,'(A)') 'mol2.build(parse_arg=False)'
- if(dkh2_or_x2c) then
-  write(fid2,'(A)') 'mf2 = scf.RHF(mol2).x2c1e()'
- else
-  write(fid2,'(A)') 'mf2 = scf.RHF(mol2)'
- end if
- write(fid2,'(A)') 'mf2.max_cycle = 150'
- write(fid2,'(A,I0,A)') 'mf2.max_memory = ', mem*1000, ' # MB'
- write(fid2,'(A)') "dm = mf2.from_chk(mf.chkfile)"
- write(fid2,'(A)') 'mf2.kernel(dm0=dm)'
- write(fid2,'(A)') 'nbf2 = mf2.mo_coeff.shape[0]'
- write(fid2,'(A)') 'nif2 = mf2.mo_coeff.shape[1]'
- write(fid2,'(/,A)') '# project virtual MOs onto those of RHF/STO-6G'
- write(fid2,'(A)') "cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
- write(fid2,'(A)') 'idx = np.sum(mf.mo_occ > 0)'
- write(fid2,'(A)') 'npair = np.sum(mf2.mo_occ==0)'
- write(fid2,'(A)') 'nmo1 = nif - idx'
- write(fid2,'(A)') 'nmo2 = nif2 - idx'
- write(fid2,'(A)') 'coeff1 = mf.mo_coeff[:,range(idx,nif)]'
- write(fid2,'(A)') 'coeff2 = mf2.mo_coeff[:,range(idx,nif2)]'
- write(fid2,'(A)') 'mo_svd(nbf, nmo1, nbf2, nmo2, coeff1, coeff2, cross_S, False)'
- write(fid2,'(A)') 'mf.mo_coeff[:,range(idx,nif)] = coeff1.copy()'
- write(fid2,'(A)') '# project done'
-
- write(fid2,'(/,A)') '# save projected MOs into a new .fch file'
- write(fid2,'(A)') "proj_fch = '"//TRIM(proj_fch)//"'"
- write(fid2,'(A)') "copyfile(hf_fch, proj_fch)"
- write(fid2,'(A)') "py2fch(proj_fch,nbf,nif,mf.mo_coeff,'a',mf.mo_occ,False,False)"
- write(fid2,'(A)') '# save done'
- close(fid2)
-
- i = RENAME(TRIM(pyname1), TRIM(pyname))
+ write(fid,'(A)') "minbas_fch = '"//TRIM(minbas_fch)//"'"
+ write(fid,'(A)') 'mol2 = load_mol_from_fch(minbas_fch)'
+ write(fid,'(A)') 'nbf2, nif2 = read_nbf_and_nif_from_fch(minbas_fch)'
+ write(fid,'(A)') "mo2 = fch2py(minbas_fch, nbf2, nif2, 'a')"
+ write(fid,'(/,A)') '# project virtual MOs onto those of R(O)HF/STO-6G'
+ write(fid,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
+ write(fid,'(A)') 'na2, nb2 = read_na_and_nb_from_fch(minbas_fch)'
+ write(fid,'(A)') 'npair = nif2 - na2'
+ write(fid,'(A)') 'coeff1 = mo[:,range(na,nif)]'
+ write(fid,'(A)') 'coeff2 = mo2[:,range(na2,nif2)]'
+ write(fid,'(A)') "cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
+ write(fid,'(A)') 'mo_svd(nbf, nif-na, nbf2, npair, coeff1, coeff2, cross_S, False)'
+ write(fid,'(A)') 'mo[:,range(na,nif)] = coeff1.copy()'
+ write(fid,'(A)') '# project done'
+ write(fid,'(/,A)') '# save projected MOs into a new .fch file'
+ write(fid,'(A)') "proj_fch = '"//TRIM(proj_fch)//"'"
+ write(fid,'(A)') "copyfile(hf_fch, proj_fch)"
+ write(fid,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
+ write(fid,'(A)') "py2fch(proj_fch, nbf, nif, mo, 'a', mo_occ, False, False)"
+ write(fid,'(A)') '# save done'
+ close(fid)
 end subroutine prt_rhf_proj_script_into_py
 
 ! print localization and automatically pairing information into a given .py file
 subroutine prt_auto_pair_script_into_py(pyname)
  use mr_keyword, only: localm, hf_fch
- use mol, only: chem_core, ecp_core
+ use mol, only: beyond_xe, chem_core, ecp_core
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, loc_fch
+ character(len=240) :: buf, pyname1, loc_fch, lmo_fch
  character(len=240), intent(in) :: pyname
 
  buf = ' '
- ncore = chem_core - ecp_core
- pyname1 = TRIM(pyname)//'.t'
+ i = INDEX(pyname, '.py', back=.true.)
+ pyname1 = pyname(1:i-1)//'.t'
  i = INDEX(hf_fch, '.fch', back=.true.)
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
+ lmo_fch = hf_fch(1:i-1)//'_LMO.fch'
+ ncore = chem_core - ecp_core
 
- open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(pyname1),status='replace')
+ if(beyond_xe) then ! some element >Xe
+  open(newunit=fid1,file=TRIM(pyname),status='replace')
+  write(fid1,'(A)') 'from pyscf.lo.boys import dipole_integral'
+  write(fid1,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch, loc'
+  write(fid1,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, rea&
+                    &d_na_and_nb_from_fch, \'
+  write(fid1,'(A)') ' read_eigenvalues_from_fch, get_occ_from_na_nb, get_core_&
+                     &valence_sep_idx'
+  write(fid1,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sor&
+                    &t_pair'
+  write(fid1,'(A)') 'from mokit.lib.assoc_rot import assoc_loc'
+  write(fid1,'(A)') 'from mokit.lib.fch2py import fch2py'
+  write(fid1,'(A)') 'from mokit.lib.py2fch import py2fch'
+  write(fid1,'(A)') 'from shutil import copyfile'
+  write(fid1,'(/,A)') "hf_fch = '"//TRIM(hf_fch)//"'"
+  write(fid1,'(A)') "lmo_fch = '"//TRIM(lmo_fch)//"'"
+  write(fid1,'(A,I0)') 'ncore = ', ncore
+  write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
+  write(fid1,'(A)') 'nopen = na - nb'
+  write(fid1,'(A)',advance='no') 'loc(fchname=hf_fch, idx=range(ncore,nb)'
+  if(TRIM(localm) == 'boys') write(fid1,'(A)',advance='no') ", method='boys'"
+  write(fid1,'(A)') ')'
+  write(fid1,'(A)') 'sort_pair(lmo_fch, hf_fch, nb-ncore)'
+  write(fid1,'(/,A)') 'mol = load_mol_from_fch(lmo_fch)'
+  write(fid1,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(lmo_fch)'
+  write(fid1,'(A)') "mo_e = read_eigenvalues_from_fch(lmo_fch, nif, 'a')"
+  write(fid1,'(A)') "mo = fch2py(lmo_fch, nbf, nif, 'a')"
+  write(fid1,'(A)') 'mo_dipole = dipole_integral(mol, mo)'
+  write(fid1,'(A)') 'ref1 = get_core_valence_sep_idx(lmo_fch) - 1'
+  write(fid1,'(A)') 'npair = nb - ref1'
+  write(fid1,'(A)') 'new_mo = assoc_loc(nbf, nif, ref1, nb, na, nif, mo, mo_dipole)'
+  write(fid1,'(/,A)') "loc_fch = '"//TRIM(loc_fch)//"'"
+  write(fid1,'(A)') 'copyfile(lmo_fch, loc_fch)'
+  write(fid1,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
+  write(fid1,'(A)') "py2fch(loc_fch, nbf, nif, new_mo, 'a', mo_occ, False, False)"
+ else               ! all elements <= Xe
+  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
+  open(newunit=fid2,file=TRIM(pyname1),status='replace')
+  do while(.true.)
+   read(fid1,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(LEN_TRIM(buf) == 0) exit
+   write(fid2,'(A)') TRIM(buf)
+  end do
 
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
+  if(i /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-fi&
+                    &le detected.'
+   write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
+   close(fid1)
+   close(fid2,status='delete')
+   stop
+  end if
 
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: end-of-fi&
-                   &le detected.'
-  write(6,'(A)') 'File may be incomplete: '//TRIM(pyname)
-  close(fid1)
-  close(fid2,status='delete')
-  stop
+  write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sor&
+                    &t_pair'
+  if(TRIM(localm) == 'pm') then ! Pipek-Mezey localization
+   write(fid2,'(A)') 'from mokit.lib.lo import pm'
+  else                          ! Foster-Boys localization
+   write(fid2,'(A)') 'from mokit.lib.lo import boys'
+  end if
+  write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
+  write(fid2,'(A,/)') 'from mokit.lib.auto_pair import pair_by_tdm'
+
+  do while(.true.)
+   read(fid1,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid2,'(A)') TRIM(buf)
+  end do
+  close(fid1,status='delete')
+
+  write(fid2,'(/,A)') '# localize the projected MOs of larger basis'
+  write(fid2,'(A,I0)') 'ncore = ', ncore
+  write(fid2,'(A)') 'nopen = na - nb'
+  write(fid2,'(A)') 'nvir_lmo = npair # backup'
+  write(fid2,'(A)') 'npair = min(npair, nb-ncore)'
+  write(fid2,'(A)') 'occ_idx = range(ncore,nb)'
+  write(fid2,'(A)') 'vir_idx = range(na,nif2)'
+
+  if(TRIM(localm) == 'pm') then ! Pipek-Mezey localization
+   write(fid2,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+   write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
+                     &_bas[:,3],mol.cart,nbf,'
+   write(fid2,'(17X,A)') "nb-ncore,mo[:,occ_idx],S,'mulliken')"
+   write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
+                     &_bas[:,3],mol.cart,nbf,'
+   write(fid2,'(17X,A)') "nif2-na,mo[:,vir_idx],S,'mulliken')"
+  else                          ! Foster-Boys localization
+   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo[:,occ_idx])'
+   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, nb-ncore, mo[:,occ_idx], mo_dipole)'
+   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo[:,vir_idx])'
+   write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-na, mo[:,vir_idx], mo_dipole)'
+  end if
+
+  write(fid2,'(A)') 'mo[:,occ_idx] = occ_loc_orb.copy()'
+  write(fid2,'(A)') 'mo[:,vir_idx] = vir_loc_orb.copy()'
+  write(fid2,'(A)') '# localization done'
+  write(fid2,'(/,A)') '# pair the active orbitals'
+  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo)'
+  write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore,npair,nopen,na,nvir_lmo,nb&
+                    &f,nif,mo,mo_dipole)'
+  write(fid2,'(A)') 'mo = alpha_coeff.copy()'
+  write(fid2,'(A)') '# pair done'
+  write(fid2,'(/,A)') '# save the paired LMO into .fch file'
+  write(fid2,'(A)') "loc_fch = '"//TRIM(loc_fch)//"'"
+  write(fid2,'(A)') "copyfile(hf_fch, loc_fch)"
+  write(fid2,'(A)') "py2fch(loc_fch, nbf, nif, mo, 'a', mo_occ, False, False)"
+  write(fid2,'(A)') "sort_pair(loc_fch, hf_fch, npair)"
+  write(fid2,'(A)') '# save done'
+  close(fid2)
+  i = RENAME(TRIM(pyname1), TRIM(pyname))
+  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  end if
 
- write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort_pair'
- if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') 'from mokit.lib.lo import pm'
- else ! Boys localization
-  write(fid2,'(A)') 'from mokit.lib.lo import boys'
- end if
- write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
- write(fid2,'(A,/)') 'from mokit.lib.auto_pair import pair_by_tdm'
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
- close(fid1,status='delete')
-
- write(fid2,'(/,A)') '# localize the projected MOs of larger basis'
- write(fid2,'(A,I0)') 'ncore = ', ncore
- write(fid2,'(A)') 'nopen = np.sum(mf.mo_occ==1)'
- write(fid2,'(A)') 'idx2 = np.sum(mf.mo_occ==2)'
- write(fid2,'(A)') 'idx1 = min(npair, idx2-ncore)'
- write(fid2,'(A)') 'occ_idx = range(ncore,idx2)'
- write(fid2,'(A)') 'vir_idx = range(idx2+nopen,nif2)'
- write(fid2,'(A)') 'nvir_lmo = npair # backup'
- write(fid2,'(A)') 'npair = idx1 # update'
-
- if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
-                    &_bas[:,3],mol.cart,nbf,'
-  write(fid2,'(17X,A)') "idx2-ncore,mf.mo_coeff[:,occ_idx],S,'mulliken')"
-  write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
-                    &_bas[:,3],mol.cart,nbf,'
-  write(fid2,'(17X,A)') "nif2-idx2-nopen,mf.mo_coeff[:,vir_idx],S,'mulliken')"
- else ! Boys localization
-  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,occ_idx])'
-  write(fid2,'(A)') 'occ_loc_orb = boys(nbf, idx2-ncore, mf.mo_coeff[:,occ_idx], mo_dipole)'
-  write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff[:,vir_idx])'
-  write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-idx2-nopen, mf.mo_coeff[:,vir&
-                    &_idx], mo_dipole)'
- end if
-
- write(fid2,'(A)') 'mf.mo_coeff[:,occ_idx] = occ_loc_orb.copy()'
- write(fid2,'(A)') 'mf.mo_coeff[:,vir_idx] = vir_loc_orb.copy()'
- write(fid2,'(A)') '# localization done'
-
- write(fid2,'(/,A)') '# pair the active orbitals'
- write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mf.mo_coeff)'
- write(fid2,'(A)') 'na = np.sum(mf.mo_occ > 0)'
- write(fid2,'(A)') 'alpha_coeff = pair_by_tdm(ncore,npair,nopen,na,nvir_lmo,nbf&
-                   &,nif,mf.mo_coeff,mo_dipole)'
- write(fid2,'(A)') 'mf.mo_coeff = alpha_coeff.copy()'
- write(fid2,'(A)') '# pair done'
-
- write(fid2,'(/,A)') '# save the paired LMO into .fch file'
- write(fid2,'(A)') "loc_fch = '"//TRIM(loc_fch)//"'"
- write(fid2,'(A)') "copyfile(hf_fch, loc_fch)"
- write(fid2,'(A)') "py2fch(loc_fch, nbf, nif, mf.mo_coeff, 'a', mf.mo_occ, Fals&
-                   &e, False)"
- write(fid2,'(A)') "sort_pair(loc_fch, hf_fch, npair)"
- write(fid2,'(A)') '# save done'
-
- write(fid2,'(/,A)') "f = open('uno.out', 'w+')"
- write(fid2,'(A)') "f.write('nbf=%i\n' %nbf)"
- write(fid2,'(A)') "f.write('nif=%i\n\n' %nif)"
- write(fid2,'(A)') 'idx1 = idx2 - npair'
- write(fid2,'(A)') "f.write('ndb=%i\n\n' %idx1)"
- write(fid2,'(A)') "f.write('idx=%i %i %i' %(idx1+1,na+npair+1,nopen))"
- write(fid2,'(A)') 'f.close()'
- close(fid2)
-
- i = RENAME(TRIM(pyname1), TRIM(pyname))
+ write(fid1,'(/,A)') "f = open('uno.out', 'w+')"
+ write(fid1,'(A)') "f.write('nbf=%i\n' %nbf)"
+ write(fid1,'(A)') "f.write('nif=%i\n\n' %nif)"
+ write(fid1,'(A)') 'idx1 = nb - npair'
+ write(fid1,'(A)') "f.write('ndb=%i\n\n' %idx1)"
+ write(fid1,'(A)') "f.write('idx=%i %i %i' %(idx1+1,na+npair+1,nopen))"
+ write(fid1,'(A)') 'f.close()'
+ close(fid1)
 end subroutine prt_auto_pair_script_into_py
 
 ! print UNO script into a given .py file
@@ -618,65 +593,6 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') '# localization done'
 
 ! write(fid1,'(/,A)') '# using projection to supplement pairs (if needed)'
-! write(fid1,'(A)') 'mol2 = mol.copy()'
-! if(ANY(nuc > 54)) then ! atoms > Xe
-!  allocate(ntimes(natom))
-!  call calc_ntimes(natom, elem, ntimes)
-!  write(fid1,'(A)') "mol2.basis = {'default':'STO-6G',"
-!  do i = 1, natom, 1
-!   if(nuc(i) > 54) write(fid2,'(A,I0,A)') "'"//TRIM(elem(i)),ntimes(i),"':'def2-SVP',"
-!  end do ! for i
-!  write(fid1,'(A)') '}'
-!  write(fid1,'(A)') 'mol2.ecp = mol.ecp.copy()'
-!  deallocate(ntimes)
-! else
-!  write(fid1,'(A)') "mol2.basis = 'STO-6G'"
-! end if
-! write(fid1,'(A)') 'mol2.build(parse_arg=False)'
-! write(fid1,'(A)') 'nshl = mol2.nbas'
-! write(fid1,'(A)') 'ang = mol2._bas[:,1].copy()'
-! write(fid1,'(A)') 'if(mol2.cart == True):'
-! write(fid1,'(A)') '  for i in range(0,nshl):'
-! write(fid1,'(A)') '    ang[i] = (ang[i]+1)*(ang[i]+2)/2'
-! write(fid1,'(A)') 'else:'
-! write(fid1,'(A)') '  for i in range(0,nshl):'
-! write(fid1,'(A)') '    ang[i] = 2*ang[i] + 1'
-! write(fid1,'(A)') 'nbf2 = np.dot(ang, mol2._bas[:,3])'
-! write(fid1,'(A)') 'na_np = idx[1] - 1'
-! write(fid1,'(A)') 'nalpha = na_np - npair'
-! write(fid1,'(A)') 'npair0 = nbf2 - nalpha # number of virtual MOs in STO-6G'
-! write(fid1,'(A)') 'ncr = npair0 - npair'
-! write(fid1,'(A)') 'if(ncr > 0):'
-! write(fid1,'(A)') "  S2 = mol2.intor_symmetric('int1e_ovlp')"
-! write(fid1,'(A)') "  cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
-! write(fid1,'(A)') '  alpha_coeff = proj_occ_get_act_vir(nbf, nif, nbf2, na_np,&
-!                   & S2, cross_S, mf.mo_coeff[0])'
-! write(fid1,'(A)') '  mf.mo_coeff = (alpha_coeff, beta_coeff)'
-! write(fid1,'(A)') '  nopen = idx[2]'
-! write(fid1,'(A)') '  ndb = nalpha - nopen - npair0'
-! write(fid1,'(A,I0)') '  ncore = ', ncore
-! write(fid1,'(A)') '  nloc = ndb + ncr - ncore'
-! write(fid1,'(A)') "  f = open('uno.out', 'w+')"
-! write(fid1,'(A)') "  f.write('nbf=%i\n' %nbf)"
-! write(fid1,'(A)') "  f.write('nif=%i\n\n' %nif)"
-! write(fid1,'(A)') "  f.write('ndb=%i\n\n' %ndb)"
-! write(fid1,'(A)') "  f.write('idx=%i %i %i' %(ndb+1,nalpha+npair0+1,nopen))"
-! write(fid1,'(A)') '  f.close()'
-! write(fid1,'(A)') '  occ_idx = range(ncore, ndb+ncr)'
-! write(fid1,'(A)') '  vir_idx = range(na_np, na_np+ncr)'
-! write(fid1,'(A)') '  occ_idx1 = range(0, nloc)'
-! write(fid1,'(A)') '  vir_idx1 = range(nloc, nloc+ncr)'
-! write(fid1,'(A)') '  coeff = np.zeros((nbf, nloc+ncr))'
-! ! These pairs are sigma bonds and lone electrons, just use boys localization
-! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_idx])'
-! write(fid1,'(A)') '  coeff[:,occ_idx1] = boys(nbf, nloc, mf.mo_coeff[0][:,occ_idx], mo_dipole)'
-! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,vir_idx])'
-! write(fid1,'(A)') '  coeff[:,vir_idx1] = boys(nbf, ncr, mf.mo_coeff[0][:,vir_idx], mo_dipole)'
-! write(fid1,'(A)') '  # pair the supplement active orbitals'
-! write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, coeff)'
-! write(fid1,'(A)') '  alpha_coeff = pair_by_tdm(0,ncr,0,nloc,ncr,nbf,nloc+ncr,coeff,mo_dipole)'
-! write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = alpha_coeff[:,occ_idx1].copy()'
-! write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = alpha_coeff[:,vir_idx1].copy()'
 
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
@@ -1158,4 +1074,62 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
 
  npair0 = (npair0 - nopen)/2
 end subroutine find_npair0_from_fch
+
+! perform a RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO
+subroutine do_min_bas_hf(proname)
+ use mr_keyword, only: mem, nproc, gau_path
+ use mol, only: charge, mult, natom, elem, coor
+ use util_wrapper, only: formchk, fch_u2r_wrap
+ implicit none
+ integer :: i, fid
+ character(len=240) :: gjfname, chkname, fchname, logname
+ character(len=240), intent(in) :: proname
+
+ gjfname = TRIM(proname)//'.gjf'
+ chkname = TRIM(proname)//'.chk'
+ fchname = TRIM(proname)//'.fch'
+#ifdef _WIN32
+ logname = TRIM(proname)//'.out'
+#else
+ logname = TRIM(proname)//'.log'
+#endif
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
+ write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
+ write(fid,'(A,I0)') '%nprocshared=', nproc
+ write(fid,'(A)',advance='no') '#p '
+ if(mult == 1) then
+  write(fid,'(A)',advance='no') 'R'
+ else
+  write(fid,'(A)',advance='no') 'U'
+ end if
+ write(fid,'(A)',advance='no') 'HF/STO-6G nosymm int=nobasistransform scf(xqc,m&
+                               &axcycle=500)'
+ if(mult > 1) write(fid,'(A)',advance='no') ' stable=opt'
+
+ write(fid,'(//,A,//,I0,1X,I0)') 'Title', charge, mult
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+ end do ! for i
+
+ ! We will not use ROHF here since it is sometimes not easy to be converged and
+ ! `scf=qc` cannot be used for ROHF in Gaussian. Instead, we will use UNO.
+ if(mult > 1) then
+  write(fid,'(//,A)') '--Link1--'
+  write(fid,'(A)') '%chk='//TRIM(chkname)
+  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
+  write(fid,'(A,I0)') '%nprocshared=', nproc
+  write(fid,'(A)') '#p chkbasis nosymm int=nobasistransform guess(read,only,sav&
+                   &e,NaturalOrbitals) geom=allcheck'
+ end if
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+
+ call submit_gau_job(gau_path, gjfname, .false.)
+ call formchk(chkname)
+ if(mult > 1) call fch_u2r_wrap(fchname, fchname)
+ call delete_files(3, [gjfname, chkname, logname])
+end subroutine do_min_bas_hf
 

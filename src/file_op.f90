@@ -340,8 +340,9 @@ subroutine simplify_fch(fchname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine simplify_fch: keywords for termination no&
-                 &t found in file '//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine simplify_fch: keywords for termination &
+                   &not found in'
+  write(6,'(A)') 'file '//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -351,4 +352,55 @@ subroutine simplify_fch(fchname)
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine simplify_fch
+
+! read the number of MOs from a Gaussian .fch(k) file
+subroutine read_nif_from_fch(fchname, nif)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ nif = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:13) == 'Number of ind') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nif_from_fch: no 'Number of ind' f&
+                   &ound in file "//TRIM(fchname)
+  stop
+ end if
+
+ read(buf(45:),*) nif
+end subroutine read_nif_from_fch
+
+! read spin multipliticity from a given .fch(k) file
+subroutine read_mult_from_fch(fchname, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ call open_file(fchname, .true., fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'Mult') exit
+ end do ! for while
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(A)') "ERROR in subroutine read_mult_from_fch: no 'Mult' found in&
+                & file "//TRIM(fchname)
+  stop
+ end if
+ read(buf(50:),*) mult
+end subroutine read_mult_from_fch
 

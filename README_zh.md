@@ -26,7 +26,7 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2023年12月20号
+2023年12月28号
 
 依赖
 ----------
@@ -40,7 +40,7 @@ or
 安装
 ----------
 在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，还有更简洁的安装方式，见[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn)。
-开发者还提供`Windows 系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
+开发者还提供`Windows系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
 
 ### 方式1：conda 联网安装（适用于Linux）
 
@@ -83,7 +83,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 
 ### 方式3：使用预编译版
 
-`Linux 系统`下预编译版本可以在GitLab主页上的下载箭头处Previous Artifacts中下载。
+`Linux`预编译版本可从[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)下载。
 
 * 前提: 需要有Python3环境和NumPy
 * 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
@@ -101,6 +101,7 @@ export GMS=$HOME/software/gamess/rungms
 修改后需执行`source ~/.bashrc`或退出重登，以使环境变量生效。
 
 ### 方式4：从源码编译
+MOKIT最新源代码可从[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html)下载。
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)

@@ -41,6 +41,9 @@ module mol
  ! (2) nbf > nif, lin_dep = .True. ;
  ! (3) nbf < nif is impossible.
 
+ logical :: beyond_xe = .false. ! whether there is any element > Xe
+ ! Used in ist=3. H~Xe is the range of STO-6G in Gaussian.
+
  real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
  real(kind=8) :: gvb_e     = 0d0 ! GVB energy
@@ -314,7 +317,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc18 (2023-Dec-20)'
+  write(6,'(A)') '           Version: 1.2.6rc19 (2023-Dec-28)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '

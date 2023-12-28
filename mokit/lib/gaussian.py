@@ -18,6 +18,8 @@ def load_mol_from_fch(fchname):
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
   >>> mf = scf.RHF(mol).run()
   '''
+  import importlib
+
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
   tmp_py  = proname+'.py'
@@ -36,7 +38,10 @@ def load_mol_from_fch(fchname):
         break
     fp.writelines(lines[3:j])
 
-  molpy = __import__(proname)
+  molpy = importlib.import_module(proname)
+  importlib.invalidate_caches()
+  # invalidate_caches() is needed, otherwise a second call of load_mol_from_fch
+  # will probably lead to the error "ModuleNotFoundError: No module named 'gauxxx'"
   os.remove(tmp_py)
   shutil.rmtree('__pycache__')
   return molpy.mol
@@ -99,7 +104,8 @@ def loc(fchname, idx, method='pm', alpha=True):
 
   if method == 'pm':
     S = mol.intor_symmetric('int1e_ovlp')
-    loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol._bas[:,3],mol.cart,nbf,nmo,mo_coeff[:,idx],S,'mulliken')
+    loc_orb = pm(mol.nbas, mol._bas[:,0],mol._bas[:,1],mol._bas[:,3], mol.cart,
+                 nbf, nmo, mo_coeff[:,idx], S, 'mulliken')
   elif method == 'boys':
     mo_dipole = dipole_integral(mol, mo_coeff[:,idx])
     loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)

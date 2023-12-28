@@ -53,7 +53,7 @@ subroutine fch2mkl(fchname)
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
-
+ character(len=1) :: str = ' '
  ! six types of angular momentum
  character(len=1), parameter :: am_type(0:5) = ['S','P','D','F','G','H']
  character(len=1), parameter :: am_type1(0:5) = ['s','p','d','f','g','h']
@@ -242,7 +242,8 @@ subroutine fch2mkl(fchname)
 
   if(m == 1) then
    if(i == 1) then
-    write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//'(1)', coor(:,1)
+    if(iatom_type(1) == 1000) str = ':'
+    write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//str, coor(:,1)
     if(ielem(1)>36 .and. ielem(1)<87) write(fid2,'(2X,A)') 'DelECP'
     write(fid2,'(2X,A)') 'NewGTO'
    end if
@@ -272,7 +273,9 @@ subroutine fch2mkl(fchname)
     end if         ! print ECP/PP data done
 
     ! print coordinates of the current atom
-    write(fid2,'(1X,A,I0,A1,3(1X,F16.8))') TRIM(elem(m))//'(',m,')',coor(:,m)
+    str = ' '
+    if(iatom_type(m) == 1000) str = ':'
+    write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(m))//str, coor(:,m)
     if(ielem(m)>36 .and. ielem(m)<87) write(fid2,'(2X,A)') 'DelECP'
     write(fid2,'(2X,A)') 'NewGTO'
    end if
@@ -305,7 +308,7 @@ subroutine fch2mkl(fchname)
  k = shell2atom_map(ncontr)
  if(k < natom) then
   do i = k+1, natom, 1
-   write(fid2,'(1X,A,I0,A,3(1X,F16.8))') 'H:(',i,')',coor(:,i)
+   write(fid2,'(1X,A2,3(1X,F16.8))') 'H:', coor(:,i)
    write(fid2,'(2X,A)') 'NewGTO S 1 1 1e6 1 end'
   end do ! for i
  end if

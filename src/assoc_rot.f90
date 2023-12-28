@@ -4,7 +4,7 @@ module polyn_info
  implicit none
  real(kind=8), parameter :: zero = 1d-8
  real(kind=8), parameter :: alpha = 0.01d0
- real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-5
+ real(kind=8), parameter :: threshold1 = 1d-9, threshold2 = 1d-5
 ! threshold1: threshold to decide whether to rotate (and update MOs, dipole integrals)
 ! threshold2: threshold to decide if rotation/localization converged
 end module polyn_info
@@ -69,8 +69,8 @@ subroutine assoc_loc2(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
  use polyn_info, only: threshold1, threshold2
  implicit none
  integer :: i, j, k, niter, nrot, nref
- integer, intent(in) ::  nbf, nif, rot1, rot2, ref1, ref2
-!f2py intent(in) :: nbf, nif, rot1, rot2, ref1, ref2
+ integer, intent(in) ::  nbf, nif, ref1, ref2, rot1, rot2
+!f2py intent(in) :: nbf, nif, ref1, ref2, rot1, rot2
  integer, parameter :: niter_max = 10000
  real(kind=8), intent(in) :: coeff(nbf,nif) ! input orbitals
 !f2py intent(in) :: coeff
@@ -177,10 +177,10 @@ end subroutine assoc_loc2
 !  which means large orbital transition dipole moments meanwhile localized
 ! nbf: the number of atomic basis functions
 ! nif: the number of independent basis functions, i.e., the number of MOs
-! rot1: the begin index of orbitals to be rotated
-! rot2: the end index of orbitals to be rotated
 ! ref1: the begin index of reference orbitals
 ! ref2: the end index of reference orbitals
+! rot1: the begin index of orbitals to be rotated
+! rot2: the end index of orbitals to be rotated
 ! coeff: all MO coefficients of a molecule
 ! new_coeff: all MO coefficients with coeff(:,rot1+1:rot2) updated
 ! mo_dipole: MO based dipole integrals of all MOs
@@ -189,8 +189,8 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
  use polyn_info, only: alpha, threshold1, threshold2
  implicit none
  integer :: i, j, k, niter, nrot, nref
- integer, intent(in) ::  nbf, nif, rot1, rot2, ref1, ref2
-!f2py intent(in) :: nbf, nif, rot1, rot2, ref1, ref2
+ integer, intent(in) ::  nbf, nif, ref1, ref2, rot1, rot2
+!f2py intent(in) :: nbf, nif, ref1, ref2, rot1, rot2
  integer, parameter :: niter_max = 10000
  real(kind=8), intent(in) :: coeff(nbf,nif) ! input orbitals
 !f2py intent(in) :: coeff

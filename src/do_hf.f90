@@ -11,7 +11,7 @@ subroutine do_hf(prt_mr_strategy)
  implicit none
  integer :: i, system
  real(kind=8) :: ssquare = 0d0
- real(kind=8), parameter :: r_u_diff = 1d-5 ! a.u.
+ real(kind=8), parameter :: r_u_diff = 1d-4 ! a.u.
  character(len=24) :: data_string = ' '
  character(len=240) :: rhf_gjfname, uhf_gjfname, hf_prog_path
  logical :: eq, noiter
@@ -442,7 +442,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, gjfname, noiter, e, ssquare
  outname1 = gjfname(1:i-1)//'.log' ! Gaussian output file under Linux
 #endif
 
- call submit_gau_job(gau_path, gjfname)
+ call submit_gau_job(gau_path, gjfname, .false.)
  if(noiter) return ! no energy read
 
  call formchk(chkname, fchname)
@@ -1166,8 +1166,8 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no '!' found&
-                 & in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_orca_inp: no '!' foun&
+                  &d in file "//TRIM(inpname)
   stop
  end if
 
@@ -1180,8 +1180,8 @@ subroutine read_hf_type_from_orca_inp(inpname, hf_type)
  else if(index(buf,'HF') > 0) then
   hf_type = 0
  else 
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_orca_inp: no 'HF' found&
-                & in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_orca_inp: no 'HF' fou&
+                   &nd in file "//TRIM(inpname)
   close(fid)
   stop
  end if

@@ -12,7 +12,6 @@ subroutine direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_t
  integer, intent(in) :: n
  integer, intent(in) :: wfn_type0(n), wfn_type ! 1/2/3 for RHF/ROHF/UHF
  character(len=240), intent(in) :: fchname0(n), fchname
- real(kind=8) :: ne
  real(kind=8), allocatable :: mo_a0(:,:), mo_b0(:,:) ! fragment MOs
  real(kind=8), allocatable :: mo_a(:,:), mo_b(:,:)   ! supermolecule MOs
  real(kind=8), allocatable :: ovlp(:,:) ! AO overlap matrix
@@ -98,12 +97,6 @@ subroutine direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_t
  call construct_vir(nbf, nif, k2+1, mo_a0, ovlp, mo_a)
  deallocate(mo_a0)
  call write_mo_into_fch(fchname, nbf, nif, 'a', mo_a)
- ovlp = MATMUL(2d0*MATMUL(mo_a(:,1:na), TRANSPOSE(mo_a(:,1:na))), ovlp)
- ne = 0d0
- do i = 1, nbf, 1
-  ne = ne + ovlp(i,i)
- end do ! for i
- write(6,'(A,F18.8)') 'trace(PS) = ', ne
  deallocate(mo_a)
 
  if(wfn_type == 3) then

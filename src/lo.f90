@@ -70,7 +70,7 @@ subroutine localize_singly_occ_orb(fchname)
  character(len=240), intent(in) :: fchname
 
  call read_na_and_nb_from_fch(fchname, na, nb)
- call localize_orb(fchname, nb+1, na)
+ if(na > nb+1) call localize_orb(fchname, nb+1, na)
 end subroutine localize_singly_occ_orb
 
 ! the loc() function in mokit.lib.gaussian is called to localize specified
@@ -188,7 +188,7 @@ subroutine gen_no_from_nso(fchname)
  character(len=240), intent(in) :: fchname ! must have NSO in it
  real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
 
- i = INDEX(fchname,'.fch',back=.true.)
+ i = INDEX(fchname, '.fch', back=.true.)
  no_fch = fchname(1:i-1)//'_NO.fch'
  call fch_u2r_wrap(fchname, no_fch)
 
@@ -205,7 +205,6 @@ subroutine gen_no_from_nso(fchname)
 
  allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, S)
- !call no(nbf, nif, dm, S, noon, mo)
  call get_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 
@@ -342,7 +341,7 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
  t0 = time()
  new_coeff = coeff
  if(nif == 1) then
-  write(6,'(A)') 'Warning in subroutine cholesky: only 1 orbital. Nothing to do.'
+  write(6,'(/,A)') 'ERROR in subroutine cholesky: only 1 orbital. Nothing to do.'
   stop
  end if
 
@@ -353,7 +352,8 @@ subroutine cholesky(nbf, nif, coeff, new_coeff)
   rtmp1 = P(i,i) - ddot(i-1, new_coeff(i,1:i-1), 1, new_coeff(i,1:i-1), 1)
 
   if(rtmp1 < 1d-12) then
-   write(6,'(A)') 'ERROR in subroutine cholesky: density matrix not positive semidefinite.'
+   write(6,'(/,A)') 'ERROR in subroutine cholesky: density matrix not positive &
+                    &semidefinite.'
    write(6,'(A)') 'rtmp1 < 1d-12.'
    stop
   end if
@@ -445,7 +445,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  end if
 
  if(ANY(ang<0)) then
-  write(6,'(A)') 'ERROR in subroutine pm: there exists ang(i)<0.'
+  write(6,'(/,A)') 'ERROR in subroutine pm: there exists some ang(i)<0.'
   stop
  end if
 
@@ -457,8 +457,8 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
 
  j = DOT_PRODUCT(ang, ibas)
  if(j /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine pm: number of basis function is&
-                 & inconsistent between j and nbf.'
+  write(6,'(/,A)') 'ERROR in subroutine pm: number of basis function is inconsi&
+                   &stent between j and nbf.'
   write(6,'(2(A,I0))') 'j=', j, ', nbf=', nbf
   stop
  end if
@@ -539,7 +539,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
   end do ! for i
 
  else
-  write(6,'(A)') 'ERROR in subroutine pm: wrong population method provided.'
+  write(6,'(/,A)') 'ERROR in subroutine pm: wrong population method provided.'
   write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input pop="//pop
   stop
  end if

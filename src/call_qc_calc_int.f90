@@ -100,15 +100,68 @@ end subroutine get_e_dipole_using_density_in_fch
 ! call Gaussian to compute AO-basis overlap integrals using the given .fch file
 subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  implicit none
+ integer :: nif
  integer, intent(in) :: nbf
  real(kind=8), intent(out) :: S(nbf,nbf)
+ real(kind=8), allocatable :: mo(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: file47
 
- call call_gaussian_gen47_from_fch(fchname, file47)
- call read_ao_ovlp_from_47(file47, nbf, S)
- call delete_file(file47)
+ call read_nif_from_fch(fchname, nif)
+
+ if(nif == nbf) then     ! no linear dependence
+  allocate(mo(nbf,nbf))
+  call read_orthonormal_basis_from_fch(fchname, nbf, mo)
+  call solve_ovlp_from_cct(nbf, mo, S)
+  deallocate(mo)
+ else if(nif < nbf) then ! linear dependence
+  call call_gaussian_gen47_from_fch(fchname, file47)
+  call read_ao_ovlp_from_47(file47, nbf, S)
+  call delete_file(TRIM(file47))
+ else
+  write(6,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: nif>nbf, which i&
+                   &s impossible.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
 end subroutine get_ao_ovlp_using_fch
+
+subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: mo(nbf,nbf)
+ character(len=11) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ mo = 0d0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  str = buf(1:11)
+  select case(str)
+  case('Orthonormal')
+   exit
+  case('Total SCF D','Mulliken Ch')
+   i = -1
+   exit
+  end select
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_orthonormal_basis_from_fch: failed&
+                   & to locate 'Orthonormal'"
+  write(6,'(A)') 'in file '//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(5(1X,ES15.8))') mo
+ close(fid)
+end subroutine read_orthonormal_basis_from_fch
 
 ! call Gaussian to compute AO-basis dipole integrals using the given .fch file
 subroutine get_ao_dipole_using_fch(fchname, nbf, D)
@@ -487,11 +540,12 @@ subroutine submit_automr_job(gjfname)
  end if
 end subroutine submit_automr_job
 
-subroutine submit_gau_job(gau_path, gjfname)
+subroutine submit_gau_job(gau_path, gjfname, prt)
  implicit none
  integer :: i, system
  character(len=240) :: logname
  character(len=240), intent(in) :: gau_path, gjfname
+ logical, intent(in) :: prt
 
  call find_specified_suffix(gjfname, '.gjf', i)
 #ifdef _WIN32
@@ -500,7 +554,7 @@ subroutine submit_gau_job(gau_path, gjfname)
  logname = gjfname(1:i-1)//'.log'
 #endif
 
- write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(gjfname)
+ if(prt) write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(gjfname)
  i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
 
  if(i /= 0) then

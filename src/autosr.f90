@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc18 (2023-Dec-20)'
+ write(6,'(A)') '           Version: 1.2.6rc19 (2023-Dec-28)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -536,7 +536,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc18 :: MOKIT, release date: 2023-Dec-20'
+  write(6,'(A)') 'AutoSR 1.2.6rc19 :: MOKIT, release date: 2023-Dec-28'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -704,7 +704,7 @@ subroutine do_mp2()
   call unfchk(hf_fch, chkname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gau_inp(inpname, .false.)
-  call submit_gau_job(gau_path, inpname)
+  call submit_gau_job(gau_path, inpname, .true.)
   call read_mp2_e_from_gau_out(outname, ref_e, mp2_e)
   if(gen_no) then
    call formchk(chkname, no_fch)
@@ -924,7 +924,7 @@ subroutine do_cc()
   call unfchk(hf_fch, chkname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gau_inp(inpname, .false.)
-  call submit_gau_job(gau_path, inpname)
+  call submit_gau_job(gau_path, inpname, .true.)
   call read_cc_e_from_gau_out(outname, t1diag, ref_e, e)
   if(gen_no) then
    call formchk(chkname, no_fch)
@@ -1114,7 +1114,7 @@ subroutine do_eomcc()
   call unfchk(hf_fch, chkname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gau_inp(inpname, .true.)
-  call submit_gau_job(gau_path, inpname)
+  call submit_gau_job(gau_path, inpname, .true.)
   call read_eomcc_e_from_gau_out(outname, nstate, ex_elec_e, ci_mult, fosc)
  case('gamess')
   call check_gms_path()
@@ -1939,8 +1939,9 @@ end subroutine prt_posthf_qchem_inp
 
 ! print post-HF keywords into a Q-Chem input(.in) file
 subroutine prt_posthf_cfour_inp()
- use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, chem_core, &
-  force
+ use sr_keyword, only: mem, mo_rhf, mp2, ccd, ccsd, ccsd_t, cc_enabled, force, &
+  chem_core
+ use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf
@@ -1975,19 +1976,12 @@ subroutine prt_posthf_cfour_inp()
   else if(ccsd_t) then
    write(fid1,'(A)',advance='no') 'CCSD(T)'
   end if
-  write(fid1,'(A)',advance='no') ',CC_PROGRAM=ECC'
-  !if(force) then
-  ! write(fid1,'(A)',advance='no') ',CC_PROGRAM=ECC'
-  ! ! NCC and VCC have various possible problems (e.g. different analytical
-  ! !  gradients when nproc is different)
-  !else
-  ! write(fid1,'(A)',advance='no') ',CC_PROGRAM='
-  ! if(mult==1 .and. (.not. uhf_based)) then
-  !  write(fid1,'(A)',advance='no') 'NCC'
-  ! else
-  !  write(fid1,'(A)',advance='no') 'ECC'
-  ! endif
-  !end if
+  write(fid1,'(A)',advance='no') ',CC_PROGRAM='
+  if(mult==1 .and. mo_rhf) then
+   write(fid1,'(A)',advance='no') 'NCC'
+  else
+   write(fid1,'(A)',advance='no') 'ECC'
+  endif
  end if
 
  i = INDEX(buf, ',')
@@ -2004,9 +1998,7 @@ subroutine prt_posthf_cfour_inp()
  end if
 
  write(fid1,'(A,I0,A)') 'MEMORY=', mem ,',MEM_UNIT=GB'
- if(force) then
-  write(fid1,'(A)') 'DERIV_LEVEL=1,FCGRADNEW=NEW'
- end if
+ if(force) write(fid1,'(A)') 'DERIV_LEVEL=1,FCGRADNEW=NEW'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

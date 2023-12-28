@@ -409,13 +409,12 @@ subroutine read_noon_from_orca_out(outname, nmo, noon)
   if(buf(4:10) == 'N(occ)=') exit
  end do ! for while
 
+ close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_noon_from_orca_out: no ''&
-                   & found in file "//TRIM(outname)//'.'
-  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_orca_out: no 'N(occ)=' f&
+                   &ound in file "//TRIM(outname)//'.'
   stop
  end if
- close(fid)
 
  i = INDEX(buf,'=')
  read(buf(i+1:),*) (noon(i),i=1,nmo)
@@ -443,8 +442,9 @@ subroutine read_noon_from_psi4_out(outname, nmo, noon)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_noon_from_psi4_out: no 'Active&
-                   & Space' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_psi4_out: no 'Active Spa&
+                   &ce Nat' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -514,8 +514,8 @@ subroutine read_nfocc_nif_from_qchem_gvb_out(outname, nfocc, nif)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_nfocc_nif_from_qchem_gvb_out: no 'Al&
-                 &pha:' found in"
+  write(6,'(/,A)') "ERROR in subroutine read_nfocc_nif_from_qchem_gvb_out: no '&
+                   &Alpha:' found in"
   write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
@@ -567,31 +567,4 @@ subroutine read_noon_from_qchem_out(outname, nfocc, noon)
 
  close(fid)
 end subroutine read_noon_from_qchem_out
-
-! read the number of MOs from a Gaussian .fch(k) file
-subroutine read_nif_from_fch(fchname, nif)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nif
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- nif = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:13) == 'Number of ind') exit
- end do
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_nif_from_fch: no 'Number of ind' f&
-                   &ound in file "//TRIM(fchname)
-  stop
- end if
-
- read(buf(45:),*) nif
-end subroutine read_nif_from_fch
 

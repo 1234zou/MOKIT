@@ -1,11 +1,12 @@
 ! written by jxzou at 20231206: utility called in Gaussian external
 
 program gau_external
+ use util_wrapper, only: gbw2mkl
  implicit none
  integer :: i, SYSTEM
- character(len=240) :: gjfname, inpname, hfile, orca_path, gradname
+ character(len=240) :: gjfname, inpname, hfile, gbwname, gradname, orca_path
  character(len=720) :: EIn, EOu
- logical :: alive
+ logical :: alive, backup
 
  call getarg(2, EIn)
  call getarg(3, EOu)
@@ -13,6 +14,7 @@ program gau_external
  call get_gjfname_from_EIn(EIn, gjfname)
  i = LEN_TRIM(gjfname)
  inpname = gjfname(1:i-6)//'_o.inp'
+ gbwname = gjfname(1:i-6)//'_o.gbw'
  gradname = gjfname(1:i-6)//'_o.engrad'
  hfile = gjfname(1:i-6)//'_o.nc'
  ! here the gjfname, inpname and hfile are correlated, for example,
@@ -32,6 +34,13 @@ program gau_external
 
  call get_orca_path(orca_path)
  call submit_orca_job(orca_path, inpname, .false.)
+
+ backup = .true.
+! if(backup) then ! backup MO coefficients into .fch file
+!  call gbw2mkl(gbwname)
+!  stop
+! end if
+
  ! TODO: using initial Hessian calculated from empirical methods and write into EOu
  call engrad2EOu(gradname, EOu)
 end program gau_external

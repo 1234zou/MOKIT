@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Dec 20, 2023
+Dec 28, 2023
 
 
 Dependencies
@@ -41,7 +41,7 @@ Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowada
 Installation
 ------------
 You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
-Pre-built `Windows* OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
+Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
 ### Option 1: Install from conda (for Linux only)
 This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
@@ -82,7 +82,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 
 ### Option 3: Use Pre-compiled MOKIT
 
-Pre-built `Linux* OS` executables can be downloaded in `Previous Artifacts` via the download button on the GitLab main page.
+Pre-built `Linux` executables can be downloaded [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries).
 
 * Prerequisites: Python3 environment and NumPy.
 
@@ -102,6 +102,8 @@ The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there.
 Note that you need to run `source ~/.bashrc` or exit the terminal as well as re-login, in order to activate newly written environment variables.
 
 ### Option 4: Build from Source
+The latest version of MOKIT source code can be downloaded [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html).
+
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
     - Intel MKL(recommended) or [OpenBLAS](https://github.com/xianyi/OpenBLAS)
