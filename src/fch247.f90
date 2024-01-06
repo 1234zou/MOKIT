@@ -245,7 +245,7 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  real(kind=8), intent(inout) :: contr_coeff(n)
 
  if(p == -1) then
-  write(6,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
+  write(6,'(/,A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
   write(6,'(A)') 'You should divide L/SP into separate S/P before calling &
                     &this subroutine.'
   stop
@@ -273,8 +273,8 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  case(5) ! H
   contr_coeff = contr_coeff/DSQRT(945d0)
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: inva&
-                       &lid p0=', p0
+  write(6,'(/,A,I0)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: inval&
+                      &id p0=', p0
   stop
  end select
 end subroutine contr_coeff_multiply_norm_fac

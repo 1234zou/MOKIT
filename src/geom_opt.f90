@@ -98,9 +98,9 @@ program geom_opt
  use mol_comp_info, only: init_mol_comp_info, gau_path
  use util_wrapper, only: gbw2mkl, mkl2fch_wrap
  implicit none
- integer :: i, fid, RENAME
- character(len=240) :: gjfname, gjfname1, gjfname2, hfile, gbwname, gesname, &
-  engrad, mklname, fchname1, fchname2
+ integer :: i, fid
+ character(len=240) :: gjfname, gjfname1, gjfname2, hfile, bakfile, numfile, &
+  gbwname, gesname, engrad, mklname, dm_name, fchname1, fchname2, propfile
 
  i = iargc()
  if(i /= 1) then
@@ -119,27 +119,39 @@ program geom_opt
  gesname = gjfname(1:i-1)//'_o.ges'
  engrad = gjfname(1:i-1)//'_o.engrad'
  mklname = gjfname(1:i-1)//'_o.mkl'
+ dm_name = gjfname(1:i-1)//'_o.densities'
  fchname1 = gjfname(1:i-1)//'_o.fch'
  fchname2 = gjfname(1:i-1)//'_g.fch'
  hfile = gjfname(1:i-1)//'_o.nc'
+ bakfile = gjfname(1:i-1)//'_o.bak'
+ numfile = gjfname(1:i-1)//'_o.num'
+ propfile = gjfname(1:i-1)//'_o_property.txt'
 
  call init_mol_comp_info(gjfname)
  call gen_guess_only_gjf(gjfname, gjfname1)
  call gen_orca_inp_gbw(gjfname1)
  call gen_gau_opt_gjf(gjfname2)
 
- ! Create an empty file. This file would be detected by the utility
- ! gau_external and it means that the 1st geometry need not be changed
+ ! Create an empty file. This file would be detected by the utility gau_external
+ ! and it means that the 1st geometry need not be changed.
  open(newunit=fid,file=TRIM(hfile),status='replace')
  close(fid)
 
+ ! Create an empty file. This file would be detected by the utility gau_external.
+ ! It means that the Cartesian coordinates and the MOs of each new geometry would
+ ! be saved into a corresponding .fch file. This takes some extra time for IO.
+ open(newunit=fid,file=TRIM(bakfile),status='replace')
+ close(fid)
+
+ ! Create a file which contains only one integer. This integer indicates the
+ ! number of steps.
+ open(newunit=fid,file=TRIM(numfile),status='replace')
+ write(fid,'(A1)') '0'
+ close(fid)
+
  call submit_gau_job(gau_path, gjfname2, .false.)
- stop
- call gbw2mkl(gbwname)
- call replace_coor_in_fch_by_engrad(engrad, fchname1)
- call mkl2fch_wrap(mklname, fchname1)
- i = RENAME(TRIM(fchname1), TRIM(fchname2))
- call delete_files(3, [gbwname, gesname, mklname])
+ call delete_files(8, [gbwname, gesname, mklname, fchname1, bakfile, dm_name, &
+                       engrad, propfile])
 end program geom_opt
 
 subroutine gen_guess_only_gjf(gjfname, gjfname1)

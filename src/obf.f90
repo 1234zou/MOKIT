@@ -295,7 +295,6 @@ end subroutine delete_embraced_cluster
 ! generate primitive MO clusters
 subroutine gen_prim_cluster(dis_thres)
  implicit none
- integer :: i
  real(kind=8), intent(in) :: dis_thres
 
  call gen_mo_cluster_per_mo(dis_thres)
@@ -722,38 +721,6 @@ subroutine find_union(n, a1, a2, a3)
  ! sort a3(1:j)
  call sort_int_array(j, a3(1:j), .true.)
 end subroutine find_union
-
-! sort an integer array by ascending/descending order
-subroutine sort_int_array(n, a, ascending)
- implicit none
- integer :: i, j, k, m
- integer, intent(in) :: n
- integer, intent(inout) :: a(n)
- logical, intent(in) :: ascending
-
- if(n == 1) return
-
- if(ascending) then
-  do i = 1, n-1, 1
-   k = a(i)
-   do j = i+1, n, 1
-    if(k > a(j)) then
-     a(i) = a(j); m = a(j); a(j) = k; k = m
-    end if
-   end do ! for j
-  end do ! for i
-
- else ! descending order
-  do i = 1, n-1, 1
-   k = a(i)
-   do j = i+1, n, 1
-    if(k < a(j)) then
-     a(i) = a(j); m = a(j); a(j) = k; k = m
-    end if
-   end do ! for j
-  end do ! for i
- end if
-end subroutine sort_int_array
 
 ! find intersection of two integer arrays, save the result into type clus
 ! Note: assuming all elements in arrays a1 and a2 are positive integers

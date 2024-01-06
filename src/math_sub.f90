@@ -1,5 +1,37 @@
 ! written by jxzou at 20220214: move math library wrappers into this file
 
+! sort an integer array by ascending/descending order
+subroutine sort_int_array(n, a, ascending)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: n
+ integer, intent(inout) :: a(n)
+ logical, intent(in) :: ascending
+
+ if(n == 1) return
+
+ if(ascending) then
+  do i = 1, n-1, 1
+   k = a(i)
+   do j = i+1, n, 1
+    if(k > a(j)) then
+     a(i) = a(j); m = a(j); a(j) = k; k = m
+    end if
+   end do ! for j
+  end do ! for i
+
+ else ! descending order
+  do i = 1, n-1, 1
+   k = a(i)
+   do j = i+1, n, 1
+    if(k < a(j)) then
+     a(i) = a(j); m = a(j); a(j) = k; k = m
+    end if
+   end do ! for j
+  end do ! for i
+ end if
+end subroutine sort_int_array
+
 ! diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
 ! eigenvalues in w() are in ascending order w(1)<=w(2)<=...
 subroutine diag_get_e_and_vec(n, a, w)

@@ -498,46 +498,6 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
  close(fid)
 end subroutine read_shltyp_and_shl2atm_from_mkl
 
-! read the number of atoms in .mkl file
-subroutine read_natom_from_mkl(mklname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- natom = 0
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:5) == '$COOR') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$COOR' found&
-                  & in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:4) == '$END') exit
-  natom = natom + 1
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_natom_from_mkl: no '$END' found&
-                   & in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- close(fid)
-end subroutine read_natom_from_mkl
-
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .mkl file
 subroutine read_elem_and_coor_from_mkl(mklname, natom, elem, nuc, coor, charge, mult)

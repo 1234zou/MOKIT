@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc19 :: MOKIT, release date: 2023-Dec-28'
+  write(6,'(A)') 'AutoMR 1.2.6rc20 :: MOKIT, release date: 2024-Jan-6'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -323,7 +323,6 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid1,'(A)') 'sort_pair(lmo_fch, hf_fch, nb-ncore)'
   write(fid1,'(/,A)') 'mol = load_mol_from_fch(lmo_fch)'
   write(fid1,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(lmo_fch)'
-  write(fid1,'(A)') "mo_e = read_eigenvalues_from_fch(lmo_fch, nif, 'a')"
   write(fid1,'(A)') "mo = fch2py(lmo_fch, nbf, nif, 'a')"
   write(fid1,'(A)') 'mo_dipole = dipole_integral(mol, mo)'
   write(fid1,'(A)') 'ref1 = get_core_valence_sep_idx(lmo_fch) - 1'

@@ -1358,7 +1358,7 @@ end subroutine read_shltyp_and_shl2atm_from_fch
 subroutine replace_coor_in_fch(fchname, natom, coor)
  use phys_cons, only: Bohr_const
  implicit none
- integer :: i, ncontr, nline, len_dm, fid, fid1, RENAME
+ integer :: i, k, ncontr, nline, fid, fid1, RENAME
  integer, intent(in) :: natom
  integer, allocatable :: shltyp(:), shl2atm(:)
  real(kind=8), intent(in) :: coor(3,natom) ! in Angstrom
@@ -1387,8 +1387,9 @@ subroutine replace_coor_in_fch(fchname, natom, coor)
  write(fid1,'(5(1X,ES15.8))') coor/Bohr_const
 
  ! skip 'Current cartesian coordinates' in the old file
- nline = 3*natom/5
- if(3*natom - 5*nline > 0) nline = nline + 1
+ k = 3*natom
+ nline = k/5
+ if(k - 5*nline > 0) nline = nline + 1
  do i = 1, nline, 1
   read(fid,'(A)') buf
  end do ! for while
@@ -1402,8 +1403,9 @@ subroutine replace_coor_in_fch(fchname, natom, coor)
  deallocate(shell_coor)
 
  ! skip 'Coordinates of each shell' in the old file
- nline = 3*ncontr/5
- if(3*ncontr - 5*nline > 0) nline = nline + 1
+ k = 3*ncontr
+ nline = k/5
+ if(k - 5*nline > 0) nline = nline + 1
  do i = 1, nline, 1
   read(fid,'(A)') buf
  end do ! for while
@@ -1412,15 +1414,9 @@ subroutine replace_coor_in_fch(fchname, natom, coor)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid1,'(A)') TRIM(buf)
-  if(buf(1:11)=='Orthonormal' .or. buf(1:11)=='Total SCF D') exit
  end do ! for while
 
  close(fid,status='delete')
-
- ! add a zero 'Total SCF D' section
- read(buf(50:),*) len_dm
- write(fid1,'(5(1X,ES15.8))') (0d0,i=1,len_dm) ! ugly workaround for EOF
-
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine replace_coor_in_fch

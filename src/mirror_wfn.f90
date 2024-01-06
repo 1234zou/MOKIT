@@ -503,6 +503,7 @@ subroutine rotate_atoms_wfn(fchname, coor_file)
  implicit none
  integer :: i, natom
  real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
  character(len=240) :: new_fch
  character(len=240), intent(in) :: fchname, coor_file
 !f2py intent(in) :: fchname, coor_file
@@ -512,8 +513,9 @@ subroutine rotate_atoms_wfn(fchname, coor_file)
  new_fch = fchname(1:i-1)//'_r.fch'
 
  call check_natom_eq_in_fch_and_gjf_or_xyz(fchname, coor_file, natom)
- allocate(coor(3,natom))
- call read_coor_from_gjf_or_xyz(coor_file, natom, coor)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_file(coor_file, natom, elem, coor)
+ deallocate(elem)
 
  call rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  deallocate(coor)
@@ -733,6 +735,7 @@ subroutine permute_atoms_wfn(fchname, coor_file)
  integer :: i, natom
  integer, allocatable :: idx(:)
  real(kind=8), allocatable :: coor1(:,:), coor2(:,:)
+ character(len=2), allocatable :: elem(:)
  character(len=240) :: new_fch
  character(len=240), intent(in) :: fchname, coor_file
 !f2py intent(in) :: fchname, coor_file
@@ -745,7 +748,9 @@ subroutine permute_atoms_wfn(fchname, coor_file)
 
  allocate(coor1(3,natom), coor2(3,natom), idx(natom))
  call read_coor_from_fch(fchname, natom, coor1)
- call read_coor_from_gjf_or_xyz(coor_file, natom, coor2)
+ allocate(elem(natom))
+ call read_elem_and_coor_from_file(coor_file, natom, elem, coor2)
+ deallocate(elem)
  call get_atom_map_idx_from_coor(natom, coor1, coor2, idx)
  deallocate(coor1, coor2)
 
@@ -975,6 +980,56 @@ subroutine get_bas_begin_idx_from_shltyp(ncontr, shell_type, shell2atom_map, &
   end if
  end do ! for i
 end subroutine get_bas_begin_idx_from_shltyp
+
+! Calculate the RMSD value of two molecules (in .gjf/.xyz files).
+! This subroutine assumes that the atomic labels are in one-to-one correspondence
+! in two files.
+subroutine rmsd_of_two_files(fname1, fname2, rmsd_v)
+ implicit none
+ integer :: i, natom, natom1, natom2
+ real(kind=8) :: trans1(3), trans2(3), rotation(3,3)
+ real(kind=8), allocatable :: coor1(:,:), coor2(:,:)
+ real(kind=8), intent(out) :: rmsd_v
+!f2py intent(out) :: rmsd_v
+ character(len=2), allocatable :: elem1(:), elem2(:)
+ character(len=240) :: fname
+ character(len=240), intent(in) :: fname1, fname2
+!f2py intent(in) :: fname1, fname2
+
+ i = INDEX(fname2, '.', back=.true.)
+ fname = fname2(1:i-1)//'_new.xyz'
+
+ call read_natom_from_file(fname1, natom1)
+ call read_natom_from_file(fname2, natom2)
+ if(natom1 /= natom2) then
+  write(6,'(/,A)') 'ERROR in subroutine rmsd_of_two_files: the number of atoms &
+                   &are not equal'
+  write(6,'(A)') 'in two files.'
+  write(6,'(A)') 'fname1='//TRIM(fname1)
+  write(6,'(A)') 'fname2='//TRIM(fname2)
+  stop
+ end if
+
+ natom = natom1
+ allocate(elem1(natom), elem2(natom), coor1(3,natom), coor2(3,natom))
+ call read_elem_and_coor_from_file(fname1, natom, elem1, coor1)
+ call read_elem_and_coor_from_file(fname2, natom, elem2, coor2)
+
+ if(.not. ALL(elem1 == elem2)) then
+  write(6,'(/,A)') 'ERROR in subroutine rmsd_of_two_files: elements in two file&
+                   &s are not identical.'
+  write(6,'(A)') 'fname1='//TRIM(fname1)
+  write(6,'(A)') 'fname2='//TRIM(fname2)
+  stop
+ end if
+ deallocate(elem1)
+
+ call rmsd(natom, coor2, coor1, rmsd_v, trans1, trans2, rotation)
+ deallocate(coor1)
+
+ call write_xyzfile(natom, elem2, coor2, fname)
+ deallocate(elem2, coor2)
+end subroutine rmsd_of_two_files
 
 ! calculate the RMSD value of two sets of coordinates
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)

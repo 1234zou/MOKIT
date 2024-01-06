@@ -2,20 +2,8 @@
 
 module periodic_table
  implicit none
- integer, parameter :: period_nelem = 112
- character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
-   'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
-   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
-   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
-   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
-   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
-   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
-   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
-   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
-   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
-   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
-   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
-   'Rg', 'Cn'/)
+ integer, parameter :: period_nelem = 118
+
  ! the radii below are read from Gaussian output file
  real(kind=8), parameter :: vdw_radii(period_nelem) = &
  (/1.4430d0, 1.1810d0, 1.2255d0, 1.3725d0, 2.0415d0, &
@@ -40,7 +28,43 @@ module periodic_table
    1.6630d0, 1.6695d0, 1.6565d0, 1.6495d0, 1.6430d0, &
    1.6370d0, 1.6240d0, 1.6180d0, 1.7500d0, 1.7500d0, &
    1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, &
-   1.7500d0, 1.7500d0/)
+   1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, 1.7500d0, &
+   1.7500d0, 1.7500d0, 1.7500d0/)
+
+ ! Pyykko's covalent radii, see DOI: 10.1002/chem.200800987
+ real(kind=8), parameter :: cov_rad(period_nelem) = &
+ (/0.32d0,0.46d0,1.33d0,1.02d0,0.85d0, 0.75d0,0.71d0,0.63d0,0.64d0,0.67d0, &
+   1.55d0,1.39d0,1.26d0,1.16d0,1.11d0, 1.03d0,0.99d0,0.96d0,1.96d0,1.71d0, &
+   1.48d0,1.36d0,1.34d0,1.22d0,1.19d0, 1.16d0,1.11d0,1.10d0,1.12d0,1.18d0, &
+   1.24d0,1.21d0,1.21d0,1.16d0,1.14d0, 1.17d0,2.10d0,1.85d0,1.63d0,1.54d0, &
+   1.47d0,1.38d0,1.28d0,1.25d0,1.25d0, 1.20d0,1.28d0,1.36d0,1.42d0,1.40d0, &
+   1.40d0,1.36d0,1.33d0,1.31d0,2.32d0, 1.96d0,1.80d0,1.63d0,1.76d0,1.74d0, &
+   1.73d0,1.72d0,1.68d0,1.69d0,1.68d0, 1.67d0,1.66d0,1.65d0,1.64d0,1.70d0, &
+   1.62d0,1.52d0,1.46d0,1.37d0,1.31d0, 1.29d0,1.22d0,1.23d0,1.24d0,1.33d0, &
+   1.44d0,1.44d0,1.51d0,1.45d0,1.47d0, 1.42d0,2.23d0,2.01d0,1.86d0,1.75d0, &
+   1.69d0,1.70d0,1.71d0,1.72d0,1.66d0, 1.66d0,1.68d0,1.68d0,1.65d0,1.67d0, &
+   1.73d0,1.76d0,1.61d0,1.57d0,1.49d0, 1.43d0,1.41d0,1.34d0,1.29d0,1.28d0, &
+   1.21d0,1.22d0,1.36d0,1.43d0,1.62d0, 1.75d0,1.65d0,1.57d0/)
+
+ ! reduce distance thresholds for a single, double and triple bond
+ real(kind=8), parameter :: rfac1 = 1.25d0
+ real(kind=8), parameter :: rfac2 = 0.93d0
+ real(kind=8), parameter :: rfac3 = 0.81d0
+
+ character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
+   'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
+   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
+   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
+   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
+   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
+   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
+   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
+   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
+   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
+   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
+   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
+   'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'/)
+
 contains
 
  ! map a nuclear charge to an element (e.g. 6->'C')
@@ -71,6 +95,8 @@ contains
   do i = 1, period_nelem, 1
    if(period_elem(i) == s) return
   end do ! for i
+  ! This is a pure function, `write` or `stop` cannot be used here. It is the
+  ! user's responsibility to make sure the input element is valid.
  end function elem2nuc
 
  ! read elements array from a given .gjf array
@@ -121,7 +147,7 @@ contains
     else
      read(str,*) j
      if(j > period_nelem) then
-      write(6,'(A)') 'ERROR in subroutine read_elem_from_gjf: j too large.'
+      write(6,'(/,A)') 'ERROR in subroutine read_elem_from_gjf: j too large.'
       write(6,'(A,I0)') 'j=', j
       stop
      end if
@@ -134,242 +160,64 @@ contains
  end subroutine read_elem_from_gjf
 end module periodic_table
 
-! find the number of atoms in Gaussian .gjf file
-subroutine read_natom_from_gjf(gjfname, natom)
- implicit none
- integer :: i, fid, nblank
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: gjfname
-
- nblank = 0
- open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-  if(nblank == 2) exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_gjf: incomplete file '//TRIM(gjfname)
-  stop
- end if
-
- read(fid,'(A)') buf ! skip charge and mult
-
- natom = 0
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) exit
-  natom = natom + 1
- end do ! for while
-
- close(fid)
-end subroutine read_natom_from_gjf
-
-! read the number of atoms from a given .fch file
-subroutine read_natom_from_fch(fchname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- natom = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(buf(1:14) == 'Atomic numbers') exit
- end do ! for while
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, natom
-
- close(fid)
-end subroutine read_natom_from_fch
-
-! read the number of atoms from a .xyz file
-subroutine read_natom_from_xyz(xyzname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240), intent(in) :: xyzname
-
- natom = 0
- open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
- read(fid,*,iostat=i) natom
- close(fid)
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_xyz: failed to read natom&
-                 & from file '//TRIM(xyzname)
-  stop
- end if
-end subroutine read_natom_from_xyz
-
-! read the number of atoms from a .pdb file
-! Note: if there exists >1 frames, only the first frame will be dectected
-subroutine read_natom_from_pdb(pdbname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=13) :: buf
- character(len=240), intent(in) :: pdbname
-
- natom = 0
- open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:3) == 'END') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_pdb: failed to read&
-                   & natom from file '//TRIM(pdbname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- BACKSPACE(fid)
- read(fid,'(A)') buf
- if(buf(1:3) == 'TER') then
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
- end if
- close(fid)
-
- i = INDEX(buf, ' ')
- read(buf(i+1:),*) natom
-end subroutine read_natom_from_pdb
-
-! read the number of atoms from a (Open)Molcas output file
-subroutine read_natom_from_molcas_out(outname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- natom = 0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:21) == '++    Molecular struc') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_natom_from_molcas_out: keywords&
-                   & '++    Molecular struc' not found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(6:11) == 'Center') exit 
- end do ! for while
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(LEN_TRIM(buf) == 0) exit
-  natom = natom + 1 
- end do ! for while
-
- close(fid)
-end subroutine read_natom_from_molcas_out
-
-! read the number of atoms from a Molpro output file
-subroutine read_natom_from_molpro_out(outname, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- natom = 0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:12) == 'ATOMIC COOR') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_natom_from_molpro_out: no '&
-                   &ATOMIC COOR' found in file "//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- do i = 1, 3
-  read(fid,'(A)') buf
- end do
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(LEN_TRIM(buf) == 0) exit
-  natom = natom + 1
- end do ! for while
-
- close(fid)
-end subroutine read_natom_from_molpro_out
-
-! read the number of atoms from ORCA .engrad file
-subroutine read_natom_from_engrad(fname, natom)
- implicit none
- integer :: fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: fname
-
- natom = 0
- open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- if(buf(1:16) /= '# Number of atom') then
-  write(6,'(/,A)') "ERROR in subroutine read_natom_from_engrad: '# Number of at&
-                   &om' expected, but"
-  write(6,'(A)') "got '"//TRIM(buf)//"'"
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(fid,*) natom
- close(fid)
-end subroutine read_natom_from_engrad
-
-subroutine read_coor_from_gjf_or_xyz(fname, natom, coor)
+subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
  implicit none
  integer :: i, charge, mult
  integer, intent(in) :: natom
  integer, allocatable :: nuc(:)
  real(kind=8), intent(out) :: coor(3,natom)
+ character(len=2), intent(out) :: elem(natom)
+ character(len=240), intent(in) :: fname
+
+ i = LEN_TRIM(fname)
+ select case(fname(i-3:i))
+ case('.xyz')
+  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
+ case('.gjf')
+  allocate(nuc(natom))
+  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
+ case('.fch')
+  allocate(nuc(natom))
+  call read_elem_and_coor_from_fch(fname, natom, elem, nuc, coor, charge, mult)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file: invalid f&
+                   &ormat.'
+  write(6,'(A)') 'Currently only .xyz/.gjf/.fch are supported.'
+  stop
+ end select
+
+ if(allocated(nuc)) deallocate(nuc)
+end subroutine read_elem_and_coor_from_file
+
+! read atomic nuclear number and Cartesian coordinates from a file
+subroutine read_nuc_and_coor_from_file(fname, natom, nuc, coor)
+ use periodic_table, only: elem2nuc
+ implicit none
+ integer :: i, charge, mult
+ integer, intent(in) :: natom
+ integer, intent(out) :: nuc(natom)
+ real(kind=8), intent(out) :: coor(3,natom)
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: fname
 
- i = INDEX(fname, '.xyz', back=.true.)
- if(i > 0) then
-  allocate(elem(natom))
-  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
-  deallocate(elem)
- else ! not .xyz, assume it be .gjf
-  allocate(elem(natom), nuc(natom))
+ allocate(elem(natom))
+ i = LEN_TRIM(fname)
+
+ select case(fname(i-3:i))
+ case('.fch')
+  call read_elem_and_coor_from_fch(fname, natom, elem, nuc, coor, charge, mult)
+ case('.gjf')
   call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
-  deallocate(elem, nuc)
- end if
-end subroutine read_coor_from_gjf_or_xyz
+ case('.xyz')
+  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
+  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file:'
+  stop
+ end select
+
+ deallocate(elem)
+end subroutine read_nuc_and_coor_from_file
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .gjf file
@@ -401,15 +249,15 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: incomplete&
-                & file '//TRIM(gjfname)
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: incomplete&
+                   & file '//TRIM(gjfname)
   stop
  end if
 
  read(fid,*,iostat=k) charge, mult
  if(k /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: failed to&
-                & read charge and mult.'
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: failed to &
+                   &read charge and mult.'
   write(6,'(A)') 'There exists syntax error in file '//TRIM(gjfname)
   stop
  end if
@@ -421,8 +269,8 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
   read(buf,*,iostat=k) elem(i), coor(1:3,i)
   if(k /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-column&
-                 & format is supported.'
+   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf: only 4-co&
+                    &lumn format is supported.'
    close(fid)
    stop
   end if
@@ -442,10 +290,12 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
 
  ne = SUM(nuc) - charge
  if(MOD(ne,2) /= MOD(mult-1,2)) then
-  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_gjf:'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine read_elem_and_coor_from_gjf:'
   write(6,'(2(A,I0),A)') 'The combination of multiplicity ', mult, ' and ', ne,&
                          &' electrons is impossible.'
-  stop
+  write(6,'(A)') 'Filename = '//TRIM(gjfname)
+  write(6,'(A)') REPEAT('-',79)
  end if
 end subroutine read_elem_and_coor_from_gjf
 
@@ -651,476 +501,6 @@ subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
  n_dipole = n_dipole/Bohr_const
 end subroutine get_nuc_dipole
 
-! read Cartesian gradient from a given file
-subroutine read_grad_from_output(prog_name, outname, natom, grad)
- implicit none
- integer, intent(in) :: natom
- real(kind=8) :: e
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=10), intent(in) :: prog_name
- character(len=240), intent(in) :: outname
-
- select case(prog_name)
- case('bdf')
-  call read_grad_from_bdf_out(outname, natom, grad)
- case('cfour')
-  call read_grad_from_cfour_out(outname, natom, grad)
- case('dalton')
-  call read_grad_from_dalton_out(outname, natom, grad)
- case('gamess')
-  call read_grad_from_gms_dat(outname, natom, grad)
- case('gaussian')
-  call read_grad_from_gau_log(outname, natom, grad)
- case('molpro')
-  call read_grad_from_molpro_out(outname, natom, grad)
- case('orca')
-  call read_grad_from_engrad(outname, natom, e, grad)
- case('psi4')
-  call read_grad_from_psi4_out(outname, natom, grad)
- case('pyscf')
-  call read_grad_from_pyscf_out(outname, natom, grad)
- case('qchem')
-  call read_grad_from_qchem131(natom, grad, .true.)
- case('openmolcas')
-  call read_grad_from_molcas_out(outname, natom, grad)
- case default
-  write(6,'(/,A)') 'ERROR in subroutine read_grad_from_output: program cannot b&
-                   &e identified.'
-  write(6,'(A)') 'prog_name='//TRIM(prog_name)
-  stop
- end select
-
- write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
- write(6,'(5(1X,ES15.8))') grad
-end subroutine read_grad_from_output
-
-! read Cartesian gradient from a given PySCF output file
-subroutine read_grad_from_pyscf_out(outname, natom, grad)
- implicit none
- integer :: i, k, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=3) :: elem
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(INDEX(buf,'gradients') /= 0) exit
- end do ! for while
-
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) k, elem, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_pyscf_out
-
-! read Cartesian gradient from a given .fch file
-subroutine read_grad_from_fch(fchname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:26) == 'Opt point       1 Gradient') exit
- end do ! for while
-
- read(fid,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
- close(fid)
-end subroutine read_grad_from_fch
-
-! read Cartesian gradient from a given Gaussian .log file
-subroutine read_grad_from_gau_log(logname, natom, grad)
- implicit none
- integer :: i, k1, k2, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: logname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(38:52) == 'Forces (Hartree') exit
- end do ! for while
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) k1, k2, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-
- grad = -grad !!! VIP
-end subroutine read_grad_from_gau_log
-
-! read Cartesian gradient from a given GAMESS .gms file
-subroutine read_grad_from_gms_gms(outname, natom, grad)
- implicit none
- integer :: i, k, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=2) :: elem = ' '
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
-
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(26:47) == 'GRADIENT OF THE ENERGY') exit
- end do ! for while
-
- do i = 1, 3
-  read(fid,'(A)') buf
- end do ! for i
-
- do i = 1, natom, 1
-  read(fid,*) k, elem, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_gms_gms
-
-! read Cartesian gradient from a given GAMESS .dat file
-subroutine read_grad_from_gms_dat(datname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=4) :: r
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=2) :: elem
- character(len=240) :: buf
- character(len=240), intent(in) :: datname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(datname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(2:6) == '$GRAD') exit
- end do ! for while
-
- read(fid,'(A)') buf
- do i = 1, natom, 1
-  read(fid,*) elem, r, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_gms_dat
-
-! read Cartesian gradient from a given (Open)Molcas .out file
-subroutine read_grad_from_molcas_out(outname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=8) :: str = ' '
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(17:35) == 'Molecular gradients') exit
- end do ! for while
-
- do i = 1, 7, 1
-  read(fid,'(A)') buf
- end do ! for i
-
- do i = 1, natom, 1
-  read(fid,*) str, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_molcas_out
-
-! read Cartesian gradient from a given ORCA .out file
-subroutine read_grad_from_orca_out(outname, natom, grad)
- implicit none
- integer :: i, k, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=1) :: str = ' '
- character(len=2) :: elem = ' '
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(1:14) == 'CARTESIAN GRAD') exit
- end do ! for while
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) k, elem, str, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_orca_out
-
-! read Cartesian gradients from a given ORCA .engrad file
-subroutine read_grad_from_engrad(engrad, natom, e, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: e, grad(3*natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: engrad
-
- e = 0d0; grad = 0d0
- open(newunit=fid,file=TRIM(engrad),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:17) == '# The current tot') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_grad_from_engrad: no '# The curren&
-                   &t tot' found in"
-  write(6,'(A)') 'file '//TRIM(engrad)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(fid,*) e
-
- do i = 1, 3
-  read(fid,'(A)') buf
- end do
- read(fid,*) grad
-
- close(fid)
-end subroutine read_grad_from_engrad
-
-! read CASSCF or CASPT2 Cartesian gradients from a given Molpro output file
-subroutine read_grad_from_molpro_out(outname, natom, grad)
- implicit none
- integer :: i, k, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(INDEX(buf,'GRADIENT FOR S') > 0) exit
- end do ! for while
-
- do i = 1, 3
-  read(fid,'(A)') buf
- end do ! for i
-
- do i = 1, natom, 1
-  read(fid,*) k, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_molpro_out
-
-! read Cartesian gradient from a given BDF .out file
-subroutine read_grad_from_bdf_out(outname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- character(len=10) :: str
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(INDEX(buf,'Molecular gradient - Mol') /= 0) exit
- end do ! for while
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) str, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_bdf_out
-
-subroutine read_grad_from_psi4_out(outname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- character(len=10) :: str
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: grad(3*natom)
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(4:13)=='Total Grad' .or. buf(4:13)=='Total grad') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_grad_from_psi4_out: no 'Total Grad&
-                   &' found in"
-  write(6,'(A)') 'file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- do i = 1, natom, 1
-  read(fid,*) str, grad(3*i-2:3*i)
- end do ! for i
- close(fid)
-end subroutine read_grad_from_psi4_out
-
-subroutine read_grad_from_qchem131(natom, grad, deleted)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- real(kind=8), intent(out) :: grad(3*natom)
- logical, intent(in) :: deleted
-
- grad = 0d0
- open(newunit=fid,file='131.0',status='old',access='stream')
- read(fid,iostat=i) grad
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_grad_from_qchem_out: failed to rea&
-                   &d nuclear gradients'
-  write(6,'(A)') 'from file 131.0'
-  close(fid)
-  stop
- else ! read successfully
-  if(deleted) then
-   close(fid,status='delete')
-  else
-   close(fid)
-  end if
- end if
-end subroutine read_grad_from_qchem131
-
-subroutine read_grad_from_cfour_out(outname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: grad(3*natom)
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(3:10) == 'gradient') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_grad_from_cfour_out: keyword 'grad&
-                   &ient' not found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(fid,*) grad
- close(fid)
-end subroutine read_grad_from_cfour_out
-
-subroutine read_grad_from_dalton_out(outname, natom, grad)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
- character(len=3) :: str
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: grad(3*natom)
-
- grad = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(30:43)=='Molecular grad' .or. buf(33:46)=='Molecular grad') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_grad_from_dalton_out: keyword 'Mol&
-                   &ecular grad' not"
-  write(6,'(A)') 'found in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) str, grad(3*i-2:3*i)
- end do ! for i
-
- close(fid)
-end subroutine read_grad_from_dalton_out
-
 ! read Cartesian xyz coordinates from a .xyz file
 ! Note: 1) return array coor(3,natom) are in unit Angstrom
 !       2) if 'bohr' key is found in the 2nd line of the xyz file,
@@ -1137,6 +517,7 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  logical :: bohr
 
  elem = '  '; coor = 0d0
+
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
  read(fid,'(A)') buf
  read(fid,'(A)') buf
@@ -1145,8 +526,8 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  call lower(buf)
  if(INDEX(buf,'bohr') > 0) then
   if(INDEX(buf,'angstrom') > 0) then
-   write(6,'(A)') "ERROR in subroutine read_elem_and_coor_from_xyz: it's confus&
-                  &ing because both"
+   write(6,'(/,A)') "ERROR in subroutine read_elem_and_coor_from_xyz: it's conf&
+                    &using because both"
    write(6,'(A)') "'bohr' and 'angstrom' are detected in the 2nd line of file "&
                   //TRIM(xyzname)
    close(fid)
@@ -1159,10 +540,9 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  do i = 1, natom, 1
   read(fid,*,iostat=k) elem(i), coor(1:3,i)
   if(k /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_elem_and_coor_from_xyz: insufficien&
-                  &t number of atoms'
+   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_xyz: insuffici&
+                    &ent number of atoms'
    write(6,'(A)') 'in file '//TRIM(xyzname)
-   write(6,'(2(A,I0))') 'Input natom=', natom, ', but broken at i=', i
    close(fid)
    stop
   end if
@@ -1170,6 +550,13 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
 
  close(fid)
  if(bohr) coor = coor*Bohr_const ! convert Bohr to Angstrom
+
+ ! Some non-standard xyz files may include elements like 'C02', 'H06' or 'Hw'.
+ ! Make the 2nd character as ' ' in such cases.
+ do i = 1, natom, 1
+  k = ICHAR(elem(i)(2:2))
+  if((k>47 .and. k<58) .or. k==119) elem(i)(2:2) = ' '
+ end do ! for i
 end subroutine read_elem_and_coor_from_xyz
 
 ! read the number of frames from xyz file
@@ -1617,20 +1004,25 @@ end subroutine write_frame_into_pdb
 function calc_an_int_coor(n, coor) result(val)
  implicit none
  integer, intent(in) :: n
- real(kind=8) :: val, rtmp(3)
+ real(kind=8) :: r1(3), r2(3), norm_1, norm_2, cos_a, val
  real(kind=8), intent(in) :: coor(3,n)
 
  val = 0d0
+ r1 = coor(:,1) - coor(:,2)
+ norm_1 = DSQRT(DOT_PRODUCT(r1,r1))
+
  select case(n)
  case(2) ! bond
-  rtmp = coor(:,1) - coor(:,2)
-  val = DSQRT(DOT_PRODUCT(rtmp,rtmp))
+  val = norm_1
  case(3) ! angle
-
+  r2 = coor(:,3) - coor(:,2)
+  norm_2 = DSQRT(DOT_PRODUCT(r2,r2))
+  cos_a = DOT_PRODUCT(r1,r2)/(norm_1*norm_2)
+  val = DACOS(cos_a)
  case(4) ! dihedral
 
  case default
-  write(6,'(A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
+  write(6,'(/,A,I0)') 'ERROR in function calc_an_int_coor: invalid n=',n
   stop
  end select
 end function calc_an_int_coor
@@ -1719,12 +1111,14 @@ subroutine replace_coor_in_fch_by_gjf(gjfname, fchname)
  implicit none
  integer :: natom
  real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: gjfname, fchname
 !f2py intent(in) :: gjfname, fchname
 
  call read_natom_from_gjf(gjfname, natom)
- allocate(coor(3,natom))
- call read_coor_from_gjf_or_xyz(gjfname, natom, coor)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_file(gjfname, natom, elem, coor)
+ deallocate(elem)
  call replace_coor_in_fch(fchname, natom, coor)
  deallocate(coor)
 end subroutine replace_coor_in_fch_by_gjf
@@ -1735,7 +1129,6 @@ subroutine replace_coor_in_fch_by_engrad(engrad, fchname)
  integer :: natom
  real(kind=8), allocatable :: coor(:,:)
  character(len=240), intent(in) :: engrad, fchname
-!f2py intent(in) :: engrad, fchname
 
  call read_natom_from_engrad(engrad, natom)
  allocate(coor(3,natom))
@@ -1810,18 +1203,229 @@ subroutine xyz2gjf(xyzname)
  deallocate(elem, coor)
 end subroutine xyz2gjf
 
-subroutine engrad2EOu(engrad, EOu)
+! find the number of molecules in a given file (.gjf/.xyz supported)
+subroutine find_nmol_in_file(fname, nmol)
+ use periodic_table, only: elem2nuc
  implicit none
- integer :: natom
- real(kind=8) :: e
- real(kind=8), allocatable :: grad(:)
- character(len=240), intent(in) :: engrad
- character(len=720), intent(in) :: EOu
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:), conn(:,:)
+ integer, intent(out) :: nmol
+!f2py intent(out) :: nmol
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
 
- call read_natom_from_engrad(engrad, natom)
- allocate(grad(3*natom))
- call read_grad_from_engrad(engrad, natom, e, grad)
- call write_EOu(EOu, e, natom, grad)
- deallocate(grad)
-end subroutine engrad2EOu
+ i = LEN_TRIM(fname)
+
+ select case(fname(i-3:i))
+ case('.xyz')
+  call read_natom_from_xyz(fname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
+  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
+ case('.gjf')
+  call read_natom_from_gjf(fname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine find_nmol_in_file: file format not supp&
+                   &orted.'
+  write(6,'(A)') 'Currently only .gjf/.xyz are supported.'
+  stop
+ end select
+
+ deallocate(elem)
+ allocate(conn(natom,natom))
+ call gen_conn_from_coor(natom, coor, nuc, conn)
+ deallocate(coor, nuc)
+ call find_nmol_from_conn(natom, conn, nmol)
+ deallocate(conn)
+end subroutine find_nmol_in_file
+
+! generate connectivity from elements and Cartesian coordinates
+subroutine gen_conn_from_coor(natom, coor, nuc, conn)
+ use periodic_table, only: cov_rad, rfac1, rfac2, rfac3
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ integer, intent(out) :: conn(natom,natom)
+ real(kind=8) :: d1(3), d2(3), r1, r2, r3
+ real(kind=8), intent(in) :: coor(3,natom)
+
+ conn = 0 ! initialization
+
+ do i = 1, natom-1, 1
+  r1 = cov_rad(nuc(i))
+  d1 = coor(:,i)
+
+  do j = i+1, natom, 1
+   r2 = cov_rad(nuc(j))
+   d2 = d1 - coor(:,j)
+   r3 = DSQRT(DOT_PRODUCT(d2,d2))/(r1+r2)
+
+   if(r3<rfac1 .and. r3>rfac2) then
+    conn(j,i) = 1; conn(i,j) = 1
+   else if(r3<rfac2 .and. r3>rfac3) then
+    conn(j,i) = 2; conn(i,j) = 2
+   else if(r3 < rfac3) then
+    conn(j,i) = 3; conn(i,j) = 3
+   end if
+  end do ! for j
+ end do ! for i
+end subroutine gen_conn_from_coor
+
+! find the number of molecules from the connectivity
+subroutine find_nmol_from_conn(natom, conn, nmol)
+ implicit none
+ integer :: i, j, k, nconn, natom_old, natom_new
+ integer, intent(in) :: natom
+ integer, intent(in) :: conn(natom,natom)
+ integer, intent(out) :: nmol
+ logical, allocatable :: assigned(:), new_mol(:)
+
+ nmol = 0
+ allocate(assigned(natom))
+ assigned = .false.
+
+ do i = 1, natom, 1
+  if(assigned(i)) cycle
+
+  allocate(new_mol(i:natom))
+  new_mol = .false.
+  new_mol(i) = .true.
+  natom_old = 1
+
+  do while(.true.)
+   do j = i, natom, 1
+    if(.not. new_mol(j)) cycle
+    nconn = COUNT(conn(:,j) > 0)
+    if(nconn == 0) cycle
+    ! Here only conn(:,j)>0 need to be checked, but we do not have the type
+    ! array adj, so we loop from 1 to natom.
+    do k = 1, natom, 1
+     if(conn(k,j)==0 .or. k==j) cycle
+     assigned(k) = .true.
+     new_mol(k) = .true.
+    end do ! for k
+   end do ! for j
+   
+   natom_new = COUNT(new_mol .eqv. .true.)
+   if(natom_new == natom_old) then
+    exit
+   else if(natom_new > natom_old) then
+    natom_old = natom_new
+   else
+    write(6,'(/,A)') 'ERROR in subroutine find_nmol_from_conn: natom_new < nato&
+                     &m_old. Impossible.'
+    write(6,'(A,I0)') 'natom=', natom
+    stop
+   end if
+  end do ! for while
+
+  deallocate(new_mol)
+  assigned(i) = .true.
+  nmol = nmol + 1
+ end do ! for i
+
+ deallocate(assigned)
+end subroutine find_nmol_from_conn
+
+! get real(kind=8) data type of connectivities from elements and Cartesian
+! coordinates
+subroutine gen_rconn_from_coor(natom, coor, nuc, rconn)
+ implicit none
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ integer, allocatable :: conn(:,:)
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(out) :: rconn(natom,natom)
+
+ allocate(conn(natom,natom))
+ call gen_conn_from_coor(natom, coor, nuc, conn)
+ rconn = DBLE(conn)
+ deallocate(conn)
+end subroutine gen_rconn_from_coor
+
+! convert real(kind=8) type of conn into alternative Coulomb matrix
+subroutine rconn2acoulomb(natom, nuc, rconn)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ real(kind=8), intent(inout) :: rconn(natom,natom)
+
+ forall(i = 1:natom) rconn(i,i) = DBLE(nuc(i)*nuc(i))
+ forall(i=1:natom, j=1:natom, j>i)
+  rconn(j,i) = rconn(j,i)*DBLE(nuc(j)*nuc(i))
+  rconn(i,j) = rconn(j,i)
+ end forall
+end subroutine rconn2acoulomb
+
+! Check whether two geometries are conformers of each other.
+! TODO: distinguish R/S/M/P chirality.
+subroutine check_if_conformer(fname1, fname2, conformer)
+ implicit none
+ integer :: natom, natom1, natom2
+ integer, allocatable :: nuc1(:), nuc2(:), nuc3(:), nuc4(:)
+ real(kind=8), parameter :: thres1 = 1d-7, thres2 = 1d-3
+ real(kind=8), allocatable :: coor1(:,:), coor2(:,:), conn1(:,:), conn2(:,:), &
+  conn3(:,:), conn4(:,:), w1(:), w2(:)
+ character(len=240), intent(in) :: fname1, fname2
+!f2py intent(in) :: fname1, fname2
+ logical, intent(out) :: conformer
+!f2py intent(out) :: conformer
+
+ conformer = .false. ! initialization
+
+ ! check whether the number of atoms in two files are equal
+ call read_natom_from_file(fname1, natom1)
+ call read_natom_from_file(fname2, natom2)
+ if(natom1 /= natom2) return
+
+ ! check whether the elements in two files are equal
+ natom = natom1
+ allocate(nuc1(natom), nuc2(natom), coor1(3,natom), coor2(3,natom))
+ call read_nuc_and_coor_from_file(fname1, natom, nuc1, coor1)
+ call read_nuc_and_coor_from_file(fname2, natom, nuc2, coor2)
+ allocate(nuc3(natom), source=nuc1)
+ allocate(nuc4(natom), source=nuc2)
+ call sort_int_array(natom, nuc3, .true.)
+ call sort_int_array(natom, nuc4, .true.)
+ deallocate(nuc3, nuc4)
+ if(.not. ALL(nuc3 == nuc4)) then
+  deallocate(nuc1, nuc2, coor1, coor2)
+  return
+ end if
+
+ ! Check the eigenvalues of two connectivity matrices
+ ! Be careful: here conn1 and conn2 are real(kind=8) type.
+ allocate(conn1(natom,natom), conn2(natom,natom))
+ call gen_rconn_from_coor(natom, coor1, nuc1, conn1)
+ call gen_rconn_from_coor(natom, coor2, nuc2, conn2)
+ deallocate(coor1, coor2)
+ allocate(conn3(natom,natom), source=conn1) ! backup
+ allocate(conn4(natom,natom), source=conn2) ! backup
+ allocate(w1(natom), w2(natom))
+ call diag_get_e_and_vec(natom, conn3, w1)
+ call diag_get_e_and_vec(natom, conn4, w2)
+ deallocate(conn3, conn4)
+ if(SUM(DABS(w1 - w2)) > thres1) then
+  deallocate(nuc1, nuc2, conn1, conn2, w1, w2)
+  return
+ end if
+
+ ! Now the eigenvalues are alomost identical. But some cases cannot be identified,
+ ! e.g. o-/m-/p- disubstituted benzene. To distinguish these, alternative Coulomb
+ ! matrix is needed.
+ call rconn2acoulomb(natom, nuc1, conn1)
+ call rconn2acoulomb(natom, nuc2, conn2)
+ deallocate(nuc1, nuc2)
+ call diag_get_e_and_vec(natom, conn1, w1)
+ call diag_get_e_and_vec(natom, conn2, w2)
+ deallocate(conn1, conn2)
+ if(SUM(DABS(w1 - w2)) < thres2) conformer = .true.
+ deallocate(w1, w2)
+end subroutine check_if_conformer
 

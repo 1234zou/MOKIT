@@ -250,18 +250,6 @@ subroutine replace_coor_in_orca_inp(inpname, natom, coor)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine replace_coor_in_orca_inp
 
-! read the number of atoms from a Gaussian .EIn file
-subroutine read_natom_from_EIn(EIn, natom)
- implicit none
- integer :: fid
- integer, intent(out) :: natom
- character(len=240), intent(in) :: EIn
-
- open(newunit=fid,file=TRIM(EIn),status='old',position='rewind')
- read(fid,*) natom
- close(fid)
-end subroutine read_natom_from_EIn
-
 ! read Cartesian coordinates from a Gaussian .EIn file
 subroutine read_coor_from_EIn(EIn, natom, coor)
  use phys_cons, only: Bohr_const

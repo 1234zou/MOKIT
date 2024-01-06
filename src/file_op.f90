@@ -404,3 +404,16 @@ subroutine read_mult_from_fch(fchname, mult)
  read(buf(50:),*) mult
 end subroutine read_mult_from_fch
 
+subroutine write_grad_into_fch(fchname, natom, grad)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: grad(3*natom)
+ character(len=240), intent(in) :: fchname
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='append')
+ write(fid,'(A,4X,I8)') 'Cartesian Gradient                         R   N=',natom*3
+ write(fid,'(5(1X,ES15.8))') grad
+ close(fid)
+end subroutine write_grad_into_fch
+

@@ -326,36 +326,6 @@ subroutine chk_ci_coeff_in_dat(fname, alive)
  if(i /= 0) alive = .false.
 end subroutine chk_ci_coeff_in_dat
 
-! read natom from GAMESS .gms file
-subroutine read_natom_from_gms(gmsfile, natom)
- implicit none
- integer :: i, fid
- integer, intent(out) :: natom
- character(len=240) :: buf
- character(len=240), intent(in) :: gmsfile
-
- buf = ' '
- natom = 0
- open(newunit=fid,file=TRIM(gmsfile),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:22) == 'TOTAL NUMBER OF ATOMS') exit
- end do
- close(fid)
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_natom_from_gms: no 'TOTAL NUMBER&
-                & OF ATOMS'"
-  write(6,'(A)') 'found in file '//TRIM(gmsfile)//'.'
-  stop
- end if
-
- i = INDEX(buf,'=')
- read(buf(i+1:),*) natom
-end subroutine read_natom_from_gms
-
 ! read array elem and bf2atom from .gms file
 ! bf2atom: the map from basis functions to atoms
 subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)

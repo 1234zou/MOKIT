@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc19 (2023-Dec-28)'
+ write(6,'(A)') '           Version: 1.2.6rc20 (2024-Jan-6)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -536,7 +536,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc19 :: MOKIT, release date: 2023-Dec-28'
+  write(6,'(A)') 'AutoSR 1.2.6rc20 :: MOKIT, release date: 2023-Jan-6'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -1315,6 +1315,8 @@ subroutine prt_posthf_orca_inp(inpname, excited)
    write(fid1,'(A)',advance='no') 'CCSD(T1)'
   else if(ccsd_t) then
    write(fid1,'(A)',advance='no') 'CCSD(T)'
+  else if(ccsd) then
+   write(fid1,'(A)',advance='no') 'CCSD'
   else if(mp2) then
    write(fid1,'(A)',advance='no') 'MP2'
   end if
@@ -1356,27 +1358,32 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  write(fid1,'(A)') ' CNVDamp False'
  write(fid1,'(A)') 'end'
 
- if(excited) then
+ if(.not. mp2) then
   write(fid1,'(A)') '%mdci'
-  write(fid1,'(A,I0)') ' nroots ',nstate
-  if(.not. (ip .or. ea)) then
-   write(fid1,'(A)') ' DoLeft True'
-   write(fid1,'(A)') ' DoTDM True'
+  write(fid1,'(A)') ' MaxIter 200'
+  if(excited) then
+   write(fid1,'(A,I0)') ' nroots ',nstate
+   if(.not. (ip .or. ea)) then
+    write(fid1,'(A)') ' DoLeft True'
+    write(fid1,'(A)') ' DoTDM True'
+   end if
+  end if
+  if(gen_no .and. (ccd .or. ccsd)) then
+   write(fid1,'(A)') ' density unrelaxed'
+   write(fid1,'(A)') ' NatOrbs True'
   end if
   write(fid1,'(A)') 'end'
  end if
 
- if(gen_no) then
-  if(mp2) then
-   write(fid1,'(A)') '%mp2'
-   if(relaxed_dm) then
-    write(fid1,'(A)') ' density relaxed'
-   else
-    write(fid1,'(A)') ' density unrelaxed'
-   end if
+ if(gen_no .and. mp2) then
+  write(fid1,'(A)') '%mp2'
+  if(relaxed_dm) then
+   write(fid1,'(A)') ' density relaxed'
+  else
+   write(fid1,'(A)') ' density unrelaxed'
   end if
-  if(ccd .or. ccsd) write(fid1,'(A,/,A)') '%mdci',' density unrelaxed'
-  write(fid1,'(A,/,A)') ' NatOrbs True','end'
+  write(fid1,'(A)') ' NatOrbs True'
+  write(fid1,'(A)') 'end'
  end if
 
  write(fid1,'(A)') TRIM(buf)

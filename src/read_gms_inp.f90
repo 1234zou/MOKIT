@@ -64,59 +64,6 @@ subroutine check_uhf_in_gms_inp(inpname, uhf)
  close(fid)
 end subroutine check_uhf_in_gms_inp
 
-! find the number of atoms in GAMESS .inp file
-subroutine read_natom_from_gms_inp(inpname, natom)
- implicit none
- integer :: i, fid, nline
- integer, intent(out) :: natom
- character(len=1) :: str
- character(len=240):: buf
- character(len=240), intent(in) :: inpname
-
- natom = 0
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(2:6))
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format&
-                   & in file '//TRIM(inpname)
-  stop
- end if
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do while(.true.)
-  read(fid,'(A)') buf
-  call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
-
-  do while(.true.)
-   read(fid,'(A)') buf
-   read(buf,*,iostat=i) str, nline
-   if(i /= 0) exit
-
-   do i = 1, nline, 1
-    read(fid,'(A)') buf
-   end do ! for i
-  end do ! for while
-
-  natom = natom + 1
- end do ! for while
-
- close(fid)
- if(natom == 0) then
-  write(6,'(A)') 'ERROR in subroutine read_natom_from_gms_inp: zero atom&
-                 & found in file '//TRIM(inpname)
-  stop
- end if
-end subroutine read_natom_from_gms_inp
-
 ! read charge, spin multiplicity, uhf(bool) bohrs(bool) from a given GAMESS
 ! .inp/.dat file
 subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
