@@ -510,6 +510,7 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  character(len=8), parameter :: key1 = 'Alpha Or'
  character(len=7), parameter :: key2 = 'Beta Or'
 
+ noon = 0d0
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//'b'
 
@@ -521,20 +522,21 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_eigenvalues_from_fch: no '"//key//"' found&
-                 & in file "//TRIM(fchname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_eigenvalues_from_fch: no '"//key//&
+                   "' found in "
+  write(6,'(A)') 'file '//TRIM(fchname)//'.'
+  close(fid)
   stop
  end if
 
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, i
  if(i /= nif) then
-  write(6,'(A)') 'ERROR in subroutine read_eigenvalues_from_fch: i /= nif.'
+  write(6,'(/,A)') 'ERROR in subroutine read_eigenvalues_from_fch: i /= nif.'
   write(6,'(A)') 'Inconsistency found between input nif and that in file '//TRIM(fchname)
   stop
  end if
 
- noon = 0d0
  read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
  close(fid)
 end subroutine read_eigenvalues_from_fch
@@ -2832,7 +2834,7 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
  call read_na_and_nb_from_fch(fchname, na, nb)
  nopen = na - nb
 
- allocate(noon(nif), source=0d0)
+ allocate(noon(nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
  if( ANY(noon < -1d-2) ) then
   write(6,'(/,A)') 'ERROR in subroutine read_no_info_from_fch: there exists neg&

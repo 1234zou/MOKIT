@@ -984,7 +984,7 @@ end subroutine get_bas_begin_idx_from_shltyp
 ! Calculate the RMSD value of two molecules (in .gjf/.xyz files).
 ! This subroutine assumes that the atomic labels are in one-to-one correspondence
 ! in two files.
-subroutine rmsd_of_two_files(fname1, fname2, rmsd_v)
+subroutine rmsd_wrapper(fname1, fname2, rmsd_v)
  implicit none
  integer :: i, natom, natom1, natom2
  real(kind=8) :: trans1(3), trans2(3), rotation(3,3)
@@ -1002,9 +1002,8 @@ subroutine rmsd_of_two_files(fname1, fname2, rmsd_v)
  call read_natom_from_file(fname1, natom1)
  call read_natom_from_file(fname2, natom2)
  if(natom1 /= natom2) then
-  write(6,'(/,A)') 'ERROR in subroutine rmsd_of_two_files: the number of atoms &
-                   &are not equal'
-  write(6,'(A)') 'in two files.'
+  write(6,'(/,A)') 'ERROR in subroutine rmsd_wrapper: the number of atoms are n&
+                   &ot equal in two files.'
   write(6,'(A)') 'fname1='//TRIM(fname1)
   write(6,'(A)') 'fname2='//TRIM(fname2)
   stop
@@ -1016,8 +1015,8 @@ subroutine rmsd_of_two_files(fname1, fname2, rmsd_v)
  call read_elem_and_coor_from_file(fname2, natom, elem2, coor2)
 
  if(.not. ALL(elem1 == elem2)) then
-  write(6,'(/,A)') 'ERROR in subroutine rmsd_of_two_files: elements in two file&
-                   &s are not identical.'
+  write(6,'(/,A)') 'ERROR in subroutine rmsd_wrapper: elements in two files are&
+                   & not identical.'
   write(6,'(A)') 'fname1='//TRIM(fname1)
   write(6,'(A)') 'fname2='//TRIM(fname2)
   stop
@@ -1029,7 +1028,7 @@ subroutine rmsd_of_two_files(fname1, fname2, rmsd_v)
 
  call write_xyzfile(natom, elem2, coor2, fname)
  deallocate(elem2, coor2)
-end subroutine rmsd_of_two_files
+end subroutine rmsd_wrapper
 
 ! calculate the RMSD value of two sets of coordinates
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
@@ -1094,6 +1093,7 @@ subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
 
  rmsd_v = DSQRT(SUM(work)/DBLE(natom))
  deallocate(work)
+ forall(i = 1:natom) coor1(:,i) = coor1(:,i) - trans1
 end subroutine rmsd
 
 ! calculate the geometry center (centeroid) of a set of coordinates,

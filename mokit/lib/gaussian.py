@@ -41,9 +41,12 @@ def load_mol_from_fch(fchname):
   molpy = importlib.import_module(proname)
   importlib.invalidate_caches()
   # invalidate_caches() is needed, otherwise a second call of load_mol_from_fch
-  # will probably lead to the error "ModuleNotFoundError: No module named 'gauxxx'"
+  # may lead to the error `ModuleNotFoundError: No module named 'gauxxx'`
   os.remove(tmp_py)
-  shutil.rmtree('__pycache__')
+  os.system('rm -f __pycache__/'+proname+'.*.pyc')
+  # It is not appropriate to delete the whole `__pycache__` directory since
+  # other process(es) might be using this directory. Only the .pyc file (e.g.
+  # gau5141.cpython-39.pyc) would be deleted.
   return molpy.mol
 
 

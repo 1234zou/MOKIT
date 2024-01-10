@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc20 :: MOKIT, release date: 2024-Jan-6'
+  write(6,'(A)') 'AutoMR 1.2.6rc21 :: MOKIT, release date: 2024-Jan-9'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'

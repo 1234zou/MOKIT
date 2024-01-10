@@ -34,6 +34,7 @@ subroutine do_cas(scf)
                        orbname, xmlname, gradname
  character(len=480) :: buf
  logical, intent(in) :: scf
+ logical :: alive1, alive2
 
  if(scf) then
   if((.not. casscf) .and. (.not.dmrgscf)) return
@@ -54,12 +55,15 @@ subroutine do_cas(scf)
   i = 2*npair0 + nopen; j = i
  end if
 
- if(nacte_wish>0 .and. nacte_wish/=i) then
-  write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
-   & user specifies CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
+ alive1 = (nacte_wish>0 .and. nacte_wish/=i)
+ alive2 = (nacto_wish>0 .and. nacto_wish/=j)
 
-  ! check the odevity of nacte_wish, in case that the user requires a nonsense
-  ! nacte_wish
+ if(alive1 .or. alive2) then
+  write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
+   & you specify CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
+
+  ! check the odevity of nacte_wish, in case that the user requires nonsense
+  ! number of active electrons
   if(MOD(nacte_wish-nopen,2) /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong active space specified.'
    write(6,'(3(A,I0),A)') 'Nopen=',nopen,'. Incompatible with CAS(',nacte_wish,&
@@ -68,17 +72,9 @@ subroutine do_cas(scf)
   end if
 
   if(ist == 5) then
-   if(nacte_wish > nacte) then
-    write(6,'(A)') REPEAT('-',79)
-    write(6,'(A)') 'Warning from subroutine do_cas: You request a larger active&
-                   & space than recommended.'
-    write(6,'(A)') 'You should clearly know what you are calculating, otherwise&
-                   & nonsense results may'
-    write(6,'(A)') 'be obtained.'
-    write(6,'(A)') REPEAT('-',79)
-   end if
+   call prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
    i = nacte_wish; j = nacto_wish
-   npair0 = (i-nopen)/2;   npair = npair0
+   npair0 = (i - nopen)/2; npair = npair0
    ndb = ndb + nactb - npair
    nacta = npair0 + nopen; nactb = npair0
    nacto = nacto_wish;     nacte = nacto_wish
@@ -92,8 +88,8 @@ subroutine do_cas(scf)
     stop
    else ! 2*npair+nopen >= nacte_wish
     write(6,'(A)') 'OK, fulfilled.'
-    npair0 = (nacte_wish-nopen)/2
-    i = 2*npair0 + nopen
+    npair0 = (nacte_wish - nopen)/2
+    i = 2*npair0 + nopen; j = i
     nacta = npair0 + nopen; nactb = npair0
     nacto = nacto_wish; nacte = nacto_wish
    end if
@@ -122,9 +118,9 @@ subroutine do_cas(scf)
  idx1 = ndb + npair - npair0 + 1
  idx2 = idx1 + 2*npair0 + nopen - 1
  nvir = nif - (idx1-1) - 2*npair0 - nopen
- write(6,'(A,2(I0,A))') '(',i,',',i,') using program '//TRIM(cas_prog)
+ write(6,'(A,2(I0,A))') '(',i,'e,',j,'o) using program '//TRIM(cas_prog)
 
- if(i == 0) then
+ if(i*j == 0) then
   write(6,'(/,A)') REPEAT('-', 79)
   write(6,'(A)') 'There is zero active orbital/electron. AutoMR terminated.'
   write(6,'(/,A)') 'The reason is this molecule has little multi-configurationa&
@@ -161,8 +157,8 @@ subroutine do_cas(scf)
    write(6,'(A)') 'Remark: CASSCF is switched to DMRG-CASSCF due to active spac&
                   &e larger than (15,15).'
    if(casscf_prog /= 'pyscf') then
-    write(6,'(A)') 'ERROR in subroutine do_cas: DMRGSCF required. But CASSCF_pr&
-                   &og='//TRIM(casscf_prog)//'.'
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGSCF required. But CASSCF_&
+                     &prog='//TRIM(casscf_prog)//'.'
     stop
    end if
 
@@ -173,8 +169,8 @@ subroutine do_cas(scf)
    write(6,'(A)') 'Remark: CASCI is switched to DMRG-CASCI due to active space &
                   &larger than (15,15).'
    if(casci_prog /= 'pyscf') then
-    write(6,'(A)') 'ERROR in subroutine do_cas: DMRGCI required. But CASCI_prog&
-                   &='//TRIM(casci_prog)//'.'
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGCI required. But CASCI_pr&
+                     &og='//TRIM(casci_prog)//'.'
     stop
    end if
   end if
@@ -610,9 +606,9 @@ subroutine prt_cas_script_into_py(pyname, scf)
  !  2) perform a CASCI to generate NOs.
 
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
- ! Since DMRG is not invariant to unitary rotations of orbitals, I hope the
- ! original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations. NOs are more
- ! delocalized than original MOs.
+ ! Since DMRG is not strictly invariant to unitary rotations of orbitals, I
+ ! hope the original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations.
+ ! NOs are more delocalized than original MOs.
 
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to divide them
@@ -1933,4 +1929,34 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
   write(fid,'(A,/,A,/,A)') 'mc.natorb = True','mc.verbose = 4','mc.kernel()'
  end if
 end subroutine prt_casci_kywrd_py
+
+! print warnings if user-requested active orbitals/electrons are more than
+! recommended.
+subroutine prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
+ implicit none
+ integer, intent(in) :: nacte_wish, nacto_wish, nacte, nacto
+ logical :: alive1, alive2
+
+ alive1 = (nacte_wish > nacte)
+ alive2 = (nacto_wish > nacto)
+ if(alive1 .or. alive2) write(6,'(A)') REPEAT('-',79)
+
+ if(alive1) then
+  write(6,'(A)') 'Warning from subroutine do_cas: You request more active ele&
+                 &ctrons than recommended.'
+  write(6,'(A)') 'You should clearly know what you are calculating, otherwise&
+                 & nonsense results may'
+  write(6,'(A)') 'be obtained.'
+ end if
+
+ if(alive2) then
+  write(6,'(A)') 'Warning from subroutine do_cas: You request more active orb&
+                 &itals than recommended.'
+  write(6,'(A)') 'You should clearly know what you are calculating, otherwise&
+                 & nonsense results may'
+  write(6,'(A)') 'be obtained.'
+ end if
+
+ if(alive1 .or. alive2) write(6,'(A)') REPEAT('-',79)
+end subroutine prt_active_space_warn
 
