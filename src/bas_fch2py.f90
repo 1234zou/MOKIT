@@ -7,16 +7,17 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i
- character(len=4) :: str
+ integer :: i, j
+ character(len=5) :: buf
  character(len=240) :: fchname
- logical :: prt_dft
+ logical :: prt_dft, rest
 
  i = iargc()
- if(i<1 .or. i>2) then
+ if(i<1 .or. i>3) then
   write(6,'(/,A)') ' ERROR in program bas_fch2py: wrong command line argument!'
   write(6,'(A)')   ' Example 1 (R(O)HF, UHF): bas_fch2py a.fch'
-  write(6,'(A,/)') ' Example 2         (DFT): bas_fch2py a.fch -dft'
+  write(6,'(A)')   ' Example 2         (DFT): bas_fch2py a.fch -dft'
+  write(6,'(A,/)') ' Example 3        (REST): bas_fch2py a.fch -dft -rest'
   stop
  end if
 
@@ -24,17 +25,23 @@ program main
  call require_file_exist(fchname)
 
  prt_dft = .false.
- if(i == 2) then
-  call getarg(2, str)
-  select case(str)
-  case('-dft')
-   prt_dft = .true.
-  case default
-   write(6,'(/,A)') "ERROR in program bas_fch2py: the 2nd argument can only be&
-                    & '-dft'."
-   write(6,'(A)') "But your input is '"//str//"'."
+ rest = .false.
+ if(i > 1) then
+  do j=2,i
+   call getarg(j, buf)
+   buf = ADJUSTL(buf)
+   !write(*,*) j, buf
+   select case(TRIM(buf))
+   case('-dft')
+    prt_dft = .true.
+   case('-rest')
+    rest = .true.
+   case default
+    write(6,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line arguments!'
+    write(6,'(A)') "The argument must be '-dft' or '-rest'."
    stop
-  end select
+   end select
+ end do
  end if
 
  ! if .chk file provided, convert into .fch file automatically
@@ -44,19 +51,20 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call bas_fch2py(fchname, prt_dft)
+ call bas_fch2py(fchname, prt_dft, rest)
 end program main
 
 ! generate PySCF format basis set (.py file) from Gaussian .fch(k) file
-subroutine bas_fch2py(fchname, prt_dft)
+subroutine bas_fch2py(fchname, prt_dft, rest)
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, system, RENAME
  character(len=15) :: dftname
  character(len=240) :: inpname, inpname1, pyname
  character(len=240), intent(in) :: fchname
+ character(len=240) :: command
  logical :: alive, cart, is_hf, rotype, untype
- logical, intent(in) :: prt_dft
+ logical, intent(in) :: prt_dft, rest
 
  call find_specified_suffix(fchname, '.fch', i)
 
@@ -77,12 +85,14 @@ subroutine bas_fch2py(fchname, prt_dft)
  call determine_sph_or_cart(fchname, cart) 
  call fch2inp_wrap(fchname, .false., 0, 0)
 
- if(cart) then ! Cartesian functions
-  i = SYSTEM('bas_gms2py '//TRIM(inpname))
- else          ! sperical harmonic functions
-  i = SYSTEM('bas_gms2py '//TRIM(inpname)//' -sph')
+ command = 'bas_gms2py '//TRIM(inpname)
+ if(.not. cart) then ! Cartesian functions
+  write(command, '(A)') TRIM(command)//' -sph'
  end if
-
+ if (rest) then
+  write(command, '(A)') TRIM(command)//' -rest'
+ end if
+ i = SYSTEM(command)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py fai&
                    &led.'
@@ -100,7 +110,14 @@ subroutine bas_fch2py(fchname, prt_dft)
 
  if(prt_dft) then
   call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
-  call prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname)
+  call prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest)
+ else
+  if (rest) then
+    !call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
+    ! let HF scf run
+    ! rotype and untype do not matter in this case
+    call prt_dft_key2pyscf_script(' ', .true., .false., .false., pyname, rest)
+  end if
  end if
 end subroutine bas_fch2py
 
@@ -176,14 +193,14 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
 end subroutine find_dftname_in_fch
 
 ! print DFT keywords into a PySCF .py script
-subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname)
+subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest)
  implicit none
- integer :: i, fid, fid1, RENAME
+ integer :: i, j, fid, fid1, RENAME
  character(len=15) :: dftname1
- character(len=240) :: buf, pyname1
+ character(len=240) :: buf, pyname1, pchkname
  character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: pyname
- logical, intent(in) :: is_hf, rotype, untype
+ logical, intent(in) :: is_hf, rotype, untype, rest
  logical :: prt
 
  pyname1 = TRIM(pyname)//'.t'
@@ -235,6 +252,11 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname)
 
  write(fid1,'(A)') 'mf.verbose = 4'
  write(fid1,'(A)') 'mf.max_cycle = 128'
+ if (rest) then
+   j = INDEX(pyname, '.', back=.true.)
+   pchkname = pyname(1:j-1)//'.pchk'
+   write(fid1,'(A)') 'mf.chkfile = "'//TRIM(pchkname)//'"'
+ end if
  write(fid1,'(A)') 'mf.kernel(dm0=dm)'
  close(fid1)
  i = RENAME(TRIM(pyname1), TRIM(pyname))

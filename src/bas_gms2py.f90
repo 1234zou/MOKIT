@@ -13,16 +13,17 @@
 !       2) Isotopes are not supported so far!
 program main
  implicit none
- integer :: i
- character(len=4) :: buf
+ integer :: i, j
+ character(len=5) :: buf
  character(len=240) :: fname = ' '
- logical :: cart
+ logical :: cart, rest
 
  i = iargc()
- if(.not. (i==1 .or. i==2)) then
+ if(.not. (i==1 .or. i==2 .or. i==3)) then
   write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
   write(6,'(A)')   ' Example 1: bas_gms2py a.inp '
-  write(6,'(A,/)') ' Example 2: bas_gms2py a.inp -sph'
+  write(6,'(A)')   ' Example 2: bas_gms2py a.inp -sph'
+  write(6,'(A,/)') ' Example 3: bas_gms2py a.inp -rest'
   stop
  end if
 
@@ -30,25 +31,34 @@ program main
  call require_file_exist(fname)
 
  cart = .true.
- if(i == 2) then
-  call getarg(2, buf)
-  if(buf /= '-sph') then
-   write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-   write(6,'(A)') "The second argument must be '-sph'."
+ rest = .false.
+ if(i > 1) then
+  do j=2,i
+   call getarg(j, buf)
+   buf = ADJUSTL(buf)
+   !write(*,*) j, buf
+   select case(TRIM(buf))
+   case('-sph')
+    cart = .false.
+   case('-rest')
+    rest = .true.
+   case default
+    write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
+    write(6,'(A)') "The argument must be '-sph' or '-rest'."
    stop
-  else
-   cart = .false.
-  end if
+   end select
+ end do
  end if
+ !write(*,*) cart, json
 
- call bas_gms2py(fname, cart)
+ call bas_gms2py(fname, cart, rest)
 end program main
 
 ! transform the GAMESS format of basis sets to the NWChem format,
 ! which can be used as input file for PySCF
-subroutine bas_gms2py(inpname, cart)
+subroutine bas_gms2py(inpname, cart, rest)
  implicit none
- integer :: i, j, k, m, p, lmax, charge, mult
+ integer :: i, j, k, m, p, lmax, charge, mult, q
  integer :: nline, ncol, natom, nif, nbf
  integer :: inpid, pyid
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
@@ -63,7 +73,7 @@ subroutine bas_gms2py(inpname, cart)
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  logical :: ecp, uhf, ghf, lin_dep
- logical, intent(in) :: cart
+ logical, intent(in) :: cart, rest
  logical, allocatable :: ghost(:) ! size natom
 
  buf = ' '
@@ -117,7 +127,6 @@ subroutine bas_gms2py(inpname, cart)
   write(pyid,'(A,2X,3(1X,F17.8))') TRIM(buf), coor(1:3,i)
  end do ! for i
  write(pyid,'(A)') "'''"
- deallocate(ghost, coor)
  ! print coordinates done
 
  open(newunit=inpid,file=TRIM(inpname),status='old',position='rewind')
@@ -236,6 +245,11 @@ subroutine bas_gms2py(inpname, cart)
  end if ! for if(ecp)
 
  close(inpid)
+
+ if (rest) then
+  call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom)
+ end if
+ deallocate(ghost, coor)
  deallocate(elem, ntimes)
 
  write(pyid,'(/,A)') '# Remember to check the charge and spin'
@@ -336,3 +350,132 @@ subroutine bas_gms2py(inpname, cart)
  close(pyid)
 end subroutine bas_gms2py
 
+subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom)
+ implicit none
+ integer :: i, j, k, s, SYSTEM !, m, p, lmax, 
+ integer, intent(in) :: charge, mult
+ integer :: nline, ncol
+ integer, intent(in) :: natom !, nif, nbf
+ integer :: inpid, nwid, restid
+ integer, intent(in) :: ntimes(natom) ! number of times of an atom appears
+! integer, allocatable :: nuc(:)
+ integer, external :: detect_ncol_in_buf
+! real(kind=8) :: so_coeff
+ real(kind=8), allocatable :: prim_gau(:,:) 
+ real(kind=8), intent(in) :: coor(3,natom)
+ character(len=1) :: bastype
+ character(len=2) :: new_bastype
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240) :: buf, nwname, basename, jsonname
+ character(len=240), intent(in) :: inpname
+ character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
+! logical :: ecp, uhf, ghf, lin_dep
+! logical, intent(in) :: cart
+ logical, intent(in) :: ghost(natom) ! size natom
+ 
+ ! write REST in
+ buf = ' '
+ bastype = ' '
+ new_bastype = ' '
+ s = INDEX(inpname, '.', back=.true.)
+ basename = inpname(1:s-1)
+ open(newunit=restid,file=TRIM(basename)//'.in' ,status='replace')
+ write(restid,'(A)') "[ctrl]"
+ write(restid,'(A)')    '  print_level = 2'
+ write(restid,'(A)')    '  num_threads = 4'
+ write(restid,'(A)')    '  basis_path = "./'//TRIM(basename)//'-basis"'
+ write(restid,'(A)')    '  chkfile    = "'//TRIM(basename)//'.pchk"'
+ write(restid,'(A,I0)') '  charge     = ',charge 
+ write(restid,'(A,I0)') '  spin       = ',mult
+ write(restid,'(A)') "[geom]"
+ write(restid,'(A)') '  name = "'//TRIM(basename)//'"'
+ write(restid,'(A)') '  unit = "angstrom"'
+ write(restid,'(A)') "  position = '''"
+
+ do i = 1, natom, 1
+  !write(*, *) ghost(i)
+  if(ghost(i)) then
+   write(buf,'(A)') 'X-'//TRIM(elem(i)) !, ntimes(i)
+  else
+   write(buf,'(A)') TRIM(elem(i)) !, ntimes(i)
+  end if
+  !write(*, *) TRIM(buf), coor(1:3,i)
+  write(restid,'(A,2X,3(1X,F17.8))') TRIM(buf), coor(1:3,i)
+ end do ! for i
+ write(restid,'(A)') "'''"
+ close(restid)
+
+ ! write nwchem basis file
+ i = SYSTEM("mkdir -p "//TRIM(basename)//"-basis")
+ nwname = ""
+ jsonname = ""
+ open(newunit=inpid,file=TRIM(inpname),status='old',position='rewind')
+ do while(.true.)
+  read(inpid,'(A)') buf
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6)=='DATA') exit
+  end if
+ end do ! for while
+
+ ! skip 2 lines: the Title Card line and the Point Group line
+ read(inpid,'(A)') buf
+ read(inpid,'(A)') buf
+
+ ! read and print basis sets
+ do k = 1, natom, 1
+  read(inpid,'(A)') buf
+  ! 'buf' contains the element, relative atomic mass and coordinates
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(3:5)=='END') exit
+  end if
+
+  ! deal with the basis data
+  write(nwname, '(A,I0,A)') TRIM(basename)//'-basis/'//TRIM(elem(k)), ntimes(k), ".nwbas"
+  open(newunit=nwid,file=TRIM(nwname),status='replace')
+  !write(*, *) nwname
+  write(nwid,'(A)') 'BASIS "ao basis" SPHERICAL PRINT'
+  write(nwid,'(A)') "#"
+
+  do while(.true.)
+   read(inpid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+
+   read(buf,*) bastype, nline
+   if(bastype == 'L') then
+    ncol = 3
+    new_bastype = 'SP'
+   else
+    ncol = 2
+    new_bastype = bastype//' '
+   end if
+   allocate(prim_gau(ncol,nline), source=0d0)
+   write(nwid,'(A2,4X,A2)') elem(k), new_bastype
+
+   do i = 1, nline, 1
+    read(inpid,*) j, prim_gau(1:ncol,i)
+    if(nline==1 .and. prim_gau(2,1)<1d-6) prim_gau(2,1) = 1d0
+    write(nwid,'(3(1X,E18.9))') prim_gau(:,i)
+   end do ! for i
+   deallocate(prim_gau)
+  end do ! for while
+
+  !if(k < natom) then
+  ! write(nwid,'(A)') "'''),"
+  !else
+  write(nwid,'(A)') "END"
+  !end if
+  close(nwid)
+
+  if (ntimes(k) == 1) then
+   write(jsonname, '(A)') TRIM(basename)//'-basis/'//TRIM(elem(k))//".json"
+   s = SYSTEM("bse convert-basis --in-fmt nwchem --out-fmt json "//TRIM(nwname)//" "//TRIM(jsonname))
+   if (s /= 0) then
+    write(6,'(/,A)') "ERROR in subroutine write_rest_in_and_basis: bse convert-basis failed!"
+    write(6,'(A)')   "please check if bse is installed"
+    stop
+   end if
+  end if
+ end do ! k
+end subroutine write_rest_in_and_basis

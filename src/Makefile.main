@@ -486,6 +486,8 @@ all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair bas_fch2py bas_gau
      ortho assoc_rot mirror_wfn wfn_analysis lo mo_svd mo_svd_format solve_ON_matrix \
      rwgeom rwwfn excited get_mokit_loc
 
+rest: bas_fch2py bas_gms2py fch2inp fch2py ortho rest2fch
+
 clean:
 	rm -f *.o *.mod
 
