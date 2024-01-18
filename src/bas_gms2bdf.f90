@@ -23,7 +23,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in BDF format
 subroutine bas_gms2bdf(fort7)
- use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
+ use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, k, nline, rc, rel, nbf, nif
  integer :: fid1, fid2
@@ -50,8 +50,8 @@ subroutine bas_gms2bdf(fort7)
  k = INDEX(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
  call read_natom_from_gms_inp(fort7, natom)
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ allocate(elem(natom), nuc(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
  deallocate(ghost)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
@@ -174,7 +174,7 @@ subroutine bas_gms2bdf(fort7)
   call clear_prim_gau()
  end do ! for i
 
- deallocate(ram, ntimes, elem, all_ecp)
+ deallocate(nuc, ntimes, elem, all_ecp)
  close(fid1)
 
  if(rc /= 0) then
@@ -190,7 +190,7 @@ end subroutine bas_gms2bdf
 
 ! print primitive gaussians
 subroutine prt_prim_gau_bdf(iatom, fid)
- use pg, only: prim_gau, ram, highest, all_ecp, elem, ntimes, ecp_exist
+ use pg, only: prim_gau, nuc, highest, all_ecp, elem, ntimes, ecp_exist
  implicit none
  integer :: i, j, k, m, n, nline, ncol
  integer, intent(in) :: iatom, fid
@@ -199,7 +199,7 @@ subroutine prt_prim_gau_bdf(iatom, fid)
 
  call get_highest_am()
  write(fid,'(A)') '****'
- write(fid,'(A,I0,3X,I0,3X,I1)') TRIM(elem(iatom)),ntimes(iatom),ram(iatom),highest
+ write(fid,'(A,I0,3X,I0,3X,I1)') TRIM(elem(iatom)),ntimes(iatom),nuc(iatom),highest
 
  do i = 1, 7, 1
   if(.not. allocated(prim_gau(i)%coeff)) cycle

@@ -40,7 +40,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Dalton format
 subroutine bas_gms2dal(fort7, spherical)
- use pg, only: natom, ram, ntimes, elem, coor, highest, all_ecp, ecp_exist
+ use pg, only: natom, nuc, ntimes, elem, coor, highest, all_ecp, ecp_exist
  implicit none
  integer :: i, nline, rc, charge, mult, rel, fid1, fid2
  character(len=240), intent(in) :: fort7
@@ -56,10 +56,10 @@ subroutine bas_gms2dal(fort7, spherical)
  molfile = fort7(1:i-1)//'.mol'
 
  call read_natom_from_gms_inp(fort7, natom)
- allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ allocate(nuc(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
  deallocate(ghost)
- ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
+ ! nuc cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
@@ -90,7 +90,7 @@ subroutine bas_gms2dal(fort7, spherical)
  if(mult > 1) then
   write(fid1,'(A)') '*SCF INPUT'
   write(fid1,'(A)') '.DOUBLY OCCUPIED'
-  write(fid1,'(I0)') (SUM(ram)-charge-mult+1)/2
+  write(fid1,'(I0)') (SUM(nuc)-charge-mult+1)/2
   write(fid1,'(A)') '.SINGLY OCCUPIED'
   write(fid1,'(I0)') mult-1
  end if
@@ -141,7 +141,7 @@ subroutine bas_gms2dal(fort7, spherical)
  do i = 1, natom, 1
   read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  ! 'buf' contains the element, ram and coordinates
+  ! 'buf' contains the element, nuc and coordinates
   if(elem(i) == 'Bq') then
    write(fid2,'(A)') 'Charge=0. Atoms=1 Basis=INTGRL Ghost'
    write(fid2,'(A2,3(1X,F15.8))') elem(i), coor(1:3,i)
@@ -158,7 +158,7 @@ subroutine bas_gms2dal(fort7, spherical)
   end do ! for while
 
   call get_highest_am()
-  write(fid2,'(3(A,I0))',advance='no') 'Charge=',ram(i),'. Atoms=1 Basis=INTGRL&
+  write(fid2,'(3(A,I0))',advance='no') 'Charge=',nuc(i),'. Atoms=1 Basis=INTGRL&
    & Blocks=',highest+1
   write(fid2,'(A)',advance='no') REPEAT(' 1', highest+1)
   if(all_ecp(i)%ecp) then
@@ -176,8 +176,8 @@ subroutine bas_gms2dal(fort7, spherical)
  end do ! for i
 
  close(fid1)
- ! now ram can be deallocated
- deallocate(ram, elem, ntimes, coor, all_ecp)
+ ! now nuc can be deallocated
+ deallocate(nuc, elem, ntimes, coor, all_ecp)
 
  if(rc /= 0) then
   write(6,'(A)') "ERROR in subroutine bas_gms2dal: it seems the '$DATA'&
@@ -192,7 +192,7 @@ end subroutine bas_gms2dal
 
 ! print primitive gaussians in Dalton format
 subroutine prt_prim_gau_dalton(iatom, fid)
- use pg, only: prim_gau, all_ecp, ecp_exist, ram
+ use pg, only: prim_gau, all_ecp, ecp_exist, nuc
  implicit none
  integer :: i, j, k, m, n, nline, ncol, ecpid
  integer, intent(in) :: iatom, fid
@@ -218,7 +218,7 @@ subroutine prt_prim_gau_dalton(iatom, fid)
  if(all_ecp(iatom)%ecp) then
   write(ecpname,'(A,I0,A)') 'ecp_data/',iatom,'_ecp'
   open(newunit=ecpid,file=TRIM(ecpname),status='replace')
-  write(ecpid,'(A,/,A,I4,/,A)') '$','a', ram(iatom), '$'
+  write(ecpid,'(A,/,A,I4,/,A)') '$','a', nuc(iatom), '$'
   m = all_ecp(iatom)%highest
   write(ecpid,'(2I4,I0)') m, all_ecp(iatom)%core_e
 

@@ -22,8 +22,8 @@ module fch_content
  integer :: mult  = 1        ! spin multiplicity
  integer :: natom = 0        ! number of atoms
  integer :: LenNCZ = 0       ! ECP-LenNCZ
- integer, parameter :: period_nelem = 112    ! 112 elements, H-Cn
- integer, parameter :: shltyp2nbf(-5:5) = [11,9,7,5,4,1,3,6,10,15,21]
+ integer, parameter :: period_nelem = 118    ! 118 elements, H-Og
+ integer, parameter :: shltyp2nbf(-5:5) = (/11,9,7,5,4,1,3,6,10,15,21/)
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
  integer, allocatable :: iatom_type(:)       ! Int Atom Types
  integer, allocatable :: shell_type(:)       ! Shell types
@@ -63,7 +63,29 @@ module fch_content
     18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 23, 23, 23, 23, 23, & ! Pm~Re
     23, 23, 23, 23, 23, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, & ! Os~Th
     34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 50, 50, & ! Pa~Db
-    50, 50, 50, 50, 50, 50, 50/)                                  ! Sg~Cn
+    50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50/)          ! Sg~Cn
+
+ ! Taken from
+ ! https://www.ciaaw.org/atomic-weights.htm#m
+ ! https://lynceans.org/tag/extended-periodic-table
+ ! https://www.nist.gov/sites/default/files/images/2019/07/26/nist_periodictable_july2019_final_front.jpg
+ real(kind=8), parameter :: ram(0:period_nelem) = (/0d0, 1.008d0,4.003d0,     &! Bq, H, He
+  6.938d0, 9.012d0, 10.806d0, 12.01d0, 14.006d0, 16d0, 18.998d0, 20.18d0,     &! Li~Ne
+  22.99d0, 24.304d0, 26.982d0, 28.084d0, 30.974d0, 32.059d0, 35.446d0,        &! Na~Cl
+  39.792d0, 39.098d0, 40.078d0, 44.956d0, 47.867d0, 50.942d0, 51.996d0,       &! Ar~Cr
+  54.938d0, 55.845d0, 58.933d0, 58.693d0, 63.546d0, 65.382d0, 69.723d0,       &! Mn~Ga
+  72.631d0, 74.922d0, 78.972d0, 79.901d0, 83.798d0, 85.468d0, 87.621d0,       &! Ge~Sr
+  88.906d0, 91.224d0, 92.906d0, 95.951d0, 98.907d0, 101.072d0, 102.905d0,     &! Y~Rh
+  106.421d0, 107.868d0, 112.414d0, 114.818d0, 118.711d0, 121.76d0, 127.603d0, &! Pd~Te
+  126.904d0, 131.294d0, 132.905d0, 137.328d0, 138.905d0, 140.116d0, 140.908d0,&! I~Pr
+  144.242d0, 144.913d0, 150.362d0, 151.964d0, 157.253d0, 158.925d0, 162.5d0,  &! Nd~Dy
+  164.93d0, 167.259d0, 168.934d0, 173.045d0, 174.967d0, 178.487d0, 180.948d0, &! Ho~Ta
+  183.841d0, 186.207d0, 190.233d0, 192.217d0, 195.085d0, 196.967d0, 200.592d0,&! W~Hg
+  204.382d0, 206.14d0, 208.98d0, 208.982d0, 209.987d0, 222.018d0, 223.02d0,   &! Tl~Fr
+  226.025d0, 227.028d0, 232.038d0, 231.036d0, 238.029d0, 237.048d0, 244.064d0,&! Ra~Pu
+  243.061d0, 247.07d0, 247.07d0, 251.08d0, 254d0, 257.095d0, 258.1d0,         &! Am~Md
+  259.101d0, 266d0, 267d0, 268d0, 269d0, 270d0, 269d0, 278d0, 281d0, 282d0,   &! No~Rg
+  285d0, 286d0, 289d0, 289d0, 293d0, 294d0, 294d0/)                            ! Cn~Og
 
  character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
    'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
@@ -77,7 +99,7 @@ module fch_content
    'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
    'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
    'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
-   'Rg', 'Cn'/)
+   'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'/)
 
 contains
 
@@ -99,8 +121,8 @@ subroutine read_ne_from_fch(fchname, ne)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec'&
-                 & found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec' f&
+                   &ound in file "//TRIM(fchname)
   stop
  end if
 
@@ -122,8 +144,8 @@ subroutine check_uhf_in_fch(fchname, uhf)
   read(fid,'(A)',iostat=i) buf
   if(i < 0) exit ! end-of-file
   if(i > 0) then
-   write(6,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
-                  & '//TRIM(fchname)
+   write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file &
+                   &'//TRIM(fchname)
    close(fid)
    stop
   end if
@@ -161,8 +183,8 @@ subroutine check_ghf_in_fch(fchname, ghf)
 
  if(i /= 0) then
   close(fid)
-  write(6,'(A)') "ERROR in subroutine check_ghf_in_fch: no 'Number of ind' fou&
-                 &nd in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine check_ghf_in_fch: no 'Number of ind' fo&
+                   &und in file "//TRIM(fchname)
   stop
  end if
 
@@ -172,8 +194,8 @@ subroutine check_ghf_in_fch(fchname, ghf)
   read(fid,'(A)',iostat=i) buf
   if(i < 0) exit ! end-of-file
   if(i > 0) then
-   write(6,'(A)') 'ERROR in subroutine check_ghf_in_fch: failed to read file&
-                  & '//TRIM(fchname)
+   write(6,'(/,A)') 'ERROR in subroutine check_ghf_in_fch: failed to read file &
+                   &'//TRIM(fchname)
    close(fid)
    stop
   end if
@@ -221,10 +243,12 @@ subroutine read_fch(fchname, uhf)
 
  nopen = na - nb
  if(nopen < 0) then
-  write(6,'(A)') 'ERROR in subroutine read_fch: The number of alpha electrons&
-                 & is less than that of beta electrons!'
+  write(6,'(/,A)') 'ERROR in subroutine read_fch: The number of alpha electrons&
+                   & is less than'
+  write(6,'(A)') 'that of beta electrons!'
   write(6,'(A)') 'fchname='//TRIM(fchname)
   write(6,'(2(A,I0))') 'na=', na, ', nb=', nb
+  close(fid)
   stop
  end if
 
@@ -284,7 +308,7 @@ subroutine read_fch(fchname, uhf)
   read(fid,'(A49,2X,I10)') buf, nprim
   read(fid,'(A49,2X,I10)') buf, ncontr
  else
-  write(6,'(A,I0)') 'ERROR in subroutine read_fch: invalid i=',i
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_fch: invalid i=', i
   write(6,'(A)') 'Unsupported file format, or file is incomplete. File='//TRIM(fchname)
   close(fid)
   stop
@@ -406,9 +430,10 @@ subroutine read_fch(fchname, uhf)
  if(uhf) then
   read(fid,'(A)') buf
   if(buf(1:12) /= 'Beta Orbital') then
-   write(6,'(A)') "ERROR in subroutine read_fch: no 'Beta Orbital' found in&
-                  & this .fch(k) file,"
+   write(6,'(/,A)') "ERROR in subroutine read_fch: no 'Beta Orbital' found in t&
+                    &his .fch(k) file,"
    write(6,'(A)') "but you specify '-uhf'. fchname="//TRIM(fchname)
+   close(fid)
    stop
   end if
   allocate(eigen_e_b(nif), source=0d0)
@@ -467,7 +492,6 @@ subroutine read_fch(fchname, uhf)
 end subroutine read_fch
 
 ! map a nuclear charge to an element (e.g. 6->'C')
-! Note: only 1-112 elements are supported!
 pure function nuc2elem(i) result(s)
  implicit none
  integer, intent(in) :: i
@@ -476,8 +500,25 @@ pure function nuc2elem(i) result(s)
  s = period_elem(i)
 end function nuc2elem
 
+! convert atomic numbers to atomic symbols if the user uses atomic numbers
+subroutine possible_nuc2elem(natom, elem)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ character(len=2), intent(inout) :: elem(natom)
+
+ do i = 1, natom, 1
+  j = IACHAR(elem(i)(1:1))
+  if(j>47 .and. j<58) then
+   read(elem(i),*) j
+   elem(i) = period_elem(j)
+  end if
+ end do ! for i
+end subroutine possible_nuc2elem
+
 ! map an element to a nuclear charge (e.g. 'C'->6)
-! Note: only 1-112 elements are supported!
+! This is a pure function, `write` or `stop` cannot be used here. It is the
+! user's responsibility to make sure the input element is valid.
 pure function elem2nuc(s) result(i)
  implicit none
  integer :: i
@@ -588,6 +629,7 @@ subroutine find_irel_in_fch(fchname, irel)
                    &Charge' is found"
   write(6,'(A)') 'in file '//TRIM(fchname)//'.'
   write(6,'(A)') 'This .fch(k) file maybe incomplete.'
+  close(fid)
   stop
  end if
 
@@ -652,9 +694,9 @@ subroutine check_nobasistransform_in_fch(fchname)
  end do ! for while
 
  if(i /= 0) then
-  close(fid)
   write(6,'(/,A)') 'ERROR in subroutine check_nobasistransform_in_fch: problema&
                    &tic file '//TRIM(fchname)
+  close(fid)
   stop
  end if
 
@@ -1118,4 +1160,36 @@ subroutine read_pdfgh_mark_from_shltyp(ncontr, shltyp, no_mark, mark)
   end select
  end do ! for i
 end subroutine read_pdfgh_mark_from_shltyp
+
+! Find the number of kinds of elements in the array nuc. E.g. {H,C,O} -> 3
+subroutine find_nelem_in_nuc(natom, nuc, nelem)
+ use fch_content, only: period_nelem
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ integer, intent(out) :: nelem
+
+ nelem = 0
+ do i = 1, period_nelem, 1
+  if(COUNT(nuc == i) > 0) nelem = nelem + 1
+ end do ! for i
+end subroutine find_nelem_in_nuc
+
+! Find the number of atoms for each kind of element. Note: the input nuc should
+! have beend sorted in ascending order.
+subroutine find_natom_per_elem(natom, nuc, nelem, natom_per_elem)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom, nelem
+ integer, intent(in) :: nuc(natom)
+ integer, intent(out) :: natom_per_elem(nelem)
+
+ natom_per_elem = 0; natom_per_elem(1) = 1; j = 1
+
+ do i = 2, natom, 1
+  if(nuc(i) /= nuc(i-1)) j = j + 1
+  natom_per_elem(j) = natom_per_elem(j) + 1
+ end do ! for i
+end subroutine find_natom_per_elem
 

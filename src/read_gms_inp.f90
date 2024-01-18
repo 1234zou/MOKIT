@@ -5,8 +5,7 @@ module pg
  implicit none
  integer :: natom     ! the number of atoms
  integer :: highest   ! highest angular momentum
- integer, allocatable :: ram(:), ntimes(:) ! ram: relative atomic mass
- ! I made a mistake, ram should be interpreted as atomic order
+ integer, allocatable :: nuc(:), ntimes(:)
  real(kind=8), allocatable :: coor(:,:)    ! Cartesian coordinates
  character(len=2), allocatable :: elem(:)  ! elements
 
@@ -584,7 +583,7 @@ end subroutine get_highest_am
 
 ! print primitive gaussians
 subroutine prt_prim_gau(iatom, fid)
- use pg, only: prim_gau, ram, highest, all_ecp, elem, ecp_exist
+ use pg, only: prim_gau, nuc, highest, all_ecp, elem, ecp_exist
  implicit none
  integer :: i, j, k, m, n, nline, ncol
  integer, intent(in) :: iatom, fid
@@ -593,9 +592,9 @@ subroutine prt_prim_gau(iatom, fid)
 
  call get_highest_am()
  if(ecp_exist) then
-  write(fid,'(5X,I0,A1,3X,I1)') ram(iatom)-all_ecp(iatom)%core_e,'.',highest
+  write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom)-all_ecp(iatom)%core_e,'.',highest
  else
-  write(fid,'(5X,I0,A1,3X,I1)') ram(iatom), '.', highest
+  write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom), '.', highest
  end if
 
  do i = 1, 7, 1

@@ -82,15 +82,14 @@ subroutine mkl2fch(mklname, fchname, no_type)
  integer :: i, k, nf3mark, ng3mark, nh3mark
  integer, intent(in) :: no_type
  integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
- real(kind=8), allocatable :: noon(:), coeff(:,:)
+ real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
  character(len=240), intent(in) :: mklname, fchname
- logical :: uhf
 
  call find_specified_suffix(fchname, '.fch', i)
- call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- call read_fch(fchname, uhf)         ! read content in .fch(k) file
+ call check_uhf_in_fch(fchname, is_uhf) ! determine whether UHF
+ call read_fch(fchname, is_uhf)         ! read content in .fch(k) file
 
- if(no_type==2 .and. (.not.uhf)) then
+ if(no_type==2 .and. (.not.is_uhf)) then
   write(6,'(/,A)') 'ERROR in subroutine mkl2fch: Natural Spin Orbitals requeste&
                    &d. But this is'
   write(6,'(A)') 'not a UHF-type .fch file.'
@@ -115,7 +114,7 @@ subroutine mkl2fch(mklname, fchname, no_type)
 
  ! read Alpha and/or Beta MOs from .fch(k) file
  call read_mo_from_mkl(mklname, nbf, nif, 'a', alpha_coeff)
- if(uhf) then ! UHF
+ if(is_uhf) then ! UHF
   call read_mo_from_mkl(mklname, nbf, nif, 'b', beta_coeff)
   k = 2*nif
   allocate(coeff(nbf,k))
@@ -130,51 +129,74 @@ subroutine mkl2fch(mklname, fchname, no_type)
  allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
  call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
                                nh3mark, f3_mark, g3_mark, h3_mark)
- deallocate(shell_type)
  call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
                                g3_mark, h3_mark, coeff)
  deallocate(f3_mark, g3_mark, h3_mark)
 
- if(uhf) then ! UHF
+ if(is_uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)
   beta_coeff = coeff(:,nif+1:)
  else         ! R(O)HF
   alpha_coeff = coeff
  end if
- deallocate(coeff)
 
- allocate(noon(nif))
+ deallocate(coeff)
+ allocate(noon(nif), dm(nbf,nbf))
+
  select case(no_type)
  case(0) ! canonical orbitals
-  call read_ev_from_mkl(mklname, nif, 'a', noon)
-  call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
-  if(uhf) then
-   call read_ev_from_mkl(mklname, nif, 'b', noon)
-   call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
+  call read_ev_from_mkl(mklname, nif, 'a', eigen_e_a)
+  call write_eigenvalues_to_fch(fchname, nif, 'a', eigen_e_a, .true.)
+  if(is_uhf) then
+   call read_ev_from_mkl(mklname, nif, 'b', eigen_e_b)
+   call write_eigenvalues_to_fch(fchname, nif, 'b', eigen_e_b, .true.)
   end if
+  noon = 0d0; noon(1:na) = 1d0
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, noon, dm)
+  if(na > nb) then
+   allocate(dm_b(nbf,nbf))
+   noon(nb+1:na) = 0d0
+   if(is_uhf) then
+    call calc_dm_using_mo_and_on(nbf, nif, beta_coeff, noon, dm_b)
+   else ! ROHF
+    call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, noon, dm_b)
+   end if
+   call write_dm_into_fch(fchname, .false., nbf, dm-dm_b)
+   dm = dm + dm_b
+   deallocate(dm_b)
+  else
+   dm = 2d0*dm
+  end if
+  call write_dm_into_fch(fchname, .true., nbf, dm)
  case(1) ! natural orbitals
   call read_on_from_mkl(mklname, nif, 'a', noon)
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, noon, dm)
   call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  call write_dm_into_fch(fchname, .true., nbf, dm)
  case(2) ! natural spin orbitals
   call read_on_from_mkl(mklname, nif, 'a', noon)
   call write_eigenvalues_to_fch(fchname, nif, 'a', noon, .true.)
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, noon, dm)
   call read_on_from_mkl(mklname, nif, 'b', noon)
   call write_eigenvalues_to_fch(fchname, nif, 'b', noon, .true.)
+  allocate(dm_b(nbf,nbf))
+  call calc_dm_using_mo_and_on(nbf, nif, beta_coeff, noon, dm_b)
+  call write_dm_into_fch(fchname, .false., nbf, dm-dm_b)
+  dm = dm + dm_b
+  deallocate(dm_b)
+  call write_dm_into_fch(fchname, .true., nbf, dm)
  case default
   write(6,'(/,A)') 'ERROR in subroutine mkl2fch: no_type out of range!'
   write(6,'(A,I0)') 'no_type=', no_type
   stop
  end select
 
+ deallocate(dm, noon)
  call write_mo_into_fch(fchname, nbf, nif, 'a', alpha_coeff)
- deallocate(alpha_coeff)
+ if(is_uhf) call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
 
- if(uhf) then
-  call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
-  deallocate(beta_coeff)
- end if
-
- deallocate(noon)
+ call free_arrays_in_fch_content()
+ stop
 end subroutine mkl2fch
 
 ! Convert a ORCA .mkl file to a Gaussian fch file. The fch file will be generated
@@ -196,6 +218,13 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  call check_uhf_in_mkl(mklname, is_uhf)
  call read_mkl(mklname, is_uhf, .true.)
  deallocate(nuc)
+
+ if((.not.is_uhf) .and. no_type==2) then
+  write(6,'(/,A)') 'ERROR in subroutine mkl2fch_direct: this is a R(O)HF-type .&
+                   &mkl file.'
+  write(6,'(A)') 'But you request beta orbitals.'
+  stop
+ end if
 
  charge = charge0
  mult = mult0
@@ -334,11 +363,7 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  end select
 
  call write_fch(fchname)
- deallocate(ielem, coor, iatom_type, shell_type, prim_per_shell, shell2atom_map,&
-            prim_exp, contr_coeff, eigen_e_a, alpha_coeff, tot_dm)
- if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
- if(allocated(spin_dm)) deallocate(spin_dm)
- if(is_uhf) deallocate(eigen_e_b, beta_coeff)
+ call free_arrays_in_fch_content()
 end subroutine mkl2fch_direct
 
 ! check na, nb with those calculated from $OCC_ALPHA(and $OCC_BETA) in .mkl file

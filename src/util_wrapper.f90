@@ -11,7 +11,7 @@ subroutine formchk(chkname, fchname)
  character(len=240) :: fchname0
  character(len=500) :: buf
  character(len=240), intent(in) :: chkname
- character(len=240), optional :: fchname
+ character(len=240), intent(in), optional :: fchname
  logical :: alive
 
  inquire(file=TRIM(chkname), exist=alive)
@@ -51,7 +51,7 @@ subroutine unfchk(fchname, chkname)
  character(len=240) :: chkname0
  character(len=500) :: buf
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: chkname
+ character(len=240), intent(in), optional :: chkname
 
  if(PRESENT(chkname)) then
   chkname0 = chkname
@@ -80,7 +80,7 @@ subroutine gbw2mkl(gbwname, mklname)
  implicit none
  integer :: i, k, SYSTEM, RENAME
  character(len=240), intent(in) :: gbwname
- character(len=240), optional :: mklname
+ character(len=240), intent(in), optional :: mklname
  logical :: alive
 
  inquire(file=TRIM(gbwname), exist=alive)
@@ -111,7 +111,7 @@ subroutine mkl2gbw(mklname, gbwname)
  implicit none
  integer :: i, k, SYSTEM, RENAME
  character(len=240), intent(in) :: mklname
- character(len=240), optional :: gbwname
+ character(len=240), intent(in), optional :: gbwname
 
  k = INDEX(mklname, '.mkl', back=.true.)
 #ifdef _WIN32
@@ -147,7 +147,7 @@ subroutine fch2psi_wrap(fchname, inpname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: inpname1
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: inpname
+ character(len=240), intent(in), optional :: inpname
 
  i = SYSTEM('fch2psi '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2psi', fchname)
@@ -204,7 +204,7 @@ end subroutine fch2inp_wrap
 subroutine mkl2fch_wrap(mklname, fchname, ino)
  implicit none
  integer :: i, SYSTEM
- integer, optional :: ino
+ integer, intent(in), optional :: ino
  character(len=240), intent(in) :: mklname, fchname
  character(len=500) :: buf
 
@@ -245,7 +245,7 @@ subroutine fch2mkl_wrap(fchname, mklname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: mklname1
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: mklname
+ character(len=240), intent(in), optional :: mklname
 
  i = SYSTEM('fch2mkl '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2mkl', fchname)
@@ -264,7 +264,7 @@ subroutine fch2gbw(fchname, gbwname)
  integer :: i
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: gbwname
+ character(len=240), intent(in), optional :: gbwname
 
  i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'_o.inp'
@@ -314,7 +314,7 @@ subroutine fch_u2r_wrap(fchname, new_fch)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: rfch
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: new_fch
+ character(len=240), intent(in), optional :: new_fch
 
  i = SYSTEM('fch_u2r '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch_u2r', fchname)
@@ -331,7 +331,7 @@ subroutine fch2dal_wrap(fchname, dalname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: molname, dalname1, molname1
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: dalname
+ character(len=240), intent(in), optional :: dalname
 
  i = SYSTEM('fch2dal '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2dal', fchname)
@@ -355,7 +355,7 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
  integer, intent(in) :: npair
  character(len=240) :: inpname0, dirname
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: inpname
+ character(len=240), intent(in), optional :: inpname
  character(len=260) :: buf
  character(len=480) :: scr_dir, scr_dir0
 
@@ -391,7 +391,7 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: pyname0
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: pyname
+ character(len=240), intent(in), optional :: pyname
  character(len=256) :: buf
  logical, intent(in) :: dft
 
@@ -412,7 +412,7 @@ subroutine fch2com_wrap(fchname, inpname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: inpname1
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: inpname
+ character(len=240), intent(in), optional :: inpname
 
  i = SYSTEM('fch2com '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2com', fchname)
@@ -426,13 +426,12 @@ subroutine fch2com_wrap(fchname, inpname)
  end if
 end subroutine fch2com_wrap
 
-! Note: inpname is optional
 subroutine fch2inporb_wrap(fchname, prt_no, inpname)
  implicit none
  integer :: i, k, SYSTEM, RENAME
  character(len=240) :: old_inp, old_orb, orbname
  character(len=240), intent(in) :: fchname
- character(len=240), optional :: inpname
+ character(len=240), intent(in), optional :: inpname
  character(len=255) :: buf
  logical, intent(in) :: prt_no
 

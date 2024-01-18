@@ -880,8 +880,9 @@ subroutine prt_hf_pyscf_inp(inpname, hf_type)
  write(fid1,'(A)') 'from pyscf import lib'
  if(hf_type > 2) write(fid1,'(A)') 'from mokit.lib.rwwfn import update_density_&
                                    &using_mo_in_fch'
- write(fid1,'(A)') 'from mokit.lib.py2fch import py2fch'
- write(fid1,'(A,I0,A,/)') 'lib.num_threads(',nproc,')'
+ write(fid1,'(A,/)') 'from mokit.lib.py2fch import py2fch'
+ write(fid1,'(A,I0)') 'nproc = ', nproc
+ write(fid1,'(A,/)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

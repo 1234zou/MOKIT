@@ -532,7 +532,7 @@ end subroutine read_ci_coeff_from_gms
 ! forall(i = 1:nbf) S0(i,i) = DSQRT(DABS(e(i)))
 ! deallocate(e)
 ! allocate(sqrt_S_P(nbf,nbf))
-! call dsymm('R', 'U', nbf, nbf, 1d0, S0, nbf, ev, nbf, 0d0, sqrt_S_P, nbf)
+! call dsymm('R', 'L', nbf, nbf, 1d0, S0, nbf, ev, nbf, 0d0, sqrt_S_P, nbf)
 ! call dgemm('N', 'T', nbf, nbf, nbf, 1d0, sqrt_S_P, nbf, ev, nbf, 0d0, S0, nbf)
 ! deallocate(ev, sqrt_S_P)
 !

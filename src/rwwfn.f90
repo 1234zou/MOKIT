@@ -1466,8 +1466,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  expect = DBLE(spin)/2d0
  expect = expect*(expect + 1d0)
 
- call open_file(outname, .false., fid)
  if(scf) then ! CASSCF/DMRG-CASSCF
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
   do while(.true.)
    BACKSPACE(fid)
    BACKSPACE(fid)
@@ -1484,7 +1484,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
 
  else ! CASCI/DMRG-CASCI
 
-  if(.not. dmrg) then
+  if(dmrg) then
+   open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  else
+   open(newunit=fid,file=TRIM(outname),status='old',position='append')
    do while(.true.)
     BACKSPACE(fid)
     BACKSPACE(fid)
@@ -1497,20 +1500,18 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
      j = 1; exit
     end if
    end do ! for while
-  else
-   BACKSPACE(fid)
   end if
  end if
 
  if(k /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out: problematic fi&
-                 &le '//TRIM(outname)//'.'
+  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_out: problematic f&
+                   &ile '//TRIM(outname)//'.'
   close(fid)
   stop
  else ! k = 0
   if(j/=0 .and. (.not.state_specific)) then
-   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_out: CASCI or CASS&
-                  &CF not converged.'
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_out: CASCI or CAS&
+                    &SCF not converged.'
    close(fid)
    stop
   end if
@@ -3309,7 +3310,7 @@ end subroutine update_density_using_mo_in_fch
 ! update 'Total SCF Density' using natural orbitals and occupation numbers
 subroutine update_density_using_no_and_on(fchname)
  implicit none
- integer :: i, j, k, nbf, nif
+ integer :: nbf, nif
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:)
  character(len=240), intent(in) :: fchname
 
@@ -3320,15 +3321,8 @@ subroutine update_density_using_no_and_on(fchname)
  allocate(coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
 
- allocate(dm(nbf,nbf), source=0d0)
- do i = 1, nbf, 1
-  do j = 1, i, 1
-   do k = 1, nif, 1
-    if(DABS(noon(k)) < 1D-7) cycle
-    dm(j,i) = dm(j,i) + noon(k)*coeff(i,k)*coeff(j,k)
-   end do ! for m
-  end do ! for j
- end do ! for i
+ allocate(dm(nbf,nbf))
+ call calc_dm_using_mo_and_on(nbf, nif, coeff, noon, dm)
 
  deallocate(coeff, noon)
  call write_dm_into_fch(fchname, .true., nbf, dm)
@@ -3717,4 +3711,80 @@ subroutine get_core_valence_sep_idx(fchname, idx)
 
  deallocate(ev)
 end subroutine get_core_valence_sep_idx
+
+! Paring each singly occupied orbital with a virtual one, for a high spin GVB
+!  wave function. These new pairs would be put after all normal GVB pairs.
+! Such type of .fch file may be used for high-spin GVB-BCCC calculations.
+subroutine pairing_open_with_vir(fchname)
+ implicit none
+ integer :: i, j, k, npair, nopen, ndb, na, nb, nbf, nif
+ real(kind=8), allocatable :: mo(:,:), new_mo(:,:), ev(:)
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ i = INDEX(fchname, 'gvb', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine pairing_open_with_vir: 'gvb' characters&
+                  & not found in"
+  write(6,'(A)') 'filename '//TRIM(fchname)
+  write(6,'(A)') 'These characters are used to identify the number of pairs.'
+  write(6,'(A,/)') 'Example: h2o_uhf_uno_asrot2gvb3.fch'
+  stop
+ end if
+
+ k = LEN_TRIM(fchname)
+ read(fchname(i+3:k-4),*,iostat=j) npair
+ if(j /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine pairing_open_with_vir: failed to read n&
+                   &pair from'
+  write(6,'(A)') 'filename '//TRIM(fchname)
+  stop
+ end if
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ nopen = na - nb
+ if(nopen == 0) then
+  write(6,'(/,A)') 'Warning from subroutine pairing_open_with_vir: this is a si&
+                   &nglet .fch file.'
+  write(6,'(A)') 'No singly occupied orbitals. Nothing to do.'
+  return
+ end if
+ ndb = na - nopen - npair
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(ev(nif), source=0d0)
+
+ if(ndb > 0) ev(1:ndb) = 2d0 ! doubly occupied MOs
+ forall(i = 1:npair)         ! normal GVB pairs
+  ev(ndb+2*i-1) = 1.8d0
+  ev(ndb+2*i) = 0.2d0
+ end forall
+ ! 1.8/0.2 are not real occupation numbers, just to remind the user that where
+ ! are the normal pairs
+
+ k = ndb + 2*npair
+ forall(i = 1:nopen) ev(k+2*i-1) = 1d0 ! singly occupied orbitals
+
+ call write_eigenvalues_to_fch(fchname, nif, 'a', ev, .true.)
+ deallocate(ev)
+
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(new_mo(nbf,nif), source=mo)
+
+ ! normal GVB pairs
+ j = ndb + 1
+ k = ndb + 2*npair
+ new_mo(:,j:k) = mo(:,j+nopen:k+nopen)
+
+ ! new GVB pairs (socc-vir)
+ forall(i = 1:nopen)
+  new_mo(:,k+2*i-1) = mo(:,ndb+i)
+  new_mo(:,k+2*i) = mo(:,na+npair+i)
+ end forall
+
+ deallocate(mo)
+ call write_mo_into_fch(fchname, nbf, nif, 'a', new_mo)
+ deallocate(new_mo)
+end subroutine pairing_open_with_vir
 

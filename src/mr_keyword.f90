@@ -162,7 +162,7 @@ module mr_keyword
  logical :: uno = .false.         ! generate UNOs
  logical :: inherit = .false.     ! whether to inherit keywords in GVB/STO-6G
  logical :: frag_guess = .false.
- ! whether to perform uhf using initial guess constructed from fragments
+ ! whether to perform UHF using initial guess constructed from fragments
 
  logical :: gvb     = .false.
  logical :: casci   = .false.
@@ -198,6 +198,7 @@ module mr_keyword
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
  logical :: DLPNO = .false.       ! whether to turn on DLPNO-NEVPT2
+ logical :: frozen_core = .false. ! whether to frozen core orbitals in post-CAS
  logical :: pop = .false.         ! whether to perform population analysis
  logical :: nmr = .false.         ! whether to calcuate nuclear shielding
  logical :: ICSS = .false.        ! whether to calcuate ICSS
@@ -317,7 +318,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc21 (2023-Jan-9)'
+  write(6,'(A)') '           Version: 1.2.6rc22 (2023-Jan-18)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -394,10 +395,10 @@ contains
 
   i = INDEX(buf,'/')
   if(i == 0) then
-   write(6,'(A)') "ERROR in subroutine parse_keyword: no '/' symbol detected &
-                  &in keyword line."
-   write(6,'(A)') "The method and basis set must be specified via '/' symbol,&
-                  & e.g. CASSCF/cc-pVDZ."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: no '/' symbol detected &
+                    &in keyword line."
+   write(6,'(A)') "The method and basis set must be specified via '/' symbol, e&
+                  &.g. CASSCF/cc-pVDZ."
    close(fid)
    stop
   end if
@@ -405,7 +406,7 @@ contains
 
   j = INDEX(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
-   write(6,'(A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
    write(6,'(A)') "the current line '"//TRIM(buf)//"'"
    stop
   end if
@@ -414,7 +415,8 @@ contains
   i = INDEX(method0, '('); j = INDEX(method0, ','); k = INDEX(method0, ')')
   alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
   if(.not. (alive(1) .or. alive(2)) ) then
-   write(6,'(A)') 'ERROR in subroutine parse_keyword: incomplete method specified.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: incomplete method speci&
+                    &fied.'
    write(6,'(A)') 'method = '//TRIM(method0)
    stop
   end if
@@ -438,20 +440,22 @@ contains
     end if
    case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
     if(j /= 0) then
-     write(6,'(A)') 'ERROR in subroutine parse_keyword: GVB active space should&
-                   & be specified like GVB(3),'
-     write(6,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like CAS?'
+     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: GVB active space shou&
+                      &ld be specified like GVB(3),'
+     write(6,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like&
+                    & CAS?'
      stop
     end if
     read(method0(i+1:k-1),*) npair_wish
     if(npair_wish < 0) then
-     write(6,'(A)') 'ERROR in subroutine parse_keyword: wrong number of pairs specified.'
+     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: wrong number of pairs&
+                      & specified.'
      write(6,'(A,I0)') 'npair_wish=', npair_wish
      stop
     end if
    case default
-    write(6,'(A)') 'ERROR in subroutine parse_keyword: unsupported method '//&
-                    TRIM(method)
+    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: unsupported method '//&
+                     TRIM(method)
     stop
    end select
   else ! i = 0
@@ -808,6 +812,8 @@ contains
     read(longbuf(j+1:i-1),*) F12_cabs
    case('dlpno')
     DLPNO = .true.; RI = .true.; FIC = .true.
+   case('frozen')
+    frozen_core = .true.
    case('fic')
     FIC = .true.
    case('otpdf')
@@ -818,8 +824,8 @@ contains
     read(longbuf(j+1:i-1),*) uno_thres
    case('npair') ! numbers of pairs for non-GVB calculations
     if(npair_wish /= 0) then
-     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified &
-                      &by more than once.'
+     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified by&
+                      &more than once.'
      write(6,'(A)') 'Please check your input file.'
      stop
     end if
@@ -895,10 +901,10 @@ contains
   case(6) ! GVB/STO-6G GVB -> GVB/target basis set
    gvb = .true.; skiphf = .true.
   case default
-   write(6,'(A)') "ERROR in subroutine parse_keyword: the parameter 'ist' is &
-                 & out of range."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: the parameter 'ist' is &
+                    & out of range."
    write(6,'(A)') 'Only 1~6 are allowed. See MOKIT manual $4.4.4 for details of&
-                 & ist.'
+                  & ist.'
    stop
   end select
 

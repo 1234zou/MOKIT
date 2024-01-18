@@ -417,3 +417,45 @@ subroutine write_grad_into_fch(fchname, natom, grad)
  close(fid)
 end subroutine write_grad_into_fch
 
+! read the size of a symmetric matrix from .npy file
+subroutine read_sym_mat_size_from_npy(npyname, n)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: n
+ character(len=128) :: str
+ character(len=240), intent(in) :: npyname
+
+ n = 0; str = ' '
+ open(newunit=fid,file=TRIM(npyname),status='old',form='unformatted',&
+      access='stream')
+ read(fid) str
+ close(fid)
+
+ i = INDEX(str, '(')
+ read(str(i+1:),*) n
+end subroutine read_sym_mat_size_from_npy
+
+! read a symmetric matrix from .npy file
+subroutine read_sym_mat_from_npy(npyname, n, a)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: n
+ real(kind=8), intent(out) :: a(n,n)
+ character(len=128) :: str
+ character(len=240), intent(in) :: npyname
+
+ str = ' '
+ open(newunit=fid,file=TRIM(npyname),status='old',form='unformatted',&
+      access='stream')
+ read(fid) str
+ read(fid,iostat=i) a
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_sym_mat_from_npy: failed to read s&
+                   &ymmetric matrix from'
+  write(6,'(A)') 'the file '//TRIM(npyname)
+  stop
+ end if
+end subroutine read_sym_mat_from_npy
+

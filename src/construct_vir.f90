@@ -40,7 +40,7 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  ! Step 2: V = 1 - PS
  allocate(v(nbf, nbf), source=0d0)
  forall(i = 1:nbf) v(i,i) = 1d0
- call dsymm('R', 'U', nbf, nbf, -1d0, ovlp, nbf, p, nbf, 1d0, v, nbf)
+ call dsymm('R', 'L', nbf, nbf, -1d0, ovlp, nbf, p, nbf, 1d0, v, nbf)
  deallocate(p)
 
  ! Step 3: S1 = (VT)SV

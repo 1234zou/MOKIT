@@ -183,7 +183,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
   write(fid2,'(A)') "'"
  end if
- write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
+ write(fid2,'(A,I0)') 'nproc = ', nproc
+ write(fid2,'(A,/)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid1,'(A)') buf

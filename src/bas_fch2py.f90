@@ -14,20 +14,22 @@ program main
 
  i = iargc()
  if(i<1 .or. i>3) then
-  write(6,'(/,A)') ' ERROR in program bas_fch2py: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program bas_fch2py: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF, UHF): bas_fch2py a.fch'
   write(6,'(A)')   ' Example 2         (DFT): bas_fch2py a.fch -dft'
   write(6,'(A,/)') ' Example 3        (REST): bas_fch2py a.fch -dft -rest'
   stop
  end if
 
+ fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
  prt_dft = .false.
  rest = .false.
+
  if(i > 1) then
-  do j=2,i
+  do j = 2, i, 1
    call getarg(j, buf)
    buf = ADJUSTL(buf)
    !write(*,*) j, buf
@@ -38,10 +40,10 @@ program main
     rest = .true.
    case default
     write(6,'(/,A)') ' ERROR in subroutine bas_fch2py: wrong command line arguments!'
-    write(6,'(A)') "The argument must be '-dft' or '-rest'."
-   stop
+    write(6,'(A)') "The 3rd/4th argument must be '-dft' or '-rest'."
+    stop
    end select
- end do
+  end do ! for j
  end if
 
  ! if .chk file provided, convert into .fch file automatically
@@ -86,13 +88,10 @@ subroutine bas_fch2py(fchname, prt_dft, rest)
  call fch2inp_wrap(fchname, .false., 0, 0)
 
  command = 'bas_gms2py '//TRIM(inpname)
- if(.not. cart) then ! Cartesian functions
-  write(command, '(A)') TRIM(command)//' -sph'
- end if
- if (rest) then
-  write(command, '(A)') TRIM(command)//' -rest'
- end if
- i = SYSTEM(command)
+ if(.not. cart) command = TRIM(command)//' -sph'
+ if(rest) command = TRIM(command)//' -rest'
+
+ i = SYSTEM(TRIM(command))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py fai&
                    &led.'
@@ -116,7 +115,8 @@ subroutine bas_fch2py(fchname, prt_dft, rest)
     !call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
     ! let HF scf run
     ! rotype and untype do not matter in this case
-    call prt_dft_key2pyscf_script(' ', .true., .false., .false., pyname, rest)
+    dftname = ' '
+    call prt_dft_key2pyscf_script(dftname, .true., .false., .false., pyname, rest)
   end if
  end if
 end subroutine bas_fch2py
@@ -230,8 +230,9 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest
  dftname1 = dftname
  select case(TRIM(dftname1))
  case('b3lyp')
-  dftname1 = 'b3lyp' ! since PySCF-2.3, B3LYP in PySCF is the same to that in
-  ! Gaussian. For older versions of PySCF, the user should use 'b3lypg'
+  dftname1 = 'b3lypg' ! Since PySCF-2.3, B3LYP in PySCF is the same to that in
+  ! Gaussian. In older versions of PySCF, the functional is b3lypg. So here
+  ! b3lypg is used for compatibility.
  case('pbepbe')
   dftname1 = 'pbe,pbe'
  end select
@@ -252,11 +253,13 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest
 
  write(fid1,'(A)') 'mf.verbose = 4'
  write(fid1,'(A)') 'mf.max_cycle = 128'
- if (rest) then
+
+ if(rest) then
    j = INDEX(pyname, '.', back=.true.)
    pchkname = pyname(1:j-1)//'.pchk'
    write(fid1,'(A)') 'mf.chkfile = "'//TRIM(pchkname)//'"'
  end if
+
  write(fid1,'(A)') 'mf.kernel(dm0=dm)'
  close(fid1)
  i = RENAME(TRIM(pyname1), TRIM(pyname))

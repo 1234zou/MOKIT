@@ -37,7 +37,7 @@ end program main
 
 ! convert a GAMESS .inp file into a PSI4 input file
 subroutine bas_gms2psi(inpname, sph)
- use pg, only: natom, ram, elem, coor, ntimes, all_ecp, ecp_exist
+ use pg, only: natom, nuc, elem, coor, ntimes, all_ecp, ecp_exist
  implicit none
  integer :: i, j, k, m, n, nline, rel, charge, mult, fid1, fid2
  real(kind=8) :: rtmp(3)
@@ -56,9 +56,9 @@ subroutine bas_gms2psi(inpname, sph)
 
  call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
- allocate(elem(natom), coor(3,natom), ntimes(natom), ram(natom), ghost(natom))
- call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, ram, coor, ghost)
- deallocate(ram, ghost)
+ allocate(elem(natom), coor(3,natom), ntimes(natom), nuc(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
+ deallocate(nuc, ghost)
  call calc_ntimes(natom, elem, ntimes)
 
  open(newunit=fid2,file=TRIM(inpname1),status='replace')

@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc21 (2024-Jan-9)'
+ write(6,'(A)') '           Version: 1.2.6rc22 (2024-Jan-18)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -536,7 +536,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc21 :: MOKIT, release date: 2023-Jan-9'
+  write(6,'(A)') 'AutoSR 1.2.6rc22 :: MOKIT, release date: 2023-Jan-18'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -1557,7 +1557,8 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   if(LEN_TRIM(buf) == 0) exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
- write(fid1,'(/,A,I0,A)') 'lib.num_threads(',nproc,')'
+ write(fid1,'(/,A,I0)') 'nproc = ', nproc
+ write(fid1,'(A)') 'lib.num_threads(nproc)'
 
  if(RI) then
   do while(.true.)

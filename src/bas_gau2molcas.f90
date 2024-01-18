@@ -23,7 +23,7 @@ end program main
 
 ! Transform the basis sets in Gaussian format to those in (Open)Molcas format
 subroutine bas_gau2molcas(inpname)
- use pg, only: prim_gau, natom, ram, elem
+ use pg, only: prim_gau, natom, nuc, elem
  use fch_content, only: elem2nuc
  implicit none
  integer :: i, nline, fid1, fid2, RENAME
@@ -39,8 +39,8 @@ subroutine bas_gau2molcas(inpname)
  i = INDEX(inpname, '.gjf')
  if(i == 0) i = INDEX(inpname, '.com')
  if(i > 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_gau2molcas: .gjf/.com file not&
-                   & supported currently.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gau2molcas: .gjf/.com file not supp&
+                   &orted currently.'
   stop
  end if
 
@@ -60,7 +60,7 @@ subroutine bas_gau2molcas(inpname)
  if(outname == inpname) i = RENAME(TRIM(inpname), TRIM(inpname)//'.bak')
 
  natom = 1
- allocate(ram(1), source=0) ! atomic number
+ allocate(nuc(1), source=0) ! atomic number
  allocate(elem(1))
  elem = ' '
 
@@ -75,7 +75,7 @@ subroutine bas_gau2molcas(inpname)
   if(i /= 0) exit
   if(LEN_TRIM(buf) == 0) exit
   read(buf,*) elem(1)
-  ram(1) = elem2nuc(elem(1))
+  nuc(1) = elem2nuc(elem(1))
 
   ! deal with primitive gaussians
   do while(.true.)
@@ -98,18 +98,18 @@ subroutine bas_gau2molcas(inpname)
 
  close(fid1,status='delete')
  close(fid2)
- deallocate(ram, elem)
+ deallocate(nuc, elem)
 end subroutine bas_gau2molcas
 
 ! print primitive gaussians
 subroutine prt_prim_gau_molcas2(fid)
- use pg, only: prim_gau, ram, highest
+ use pg, only: prim_gau, nuc, highest
  implicit none
  integer :: i, j, k, nline, ncol
  integer, intent(in) :: fid
 
  call get_highest_am()
- write(fid,'(5X,I0,A1,3X,I1)') ram(1), '.', highest
+ write(fid,'(5X,I0,A1,3X,I1)') nuc(1), '.', highest
 
  do i = 1, 7, 1
   if(.not. allocated(prim_gau(i)%coeff)) cycle

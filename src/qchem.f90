@@ -531,3 +531,58 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  deallocate(dm0)
 end subroutine write_qchem_dm_into_fch
 
+subroutine freq_dep_diag(npyname, nacto, nacte, init_e)
+ implicit none
+ integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
+ integer, parameter :: max_it = 999
+ integer, intent(in) :: nacto, nacte
+!f2py intent(in) :: nacto, nacte
+ real(kind=8) :: old_e
+ real(kind=8), parameter :: thres = 1d-7
+ real(kind=8), allocatable :: ham(:,:), w(:), R_w(:,:), inv_R_w(:,:), S(:,:)
+ real(kind=8), intent(in) :: init_e
+!f2py intent(in) :: init_e
+ character(len=240), intent(in) :: npyname
+!f2py intent(in) :: npyname
+
+ nocc_b = nacte/2        ! number of beta occupied spin orbitals
+ nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
+ nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
+ nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
+ i = nocc_a*nvir_a; j = nocc_b*nvir_b
+ n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
+
+ call read_sym_mat_size_from_npy(npyname, nconf)
+ write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
+ if(n_cisd >= nconf) then
+  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
+  write(6,'(A)') 'The excitation level is <= CISD level.'
+  write(6,'(A)') 'npyname='//TRIM(npyname)
+  stop
+ end if
+
+ allocate(ham(nconf,nconf), w(n_cisd))
+ call read_sym_mat_from_npy(npyname, nconf, ham)
+ nlarge = nconf - n_cisd
+ old_e = init_e
+ write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
+
+ do i = 1, max_it, 1
+  allocate(R_w(nlarge,nlarge), source=ham(n_cisd+1:nconf,n_cisd+1:nconf))
+  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
+  allocate(inv_R_w(nlarge,nlarge))
+  call inverse2(nlarge, R_w, inv_R_w)
+  deallocate(R_w)
+  allocate(S(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
+  S = S - MATMUL(MATMUL(ham(1:n_cisd,n_cisd+1:nconf), inv_R_w), ham(n_cisd+1:nconf,1:n_cisd))
+  deallocate(inv_R_w)
+  call diag_get_e_and_vec(n_cisd, S, w)
+  deallocate(S)
+  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
+  if(DABS(w(1)-old_e)<thres) exit
+  old_e = w(1)
+ end do ! for i
+
+ deallocate(ham, w)
+end subroutine freq_dep_diag
+

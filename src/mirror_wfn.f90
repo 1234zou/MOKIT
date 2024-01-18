@@ -981,10 +981,10 @@ subroutine get_bas_begin_idx_from_shltyp(ncontr, shell_type, shell2atom_map, &
  end do ! for i
 end subroutine get_bas_begin_idx_from_shltyp
 
-! Calculate the RMSD value of two molecules (in .gjf/.xyz files).
+! Calculate the RMSD value of two molecules (in .xyz/.gjf/.fch files).
 ! This subroutine assumes that the atomic labels are in one-to-one correspondence
 ! in two files.
-subroutine rmsd_wrapper(fname1, fname2, rmsd_v)
+subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  implicit none
  integer :: i, natom, natom1, natom2
  real(kind=8) :: trans1(3), trans2(3), rotation(3,3)
@@ -995,6 +995,9 @@ subroutine rmsd_wrapper(fname1, fname2, rmsd_v)
  character(len=240) :: fname
  character(len=240), intent(in) :: fname1, fname2
 !f2py intent(in) :: fname1, fname2
+ logical :: relabel
+ logical, intent(in), optional :: reorder
+!f2py intent(in), optional :: reorder
 
  i = INDEX(fname2, '.', back=.true.)
  fname = fname2(1:i-1)//'_new.xyz'
@@ -1014,23 +1017,32 @@ subroutine rmsd_wrapper(fname1, fname2, rmsd_v)
  call read_elem_and_coor_from_file(fname1, natom, elem1, coor1)
  call read_elem_and_coor_from_file(fname2, natom, elem2, coor2)
 
- if(.not. ALL(elem1 == elem2)) then
-  write(6,'(/,A)') 'ERROR in subroutine rmsd_wrapper: elements in two files are&
-                   & not identical.'
-  write(6,'(A)') 'fname1='//TRIM(fname1)
-  write(6,'(A)') 'fname2='//TRIM(fname2)
-  stop
+ relabel = .false.
+ if(present(reorder)) relabel = reorder
+
+ if(relabel) then ! reordering atomic labels requested
+  call rmsd_reorder(natom, elem1, elem2, coor1, coor2)
+ else             ! keep atomic labels unchanged
+
+  if(.not. ALL(elem1 == elem2)) then
+   write(6,'(/,A)') 'ERROR in subroutine rmsd_wrapper: elements in two files are&
+                    & not identical.'
+   write(6,'(A)') 'fname1='//TRIM(fname1)
+   write(6,'(A)') 'fname2='//TRIM(fname2)
+   deallocate(elem1, elem2, coor1, coor2)
+   stop
+  end if
+  call rmsd(natom, coor2, coor1, rmsd_v, trans2, trans1, rotation)
  end if
- deallocate(elem1)
 
- call rmsd(natom, coor2, coor1, rmsd_v, trans1, trans2, rotation)
- deallocate(coor1)
-
+ deallocate(elem1, coor1)
  call write_xyzfile(natom, elem2, coor2, fname)
  deallocate(elem2, coor2)
 end subroutine rmsd_wrapper
 
-! calculate the RMSD value of two sets of coordinates
+! Calculate the RMSD value of two sets of Cartesian coordindates.
+! This subroutine assumes that the atomic labels are in one-to-one correspondence
+! in two files.
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
  implicit none
  integer :: i, lwork
@@ -1096,8 +1108,62 @@ subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
  forall(i = 1:natom) coor1(:,i) = coor1(:,i) - trans1
 end subroutine rmsd
 
-! calculate the geometry center (centeroid) of a set of coordinates,
-! return the corresponding translational vector and translated coordinates
+! Calculate the RMSD value of two molecules, where permutations of atomic labels
+! in the 2nd molecule will be performed.
+subroutine rmsd_reorder(natom, elem1, elem2, coor1, coor2)
+ use fch_content, only: elem2nuc, ram
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, allocatable :: nuc1(:), nuc2(:), idx1(:), idx2(:), idx3(:)
+ real(kind=8) :: trans1(3), trans2(3), rot1(3,3), rot2(3,3)
+ real(kind=8), intent(in) :: coor1(3,natom)
+ real(kind=8), intent(inout) :: coor2(3,natom)
+ real(kind=8), allocatable :: aw(:), coor(:,:)
+ character(len=2), intent(in) :: elem1(natom)
+ character(len=2), intent(inout) :: elem2(natom)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: gjfname1, gjfname2
+
+ write(6,'(/,A)') 'ERROR in subroutine rmsd_reorder: not implemented yet.'
+ stop
+ allocate(nuc1(natom), nuc2(natom))
+ forall(i = 1:natom) nuc1(i) = elem2nuc(elem1(i))
+ forall(i = 1:natom) nuc2(i) = elem2nuc(elem2(i))
+
+ allocate(idx1(natom), idx2(natom))
+ call sort_int_array(natom, nuc1, .true., idx1)
+ call sort_int_array(natom, nuc2, .true., idx2)
+ deallocate(nuc2)
+ ! nuc2 = nuc1 after calling sort_int_array, so it can be deallocated
+
+ allocate(coor(3,natom), source=coor2)
+ forall(i = 1:natom) coor2(:,i) = coor(:,idx2(i))
+ forall(i = 1:natom) coor(:,i) = coor1(:,idx1(i))
+ allocate(elem(natom), source=elem2)
+ forall(i = 1:natom) elem2(i) = elem(idx2(i))
+ deallocate(elem)
+
+ call move_coor_to_com(natom, nuc1, coor, trans1)
+ call move_coor_to_com(natom, nuc1, coor2, trans2)
+
+ allocate(aw(natom))
+ forall(i = 1:natom) aw(i) = ram(nuc1(i))
+ call rot_to_principal_axis(natom, aw, coor, rot1)
+ call rot_to_principal_axis(natom, aw, coor2, rot2)
+ deallocate(aw)
+
+! allocate(idx3(natom))
+! call permute_atoms_of_same_elem(natom, nuc1, coor, coor2, idx3)
+
+! gjfname1 = '1.gjf'
+! gjfname2 = '2.gjf'
+! call write_gjf(gjfname1, 0, 1, natom, elem2, coor)
+! call write_gjf(gjfname2, 0, 1, natom, elem2, coor2)
+end subroutine rmsd_reorder
+
+! move the geometry center (centeroid) of a set of coordinates to the origin
+! (0,0,0), return the corresponding translational vector and translated coordinates
 subroutine move_coor_to_center(natom, coor, trans)
  implicit none
  integer :: i
@@ -1105,13 +1171,189 @@ subroutine move_coor_to_center(natom, coor, trans)
  real(kind=8), intent(inout) :: coor(3,natom)
  real(kind=8), intent(out) :: trans(3)
 
- do i = 1, 3
-  trans(i) = -SUM(coor(i,:))
- end do ! for i
-
+ forall(i = 1:3) trans(i) = -SUM(coor(i,:))
  trans = trans/DBLE(natom)
  forall(i = 1:natom) coor(:,i) = coor(:,i) + trans
 end subroutine move_coor_to_center
+
+! move the center of mass (COM) of a set of coordinates to the origin (0,0,0),
+! return the corresponding translational vector and translated coordinates
+subroutine move_coor_to_com(natom, nuc, coor, trans)
+ use fch_content, only: ram
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ real(kind=8), intent(inout) :: coor(3,natom)
+ real(kind=8), intent(out) :: trans(3)
+ real(kind=8), allocatable :: aw(:)
+
+ allocate(aw(natom))
+ forall(i = 1:natom) aw(i) = ram(nuc(i))
+ forall(i = 1:3) trans(i) = DOT_PRODUCT(aw, coor(i,:))
+ trans = -trans/SUM(aw)
+ deallocate(aw)
+ forall(i = 1:natom) coor(:,i) = coor(:,i) + trans
+end subroutine move_coor_to_com
+
+! rotate the molecule into its principal axis
+! Note: it is assumed that COM of this molecule has been moved to (0,0,0).
+subroutine rot_to_principal_axis(natom, aw, coor, rot)
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ real(kind=8) :: w(3)
+ real(kind=8), intent(in) :: aw(natom) ! relative atomic weight
+ real(kind=8), intent(inout) :: coor(3,natom)
+ real(kind=8), intent(out) :: rot(3,3)
+ real(kind=8), allocatable:: coor2(:,:)
+
+ call get_inertia_tensor(natom, aw, coor, rot)
+ call diag_get_e_and_vec(3, rot, w)
+ write(6,'(3F12.8)') w
+ write(6,'(3F12.8)') rot
+ allocate(coor2(3,natom), source=coor)
+ coor = MATMUL(TRANSPOSE(rot), coor2)
+ deallocate(coor2)
+end subroutine rot_to_principal_axis
+
+! Calculate the inertia tensor
+subroutine get_inertia_tensor(natom, aw, coor, it)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: aw(natom) ! relative atomic weight
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(out) :: it(3,3)
+ real(kind=8), allocatable :: coor2(:,:)
+
+ allocate(coor2(3,natom))
+ forall(i=1:3, j=1:natom) coor2(i,j) = coor(i,j)*coor(i,j)
+ it(1,1) = DOT_PRODUCT(aw, coor2(2,:)+coor2(3,:))
+ it(2,2) = DOT_PRODUCT(aw, coor2(1,:)+coor2(3,:))
+ it(3,3) = DOT_PRODUCT(aw, coor2(1,:)+coor2(2,:))
+
+ forall(i = 1:natom)
+  coor2(1,i) = coor(1,i)*coor(2,i)
+  coor2(2,i) = coor(1,i)*coor(3,i)
+  coor2(3,i) = coor(2,i)*coor(3,i)
+ end forall
+
+ it(2,1) = DOT_PRODUCT(aw, coor2(1,:))
+ it(3,1) = DOT_PRODUCT(aw, coor2(2,:))
+ it(3,2) = DOT_PRODUCT(aw, coor2(3,:))
+ deallocate(coor2)
+
+ it(1,2) = it(2,1); it(1,3) = it(3,1); it(2,3) = it(3,2)
+end subroutine get_inertia_tensor
+
+! permute atoms of the same elements to achieve maximum overlap
+! Note: the input nuc should have beend sorted in ascending order.
+subroutine permute_atoms_of_same_elem(natom, nuc, coor1, coor2, idx)
+ implicit none
+ integer :: i, j, k, k1, k2, nelem
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom)
+ integer, intent(out) :: idx(natom)
+ integer, allocatable :: natom_per_elem(:)
+ real(kind=8), intent(in) :: coor1(3,natom)
+ real(kind=8), intent(inout) :: coor2(3,natom)
+
+ forall(i = 1:natom) idx(i) = i
+ call find_nelem_in_nuc(natom, nuc, nelem)
+ allocate(natom_per_elem(nelem))
+ call find_natom_per_elem(natom, nuc, nelem, natom_per_elem)
+
+ k1 = 1
+ do i = 1, nelem, 1
+  k = natom_per_elem(i)
+  if(k == 1) cycle
+  k2 = k1 + k - 1
+  call find_max_match_for_points(k, coor1(:,k1:k2), coor2(:,k1:k2), idx(k1:k2))
+  k1 = k1 + k
+ end do ! for i
+end subroutine permute_atoms_of_same_elem
+
+! find maximum match/overlap for a set of points
+subroutine find_max_match_for_points(n, coor1, coor2, idx)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ integer, intent(inout) :: idx(n)
+ integer, allocatable :: matched(:)
+ real(kind=8) :: vtmp(3), sum_dis0, sum_dis
+ real(kind=8), intent(in) :: coor1(3,n)
+ real(kind=8), intent(inout) :: coor2(3,n)
+ real(kind=8), external :: calc_sum_dis_for_points
+ real(kind=8), allocatable :: dis0(:,:), dis(:,:)
+
+ allocate(dis0(n,n))
+ do i = 1, n, 1
+  do j = 1, n, 1
+   vtmp = coor1(:,i) - coor2(:,j)
+   dis0(j,i) = DSQRT(DOT_PRODUCT(vtmp, vtmp))
+  end do ! for j
+ end do ! for i
+
+ allocate(dis(n,n), matched(n))
+
+ do i = 1, n, 1
+  dis = dis0
+  matched = 0
+
+  call find_max_match_for_partial_points(i, n, n, dis, matched)
+  call find_max_match_for_partial_points(1, i-1, n, dis, matched)
+  sum_dis = calc_sum_dis_for_points(n, dis0, matched)
+  write(6,'(10I3)') matched
+  write(6,'(A,F18.8)') 'sum_dis = ', sum_dis
+
+  if(i == 1) then
+   sum_dis0 = sum_dis
+  else
+   if(sum_dis < sum_dis0) sum_dis0 = sum_dis
+  end if
+ end do ! for i
+
+ stop
+end subroutine find_max_match_for_points
+
+subroutine find_max_match_for_partial_points(k1, k2, n, dis, matched)
+ implicit none
+ integer :: i, j(1), k(1)
+ integer, intent(in) :: k1, k2, n
+ integer, intent(inout) :: matched(n)
+ real(kind=8), intent(inout) :: dis(n,n)
+
+ do i = k1, k2, 1
+  k = MAXLOC(dis(:,i))
+
+  do while(.true.)
+   j = MINLOC(dis(:,i))
+   if(matched(i) > 0) then
+    dis(j(1),i) = dis(k(1),i) + 1d0
+    k = j
+   else
+    matched(i) = j(1)
+    exit
+   end if
+  end do ! for while
+
+ end do ! for i
+end subroutine find_max_match_for_partial_points
+
+function calc_sum_dis_for_points(n, dis, matched) result(sum_dis)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ integer, intent(in) :: matched(n)
+ real(kind=8) :: sum_dis
+ real(kind=8), intent(in) :: dis(n,n)
+
+ sum_dis = 0d0
+ do i = 1, n, 1
+  sum_dis = sum_dis + dis(matched(i),i)
+ end do ! for i
+end function calc_sum_dis_for_points
 
 ! .chk -> .chk, a wrapper of {formchk, mirror_wfn, and unfchk}
 subroutine mirror_c2c(chkname)

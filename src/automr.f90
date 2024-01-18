@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc21 :: MOKIT, release date: 2024-Jan-9'
+  write(6,'(A)') 'AutoMR 1.2.6rc22 :: MOKIT, release date: 2024-Jan-18'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -457,7 +457,8 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from mokit.lib.uno import uno'
  write(fid2,'(A,/)') 'from mokit.lib.construct_vir import construct_vir'
- write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
+ write(fid2,'(A,I0)') 'nproc = ', nproc
+ write(fid2,'(A,/)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -982,7 +983,14 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  write(fid3,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid3,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch'
  write(fid3,'(A)') 'import numpy as np'
- write(fid3,'(A)') 'from pyscf import lib'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:17) == 'from pyscf import') exit
+  write(fid3,'(A)') TRIM(buf)
+ end do ! for while
+ buf= TRIM(buf)//', lib'
+ write(fid3,'(A)') TRIM(buf)
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -1012,8 +1020,10 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  write(fid3,'(/,A)') "nbf1, nif1 = read_nbf_and_nif_from_fch('"//TRIM(fchname1)//"')"
  write(fid3,'(A)') "nbf2, nif2 = read_nbf_and_nif_from_fch('"//TRIM(fchname2)//"')"
 
- write(fid3,'(/,A,I0,A)') 'lib.num_threads(',nproc,')'
- write(fid3,'(A)') '# rotate MOs at target basis to resemble known orbitals'
+ write(fid3,'(/,A,I0)') 'nproc = ', nproc
+ write(fid3,'(A)') 'lib.num_threads(nproc)'
+
+ write(fid3,'(/,A)') '# rotate MOs at target basis to resemble known orbitals'
  write(fid3,'(A)') "cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
  write(fid3,'(A)') "mo1 = fch2py('"//TRIM(fchname1)//"', nbf1, nif1, 'a')"
  write(fid3,'(A)') "mo2 = fch2py('"//TRIM(fchname2)//"', nbf2, nif2, 'a')"

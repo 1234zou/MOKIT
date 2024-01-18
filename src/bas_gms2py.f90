@@ -19,21 +19,23 @@ program main
  logical :: cart, rest
 
  i = iargc()
- if(.not. (i==1 .or. i==2 .or. i==3)) then
+ if(i<1 .or. i>3) then
   write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1: bas_gms2py a.inp '
+  write(6,'(A)')   ' Example 1: bas_gms2py a.inp'
   write(6,'(A)')   ' Example 2: bas_gms2py a.inp -sph'
-  write(6,'(A,/)') ' Example 3: bas_gms2py a.inp -rest'
+  write(6,'(A,/)') ' Example 3: bas_gms2py a.inp -sph -rest'
   stop
  end if
 
+ fname = ' '
  call getarg(1, fname)
  call require_file_exist(fname)
 
  cart = .true.
  rest = .false.
+
  if(i > 1) then
-  do j=2,i
+  do j = 2, i, 1
    call getarg(j, buf)
    buf = ADJUSTL(buf)
    !write(*,*) j, buf
@@ -44,10 +46,10 @@ program main
     rest = .true.
    case default
     write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-    write(6,'(A)') "The argument must be '-sph' or '-rest'."
-   stop
+    write(6,'(A)') "The 2nd/3rd argument must be '-sph' or '-rest'."
+    stop
    end select
- end do
+  end do ! for j
  end if
  !write(*,*) cart, json
 
@@ -58,7 +60,7 @@ end program main
 ! which can be used as input file for PySCF
 subroutine bas_gms2py(inpname, cart, rest)
  implicit none
- integer :: i, j, k, m, p, lmax, charge, mult, q
+ integer :: i, j, k, m, p, lmax, charge, mult
  integer :: nline, ncol, natom, nif, nbf
  integer :: inpid, pyid
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
@@ -91,7 +93,7 @@ subroutine bas_gms2py(inpname, cart, rest)
  else if(nbf == nif) then
   lin_dep = .false.
  else
-  write(6,'(A)') 'ERROR in ERROR in subroutine bas_gms2py: nbf<nif.'
+  write(6,'(/,A)') 'ERROR in ERROR in subroutine bas_gms2py: nbf<nif.'
   write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
   stop
  end if
@@ -230,7 +232,7 @@ subroutine bas_gms2py(inpname, cart, rest)
       write(pyid,'(I1,1X,F17.10,2(3X,F17.10))') j, prim_gau(2,1), prim_gau(1,1),&
                                                 so_coeff
      case default
-      write(6,'(A,I0)') 'ERROR in subroutine bas_gms2py: invalid p=', p
+      write(6,'(/,A,I0)') 'ERROR in subroutine bas_gms2py: invalid p=', p
       stop
      end select
     end do ! for i
@@ -264,7 +266,8 @@ subroutine bas_gms2py(inpname, cart, rest)
  if(uhf) then
   if(lin_dep) then
    write(pyid,'(A)') 'old_mf = scf.UHF(mol)'
-   write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lindep=1.1e-6)'
+   write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lin&
+                     &dep=1.1e-6)'
   else
    write(pyid,'(A)') 'mf = scf.UHF(mol)'
   end if
@@ -287,7 +290,8 @@ subroutine bas_gms2py(inpname, cart, rest)
  else if(ghf) then ! complex GHF
   if(lin_dep) then
    write(pyid,'(A)') 'old_mf = scf.GHF(mol)'
-   write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lindep=1.1e-6)'
+   write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lin&
+                     &dep=1.1e-6)'
   else
    write(pyid,'(A)') 'mf = scf.GHF(mol)'
   end if
@@ -318,14 +322,16 @@ subroutine bas_gms2py(inpname, cart, rest)
   if(mult == 1) then
    if(lin_dep) then
     write(pyid,'(A)') 'old_mf = scf.RHF(mol)'
-    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lindep=1.1e-6)'
+    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, li&
+                      &ndep=1.1e-6)'
    else
     write(pyid,'(A)') 'mf = scf.RHF(mol)'
    end if
   else
    if(lin_dep) then
     write(pyid,'(A)') 'old_mf = scf.ROHF(mol)'
-    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lindep=1.1e-6)'
+    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, li&
+                      &ndep=1.1e-6)'
    else
     write(pyid,'(A)') 'mf = scf.ROHF(mol)'
    end if
@@ -479,3 +485,4 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
   end if
  end do ! k
 end subroutine write_rest_in_and_basis
+

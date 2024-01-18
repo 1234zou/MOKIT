@@ -1,8 +1,11 @@
 ! written by jxzou at 20200623
 
 module periodic_table
+ use fch_content, only: elem2nuc, nuc2elem
  implicit none
- integer, parameter :: period_nelem = 118
+ integer, parameter :: period_nelem = 118 ! 118 elements, H-Og
+ ! If the period_nelem is imported from module fch_content, the f2py compiler
+ ! cannot recognize it correctly, so here it is defined again.
 
  ! the radii below are read from Gaussian output file
  real(kind=8), parameter :: vdw_radii(period_nelem) = &
@@ -51,31 +54,7 @@ module periodic_table
  real(kind=8), parameter :: rfac2 = 0.93d0
  real(kind=8), parameter :: rfac3 = 0.81d0
 
- character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
-   'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
-   'Na', 'Mg', 'Al', 'Si', 'P ', 'S ', 'Cl', 'Ar', 'K ', 'Ca', &
-   'Sc', 'Ti', 'V ', 'Cr', 'Mn', 'Fe', 'Co', 'Ni', 'Cu', 'Zn', &
-   'Ga', 'Ge', 'As', 'Se', 'Br', 'Kr', 'Rb', 'Sr', 'Y ', 'Zr', &
-   'Nb', 'Mo', 'Tc', 'Ru', 'Rh', 'Pd', 'Ag', 'Cd', 'In', 'Sn', &
-   'Sb', 'Te', 'I ', 'Xe', 'Cs', 'Ba', 'La', 'Ce', 'Pr', 'Nd', &
-   'Pm', 'Sm', 'Eu', 'Gd', 'Tb', 'Dy', 'Ho', 'Er', 'Tm', 'Yb', &
-   'Lu', 'Hf', 'Ta', 'W ', 'Re', 'Os', 'Ir', 'Pt', 'Au', 'Hg', &
-   'Tl', 'Pb', 'Bi', 'Po', 'At', 'Rn', 'Fr', 'Ra', 'Ac', 'Th', &
-   'Pa', 'U ', 'Np', 'Pu', 'Am', 'Cm', 'Bk', 'Cf', 'Es', 'Fm', &
-   'Md', 'No', 'Lr', 'Rf', 'Db', 'Sg', 'Bh', 'Hs', 'Mt', 'Ds', &
-   'Rg', 'Cn', 'Nh', 'Fl', 'Mc', 'Lv', 'Ts', 'Og'/)
-
 contains
-
- ! map a nuclear charge to an element (e.g. 6->'C')
- ! Note: only 1-112 elements are supported!
- pure function nuc2elem(i) result(s)
-  implicit none
-  integer, intent(in) :: i
-  character(len=2) :: s
- 
-  s = period_elem(i)
- end function nuc2elem
 
  pure function elem2vdw_radii(elem) result(radii)
   implicit none
@@ -84,20 +63,6 @@ contains
 
   radii = vdw_radii(elem2nuc(elem))
  end function elem2vdw_radii
-
- ! map an element to a nuclear charge (e.g. 'C'->6)
- ! Note: only 1-112 elements are supported!
- pure function elem2nuc(s) result(i)
-  implicit none
-  integer :: i
-  character(len=2), intent(in) :: s
-
-  do i = 1, period_nelem, 1
-   if(period_elem(i) == s) return
-  end do ! for i
-  ! This is a pure function, `write` or `stop` cannot be used here. It is the
-  ! user's responsibility to make sure the input element is valid.
- end function elem2nuc
 
  ! read elements array from a given .gjf array
  subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
@@ -191,7 +156,7 @@ end subroutine read_elem_and_coor_from_file
 
 ! read atomic nuclear number and Cartesian coordinates from a file
 subroutine read_nuc_and_coor_from_file(fname, natom, nuc, coor)
- use periodic_table, only: elem2nuc
+ use fch_content, only: elem2nuc
  implicit none
  integer :: i, charge, mult
  integer, intent(in) :: natom
@@ -223,7 +188,7 @@ end subroutine read_nuc_and_coor_from_file
 ! from a given .gjf file
 subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
  use phys_cons, only: Bohr_const
- use periodic_table, only: elem2nuc
+ use fch_content, only: elem2nuc, possible_nuc2elem
  implicit none
  integer :: i, j, k, fid, nblank, ne
  integer, intent(in) :: natom
@@ -298,23 +263,6 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   write(6,'(A)') REPEAT('-',79)
  end if
 end subroutine read_elem_and_coor_from_gjf
-
-! convert atomic numbers to atomic symbols if the user uses atomic numbers
-subroutine possible_nuc2elem(natom, elem)
- use periodic_table, only: period_elem
- implicit none
- integer :: i, j
- integer, intent(in) :: natom
- character(len=2), intent(inout) :: elem(natom)
-
- do i = 1, natom, 1
-  j = IACHAR(elem(i)(1:1))
-  if(j>47 .and. j<58) then
-   read(elem(i),*) j
-   elem(i) = period_elem(j)
-  end if
- end do ! for i
-end subroutine possible_nuc2elem
 
 ! read charge, spin multiplicities and atom2frag from a given .gjf file
 subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
@@ -425,7 +373,7 @@ end subroutine read_coor_from_fch
 ! from a given .fch file
 subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
  use phys_cons, only: Bohr_const
- use periodic_table, only: nuc2elem
+ use fch_content, only: nuc2elem
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
@@ -1205,7 +1153,7 @@ end subroutine xyz2gjf
 
 ! find the number of molecules in a given file (.gjf/.xyz supported)
 subroutine find_nmol_in_file(fname, nmol)
- use periodic_table, only: elem2nuc
+ use fch_content, only: elem2nuc
  implicit none
  integer :: i, natom, charge, mult
  integer, allocatable :: nuc(:), conn(:,:)
@@ -1368,7 +1316,7 @@ end subroutine rconn2acoulomb
 subroutine check_if_conformer(fname1, fname2, conformer)
  implicit none
  integer :: natom, natom1, natom2
- integer, allocatable :: nuc1(:), nuc2(:), nuc3(:), nuc4(:)
+ integer, allocatable :: nuc1(:), nuc2(:), nuc3(:), nuc4(:), idx(:)
  real(kind=8), parameter :: thres1 = 1d-7, thres2 = 1d-3
  real(kind=8), allocatable :: coor1(:,:), coor2(:,:), conn1(:,:), conn2(:,:), &
   conn3(:,:), conn4(:,:), w1(:), w2(:)
@@ -1391,8 +1339,10 @@ subroutine check_if_conformer(fname1, fname2, conformer)
  call read_nuc_and_coor_from_file(fname2, natom, nuc2, coor2)
  allocate(nuc3(natom), source=nuc1)
  allocate(nuc4(natom), source=nuc2)
- call sort_int_array(natom, nuc3, .true.)
- call sort_int_array(natom, nuc4, .true.)
+ allocate(idx(natom))
+ call sort_int_array(natom, nuc3, .true., idx)
+ call sort_int_array(natom, nuc4, .true., idx)
+ deallocate(idx)
  deallocate(nuc3, nuc4)
  if(.not. ALL(nuc3 == nuc4)) then
   deallocate(nuc1, nuc2, coor1, coor2)

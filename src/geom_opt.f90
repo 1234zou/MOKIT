@@ -285,7 +285,7 @@ subroutine gen_gau_opt_gjf(gjfname)
  open(newunit=fid,file=TRIM(gjfname),status='replace')
  write(fid,'(A,I0,A)') '%mem=', min(mem,4000), 'MB'
  write(fid,'(A)') '%nprocshared=1'
- write(fid,'(A)',advance='no') '# opt(nomicro)'
+ write(fid,'(A)',advance='no') '# opt(nomicro,maxcycles=300)'
  if(numfreq) write(fid,'(A)',advance='no') ' freq=numer'
  write(fid,'(A)') " def2SVPP nosymm external='gau_external'"
  ! TODO: automatically switch to UGBS when elements are out of range of def2SVPP

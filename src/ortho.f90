@@ -206,7 +206,7 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  ! ao_ovlp now is a nif*nif diagonal matrix
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
- call dsymm('R', 'U', nbf, nif, 1d0, ao_ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
+ call dsymm('R', 'L', nbf, nif, 1d0, ao_ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
 
  deallocate(U)
 end subroutine can_ortho
@@ -252,7 +252,7 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
  allocate(X(nbf,nbf), source=0d0)
- call dsymm('R', 'U', nbf, nbf, 1d0, ao_ovlp, nbf, U, nbf, 0d0, X, nbf)
+ call dsymm('R', 'L', nbf, nbf, 1d0, ao_ovlp, nbf, U, nbf, 0d0, X, nbf)
 
  ! compute X1*U^T, where X1 is Us^(-1/2)
  call dgemm('N', 'T', nbf, nbf, nbf, 1d0, X, nbf, U, nbf, 0d0, mo_coeff, nbf)

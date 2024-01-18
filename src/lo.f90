@@ -186,7 +186,8 @@ subroutine gen_no_from_nso(fchname)
  integer :: i, nbf, nif
  character(len=240) :: no_fch
  character(len=240), intent(in) :: fchname ! must have NSO in it
- real(kind=8), allocatable :: noon(:), dm(:,:), dm_b(:,:), mo(:,:), S(:,:)
+!f2py intent(in) :: fchname
+ real(kind=8), allocatable :: noon(:), dm(:,:), mo(:,:), S(:,:)
 
  i = INDEX(fchname, '.fch', back=.true.)
  no_fch = fchname(1:i-1)//'_NO.fch'
@@ -194,17 +195,12 @@ subroutine gen_no_from_nso(fchname)
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(dm(nbf,nbf))
- call gen_ao_dm_from_fch(fchname, 3, nbf, dm) ! alpha NSO
+ call read_dm_from_fch(fchname, 1, nbf, dm)
 
- allocate(dm_b(nbf,nbf))
- call gen_ao_dm_from_fch(fchname, 4, nbf, dm_b) ! beta NSO
-
- dm = dm + dm_b ! total density
- deallocate(dm_b)
- call write_dm_into_fch(no_fch, .true., nbf, dm)
-
- allocate(noon(nif), mo(nbf,nif), S(nbf,nbf))
+ allocate(S(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, S)
+
+ allocate(noon(nif), mo(nbf,nif))
  call get_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 

@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Jan 9, 2024)
+MOKIT 1.2.6 (Jan 18, 2024)
 ------------------------
+* optimize DMRG OpenMP/MPI settings
 * for atoms<=Xe in ist=3, use Gaussian instead of PySCF to do HF/STO-6G
 * for atoms>Xe in ist=3, find antibonding orbitals by orbital rotations (def2-SVP removed)
 * add support for ghost atoms in fch2mkl

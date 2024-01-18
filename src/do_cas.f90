@@ -479,7 +479,11 @@ subroutine do_cas(scf)
  ! generate CASCI/CASSCF density from NOs and NOONs
  ! Note: density in .fch of Gaussian CASSCF job is wrong (Gaussian bug), I have
  !  to re-generate density
- if(TRIM(cas_prog) /= 'pyscf') call update_density_using_no_and_on(casnofch)
+ select case(TRIM(cas_prog))
+ case('pyscf','orca') ! do nothing, density is already correct
+ case default
+  call update_density_using_no_and_on(casnofch)
+ end select
 
  if(ist == 2) then
   i = INDEX(hf_fch, '.fch', back=.true.)
@@ -583,7 +587,8 @@ subroutine prt_cas_script_into_py(pyname, scf)
   if(block_mpi) write(fid2,'(A,I0)',advance='no') "mpirun -n ", nproc
   write(fid2,'(A)') "'"
  end if
- write(fid2,'(A,I0,A1,/)') 'lib.num_threads(',nproc,')'
+ write(fid2,'(A,I0)') 'nproc = ', nproc
+ write(fid2,'(A,/)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -606,9 +611,9 @@ subroutine prt_cas_script_into_py(pyname, scf)
  !  2) perform a CASCI to generate NOs.
 
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
- ! Since DMRG is not strictly invariant to unitary rotations of orbitals, I
- ! hope the original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations.
- ! NOs are more delocalized than original MOs.
+ ! Since DMRG is not strictly invariant to unitary rotations of active orbitals,
+ ! I hope the original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations.
+ ! NOs are usually more delocalized than original MOs.
 
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to divide them
@@ -1751,12 +1756,12 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
   end if
   write(fid,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
   if(block_mpi) then
-   i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
+   i = CEILING(0.5*REAL(mem)/REAL(nproc))
    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
   else
-   i = CEILING(0.4d0*DBLE(mem))
+   i = CEILING(0.4*REAL(mem))
    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
-   write(fid,'(A,I0)') 'mc.fcisolver.threads = ', nproc
+   write(fid,'(A)') 'mc.fcisolver.threads = nproc'
   end if
   write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
@@ -1914,12 +1919,12 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
   else           ! DMRG-CASCI
    write(fid,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
    if(block_mpi) then
-    i = CEILING(0.4d0*DBLE(mem)/DBLE(nproc))
+    i = CEILING(0.5*REAL(mem)/REAL(nproc))
     write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
    else
-    i = CEILING(0.4d0*DBLE(mem))
-    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc)*1000, ' # MB'
-    write(fid,'(A,I0)') 'mc.fcisolver.threads = ', nproc
+    i = CEILING(0.4*REAL(mem))
+    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
+    write(fid,'(A)') 'mc.fcisolver.threads = nproc'
    end if
    write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
   end if

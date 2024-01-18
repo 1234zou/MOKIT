@@ -97,7 +97,7 @@ subroutine mo_svd(fname1, fname2, ovlp_file, idx1, idx2)
 
  ! compute the MO-basis overlap matrix (C1^T)SC2
  allocate(SC(nbf,nmo), source=0d0)
- call dsymm('L', 'U', nbf, nmo, 1d0, S, nbf, coeff2(:,idx1:idx2), nbf, 0d0, SC, nbf)
+ call dsymm('L', 'L', nbf, nmo, 1d0, S, nbf, coeff2(:,idx1:idx2), nbf, 0d0, SC, nbf)
  deallocate(S, coeff2)
  allocate(mo_ovlp(nmo,nmo), source=0d0)
  call dgemm('T', 'N', nmo, nmo, nbf, 1d0, coeff1(:,idx1:idx2), nbf, SC, nbf, 0d0, mo_ovlp, nmo)

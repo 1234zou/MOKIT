@@ -71,14 +71,15 @@ OBJ_frag_qc = file_op.o string_manipulate.o math_sub.o rwwfn.o construct_vir.o \
 OBJ_find_mc_pair = file_op.o find_mc_pair.o
 OBJ_inp2gjf = string_manipulate.o inp2gjf.o
 OBJ_gau_external = file_op.o string_manipulate.o util_wrapper.o call_qc_calc_int.o \
-                   math_sub.o rwwfn.o read_natom.o read_grad.o rwgeom.o gau_external.o
+                   math_sub.o read_fch.o rwwfn.o read_natom.o read_grad.o rwgeom.o \
+                   gau_external.o
 OBJ_geom_opt = file_op.o string_manipulate.o util_wrapper.o call_qc_calc_int.o \
-               math_sub.o rwwfn.o read_natom.o rwgeom.o geom_opt.o
+               math_sub.o read_fch.o rwwfn.o read_natom.o rwgeom.o geom_opt.o
 OBJ_gvb_correct_pairs = file_op.o string_manipulate.o math_sub.o rwwfn.o \
                         gvb_correct_pairs.o
 OBJ_gvb_exclude_XH = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
-                     call_qc_calc_int.o rwwfn.o read_natom.o rwgeom.o wfn_analysis.o \
-                     read_gms_inp.o gvb_exclude_XH.o
+                     call_qc_calc_int.o read_fch.o rwwfn.o read_natom.o rwgeom.o \
+                     wfn_analysis.o read_gms_inp.o gvb_exclude_XH.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2amo = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2amo.o
 OBJ_mkl2bdf = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2bdf.o
@@ -115,15 +116,16 @@ OBJ_qchem = file_op.f90 math_sub.f90 rwwfn.f90 util_wrapper.f90 rwgeom.f90 \
 OBJ_construct_vir = math_sub.f90 construct_vir.f90
 OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
-OBJ_mirror_wfn = mirror_wfn.f90 file_op.o string_manipulate.o util_wrapper.o \
-                 read_natom.o rwgeom.o math_sub.o read_fch.o
-OBJ_wfn_analysis = file_op.o string_manipulate.o read_natom.o rwgeom.o \
+OBJ_mirror_wfn = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
+                 read_fch.o read_natom.o rwgeom.o mirror_wfn.f90
+OBJ_wfn_analysis = file_op.o string_manipulate.o read_natom.o read_fch.o rwgeom.o \
                    read_gms_inp.o math_sub.f90 rwwfn.f90 util_wrapper.f90 \
                    call_qc_calc_int.f90 wfn_analysis.f90
 OBJ_lo = file_op.o string_manipulate.o read_gms_inp.o math_sub.f90 util_wrapper.f90 \
          rwwfn.f90 call_qc_calc_int.f90 lo.f90
 OBJ_mo_svd = math_sub.f90 mo_svd.f90
-OBJ_rwgeom = string_manipulate.o math_sub.o read_natom.f90 rwgeom.f90
+OBJ_rwgeom = file_op.o string_manipulate.o math_sub.o read_fch.o read_natom.o \
+             rwgeom.f90
 OBJ_rwwfn = file_op.f90 math_sub.f90 rwwfn.f90
 OBJ_excited = file_op.o string_manipulate.o read_gms_inp.o util_wrapper.f90 \
               rwwfn.f90 math_sub.f90 lo.f90 call_qc_calc_int.f90 excited.f90

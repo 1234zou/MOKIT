@@ -39,7 +39,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in Molpro format
 subroutine bas_gms2molpro(fort7, spherical)
- use pg, only: natom, ram, ntimes, coor, elem, all_ecp, ecp_exist
+ use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, na, nb, nline, rc, rel, charge, mult, fid1, fid2
  character(len=7) :: str
@@ -71,9 +71,9 @@ subroutine bas_gms2molpro(fort7, spherical)
  ! read the number of atoms from a GAMESS .inp file
  call read_natom_from_gms_inp(fort7, natom)
 
- allocate(elem(natom), ram(natom), coor(3,natom), ntimes(natom), ghost(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
- deallocate(ram, ghost)
+ allocate(elem(natom), nuc(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
+ deallocate(nuc, ghost)
 
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)

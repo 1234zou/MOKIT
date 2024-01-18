@@ -56,6 +56,7 @@ end subroutine copy_type_mo_clusters
 subroutine gen_mo_cluster_per_mo(dis_thres)
  implicit none
  integer :: i, j, k, m, nocc
+ integer, allocatable :: idx(:)
  real(kind=8), intent(in) :: dis_thres
 
  if(dis_thres<1d-2 .or. dis_thres>99d0) then
@@ -90,7 +91,9 @@ subroutine gen_mo_cluster_per_mo(dis_thres)
  ! sort orbital indices in type cluster0
  do i = 1, nmo, 1
   nocc = cluster0(i)%nocc
-  call sort_int_array(nocc, cluster0(i)%occ_idx, .true.)
+  allocate(idx(nocc))
+  call sort_int_array(nocc, cluster0(i)%occ_idx, .true., idx)
+  deallocate(idx)
  end do ! for i
 
  !write(6,'(A)') 'cluster0:'
@@ -709,6 +712,7 @@ subroutine find_union(n, a1, a2, a3)
  integer, intent(in) :: n
  integer, intent(in) :: a1(n), a2(n)
  integer, intent(out) :: a3(2*n)
+ integer, allocatable :: idx(:)
 
  a3(1:n) = a1; a3(n+1:) = 0; j = n
 
@@ -719,7 +723,9 @@ subroutine find_union(n, a1, a2, a3)
  end do ! for i
 
  ! sort a3(1:j)
- call sort_int_array(j, a3(1:j), .true.)
+ allocate(idx(j))
+ call sort_int_array(j, a3(1:j), .true., idx)
+ deallocate(idx)
 end subroutine find_union
 
 ! find intersection of two integer arrays, save the result into type clus

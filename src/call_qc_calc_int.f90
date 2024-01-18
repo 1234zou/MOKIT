@@ -106,27 +106,25 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
  real(kind=8), allocatable :: mo(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: file47
+ logical :: success
 
  call read_nif_from_fch(fchname, nif)
 
  if(nif == nbf) then     ! no linear dependence
   allocate(mo(nbf,nbf))
-  call read_orthonormal_basis_from_fch(fchname, nbf, mo)
-  call solve_ovlp_from_cct(nbf, mo, S)
+  call read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
+  if(success) call solve_ovlp_from_cct(nbf, mo, S)
   deallocate(mo)
- else if(nif < nbf) then ! linear dependence
+ end if
+
+ if((nif==nbf .and. (.not.success)) .or. nif<nbf) then
   call call_gaussian_gen47_from_fch(fchname, file47)
   call read_ao_ovlp_from_47(file47, nbf, S)
   call delete_file(TRIM(file47))
- else
-  write(6,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: nif>nbf, which i&
-                   &s impossible.'
-  write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
  end if
 end subroutine get_ao_ovlp_using_fch
 
-subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo)
+subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nbf
@@ -134,8 +132,9 @@ subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo)
  character(len=11) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+ logical, intent(out) :: success
 
- mo = 0d0
+ success = .false.; mo = 0d0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
@@ -152,15 +151,13 @@ subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_orthonormal_basis_from_fch: failed&
-                   & to locate 'Orthonormal'"
-  write(6,'(A)') 'in file '//TRIM(fchname)
   close(fid)
-  stop
+  return
  end if
 
  read(fid,'(5(1X,ES15.8))') mo
  close(fid)
+ success = .true.
 end subroutine read_orthonormal_basis_from_fch
 
 ! call Gaussian to compute AO-basis dipole integrals using the given .fch file

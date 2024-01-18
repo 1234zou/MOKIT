@@ -50,7 +50,7 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in (Open)Molcas format
 subroutine bas_gms2molcas(fort7, spherical)
- use pg, only: natom, ram, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
+ use pg, only: natom, nuc, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
  implicit none
  integer :: i, na, nb, nline, rc, rel, charge, mult, fid1, fid2
  character(len=240), intent(in) :: fort7
@@ -68,10 +68,10 @@ subroutine bas_gms2molcas(fort7, spherical)
  input = fort7(1:i-1)//'.input'
 
  call read_natom_from_gms_inp(fort7, natom)
- allocate(ram(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
- call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, ram, coor, ghost)
+ allocate(nuc(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
  deallocate(ghost)
- ! ram cannot be deallocated here since subroutine prt_prim_gau will use it
+ ! nuc cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
@@ -109,7 +109,7 @@ subroutine bas_gms2molcas(fort7, spherical)
  do i = 1, natom, 1
   read(fid1,'(A)',iostat=rc) buf
   if(rc /= 0) exit
-  ! 'buf' contains the element, ram and coordinates
+  ! 'buf' contains the element, nuc and coordinates
   write(fid2,'(A)') 'Basis set'
 
   ! deal with primitive gaussians
@@ -141,8 +141,8 @@ subroutine bas_gms2molcas(fort7, spherical)
  end do ! for i
 
  close(fid1)
- ! now ram can be deallocated
- deallocate(ram, elem, ntimes, coor, all_ecp)
+ ! now nuc can be deallocated
+ deallocate(nuc, elem, ntimes, coor, all_ecp)
 
  if(rc /= 0) then
   write(6,'(/,A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA' ha&

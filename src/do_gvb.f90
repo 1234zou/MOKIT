@@ -201,8 +201,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
                              npair, ' -open ', nopen
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                  & dat2fch.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility dat2&
+                   &fch.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if

@@ -1,13 +1,15 @@
 ! written by jxzou at 20220214: move math library wrappers into this file
 
 ! sort an integer array by ascending/descending order
-subroutine sort_int_array(n, a, ascending)
+subroutine sort_int_array(n, a, ascending, idx)
  implicit none
  integer :: i, j, k, m
  integer, intent(in) :: n
  integer, intent(inout) :: a(n)
+ integer, intent(out) :: idx(n)
  logical, intent(in) :: ascending
 
+ forall(i = 1:n) idx(i) = i
  if(n == 1) return
 
  if(ascending) then
@@ -16,6 +18,7 @@ subroutine sort_int_array(n, a, ascending)
    do j = i+1, n, 1
     if(k > a(j)) then
      a(i) = a(j); m = a(j); a(j) = k; k = m
+     m = idx(i); idx(i) = idx(j); idx(j) = m
     end if
    end do ! for j
   end do ! for i
@@ -26,14 +29,16 @@ subroutine sort_int_array(n, a, ascending)
    do j = i+1, n, 1
     if(k < a(j)) then
      a(i) = a(j); m = a(j); a(j) = k; k = m
+     m = idx(i); idx(i) = idx(j); idx(j) = m
     end if
    end do ! for j
   end do ! for i
  end if
 end subroutine sort_int_array
 
-! diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
-! eigenvalues in w() are in ascending order w(1)<=w(2)<=...
+! Diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
+! A = Ua(U^T). Eigenvectors U will be stored in the square matrix a, and eigenvalues
+! in w() are in ascending order w(1)<=w(2)<=...
 subroutine diag_get_e_and_vec(n, a, w)
  implicit none
  integer :: i, lwork, liwork
@@ -45,29 +50,32 @@ subroutine diag_get_e_and_vec(n, a, w)
 
  if(n == 1) then
   w(1) = a(1,1)
+  a(1,1) = 1d0
   return
  end if
- w = 0d0
 
- ! ?syevd: Computes all eigenvalues and (optionally) all eigenvectors of a real
- ! symmetric matrix using divide and conquer algorithm.
- ! Syntax FORTRAN 77:
- ! call dsyevd(jobz, uplo, n, a, lda, w, work, lwork, iwork, liwork, info)
+ w = 0d0
  lwork = -1; liwork = -1
  allocate(work(1), iwork(1))
  call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, i)
  lwork = CEILING(work(1))
  liwork = iwork(1)
  deallocate(work, iwork)
+ if(lwork<1 .or. liwork<1) then
+  write(6,'(/,A)') 'ERROR in subroutine diag_get_e_and_vec: lwork or liwork is &
+                   &less than 1.'
+  write(6,'(2(A,I0))') 'lwork=', lwork, ', liwork=', liwork
+  stop
+ end if
  allocate(work(lwork), iwork(liwork))
  call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, i)
 
+ deallocate(work, iwork)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine diag_get_e_and_vec: info/=0 in dsyevd.'
   write(6,'(2(A,I0))') 'n=', n, ', info=', i
   stop
  end if
- deallocate(work,iwork)
 end subroutine diag_get_e_and_vec
 
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
@@ -167,22 +175,58 @@ function abs_det(n, a) result(res)
  if(res < 0d0) res = -res
 end function abs_det
 
-! solve the inverse matrix of a square matrix A (the user should make sure that
-! A is reversible)
-subroutine inverse(n, a, inv)
+! find the inverse matrix of a square matrix A by solving systems of linear
+! equations (the user should make sure that A is reversible)
+subroutine inverse(n, a, inv_a)
  implicit none
  integer :: i
  integer, intent(in) :: n
  real(kind=8), intent(in) :: a(n,n)
- real(kind=8), intent(out) :: inv(n,n)
+ real(kind=8), intent(out) :: inv_a(n,n)
  real(kind=8), allocatable :: identity(:,:)
 
  allocate(identity(n,n), source=0d0)
  forall(i = 1:n) identity(i,i) = 1d0
 
- call solve_multi_lin_eqs(n, n, a, n, identity, inv)
+ call solve_multi_lin_eqs(n, n, a, n, identity, inv_a)
  deallocate(identity)
 end subroutine inverse
+
+! find the inverse matrix of a square matrix A by diagonalization (the user
+! should make sure that A is reversible)
+subroutine inverse2(n, a, inv_a)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), parameter :: thres = 1d-10
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), intent(out) :: inv_a(n,n)
+ real(kind=8), allocatable :: w(:), u(:,:), ev(:,:), u_ev(:,:)
+
+ inv_a = 0d0
+ allocate(w(n))
+ allocate(u(n,n), source=a)
+ call diag_get_e_and_vec(n, u, w)
+
+ if(ANY(DABS(w) < thres)) then
+  write(6,'(/,A)') 'ERROR in subroutine inverse2: some eigenvalues are very clo&
+                   &se to zero.'
+  write(6,'(A)') 'Failed to calculate the inverse.'
+  write(6,'(A,I0)') 'n=', n
+  write(6,'(A)') 'w='
+  write(6,'(5(1X,ES15.8))') w
+  stop
+ end if
+
+ allocate(ev(n,n), source=0d0)
+ forall(i = 1:n) ev(i,i) = 1d0/w(i)
+ deallocate(w)
+ allocate(u_ev(n,n), source=0d0)
+ call dsymm('R', 'L', n, n, 1d0, ev, n, u, n, 0d0, u_ev, n)
+ deallocate(ev)
+ call dgemm('N', 'T', n, n, n, 1d0, u_ev, n, u, n, 0d0, inv_a, n)
+ deallocate(u_ev, u)
+end subroutine inverse2
 
 ! solving systems of linear equations with multiple right-hand sides
 ! Ax = b, x can be with multiple right-hand sides
@@ -190,14 +234,11 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  implicit none
  integer :: i
  integer, intent(in) :: a1, a2, a3
-!f2py intent(in) :: a1, a2, a3
  integer, allocatable :: ipiv(:)
  real(kind=8), intent(in) :: a(a1,a2), b(a1,a3)
-!f2py intent(in) :: a, b
 !f2py depend(a1,a2) :: a
 !f2py depend(a1,a3) :: b
  real(kind=8), intent(out) :: x(a2,a3)
-!f2py intent(out) :: x
 !f2py depend(a2,a3) :: x
  real(kind=8), allocatable :: a_copy(:,:), b_copy(:,:)
 
@@ -325,7 +366,7 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
 
  CTSC = 0d0
  allocate(SC(nbf,nif), source=0d0)
- call dsymm('L', 'U', nbf, nif, 1d0, S, nbf, C, nbf, 0d0, SC, nbf)
+ call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, C, nbf, 0d0, SC, nbf)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SC, nbf, 0d0, CTSC, nif)
  deallocate(SC)
 end subroutine calc_CTSC
@@ -341,7 +382,7 @@ subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
 
  CTSCp = 0d0
  allocate(SCp(nbf,nif), source=0d0)
- call dsymm('L', 'U', nbf, nif, 1d0, S, nbf, Cp, nbf, 0d0, SCp, nbf)
+ call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, Cp, nbf, 0d0, SCp, nbf)
  call dgemm('T', 'N', nif, nif, nbf, 1d0, C, nbf, SCp, nbf, 0d0, CTSCp, nif)
  deallocate(SCp)
 end subroutine calc_CTSCp

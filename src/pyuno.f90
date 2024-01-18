@@ -198,7 +198,7 @@ subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_ovlp)
  real(kind=8) :: s_c_beta(nbf, nb)
 
  s_c_beta = 0d0; mo_ovlp = 0d0
- call dsymm('L', 'U', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
+ call dsymm('L', 'L', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
  call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_ovlp, na)
 end subroutine get_mo_basis_ovlp
 
