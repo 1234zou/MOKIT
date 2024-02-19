@@ -57,6 +57,8 @@ OBJ_fch2qchem = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp
                 fch2qchem.o
 OBJ_fch2qm4d = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
                read_natom.o rwgeom.o fch2qm4d.o
+OBJ_fch2tm = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
+             fch2tm.o
 OBJ_fch_u2r = file_op.o string_manipulate.o fch_u2r.o
 OBJ_fch_mo_copy = file_op.o math_sub.o rwwfn.o fch_mo_copy.o
 OBJ_fch2wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2wfn.o
@@ -95,6 +97,8 @@ OBJ_mkl2gjf = file_op.o string_manipulate.o read_fch.o read_natom.o read_mkl.o \
 OBJ_mkl2psi = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2psi.o
 OBJ_mkl2py = file_op.o string_manipulate.o util_wrapper.o mkl2py.o
 OBJ_mkl2qchem = file_op.o string_manipulate.o util_wrapper.o math_sub.o mkl2qchem.o
+OBJ_molden2fch = string_manipulate.o math_sub.o read_fch.o read_natom.o \
+                 read_mkl.o split_sp.o molden2fch.o
 OBJ_obf = file_op.o string_manipulate.o util_wrapper.o call_qc_calc_int.o \
           math_sub.o read_natom.o rwgeom.o rwwfn.o read_gms_inp.o wfn_analysis.o \
           obf.o
@@ -135,11 +139,12 @@ OBJ_excited = file_op.o string_manipulate.o read_gms_inp.o util_wrapper.f90 \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
         bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo fch2bdf \
         fch2cfour fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
-        fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn frag_qc \
-        find_mc_pair inp2gjf gau_external geom_opt gvb_correct_pairs gvb_exclude_XH \
-        gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
-        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem obf orb2fch replace_xyz_in_inp \
-        xml2fch mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited
+        fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn \
+        frag_qc find_mc_pair inp2gjf gau_external geom_opt gvb_correct_pairs \
+        gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal \
+        mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch \
+        obf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix \
+        rwgeom rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -301,6 +306,9 @@ fch2qchem: $(OBJ_fch2qchem)
 fch2qm4d: $(OBJ_fch2qm4d)
 	$(F90) $(OBJ_fch2qm4d) -o $(BIN)/fch2qm4d $(FFLAGS) $(MKL_FLAGS)
 
+fch2tm: $(OBJ_fch2tm)
+	$(F90) $(OBJ_fch2tm) -o $(BIN)/fch2tm $(FFLAGS)
+
 fch_u2r: $(OBJ_fch_u2r)
 	$(F90) $(OBJ_fch_u2r) -o $(BIN)/fch_u2r $(FFLAGS)
 
@@ -338,6 +346,9 @@ geom_opt: $(OBJ_geom_opt)
 
 inp2gjf: $(OBJ_inp2gjf)
 	$(F90) $(OBJ_inp2gjf) -o $(BIN)/inp2gjf $(FFLAGS) $(MKL_FLAGS)
+
+molden2fch: $(OBJ_molden2fch)
+	$(F90) $(OBJ_molden2fch) -o $(BIN)/molden2fch $(FFLAGS) $(MKL_FLAGS)
 
 obf: $(OBJ_obf)
 	$(F90) $(OBJ_obf) -o $(BIN)/obf $(FFLAGS) $(MKL_FLAGS)
@@ -469,10 +480,10 @@ exe: add_bgcharge_to_inp addH2singlet automr autosr bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo \
      fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
-     fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
+     fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn find_mc_pair \
      gau_external geom_opt gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2amo \
      mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi \
-     mkl2py mkl2qchem orb2fch replace_xyz_in_inp xml2fch solve_ON_matrix
+     mkl2py mkl2qchem molden2fch orb2fch replace_xyz_in_inp xml2fch solve_ON_matrix
 
 pymodules: auto_pair chk2py fch2py py2fch pyuno qchem construct_vir ortho \
            assoc_rot mirror_wfn wfn_analysis lo mo_svd rwgeom rwwfn excited
@@ -481,12 +492,12 @@ all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair bas_fch2py bas_gau
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py \
      bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo \
      fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
-     fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py \
+     fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn chk2py \
      fch2py find_mc_pair gau_external geom_opt gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2amo \
      mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi \
-     mkl2py mkl2qchem orb2fch replace_xyz_in_inp xml2fch py2fch pyuno qchem construct_vir \
-     ortho assoc_rot mirror_wfn wfn_analysis lo mo_svd mo_svd_format solve_ON_matrix \
-     rwgeom rwwfn excited get_mokit_loc
+     mkl2py mkl2qchem molden2fch orb2fch replace_xyz_in_inp xml2fch py2fch pyuno \
+     qchem construct_vir ortho assoc_rot mirror_wfn wfn_analysis lo mo_svd mo_svd_format \
+     solve_ON_matrix rwgeom rwwfn excited get_mokit_loc
 
 rest: bas_fch2py bas_gms2py fch2inp fch2py ortho rest2fch
 

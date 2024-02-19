@@ -79,9 +79,9 @@ subroutine mkl2fch(mklname, fchname, no_type)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
- integer :: i, k, nf3mark, ng3mark, nh3mark
+ integer :: i, k, nfmark, ngmark, nhmark
  integer, intent(in) :: no_type
- integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
  character(len=240), intent(in) :: mklname, fchname
 
@@ -126,12 +126,12 @@ subroutine mkl2fch(mklname, fchname, no_type)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
- call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
-                               nh3mark, f3_mark, g3_mark, h3_mark)
- call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
-                               g3_mark, h3_mark, coeff)
- deallocate(f3_mark, g3_mark, h3_mark)
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
+                                f_mark, g_mark, h_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, g_mark, &
+                               h_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark)
 
  if(is_uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)
@@ -208,12 +208,12 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
   nif0=>nif, shell_type0=>shell_type, shl2atm, alpha_coeff0=>alpha_coeff, &
   beta_coeff0=>beta_coeff, elem0=>elem, coor0=>coor, all_pg, ev_a, ev_b
  implicit none
- integer :: i, j, k, nc, ne, nline, ncol, nf3mark, ng3mark, nh3mark
+ integer :: i, k, ne, nfmark, ngmark, nhmark
  integer, intent(in) :: no_type
- integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240), intent(in) :: mklname, fchname
- logical :: has_sp = .false.
+ logical :: has_sp
 
  call check_uhf_in_mkl(mklname, is_uhf)
  call read_mkl(mklname, is_uhf, .true.)
@@ -249,39 +249,8 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  shell2atom_map = shl2atm
  deallocate(shell_type0, shl2atm)
 
- ! find nprim from type all_pg
- k = 0; nprim = 0
- do i = 1, natom, 1
-  nc = all_pg(i)%nc
-  do j = 1, nc, 1
-   nline = all_pg(i)%prim_gau(j)%nline
-   prim_per_shell(k+1) = nline
-   k = k + 1
-   nprim = nprim + nline
-   if(.not. has_sp) then
-    if(all_pg(i)%prim_gau(j)%ncol == 3) has_sp = .true.
-   end if
-  end do ! for j
- end do ! for i
-
- allocate(prim_exp(nprim), source=0d0)
- allocate(contr_coeff(nprim), source=0d0)
- if(has_sp) allocate(contr_coeff_sp(nprim), source=0d0)
-
- ! convert type all_pg to arrays prim_exp, contr_coeff, and contr_coeff_sp
- k = 0
- do i = 1, natom, 1
-  nc = all_pg(i)%nc
-  do j = 1, nc, 1
-   nline = all_pg(i)%prim_gau(j)%nline
-   ncol = all_pg(i)%prim_gau(j)%ncol
-   prim_exp(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,1)
-   contr_coeff(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,2)
-   if(ncol==3) contr_coeff_sp(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,3)
-   k = k + nline
-  end do ! for j
- end do ! for i
-
+ call find_nprim_from_all_pg(ncontr, prim_per_shell, nprim, has_sp)
+ call all_pg2prim_exp_and_contr_coeff(has_sp)
  deallocate(all_pg)
 
  ! update MO coefficients
@@ -298,12 +267,12 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
- call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
-                               nh3mark, f3_mark, g3_mark, h3_mark)
- call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
-                               g3_mark, h3_mark, coeff)
- deallocate(f3_mark, g3_mark, h3_mark)
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
+                                f_mark, g_mark, h_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, g_mark, &
+                               h_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark)
 
  if(is_uhf) then ! UHF
   allocate(alpha_coeff(nbf,nif), source=coeff(:,1:nif))
@@ -382,8 +351,8 @@ subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
   allocate(on_a(nif), on_b(nif))
   call read_on_from_mkl(mklname, nif, 'a', on_a)
   call read_on_from_mkl(mklname, nif, 'b', on_b)
-  na1 = INT(SUM(on_a))
-  nb1 = INT(SUM(on_b))
+  na1 = NINT(SUM(on_a))
+  nb1 = NINT(SUM(on_b))
   deallocate(on_a, on_b)
  else         ! R(O)HF
   allocate(on_a(nif))

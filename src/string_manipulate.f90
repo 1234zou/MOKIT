@@ -14,8 +14,8 @@ subroutine upper(buf)
  character(len=*), intent(inout) :: buf
 
  do i = 1, LEN(buf), 1
-  k = ICHAR(buf(i:i))
-  if(k>=97 .and. k<=122) buf(i:i) = CHAR(k-32)
+  k = IACHAR(buf(i:i))
+  if(k>=97 .and. k<=122) buf(i:i) = ACHAR(k-32)
  end do
 end subroutine upper
 
@@ -27,8 +27,8 @@ subroutine lower(buf)
 
  k = LEN_TRIM(buf)
  do i = 1, k, 1
-  j = ICHAR(buf(i:i))
-  if(j>=65 .and. j<=90) buf(i:i) = CHAR(j+32)
+  j = IACHAR(buf(i:i))
+  if(j>=65 .and. j<=90) buf(i:i) = ACHAR(j+32)
  end do ! for i
 end subroutine lower
 

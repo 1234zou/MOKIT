@@ -495,6 +495,37 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  end if
 end subroutine read_mo_from_dalton_mopun
 
+! read Alpha MOs from a Turbomole mos file
+subroutine read_mo_from_mos(fname, nbf, nif, coeff)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(out) :: coeff(nbf,nif)
+!f2py intent(out) :: coeff
+!f2py depend(nbf,nif) :: coeff
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
+
+ coeff = 0d0
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) /= '#') exit
+ end do ! for while
+ BACKSPACE(fid)
+
+ do i = 1, nif, 1
+  read(fid,'(A)') buf
+  read(fid,'(4D20.14)') coeff(:,i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_mo_from_mos
+
 ! read Alpha/Beta eigenvalues in a given .fch(k) file
 ! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
 !       or NOONs, depending on the job type
@@ -1823,7 +1854,7 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1832,8 +1863,9 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
-                 & 'ITER. M' not found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: 'ITER.&
+                   & M' not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   write(6,'(A)') 'Error termination of the Molpro CASCI job.'
   close(fid)
   stop
@@ -1854,8 +1886,9 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
    if(buf(2:9) == '!MCSCF S') exit
   end do ! for while
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_molpro_out:&
-                  & '!MCSCF S' not found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: '!MCS&
+                    &CF S' not found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    write(6,'(A)') 'Error termination of the Molpro CASSCF job.'
    close(fid)
    stop
@@ -2210,7 +2243,7 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
  integer :: i, fid
  integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  real(kind=8), intent(out) :: ref_e, corr_e
- character(len=8), parameter :: key(3)= ['Strongly','!NEVPT2 ','!RSPT2 S']
+ character(len=8), parameter :: key(3) = ['Strongly','!NEVPT2 ','!RSPT2 S']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 

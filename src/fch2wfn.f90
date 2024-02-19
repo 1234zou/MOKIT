@@ -124,7 +124,7 @@ subroutine fch2wfn(fchname, read_no)
  ! calculate effective nuclear chages (remember to minus ECP core, if any)
  allocate(eff_nuc_charge(natom), source=0)
  if(allocated(RNFroz)) then
-  forall(i = 1:natom) eff_nuc_charge(i) = ielem(i) - INT(RNFroz(i))
+  forall(i = 1:natom) eff_nuc_charge(i) = ielem(i) - NINT(RNFroz(i))
  else
   forall(i = 1:natom) eff_nuc_charge(i) = ielem(i)
  end if

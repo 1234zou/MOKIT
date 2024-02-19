@@ -44,8 +44,8 @@ end program main
 subroutine mkl2gjf(mklname, gjfname)
  use mkl_content
  implicit none
- integer :: i, j, k, nc, nline, ncol, fid, nf3mark, ng3mark, nh3mark
- integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ integer :: i, j, k, nc, nline, ncol, fid, nfmark, ngmark, nhmark
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240), intent(in) :: mklname, gjfname
  logical :: uhf
@@ -137,13 +137,13 @@ subroutine mkl2gjf(mklname, gjfname)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
- call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
-                               nh3mark, f3_mark, g3_mark, h3_mark)
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
+                                f_mark, g_mark, h_mark)
  deallocate(shell_type)
- call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
-                               g3_mark, h3_mark, coeff)
- deallocate(f3_mark, g3_mark, h3_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, g_mark, &
+                               h_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark)
 
  if(uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)

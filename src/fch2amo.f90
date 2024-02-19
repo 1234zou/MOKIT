@@ -185,7 +185,7 @@ subroutine fch2amo(fchname)
 
  if(ecp) then
   allocate(frozen_e(natom))
-  forall(i = 1:natom) frozen_e(i) = INT(RNFroz(i))
+  forall(i = 1:natom) frozen_e(i) = NINT(RNFroz(i))
   deallocate(RNFroz)
   write(fid,'(/,A)') '$ecp'
 

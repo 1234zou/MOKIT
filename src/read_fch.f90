@@ -112,7 +112,8 @@ subroutine read_ne_from_fch(fchname, ne)
  character(len=240), intent(in) :: fchname
 
  ne = 0
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -138,7 +139,7 @@ subroutine check_uhf_in_fch(fchname, uhf)
  logical, intent(out) :: uhf
 
  uhf = .false.
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -173,7 +174,7 @@ subroutine check_ghf_in_fch(fchname, ghf)
  logical, intent(out) :: ghf
 
  nif = 0; norb = 0; ghf = .false.
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -224,7 +225,7 @@ subroutine read_fch(fchname, uhf)
 
  buf = ' '
  call find_specified_suffix(fchname, '.fch', i)
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  ! find variables: charge, mult, na, nb, nbf, nif
  do while(.true.)
@@ -616,7 +617,7 @@ subroutine find_irel_in_fch(fchname, irel)
  logical :: alive(7)
 
  irel = -1   ! default: no relativity
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -678,7 +679,7 @@ subroutine check_nobasistransform_in_fch(fchname)
  character(len=240), intent(in) :: fchname
 
  buf = ' '; longbuf = ' '
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -736,7 +737,7 @@ subroutine check_nosymm_in_fch(fchname)
  character(len=240), intent(in) :: fchname
 
  buf = ' '; longbuf = ' '
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1079,12 +1080,12 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
   allocate(RNFroz(natom), source=0d0)
   read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
   close(fid)
-  ecp_core = INT(0.5d0*SUM(RNFroz)) ! half of core electrons
+  ecp_core = NINT(0.5d0*SUM(RNFroz)) ! half of core electrons
   ! Sometimes the user would use large-core ECP/PP, so here the larger one
   ! between core_orb(nuc(i)) and RNFroz(i) should be taken. And chem_core
   ! may be large than sum_i core_orb(nuc(i))
   do i = 1, natom, 1
-   chem_core = chem_core + MAX(core_orb(nuc(i)), INT(0.5d0*RNFroz(i)))
+   chem_core = chem_core + MAX(core_orb(nuc(i)), NINT(0.5d0*RNFroz(i)))
   end do ! for i
   deallocate(RNFroz)
  else ! all-electron basis set

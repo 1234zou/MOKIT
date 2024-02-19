@@ -178,11 +178,11 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end if
 
  ncore = na - npair - nopen0
- ! arrays eigen_e_a and eigen_e_b is useless for GAMESS inp file
+ ! arrays eigen_e_a and eigen_e_b are useless for GAMESS inp file
  deallocate(eigen_e_a)
  if(allocated(eigen_e_b)) deallocate(eigen_e_b)
 
- ! check if any spherical functions
+ ! check if any spherical harmonic functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
   write(6,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
                  &Cartesian functions detected.'
@@ -273,7 +273,7 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
     write(fid,'(I0,A9)') i, ' ECP-NONE'
     cycle
    else
-    write(fid,'(I0,A8,2X,I3,2X,I2)') i,'-ECP GEN', INT(RNFroz(i)), LMax(i)
+    write(fid,'(I0,A8,2X,I3,2X,I2)') i,'-ECP GEN', NINT(RNFroz(i)), LMax(i)
     str = am_type1(LMax(i))
     do j = 1, 10, 1
      n1 = KFirst(i,j); n2 = KLast(i,j)

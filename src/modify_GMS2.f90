@@ -86,8 +86,8 @@ subroutine upper(buf)
  character(len=*), intent(inout) :: buf
 
  do i = 1, LEN(buf), 1
-  k = ICHAR(buf(i:i))
-  if(k>=97 .and. k<=122) buf(i:i) = CHAR(k-32)
+  k = IACHAR(buf(i:i))
+  if(k>=97 .and. k<=122) buf(i:i) = ACHAR(k-32)
  end do
 end subroutine upper
 

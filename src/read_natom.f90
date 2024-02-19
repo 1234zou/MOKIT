@@ -33,6 +33,15 @@ subroutine read_natom_from_file(fname, natom)
  end select
 end subroutine read_natom_from_file
 
+subroutine read_natom_from_gjf_pbc(gjfname, natom)
+ implicit none
+ integer, intent(out) :: natom
+ character(len=240), intent(in) :: gjfname
+
+ call read_natom_from_gjf(gjfname, natom)
+ natom = natom - 3
+end subroutine read_natom_from_gjf_pbc
+
 ! find the number of atoms in a .gjf file
 subroutine read_natom_from_gjf(gjfname, natom)
  implicit none
@@ -384,4 +393,29 @@ subroutine read_natom_from_EIn(EIn, natom)
  read(fid,*) natom
  close(fid)
 end subroutine read_natom_from_EIn
+
+! read the number of atoms from a .molden file
+subroutine read_natom_from_molden(molden, natom)
+ implicit none
+ integer :: fid
+ integer, intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:7) == '[Atoms]') exit
+ end do ! for while
+
+ natom = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) == '[') exit
+  natom = natom + 1
+ end do ! for while
+
+ close(fid)
+end subroutine read_natom_from_molden
 

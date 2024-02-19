@@ -198,7 +198,6 @@ module mr_keyword
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
  logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
  logical :: DLPNO = .false.       ! whether to turn on DLPNO-NEVPT2
- logical :: frozen_core = .false. ! whether to frozen core orbitals in post-CAS
  logical :: pop = .false.         ! whether to perform population analysis
  logical :: nmr = .false.         ! whether to calcuate nuclear shielding
  logical :: ICSS = .false.        ! whether to calcuate ICSS
@@ -318,7 +317,7 @@ contains
   write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
   write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
   write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc22 (2023-Jan-18)'
+  write(6,'(A)') '           Version: 1.2.6rc23 (2024-Feb-19)'
   write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
   hostname = ' '
@@ -812,8 +811,6 @@ contains
     read(longbuf(j+1:i-1),*) F12_cabs
    case('dlpno')
     DLPNO = .true.; RI = .true.; FIC = .true.
-   case('frozen')
-    frozen_core = .true.
    case('fic')
     FIC = .true.
    case('otpdf')

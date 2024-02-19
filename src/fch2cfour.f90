@@ -522,7 +522,7 @@ subroutine prt_cfour_genbas(ecp)
   if(str2(2:2) /= ' ') call upper(str2(2:2))
   write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
   write(fid,'(A,/,A)') c2, '*'
-  write(fid,'(4X,A,I3,4X,A,I2)') 'NCORE =', INT(RNFroz(i)), 'LMAX =', LMax(i)
+  write(fid,'(4X,A,I3,4X,A,I2)') 'NCORE =', NINT(RNFroz(i)), 'LMAX =', LMax(i)
   str = am_type1(LMax(i))
 
   do j = 1, 10, 1

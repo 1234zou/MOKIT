@@ -92,6 +92,8 @@ OBJ_mkl2psi = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2psi.obj
 OBJ_mkl2py = file_op.obj string_manipulate.obj util_wrapper.obj mkl2py.obj
 OBJ_mkl2qchem = file_op.obj string_manipulate.obj util_wrapper.obj mkl2qchem.obj
+OBJ_molden2fch = string_manipulate.obj read_natom.obj read_fch.obj read_mkl.obj \
+                 molden2fch.obj
 OBJ_orb2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               read_fch.obj split_sp.obj orb2fch.obj
 OBJ_xml2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
@@ -105,7 +107,8 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
         fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
         fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
         gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
-        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem orb2fch xml2fch solve_ON_matrix
+        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
+        solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS) $(MKL_FLAGS)
@@ -272,6 +275,9 @@ mkl2py: $(OBJ_mkl2py)
 mkl2qchem: $(OBJ_mkl2qchem)
 	$(F90) $(OBJ_mkl2qchem) -o $(BIN)\mkl2qchem $(FFLAGS) $(LFLAGS)
 
+molden2fch: $(OBJ_molden2fch)
+	$(F90) $(OBJ_molden2fch) -o $(BIN)\molden2fch $(FFLAGS) $(LFLAGS)
+
 extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)\extract_noon2fch $(FFLAGS) $(LFLAGS)
 
@@ -289,7 +295,8 @@ all: addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molc
      extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp \
      fch2inporb fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn \
      gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch \
-     mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem orb2fch xml2fch solve_ON_matrix
+     mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
+     solve_ON_matrix
 
 clean:
 	del *.obj *.mod

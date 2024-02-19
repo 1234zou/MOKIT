@@ -78,6 +78,39 @@ subroutine diag_get_e_and_vec(n, a, w)
  end if
 end subroutine diag_get_e_and_vec
 
+! It seems that dsyevr is slower than dsyevd, according to my experience in
+! 15315*15315.
+subroutine diag_get_e_and_vec2(n, a, w)
+ implicit none
+ integer :: i, m, lwork, liwork
+ integer, intent(in) :: n
+ integer, allocatable :: iwork(:), isuppz(:)
+ real(kind=8), intent(inout) :: a(n,n)
+ real(kind=8), intent(out) :: w(n)
+ real(kind=8), allocatable :: U(:,:), work(:)
+
+ w = 0d0; lwork = -1; liwork = -1
+ allocate(U(n,n), isuppz(2*n), work(1), iwork(1))
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, w, U, n, &
+             isuppz, work, lwork, iwork, liwork, i)
+ lwork = CEILING(work(1))
+ liwork = iwork(1)
+ deallocate(work, iwork)
+ allocate(work(lwork), iwork(liwork))
+ call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, w, U, n, &
+             isuppz, work, lwork, iwork, liwork, i)
+
+ deallocate(isuppz, work, iwork)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine diag_get_e_and_vec2: info/=0 in dsyevr.'
+  write(6,'(2(A,I0))') 'n=', n, ', info=', i
+  stop
+ end if
+
+ a = U
+ deallocate(U)
+end subroutine diag_get_e_and_vec2
+
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
 ! Note: the input matrix A must be symmetric
 subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
@@ -198,7 +231,7 @@ subroutine inverse2(n, a, inv_a)
  implicit none
  integer :: i
  integer, intent(in) :: n
- real(kind=8), parameter :: thres = 1d-10
+ real(kind=8), parameter :: thres = 1d-9
  real(kind=8), intent(in) :: a(n,n)
  real(kind=8), intent(out) :: inv_a(n,n)
  real(kind=8), allocatable :: w(:), u(:,:), ev(:,:), u_ev(:,:)
@@ -227,6 +260,35 @@ subroutine inverse2(n, a, inv_a)
  call dgemm('N', 'T', n, n, n, 1d0, u_ev, n, u, n, 0d0, inv_a, n)
  deallocate(u_ev, u)
 end subroutine inverse2
+
+subroutine newton_inv(n, a, inv_a)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ integer, parameter :: max_it = 999
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), intent(out) :: inv_a(n,n)
+ real(kind=8), allocatable :: old_inv(:,:)
+ real(kind=8), parameter :: thres = 1d-6
+
+ allocate(old_inv(n,n), source=0d0)
+ forall(i = 1:n) old_inv(i,i) = 1d0/a(i,i)
+
+ do i = 1, max_it, 1
+  call calc_SPS(n, a, old_inv, inv_a)
+  inv_a = 2d0*old_inv - inv_a
+  if(SUM(DABS(old_inv - inv_a))/DBLE(n*n) < thres) exit
+  old_inv = inv_a
+ end do ! for i
+
+ deallocate(old_inv)
+ if(i-1 == max_it) then
+  write(6,'(/,A)') 'ERROR in subroutine newton_inv: failed to converge.'
+  stop
+ else
+  write(6,'(A,I3)') 'n_iter=', i
+ end if
+end subroutine newton_inv
 
 ! solving systems of linear equations with multiple right-hand sides
 ! Ax = b, x can be with multiple right-hand sides
@@ -571,6 +633,34 @@ subroutine get_occ_from_na_nb(nif, na, nb, occ)
  if(na > nb) occ(nb+1:na) = 1d0
  occ(na+1:) = 0d0
 end subroutine get_occ_from_na_nb
+
+! calculate the distance matrix from a set of coordinates
+subroutine cal_dis_mat_from_coor(natom, coor, dis)
+ implicit none
+ integer :: i, j, k, m, n
+ integer, intent(in) :: natom
+ integer, allocatable :: map(:,:)
+ real(kind=8) :: r(3)
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(out) :: dis(natom,natom)
+
+ n = natom
+ forall(i = 1:n) dis(i,i) = 0d0
+ k = n*(n-1)/2
+ allocate(map(2,k))
+ forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
+
+!$omp parallel do schedule(dynamic) default(private) shared(k,map,coor,dis)
+ do m = 1, k, 1
+  i = map(1,m); j = map(2,m)
+  r = coor(:,i) - coor(:,j)
+  dis(j,i) = DSQRT(DOT_PRODUCT(r,r))
+  dis(i,j) = dis(j,i)
+ end do ! for m
+!$omp end parallel do
+
+ deallocate(map)
+end subroutine cal_dis_mat_from_coor
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none

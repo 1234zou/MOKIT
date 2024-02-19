@@ -62,16 +62,16 @@ subroutine read_mkl(mklname, uhf, read_mo)
  call read_ncontr_from_mkl(mklname, ncontr)
  allocate(shell_type(ncontr), shl2atm(ncontr))
  call read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shell_type, shl2atm)
- call read_all_pg(mklname)
+ call read_all_pg_from_mkl(mklname)
  call un_normalized_all_pg()
  call merge_s_and_p_into_sp()
 
  if(.not. read_mo) return
  call read_nbf_and_nif_from_mkl(mklname, nbf, nif)
- allocate(alpha_coeff(nbf,nif), source=0d0)
+ allocate(alpha_coeff(nbf,nif))
  call read_mo_from_mkl(mklname, nbf, nif, 'a', alpha_coeff)
  if(uhf) then
-  allocate(beta_coeff(nbf,nif), source=0d0)
+  allocate(beta_coeff(nbf,nif))
   call read_mo_from_mkl(mklname, nbf, nif, 'b', beta_coeff)
  end if
 
@@ -84,7 +84,7 @@ subroutine read_mkl(mklname, uhf, read_mo)
 end subroutine read_mkl
 
 ! read the basis set data of all atoms
-subroutine read_all_pg(mklname)
+subroutine read_all_pg_from_mkl(mklname)
  implicit none
  integer :: i, j, k, nc, nline, fid
  integer, external :: detect_ncol_in_buf
@@ -93,16 +93,16 @@ subroutine read_all_pg(mklname)
  character(len=240), intent(in) :: mklname
 
  if(natom == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_all_pg: natom = 0.'
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_mkl: natom = 0.'
   write(6,'(A)') 'You must call subroutine read_natom_from_mkl to get the value&
-                 & of natom, before'
+                 & of natom before'
   write(6,'(A)') 'calling this subroutine.'
   stop
  end if
 
  if(.not. allocated(shl2atm)) then
-  write(6,'(/,A)') 'ERROR in subroutine read_all_pg: array shl2atm is not alloc&
-                   &ated.'
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_mkl: array shl2atm is &
+                   &not allocated.'
   write(6,'(A)') 'You must call subroutines read_ncontr_from_mkl and read_shlty&
                  &p_and_shl2atm_from_mkl'
   write(6,'(A)') 'to generate the array shl2atm, before calling this subroutine.'
@@ -111,7 +111,7 @@ subroutine read_all_pg(mklname)
  allocate(all_pg(natom))
 
  do i = 1, natom, 1
-  nc = COUNT(shl2atm==i)
+  nc = COUNT(shl2atm == i)
   all_pg(i)%nc = nc
   allocate(all_pg(i)%prim_gau(nc))
   all_pg(i)%prim_gau(:)%ncol = 2
@@ -123,29 +123,30 @@ subroutine read_all_pg(mklname)
   read(fid,'(A)') buf
   if(buf(1:4) == '$BAS') exit
  end do ! for while
+ read(fid,'(A)') buf
 
  do i = 1, natom, 1
   nc = all_pg(i)%nc
 
   do j = 1, nc, 1
-   read(fid,*) k, str
+   read(buf,*) k, str
    all_pg(i)%prim_gau(j)%stype(1:1) = str
 
    nline = 0
    do while(.true.)
     read(fid,'(A)') buf
-    if(LEN_TRIM(buf)==0 .or. index(buf(1:5),'$END')/=0) exit
+    if(LEN_TRIM(buf)==0 .or. INDEX(buf(1:5),'$END')>0) exit
     if(buf(1:2) == '$$') exit
-    if(detect_ncol_in_buf(buf) == 3) then
-     BACKSPACE(fid)
-     exit
-    end if
+    if(detect_ncol_in_buf(buf) == 3) exit
     nline = nline + 1
    end do ! for while
 
    all_pg(i)%prim_gau(j)%nline = nline
    allocate(all_pg(i)%prim_gau(j)%coeff(nline,2), source=0d0)
-   if(buf(1:2) == '$$') exit
+   if(buf(1:2) == '$$') then
+    read(fid,'(A)') buf
+    exit
+   end if
   end do ! for j
  end do ! for i
 
@@ -163,14 +164,14 @@ subroutine read_all_pg(mklname)
    nline = all_pg(i)%prim_gau(j)%nline
 
    do k = 1, nline, 1
-    read(fid,*) all_pg(i)%prim_gau(j)%coeff(k,1:2)
+    read(fid,*) all_pg(i)%prim_gau(j)%coeff(k,:)
    end do ! for k
   end do ! for j
   read(fid,'(A)') buf
  end do ! for i
 
  close(fid)
-end subroutine read_all_pg
+end subroutine read_all_pg_from_mkl
 
 subroutine un_normalized_all_pg()
  implicit none
@@ -284,18 +285,23 @@ subroutine merge_s_and_p_into_sp()
  integer, allocatable :: itmp(:)
  character(len=2) :: str2(2)
  real(kind=8), allocatable :: tmp_coeff(:,:), rtmp(:)
+ logical :: final_contr
 
  m = 0 ! an index in shell_type
 
  do i = 1, natom, 1
   nc = all_pg(i)%nc
   if(nc < 2) cycle
+  final_contr = .false.
 
+  ! the upper limit of the loop (i.e. nc-1) is determined when the loop starts,
+  ! and this upper limit does not change even if nc is updated within any loop
   do j = 1, nc-1, 1
    m = m + 1
-   ! it is possible that nc is minus 1 in the last cycle, so j==nc is possible
-   ! and it should be checked
-   if(j == nc) exit
+   if(j == nc) then   ! j==nc is possible and thus should be checked
+    final_contr = .true.
+    exit
+   end if
    nline = all_pg(i)%prim_gau(j)%nline
    if(nline /= all_pg(i)%prim_gau(j+1)%nline) cycle
 
@@ -352,7 +358,16 @@ subroutine merge_s_and_p_into_sp()
 
    deallocate(rtmp)
   end do ! for j
+
+  if(.not. final_contr) m = m + 1
  end do ! for i
+
+ if(m /= ncontr) then
+  write(6,'(/,A)') 'ERROR in subroutine merge_s_and_p_into_sp: m/=ncontr. Inter&
+                   &nal inconsistency.'
+  write(6,'(3(A,I0))') 'natom=', natom, ', m=', m, ', ncontr=', ncontr
+  stop
+ end if
 end subroutine merge_s_and_p_into_sp
 
 ! find nbf and nif from a given ORCA .mkl file
@@ -446,9 +461,9 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
 
- ang = ' '
- shltyp = 0; shl2atm = 0
+ ang = ' '; shltyp = 0; shl2atm = 0
  open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:4) == '$BAS') exit
@@ -461,9 +476,11 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
   shl2atm(i) = iatom
   read(buf,*,iostat=j) k, ang
   if(j /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: wrong format&
-                    & in file '//TRIM(mklname)
+   write(6,'(/,A)') 'ERROR in subroutine read_shltyp_and_shl2atm_from_mkl: wron&
+                    &g format in'
+   write(6,'(A)') 'file '//TRIM(mklname)
    write(6,'(A)') 'buf='//TRIM(buf)
+   close(fid)
    stop
   end if
 
@@ -481,17 +498,22 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
   case('H')
    shltyp(i) = -5
   case default
-   write(6,'(A)') 'ERROR in subroutine read_shltyp_from_mkl: unsupported&
-                    & angular momentum='//ang
+   write(6,'(/,A)') 'ERROR in subroutine read_shltyp_and_shl2atm_from_mkl: unsu&
+                    &pported angular'
+   write(6,'(A)') 'momentum='//ang
+   close(fid)
    stop
   end select
 
   do while(.true.)
    read(fid,'(A)') buf
-   if(LEN_TRIM(buf)==0 .or. index(buf,'$END')/=0) exit
-   if(buf(1:2) == '$$') iatom = iatom + 1
-   k = detect_ncol_in_buf(buf)
-   if(k == 3) exit
+   if(LEN_TRIM(buf)==0 .or. index(buf,'$END')>0) exit
+   if(buf(1:2) == '$$') then
+    iatom = iatom + 1
+   else
+    k = detect_ncol_in_buf(buf)
+    if(k == 3) exit
+   end if
   end do ! for while
  end do ! for i
 
@@ -563,6 +585,7 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  character(len=1), intent(in) :: ab
  character(len=240), intent(in) :: mklname
 
+ mo = 0d0
  if(ab=='a' .or. ab=='A') then
   key = key1
  else if (ab=='b' .or. ab=='B') then
@@ -720,17 +743,17 @@ end subroutine read_on_from_mkl
 end module mkl_content
 
 ! get/find basis function marks from the integer array shell_type
-subroutine get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
-                                    nh3mark, f3_mark, g3_mark, h3_mark)
+subroutine read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark,&
+                                     f_mark, g_mark, h_mark)
  implicit none
  integer :: i, k
- integer, intent(in) :: ncontr, nbf
+ integer, intent(in) :: ncontr
  integer, intent(in) :: shell_type(ncontr)
- integer, intent(out) :: nf3mark, ng3mark, nh3mark, f3_mark(nbf), g3_mark(nbf),&
-                         h3_mark(nbf)
+ integer, intent(out) :: nfmark, ngmark, nhmark, f_mark(ncontr), g_mark(ncontr),&
+                         h_mark(ncontr)
 
- nf3mark = 0; ng3mark = 0; nh3mark = 0
- f3_mark = 0; g3_mark = 0; h3_mark = 0
+ nfmark = 0; ngmark = 0; nhmark = 0
+ f_mark = 0; g_mark = 0; h_mark = 0
  k = 0
 
  do i = 1, ncontr, 1
@@ -744,54 +767,99 @@ subroutine get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
   case(-2) ! D
    k = k + 5
   case(-3) ! F
+   nfmark = nfmark + 1
+   f_mark(nfmark) = k + 1
    k = k + 7
-   nf3mark = nf3mark + 1
-   f3_mark(nf3mark) = k - 1
   case(-4) ! G
+   ngmark = ngmark + 1
+   g_mark(ngmark) = k + 1
    k = k + 9
-   ng3mark = ng3mark + 1
-   g3_mark(ng3mark) = k - 3
   case(-5) ! H
+   nhmark = nhmark + 1
+   h_mark(nhmark) = k + 1
    k = k + 11
-   nh3mark = nh3mark + 1
-   h3_mark(nh3mark) = k - 5
   end select
  end do ! for i
-
- if(k /= nbf) then
-  write(6,'(/,A)') 'ERROR in subroutine get_bas_mark_from_shltyp: k/=nbf!'
-  write(6,'(2(A,I0))') 'k=', k, ', nbf=', nbf
-  stop
- end if
-end subroutine get_bas_mark_from_shltyp
+end subroutine read_bas_mark_from_shltyp
 
 ! Update MO coefficients using basis function marks since some MO coefficients
-! in ORCA is negative to those in Gaussian
-subroutine update_mo_using_bas_mark(nbf, nif, nf3mark, ng3mark, nh3mark, &
-                                    f3_mark, g3_mark, h3_mark, coeff)
+! in ORCA are negative to those in Gaussian
+subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, f_mark, &
+                                    g_mark, h_mark, coeff)
  implicit none
  integer :: i
- integer, intent(in) :: nbf, nif, nf3mark, ng3mark, nh3mark
- integer, intent(in) :: f3_mark(nbf), g3_mark(nbf), h3_mark(nbf)
+ integer, intent(in) :: nbf, nif, nfmark, ngmark, nhmark
+ integer, intent(in) :: f_mark(nfmark), g_mark(ngmark), h_mark(nhmark)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
- forall(i = 1:nf3mark)
-  coeff(f3_mark(i),:) = -coeff(f3_mark(i),:)
-  coeff(f3_mark(i)+1,:) = -coeff(f3_mark(i)+1,:)
+ forall(i = 1:nfmark)
+  coeff(f_mark(i)+5,:) = -coeff(f_mark(i)+5,:)
+  coeff(f_mark(i)+6,:) = -coeff(f_mark(i)+6,:)
  end forall
 
- forall(i = 1:ng3mark)
-  coeff(g3_mark(i),:)   = -coeff(g3_mark(i),:)
-  coeff(g3_mark(i)+1,:) = -coeff(g3_mark(i)+1,:)
-  coeff(g3_mark(i)+2,:) = -coeff(g3_mark(i)+2,:)
-  coeff(g3_mark(i)+3,:) = -coeff(g3_mark(i)+3,:)
+ forall(i = 1:ngmark)
+  coeff(g_mark(i)+5,:) = -coeff(g_mark(i)+5,:)
+  coeff(g_mark(i)+6,:) = -coeff(g_mark(i)+6,:)
+  coeff(g_mark(i)+7,:) = -coeff(g_mark(i)+7,:)
+  coeff(g_mark(i)+8,:) = -coeff(g_mark(i)+8,:)
  end forall
 
- forall(i = 1:nh3mark)
-  coeff(h3_mark(i),:) = -coeff(h3_mark(i),:)
-  coeff(h3_mark(i)+1,:) = -coeff(h3_mark(i)+1,:)
-  coeff(h3_mark(i)+2,:) = -coeff(h3_mark(i)+2,:)
-  coeff(h3_mark(i)+3,:) = -coeff(h3_mark(i)+3,:)
+ forall(i = 1:nhmark)
+  coeff(h_mark(i)+5,:) = -coeff(h_mark(i)+5,:)
+  coeff(h_mark(i)+6,:) = -coeff(h_mark(i)+6,:)
+  coeff(h_mark(i)+7,:) = -coeff(h_mark(i)+7,:)
+  coeff(h_mark(i)+8,:) = -coeff(h_mark(i)+8,:)
  end forall
 end subroutine update_mo_using_bas_mark
+
+! find nprim from type all_pg
+subroutine find_nprim_from_all_pg(ncontr, prim_per_shell, nprim, has_sp)
+ use mkl_content, only: natom, all_pg
+ implicit none
+ integer :: i, j, k, nc, nline
+ integer, intent(in) :: ncontr
+ integer, intent(out) :: nprim, prim_per_shell(ncontr)
+ logical, intent(out) :: has_sp
+
+ k = 0; nprim = 0; has_sp = .false.
+
+ do i = 1, natom, 1
+  nc = all_pg(i)%nc
+  do j = 1, nc, 1
+   nline = all_pg(i)%prim_gau(j)%nline
+   prim_per_shell(k+1) = nline
+   k = k + 1
+   nprim = nprim + nline
+   if(.not. has_sp) then
+    if(all_pg(i)%prim_gau(j)%ncol == 3) has_sp = .true.
+   end if
+  end do ! for j
+ end do ! for i
+end subroutine find_nprim_from_all_pg
+
+subroutine all_pg2prim_exp_and_contr_coeff(has_sp)
+ use fch_content, only: nprim, prim_exp, contr_coeff, contr_coeff_sp
+ use mkl_content, only: natom, all_pg
+ implicit none
+ integer :: i, j, k, nc, nline, ncol
+ logical, intent(in) :: has_sp
+
+ allocate(prim_exp(nprim), source=0d0)
+ allocate(contr_coeff(nprim), source=0d0)
+ if(has_sp) allocate(contr_coeff_sp(nprim), source=0d0)
+
+ ! convert type all_pg to arrays prim_exp, contr_coeff, and contr_coeff_sp
+ k = 0
+ do i = 1, natom, 1
+  nc = all_pg(i)%nc
+  do j = 1, nc, 1
+   nline = all_pg(i)%prim_gau(j)%nline
+   ncol = all_pg(i)%prim_gau(j)%ncol
+   prim_exp(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,1)
+   contr_coeff(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,2)
+   if(ncol==3) contr_coeff_sp(k+1:k+nline) = all_pg(i)%prim_gau(j)%coeff(:,3)
+   k = k + nline
+  end do ! for j
+ end do ! for i
+end subroutine all_pg2prim_exp_and_contr_coeff
 

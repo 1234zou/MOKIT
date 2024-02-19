@@ -459,8 +459,8 @@ subroutine fch2inporb_permute_21h(idx, norm)
  end forall
 end subroutine fch2inporb_permute_21h
 
-subroutine fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                                  f_mark, g_mark, h_mark, nbf, idx)
+subroutine fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, &
+                                  d_mark, f_mark, g_mark, h_mark, nbf, idx)
  implicit none
  integer :: i
  integer, intent(in) :: n5dmark, n7fmark, n9gmark, n11hmark, k, nbf
@@ -481,8 +481,8 @@ subroutine fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark
  end do
 end subroutine fch2inporb_permute_sph
 
-subroutine fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
-                                   f_mark, g_mark, h_mark, nbf, idx, norm)
+subroutine fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
+                               d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
  implicit none
  integer :: i, j
  integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf
@@ -978,4 +978,110 @@ subroutine fch2qchem_permute_21h(idx)
  idx0 = idx
  forall(i = 1:21) idx(i) = idx0(order(i))
 end subroutine fch2qchem_permute_21h
+
+subroutine fch2tm_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                              f_mark, g_mark, h_mark, nbf, idx, norm)
+ implicit none
+ integer :: i, j, m
+ integer, intent(in) :: n5dmark, n7fmark, n9gmark, n11hmark, k, nbf
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer, intent(inout) :: idx(nbf)
+ real(kind=8), intent(inout) :: norm(nbf)
+
+ do i = 1, n5dmark, 1
+  j = d_mark(i) + 3
+  m = idx(j)
+  idx(j) = idx(j+1)
+  idx(j+1) = m
+ end do ! for i
+
+ do i = 1, n7fmark, 1
+  j = f_mark(i) + 3
+  m = idx(j)
+  idx(j) = idx(j+1)
+  idx(j+1) = m
+  norm(j+3) = -norm(j+3)
+ end do ! for i
+
+ do i = 1, n9gmark, 1
+  j = g_mark(i) + 3
+  m = idx(j)
+  idx(j) = idx(j+1)
+  idx(j+1) = m
+  norm(j+1) = -norm(j+1)
+  norm(j+3) = -norm(j+3)
+  m = idx(j+4)
+  idx(j+4) = idx(j+5)
+  idx(j+5) = m
+ end do ! for i
+
+ do i = 1, n11hmark, 1
+  j = h_mark(i) + 3
+  m = idx(j)
+  idx(j) = idx(j+1)
+  idx(j+1) = m
+  m = idx(j+4)
+  idx(j+4) = idx(j+5)
+  idx(j+5) = m
+ end do ! for i
+end subroutine fch2tm_permute_sph
+
+subroutine fch2tm_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
+                               f_mark, g_mark, h_mark, nbf, idx, norm)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer, intent(inout) :: idx(nbf)
+ real(kind=8), intent(inout) :: norm(nbf)
+
+ do i = 1, n6dmark, 1
+  j = d_mark(i)
+  call fch2tm_permute_6d(idx(j:j+5), norm(j:j+5))
+ end do
+ do i = 1, n10fmark, 1
+  j = f_mark(i)
+  call fch2tm_permute_10f(idx(j:j+9), norm(j:j+9))
+ end do
+! do i = 1, n15gmark, 1
+!  j = g_mark(i)
+!  call fch2tm_permute_15g(idx(j:j+14), norm(j:j+14))
+! end do
+! do i = 1, n21hmark, 1
+!  j = h_mark(i)
+!  call fch2tm_permute_21h(idx(j:j+20), norm(j:j+20))
+! end do
+end subroutine fch2tm_permute_cart
+
+subroutine fch2tm_permute_6d(idx, norm)
+ implicit none
+ integer :: i, idx0(6)
+ integer, parameter :: order(6) = [1, 5, 6, 4, 2, 3]
+ integer, intent(inout) :: idx(6)
+ real(kind=8) :: norm0(6)
+ real(kind=8), intent(inout) :: norm(6)
+
+ idx0 = idx
+ norm0 = norm
+ forall(i = 1:6)
+  idx(i) = idx0(order(i))
+  norm(i) = norm0(order(i))
+ end forall
+end subroutine fch2tm_permute_6d
+
+subroutine fch2tm_permute_10f(idx, norm)
+ implicit none
+ integer :: i, idx0(10)
+ integer, parameter :: order(10) = [1,2,3,4,5,6,7,8,9,10]
+ integer, intent(inout) :: idx(10)
+ real(kind=8) :: norm0(10)
+ real(kind=8), intent(inout) :: norm(10)
+
+ idx0 = idx
+ norm0 = norm
+ forall(i = 1:10)
+  idx(i) = idx0(order(i))
+  norm(i) = norm0(order(i))
+ end forall
+end subroutine fch2tm_permute_10f
 

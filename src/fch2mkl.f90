@@ -48,10 +48,10 @@ end program main
 subroutine fch2mkl(fchname)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, am, nf3mark, ng3mark, nh3mark
+ integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
- integer, allocatable :: f3_mark(:), g3_mark(:), h3_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1) :: str = ' '
  ! six types of angular momentum
@@ -99,12 +99,12 @@ subroutine fch2mkl(fchname)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f3_mark(nbf), g3_mark(nbf), h3_mark(nbf))
- call get_bas_mark_from_shltyp(ncontr, shell_type, nbf, nf3mark, ng3mark, &
-                               nh3mark, f3_mark, g3_mark, h3_mark)
- call update_mo_using_bas_mark(nbf, k, nf3mark, ng3mark, nh3mark, f3_mark, &
-                               g3_mark, h3_mark, coeff)
- deallocate(f3_mark, g3_mark, h3_mark)
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
+                                f_mark, g_mark, h_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, &
+                               g_mark, h_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark)
 
  if(uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)
@@ -255,7 +255,7 @@ subroutine fch2mkl(fchname)
     if(ecp) then   ! print ECP/PP data of last atom
      if(LPSkip(m-1) == 0) then
       write(fid2,'(2X,A)') 'NewECP'
-      write(fid2,'(3X,A,1X,I3)') 'N_core', INT(RNFroz(m-1))
+      write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(m-1))
       write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(m-1))
       am = 0
       do j = 1, 10, 1
@@ -316,7 +316,7 @@ subroutine fch2mkl(fchname)
  if(ecp) then   ! print ECP/PP data of the last atom
   if(LPSkip(natom) == 0) then
    write(fid2,'(2X,A)') 'NewECP'
-   write(fid2,'(3X,A,1X,I3)') 'N_core', INT(RNFroz(natom))
+   write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(natom))
    write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(natom))
    am = 0
    do j = 1, 10, 1
@@ -339,8 +339,8 @@ subroutine fch2mkl(fchname)
  write(fid2,'(A,/)') 'end'   ! in accord with '%coords'
  close(fid2)
 
- deallocate(ielem, elem, coor)
- deallocate(shell_type, prim_per_shell, shell2atom_map, prim_exp, contr_coeff)
+ deallocate(ielem, elem, coor, shell_type, prim_per_shell, shell2atom_map, &
+            prim_exp, contr_coeff)
  if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
 
  ! print Alpha MO and corresponding energies into .mkl file
