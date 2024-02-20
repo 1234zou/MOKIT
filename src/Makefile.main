@@ -456,10 +456,10 @@ mo_svd: $(OBJ_mo_svd)
 	@mv mo_svd*.so $(LIB)/
 
 mo_svd_format: $(OBJ_mo_svd_format)
-	$(F90) $(OBJ_mo_svd_format) $(MKL_FLAGS) -o $(BIN)/mo_svd
+	$(F90) $(OBJ_mo_svd_format) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mo_svd
 
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
-	$(F90) $(OBJ_solve_ON_matrix) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
+	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
 rwgeom: $(OBJ_rwgeom)
 	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS)

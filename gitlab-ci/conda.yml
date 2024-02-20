@@ -34,6 +34,7 @@ conda_build_test:
   only:
     refs:
       - newconda2
+      - openmp
     changes:
       - "mokit/__init__.py"
       - "conda/*/meta.yaml"
