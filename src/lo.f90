@@ -8,61 +8,6 @@
 ! Please use subroutine get_no_from_density_and_ao_ovlp in rwwfn.f90, which has
 ! the same functionality as the subroutine no
 
-!! generate natural orbitals from density matrix and overlap matrix
-!subroutine no(nbf, nif, P, S, noon, new_coeff)
-! implicit none
-! integer :: i, j, lwork, liwork
-! integer, intent(in) :: nbf, nif
-!!f2py intent(in) :: nbf, nif
-! ! Note: nif<nbf when linear dependence occurs (be cautious)
-! integer, allocatable :: isuppz(:), iwork(:)
-! real(kind=8) :: P(nbf,nbf), S(nbf,nbf), new_coeff(nbf,nif)
-!!f2py intent(in) :: P
-!!f2py intent(in,copy) :: S
-!!f2py intent(out) :: new_coeff
-!!f2py depend(nbf,nif) :: new_coeff
-!!f2py depend(nbf) :: P, S
-! real(kind=8), intent(out) :: noon(nif)
-!!f2py depend(nif) :: noon
-! real(kind=8), allocatable :: sqrt_S(:,:), n_sqrt_S(:,:)
-! real(kind=8), allocatable :: e(:), U(:,:), work(:)
-!
-! allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
-! call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
-! call calc_SPS(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
-! deallocate(sqrt_S)
-!
-! lwork = -1; liwork = -1
-! allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
-! call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
-!             U, nbf, isuppz, work, lwork, iwork, liwork, j)
-! lwork = CEILING(work(1))
-! liwork = iwork(1)
-! deallocate(work, iwork)
-! allocate(work(lwork), iwork(liwork))
-! call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, &
-!             U, nbf, isuppz, work, lwork, iwork, liwork, j)
-! deallocate(isuppz, work, iwork)
-! ! eigenvalues in array e are in ascending order
-!
-! noon = 0d0
-! forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
-! write(6,'(/,A)') 'Natural Orbital Occupancy Numbers (NOON):'
-! write(6,'(5(1X,ES15.8))') (noon(i),i=1,nif)
-! deallocate(e)
-!
-! new_coeff = 0d0
-! call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
-!            nbf, 0d0, new_coeff, nbf)
-! deallocate(n_sqrt_S, U)
-!
-! ! reverse the order of MOs
-! allocate(U(nbf,nif))
-! forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
-! new_coeff = U
-! deallocate(U)
-!end subroutine no
-
 ! localize singly occupied orbitals in a .fch file
 subroutine localize_singly_occ_orb(fchname)
  implicit none

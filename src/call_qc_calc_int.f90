@@ -117,7 +117,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
   deallocate(mo)
  end if
 
- if((nif==nbf .and. (.not.success)) .or. nif<nbf) then
+ if( (nif==nbf .and. (.not.success)) .or. nif<nbf ) then
   call call_gaussian_gen47_from_fch(fchname, file47)
   call read_ao_ovlp_from_47(file47, nbf, S)
   call delete_file(TRIM(file47))

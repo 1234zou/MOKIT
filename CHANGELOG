@@ -1,5 +1,7 @@
-MOKIT 1.2.6 (Feb 19, 2024)
+MOKIT 1.2.6 (Feb 28, 2024)
 ------------------------
+* add DMRG-FIC-MRCISD interface (calling PySCF+Block2)
+* modify Makefile to support OpenMP for some subroutines
 * add utilities molden2fch, fch2tm
 * optimize DMRG OpenMP/MPI settings
 * for atoms<=Xe in ist=3, use Gaussian instead of PySCF to do HF/STO-6G

@@ -769,6 +769,7 @@ subroutine read_npair_from_dat(datname, npair)
 
  npair = 0
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -776,8 +777,8 @@ subroutine read_npair_from_dat(datname, npair)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_npair_from_dat: no '$SCF' found&
-                & in file "//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_dat: no '$SCF' found in&
+                   & file "//TRIM(datname)
   close(fid)
   stop
  end if
@@ -804,6 +805,7 @@ subroutine read_ci_coeff_from_dat(fname, npair, coeff)
 
  buf = ' '; coeff = 0d0
  open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -813,8 +815,9 @@ subroutine read_ci_coeff_from_dat(fname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_ci_coeff_from_dat: no GVB CI&
-                & coefficients found in file '//TRIM(fname)
+  write(6,'(/,A)') 'ERROR in subroutine read_ci_coeff_from_dat: no GVB CI coeff&
+                   &icients found in'
+  write(6,'(A)') 'file '//TRIM(fname)
   close(fid)
   stop
  end if

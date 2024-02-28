@@ -100,8 +100,8 @@ OBJ_mkl2qchem = file_op.o string_manipulate.o util_wrapper.o math_sub.o mkl2qche
 OBJ_molden2fch = string_manipulate.o math_sub.o read_fch.o read_natom.o \
                  read_mkl.o split_sp.o molden2fch.o
 OBJ_obf = file_op.o string_manipulate.o util_wrapper.o call_qc_calc_int.o \
-          math_sub.o read_natom.o rwgeom.o rwwfn.o read_gms_inp.o wfn_analysis.o \
-          obf.o
+          math_sub.o read_fch.o read_natom.o rwgeom.o rwwfn.o read_gms_inp.o \
+          wfn_analysis.o obf.o
 OBJ_orb2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
               split_sp.o orb2fch.o
 OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o math_sub.o read_fch.o \
@@ -187,139 +187,139 @@ help:
 	echo
 
 add_bgcharge_to_inp: $(OBJ_add_bgcharge_to_inp)
-	$(F90) $(OBJ_add_bgcharge_to_inp) -o $(BIN)/add_bgcharge_to_inp $(FFLAGS)
+	$(F90) $(OBJ_add_bgcharge_to_inp) $(FFLAGS) -o $(BIN)/add_bgcharge_to_inp
 
 addH2singlet: $(OBJ_addH2singlet)
-	$(F90) $(OBJ_addH2singlet) -o $(BIN)/addH2singlet $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_addH2singlet) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/addH2singlet
 
 align_orbitals: $(OBJ_align_orbitals)
-	$(F90) $(OBJ_align_orbitals) -o $(BIN)/align_orbitals $(FFLAGS)
+	$(F90) $(OBJ_align_orbitals) $(FFLAGS) -o $(BIN)/align_orbitals
 
 automr: $(OBJ_automr)
-	$(F90) $(OBJ_automr) -o $(BIN)/automr $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_automr) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/automr
 	@echo ;\
 	echo "AutoMR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
 
 autosr: $(OBJ_autosr)
-	$(F90) $(OBJ_autosr) -o $(BIN)/autosr $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_autosr) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/autosr
 	@echo ;\
 	echo "AutoSR requires almost all modules, so run 'make all' if other modules haven't been compiled" ;\
 	echo
 
 bas_fch2py: $(OBJ_bas_fch2py)
-	$(F90) $(OBJ_bas_fch2py) -o $(BIN)/bas_fch2py $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_bas_fch2py) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bas_fch2py
 	@echo ;\
 	echo "bas_fch2py requires utilities fch2inp and bas_gms2py, please also compile them" ;\
 	echo
 
 bas_gau2molcas: $(OBJ_bas_gau2molcas)
-	$(F90) $(OBJ_bas_gau2molcas) -o $(BIN)/bas_gau2molcas $(FFLAGS)
+	$(F90) $(OBJ_bas_gau2molcas) $(FFLAGS) -o $(BIN)/bas_gau2molcas
 
 bas_gms2bdf: $(OBJ_bas_gms2bdf)
-	$(F90) $(OBJ_bas_gms2bdf) -o $(BIN)/bas_gms2bdf $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2bdf) $(FFLAGS) -o $(BIN)/bas_gms2bdf
 
 bas_gms2dal: $(OBJ_bas_gms2dal)
-	$(F90) $(OBJ_bas_gms2dal) -o $(BIN)/bas_gms2dal $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2dal) $(FFLAGS) -o $(BIN)/bas_gms2dal
 
 bas_gms2molcas: $(OBJ_bas_gms2molcas)
-	$(F90) $(OBJ_bas_gms2molcas) -o $(BIN)/bas_gms2molcas $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2molcas) $(FFLAGS) -o $(BIN)/bas_gms2molcas
 
 bas_gms2molpro: $(OBJ_bas_gms2molpro)
-	$(F90) $(OBJ_bas_gms2molpro) -o $(BIN)/bas_gms2molpro $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2molpro) $(FFLAGS) -o $(BIN)/bas_gms2molpro
 
 bas_gms2psi: $(OBJ_bas_gms2psi)
-	$(F90) $(OBJ_bas_gms2psi) -o $(BIN)/bas_gms2psi $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2psi) $(FFLAGS) -o $(BIN)/bas_gms2psi
 
 bas_gms2py: $(OBJ_bas_gms2py)
-	$(F90) $(OBJ_bas_gms2py) -o $(BIN)/bas_gms2py $(FFLAGS)
+	$(F90) $(OBJ_bas_gms2py) $(FFLAGS) -o $(BIN)/bas_gms2py
 
 bdf2fch: $(OBJ_bdf2fch)
-	$(F90) $(OBJ_bdf2fch) $(MKL_FLAGS) -o $(BIN)/bdf2fch $(FFLAGS)
+	$(F90) $(OBJ_bdf2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bdf2fch
 
 bdf2mkl: $(OBJ_bdf2mkl)
-	$(F90) $(OBJ_bdf2mkl) $(MKL_FLAGS) -o $(BIN)/bdf2mkl $(FFLAGS)
+	$(F90) $(OBJ_bdf2mkl) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bdf2mkl
 	@echo ;\
 	echo "bdf2mkl requires utilities bdf2fch and fch2mkl, please also compile them" ;\
 	echo
 
 chk2gbw: $(OBJ_chk2gbw)
-	$(F90) $(OBJ_chk2gbw) -o $(BIN)/chk2gbw $(FFLAGS)
+	$(F90) $(OBJ_chk2gbw) $(FFLAGS) -o $(BIN)/chk2gbw
 
 dal2fch: $(OBJ_dal2fch)
-	$(F90) $(OBJ_dal2fch) -o $(BIN)/dal2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_dal2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/dal2fch
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) -o $(BIN)/dat2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_dat2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/dat2fch
 
 extract_noon2fch: $(OBJ_extract_noon2fch)
-	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)/extract_noon2fch
+	$(F90) $(OBJ_extract_noon2fch) $(FFLAGS) -o $(BIN)/extract_noon2fch
 
 fch2amo: $(OBJ_fch2amo)
-	$(F90) $(OBJ_fch2amo) -o $(BIN)/fch2amo $(FFLAGS)
+	$(F90) $(OBJ_fch2amo) $(FFLAGS) -o $(BIN)/fch2amo
 
 fch2bdf: $(OBJ_fch2bdf)
-	$(F90) $(OBJ_fch2bdf) -o $(BIN)/fch2bdf $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2bdf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2bdf
 	@echo ;\
 	echo "fch2bdf requires utilites fch2inp and bas_gms2bdf, please also compile them" ;\
 	echo
 
 fch2cfour: $(OBJ_fch2cfour)
-	$(F90) $(OBJ_fch2cfour) -o $(BIN)/fch2cfour $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2cfour) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2cfour
 
 fch2com: $(OBJ_fch2com)
-	$(F90) $(OBJ_fch2com) -o $(BIN)/fch2com $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2com) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2com
 	@echo ;\
 	echo "fch2com requires utilites fch2inp and bas_gms2molpro, please also compile them" ;\
 	echo
 
 fch2dal: $(OBJ_fch2dal)
-	$(F90) $(OBJ_fch2dal) -o $(BIN)/fch2dal $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2dal) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2dal
 	@echo ;\
 	echo "fch2dal requires utilites fch2inp and bas_gms2dal, please also compile them" ;\
 	echo
 
 fch2mkl: $(OBJ_fch2mkl)
-	$(F90) $(OBJ_fch2mkl) -o $(BIN)/fch2mkl $(FFLAGS)
+	$(F90) $(OBJ_fch2mkl) $(FFLAGS) -o $(BIN)/fch2mkl
 
 fch2gbw: $(OBJ_fch2gbw)
-	$(F90) $(OBJ_fch2gbw) -o $(BIN)/fch2gbw $(FFLAGS)
+	$(F90) $(OBJ_fch2gbw) $(FFLAGS) -o $(BIN)/fch2gbw
 
 fch2inp: $(OBJ_fch2inp)
-	$(F90) $(OBJ_fch2inp) -o $(BIN)/fch2inp $(FFLAGS)
+	$(F90) $(OBJ_fch2inp) $(FFLAGS) -o $(BIN)/fch2inp
 
 fch2inporb: $(OBJ_fch2inporb)
-	$(F90) $(OBJ_fch2inporb) -o $(BIN)/fch2inporb $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2inporb) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2inporb
 	@echo ;\
 	echo "fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them" ;\
 	echo
 
 fch2psi: $(OBJ_fch2psi)
-	$(F90) $(OBJ_fch2psi) -o $(BIN)/fch2psi $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2psi) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2psi
 	@echo ;\
 	echo "fch2psi requires utilities fch2inp and bas_gms2psi, please also compile them" ;\
 	echo
 
 fch2qchem: $(OBJ_fch2qchem)
-	$(F90) $(OBJ_fch2qchem) -o $(BIN)/fch2qchem $(FFLAGS)
+	$(F90) $(OBJ_fch2qchem) $(FFLAGS) -o $(BIN)/fch2qchem
 
 fch2qm4d: $(OBJ_fch2qm4d)
-	$(F90) $(OBJ_fch2qm4d) -o $(BIN)/fch2qm4d $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch2qm4d) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2qm4d
 
 fch2tm: $(OBJ_fch2tm)
-	$(F90) $(OBJ_fch2tm) -o $(BIN)/fch2tm $(FFLAGS)
+	$(F90) $(OBJ_fch2tm) $(FFLAGS) -o $(BIN)/fch2tm
 
 fch_u2r: $(OBJ_fch_u2r)
-	$(F90) $(OBJ_fch_u2r) -o $(BIN)/fch_u2r $(FFLAGS)
+	$(F90) $(OBJ_fch_u2r) $(FFLAGS) -o $(BIN)/fch_u2r
 
 fch_mo_copy: $(OBJ_fch_mo_copy)
-	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)/fch_mo_copy $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch_mo_copy) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch_mo_copy
 
 fch2wfn: $(OBJ_fch2wfn)
-	$(F90) $(OBJ_fch2wfn) -o $(BIN)/fch2wfn $(FFLAGS)
+	$(F90) $(OBJ_fch2wfn) $(FFLAGS) -o $(BIN)/fch2wfn
 
 fch247: $(OBJ_fch247)
-	$(F90) $(OBJ_fch247) -o $(BIN)/fch247 $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_fch247) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch247
 
 chk2py: $(OBJ_chk2py)
 	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS)
@@ -330,31 +330,31 @@ fch2py: $(OBJ_fch2py)
 	@mv fch2py*.so $(LIB)/
 
 find_mc_pair: $(OBJ_find_mc_pair)
-	$(F90) $(OBJ_find_mc_pair) -o $(BIN)/find_mc_pair $(FFLAGS)
+	$(F90) $(OBJ_find_mc_pair) $(FFLAGS) -o $(BIN)/find_mc_pair
 
 frag_guess_wfn: $(OBJ_frag_guess_wfn)
-	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)/frag_guess_wfn $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_frag_guess_wfn) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/frag_guess_wfn
 
 frag_qc: $(OBJ_frag_qc)
-	$(F90) $(OBJ_frag_qc) -o $(BIN)/frag_qc $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_frag_qc) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/frag_qc
 
 gau_external: $(OBJ_gau_external)
-	$(F90) $(OBJ_gau_external) -o $(BIN)/gau_external $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_gau_external) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/gau_external
 
 geom_opt: $(OBJ_geom_opt)
-	$(F90) $(OBJ_geom_opt) -o $(BIN)/geom_opt $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_geom_opt) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/geom_opt
 
 inp2gjf: $(OBJ_inp2gjf)
-	$(F90) $(OBJ_inp2gjf) -o $(BIN)/inp2gjf $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_inp2gjf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/inp2gjf
 
 molden2fch: $(OBJ_molden2fch)
-	$(F90) $(OBJ_molden2fch) -o $(BIN)/molden2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_molden2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/molden2fch
 
 obf: $(OBJ_obf)
-	$(F90) $(OBJ_obf) -o $(BIN)/obf $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_obf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/obf
 
 orb2fch: $(OBJ_orb2fch)
-	$(F90) $(OBJ_orb2fch) -o $(BIN)/orb2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_orb2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/orb2fch
 
 py2fch: $(OBJ_py2fch)
 	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS)
@@ -365,62 +365,62 @@ rest2fch: $(OBJ_py2fch)
 	@mv librest2fch.so $(LIB)/
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
-	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)/gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_gvb_correct_pairs) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/gvb_correct_pairs
 
 gvb_exclude_XH: $(OBJ_gvb_exclude_XH)
-	$(F90) $(OBJ_gvb_exclude_XH) -o $(BIN)/gvb_exclude_XH $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_gvb_exclude_XH) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/gvb_exclude_XH
 
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
-	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)/gvb_sort_pairs $(FFLAGS)
+	$(F90) $(OBJ_gvb_sort_pairs) $(FFLAGS) -o $(BIN)/gvb_sort_pairs
 
 mkl2amo: $(OBJ_mkl2amo)
-	$(F90) $(OBJ_mkl2amo) -o $(BIN)/mkl2amo $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2amo) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2amo
 
 mkl2bdf: $(OBJ_mkl2bdf)
-	$(F90) $(OBJ_mkl2bdf) -o $(BIN)/mkl2bdf $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2bdf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2bdf
 
 mkl2cfour: $(OBJ_mkl2cfour)
-	$(F90) $(OBJ_mkl2cfour) -o $(BIN)/mkl2cfour $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2cfour) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2cfour
 
 mkl2com: $(OBJ_mkl2com)
-	$(F90) $(OBJ_mkl2com) -o $(BIN)/mkl2com $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2com) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2com
 
 mkl2dal: $(OBJ_mkl2dal)
-	$(F90) $(OBJ_mkl2dal) -o $(BIN)/mkl2dal $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2dal) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2dal
 
 mkl2fch: $(OBJ_mkl2fch)
-	$(F90) $(OBJ_mkl2fch) -o $(BIN)/mkl2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2fch
 
 mkl2inp: $(OBJ_mkl2inp)
-	$(F90) $(OBJ_mkl2inp) -o $(BIN)/mkl2inp $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2inp) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2inp
 
 mkl2inporb: $(OBJ_mkl2inporb)
-	$(F90) $(OBJ_mkl2inporb) -o $(BIN)/mkl2inporb $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2inporb) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2inporb
 
 mkl2gjf: $(OBJ_mkl2gjf)
-	$(F90) $(OBJ_mkl2gjf) -o $(BIN)/mkl2gjf $(FFLAGS)
+	$(F90) $(OBJ_mkl2gjf) $(FFLAGS) -o $(BIN)/mkl2gjf
 
 mkl2psi: $(OBJ_mkl2psi)
-	$(F90) $(OBJ_mkl2psi) -o $(BIN)/mkl2psi $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2psi) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2psi
 
 mkl2py: $(OBJ_mkl2py)
-	$(F90) $(OBJ_mkl2py) -o $(BIN)/mkl2py $(FFLAGS)
+	$(F90) $(OBJ_mkl2py) $(FFLAGS) -o $(BIN)/mkl2py
 
 mkl2qchem: $(OBJ_mkl2qchem)
-	$(F90) $(OBJ_mkl2qchem) -o $(BIN)/mkl2qchem $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_mkl2qchem) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2qchem
 
 replace_xyz_in_inp: $(OBJ_replace_xyz_in_inp)
-	$(F90) $(OBJ_replace_xyz_in_inp) -o $(BIN)/replace_xyz_in_inp $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_replace_xyz_in_inp) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/replace_xyz_in_inp
 
 xml2fch: $(OBJ_xml2fch)
-	$(F90) $(OBJ_xml2fch) -o $(BIN)/xml2fch $(FFLAGS) $(MKL_FLAGS)
+	$(F90) $(OBJ_xml2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/xml2fch
 
 pyuno: $(OBJ_pyuno)
 	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(MKL_FLAGS)
 	@mv uno*.so $(LIB)/
 
 qchem: $(OBJ_qchem)
-	$(F2PY) -c $(OBJ_qchem) $(F2_F90_FLAGS) -m qchem $(F2_FLAGS) $(MKL_FLAGS)
+	$(F2PY) -c $(OBJ_qchem) -m qchem $(F2_FLAGS) $(MKL_FLAGS)
 	@mv qchem*.so $(LIB)/
 
 construct_vir: $(OBJ_construct_vir)
@@ -440,11 +440,11 @@ mirror_wfn: $(OBJ_mirror_wfn)
 	@mv mirror_wfn*.so $(LIB)/
 
 wfn_analysis: $(OBJ_wfn_analysis)
-	$(F2PY) -c $(OBJ_wfn_analysis) $(F2_F90_FLAGS) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
+	$(F2PY) -c $(OBJ_wfn_analysis) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
 	@mv wfn_analysis*.so $(LIB)/
 
 lo: $(OBJ_lo)
-	$(F2PY) -c $(OBJ_lo) $(F2_F90_FLAGS) -m lo $(F2_FLAGS) $(MKL_FLAGS)
+	$(F2PY) -c $(OBJ_lo) -m lo $(F2_FLAGS) $(MKL_FLAGS)
 	@mv lo*.so $(LIB)/
 
 auto_pair: $(OBJ_auto_pair)
@@ -466,11 +466,11 @@ rwgeom: $(OBJ_rwgeom)
 	@mv rwgeom*.so $(LIB)/
 
 rwwfn: $(OBJ_rwwfn)
-	$(F2PY) -c $(OBJ_rwwfn) $(F2_F90_FLAGS) -m rwwfn $(F2_FLAGS) $(MKL_FLAGS)
+	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS) $(MKL_FLAGS)
 	@mv rwwfn*.so $(LIB)/
 
 excited: $(OBJ_excited)
-	$(F2PY) -c $(OBJ_excited) $(F2_F90_FLAGS) -m excited $(F2_FLAGS) $(MKL_FLAGS)
+	$(F2PY) -c $(OBJ_excited) -m excited $(F2_FLAGS) $(MKL_FLAGS)
 	@mv excited*.so $(LIB)/
 
 get_mokit_loc:

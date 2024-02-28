@@ -621,7 +621,7 @@ end subroutine gen_permute_fch
 end module obf
 
 program main
- use population, only: mulliken_pop_of_mo
+ use population, only: get_mo_dis_from_fch
  use obf, only: calc_no, dis_thres0, n_tot, icoeff, cluster, fchname, &
   gen_prim_cluster, gen_deri_cluster, merge_mo_cluster, add_paired_vir2cluster,&
   gen_permute_fch
@@ -666,7 +666,7 @@ program main
 
  ! perform Mulliken population for each MO, find the centers of each MO,
  ! and calculate the distances between any two MOs.
- call mulliken_pop_of_mo(fchname, ibegin, iend)
+ call get_mo_dis_from_fch(fchname, ibegin, iend)
 
  call gen_prim_cluster(dis_thres) ! generate primitive MO clusters
 

@@ -240,146 +240,146 @@ module mr_keyword
  character(len=240) :: dalton_path = ' '
  character(len=240) :: bdf_path = ' '
 
- character(len=15) :: method = ' '  ! model chemistry, theoretical method
- character(len=21) :: basis = ' '   ! basis set (gen and genecp supported)
+ character(len=15) :: method = ' ' ! model chemistry, theoretical method
+ character(len=21) :: basis = ' '  ! basis set (gen and genecp supported)
  character(len=21) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
  character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
  character(len=21) :: F12_cabs = 'NONE' ! F12 cabs
 contains
 
- subroutine get_molcas_path()
-  implicit none
-  integer :: i, fid, system
+subroutine get_molcas_path()
+ implicit none
+ integer :: i, fid, system
 
-  i = SYSTEM("which pymolcas >mokit.pymolcas 2>&1")
-  if(i /= 0) then
-   molcas_path = 'mokit.pymolcas'
-   call delete_file(TRIM(molcas_path))
+ i = SYSTEM("which pymolcas >mokit.pymolcas 2>&1")
+ if(i /= 0) then
+  molcas_path = 'mokit.pymolcas'
+  call delete_file(TRIM(molcas_path))
+  molcas_path = 'NOT FOUND'
+  return
+ end if
+
+ open(newunit=fid,file='mokit.pymolcas',status='old',position='rewind')
+ read(fid,'(A)',iostat=i) molcas_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  molcas_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(molcas_path) == 0) then
    molcas_path = 'NOT FOUND'
-   return
-  end if
-
-  open(newunit=fid,file='mokit.pymolcas',status='old',position='rewind')
-  read(fid,'(A)',iostat=i) molcas_path
-  close(fid,status='delete')
-
-  if(i /= 0) then
+  else if(index(molcas_path,'no pymolcas') > 0) then
    molcas_path = 'NOT FOUND'
-  else
-   if(LEN_TRIM(molcas_path) == 0) then
-    molcas_path = 'NOT FOUND'
-   else if(index(molcas_path,'no pymolcas') > 0) then
-    molcas_path = 'NOT FOUND'
-   end if
   end if
- end subroutine get_molcas_path
+ end if
+end subroutine get_molcas_path
 
  ! repalce variables like '$USER' in path into real path
- subroutine replace_env_in_path(path)
-  implicit none
-  integer :: i, j, k
-  character(len=100) :: str
-  character(len=240) :: buf
-  character(len=240), intent(inout) :: path
+subroutine replace_env_in_path(path)
+ implicit none
+ integer :: i, j, k
+ character(len=100) :: str
+ character(len=240) :: buf
+ character(len=240), intent(inout) :: path
 
-  i = INDEX(path, '$')
-  if(i == 0) return
+ i = INDEX(path, '$')
+ if(i == 0) return
 
-  j = INDEX(path(i+1:),'/')
-  if(j == 0) then
-   j = LEN_TRIM(path) + 1
-  else
-   j = j + i
-  end if
+ j = INDEX(path(i+1:),'/')
+ if(j == 0) then
+  j = LEN_TRIM(path) + 1
+ else
+  j = j + i
+ end if
 
-  str = ' '
-  call getenv(path(i+1:j-1), str)
-  buf(1:i-1) = path(1:i-1)
+ str = ' '
+ call getenv(path(i+1:j-1), str)
+ buf(1:i-1) = path(1:i-1)
 
-  str = ADJUSTL(str)
-  k = LEN_TRIM(str)
-  buf(i:i+k-1) = TRIM(str)
+ str = ADJUSTL(str)
+ k = LEN_TRIM(str)
+ buf(i:i+k-1) = TRIM(str)
 
-  if(j > 0) buf(i+k:) = path(j:)
+ if(j > 0) buf(i+k:) = path(j:)
 
-  path = TRIM(buf)
- end subroutine replace_env_in_path
+ path = TRIM(buf)
+end subroutine replace_env_in_path
 
  ! read paths of various programs from environment variables
- subroutine read_program_path()
-  implicit none
-  integer :: i
-  integer(kind=4) :: hostnm
-  character(len=8) :: hostname
-  character(len=24) :: data_string
-  character(len=240), external :: get_mokit_root 
+subroutine read_program_path()
+ implicit none
+ integer :: i
+ integer(kind=4) :: hostnm
+ character(len=8) :: hostname
+ character(len=24) :: data_string
+ character(len=240), external :: get_mokit_root 
 
-  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
-  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
-  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
-  write(6,'(A)') '           Version: 1.2.6rc23 (2024-Feb-19)'
-  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
+ write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
+ write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
+ write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
+ write(6,'(A)') '           Version: 1.2.6rc24 (2024-Feb-28)'
+ write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
-  hostname = ' '
-  data_string = ' '
-  i = hostnm(hostname)
-  call fdate(data_string)
-  write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+ hostname = ' '
+ data_string = ' '
+ i = hostnm(hostname)
+ call fdate(data_string)
+ write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
-  write(6,'(/,A)') 'Read program paths from environment variables:'
-  !call getenv('MOKIT_ROOT', mokit_root)
-  mokit_root = get_mokit_root()
-  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
+ write(6,'(/,A)') 'Read program paths from environment variables:'
+ !call getenv('MOKIT_ROOT', mokit_root)
+ mokit_root = get_mokit_root()
+ write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
 
-  call get_gau_path(gau_path)
-  call get_molcas_path()
-  call check_molcas_is_omp(molcas_omp)
-  call get_molpro_path(molpro_path)
-  call get_orca_path(orca_path)
-  call get_psi4_path(psi4_path)
-  call get_dalton_path(dalton_path)
-  call getenv('GMS', gms_path)
-  call getenv('BDF', bdf_path)
-  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
-  if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
+ call get_gau_path(gau_path)
+ call get_molcas_path()
+ call check_molcas_is_omp(molcas_omp)
+ call get_molpro_path(molpro_path)
+ call get_orca_path(orca_path)
+ call get_psi4_path(psi4_path)
+ call get_dalton_path(dalton_path)
+ call getenv('GMS', gms_path)
+ call getenv('BDF', bdf_path)
+ if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
+ if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
-  write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
-  write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
-  write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
-  write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
-  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
-  write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
-  write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
-  write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
- end subroutine read_program_path
+ write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
+ write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
+ write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
+ write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
+ write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
+ write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
+ write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
+ write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+end subroutine read_program_path
 
  ! check whether GAMESS path exists
- subroutine check_gms_path()
-  implicit none
-  integer :: i, fid
-  character(len=240) :: buf
-  logical :: alive
+subroutine check_gms_path()
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ logical :: alive
 
-  inquire(file=TRIM(gms_path),exist=alive)
-  if(.not. alive) then
-   write(6,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
-   write(6,'(A)') 'gms_path='//TRIM(gms_path)
-   stop
-  end if
+ inquire(file=TRIM(gms_path),exist=alive)
+ if(.not. alive) then
+  write(6,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
+  write(6,'(A)') 'gms_path='//TRIM(gms_path)
+  stop
+ end if
 
-  open(newunit=fid,file=TRIM(gms_path),status='old',position='rewind')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:7) == 'set SCR') exit
-  end do ! for while
-  close(fid)
+ open(newunit=fid,file=TRIM(gms_path),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == 'set SCR') exit
+ end do ! for while
+ close(fid)
 
-  i = INDEX(buf,'=')
-  gms_scr_path = buf(i+1:)
-  call replace_env_in_path(gms_scr_path)
-  write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
- end subroutine check_gms_path
+ i = INDEX(buf,'=')
+ gms_scr_path = buf(i+1:)
+ call replace_env_in_path(gms_scr_path)
+ write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
+end subroutine check_gms_path
 
  subroutine parse_keyword()
   implicit none
@@ -654,9 +654,9 @@ contains
   alive1(1:4) = [(index(longbuf,'hf_prog')>0), (index(longbuf,'readrhf')>0), &
                  (index(longbuf,'readuhf')>0), (index(longbuf,'readno')>0)]
   if(alive1(1) .and. ANY(alive1(2:4) .eqv. .true.)) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog'&
-                   & cannot be used with any of"
-   write(6,'(A)') "'readrhf', 'readuhf', 'readno'."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog' canno&
+                    &t be used with any"
+   write(6,'(A)') "of 'readrhf', 'readuhf', 'readno'."
    stop
   end if
 
@@ -664,40 +664,43 @@ contains
                  (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0), &
                  (index(longbuf,'mcpdft_prog')/=0)]
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword&
-                   & of 'caspt2_prog', 'nevpt2_prog',"
-   write(6,'(A)') "'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are detected.&
-                  & Only one can be specified in a job."
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword o&
+                    &f 'caspt2_prog',"
+   write(6,'(A)') "'nevpt2_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' ar&
+                  &e detected. Only one"
+   write(6,'(A)') "can be specified in a job."
    stop
   end if
 
   alive1(1:4)= [(index(longbuf,'casci_prog')/=0),(index(longbuf,'casscf_prog')/=0),&
                 (index(longbuf,'dmrgci_prog')/=0),(index(longbuf,'dmrgscf_prog')/=0)]
   if(alive1(1) .and. alive1(2)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and&
-                   & CASSCF_prog are detected.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and CAS&
+                   &SCF_prog are detected.'
    write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
   if(alive1(3) .and. alive1(4)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and&
-                   & DMRGSCF_prog are detected.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and DM&
+                    &RGSCF_prog are detected.'
    write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
   if(casscf .and. (alive1(1).or.alive1(3))) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but&
-                   & you specify the CASCI_prog or DMRGCI_prog.'
-   write(6,'(A)') 'You should specify CASSCF_prog or DMRGSCF_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but y&
+                    &ou specify the'
+   write(6,'(A)') 'CASCI_prog or DMRGCI_prog. You should specify CASSCF_prog or&
+                  & DMRGSCF_prog.'
    stop
   end if
 
   if(casci .and. (alive1(2).or.alive1(4))) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but&
-                   & you specify the CASSCF_prog or DMRGSCF_prog.'
-   write(6,'(A)') 'You should specify CASCI_prog or DMRGCI_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but yo&
+                    &u specify the'
+   write(6,'(A)') 'CASSCF_prog or DMRGSCF_prog. You should specify CASCI_prog o&
+                  &r DMRGCI_prog.'
    stop
   end if
 
@@ -913,603 +916,626 @@ contains
   call prt_strategy()
  end subroutine parse_keyword
 
- subroutine prt_strategy()
-  implicit none
-  write(6,'(/,A,I0)') 'No. Strategy = ', ist
+subroutine prt_strategy()
+ implicit none
+ write(6,'(/,A,I0)') 'No. Strategy = ', ist
 
-  write(6,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
-       'readNO  = ', readno, 'skipHF  = ', skiphf, 'Cart    = ', cart
+ write(6,'(5(A,L1,3X))') 'readRHF = ', readrhf, 'readUHF = ', readuhf,&
+      'readNO  = ', readno, 'skipHF  = ', skiphf, 'Cart    = ', cart
 
-  write(6,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
-       'GVB     = ', gvb   , 'CASCI   = ',  casci, 'CASSCF  = ', casscf
+ write(6,'(5(A,L1,3X))') 'Vir_Proj= ',vir_proj, 'UNO     = ', uno    ,&
+      'GVB     = ', gvb   , 'CASCI   = ',  casci, 'CASSCF  = ', casscf
 
-  write(6,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
-       'CASPT2  = ', caspt2, 'CASPT2K = ',caspt2k, 'CASPT3  = ', caspt3
+ write(6,'(5(A,L1,3X))') 'DMRGCI  = ',  dmrgci, 'DMRGSCF = ', dmrgscf,&
+      'CASPT2  = ', caspt2, 'CASPT2K = ',caspt2k, 'CASPT3  = ', caspt3
 
-  write(6,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ',  ovbmp2,&
-       'SDSPT2  = ', sdspt2, 'MRCISD  = ', mrcisd, 'MRCISDT = ', MRCISDT
+ write(6,'(5(A,L1,3X))') 'MRMP2   = ',   mrmp2, 'OVBMP2  = ',  ovbmp2,&
+      'SDSPT2  = ', sdspt2, 'MRCISD  = ', mrcisd, 'MRCISDT = ', MRCISDT
 
-  write(6,'(5(A,L1,3X))') 'NEVPT2  = ',  nevpt2, 'NEVPT3  = ',  nevpt3,&
-       'MCPDFT  = ', mcpdft, 'MRCC    = ',   mrcc, 'CIonly  = ', CIonly
+ write(6,'(5(A,L1,3X))') 'NEVPT2  = ',  nevpt2, 'NEVPT3  = ',  nevpt3,&
+      'MCPDFT  = ', mcpdft, 'MRCC    = ',   mrcc, 'CIonly  = ', CIonly
 
-  write(6,'(5(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ',    DKH2,&
-       'X2C     = ',    X2C, 'RI      = ',     RI, 'FIC     = ', FIC
+ write(6,'(5(A,L1,3X))') 'dyn_corr= ',dyn_corr, 'DKH2    = ',    DKH2,&
+      'X2C     = ',    X2C, 'RI      = ',     RI, 'FIC     = ', FIC
 
-  write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
-       'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'OnlyXH  = ', onlyXH
+ write(6,'(5(A,L1,3X))') 'DLPNO   = ',   DLPNO, 'F12     = ',     F12,&
+      'HardWFN = ',hardwfn, 'CrazyWFN= ',crazywfn, 'OnlyXH  = ', onlyXH
 
-  write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  force,&
-       'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
+ write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  force,&
+      'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
 
-  write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
-       'Excited = ',excited, 'QD      = ',     QD, 'SOC     = ', SOC
+ write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
+      'Excited = ',excited, 'QD      = ',     QD, 'SOC     = ', SOC
 
-  write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
-       rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
-       'GVB_conv= '//TRIM(GVB_conv)
+ write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
+      rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
+      'GVB_conv= '//TRIM(GVB_conv)
 
-  write(6,'(A,I2,3X,2(A,I1,3X),A,I5,3X,A,L1)') 'Skip_UNO=', nskip_uno, &
-       'CtrType = ', CtrType, 'MRCC_type=',mrcc_type, 'MaxM =', maxM,&
-       'excludeXH=', excludeXH
+ write(6,'(A,I2,3X,2(A,I1,3X),A,I5,3X,A,L1)') 'Skip_UNO=', nskip_uno, &
+      'CtrType = ', CtrType, 'MRCC_type=',mrcc_type, 'MaxM =', maxM,&
+      'excludeXH=', excludeXH
 
-  write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
-       on_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
+ write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
+      on_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
 
-  write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
-       TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
+ write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
+      TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
 
-  if(skiphf) then
-   write(6,'(A)') TRIM(hf_fch)
+ if(skiphf) then
+  write(6,'(A)') TRIM(hf_fch)
+ else
+  write(6,'(A)') 'NONE'
+ end if
+end subroutine prt_strategy
+
+subroutine check_kywd_compatible()
+ implicit none
+ integer :: i
+ logical :: alive(3)
+ character(len=10) :: cas_prog
+ character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
+
+ write(6,'(/,A)') 'Check if the keywords are compatible with each other...'
+
+ if(readrhf .or. readuhf .or. readno) then
+  if(ist == 6) then
+   write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: ist=6 is not &
+                    &compatible with any'
+   write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
+   stop
+  end if
+  call check_cart(hf_fch, cart)
+ end if
+
+ if(on_thres<0d0 .or. on_thres>1d0) then
+  write(6,'(/,A)') error_warn//'ON_thres must be in [0.0,1.0].'
+  write(6,'(A,E12.5)') 'Your input ON_thres=', on_thres
+  stop
+ end if
+
+ if(uno_thres<0d0 .or. uno_thres>1d0) then
+  write(6,'(/,A)') error_warn//'uno_thres must be in [0.0,1.0].'
+  write(6,'(A,E12.5)') 'Your input uno_thres=', uno_thres
+  stop
+ end if
+
+ if(iroot < 0) then
+  write(6,'(/,A)') error_warn//'iroot must be non-negative.'
+  write(6,'(A,I0)') 'Your input iroot=', iroot
+  stop
+ else if(iroot > 0) then ! State-Specific CASSCF
+  if(nstate > 0) then
+   write(6,'(/,A)') error_warn//'you can specify only one of Nstates and Root.'
+   stop
+  end if
+  if(casci) then
+   write(6,'(/,A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
+   stop
+  end if
+ end if
+
+ if(nmr) then
+  if((.not.casscf) .and. iroot==0) then
+   write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
+   write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
+   stop
+  end if
+  if(TRIM(dalton_path) == 'NOT FOUND') then
+   write(6,'(/,A)') error_warn//'it seems Dalton is not installed.'
+   stop
   else
-   write(6,'(A)') 'NONE'
+   call check_exe_exist(dalton_path)
   end if
- end subroutine prt_strategy
+ end if
 
- subroutine check_kywd_compatible()
-  implicit none
-  integer :: i
-  logical :: alive(3)
-  character(len=10) :: cas_prog
-  character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
+ if(DKH2 .and. X2C) then
+  write(6,'(/,A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
+  stop
+ end if
 
-  write(6,'(/,A)') 'Check if the keywords are compatible with each other...'
+ if(DKH2 .and. TRIM(hf_prog)=='pyscf') then
+  write(6,'(/,A)') 'Warning: DKH2 not supported in PySCF. HF in PySCF will use&
+                   & X2C Hamiltonian'
+  write(6,'(A)') 'instead. MOs obtained by these two Hamiltonians are usually&
+                & very similar.'
+  write(6,'(A)') 'If you want to use DKH2 during HF calculations, you can spec&
+                 &ify HF_prog=PSI4/ORCA.'
+ end if
 
-  if(readrhf .or. readuhf .or. readno) then
-   if(ist == 6) then
-    write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: ist=6 is not &
-                     &compatible with any'
-    write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
-    stop
-   end if
-   call check_cart(hf_fch, cart)
+ if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4') .and. &
+    (.not.skiphf)) then
+  write(6,'(/,A)') 'Warning: X2C is activated but currently HF_prog is not PySC&
+                   &F/PSI4. Switching'
+  write(6,'(A)') 'to HF_prog=PySCF automatically.'
+  hf_prog = 'pyscf'
+ end if
+
+ if(casci .or. casscf) then
+  if(casci) then
+   cas_prog = casci_prog
+  else
+   cas_prog = casscf_prog
   end if
+ end if
 
-  if(on_thres<0d0 .or. on_thres>1d0) then
-   write(6,'(/,A)') error_warn//'ON_thres must be in [0.0,1.0].'
-   write(6,'(A,E12.5)') 'Your input ON_thres=', on_thres
+ if(RI) then
+  if(DKH2 .or. X2C) then
+   write(6,'(/,A)') error_warn//'currently RI cannot be applied in DKH2/X2C co&
+                   &mputations.'
    stop
   end if
 
-  if(uno_thres<0d0 .or. uno_thres>1d0) then
-   write(6,'(/,A)') error_warn//'uno_thres must be in [0.0,1.0].'
-   write(6,'(A,E12.5)') 'Your input uno_thres=', uno_thres
+  if(.not. (casci .or. casscf)) then
+   write(6,'(/,A)') error_warn//'RI activated. But neither CASCI nor CASSCF is&
+                   & invoked.'
    stop
   end if
-
-  if(iroot < 0) then
-   write(6,'(A)') error_warn//'iroot must be non-negative.'
-   write(6,'(A,I0)') 'Your input iroot=', iroot
+  select case(cas_prog)
+  case('pyscf','orca','openmolcas','psi4','molpro')
+  case default
+   write(6,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
+   write(6,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
+   write(6,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
+                  &ORCA/OpenMolcas/Molpro/PSI4.'
    stop
-  else if(iroot > 0) then ! State-Specific CASSCF
-   if(nstate > 0) then
-    write(6,'(A)') error_warn//'you can specify only one of Nstates and Root.'
-    stop
-   end if
-   if(casci) then
-    write(6,'(A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
-    stop
-   end if
-  end if
+  end select
+ end if
 
-  if(nmr) then
-   if((.not.casscf) .and. iroot==0) then
-    write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
-    write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
-    stop
-   end if
-   if(TRIM(dalton_path) == 'NOT FOUND') then
-    write(6,'(/,A)') error_warn//'it seems Dalton is not installed.'
-    stop
-   else
-    call check_exe_exist(dalton_path)
-   end if
-  end if
-
-  if(DKH2 .and. X2C) then
-   write(6,'(A)') error_warn//"'DKH2' and 'X2C' cannot both be activated."
+ if(F12) then
+  if(.not. RI) then
+   write(6,'(/,A)') error_warn//'F12 must be combined with RI. But RI is set'
+   write(6,'(A)') 'to be False. Impossible.'
    stop
   end if
-
-  if(DKH2 .and. TRIM(hf_prog)=='pyscf') then
-   write(6,'(/,A)') 'Warning: DKH2 not supported in PySCF. HF in PySCF will use&
-                    & X2C Hamiltonian'
-   write(6,'(A)') 'instead. MOs obtained by these two Hamiltonians are usually&
-                 & very similar.'
-   write(6,'(A)') 'If you want to use DKH2 during HF calculations, you can spec&
-                  &ify HF_prog=PSI4/ORCA.'
-  end if
-
-  if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4') .and. &
-     (.not.skiphf)) then
-   write(6,'(/,A)') error_warn//'invalid HF_prog.'
-   write(6,'(A)') 'When X2C is activated, HF_prog can only be PySCF or PSI4.'
+  if(.not. (nevpt2 .or. mrcisd)) then
+   write(6,'(/,A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
+   write(6,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
    stop
   end if
-
-  if(casci .or. casscf) then
-   if(casci) then
-    cas_prog = casci_prog
-   else
-    cas_prog = casscf_prog
+  if(nevpt2) then
+   if(nevpt2_prog /= 'orca') then
+    write(6,'(/,A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
+    write(6,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
+    stop
+   end if
+   if(.not. FIC) then
+    write(6,'(/,A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
+    write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
+                    & keyword FIC in mokit{}.'
+    stop
    end if
   end if
+  if(mrcisd .and. mrcisd_prog/='molpro') then
+   write(6,'(/,A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
+   write(6,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
+   stop
+  end if
+ end if
 
-  if(RI) then
-   if(DKH2 .or. X2C) then
-    write(6,'(/,A)') error_warn//'currently RI cannot be applied in DKH2/X2C co&
-                    &mputations.'
+ alive = .false. ! remember to initialize
+ select case(TRIM(casci_prog))
+ case('gaussian','gamess','orca')
+  alive(1) = .true.
+ end select
+ select case(TRIM(casscf_prog))
+ case('gaussian','gamess','orca')
+  alive(2) = .true.
+ end select
+ alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
+ if(X2C .and. alive(3)) then
+  write(6,'(/,A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
+                  & incompatible with'
+  write(6,'(A)') 'X2C. You can use PySCF/Molpro/OpenMolcas.'
+  stop
+ end if
+
+ alive = .false. ! remember to initialize
+ select case(TRIM(casci_prog))
+ case('pyscf','bdf')
+  alive(1) = .true.
+ end select
+ select case(TRIM(casscf_prog))
+ case('pyscf','bdf')
+  alive(2) = .true.
+ end select
+ alive(3) = ( ((dmrgci .or. casci) .and. alive(1)) .or. &
+              ((dmrgscf .or. casscf) .and. alive(2)) )
+ if(DKH2 .and. alive(3)) then
+  write(6,'(/,A)') error_warn//'CASCI/CASSCF with DKH2 is not'
+  write(6,'(A)') 'supported by PySCF/BDF.'
+  write(6,'(A)') 'For CASCI/CASSCF, you can use CASCI_prog/CASSCF_prog=Molpro/&
+                 &OpenMolcas/GAMESS'
+  write(6,'(A)') 'ORCA/Gaussian.'
+  write(6,'(A)') 'For DMRG-CASCI/DMRG-CASSCF, you can use CASCI_prog/CASSCF_pr&
+                 &og=OpenMolcas.'
+  stop
+ end if
+
+ select case(dmrgci_prog)
+ case('pyscf', 'openmolcas')
+ case default
+  write(6,'(/,A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
+  write(6,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
+  stop
+ end select
+
+ select case(dmrgscf_prog)
+ case('pyscf', 'openmolcas')
+ case default
+  write(6,'(/,A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
+  write(6,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
+  stop
+ end select
+
+ alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
+ if(alive(1)) then
+  ! if (post-)GVB calculation is requested, set to GAMESS default
+  ! if (post-)CASSCF calculation is requested, use 5d-4 and FcGVB=.T.
+  if(.not. c_gvb_conv) GVB_conv = '1d-5'
+  if(.not. c_fcgvb) fcgvb = .false.
+  if(X2C) then
+   write(6,'(/,A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
+   stop
+  end if
+ end if
+
+ if(hardwfn .and. crazywfn) then
+  write(6,'(/,A)') error_warn//"'hardwfn' or 'crazywfn' cannot both be activated."
+  stop
+ end if
+
+ if(.not. (TRIM(localm)=='pm' .or. TRIM(localm)=='boys')) then
+  write(6,'(/,A)') error_warn//"only 'PM' or 'Boys' localization is supported."
+  write(6,'(A)') 'Wrong LocalM='//TRIM(localm)
+  stop
+ end if
+
+ alive = [readrhf, readuhf, readno]
+ i = COUNT(alive .eqv. .true.)
+ if(i > 1) then
+  write(6,'(/,A)') error_warn//"more than one of 'readrhf',"
+  write(6,'(A)') "'readuhf', and 'readno' are specified. These three keywords &
+                 &are mutually exclusive."
+  stop
+ end if
+
+ if(readrhf .and. .not.(ist==3 .or. ist==4)) then
+  write(6,'(/,A)') error_warn//"'readrhf' is only compatible with ist=3 or 4."
+  stop
+ end if
+
+ if(.not.readrhf .and. (ist==3 .or. ist==4)) then
+  write(6,'(/,A)') error_warn//"ist=3 or 4 specified, it must be used combined &
+                  &with 'readrhf'."
+  stop
+ end if
+
+ if(readuhf .and. .not.(ist==1 .or. ist==2)) then
+  write(6,'(/,A)') error_warn//"'readuhf' is only compatible with ist=1 or 2."
+  stop
+ end if
+
+ if(.not.readuhf .and. (ist==1 .or. ist==2)) then
+  write(6,'(/,A)') error_warn//"ist=1 or 2 specified, it must be used combined &
+                  &with 'readuhf'."
+  stop
+ end if
+
+ if(readno .and. ist/=5) then
+  write(6,'(/,A)') error_warn//"'readno' is only compatible with ist=5."
+  stop
+ end if
+
+ if(.not.readno .and. ist==5) then
+  write(6,'(/,A)') error_warn//"ist=5 specified, it must be used combined with &
+                  &'readno'."
+  stop
+ end if
+
+ if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
+    (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
+  write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
+  write(6,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
+                 & none of them is specified.'
+  stop
+ end if
+
+ if(CIonly .and. TRIM(nevpt2_prog)=='bdf') then
+  write(6,'(/,A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF &
+                  &program.'
+  write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
+  stop
+ end if
+
+ select case(TRIM(gvb_prog))
+ case('gamess','gaussian','qchem')
+ case default
+  write(6,'(/,A)') error_warn//'only GAMESS/Gaussian/QChem is supported for the'
+  write(6,'(A)') 'GVB computation. User specified GVB program cannot be ident&
+                 &ified: '//TRIM(gvb_prog)
+  stop
+ end select
+
+ if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
+  write(6,'(A)') 'You can use PySCF/OpenMolcas.'
+  stop
+ end if
+
+ select case(TRIM(mcpdft_prog))
+ case('pyscf','openmolcas','gamess')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '&
+                //TRIM(mcpdft_prog)
+ end select
+
+ select case(TRIM(casci_prog))
+ case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
+  stop
+ end select
+
+ select case(TRIM(casscf_prog))
+ case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
+  stop
+ end select
+
+ select case(TRIM(mrcisd_prog))
+ case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton','gamess')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'User specified MRCISD program is not supported: '//&
+                  TRIM(mrcisd_prog)
+  stop
+ end select
+
+ select case(TRIM(mrcisdt_prog))
+ case('openmolcas','dalton','psi4','gamess')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'User specified MRCISDT program is not supported: '//&
+                  TRIM(mrcisdt_prog)
+  stop
+ end select
+
+ if(mrcisdt) then
+  CtrType = 1
+  write(6,'(/,A)') 'Only uncontracted MRCISDT is supported. Automatically &
+                   &setting CtrType=1.'
+ end if
+
+ if(mrcisd) then
+  select case(CtrType)
+  case(1) ! uncontracted MRCISD
+   if(mrcisd_prog == 'molpro') then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
     stop
    end if
-
-   if(.not. (casci .or. casscf)) then
-    write(6,'(/,A)') error_warn//'RI activated. But neither CASCI nor CASSCF is&
-                    & invoked.'
-    stop
-   end if
-   select case(cas_prog)
-   case('pyscf','orca','openmolcas','psi4','molpro')
+   select case(TRIM(mrcisd_prog))
+   case('gaussian','orca','gamess')
+    if(X2C) then
+     write(6,'(/,A)') error_warn
+     write(6,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
+     stop
+    end if
+   end select
+  case(2) ! ic-MRCISD
+   select case(TRIM(mrcisd_prog))
+   case('openmolcas', 'molpro')
    case default
-    write(6,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
-    write(6,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
-    write(6,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
-                   &ORCA/OpenMolcas/Molpro/PSI4.'
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
+                   & But you specify'
+    write(6,'(A)') 'MRCISD_prog='//TRIM(mrcisd_prog)
     stop
    end select
-  end if
-
-  if(F12) then
-   if(.not. RI) then
-    write(6,'(/,A)') error_warn//'F12 must be combined with RI. But RI is set'
-    write(6,'(A)') 'to be False. Impossible.'
-    stop
+  case(3) ! FIC-MRCISD
+   if(nacto_wish > 15) then
+    mrcisd_prog = 'pyscf'
+    write(6,'(/,A)') 'Large size of active space. MRCISD_prog=PySCF is automati&
+                     &cally set. PySCF+Block2'
+    write(6,'(A)') 'would be called to perform the DMRG-FIC-MRCISD calculation.'
+   else if(nacto_wish > 0) then
+    mrcisd_prog = 'orca'
+    write(6,'(/,A)') 'Small/Medium size of active space. MRCISD_prog=ORCA is au&
+                     &tomatically set.'
    end if
-   if(.not. (nevpt2 .or. mrcisd)) then
-    write(6,'(/,A)') error_warn//'F12 can only be used in NEVPT2 or MRCISD.'
-    write(6,'(A)') 'But neither of NEVPT2/MRCISD is specified.'
-    stop
-   end if
-   if(nevpt2) then
-    if(nevpt2_prog /= 'orca') then
-     write(6,'(/,A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
-     write(6,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
+   ! It is possible that nacto_wish=0 here, so the following 'select' is needed.
+   select case(TRIM(mrcisd_prog))
+   case('orca')
+    if(X2C) then
+     write(6,'(/,A)') error_warn
+     write(6,'(A)') 'FIC-MRCISD with ORCA is incompatible with X2C currently.'
      stop
     end if
-    if(.not. FIC) then
-     write(6,'(/,A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
-     write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
-                     & keyword FIC in mokit{}.'
-     stop
-    end if
-   end if
-   if(mrcisd .and. mrcisd_prog/='molpro') then
-    write(6,'(/,A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
-    write(6,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
+   case('pyscf')
+    ! the check of DKH2 has been done in previous CASCI/CASSCF
+   case default
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'MRCISD_prog for FIC-MRCISD/DMRG-FIC-MRCISD method is ORCA/&
+                   &PySCF, respectively.'
+    write(6,'(A)') 'But current MRCISD_prog='//TRIM(mrcisd_prog)
     stop
-   end if
-  end if
-
-  alive = .false. ! remember to initialize
-  select case(TRIM(casci_prog))
-  case('gaussian','gamess','orca')
-   alive(1) = .true.
-  end select
-  select case(TRIM(casscf_prog))
-  case('gaussian','gamess','orca')
-   alive(2) = .true.
-  end select
-  alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
-  if(X2C .and. alive(3)) then
-   write(6,'(/,A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
-                   & incompatible with'
-   write(6,'(A)') 'X2C. You can use PySCF/Molpro/OpenMolcas.'
-   stop
-  end if
-
-  alive = .false. ! remember to initialize
-  select case(TRIM(casci_prog))
-  case('pyscf','bdf')
-   alive(1) = .true.
-  end select
-  select case(TRIM(casscf_prog))
-  case('pyscf','bdf')
-   alive(2) = .true.
-  end select
-  alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
-  if(DKH2 .and. alive(3)) then
-   write(6,'(/,A)') error_warn//'CASCI/CASSCF with DKH2 is not'
-   write(6,'(A)') 'supported by PySCF/BDF.'
-   write(6,'(A)') 'For CASCI, you can use CASCI_prog=Molpro/OpenMolcas/GAMESS/&
-                  &ORCA/Gaussian.'
-   write(6,'(A)') 'For CASSCF, you can use CASSCF_prog=Molpro/OpenMolcas/GAMES&
-                  &S/ORCA/Gaussian.'
-   stop
-  end if
-
-  select case(dmrgci_prog)
-  case('pyscf', 'openmolcas')
+   end select
   case default
-   write(6,'(A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
-   write(6,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
-   stop
-  end select
-
-  select case(dmrgscf_prog)
-  case('pyscf', 'openmolcas')
-  case default
-   write(6,'(A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
-   write(6,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
-   stop
-  end select
-
-  alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
-  if(alive(1)) then
-   ! if (post-)GVB calculation is requested, set to GAMESS default
-   ! if (post-)CASSCF calculation is requested, use 5d-4 and FcGVB=.T.
-   if(.not. c_gvb_conv) GVB_conv = '1d-5'
-   if(.not. c_fcgvb) fcgvb = .false.
-   if(X2C) then
-    write(6,'(A)') error_warn//'GVB with GAMESS is incompatible with X2C.'
-    stop
-   end if
-  end if
-
-  if(hardwfn .and. crazywfn) then
-   write(6,'(A)') error_warn//"'hardwfn' or 'crazywfn' cannot both be activated."
-   stop
-  end if
-
-  if(TRIM(localm)/='pm' .and. TRIM(localm)/='boys') then
-   write(6,'(A)') error_warn//"only 'PM' or 'Boys' localization is supported."
-   write(6,'(A)') 'Wrong LocalM='//TRIM(localm)
-   stop
-  end if
-
-  alive = [readrhf, readuhf, readno]
-  i = COUNT(alive .eqv. .true.)
-  if(i > 1) then
-   write(6,'(A)') error_warn//"more than one of 'readrhf', 'readuhf', and 'read&
-                 &no' are specified."
-   write(6,'(A)') 'These three keywords are mutually exclusive.'
-   stop
-  end if
-
-  if(readrhf .and. .not.(ist==3 .or. ist==4)) then
-   write(6,'(A)') error_warn//"'readrhf' is only compatible with ist=3 or 4."
-   stop
-  end if
-
-  if(.not.readrhf .and. (ist==3 .or. ist==4)) then
-   write(6,'(A)') error_warn//"ist=3 or 4 specified, it must be used combined w&
-                 &ith 'readrhf'."
-   stop
-  end if
-
-  if(readuhf .and. .not.(ist==1 .or. ist==2)) then
-   write(6,'(A)') error_warn//"'readuhf' is only compatible with ist=1 or 2."
-   stop
-  end if
-
-  if(.not.readuhf .and. (ist==1 .or. ist==2)) then
-   write(6,'(A)') error_warn//"ist=1 or 2 specified, it must be used combined w&
-                 &ith 'readuhf'."
-   stop
-  end if
-
-  if(readno .and. ist/=5) then
-   write(6,'(A)') error_warn//"'readno' is only compatible with ist=5."
-   stop
-  end if
-
-  if(.not.readno .and. ist==5) then
-   write(6,'(A)') error_warn//"ist=5 specified, it must be used combined with 'readno'."
-   stop
-  end if
-
-  if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-     (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
-   write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
-   write(6,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
-                  & none of them is specified.'
-   stop
-  end if
-
-  if(CIonly .and. TRIM(nevpt2_prog)=='bdf') then
-   write(6,'(A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF program.'
-   write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
-   stop
-  end if
-
-  select case(TRIM(gvb_prog))
-  case('gamess','gaussian','qchem')
-  case default
-   write(6,'(A)') error_warn//'only GAMESS/Gaussian/QChem is supported for the'
-   write(6,'(A)') 'GVB computation. User specified GVB program cannot be ident&
-                  &ified: '//TRIM(gvb_prog)
-   stop
-  end select
-
-  if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
-   write(6,'(A)') error_warn
-   write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
-   write(6,'(A)') 'You can use PySCF/OpenMolcas.'
-   stop
-  end if
-
-  select case(TRIM(mcpdft_prog))
-  case('pyscf','openmolcas','gamess')
-  case default
-   write(6,'(A)') error_warn
-   write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '&
-                 //TRIM(mcpdft_prog)
-  end select
-
-  select case(TRIM(casci_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
-  case default
-   write(6,'(A)') error_warn
-   write(6,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
-   stop
-  end select
-
-  select case(TRIM(casscf_prog))
-  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
-  case default
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
+   write(6,'(/,A)') error_warn//'invalid CtrType.'
+   write(6,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17 MRCI&
+                    &SD_prog in MOKIT manual.'
+   write(6,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
+                  &MRCISD, respectively.'
    stop
   end select
 
   select case(TRIM(mrcisd_prog))
-  case('gaussian', 'orca', 'openmolcas', 'molpro','psi4','dalton','gamess')
-  case default
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'User specified MRCISD program is not supported: '//&
-                   TRIM(mrcisd_prog)
-   stop
-  end select
-
-  select case(TRIM(mrcisdt_prog))
-  case('openmolcas','dalton','psi4','gamess')
-  case default
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'User specified MRCISDT program is not supported: '//&
-                   TRIM(mrcisdt_prog)
-   stop
-  end select
-
-  if(mrcisdt) then
-   CtrType = 1
-   write(6,'(/,A)') 'Only uncontracted MRCISDT is supported. Automatically &
-                    &setting CtrType=1.'
-  end if
-
-  if(mrcisd) then
-   select case(CtrType)
-   case(1) ! uncontracted MRCISD
-    if(mrcisd_prog == 'molpro') then
-     write(6,'(/,A)') error_warn
-     write(6,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
-     stop
-    end if
-    select case(TRIM(mrcisd_prog))
-    case('gaussian','orca','gamess')
-     if(X2C) then
-      write(6,'(/,A)') error_warn
-      write(6,'(A)') 'MRCISD in Gaussian/ORCA/GAMESS is incompatible with X2C.'
-      stop
-     end if
-    end select
-   case(2) ! ic-MRCISD
-    select case(TRIM(mrcisd_prog))
-    case('openmolcas', 'molpro')
-    case default
-     write(6,'(A)') error_warn
-     write(6,'(A)') 'The ic-MRCISD are only supported by OpenMolcas and Molpro.&
-                    & But you specify'
-     write(6,'(A)') 'MRCISD_prog='//TRIM(mrcisd_prog)
-     stop
-    end select
-   case(3) ! FIC-MRCISD
-    if(mrcisd_prog /= 'orca') then
-     write(6,'(A)') error_warn
-     write(6,'(A)') 'The FIC-MRCISD is only supported by ORCA. But current MRCI&
-                    &SD_prog='//TRIM(mrcisd_prog)
-     stop
-    end if
-    if(X2C) then
-     write(6,'(A)') error_warn//'FIC-MRCISD with ORCA incompatible with X2C.'
-     stop
-    end if
-   case default
-    write(6,'(/,A)') error_warn//'invalid CtrType.'
-    write(6,'(/,A)') 'MRCISD has many variants, please read Section 4.4.17 MRCI&
-                     &SD_prog in MOKIT manual.'
-    write(6,'(A)') 'You need to specify CtrType=1/2/3 for uncontracted/ic-/FIC-&
-                   & MRCISD, respectively.'
-    stop
-   end select
-
-   select case(TRIM(mrcisd_prog))
-   case('gaussian','psi4','dalton','gamess')
-    if(CtrType /= 1) then
-     write(6,'(A)') error_warn
-     write(6,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
-     write(6,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
-     stop
-    end if
-   end select
-
-   if(TRIM(mrcisd_prog)=='orca' .and. cart) then
-    write(6,'(A)') error_warn//'conflict settings.'
-    write(6,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
-                   & harmonic functions, but'
-    write(6,'(A)') "Cart = True, you should delete the keyword 'cart', or&
-                   & provide a .fch file with spherical harmonic functions."
+  case('gaussian','psi4','dalton','gamess')
+   if(CtrType /= 1) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'Gaussian/PSI4/Dalton/GAMESS only supports uncontracted MRCISD,'
+    write(6,'(A,I0)') 'i.e. CtrType=1. But you specify CtrType=',CtrType
     stop
    end if
-  end if
+  end select
 
-  if((TRIM(casci_prog)=='orca' .or. TRIM(casscf_prog)=='orca') .and. cart) then
-   write(6,'(A)') error_warn
-   write(6,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports &
-                  &spherical harmonic'
-   write(6,'(A)') 'functions, but Cart=True. Please use another program or prov&
-                  &ide a .fch file'
+  if(TRIM(mrcisd_prog)=='orca' .and. cart) then
+   write(6,'(/,A)') error_warn//'conflict settings.'
+   write(6,'(A)') 'ORCA is set as the MRCI_prog, and it only supports spherical&
+                  & harmonic functions,'
+   write(6,'(A)') "but Cart = True, you should delete the keyword 'cart', or pr&
+                  &ovide a .fch file"
    write(6,'(A)') 'with spherical harmonic functions.'
    stop
   end if
+ end if
 
-  select case(TRIM(caspt2_prog))
-  case('openmolcas', 'molpro','orca')
-  case default
+ if((TRIM(casci_prog)=='orca' .or. TRIM(casscf_prog)=='orca') .and. cart) then
+  write(6,'(A)') error_warn
+  write(6,'(A)') 'ORCA is set as CASCI_prog/CASSCF_prog, and it only supports &
+                 &spherical harmonic'
+  write(6,'(A)') 'functions, but Cart=True. Please use another program or prov&
+                 &ide a .fch file'
+  write(6,'(A)') 'with spherical harmonic functions.'
+  stop
+ end if
+
+ select case(TRIM(caspt2_prog))
+ case('openmolcas', 'molpro','orca')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
+  write(6,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
+  stop
+ end select
+
+ select case(TRIM(nevpt2_prog))
+ case('pyscf','molpro','openmolcas','orca','bdf')
+ case default
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
+  write(6,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
+  stop
+ end select
+
+ if(mrmp2_prog /= 'gamess') then
+  write(6,'(/,A)') error_warn
+  write(6,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
+  write(6,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
+  stop
+ end if
+
+ select case(TRIM(mrcc_prog))
+ case('orca','nwchem')
+ case default
+  write(6,'(A)') error_warn
+  write(6,'(A)') 'Currently the MRCC method is only supported by ORCA/NWChem. &
+                 & But got MRCC_prog='//TRIM(mrcc_prog)
+  stop
+ end select
+
+ if(force) then
+  if(casscf .and. (.not.dyn_corr)) casscf_force = .true.
+  if(caspt2) caspt2_force = .true.
+  if(nevpt2) nevpt2_force = .true.
+  if(mcpdft) mcpdft_force = .true.
+  if(TRIM(casscf_prog) == 'psi4') then
    write(6,'(/,A)') error_warn
-   write(6,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
-   write(6,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
-   stop
-  end select
-
-  select case(TRIM(nevpt2_prog))
-  case('pyscf','molpro','openmolcas','orca','bdf')
-  case default
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
-   write(6,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
-   stop
-  end select
-
-  if(mrmp2_prog /= 'gamess') then
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
-   write(6,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
+   write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Pleas&
+                  &e use another CASSCF_prog.'
    stop
   end if
+ end if
 
-  select case(TRIM(mrcc_prog))
-  case('orca','nwchem')
-  case default
-   write(6,'(A)') error_warn
-   write(6,'(A)') 'Currently the MRCC method is only supported by ORCA/NWChem. &
-                  & But got MRCC_prog='//TRIM(mrcc_prog)
+ if(casscf_force .and. cart .and. TRIM(casscf_prog)=='pyscf') then
+  write(6,'(/,A)') error_warn//"current version of PySCF can only compute force"
+  write(6,'(A)') 'using spherical harmonic basis fucntions.'
+  stop
+ end if
+
+ if(mrmp2 .and. X2C) then
+  write(6,'(/,A)') error_warn//'MRMP2 with GAMESS is incompatible with X2C.'
+  write(6,'(A)') 'You can use the DKH2 Hamiltonian instead.'
+  stop
+ end if
+
+ if(nevpt2) then
+  if(DKH2 .and. (TRIM(nevpt2_prog)=='pyscf' .or. TRIM(nevpt2_prog)=='bdf')) then
+   write(6,'(/,A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
+   write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
    stop
-  end select
-
-  if(force) then
-   if(casscf .and. (.not.dyn_corr)) casscf_force = .true.
-   if(caspt2) caspt2_force = .true.
-   if(nevpt2) nevpt2_force = .true.
-   if(mcpdft) mcpdft_force = .true.
-   if(TRIM(casscf_prog) == 'psi4') then
-    write(6,'(/,A)') error_warn
-    write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Plea&
-                   &se use another CASSCF_prog.'
-    stop
-   end if
-  end if
-
-  if(casscf_force .and. cart .and. TRIM(casscf_prog)=='pyscf') then
-   write(6,'(A)') error_warn//"current version of PySCF can only compute force"
-   write(6,'(A)') 'using spherical harmonic basis fucntions.'
+  else if(X2C .and. TRIM(nevpt2_prog)=='orca') then
+   write(6,'(/,A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
+   write(6,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
    stop
   end if
-
-  if(mrmp2 .and. X2C) then
-   write(6,'(A)') error_warn//'MRMP2 with GAMESS is incompatible with X2C.'
-   write(6,'(A)') 'You can use the DKH2 Hamiltonian instead.'
+  if(TRIM(nevpt2_prog)=='bdf' .and. bgchg) then
+   write(6,'(/,A)') error_warn//'NEVPT2 with BDF program is incompatible with'
+   write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
    stop
   end if
-
-  if(nevpt2) then
-   if(DKH2 .and. (TRIM(nevpt2_prog)=='pyscf' .or. TRIM(nevpt2_prog)=='bdf')) then
-    write(6,'(A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
-    write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
-    stop
-   else if(X2C .and. TRIM(nevpt2_prog)=='orca') then
-    write(6,'(A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
-    write(6,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
-    stop
-   end if
-   if(TRIM(nevpt2_prog)=='bdf' .and. bgchg) then
-    write(6,'(A)') error_warn//'NEVPT2 with BDF program is incompatible with'
-    write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
-    stop
-   end if
-   if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then
-    write(6,'(A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
-    write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
-    stop
-   end if
-   if(RI .and. TRIM(nevpt2_prog)=='openmolcas') then
-    write(6,'(A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
-    stop
-   end if
-  end if
-
-  if((sdspt2.or.nevpt3) .and. bgchg) then
-   write(6,'(A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompatible'
-   write(6,'(A)') 'with background point charges.'
+  if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then
+   write(6,'(/,A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
+   write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
    stop
   end if
-
-  if((DKH2 .or. X2C) .and. cart) then
-   write(6,'(A)') error_warn//'relativistic calculations using Cartesian'
-   write(6,'(A)') 'functions may cause severe numerical instability. Please use&
-                  & spherical'
-   write(6,'(A)') 'harmonic type basis set.'
+  if(RI .and. TRIM(nevpt2_prog)=='openmolcas') then
+   write(6,'(/,A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
    stop
   end if
+ end if
 
-  if(excludeXH .and. TRIM(gvb_prog)/='gamess') then
-   write(6,'(A)') 'ERROR in subroutine check_kywd_compatible: the keyword excl&
-                  &udeXH currently'
-   write(6,'(A)') 'is supported only for GAMESS. But got GVB_prog='//TRIM(gvb_prog)
-   stop
-  end if
+ if((sdspt2.or.nevpt3) .and. bgchg) then
+  write(6,'(/,A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompati-'
+  write(6,'(A)') 'ble with background point charges.'
+  stop
+ end if
 
-  write(6,'(A)') 'Check done. All keywords are compatible.'
-  write(6,'(/,A)') REPEAT('-',79)
-  write(6,'(A)') "Note: in any following output which starts with '$' symbol, &
-                 &it is the Shell co-"
-  write(6,'(A)') '      mmand used to submit the corresponding job.'
-  write(6,'(A)') REPEAT('-',79)
- end subroutine check_kywd_compatible
+ if((DKH2 .or. X2C) .and. cart) then
+  write(6,'(/,A)') error_warn//'relativistic calculations using Cartesian'
+  write(6,'(A)') 'functions may cause severe numerical instability. Please use&
+                 & spherical'
+  write(6,'(A)') 'harmonic type basis set.'
+  stop
+ end if
 
- ! turn letters in buf into lower case, except those in symbol ''
- subroutine lower(buf)
-  implicit none
-  integer :: i, j, k, k1, k2
-  character(len=240), intent(inout) :: buf
+ if(excludeXH .and. TRIM(gvb_prog)/='gamess') then
+  write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: the keyword excl&
+                 &udeXH currently'
+  write(6,'(A)') 'is supported only for GAMESS. But got GVB_prog='//TRIM(gvb_prog)
+  stop
+ end if
 
-  k = LEN_TRIM(buf)
-  k1 = INDEX(buf,"'")
-  k2 = INDEX(buf,"'",back=.true.)
+ write(6,'(A)') 'Check done. All keywords are compatible.'
+ write(6,'(/,A)') REPEAT('-',79)
+ write(6,'(A)') "Note: in any following output which starts with '$' symbol, &
+                &it is the Shell co-"
+ write(6,'(A)') '      mmand used to submit the corresponding job.'
+ write(6,'(A)') REPEAT('-',79)
+end subroutine check_kywd_compatible
 
-  do i = 1, k, 1
-   if(i>k1 .and. i<k2) cycle
+! turn letters in buf into lower case, except those in symbol ''
+subroutine lower(buf)
+ implicit none
+ integer :: i, j, k, k1, k2
+ character(len=240), intent(inout) :: buf
 
-   j = IACHAR(buf(i:i))
-   if(j>64 .and. j<91) buf(i:i) = ACHAR(j+32)
-  end do ! for i
- end subroutine lower
+ k = LEN_TRIM(buf)
+ k1 = INDEX(buf,"'")
+ k2 = INDEX(buf,"'",back=.true.)
+
+ do i = 1, k, 1
+  if(i>k1 .and. i<k2) cycle
+
+  j = IACHAR(buf(i:i))
+  if(j>64 .and. j<91) buf(i:i) = ACHAR(j+32)
+ end do ! for i
+end subroutine lower
 
  ! read background point charge(s) from .gjf file
  subroutine read_bgchg_from_gjf(no_coor)

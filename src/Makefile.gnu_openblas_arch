@@ -7,11 +7,10 @@ LIB = ../mokit/lib
 
 # For Arch/Manjaro distributions, in which openblas is distributed without lapack
 # --- gfortran + OpenBLAS ---
-F90    = gfortran
-FFLAGS = -O2 -cpp -fPIC
+F90 = gfortran
+FFLAGS = -O2 -cpp -fPIC -fopenmp
 MKL_FLAGS = -L$(HOME)/software/openblas-0.3.21/lib64 -lopenblas -llapack
-F2PY   = f2py
-F2_FLAGS =
-F2_F90_FLAGS = --f90flags="-cpp"
+F2PY = f2py
+F2_FLAGS = --f90flags="-cpp -fopenmp"
 
 include Makefile.main

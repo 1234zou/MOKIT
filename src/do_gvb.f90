@@ -229,6 +229,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 end subroutine do_gvb_gms
 
 ! perform GVB computation (only in Strategy 1,3) using QChem
+! TODO: change to variational PP. Current PP uses projection. The NO and NOONs
+! of variational PP remain to be checked.
 subroutine do_gvb_qchem(proname, pair_fch)
  use mr_keyword, only: mem, nproc, mo_rhf, bgchg, chgname, datname
  use mol, only: nopen, npair, npair0, gvb_e
@@ -293,7 +295,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: failed to call utility ex&
-                   &tract_noon.'
+                   &tract_noon2fch.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if

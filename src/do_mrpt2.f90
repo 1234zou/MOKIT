@@ -4,11 +4,11 @@
 ! do CASCI/CASPT2(npair<=7) or DMRG-CASCI/DMRG-NEVPT2 (npair>7) when scf=.False.
 ! do CASSCF/CASPT2(npair<=7) or DMRG-CASSCF/DMRG-NEVPT2 (npair>7) when scf=.True.
 subroutine do_mrpt2()
- use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
-  nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, nevpt2_prog, &
-  caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path,&
-  molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
-  eist, target_root, caspt2_force
+ use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, dmrg_no, CIonly, caspt2,&
+  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, &
+  nevpt2_prog, caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path,&
+  check_gms_path, molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, &
+  gau_path, FIC, eist, target_root, caspt2_force
  use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
   ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
@@ -134,15 +134,19 @@ subroutine do_mrpt2()
   select case(TRIM(nevpt2_prog))
   case('pyscf')
    ! For DMRG-NEVPT2, use CMOs rather than NOs
-   if(dmrgci .or. dmrgscf) then
-    i = INDEX(casnofch, '_NO', back=.true.)
-    cmofch = casnofch(1:i)//'CMO.fch'
-    casnofch = cmofch
+   if(dmrgci .or. dmrgscf) then ! DMRG-CASCI/CASSCF
+    if(dmrg_no) then ! DMRG NOs calculated previously
+     i = INDEX(casnofch, '_NO', back=.true.)
+     cmofch = casnofch(1:i)//'CMO.fch'
+     casnofch = cmofch
+    end if
+    ! if DMRG NOs not calculated previously, casnofch is set to 'xxx_CMO.fch'
+    ! in subroutine do_cas
     i = INDEX(casnofch, '_CMO', back=.true.)
-   else
+   else                         ! CASCI/CASSCF
     i = INDEX(casnofch, '_NO', back=.true.)
    end if
-   pyname  = casnofch(1:i)//'NEVPT2.py'
+   pyname = casnofch(1:i)//'NEVPT2.py'
    outname = casnofch(1:i)//'NEVPT2.out'
    call bas_fch2py_wrap(casnofch, .false., pyname)
    call prt_nevpt2_script_into_py(pyname)
@@ -829,7 +833,9 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0)') 'mc.fcisolver.nroots = ', nroots
  end if
 
- call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
+ if(casci .or. casscf) then
+  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+ end if
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 

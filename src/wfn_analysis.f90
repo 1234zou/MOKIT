@@ -18,9 +18,8 @@ module population
 ! mo_center(0,j) is number of atomic centers of the j-th MO
 ! mo_center(1:,j) is the atomic centers of the j-th MO
 
- real(kind=8), allocatable :: mo_dis(:,:)
- ! mo_dis: distances between MOs, defined as the shortest distances of two
- !         atomic centers
+ real(kind=8), allocatable :: mo_dis(:,:) ! distances between MOs, defined as
+ ! the shortest distances of two atomic centers
  logical :: cart
 
  type mo_cluster       ! an MO cluster
@@ -69,6 +68,7 @@ subroutine get_bfirst()
  end do ! for i
 end subroutine get_bfirst
 
+! initialize arrays shell_type, shell2atom and bfirst
 subroutine init_shltyp_shl2atm_bfirst(fchname)
  implicit none
  character(len=240), intent(in) :: fchname
@@ -83,38 +83,27 @@ subroutine init_shltyp_shl2atm_bfirst(fchname)
  deallocate(shltyp, shl2atm)
 end subroutine init_shltyp_shl2atm_bfirst
 
-! Mulliken population for a set of MOs. Atomic centers are stored in integer
-! array mo_center. An MO is allowed to have multiple centers since we may deal
-! with diradical orbitals
-subroutine mulliken_pop_of_mo(fchname, ibegin, iend)
+subroutine get_mo_center_from_fch(fchname, i1, i2)
  implicit none
  integer :: i, j, k, m, ak(1)
- integer, intent(in) :: ibegin, iend
+ integer, intent(in) :: i1, i2
  real(kind=8) :: r, ddot
- real(kind=8), parameter :: diff = 0.1d0
+ real(kind=8), parameter :: diff = 0.2d0, pop_thres = 0.75d0
  ! diff: difference between the largest and the 2nd largest component
  real(kind=8), allocatable :: mo(:,:), S(:,:), rtmp(:), pop(:,:)
  character(len=240), intent(in) :: fchname
 
- i1 = ibegin; i2 = iend
- if(i2<i1 .or. i1<1 .or. i2<1) then
-  write(6,'(/,A)') 'ERROR in subroutine mulliken_pop_of_mo: invalid i1, i2.'
-  write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2 
-  stop
- end if
-
- ! get integer array bfirst
+ ! get integer array bfirst (natom would be initialized in this subroutine)
  call init_shltyp_shl2atm_bfirst(fchname)
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(mo(nbf,nif), S(nbf,nbf))
 
- ! read MOs and AO-basis overlap integrals
+ ! read MOs and AO-basis overlap integrals, respectively
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
 
  allocate(rtmp(nbf), pop(natom,i1:i2))
- pop = 0d0
 
  do i = i1, i2, 1
   do j = 1, natom, 1
@@ -131,8 +120,9 @@ subroutine mulliken_pop_of_mo(fchname, ibegin, iend)
  do i = i1, i2, 1
   ! the largest component on an atom of an orbital
   ak = MAXLOC(pop(:,i)); k = ak(1); r = pop(k,i)
-  mo_center(0,i) = 1; mo_center(1,i) = k
-  m = 1
+  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
+  ! if this is lone pair, no need to check the 2nd largest component
+  if(r > pop_thres) cycle
 
   ! find the 2nd largest component and so on
   do j = 1, natom, 1
@@ -145,16 +135,9 @@ subroutine mulliken_pop_of_mo(fchname, ibegin, iend)
  end do ! for i
 
  deallocate(pop)
-! do i = i1, i2, 1
-!  do j = 1, mo_center(0,i), 1
-!   write(6,'(I3)',advance='no') mo_center(j,i)
-!  end do ! for j
-!  write(6,'(/)',advance='no')
-! end do ! for i
+end subroutine get_mo_center_from_fch
 
- call gen_mo_dis_from_mo_center(fchname)
-end subroutine mulliken_pop_of_mo
-
+! calculate distances among MOs using MO centers
 subroutine gen_mo_dis_from_mo_center(fchname)
  implicit none
  integer :: i, j, k, m, p, q, i3, i4
@@ -199,6 +182,108 @@ subroutine gen_mo_dis_from_mo_center(fchname)
 
  deallocate(dis, mo_center)
 end subroutine gen_mo_dis_from_mo_center
+
+! perform Mulliken population for a set of MOs, get their MO centers and
+! calculate MO distances using their centers. An MO is allowed to have multiple
+! centers since we may deal with diradical orbitals.
+subroutine get_mo_dis_from_fch(fchname, ibegin, iend)
+ implicit none
+ integer, intent(in) :: ibegin, iend
+ character(len=240), intent(in) :: fchname
+
+ i1 = ibegin; i2 = iend
+ if(i2<i1 .or. i1<1 .or. i2<1) then
+  write(6,'(/,A)') 'ERROR in subroutine get_mo_dis_from_fch: invalid i1, i2.'
+  write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2 
+  stop
+ end if
+
+ call get_mo_center_from_fch(fchname, i1, i2)
+ call gen_mo_dis_from_mo_center(fchname)
+end subroutine get_mo_dis_from_fch
+
+! calculate GVB bond orders using information in _s.fch and _s.dat files
+subroutine get_gvb_bond_order_from_fch(fchname)
+ implicit none
+ integer :: i, j, k, m, i1, j1, npair, na, nb, nopen, ibegin
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: ci_coeff(:,:), bo(:)
+ character(len=20) :: str
+ character(len=240) :: datname
+ character(len=240), intent(in) :: fchname
+
+ i = INDEX(fchname, '.fch', back=.true.)
+ datname = fchname(1:i-1)//'.dat'
+ call read_npair_from_dat(datname, npair)
+ if(npair > 0) then
+  allocate(ci_coeff(2,npair), bo(npair))
+  call read_ci_coeff_from_dat(datname, npair, ci_coeff)
+  forall(i = 1:npair)
+   bo(i) = DABS(ci_coeff(1,i)*ci_coeff(1,i) - ci_coeff(2,i)*ci_coeff(2,i))
+  end forall
+  deallocate(ci_coeff)
+ end if
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ nopen = na - nb
+ ibegin = nb - npair + 1
+ ! Mulliken populations are performed for bonding orbitals only
+ call get_mo_center_from_fch(fchname, ibegin, nb)
+
+ do i = ibegin, nb, 1
+  k = mo_center(0,i)
+  if(k < 2) cycle
+  allocate(idx(k))
+  call sort_int_array(k, mo_center(1:k,i), .true., idx)
+  deallocate(idx)
+ end do ! for i
+
+ write(6,'(/,A)') '--- GVB Bond Order Analysis ---'
+ write(6,'(A)') 'GVB bond order: (n_{i,1} - n_{i,2})/2, see J. Phys. Chem. A 20&
+                &20, 124, 8321.'
+
+ write(6,'(/,A)') 'GVB pairs identified as atomic core orbitals or lone pairs:'
+ write(6,'(A)') ' Pair   Center'
+ do i = 1, npair, 1
+  if(mo_center(0,ibegin+i-1) /= 1) cycle
+  write(6,'(2I5)') i, mo_center(1,ibegin+i-1)
+ end do ! for i
+
+ write(6,'(/,A)') 'GVB pairs identified as chemical bonds:'
+ write(6,'(A)') ' Pair   Bond order  Center'
+ do i = 1, npair, 1
+  j = ibegin + i - 1
+  if(mo_center(0,j) < 2) cycle
+  k = mo_center(0,j)
+  write(str,'(A,I0,A)') '(I5,3X,F5.3,4X,', k, 'I5)'
+  write(6,TRIM(str)) i, bo(i), mo_center(1:k,j)
+ end do ! for i
+
+ write(6,'(/,A)') 'Merging chemical bonds which share the same atomic centers:'
+ write(6,'(A)') ' Bond order  Center'
+ do i = 1, npair, 1
+  i1 = ibegin + i - 1
+  k = mo_center(0,i1)
+  if(k < 2) cycle
+  do j = i+1, npair, 1
+   j1 = ibegin + j - 1
+   m = mo_center(0,j1)
+   if(m<2 .or. k/=m) cycle
+   if(ALL(mo_center(1:k,i1) == mo_center(1:k,j1))) then
+    bo(i) = bo(i) + bo(j); bo(j) = 0d0
+    mo_center(:,j1) = 0
+   end if
+  end do ! for j
+  write(str,'(A,I0,A)') '(F7.3,3X,', k, 'I5)'
+  write(6,TRIM(str)) bo(i), mo_center(1:k,i1)
+ end do ! for i
+ if(npair > 0) deallocate(bo, mo_center)
+
+ write(6,'(/,A)') 'Remark: only GVB pair orbitals are analyzed here. Be careful&
+                  & with extra bond'
+ write(6,'(A)') 'orders coming from the doubly occupied space.'
+ write(6,'(/,A)') '--- End of GVB Bond Order Analysis ---'
+end subroutine get_gvb_bond_order_from_fch
 
 end module population
 

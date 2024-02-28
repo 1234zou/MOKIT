@@ -146,8 +146,8 @@ subroutine do_cas(scf)
 
  if(nopen+2*npair0 > 15) then
   if(nmr) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO&
-                   & is not supported.'
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO is&
+                    & not supported.'
    stop
   end if
   if(scf) then
@@ -644,9 +644,9 @@ subroutine prt_cas_script_into_py(pyname, scf)
  end if
 
  if(dmrg) then
-  if(dmrg_no) then ! perform DMRG-CASCI to generate NOs
+  if(dmrg_no) then ! generate NOs
    call prt_casci_kywrd_py(fid2, RIJK_bas1, .true.)
-  else
+  else             ! do not generate NOs
    casnofch = cmofch
   end if
  end if

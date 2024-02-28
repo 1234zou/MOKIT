@@ -117,10 +117,10 @@ subroutine fch2qchem(fchname, npair)
 
  write(fid,'(A)') '$rem'
  write(fid,'(A)') 'method hf'
- if(uhf) then
+ if(uhf) then ! UHF
   write(fid,'(A)') 'unrestricted true'
- else ! RHF, ROHF
-  if(mult /= 1) write(fid,'(A)') 'unrestricted false'
+ else         ! R(O)HF
+  write(fid,'(A)') 'unrestricted false'
  end if
  if(ecp) write(fid,'(A)') 'ecp gen'
  write(fid,'(A)') 'basis gen'
@@ -130,10 +130,20 @@ subroutine fch2qchem(fchname, npair)
  write(fid,'(A,1X,4I0)') 'purecart', (purecart(i),i=1,4)
  write(fid,'(A)') 'sym_ignore true'
  if(npair > 0) then
+  ! This is used for projection-equation PP:
   write(fid,'(A)') 'correlation pp'
   write(fid,'(A,I0)') 'gvb_n_pairs ',npair
   write(fid,'(A)') 'gvb_restart true'
   if(nopen > 0) write(fid,'(A,I0)') 'gvb_do_rohf ',npair
+  ! This is used for variational PP (i.e. GVB):
+  !write(fid,'(A)') 'gen_scfman false'
+  !write(fid,'(A)') 'mp2_restart_no_scf true'
+  !write(fid,'(A)') 'scf_algorithm diis'
+  !write(fid,'(A)') 'correlation ccvb'
+  !write(fid,'(A)') 'ccvb_guess 2'
+  !write(fid,'(A)') 'ccvb_method 4'
+  !write(fid,'(A,I0)') 'gvb_n_pairs ', npair
+  !write(fid,'(A)') 'gvb_restart false'
  end if
  write(fid,'(A)') 'gui = 2' ! generate fchk
  write(fid,'(A)') 'mem_total 4000'
@@ -262,6 +272,8 @@ subroutine fch2qchem(fchname, npair)
 
  deallocate(alpha_coeff, eigen_e_a)
  close(fid)
+ ! For variational PP (i.e. GVB), there is no need for the file 169.0. This file
+ ! is required when projection-equation PP is invoked.
  if(npair > 0) then
   call sys_copy_file(TRIM(proname)//'/53.0', TRIM(proname)//'/169.0', .false.)
   !if(nopen > 0) ??

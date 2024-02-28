@@ -382,8 +382,10 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
       INDEX(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH',&
-                  & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH', 'CAN&
+                    &O' or 'NATU' is"
+   write(6,'(A)') 'found in file '//TRIM(xmlname)
+   close(fid)
    stop
   end if
 
@@ -397,21 +399,27 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
                   & found in file "//TRIM(xmlname)//'.'
+   close(fid)
    stop
   end if
  end if
 
+ read(fid,'(A)') buf
  nline = nif/10
  if(nif-10*nline > 0) nline = nline + 1
 
  do i = 1, nif, 1
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
+  do while(.true.)
+   read(fid,'(A)') buf
+   k = LEN_TRIM(buf)
+   if(buf(k:k) == '>') exit
+  end do ! for while
 
   do j = 1, nline, 1
    k = min(10*j,nif)
    read(fid,*) mo(10*j-9:k,i)
   end do ! for j
+  read(fid,'(A)') buf
  end do ! for i
 
  close(fid)
@@ -668,8 +676,10 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
       INDEX(buf,"type=""NATU")/=0) exit
   end do ! for while
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH',&
-                  & 'CANO' or 'NATU' is found in file "//TRIM(xmlname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH', 'CAN&
+                    &O' or 'NATU' is"
+   write(6,'(A)') 'found in file '//TRIM(xmlname)
+   close(fid)
    stop
   end if
 
@@ -683,6 +693,7 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
   if(i /= 0) then
    write(6,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
                   & found in file "//TRIM(xmlname)//'.'
+   close(fid)
    stop
   end if
  end if
@@ -690,11 +701,21 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
  read(fid,'(A)') buf
 
  do i = 1, nmo, 1
-  read(fid,'(A)',iostat=k) buf
-  if(k /= 0) exit
-  j = INDEX(buf, """")
-  k = INDEX(buf(j+1:), """")
-  read(buf(j+1:j+k-1),*) on(i)
+  !read(fid,'(A)',iostat=k) buf
+  !if(k /= 0) exit
+  !j = INDEX(buf, """")
+  !k = INDEX(buf(j+1:), """")
+  !read(buf(j+1:j+k-1),*) on(i)
+  do while(.true.)
+   read(fid,'(A)') buf
+   j = INDEX(buf, "occupation=""")
+   if(j > 0) then
+    k = INDEX(buf(j+12:), """")
+    read(buf(j+12:j+k+10),*) on(i)
+   end if
+   k = LEN_TRIM(buf)
+   if(buf(k:k) == '>') exit
+  end do ! for while
 
   do j = 1, nline+1, 1
    read(fid,'(A)',iostat=k) buf
@@ -704,8 +725,8 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
 
  close(fid)
  if(k /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_on_from_xml: not all occupation&
-                 & numbers are found.'
+  write(6,'(/,A)') 'ERROR in subroutine read_on_from_xml: not all occupation nu&
+                   &mbers are found.'
   write(6,'(A)') "Did you forget to add '{put,xml}' in Molpro input file?"
   write(6,'(A)') 'Filname = '//TRIM(xmlname)
   stop
@@ -1847,7 +1868,7 @@ end subroutine read_cas_energy_from_orca_out
 ! read CASCI/CASSCF energy from a given Molpro output file
 subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  implicit none
- integer :: i, k, fid
+ integer :: i, j, k, fid
  real(kind=8), intent(out) :: e(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -1859,7 +1880,7 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:8) == 'ITER. M') exit
+  if(buf(2:8)=='ITER. M' .or. buf(2:8)=='ITER  M') exit
  end do ! for while
 
  if(i /= 0) then
@@ -1871,13 +1892,17 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
   stop
  end if
 
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- if(LEN_TRIM(buf) == 0) then ! Multipassing in transformation
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
- end if
- read(buf,*) k,k,k,k, e(1) ! CASCI energy
+ do i = 1, 4
+  read(fid,fmt=*,iostat=j) k,k,k,k, e(1) ! CASCI energy
+  if(j == 0) exit
+ end do ! for i
+ !read(fid,'(A)') buf
+ !read(fid,'(A)') buf
+ !if(LEN_TRIM(buf) == 0) then ! Multipassing in transformation
+ ! read(fid,'(A)') buf
+ ! read(fid,'(A)') buf
+ !end if
+ !read(buf,*) k,k,k,k, e(1) ! CASCI energy
 
  if(scf) then
   do while(.true.)
@@ -2490,9 +2515,30 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
  logical, external :: has_davidson_q
 
  davidson_e = 0d0; e = 0d0; ref_weight = 0d0
- call open_file(outname, .false., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  select case(TRIM(mrcisd_prog))
+ case('pyscf')
+  if(CtrType == 3) then ! DMRG-FIC-MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:7) == 'E(MRCI)') exit
+   end do ! for while
+   i = INDEX(buf, 'DC =', back=.true.)
+   read(buf(i+4:),*) davidson_e
+   read(fid,'(A)') buf
+   i = INDEX(buf, '=')
+   read(buf(i+1:),*) e
+  else
+   write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid &
+                    &CtrType.'
+   write(6,'(A,I0)') 'Current CtrType=', CtrType
+   close(fid)
+   stop
+  end if
+  e = e + ptchg_e
  case('openmolcas')
   if(CtrType == 1) then ! uncontracted MRCISD
    do while(.true.)
@@ -2673,8 +2719,8 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
   end if
 
  case default
-  write(6,'(A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid&
-                & mrcisd_prog='//TRIM(mrcisd_prog)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid m&
+                   &rcisd_prog='//TRIM(mrcisd_prog)
   stop
  end select
 

@@ -492,6 +492,8 @@ subroutine identify_itype_of_out(outname, itype)
    exit
   end if
  end do ! for i
+
+ close(fid)
 end subroutine identify_itype_of_out
 
 ! read nfocc and nif from a Q-Chem output file

@@ -2,29 +2,23 @@
 
 ! do uncontracted/ic-/FIC- MRCISD(+Q) for npair<=7, or <=CAS(14,14)
 subroutine do_mrcisd()
- use mr_keyword, only: mem, nproc, CIonly, eist, mrcisd, mrcisd_prog, CtrType,&
-  casnofch, molcas_omp, molcas_path, orca_path, gau_path, gms_path, &
-  gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog, chgname
- use mol, only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: unfchk, mkl2gbw, fch2inporb_wrap
+ use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, CIonly, eist, mrcisd,&
+  mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
+  gms_path, gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog,&
+  chgname
+ use mol, only: casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
+ use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: e
  character(len=24) :: data_string
- character(len=240) :: string, chkname, inpname, outname, mklname
+ character(len=240) :: string, cmofch, pyname, chkname, inpname, outname, mklname
  character(len=480) :: datpath
  character(len=47) :: error_warn='ERROR in subroutine do_mrcisd: invalid CtrType='
 
  if(eist == 1) return ! excited state calculation
  if(.not. mrcisd) return
  write(6,'(//,A)') 'Enter subroutine do_mrcisd...'
-
- if(npair0 > 7) then
-  write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: reference wfn larger than (1&
-                   &4,14).'
-  write(6,'(A)') 'DMRG-MRCISD is not supported currently.'
-  stop
- end if
 
  call prt_mrci_orb_type(2, CIonly)
 
@@ -52,6 +46,33 @@ subroutine do_mrcisd()
                  TRIM(mrcisd_prog)
 
  select case(TRIM(mrcisd_prog))
+ case('pyscf')
+  if(.not. (dmrgci .or. dmrgscf)) then
+   write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: for MRCISD_prog=PySCF, only&
+                    & DMRG-FIC-MRCISD is'
+   write(6,'(A)') 'supported.'
+   stop
+  end if
+  ! For DMRG-NEVPT2, use CMOs rather than NOs
+  if(dmrgci .or. dmrgscf) then ! DMRG-CASCI/CASSCF
+   if(dmrg_no) then ! DMRG NOs calculated previously
+    i = INDEX(casnofch, '_NO', back=.true.)
+    cmofch = casnofch(1:i)//'CMO.fch'
+    casnofch = cmofch
+   end if
+   ! if DMRG NOs not calculated previously, casnofch is set to 'xxx_CMO.fch'
+   ! in subroutine do_cas
+   i = INDEX(casnofch, '_CMO', back=.true.)
+  else                         ! CASCI/CASSCF
+   i = INDEX(casnofch, '_NO', back=.true.)
+  end if
+  pyname = casnofch(1:i)//'MRCISD.py'
+  outname = casnofch(1:i)//'MRCISD.out'
+  call bas_fch2py_wrap(casnofch, .false., pyname)
+  call prt_mrci_script_into_py(pyname)
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+  call submit_pyscf_job(pyname)
+
  case('openmolcas')
   call check_exe_exist(molcas_path)
   i = INDEX(casnofch, '_NO', back=.true.)
@@ -199,6 +220,10 @@ subroutine do_mrcisd()
  end select
 
  select case(TRIM(mrcisd_prog))
+ case('pyscf')
+  write(6,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E_corr(FIC-MRCISD) =', e, 'a.u.'
+  write(6,'(A,F18.8,1X,A4)') 'E(FIC-MRCISD+Q)    =', mrcisd_e, 'a.u.'
  case('openmolcas')
   write(6,'(/,A,F18.8,1X,A4)') 'Davidson correction=', davidson_e, 'a.u.'
   select case(CtrType)
@@ -251,6 +276,97 @@ subroutine do_mrcisd()
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_mrcisd at '//TRIM(data_string)
 end subroutine do_mrcisd
+
+! print DMRG-FIC-MRCISD script into a given .py file
+subroutine prt_mrci_script_into_py(pyname)
+ use mol, only: nacto, nacta, nactb
+ use mr_keyword, only: mem, nproc, maxM, X2C, RI, RIJK_bas, iroot, target_root,&
+  block_mpi
+ implicit none
+ integer :: i, nroots, fid1, fid2, RENAME
+ character(len=21) :: RIJK_bas1
+ character(len=240) :: buf, pyname1
+ character(len=240), intent(in) :: pyname
+
+ if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
+ pyname1 = TRIM(pyname)//'.t'
+
+ open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(pyname1),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:17) == 'from pyscf import') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ buf = TRIM(buf)//', mcscf, dmrgscf, lib'
+ write(fid2,'(A)') TRIM(buf)
+ write(fid2,'(A)') 'from pyblock2.icmr.icmrcisd_full import WickICMRCISD'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid2,'(/,A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
+ if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
+ write(fid2,'(A)') "'"
+ write(fid2,'(A,I0)') 'nproc = ', nproc
+ write(fid2,'(A)') 'lib.num_threads(nproc)'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  write(fid2,'(A)') TRIM(buf)
+  if(buf(1:12) == 'mf.max_cycle') exit
+ end do ! for while
+ write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do
+ close(fid1,status='delete')
+
+ write(fid2,'(A)') '# generate CASCI wfn'
+ if(X2C) then
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
+ else
+  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
+ end if
+ write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+ if(RI) then
+  write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ else
+  write(fid2,'(A)') ')'
+ end if
+
+ write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
+ if(block_mpi) then
+  i = CEILING(0.5*REAL(mem)/REAL(nproc))
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
+ else
+  i = CEILING(0.4*REAL(mem))
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
+  write(fid2,'(A)') 'mc.fcisolver.threads = nproc'
+ end if
+ write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
+
+ if(iroot > 0) then ! FIC-MRCISD based on SS-CASSCF
+  call read_ss_root_from_txt(nroots, target_root)
+  write(fid2,'(A,I0)') 'mc.fcisolver.nroots = ', nroots
+ end if
+
+ write(fid2,'(A)') 'mc.verbose = 5'
+ write(fid2,'(A)') 'mc.kernel()'
+
+ write(fid2,'(/,A)') 'mm = WickICMRCISD(mc)'
+ write(fid2,'(A)') 'mm.kernel()'
+ close(fid2)
+ i = RENAME(pyname1, pyname)
+end subroutine prt_mrci_script_into_py
 
 ! print MRCISD/MRCISDT keywords into OpenMolcas .input file
 subroutine prt_mrci_molcas_inp(order, inpname)

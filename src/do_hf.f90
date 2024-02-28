@@ -5,7 +5,7 @@
 subroutine do_hf(prt_mr_strategy)
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
   charge, mult, rhf_e, uhf_e
- use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
+ use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, X2C, gau_path, hf_fch,&
   ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
   prt_strategy, gau_path, orca_path, psi4_path, frag_guess, HFonly
  implicit none
@@ -77,8 +77,8 @@ subroutine do_hf(prt_mr_strategy)
  rhf_gjfname = gjfname(1:i-1)//'_rhf.gjf'
  uhf_gjfname = gjfname(1:i-1)//'_uhf.gjf'
 
- noiter = .true. ! For HF_prog=PySCF/PSI4/ORCA, we need Gaussian .fch file to
-                 ! generate PySCF/PSI4/ORCA input file
+ noiter = .true. ! Setting default value. For HF_prog=PySCF/PSI4/ORCA, we need
+ ! Gaussian .fch file to generate PySCF/PSI4/ORCA input file
  select case(TRIM(hf_prog))
  case('gaussian')
   hf_prog_path = gau_path
