@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Feb 28, 2024)
+MOKIT 1.2.6 (Mar 14, 2024)
 ------------------------
+* support of ORCA, Turbomole, CFOUR, (Open)Molcas molden in molden2fch
 * add DMRG-FIC-MRCISD interface (calling PySCF+Block2)
 * modify Makefile to support OpenMP for some subroutines
 * add utilities molden2fch, fch2tm

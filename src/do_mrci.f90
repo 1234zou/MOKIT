@@ -362,7 +362,8 @@ subroutine prt_mrci_script_into_py(pyname)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 
- write(fid2,'(/,A)') 'mm = WickICMRCISD(mc)'
+ write(fid2,'(/,A)') 'mol.verbose = 5'
+ write(fid2,'(A)') 'mm = WickICMRCISD(mc)'
  write(fid2,'(A)') 'mm.kernel()'
  close(fid2)
  i = RENAME(pyname1, pyname)

@@ -298,10 +298,7 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  integer, intent(in) :: a1, a2, a3
  integer, allocatable :: ipiv(:)
  real(kind=8), intent(in) :: a(a1,a2), b(a1,a3)
-!f2py depend(a1,a2) :: a
-!f2py depend(a1,a3) :: b
  real(kind=8), intent(out) :: x(a2,a3)
-!f2py depend(a2,a3) :: x
  real(kind=8), allocatable :: a_copy(:,:), b_copy(:,:)
 
  x = 0d0
@@ -661,6 +658,49 @@ subroutine cal_dis_mat_from_coor(natom, coor, dis)
 
  deallocate(map)
 end subroutine cal_dis_mat_from_coor
+
+! compute the unitary matrix U between two sets of MOs
+! --------------------------------------------------
+!  nbf: the number of basis functions
+!  nmo: the number of MOs
+!  coeff: old MO Coefficients
+!  lo_coeff: new MO Coefficients
+!  u: the unitary(orthogonal) matrix to be computed
+!  lo_coeff1 = coeff*U
+! --------------------------------------------------
+subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nmo
+ integer, allocatable :: ipiv(:)
+ real(kind=8), intent(in) :: coeff(nbf,nmo), lo_coeff(nbf,nmo)
+ real(kind=8), intent(out) :: u(nmo,nmo)
+ real(kind=8), allocatable :: coeff1(:,:), lo_coeff1(:,:)
+
+ u = 0d0
+ allocate(coeff1(nbf,nmo), lo_coeff1(nbf,nmo))
+ coeff1 = coeff
+ lo_coeff1 = lo_coeff
+ allocate(ipiv(min(nbf,nmo)), source=0)
+
+ call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_u: dgetrf info/=0.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+
+ call dgetrs('N', nmo, nmo, coeff1, nbf, ipiv, lo_coeff1, nbf, i)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_u: dgetrs info/=0.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+
+ deallocate(ipiv, coeff1)
+ u = lo_coeff1(1:nmo,1:nmo)
+ deallocate(lo_coeff1)
+end subroutine get_u
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none

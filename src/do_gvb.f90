@@ -267,9 +267,6 @@ subroutine do_gvb_qchem(proname, pair_fch)
  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
  call modify_memory_in_qchem_inp(mem, inpname)
  call submit_qchem_job(inpname, nproc)
-
- call delete_file('pathtable')
- call delete_file('junk')
  call delete_file(TRIM(fchname0)) ! O.K. even if fchname0 does not exist
  call copy_file(pre_fch, fchname, .false.)
 

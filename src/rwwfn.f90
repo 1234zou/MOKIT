@@ -260,23 +260,25 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mo_from_fch: no '"//key//"' found&
-                 & in file "//TRIM(fchname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_mo_from_fch: no '"//key//"' found &
+                   &in file "//TRIM(fchname)
+  close(fid)
   stop
  end if
 
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, ncoeff
  if(ncoeff /= nbf*nif) then
-  write(6,'(A)') 'ERROR in subroutine read_mo_from_fch: ncoeff /= nbf*nif.'
-  write(6,'(A)') 'Inconsistency found between input nbf,nif and those&
-                 & in file '//TRIM(fchname)
-  write(6,'(A,I10,2I5)') 'ncoeff,nbf,nif=', ncoeff,nbf,nif
+  write(6,'(/,A)') 'ERROR in subroutine read_mo_from_fch: ncoeff /= nbf*nif.'
+  write(6,'(A)') 'Inconsistency found between input nbf,nif and those in file&
+                 & '//TRIM(fchname)
+  write(6,'(A,I10,2I5)') 'ncoeff, nbf, nif=', ncoeff, nbf, nif
+  close(fid)
   stop
  end if
 
  allocate(coeff(ncoeff), source=0d0)
- read(unit=fid,fmt='(5(1X,ES15.8))',iostat=j) (coeff(i),i=1,ncoeff)
+ read(fid,'(5(1X,ES15.8))',iostat=j) (coeff(i),i=1,ncoeff)
 
  if(j /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_mo_from_fch: failed to read MOs.'
@@ -285,7 +287,7 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
   stop
  end if
 
- mo = RESHAPE(coeff,(/nbf,nif/))
+ mo = RESHAPE(coeff, (/nbf,nif/))
  deallocate(coeff)
  close(fid)
 end subroutine read_mo_from_fch
@@ -3654,20 +3656,20 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
 
  i = SYSTEM('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to &
-                  & call utility solve_ON_matrix.'
+  write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to cal&
+                   &l utility solve_ON_matrix.'
   write(6,'(A)') 'Related files: '//TRIM(mo_fch)//', '//TRIM(no_fch)
   write(6,'(A)') 'Did you forget to compile the utility solve_ON_matrix?'
   stop
  end if
 
  call read_na_and_nb_from_fch(mo_fch, na, nb)
- nopen = na  - nb; ndb = nb
+ nopen = na - nb; ndb = nb
 
  i = INDEX(mo_fch, '.fch', back=.true.)
  dname = mo_fch(1:i-1)//'_D.txt'
- open(newunit=i,file=TRIM(dname),status='old')
- close(unit=i,status='delete')
+ call require_file_exist(dname)
+ call delete_file(TRIM(dname))
 
  call read_nbf_and_nif_from_fch(no_fch, nbf, nif)
  allocate(noon(nif))

@@ -740,6 +740,46 @@ subroutine read_on_from_mkl(mklname, nmo, ab, on)
 
  close(fid)
 end subroutine read_on_from_mkl
+
+! delete a primitive exponent and its coefficient when the coefficient is 0
+subroutine del_zero_coeff_in_prim_gau(pg)
+ implicit none
+ integer :: i, j, ncol, nline, ndel
+ real(kind=8), parameter :: thres = 1d-9
+ real(kind=8), allocatable :: rtmp(:,:)
+ type(primitive_gaussian), intent(inout) :: pg
+
+ ncol = pg%ncol
+ if(ncol /= 2) return ! possible pg%ncol=3 in the future
+
+ nline = pg%nline
+ ndel = 0
+ do i = 1, nline, 1
+  if(DABS(pg%coeff(i,2)) < thres) ndel = ndel + 1
+ end do ! for i
+
+ if(ndel == nline) then
+  write(6,'(/,A)') 'ERROR in subroutine del_zero_coeff_in_prim_gau: all exponen&
+                   &ts in this sub-'
+  write(6,'(A)') 'section will be deleted. Something must be wrong.'
+  stop
+ end if
+
+ nline = nline - ndel
+ allocate(rtmp(nline,ncol), source=0d0)
+ j = 0
+ do i = 1, pg%nline, 1
+  if(DABS(pg%coeff(i,2)) < thres) cycle
+  j = j + 1
+  rtmp(j,:) = pg%coeff(i,:)
+ end do ! for i
+
+ deallocate(pg%coeff)
+ allocate(pg%coeff(nline,ncol), source=rtmp)
+ deallocate(rtmp)
+ pg%nline = nline
+end subroutine del_zero_coeff_in_prim_gau
+
 end module mkl_content
 
 ! get/find basis function marks from the integer array shell_type

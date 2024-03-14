@@ -189,6 +189,11 @@ main = "fch2qm4d.f90"
 link = "mkl_rt"
 
 [[executable]]
+name = "fch2tm"
+source-dir = "src"
+main = "fch2tm.f90"
+
+[[executable]]
 name = "fch_u2r"
 source-dir = "src"
 main = "fch_u2r.f90"
@@ -294,6 +299,12 @@ main = "mkl2py.f90"
 name = "mkl2qchem"
 source-dir = "src"
 main = "mkl2qchem.f90"
+link = "mkl_rt"
+
+[[executable]]
+name = "molden2fch"
+source-dir = "src"
+main = "molden2fch.f90"
 link = "mkl_rt"
 
 [[executable]]

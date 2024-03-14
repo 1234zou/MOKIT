@@ -55,7 +55,7 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
 
  gau = .false.
  i = INDEX(fname1,'.fch', back=.true.)
- if(i /= 0) gau = .true. ! two Gaussian .fch(k) files
+ if(i > 0) gau = .true. ! two Gaussian .fch(k) files
 
  if(gau) then
   call read_nbf_and_nif_from_fch(fname1, nbf, nif)
@@ -80,19 +80,16 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
   idx1 = idx(1); idx2 = idx(2)
   nmo = idx2 - idx1 + 1
   if(nmo < 2) then
-   write(6,'(A)') 'ERROR in subroutine solve_ON_matrix: >=2 NOs required.'
+   write(6,'(/,A)') 'ERROR in subroutine solve_ON_matrix: >=2 NOs required.'
    stop
   end if
  end if
 
  ! solve mo = no*U
- allocate(U(nmo,nmo), source=0d0)
- call get_u(nbf, nmo, no(:,idx1:idx2), mo(:,idx1:idx2), U)
+ allocate(U(nmo,nmo))
+ call solve_multi_lin_eqs(nbf, nmo, no(:,idx1:idx2), nmo, mo(:,idx1:idx2), U)
  deallocate(no)
-
- ! check whether matrix U is unitary
  call check_unitary(nmo, U)
-
  allocate(n(nmo,nmo), source=0d0)
  forall(i=1:nmo) n(i,i) = noon(idx1+i-1)
 
@@ -132,50 +129,6 @@ subroutine solve_ON_matrix(fname1, fname2, idx)
  deallocate(mo, noon)
 end subroutine solve_ON_matrix
 
-! compute the unitary matrix U between two sets of MOs
-! --------------------------------------------------
-!  nbf: the number of basis functions
-!  nmo: the number of MOs
-!  coeff: old MO Coefficients
-!  lo_coeff: new MO Coefficients
-!  u: the unitary(orthogonal) matrix to be computed
-!  lo_coeff1 = coeff*U
-! --------------------------------------------------
-subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
- implicit none
- integer :: i
- integer, intent(in) :: nbf, nmo
- integer, allocatable :: ipiv(:)
- real(kind=8), intent(in) :: coeff(nbf,nmo), lo_coeff(nbf,nmo)
- real(kind=8), intent(out) :: u(nmo,nmo)
- real(kind=8), allocatable :: coeff1(:,:), lo_coeff1(:,:)
-
- ! mkl Syntax FORTRAN 77:
- ! ?getrf: Computes the LU factorization of a general m-by-n matrix
- ! call dgetrf(m, n, a, lda, ipiv, info)
-
- ! ?getrs: Solves a system of linear equations with an LU-factored square
- !  matrix, with multiple right-hand sides.
- ! call dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
-
- ! ?gemm: Computes a matrix-matrix product with general matrix
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
-
- ! find the unitary (orthogonal) matrix between coeff1 and lo_coeff1,
- !  where coeff1*U = lo_coeff1
- allocate(coeff1(nbf,nmo), lo_coeff1(nbf,nmo))
- coeff1 = coeff
- lo_coeff1 = lo_coeff
- allocate(ipiv(min(nbf,nmo)), source=0)
-
- call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
- call dgetrs('N', nmo, nmo, coeff1, nbf, ipiv, lo_coeff1, nbf, i)
- deallocate(ipiv, coeff1)
-
- u = lo_coeff1(1:nmo,1:nmo)
- deallocate(lo_coeff1)
-end subroutine get_u
-
 ! check whether matrix U is unitary
 subroutine check_unitary(nmo, U)
  implicit none
@@ -194,7 +147,7 @@ subroutine check_unitary(nmo, U)
    if(DABS(UUT(j,i)) > thresh) then
     write(6,'(/,A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
     write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
-    write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UUT(j,i)=', UUT(j,i)
+    write(6,'(2(A,I0),A,E15.8)') 'j=', j, ', i=', i, ', UUT(j,i)=', UUT(j,i)
     stop
    end if
   end do ! for j
@@ -210,7 +163,7 @@ subroutine check_unitary(nmo, U)
    if(DABS(UTU(j,i)) > thresh) then
     write(6,'(/,A)') 'ERROR in subroutine check_unitary: input U is not unitary.'
     write(6,'(A)') 'Possible reasons: wrong indices or wrong MOs provided.'
-    write(6,'(2(A,I0),A,F15.8)') 'j=', j, ', i=', i, ', UTU(j,i)=', UTU(j,i)
+    write(6,'(2(A,I0),A,E15.8)') 'j=', j, ', i=', i, ', UTU(j,i)=', UTU(j,i)
     stop
    end if
   end do ! for j

@@ -167,6 +167,7 @@ help:
 	echo " fch2psi   : generate fch2psi    (Gau->PSI4)" ;\
 	echo " fch2py    : generate fch2py     (Gau->PySCF)" ;\
 	echo " fch2qchem : generate fch2qchem  (Gau->QChem)" ;\
+	echo " fch2tm    : generate fch2tm     (Gau->Turbomole)" ;\
 	echo " bdf2fch   : generate bdf2fch    (BDF->Gau)" ;\
 	echo " chk2gbw   : generate chk2gbw    (Gau->ORCA)" ;\
 	echo " dat2fch   : generate dat2fch    (GAMESS->Gau)" ;\

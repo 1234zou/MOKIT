@@ -690,7 +690,7 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(scf) then ! CASSCF
-  write(fid,'(A)') ' scf(maxcycle=200)'
+  write(fid,'(A)') ' scf(maxcycle=300)'
  else         ! CASCI
   write(fid,'(A)') ' scf(maxcycle=-2)'
   ! to obtain CASCI NOs, we need to use -2, since -1 only calculates CASCI energy
@@ -760,7 +760,7 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
   write(fid2,'(A)') ' $END'
  end if
 
- if(scf) write(fid2,'(A)') ' $MCSCF MAXIT=200 $END'
+ if(scf) write(fid2,'(A)') ' $MCSCF MAXIT=300 $END'
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -908,7 +908,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A)') '%casscf'
   write(fid2,'(A,I0)') ' nel ', nacte
   write(fid2,'(A,I0)') ' norb ', nacto
-  write(fid2,'(A)') ' maxiter 200'
+  write(fid2,'(A)') ' maxiter 300'
   write(fid2,'(A)') ' ActOrbs NatOrbs'
   if(iroot > 0) then ! SS-CASSCF
    write(fid2,'(A,I0)') ' mult ', xmult
@@ -1009,7 +1009,7 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  ! Note: we need 'NoExtra' to completely turn off symmetry.
  ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
-  write(fid,'(A)') ';NoExtra;MaxIter,200}'
+  write(fid,'(A)') ';NoExtra;MaxIter,300}'
  else
   write(fid,'(A)') ';NoExtra;DONT,ORBITAL}'
  end if
@@ -1767,7 +1767,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
  end if
 
- write(fid,'(A)') 'mc.max_cycle = 200'
+ write(fid,'(A)') 'mc.max_cycle = 300'
 end subroutine prt_gs_casscf_kywrd_py
 
 ! print excited state CASSCF keywords into a PySCF .py file

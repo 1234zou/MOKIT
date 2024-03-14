@@ -56,6 +56,8 @@ OBJ_fch2qchem = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj 
                 split_sp.obj fch2qchem.obj
 OBJ_fch2qm4d = file_op.obj string_manipulate.obj read_fch.obj rwgeom.obj \
                util_wrapper.obj fch2qm4d.obj
+OBJ_fch2tm = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
+             split_sp.obj fch2tm.obj
 OBJ_fch_u2r = file_op.obj string_manipulate.obj fch_u2r.obj
 OBJ_fch_mo_copy = file_op.obj math_sub.obj rwwfn.obj fch_mo_copy.obj
 OBJ_fch2wfn = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
@@ -92,8 +94,8 @@ OBJ_mkl2psi = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2psi.obj
 OBJ_mkl2py = file_op.obj string_manipulate.obj util_wrapper.obj mkl2py.obj
 OBJ_mkl2qchem = file_op.obj string_manipulate.obj util_wrapper.obj mkl2qchem.obj
-OBJ_molden2fch = string_manipulate.obj read_natom.obj read_fch.obj read_mkl.obj \
-                 molden2fch.obj
+OBJ_molden2fch = string_manipulate.obj math_sub.obj read_fch.obj read_natom.obj \
+                 read_mkl.obj split_sp.obj molden2fch.obj
 OBJ_orb2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               read_fch.obj split_sp.obj orb2fch.obj
 OBJ_xml2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
@@ -105,10 +107,10 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
         bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour \
         fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
-        fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
-        gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
-        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
-        solve_ON_matrix
+        fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs \
+        gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal \
+        mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch \
+        orb2fch xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS) $(MKL_FLAGS)
@@ -125,6 +127,7 @@ help:
 	@echo  fch2mkl   : generate fch2mkl    (Gau-^>ORCA)
 	@echo  fch2psi   : generate fch2psi    (Gau-^>PSI4)
 	@echo  fch2qchem : generate fch2qchem  (Gau-^>Q-Chem)
+	@echo  fch2tm    : generate fch2tm     (Gau-^>Turbomole)
 	@echo  bdf2fch   : generate bdf2fch    (BDF-^>Gau)
 	@echo  chk2gbw   : generate chk2gbw    (Gau-^>ORCA)
 	@echo  dat2fch   : generate dat2fch    (GAMESS-^>Gau)
@@ -138,165 +141,168 @@ help:
 	@echo  distclean : delete *.mod *.obj and clean ..\bin
 
 addH2singlet: $(OBJ_addH2singlet)
-	$(F90) $(OBJ_addH2singlet) -o $(BIN)\addH2singlet $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_addH2singlet) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\addH2singlet
 
 bas_fch2py: $(OBJ_bas_fch2py)
-	$(F90) $(OBJ_bas_fch2py) -o $(BIN)\bas_fch2py $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_fch2py) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\bas_fch2py
 	@echo bas_fch2py requires utilities fch2inp and bas_gms2py, please also compile them
 
 bas_gau2molcas: $(OBJ_bas_gau2molcas)
-	$(F90) $(OBJ_bas_gau2molcas) -o $(BIN)\bas_gau2molcas $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gau2molcas) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gau2molcas
 
 bas_gms2bdf: $(OBJ_bas_gms2bdf)
-	$(F90) $(OBJ_bas_gms2bdf) -o $(BIN)\bas_gms2bdf $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2bdf) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2bdf
 
 bas_gms2dal: $(OBJ_bas_gms2dal)
-	$(F90) $(OBJ_bas_gms2dal) -o $(BIN)\bas_gms2dal $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2dal) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2dal
 
 bas_gms2molcas: $(OBJ_bas_gms2molcas)
-	$(F90) $(OBJ_bas_gms2molcas) -o $(BIN)\bas_gms2molcas $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2molcas) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2molcas
 
 bas_gms2molpro: $(OBJ_bas_gms2molpro)
-	$(F90) $(OBJ_bas_gms2molpro) -o $(BIN)\bas_gms2molpro $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2molpro) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2molpro
 
 bas_gms2psi: $(OBJ_bas_gms2psi)
-	$(F90) $(OBJ_bas_gms2psi) -o $(BIN)\bas_gms2psi $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2psi) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2psi
 
 bas_gms2py: $(OBJ_bas_gms2py)
-	$(F90) $(OBJ_bas_gms2py) -o $(BIN)\bas_gms2py $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bas_gms2py) $(FFLAGS) $(LFLAGS) -o $(BIN)\bas_gms2py
 
 bdf2fch: $(OBJ_bdf2fch)
-	$(F90) $(OBJ_bdf2fch) -o $(BIN)\bdf2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bdf2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\bdf2fch
 
 bdf2mkl: $(OBJ_bdf2mkl)
-	$(F90) $(OBJ_bdf2mkl) -o $(BIN)\bdf2mkl $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_bdf2mkl) $(FFLAGS) $(LFLAGS) -o $(BIN)\bdf2mkl
 
 chk2gbw: $(OBJ_chk2gbw)
-	$(F90) $(OBJ_chk2gbw) -o $(BIN)\chk2gbw $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_chk2gbw) $(FFLAGS) $(LFLAGS) -o $(BIN)\chk2gbw
 
 dal2fch: $(OBJ_dal2fch)
-	$(F90) $(OBJ_dal2fch) -o $(BIN)\dal2fch $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_dal2fch) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\dal2fch
 
 dat2fch: $(OBJ_dat2fch)
-	$(F90) $(OBJ_dat2fch) -o $(BIN)\dat2fch $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_dat2fch) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\dat2fch
 
 fch2amo: $(OBJ_fch2amo)
-	$(F90) $(OBJ_fch2amo) -o $(BIN)\fch2amo $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2amo) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2amo
 
 fch2bdf: $(OBJ_fch2bdf)
-	$(F90) $(OBJ_fch2bdf) -o $(BIN)\fch2bdf $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2bdf) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2bdf
 	@echo fch2bdf requires utilities fch2inp and bas_gms2bdf, please also compile them
 
 fch2cfour: $(OBJ_fch2cfour)
-	$(F90) $(OBJ_fch2cfour) -o $(BIN)\fch2cfour $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2cfour) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2cfour
 
 fch2com: $(OBJ_fch2com)
-	$(F90) $(OBJ_fch2com) -o $(BIN)\fch2com $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2com) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2com
 	@echo fch2com requires utilities fch2inp and bas_gms2molpro, please also compile them
 
 fch2dal: $(OBJ_fch2dal)
-	$(F90) $(OBJ_fch2dal) -o $(BIN)\fch2dal $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2dal) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\fch2dal
 	@echo fch2dal requires utilites fch2inp and bas_gms2dal, please also compile them
 
 fch2mkl: $(OBJ_fch2mkl)
-	$(F90) $(OBJ_fch2mkl) -o $(BIN)\fch2mkl $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2mkl) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2mkl
 
 fch2inp: $(OBJ_fch2inp)
-	$(F90) $(OBJ_fch2inp) -o $(BIN)\fch2inp $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2inp) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2inp
 
 fch2inporb: $(OBJ_fch2inporb)
-	$(F90) $(OBJ_fch2inporb) -o $(BIN)\fch2inporb $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2inporb) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2inporb
 	@echo fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them
 
 fch2psi: $(OBJ_fch2psi)
-	$(F90) $(OBJ_fch2psi) -o $(BIN)\fch2psi $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2psi) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2psi
 	@echo fch2psi requires utilities fch2inp and bas_gms2psi, please also compile them
 
 fch2qchem: $(OBJ_fch2qchem)
-	$(F90) $(OBJ_fch2qchem) -o $(BIN)\fch2qchem $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2qchem) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2qchem
 
 fch2qm4d: $(OBJ_fch2qm4d)
-	$(F90) $(OBJ_fch2qm4d) -o $(BIN)\fch2qm4d $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2qm4d) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2qm4d
+
+fch2tm: $(OBJ_fch2tm)
+	$(F90) $(OBJ_fch2tm) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2tm
 
 fch_u2r: $(OBJ_fch_u2r)
-	$(F90) $(OBJ_fch_u2r) -o $(BIN)\fch_u2r $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch_u2r) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch_u2r
 
 fch_mo_copy: $(OBJ_fch_mo_copy)
-	$(F90) $(OBJ_fch_mo_copy) -o $(BIN)\fch_mo_copy $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch_mo_copy) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch_mo_copy
 
 fch2wfn: $(OBJ_fch2wfn)
-	$(F90) $(OBJ_fch2wfn) -o $(BIN)\fch2wfn $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_fch2wfn) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2wfn
 
 frag_guess_wfn: $(OBJ_frag_guess_wfn)
-	$(F90) $(OBJ_frag_guess_wfn) -o $(BIN)\frag_guess_wfn $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_frag_guess_wfn) $(FFLAGS) $(LFLAGS) -o $(BIN)\frag_guess_wfn
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
-	$(F90) $(OBJ_gvb_correct_pairs) -o $(BIN)\gvb_correct_pairs $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_gvb_correct_pairs) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\gvb_correct_pairs
 
 gvb_exclude_XH: $(OBJ_gvb_exclude_XH)
-	$(F90) $(OBJ_gvb_exclude_XH) -o $(BIN)\gvb_exclude_XH $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_gvb_exclude_XH) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\gvb_exclude_XH
 
 gvb_sort_pairs: $(OBJ_gvb_sort_pairs)
-	$(F90) $(OBJ_gvb_sort_pairs) -o $(BIN)\gvb_sort_pairs $(FFLAGS)
+	$(F90) $(OBJ_gvb_sort_pairs) $(FFLAGS) -o $(BIN)\gvb_sort_pairs
 
 mkl2amo: $(OBJ_mkl2amo)
-	$(F90) $(OBJ_mkl2amo) -o $(BIN)\mkl2amo $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2amo)  $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2amo
 
 mkl2bdf: $(OBJ_mkl2bdf)
-	$(F90) $(OBJ_mkl2bdf) -o $(BIN)\mkl2bdf $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2bdf)  $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2bdf
 
 mkl2cfour: $(OBJ_mkl2cfour)
-	$(F90) $(OBJ_mkl2cfour) -o $(BIN)\mkl2cfour $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2cfour) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2cfour
 
 mkl2com: $(OBJ_mkl2com)
-	$(F90) $(OBJ_mkl2com) -o $(BIN)\mkl2com $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2com) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2com
 
 mkl2dal: $(OBJ_mkl2dal)
-	$(F90) $(OBJ_mkl2dal) -o $(BIN)\mkl2dal $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2dal) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2dal
 
 mkl2fch: $(OBJ_mkl2fch)
-	$(F90) $(OBJ_mkl2fch) -o $(BIN)\mkl2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2fch
 
 mkl2inp: $(OBJ_mkl2inp)
-	$(F90) $(OBJ_mkl2inp) -o $(BIN)\mkl2inp $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2inp) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2inp
 
 mkl2inporb: $(OBJ_mkl2inporb)
-	$(F90) $(OBJ_mkl2inporb) -o $(BIN)\mkl2inporb $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2inporb) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2inporb
 
 mkl2gjf: $(OBJ_mkl2gjf)
-	$(F90) $(OBJ_mkl2gjf) -o $(BIN)\mkl2gjf $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2gjf) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2gjf
 
 mkl2psi: $(OBJ_mkl2psi)
-	$(F90) $(OBJ_mkl2psi) -o $(BIN)\mkl2psi $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2psi) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2psi
 
 mkl2py: $(OBJ_mkl2py)
-	$(F90) $(OBJ_mkl2py) -o $(BIN)\mkl2py $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2py) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2py
 
 mkl2qchem: $(OBJ_mkl2qchem)
-	$(F90) $(OBJ_mkl2qchem) -o $(BIN)\mkl2qchem $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_mkl2qchem) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2qchem
 
 molden2fch: $(OBJ_molden2fch)
-	$(F90) $(OBJ_molden2fch) -o $(BIN)\molden2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_molden2fch) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\molden2fch
 
 extract_noon2fch: $(OBJ_extract_noon2fch)
-	$(F90) $(OBJ_extract_noon2fch) -o $(BIN)\extract_noon2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_extract_noon2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\extract_noon2fch
 
 orb2fch: $(OBJ_orb2fch)
-	$(F90) $(OBJ_orb2fch) -o $(BIN)\orb2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_orb2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\orb2fch
 
 xml2fch: $(OBJ_xml2fch)
-	$(F90) $(OBJ_xml2fch) -o $(BIN)\xml2fch $(FFLAGS) $(LFLAGS)
+	$(F90) $(OBJ_xml2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\xml2fch
 
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
-	$(F90) $(OBJ_solve_ON_matrix) -o $(BIN)\solve_ON_matrix $(FFLAGS) $(MKL_FLAGS) $(LFLAGS)
+	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\solve_ON_matrix
 
 all: addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas \
      bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch \
      extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp \
-     fch2inporb fch2psi fch2qchem fch2qm4d fch_u2r fch_mo_copy fch2wfn frag_guess_wfn \
-     gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch \
-     mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
-     solve_ON_matrix
+     fch2inporb fch2psi fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn \
+     frag_guess_wfn gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com \
+     mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch \
+     orb2fch xml2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod

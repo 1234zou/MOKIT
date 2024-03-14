@@ -406,7 +406,7 @@ subroutine read_natom_from_molden(molden, natom)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:7) == '[Atoms]') exit
+  if(buf(1:7)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
  end do ! for while
 
  natom = 0

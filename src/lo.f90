@@ -677,7 +677,7 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(2,:,:),nmo, mo_dipole(2,:,:),nmo, 1d0,f,nmo)
  call dsymm('L','L',nmo,nmo, 1d0,mo_dipole(3,:,:),nmo, mo_dipole(3,:,:),nmo, 1d0,f,nmo)
 
- allocate(U(nmo,nmo), source=0d0)
+ allocate(U(nmo,nmo))
  call get_u(nbf, nmo, coeff, lo_coeff, U) 
  allocate(fU(nmo,nmo), source=0d0)
  call dsymm('L','L',nmo,nmo, 1d0,f,nmo, U,nmo, 0d0,fU,nmo)
@@ -691,38 +691,6 @@ subroutine solve_boys_lamda_matrix(nbf, nmo, coeff, lo_coeff, mo_dipole)
  end do ! for i
  deallocate(lamda)
 end subroutine solve_boys_lamda_matrix
-
-subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
- implicit none
- integer :: i
- integer, intent(in) :: nbf, nmo
- integer, allocatable :: ipiv(:)
- real(kind=8), intent(in) :: coeff(nbf,nmo), lo_coeff(nbf,nmo)
- real(kind=8), intent(out) :: u(nmo,nmo)
- real(kind=8), allocatable :: coeff1(:,:), lo_coeff1(:,:)
-
- ! mkl Syntax FORTRAN 77:
- ! ?getrf: Computes the LU factorization of a general m-by-n matrix
- ! call dgetrf(m, n, a, lda, ipiv, info)
-
- ! ?getrs: Solves a system of linear equations with an LU-factored square
- !  matrix, with multiple right-hand sides.
- ! call dgetrs(trans, n, nrhs, a, lda, ipiv, b, ldb, info)
-
- ! find the unitary (orthogonal) matrix between coeff1 and lo_coeff1,
- !  where coeff1*U = lo_coeff1
- allocate(coeff1(nbf,nmo), lo_coeff1(nbf,nmo))
- coeff1 = coeff
- lo_coeff1 = lo_coeff
- allocate(ipiv(min(nbf,nmo)), source=0)
-
- call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
- call dgetrs('N', nmo, nmo, coeff1, nbf, ipiv, lo_coeff1, nbf, i)
- deallocate(ipiv, coeff1)
-
- u = lo_coeff1(1:nmo,1:nmo)
- deallocate(lo_coeff1)
-end subroutine get_u
 
 subroutine idx_map_2d(n, k, p, q)
  implicit none
