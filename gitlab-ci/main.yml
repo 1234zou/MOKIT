@@ -10,7 +10,7 @@ variables:
   before_script:
     - apt-get update -qy
     - apt-get install -qy libopenblas-dev make gcc gfortran  
-    - pip install numpy
+    #- pip install numpy
     - ldconfig -p | grep libgfort
     - ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
     #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
@@ -52,6 +52,7 @@ py38_gcc8:
     TARGET: mokit-master_linux_py38_gcc8
   extends: .setup_lib
   script:
+    - pip install numpy==1.21
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -69,6 +70,7 @@ py39_gcc10:
     OB_ROOT: /usr/lib/*/openblas-pthread
   extends: .setup_lib
   script:
+    - pip install numpy==1.21
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -84,6 +86,7 @@ py310_gcc10:
     OB_ROOT: /usr/lib/*/openblas-pthread
   extends: .setup_lib
   script:
+    - pip install numpy==1.23
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
