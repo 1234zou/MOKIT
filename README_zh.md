@@ -86,7 +86,7 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 `Linux`预编译版本可从[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)下载。
 
 * 前提: 需要有Python3环境和NumPy
-* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html)。
+* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)。
 * 下载预编译版后, 您需要在`~/.bashrc`文件中设定下述环境变量（假设MOKIT放在`$HOME/software/mokit`）：
 
 ```bash
