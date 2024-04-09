@@ -49,14 +49,14 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  end select
 
  allocate(coeff_a(nbf,nif), noon_a(nif))
- call get_no_from_density_and_ao_ovlp(nbf, nif, dm_a, S, noon_a, coeff_a)
+ call gen_no_from_density_and_ao_ovlp(nbf, nif, dm_a, S, noon_a, coeff_a)
  call write_eigenvalues_to_fch(fchname, nif, 'a', noon_a, .true.)
  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff_a)
  deallocate(dm_a, coeff_a, noon_a)
 
  if(itype == 0) then
   allocate(coeff_b(nbf,nif), noon_b(nif))
-  call get_no_from_density_and_ao_ovlp(nbf, nif, dm_b, S, noon_b, coeff_b)
+  call gen_no_from_density_and_ao_ovlp(nbf, nif, dm_b, S, noon_b, coeff_b)
   call write_eigenvalues_to_fch(fchname, nif, 'b', noon_b, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff_b)
   deallocate(dm_b, coeff_b, noon_b)
@@ -297,11 +297,16 @@ subroutine get_gau_path(gau_path)
  call getenv('GAUSS_EXEDIR', buf)
  ! in case that the $GAUSS_EXEDIR is too long, use buf to store it
 
+ if(LEN_TRIM(buf) == 0) then
+  gau_path = 'NOT FOUND'
+  return
+ end if
+
 #ifdef _WIN32
  i = INDEX(buf, '\', back=.true.)
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine get_gau_path: no '\' symbol found in gau&
-                 &_path="//TRIM(buf)
+  write(6,'(/,A)') "ERROR in subroutine get_gau_path: no '\' symbol found in ga&
+                   &u_path="//TRIM(buf)
   stop
  end if
  buf = """"//TRIM(buf)//'\g'//buf(i+2:i+3)//".exe"""
@@ -327,7 +332,8 @@ subroutine get_gau_path(gau_path)
   write(6,'(A)') ' export GAUSS_SCRDIR=/scratch/$USER/gaussian'
   write(6,'(A)') REPEAT('-',45)
   write(6,'(A)') 'Please check your Gaussian environment variables according to&
-                 & the example shown above.'
+                 & the example shown'
+  write(6,'(A)') 'above.'
   write(6,'(A,/)') "Also note: DO NOT write 'export GAUSS_EXEDIR', it is useless."
   stop
  end if
@@ -820,12 +826,11 @@ end subroutine submit_gvb_bccc_job
 subroutine submit_pyscf_job(pyname)
  implicit none
  integer :: i, system
- character(len=240) :: outname, shname
+ character(len=240) :: outname
  character(len=480) :: buf
  character(len=240), intent(in) :: pyname
 
  call find_specified_suffix(pyname, '.py', i)
- shname = pyname(1:i-1)//'.sh'
  outname = pyname(1:i-1)//'.out'
 
  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"

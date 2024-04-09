@@ -77,6 +77,7 @@ end program main
 subroutine fch2qm4d(fchname, binary)
  use fch_content, only: check_uhf_in_fch, read_fch, nif, nbf, ncontr, shell_type,&
   natom, coor, elem, na, nb, alpha_coeff, beta_coeff
+ use periodic_table, only: write_xyz
  implicit none
  integer :: i, j, k, fid
  integer :: n6dmark, n10fmark
@@ -127,7 +128,7 @@ subroutine fch2qm4d(fchname, binary)
  binname = fchname(1:i-1)//'_0.bin'
 
  ! create the .xyz file
- call write_xyzfile(natom, elem, coor, xyzname)
+ call write_xyz(natom, elem, coor, xyzname)
  deallocate(coor)
 
  ! create the QM4D input file

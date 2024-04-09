@@ -11,7 +11,7 @@ program main
  i = iargc()
  if(i /= 1) then
   write(6,'(A)') 'ERROR in subroutine find_mc_pair: wrong command line parameter!'
-  write(6,'(A)') 'Example: ./find_mc_pair a.gms'
+  write(6,'(A)') 'Example: find_mc_pair a.gms'
   stop
  end if
 

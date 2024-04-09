@@ -78,6 +78,39 @@ subroutine read_natom_from_gjf(gjfname, natom)
  close(fid)
 end subroutine read_natom_from_gjf
 
+! check whether the system is periodic in a given .gjf file
+function check_pbc_in_gjf(gjfname) result(pbc)
+ implicit none
+ integer :: i, fid, nblank
+ character(len=240) :: buf0, buf
+ character(len=240), intent(in) :: gjfname
+ logical :: pbc
+
+ pbc = .false. ! initialization
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+ buf0 = ' '
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 3) exit
+  buf0 = buf
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in function check_pbc_in_gjf: problematic file '//&
+                   TRIM(gjfname)
+  stop
+ end if
+
+ call upper(buf0(1:1))
+ call lower(buf0(2:2))
+ if(buf0(1:2) == 'Tv') pbc = .true.
+end function check_pbc_in_gjf
+
 ! read the number of atoms from a given .fch file
 subroutine read_natom_from_fch(fchname, natom)
  implicit none
@@ -418,4 +451,41 @@ subroutine read_natom_from_molden(molden, natom)
 
  close(fid)
 end subroutine read_natom_from_molden
+
+! read total charge and spin multiplicity from a given .gjf file
+subroutine read_charge_and_mult_from_gjf(gjfname, charge, mult)
+ implicit none
+ integer :: i, nblank, fid
+ integer, intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+
+ charge = 0; mult = 1
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 2) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
+                   &tic file '//TRIM(gjfname)
+  stop
+  close(fid)
+ end if
+
+ read(fid,*,iostat=i) charge, mult
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
+                   &tic charge or'
+  write(6,'(A)') 'spin multiplicity in file '//TRIM(gjfname)
+  stop
+ end if
+end subroutine read_charge_and_mult_from_gjf
 

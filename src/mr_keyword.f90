@@ -317,7 +317,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc25 (2024-Mar-14)'
+ write(6,'(A)') '           Version: 1.2.6rc26 (2024-Apr-9)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -651,18 +651,18 @@ end subroutine check_gms_path
   write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(6,'(A)') TRIM(longbuf)
 
-  alive1(1:4) = [(index(longbuf,'hf_prog')>0), (index(longbuf,'readrhf')>0), &
-                 (index(longbuf,'readuhf')>0), (index(longbuf,'readno')>0)]
-  if(alive1(1) .and. ANY(alive1(2:4) .eqv. .true.)) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword 'HF_prog' canno&
-                    &t be used with any"
-   write(6,'(A)') "of 'readrhf', 'readuhf', 'readno'."
+  alive1(1:3) = [(INDEX(longbuf,'hf_prog')>0), (INDEX(longbuf,'readuhf')>0), &
+                 (INDEX(longbuf,'readno')>0)]
+  if(alive1(1) .and. (alive1(2) .or. alive1(3))) then
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'HF_prog' is useless wh&
+                    &en 'readuhf'"
+   write(6,'(A)') "or 'readno' is specified."
    stop
   end if
 
-  alive1(1:5) = [(index(longbuf,'caspt2_prog')/=0), (index(longbuf,'nevpt2_prog')/=0),&
-                 (index(longbuf,'mrcisd_prog')/=0), (index(longbuf,'mrmp2_prog')/=0), &
-                 (index(longbuf,'mcpdft_prog')/=0)]
+  alive1(1:5) = [(INDEX(longbuf,'caspt2_prog')/=0), (INDEX(longbuf,'nevpt2_prog')/=0),&
+                 (INDEX(longbuf,'mrcisd_prog')/=0), (INDEX(longbuf,'mrmp2_prog')/=0), &
+                 (INDEX(longbuf,'mcpdft_prog')/=0)]
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword o&
                     &f 'caspt2_prog',"
@@ -672,8 +672,8 @@ end subroutine check_gms_path
    stop
   end if
 
-  alive1(1:4)= [(index(longbuf,'casci_prog')/=0),(index(longbuf,'casscf_prog')/=0),&
-                (index(longbuf,'dmrgci_prog')/=0),(index(longbuf,'dmrgscf_prog')/=0)]
+  alive1(1:4)= [(INDEX(longbuf,'casci_prog')/=0),(INDEX(longbuf,'casscf_prog')/=0),&
+                (INDEX(longbuf,'dmrgci_prog')/=0),(INDEX(longbuf,'dmrgscf_prog')/=0)]
   if(alive1(1) .and. alive1(2)) then
    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and CAS&
                    &SCF_prog are detected.'
@@ -1853,11 +1853,11 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(dyn .and. RIC_bas=='NONE') then
    select case(basis)
    case('cc-pvdz-f12')
-    RIC_bas = 'cc-pVTZ/C'
+    RIC_bas = 'cc-pVDZ-F12-MP2Fit'
    case('cc-pvtz-f12')
-    RIC_bas = 'cc-pVQZ/C'
+    RIC_bas = 'cc-pVTZ-F12-MP2Fit'
    case('cc-pvqz-f12')
-    RIC_bas = 'cc-pV5Z/C'
+    RIC_bas = 'cc-pVQZ-F12-MP2Fit'
    end select
   end if
   if(F12) F12_cabs = TRIM(basis)//'-CABS'
@@ -1870,11 +1870,11 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   if(dyn .and. RIC_bas=='NONE') then
    select case(basis)
    case('cc-pcvdz-f12')
-    RIC_bas = 'cc-pVTZ/C'
+    RIC_bas = 'cc-pCVDZ-F12-MP2Fit'
    case('cc-pcvtz-f12')
-    RIC_bas = 'cc-pVQZ/C'
+    RIC_bas = 'cc-pCVTZ-F12-MP2Fit'
    case('cc-pcvqz-f12')
-    RIC_bas = 'cc-pV5Z/C'
+    RIC_bas = 'cc-pCVQZ-F12-MP2Fit'
    end select
   end if
   if(F12) F12_cabs = TRIM(basis1)//'-F12-CABS'

@@ -3,6 +3,8 @@ OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o read_gms_inp.o read_nato
                           add_bgcharge_to_inp.o
 OBJ_addH2singlet = file_op.o string_manipulate.o read_fch.o math_sub.o addH2singlet.o
 OBJ_align_orbitals = file_op.o math_sub.o rwwfn.o align_orbitals.o
+OBJ_automl = file_op.o string_manipulate.o math_sub.o read_fch.o read_natom.o \
+             read_grad.o rwgeom.o automl.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rwwfn.o read_fch.o read_natom.o read_grad.o rwgeom.o read_gms_inp.o \
              do_hf.o do_gvb.o do_cas.o do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o \
@@ -113,7 +115,7 @@ OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_
 OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
-OBJ_py2fch = py2fch.f90 file_op.o string_manipulate.o split_sp.o read_fch.o
+OBJ_py2fch = file_op.o string_manipulate.o split_sp.o read_fch.o py2fch.f90
 OBJ_pyuno = pyuno.f90
 OBJ_qchem = file_op.f90 math_sub.f90 rwwfn.f90 util_wrapper.f90 rwgeom.f90 \
             split_sp.f90 qchem.f90 string_manipulate.o read_natom.o read_fch.o
@@ -135,7 +137,7 @@ OBJ_excited = file_op.o string_manipulate.o read_gms_inp.o util_wrapper.f90 \
               rwwfn.f90 math_sub.f90 lo.f90 call_qc_calc_int.f90 excited.f90
 
 .PHONY: exe pymodules all clean pyclean distclean addH2singlet add_bgcharge_to_inp \
-        align_orbitals automr autosr bas_fch2py bas_gau2molcas bas_gms2bdf \
+        align_orbitals automl automr autosr bas_fch2py bas_gau2molcas bas_gms2bdf \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
         bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo fch2bdf \
         fch2cfour fch2com fch2dal fch2mkl fch2gbw fch2inp fch2inporb fch2psi \
@@ -195,6 +197,9 @@ addH2singlet: $(OBJ_addH2singlet)
 
 align_orbitals: $(OBJ_align_orbitals)
 	$(F90) $(OBJ_align_orbitals) $(FFLAGS) -o $(BIN)/align_orbitals
+
+automl: $(OBJ_automl)
+	$(F90) $(OBJ_automl) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/automl
 
 automr: $(OBJ_automr)
 	$(F90) $(OBJ_automr) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/automr
@@ -463,7 +468,7 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
 rwgeom: $(OBJ_rwgeom)
-	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS)
+	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS) $(MKL_FLAGS)
 	@mv rwgeom*.so $(LIB)/
 
 rwwfn: $(OBJ_rwwfn)

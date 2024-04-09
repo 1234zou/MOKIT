@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc25 :: MOKIT, release date: 2024-Mar-14'
+  write(6,'(A)') 'AutoMR 1.2.6rc26 :: MOKIT, release date: 2024-Apr-9'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -139,8 +139,7 @@ end subroutine check_mokit_root
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
- use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, dkh2_or_x2c,&
-  nskip_uno
+ use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
@@ -197,7 +196,6 @@ subroutine get_paired_LMO()
    outname = TRIM(proname)//'_uno.out'
   end if
   call bas_fch2py_wrap(hf_fch, .false., pyname)
-  if(dkh2_or_x2c) call add_X2C_into_py(pyname)
   call prt_uno_script_into_py(pyname)
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
@@ -223,25 +221,41 @@ end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
 subroutine prt_rhf_proj_script_into_py(pyname)
- use mr_keyword, only: hf_fch
+ use mr_keyword, only: hf_prog, hf_fch
  use mol, only: nuc, beyond_xe
  implicit none
  integer :: i, fid
  character(len=240) :: proj_fch, proname, minbas_fch
  character(len=240), intent(in) :: pyname
+ logical :: beyond_kr
 
  call find_specified_suffix(hf_fch, '.fch', i)
  proj_fch = hf_fch(1:i-1)//'_proj.fch'
  proname = hf_fch(1:i-1)//'_minb'
  minbas_fch = hf_fch(1:i-1)//'_minb.fch'
- if(ANY(nuc > 54)) beyond_xe = .true.
 
- ! Perform a HF/STO-6G calculation using Gaussian.
- ! STO-6G in PySCF ranges from H~Kr, but in Gaussian ranges from H~Xe, so
- ! currently Gaussian is chosen. Maybe in the future we need to remove too
- ! much dependence on Gaussian.
- if(.not. beyond_xe) call do_min_bas_hf(proname)
- if(beyond_xe) return
+ if(ANY(nuc > 54)) beyond_xe = .true.
+ beyond_kr = .false.
+ if(ANY(nuc > 36)) beyond_kr = .true.
+
+ ! Perform a HF/STO-6G calculation using Gaussian/PySCF.
+ ! Note: STO-6G in PySCF ranges from H~Kr, but in Gaussian ranges from H~Xe,
+ !  so Gaussian is preferred.
+ select case(TRIM(hf_prog))
+ case('gaussian')
+  if(beyond_xe) then
+   return
+  else
+   call do_min_bas_hf_gau(proname)
+  end if
+ case('pyscf')
+  if(beyond_kr) then
+   beyond_xe = .true.
+   return
+  else
+   call do_min_bas_hf_pyscf(proname)
+  end if
+ end select
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
  write(fid,'(A)') 'from pyscf import gto'
@@ -423,14 +437,14 @@ end subroutine prt_auto_pair_script_into_py
 
 ! print UNO script into a given .py file
 subroutine prt_uno_script_into_py(pyname)
- use mr_keyword, only: mem, nproc, hf_fch, uno_thres
+ use mr_keyword, only: nproc, hf_fch, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, uno_fch
  character(len=240), intent(in) :: pyname
 
- pyname1 = TRIM(pyname)//'.t'
  buf = ' '
+ pyname1 = TRIM(pyname)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
 
@@ -453,9 +467,11 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'from pyscf import lib'
  write(fid2,'(A)') 'import numpy as np'
  write(fid2,'(A)') 'import os'
- write(fid2,'(A)') 'from time import sleep'
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from mokit.lib.uno import uno'
+ write(fid2,'(A)') 'from mokit.lib.gaussian import mo_fch2py'
+ write(fid2,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
+ write(fid2,'(A)') '                            read_na_and_nb_from_fch'
  write(fid2,'(A,/)') 'from mokit.lib.construct_vir import construct_vir'
  write(fid2,'(A,I0)') 'nproc = ', nproc
  write(fid2,'(A,/)') 'lib.num_threads(nproc)'
@@ -465,15 +481,16 @@ subroutine prt_uno_script_into_py(pyname)
   if(buf(1:9) == 'mf.kernel') exit
   write(fid2,'(A)') TRIM(buf)
  end do
- write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
- write(fid2,'(A)') 'mf.kernel()'
 
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
- ! keep 10 cycles annotated
+ write(fid2,'(/,A)') '# read MOs from .fch(k) file'
+ write(fid2,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
+ write(fid2,'(A)') 'mf.mo_coeff = mo_fch2py(hf_fch)'
+ write(fid2,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(hf_fch)'
+ write(fid2,'(A)') '# read done'
+ write(fid2,'(/,A)') '# check if input MOs are orthonormal'
+ write(fid2,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+ write(fid2,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[0], S)'
+ write(fid2,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[1], S)'
 
  close(fid1,status='delete')
  close(fid2)
@@ -482,14 +499,13 @@ subroutine prt_uno_script_into_py(pyname)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
- write(fid1,'(A)') "uno_fch = '"//TRIM(uno_fch)//"'"
+ write(fid1,'(/,A)') "uno_fch = '"//TRIM(uno_fch)//"'"
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
- write(fid1,'(A)') 'na = np.sum(mf.mo_occ[0]==1)'
- write(fid1,'(A)') 'nb = np.sum(mf.mo_occ[1]==1)'
+ write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
  write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&
                            &mf.mo_coeff[1],S,',uno_thres,')'
  write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
- write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
+ write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, alpha_coeff)'
  write(fid1,'(A)') '# done transform'
 
  write(fid1,'(/,A)') '# save the UNO into .fch file'
@@ -1085,7 +1101,7 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
 end subroutine find_npair0_from_fch
 
 ! perform a RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO
-subroutine do_min_bas_hf(proname)
+subroutine do_min_bas_hf_gau(proname)
  use mr_keyword, only: mem, nproc, gau_path
  use mol, only: charge, mult, natom, elem, coor
  use util_wrapper, only: formchk, fch_u2r_wrap
@@ -1140,5 +1156,99 @@ subroutine do_min_bas_hf(proname)
  call formchk(chkname)
  if(mult > 1) call fch_u2r_wrap(fchname, fchname)
  call delete_files(3, [gjfname, chkname, logname])
-end subroutine do_min_bas_hf
+end subroutine do_min_bas_hf_gau
+
+subroutine do_min_bas_hf_pyscf(proname)
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c
+ use mol, only: charge, mult, natom, elem, coor
+ implicit none
+ integer :: i, fid
+ character(len=240) :: pyname, outname, fchname, r_fch
+ character(len=240), intent(in) :: proname
+
+ pyname = TRIM(proname)//'.py'
+ outname = TRIM(proname)//'.out'
+ fchname = TRIM(proname)//'.fch'
+ r_fch = TRIM(proname)//'_UNO.fch'
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+
+ write(fid,'(A)') 'from pyscf import gto, scf, lib'
+ write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
+ if(mult > 1) then
+  write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
+  write(fid,'(A)') 'from mokit.lib.gaussian import uno'
+  write(fid,'(A)') 'from os import rename'
+ end if
+ write(fid,'(/,A,I0,A)') 'lib.num_threads(', nproc, ')'
+
+ write(fid,'(A)') 'mol = gto.M()'
+ write(fid,'(A,I0,A)') '# ', natom, ' atom(s)'
+ write(fid,'(A)') "mol.atom = '''"
+ do i = 1, natom, 1
+  write(fid,'(A2,1X,3(1X,F17.8))') elem(i), coor(:,i)
+ end do ! for i
+ write(fid,'(A)') "'''"
+ write(fid,'(A)') "mol.basis = 'STO-6G'"
+ write(fid,'(A)') '# Remember to check the charge and spin'
+ write(fid,'(A,I0)') 'mol.charge = ', charge
+ write(fid,'(A,I0)') 'mol.spin = ', mult-1
+ write(fid,'(A,I0)') 'mol.cart = False'
+ write(fid,'(A)') 'mol.verbose = 4'
+ write(fid,'(A)') 'mol.build(parse_arg=False)'
+
+ write(fid,'(/,A)',advance='no') 'mf = scf.'
+ if(mult == 1) then
+  write(fid,'(A)',advance='no') 'RHF'
+ else
+  write(fid,'(A)',advance='no') 'UHF'
+ end if
+
+ if(dkh2_or_x2c) then
+  write(fid,'(A)') '(mol).x2c1e()'
+ else
+  write(fid,'(A)') '(mol)'
+ end if
+
+ write(fid,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
+ write(fid,'(A)') 'mf.max_cycle = 200'
+ write(fid,'(A)') 'old_e = mf.kernel()'
+
+ ! If SCF is not converged, use the Newton method to continue
+ write(fid,'(/,A)') 'if mf.converged is False:'
+ write(fid,'(A)')   '  mf = mf.newton()'
+ write(fid,'(A,/)') '  old_e = mf.kernel()'
+
+ if(mult > 1) then ! UHF
+  ! loop to check wave function stability
+  write(fid,'(A)') 'new_e = old_e + 2e-5'
+  write(fid,'(A)') 'i = 0'
+  write(fid,'(A)') 'while(i < 10):'
+  write(fid,'(A)') '  mo1 = mf.stability()[0]'
+  write(fid,'(A)') '  dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
+  write(fid,'(A)') '  mf = mf.newton()'
+  write(fid,'(A)') '  new_e = mf.kernel(dm0=dm1)'
+  write(fid,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
+  write(fid,'(A)') '    break # cannot find lower solution'
+  write(fid,'(A)') '  old_e = new_e'
+  write(fid,'(A)') '  i += 1'
+  write(fid,'(A)') 'if i == 10:'
+  write(fid,'(A)') "  raise OSError('PySCF stable=opt failed after 10 attempts.')"
+  write(fid,'(/,A)') '# save UHF MOs into .fch file'
+  write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
+  write(fid,'(A)') "r_fch = '"//TRIM(r_fch)//"'"
+  write(fid,'(A)') 'fchk(mf, uhf_fch)'
+  write(fid,'(A)') 'update_density_using_mo_in_fch(uhf_fch)'
+  write(fid,'(A)') 'uno(uhf_fch)'
+  write(fid,'(A)') 'rename(r_fch, uhf_fch)'
+ else         ! RHF
+  write(fid,'(A)') 'if mf.converged is False:'
+  write(fid,'(A)') "  raise OSError('PySCF RHF job failed.')"
+  write(fid,'(/,A)') '# save RHF MOs into .fch file'
+  write(fid,'(A)') "fchk(mf, '"//TRIM(fchname)//"', density=True)"
+ end if
+
+ close(fid)
+ call submit_pyscf_job(pyname)
+ call delete_files(2, [pyname, outname])
+end subroutine do_min_bas_hf_pyscf
 

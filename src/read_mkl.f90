@@ -191,14 +191,14 @@ subroutine un_normalized_all_pg()
 
    call stype2itype(all_pg(i)%prim_gau(j)%stype, itype)
    if(itype == 0) then
-    write(6,'(A)') "ERROR in subroutine un_normalized_all_pg: 'L' type should&
-                   & not be in the .mkl file."
-    write(6,'(A)') 'This .mkl file violates the definition of mkl.'
+    write(6,'(/,A)') "ERROR in subroutine un_normalized_all_pg: 'L' type should&
+                     & not be in the"
+    write(6,'(A)') '.mkl file. It violates the definition of mkl.'
     stop
    end if
    itype = itype - 1 ! 'S' begins with 0
 
-   coeff = all_pg(i)%prim_gau(j)%coeff
+   allocate(coeff(nline,2), source=all_pg(i)%prim_gau(j)%coeff)
    norm_fac = norm_fac_of_contract_gau(itype, nline, coeff)
 
    if(DABS(1D0-norm_fac) > 1D-4) then
@@ -212,6 +212,8 @@ subroutine un_normalized_all_pg()
                       &n coefficients in'
      write(6,'(A)') '.mkl file are wrong. They must be either normalized or un-&
                      &normalized coefficients.'
+     write(6,'(A,I0,A,F10.7)') 'itype=', itype, ', norm_fac=', norm_fac
+     stop
     end if
    end if
 
@@ -219,7 +221,6 @@ subroutine un_normalized_all_pg()
    deallocate(coeff)
   end do ! for j
  end do ! for i
-
 end subroutine un_normalized_all_pg
 
 ! calculate the normalization factor of a serial of primitive gaussians
@@ -232,8 +233,8 @@ function norm_fac_of_contract_gau(itype, nline, coeff) result(norm_fac)
  real(kind=8), intent(in) :: coeff(nline,2)
 
  norm_fac = 1d0
- n = (nline*nline-nline)/2
- allocate(S(n))
+ n = (nline*nline - nline)/2
+ allocate(S(n), source=0d0)
 
  n = 0
  do k = 1, nline-1, 1
@@ -270,13 +271,19 @@ function norm_fac_of_prim_gau(itype, alpha) result(norm_fac)
 
  norm_fac = 1d0
 
- if(itype == 0) then
+ select case(itype)
+ case(0)
   norm_fac = (2d0*alpha/PI)**(0.75d0)
- else
+ case(1,2,3,4,5,6)
   norm_fac = (2d0*PI)**(0.5d0*DBLE(itype))
   norm_fac = norm_fac*(2d0*alpha/PI)**(0.25d0*DBLE(2*itype+3))
-  ! the DSQRT(1*3*5...) should not be considered here
- end if
+  if(itype == 6) norm_fac = norm_fac/DSQRT(10395d0)
+  ! 10395 = 3*5*7*9*11
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine norm_fac_of_prim_gau: invalid itype&
+                      &=', itype
+  stop
+ end select
 end function norm_fac_of_prim_gau
 
 subroutine merge_s_and_p_into_sp()
@@ -497,6 +504,8 @@ subroutine read_shltyp_and_shl2atm_from_mkl(mklname, ncontr, shltyp, shl2atm)
    shltyp(i) = -4
   case('H')
    shltyp(i) = -5
+  case('I')
+   shltyp(i) = -6
   case default
    write(6,'(/,A)') 'ERROR in subroutine read_shltyp_and_shl2atm_from_mkl: unsu&
                     &pported angular'
@@ -783,17 +792,17 @@ end subroutine del_zero_coeff_in_prim_gau
 end module mkl_content
 
 ! get/find basis function marks from the integer array shell_type
-subroutine read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark,&
-                                     f_mark, g_mark, h_mark)
+subroutine read_bas_mark_from_shltyp(ncontr,shell_type, nfmark, ngmark, nhmark,&
+                                     nimark, f_mark, g_mark, h_mark, i_mark)
  implicit none
  integer :: i, k
  integer, intent(in) :: ncontr
  integer, intent(in) :: shell_type(ncontr)
- integer, intent(out) :: nfmark, ngmark, nhmark, f_mark(ncontr), g_mark(ncontr),&
-                         h_mark(ncontr)
+ integer, intent(out) :: nfmark, ngmark, nhmark, nimark, f_mark(ncontr), &
+  g_mark(ncontr), h_mark(ncontr), i_mark(ncontr)
 
- nfmark = 0; ngmark = 0; nhmark = 0
- f_mark = 0; g_mark = 0; h_mark = 0
+ nfmark = 0; ngmark = 0; nhmark = 0; nimark = 0
+ f_mark = 0; g_mark = 0; h_mark = 0; i_mark = 0
  k = 0
 
  do i = 1, ncontr, 1
@@ -818,37 +827,49 @@ subroutine read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark,
    nhmark = nhmark + 1
    h_mark(nhmark) = k + 1
    k = k + 11
+  case(-6) ! I
+   nimark = nimark + 1
+   i_mark(nimark) = k + 1
+   k = k + 13
   end select
  end do ! for i
 end subroutine read_bas_mark_from_shltyp
 
 ! Update MO coefficients using basis function marks since some MO coefficients
 ! in ORCA are negative to those in Gaussian
-subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, f_mark, &
-                                    g_mark, h_mark, coeff)
+subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
+                                ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
  implicit none
  integer :: i
- integer, intent(in) :: nbf, nif, nfmark, ngmark, nhmark
- integer, intent(in) :: f_mark(nfmark), g_mark(ngmark), h_mark(nhmark)
+ integer, intent(in) :: nbf, nif, nfmark, ngmark, nhmark, nimark, ncontr
+ integer, intent(in) :: f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+  i_mark(ncontr)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
- forall(i = 1:nfmark)
+ forall(i = 1:nfmark:1)
   coeff(f_mark(i)+5,:) = -coeff(f_mark(i)+5,:)
   coeff(f_mark(i)+6,:) = -coeff(f_mark(i)+6,:)
  end forall
 
- forall(i = 1:ngmark)
+ forall(i = 1:ngmark:1)
   coeff(g_mark(i)+5,:) = -coeff(g_mark(i)+5,:)
   coeff(g_mark(i)+6,:) = -coeff(g_mark(i)+6,:)
   coeff(g_mark(i)+7,:) = -coeff(g_mark(i)+7,:)
   coeff(g_mark(i)+8,:) = -coeff(g_mark(i)+8,:)
  end forall
 
- forall(i = 1:nhmark)
+ forall(i = 1:nhmark:1)
   coeff(h_mark(i)+5,:) = -coeff(h_mark(i)+5,:)
   coeff(h_mark(i)+6,:) = -coeff(h_mark(i)+6,:)
   coeff(h_mark(i)+7,:) = -coeff(h_mark(i)+7,:)
   coeff(h_mark(i)+8,:) = -coeff(h_mark(i)+8,:)
+ end forall
+
+ forall(i = 1:nimark:1)
+  coeff(i_mark(i)+5,:) = -coeff(i_mark(i)+5,:)
+  coeff(i_mark(i)+6,:) = -coeff(i_mark(i)+6,:)
+  coeff(i_mark(i)+7,:) = -coeff(i_mark(i)+7,:)
+  coeff(i_mark(i)+8,:) = -coeff(i_mark(i)+8,:)
  end forall
 end subroutine update_mo_using_bas_mark
 

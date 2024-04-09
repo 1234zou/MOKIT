@@ -985,6 +985,7 @@ end subroutine get_bas_begin_idx_from_shltyp
 ! This subroutine assumes that the atomic labels are in one-to-one correspondence
 ! in two files.
 subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
+ use periodic_table, only: write_xyz
  implicit none
  integer :: i, natom, natom1, natom2
  real(kind=8) :: trans1(3), trans2(3), rotation(3,3)
@@ -1036,7 +1037,7 @@ subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  end if
 
  deallocate(elem1, coor1)
- call write_xyzfile(natom, elem2, coor2, fname)
+ call write_xyz(natom, elem2, coor2, fname)
  deallocate(elem2, coor2)
 end subroutine rmsd_wrapper
 

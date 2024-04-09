@@ -103,11 +103,15 @@ end subroutine read_charge_and_mult_from_mkl
 subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
  integer :: i, fid
- integer, intent(out) :: na, nb ! number of alpha/beta electrons
+ integer, intent(out) :: na, nb
+!f2py intent(out) :: na, nb
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
- call open_file(fchname, .true., fid)
+ na = 0; nb = 0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -115,8 +119,9 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of&
-                 & alpha' found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_na_and_nb_from_fch: no 'Number of &
+                   &alpha' found in"
+  write(6,'(A)') 'file '//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -132,8 +137,10 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
  implicit none
  integer :: i, fid
  integer, intent(out) :: nbf, nif
+!f2py intent(out) :: nbf, nif
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  call open_file(fchname, .true., fid)
  do while(.true.)
@@ -3234,12 +3241,12 @@ subroutine add_density_str_into_fch(fchname, itype)
  character(len=240), intent(in) :: fchname
 
  if(itype<1 .or. itype>2) then
-  write(6,'(A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid&
-                   & itype=', itype
+  write(6,'(/,A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid it&
+                      &ype=', itype
   stop
  end if
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3272,7 +3279,8 @@ subroutine add_density_str_into_fch(fchname, itype)
   end if
 
   do while(.true.)
-   read(fid,'(A)') buf
+   read(fid,'(A)',iostat=k) buf
+   if(k /= 0) exit
    if(buf(49:49) == '=') exit
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
@@ -3301,15 +3309,17 @@ end subroutine add_density_str_into_fch
 ! in a Gaussian .fch(k) file
 subroutine update_density_using_mo_in_fch(fchname)
  implicit none
- integer :: i, j, k, fid, nbf, nif, na, nb
- real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
- real(kind=8), allocatable :: dm_a(:,:), dm_b(:,:), total_dm(:,:), spin_dm(:,:)
+ integer :: i, fid, nbf, nif, na, nb
+ real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:), dm_a(:,:), &
+  dm_b(:,:), total_dm(:,:), spin_dm(:,:), occ(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical :: uhf
 
  uhf = .false.
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3317,6 +3327,7 @@ subroutine update_density_using_mo_in_fch(fchname)
    uhf = .true.
    exit
   end if
+  if(buf(1:11) == 'Total SCF D') exit
  end do ! for while
  close(fid)
 
@@ -3326,64 +3337,35 @@ subroutine update_density_using_mo_in_fch(fchname)
  allocate(alpha_coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', alpha_coeff)
  call add_density_str_into_fch(fchname, 1)
+ allocate(occ(nif), source=0d0)
 
  if(uhf) then
-  allocate(dm_a(nbf,nbf), source=0d0)
-
-  do i = 1, nbf, 1
-   do j = i, nbf, 1
-    do k = 1, na, 1
-     dm_a(j,i) = dm_a(j,i) + alpha_coeff(j,k)*alpha_coeff(i,k)
-    end do ! for k
-    dm_a(i,j) = dm_a(j,i)
-   end do ! for j
-  end do ! for i
+  if(na > 0) occ(1:na) = 1d0
+  allocate(dm_a(nbf,nbf))
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, occ, dm_a)
   deallocate(alpha_coeff)
 
-  allocate(dm_b(nbf,nbf), source=0d0)
+  allocate(dm_b(nbf,nbf))
   allocate(beta_coeff(nbf,nif))
   call read_mo_from_fch(fchname, nbf, nif, 'b', beta_coeff)
-  do i = 1, nbf, 1
-   do j = i, nbf, 1
-    do k = 1, nb, 1
-     dm_b(j,i) = dm_b(j,i) + beta_coeff(j,k)*beta_coeff(i,k)
-    end do ! for k
-    dm_b(i,j) = dm_b(j,i)
-   end do ! for j
-  end do ! for i
+  if(na > nb) occ(nb+1:na) = 0d0
+  call calc_dm_using_mo_and_on(nbf, nif, beta_coeff, occ, dm_b)
   deallocate(beta_coeff)
 
-  allocate(spin_dm(nbf,nbf))
   total_dm = dm_a + dm_b
-  spin_dm = dm_a - dm_b
+  allocate(spin_dm(nbf,nbf), source=dm_a-dm_b)
   deallocate(dm_a, dm_b)
   call add_density_str_into_fch(fchname, 2)
   call write_dm_into_fch(fchname, .false., nbf, spin_dm)
   deallocate(spin_dm)
 
  else ! R(O)HF
-
-  do i = 1, nbf, 1
-   do j = i, nbf, 1
-    do k = 1, nb, 1
-     total_dm(j,i) = total_dm(j,i) + 2d0*alpha_coeff(j,k)*alpha_coeff(i,k)
-    end do ! for k
-    total_dm(i,j) = total_dm(j,i)
-   end do ! for j
-  end do ! for i
-
-  if(na > nb) then
-   do i = 1, nbf, 1
-    do j = i, nbf, 1
-     do k = 1, na-nb, 1
-      total_dm(j,i) = total_dm(j,i) + alpha_coeff(j,k)*alpha_coeff(i,k)
-     end do ! for k
-     total_dm(i,j) = total_dm(j,i)
-    end do ! for j
-   end do ! for i
-  end if
+  if(nb > 0) occ(1:nb) = 2d0
+  if(na > nb) occ(nb+1:na) = 1d0
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, occ, total_dm)
  end if
 
+ deallocate(occ)
  call write_dm_into_fch(fchname, .true., nbf, total_dm)
  deallocate(total_dm)
 end subroutine update_density_using_mo_in_fch
@@ -3589,7 +3571,7 @@ end subroutine read_ao_ovlp_from_47
 
 ! generate natural orbitals from provided density matrix and overlap matrix
 ! This subroutine is originally copied from subroutine no in lo.f90
-subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
+subroutine gen_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
  implicit none
  integer :: i, j, lwork, liwork
  integer, intent(in) :: nbf, nif
@@ -3638,7 +3620,7 @@ subroutine get_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
  new_coeff = U
  deallocate(U)
-end subroutine get_no_from_density_and_ao_ovlp
+end subroutine gen_no_from_density_and_ao_ovlp
 
 ! 1) compute 1e expectation values of MOs in file mo_fch, using information from
 ! file no_fch (which usually includes NOs)

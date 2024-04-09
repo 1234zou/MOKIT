@@ -473,7 +473,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
   write(fid2,'(A)') ' DavidsonOpt 1'
  end if
 
- write(fid2,'(A)') ' MaxIter 100'
+ write(fid2,'(A)') ' MaxIter 200'
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%method'
  write(fid2,'(A)') ' FrozenCore FC_NONE'

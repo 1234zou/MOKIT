@@ -124,6 +124,64 @@ subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
  close(fid)
 end subroutine read_elem_from_gjf
 
+! write/create a .xyz file
+subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(in), optional :: lat_vec(3,3)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: xyzname
+
+ open(newunit=fid,file=TRIM(xyzname),status='replace')
+ write(fid,'(I0)') natom
+
+ if(present(lat_vec)) then
+  write(fid,'(A,9F8.3,A)') "Lattice=""", lat_vec, """"
+ else
+  write(fid,'(A)') 'produced by rwgeom of MOKIT'
+ end if
+
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(1:3,i)
+ end do ! for i
+
+ close(fid)
+end subroutine write_xyz
+
+! write/create an xTB .coord file
+! Note: input array `coor` must be in Angstrom
+subroutine write_coord(natom, elem, coor, fname, lat_vec)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, nd, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: coor(3,natom)
+ real(kind=8), intent(in), optional :: lat_vec(3,3)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: fname
+
+ open(newunit=fid,file=TRIM(fname),status='replace')
+ write(fid,'(A)') '$coord'
+
+ do i = 1, natom, 1
+  write(fid,'(3(1X,F18.8),3X,A2)') coor(:,i)/Bohr_const, elem(i)
+ end do ! for i
+
+ if(present(lat_vec)) then
+  nd = SIZE(lat_vec, 2)
+  write(fid,'(A,I0)') '$periodic ', nd
+  write(fid,'(A)') '$lattice bohr'
+  do i = 1, nd, 1
+   write(fid,'(3F15.5)') lat_vec(:,i)/Bohr_const
+  end do ! for i
+  write(fid,'(A)') '$end'
+ end if
+
+ close(fid)
+end subroutine write_coord
+
 end module periodic_table
 
 subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
@@ -537,7 +595,7 @@ subroutine read_nframe_from_xyz(xyzname, nframe)
  integer :: i, fid, natom
  integer, intent(out) :: nframe
  character(len=240) :: buf
- character*240, intent(in) :: xyzname
+ character(len=240), intent(in) :: xyzname
 
  nframe = 0
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
@@ -553,6 +611,47 @@ subroutine read_nframe_from_xyz(xyzname, nframe)
 
  close(fid)
 end subroutine read_nframe_from_xyz
+
+! extract the final frame in a .xyz file (which contains multiple frames), and
+! save it to new_xyz
+subroutine extract_final_frame_in_xyz(xyzname, new_xyz)
+ implicit none
+ integer :: i, j, natom, fid, fid1
+ real(kind=8) :: coor(3)
+ character(len=2) :: elem
+ character(len=300) :: buf
+ character(len=240), intent(in) :: xyzname, new_xyz
+
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='append')
+ open(newunit=fid1,file=TRIM(new_xyz),status='replace')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,*,iostat=i) natom
+  if(i == 0) exit
+ end do ! for while
+
+ write(fid1,'(I0)') natom
+ read(fid,'(A)') buf
+ i = INDEX(buf, ':forces:R:3')
+ if(i > 0) buf = buf(1:i-1)//TRIM(buf(i+11:))
+
+ i = INDEX(buf, "stress=""")
+ if(i > 0) then
+  j = INDEX(buf(i+8:), """")
+  buf = buf(1:i-2)//TRIM(buf(i+j+8:))
+ end if
+ write(fid1,'(A)') TRIM(buf)
+
+ do i = 1, natom, 1
+  read(fid,*) elem, coor
+  write(fid1,'(A2,3(1X,F18.8))') elem, coor
+ end do ! for i
+
+ close(fid)
+ close(fid1)
+end subroutine extract_final_frame_in_xyz
 
 ! read the i-th frame from a given .xyz file
 subroutine read_iframe_from_xyz(xyzname, ith, natom, elem, coor)
@@ -756,8 +855,7 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- buf = ' '
- coor = 0d0
+ buf = ' '; coor = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
@@ -765,8 +863,8 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
   BACKSPACE(fid)
   read(fid,'(A)') buf
   if(buf(4:21) == 'This run of MOLCAS') then
-   write(6,'(A)') "ERROR in subroutine read_coor_from_molcas_out: failed to&
-                    & find 'Cartesian coordinates in A'"
+   write(6,'(/,A)') "ERROR in subroutine read_coor_from_molcas_out: failed to f&
+                    &ind 'Cartesian coordinates in A'"
    write(6,'(A)') 'keywords in file '//TRIM(outname)
    close(fid)
    stop
@@ -781,8 +879,9 @@ subroutine read_coor_from_molcas_out(outname, natom, coor)
  do i = 1, natom, 1
   read(fid,*,iostat=j) k, str, coor(1:3,i)
   if(j /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_coor_from_molcas_out: insufficient&
-                    & number of atoms in file '//TRIM(outname)
+   write(6,'(/,A)') 'ERROR in subroutine read_coor_from_molcas_out: insufficien&
+                    &t number of atoms'
+   write(6,'(A)') 'in file '//TRIM(outname)
    write(6,'(2(A,I0))') 'natom=', natom, ', but broken at i=', i
    close(fid)
    stop
@@ -934,32 +1033,6 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  write(fid,'(/)',advance='no')
  close(fid)
 end subroutine write_gjf
-
-! write/create a .xyz file
-subroutine write_xyzfile(natom, elem, coor, xyzname)
- implicit none
- integer :: i, fid
- integer, intent(in) :: natom
-!f2py intent(in) :: natom
- real(kind=8), dimension(3,natom), intent(in) :: coor
-!f2py intent(in) :: coor
-!f2py depend(natom) :: coor
- character*2, dimension(natom), intent(in) :: elem
-!f2py intent(in) :: elem
-!f2py depend(natom) :: elem
- character*240, intent(in) :: xyzname
-!f2py intent(in) :: xyzname
-
- open(newunit=fid,file=TRIM(xyzname),status='replace')
- write(fid,'(I0)') natom
- write(fid,'(A)') 'xyz format file produced by rwgeom of MOKIT'
-
- do i = 1, natom, 1
-  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(1:3,i)
- end do ! for i
-
- close(fid)
-end subroutine write_xyzfile
 
 ! write a frame of molecule into a given .pdb file
 subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
@@ -1132,6 +1205,7 @@ end subroutine replace_coor_in_fch_by_engrad
 
 ! convert a .fch(k) file into a .xyz file
 subroutine fch2xyz(fchname)
+ use periodic_table, only: write_xyz
  implicit none
  integer :: i, natom, charge, mult
  integer, allocatable :: nuc(:)
@@ -1149,31 +1223,91 @@ subroutine fch2xyz(fchname)
  call read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
  deallocate(nuc)
 
- call write_xyzfile(natom, elem, coor, xyzname)
+ call write_xyz(natom, elem, coor, xyzname)
  deallocate(elem, coor)
 end subroutine fch2xyz
 
-! convert a .gjf file into a .xyz file
 subroutine gjf2xyz(gjfname)
  implicit none
- integer :: i, natom, charge, mult
- integer, allocatable :: nuc(:)
- real(kind=8), allocatable :: coor(:,:)
- character(len=2), allocatable :: elem(:)
- character(len=240) :: xyzname
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
 
- call find_specified_suffix(gjfname, '.gjf', i)
- xyzname = gjfname(1:i-1)//'.xyz'
-
- call read_natom_from_gjf(gjfname, natom)
- allocate(elem(natom), nuc(natom), coor(3,natom))
- call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
- deallocate(nuc)
- call write_xyzfile(natom, elem, coor, xyzname)
- deallocate(elem, coor)
+ call gjf2other(gjfname, 1)
 end subroutine gjf2xyz
+
+subroutine gjf2coord(gjfname)
+ implicit none
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ call gjf2other(gjfname, 2)
+end subroutine gjf2coord
+
+! convert .gjf into .inp of ORCA
+subroutine gjf2orca_inp(gjfname)
+ implicit none
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ call gjf2other(gjfname, 3)
+end subroutine gjf2orca_inp
+
+! convert a .gjf file into a .xyz file
+subroutine gjf2other(gjfname, file_type)
+ use periodic_table, only: write_xyz, write_coord
+ implicit none
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ integer, intent(in) :: file_type
+ real(kind=8) :: lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: outname
+ character(len=240), intent(in) :: gjfname
+ logical :: pbc
+ logical, external :: check_pbc_in_gjf
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ select case(file_type)
+ case(1)
+  outname = gjfname(1:i-1)//'.xyz'
+ case(2)
+  outname = gjfname(1:i-1)//'.coord'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine gjf2other: invalid file_type.'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  write(6,'(A,I0)') 'file_type=', file_type
+  stop
+ end select
+ pbc = check_pbc_in_gjf(gjfname)
+
+ if(pbc) then ! periodic
+  call read_natom_from_gjf_pbc(gjfname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, lat_vec,&
+                                       charge, mult)
+  deallocate(nuc)
+  select case(file_type)
+  case(1)
+   call write_xyz(natom, elem, coor, outname, lat_vec)
+  case(2)
+   call write_coord(natom, elem, coor, outname, lat_vec)
+  end select
+ else         ! non-periodic
+  call read_natom_from_gjf(gjfname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+  deallocate(nuc)
+  select case(file_type)
+  case(1)
+   call write_xyz(natom, elem, coor, outname)
+  case(2)
+   call write_coord(natom, elem, coor, outname)
+  end select
+ end if
+
+ deallocate(elem, coor)
+end subroutine gjf2other
 
 ! convert a .xyz file into a .gjf file
 subroutine xyz2gjf(xyzname)
@@ -1445,13 +1579,14 @@ subroutine complement_mol_around_cell(gjfname, dis)
  character(len=240) :: gjfname1
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
- real(kind=8) :: lat_vec(3,3), lat_vec1(3,3), norm(3), r1(3), dis0
+ real(kind=8) :: dis0, lat_vec(3,3), lat_vec1(3,3), norm(3), r1(3)
  real(kind=8), intent(in) :: dis ! distance threshold
 !f2py intent(in) :: dis
  real(kind=8), parameter :: max_dis = 5.8d0 ! Ang, maximum possible bond length
+ real(kind=8), parameter :: thres = 1d-7
  real(kind=8), allocatable :: coor(:,:), coor1(:,:)
 
- i = INDEX(gjfname, '.gjf', back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
  gjfname1 = gjfname(1:i-1)//'_new.gjf'
 
  call read_natom_from_gjf_pbc(gjfname, natom)
@@ -1479,7 +1614,7 @@ subroutine complement_mol_around_cell(gjfname, dis)
  forall(i = 1:natom1) coor1(:,i) = coor1(:,i) - r1
 
  do k = 1, natom1, 1
-  if(SUM(DABS(coor1(:,k) - coor(:,1))) < 1d-8) exit
+  if(SUM(DABS(coor1(:,k) - coor(:,1))) < thres) exit
  end do ! for i
  k = k - 1
  deallocate(coor)
@@ -1489,6 +1624,7 @@ subroutine complement_mol_around_cell(gjfname, dis)
 
  do i = k+1, k+natom, 1
   r1 = coor1(:,i)
+!$omp parallel do default(shared) private(j, norm, dis0)
   do j = 1, k, 1
    if(istat(j) == 2) cycle
    norm = DABS(coor1(:,j) - r1)
@@ -1496,6 +1632,8 @@ subroutine complement_mol_around_cell(gjfname, dis)
    dis0 = DSQRT(DOT_PRODUCT(norm, norm))
    if(dis0 < dis) istat(j) = 2
   end do ! for j
+!$omp end parallel do
+!$omp parallel do default(shared) private(j, norm, dis0)
   do j = k+natom+1, natom1, 1
    if(istat(j) == 2) cycle
    norm = DABS(coor1(:,j) - r1)
@@ -1503,14 +1641,17 @@ subroutine complement_mol_around_cell(gjfname, dis)
    dis0 = DSQRT(DOT_PRODUCT(norm, norm))
    if(dis0 < dis) istat(j) = 2
   end do ! for j
+!$omp end parallel do
  end do ! for i
 
  k = COUNT(istat > 0)
  do while(.true.)
   do i = 1, natom1, 1
-   if(.not. (istat(i)==2 .or. istat(i)==3)) cycle
+   if(istat(i) == 0) cycle
    r1 = coor1(:,i)
+!$omp parallel do default(shared) private(j, norm, dis0)
    do j = 1, natom1, 1
+    if(i == j) cycle
     if(istat(j) /= 0) cycle
     norm = DABS(coor1(:,j) - r1)
     if(ANY(norm > max_dis)) cycle
@@ -1519,6 +1660,7 @@ subroutine complement_mol_around_cell(gjfname, dis)
     dis0 = dis0/(cov_rad(elem2nuc(elem1(i))) + cov_rad(elem2nuc(elem1(j))))
     if(dis0 < rfac1) istat(j) = 3
    end do ! for j
+!$omp end parallel do
   end do ! for i
 
   natom = COUNT(istat > 0)
@@ -1814,4 +1956,31 @@ subroutine check_if_conformer(fname1, fname2, conformer)
  if(SUM(DABS(w1 - w2)) < thres2) conformer = .true.
  deallocate(w1, w2)
 end subroutine check_if_conformer
+
+subroutine check_conn_reasonable(natom, nuc, conn, reasonable)
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, intent(in) :: nuc(natom), conn(natom,natom)
+ logical, intent(out) :: reasonable
+
+ reasonable = .true.
+
+ do i = 1, natom, 1
+  select case(nuc(i))
+  case(1,3,9,11,19) ! H,F,Li,Na,K
+   if(ANY(conn(:,i) > 1)) reasonable = .false.
+  case(4,6,14) ! Be,C,Si
+   if(ANY(conn(:,i) > 4)) reasonable = .false.
+  case(5,7,13,15) ! B,N,Al,P
+   if(ANY(conn(:,i) > 3)) reasonable = .false.
+  case(8,12,16,17,30,34,35,53) ! O,Mg,S,Cl,Zn,Se,Br,I
+   if(ANY(conn(:,i) > 2)) reasonable = .false.
+  case(24) ! Cr
+   if(ANY(conn(:,i) > 6)) reasonable = .false.
+  end select
+
+  if(.not. reasonable) return
+ end do ! for i
+end subroutine check_conn_reasonable
 

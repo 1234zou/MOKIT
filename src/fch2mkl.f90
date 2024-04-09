@@ -12,54 +12,68 @@
 ! The 'Shell types' array in Gaussian .fch file:
 !
 !   Spherical     |     Cartesian
-! -5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5
-!  H  G  F  D  L  S  P  D  F  G  H
+! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
+!  I  H  G  F  D  L  S  P  D  F  G  H  I
 !
 ! 'L' is 'SP' in Pople-type basis sets
 
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i
+ integer :: i, k
+ character(len=4) :: str
  character(len=240) :: fchname
+ logical :: prt_dft
 
  i = iargc()
- if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line argument!'
-  write(6,'(/,A)') ' Example (R(O)HF, UHF, CAS): fch2mkl a.fch'
-  write(6,'(A,/)') ' (a_o.inp and a_o.mkl files will be generated)'
+ if(i<1 .or. i>2) then
+  write(6,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2mkl h2o.fch'
+  write(6,'(A,/)') ' Example 2 (R(O)DFT, UDFT)   : fch2mkl h2o.fch -dft'
   stop
  end if
 
+ fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
  ! if .chk file provided, convert into .fch file automatically
- i = LEN_TRIM(fchname)
- if(fchname(i-3:i) == '.chk') then
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
   call formchk(fchname)
-  fchname = fchname(1:i-3)//'fch'
+  fchname = fchname(1:k-4)//'.fch'
  end if
 
- call fch2mkl(fchname)
+ str = ' '; prt_dft = .false.
+ if(i == 2) then
+  call getarg(2, str)
+  if(str /= '-dft') then
+   write(6,'(/,A)') 'ERROR in program fch2mkl: wrong command line argument!'
+   write(6,'(A)') "The 2nd argument can only be '-dft'."
+   stop
+  end if
+  prt_dft = .true.
+ end if
+
+ call fch2mkl(fchname, prt_dft)
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine fch2mkl(fchname)
+subroutine fch2mkl(fchname, prt_dft)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark
+ integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark, nimark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1) :: str = ' '
- ! six types of angular momentum
- character(len=1), parameter :: am_type(0:5) = ['S','P','D','F','G','H']
- character(len=1), parameter :: am_type1(0:5) = ['s','p','d','f','g','h']
+ character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
+ character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp
+ logical, intent(in) :: prt_dft
 
  call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
@@ -77,12 +91,13 @@ subroutine fch2mkl(fchname)
  if( ANY(shell_type > 1) ) then
   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected i&
                    &n file '//TRIM(fchname)//'.'
-  write(6,'(A)') "ORCA supports only spherical functions. You need to add '5D 7&
-                 &F' keywords in Gaussian."
+  write(6,'(A)') "ORCA supports only spherical harmonic functions. You need to &
+                 &add '5D 7F' keywords"
+  write(6,'(A)') 'in Gaussian.'
   stop
- else if( ANY(shell_type < -5) ) then
+ else if( ANY(shell_type < -6) ) then
   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not&
-                   & supported.'
+                   & supported for fch2mkl.'
   stop
  end if
  ! check done
@@ -99,12 +114,12 @@ subroutine fch2mkl(fchname)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                f_mark, g_mark, h_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, &
-                               g_mark, h_mark, coeff)
- deallocate(f_mark, g_mark, h_mark)
+                                nimark, f_mark, g_mark, h_mark, i_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                               f_mark, g_mark, h_mark, i_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)
@@ -179,14 +194,28 @@ subroutine fch2mkl(fchname)
  open(newunit=fid2,file=TRIM(inpname),status='replace')
  write(fid2,'(A)') '%pal nprocs 4 end'
  write(fid2,'(A)') '%maxcore 1000'
- if(uhf) then
-  write(fid2,'(A)') '! UHF VeryTightSCF noTRAH'
- else
-  if(nopen == 0) then
-   write(fid2,'(A)') '! RHF VeryTightSCF noTRAH'
-  else ! nopen > 0
-   write(fid2,'(A)') '! ROHF VeryTightSCF noTRAH'
+ if(prt_dft) then ! DFT
+  if(uhf) then
+   write(fid2,'(A)',advance='no') '! UKS'
+  else
+   if(nopen == 0) then
+    write(fid2,'(A)',advance='no') '! RKS'
+   else ! nopen > 0
+    write(fid2,'(A)',advance='no') '! ROKS'
+   end if
   end if
+  write(fid2,'(A)') ' TightSCF noTRAH defgrid3'
+ else             ! HF
+  if(uhf) then
+   write(fid2,'(A)',advance='no') '! UHF'
+  else
+   if(nopen == 0) then
+    write(fid2,'(A)',advance='no') '! RHF'
+   else ! nopen > 0
+    write(fid2,'(A)',advance='no') '! ROHF'
+   end if
+  end if
+  write(fid2,'(A)') ' VeryTightSCF noTRAH'
  end if
 
  select case(irel)

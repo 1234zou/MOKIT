@@ -470,3 +470,93 @@ subroutine read_grad_from_dalton_out(outname, natom, grad)
  close(fid)
 end subroutine read_grad_from_dalton_out
 
+! read electronic energy, atomic forces and stress tensor from a CP2K output file
+! Note: forces are negative gradients.
+subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: e, force(3,natom), stress(3,3) ! a.u.
+ !                      Hartree, Hartree/Bohr  , GPa
+ character(len=1) :: str1
+ character(len=2) :: elem
+ character(len=7) :: str7
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: old_cp2k
+
+ e = 0d0; force = 0d0; stress = 0d0
+ call require_file_exist(outname)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'ENERGY| Tota') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_force_from_cp2k_out: failed to loc&
+                   &ate 'ENERGY| Tota'"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ":")
+ read(buf(i+1:),*) e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'ATOMIC FORCE') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_force_from_cp2k_out: failed to loc&
+                   &ate 'ATOMIC FORCE'"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ do i = 1, natom, 1
+  read(fid,*) j, k, elem, force(:,i)
+ end do ! for i
+
+ old_cp2k = .false.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'STRESS| Anal') exit
+  if(buf(2:13) == 'STRESS TENSO') then
+   read(fid,'(A)') buf
+   old_cp2k = .true.
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_force_from_cp2k_out: failed to loc&
+                   &ate stress tensor'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ if(old_cp2k) then
+  do i = 1, 3
+   read(fid,*) str1, stress(:,i)
+  end do ! for i
+ else
+  do i = 1, 3
+   read(fid,*) str7, str1, stress(:,i)
+  end do ! for i
+ end if
+
+ close(fid)
+end subroutine read_efs_from_cp2k_out
+

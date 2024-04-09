@@ -337,17 +337,17 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in&
-                 & file "//TRIM(fchname)
+   write(6,'(/,A)') "ERROR in subroutine py2fch: no 'Total SCF D' found in file&
+                    & "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
    stop
   end if
 
-  allocate(den(nbf,nbf), source=0d0)
-  if(natorb) then
+  allocate(den(nbf,nbf))
+  if(natorb) then ! some kind of natural orbitals
    allocate(norm(nif), source=ev)
-  else
+  else            ! not natural orbitals
    allocate(norm(nif), source=0d0)
    norm(1:nb) = 2d0
    if(na > nb) norm(nb+1:na) = 1d0
@@ -364,12 +364,11 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
   do i = 1, nbf, 1
    do j = 1, i, 1
     do k = 1, nif, 1
-     if(DABS(norm(k)) < 1d-7) cycle
+     if(DABS(norm(k)) < 1d-8) cycle
      den(j,i) = den(j,i) + norm(k)*coeff3(j,k)*coeff3(i,k)
     end do ! for k
    end do ! for j
   end do ! for i
-
   deallocate(norm)
   write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
   deallocate(den)

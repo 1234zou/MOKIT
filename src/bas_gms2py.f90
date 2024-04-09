@@ -248,7 +248,7 @@ subroutine bas_gms2py(inpname, cart, rest)
 
  close(inpid)
 
- if (rest) then
+ if(rest) then
   call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom)
  end if
  deallocate(ghost, coor)

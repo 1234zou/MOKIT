@@ -8,7 +8,7 @@ from mokit.lib.py2fch import py2fch
 from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
 from mokit.lib.lo import boys, pm
 
-def load_mol_from_fch(fchname):
+def load_mol_from_fch(fchname, path=None):
   '''
   Load the PySCF mol object from a given Gaussian .fch(k) file
 
@@ -18,7 +18,7 @@ def load_mol_from_fch(fchname):
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
   >>> mf = scf.RHF(mol).run()
   '''
-  import importlib
+  import sys, importlib
 
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
@@ -38,6 +38,8 @@ def load_mol_from_fch(fchname):
         break
     fp.writelines(lines[3:j])
 
+  if (path):
+    sys.path.append(path)
   molpy = importlib.import_module(proname)
   importlib.invalidate_caches()
   # invalidate_caches() is needed, otherwise a second call of load_mol_from_fch

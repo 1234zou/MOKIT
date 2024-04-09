@@ -5,7 +5,7 @@
 
 ! Note: before PySCF-1.6.4, its dumped .molden file is wrong when using Cartesian functions.
 
-! Please use subroutine get_no_from_density_and_ao_ovlp in rwwfn.f90, which has
+! Please use subroutine gen_no_from_density_and_ao_ovlp in rwwfn.f90, which has
 ! the same functionality as the subroutine no
 
 ! localize singly occupied orbitals in a .fch file
@@ -22,16 +22,17 @@ end subroutine localize_singly_occ_orb
 ! orbitals in a .fch(k) file using the PM method
 subroutine localize_orb(fchname, i1, i2)
  implicit none
- integer :: i, nbf, nif, fid, RENAME, SYSTEM
+ integer :: i, nbf, nif, fid, RENAME
  integer, intent(in) :: i1, i2 ! Fortran convention
  real(kind=8), allocatable :: noon(:)
- character(len=240) :: lmofch, pyname
+ character(len=240) :: lmofch, pyname, outname
  character(len=240), intent(in) :: fchname
  logical :: alive
 
  call find_specified_suffix(fchname, '.fch', i)
  lmofch = fchname(1:i-1)//'_LMO.fch'
  pyname = fchname(1:i-1)//'.py'
+ outname = fchname(1:i-1)//'.out'
 
  if(i2 < i1) then
   write(6,'(/,A)') 'ERROR in subroutine localize_orb: i2<i1. Invalid values.'
@@ -40,13 +41,36 @@ subroutine localize_orb(fchname, i1, i2)
  end if
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from mokit.lib.gaussian import loc'
- write(fid,'(2(A,I0),A)') "loc(fchname='"//TRIM(fchname)//"',idx=range(", i1-1,&
-                          ',',i2,'))'
+ write(fid,'(A)') 'from shutil import copyfile'
+ write(fid,'(A)') 'import numpy as np'
+ write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch'
+ write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
+ write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid,'(A)') 'from mokit.lib.lo import pm'
+ ! the current directory have to be added, otherwise some machine/some python
+ ! cannot find the gauxxx.py in the current directory
+ write(fid,'(A)') 'import os'
+ write(fid,'(A)') 'current_dir = os.path.abspath(os.path.dirname(__file__))'
+
+ write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
+ write(fid,'(A)') "lmofch = '"//TRIM(lmofch)//"'"
+ write(fid,'(A)') 'mol = load_mol_from_fch(fchname, path=current_dir)'
+ write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(fchname)'
+ write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
+ write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'
+ write(fid,'(A)') 'nmo = len(idx)'
+ write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+ write(fid,'(A)') 'loc_orb = pm(mol.nbas, mol._bas[:,0],mol._bas[:,1],mol._bas[&
+                  &:,3], mol.cart,'
+ write(fid,'(A)') "             nbf, nmo, mo_coeff[:,idx], S, 'mulliken')"
+ write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
+ write(fid,'(A)') 'noon = np.zeros(nif)'
+ write(fid,'(A)') 'copyfile(fchname, lmofch)'
+ write(fid,'(A)') "py2fch(lmofch, nbf, nif, mo_coeff, 'a', noon, False, False)"
  close(fid)
 
- i = SYSTEM('python '//TRIM(pyname)//' > /dev/null')
- call delete_file(pyname)
+ call submit_pyscf_job(pyname)
 
  inquire(file=TRIM(lmofch),exist=alive)
  if(.not. alive) then
@@ -54,6 +78,7 @@ subroutine localize_orb(fchname, i1, i2)
                    &oes not exist.'
   stop
  end if
+ call delete_files(2, [pyname, outname])
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(noon(nif))
@@ -146,7 +171,7 @@ subroutine gen_no_from_nso(fchname)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
 
  allocate(noon(nif), mo(nbf,nif))
- call get_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
+ call gen_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 
  call write_mo_into_fch(no_fch, nbf, nif, 'a', mo)

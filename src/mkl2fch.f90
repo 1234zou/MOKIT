@@ -79,9 +79,9 @@ subroutine mkl2fch(mklname, fchname, no_type)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
- integer :: i, k, nfmark, ngmark, nhmark
+ integer :: i, k, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: no_type
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
  character(len=240), intent(in) :: mklname, fchname
 
@@ -105,7 +105,7 @@ subroutine mkl2fch(mklname, fchname, no_type)
                  &F' keywords in"
   write(6,'(A)') 'Gaussian input file.'
   stop
- else if( ANY(shell_type < -5) ) then
+ else if( ANY(shell_type < -6) ) then
   write(6,'(/,A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not&
                    & supported.'
   stop
@@ -126,12 +126,12 @@ subroutine mkl2fch(mklname, fchname, no_type)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                f_mark, g_mark, h_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, g_mark, &
-                               h_mark, coeff)
- deallocate(f_mark, g_mark, h_mark)
+                                nimark, f_mark, g_mark, h_mark, i_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                               f_mark, g_mark, h_mark, i_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(is_uhf) then ! UHF
   alpha_coeff = coeff(:,1:nif)
@@ -208,9 +208,9 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
   nif0=>nif, shell_type0=>shell_type, shl2atm, alpha_coeff0=>alpha_coeff, &
   beta_coeff0=>beta_coeff, elem0=>elem, coor0=>coor, all_pg, ev_a, ev_b
  implicit none
- integer :: i, k, ne, nfmark, ngmark, nhmark
+ integer :: i, k, ne, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: no_type
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240), intent(in) :: mklname, fchname
  logical :: has_sp
@@ -267,12 +267,12 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                f_mark, g_mark, h_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, f_mark, g_mark, &
-                               h_mark, coeff)
- deallocate(f_mark, g_mark, h_mark)
+                                nimark, f_mark, g_mark, h_mark, i_mark)
+ call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                               f_mark, g_mark, h_mark, i_mark, coeff)
+ deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(is_uhf) then ! UHF
   allocate(alpha_coeff(nbf,nif), source=coeff(:,1:nif))

@@ -111,6 +111,34 @@ subroutine diag_get_e_and_vec2(n, a, w)
  deallocate(U)
 end subroutine diag_get_e_and_vec2
 
+subroutine get_nmo_from_ao_ovlp(nbf, ovlp, nmo)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ integer, intent(out) :: nmo
+!f2py intent(out) :: nmo
+ real(kind=8), intent(in) :: ovlp(nbf,nbf)
+!f2py intent(in) :: ovlp
+!f2py depend(nbf) :: ovlp
+ real(kind=8), parameter :: thres = 1d-6
+ real(kind=8), allocatable :: S(:,:), w(:)
+
+ allocate(S(nbf,nbf), w(nbf))
+ S = ovlp
+ call diag_get_e_and_vec2(nbf, S, w)
+ deallocate(S)
+
+ nmo = 0
+ do i = 1, nbf, 1
+  if(w(i) > thres) exit
+  nmo = nmo + 1
+ end do ! for i
+ deallocate(w)
+
+ nmo = nbf - nmo
+end subroutine get_nmo_from_ao_ovlp
+
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
 ! Note: the input matrix A must be symmetric
 subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
@@ -516,9 +544,15 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  implicit none
  integer :: i, j, k
  integer, intent(in) :: nbf, nif
- real(kind=8), parameter :: thres = 1d-8
+!f2py intent(in) :: nbf, nif
+ real(kind=8), parameter :: thres = 1d-7
  real(kind=8), intent(in) :: mo(nbf,nif), noon(nif)
+!f2py intent(in) :: mo, noon
+!f2py depend(nif,nbf) :: mo
+!f2py depend(nif) :: noon
  real(kind=8), intent(out) :: dm(nbf,nbf)
+!f2py intent(out) :: dm
+!f2py depend(nbf) :: dm
 
  dm = 0d0 ! initialization
 
@@ -530,7 +564,8 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
    end do ! for k
   end do ! for j
  end do ! for i
- ! Note that dm(i,j) is not assigned
+
+ forall(i=1:nbf, j=1:nbf, j<i) dm(i,j) = dm(j,i)
 end subroutine calc_dm_using_mo_and_on
 
 ! get a random integer

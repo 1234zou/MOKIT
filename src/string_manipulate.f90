@@ -5,6 +5,7 @@ module phys_cons ! physics constants
  real(kind=8), parameter :: au2ev = 27.211396d0
  real(kind=8), parameter :: au2kcal = 627.51d0 ! a.u. to kcal/mol
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
+ real(kind=8), parameter :: GPa2eVA3 = 6.241509074460764d-3
 end module phys_cons
 
 ! transform a string into upper case
@@ -441,43 +442,6 @@ subroutine add_X2C_into_fch(fchname)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine add_X2C_into_fch
 
-! add '.x2c1e()' into a given PySCF .py file
-subroutine add_X2C_into_py(pyname)
- implicit none
- integer :: i, fid, fid1, RENAME
- character(len=240) :: buf, pyname1
- character(len=240), intent(in) :: pyname
-
- pyname1 = TRIM(pyname)//'.t'
- open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(pyname1),status='replace')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:4) == 'mf =') exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine add_X2C_into_py: 'mf =' not found in file&
-                 & "//TRIM(pyname)
-  stop
- end if
-
- write(fid1,'(A)') TRIM(buf)//'.x2c1e()'
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- close(fid,status='delete')
- close(fid1)
- i = RENAME(TRIM(pyname1), TRIM(pyname))
-end subroutine add_X2C_into_py
-
 ! detect the number of columns of data in a string buf
 function detect_ncol_in_buf(buf) result(ncol)
  implicit none
@@ -711,8 +675,8 @@ subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: incomplete&
-                 & file: '//TRIM(gjfname)
+  write(6,'(/,A)') 'ERROR in subroutine record_gen_basis_in_gjf: incomplete fil&
+                   &e: '//TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -723,8 +687,8 @@ subroutine record_gen_basis_in_gjf(gjfname, basname, add_path)
  if((.not.nobasis) .and. LEN_TRIM(buf)==0) nobasis = .true.
 
  if(nobasis) then
-  write(6,'(A)') 'ERROR in subroutine record_gen_basis_in_gjf: no mixed/user&
-                 &-defined basis'
+  write(6,'(/,A)') 'ERROR in subroutine record_gen_basis_in_gjf: no mixed/user-&
+                   &defined basis'
   write(6,'(A)') 'set detected in file '//TRIM(gjfname)
   close(fid1)
   stop
@@ -782,6 +746,10 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  ! deal with the basis set data
  do while(.true.)
   read(fid,'(A)') buf
+  if(buf(1:1) == '!') then
+   write(fid1,'(A)') TRIM(buf)
+   cycle
+  end if
 
   if(buf0(1:4) == '****') then
    if(LEN_TRIM(buf) == 0) exit
@@ -830,6 +798,39 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  i = RENAME(TRIM(basname1), TRIM(basname))
 end subroutine add_hyphen_for_elem_in_basfile
 
+! delete '-' symbol before elements, in a .bas file
+subroutine del_hyphen_for_elem_in_basfile(basname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: basname1
+ character(len=240), intent(in) :: basname
+ character(len=300) :: buf
+
+ basname1 = TRIM(basname)//'.t'
+ open(newunit=fid,file=TRIM(basname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(basname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+
+  select case(buf(1:1))
+  case('!')
+   write(fid1,'(A)') TRIM(buf)
+   cycle
+  case('-')
+   i = IACHAR(buf(2:2))
+   if((i>64 .and. i<91) .or. (i>96 .and. i<123)) buf = TRIM(buf(2:))
+  end select
+
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(basname1), TRIM(basname))
+end subroutine del_hyphen_for_elem_in_basfile
+
 function get_mokit_root() result(mokit_root)
  implicit none
  integer :: i, fid
@@ -855,12 +856,14 @@ end function get_mokit_root
 subroutine add_mokit_path_to_genbas(basname)
  implicit none
  integer :: i, fid, fid1, RENAME
- character(len=12) :: sbuf = ' '
+ character(len=11) :: sbuf = ' '
  character(len=240) :: mokit_root, basname1
  character(len=240), external :: get_mokit_root
  character(len=240), intent(in) :: basname
  character(len=480) :: buf = ' '
+ logical :: alive(7)
 
+ sbuf = ' '
  !mokit_root = ' '
  !call getenv('MOKIT_ROOT', mokit_root)
  mokit_root = get_mokit_root()
@@ -873,10 +876,13 @@ subroutine add_mokit_path_to_genbas(basname)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   sbuf = TRIM(buf(1:11))
+  
   call upper(sbuf)
-  if(sbuf(1:3)=='X2C' .or. sbuf(1:6)=='PCSSEG' .or. sbuf(1:7)=='ANO-RCC' .or.&
-     sbuf(1:8)=='DKH-DEF2' .or. sbuf(1:11)=='MA-DKH-DEF2') then
-   buf = '@'//TRIM(mokit_root)//'/mokit/basis/'//TRIM(buf)
+  alive = [(sbuf(1:3)=='X2C'), (sbuf(1:6)=='PCSSEG'), (sbuf(1:7)=='ANO-RCC'), &
+           (sbuf(1:8)=='DKH-DEF2'), (sbuf(9:11)=='X2C'), (sbuf=='MA-DKH-DEF2'),&
+           (sbuf(8:11)=='-F12')]
+  if(ANY(alive .eqv. .true.)) then
+   buf = '@'//TRIM(mokit_root)//'/mokit/basis/'//TRIM(buf)//'/N'
   end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
@@ -943,8 +949,8 @@ subroutine copy_gen_basis_bas2gjf(basname, gjfname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine copy_gen_basis_bas2gjf: incomplete&
-                 & file: '//TRIM(gjfname)
+  write(6,'(/,A)') 'ERROR in subroutine copy_gen_basis_bas2gjf: incomplete file&
+                   & '//TRIM(gjfname)
   close(fid1)
   stop
  end if
@@ -1460,6 +1466,7 @@ subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
 end subroutine add_RI_kywd_into_molcas_inp
 
 ! read memory and nprocshared from a given .gjf file
+! mem is in MB
 subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
  implicit none
  integer :: i, j, k, fid
@@ -1470,7 +1477,6 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
  ! default settings
  mem = 1000 ! 1000 MB
  np = 1     ! 1 core
-
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
 
  do while(.true.)
@@ -1504,10 +1510,9 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
  end do ! for while
 
  close(fid)
-
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
-                & file '//TRIM(gjfname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
+                   & file '//TRIM(gjfname)
   stop
  end if
 end subroutine read_mem_and_nproc_from_gjf
