@@ -16,9 +16,9 @@ subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, dmrg_no, &
   ist, hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
   casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_omp, &
-  molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, bgchg,&
-  chgname, casscf_force, check_gms_path, prt_strategy, RI, nmr, ICSS, on_thres,&
-  iroot, xmult, dyn_corr
+  molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, &
+  dalton_mpi, bgchg, chgname, casscf_force, check_gms_path, prt_strategy, RI, &
+  nmr, ICSS, on_thres, iroot, xmult, dyn_corr
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
@@ -438,8 +438,8 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(xmlname))
   call prt_cas_dalton_inp(inpname, scf, casscf_force)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-                                             ! sirius, noarch, del_sout
-  call submit_dalton_job(proname, mem, nproc, .false., .false., .false.)
+                                                   ! sirius, noarch, del_sout
+  call submit_dalton_job(proname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
   ! untar/unzip the compressed package to get DALTON.MOPUN
   i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
@@ -532,14 +532,19 @@ subroutine do_cas(scf)
  if(nmr) then
   call prt_cas_dalton_nmr_inp(casnofch, scf, ICSS, iroot, nfile)
   inpname = TRIM(proname)//'_NMR'
-                                             ! sirius, noarch, del_sout
-  call submit_dalton_job(inpname, mem, nproc, .false., .false., .false.)
+                                                   ! sirius, noarch, del_sout
+  call submit_dalton_job(inpname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   inpname = TRIM(proname)//'_NMR.out'
   call read_shieldings_from_dalton_out(inpname)
  end if
 
  if(ICSS) then
-  call submit_dalton_icss_job(proname, mem, nproc, nfile)
+  if(dalton_mpi) then
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: internal inconsistency.'
+   write(6,'(A)') 'dalton_mpi = .T.'
+   stop
+  end if
+  call submit_dalton_icss_job(proname, mem, nproc, nfile, dalton_mpi)
   call gen_icss_cub(proname, nfile)
  end if
 
@@ -1383,17 +1388,24 @@ subroutine copy_mol_and_add_atomtypes(molname, molname1)
  close(fid1)
 end subroutine copy_mol_and_add_atomtypes
 
-subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
+subroutine submit_dalton_icss_job(proname, mem, nproc, nfile, dalton_mpi)
  implicit none
  integer :: i, n, njob, fid, system
  integer, intent(in) :: mem, nproc, nfile
+ character(len=3) :: str3
  character(len=240) :: buf, makefile, molname, dalname
  character(len=240), intent(in) :: proname
+ logical, intent(in) :: dalton_mpi
 
  if(nproc < 2) then
   write(6,'(/,A)') 'ERROR in subroutine submit_dalton_icss_job: the ICSS job &
                    &requires at least 2 CPU cores.'
   stop
+ end if
+ if(dalton_mpi) then
+  str3 = 'N'
+ else
+  str3 = 'omp'
  end if
 
  makefile = TRIM(proname)//'.make'
@@ -1419,8 +1431,8 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  do i = 1, nfile, 1
   write(fid,'(/,2(A,I0),A)') 'w',i,':'
   write(molname,'(A,I5.5,A)') TRIM(proname),i,'.sout'
-  write(fid,'(A1,2(A,I5.5),A)') ACHAR(9),"dalton -gb ${mem} -omp ${np} -noarch&
-                              & -ow ${pro}",i,' >${pro}',i,".sout 2>&1"
+  write(fid,'(A1,2(A,I5.5),A)') ACHAR(9),'dalton -gb ${mem} -'//TRIM(str3)//&
+   ' ${np} -noarch -ow ${pro}',i,' >${pro}',i,".sout 2>&1"
  end do ! for i
  close(fid)
 
@@ -1428,8 +1440,8 @@ subroutine submit_dalton_icss_job(proname, mem, nproc, nfile)
  write(6,'(A)') '$'//TRIM(buf)
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine submit_dalton_icss_job: failed to run&
-                & Dalton ICSS jobs.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_dalton_icss_job: failed to run D&
+                   &alton ICSS jobs.'
   stop
  end if
 
@@ -1710,12 +1722,13 @@ subroutine prt_hard_or_crazy_casci_orca(fid, hardwfn, crazywfn)
  write(fid,'(A)') ' CI'
  if(hardwfn) then
   write(fid,'(A)') '  MaxIter 400'
-  write(fid,'(A)') '  NGuessMat 1000'
+  write(fid,'(A)') '  NGuessMat 1700'
  else if(crazywfn) then
   write(fid,'(A)') '  MaxIter 600'
-  write(fid,'(A)') '  NGuessMat 1500'
+  write(fid,'(A)') '  NGuessMat 2500'
  else
   write(fid,'(A)') '  MaxIter 200'
+  write(fid,'(A)') '  NGuessMat 1000'
  end if
 
  write(fid,'(A)') ' end'
@@ -1773,10 +1786,11 @@ end subroutine prt_gs_casscf_kywrd_py
 ! print excited state CASSCF keywords into a PySCF .py file
 ! state tracking is achieved by detecting spin multiplicities of each state
 subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
- use mol, only: nacto, nacta, nactb, mult
+ use mol, only: nacto, nacte, nacta, nactb, mult
  use mr_keyword, only: mem, casscf, dkh2_or_x2c, RI, hardwfn, crazywfn, iroot,&
   xmult
  implicit none
+ integer :: k
  integer, intent(in) :: fid
  integer, parameter :: maxcyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
@@ -1787,10 +1801,16 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
 
  if(casscf) then ! CASSCF
   if(xmult == mult) then
-   write(fid,'(A,I0)') 'nroots = ', iroot+6 ! initial nroots
+   if(nacto==2 .and. nacte==2) then ! CAS(2,2)
+    k = 4
+   else                             ! >=CAS(4,4)
+    k = iroot + 6
+   end if
+   write(fid,'(A,I0)') 'nroots = ', k ! initial nroots
   else
    write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
   end if
+
   write(fid,'(A,I0,A)') 'for i in range(',maxcyc,'):'
   write(fid,'(2X,A)') "print('ITER=',i)"
   if(dkh2_or_x2c) then
@@ -1818,12 +1838,16 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   end if
   write(fid,'(2X,A)') 'for j in range(nroots):'
   write(fid,'(4X,A)') 'ss = mc.fcisolver.spin_square(mc.ci[j], mc.ncas, mc.nelecas)'
-  write(fid,'(4X,A,F7.3,A)') 'if(abs(ss[0]-',xss,') < 1e-4):'
+  write(fid,'(4X,A,F0.3,A)') 'if(abs(ss[0] - ',xss,') < 1e-4):'
   write(fid,'(6X,A)') 'iroot = iroot + 1'
   write(fid,'(4X,A,I0,A)') 'if(iroot == ',iroot,'):'
   write(fid,'(6X,A)') 'break'
   write(fid,'(2X,A)') 'e = mc.e_tot[j]'
-  write(fid,'(2X,A)') 'nroots = j + 3'
+  if(nacto==2 .and. nacte==2) then
+   write(fid,'(2X,A)') 'nroots = 4'
+  else
+   write(fid,'(2X,A)') 'nroots = j + 3'
+  end if
   if(dkh2_or_x2c) then
    write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
   else

@@ -134,8 +134,8 @@ module mr_keyword
  character(len=240) :: casnofch = ' ' ! .fch(k) file of CASCI or CASSCF job
  character(len=240) :: basname = ' '  ! file to store gen/genecp data
 
- logical :: molcas_omp = .true. ! OpenMP/MPI version of OpenMolcas
- ! True/False for OpenMP/MPI, automatically detected
+ logical :: molcas_omp = .true.  ! OpenMP/MPI version of OpenMolcas
+ logical :: dalton_mpi = .false. ! MKL/MPI version of Dalton
 
  logical :: mo_rhf  = .false.     ! whether the initial wfn is RHF/UHF for True/False
  ! mo_rhf will be set as .True. in the follwing 3 cases:
@@ -317,7 +317,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc26 (2024-Apr-9)'
+ write(6,'(A)') '           Version: 1.2.6rc27 (2024-Apr-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -338,6 +338,7 @@ subroutine read_program_path()
  call get_orca_path(orca_path)
  call get_psi4_path(psi4_path)
  call get_dalton_path(dalton_path)
+ call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  call getenv('BDF', bdf_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
@@ -1017,7 +1018,7 @@ subroutine check_kywd_compatible()
  if(nmr) then
   if((.not.casscf) .and. iroot==0) then
    write(6,'(/,A)') error_warn//'NMR is supposed to be used with the'
-   write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root is specified.'
+   write(6,'(A)') 'CASSCF method. But neither CASSCF nor Root=N is specified.'
    stop
   end if
   if(TRIM(dalton_path) == 'NOT FOUND') then
@@ -1026,6 +1027,14 @@ subroutine check_kywd_compatible()
   else
    call check_exe_exist(dalton_path)
   end if
+ end if
+
+ if(icss .and. dalton_mpi) then
+  write(6,'(/,A)') error_warn//'you are using MPI version of Dalton.'
+  write(6,'(A)') 'Please use MKL version of Dalton for CASSCF ICSS computations&
+                 &, which is'
+  write(6,'(A)') 'supposed to be faster.'
+  stop
  end if
 
  if(DKH2 .and. X2C) then
@@ -2167,52 +2176,6 @@ subroutine get_dalton_path(dalton_path)
   end if
  end if
 end subroutine get_dalton_path
-
-! check/detect OpenMolcas is OpenMP version or MPI version
-subroutine check_molcas_is_omp(omp)
- implicit none
- integer :: i, fid, SYSTEM
- character(len=3) :: str
- character(len=10), parameter :: ftmp = 'molcas.ver'
- character(len=240) :: buf
- logical, intent(out) :: omp
-
- str = ' '
- omp = .true.
- i = SYSTEM('pymolcas --banner >'//ftmp//" 2>&1")
-
- ! maybe OpenMolcas not installed, assume OpenMP version
- if(i /= 0) then
-  call delete_file(TRIM(ftmp))
-  return
- end if
-
- ! OK, now it is installed
- open(newunit=fid,file=ftmp,status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == 'Parallel') exit
- end do ! for while
-
- if(i /= 0) return 
- ! maybe 'bash: pymolcas: command not found', assume OpenMP version
-
- i = INDEX(buf,':')
- read(buf(i+1:),*) str
- close(fid,status='delete')
- str = ADJUSTL(str)
-
- select case(TRIM(str))
- case('ON') ! MPI version
-  omp = .false.
- case('OFF') ! OpenMP version
- case default
-  write(6,'(A)') 'ERROR in subroutine check_molcas_is_omp: unrecognized para&
-                 &llel type='//str
-  stop
- end select
-end subroutine check_molcas_is_omp
 
 ! set memory and nproc in the module mr_keyword
 subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)

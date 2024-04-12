@@ -849,7 +849,7 @@ subroutine submit_cfour_job(nproc, outname, omp)
  implicit none
  integer :: i, fid, SYSTEM
  integer, intent(in) :: nproc
- character(len=30) :: shname
+ character(len=20) :: shname
  character(len=240), intent(in) :: outname
  logical, intent(in) :: omp
 
@@ -878,28 +878,127 @@ subroutine submit_cfour_job(nproc, outname, omp)
  end if
 end subroutine submit_cfour_job
 
-subroutine submit_dalton_job(proname, mem, nproc, sirius, noarch, del_sout)
+subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
  implicit none
- integer :: i, SYSTEM
+ integer :: i, fid, SYSTEM
  integer, intent(in) :: mem, nproc
- character(len=480) :: buf
+ character(len=20) :: shname
+ character(len=240) :: sout
  character(len=240), intent(in) :: proname
- logical, intent(in) :: sirius, noarch, del_sout
+ character(len=500) :: buf
+ logical, intent(in) :: mpi, sirius, noarch, del_sout
 
- write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -omp ',nproc
+ if(mpi) then ! MPI
+  write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -N ',nproc
+ else
+  write(buf,'(2(A,I0))') 'dalton -gb ',MIN(mem,16),' -omp ',nproc
+ end if
  if(sirius) buf = TRIM(buf)//" -put ""SIRIUS.RST"""
  if(noarch) buf = TRIM(buf)//' -noarch'
- buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(proname)//".sout 2>&1"
+ sout = TRIM(proname)//'.sout'
+ buf = TRIM(buf)//' -ow '//TRIM(proname)//' >'//TRIM(sout)//" 2>&1"
  write(6,'(A)') '$'//TRIM(buf)
+
+ if(mpi) then
+  call get_a_random_int(i)
+  write(shname,'(I0,A)') i, '.sh'
+  open(newunit=fid,file=TRIM(shname),status='replace')
+  write(fid,'(A)') 'unset DALTON_LAUNCHER'
+  write(fid,'(A)') TRIM(buf)
+  close(fid)
+  buf = '/bin/bash '//TRIM(shname)
+ end if
+
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_cas: Dalton job failed.'
-  write(6,'(A)') 'Please open files '//TRIM(proname)//'.out and '//TRIM(proname)&
-                  //'.sout and check why.'
+  write(6,'(A)') 'Please open files '//TRIM(proname)//'.out as well as '//&
+                 TRIM(sout)//' and check why.'
   stop
  end if
 
- if(del_sout) call delete_file(TRIM(proname)//'.sout')
+ if(mpi) call delete_file(TRIM(shname))
+ if(del_sout) call delete_file(TRIM(sout))
  if(.not. noarch) i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
 end subroutine submit_dalton_job
+
+! check/detect OpenMolcas is OpenMP version or MPI version
+subroutine check_molcas_is_omp(omp)
+ implicit none
+ integer :: i, fid, SYSTEM
+ character(len=3) :: str
+ character(len=10), parameter :: ftmp = 'molcas.ver'
+ character(len=240) :: buf
+ logical, intent(out) :: omp
+
+ str = ' '; omp = .true.
+ i = SYSTEM('pymolcas --banner >'//ftmp//" 2>&1")
+
+ ! maybe OpenMolcas not installed, assume OpenMP version
+ if(i /= 0) then
+  call delete_file(TRIM(ftmp))
+  return
+ end if
+
+ ! OK, now it is installed
+ open(newunit=fid,file=ftmp,status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == 'Parallel') exit
+ end do ! for while
+
+ ! maybe 'bash: pymolcas: command not found', assume OpenMP version
+ if(i /= 0) then
+  close(fid,status='delete')
+  return
+ end if
+
+ i = INDEX(buf,':')
+ read(buf(i+1:),*) str
+ close(fid,status='delete')
+ str = ADJUSTL(str)
+
+ select case(TRIM(str))
+ case('ON') ! MPI version
+  omp = .false.
+ case('OFF') ! OpenMP version
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine check_molcas_is_omp: unrecognized paral&
+                   &lel type='//str
+  stop
+ end select
+end subroutine check_molcas_is_omp
+
+! check/detect Dalton is MKL version or MPI version
+subroutine check_dalton_is_mpi(mpi)
+ implicit none
+ integer :: i, fid, SYSTEM
+ character(len=3) :: str
+ character(len=10), parameter :: ftmp = 'dalton.ver'
+ character(len=240) :: buf
+ logical, intent(out) :: mpi
+
+ str = ' '; mpi = .false.
+ i = SYSTEM('ldd `(which dalton.x)` >'//ftmp//" 2>&1")
+
+ ! maybe Dalton not installed, assume MKL version
+ if(i /= 0) then
+  call delete_file(TRIM(ftmp))
+  return
+ end if
+
+ ! OK, now it is installed
+ open(newunit=fid,file=ftmp,status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf,'libmpi') > 0) then
+   mpi = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid,status='delete')
+end subroutine check_dalton_is_mpi
 

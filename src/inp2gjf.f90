@@ -27,12 +27,7 @@ program inp2gjf
   gjfname = inpname(1:j-1)//'.gjf'
  end if
 
- if(inpname(j+1:j+7) == 'restart') then
-  call inp2gjf_cp2k(inpname, gjfname)
- else
-  write(6,'(/,A)') 'ERROR in program inp2gjf: file format not supported.'
-  stop
- end if
+ call inp2gjf_cp2k(inpname, gjfname)
 end program inp2gjf
 
 ! convert CP2K .inp/.restart file into Gaussian .gjf file

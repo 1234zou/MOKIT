@@ -4,8 +4,8 @@
 subroutine do_mrcisd()
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, CIonly, eist, mrcisd,&
   mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
-  gms_path, gms_scr_path, molpro_path, psi4_path, bgchg, casci_prog, casscf_prog,&
-  chgname
+  gms_path, gms_scr_path, molpro_path, psi4_path, dalton_mpi, bgchg, casci_prog,&
+  casscf_prog, chgname
  use mol, only: casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inporb_wrap
  implicit none
@@ -168,7 +168,7 @@ subroutine do_mrcisd()
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD'
   chkname = casnofch(1:i)//'MRCISD.sout'
-  call submit_dalton_job(mklname, mem, nproc, .false., .false., .false.)
+  call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
   i = SYSTEM('fch2inp '//TRIM(casnofch))
@@ -433,7 +433,7 @@ end subroutine prt_mrci_molcas_inp
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
  use mol, only: nopen, nacta, nactb, npair0, mult
- use mr_keyword, only: mem, nproc, CtrType, DKH2
+ use mr_keyword, only: mem, nproc, CtrType, DKH2, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2
  integer :: RENAME
@@ -463,6 +463,16 @@ subroutine prt_mrcisd_orca_inp(inpname1)
   write(fid2,'(A)') ' tpre 0.0'
   write(fid2,'(A)') ' Etol 1e-7'
   write(fid2,'(A)') ' Rtol 1e-7'
+  if(hardwfn) then
+   write(fid2,'(A)') ' NGuessMat 1700'
+   write(fid2,'(A)') ' NGuessMatRefCI 1700'
+  else if(crazywfn) then
+   write(fid2,'(A)') ' NGuessMat 2500'
+   write(fid2,'(A)') ' NGuessMatRefCI 2500'
+  else
+   write(fid2,'(A)') ' NGuessMat 1000'
+   write(fid2,'(A)') ' NGuessMatRefCI 1000'
+  end if
  else if(CtrType == 3) then ! FIC-MRCISD
   write(fid2,'(A)') '%autoci'
   write(fid2,'(A)') ' CItype FICMRCI'
@@ -471,9 +481,16 @@ subroutine prt_mrcisd_orca_inp(inpname1)
   write(fid2,'(A,I0)') ' mult ', mult
   write(fid2,'(A)') ' nroots 1'
   write(fid2,'(A)') ' DavidsonOpt 1'
+  ! NGuessMat can only be used in ORCA 6
  end if
 
- write(fid2,'(A)') ' MaxIter 200'
+ if(hardwfn) then
+  write(fid2,'(A)') ' MaxIter 400'
+ else if(crazywfn) then
+  write(fid2,'(A)') ' MaxIter 600'
+ else
+  write(fid2,'(A)') ' MaxIter 200'
+ end if
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%method'
  write(fid2,'(A)') ' FrozenCore FC_NONE'
@@ -862,8 +879,8 @@ end subroutine prt_mrci_orb_type
 ! do uncontacted MRCISDT using one of Gaussian/OpenMolcas/Dalton
 subroutine do_mrcisdt()
  use mr_keyword, only: mem, nproc, eist, mrcisdt, mrcisdt_prog, molcas_omp, &
-  molcas_path, gau_path, psi4_path, gms_path, gms_scr_path, casnofch, chgname,&
-  CIonly, bgchg, CtrType
+  molcas_path, gau_path, psi4_path, dalton_mpi, gms_path, gms_scr_path, casnofch,&
+  chgname, CIonly, bgchg, CtrType
  use mol , only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
  use util_wrapper, only: unfchk, fch2inporb_wrap
  implicit none
@@ -936,7 +953,7 @@ subroutine do_mrcisdt()
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISDT'
   chkname = casnofch(1:i)//'MRCISDT.sout'
-  call submit_dalton_job(mklname, mem, nproc, .false., .false., .false.)
+  call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
   i = SYSTEM('fch2inp '//TRIM(casnofch))

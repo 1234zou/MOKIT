@@ -6,7 +6,7 @@ module sr_keyword
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
   nstate, readrhf, readuhf, mo_rhf, hf_prog, hfonly, hf_fch, skiphf, chgname, &
   gau_path, molcas_path, orca_path, psi4_path, dalton_path, gms_path, gms_scr_path, &
-  nmr, check_gms_path, molcas_omp
+  nmr, check_gms_path, molcas_omp, dalton_mpi
  use mol, only: chem_core, ecp_core
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc26 (2024-Apr-9)'
+ write(6,'(A)') '           Version: 1.2.6rc27 (2024-Apr-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -74,6 +74,7 @@ subroutine read_sr_program_path()
  call get_molpro_path(molpro_path)
  call get_psi4_path(psi4_path)
  call get_dalton_path(dalton_path)
+ call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
 
@@ -536,7 +537,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc26 :: MOKIT, release date: 2024-Apr-9'
+  write(6,'(A)') 'AutoSR 1.2.6rc27 :: MOKIT, release date: 2024-Apr-12'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
@@ -641,7 +642,7 @@ subroutine do_mp2()
  use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, bgchg, chgname, ref_e, &
   corr_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, core_wish,&
   gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path, &
-  gen_no, no_fch, relaxed_dm, force, molcas_omp, RI
+  dalton_mpi, gen_no, no_fch, relaxed_dm, force, molcas_omp, RI
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
   fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap, &
   fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
@@ -810,7 +811,7 @@ subroutine do_mp2()
   inpname = hf_fch(1:i-1)//'_MP2.dal'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  call submit_dalton_job(old_inp, mem, nproc, .false., .false., .false.)
+  call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .true., .false., .false., .false.,&
                                      rtmp, ref_e, mp2_e)
  case('openmolcas')
@@ -849,8 +850,8 @@ subroutine do_cc()
  use sr_keyword, only: mem, nproc, ccd, ccsd, ccsd_t, cc_enabled, bgchg, hf_fch,&
   chgname, cc_prog, method, ccd_e, ccsd_e, ccsd_t_e, ref_e, corr_e, t1diag, &
   chem_core, ecp_core, customized_core, core_wish, RI, gau_path, orca_path, &
-  psi4_path, gms_path, gms_scr_path, check_gms_path, gen_no, relaxed_dm, no_fch,&
-  force, molcas_omp
+  psi4_path, dalton_mpi, gms_path, gms_scr_path, check_gms_path, gen_no, &
+  relaxed_dm, no_fch, force, molcas_omp
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
   bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap, fch2cfour_wrap, &
   fch2dal_wrap, fch2inporb_wrap
@@ -1015,7 +1016,7 @@ subroutine do_cc()
   inpname = hf_fch(1:i-1)//'_CC.dal'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  call submit_dalton_job(old_inp, mem, nproc, .false., .false., .false.)
+  call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .false., ccd, ccsd, ccsd_t, t1diag,&
                                      ref_e, e)
  case('openmolcas')
