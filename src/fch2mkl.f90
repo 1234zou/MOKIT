@@ -21,19 +21,27 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: i, k
- character(len=4) :: str
+ integer :: itype ! 0/1/2 for default/DFT/SF-TDDFT
+ character(len=7) :: str
  character(len=240) :: fchname
- logical :: prt_dft
 
+ str = ' '; fchname = ' '; itype = 0
  i = iargc()
  if(i<1 .or. i>2) then
   write(6,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2mkl h2o.fch'
-  write(6,'(A,/)') ' Example 2 (R(O)DFT, UDFT)   : fch2mkl h2o.fch -dft'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
+  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
+  write(6,'(A)')   ' Example 3 (R(O)DFT/UDFT)  : fch2mkl h2o.fch -pwpb95'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -b3lyp'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -m062x'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -pbe'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -pbe0'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -tpss'
+  write(6,'(A)')   '                             fch2mkl h2o.fch -tpssh'
+  write(6,'(A,/)') '                             fch2mkl h2o.fch -wb97mv'
   stop
  end if
 
- fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -44,26 +52,44 @@ program main
   fchname = fchname(1:k-4)//'.fch'
  end if
 
- str = ' '; prt_dft = .false.
  if(i == 2) then
   call getarg(2, str)
-  if(str /= '-dft') then
-   write(6,'(/,A)') 'ERROR in program fch2mkl: wrong command line argument!'
-   write(6,'(A)') "The 2nd argument can only be '-dft'."
+  select case(TRIM(str))
+  case('-sf')
+   itype = 1
+  case('-pwpb95')
+   itype = 2
+  case('-b3lyp')
+   itype = 3
+  case('-m062x')
+   itype = 4
+  case('-pbe')
+   itype = 5
+  case('-pbe0')
+   itype = 6
+  case('-tpss')
+   itype = 7
+  case('-tpssh')
+   itype = 8
+  case('-wb97mv')
+   itype = 9
+  case default
+   write(6,'(/,A)') 'ERROR in program fch2mkl: the 2nd command line argument is&
+                    & wrong!'
    stop
-  end if
-  prt_dft = .true.
+  end select
  end if
 
- call fch2mkl(fchname, prt_dft)
+ call fch2mkl(fchname, itype)
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine fch2mkl(fchname, prt_dft)
+subroutine fch2mkl(fchname, itype)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark, nimark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
+ integer, intent(in) :: itype
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
@@ -73,7 +99,6 @@ subroutine fch2mkl(fchname, prt_dft)
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp
- logical, intent(in) :: prt_dft
 
  call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
@@ -100,7 +125,23 @@ subroutine fch2mkl(fchname, prt_dft)
                    & supported for fch2mkl.'
   stop
  end if
- ! check done
+
+ if(itype==1) then
+  if(mult /= 3) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: SF-TDDFT in ORCA can only be &
+                    &based on a triplet'
+   write(6,'(A,I0)') 'UHF/UKS reference. The spin multiplicity in your provided&
+                    & .fch(k) file is ', mult
+   stop
+  end if
+  if(.not. uhf) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: SF-TDDFT in ORCA can only be &
+                    &based on a triplet'
+   write(6,'(A,I0)') 'UHF/UKS reference. It seems that you provide an ROHF/ROKS&
+                     & .fch(k) file.'
+   stop
+  end if
+ end if
 
  ! update MO coefficients
  if(uhf) then ! UHF
@@ -194,18 +235,7 @@ subroutine fch2mkl(fchname, prt_dft)
  open(newunit=fid2,file=TRIM(inpname),status='replace')
  write(fid2,'(A)') '%pal nprocs 4 end'
  write(fid2,'(A)') '%maxcore 1000'
- if(prt_dft) then ! DFT
-  if(uhf) then
-   write(fid2,'(A)',advance='no') '! UKS'
-  else
-   if(nopen == 0) then
-    write(fid2,'(A)',advance='no') '! RKS'
-   else ! nopen > 0
-    write(fid2,'(A)',advance='no') '! ROKS'
-   end if
-  end if
-  write(fid2,'(A)') ' TightSCF noTRAH defgrid3'
- else             ! HF
+ if(itype == 0) then ! HF
   if(uhf) then
    write(fid2,'(A)',advance='no') '! UHF'
   else
@@ -216,6 +246,37 @@ subroutine fch2mkl(fchname, prt_dft)
    end if
   end if
   write(fid2,'(A)') ' VeryTightSCF noTRAH'
+ else                ! DFT
+  if(uhf) then
+   write(fid2,'(A)',advance='no') '! UKS'
+  else
+   if(nopen == 0) then
+    write(fid2,'(A)',advance='no') '! RKS'
+   else ! nopen > 0
+    write(fid2,'(A)',advance='no') '! ROKS'
+   end if
+  end if
+  select case(itype)
+  case(1)
+   write(fid2,'(A)',advance='no') ' BHANDHLYP'
+  case(2)
+   write(fid2,'(A)',advance='no') ' RI-PWPB95 D3BJ def2-TZVPP/C'
+  case(3)
+   write(fid2,'(A)',advance='no') ' B3LYP D3BJ'
+  case(4)
+   write(fid2,'(A)',advance='no') ' M062X D3zero'
+  case(5)
+   write(fid2,'(A)',advance='no') ' PBE D3BJ'
+  case(6)
+   write(fid2,'(A)',advance='no') ' PBE0 D3BJ'
+  case(7)
+   write(fid2,'(A)',advance='no') ' TPSS D3BJ'
+  case(8)
+   write(fid2,'(A)',advance='no') ' TPSSh D3BJ'
+  case(9)
+   write(fid2,'(A)',advance='no') ' wB97M-V'
+  end select
+  write(fid2,'(A)') ' def2/J TightSCF noTRAH defgrid3'
  end if
 
  select case(irel)
@@ -251,6 +312,13 @@ subroutine fch2mkl(fchname, prt_dft)
  else if(irel == -3) then
  ! we assume that ORCA-6.0 will add sfX2C and it is just like this
   write(fid2,'(A,/,A,/,A)') '%rel',' method X2C','end'
+ end if
+
+ if(itype == 1) then
+  write(fid2,'(A)') '%tddft'
+  write(fid2,'(A)') ' sf true'
+  write(fid2,'(A)') ' nroots 5'
+  write(fid2,'(A)') 'end'
  end if
 
  write(fid2,'(A)') '%scf'
@@ -410,8 +478,7 @@ subroutine fch2mkl(fchname, prt_dft)
  deallocate(eigen_e_a)
  write(fid1,'(A,/)') '$END'
 
- if(uhf) then
-  ! print Beta MO (if any) and corresponding energies into .mkl file
+ if(uhf) then ! print Beta MOs and corresponding energies
   write(fid1,'(A)') '$COEFF_BETA'
   k = 0
   do while(.true.)

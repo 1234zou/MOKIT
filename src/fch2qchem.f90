@@ -11,38 +11,54 @@ program main
  integer :: i, npair
  character(len=5) :: str
  character(len=240) :: fchname
- character(len=60), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
+ character(len=61), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
                                               & wrong command line arguments!'
+ logical :: sasf
+
+ str = ' '; fchname = ' '; npair = 0; sasf = .false.
 
  i = iargc()
- if(.not. (i==1 .or. i==3)) then
+ if(i<1 .or. i>3) then
   write(6,'(/,A)') error_warn
   write(6,'(A)')   ' Example 1: fch2qchem water.fch'
-  write(6,'(A)')   ' Example 2: fch2qchem water.fch -gvb 2'
-  write(6,'(A,/)') ' (nopen will be automatically determined)'
+  write(6,'(A)')   ' Example 2: fch2qchem water.fch -sasf'
+  write(6,'(A,/)') ' Example 3: fch2qchem water.fch -gvb 2 (nopen is auto-detec&
+                   &ted)'
   stop
  end if
 
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
- str = ' '; npair = 0
-
- if(i == 3) then
+ if(i > 1) then
   call getarg(2, str)
-  if(TRIM(str) /= '-gvb') then
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') "The 2nd argument can only be '-gvb'."
-   stop
-  end if
+  select case(TRIM(str))
 
-  call getarg(3, str)
-  read(str,*) npair
-  if(npair < 0) then
+  case('-gvb')
+   if(i == 2) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'You forget to specify the number of GVB pairs.'
+    stop
+   end if
+   call getarg(3, str)
+   read(str,*) npair
+   if(npair < 0) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'The 3rd argument npair should be >=0.'
+    stop
+   end if
+  case('-sasf')
+   if(i == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') 'You cannot specify the 3rd argument.'
+    stop
+   end if
+   sasf = .true.
+  case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') 'The 3rd argument npair should be >=0.'
+   write(6,'(A)') "The 2nd argument can only be '-gvb'/'-sasf'."
    stop
-  end if
+  end select
  end if
 
  ! if .chk file provided, convert into .fch file automatically
@@ -52,10 +68,10 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call fch2qchem(fchname, npair)
+ call fch2qchem(fchname, npair, sasf)
 end program main
 
-subroutine fch2qchem(fchname, npair)
+subroutine fch2qchem(fchname, npair, sasf)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4), SYSTEM
@@ -69,6 +85,14 @@ subroutine fch2qchem(fchname, npair)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
+ logical, intent(in) :: sasf
+
+ if(npair>0 .and. sasf) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: both npair>0 and sasf=.T. ar&
+                   &e activated.'
+  write(6,'(A)') 'Please check your input arguments.'
+  stop
+ end if
 
  call find_specified_suffix(fchname, '.fch', i)
  proname = fchname(1:i-1)
@@ -77,8 +101,22 @@ subroutine fch2qchem(fchname, npair)
  call check_nosymm_in_fch(fchname)
 
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
+
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+ if(uhf .and. sasf) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
+                   &n ROHF/RODFT reference.'
+  write(6,'(A)') 'It seems that you provide a UHF/UDFT .fch(k) file.'
+  stop
+ end if
+
  call read_fch(fchname, uhf)
+ if(sasf .and. mult<3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
+                   & high-spin ROHF/RODFT'
+  write(6,'(A)') 'reference, where the spin multiplicity should be >=3.'
+  stop
+ end if
 
  purecart = 1
  if(ANY(shell_type == 2)) purecart(4) = 2 ! 6D
@@ -144,6 +182,12 @@ subroutine fch2qchem(fchname, npair)
   !write(fid,'(A)') 'ccvb_method 4'
   !write(fid,'(A,I0)') 'gvb_n_pairs ', npair
   !write(fid,'(A)') 'gvb_restart false'
+ end if
+ if(sasf) then
+  write(fid,'(A)') 'exchange bhhlyp'
+  write(fid,'(A)') 'cis_n_roots 5'
+  write(fid,'(A)') 'sasf_rpa true'
+  write(fid,'(A)') 'xc_grid 000099000590'
  end if
  write(fid,'(A)') 'gui = 2' ! generate fchk
  write(fid,'(A)') 'mem_total 4000'

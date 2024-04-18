@@ -29,29 +29,28 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i, k, npair, nopen0
- character(len=4) :: str1, string
- character(len=5) :: str2
+ integer :: i, k, npair, nopen0, itype
+ character(len=4) :: string
+ character(len=5) :: arg2, arg3
  character(len=240) :: fchname
- logical :: gvb
 
- npair = 0; nopen0 = 0
- gvb = .false.
+ npair = 0; nopen0 = 0; itype = 0; string = ' '; fchname = ' '
 
  i = iargc()
  select case(i)
- case(1)
- case(3,5)
-  gvb = .true.
+ case(1,2,3,5)
  case default
   write(6,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch'
-  write(6,'(A)')   ' Example 2 (GVB)             : fch2inp a.fch -gvb [npair]'
-  write(6,'(A,/)') ' Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
+  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2inp triplet.fch -sf'
+  write(6,'(A)')   ' Example 3 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
+  write(6,'(A)')   ' Example 4 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
+  write(6,'(A,/)') ' Example 5 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
+                   &open [Nopen]'
   stop
  end select
 
- call getarg(1,fchname)
+ call getarg(1, fchname)
  call require_file_exist(fchname)
 
  ! if .chk file provided, convert into .fch file automatically
@@ -62,41 +61,50 @@ program main
  end if
 
  if(i > 1) then
-  call getarg(2, str1)
-  if(str1 /= '-gvb') then
-   write(6,'(A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
-   write(6,'(A)') "It can only be '-gvb'."
+  call getarg(2, arg2)
+  select case(TRIM(arg2))
+  case('-sf')
+   itype = 1
+  case('-mrsf')
+   itype = 2
+  case('-gvb')
+   itype = 3
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
+   write(6,'(A)') "It can only be one of {'-gvb','-sf','-mrsf'}"
    stop
-  end if
+  end select
 
-  call getarg(3, string)
-  read(string,*) npair
-
-  if(i == 5) then
-   call getarg(4, str2)
-   if(str2 /= '-open') then
-    write(6,'(A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
-    write(6,'(A)') "It can only be '-open'."
-    stop
+  if(i > 2) then
+   call getarg(3, string)
+   read(string,*) npair
+   if(i == 5) then
+    call getarg(4, arg3)
+    if(arg3 /= '-open') then
+     write(6,'(/,A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
+     write(6,'(A)') "It can only be '-open'."
+     stop
+    end if
+    call getarg(5, string)
+    read(string,*) nopen0
    end if
-   call getarg(5, string)
-   read(string,*) nopen0
   end if
  end if
 
- call fch2inp(fchname, gvb, npair, nopen0)
+ call fch2inp(fchname, itype, npair, nopen0)
 end program main
 
-! generate .inp file (GAMESS) from .fch(k) file (Gaussian)
-subroutine fch2inp(fchname, gvb, npair, nopen0)
+! Generate GAMESS .inp file from Gaussian .fch(k) file.
+! itype: 0/1/2/3 for default/SF/MRSF/GVB methods
+subroutine fch2inp(fchname, itype, npair, nopen0)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nline, nleft, fid
+ integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, fid
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
- integer :: nd, nf, ng, nh
- integer, intent(in) :: npair, nopen0
+ integer :: itype1  ! -3/-2/-1/0/1/2/3 for GHF/ROHF/RHF/UHF/SF/MRSF/GVB
+ integer, intent(in) :: itype, npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  ! mark the index where d, f, g, h functions begin
@@ -104,22 +112,18 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
- character(len=4) :: gvb_or_uhf
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
  logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
- logical, intent(in) :: gvb
 
- uhf = .false.; ghf = .false.; ecp = .false.; so_ecp = .false.
+ itype1 = itype; ecp = .false.; so_ecp = .false.; X2C = .false.; DIIS = .false.
 
  call find_specified_suffix(fchname, '.fch', i)
  inpname = fchname(1:i-1)//'.inp'
-
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 
- X2C = .false. ! default
  call find_irel_in_fch(fchname, irel)
  select case(irel)
  case(-3) ! X2C, i.e. sf-x2c1e
@@ -143,8 +147,8 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  end select
 
  call check_ghf_in_fch(fchname, ghf) ! determine whether GHF
-
  if(ghf) then
+  itype1 = -3
   write(6,'(/,A)') 'Warning in subroutine fch2inp: GHF detected in file '//&
                     TRIM(fchname)
   write(6,'(A)') 'GAMESS does not support GHF currently. But fch2inp will be&
@@ -152,29 +156,54 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   write(6,'(A)') 'Orbitals in the generated .inp file are meanningless.'
  end if
 
- if(.not. ghf) then
-  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
-  if(gvb) then
-   gvb_or_uhf = '-gvb'
-  else
-   if(uhf) then
-    gvb_or_uhf = '-uhf'
+ call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
+ call read_fch(fchname, uhf)         ! read content in .fch(k) file
+
+ if(itype==1 .and. mult<3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: SF-TDDFT in GAMESS is supposed&
+                   & to be based on'
+  write(6,'(A)') 'a high-spin ROHF/UHF reference, with spin multiplicity >=3. B&
+                 &ut the spin'
+  write(6,'(A)') 'multiplicity in your .fch file is: ', mult
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(itype==2 .and. mult/=3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: MRSF-TDDFT in GAMESS can only &
+                   &be based on a'
+  write(6,'(A,I0)') 'triplet ROHF reference! The spin multiplicity in your .fch&
+                    & file is ', mult
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(uhf) then
+  nif1 = 2*nif
+  if(itype == 2) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2inp: UHF and MRSF both activated.'
+   write(6,'(A)') 'Please use an ROHF .fch(k) file.'
+   stop
+  else if(itype == 3) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2inp: uhf and gvb both activated.'
+   write(6,'(A)') 'Did you provide a wrong .fch(k) file, or specify wrong argum&
+                  &ents?'
+   write(6,'(A)') 'fchname='//TRIM(fchname)
+   stop
+  end if
+ else
+  nif1 = nif
+  if(itype == 0) then
+   if(mult == 1) then
+    itype1 = -1 ! RHF
    else
-    gvb_or_uhf = ' '
+    itype1 = -2 ! ROHF
    end if
   end if
  end if
 
- call read_fch(fchname, uhf) ! read content in .fch(k) file
-
  if(ghf) then
   if(ANY(DABS(CLP2) > 1d-4)) so_ecp = .true. ! SOHF/SODFT
- end if
-
- if(uhf) then
-  nif1 = 2*nif ! alpha, beta MOs
- else
-  nif1 = nif
  end if
 
  ncore = na - npair - nopen0
@@ -184,10 +213,10 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  ! check if any spherical harmonic functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/Carte&
+                   &sian functions detected.'
+  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its &
+                 &default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
   stop
  else if( ANY(shell_type>1) ) then
@@ -208,14 +237,13 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0d0)
 
  if(LenNCZ > 0) ecp = .true.
- DIIS = .false.
  if(ALL(elem == 'H ')) DIIS = .true.
  ! By default, SOSCF is good for most systems; but for a system containing only
  ! hydrogen atoms, DIIS is better than SOSCF
 
  ! create the GAMESS .inp file and print the keywords information
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, &
-                       nbf, gvb_or_uhf, ghf, ecp, sph, irel, X2C, na, nb, DIIS)
+                           nbf, na, nb, itype1, irel, uhf, ecp, sph, X2C, DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! for ghost atoms (0 charge, has basis fucntion), make ielem(i) negative,
@@ -237,7 +265,8 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   if(m < -1) m = -m
   write(fid,'(3X,A1,1X,I2)') am_type(m), n
   do j = k+1, k+n, 1
-   write(fid,'(2X,I2,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff(j), contr_coeff_sp(j)
+   write(fid,'(2X,I2,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff(j), &
+                                     contr_coeff_sp(j)
   end do ! for j
 
   if(i == ncontr) then
@@ -252,16 +281,12 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
  k = shell2atom_map(ncontr)
  if(k < natom) then
   write(6,'(/,A)') 'ERROR in subroutine fch2inp: shell2atom_map(ncontr)<natom.'
-  write(6,'(A)') 'I cannot imagine this case. So stop and check.'
+  write(6,'(A)') 'Internal inconsistency. Stop and check.'
+  close(fid)
   stop
  end if
- !if(k < natom) then ! ghost or dummy atoms?
- ! do i = k+1, natom, 1
- !  write(fid,'(A2,2X,I3,A1,3(1X,F18.8),/)') elem(i), ielem(i), '.', coor(1:3,i)
- ! end do ! for i
- !end if
- deallocate(ielem, elem, coor)
- deallocate(shell2atom_map, prim_per_shell, prim_exp, contr_coeff, contr_coeff_sp)
+ deallocate(ielem, elem, coor, shell2atom_map, prim_per_shell, prim_exp, &
+            contr_coeff, contr_coeff_sp)
  write(fid,'(A)') ' $END'
 
  ! print ECP/PP (if any) into the .inp file
@@ -279,9 +304,9 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
      n1 = KFirst(i,j); n2 = KLast(i,j)
      if(n1 == 0) exit
      if(j == 1) then
-      write(fid,'(I0,5X,A)') n2-n1+1, '----- '//str//'-ul potential -----'
+      write(fid,'(I0,5X,A)') n2-n1+1,'----- '//str//'-ul potential -----'
      else
-      write(fid,'(I0,5X,A)') n2-n1+1, '----- '//am_type1(j-2)//'-'//str//' potential -----'
+      write(fid,'(I0,5X,A)') n2-n1+1,'----- '//am_type1(j-2)//'-'//str//' potential -----'
      end if
      if(so_ecp) then ! GHF (SOHF, SODFT)
       ! Note: SO-ECP of GHF is not supported in GAMESS. I add SO-ECP as the 3rd
@@ -307,12 +332,10 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP)
  end if
 
- ! record the indices of Cartesian f, g and h functions
- allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
  allocate(temp_coeff(nbf1,nif1))
 
  if(sph) then ! spherical harmonic functions, expanding
-  if(gvb_or_uhf == '-uhf') then
+  if(uhf) then
    allocate(open_coeff(nbf,nif1))
    open_coeff(:,1:nif) = alpha_coeff
    open_coeff(:,nif+1:2*nif) = beta_coeff
@@ -322,11 +345,15 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   end if
   call mo_sph2cart(ncontr, shell_type, nbf, nbf1, nif1, open_coeff, temp_coeff)
   deallocate(open_coeff)
- else ! Cartesian functions
+ else         ! Cartesian functions
   temp_coeff(:,1:nif) = alpha_coeff
-  if(gvb_or_uhf == '-uhf') temp_coeff(:,nif+1:nif1) = beta_coeff
+  if(uhf) temp_coeff(:,nif+1:nif1) = beta_coeff
  end if
+ deallocate(alpha_coeff)
+ if(allocated(beta_coeff)) deallocate(beta_coeff)
 
+ ! record the indices of Cartesian f, g and h functions
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
  call read_mark_from_shltyp_cart(ncontr, shell_type, nd, nf, ng, nh, d_mark, &
                                  f_mark, g_mark, h_mark)
  deallocate(d_mark, shell_type)
@@ -334,25 +361,25 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
 
  ! adjust the order of Cartesian f, g, h functions
  do i = 1, nf, 1
-  call fch2inp_permute_10f(nif1,temp_coeff(f_mark(i)+3:f_mark(i)+8,:))
+  call fch2inp_permute_10f(nif1, temp_coeff(f_mark(i)+3:f_mark(i)+8,:))
  end do
  do i = 1, ng, 1
-  call fch2inp_permute_15g(nif1,temp_coeff(g_mark(i):g_mark(i)+14,:))
+  call fch2inp_permute_15g(nif1, temp_coeff(g_mark(i):g_mark(i)+14,:))
  end do
  do i = 1, nh, 1
-  call fch2inp_permute_21h(nif1,temp_coeff(h_mark(i):h_mark(i)+20,:))
+  call fch2inp_permute_21h(nif1, temp_coeff(h_mark(i):h_mark(i)+20,:))
  end do
  deallocate(f_mark, g_mark, h_mark)
  ! adjustment finished
 
  ! if nbf1 > nbf, the following two lines are auto-reallocation
- alpha_coeff = temp_coeff(:,1:nif)
- if(gvb_or_uhf == '-uhf') beta_coeff = temp_coeff(:,nif+1:2*nif)
+ allocate(alpha_coeff(nbf1,nif), source=temp_coeff(:,1:nif))
+ if(uhf) allocate(beta_coeff(nbf1,nif), source=temp_coeff(:,nif+1:2*nif))
  deallocate(temp_coeff)
  nbf = nbf1 ! update nbf
 
  ! if active orbitals in GAMESS order are required, permute them
- if(gvb_or_uhf == '-gvb') then
+ if(itype == 3) then ! GVB
   if(npair > 1) then
    allocate(order(2*npair), source=0)
    allocate(temp_coeff(nbf,2*npair), source=0d0)
@@ -378,84 +405,69 @@ subroutine fch2inp(fchname, gvb, npair, nopen0)
   end if
  end if
 
- ! output MOs to the .inp file
- write(fid,'(1X,A4)') '$VEC'
+ write(fid,'(1X,A)') '$VEC' ! print MOs
 
  ! print Alpha MOs
- nline = nbf/5
- nleft = nbf - 5*nline
- do i = 1,nif, 1
-  k = MOD(i,100)
-  do j = 1, nline, 1
-   write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), alpha_coeff(5*j-4:5*j,i)
-  end do
-  if(nleft > 0) then
-   write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), alpha_coeff(5*j-4:nbf,i)
-  end if
- end do
+ call prt_gms_mo(fid, nbf, nif, alpha_coeff)
  deallocate(alpha_coeff)
 
  ! print Beta MOs (if any)
- if(gvb_or_uhf == '-uhf') then
-  do i = 1,nif, 1
-   k = MOD(i,100)
-   do j = 1, nline, 1
-    write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), beta_coeff(5*j-4:5*j,i)
-   end do ! for j
-   if(nleft > 0) then
-    write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), beta_coeff(5*j-4:nbf,i)
-   end if
-  end do ! for i
+ if(uhf) then
+  call prt_gms_mo(fid, nbf, nif, beta_coeff)
   deallocate(beta_coeff)
  end if
 
- write(fid,'(1X,A4)') '$END'
+ write(fid,'(1X,A)') '$END'
  close(fid)
 end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-           nif, nbf, gvb_or_uhf, ghf, ecp, sph, irel, X2C, na, nb, DIIS)
+                      nif, nbf, na, nb, itype, irel, uhf, ecp, sph, X2C, DIIS)
  implicit none
  integer :: fid
- integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, irel, na,&
-                        nb
+ integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, na, nb, &
+  itype, irel
  character(len=2), allocatable :: ideg(:)
- character(len=4), intent(in) :: gvb_or_uhf
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: ghf, ecp, sph, X2C, DIIS
+ logical, intent(in) :: uhf, ecp, sph, X2C, DIIS
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
 
- select case(gvb_or_uhf)
- case('-uhf')
+ select case(itype)
+ case(-3) ! GHF
+  write(fid,'(A)',advance='no') 'GHF' ! unsupported in GAMESS, print anyway
+ case(-2) ! ROHF
+  write(fid,'(A)',advance='no') 'ROHF'
+ case(-1) ! RHF
+  write(fid,'(A)',advance='no') 'RHF'
+ case(0)  ! UHF
   write(fid,'(A)',advance='no') 'UHF'
- case('-gvb')
+ case(1,2)! SF/MRSF
+  if(uhf) then
+   write(fid,'(A)',advance='no') 'UHF'
+  else
+   write(fid,'(A)',advance='no') 'ROHF'
+  end if
+ case(3)  ! GVB
   write(fid,'(A)',advance='no') 'GVB'
  case default
-  if(ghf) then
-   write(fid,'(A)',advance='no') 'GHF'
-   ! GHF is not supported in GAMESS, but print anyway
-  else
-   if(mult == 1) then
-    write(fid,'(A)',advance='no') 'RHF'
-   else
-    write(fid,'(A)',advance='no') 'ROHF'
-   end if
-  end if
+  write(6,'(/,A)') 'ERROR in subroutine creat_gamess_inp_head: itype out of ran&
+                   &ge.'
+  write(fid,'(A,I0)') 'itype=', itype
+  stop
  end select
 
  write(fid,'(2(A,I0))',advance='no') ' RUNTYP=ENERGY ICHARG=',charge,' MULT=',mult
  write(fid,'(A)',advance='no') ' NOSYM=1 ICUT=11'
  if(ecp) write(fid,'(A)',advance='no') ' PP=READ'
 
- select case(gvb_or_uhf)
- case('-gvb')
+ if(itype == 3) then ! GVB
   write(fid,'(/,A)',advance='no') '  MAXIT=500'
- case default
+ else
   write(fid,'(/,A)',advance='no') '  MAXIT=200'
- end select
+ end if
 
  if(irel == -2) then
   write(fid,'(A)',advance='no') ' RELWFN=RESC'
@@ -464,6 +476,12 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  end if
 
  if(sph) write(fid,'(A)',advance='no') ' ISPHER=1'
+
+ if(itype == 1) then
+  write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=SPNFLP'
+ else if(itype == 2) then
+  write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=MRSF'
+ end if
 
  if(X2C) then
   write(fid,'(A)') ' $END X2C'
@@ -475,13 +493,13 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  if(irel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
 
- select case(gvb_or_uhf)
- case('-gvb')
+ if(itype == 3) then
   write(fid,'(2(A,I0))',advance='no') ' $SCF NCO=',ncore,' NPAIR=',npair
   if(nopen > 0) then
    write(fid,'(A,I0,A)',advance='no') ' NSETO=',nopen,' NO(1)=1'
    if(nopen > 1) then
-    allocate(ideg(nopen-1)); ideg = ',1'
+    allocate(ideg(nopen-1))
+    ideg = ',1'
     write(fid,'(10A2)',advance='no') ideg
     deallocate(ideg)
    end if
@@ -489,32 +507,56 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   if(mult < 4) then
    write(fid,'(A)',advance='no') ' DIRSCF=.T.'
    if(DIIS) write(fid,'(A)',advance='no') ' DIIS=.T. SOSCF=.F.'
-   write(fid,'(A)') ' $END'
-  else ! mult >=4, i.e. >=3 e-
+  else ! mult >=4, i.e. >=3 singly occpuied orb
    write(fid,'(A)') ' DIRSCF=.T. COUPLE=.T.'
    if(DIIS) write(fid,'(A)') '  DIIS=.T. SOSCF=.F.'
    call prt_gvb_couple_coeff(fid, ncore, nopen)
-   write(fid,'(A)') ' $END'
   end if
- case default
+  write(fid,'(A)') ' $END'
+ else
   if(irel==0 .or. irel==2 .or. irel==4) then
    write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
   else
    write(fid,'(A)') ' $SCF DIRSCF=.T. $END'
   end if
- end select
+ end if
 
  write(fid,'(A,I0,A)') ' $GUESS GUESS=MOREAD NORB=', nif, ' $END'
+ if(itype==1 .or. itype==2) then
+  write(fid,'(A)') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590 $END'
+  write(fid,'(A)') ' $TDDFT NSTATE=5 $END'
+ end if
+
  write(fid,'(A)') ' $DATA'
  write(fid,'(A)',advance='no') 'GAMESS inp file produced by MOKIT'
- if(gvb_or_uhf /= '-gvb') then
-  write(fid,'(A,I0)',advance='no') ',na=',na
-  write(fid,'(A,I0)',advance='no') ',nb=',nb
- end if
+ if(itype /= 3) write(fid,'(2(A,I0))',advance='no') ',na=',na,',nb=',nb
  write(fid,'(2(A,I0))') ',nif=',nif,',nbf=',nbf
  write(fid,'(A)') 'C1   1'
  close(fid)
 end subroutine creat_gamess_inp_head
+
+! print GAMESS format of MOs into a given file ID
+subroutine prt_gms_mo(fid, nbf, nif, coeff)
+ implicit none
+ integer :: i, j, k, nline, nleft
+ integer, intent(in) :: fid, nbf, nif
+ real(kind=8), intent(in) :: coeff(nbf,nif)
+
+ nline = nbf/5
+ nleft = nbf - 5*nline
+
+ do i = 1, nif, 1
+  k = MOD(i,100)
+
+  do j = 1, nline, 1
+   write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:5*j,i)
+  end do ! for j
+
+  if(nleft > 0) then
+   write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), coeff(5*j-4:nbf,i)
+  end if
+ end do ! for i
+end subroutine prt_gms_mo
 
 subroutine fch2inp_permute_10f(nif,coeff)
  implicit none

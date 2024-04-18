@@ -242,6 +242,18 @@ subroutine process_basis_set(basis,basis1, dkh2_or_x2c, natom,nuc,elem, create)
    end if
   end do ! for i
 
+ case('ANO-R1','ANO-R2','ANO-R3') 
+  basis1 = 'gen'; rel = .true.; create = .true.
+
+  do i = 1, natom, 1
+   if(nuc(i) > 86) then
+    write(6,'(/,A)') 'ERROR in subroutine process_basis_set: basis sets ANO-Rn &
+                     &series have no'
+    write(6,'(A)') "definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+
  case('cc-pVDZ-X2C','cc-pVTZ-X2C') 
   basis1 = 'gen'; rel = .true.; create = .true.
 

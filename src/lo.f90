@@ -22,12 +22,10 @@ end subroutine localize_singly_occ_orb
 ! orbitals in a .fch(k) file using the PM method
 subroutine localize_orb(fchname, i1, i2)
  implicit none
- integer :: i, nbf, nif, fid, RENAME
+ integer :: i, fid
  integer, intent(in) :: i1, i2 ! Fortran convention
- real(kind=8), allocatable :: noon(:)
  character(len=240) :: lmofch, pyname, outname
  character(len=240), intent(in) :: fchname
- logical :: alive
 
  call find_specified_suffix(fchname, '.fch', i)
  lmofch = fchname(1:i-1)//'_LMO.fch'
@@ -42,16 +40,16 @@ subroutine localize_orb(fchname, i1, i2)
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
  write(fid,'(A)') 'from shutil import copyfile'
- write(fid,'(A)') 'import numpy as np'
  write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
- write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
+ write(fid,'(A)') ' read_eigenvalues_from_fch'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid,'(A)') 'from mokit.lib.lo import pm'
  ! the current directory have to be added, otherwise some machine/some python
  ! cannot find the gauxxx.py in the current directory
  write(fid,'(A)') 'import os'
- write(fid,'(A)') 'current_dir = os.path.abspath(os.path.dirname(__file__))'
+ write(fid,'(A)') 'current_dir = os.getcwd()'
 
  write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
  write(fid,'(A)') "lmofch = '"//TRIM(lmofch)//"'"
@@ -65,28 +63,14 @@ subroutine localize_orb(fchname, i1, i2)
                   &:,3], mol.cart,'
  write(fid,'(A)') "             nbf, nmo, mo_coeff[:,idx], S, 'mulliken')"
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
- write(fid,'(A)') 'noon = np.zeros(nif)'
+ write(fid,'(A)') "noon = read_eigenvalues_from_fch(fchname, nif, 'a')"
  write(fid,'(A)') 'copyfile(fchname, lmofch)'
  write(fid,'(A)') "py2fch(lmofch, nbf, nif, mo_coeff, 'a', noon, False, False)"
+ write(fid,'(A)') 'os.rename(lmofch, fchname)'
  close(fid)
 
  call submit_pyscf_job(pyname)
-
- inquire(file=TRIM(lmofch),exist=alive)
- if(.not. alive) then
-  write(6,'(/,A)') 'ERROR in subroutine localize_orb: file '//TRIM(lmofch)//' d&
-                   &oes not exist.'
-  stop
- end if
  call delete_files(2, [pyname, outname])
-
- call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(noon(nif))
- call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
- call write_eigenvalues_to_fch(lmofch, nif, 'a', noon, .true.)
- deallocate(noon)
-
- i = RENAME(TRIM(lmofch), TRIM(fchname))
 end subroutine localize_orb
 
 ! generate AO-basis density matrix based on a .fch file

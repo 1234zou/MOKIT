@@ -550,10 +550,14 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
+!f2py intent(in) :: nif
  real(kind=8), intent(out) :: noon(nif)
+!f2py intent(out), depend(nif) :: noon
  character(len=1), intent(in) :: ab
+!f2py intent(in) :: ab
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha Or'
  character(len=7), parameter :: key2 = 'Beta Or'
@@ -791,7 +795,7 @@ subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
  character(len=240), intent(in) :: orbname
 
  ev = 0d0
- call open_file(orbname, .true., fid)
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1007,8 +1011,7 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  integer, intent(in) :: nif
 !f2py intent(in) :: nif
  real(kind=8), intent(in) :: on(nif)
-!f2py depend(nif) :: on
-!f2py intent(in) :: on
+!f2py intent(in), depend(nif) :: on
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=240) :: buf, fchname1
@@ -1294,19 +1297,16 @@ subroutine determine_sph_or_cart(fchname, cart)
  deallocate(shltyp)
 end subroutine determine_sph_or_cart
 
-! read 4 variables (npair, nbf, nif, lin_dep) from uno.out
 subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  implicit none
  integer :: i, fid, idx(3), nvir
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
- character(len=240) :: buf, unofile
+ character(len=7), parameter :: unofile = 'uno.out'
+ character(len=240) :: buf
  logical, intent(out) :: lin_dep
 
- buf = ' '
- unofile = 'uno.out'
- ! Note: better use a string with length 240 to store 'uno.out' since the
- ! corresponding parameter in subroutine open_file is with parameter 240
- call open_file(unofile, .true., fid)
+ buf = ' '; lin_dep = .false.
+ open(newunit=fid,file=unofile,status='old',position='rewind')
 
  read(fid,'(A)') buf
  i = INDEX(buf,'=')
@@ -1319,13 +1319,13 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf < nif) then
-  write(6,'(A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
+  write(6,'(/,A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
   write(6,'(A)') 'This is impossible. Please check why.'
   stop
  end if
 
  close(fid)
- call open_file(unofile, .false., fid)
+ open(newunit=fid,file=unofile,status='old',position='append')
 
  do while(.true.)
   BACKSPACE(fid)
@@ -1336,7 +1336,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
   write(6,'(A)') "The file 'uno.out' may be incomplete."
   close(fid)
   stop
@@ -1352,7 +1352,7 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
   write(6,'(A)') "The file 'uno.out' may be incomplete."
   close(fid)
   stop
@@ -1366,9 +1366,8 @@ subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
  npair = (idx(2) - idx(1) - idx(3))/2
  nvir = nif - ndb - 2*npair - idx(3)
  nopen = idx(3)
- write(6,'(A,I5,4X,A,I5)') 'nbf =', nbf, 'nif =', nif
- write(6,'(4(A,I5,4X))') 'doubly_occ=', idx(1)-1, 'npair=', npair, 'nopen=',&
-                          idx(3), 'nvir=', nvir
+ write(6,'(6(A,I0))') 'nbf=', nbf, ', nif=', nif, ', doubly_occ=', idx(1)-1, &
+                      ', npair=', npair, ', nopen=', idx(3), ', nvir=', nvir
 end subroutine read_npair_from_uno_out
 
 ! read GVB electronic energy from a given GAMESS .gms file
@@ -3791,7 +3790,8 @@ subroutine pairing_open_with_vir(fchname)
                   & not found in"
   write(6,'(A)') 'filename '//TRIM(fchname)
   write(6,'(A)') 'These characters are used to identify the number of pairs.'
-  write(6,'(A,/)') 'Example: h2o_uhf_uno_asrot2gvb3.fch'
+  write(6,'(/,A)') "Example: pairing_open_with_vir('h2o_uhf_uno_asrot2gvb3.fch')"
+  write(6,'(/,A)') 'Note: do not use h2o_uhf_uno_asrot2gvb3_s.fch'
   stop
  end if
 
@@ -3850,4 +3850,90 @@ subroutine pairing_open_with_vir(fchname)
  call write_mo_into_fch(fchname, nbf, nif, 'a', new_mo)
  deallocate(new_mo)
 end subroutine pairing_open_with_vir
+
+! Reorder MOs in the file gvbN_s.fch. A new file gvbN_new.fch would be generated.
+! The order of MOs in gvbN_s.fch is expected to be
+!  docc-bonding1-bonding2-...-socc-...-antibonding2-antibonding1-vir.
+! The order of MOs in gvbN_new.fch would be
+!  docc-bonding1-antibonding1-bonding2-antibonding2-...-socc-vir.
+subroutine reorder2dbabasv(fchname)
+ implicit none
+ integer :: i, j, k, nbf, nif, ndb, npair, nopen, na, nb
+ real(kind=8), allocatable :: mo(:,:), new_mo(:,:), ev(:), new_ev(:)
+ character(len=240) :: new_fch
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ i = LEN_TRIM(fchname)
+ if(fchname(i-5:i) /= '_s.fch') then
+  write(6,'(/,A)') "ERROR in subroutine reorder2dbabasv: '_s.fch' suffix is not&
+                   & found in"
+  write(6,'(A)') 'filename '//TRIM(fchname)
+  write(6,'(/,A,/)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  stop
+ end if
+ new_fch = fchname(1:i-5)//'new.fch'
+
+ k = INDEX(fchname, 'gvb', back=.true.)
+ if(k == 0) then
+  write(6,'(/,A)') "ERROR in subroutine reorder2dbabasv: 'gvb' key not found in&
+                   & filename "//TRIM(fchname)
+  write(6,'(/,A,/)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  stop
+ end if
+
+ read(fchname(k+3:i-6),*,iostat=j) npair
+ if(j /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine reorder2dbabasv: failed to read npair &
+                   &from filename '//TRIM(fchname)
+  write(6,'(/,A,/)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  stop
+ end if
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ nopen = na - nb
+ if(nopen == 0) then
+  write(6,'(/,A)') 'Warning from subroutine reorder2dbabasv: this is a singlet &
+                   &.fch file.'
+  write(6,'(A)') 'No singly occupied orbitals. Only pair orbitals will be reord&
+                 &ered.'
+ end if
+ ndb = na - nopen - npair
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(ev(nif))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', ev)
+
+ allocate(new_ev(nif), new_mo(nbf,nif))
+ new_ev = 0d0
+ new_mo(:,na+npair+1:nif) = mo(:,na+npair+1:nif) ! virtual orbitals
+
+ if(ndb > 0) then     ! doubly occupied orbitals
+  new_ev(1:ndb) = 2d0
+  new_mo(:,1:ndb) = mo(:,1:ndb)
+ end if
+
+ do i = 1, npair, 1   ! GVB pair orbitals
+  new_ev(ndb+2*i-1) = ev(ndb+i)
+  new_ev(ndb+2*i) = ev(na+npair-i+1)
+  new_mo(:,ndb+2*i-1) = mo(:,ndb+i)
+  new_mo(:,ndb+2*i) = mo(:,na+npair-i+1)
+ end do ! for i
+ deallocate(ev)
+
+ if(nopen > 0) then   ! singly occupied orbitals
+  k = ndb + 2*npair
+  new_ev(k+1:k+nopen) = 1d0
+  new_mo(:,k+1:k+nopen) = mo(:,nb+1:na)
+ end if
+
+ deallocate(mo)
+ call copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ call write_mo_into_fch(new_fch, nbf, nif, 'a', new_mo)
+ deallocate(new_mo)
+ call write_eigenvalues_to_fch(new_fch, nif, 'a', new_ev, .true.)
+ deallocate(new_ev)
+end subroutine reorder2dbabasv
 

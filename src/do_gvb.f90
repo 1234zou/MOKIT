@@ -5,29 +5,33 @@
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
  use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, onlyXH,&
-  excludeXH
+  excludeXH, LocDocc
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
  implicit none
- integer :: i
+ integer :: i, nvir
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, datname,&
                        gmsname
 
  if(.not. gvb) return
  write(6,'(//,A)') 'Enter subroutine do_gvb...'
- if(.not. (ist==1 .or. ist==3 .or. ist==6)) then
+
+ select case(ist)
+ case(1,3,6)
+ case default
   write(6,'(/,A,I0)') 'ERROR in subroutine do_gvb: ist=', ist
   write(6,'(A)') 'Only ist=1,3,6 is supported currently.'
   stop
- end if
+ end select
 
  i = INDEX(hf_fch, '.fch', back=.true.)
  proname = hf_fch(1:i-1)
 
  ! In RHF virtual MO projection, it will generate a file uno.out additionally
  call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
+ write(6,'(2(A,L1))') 'LocDocc=', LocDocc, ', Lin_dep=', lin_dep
 
  if(npair_wish>0 .and. npair_wish/=npair) then
   write(6,'(/,2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but user&
@@ -35,11 +39,12 @@ subroutine do_gvb()
   if(npair_wish < npair) then
    ndb = ndb + npair - npair_wish
    npair = npair_wish
+   nvir = nif - ndb - 2*npair - nopen
    write(6,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals&
                  & after converged.'
    write(6,'(/,A)') 'Updated number of various orbitals:'
-   write(6,'(3(A,I5,4X))') 'doubly_occ=',ndb,'npair=',npair,'nopen=',nopen
-
+   write(6,'(4(A,I0))') 'doubly_occ=',ndb,', npair=',npair,', nopen=',nopen, &
+                        ', nvir=', nvir
   else if(npair_wish > npair) then
    write(6,'(/,A)') 'ERROR in subroutine do_gvb: too many number of pairs spec&
                     &ified. Cannot be fulfilled.'
@@ -76,11 +81,12 @@ subroutine do_gvb()
   write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
  end if
 
- ! localize singly occupied orbitals (if any)
- if(nopen > 0) then
-  sort_fch = TRIM(proname1)//'_s.fch'
-  call localize_singly_occ_orb(sort_fch)
- end if
+ sort_fch = TRIM(proname1)//'_s.fch'
+ ! localize singly occ (if any)
+ if(nopen > 0) call localize_singly_occ_orb(sort_fch)
+
+ ! localize doubly occ if required
+ if(LocDocc) call localize_orb(sort_fch, 1, ndb)
 
  ! exclude X-H bonds with little multi-reference characters from GVB active space
  if(excludeXH) then

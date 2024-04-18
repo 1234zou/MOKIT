@@ -1043,14 +1043,14 @@ subroutine fch2tm_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,
   j = f_mark(i)
   call fch2tm_permute_10f(idx(j:j+9), norm(j:j+9))
  end do
-! do i = 1, n15gmark, 1
-!  j = g_mark(i)
-!  call fch2tm_permute_15g(idx(j:j+14), norm(j:j+14))
-! end do
-! do i = 1, n21hmark, 1
-!  j = h_mark(i)
-!  call fch2tm_permute_21h(idx(j:j+20), norm(j:j+20))
-! end do
+ do i = 1, n15gmark, 1
+  j = g_mark(i)
+  call fch2tm_permute_15g(idx(j:j+14), norm(j:j+14))
+ end do
+ do i = 1, n21hmark, 1
+  j = h_mark(i)
+  call fch2tm_permute_21h(idx(j:j+20), norm(j:j+20))
+ end do
 end subroutine fch2tm_permute_cart
 
 subroutine fch2tm_permute_6d(idx, norm)
@@ -1084,4 +1084,32 @@ subroutine fch2tm_permute_10f(idx, norm)
   norm(i) = norm0(order(i))
  end forall
 end subroutine fch2tm_permute_10f
+
+subroutine fch2tm_permute_15g(idx, norm)
+ implicit none
+ integer :: i
+ integer, intent(inout) :: idx(15)
+ real(kind=8), intent(inout) :: norm(15)
+
+ forall(i = 1:15) idx(i) = i
+ norm = 1d0
+ write(6,'(/,A)') 'ERROR in subroutine fch2tm_permute_15g: Cartesian-type g fun&
+                  &ctions not'
+ write(6,'(A)') 'supported currently.'
+ stop
+end subroutine fch2tm_permute_15g
+
+subroutine fch2tm_permute_21h(idx, norm)
+ implicit none
+ integer :: i
+ integer, intent(inout) :: idx(21)
+ real(kind=8), intent(inout) :: norm(21)
+
+ forall(i = 1:21) idx(i) = i
+ norm = 1d0
+ write(6,'(/,A)') 'ERROR in subroutine fch2tm_permute_21h: Cartesian-type h fun&
+                  &ctions not'
+ write(6,'(A)') 'supported currently.'
+ stop
+end subroutine fch2tm_permute_21h
 

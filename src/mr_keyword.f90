@@ -204,6 +204,7 @@ module mr_keyword
  logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: onlyXH = .false.      ! whether to keep only X-H bonds in GVB
+ logical :: LocDocc = .false.    ! whether to localize GVB doubly occupied orb
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
  logical :: excited = .false.     ! whether to perform excited states calculations
@@ -317,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc27 (2024-Apr-12)'
+ write(6,'(A)') '           Version: 1.2.6rc28 (2024-Apr-18)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -857,6 +858,8 @@ end subroutine check_gms_path
     HFonly = .true.
    case('nodmrgno')
     dmrg_no = .false.
+   case('locdocc')
+    LocDocc = .true.
    case default
     write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                     //"' not recognized in {}."

@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc27 :: MOKIT, release date: 2024-Apr-12'
+  write(6,'(A)') 'AutoMR 1.2.6rc28 :: MOKIT, release date: 2024-Apr-18'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -809,8 +809,8 @@ subroutine read_hf_and_gvb_e_from_automr_out(outname, e, uhf_s2)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: failed&
-                & to read HF energies'
+  write(6,'(/,A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: fail&
+                   &ed to read HF energies'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -834,8 +834,8 @@ subroutine read_hf_and_gvb_e_from_automr_out(outname, e, uhf_s2)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: failed&
-                & to read GVB energies'
+  write(6,'(/,A)') 'ERROR in subroutine read_hf_and_gvb_e_from_automr_out: fail&
+                   &ed to read GVB energies'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -854,7 +854,9 @@ subroutine read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
  character(len=240) :: buf
  character(len=240), intent(in) :: mbout
 
+ ndb = 0; npair = 0; nopen = 0
  open(newunit=fid,file=TRIM(mbout),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -870,20 +872,34 @@ subroutine read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
  end if
 
  read(fid,'(A)') buf
- read(fid,'(A)') buf
  close(fid)
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) ndb
- buf(i:i) = ' '
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) npair
- buf(i:i) = ' '
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) nopen
+ call read_int_in_buf(buf, 'doubly_occ=', ndb)
+ call read_int_in_buf(buf, 'npair=', npair)
+ call read_int_in_buf(buf, 'nopen=', nopen)
 end subroutine read_ndb_npair_nopen_from_automr_out
+
+! read an integer in buf according to the key, e.g.
+!  read_int_in_buf('doubly_occ=10,xxx','doubly_occ=',k) -> k=10
+subroutine read_int_in_buf(buf, key, k)
+ implicit none
+ integer :: i, j, m, n
+ integer, intent(out) :: k
+ character(len=*), intent(in) :: buf, key
+
+ k = 0
+ m = LEN(key)
+ i = INDEX(buf, key)
+ j = INDEX(buf(i+m:), ',')
+ read(buf(i+m:i+m+j-2),*,iostat=n) k
+
+ if(n /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_int_in_buf: failed to read the int&
+                   &eger from'
+  write(6,'(A)') "buf='"//buf//"'"
+  stop
+ end if
+end subroutine read_int_in_buf
 
 ! call Gaussian to generate fch file from a given gjf file
 subroutine gen_fch_from_gjf(gjfname, hf_fch)

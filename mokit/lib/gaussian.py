@@ -18,7 +18,7 @@ def load_mol_from_fch(fchname, path=None):
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
   >>> mf = scf.RHF(mol).run()
   '''
-  import sys, importlib
+  import sys, time, importlib
 
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
@@ -40,7 +40,9 @@ def load_mol_from_fch(fchname, path=None):
 
   if (path):
     sys.path.append(path)
+  time.sleep(0.1)
   molpy = importlib.import_module(proname)
+  time.sleep(0.1)
   importlib.invalidate_caches()
   # invalidate_caches() is needed, otherwise a second call of load_mol_from_fch
   # may lead to the error `ModuleNotFoundError: No module named 'gauxxx'`
@@ -97,6 +99,7 @@ def loc(fchname, idx, method='pm', alpha=True):
   '''
   from pyscf.lo.boys import dipole_integral
 
+  print('\nOrbital range:', idx)
   if alpha is True:
     spin = 'a'
   else:
@@ -106,6 +109,7 @@ def loc(fchname, idx, method='pm', alpha=True):
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mo_coeff = fch2py(fchname, nbf, nif, spin)
   nmo = len(idx)
+  print('nmo=', nmo)
 
   if method == 'pm':
     S = mol.intor_symmetric('int1e_ovlp')

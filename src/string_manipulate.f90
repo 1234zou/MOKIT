@@ -878,7 +878,7 @@ subroutine add_mokit_path_to_genbas(basname)
   sbuf = TRIM(buf(1:11))
   
   call upper(sbuf)
-  alive = [(sbuf(1:3)=='X2C'), (sbuf(1:6)=='PCSSEG'), (sbuf(1:7)=='ANO-RCC'), &
+  alive = [(sbuf(1:3)=='X2C'), (sbuf(1:6)=='PCSSEG'), (sbuf(1:5)=='ANO-R'), &
            (sbuf(1:8)=='DKH-DEF2'), (sbuf(9:11)=='X2C'), (sbuf=='MA-DKH-DEF2'),&
            (sbuf(8:11)=='-F12')]
   if(ANY(alive .eqv. .true.)) then
