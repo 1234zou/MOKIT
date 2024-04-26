@@ -176,7 +176,7 @@ end subroutine assoc_loc2
 !   f = sum_i(<i_ref|r|i_rot>^2) + alpha*(sum_i(<i_rot|r|i_rot>)^2)
 !  which means large orbital transition dipole moments meanwhile localized
 ! nbf: the number of atomic basis functions
-! nif: the number of independent basis functions, i.e., the number of MOs
+! nif: the number of independent basis functions, i.e. the number of MOs
 ! ref1: the begin index of reference orbitals
 ! ref2: the end index of reference orbitals
 ! rot1: the begin index of orbitals to be rotated

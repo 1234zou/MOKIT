@@ -67,11 +67,12 @@ subroutine fch2amo(fchname)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/Car&
+                   &tesian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
+                 &rds in Gaussian."
   stop
  else if( ANY(shell_type < -1) ) then
   sph = .true.
@@ -508,7 +509,8 @@ subroutine normalize_contr_coeff(ang, p, prim_exp, contr_coeff)
  case(5)
   contr_coeff = contr_coeff*stp*tps*(2d0*prim_exp/PI)**3.25d0
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine normalize_contr_coeff: invalid ang=',ang
+  write(6,'(/,A,I0)') 'ERROR in subroutine normalize_contr_coeff: invalid ang=',&
+                      ang
   stop
  end select
 end subroutine normalize_contr_coeff

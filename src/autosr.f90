@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc28 (2024-Apr-18)'
+ write(6,'(A)') '           Version: 1.2.6rc29 (2024-Apr-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -74,7 +74,7 @@ subroutine read_sr_program_path()
  call get_molpro_path(molpro_path)
  call get_psi4_path(psi4_path)
  call get_dalton_path(dalton_path)
- call check_dalton_is_mpi(dalton_mpi)
+ if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
 
@@ -537,11 +537,11 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc28 :: MOKIT, release date: 2024-Apr-18'
+  write(6,'(A)') 'AutoSR 1.2.6rc29 :: MOKIT, release date: 2024-Apr-25'
   stop
  case('-h','-help','--help')
-  write(6,'(/,A)') "Usage: autosr [gjfname] >& [outname]"
-  write(6,'(A)')   "  Example: autosr h2o.gjf >& h2o.out &"
+  write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
+  write(6,'(A)')   "  Example: autosr h2o.gjf >h2o.out 2>&1 &"
   write(6,'(/,A)') 'Options:'
   write(6,'(A)')   '  -h, -help, --help: Print this message and exit.'
   write(6,'(A)')   '  -v, -V, --version: Print the version number of autosr and exit.'

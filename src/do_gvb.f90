@@ -5,7 +5,7 @@
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
  use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, onlyXH,&
-  excludeXH, LocDocc
+  excludeXH, localm, LocDocc
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
@@ -14,6 +14,7 @@ subroutine do_gvb()
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, datname,&
                        gmsname
+ logical :: pm_loc
 
  if(.not. gvb) return
  write(6,'(//,A)') 'Enter subroutine do_gvb...'
@@ -40,8 +41,8 @@ subroutine do_gvb()
    ndb = ndb + npair - npair_wish
    npair = npair_wish
    nvir = nif - ndb - 2*npair - nopen
-   write(6,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals&
-                 & after converged.'
+   write(6,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals aft&
+                  &er converged.'
    write(6,'(/,A)') 'Updated number of various orbitals:'
    write(6,'(4(A,I0))') 'doubly_occ=',ndb,', npair=',npair,', nopen=',nopen, &
                         ', nvir=', nvir
@@ -70,7 +71,7 @@ subroutine do_gvb()
  case('gaussian')
   call do_gvb_gau(proname, pair_fch)
  case default
-  write(6,'(A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//TRIM(gvb_prog)
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//TRIM(gvb_prog)
   write(6,'(A)') 'Currently supported programs: GAMESS, QChem, Gaussian.'
   stop
  end select
@@ -82,25 +83,40 @@ subroutine do_gvb()
  end if
 
  sort_fch = TRIM(proname1)//'_s.fch'
+ select case(TRIM(localm))
+ case('pm')
+  pm_loc = .true.
+ case('boys')
+  pm_loc = .false.
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb: invalid orbital localization me&
+                   &thod LocalM='//TRIM(localm)
+  stop
+ end select
+
  ! localize singly occ (if any)
- if(nopen > 0) call localize_singly_occ_orb(sort_fch)
+ if(nopen > 0) call localize_singly_occ_orb(sort_fch, pm_loc)
 
  ! localize doubly occ if required
- if(LocDocc) call localize_orb(sort_fch, 1, ndb)
+ if(LocDocc) then
+  write(6,'(A)') 'Perform orbital localization on doubly occupied orbitals...'
+  call localize_orb(sort_fch, 1, ndb, pm_loc)
+ end if
 
- ! exclude X-H bonds with little multi-reference characters from GVB active space
+ ! exclude X-H bonds with little multi-reference characters from the GVB active
+ ! space
  if(excludeXH) then
   datname = TRIM(proname1)//'.dat'
   gmsname = TRIM(proname1)//'.gms'
-  pair_fch = TRIM(proname1)//'_s.fch'
   call gvb_exclude_XH_A_wrap(datname, gmsname, onlyXH, inpname)
   call get_npair_from_inpname(inpname, i)
   ndb = ndb + npair - i
   npair = i
-  call do_gvb_gms(inpname, pair_fch, .true.)
+  call do_gvb_gms(inpname, sort_fch, .true.)
  end if
 
- ! determine the number of orbitals/electrons in subsequent CAS/DMRG computations
+ ! determine the number of active orbitals/electrons in subsequent CAS/DMRG
+ ! computations
  nacta = npair0 + nopen
  nactb = npair0
  nacte = nacta + nactb

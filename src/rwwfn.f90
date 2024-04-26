@@ -3930,7 +3930,7 @@ subroutine reorder2dbabasv(fchname)
  end if
 
  deallocate(mo)
- call copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ call copy_file(fchname, new_fch, .false.)
  call write_mo_into_fch(new_fch, nbf, nif, 'a', new_mo)
  deallocate(new_mo)
  call write_eigenvalues_to_fch(new_fch, nif, 'a', new_ev, .true.)

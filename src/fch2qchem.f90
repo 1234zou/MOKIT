@@ -20,10 +20,9 @@ program main
  i = iargc()
  if(i<1 .or. i>3) then
   write(6,'(/,A)') error_warn
-  write(6,'(A)')   ' Example 1: fch2qchem water.fch'
-  write(6,'(A)')   ' Example 2: fch2qchem water.fch -sasf'
-  write(6,'(A,/)') ' Example 3: fch2qchem water.fch -gvb 2 (nopen is auto-detec&
-                   &ted)'
+  write(6,'(A)')  ' Example 1: fch2qchem h2o.fch'
+  write(6,'(A)')  ' Example 2: fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
+  write(6,'(A,/)')' Example 3: fch2qchem high_spin.fch -sasf'
   stop
  end if
 

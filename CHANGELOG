@@ -1,7 +1,9 @@
-MOKIT 1.2.6 (Apr 18, 2024)
+MOKIT 1.2.6 (Apr 25, 2024)
 ------------------------
+* add a new keyword LocDocc (associated with LocalM)
+* change `-b3lyp` type to `-dft 'b3lyp'` type for fch2mkl
 * put basis sets ANO-R1, ANO-R2 and ANO-R3 into `$MOKIT_ROOT/mokit/basis/`
-* add `-sf` and `-mrsf` arguments for utility `fch2inp`
+* add `-sf`,`-mrsf`,`-sasf` arguments for fch2mkl, fch2inp, fch2qchem
 * automatically detect MPI/OpenMP version of Dalton
 * put basis sets cc-pVDZ-F12 and cc-pVTZ-F12 into `$MOKIT_ROOT/mokit/basis/`
 * put basis sets cc-pVDZ-X2C and cc-pVTZ-X2C into `$MOKIT_ROOT/mokit/basis/`

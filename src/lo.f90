@@ -9,23 +9,44 @@
 ! the same functionality as the subroutine no
 
 ! localize singly occupied orbitals in a .fch file
-subroutine localize_singly_occ_orb(fchname)
+subroutine localize_singly_occ_orb(fchname, pm_loc)
  implicit none
  integer :: na, nb
  character(len=240), intent(in) :: fchname
+ logical, intent(in) :: pm_loc
 
  call read_na_and_nb_from_fch(fchname, na, nb)
- if(na > nb+1) call localize_orb(fchname, nb+1, na)
+ if(na < nb) then
+  write(6,'(/,A)') 'ERROR in subroutine localize_singly_occ_orb: na<nb.'
+  write(6,'(A)') 'Something must be wrong. Check file '//TRIM(fchname)
+  stop
+ else if(na == nb) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine localize_singly_occ_orb: no singly oc&
+                 &cupied orbital'
+  write(6,'(A)') 'to be localized.'
+  write(6,'(A)') REPEAT('-',79)
+ else if(na == nb+1) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine localize_singly_occ_orb: only one sin&
+                 &gly occupied'
+  write(6,'(A)') 'orbital, no need to perform orbital localization.'
+  write(6,'(A)') REPEAT('-',79)
+ else
+  write(6,'(A)') 'Perform orbital localization on singly occupied orbitals...'
+  call localize_orb(fchname, nb+1, na, pm_loc)
+ end if
 end subroutine localize_singly_occ_orb
 
 ! the loc() function in mokit.lib.gaussian is called to localize specified
 ! orbitals in a .fch(k) file using the PM method
-subroutine localize_orb(fchname, i1, i2)
+subroutine localize_orb(fchname, i1, i2, pm_loc)
  implicit none
  integer :: i, fid
  integer, intent(in) :: i1, i2 ! Fortran convention
  character(len=240) :: lmofch, pyname, outname
  character(len=240), intent(in) :: fchname
+ logical, intent(in) :: pm_loc
 
  call find_specified_suffix(fchname, '.fch', i)
  lmofch = fchname(1:i-1)//'_LMO.fch'
@@ -45,7 +66,13 @@ subroutine localize_orb(fchname, i1, i2)
  write(fid,'(A)') ' read_eigenvalues_from_fch'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
- write(fid,'(A)') 'from mokit.lib.lo import pm'
+ if(pm_loc) then
+  write(fid,'(A)') 'from mokit.lib.lo import pm'
+ else
+  write(fid,'(A)') 'from pyscf.lo.boys import dipole_integral'
+  write(fid,'(A)') 'from mokit.lib.lo import boys'
+ end if
+
  ! the current directory have to be added, otherwise some machine/some python
  ! cannot find the gauxxx.py in the current directory
  write(fid,'(A)') 'import os'
@@ -58,10 +85,15 @@ subroutine localize_orb(fchname, i1, i2)
  write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
  write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'
  write(fid,'(A)') 'nmo = len(idx)'
- write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
- write(fid,'(A)') 'loc_orb = pm(mol.nbas, mol._bas[:,0],mol._bas[:,1],mol._bas[&
-                  &:,3], mol.cart,'
- write(fid,'(A)') "             nbf, nmo, mo_coeff[:,idx], S, 'mulliken')"
+ if(pm_loc) then
+  write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  write(fid,'(A)') 'loc_orb = pm(mol.nbas, mol._bas[:,0],mol._bas[:,1],mol._bas&
+                   &[:,3], mol.cart,'
+  write(fid,'(A)') "             nbf, nmo, mo_coeff[:,idx], S, 'mulliken')"
+ else
+  write(fid,'(A)') 'mo_dipole = dipole_integral(mol, mo_coeff[:,idx])'
+  write(fid,'(A)') 'loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)'
+ end if
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
  write(fid,'(A)') "noon = read_eigenvalues_from_fch(fchname, nif, 'a')"
  write(fid,'(A)') 'copyfile(fchname, lmofch)'

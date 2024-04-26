@@ -81,7 +81,7 @@ module theory_level
  character(len=40) :: solvent = ' '
  character(len=40) :: solvent_gau = ' '
  character(len=240) :: hf_prog_path = ' '
- logical :: sph = .true.  ! spherical harmonic/Cartesian functions
+ logical :: sph = .true.  ! '5D 7F'/'6D 10F'
 end module theory_level
 
 program main
@@ -94,16 +94,15 @@ program main
  if(i /= 1) then
   write(6,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
                    & arguments!'
-  write(6,'(/,A)') " Example 1 (in bash): frag_guess_wfn h2o_dimer.gjf >& h2o_dimer.out &"
-  write(6,'(A,/)') " Example 2 (in dash): frag_guess_wfn h2o_dimer.gjf >h2o_dimer.out 2>&1 &"
+  write(6,'(A,/)') " Example: frag_guess_wfn dimer.gjf >dimer.out 2>&1 &"
   stop
  end if
 
  gjfname = ' '
  call getarg(1, gjfname)
- if(index(gjfname,'.gjf') == 0) then
+ if(INDEX(gjfname,'.gjf') == 0) then
   write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: '.gjf' suffix not found&
-                  & in filename "//TRIM(gjfname)
+                   & in filename "//TRIM(gjfname)
   stop
  end if
 
@@ -140,6 +139,7 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  type(frag) :: tmp_frag1, tmp_frag2
 
  buf = ' '; longbuf = ' '
+ !call calc_xo_pbc_ads_e(gjfname)
 
  call read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
  select case(TRIM(hf_prog))
@@ -1291,7 +1291,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  write(fid2,'(A)') ' $END'
 
  read(fid1,'(A)') buf1 ! this line should be $SYSTEM
- i = FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc)))
+ i = MAX(300, FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc))))
  write(fid2,'(A,I0)',advance='no') ' $SYSTEM MWORDS=',i
 
  if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
@@ -2091,4 +2091,122 @@ subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
 
  deallocate(str, ghost2)
 end subroutine del_ecp_of_ghost_in_buf
+
+! calculate the vertical adsorption energy using the 2D XO-PBC method
+subroutine calc_xo_pbc_ads_e(gjfname)
+ use frag_info, only: frag
+ use theory_level, only: mem, nproc
+ use fch_content, only: elem2nuc
+ implicit none
+ integer :: i, j, i1, i2, ne, charge, mult
+ integer :: natom, natom1, natom2, natom3, natom4
+ integer, allocatable :: nuc(:)
+ real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
+ real(kind=8), parameter :: r_thres = 4.5d0
+ real(kind=8), allocatable :: coor(:,:), dis(:)
+ character(len=2) :: str2
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ type(frag) :: frags(4)
+
+ call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
+ call read_natom_from_gjf_pbc(gjfname, natom)
+ allocate(elem(natom), nuc(natom), coor(3,natom))
+ call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
+                                      lat_vec, charge, mult)
+
+ ! determine the adsorbate and adsorbent: frags(1) and frags(2)
+ call read_title_card_from_gjf(gjfname, buf)
+ buf = ADJUSTL(buf)
+
+ i = INDEX(buf, '-')
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine calc_xo_pbc_ads_e: no '-' symbols found."
+  write(6,'(A)') "buf='"//buf//"'"
+  stop
+ end if
+
+ read(buf(1:i-1),*) i1
+ read(buf(i+1:),*) i2
+ natom1 = i2 - i1 + 1
+ natom2 = natom - natom1
+ write(6,'(A,I0)') 'Total number of atoms: ', natom
+ write(6,'(A,I0)') 'No. of atoms of adsorbate: ', natom1
+ write(6,'(A,I0)') 'No. of atoms of adsorbent: ', natom2
+ write(6,'(2(A,I0))') 'Atomic labels of adsorbate: ',i1,'-',i2
+ ! usually natom1 << natom2
+
+ frags(1)%natom = natom1
+ allocate(frags(1)%elem(natom1), source=elem(i1:i2))
+ allocate(frags(1)%coor(3,natom1), source=coor(:,i1:i2))
+
+ frags(2)%natom = natom2
+ allocate(frags(2)%elem(natom2), frags(2)%coor(3,natom2))
+ if(i1 > 1) then
+  frags(2)%elem(1:i1-1) = elem(1:i1-1)
+  frags(2)%coor(:,1:i1-1) = coor(:,1:i1-1)
+ end if
+ if(i2 < natom) then
+  frags(2)%elem(i1:natom2) = elem(i2+1:natom)
+  frags(2)%coor(:,i1:natom2) = coor(:,i2+1:natom)
+ end if
+
+ ! compute the atomic distances between adsorbate and adsorbent
+ allocate(dis(natom2), source=0d0)
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom1, natom2, frags, dis)
+ do i = 1, natom2, 1
+  r1 = frags(2)%coor(:,i)
+  r2 = r1 - frags(1)%coor(:,1)
+  dis(i) = DSQRT(DOT_PRODUCT(r2,r2))
+
+  do j = 2, natom1, 1
+   r2 = r1 - frags(1)%coor(:,j)
+   rtmp = DSQRT(DOT_PRODUCT(r2,r2))
+   if(rtmp < dis(i)) dis(i) = rtmp
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ natom3 = COUNT(dis < r_thres)
+ write(6,'(A,I0)') 'No. of chosen atoms in the slab: ', natom3
+ if(natom3 == natom2) then
+  write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
+                   &b are chosen.'
+  write(6,'(A)') 'Two possible reasons: (1) the slab is to small; (2) the dista&
+                 &nce threshold'
+  write(6,'(A)') 'is too large.'
+  stop
+ end if
+
+ ! determine frags(3)
+ allocate(frags(3)%elem(natom3), frags(3)%coor(3,natom3))
+ ne = 0; j = 0
+ do i = 1, natom2, 1
+  if(dis(i) < r_thres) then
+   str2 = frags(2)%elem(i)
+   ne = ne + elem2nuc(str2)
+   j = j + 1
+   frags(3)%elem(j) = str2
+   frags(3)%coor(:,j) = frags(2)%coor(:,i)
+  end if
+ end do ! for i
+ if(MOD(ne,2) == 0) then
+  frags(3)%mult = 1 ! singlet
+ else
+  frags(3)%mult = 2 ! doublet
+ end if
+
+ ! determine frags(4)
+ natom4 = natom1 + natom3
+ write(6,'(A,I0)') 'No. of atoms of adsorbate+chosen_atoms: ', natom4
+ frags(4)%natom = natom4
+ allocate(frags(4)%elem(natom4), frags(4)%coor(3,natom4))
+ frags(4)%elem(1:natom1) = frags(1)%elem
+ frags(4)%elem(natom1+1:natom4) = frags(3)%elem
+ frags(4)%coor(:,1:natom1) = frags(1)%coor
+ frags(4)%coor(:,natom1+1:natom4) = frags(3)%coor
+ stop
+end subroutine calc_xo_pbc_ads_e
 

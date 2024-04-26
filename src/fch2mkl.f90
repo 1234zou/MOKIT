@@ -21,24 +21,20 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: i, k
- integer :: itype ! 0/1/2 for default/DFT/SF-TDDFT
- character(len=7) :: str
+ integer :: itype ! 0/1/2 for default/SF-TDDFT/DFT
+ character(len=4) :: str4
+ character(len=30) :: str30
  character(len=240) :: fchname
 
- str = ' '; fchname = ' '; itype = 0
+ itype = 0; str4 = ' '; str30 = ' '; fchname = ' '
+
  i = iargc()
- if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2mkl: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
-  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
-  write(6,'(A)')   ' Example 3 (R(O)DFT/UDFT)  : fch2mkl h2o.fch -pwpb95'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -b3lyp'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -m062x'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -pbe'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -pbe0'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -tpss'
-  write(6,'(A)')   '                             fch2mkl h2o.fch -tpssh'
-  write(6,'(A,/)') '                             fch2mkl h2o.fch -wb97mv'
+ if(i<1 .or. i>3) then
+  write(6,'(/,A)')' ERROR in subroutine fch2mkl: wrong command line arguments!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
+  write(6,'(A)')  ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
+  write(6,'(A)')  " Example 3 (R(O)DFT/UDFT)  : fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
+  write(6,'(A,/)')"                             fch2mkl h2o.fch -dft 'wB97M-V'"
   stop
  end if
 
@@ -52,27 +48,19 @@ program main
   fchname = fchname(1:k-4)//'.fch'
  end if
 
- if(i == 2) then
-  call getarg(2, str)
-  select case(TRIM(str))
+ if(i > 1) then
+  call getarg(2, str4)
+  select case(TRIM(str4))
   case('-sf')
    itype = 1
-  case('-pwpb95')
+  case('-dft')
    itype = 2
-  case('-b3lyp')
-   itype = 3
-  case('-m062x')
-   itype = 4
-  case('-pbe')
-   itype = 5
-  case('-pbe0')
-   itype = 6
-  case('-tpss')
-   itype = 7
-  case('-tpssh')
-   itype = 8
-  case('-wb97mv')
-   itype = 9
+   if(i == 2) then
+    write(6,'(/,A)') 'ERROR in program fch2mkl: you should specify the DFT name.'
+    write(6,'(A)') "Example: fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
+    stop
+   end if
+   call getarg(3, str30)
   case default
    write(6,'(/,A)') 'ERROR in program fch2mkl: the 2nd command line argument is&
                     & wrong!'
@@ -80,22 +68,33 @@ program main
   end select
  end if
 
- call fch2mkl(fchname, itype)
+ call fch2mkl(fchname, itype, str30)
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine fch2mkl(fchname, itype)
+subroutine fch2mkl(fchname, itype, dftname)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark, nimark
  integer :: fid1, fid2 ! file id of .mkl/.inp file
  integer, intent(in) :: itype
+ integer, parameter :: ndh = 32
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
+ character(len=16), parameter :: dhname(ndh) = ['B2PLYP          ', &
+  'MPW2PLYP        ','B2GP-PLYP       ','B2K-PLYP        ','B2T-PLYP        ',&
+  'PWPB95          ','PBE-QIDH        ','PBE0-DH         ','DSD-BLYP        ',&
+  'DSD-PBEP86      ','DSD-PBEB95      ','WB2PLYP         ','WB2GP-PLYP      ',&
+  'RSX-QIDH        ','RSX-0DH         ','WB88PP86        ','WPBEPP86        ',&
+  'WB97X-2         ','SCS/SOS-B2PLYP21','SCS-PBE-QIDH    ','SOS-PBE-QIDH    ',&
+  'SCS-B2GP-PLYP21 ','SOS-B2GP-PLYP21 ','SCS/SOS-WB2PLYP ','SCS-WB2GP-PLYP  ',&
+  'SOS-WB2GP-PLYP  ','SCS-RSX-QIDH    ','SOS-RSX-QIDH    ','SCS-WB88PP86    ',&
+  'SOS-WB88PP86    ','SCS-WPBEPP86    ','SOS-WPBEPP86    ']
+ character(len=30), intent(in) :: dftname
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp
@@ -260,21 +259,14 @@ subroutine fch2mkl(fchname, itype)
   case(1)
    write(fid2,'(A)',advance='no') ' BHANDHLYP'
   case(2)
-   write(fid2,'(A)',advance='no') ' RI-PWPB95 D3BJ def2-TZVPP/C'
-  case(3)
-   write(fid2,'(A)',advance='no') ' B3LYP D3BJ'
-  case(4)
-   write(fid2,'(A)',advance='no') ' M062X D3zero'
-  case(5)
-   write(fid2,'(A)',advance='no') ' PBE D3BJ'
-  case(6)
-   write(fid2,'(A)',advance='no') ' PBE0 D3BJ'
-  case(7)
-   write(fid2,'(A)',advance='no') ' TPSS D3BJ'
-  case(8)
-   write(fid2,'(A)',advance='no') ' TPSSh D3BJ'
-  case(9)
-   write(fid2,'(A)',advance='no') ' wB97M-V'
+   write(fid2,'(A)',advance='no') ' '//TRIM(dftname)
+   call upper(dftname)
+   do i = 1, ndh, 1
+    if(INDEX(TRIM(dftname), TRIM(dhname(i))) > 0) then
+     write(fid2,'(A)',advance='no') ' def2-TZVPP/C'
+     exit
+    end if
+   end do ! for i
   end select
   write(fid2,'(A)') ' def2/J TightSCF noTRAH defgrid3'
  end if

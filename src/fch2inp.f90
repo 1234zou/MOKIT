@@ -42,7 +42,7 @@ program main
  case default
   write(6,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
-  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2inp triplet.fch -sf'
+  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
   write(6,'(A)')   ' Example 3 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
   write(6,'(A)')   ' Example 4 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
   write(6,'(A,/)') ' Example 5 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&

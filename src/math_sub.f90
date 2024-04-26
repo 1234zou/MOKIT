@@ -474,6 +474,20 @@ subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
  deallocate(SCp)
 end subroutine calc_CTSCp
 
+subroutine calc_CTSCp2(nbf, nif1, nif2, C, S, Cp, CTSCp)
+ implicit none
+ integer, intent(in) :: nbf, nif1, nif2
+ real(kind=8), intent(in) :: C(nbf,nif1), S(nbf,nbf), Cp(nbf,nif2)
+ real(kind=8), intent(out) :: CTSCp(nif1,nif2)
+ real(kind=8), allocatable :: SCp(:,:)
+
+ CTSCp = 0d0
+ allocate(SCp(nbf,nif2), source=0d0)
+ call dsymm('L', 'L', nbf, nif2, 1d0, S, nbf, Cp, nbf, 0d0, SCp, nbf)
+ call dgemm('T', 'N', nif1, nif2, nbf, 1d0, C, nbf, SCp, nbf, 0d0, CTSCp, nif1)
+ deallocate(SCp)
+end subroutine calc_CTSCp2
+
 ! calculate CX(C^T), where X is a square matrix (symmetric is not required)
 subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
  implicit none

@@ -204,7 +204,7 @@ module mr_keyword
  logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: onlyXH = .false.      ! whether to keep only X-H bonds in GVB
- logical :: LocDocc = .false.    ! whether to localize GVB doubly occupied orb
+ logical :: LocDocc = .false.     ! whether to localize GVB doubly occupied orb
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
  logical :: excited = .false.     ! whether to perform excited states calculations
@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc28 (2024-Apr-18)'
+ write(6,'(A)') '           Version: 1.2.6rc29 (2024-Apr-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -339,7 +339,7 @@ subroutine read_program_path()
  call get_orca_path(orca_path)
  call get_psi4_path(psi4_path)
  call get_dalton_path(dalton_path)
- call check_dalton_is_mpi(dalton_mpi)
+ if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  call getenv('BDF', bdf_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'

@@ -335,14 +335,16 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  ! convert element symbols to atomic order
  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
 
- ne = SUM(nuc) - charge
- if(MOD(ne,2) /= MOD(mult-1,2)) then
-  write(6,'(/,A)') REPEAT('-',79)
-  write(6,'(A)') 'Warning from subroutine read_elem_and_coor_from_gjf:'
-  write(6,'(2(A,I0),A)') 'The combination of multiplicity ', mult, ' and ', ne,&
-                         &' electrons is impossible.'
-  write(6,'(A)') 'Filename = '//TRIM(gjfname)
-  write(6,'(A)') REPEAT('-',79)
+ if(elem(natom) /= 'Tv') then ! assuming non-pbc system
+  ne = SUM(nuc) - charge
+  if(MOD(ne,2) /= MOD(mult-1,2)) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine read_elem_and_coor_from_gjf:'
+   write(6,'(2(A,I0),A)') 'The combination of multiplicity ', mult, ' and ', ne,&
+                          &' electrons is impossible.'
+   write(6,'(A)') 'Filename = '//TRIM(gjfname)
+   write(6,'(A)') REPEAT('-',79)
+  end if
  end if
 end subroutine read_elem_and_coor_from_gjf
 
@@ -1724,7 +1726,7 @@ end subroutine duplicate_cell
 subroutine find_nmol_in_file(fname, nmol)
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, natom, charge, mult
+ integer :: i, natom
  integer, allocatable :: nuc(:), conn(:,:)
  integer, intent(out) :: nmol
 !f2py intent(out) :: nmol
@@ -1733,25 +1735,11 @@ subroutine find_nmol_in_file(fname, nmol)
  character(len=240), intent(in) :: fname
 !f2py intent(in) :: fname
 
- i = LEN_TRIM(fname)
-
- select case(fname(i-3:i))
- case('.xyz')
-  call read_natom_from_xyz(fname, natom)
-  allocate(elem(natom), nuc(natom), coor(3,natom))
-  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
-  forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
- case('.gjf')
-  call read_natom_from_gjf(fname, natom)
-  allocate(elem(natom), nuc(natom), coor(3,natom))
-  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
- case default
-  write(6,'(/,A)') 'ERROR in subroutine find_nmol_in_file: file format not supp&
-                   &orted.'
-  write(6,'(A)') 'Currently only .gjf/.xyz are supported.'
-  stop
- end select
-
+ call read_natom_from_file(fname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_file(fname, natom, elem, coor)
+ allocate(nuc(natom))
+ forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
  deallocate(elem)
  allocate(dis(natom,natom), conn(natom,natom))
  call gen_conn_from_coor(natom, coor, nuc, dis, conn)
@@ -1873,6 +1861,92 @@ subroutine gen_rconn_from_coor(natom, coor, nuc, rconn)
  rconn = DBLE(conn)
  deallocate(conn)
 end subroutine gen_rconn_from_coor
+
+! Split a complex into monomers. The input file can be .gjf/.xyz format.
+! The output files are .xyz files. Cannot be applied to periodic systems.
+subroutine split_complex2monomers(fname)
+ use fch_content, only: elem2nuc
+ use periodic_table, only: write_xyz
+ implicit none
+ integer :: i, j, k, m, i1, i2, natom, natom1, nmol
+ integer, allocatable :: nuc(:), conn(:,:), imol(:)
+ real(kind=8), allocatable :: coor(:,:), coor1(:,:), dis(:,:)
+ character(len=2), allocatable :: elem(:), elem1(:)
+ character(len=240) :: proname, xyzname
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
+
+ call read_natom_from_file(fname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_file(fname, natom, elem, coor)
+ allocate(nuc(natom))
+ forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
+ allocate(dis(natom,natom), conn(natom,natom))
+ call gen_conn_from_coor(natom, coor, nuc, dis, conn)
+ deallocate(nuc, dis)
+ call find_nmol_from_conn(natom, conn, nmol)
+
+ i = INDEX(fname, '.', back=.true.)
+ proname = fname(1:i-1)
+
+ if(nmol == 1) then
+  deallocate(conn)
+  xyzname = TRIM(proname)//'_1.xyz'
+  call write_xyz(natom, elem, coor, xyzname)
+  deallocate(elem, coor)
+  return
+ end if
+ ! now nmol>1
+
+ allocate(imol(natom), source=0)
+ m = 1
+ do i = 1, nmol, 1
+  imol(m) = i
+
+  do while(.true.)
+   i1 = COUNT(imol == i)
+   do j = m, natom, 1
+    if(imol(j) /= i) cycle
+    forall(k=1:natom,conn(k,j)>0) imol(k) = i
+   end do ! for j
+   i2 = COUNT(imol == i)
+   if(i1 == i2) exit
+  end do ! for while
+
+  do m = 2, natom, 1
+   if(imol(m) == 0) exit
+  end do ! for m
+ end do ! for i
+ deallocate(conn)
+
+ if(ANY(imol == 0)) then
+  write(6,'(/,A)') 'ERROR in subroutine split_complex2monomers: some atoms are &
+                   &not assigned to'
+  write(6,'(A)') 'any monomer. fname='//TRIM(fname)
+  write(6,'(16I5)') imol
+  deallocate(elem, coor, imol)
+  stop
+ end if
+
+ do i = 1, nmol, 1
+  write(xyzname,'(A,I0,A)') TRIM(proname)//'_', i, '.xyz'
+
+  natom1 = COUNT(imol == i)
+  allocate(elem1(natom1), coor1(3,natom1))
+  k = 0
+  do j = 1, natom, 1
+   if(imol(j) /= i) cycle
+   k = k + 1
+   elem1(k) = elem(j)
+   coor1(:,k) = coor(:,j)
+  end do ! for j
+
+  call write_xyz(natom1, elem1, coor1, xyzname)
+  deallocate(elem1, coor1)
+ end do ! for i
+
+ deallocate(elem, coor, imol)
+end subroutine split_complex2monomers
 
 ! convert real(kind=8) type of conn into alternative Coulomb matrix
 subroutine rconn2acoulomb(natom, nuc, rconn)

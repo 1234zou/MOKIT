@@ -73,7 +73,7 @@ subroutine bas_fch2py(fchname, prt_dft, rest)
  ! if the user provides a .fchk file, copy this file to .fch
  if(index(fchname, '.fchk') > 0) then
   inpname = fchname(1:i-1)//'.fch'
-  call copy_file(TRIM(fchname), TRIM(inpname), .false.)
+  call copy_file(fchname, inpname, .false.)
  end if
 
  inpname = fchname(1:i-1)//'.inp'

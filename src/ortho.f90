@@ -1,20 +1,14 @@
 ! written by jxzou at 20191029
 ! updated by jxzou at 20200403: move check_orthonormal into this file
-
-! Currently this file contains
-! subroutine check_orthonormal: check whether a given set of MOs are orthonormal
-! subroutine can_ortho: generate canonical orthonormalized atomic orbitals
-! subroutine sym_ortho: generate symmetric orthonormalized atomic orbitals
-
-! TO DO: Schmidt orthogonalization
+! TODO: Schmidt orthogonalization
 
 ! check whether a given set of MOs are orthonormal
 subroutine check_orthonormal(nbf, nif, coeff, S)
  implicit none
  integer :: i, j, i0, j0
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- real(kind=8) :: coeff(nbf,nif), S(nbf,nbf)
+ real(kind=8), intent(in) :: coeff(nbf,nif), S(nbf,nbf)
 !f2py intent(in) :: coeff, S
 !f2py depend(nbf,nif) :: coeff
 !f2py depend(nbf) :: S
@@ -25,7 +19,7 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
  call calc_CTSC(nbf, nif, coeff, S, C_T_S_C)
 
  forall(i=1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1d0
- forall(i=1:nif,j=1:nif) C_T_S_C(i,j) = DABS(C_T_S_C(i,j))
+ C_T_S_C = DABS(C_T_S_C)
 
  i0 = 1; j0 = 1
  maxv = C_T_S_C(1,1)
@@ -39,8 +33,9 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
   end do ! for j
  end do ! for i
 
- write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=',j0,'i=',i0,'maxv=',maxv
  deallocate(C_T_S_C)
+ write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0,&
+                                     'maxv=', maxv
 end subroutine check_orthonormal
 
 ! check whether a given set of complex MOs are orthonormal
@@ -52,13 +47,11 @@ end subroutine check_orthonormal
 subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  implicit none
  integer :: i, j, i0, j0
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- complex(kind=8), intent(in) :: coeff(nbf,nif)
-!f2py intent(in) :: coeff
+ complex(kind=8), intent(in) :: coeff(nbf,nif), S(nbf/2,nbf/2)
+!f2py intent(in) :: coeff, S
 !f2py depend(nbf,nif) :: coeff
- real(kind=8), intent(in) :: S(nbf/2,nbf/2)
-!f2py intent(in) :: S
 !f2py depend(nbf) :: S
  real(kind=8) :: rtmp, maxv
  real(kind=8), allocatable :: C_r(:,:), C_i(:,:), A(:,:), A_b(:,:)

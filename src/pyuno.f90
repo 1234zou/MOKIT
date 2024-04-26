@@ -61,7 +61,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  noon = 0d0
  nopen = nalpha - nbeta
  if(nopen < 0) then
-  write(6,'(A)') 'ERROR in subroutine uno: nalpha < nbeta.'
+  write(6,'(/,A)') 'ERROR in subroutine uno: nalpha < nbeta.'
   write(6,'(2(A,I0))') 'nalpha=', nalpha, ', nbeta=', nbeta
   stop
  end if
@@ -80,13 +80,13 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
 
  ! check the orthonormality of initial Alpha and Beta MO, respectively
  allocate(mo_basis_ovlp(nif,nif))
- call get_mo_basis_ovlp(nif, nif, nbf, alpha_coeff, alpha_coeff, ao_ovlp, mo_basis_ovlp)
+ call calc_CTSC(nbf, nif, alpha_coeff, ao_ovlp, mo_basis_ovlp)
  call check_unity(nif, mo_basis_ovlp, maxv, abs_mean)
  write(outid,'(/,A)') 'The orthonormality of initial Alpha MO:'
  write(outid,'(A,F16.10)') 'maxv=', maxv
  write(outid,'(A,F16.10)') 'abs_mean=', abs_mean
 
- call get_mo_basis_ovlp(nif, nif, nbf, beta_coeff, beta_coeff, ao_ovlp, mo_basis_ovlp)
+ call calc_CTSC(nbf, nif, beta_coeff, ao_ovlp, mo_basis_ovlp)
  call check_unity(nif, mo_basis_ovlp, maxv, abs_mean)
  deallocate(mo_basis_ovlp)
  write(outid,'(/,A)') 'The orthonormality of initial Beta MO:'
@@ -111,7 +111,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
 
  ! calculate the overlap between alpha and beta occupied spatial orbitals
  allocate(mo_basis_ovlp(nalpha,nbeta))
- call get_mo_basis_ovlp(nalpha, nbeta, nbf, alpha_occ, beta_occ, ao_ovlp, mo_basis_ovlp)
+ call calc_CTSCp2(nbf, nalpha, nbeta, alpha_occ, ao_ovlp, beta_occ, mo_basis_ovlp)
  ! calculate done
 
  ! do SVD on the alpha_beta_ovlp of occupied spatial orbitals
@@ -162,7 +162,7 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
 
  ! check the orthonormality of final Alpha MO
  allocate(mo_basis_ovlp(nocc,nocc))
- call get_mo_basis_ovlp(nocc, nocc, nbf, alpha_coeff(:,1:nocc), alpha_coeff(:,1:nocc), ao_ovlp, mo_basis_ovlp)
+ call calc_CTSC(nbf, nocc, alpha_coeff(:,1:nocc), ao_ovlp, mo_basis_ovlp)
  call check_unity(nocc, mo_basis_ovlp, maxv, abs_mean)
  deallocate(mo_basis_ovlp)
  write(outid,'(/,A)') 'The orthonormality of final Alpha MO:'
@@ -189,49 +189,6 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  deallocate(sv_occ0)
 end subroutine uno
 
-subroutine get_mo_basis_ovlp(na, nb, nbf, c_alpha, c_beta, ao_ovlp, mo_ovlp)
- implicit none
- integer, intent(in) :: na, nb, nbf
- real(kind=8), intent(in) :: c_alpha(nbf,na), c_beta(nbf,nb)
- real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
- real(kind=8), intent(out) :: mo_ovlp(na,nb)
- real(kind=8) :: s_c_beta(nbf, nb)
-
- s_c_beta = 0d0; mo_ovlp = 0d0
- call dsymm('L', 'L', nbf, nb, 1d0, ao_ovlp, nbf, c_beta, nbf, 0d0, s_c_beta, nbf)
- call dgemm('T', 'N', na, nb, nbf, 1d0, c_alpha, nbf, s_c_beta, nbf, 0d0, mo_ovlp, na)
-end subroutine get_mo_basis_ovlp
-
-! perform SVD on a given overlap matrix
-subroutine svd_on_ovlp(m, n, a, u, vt, s)
- implicit none
- integer :: i, lwork
- integer, intent(in) :: m,n
- real(kind=8), intent(in) :: a(m,n)
- real(kind=8), intent(out) :: u(m,m), vt(n,n), s(m)
- real(kind=8), allocatable :: work(:)
- real(kind=8) :: a_copy(m,n)
-
- a_copy = a
- u = 0d0; vt = 0d0; s = 0d0
-
- lwork = -1
- allocate(work(1))
- work = 0
- call dgesvd('A', 'A', m, n, a_copy, m, s, u, m, vt, n, work, lwork, i)
- lwork = CEILING(work(1))
- deallocate(work)
- allocate(work(lwork))
- call dgesvd('A', 'A', m, n, a_copy, m, s, u, m, vt, n, work, lwork, i)
-
- deallocate(work)
- if(i /= 0) then
-  write(6,'(A)') 'ERROR: info /= 0 in subroutine svd_on_ovlp. Please check why.'
-  write(6,'(A5,I0)') 'info=',i
-  stop
- end if
-end subroutine svd_on_ovlp
-
 subroutine svd_and_rotate(na, nb, nbf, c_alpha, c_beta, ab_ovlp, sv, reverse)
  implicit none
  integer :: i
@@ -246,7 +203,7 @@ subroutine svd_and_rotate(na, nb, nbf, c_alpha, c_beta, ab_ovlp, sv, reverse)
  sv = 0d0; u = 0d0; vt = 0d0
 
  ! perform SVD on alpha_beta_ovlp of occupied or virtual orbitals
- call svd_on_ovlp(na, nb, ab_ovlp, u, vt, sv)
+ call do_svd(na, nb, ab_ovlp, u, vt, sv)
 
  ! rotate occupied or virtual orbitals
  if(reverse) then
@@ -286,26 +243,84 @@ subroutine check_unity(n, a, maxv, abs_mean)
  abs_mean = SUM(b)/DBLE(n*n)
 end subroutine check_unity
 
+! Enlarge the active space by utilizing two sets of singular values:
+!  1) SVD of {doubly occupied space of mo1, active space of mo2}
+!  2) SVD of {virtual space of mo1, active space of mo2}
+! mo1 and mo2 are assumed to be expanded on the same set of basis functions,
+!  and thus share the same AO-based overlap integrals.
+! A commonly used example:
+!  mo1 = singlet ground state CASSCF MOs
+!  mo2 = triplet UNO or CASSCF NOs
+subroutine enlarge_as_by_svd(idx, nbf, nif, mo1, mo2, ao_ovlp, new_mo)
+ implicit none
+ integer :: ndb1, nvir1, nact2, ndb_add, nvir_add
+ integer, intent(in) :: idx(4), nbf, nif
+!f2py intent(in) :: idx, nbf, nif
+! idx(1)/(2): the index of the 1st/last active orbital in mo1
+! idx(3)/(4): the index of the 1st/last active orbital in mo2
+! all four integers are in Fortran convention, i.e. start from 1
+ real(kind=8), parameter :: thres = 0.75d0
+ real(kind=8), intent(in) :: mo1(nbf,nif), mo2(nbf,nif), ao_ovlp(nbf,nbf)
+!f2py intent(in) :: mo1, mo2, ao_ovlp
+!f2py depend(nbf,nif) :: mo1, mo2
+!f2py depend(nbf) :: ao_ovlp
+ real(kind=8), intent(out) :: new_mo(nbf,nif)
+!f2py depend(nbf,nif) :: new_mo
+!f2py intent(out) :: new_mo
+ real(kind=8), allocatable :: mo3(:,:), mo4(:,:), mo_ovlp(:,:), sv(:)
+
+ new_mo = mo1
+ ndb1 = idx(1) - 1
+ nvir1 = nif - idx(2)
+ nact2 = idx(4) - idx(3) + 1
+
+ allocate(mo3(nbf,ndb1), source=mo1(:,1:ndb1))
+ allocate(mo4(nbf,nact2), source=mo2(:,idx(3):idx(4)))
+ allocate(mo_ovlp(ndb1,nact2))
+ call calc_CTSCp2(nbf, ndb1, nact2, mo3, ao_ovlp, mo4, mo_ovlp)
+ allocate(sv(ndb1))
+ call svd_and_rotate(ndb1, nact2, nbf, mo3, mo4, mo_ovlp, sv, .true.)
+ deallocate(mo_ovlp)
+ write(6,'(A)') 'Singular values of docc1 v.s. act2:'
+ write(6,'(5(1X,ES15.8))') sv
+ ndb_add = COUNT(sv > thres)
+ write(6,'(A,I0)') 'ndb_add=', ndb_add
+ if(ndb_add > 0) new_mo(:,1:ndb1) = mo3
+ deallocate(sv, mo3)
+
+ mo4 = mo2(:,idx(3):idx(4))
+ allocate(mo3(nbf,nvir1), source=mo1(:,idx(2)+1:nif))
+ allocate(mo_ovlp(nvir1,nact2))
+ call calc_CTSCp2(nbf, nvir1, nact2, mo3, ao_ovlp, mo4, mo_ovlp)
+ allocate(sv(nvir1))
+ call svd_and_rotate(nvir1, nact2, nbf, mo3, mo4, mo_ovlp, sv, .false.)
+ write(6,'(/,A)') 'Singular values of vir1 v.s. act2:'
+ write(6,'(5(1X,ES15.8))') sv
+ deallocate(mo4, mo_ovlp)
+ nvir_add = COUNT(sv > thres)
+ write(6,'(A,I0)') 'nvir_add=', nvir_add
+ if(nvir_add > 0) new_mo(:,idx(2)+1:nif) = mo3
+ deallocate(sv, mo3)
+end subroutine enlarge_as_by_svd
+
 ! calculated the SVD singular values of overlap of two sets of MOs
 ! Note: the input coeff1 and coeff2 must have the same dimension (nbf,nif)
 subroutine svd_of_two_mo(nbf, nif, coeff1, coeff2, S)
  implicit none
  integer :: i
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
-
  real(kind=8), intent(in) :: coeff1(nbf,nif), coeff2(nbf,nif), S(nbf,nbf)
 !f2py intent(in) :: coeff1, coeff2, S
 !f2py depend(nbf,nif) :: coeff1, coeff2
 !f2py depend(nbf) :: S
-
  real(kind=8), allocatable :: mo_ovlp(:,:), u(:,:), vt(:,:), ev(:)
 
- allocate(mo_ovlp(nif,nif), source=0d0)
- call get_mo_basis_ovlp(nif, nif, nbf, coeff1, coeff2, S, mo_ovlp)
+ allocate(mo_ovlp(nif,nif))
+ call calc_CTSCp(nbf, nif, coeff1, S, coeff2, mo_ovlp)
 
  allocate(u(nif,nif), vt(nif,nif), ev(nif))
- call svd_on_ovlp(nif, nif, mo_ovlp, u, vt, ev)
+ call do_svd(nif, nif, mo_ovlp, u, vt, ev)
  deallocate(mo_ovlp, u, vt)
 
  write(6,'(/,A)') 'SVD analysis of two sets of MOs:'

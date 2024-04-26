@@ -116,7 +116,7 @@ OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
 OBJ_py2fch = file_op.o string_manipulate.o split_sp.o read_fch.o py2fch.f90
-OBJ_pyuno = pyuno.f90
+OBJ_pyuno = math_sub.f90 pyuno.f90
 OBJ_qchem = file_op.f90 math_sub.f90 rwwfn.f90 util_wrapper.f90 rwgeom.f90 \
             split_sp.f90 qchem.f90 string_manipulate.o read_natom.o read_fch.o
 OBJ_construct_vir = math_sub.f90 construct_vir.f90

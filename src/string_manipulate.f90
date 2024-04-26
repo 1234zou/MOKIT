@@ -1560,3 +1560,22 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
 
+subroutine read_title_card_from_gjf(gjfname, title)
+ implicit none
+ integer :: fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ character(len=240), intent(out) :: title
+
+ buf = ' '; title = ' '
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+ end do ! for while
+
+ read(fid,'(A)') title
+ close(fid)
+end subroutine read_title_card_from_gjf
+
