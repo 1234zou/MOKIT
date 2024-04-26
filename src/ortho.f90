@@ -49,9 +49,11 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  integer :: i, j, i0, j0
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- complex(kind=8), intent(in) :: coeff(nbf,nif), S(nbf/2,nbf/2)
-!f2py intent(in) :: coeff, S
+ complex(kind=8), intent(in) :: coeff(nbf,nif)
+!f2py intent(in) :: coeff
 !f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(in) :: S(nbf/2,nbf/2)
+!f2py intent(in) :: S
 !f2py depend(nbf) :: S
  real(kind=8) :: rtmp, maxv
  real(kind=8), allocatable :: C_r(:,:), C_i(:,:), A(:,:), A_b(:,:)
