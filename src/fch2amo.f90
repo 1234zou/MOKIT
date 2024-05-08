@@ -59,6 +59,7 @@ subroutine fch2amo(fchname)
  amoname = fchname(1:i-1)//'.amo'
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
+ call find_irel_in_fch(fchname, irel)
 
  uhf = .false.; sph = .false.; has_sp = .false.; ecp = .false.
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
@@ -93,6 +94,7 @@ subroutine fch2amo(fchname)
    write(fid,'(A)',advance='no') 'rohf'
   end if
  end if
+ if(irel == -3) write(fid,'(A)',advance='no') ' sfx2c1e'
  write(fid,'(A)') ' define'
 
  if(ANY(shell_type>1)) write(fid,'(A,/,A,/,A)') '>ope',' inttype car','end'

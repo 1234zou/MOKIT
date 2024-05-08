@@ -8,31 +8,36 @@
 module molden_sph2cart
  implicit none
  real(kind=8), parameter :: r1=1d0/DSQRT(12d0), r2=1d0/DSQRT(3d0), &
-  r3=1d0/DSQRT(15d0), r4=DSQRT(3d0)/10d0, r5=1d0/DSQRT(40d0), r6=1d0/DSQRT(200d0),&
-  r7=DSQRT(2d0)/5d0, r8=1d0/DSQRT(20d0), r9=1d0/DSQRT(24d0), r10=DSQRT(0.075d0),&
+  r3=1d0/DSQRT(15d0), r4=DSQRT(0.03d0), r5=1d0/DSQRT(40d0), r6=DSQRT(0.005d0),&
+  r7=DSQRT(0.08d0), r8=DSQRT(0.05d0), r9=1d0/DSQRT(24d0), r10=DSQRT(0.075d0),&
   r11=DSQRT(3d0/2240d0), r12=1d0/DSQRT(105d0), r13=1d0/DSQRT(2176d0), &
   r14=1d0/DSQRT(136d0), r15=DSQRT(3d0/392d0), r16=DSQRT(2d0/147d0), &
   r17=DSQRT(3d0/1960d0), r18=1d0/DSQRT(588d0), r19=DSQRT(3d0/245d0), &
   r20=1d0/DSQRT(336d0), r21=3d0/DSQRT(980d0), r22=1d0/DSQRT(168d0), &
   r23=DSQRT(3d0/280d0), r24=1d0/DSQRT(84d0), r25=1d0/DSQRT(192d0), &
-  r26=3d0/DSQRT(560d0), r27=DSQRT(3d0/20d0), r28=DSQRT(0.4d0), r29=DSQRT(3d0/8d0),&
+  r26=3d0/DSQRT(560d0), r27=DSQRT(0.15d0), r28=DSQRT(0.4d0), r29=DSQRT(0.375d0),&
   r30=DSQRT(3d0/560d0), r31=DSQRT(3d0/35d0), r32=DSQRT(3d0/56d0), &
-  r33=DSQRT(2d0/21d0), r34=DSQRT(3d0/28d0), r35=DSQRT(3d0/7d0), r36=DSQRT(3d0)/4d0,&
+  r33=DSQRT(2d0/21d0), r34=DSQRT(3d0/28d0), r35=DSQRT(3d0/7d0), r36=DSQRT(0.1875d0),&
   r37=DSQRT(5d0/1344d0), r38=DSQRT(5d0/336d0), r39=DSQRT(5d0/189d0), &
   r40=1d0/DSQRT(945d0), r41=1d0/DSQRT(4032d0), r42=1d0/DSQRT(1008d0), &
   r43=1d0/DSQRT(28d0), r44=1d0/DSQRT(63d0), r45=1d0/12d0, r46=1d0/6d0, &
   r47=1d0/3d0, r48=1d0/DSQRT(3456d0), r49=1d0/DSQRT(864d0), r50=1d0/DSQRT(54d0),&
   r51=1d0/DSQRT(384d0), r52=1d0/DSQRT(6d0), r53=1d0/DSQRT(1920d0), &
-  r54=DSQRT(5d0/96d0), r55=DSQRT(5d0/384d0)
+  r54=DSQRT(5d0/96d0), r55=DSQRT(5d0/384d0), r56=DSQRT(0.75d0), &
+  r57=DSQRT(0.625d0), r58=DSQRT(1.125d0), r59=DSQRT(0.45d0), r60=DSQRT(1.2d0),&
+  r61=DSQRT(0.140625d0), r62=DSQRT(0.3125d0), r63=DSQRT(0.546875d0), &
+  r64=DSQRT(5d0/28d0), r65=DSQRT(1.25d0), r66=DSQRT(45d0/56d0), r67=DSQRT(10d0/7d0),&
+  r68=DSQRT(27d0/560d0), r69=DSQRT(1.6875d0), r70=DSQRT(27d0/35d0), &
+  r71=DSQRT(27d0/28d0), r72=DSQRT(9d0/56d0), r73=DSQRT(9d0/7d0)
  real(kind=8), parameter :: rd(6,5) = RESHAPE([-r1, -r1, r2, 0d0, 0d0, 0d0,&
   0d0, 0d0, 0d0, 0d0,  r2, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,  r2, &
   0.5d0, -0.5d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,  r2, 0d0, 0d0], [6,5])
  real(kind=8), parameter :: rd1(6,5) = RESHAPE([-r1, -r1, r2, 0d0, 0d0, 0d0,&
   0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, &
   0.5d0, -0.5d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0], [6,5])
- !real(kind=8), parameter :: rdc4_2(6,5) = RESHAPE([-r1,  0d0, 0d0, -r1, 0d0, r2,&
- ! 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, 0d0, &
- ! 0.5d0, 0d0, 0d0, -0.5d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 0d0], [6,5])
+ real(kind=8), parameter :: rd2(6,5) = RESHAPE([-0.5d0,-0.5d0,1d0,0d0,0d0,0d0,&
+  0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, &
+  r56,-r56, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0, 0d0, 0d0], [6,5])
  real(kind=8), parameter :: &
   rf(10,7) = RESHAPE([0d0, 0d0,  r3, 0d0, 0d0, -r4, 0d0, 0d0, -r4, 0d0,&
                       -r5, 0d0, 0d0, -r6, 0d0, 0d0,  r7, 0d0, 0d0, 0d0,&
@@ -49,6 +54,14 @@ module molden_sph2cart
                        0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
                         r9, 0d0, 0d0,-r29, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,&
                        0d0, -r9, 0d0, 0d0, r29, 0d0, 0d0, 0d0, 0d0, 0d0],[10,7])
+ real(kind=8), parameter :: &
+  rf2(10,7) = RESHAPE([0d0, 0d0, 1d0, 0d0, 0d0,-r59, 0d0, 0d0,-r59, 0d0,&
+                      -r29, 0d0, 0d0,-r10, 0d0, 0d0, r60, 0d0, 0d0, 0d0,&
+                       0d0,-r29, 0d0, 0d0,-r10, 0d0, 0d0, r60, 0d0, 0d0,&
+                       0d0, 0d0, 0d0, 0d0, 0d0, r56, 0d0, 0d0,-r56, 0d0,&
+                       0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 1d0,&
+                       r57, 0d0, 0d0,-r58, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,&
+                       0d0,-r57, 0d0, 0d0, r58, 0d0, 0d0, 0d0, 0d0, 0d0],[10,7])
  real(kind=8), parameter :: &
   rg(15,9) = RESHAPE([r11, r11, r12, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r13,-r14,-r14, 0d0, 0d0,0d0,&
                       0d0, 0d0, 0d0, 0d0,-r15, 0d0, 0d0, r16, 0d0, 0d0, 0d0, 0d0, 0d0,-r17,0d0,&
@@ -69,6 +82,16 @@ module molden_sph2cart
                        0d0, 0d0, 0d0, 0d0, 0d0, 0d0, -r9, 0d0, 0d0, 0d0, 0d0, 0d0, r29, 0d0,0d0,&
                        r25, r25, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r36, 0d0, 0d0, 0d0, 0d0,0d0,&
                        0d0, 0d0, 0d0,  r1, 0d0, -r1, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,0d0],[15,9])
+ real(kind=8), parameter :: &
+  rg2(15,9) = RESHAPE([r61, r61, 1d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r68,-r70,-r70, 0d0, 0d0,0d0,&
+                       0d0, 0d0, 0d0, 0d0,-r66, 0d0, 0d0, r67, 0d0, 0d0, 0d0, 0d0, 0d0,-r72,0d0,&
+                       0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r66, 0d0, r67, 0d0, 0d0, 0d0,-r72, 0d0,0d0,&
+                      -r62, r62, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r71,-r71, 0d0, 0d0,0d0,&
+                       0d0, 0d0, 0d0,-r64, 0d0,-r64, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,r73,&
+                       0d0, 0d0, 0d0, 0d0, r57, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r58,0d0,&
+                       0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r57, 0d0, 0d0, 0d0, 0d0, 0d0, r58, 0d0,0d0,&
+                       r63, r63, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r69, 0d0, 0d0, 0d0, 0d0,0d0,&
+                       0d0, 0d0, 0d0, r65, 0d0,-r65, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,0d0],[15,9])
  !real(kind=8), parameter :: &
  ! rh1(21,11) = RESHAPE([0d0, 0d0, r37, 0d0, 0d0, 0d0, 0d0, r38, 0d0,-r39,0d0, 0d0, 0d0,0d0,0d0,0d0,r37, 0d0,-r39,0d0,r40,&
  !                       r41, 0d0, 0d0, r42, 0d0,-r43, 0d0, 0d0, 0d0, 0d0,r41, 0d0,-r43,0d0,r44,0d0,0d0, 0d0, 0d0,0d0,0d0,&
@@ -95,11 +118,15 @@ program main
  if(i<2 .or. i>3) then
   write(6,'(/,A)') ' ERROR in subroutine molden2fch: wrong command line arguments!'
   write(6,'(A)')   ' Example 1: molden2fch a.molden -orca'
-  write(6,'(A)')   ' Example 2: molden2fch a.molden -orca -no'
-  write(6,'(A)')   ' Example 3: molden2fch a.molden -tm'
-  write(6,'(A)')   ' Example 4: molden2fch a.molden -cfour (or -c4)'
-  write(6,'(A)')   ' Example 5: molden2fch a.molden -c4 -no'
-  write(6,'(A,/)') ' Example 6: molden2fch a.molden -molcas'
+  write(6,'(A)')   ' Example 2: molden2fch a.molden -tm'
+  write(6,'(A)')   ' Example 3: molden2fch a.molden -cfour (or -c4)'
+  write(6,'(A)')   ' Example 4: molden2fch a.molden -molcas'
+  write(6,'(A)')   ' Example 5: molden2fch a.molden -molpro'
+  write(6,'(A)')   ' Example 6: molden2fch a.molden -dalton'
+  write(6,'(A)')   ' Example 7: molden2fch a.molden -cp2k'
+  write(6,'(/,A)') " If you are transferring NOs, you can append a '-no' argume&
+                   &nt, e.g."
+  write(6,'(A,/)') '            molden2fch a.molden -orca -no'
   stop
  end if
 
@@ -123,12 +150,18 @@ program main
   iprog = 3
  case('-molcas')
   iprog = 4
+ case('-molpro')
+  iprog = 5
+ case('-dalton')
+  iprog = 6
+ case('-cp2k')
+  iprog = 7
  case default
   write(6,'(/,A)') 'ERROR in program molden2fch: this molden format cannot be r&
                    &ecognized.'
   write(6,'(A)') 'molden format strongly depends on quantum chemistry programs.&
                  & So this utility'
-  write(6,'(A)') 'requires you to specify a program.'
+  write(6,'(A)') 'requires you to specify a program name.'
   stop
  end select
 
@@ -150,7 +183,7 @@ subroutine molden2fch(molden, iprog, natorb)
  use fch_content
  use mkl_content, only: natom1=>natom, ncontr1=>ncontr, shell_type1=>shell_type,&
   shl2atm1=>shl2atm, all_pg, un_normalized_all_pg, merge_s_and_p_into_sp
- use molden_sph2cart, only: rd, rd1, rf, rf1, rg, rg1
+ use molden_sph2cart, only: rd, rd1, rd2, rf, rf1, rf2, rg, rg1, rg2
  implicit none
  integer :: i, j, ne0, ne, nbf1, nif1
  integer :: ndmark, nfmark, ngmark, nhmark, nimark
@@ -317,6 +350,58 @@ subroutine molden2fch(molden, iprog, natorb)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case(4) ! (Open)Molcas, nothing to do
+  if(ANY(shell_type < -4)) then
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: OpenMolcas cannot generat&
+                     &e .molden file'
+    write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
+    stop
+  end if
+ case(5) ! Molpro
+  nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
+         6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
+  allocate(d_mark(ncontr))
+  allocate(shell_type1(ncontr), source=shell_type)
+  forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
+  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
+                                  nhmark, d_mark, f_mark, g_mark, h_mark)
+  allocate(tmp_coeff(nbf1,nif1), source=0d0)
+  nbf = 0; j = 0
+  do i = 1, ncontr, 1
+   select case(shell_type1(i))
+   case( 0) ! S
+    tmp_coeff(nbf+1,:) = coeff(j+1,:)
+    nbf = nbf + 1; j = j + 1
+   case( 1) ! P
+    tmp_coeff(nbf+1:nbf+3,:) = coeff(j+1:j+3,:)
+    nbf = nbf + 3; j = j + 3
+   case(-1) ! L
+    tmp_coeff(nbf+1:nbf+4,:) = coeff(j+1:j+4,:)
+    nbf = nbf + 4; j = j + 4
+   case(2) ! 6D -> 5D
+    call solve_multi_lin_eqs(6,5,rd2,nif1,coeff(j+1:j+6,:),tmp_coeff(nbf+1:nbf+5,:))
+    nbf = nbf + 5; j= j + 6
+   case(3) ! 10F -> 7F
+    call solve_multi_lin_eqs(10,7,rf2,nif1,coeff(j+1:j+10,:),tmp_coeff(nbf+1:nbf+7,:))
+    nbf = nbf + 7; j = j + 10
+   case(4) ! 15G -> 9G
+    call solve_multi_lin_eqs(15,9,rg2,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
+    nbf = nbf + 9; j = j + 15
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Molpro cannot generate .m&
+                     &olden file for'
+    write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
+    stop
+   end select
+  end do ! for i
+  deallocate(d_mark, shell_type1, coeff)
+  allocate(coeff(nbf1,nif1), source=tmp_coeff)
+  deallocate(tmp_coeff)
+ case(6) ! Dalton
+  write(6,'(/,A)') 'NOT implemented yet.'
+  stop
+ case(7) ! CP2K
+  write(6,'(/,A)') 'NOT implemented yet.'
+  stop
  case default
   write(6,'(/,A)') 'ERROR in subroutine molden2fch: iprog out of range!'
   write(6,'(A,I0)') 'iprog=', iprog
@@ -362,20 +447,34 @@ subroutine read_nuc_and_coor_from_molden(molden, natom, nuc, coor)
  character(len=2) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: molden
+ logical :: coor_au
 
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:7)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
  end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_nuc_and_coor_from_molden: no [ATOM&
+                   &S] found in'
+  write(6,'(A)') 'file '//TRIM(molden)
+  close(fid)
+  stop
+ end if
+
+ coor_au = .true.
+ call upper(buf)
+ if(INDEX(buf,'ANGS') > 0) coor_au = .false.
 
  do i = 1, natom, 1
   read(fid,*) str, j, nuc(i), coor(:,i) ! coor in Bohr
  end do ! for i
 
  close(fid)
- coor = coor*Bohr_const
+ if(coor_au) coor = coor*Bohr_const
 end subroutine read_nuc_and_coor_from_molden
 
 ! find the array size of shell_type from a given .molden file

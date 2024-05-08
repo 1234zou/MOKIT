@@ -75,10 +75,10 @@ subroutine fch2psi(fchname)
  end if
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2psi: call utility bas_gms2psi failed.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2psi: call utility bas_gms2psi failed.'
   write(6,'(A)') 'Did you forget to compile bas_gms2psi? Or the file '//&
                   TRIM(fchname)
-  write(6,'(A,/)') 'may be incomplete.'
+  write(6,'(A)') 'may be problematic.'
   stop
  end if
  call delete_file(inpname)

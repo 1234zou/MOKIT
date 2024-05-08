@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Apr 25, 2024)
+MOKIT 1.2.6 (May 8, 2024)
 ------------------------
+* add decontracted basis set in fch2psi when sfx2c is used
 * add a new keyword LocDocc (associated with LocalM)
 * change `-b3lyp` type to `-dft 'b3lyp'` type for fch2mkl
 * put basis sets ANO-R1, ANO-R2 and ANO-R3 into `$MOKIT_ROOT/mokit/basis/`
@@ -9,7 +10,7 @@ MOKIT 1.2.6 (Apr 25, 2024)
 * put basis sets cc-pVDZ-X2C and cc-pVTZ-X2C into `$MOKIT_ROOT/mokit/basis/`
 * remove dependency of HF calculation using Gaussian when `HF_prog=PySCF`
 * support of I angular momentum in fch2mkl and mkl2fch
-* support of ORCA, Turbomole, CFOUR, (Open)Molcas molden in molden2fch
+* support of ORCA/Turbomole/CFOUR/OpenMolcas/Molpro molden in molden2fch
 * add DMRG-FIC-MRCISD interface (calling PySCF+Block2)
 * modify Makefile to support OpenMP for some subroutines
 * add utilities molden2fch, fch2tm

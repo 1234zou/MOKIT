@@ -332,8 +332,8 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
    ! Here we adopt the occupation numbers of LUNO and LUNO+1.
    ! You can adopt the way of calculating y0/y1 in UHF, if you like.
    y0 = noon(i+1,1); y1 = noon(i+2,1)
-   write(6,'(A,F7.3)') 'biradical character   (2c^2) y0=', y0
-   write(6,'(A,F7.3)') 'tetraradical character(2c^2) y1=', y1
+   write(6,'(A,F7.3)') 'biradical character y0 = n_LUNO =', y0
+   write(6,'(A,F7.3)') 'tetraradical character y1 = n_{LUNO+1} =', y1
   end if
  else
   write(6,'(A)') 'Not spin singlet. Biradical character will not be computed.'

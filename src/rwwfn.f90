@@ -259,7 +259,7 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit

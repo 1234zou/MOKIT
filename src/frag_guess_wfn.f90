@@ -66,6 +66,27 @@ subroutine copy_frag(frag1, frag2)
   end if
  end if
 end subroutine copy_frag
+
+! combine the arrays elem and coor in type frag1 and frag2, store the result
+! into type frag3
+subroutine comb_elem_coor_in_frags(frag1, frag2, frag3)
+ implicit none
+ integer :: natom1, natom3
+ type(frag), intent(in) :: frag1, frag2
+ type(frag), intent(inout) :: frag3
+
+ natom1 = frag1%natom
+ natom3 = natom1 + frag2%natom
+ frag3%natom = natom3
+ if(allocated(frag3%elem)) deallocate(frag3%elem)
+ if(allocated(frag3%coor)) deallocate(frag3%coor)
+ allocate(frag3%elem(natom3), frag3%coor(3,natom3))
+ frag3%elem(1:natom1) = frag1%elem
+ frag3%elem(natom1+1:natom3) = frag2%elem
+ frag3%coor(:,1:natom1) = frag1%coor
+ frag3%coor(:,natom1+1:natom3) = frag2%coor
+end subroutine comb_elem_coor_in_frags
+
 end module frag_info
 
 module theory_level
@@ -80,15 +101,17 @@ module theory_level
  character(len=60) :: scrf  = ' '
  character(len=40) :: solvent = ' '
  character(len=40) :: solvent_gau = ' '
+ character(len=240) :: gau_path
  character(len=240) :: hf_prog_path = ' '
  logical :: sph = .true.  ! '5D 7F'/'6D 10F'
 end module theory_level
 
 program main
+ use theory_level, only: gau_path
  implicit none
  integer :: i
  character(len=24) :: data_string
- character(len=240) :: gau_path, gjfname
+ character(len=240) :: gjfname
 
  i = iargc()
  if(i /= 1) then
@@ -100,19 +123,15 @@ program main
 
  gjfname = ' '
  call getarg(1, gjfname)
- if(INDEX(gjfname,'.gjf') == 0) then
-  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: '.gjf' suffix not found&
-                   & in filename "//TRIM(gjfname)
-  stop
- end if
-
+ call find_specified_suffix(gjfname, '.gjf', i)
  call require_file_exist(gjfname)
  call get_gau_path(gau_path)
+ !call calc_xo_pbc_ads_e(gjfname)
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)
 
- call frag_guess_wfn(gau_path, gjfname)
+ call frag_guess_wfn(gjfname)
  call gen_inp_of_frags()
 
  call fdate(data_string)
@@ -120,7 +139,7 @@ program main
 end program main 
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
-subroutine frag_guess_wfn(gau_path, gjfname)
+subroutine frag_guess_wfn(gjfname)
  use util_wrapper, only: formchk, unfchk
  use frag_info, only: nfrag0, nfrag, frag, frags, copy_frag
  use theory_level
@@ -133,13 +152,12 @@ subroutine frag_guess_wfn(gau_path, gjfname)
  character(len=2), allocatable :: elem(:)
  character(len=10) :: hf_prog ! only Gaussian/PySCF supported
  character(len=240) :: buf, chkname, fchname, logname, basname
- character(len=240), intent(in) :: gau_path, gjfname
+ character(len=240), intent(in) :: gjfname
  character(len=1200) :: longbuf
  logical :: guess_read, stab_chk
  type(frag) :: tmp_frag1, tmp_frag2
 
  buf = ' '; longbuf = ' '
- !call calc_xo_pbc_ads_e(gjfname)
 
  call read_eda_type_from_gjf(gjfname, eda_type, stab_chk, hf_prog)
  select case(TRIM(hf_prog))
@@ -168,8 +186,8 @@ subroutine frag_guess_wfn(gau_path, gjfname)
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction c&
                    &annot be used in'
   write(6,'(A)') 'SAPT. It may be supported in DFT-SAPT, but this method is not&
-                 & supported by frag_guess_wfn'
-  write(6,'(A)') 'currently.'
+                 & supported by'
+  write(6,'(A)') 'frag_guess_wfn currently.'
   stop
  end if
 
@@ -775,7 +793,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  type(frag), intent(in) :: frag0
  logical, intent(in) :: guess_read, stab_chk
 
- k = [index(method,'o3lyp'),index(method,'ohse2pbe'),index(method,'ohse1pbe')]
+ k = [INDEX(method,'o3lyp'),INDEX(method,'ohse2pbe'),INDEX(method,'ohse1pbe')]
 
  if(ANY(k > 0)) then
   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP, OHSE2PBE&
@@ -851,7 +869,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
 
  select case(frag0%wfn_type)
  case(1) ! RHF
-  write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=300)'
+  write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=128)'
  case(2) ! ROHF
   write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc)'
  case(3) ! UHF
@@ -906,8 +924,9 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
 
  call copy_gen_basis_bas2gjf(basname, frag0%fname)
 
- if(ANY(frag0%ghost .eqv. .true.) .and. index(basis,'genecp')>0) &
+ if(ANY(frag0%ghost .eqv. .true.) .and. INDEX(basis,'genecp')>0) then
   call del_ecp_of_ghost_in_gjf(frag0%fname)
+ end if
 
  if((.not.guess_read) .and. (.not.frag0%noiter) .and. frag0%wfn_type==3) then
   open(newunit=fid,file=TRIM(frag0%fname),status='old',position='append')
@@ -917,7 +936,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
   write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
   write(fid,'(A,I0)') '%nprocshared=', nproc
   write(fid,'(A)',advance='no') '#p '//TRIM(method0)//' chkbasis guess=read&
-   & geom=allcheck nosymm scf(xqc,maxcycle=300,NoIncFock,NoVarAcc)'
+   & geom=allcheck nosymm scf(xqc,maxcycle=128,NoIncFock,NoVarAcc)'
   if(stab_chk) write(fid,'(A)',advance='no') ' stable=opt'
 
   if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
@@ -1291,7 +1310,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  write(fid2,'(A)') ' $END'
 
  read(fid1,'(A)') buf1 ! this line should be $SYSTEM
- i = MAX(300, FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc))))
+ i = MAX(200, FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc))))
  write(fid2,'(A,I0)',advance='no') ' $SYSTEM MWORDS=',i
 
  if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
@@ -1900,99 +1919,6 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
  call unfchk(fchname, chkname)
 end subroutine direct_sum_frag_mo2super_mo
 
-! sum fragment Total SCF Densities and print the 
-subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
- use util_wrapper, only: formchk
- implicit none
- integer :: i, j, nif, nbf, nbf1
- integer, intent(in) :: n
- character(len=240) :: chkname
- character(len=240), intent(in) :: fname0(n), fname
- character(len=240), allocatable :: fchname(:)
- real(kind=8), allocatable :: dm(:,:), dm1(:,:)
- logical :: alive
- logical, allocatable :: has_spin_density(:)
- logical, intent(in) :: pos(n) ! negative spin means to switch alpha/beta
-
- allocate(fchname(n+1))
-
- ! if fname0(n) and fname are .gjf files, convert filenames into .fch
- do i = 1, n, 1
-  j = INDEX(fname0(i), '.fch', back=.true.)
-  if(j == 0) then
-   j = INDEX(fname0(i), '.gjf', back=.true.)
-   fchname(i) = fname0(i)(1:j-1)//'.fch'
-  else ! j > 0
-   fchname(i) = fname0(i)
-  end if
- end do ! for i
-
- j = INDEX(fname, '.fch', back=.true.)
- if(j == 0) then
-  j = INDEX(fname, '.gjf', back=.true.)
-  fchname(n+1) = fname(1:j-1)//'.fch'
- else ! j > 0
-  fchname(n+1) = fname
-  j = INDEX(fname, '.fch', back=.true.)
- end if
- chkname = fname(1:j-1)//'.chk'
- inquire(file=TRIM(fchname(n+1)), exist=alive)
- if(.not. alive) call formchk(chkname, fchname(n+1))
-
- call read_nbf_and_nif_from_fch(fchname(n+1), nbf, nif)
- allocate(dm(nbf,nbf), dm1(nbf,nbf))
- dm = 0d0
-
- do i = 1, n, 1
-  call read_nbf_and_nif_from_fch(fchname(i), nbf1, nif)
-  if(nbf1 /= nbf) then
-   write(6,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch:&
-                  & nbf1 /= nbf.'
-   write(6,'(A,I0,A)') 'Inconsistent nbf between fragment ',i,' and the&
-                       & total system.'
-   write(6,'(2(A,I0))') 'nbf1=', nbf1, ', nbf=', nbf
-   stop
-  end if
-  call read_dm_from_fch(fchname(i), 1, nbf, dm1)
-  dm = dm + dm1
- end do ! for i
- call write_dm_into_fch(fchname(n+1), .true., nbf, dm)
-
- allocate(has_spin_density(n))
- has_spin_density = .false.
- dm = 0d0
-
- do i = 1, n, 1
-  call detect_spin_scf_density_in_fch(fchname(i), has_spin_density(i))
-  if(.not. has_spin_density(i)) cycle
-  call read_dm_from_fch(fchname(i), 2, nbf, dm1)
-  if(pos(i)) then
-   dm = dm + dm1
-  else
-   dm = dm - dm1 ! interchange alpha/beta spin, which is equal to -dm1
-  end if
- end do ! for i
-
- call detect_spin_scf_density_in_fch(fchname(n+1), alive)
-
- if(ANY(has_spin_density .eqv. .true.)) then
-  if(alive) then
-   call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
-  else ! no Spin SCF Density in the total system .fch file
-   write(6,'(/,A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: som&
-                    &e fragment has UHF-'
-   write(6,'(A)') 'type wave function, but the total system has RHF-type wave f&
-                  &unction. Inconsistency'
-   write(6,'(A)') 'detected.'
-   stop
-  end if
- else ! all fragments has RHF-type wave function
-  if(alive) call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
- end if
-
- deallocate(fchname, dm, dm1, has_spin_density)
-end subroutine sum_frag_density_and_prt_into_fch
-
 ! modify 'guess(only,save)' in a given .gjf file
 subroutine modify_guess_only_in_gjf(gjfname)
  implicit none
@@ -2092,31 +2018,171 @@ subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
  deallocate(str, ghost2)
 end subroutine del_ecp_of_ghost_in_buf
 
-! calculate the vertical adsorption energy using the 2D XO-PBC method
-subroutine calc_xo_pbc_ads_e(gjfname)
+! Select adjcent atoms according to the cutoff radius. The distance between an
+! atom in frag4 and the adsorbate is stored in the array dis0.
+! If the selected atoms have odd electrons, one more atom will be selected to
+! obtain even electrons. This is because for some metals (e.g. Cu), RDFT wave
+! function is often stable, and thus using RDFT can save computational time. For
+! special metals, we can use broken-symmetry guess or antiferromagnetic guess.
+subroutine select_adj_atoms_in_frag(frag4, natom4, dis0, r_cut, frag2)
  use frag_info, only: frag
- use theory_level, only: mem, nproc
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, j, i1, i2, ne, charge, mult
- integer :: natom, natom1, natom2, natom3, natom4
- integer, allocatable :: nuc(:)
- real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
- real(kind=8), parameter :: r_thres = 4.5d0
- real(kind=8), allocatable :: coor(:,:), dis(:)
+ integer :: i, j, k(1), ne, natom2
+ integer, intent(in) :: natom4
+ real(kind=8) :: rtmp
+ real(kind=8), intent(in) :: dis0(natom4), r_cut
+ real(kind=8), allocatable :: dis(:), coor2(:,:)
  character(len=2) :: str2
+ character(len=2), allocatable :: elem2(:)
+ type(frag), intent(in) :: frag4
+ type(frag), intent(inout) :: frag2
+
+ allocate(dis(natom4), source=dis0)
+ natom2 = frag2%natom
+ allocate(elem2(natom2), coor2(3,natom2))
+ ne = 0; j = 0; rtmp = MAXVAL(dis) + 0.01d0
+
+ do i = 1, natom4, 1
+  if(dis(i) < r_cut) then
+   str2 = frag4%elem(i)
+   ne = ne + elem2nuc(str2)
+   j = j + 1
+   elem2(j) = str2
+   coor2(:,j) = frag4%coor(:,i)
+   dis(i) = rtmp
+  end if
+ end do ! for i
+
+ if(allocated(frag2%elem)) deallocate(frag2%elem)
+ if(allocated(frag2%coor)) deallocate(frag2%coor)
+
+ if(MOD(ne,2) == 1) then ! select 1 more metal atom
+  write(6,'(A)') 'Selected atoms have odd electrons, trying to select one more &
+                 &atom...'
+  allocate(frag2%elem(natom2+1), frag2%coor(3,natom2+1))
+  frag2%elem(1:natom2) = elem2
+  frag2%coor(:,1:natom2) = coor2
+  k = MINLOC(dis)
+  write(6,'(A,F10.4,A)') 'dis(k)=', dis(k(1)), ' A'
+  str2 = frag4%elem(k(1))
+  ne = ne + elem2nuc(str2)
+  if(MOD(ne,2) == 1) then
+   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: odd electrons.'
+   write(6,'(A,I0)') 'k=', k(1)
+   stop
+  end if
+  frag2%elem(natom2+1) = str2
+  frag2%coor(:,natom2+1) = frag4%coor(:,k(1))
+  natom2 = natom2 + 1
+ else
+  allocate(frag2%elem(natom2), source=elem2)
+  allocate(frag2%coor(3,natom2), source=coor2)
+ end if
+
+ deallocate(elem2, coor2, dis)
+ frag2%natom = natom2
+end subroutine select_adj_atoms_in_frag
+
+! Reorder elements and Cartesian coordinates as coordinates of previous loop.
+! The array coor1 embraces coor0, so elem1 and coor1 need to be reordered.
+subroutine reorder_as_prev_coor(natom0, elem0, coor0, natom1, elem1, coor1)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom0, natom1
+ real(kind=8) :: rtmp, v1(3)
+ real(kind=8), parameter :: thres = 1d-8
+ real(kind=8), intent(in) :: coor0(3,natom0)
+ real(kind=8), intent(inout) :: coor1(3,natom1)
+ real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
- character(len=240) :: buf
+ character(len=2), intent(in) :: elem0(natom0)
+ character(len=2), intent(inout) :: elem1(natom1)
+ logical, allocatable :: from_old(:)
+
+ allocate(from_old(natom1))
+ from_old = .false.
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom1, natom0, coor1, coor0, from_old)
+ do i = 1, natom1, 1
+  v1 = coor1(:,i)
+  do j = 1, natom0, 1
+   rtmp = SUM(DABS(v1 - coor0(:,j)))
+   if(rtmp < thres) then
+    from_old(i) = .true.
+    exit
+   end if
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ j = natom0
+ if(natom1 > j) then
+  allocate(elem(j+1:natom1), coor(3,j+1:natom1))
+
+  do i = 1, natom1, 1
+   if(from_old(i)) cycle
+   j = j + 1
+   elem(j) = elem1(i)
+   coor(:,j) = coor1(:,i)
+  end do ! for i
+
+  elem1(natom0+1:natom1) = elem
+  coor1(:,natom0+1:natom1) = coor
+  deallocate(elem, coor)
+ end if
+
+ deallocate(from_old)
+ elem1(1:natom0) = elem0
+ coor1(:,1:natom0) = coor0
+end subroutine reorder_as_prev_coor
+
+! calculate the vertical adsorption energy using the 2D XO-PBC method
+subroutine calc_xo_pbc_ads_e(gjfname)
+ use frag_info, only: frag, comb_elem_coor_in_frags
+ use theory_level
+ use fch_content, only: elem2nuc
+ use util_wrapper, only: formchk
+ implicit none
+ integer :: i, j, k, m, i1, i2, charge, mult
+ integer :: natom, natom1, natom2, natom4
+ integer(kind=4) :: hostnm
+ integer, parameter :: nfrag = 4
+ integer, parameter :: max_step = 15
+ integer, allocatable :: nuc(:)
+ real(kind=8), parameter :: r_min = 4d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
+ real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:)
+ character(len=2), allocatable :: elem(:), elem2(:)
+ character(len=8) :: hostname
+ character(len=24) :: data_string
+ character(len=240) :: buf, basname, chkname
  character(len=240), intent(in) :: gjfname
- type(frag) :: frags(4)
+ type(frag) :: frags(nfrag)
+
+ hostname = ' '; data_string = ' '; basname = ' '
+ i = hostnm(hostname)
+ call fdate(data_string)
+ write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+
+ hf_prog_path = gau_path
+ method = 'PBEPBE'
+ basis = '6-31G(d,p)'
+ call find_specified_suffix(gjfname, '.gjf', j)
+ do i = 1, nfrag, 1
+  write(frags(i)%fname,'(A,I1,A)') gjfname(1:j-1)//'-',i,'.gjf'
+ end do ! for i
 
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
  call read_natom_from_gjf_pbc(gjfname, natom)
  allocate(elem(natom), nuc(natom), coor(3,natom))
  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
                                       lat_vec, charge, mult)
+ deallocate(nuc)
 
- ! determine the adsorbate and adsorbent: frags(1) and frags(2)
+ ! determine the adsorbate/adsorbent: frags(1)/frags(4)
  call read_title_card_from_gjf(gjfname, buf)
  buf = ADJUSTL(buf)
 
@@ -2130,34 +2196,36 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  read(buf(1:i-1),*) i1
  read(buf(i+1:),*) i2
  natom1 = i2 - i1 + 1
- natom2 = natom - natom1
+ natom4 = natom - natom1
+ write(6,'(A,F8.3)') 'Cutoff radius: ', r_min
  write(6,'(A,I0)') 'Total number of atoms: ', natom
  write(6,'(A,I0)') 'No. of atoms of adsorbate: ', natom1
- write(6,'(A,I0)') 'No. of atoms of adsorbent: ', natom2
+ write(6,'(A,I0)') 'No. of atoms of adsorbent: ', natom4
  write(6,'(2(A,I0))') 'Atomic labels of adsorbate: ',i1,'-',i2
- ! usually natom1 << natom2
+ ! usually natom1 << natom4
 
  frags(1)%natom = natom1
  allocate(frags(1)%elem(natom1), source=elem(i1:i2))
  allocate(frags(1)%coor(3,natom1), source=coor(:,i1:i2))
 
- frags(2)%natom = natom2
- allocate(frags(2)%elem(natom2), frags(2)%coor(3,natom2))
+ frags(4)%natom = natom4
+ allocate(frags(4)%elem(natom4), frags(4)%coor(3,natom4))
  if(i1 > 1) then
-  frags(2)%elem(1:i1-1) = elem(1:i1-1)
-  frags(2)%coor(:,1:i1-1) = coor(:,1:i1-1)
+  frags(4)%elem(1:i1-1) = elem(1:i1-1)
+  frags(4)%coor(:,1:i1-1) = coor(:,1:i1-1)
  end if
  if(i2 < natom) then
-  frags(2)%elem(i1:natom2) = elem(i2+1:natom)
-  frags(2)%coor(:,i1:natom2) = coor(:,i2+1:natom)
+  frags(4)%elem(i1:natom4) = elem(i2+1:natom)
+  frags(4)%coor(:,i1:natom4) = coor(:,i2+1:natom)
  end if
+ deallocate(elem, coor)
 
  ! compute the atomic distances between adsorbate and adsorbent
- allocate(dis(natom2), source=0d0)
+ allocate(dis(natom4), source=0d0)
 !$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom1, natom2, frags, dis)
- do i = 1, natom2, 1
-  r1 = frags(2)%coor(:,i)
+!$omp shared(natom1, natom4, frags, dis)
+ do i = 1, natom4, 1
+  r1 = frags(4)%coor(:,i)
   r2 = r1 - frags(1)%coor(:,1)
   dis(i) = DSQRT(DOT_PRODUCT(r2,r2))
 
@@ -2169,44 +2237,94 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  end do ! for i
 !$omp end parallel do
 
- natom3 = COUNT(dis < r_thres)
- write(6,'(A,I0)') 'No. of chosen atoms in the slab: ', natom3
- if(natom3 == natom2) then
-  write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
-                   &b are chosen.'
-  write(6,'(A)') 'Two possible reasons: (1) the slab is to small; (2) the dista&
-                 &nce threshold'
-  write(6,'(A)') 'is too large.'
-  stop
- end if
+ frags(1:3)%wfn_type = [1,1,1]
 
- ! determine frags(3)
- allocate(frags(3)%elem(natom3), frags(3)%coor(3,natom3))
- ne = 0; j = 0
- do i = 1, natom2, 1
-  if(dis(i) < r_thres) then
-   str2 = frags(2)%elem(i)
-   ne = ne + elem2nuc(str2)
-   j = j + 1
-   frags(3)%elem(j) = str2
-   frags(3)%coor(:,j) = frags(2)%coor(:,i)
+ do k = 1, max_step, 1
+  rtmp = r_min + DBLE(k-1)*stpsz
+  natom2 = COUNT(dis < rtmp)
+  write(6,'(/,A,I0)') 'No. of chosen atoms in the slab: ', natom2
+  if(natom2 == natom4) then
+   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
+                    &b are chosen.'
+   write(6,'(A)') 'Two possible reasons: (1) the slab is to small; (2) the dista&
+                  &nce threshold'
+   write(6,'(A)') 'is too large. File='//TRIM(gjfname)
+   stop
   end if
- end do ! for i
- if(MOD(ne,2) == 0) then
-  frags(3)%mult = 1 ! singlet
- else
-  frags(3)%mult = 2 ! doublet
- end if
 
- ! determine frags(4)
- natom4 = natom1 + natom3
- write(6,'(A,I0)') 'No. of atoms of adsorbate+chosen_atoms: ', natom4
- frags(4)%natom = natom4
- allocate(frags(4)%elem(natom4), frags(4)%coor(3,natom4))
- frags(4)%elem(1:natom1) = frags(1)%elem
- frags(4)%elem(natom1+1:natom4) = frags(3)%elem
- frags(4)%coor(:,1:natom1) = frags(1)%coor
- frags(4)%coor(:,natom1+1:natom4) = frags(3)%coor
+  ! determine frags(2), i.e. special atoms in the slab
+  frags(2)%natom = natom2
+  call select_adj_atoms_in_frag(frags(4), natom4, dis, rtmp, frags(2))
+  ! frags(2)%natom may be updated in subroutine select_adj_atoms_in_frag, so
+  ! here we update natom2
+  natom2 = frags(2)%natom
+  if(k > 1) then
+   call reorder_as_prev_coor(m, elem2, coor2, natom2, frags(2)%elem, frags(2)%coor)
+   deallocate(elem2, coor2)
+  end if
+
+  ! determine frags(3)
+  call comb_elem_coor_in_frags(frags(1), frags(2), frags(3))
+  write(6,'(A,I0)') 'No. of atoms of adsorbate+chosen_atoms: ',frags(3)%natom
+
+  ! allocate the array ghost, which is actually useless but will be detected in
+  ! subroutine gen_gjf_from_type_frag
+  if(k == 1) then
+   do i = 1, nfrag, 1
+    j = frags(i)%natom
+    allocate(frags(i)%ghost(j))
+    frags(i)%ghost = .false.
+   end do ! for i
+  end if
+
+  ! the adsorbate is calculated only once
+  if(k == 1) call gen_gjf_from_type_frag(frags(1), .false., .true., basname)
+  call gen_gjf_from_type_frag(frags(2), .false., .true., basname)
+
+  frags(3)%noiter = .true.
+  call gen_gjf_from_type_frag(frags(3), .false., .false., basname)
+  do i = 1, 3
+   if(k>1 .and. i==1) cycle
+   call do_scf_and_read_e(gau_path,hf_prog_path, frags(i)%fname,frags(i)%noiter,&
+                          frags(i)%e, frags(i)%ssquare)
+   if(i < 3) then
+    write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
+                                     ', frags(i)%ssquare=', frags(i)%ssquare
+   end if
+  end do ! for i
+
+  ! The job of frags(3) is `guess(only,save)`, and there is no formchk called
+  ! in subroutine do_scf_and_read_e to generate the .fch file. So here we call
+  ! formchk explicitly.
+  ! There is a call of formchk in subroutine direct_sum_frag_mo2super_mo, if
+  ! there is no .fch file detected. But for k>1, the .chk file belongs to the
+  ! current loop, and the .fch file belongs to the previous loop. This is
+  ! another reason that we need to call formchk explicitly.
+  i = LEN_TRIM(frags(3)%fname)
+  chkname = frags(3)%fname(1:i-4)//'.chk'
+  call formchk(chkname)
+
+  frags(3)%noiter = .false.
+  call gen_gjf_from_type_frag(frags(3), .true., .true., basname)
+  call modify_guess_conv_stab_in_gjf(frags(3)%fname, frags(3)%wfn_type, .true.)
+  call direct_sum_frag_mo2super_mo(2, frags(1:2)%fname, frags(1:2)%wfn_type, &
+   frags(1:2)%pos, frags(3)%fname, frags(3)%wfn_type)
+  call do_scf_and_read_e(gau_path,hf_prog_path, frags(3)%fname,frags(3)%noiter,&
+                         frags(3)%e, frags(3)%ssquare)
+  write(6,'(A,F18.9,A,F7.2)') 'i=  3, frags(i)%e = ', frags(3)%e, &
+                              ', frags(i)%ssquare=', frags(3)%ssquare
+  m = natom2 ! make a copy
+  allocate(coor2(3,m), source=frags(2)%coor)
+  allocate(elem2(m), source=frags(2)%elem)
+  if(k == 2) exit
+ end do ! for k
+
+ ! TODO: when 5.0 -> 5.5 A, the initial orbitals of frags(2) at 5.5 should be
+ ! constructed from the sum of total densities of frags(2) at 5.0 and remaining
+ ! Cu atoms. The question is using direct sum of MOs or densities.
+ deallocate(dis)
+ call fdate(data_string)
+ write(6,'(/,A)') 'Normal termination of calc_xo_pbc_ads_e at '//TRIM(data_string)
  stop
 end subroutine calc_xo_pbc_ads_e
 

@@ -157,6 +157,7 @@ subroutine fch2cfour(fchname)
  call find_specified_suffix(fchname, '.fch', i)
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
+ call find_irel_in_fch(fchname, irel)
 
  uhf = .false.; ecp = .false.
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
@@ -179,7 +180,7 @@ subroutine fch2cfour(fchname)
  end if
 
  ! generate the file ZMAT
- call prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
+ call prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
  deallocate(coor)
 
  ! generate files GENBAS and ECPDATA(if needed)
@@ -318,11 +319,11 @@ subroutine fch2cfour(fchname)
 end subroutine fch2cfour
 
 ! print/create/write the CFOUR input file ZMAT
-subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
+subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
  use fch_content, only: LPSkip
  implicit none
  integer :: i, fid
- integer, intent(in) :: natom, charge, mult
+ integer, intent(in) :: natom, charge, mult, irel
  real(kind=8), intent(in) :: coor(3,natom)
  real(kind=8), external :: norm, ang, dih
  character(len=2) :: str
@@ -367,6 +368,7 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, uhf, sph, ecp)
  write(fid,'(2(A,I0))') 'HF,SYM=OFF,CHARGE=', charge, ',MULTI=', mult
 
  if(.not. sph) write(fid,'(A)') 'SPHERICAL=OFF'
+ if(irel == -3) write(fid,'(A)') 'RELATIVISTIC=X2C1E'
  if(ecp) then
   write(fid,'(A,/)') 'BASIS=SPECIAL,ECP=ON)'
  else

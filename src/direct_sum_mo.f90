@@ -257,6 +257,99 @@ subroutine direct_sum_frag_fock_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn
  if(wfn_type == 3) deallocate(fock_b)
 end subroutine direct_sum_frag_fock_in_fch
 
+! sum fragment Total SCF Densities and print the 
+subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
+ use util_wrapper, only: formchk
+ implicit none
+ integer :: i, j, nif, nbf, nbf1
+ integer, intent(in) :: n
+ character(len=240) :: chkname
+ character(len=240), intent(in) :: fname0(n), fname
+ character(len=240), allocatable :: fchname(:)
+ real(kind=8), allocatable :: dm(:,:), dm1(:,:)
+ logical :: alive
+ logical, allocatable :: has_spin_density(:)
+ logical, intent(in) :: pos(n) ! negative spin means to switch alpha/beta
+
+ allocate(fchname(n+1))
+
+ ! if fname0(n) and fname are .gjf files, convert filenames into .fch
+ do i = 1, n, 1
+  j = INDEX(fname0(i), '.fch', back=.true.)
+  if(j == 0) then
+   j = INDEX(fname0(i), '.gjf', back=.true.)
+   fchname(i) = fname0(i)(1:j-1)//'.fch'
+  else ! j > 0
+   fchname(i) = fname0(i)
+  end if
+ end do ! for i
+
+ j = INDEX(fname, '.fch', back=.true.)
+ if(j == 0) then
+  j = INDEX(fname, '.gjf', back=.true.)
+  fchname(n+1) = fname(1:j-1)//'.fch'
+ else ! j > 0
+  fchname(n+1) = fname
+  j = INDEX(fname, '.fch', back=.true.)
+ end if
+ chkname = fname(1:j-1)//'.chk'
+ inquire(file=TRIM(fchname(n+1)), exist=alive)
+ if(.not. alive) call formchk(chkname, fchname(n+1))
+
+ call read_nbf_and_nif_from_fch(fchname(n+1), nbf, nif)
+ allocate(dm(nbf,nbf), dm1(nbf,nbf))
+ dm = 0d0
+
+ do i = 1, n, 1
+  call read_nbf_and_nif_from_fch(fchname(i), nbf1, nif)
+  if(nbf1 /= nbf) then
+   write(6,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch:&
+                  & nbf1 /= nbf.'
+   write(6,'(A,I0,A)') 'Inconsistent nbf between fragment ',i,' and the&
+                       & total system.'
+   write(6,'(2(A,I0))') 'nbf1=', nbf1, ', nbf=', nbf
+   stop
+  end if
+  call read_dm_from_fch(fchname(i), 1, nbf, dm1)
+  dm = dm + dm1
+ end do ! for i
+ call write_dm_into_fch(fchname(n+1), .true., nbf, dm)
+
+ allocate(has_spin_density(n))
+ has_spin_density = .false.
+ dm = 0d0
+
+ do i = 1, n, 1
+  call detect_spin_scf_density_in_fch(fchname(i), has_spin_density(i))
+  if(.not. has_spin_density(i)) cycle
+  call read_dm_from_fch(fchname(i), 2, nbf, dm1)
+  if(pos(i)) then
+   dm = dm + dm1
+  else
+   dm = dm - dm1 ! interchange alpha/beta spin, which is equal to -dm1
+  end if
+ end do ! for i
+
+ call detect_spin_scf_density_in_fch(fchname(n+1), alive)
+
+ if(ANY(has_spin_density .eqv. .true.)) then
+  if(alive) then
+   call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
+  else ! no Spin SCF Density in the total system .fch file
+   write(6,'(/,A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: som&
+                    &e fragment has UHF-'
+   write(6,'(A)') 'type wave function, but the total system has RHF-type wave f&
+                  &unction. Inconsistency'
+   write(6,'(A)') 'detected.'
+   stop
+  end if
+ else ! all fragments has RHF-type wave function
+  if(alive) call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
+ end if
+
+ deallocate(fchname, dm, dm1, has_spin_density)
+end subroutine sum_frag_density_and_prt_into_fch
+
 subroutine read_hcore_from_gaulog(logname, nbf, hcore)
  implicit none
  integer :: i, j, k, m, nbatch, fid

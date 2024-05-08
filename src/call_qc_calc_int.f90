@@ -310,8 +310,7 @@ subroutine get_gau_path(gau_path)
   stop
  end if
  buf = """"//TRIM(buf)//'\g'//buf(i+2:i+3)//".exe"""
- i = LEN_TRIM(buf)
- if(i > 240) then
+ if(LEN_TRIM(buf) > 240) then
   write(6,'(/,A)') 'ERROR in subroutine get_gau_path: Gaussian path is too long!'
   write(6,'(A)') 'Please install your Gaussian program in a shorter path.'
   stop
@@ -339,8 +338,7 @@ subroutine get_gau_path(gau_path)
  end if
 
  buf = buf(i+1:)
- i = LEN_TRIM(buf)
- if(i > 240) then
+ if(LEN_TRIM(buf) > 240) then
   write(6,'(/,A)') 'ERROR in subroutine get_gau_path: Gaussian path is too long!'
   write(6,'(A)') 'Please install your Gaussian program in a shorter path.'
   stop

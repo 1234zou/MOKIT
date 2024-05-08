@@ -298,7 +298,14 @@ subroutine merge_s_and_p_into_sp()
 
  do i = 1, natom, 1
   nc = all_pg(i)%nc
-  if(nc < 2) cycle
+  if(nc < 1) then
+   write(6,'(/,A)') 'ERROR in subroutine merge_s_and_p_into_sp: nc<1.'
+   write(6,'(A)') 'Internal inconsistency or problematic basis set data.'
+   stop
+  else if(nc == 1) then
+   m = m + 1
+   cycle
+  end if
   final_contr = .false.
 
   ! the upper limit of the loop (i.e. nc-1) is determined when the loop starts,

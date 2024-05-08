@@ -15,18 +15,16 @@ program main
   stop
  end if
 
- inpname = ' '
+ str = ' '; inpname = ' '; sph = .false.
  call getarg(1, inpname)
  call require_file_exist(inpname)
 
- str = ' '
- sph = .false.
  if(i == 2) then
   call getarg(2, str)
   if(str == '-sph') then
    sph = .true.
   else
-   write(6,'(A)') 'ERROR in subroutine bas_gms2psi: wrong command line arguments.'
+   write(6,'(/,A)') 'ERROR in subroutine bas_gms2psi: wrong command line arguments.'
    write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
@@ -49,12 +47,14 @@ subroutine bas_gms2psi(inpname, sph)
  logical, intent(in) :: sph
  logical, allocatable :: ghost(:)
 
- i = INDEX(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'_psi.inp'
  fileA = inpname(1:i-1)//'.A'
  fileB = inpname(1:i-1)//'.B'
 
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp_exist)
+ call check_X2C_in_gms_inp(inpname, X2C)
+ call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, &
+                                        ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
  allocate(elem(natom), coor(3,natom), ntimes(natom), nuc(natom), ghost(natom))
  call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
@@ -80,11 +80,9 @@ subroutine bas_gms2psi(inpname, sph)
  do i = 1, natom, 1
   write(fid2,'(2(A,I0))') ' assign '//TRIM(elem(i)),ntimes(i),' gen',i
  end do ! for i
- deallocate(ntimes)
 
  call read_all_ecp_from_gms_inp(inpname)
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
-
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -150,24 +148,72 @@ subroutine bas_gms2psi(inpname, sph)
    end do ! for j
    write(fid2,'(A)') '****'
   end if
-
  end do ! for i
 
- close(fid1)
- deallocate(elem, all_ecp)
+ deallocate(all_ecp)
  write(fid2,'(A)') '}'
 
- call check_X2C_in_gms_inp(inpname, X2C)
  if(X2C) then
-  write(fid2,'(A)') 'set relativistic x2c'
-  write(fid2,'(A)') 'set basis_relativistic mybas'
+  write(fid2,'(/,A)') 'basis mybas1 {'
+  do i = 1, natom, 1
+   write(fid2,'(2(A,I0))') ' assign '//TRIM(elem(i)),ntimes(i),' gen',i
+  end do ! for i
+
+  rewind(fid1)
+  do while(.true.)
+   read(fid1,'(A)') buf
+   if(buf(2:2) == '$') then
+    call upper(buf(3:6))
+    if(buf(3:6) == 'DATA') exit
+   end if
+  end do ! for while
+  read(fid1,'(A)') buf
+  read(fid1,'(A)') buf
+
+  do i = 1, natom, 1
+   read(fid1,'(A)') buf ! buf contains elem(i), nuc(i) and coor(1:3,i)
+   write(fid2,'(A,I0,A)') '[gen', i, ']'
+   write(fid2,'(A)') 'spherical'
+   write(fid2,'(A)') '****'
+   write(fid2,'(A)') TRIM(elem(i))//' 0'
+ 
+   do while(.true.)
+    read(fid1,'(A)') buf
+    if(LEN_TRIM(buf) == 0) then
+     write(fid2,'(A)') '****'
+     exit
+    end if
+ 
+    read(buf,*) stype, nline
+    if(stype == 'L') then
+     stype = 'SP'; k = 3
+    else
+     k = 2
+    end if
+ 
+    rtmp = 0d0
+    do j = 1, nline, 1
+     write(fid2,'(A)') TRIM(stype)//'   1  1.00'
+     read(fid1,*) m, rtmp(1:k)
+     write(fid2,'(3(2X,ES16.9))') rtmp(1:k)
+    end do ! for j
+   end do ! for while
+  end do ! for i
+
+  write(fid2,'(A)') '}'
+  write(fid2,'(/,A)') 'set relativistic x2c'
+  write(fid2,'(A)') 'set basis mybas'
+  write(fid2,'(A)') 'set basis_relativistic mybas1'
  end if
+
+ close(fid1)
+ deallocate(ntimes, elem)
 
  call check_DKH_in_gms_inp(inpname, rel)
  select case(rel)
  case(-2) ! nothing
  case(-1) ! RESC
-  write(6,'(A)') 'ERROR in subroutine bas_gms2psi: RESC keywords detected.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2psi: RESC keywords detected.'
   write(6,'(A)') 'But RESC is not supported in PSI4.'
   stop
  case(0,1,2,4)  ! DKH0/1/2/4
@@ -177,7 +223,7 @@ subroutine bas_gms2psi(inpname, sph)
    if(rel /= 2) write(fid2,'(A,I0)') 'set DKH_order ', rel
   end if
  case default
-  write(6,'(A)') 'ERROR in subroutine bas_gms2psi: rel out of range!'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2psi: rel out of range!'
   write(6,'(A,I0)') 'rel=', rel
   close(fid2,status='delete')
   stop
