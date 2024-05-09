@@ -1367,6 +1367,9 @@ subroutine add_gen_bas2pyscf_inp(basname, pyname, natom, elem)
   i = LEN_TRIM(buf)
   j = INDEX(buf(1:i-2), '/', back=.true.)
   bas_copy = buf(j+1:i-2)
+  write(6,'(A)') buf(2:i-2)
+  write(6,'(A)') TRIM(bas_copy)
+  stop
   call sys_copy_file(buf(2:i-2), TRIM(bas_copy), .false.)
   call del_hyphen_for_elem_in_basfile(bas_copy)
   do i = 1, natom, 1

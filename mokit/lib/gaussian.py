@@ -199,7 +199,7 @@ def lin_comb_two_mo(fchname, orb1, orb2):
   mo = read_mo_from_fch(fchname, nbf, nif, 'a')
   mo1 = mo[:,orb1].copy()
   mo2 = mo[:,orb2].copy()
-  cons = math.sqrt(2e0)
+  cons = 0.5*math.sqrt(2.0)
   mo[:,orb1] = cons*(mo1 + mo2)
   mo[:,orb2] = cons*(mo1 - mo2)
   write_mo_into_fch(fchname, nbf, nif, 'a', mo)

@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (May 8, 2024)
+MOKIT 1.2.6 (May 9, 2024)
 ------------------------
+* update get_mokit_loc.py
 * add decontracted basis set in fch2psi when sfx2c is used
 * add a new keyword LocDocc (associated with LocalM)
 * change `-b3lyp` type to `-dft 'b3lyp'` type for fch2mkl

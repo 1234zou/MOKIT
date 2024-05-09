@@ -439,13 +439,13 @@ subroutine read_natom_from_molden(molden, natom)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:7)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
+  if(buf(1:7)=='[Atoms]' .or. buf(2:8)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
  end do ! for while
 
  natom = 0
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:1) == '[') exit
+  if(INDEX(buf(1:2),'[') > 0) exit
   natom = natom + 1
  end do ! for while
 

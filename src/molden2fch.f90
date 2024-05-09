@@ -454,7 +454,7 @@ subroutine read_nuc_and_coor_from_molden(molden, natom, nuc, coor)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:7)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
+  if(buf(1:7)=='[Atoms]' .or. buf(2:8)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
  end do ! for while
 
  if(i /= 0) then
@@ -490,12 +490,12 @@ subroutine read_ncontr_from_molden(molden, ncontr)
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:5) == '[GTO]') exit
+  if(INDEX(buf(1:6),'[GTO]') > 0) exit
  end do ! for while
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:1) == '[') exit
+  if(INDEX(buf(1:2),'[') > 0) exit
   i = detect_ncol_in_buf(buf)
   if(i == 2) then
    buf = ADJUSTL(buf)
@@ -525,7 +525,7 @@ subroutine read_shltyp_and_shl2atm_from_molden(molden, ncontr, shltyp, shl2atm)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:5) == '[GTO]') exit
+  if(INDEX(buf(1:6),'[GTO]') > 0) exit
  end do ! for while
 
  iatom = 1
@@ -572,7 +572,7 @@ subroutine read_shltyp_and_shl2atm_from_molden(molden, ncontr, shltyp, shl2atm)
    if(LEN_TRIM(buf) == 0) then
     iatom = iatom + 1
     read(fid,'(A)') buf
-    if(buf(1:1) == '[') exit
+    if(INDEX(buf(1:2),'[') > 0) exit
     read(fid,'(A)') buf
     exit
    else
@@ -659,7 +659,7 @@ subroutine find_ntag_before_mo_in_molden(molden, ntag)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:4) == '[MO]') exit
+  if(INDEX(buf(1:5),'[MO]') > 0) exit
  end do ! for while
 
  do ntag = 1, 4
@@ -683,14 +683,14 @@ subroutine check_uhf_in_molden(molden, uhf)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:4) == '[MO]') exit
+  if(INDEX(buf(1:5),'[MO]') > 0) exit
  end do ! for while
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(LEN_TRIM(buf) == 0) exit
-  if(buf(1:1) == '[') exit
+  if(INDEX(buf(1:2),'[') > 0) exit
   if(INDEX(buf,'Spin=')>0 .and. INDEX(buf,'Beta')>0) then
    uhf = .true.
    exit
@@ -729,7 +729,7 @@ subroutine read_mo_from_molden(molden, nbf, nif, ab, coeff, ev, occ)
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:4) == '[MO]') exit
+  if(INDEX(buf(1:5),'[MO]') > 0) exit
  end do ! for while
 
  ! The beta MO coefficients are after all alpha MO coefficients in a molden
@@ -819,7 +819,7 @@ subroutine read_all_pg_from_molden(molden)
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:5) == '[GTO]') exit
+  if(INDEX(buf(1:6),'[GTO]') > 0) exit
  end do ! for while
 
  do i = 1, natom, 1
@@ -855,7 +855,7 @@ subroutine read_all_pg_from_molden(molden)
  rewind(fid)
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:5) == '[GTO]') exit
+  if(INDEX(buf(1:6),'[GTO]') > 0) exit
  end do ! for while
 
  do i = 1, natom, 1

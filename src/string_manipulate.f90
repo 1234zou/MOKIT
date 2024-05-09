@@ -839,15 +839,23 @@ function get_mokit_root() result(mokit_root)
  mokit_root = ' '
  call getenv('MOKIT_ROOT', mokit_root)
 
- if (len_trim(mokit_root) < 1) then
+ if (LEN_TRIM(mokit_root) < 1) then
   call getenv('HOME', home)
   open(newunit=fid,file=TRIM(home)//'/.mokitrc',status='old',position='rewind')
   read(fid,'(A)',iostat=i) mokit_root
-  if (len_trim(mokit_root) < 1) then
-   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid MOKIT_ROOT'
+  close(fid)
+
+  if(i /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: failed to read file ~/&
+                    &.mokitrc'
    stop
   end if
-  close(fid)
+
+  if(LEN_TRIM(mokit_root) < 1) then
+   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid environment va&
+                    &riable $MOKIT_ROOT.'
+   stop
+  end if
  end if
 end function get_mokit_root
 
