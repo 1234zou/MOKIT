@@ -34,7 +34,7 @@ program main
 
  call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
 
- call check_sph(fchname, sph)
+ call check_sph_in_fch(fchname, sph)
  if(sph) then
   i = SYSTEM('bas_gms2molpro '//TRIM(inpname)//' -sph')
  else

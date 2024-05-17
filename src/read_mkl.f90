@@ -176,7 +176,7 @@ end subroutine read_all_pg_from_mkl
 subroutine un_normalized_all_pg()
  implicit none
  integer :: i, j, k, nc, nline, itype
- real(kind=8) :: norm_fac
+ real(kind=8) :: norm_fac0, norm_fac
  real(kind=8), allocatable :: coeff(:,:)
 
  do i = 1, natom, 1
@@ -189,32 +189,39 @@ subroutine un_normalized_all_pg()
     cycle
    end if
 
-   call stype2itype(all_pg(i)%prim_gau(j)%stype, itype)
+   ! subroutine stype2itype accepts only one character length
+   call stype2itype(all_pg(i)%prim_gau(j)%stype(1:1), itype)
    if(itype == 0) then
     write(6,'(/,A)') "ERROR in subroutine un_normalized_all_pg: 'L' type should&
                      & not be in the"
     write(6,'(A)') '.mkl file. It violates the definition of mkl.'
     stop
    end if
-   itype = itype - 1 ! 'S' begins with 0
+   itype = itype - 1 ! 'S' begins with 0, minus 1 is needed
 
    allocate(coeff(nline,2), source=all_pg(i)%prim_gau(j)%coeff)
    norm_fac = norm_fac_of_contract_gau(itype, nline, coeff)
+   norm_fac0 = norm_fac
 
    if(DABS(1D0-norm_fac) > 1D-4) then
     do k = 1, nline, 1
      coeff(k,2) = coeff(k,2)/norm_fac_of_prim_gau(itype, coeff(k,1))
     end do ! for k
     norm_fac = norm_fac_of_contract_gau(itype, nline, coeff)
+   end if
 
-    if(DABS(1D0-norm_fac) > 1D-3) then
-     write(6,'(/,A)') 'ERROR in subroutine un_normalized_all_pg: the contractio&
-                      &n coefficients in'
-     write(6,'(A)') '.mkl file are wrong. They must be either normalized or un-&
-                     &normalized coefficients.'
-     write(6,'(A,I0,A,F10.7)') 'itype=', itype, ', norm_fac=', norm_fac
-     stop
-    end if
+   if(DABS(1D0-norm_fac) > 1D-4) then
+    coeff(:,2) = all_pg(i)%prim_gau(j)%coeff(:,2)/DSQRT(norm_fac0)
+    norm_fac = norm_fac_of_contract_gau(itype, nline, coeff)
+   end if
+
+   if(DABS(1D0-norm_fac) > 1D-3) then
+    write(6,'(/,A)') 'ERROR in subroutine un_normalized_all_pg: the contraction&
+                     & coefficients'
+    write(6,'(A)') 'are wrong. They must be either normalized or un-normalized &
+                   &coefficients.'
+    write(6,'(A,I0,A,F12.8)') 'itype=', itype, ', norm_fac=', norm_fac
+    stop
    end if
 
    all_pg(i)%prim_gau(j)%coeff(:,2) = coeff(:,2)
@@ -795,6 +802,78 @@ subroutine del_zero_coeff_in_prim_gau(pg)
  deallocate(rtmp)
  pg%nline = nline
 end subroutine del_zero_coeff_in_prim_gau
+
+subroutine read_all_pg_from_gms_inp(inpname)
+ implicit none
+ integer :: i, j, k, m, nc, nline, fid
+ integer, external :: detect_ncol_in_buf
+ real(kind=8), allocatable :: coeff(:,:)
+ character(len=1) :: str
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ if(natom == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_mkl: natom = 0.'
+  stop
+ end if
+
+ if(.not. allocated(shl2atm)) then
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_gms_inp: array shl2atm&
+                   & is not allocated.'
+  stop
+ end if
+
+ if(allocated(all_pg)) deallocate(all_pg)
+ allocate(all_pg(natom))
+
+ call goto_data_section_in_gms_inp(inpname, fid)
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do i = 1, natom, 1
+  read(fid,'(A)') buf
+  nc = COUNT(shl2atm == i)
+  all_pg(i)%nc = nc
+  allocate(all_pg(i)%prim_gau(nc))
+  j = 0
+
+  do while(j <= nc)
+   j = j + 1
+   read(fid,*) str, nline
+
+   if(str == 'L') then
+    allocate(coeff(nline,3))
+    do k = 1, nline, 1
+     read(fid,*) m, coeff(k,1:3)
+    end do ! for k
+    ! split into S P, and check normalization in subroutine un_normalized_all_pg
+    all_pg(i)%prim_gau(j:j+1)%stype = ['S ','P ']
+    all_pg(i)%prim_gau(j:j+1)%nline = [nline,nline]
+    all_pg(i)%prim_gau(j:j+1)%ncol = [2,2]
+    allocate(all_pg(i)%prim_gau(j)%coeff(nline,2))
+    allocate(all_pg(i)%prim_gau(j+1)%coeff(nline,2))
+    all_pg(i)%prim_gau(j)%coeff = coeff(:,1:2)
+    all_pg(i)%prim_gau(j+1)%coeff(:,1) = coeff(:,1)
+    all_pg(i)%prim_gau(j+1)%coeff(:,2) = coeff(:,3)
+    deallocate(coeff)
+    j = j + 1
+   else ! not 'L'
+    all_pg(i)%prim_gau(j)%stype(1:1) = str
+    all_pg(i)%prim_gau(j)%nline = nline
+    all_pg(i)%prim_gau(j)%ncol = 2
+    allocate(all_pg(i)%prim_gau(j)%coeff(nline,2), source=0d0)
+    do k = 1, nline, 1
+     read(fid,*) m, all_pg(i)%prim_gau(j)%coeff(k,1:2)
+    end do ! for k
+   end if
+   if(j == nc) exit
+  end do ! for while j
+
+  read(fid,'(A)') buf ! skip the blank line
+ end do ! for i
+
+ close(fid)
+end subroutine read_all_pg_from_gms_inp
 
 end module mkl_content
 

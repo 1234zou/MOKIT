@@ -257,11 +257,74 @@ subroutine direct_sum_frag_fock_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn
  if(wfn_type == 3) deallocate(fock_b)
 end subroutine direct_sum_frag_fock_in_fch
 
-! sum fragment Total SCF Densities and print the 
-subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
+! Direct sum the total SCF densities of each fragment and write the sum into
+! Total SCF Density section of fname. This subroutine requires each .fch file
+! has fewer basis functions, and thus it is "direct sum".
+! For a simple sum, please use subroutine sum_frag_dm_in_fch().
+subroutine direct_sum_frag_dm_in_fch(n, fname0, fname)
  use util_wrapper, only: formchk
  implicit none
- integer :: i, j, nif, nbf, nbf1
+ integer :: i, j, nbf0, nif0, nbf, nif
+ integer, intent(in) :: n
+ real(kind=8), allocatable :: dm0(:,:), dm(:,:), ovlp(:,:), mo(:,:), occ(:)
+ character(len=240) :: chkname
+ character(len=240), intent(in) :: fname0(n), fname
+ character(len=240), allocatable :: fchname(:)
+ logical :: alive
+
+ allocate(fchname(n+1))
+ fchname(1:n) = fname0
+ fchname(n+1) = fname
+ ! if fname0(n) and fname are .gjf filenames, convert them into .fch
+ call fnames_gjf2fch(n+1, fchname)
+
+ call find_specified_suffix(fchname(n+1), '.fch', i)
+ chkname = fchname(n+1)(1:i-1)//'.chk'
+ inquire(file=TRIM(fchname(n+1)), exist=alive)
+ if(.not. alive) call formchk(chkname, fchname(n+1))
+
+ call read_nbf_and_nif_from_fch(fchname(n+1), nbf0, nif0)
+ allocate(ovlp(nbf0,nbf0))
+ call get_ao_ovlp_using_fch(fchname(n+1), nbf0, ovlp)
+ allocate(dm0(nbf0,nbf0), source=0d0)
+
+ j = 0
+ do i = 1, n, 1
+  call read_nbf_and_nif_from_fch(fchname(i), nbf, nif)
+  write(6,'(A,I0)') 'nbf=', nbf
+  allocate(dm(nbf,nbf))
+  call read_dm_from_fch(fchname(i), 1, nbf, dm)
+  dm0(j+1:j+nbf,j+1:j+nbf) = dm
+  deallocate(dm)
+  j = j + nbf
+ end do ! for i
+
+ if(j /= nbf0) then
+  write(6,'(/,A)') 'ERROR in subroutine direct_sum_frag_dm_in_fch: the sum of n&
+                   &umber of basis'
+  write(6,'(A)') 'func. from each fragment is not equal to the number of basis &
+                 &func. of the complex.'
+  stop
+ end if
+
+ allocate(occ(nif0), mo(nbf0,nif0))
+ call gen_no_from_density_and_ao_ovlp(nbf0, nif0, dm0, ovlp, occ, mo)
+ call write_eigenvalues_to_fch(fchname(n+1), nif0, 'a', occ, .true.)
+ deallocate(dm0, ovlp, occ)
+ ! There is no need to write the occupation numbers and total density into .fch,
+ ! since they do not affect the SCF computation.
+ call write_mo_into_fch(fchname(n+1), nbf0, nif0, 'a', mo)
+ deallocate(fchname, mo)
+end subroutine direct_sum_frag_dm_in_fch
+
+! Sum the total SCF densities of each fragment and write the sum into Total SCF
+! Density section of fname. This subroutine requires each .fch file has the same
+! number of basis functions, and thus it is not "direct sum", but simply sum.
+! For "direct sum", please use subroutine direct_sum_frag_dm_in_fch().
+subroutine sum_frag_dm_in_fch(n, fname0, pos, fname)
+ use util_wrapper, only: formchk
+ implicit none
+ integer :: i, nif, nbf, nbf1
  integer, intent(in) :: n
  character(len=240) :: chkname
  character(len=240), intent(in) :: fname0(n), fname
@@ -272,27 +335,13 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
  logical, intent(in) :: pos(n) ! negative spin means to switch alpha/beta
 
  allocate(fchname(n+1))
-
+ fchname(1:n) = fname0
+ fchname(n+1) = fname
  ! if fname0(n) and fname are .gjf files, convert filenames into .fch
- do i = 1, n, 1
-  j = INDEX(fname0(i), '.fch', back=.true.)
-  if(j == 0) then
-   j = INDEX(fname0(i), '.gjf', back=.true.)
-   fchname(i) = fname0(i)(1:j-1)//'.fch'
-  else ! j > 0
-   fchname(i) = fname0(i)
-  end if
- end do ! for i
+ call fnames_gjf2fch(n+1, fchname)
 
- j = INDEX(fname, '.fch', back=.true.)
- if(j == 0) then
-  j = INDEX(fname, '.gjf', back=.true.)
-  fchname(n+1) = fname(1:j-1)//'.fch'
- else ! j > 0
-  fchname(n+1) = fname
-  j = INDEX(fname, '.fch', back=.true.)
- end if
- chkname = fname(1:j-1)//'.chk'
+ call find_specified_suffix(fname, '.fch', i)
+ chkname = fname(1:i-1)//'.chk'
  inquire(file=TRIM(fchname(n+1)), exist=alive)
  if(.not. alive) call formchk(chkname, fchname(n+1))
 
@@ -303,8 +352,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
  do i = 1, n, 1
   call read_nbf_and_nif_from_fch(fchname(i), nbf1, nif)
   if(nbf1 /= nbf) then
-   write(6,'(A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch:&
-                  & nbf1 /= nbf.'
+   write(6,'(A)') 'ERROR in subroutine sum_frag_dm_in_fch: nbf1 /= nbf.'
    write(6,'(A,I0,A)') 'Inconsistent nbf between fragment ',i,' and the&
                        & total system.'
    write(6,'(2(A,I0))') 'nbf1=', nbf1, ', nbf=', nbf
@@ -336,11 +384,10 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
   if(alive) then
    call write_dm_into_fch(fchname(n+1), .false., nbf, dm)
   else ! no Spin SCF Density in the total system .fch file
-   write(6,'(/,A)') 'ERROR in subroutine sum_frag_density_and_prt_into_fch: som&
-                    &e fragment has UHF-'
-   write(6,'(A)') 'type wave function, but the total system has RHF-type wave f&
-                  &unction. Inconsistency'
-   write(6,'(A)') 'detected.'
+   write(6,'(/,A)') 'ERROR in subroutine sum_frag_dm_in_fch: some fragment has &
+                    &UHF-type wave fun-'
+   write(6,'(A)') 'ction, but the total system has RHF-type wave function. Inco&
+                  &nsistency detected.'
    stop
   end if
  else ! all fragments has RHF-type wave function
@@ -348,7 +395,7 @@ subroutine sum_frag_density_and_prt_into_fch(n, fname0, pos, fname)
  end if
 
  deallocate(fchname, dm, dm1, has_spin_density)
-end subroutine sum_frag_density_and_prt_into_fch
+end subroutine sum_frag_dm_in_fch
 
 subroutine read_hcore_from_gaulog(logname, nbf, hcore)
  implicit none
@@ -379,4 +426,36 @@ subroutine read_hcore_from_gaulog(logname, nbf, hcore)
  close(fid)
  forall(i=1:nbf, j=1:nbf, j>i) hcore(i,j) = hcore(j,i)
 end subroutine read_hcore_from_gaulog
+
+! convert multiple .gjf filenames into corresponding .fch filenames
+subroutine fnames_gjf2fch(n, fname)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ character(len=240), intent(inout) :: fname(n)
+
+ do i = 1, n, 1
+  call fname_gjf2fch(fname(i))
+ end do ! for i
+end subroutine fnames_gjf2fch
+
+! convert a .gjf filename into a .fch filename
+subroutine fname_gjf2fch(fname)
+ implicit none
+ integer :: i
+ character(len=240), intent(inout) :: fname
+
+ i = LEN_TRIM(fname)
+
+ select case(fname(i-3:i))
+ case('.fch') ! do nothing
+ case('.gjf')
+  fname = fname(1:i-4)//'.fch'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine fname_gjf2fch: suffix cannot be recogni&
+                   &zed.'
+  write(6,'(A)') 'fname='//TRIM(fname)
+  stop
+ end select
+end subroutine fname_gjf2fch
 

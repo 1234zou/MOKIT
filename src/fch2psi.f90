@@ -61,7 +61,7 @@ subroutine fch2psi(fchname)
  call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf)
  call fch2inp_wrap(fchname, .false., 0, 0)
- call check_sph(fchname, sph)
+ call check_sph_in_fch(fchname, sph)
 
  i = INDEX(fchname,'.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'

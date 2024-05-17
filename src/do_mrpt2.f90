@@ -202,7 +202,7 @@ subroutine do_mrpt2()
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
-   call submit_orca_job(orca_path, inpname, .true.)
+   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
 
   case('bdf')
    call check_exe_exist(bdf_path)
@@ -284,7 +284,7 @@ subroutine do_mrpt2()
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
-   call submit_orca_job(orca_path, inpname, .true.)
+   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   end select
 
  else if(mrmp2) then ! CASSCF-MRMP2

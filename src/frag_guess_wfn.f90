@@ -334,8 +334,9 @@ subroutine frag_guess_wfn(gjfname)
   if(wfn_type == 0) then
    wfn_type = 1 ! RHF
   else if(wfn_type == 2) then
-   write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: total spin is singlet.&
-                  & But you specify ROHF/RODFT.'
+   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: total spin is singlet.&
+                    & But you'
+   write(6,'(A)') 'specify ROHF/RODFT.'
    close(fid)
    stop
   end if
@@ -344,17 +345,19 @@ subroutine frag_guess_wfn(gjfname)
    wfn_type = 3 ! UHF
   else
    if(wfn_type == 1) then
-    write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: total spin is non-singlet.&
-                   & But you specify RHF/RDFT.'
+    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: total spin is non-sin&
+                     &glet. But'
+    write(6,'(A)') 'you specify RHF/RDFT.'
     stop
    end if
   end if
  end if
 
  if(eda_type==1 .and. wfn_type/=1) then
-  write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
-                 & be applied to RHF. But'
-  write(6,'(A,I0)') 'RHF-type wavefunction is not specified. wfn_type=',wfn_type
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only b&
+                   &e applied to'
+  write(6,'(A,I0)') 'RHF. But RHF-type wavefunction is not specified. wfn_type=',&
+                    wfn_type
   close(fid)
   stop
  end if
@@ -607,8 +610,8 @@ subroutine frag_guess_wfn(gjfname)
         frags(i)%wfn_type)
   ! According to my tests, the fragment MOs guess above is slightly better than
   !  the sum of fragment densities below
-  !call sum_frag_density_and_prt_into_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname,&
-  !                            frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
+  !call sum_frag_dm_in_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname, &
+  !                        frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
   !k = 1
   !if(frags(nfrag)%wfn_type == 3) k = 0
   !call gen_no_using_density_in_fch(fchname, k)
@@ -634,8 +637,7 @@ subroutine frag_guess_wfn(gjfname)
   write(6,'(/,A)') 'If the deviations are too large, probably something is wrong. '
  case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
          ! total SCF density
-  call sum_frag_density_and_prt_into_fch(2, frags(1:2)%fname, frags(1:2)%pos, &
-                                         frags(3)%fname)
+  call sum_frag_dm_in_fch(2, frags(1:2)%fname, frags(1:2)%pos, frags(3)%fname)
   k = 1
   if(frags(3)%wfn_type == 3) k = 0
   call gen_no_using_density_in_fch(fchname, k)
@@ -1502,8 +1504,8 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
 
  call check_uhf_in_gms_inp(inpname1, uhf)
  if(uhf .and. r2u) then
-  write(6,'(A)') "ERROR in subroutine copy_vec_to_append_another_inp: both&
-                 & logical variables 'uhf' and"
+  write(6,'(/,A)') "ERROR in subroutine copy_vec_to_append_another_inp: both lo&
+                   &gical variables 'uhf' and"
   write(6,'(A)') "'r2u' are .True. This is not allowed."
   write(6,'(A)') 'inpname1='//TRIM(inpname1)//', inpname2='//TRIM(inpname2)
   stop
@@ -1511,7 +1513,7 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
 
  if(occ) then
   call read_na_nb_nif_nbf_from_gms_inp(inpname1, na, nb, nif, nbf)
-  call read_nbf_from_dat(inpname1, nbf1)
+  call read_cart_nbf_from_dat(inpname1, nbf1)
 !  write(*,'(5(A,I0))') 'na=',na,',nb=',nb,',nif=',nif,',nbf=',nbf,',nbf1=',nbf1
  end if
 
@@ -1523,7 +1525,7 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine copy_vec_to_append_another_inp:'
+  write(6,'(/,A)') 'ERROR in subroutine copy_vec_to_append_another_inp:'
   write(6,'(A)') "No '$VEC' found in file "//TRIM(inpname1)
   close(fid1)
   stop
@@ -1534,7 +1536,7 @@ subroutine copy_vec_to_append_another_inp(inpname1, inpname2, ivec, extended, &
   if(ivec > 0) then
    write(fid2,'(A,I0)') ' $VEA',ivec
   else
-   write(6,'(A)') 'ERROR in subroutine copy_vec_to_append_another_inp:'
+   write(6,'(/,A)') 'ERROR in subroutine copy_vec_to_append_another_inp:'
    write(6,'(A)') 'ivec<=0 when extended=.True. This is not allowed.'
    close(fid1)
    close(fid2)
@@ -1766,10 +1768,9 @@ end subroutine convert_dft_name_gau2gms
 subroutine del_ecp_of_ghost_in_gjf(gjfname)
  use periodic_table, only: read_elem_from_gjf
  implicit none
- integer :: i, j, nbat1, nbat2, fid, fid1, RENAME
- integer :: nblank, natom
+ integer :: i, j, nbat1, nbat2, nblank, natom, fid, fid1, RENAME
  character(len=2), allocatable :: elem(:)
- character(len=6) :: str1
+ character(len=6) :: str6
  character(len=240) :: buf, gjfname1
  character(len=240), intent(in) :: gjfname
  logical :: skipped
@@ -1799,7 +1800,7 @@ subroutine del_ecp_of_ghost_in_gjf(gjfname)
 
    if(.not. skipped) write(fid1,'(A)') TRIM(buf)
    read(fid,'(A)') buf
-   read(buf,*,iostat=i) str1, nbat1
+   read(buf,*,iostat=i) str6, nbat1
 
    if(skipped) then
     if(i == 0) then ! ECP/PP detailed data, not built-in ECP name
@@ -1892,31 +1893,29 @@ subroutine direct_sum_frag_mo2super_mo(n, gjfname0, wfn_type0, pos, gjfname, &
                                        wfn_type)
  use util_wrapper, only: formchk, unfchk
  implicit none
- integer :: i, j
+ integer :: i
  integer, intent(in) :: n
  integer, intent(in) :: wfn_type0(n), wfn_type ! 1/2/3 for RHF/ROHF/UHF
- character(len=240) :: fchname, chkname
- character(len=240), allocatable :: fchname0(:)
+ character(len=240) :: chkname
+ character(len=240), allocatable :: fchname(:)
  character(len=240), intent(in) :: gjfname0(n), gjfname
  logical :: alive
  logical, intent(in) :: pos(n)
 
- call find_specified_suffix(gjfname, '.gjf', i)
- fchname = gjfname(1:i-1)//'.fch'
- chkname = gjfname(1:i-1)//'.chk'
- inquire(file=TRIM(fchname), exist=alive)
+ allocate(fchname(n+1))
+ fchname(1:n) = gjfname0
+ fchname(n+1) = gjfname
+ call fnames_gjf2fch(n+1, fchname)
+
+ i = LEN_TRIM(fchname(n+1))
+ chkname = fchname(n+1)(1:i-4)//'.chk'
+ inquire(file=TRIM(fchname(n+1)), exist=alive)
  if(.not. alive) call formchk(chkname)
 
- allocate(fchname0(n))
- do i = 1, n, 1
-  j = INDEX(gjfname0(i), '.gjf', back=.true.)
-  fchname0(i) = gjfname0(i)(1:j-1)//'.fch'
- end do ! for i
-
- call direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_type)
-
- deallocate(fchname0)
- call unfchk(fchname, chkname)
+ call direct_sum_frag_mo_in_fch(n, fchname(1:n), wfn_type0, pos, fchname(n+1), &
+                                wfn_type)
+ call unfchk(fchname(n+1), chkname)
+ deallocate(fchname)
 end subroutine direct_sum_frag_mo2super_mo
 
 ! modify 'guess(only,save)' in a given .gjf file
@@ -1994,10 +1993,16 @@ subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
   j = IACHAR(str(i)(2:2))
   if(j>64 .and. j<91) str(i)(2:2) = ACHAR(j+32)
 
+  ! sometimes there are >=2 fragments which include the same metal element 
+  ! meanwhile ECP/PP is used
   do j = 1, natom, 1
-   if(elem(j)==str(i)(1:2) .and. ghost(j)) then
-    ghost2(i) = .true.
-    exit
+   if(elem(j) == str(i)(1:2)) then
+    if(ghost(j)) then
+     ghost2(i) = .true.
+    else
+     ghost2(i) = .false.
+     exit
+    end if
    end if
   end do ! for j
  end do ! for i
@@ -2138,44 +2143,96 @@ subroutine reorder_as_prev_coor(natom0, elem0, coor0, natom1, elem1, coor1)
  coor1(:,1:natom0) = coor0
 end subroutine reorder_as_prev_coor
 
+subroutine add_maxiter_in_orca_inp(inpname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:4) == '%scf') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:3) == 'end') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A,/,A)') ' MaxIter 300', 'end'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_maxiter_in_orca_inp
+
 ! calculate the vertical adsorption energy using the 2D XO-PBC method
 subroutine calc_xo_pbc_ads_e(gjfname)
  use frag_info, only: frag, comb_elem_coor_in_frags
  use theory_level
  use fch_content, only: elem2nuc
- use util_wrapper, only: formchk
+ use util_wrapper, only: formchk, mkl2gbw, gbw2molden
  implicit none
- integer :: i, j, k, m, i1, i2, charge, mult
+ integer :: i, j, k, m, i1, i2, charge, mult, mem_per_proc, SYSTEM
  integer :: natom, natom1, natom2, natom4
  integer(kind=4) :: hostnm
  integer, parameter :: nfrag = 4
- integer, parameter :: max_step = 15
+ integer, parameter :: max_step = 5
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_min = 4d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_min = 4.5d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
- real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:)
+ real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
  character(len=2), allocatable :: elem(:), elem2(:)
  character(len=8) :: hostname
  character(len=24) :: data_string
- character(len=240) :: buf, basname, chkname
+ character(len=240) :: buf, basname, chkname, orca_path
  character(len=240), intent(in) :: gjfname
+ character(len=240), allocatable :: fchname(:), inpname(:), outname(:), &
+  mklname(:), gbwname(:), molden(:)
  type(frag) :: frags(nfrag)
 
  hostname = ' '; data_string = ' '; basname = ' '
  i = hostnm(hostname)
  call fdate(data_string)
  write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+ call get_orca_path(orca_path)
 
  hf_prog_path = gau_path
  method = 'PBEPBE'
- basis = '6-31G(d,p)'
+ basis = 'def2SVP'
+ allocate(high_e(nfrag), source=0d0)
+ allocate(ss(nfrag), source=0d0)
+
+ allocate(fchname(nfrag), inpname(nfrag), outname(nfrag), mklname(nfrag), &
+          gbwname(nfrag), molden(nfrag))
  call find_specified_suffix(gjfname, '.gjf', j)
  do i = 1, nfrag, 1
-  write(frags(i)%fname,'(A,I1,A)') gjfname(1:j-1)//'-',i,'.gjf'
+  write(chkname,'(A,I1)') gjfname(1:j-1)//'-',i
+  frags(i)%fname = TRIM(chkname)//'.gjf'
+  fchname(i) = TRIM(chkname)//'.fch'
+  inpname(i) = TRIM(chkname)//'_o.inp'
+  outname(i) = TRIM(chkname)//'_o.out'
+  mklname(i) = TRIM(chkname)//'_o.mkl'
+  gbwname(i) = TRIM(chkname)//'_o.gbw'
+  molden(i) = TRIM(chkname)//'_o.molden'
  end do ! for i
 
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
+ mem_per_proc = CEILING(1.8d0*DBLE(mem)/DBLE(nproc))   ! ORCA memory
  call read_natom_from_gjf_pbc(gjfname, natom)
  allocate(elem(natom), nuc(natom), coor(3,natom))
  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
@@ -2190,6 +2247,7 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine calc_xo_pbc_ads_e: no '-' symbols found."
   write(6,'(A)') "buf='"//buf//"'"
+  write(6,'(A)') 'File='//TRIM(gjfname)
   stop
  end if
 
@@ -2197,7 +2255,7 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  read(buf(i+1:),*) i2
  natom1 = i2 - i1 + 1
  natom4 = natom - natom1
- write(6,'(A,F8.3)') 'Cutoff radius: ', r_min
+ write(6,'(A,F8.3)') 'Cutoff radius (Ang): ', r_min
  write(6,'(A,I0)') 'Total number of atoms: ', natom
  write(6,'(A,I0)') 'No. of atoms of adsorbate: ', natom1
  write(6,'(A,I0)') 'No. of atoms of adsorbent: ', natom4
@@ -2242,7 +2300,8 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  do k = 1, max_step, 1
   rtmp = r_min + DBLE(k-1)*stpsz
   natom2 = COUNT(dis < rtmp)
-  write(6,'(/,A,I0)') 'No. of chosen atoms in the slab: ', natom2
+  write(6,'(/,A79)') REPEAT('-',79)
+  write(6,'(A,I0)') 'No. of chosen atoms in the slab: ', natom2
   if(natom2 == natom4) then
    write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
                     &b are chosen.'
@@ -2281,6 +2340,7 @@ subroutine calc_xo_pbc_ads_e(gjfname)
   if(k == 1) call gen_gjf_from_type_frag(frags(1), .false., .true., basname)
   call gen_gjf_from_type_frag(frags(2), .false., .true., basname)
 
+  ! Gaussian PBE/def2TZVP
   frags(3)%noiter = .true.
   call gen_gjf_from_type_frag(frags(3), .false., .false., basname)
   do i = 1, 3
@@ -2316,13 +2376,29 @@ subroutine calc_xo_pbc_ads_e(gjfname)
   m = natom2 ! make a copy
   allocate(coor2(3,m), source=frags(2)%coor)
   allocate(elem2(m), source=frags(2)%elem)
-  if(k == 2) exit
+
+  ! ORCA wB97M-V/def2TZVP
+  do i = 1, 3
+   if(k>1 .and. i==1) cycle
+   j = SYSTEM('fch2mkl '//TRIM(fchname(i))//' -dft wB97M-V')
+   call mkl2gbw(mklname(i))
+   ! use half cores and double memory for ORCA
+   call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc/2)
+   call add_maxiter_in_orca_inp(inpname(i))
+   call submit_orca_job(orca_path, inpname(i), .false., .true., .true.)
+   call gbw2molden(gbwname(i), molden(i))
+   call read_hf_e_and_ss_from_orca_out(outname(i), frags(i)%wfn_type, &
+                                       high_e(i), ss(i))
+   write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e_h = ', high_e(i), &
+                                    ', frags(i)%ssquare_h=', ss(i)
+   call delete_files(3, [inpname(i), mklname(i), gbwname(i)])
+  end do ! for i
  end do ! for k
 
  ! TODO: when 5.0 -> 5.5 A, the initial orbitals of frags(2) at 5.5 should be
  ! constructed from the sum of total densities of frags(2) at 5.0 and remaining
  ! Cu atoms. The question is using direct sum of MOs or densities.
- deallocate(dis)
+ deallocate(dis, fchname, inpname, outname, mklname, gbwname, molden, high_e, ss)
  call fdate(data_string)
  write(6,'(/,A)') 'Normal termination of calc_xo_pbc_ads_e at '//TRIM(data_string)
  stop

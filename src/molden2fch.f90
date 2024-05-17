@@ -108,67 +108,57 @@ end module molden_sph2cart
 
 program main
  implicit none
- integer :: i, iprog
- character(len=3) :: str
- character(len=10) :: sprog
+ integer :: i, j, iprog
+ integer, parameter :: n = 13
+ character(len=3) :: str3
+ character(len=7) :: str7
+ character(len=7), parameter :: sprog(n) = ['-bagel ','-cfour ','-cp2k  ', &
+  '-dalton','-et    ','-molcas','-molpro','-mrcc  ','-nwchem','-orca  ', &
+  '-psi4  ','-pyscf ','-tm    ']
  character(len=240) :: molden
  logical :: alive, natorb
 
  i = iargc()
  if(i<2 .or. i>3) then
   write(6,'(/,A)') ' ERROR in subroutine molden2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1: molden2fch a.molden -orca'
-  write(6,'(A)')   ' Example 2: molden2fch a.molden -tm'
-  write(6,'(A)')   ' Example 3: molden2fch a.molden -cfour (or -c4)'
-  write(6,'(A)')   ' Example 4: molden2fch a.molden -molcas'
-  write(6,'(A)')   ' Example 5: molden2fch a.molden -molpro'
-  write(6,'(A)')   ' Example 6: molden2fch a.molden -dalton'
-  write(6,'(A)')   ' Example 7: molden2fch a.molden -cp2k'
+  do j = 1, n, 1
+   write(6,'(A,I2,A)') ' Example',j,': molden2fch a.molden '//TRIM(sprog(j))
+  end do ! for j
   write(6,'(/,A)') " If you are transferring NOs, you can append a '-no' argume&
                    &nt, e.g."
   write(6,'(A,/)') '            molden2fch a.molden -orca -no'
   stop
  end if
 
- iprog = 0; str = ' '; sprog = ' '; molden = ' '
+ str3 = ' '; str7 = ' '; molden = ' '
  call getarg(1, molden)
  inquire(file=TRIM(molden),exist=alive)
  if(.not. alive) then
   write(6,'(/,A)') 'ERROR in program molden2fch: input molden file does not exi&
                    &st!'
-  write(6,'(A)') 'filename='//TRIM(molden)
+  write(6,'(A)') 'Filename='//TRIM(molden)
   stop
  end if
 
- call getarg(2, sprog)
- select case(TRIM(sprog))
- case('-orca')
-  iprog = 1
- case('-tm')
-  iprog = 2
- case('-cfour','-c4')
-  iprog = 3
- case('-molcas')
-  iprog = 4
- case('-molpro')
-  iprog = 5
- case('-dalton')
-  iprog = 6
- case('-cp2k')
-  iprog = 7
- case default
+ call getarg(2, str7)
+ str7 = ADJUSTL(str7)
+ do iprog = 1, n, 1
+  if(TRIM(sprog(iprog)) == TRIM(str7)) exit
+ end do ! for i
+
+ if(iprog == n+1) then
   write(6,'(/,A)') 'ERROR in program molden2fch: this molden format cannot be r&
                    &ecognized.'
   write(6,'(A)') 'molden format strongly depends on quantum chemistry programs.&
                  & So this utility'
   write(6,'(A)') 'requires you to specify a program name.'
   stop
- end select
+ end if
 
  natorb = .false.
  if(i == 3) then
-  call getarg(3, str)
-  if(str /= '-no') then
+  call getarg(3, str3)
+  if(str3 /= '-no') then
    write(6,'(/,A)') "ERROR in program molden2fch: the 3rd argument can only be &
                     &'-no'."
    stop
@@ -188,12 +178,12 @@ subroutine molden2fch(molden, iprog, natorb)
  integer :: i, j, ne0, ne, nbf1, nif1
  integer :: ndmark, nfmark, ngmark, nhmark, nimark
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
- integer, intent(in) :: iprog ! 1/2 for ORCA/Turbomole
+ integer, intent(in) :: iprog ! label of quantum chemistry packages
  real(kind=8), allocatable :: coeff(:,:), tmp_coeff(:,:), occ_a(:), occ_b(:)
  character(len=3), parameter :: fname = 'mos'
  character(len=240) :: fchname
  character(len=240), intent(in) :: molden
- logical :: has_sp
+ logical :: sph, has_sp
  logical, intent(in) :: natorb
 
  i = INDEX(molden, '.molden', back=.true.)
@@ -203,6 +193,8 @@ subroutine molden2fch(molden, iprog, natorb)
   write(6,'(A)') 'Please rename it to xxx.molden.'
   stop
  end if
+
+ call check_sph_in_molden(molden, sph)
 
  fchname = molden(1:i-1)//'.fch'
  call read_natom_from_molden(molden, natom)
@@ -215,7 +207,6 @@ subroutine molden2fch(molden, iprog, natorb)
                                           shell2atom_map)
  natom1 = natom
  ncontr1 = ncontr
-
  allocate(shell_type1(ncontr), source=shell_type)
  allocate(shl2atm1(ncontr), source=shell2atom_map)
  call read_all_pg_from_molden(molden)
@@ -243,7 +234,7 @@ subroutine molden2fch(molden, iprog, natorb)
  if(natorb) eigen_e_a = occ_a
 
  ! occupation numbers in CFOUR RHF molden need to be *2
- if(iprog==3 .and. (.not.is_uhf) .and. (.not.natorb)) occ_a = 2d0*occ_a
+ if(iprog==2 .and. (.not.is_uhf) .and. (.not.natorb)) occ_a = 2d0*occ_a
 
  if(is_uhf) then
   allocate(eigen_e_b(nif), occ_b(nif))
@@ -253,13 +244,108 @@ subroutine molden2fch(molden, iprog, natorb)
 
  allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  select case(iprog)
- case(1) ! ORCA
+ case(1,4,5,8,9,11,12)
+  write(6,'(/,A)') 'Not implemented yet.'
+  stop
+ case(2) ! CFOUR
+  nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
+         6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
+  allocate(d_mark(ncontr))
+  allocate(shell_type1(ncontr), source=shell_type)
+  forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
+  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
+                                  nhmark, d_mark, f_mark, g_mark, h_mark)
+  allocate(tmp_coeff(nbf1,nif1), source=0d0)
+  nbf = 0; j = 0
+  do i = 1, ncontr, 1
+   select case(shell_type1(i))
+   case( 0) ! S
+    tmp_coeff(nbf+1,:) = coeff(j+1,:)
+    nbf = nbf + 1; j = j + 1
+   case( 1) ! P
+    tmp_coeff(nbf+1:nbf+3,:) = coeff(j+1:j+3,:)
+    nbf = nbf + 3; j = j + 3
+   case(-1) ! L
+    tmp_coeff(nbf+1:nbf+4,:) = coeff(j+1:j+4,:)
+    nbf = nbf + 4; j = j + 4
+   case(2) ! 6D -> 5D
+    call solve_multi_lin_eqs(6,5,rd1,nif1,coeff(j+1:j+6,:),tmp_coeff(nbf+1:nbf+5,:))
+    nbf = nbf + 5; j= j + 6
+   case(3) ! 10F -> 7F
+    call solve_multi_lin_eqs(10,7,rf1,nif1,coeff(j+1:j+10,:),tmp_coeff(nbf+1:nbf+7,:))
+    nbf = nbf + 7; j = j + 10
+   case(4) ! 15G -> 9G
+    call solve_multi_lin_eqs(15,9,rg1,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
+    nbf = nbf + 9; j = j + 15
+   !case(5) ! 21G -> 11G
+   ! call solve_multi_lin_eqs(21,11,rh1,nif1,coeff(j+1:j+21,:),tmp_coeff(nbf+1:nbf+11,:))
+   ! nbf = nbf + 11; j = j + 21
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: the CFOUR-type molden fil&
+                     &e is problematic'
+    write(6,'(A)') 'when there are basis functions >=h. This is probably a bug &
+                   &of CFOUR.'
+    stop
+   end select
+  end do ! for i
+  deallocate(d_mark, shell_type1, coeff)
+  allocate(coeff(nbf1,nif1), source=tmp_coeff)
+  deallocate(tmp_coeff)
+ case(3) ! CP2K, nothing to do
+ case(6) ! (Open)Molcas, nothing to do
+  if(ANY(shell_type < -4)) then
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: OpenMolcas cannot generat&
+                     &e .molden file'
+    write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
+    stop
+  end if
+ case(7) ! Molpro
+  nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
+         6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
+  allocate(d_mark(ncontr))
+  allocate(shell_type1(ncontr), source=shell_type)
+  forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
+  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
+                                  nhmark, d_mark, f_mark, g_mark, h_mark)
+  allocate(tmp_coeff(nbf1,nif1), source=0d0)
+  nbf = 0; j = 0
+  do i = 1, ncontr, 1
+   select case(shell_type1(i))
+   case( 0) ! S
+    tmp_coeff(nbf+1,:) = coeff(j+1,:)
+    nbf = nbf + 1; j = j + 1
+   case( 1) ! P
+    tmp_coeff(nbf+1:nbf+3,:) = coeff(j+1:j+3,:)
+    nbf = nbf + 3; j = j + 3
+   case(-1) ! L
+    tmp_coeff(nbf+1:nbf+4,:) = coeff(j+1:j+4,:)
+    nbf = nbf + 4; j = j + 4
+   case(2) ! 6D -> 5D
+    call solve_multi_lin_eqs(6,5,rd2,nif1,coeff(j+1:j+6,:),tmp_coeff(nbf+1:nbf+5,:))
+    nbf = nbf + 5; j= j + 6
+   case(3) ! 10F -> 7F
+    call solve_multi_lin_eqs(10,7,rf2,nif1,coeff(j+1:j+10,:),tmp_coeff(nbf+1:nbf+7,:))
+    nbf = nbf + 7; j = j + 10
+   case(4) ! 15G -> 9G
+    call solve_multi_lin_eqs(15,9,rg2,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
+    nbf = nbf + 9; j = j + 15
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Molpro cannot generate .m&
+                     &olden file for'
+    write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
+    stop
+   end select
+  end do ! for i
+  deallocate(d_mark, shell_type1, coeff)
+  allocate(coeff(nbf1,nif1), source=tmp_coeff)
+  deallocate(tmp_coeff)
+ case(10) ! ORCA
   ! find F+3, G+3 and H+3 functions, multiply them by -1
   call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
                                  nimark, f_mark, g_mark, h_mark, i_mark)
   call update_mo_using_bas_mark(nbf, nif1, nfmark, ngmark, nhmark, nimark, &
                                 ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
- case(2) ! Turbomole
+ case(13) ! Turbomole
   ! It seems that Cartesian-type functions (6D,10F) are used in any .molden file
   ! generated by Turbomole, no matter that (5D,7F) or (6D,10F) is used in the
   ! file `control`. This is very similar to GAMESS. When spherical harmonic
@@ -305,103 +391,6 @@ subroutine molden2fch(molden, iprog, natorb)
   deallocate(d_mark, shell_type1, coeff)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
- case(3) ! CFOUR
-  nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
-         6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
-  allocate(d_mark(ncontr))
-  allocate(shell_type1(ncontr), source=shell_type)
-  forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
-  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
-                                  nhmark, d_mark, f_mark, g_mark, h_mark)
-  allocate(tmp_coeff(nbf1,nif1), source=0d0)
-  nbf = 0; j = 0
-  do i = 1, ncontr, 1
-   select case(shell_type1(i))
-   case( 0) ! S
-    tmp_coeff(nbf+1,:) = coeff(j+1,:)
-    nbf = nbf + 1; j = j + 1
-   case( 1) ! P
-    tmp_coeff(nbf+1:nbf+3,:) = coeff(j+1:j+3,:)
-    nbf = nbf + 3; j = j + 3
-   case(-1) ! L
-    tmp_coeff(nbf+1:nbf+4,:) = coeff(j+1:j+4,:)
-    nbf = nbf + 4; j = j + 4
-   case(2) ! 6D -> 5D
-    call solve_multi_lin_eqs(6,5,rd1,nif1,coeff(j+1:j+6,:),tmp_coeff(nbf+1:nbf+5,:))
-    nbf = nbf + 5; j= j + 6
-   case(3) ! 10F -> 7F
-    call solve_multi_lin_eqs(10,7,rf1,nif1,coeff(j+1:j+10,:),tmp_coeff(nbf+1:nbf+7,:))
-    nbf = nbf + 7; j = j + 10
-   case(4) ! 15G -> 9G
-    call solve_multi_lin_eqs(15,9,rg1,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
-    nbf = nbf + 9; j = j + 15
-   !case(5) ! 21G -> 11G
-   ! call solve_multi_lin_eqs(21,11,rh1,nif1,coeff(j+1:j+21,:),tmp_coeff(nbf+1:nbf+11,:))
-   ! nbf = nbf + 11; j = j + 21
-   case default
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: the CFOUR-type molden fil&
-                     &e is problematic'
-    write(6,'(A)') 'when there are basis functions >=h. This is probably a bug &
-                   &of CFOUR.'
-    stop
-   end select
-  end do ! for i
-  deallocate(d_mark, shell_type1, coeff)
-  allocate(coeff(nbf1,nif1), source=tmp_coeff)
-  deallocate(tmp_coeff)
- case(4) ! (Open)Molcas, nothing to do
-  if(ANY(shell_type < -4)) then
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: OpenMolcas cannot generat&
-                     &e .molden file'
-    write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
-    stop
-  end if
- case(5) ! Molpro
-  nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
-         6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
-  allocate(d_mark(ncontr))
-  allocate(shell_type1(ncontr), source=shell_type)
-  forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
-  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
-                                  nhmark, d_mark, f_mark, g_mark, h_mark)
-  allocate(tmp_coeff(nbf1,nif1), source=0d0)
-  nbf = 0; j = 0
-  do i = 1, ncontr, 1
-   select case(shell_type1(i))
-   case( 0) ! S
-    tmp_coeff(nbf+1,:) = coeff(j+1,:)
-    nbf = nbf + 1; j = j + 1
-   case( 1) ! P
-    tmp_coeff(nbf+1:nbf+3,:) = coeff(j+1:j+3,:)
-    nbf = nbf + 3; j = j + 3
-   case(-1) ! L
-    tmp_coeff(nbf+1:nbf+4,:) = coeff(j+1:j+4,:)
-    nbf = nbf + 4; j = j + 4
-   case(2) ! 6D -> 5D
-    call solve_multi_lin_eqs(6,5,rd2,nif1,coeff(j+1:j+6,:),tmp_coeff(nbf+1:nbf+5,:))
-    nbf = nbf + 5; j= j + 6
-   case(3) ! 10F -> 7F
-    call solve_multi_lin_eqs(10,7,rf2,nif1,coeff(j+1:j+10,:),tmp_coeff(nbf+1:nbf+7,:))
-    nbf = nbf + 7; j = j + 10
-   case(4) ! 15G -> 9G
-    call solve_multi_lin_eqs(15,9,rg2,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
-    nbf = nbf + 9; j = j + 15
-   case default
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Molpro cannot generate .m&
-                     &olden file for'
-    write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
-    stop
-   end select
-  end do ! for i
-  deallocate(d_mark, shell_type1, coeff)
-  allocate(coeff(nbf1,nif1), source=tmp_coeff)
-  deallocate(tmp_coeff)
- case(6) ! Dalton
-  write(6,'(/,A)') 'NOT implemented yet.'
-  stop
- case(7) ! CP2K
-  write(6,'(/,A)') 'NOT implemented yet.'
-  stop
  case default
   write(6,'(/,A)') 'ERROR in subroutine molden2fch: iprog out of range!'
   write(6,'(A,I0)') 'iprog=', iprog
@@ -907,4 +896,28 @@ subroutine align_mo(nbf, nif1, coeff, nbf1, tmp_coeff)
   if(SUM(DABS(r1)) > SUM(DABS(r2))) tmp_coeff(:,i) = -tmp_coeff(:,i)
  end do ! for i
 end subroutine align_mo
+
+! check spherical harmonic or Cartesian functions are used in a .molden file
+subroutine check_sph_in_molden(molden, sph)
+ implicit none
+ integer :: fid
+ character(len=5) :: buf ! no need to be a long string
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: sph
+
+ sph = .true.
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(INDEX(buf,'[5D') > 0) exit
+  if(INDEX(buf,'[6D') > 0) then
+   sph = .false.
+   exit
+  end if
+  if(INDEX(buf,'[MO]') > 0) exit
+ end do ! for while
+
+ close(fid)
+end subroutine check_sph_in_molden
 

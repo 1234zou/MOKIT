@@ -54,7 +54,7 @@ program gau_external
  end if
 
  call get_orca_path(orca_path)
- call submit_orca_job(orca_path, inpname, .false.)
+ call submit_orca_job(orca_path, inpname, .false., .false., .false.)
  call read_natom_from_engrad(gradname, natom)
  allocate(grad(3*natom))
  call read_grad_from_engrad(gradname, natom, e, grad)

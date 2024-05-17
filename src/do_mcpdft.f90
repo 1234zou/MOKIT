@@ -116,7 +116,7 @@ subroutine do_mcpdft()
   case('pyscf')
    call read_grad_from_pyscf_out(outname, natom, grad)
   case('gamess')
-   call read_grad_from_gms_dat(fname(2), natom, grad)
+   call read_grad_from_dat(fname(2), natom, grad)
   case('openmolcas')
    call read_grad_from_molcas_out(outname, natom, grad)
   case default

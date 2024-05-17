@@ -43,7 +43,6 @@ program main
 
  if(i > 2) then
   call getarg(3, str)
-
   select case(TRIM(str))
   case('-no')  ! (spatial) natural orbtials
    no_type = 1
@@ -220,18 +219,14 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
  deallocate(nuc)
 
  if((.not.is_uhf) .and. no_type==2) then
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch_direct: this is a R(O)HF-type .&
-                   &mkl file.'
-  write(6,'(A)') 'But you request beta orbitals.'
+  write(6,'(/,A)') 'ERROR in subroutine mkl2fch_direct: this is an R(O)HF-type &
+                   &.mkl file.'
+  write(6,'(A)') 'But you request beta orbitals. Filename='//TRIM(mklname)
   stop
  end if
 
- charge = charge0
- mult = mult0
- natom = natom0
- ncontr = ncontr0
- nbf = nbf0
- nif = nif0
+ charge = charge0; mult = mult0; natom = natom0; ncontr = ncontr0
+ nbf = nbf0; nif = nif0
 
  allocate(ielem(natom))
  forall(i = 1:natom) ielem(i) = elem2nuc(elem0(i))

@@ -25,9 +25,8 @@ end program main
 subroutine bas_gms2bdf(fort7)
  use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
- integer :: i, k, nline, rc, rel, nbf, nif
- integer :: fid1, fid2
- integer :: charge, mult
+ integer :: i, k, nline, rc, rel, nbf, nif, fid1, fid2
+ integer :: charge, mult, isph
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input, basfile
@@ -56,7 +55,8 @@ subroutine bas_gms2bdf(fort7)
  ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
+ call read_charge_mult_isph_from_gms_inp(fort7, charge, mult, isph, uhf, ghf, &
+                                         ecp_exist)
  call read_all_ecp_from_gms_inp(fort7)
 
  if(ecp_exist) then
@@ -127,24 +127,7 @@ subroutine bas_gms2bdf(fort7)
  close(fid2)
 
  ! open the .inp/.dat file and find the $DATA section
- open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)',iostat=rc) buf
-  if(rc /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6) == 'DATA') exit
-  end if
- end do ! for while
-
- if(rc /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_gms2bdf: No $DATA section found&
-                   & in file '//TRIM(fort7)//'.'
-  close(fid1)
-  stop
- end if
-
- ! skip 2 lines: the Title line and the Point Group line
+ call goto_data_section_in_gms_inp(fort7, fid1)
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf
 
@@ -178,8 +161,8 @@ subroutine bas_gms2bdf(fort7)
  close(fid1)
 
  if(rc /= 0) then
-  write(6,'(A)') "ERROR in subroutine bas_gms2bdf: it seems the '$DATA'&
-                   & has no corresponding '$END'."
+  write(6,'(/,A)') "ERROR in subroutine bas_gms2bdf: it seems the '$DATA' has n&
+                   &o corresponding '$END'."
   write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop

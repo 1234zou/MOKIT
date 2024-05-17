@@ -192,8 +192,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  ! perform GVB
  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
- if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from &
-                                    &the original GVB:'
+ if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from th&
+                                    &e original GVB:'
  call read_gvb_energy_from_gms(gmsname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
@@ -201,7 +201,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  if(cart) then ! Cartesian functions
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
  else          ! spherical harmonic functions
-  call read_nbf_from_dat(datname, i)
+  call read_cart_nbf_from_dat(datname, i)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
 
@@ -219,8 +219,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  inpname = datname(1:i-1)//'_s.fch'
  datname = datname(1:i-1)//'_s.dat'
  call copy_file(pair_fch, inpname, .false.)
- write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
-                             npair, ' -open ', nopen
+ write(longbuf,'(2(A,I0),A)') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//&
+                              ' -gvb ', npair, ' -open ', nopen, ' >/dev/null'
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility dat2&
@@ -287,7 +287,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  ! Note: nopen is determined automatically in fch2qchem
 
  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
- call modify_memory_in_qchem_inp(mem, inpname)
+ call modify_memory_in_qchem_inp(inpname, mem)
  call submit_qchem_job(inpname, nproc)
  call delete_file(TRIM(fchname0)) ! O.K. even if fchname0 does not exist
  call copy_file(pre_fch, fchname, .false.)
@@ -412,7 +412,7 @@ subroutine do_gvb_gau(proname, pair_fch)
  if(cart) then ! Cartesian functions
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
  else          ! spherical harmonic functions
-  call read_nbf_from_dat(datname, i)
+  call read_cart_nbf_from_dat(datname, i)
   write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
  end if
  write(6,'(A)') '$'//TRIM(longbuf)

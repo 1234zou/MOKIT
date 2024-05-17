@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc30 (2024-May-9)'
+ write(6,'(A)') '           Version: 1.2.6rc31 (2024-May-17)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -537,7 +537,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc30 :: MOKIT, release date: 2024-May-9'
+  write(6,'(A)') 'AutoSR 1.2.6rc31 :: MOKIT, release date: 2024-May-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -746,7 +746,7 @@ subroutine do_mp2()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_posthf_e_from_orca_out(outname, .false., rtmp, ref_e, mp2_e)
   if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
@@ -957,7 +957,7 @@ subroutine do_cc()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .false.)
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_posthf_e_from_orca_out(outname, (.not.ccd), t1diag, ref_e, e)
   if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
  case('molpro')
@@ -1141,7 +1141,7 @@ subroutine do_eomcc()
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
   call prt_posthf_orca_inp(inpname, .true.)
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_eomcc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, &
                                   ci_mult, fosc)
  !case('molpro')

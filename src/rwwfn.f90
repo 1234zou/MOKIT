@@ -198,23 +198,28 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
 end subroutine read_nbf_and_nif_from_orb
 
 ! read nbf from a GAMESS .dat file
-subroutine read_nbf_from_dat(datname, nbf)
+subroutine read_cart_nbf_from_dat(datname, nbf)
  implicit none
  integer :: i, j, fid
  integer, intent(out) :: nbf
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
 
- call open_file(datname, .true., fid)
+ nbf = 0
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:5)=='$VEC' .or. buf(2:5)=='$Vec' .or. buf(2:5)=='$vec') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(2:5) == '$VEC') exit
+  end if
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found&
-                 & in file "//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found in f&
+                   &ile "//TRIM(datname)
   close(fid)
   stop
  end if
@@ -228,14 +233,13 @@ subroutine read_nbf_from_dat(datname, nbf)
  end do ! for while
 
  nbf = (j-1)*5
-
  BACKSPACE(fid)
  BACKSPACE(fid)
  read(fid,'(A)') buf
  close(fid)
 
  nbf = nbf + LEN_TRIM(buf(6:))/15
-end subroutine read_nbf_from_dat
+end subroutine read_cart_nbf_from_dat
 
 ! read Alpha/Beta MOs from a given .fch(k) file
 subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
@@ -256,7 +260,7 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
 
- key = key1
+ mo = 0d0; key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -2968,17 +2972,16 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
 end subroutine read_no_info_from_fch
 
 ! check whether pure Cartesian functions
-subroutine check_cart(fchname, cart)
+subroutine check_cart_in_fch(fchname, cart)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
- character(len=31), parameter :: error_warn='ERROR in subroutine check_cart:'
+ character(len=38), parameter :: error_warn='ERROR in subroutine check_cart_in_fch:'
  logical, intent(in) :: cart
 
- call open_file(fchname, .true., fid)
- ! find and read Shell types
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -2986,17 +2989,16 @@ subroutine check_cart(fchname, cart)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
+  write(6,'(/,A)') error_warn//" missing 'Shell types'"
+  write(6,'(A)') 'in file '//TRIM(fchname)
   close(fid)
-  return
+  stop
  end if
 
  i = INDEX(buf, '=', back=.true.)
  read(buf(i+1:),*) k
  allocate(shltyp(k), source=0)
  read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- ! read Shell types done
-
  close(fid)
 
  if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
@@ -3030,20 +3032,19 @@ subroutine check_cart(fchname, cart)
  end if
 
  deallocate(shltyp)
-end subroutine check_cart
+end subroutine check_cart_in_fch
 
 ! return whether pure Cartesian or spherical harmonic
-subroutine check_sph(fchname, sph)
+subroutine check_sph_in_fch(fchname, sph)
  implicit none
  integer :: i, k, fid
  integer, allocatable :: shltyp(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
- character(len=30), parameter :: error_warn = 'ERROR in subroutine check_sph:'
+ character(len=37), parameter :: error_warn='ERROR in subroutine check_sph_in_fch:'
  logical, intent(out) :: sph
 
- call open_file(fchname, .true., fid)
- ! find and read Shell types
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3051,9 +3052,10 @@ subroutine check_sph(fchname, sph)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') error_warn//" missing 'Shell types' in file "//TRIM(fchname)
+  write(6,'(/,A)') error_warn//" missing 'Shell types'"
+  write(6,'(A)') 'in file '//TRIM(fchname)
   close(fid)
-  return
+  stop
  end if
 
  i = INDEX(buf, '=', back=.true.)
@@ -3076,7 +3078,7 @@ subroutine check_sph(fchname, sph)
  else
   sph = .true.
  end if
-end subroutine check_sph
+end subroutine check_sph_in_fch
 
 ! read various AO density matrix from a .fch(k) file
 subroutine read_dm_from_fch(fchname, itype, nbf, dm)

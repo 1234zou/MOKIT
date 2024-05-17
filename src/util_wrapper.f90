@@ -259,32 +259,6 @@ subroutine fch2mkl_wrap(fchname, mklname)
  end if
 end subroutine fch2mkl_wrap
 
-subroutine fch2gbw(fchname, gbwname)
- implicit none
- integer :: i
- character(len=240) :: mklname, inpname
- character(len=240), intent(in) :: fchname
- character(len=240), intent(in), optional :: gbwname
-
- i = INDEX(fchname, '.fch', back=.true.)
- inpname = fchname(1:i-1)//'_o.inp'
-
- if(PRESENT(gbwname)) then
-  i = INDEX(gbwname, '.gbw', back=.true.)
-  mklname = gbwname(1:i-1)//'.mkl'
- else
-  mklname = fchname(1:i-1)//'.mkl'
- end if
-
- call fch2mkl_wrap(fchname, mklname)
- open(newunit=i,file=TRIM(inpname))
- close(unit=i,status='delete')
-
- call mkl2gbw(mklname)
- open(newunit=i,file=TRIM(mklname))
- close(unit=i,status='delete')
-end subroutine fch2gbw
-
 subroutine chk2gbw(chkname)
  implicit none
  integer :: i
@@ -519,6 +493,64 @@ subroutine fch2cfour_wrap(fchname)
  i = SYSTEM('fch2cfour '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2cfour', fchname)
 end subroutine fch2cfour_wrap
+
+subroutine dat2fch_wrap(datname, fchname)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=240) :: fchname0
+ character(len=240), intent(in) :: datname
+ character(len=240), intent(in), optional :: fchname
+ character(len=500) :: buf
+
+ if(present(fchname)) then
+  fchname0 = fchname
+ else
+  call find_specified_suffix(datname, '.dat', i)
+  fchname0 = datname(1:i-1)//'.fch'
+ end if
+ buf = 'dat2fch '//TRIM(datname)//' '//TRIM(fchname0)
+ write(6,'(A)') '$'//TRIM(buf)
+
+#ifdef _WIN32
+ i = SYSTEM(TRIM(buf)//' > NUL')
+#else
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
+#endif
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine dat2fch_wrap: failed to call dat2fch.'
+  write(6,'(A)') 'datname='//TRIM(datname)
+  write(6,'(A)') 'fchname='//TRIM(fchname0)
+  stop
+ end if
+end subroutine dat2fch_wrap
+
+! call `orca_2mkl` to convert .gbw -> .molden
+subroutine gbw2molden(gbwname, molden)
+ implicit none
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: proname
+ character(len=240), intent(in) :: gbwname
+ character(len=240), intent(in), optional :: molden
+ character(len=250) :: molden0
+
+ i = LEN_TRIM(gbwname)
+ proname = gbwname(1:i-4)
+ molden0 = gbwname(1:i-4)//'.molden.input'
+
+ i = SYSTEM('orca_2mkl '//TRIM(proname)//' -molden > /dev/null')
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine gbw2molden: failed to call orca_2mkl.'
+  write(6,'(A)') 'Please check your ORCA environment variables.'
+  stop
+ end if
+
+ if(present(molden)) then
+  if(TRIM(molden) /= TRIM(molden0)) then
+   i = RENAME(TRIM(molden0), TRIM(molden))
+  end if
+ end if
+end subroutine gbw2molden
 
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)

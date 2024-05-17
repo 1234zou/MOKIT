@@ -60,9 +60,8 @@ end program main
 ! which can be used as input file for PySCF
 subroutine bas_gms2py(inpname, cart, rest)
  implicit none
- integer :: i, j, k, m, p, lmax, charge, mult
+ integer :: i, j, k, m, p, lmax, charge, mult, isph, inpid, pyid
  integer :: nline, ncol, natom, nif, nbf
- integer :: inpid, pyid
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
  integer, allocatable :: nuc(:)
  integer, external :: detect_ncol_in_buf
@@ -86,7 +85,8 @@ subroutine bas_gms2py(inpname, cart, rest)
  pyname = inpname(1:i-1)//'.py'
  hf_fch = inpname(1:i-1)//'.fch'
 
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
+ call read_charge_mult_isph_from_gms_inp(inpname, charge, mult, isph, uhf, ghf,&
+                                         ecp)
  call read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  if(nbf > nif) then
   lin_dep = .true.
@@ -131,16 +131,7 @@ subroutine bas_gms2py(inpname, cart, rest)
  write(pyid,'(A)') "'''"
  ! print coordinates done
 
- open(newunit=inpid,file=TRIM(inpname),status='old',position='rewind')
- do while(.true.)
-  read(inpid,'(A)') buf
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6)=='DATA') exit
-  end if
- end do ! for while
-
- ! skip 2 lines: the Title Card line and the Point Group line
+ call goto_data_section_in_gms_inp(inpname, inpid)
  read(inpid,'(A)') buf
  read(inpid,'(A)') buf
 
@@ -415,16 +406,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
  i = SYSTEM("mkdir -p "//TRIM(basename)//"-basis")
  nwname = ""
  jsonname = ""
- open(newunit=inpid,file=TRIM(inpname),status='old',position='rewind')
- do while(.true.)
-  read(inpid,'(A)') buf
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6)=='DATA') exit
-  end if
- end do ! for while
-
- ! skip 2 lines: the Title Card line and the Point Group line
+ call goto_data_section_in_gms_inp(inpname, inpid)
  read(inpid,'(A)') buf
  read(inpid,'(A)') buf
 

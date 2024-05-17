@@ -37,7 +37,7 @@ end program main
 subroutine bas_gms2psi(inpname, sph)
  use pg, only: natom, nuc, elem, coor, ntimes, all_ecp, ecp_exist
  implicit none
- integer :: i, j, k, m, n, nline, rel, charge, mult, fid1, fid2
+ integer :: i, j, k, m, n, nline, rel, charge, mult, isph, fid1, fid2
  real(kind=8) :: rtmp(3)
  character(len=1), parameter :: am(0:6) = ['s','p','d','f','g','h','i']
  character(len=2) :: stype
@@ -53,8 +53,8 @@ subroutine bas_gms2psi(inpname, sph)
  fileB = inpname(1:i-1)//'.B'
 
  call check_X2C_in_gms_inp(inpname, X2C)
- call read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, &
-                                        ecp_exist)
+ call read_charge_mult_isph_from_gms_inp(inpname, charge, mult, isph, uhf, ghf,&
+                                         ecp_exist)
  call read_natom_from_gms_inp(inpname, natom)
  allocate(elem(natom), coor(3,natom), ntimes(natom), nuc(natom), ghost(natom))
  call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
@@ -82,16 +82,7 @@ subroutine bas_gms2psi(inpname, sph)
  end do ! for i
 
  call read_all_ecp_from_gms_inp(inpname)
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6) == 'DATA') exit
-  end if
- end do ! for while
-
+ call goto_data_section_in_gms_inp(inpname, fid1)
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf
 
@@ -159,14 +150,7 @@ subroutine bas_gms2psi(inpname, sph)
    write(fid2,'(2(A,I0))') ' assign '//TRIM(elem(i)),ntimes(i),' gen',i
   end do ! for i
 
-  rewind(fid1)
-  do while(.true.)
-   read(fid1,'(A)') buf
-   if(buf(2:2) == '$') then
-    call upper(buf(3:6))
-    if(buf(3:6) == 'DATA') exit
-   end if
-  end do ! for while
+  call goto_data_section_in_gms_inp(inpname, fid1)
   read(fid1,'(A)') buf
   read(fid1,'(A)') buf
 

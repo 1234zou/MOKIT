@@ -341,7 +341,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   '''
   from pyscf import scf
   from mokit.lib.qchem import read_hf_type_from_fch
-  from mokit.lib.rwwfn import get_no_from_density_and_ao_ovlp
+  from mokit.lib.rwwfn import gen_no_from_density_and_ao_ovlp
   from mokit.lib.py2fch_direct import fchk
 
   mol = load_mol_from_fch(fchname)
@@ -366,15 +366,15 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
 
   dm0 = mf.get_init_guess(mol, '1e')
   if ihf == 1:   # real RHF
-    mf.mo_energy, mf.mo_coeff = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
   elif ihf == 2: # UHF
     dm0 = dm0[0] + dm0[1]
-    mo_e_a, alpha_mo = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mo_e_a, alpha_mo = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
     mf.mo_energy = (mo_e_a, mo_e_a)
     mf.mo_coeff = (alpha_mo, alpha_mo)
   if ihf == 101: # real ROHF
     dm0 = dm0[0] + dm0[1]
-    mf.mo_energy, mf.mo_coeff = get_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
 
   target_fch = fchname[0:fchname.rindex('.fch')]+'_proj.fch'
   fchk(mf, target_fch)

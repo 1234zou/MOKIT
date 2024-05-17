@@ -527,11 +527,7 @@ subroutine create_gvb_inp_from_dat_and_gms(newdat, gmsname, inpname, ncore,&
  close(fid1)
 
  ! copy the $DATA section from newdat into inpname
- open(newunit=fid1,file=TRIM(newdat),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
+ call goto_data_section_in_gms_inp(newdat, fid1)
  write(fid2,'(A)') ' $DATA'
 
  do while(.true.)

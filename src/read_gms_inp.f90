@@ -25,7 +25,7 @@ module pg
  type ecp_potential
   integer :: n = 0   ! size for col1, 2, and 3
   real(kind=8), allocatable :: col1(:)
-  integer     , allocatable :: col2(:)
+  integer, allocatable :: col2(:)
   real(kind=8), allocatable :: col3(:)
  end type ecp_potential
 
@@ -40,6 +40,118 @@ module pg
  logical :: ecp_exist = .false.
 end module pg
 
+! open a GAMESS .inp/.dat file and jump to the $DATA section
+subroutine goto_data_section_in_gms_inp(inpname, fid)
+ implicit none
+ integer :: i
+ integer, intent(out) :: fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical :: alive
+
+ fid = 0
+ inquire(file=TRIM(inpname),opened=alive)
+
+ if(alive) then
+  inquire(file=TRIM(inpname),number=fid)
+  rewind(fid)
+ else
+  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6) == 'DATA') exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine goto_data_section_in_gms_inp: wrong for&
+                   &mat in file '//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+ ! Note: this file is still opened.
+end subroutine goto_data_section_in_gms_inp
+
+! copy GVB CI coefficients (or called pair coefficients) from a .dat file into
+! another one 
+subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
+ implicit none
+ integer :: i, j, npair, fid1, fid2, fid3, RENAME
+ integer, intent(in) :: nopen
+!f2py intent(in) :: nopen
+ character(len=240) :: buf, new_dat
+ character(len=240), intent(in) :: addH_dat, datname
+!f2py intent(in) :: addH_dat, datname
+
+ i = INDEX(addH_dat, '.dat', back=.true.)
+ new_dat = addH_dat(1:i-1)//'.t'
+
+ call goto_data_section_in_gms_inp(addH_dat, fid1)
+
+ open(newunit=fid2,file=TRIM(new_dat),status='replace')
+ write(fid2,'(A)') ' $DATA'
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(2:5) == '$VEC') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ open(newunit=fid3,file=TRIM(datname),status='old',position='rewind')
+ do while(.true.)
+  read(fid3,'(A)') buf
+  if(buf(2:5) == '$SCF') exit
+ end do ! for while
+
+ i = INDEX(buf, 'CICOEF')
+ if(i > 0) then
+  write(fid2,'(A)') TRIM(buf)
+  npair = 1
+ else
+  npair = 0
+ end if
+
+ do while(.true.)
+  read(fid3,'(A)') buf
+  i = INDEX(buf, 'CICOEF')
+  if(i > 0) then
+   j = INDEX(buf, '$END')
+   if(j > 0) then
+    buf(j:j+3) = '    '
+    write(fid2,'(A)') TRIM(buf)
+    exit
+   else
+    write(fid2,'(A)') TRIM(buf)
+   end if
+   npair = npair + 1
+  else
+   exit
+  end if
+ end do ! for while
+
+ close(fid3)
+ do i = 1, nopen, 1
+  j = 2*(npair+i) - 1
+  write(fid2,'(3X,A,I3,A)') 'CICOEF(',j,')= 0.7071067811865476,-0.7071067811865476'
+ end do ! for i
+ write(fid2,'(A,/,A)') ' $END', ' $VEC'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ close(fid2)
+ i = RENAME(TRIM(new_dat), TRIM(addH_dat))
+end subroutine copy_and_add_pair_coeff
+
 ! check whether UHF in a given GAMESS .inp file
 subroutine check_uhf_in_gms_inp(inpname, uhf)
  implicit none
@@ -50,14 +162,15 @@ subroutine check_uhf_in_gms_inp(inpname, uhf)
 
  uhf = .false.
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)') buf
   call upper(buf)
-  if(index(buf,'SCFTYP=UHF') > 0) then
+  if(INDEX(buf,'SCFTYP=UHF') > 0) then
    uhf = .true.
    exit
   end if
-  if(index(buf,'$END') > 0) exit
+  if(INDEX(buf,'$END') > 0) exit
  end do ! for while
 
  close(fid)
@@ -65,39 +178,65 @@ end subroutine check_uhf_in_gms_inp
 
 ! read charge, spin multiplicity, uhf(bool) bohrs(bool) from a given GAMESS
 ! .inp/.dat file
-subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ecp)
+subroutine read_charge_mult_isph_from_gms_inp(inpname, charge, mult, isph, uhf,&
+                                              ghf, ecp)
  implicit none
  integer :: i, fid
- integer, intent(out) :: charge, mult
+ integer, intent(out) :: charge, mult, isph
+ character(len=5) :: str5
  character(len=240) :: buf
  character(len=480) :: buf1
  character(len=240), intent(in) :: inpname
  logical, intent(out) :: uhf, ghf, ecp
 
- charge = 0
- mult = 1
+ charge = 0; mult = 1; isph = -1
  uhf = .false.; ghf = .false.; ecp = .false.
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
- read(fid,'(A)') buf
- read(fid,'(A)') buf1
- buf1 = TRIM(buf)//' '//TRIM(buf1)
- call upper(buf1)
- if(index(buf1,'UHF') > 0) uhf = .true.
- if(index(buf1,'GHF') > 0) ghf = .true.
-
- i = INDEX(buf1,'ICHAR')
- if(i > 0) read(buf1(i+7:),*) charge
- i = INDEX(buf1,'MULT')
- if(i > 0) read(buf1(i+5:),*) mult
-
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-
   if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(2:5) == '$ECP') then
+   call upper(buf(3:8))
+   if(buf(3:8) == 'CONTRL') exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_mult_isph_from_gms_inp: no &
+                   &$CONTRL section'
+  write(6,'(A)') 'found in file '//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ i = LEN_TRIM(buf)
+ if(buf(i-3:i) == '$END') then
+  buf1 = TRIM(buf)
+ else
+  read(fid,'(A)') buf1
+  buf1 = TRIM(buf)//' '//TRIM(buf1)
+ end if
+ call upper(buf1)
+ if(INDEX(buf1,'UHF') > 0) uhf = .true.
+ if(INDEX(buf1,'GHF') > 0) ghf = .true.
+
+ i = INDEX(buf1,'ICHARG=')
+ if(i > 0) read(buf1(i+7:),*) charge
+
+ i = INDEX(buf1,'MULT=')
+ if(i > 0) read(buf1(i+5:),*) mult
+
+ i = INDEX(buf1,'ISPHER=')
+ if(i > 0) read(buf1(i+7:),*) isph
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) str5
+  if(i /= 0) exit
+
+  if(str5(2:2) == '$') then
+   call upper(str5(3:5))
+   if(str5(3:5) == 'ECP') then
     ecp = .true.
     exit
    end if
@@ -105,7 +244,7 @@ subroutine read_charge_and_mult_from_gms_inp(inpname, charge, mult, uhf, ghf, ec
  end do ! for while
 
  close(fid)
-end subroutine read_charge_and_mult_from_gms_inp
+end subroutine read_charge_mult_isph_from_gms_inp
 
 ! read elements, nuclear charges and Cartesian coordinates from a GAMESS .inp file
 subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
@@ -140,12 +279,7 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghos
  end do ! for i
  ! Angstrom/Bohr determined
 
- rewind(fid)
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
-
+ call goto_data_section_in_gms_inp(inpname, fid)
  read(fid,'(A)') buf
  read(fid,'(A)') buf
 
@@ -171,7 +305,7 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghos
  close(fid)
 
  call standardize_elem(natom, elem)
- forall(i = 1:natom) nuc(i) = DNINT(nuc1(i))
+ forall(i = 1:natom) nuc(i) = NINT(nuc1(i))
  deallocate(nuc1)
  if(bohrs) coor = coor*Bohr_const
 end subroutine read_elem_nuc_coor_from_gms_inp
@@ -185,8 +319,8 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  character(len=240), intent(in) :: inpname
 
  nbf = 0; nif = 0
-
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -203,24 +337,10 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
   return
  end if
 
- rewind(fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(3:6))
-  if(buf(2:6)=='$DATA') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_gms2py: No $DATA section found&
-                 & in file '//TRIM(inpname)//'.'
-  close(fid)
-  stop
- end if
-
+ call goto_data_section_in_gms_inp(inpname, fid)
  ! read the Title Card line, find nbf in it
  read(fid,'(A)') buf
- i = INDEX(buf,'nbf=')
+ i = INDEX(buf, 'nbf=')
  if(i == 0) then ! if not found, set to nif
   nbf = nif
  else
@@ -244,13 +364,15 @@ subroutine read_cart_nbf_nif_from_dat(datname, nbf, nif)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:2) == '$') call upper(buf(3:5))
-  if(buf(2:5) == '$VEC') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(2:5) == '$VEC') exit
+  end if
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$VEC'&
-                & found in file "//TRIM(datname)
+  write(6,'(/,A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$VEC' f&
+                   &ound in file "//TRIM(datname)
   close(fid)
   stop
  end if
@@ -272,15 +394,17 @@ subroutine read_cart_nbf_nif_from_dat(datname, nbf, nif)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:2) == '$') call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(2:5) == '$END') exit
+  end if
   j = j + 1
  end do ! for while
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$END'&
-                & corresponds to '$VEC'"
+  write(6,'(/,A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$END' c&
+                   &orresponds to '$VEC'"
   write(6,'(A)') 'in file '//TRIM(datname)
   stop
  end if
@@ -300,25 +424,9 @@ subroutine read_na_nb_nif_nbf_from_gms_inp(inpname, na, nb, nif, nbf)
  character(len=240), intent(in) :: inpname
 
  na = 0; nb = 0; nif = 0; nbf = 0
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
 
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  call upper(buf(3:6))
-  if(buf(2:6)=='$DATA') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_na_nb_nif_nbf_from_gms_inp: No&
-                 & $DATA section found in'
-  write(6,'(A)') 'file '//TRIM(inpname)//'.'
-  close(fid)
-  stop
- end if
-
- ! read the Title Card line
- read(fid,'(A)') buf
+ call goto_data_section_in_gms_inp(inpname, fid)
+ read(fid,'(A)') buf ! read the Title Card line
  close(fid)
 
  i = INDEX(buf,'nbf=')
@@ -381,9 +489,11 @@ subroutine read_all_ecp_from_gms_inp(inpname)
    if(j == 1) then
     k = INDEX(buf,'ul')
     if(k == 0) then
-     write(6,'(A)') "ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP does&
-                    &not start with '-ul potential'."
-     write(6,'(A)') 'You should check the format of ECP/PP data in file '//TRIM(inpname)
+     write(6,'(/,A)') 'ERROR in subroutine read_all_ecp_from_gms_inp: ECP/PP do&
+                      &s not start'
+     write(6,'(A)') "with '-ul potential'. You should check the format of ECP/P&
+                    &P data in file "//TRIM(inpname)
+     close(fid)
      stop
     end if
    end if
@@ -394,7 +504,7 @@ subroutine read_all_ecp_from_gms_inp(inpname)
    allocate(all_ecp(i)%potential(j)%col2(n), source=0)
    allocate(all_ecp(i)%potential(j)%col3(n), source=0d0)
    do k = 1, n, 1
-    read(fid,*) all_ecp(i)%potential(j)%col1(k), all_ecp(i)%potential(j)%col2(k), &
+    read(fid,*) all_ecp(i)%potential(j)%col1(k),all_ecp(i)%potential(j)%col2(k),&
     all_ecp(i)%potential(j)%col3(k)
    end do ! for k
   end do ! for j
@@ -479,9 +589,10 @@ subroutine read_prim_gau(stype, nline, fid)
        end if
       end do ! for j
       if(j == nline0+1) then
-       write(6,'(/,A)') "ERROR in subroutine read_prim_gau: I've never seen such basis."
-       write(6,'(A)') "Did you forget to add 'int(nobasistransform)' in .gjf file?"
-       write(6,'(3(A,I0))') 'stype='//stype//', i=',i,', nline=',nline,', nline0=',nline0
+       write(6,'(/,A)') 'ERROR in subroutine read_prim_gau: unexpected basis data.'
+       write(6,'(A)') 'Did you forget to add `int=nobasistransform` in .gjf file?'
+       write(6,'(3(A,I0))') 'stype='//stype//', i=', i, ', nline=', nline, &
+                            ', nline0=',nline0
        write(6,'(2(A,E16.8))') 'exp0=', exp0, ', rtmp=', rtmp
        stop
       end if
@@ -963,4 +1074,192 @@ subroutine read_na_and_nb_from_gms_inp(inpname, na, nb)
  i = INDEX(buf, 'nb=')
  read(buf(i+3:),*) nb
 end subroutine read_na_and_nb_from_gms_inp
+
+! read ncontr from a GAMESS .dat/.inp file
+subroutine read_ncontr_from_gms_inp(inpname, ncontr)
+ implicit none
+ integer :: i, k, fid, nline
+ integer, intent(out) :: ncontr
+ character(len=1) :: str1
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ ncontr = 0
+ call goto_data_section_in_gms_inp(inpname, fid)
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,'(A)',iostat=k) buf ! elem(i), nuc(i), coor(:,i)
+  if(k /= 0) exit
+  if(buf(2:2) == '$') exit
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+   read(buf,*) str1, nline
+   if(str1 == 'L') then
+    ncontr = ncontr + 2
+   else
+    ncontr = ncontr + 1
+   end if
+   do i = 1, nline, 1
+    read(fid,'(A)') buf
+   end do ! for i
+  end do ! for while
+ end do ! for while
+
+ close(fid)
+ if(k /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_ncontr_from_gms_inp: problematic f&
+                   &ile '//TRIM(inpname)
+  stop
+ end if
+end subroutine read_ncontr_from_gms_inp
+
+! read arrays shell_type and shell2atom_map from a GAMESS .dat/.inp file
+subroutine read_shltyp_and_shl2atm_from_gms_inp(inpname, ncontr,shltyp,shl2atm)
+ implicit none
+ integer :: i, j, k, nline, natom, fid
+ integer, intent(in) :: ncontr
+ integer, intent(out) :: shltyp(ncontr), shl2atm(ncontr)
+ character(len=1) :: stype
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ j = 0; natom = 0; shltyp = 0; shl2atm = 0
+ call goto_data_section_in_gms_inp(inpname, fid)
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,'(A)',iostat=k) buf ! elem(i), nuc(i), coor(:,i)
+  if(k /= 0) exit
+  if(buf(2:2) == '$') exit
+  natom = natom + 1
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+   read(buf,*) stype, nline
+   j = j + 1
+   call stype2itype(stype, shltyp(j))
+   shltyp(j) = shltyp(j) - 1 ! remember to minus 1
+   if(shltyp(j) == -1) then ! 'L' -> 'S' & 'P'
+    shltyp(j:j+1) = [0,1]
+    shl2atm(j:j+1) = [natom,natom]
+    j = j + 1
+   else
+    shl2atm(j) = natom
+   end if
+   do i = 1, nline, 1
+    read(fid,'(A)') buf
+   end do ! for i
+  end do ! for while
+ end do ! for while
+
+ close(fid)
+ if(k /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_shltyp_and_shl2atm_from_gms_inp: p&
+                   &roblematic'
+  write(6,'(A)') 'file '//TRIM(inpname)
+  stop
+ end if
+end subroutine read_shltyp_and_shl2atm_from_gms_inp
+
+! find LenNCZ from the type array all_ecp(natom)
+subroutine find_LenNCZ_in_all_ecp(natom, all_ecp, LenNCZ)
+ use pg, only: ecp4atom
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+ integer, intent(out) :: LenNCZ
+ type(ecp4atom), intent(in) :: all_ecp(natom)
+
+ LenNCZ = 0
+
+ do i = 1, natom, 1
+  if(.not. all_ecp(i)%ecp) cycle
+  LenNCZ = LenNCZ + SUM(all_ecp(i)%potential(:)%n)
+ end do ! for i
+end subroutine find_LenNCZ_in_all_ecp
+
+subroutine all_ecp2ecp_arrays(all_ecp, natom, LenNCZ, KFirst, KLast, Lmax, &
+                              LPSkip, NLP, RNFroz, CLP, ZLP)
+ use pg, only: ecp4atom
+ implicit none
+ integer :: i, j, k, m, n
+ integer, intent(in) :: natom, LenNCZ
+ integer, intent(out) :: KFirst(natom,10), KLast(natom,10), Lmax(natom), &
+  LPSkip(natom), NLP(LenNCZ)
+ real(kind=8), intent(out) :: RNFroz(natom), CLP(LenNCZ), ZLP(LenNCZ)
+ type(ecp4atom), intent(in) :: all_ecp(natom)
+
+ KFirst = 0; KLast = 0; Lmax = 0; LPSkip = 1; NLP = 0
+ RNFroz = 0d0; CLP = 0d0; ZLP = 0d0
+
+ forall(i=1:natom, all_ecp(i)%ecp)
+  LPSkip(i) = 0
+  RNFroz(i) = DBLE(all_ecp(i)%core_e)
+  Lmax(i) = all_ecp(i)%highest
+ end forall
+
+ m = 0
+ do i = 1, natom, 1
+  if(.not. all_ecp(i)%ecp) cycle
+  k = all_ecp(i)%highest + 1
+  do j = 1, k, 1
+   n = all_ecp(i)%potential(j)%n
+   KFirst(i,j) = m + 1
+   KLast(i,j) = m + n
+   CLP(m+1:m+n) = all_ecp(i)%potential(j)%col1
+   NLP(m+1:m+n) = all_ecp(i)%potential(j)%col2
+   ZLP(m+1:m+n) = all_ecp(i)%potential(j)%col3
+   m = m + n
+  end do ! for j
+ end do ! for i
+end subroutine all_ecp2ecp_arrays
+
+! read Mulliken charges from a given GAMESS .dat file
+subroutine read_mul_char_from_dat(datname, natom, charge, alive)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ real(kind=8) :: r
+ real(kind=8), intent(out) :: charge(natom)
+ character(len=2) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+ logical, intent(out) :: alive
+ ! whether the Mulliken charges exists in .dat file
+
+ charge = 0d0; alive = .false.
+ open(newunit=fid,file=TRIM(datname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(2:2) == '$') exit
+ end do ! for while
+
+ if(buf(2:2) == '$') then
+  close(fid)
+  return
+ end if
+
+ alive = .true.
+ do i = 1, natom, 1
+  read(fid,*,iostat=k) elem, r, charge(i)
+  if(k /= 0) exit
+ end do ! for i
+
+ close(fid)
+ if(k /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_mul_char_from_dat: no enough charg&
+                   &e data to read!'
+  write(6,'(A)') 'File='//TRIM(datname)
+  stop
+ end if
+end subroutine read_mul_char_from_dat
 

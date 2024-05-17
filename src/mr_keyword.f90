@@ -113,9 +113,8 @@ module mr_keyword
  ! ground state not included, so nstate=0 means only ground state
 
  integer :: iroot = 0 ! the state you are interested in SS-CASSCF
- ! 0 for ground state, 1 for the first excited state
+ ! 0/1 for ground state/the 1st excited state. Related variable: ss_opt
  integer :: target_root = 0 ! the real i-th number of the interested state
-
  integer :: xmult = 1 ! spin multiplicity of the target excited state
 
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
@@ -207,6 +206,7 @@ module mr_keyword
  logical :: LocDocc = .false.     ! whether to localize GVB doubly occupied orb
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
+ logical :: ss_opt = .false.      ! State-specific orbital optimization
  logical :: excited = .false.     ! whether to perform excited states calculations
  logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
  logical :: TDHF = .false.        ! True/False for CIS/TDHF
@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc30 (2024-May-9)'
+ write(6,'(A)') '           Version: 1.2.6rc31 (2024-May-17)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -796,6 +796,7 @@ end subroutine check_gms_path
     read(longbuf(j+1:i-1),*) nskip_uno
    case('root')
     read(longbuf(j+1:i-1),*) iroot
+    ss_opt = .true. ! State-specific orbital optimization
    case('xmult')
     read(longbuf(j+1:i-1),*) xmult
    case('force')
@@ -988,7 +989,7 @@ subroutine check_kywd_compatible()
    write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
    stop
   end if
-  call check_cart(hf_fch, cart)
+  call check_cart_in_fch(hf_fch, cart)
  end if
 
  if(on_thres<0d0 .or. on_thres>1d0) then

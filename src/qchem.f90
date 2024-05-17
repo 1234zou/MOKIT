@@ -510,8 +510,7 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  character(len=240), intent(in) :: fchname
  logical :: sph ! spherical harmonic or Cartesian-type basis functions
 
- call check_sph(fchname, sph)
-
+ call check_sph_in_fch(fchname, sph)
  call read_ncontr_from_fch(fchname, ncontr)
  allocate(shltyp(ncontr), shl2atm(ncontr))
  call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)

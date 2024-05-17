@@ -19,50 +19,70 @@
 program main
  use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, npair, nopen, idx2
- character(len=4) :: gvb_or_uhf_or_cas, string
+ integer :: i, j, npair, nopen, idx2, itype
+ ! itype=0/1/2/3 for R(O)HF/UHF/GVB/Some kind of NOs
+ character(len=4) :: str4
+ character(len=5) :: str5
  character(len=240) :: datname, fchname
- logical :: uhf
-
- npair = 0; nopen = 0; idx2 = 0
- gvb_or_uhf_or_cas = ' '
- string = ' '
- datname = ' '
- fchname = ' '
+ logical :: alive, uhf
 
  i = iargc()
- if(.not. (i==2 .or. i==4 .or. i==6) ) then
+ select case(i)
+ case(1,2,4,6)
+ case default
   write(6,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF, CAS): dat2fch a.dat a.fch'
-  write(6,'(A)')   ' Example 2 (for GVB)             : dat2fch a.dat a.fch -gvb 4'
-  write(6,'(A)')   ' Example 3 (for ROGVB)           : dat2fch a.dat a.fch -gvb 4 -open 2'
-  write(6,'(A,/)') ' Example 4 (for CAS NOs)         : dat2fch a.dat a.fch -no 10'
+  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF/CAS): dat2fch a.dat'
+  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF/CAS): dat2fch a.dat a.fch'
+  write(6,'(A)')   ' Example 3 (for GVB)           : dat2fch a.dat a.fch -gvb 4'
+  write(6,'(A)')   ' Example 4 (for ROGVB)         : dat2fch a.dat a.fch -gvb 4 -open 2'
+  write(6,'(A,/)') ' Example 5 (for CAS NOs)       : dat2fch a.dat a.fch -no 10'
   stop
- end if
+ end select
+
+ npair = 0; nopen = 0; idx2 = 0; itype = 0; alive = .false.
+ str4 = ' '; str5 = ' '; datname = ' '; fchname = ' '
 
  call getarg(1, datname)
  call require_file_exist(datname)
 
- call getarg(2, fchname)
- call require_file_exist(fchname)
+ if(i == 1) then
+  call find_specified_suffix(datname, '.dat', j)
+  fchname = datname(1:j-1)//'.fch'
+ else
+  call getarg(2, fchname)
+ end if
+
+ inquire(file=TRIM(fchname),exist=alive)
+ if(alive) then
+  write(6,'(/,A)') 'Remark from program dat2fch: file '//TRIM(fchname)//' exists.'
+  write(6,'(A)') 'It will be used directly.'
+ else
+  write(6,'(/,A)') 'Warning from program dat2fch: file '//TRIM(fchname)//' does&
+                   & not exist,'
+  write(6,'(A)') 'the program dat2fch is trying to generate one from scratch...'
+  call gen_fch_from_gms_inp(datname, fchname)
+ end if
+
  call check_uhf_in_fch(fchname, uhf)
+ if(uhf) itype = 1
 
  if(i > 2) then
-  call getarg(3,gvb_or_uhf_or_cas)
-  gvb_or_uhf_or_cas = ADJUSTL(gvb_or_uhf_or_cas)
+  call getarg(3, str4)
+  str4 = ADJUSTL(str4)
 
-  select case(TRIM(gvb_or_uhf_or_cas))
+  select case(TRIM(str4))
   case('-gvb')
-   call getarg(4,string)
-   read(string,*) npair
-   ! '-open' is only valid in GVB, means ROGVB
-   if(i == 6) then
-    call getarg(6,string)
-    read(string,*) nopen
+   itype = 2
+   call getarg(4, str5)
+   read(str5,*) npair
+   if(i == 6) then ! '-open' is only valid in GVB, means ROGVB
+    call getarg(6, str5)
+    read(str5,*) nopen
    end if
   case('-no')
-   call getarg(4,string)
-   read(string,*) idx2
+   itype = 3
+   call getarg(4, str5)
+   read(str5,*) idx2
    if(idx2 < 2) then
     write(6,'(/,A,I0)') 'ERROR in subroutine dat2fch: invalid idx2=',idx2
     stop
@@ -72,15 +92,22 @@ program main
    write(6,'(A)') "It must be '-gvb' or '-no'."
    stop
   end select
- else
-  if(uhf) gvb_or_uhf_or_cas = '-uhf'
  end if
 
- call dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
+ if(uhf .and. itype>1) then
+  write(6,'(/,A)') "ERROR in subroutine dat2fch: '-gvb'/'-no' argument is imc&
+                   &ompatible with"
+  write(6,'(A)') 'a UHF-type .fch file. An R(O)HF-type .fch file is required &
+                 &in such case.'
+  stop
+ end if
+
+ call dat2fch(datname, fchname, itype, npair, nopen, idx2)
+ if(.not. alive) write(6,'(/,A,/)') 'Done generation.'
 end program main
 
 ! transform MOs in .dat file into .fchk file
-subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
+subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
  use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, k, datid, nline, nleft
@@ -91,32 +118,28 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  integer :: nbf1, nif1, ncontr, nd, nf, ng, nh
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  ! mark the index where f,g,h functions begin
- integer, intent(in) :: npair, nopen, idx2
+ integer, intent(in) :: itype, npair, nopen, idx2
  integer, allocatable :: order(:), shltyp(:), shl2atm(:)
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
  real(kind=8), allocatable :: all_coeff(:,:), temp_coeff(:,:)
  real(kind=8), allocatable :: noon(:) ! Natural Orbital Occupation Number
- character(len=4), intent(in) :: gvb_or_uhf_or_cas
  character(len=5) :: str1
  character(len=30) :: str2
  character(len=240), intent(in) :: datname, fchname
  character(len=240) :: fchname1, buf
  logical :: sph, noon_exist
 
- str1 = ' '   ! initialization
- str2 = ' '
- buf = ' '
- nline = 0
- nleft = 0
-
- fchname1 = TRIM(fchname)//'_d2f.t'
+ str1 = ' '; str2 = ' '; buf = ' '; nline = 0; nleft = 0
+ call find_specified_suffix(fchname, '.fch', i)
+ fchname1 = fchname(1:i-1)//'.d2f'
  call read_na_and_nb_from_fch(fchname, na, nb)
 
- ! check nopen ?= na - nb
- if(gvb_or_uhf_or_cas=='-gvb' .and. nopen/=na-nb) then
+ ! check nopen ?= na-nb
+ if(itype==2 .and. nopen/=na-nb) then
   write(6,'(/,A)') 'Warning in subroutine dat2fch: nopen /= na-nb detected.'
-  write(6,'(A)') 'You should check if anything is wrong in .fch(k) file or your&
-                 & command line arguments.'
+  write(6,'(A)') 'You should check if anything is wrong in your .fch(k) file. O&
+                 &r maybe your'
+  write(6,'(A)') 'command line arguments are incorrect. Anyway, continue...'
   write(6,'(3(A,I0))') 'nopen=', nopen, ', na=', na, ', nb=', nb
  end if
  ! check done
@@ -144,13 +167,13 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
 
  if(sph) then ! spherical harmonic
   nbf1 = nbf + COUNT(shltyp==-2) + 3*COUNT(shltyp==-3) + &
-           & 6*COUNT(shltyp==-4) + 10*COUNT(shltyp==-5)
-  ! [6D,10F,15G,21H] - [5D,7F,9G,11H] = [1,3,6,10]
- else         ! Cartesian
+       & 6*COUNT(shltyp==-4) + 10*COUNT(shltyp==-5) + 15*COUNT(shltyp==-6)
+  ! [6D,10F,15G,21H,28I] - [5D,7F,9G,11H,13I] = [1,3,6,10,15]
+ else         ! Cartesian basis functions
   nbf1 = nbf
  end if
 
- call read_nbf_from_dat(datname, i)
+ call read_cart_nbf_from_dat(datname, i)
  if(i /= nbf1) then
   write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between .fch &
                    &and .dat file.'
@@ -166,7 +189,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
    case(-5:-2)
     shl2atm(i) = -shltyp(i)
    case default
-    write(6,'(A)') 'ERROR in subroutine dat2fch: shltyp(i) out of range.'
+    write(6,'(/,A)') 'ERROR in subroutine dat2fch: shltyp(i) out of range.'
     write(6,'(2(A,I0))') 'i=', i, ', shltyp(i)=', shltyp(i)
     stop
    end select
@@ -182,11 +205,11 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  ! '$VEC' holds CASSCF orbitals (not natural orbitals)
  ! If '-no' is specified, the NOs in the first '$VEC' section will also be read
 
- if(gvb_or_uhf_or_cas(1:3) == '-no') then
+ if(itype == 3) then
   ! only the doubly occupied MOs and active space NOs are held in .dat file,
   ! so we change nif to the number of NOs
   nif1 = idx2
-  allocate(noon(nif), source=0d0)
+  allocate(noon(nif))
   call read_on_from_dat(datname, nif1, noon(1:nif1), noon_exist)
   if(.not. noon_exist) deallocate(noon)
 
@@ -196,9 +219,8 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
    if(i /= 0) exit
    if(buf(2:5)=='$VEC' .or. buf(2:5)=='$vec' .or. buf(2:5)=='$Vec') exit
   end do ! for while
-
- else
-  if(gvb_or_uhf_or_cas == '-uhf') then
+ else ! itype /= 3
+  if(itype == 1) then
    nif1 = 2*nif
   else
    nif1 = nif
@@ -214,7 +236,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  end if
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine dat2fch: No '$VEC' section in file "//&
+  write(6,'(/,A)') "ERROR in subroutine dat2fch: no '$VEC' found in file "//&
                     TRIM(datname)
   close(datid)
   stop
@@ -245,7 +267,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  end do ! for i
 
  ! if '-uhf' is specified, read Beta MO
- if(gvb_or_uhf_or_cas == '-uhf') then
+ if(itype == 1) then
   do i = 1, nif, 1
    k = 1
    do j = 1, nline, 1
@@ -314,9 +336,9 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
   end do ! for i
 
   deallocate(shltyp, all_coeff)
-  allocate(alpha_coeff(nbf,min(nif,nif1)))
-  alpha_coeff = temp_coeff(:,1:min(nif,nif1))
-  if(gvb_or_uhf_or_cas == '-uhf') then
+  allocate(alpha_coeff(nbf,MIN(nif,nif1)))
+  alpha_coeff = temp_coeff(:,1:MIN(nif,nif1))
+  if(itype == 1) then
    allocate(beta_coeff(nbf,nif))
    beta_coeff = temp_coeff(:,nif+1:nif1)
   end if
@@ -325,9 +347,9 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  else ! Cartesian functions
 
   deallocate(shltyp)
-  allocate(alpha_coeff(nbf,min(nif,nif1)))
-  alpha_coeff = all_coeff(:,1:min(nif,nif1))
-  if(gvb_or_uhf_or_cas == '-uhf') then
+  allocate(alpha_coeff(nbf,MIN(nif,nif1)))
+  alpha_coeff = all_coeff(:,1:MIN(nif,nif1))
+  if(itype == 1) then
    allocate(beta_coeff(nbf,nif))
    beta_coeff = all_coeff(:,nif+1:nif1)
   end if
@@ -336,7 +358,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
 
  ! if '-gvb' is specified, permute the active orbitals
  ! if nopen > 0, singly occupied orbitals are considered
- if(gvb_or_uhf_or_cas=='-gvb' .and. npair>0) then
+ if(itype==2 .and. npair>0) then
   k = 2*npair + nopen
   allocate(order(k), source=0)
   allocate(temp_coeff(nbf,k), source=0d0)
@@ -357,13 +379,14 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  end if
  ! permute done
 
- if(gvb_or_uhf_or_cas(1:3) == '-no') then
+ if(itype == 3) then
   ! 1:idx2 are CASCI/CASSCF doubly occupied MOs and NOs
   ! copy virtual MOs from input .fch(k) file
-  allocate(beta_coeff(nbf,nif), source=0d0)
+  allocate(beta_coeff(nbf,nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', beta_coeff)
   beta_coeff(:,1:idx2) = alpha_coeff
-  alpha_coeff = beta_coeff ! auto-reallocation
+  deallocate(alpha_coeff)
+  allocate(alpha_coeff(nbf,nif), source=beta_coeff)
   deallocate(beta_coeff)
   if(noon_exist) call write_eigenvalues_to_fch(fchname,nif,'a',noon,.true.)
  end if
@@ -373,7 +396,7 @@ subroutine dat2fch(datname, fchname, gvb_or_uhf_or_cas, npair, nopen, idx2)
  deallocate(alpha_coeff)
 
  ! write Beta MOs, if any
- if(gvb_or_uhf_or_cas == '-uhf') then
+ if(itype == 1) then
   call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
   deallocate(beta_coeff)
  end if
@@ -381,10 +404,10 @@ end subroutine dat2fch
 
 subroutine dat2fch_permute_10f(nif,coeff)
  implicit none
- integer i, nif
- integer, parameter :: order(6) = (/3, 1, 2, 5, 6, 4/)
+ integer :: i, nif
+ integer, parameter :: order(6) = [3, 1, 2, 5, 6, 4]
  real(kind=8), intent(inout) :: coeff(6,nif)
- real(kind=8) coeff2(6,nif)
+ real(kind=8) :: coeff2(6,nif)
 ! From: the order of Cartesian f functions in Gamess
 ! To: the order of Cartesian f functions in Gaussian
 !                     1    2    3    4    5    6
@@ -392,19 +415,17 @@ subroutine dat2fch_permute_10f(nif,coeff)
 ! To:   XXX,YYY,ZZZ, XYY, XXY, XXZ, XZZ, YZZ, YYZ, XYZ
 
  coeff2 = 0d0
- forall(i = 1:6)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ forall(i = 1:6) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
 end subroutine dat2fch_permute_10f
 
 subroutine dat2fch_permute_15g(nif,coeff)
  implicit none
- integer i
+ integer :: i
  integer, intent(in) :: nif
- integer, parameter :: order(15) = (/3, 9, 12, 7, 2, 8, 15, 14, 6, 11, 13, 10, 5, 4, 1/)
+ integer, parameter :: order(15) = [3,9,12,7,2,8,15,14,6,11,13,10,5,4,1]
  real(kind=8), intent(inout) :: coeff(15,nif)
- real(kind=8) coeff2(15,nif)
+ real(kind=8) :: coeff2(15,nif)
 ! From: the order of Cartesian g functions in Gamess
 ! To: the order of Cartesian g functions in Gaussian
 !       1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
@@ -412,19 +433,16 @@ subroutine dat2fch_permute_15g(nif,coeff)
 ! To:   ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 
  coeff2 = 0d0
- forall(i = 1:15)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ forall(i = 1:15) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
 end subroutine dat2fch_permute_15g
 
 subroutine dat2fch_permute_21h(nif,coeff)
  implicit none
- integer i, nif
- integer, parameter :: order(21) = (/3, 9, 15, 13, 7, 2, 8, 18, 21, 17, 6, 14, &
-                                     20, 19, 12, 11, 16, 10, 5, 4, 1/)
+ integer :: i, nif
+ integer, parameter :: order(21) = [3,9,15,13,7,2,8,18,21,17,6,14,20,19,12,11,16,10,5,4,1]
  real(kind=8), intent(inout) :: coeff(21,nif)
- real(kind=8) coeff2(21,nif)
+ real(kind=8) :: coeff2(21,nif)
 ! From: the order of Cartesian h functions in Gamess
 ! To: the order of Cartesian h functions in Gaussian
 !       1     2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21
@@ -432,9 +450,7 @@ subroutine dat2fch_permute_21h(nif,coeff)
 ! To:   ZZZZZ,YZZZZ,YYZZZ,YYYZZ,YYYYZ,YYYYY,XZZZZ,XYZZZ,XYYZZ,XYYYZ,XYYYY,XXZZZ,XXYZZ,XXYYZ,XXYYY,XXXZZ,XXXYZ,XXXYY,XXXXZ,XXXXY,XXXXX
 
  coeff2 = 0d0
- forall(i = 1:21)
-  coeff2(i,:) = coeff(order(i),:)
- end forall
+ forall(i = 1:21) coeff2(i,:) = coeff(order(i),:)
  coeff = coeff2
 end subroutine dat2fch_permute_21h
 
@@ -448,12 +464,124 @@ subroutine get_int_after_flag(buf, flag, k)
 
  i = INDEX(buf, flag)
  if(i == 0) then
-  write(*,'(A)') "ERROR in subroutine get_int_after_flag: no keyword '"//flag &
-               & //"' found in the string '"//TRIM(buf)//"'."
+  write(6,'(/,A)') "ERROR in subroutine get_int_after_flag: no keyword '"//flag&
+                  &//"' found in the string '"//TRIM(buf)//"'."
   stop
  end if
 
  k = 0
  read(buf(i+1:),*) k
 end subroutine get_int_after_flag
+
+! Generate a .fch file from a GAMESS .dat/.inp file. This requires the basis
+! data and ECP/PP are well written in the .dat file.
+subroutine gen_fch_from_gms_inp(datname, fchname)
+ use fch_content
+ use pg, only: natom0=>natom, ecp_exist, all_ecp
+ use mkl_content, only: natom1=>natom, ncontr1=>ncontr,shell_type1=>shell_type,&
+  shl2atm1=>shl2atm, all_pg, read_all_pg_from_gms_inp, un_normalized_all_pg, &
+  merge_s_and_p_into_sp
+ implicit none
+ integer :: i, ne, isph, nbf1
+ character(len=240), intent(in) :: datname, fchname
+ logical :: alive, ghf, has_sp
+ logical, allocatable :: ghost(:)
+
+ call read_natom_from_gms_inp(datname, natom)
+ allocate(mull_char(natom))
+ call read_mul_char_from_dat(datname, natom, mull_char, alive)
+
+ allocate(elem(natom), ielem(natom), coor(3,natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(datname, natom, elem, ielem, coor, ghost)
+
+ allocate(iatom_type(natom), source=0)
+ forall(i=1:natom, ghost(i)) iatom_type(i) = 1000
+ deallocate(ghost)
+
+ natom0 = natom
+ call read_charge_mult_isph_from_gms_inp(datname, charge, mult, isph, is_uhf, &
+                                         ghf, ecp_exist)
+ if(ghf) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_fch_from_gms_inp: GHF-type is unsup&
+                   &ported.'
+  stop
+ end if
+ if(isph /= 1) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_fch_from_gms_inp: ISPHER/=1 in file&
+                   & '//TRIM(datname)
+  stop
+ end if
+
+ ne = SUM(ielem) - charge
+ if(ecp_exist) then
+  ! Do not change ielem here. It will be considered in subroutine write_fch.
+  call read_all_ecp_from_gms_inp(datname)
+  ne = ne - SUM(all_ecp(:)%core_e)
+  call find_LenNCZ_in_all_ecp(natom, all_ecp, LenNCZ)
+  allocate(KFirst(natom,10), KLast(natom,10), Lmax(natom), LPSkip(natom), &
+   NLP(LenNCZ), RNFroz(natom), CLP(LenNCZ), ZLP(LenNCZ))
+  call all_ecp2ecp_arrays(all_ecp, natom, LenNCZ, KFirst, KLast, Lmax, LPSkip, &
+                          NLP, RNFroz, CLP, ZLP)
+  deallocate(all_ecp)
+ end if
+ nopen = mult - 1
+ na = (ne + nopen)/2
+ nb = ne - na
+
+ call read_ncontr_from_gms_inp(datname, ncontr)
+ allocate(shell_type(ncontr), shell2atom_map(ncontr))
+ call read_shltyp_and_shl2atm_from_gms_inp(datname, ncontr, shell_type, &
+                                           shell2atom_map)
+ ! the shell_type read from .inp/.dat does not have the difference of sph/Cart,
+ ! now check this
+ if(isph == 1) then
+  forall(i=1:ncontr, (shell_type(i)>1)) shell_type(i) = -shell_type(i)
+ end if
+
+ natom1 = natom
+ ncontr1 = ncontr
+ allocate(shell_type1(ncontr), source=shell_type)
+ allocate(shl2atm1(ncontr), source=shell2atom_map)
+ call read_all_pg_from_gms_inp(datname)
+ call un_normalized_all_pg()
+ call merge_s_and_p_into_sp()
+ if(ncontr1 < ncontr) then
+  deallocate(shell_type, shell2atom_map)
+  allocate(shell_type(ncontr1), source=shell_type1)
+  allocate(shell2atom_map(ncontr1), source=shl2atm1)
+  ncontr = ncontr1
+ end if
+
+ allocate(prim_per_shell(ncontr))
+ call find_nprim_from_all_pg(ncontr, prim_per_shell, nprim, has_sp)
+ call all_pg2prim_exp_and_contr_coeff(has_sp)
+ deallocate(all_pg, shell_type1, shl2atm1)
+
+ ! read the number of basis functions under Cartesian-type basis functions
+ call read_cart_nbf_nif_from_dat(datname, nbf1, nif)
+ if(is_uhf) then
+  if(MOD(nif,2) /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine gen_fch_from_gms_inp: nif is not even!'
+   write(6,'(A)') 'Strange case. File='//TRIM(datname)
+   stop
+  end if
+  nif = nif/2
+ end if
+ allocate(eigen_e_a(nif), source=0d0)
+
+ ! convert to the number of basis functions using spherical harmonic functions
+ nbf = nbf1 - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
+     & 6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5) - 15*COUNT(shell_type==-6)
+
+ allocate(alpha_coeff(nbf,nif), source=0d0)
+ allocate(tot_dm(nbf,nbf), source=0d0)
+ if(is_uhf) then
+  allocate(eigen_e_b(nif), source=0d0)
+  allocate(beta_coeff(nbf,nif), source=0d0)
+  allocate(spin_dm(nbf,nbf), source=0d0)
+ end if
+
+ call write_fch(fchname)
+ call free_arrays_in_fch_content()
+end subroutine gen_fch_from_gms_inp
 

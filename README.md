@@ -26,13 +26,13 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-May 9, 2024
+May 17, 2024
 
 
 Dependencies
 ------------
 Dependencies on quantum chemistry packages are different for each executable or module. Here the minimum requirements for binary executables `automr`, `frag_guess_wfn` and Python modules `py2xxx` are listed:
-1. `automr`: Gaussian, GAMESS, PySCF
+1. `automr`: GAMESS, PySCF
 2. `frag_guess_wfn`: Gaussian
 3. Most of the utilities do not depend on quantum chemistry packages except that the modules `py2gau`, `py2orca`, `py2molpro`, etc, work with PySCF installed.
 

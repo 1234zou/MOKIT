@@ -59,8 +59,8 @@ subroutine stype2itype(stype, itype)
  case('L') ! 'L' is 'SP'
   itype = 0
  case default
-  write(6,'(A)') 'ERROR in subroutine stype2itype: stype out of range.'
-  write(6,'(A)') 'stype= '//TRIM(stype)
+  write(6,'(/,A)') 'ERROR in subroutine stype2itype: stype out of range.'
+  write(6,'(A)') 'stype='//TRIM(stype)
   stop
  end select
 end subroutine stype2itype
@@ -238,9 +238,9 @@ subroutine add_DKH2_into_gms_inp(inpname)
 
  do while(.true.)
   read(fid1,'(A)') buf
-  k = INDEX(buf,'$END')
-  if(k /= 0) exit
-  if(INDEX(buf,'$DATA') /= 0) exit
+  k = INDEX(buf, '$END')
+  if(k > 0) exit
+  if(buf(2:6) == '$DATA') exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
@@ -538,7 +538,7 @@ end subroutine modify_memory_in_psi4_inp
 
 ! modify memory in a given Q-Chem input file
 ! Note: input mem is in unit GB
-subroutine modify_memory_in_qchem_inp(mem, inpname)
+subroutine modify_memory_in_qchem_inp(inpname, mem)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: mem
@@ -569,6 +569,33 @@ subroutine modify_memory_in_qchem_inp(mem, inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine modify_memory_in_qchem_inp
 
+! modify memory in a given ORCA .inp file (mem is in MB!!!)
+subroutine modify_mem_and_nproc_in_orca_inp(inpname, mem, nproc)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem, nproc
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
+ write(fid1,'(A,I0)') '%maxcore ', mem
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine modify_mem_and_nproc_in_orca_inp
+
 ! add given/specified RIJK basis set into a PSI4 input file
 subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  implicit none
@@ -578,7 +605,8 @@ subroutine add_RIJK_bas_into_psi4_inp(inpname, RIJK_bas)
  character(len=240), intent(in) :: inpname
 
  if(LEN_TRIM(RIJK_bas) == 0) then
-  write(6,'(A)') 'ERROR in subroutine add_RIJK_bas_into_psi4_inp:'
+  write(6,'(/,A)') 'ERROR in subroutine add_RIJK_bas_into_psi4_inp: input RI ba&
+                   &sis set is null string.'
   stop
  end if
 
@@ -599,8 +627,8 @@ subroutine add_RIJK_bas_into_orca_inp(inpname, RIJK_bas)
  character(len=240), intent(in) :: inpname
 
  if(LEN_TRIM(RIJK_bas) == 0) then
-  write(6,'(A)') 'ERROR in subroutine add_RIJK_bas_into_orca_inp: input RI&
-                   & basis set is null string.'
+  write(6,'(/,A)') 'ERROR in subroutine add_RIJK_bas_into_orca_inp: input RI ba&
+                   &sis set is null string.'
   stop
  end if
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -1046,82 +1074,6 @@ subroutine prt_gvb_couple_coeff(fid, ndb, nopen)
 
  deallocate(f, alpha, beta)
 end subroutine prt_gvb_couple_coeff
-
-! copy GVB CI coefficients (or called pair coefficients) from a .dat file into
-! another one 
-subroutine copy_and_add_pair_coeff(addH_dat, datname, nopen)
- implicit none
- integer :: i, j, npair, fid1, fid2, fid3, RENAME
- integer, intent(in) :: nopen
- character(len=240) :: buf, new_dat
- character(len=240), intent(in) :: addH_dat, datname
-
- i = INDEX(addH_dat, '.dat', back=.true.)
- new_dat = addH_dat(1:i-1)//'.t'
- open(newunit=fid1,file=TRIM(addH_dat),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(2:6) == '$DATA') exit
- end do ! for while
-
- open(newunit=fid2,file=TRIM(new_dat),status='replace')
- write(fid2,'(A)') ' $DATA'
-
- do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(2:5) == '$VEC') exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- open(newunit=fid3,file=TRIM(datname),status='old',position='rewind')
- do while(.true.)
-  read(fid3,'(A)') buf
-  if(buf(2:5) == '$SCF') exit
- end do ! for while
-
- i = INDEX(buf, 'CICOEF')
- if(i > 0) then
-  write(fid2,'(A)') TRIM(buf)
-  npair = 1
- else
-  npair = 0
- end if
-
- do while(.true.)
-  read(fid3,'(A)') buf
-  i = INDEX(buf, 'CICOEF')
-  if(i > 0) then
-   j = INDEX(buf, '$END')
-   if(j > 0) then
-    buf(j:j+3) = '    '
-    write(fid2,'(A)') TRIM(buf)
-    exit
-   else
-    write(fid2,'(A)') TRIM(buf)
-   end if
-   npair = npair + 1
-  else
-   exit
-  end if
- end do ! for while
-
- close(fid3)
- do i = 1, nopen, 1
-  j = 2*(npair+i) - 1
-  write(fid2,'(3X,A,I3,A)') 'CICOEF(',j,')= 0.7071067811865476,-0.7071067811865476'
- end do ! for i
- write(fid2,'(A,/,A)') ' $END', ' $VEC'
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do ! for while
-
- close(fid1,status='delete')
- close(fid2)
- i = RENAME(TRIM(new_dat), TRIM(addH_dat))
-end subroutine copy_and_add_pair_coeff
 
 ! add the force keyword into a PySCF input file
 subroutine add_force_key2py_script(mem, pyname, ccsd_t)

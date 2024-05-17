@@ -17,7 +17,7 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
  case('dalton')
   call read_grad_from_dalton_out(outname, natom, grad)
  case('gamess')
-  call read_grad_from_gms_dat(outname, natom, grad)
+  call read_grad_from_dat(outname, natom, grad)
  case('gaussian')
   call read_grad_from_gau_log(outname, natom, grad)
  case('molpro')
@@ -151,7 +151,7 @@ subroutine read_grad_from_gms_gms(outname, natom, grad)
 end subroutine read_grad_from_gms_gms
 
 ! read Cartesian gradient from a given GAMESS .dat file
-subroutine read_grad_from_gms_dat(datname, natom, grad)
+subroutine read_grad_from_dat(datname, natom, grad)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
@@ -163,6 +163,7 @@ subroutine read_grad_from_gms_dat(datname, natom, grad)
 
  grad = 0d0
  open(newunit=fid,file=TRIM(datname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -176,7 +177,7 @@ subroutine read_grad_from_gms_dat(datname, natom, grad)
  end do ! for i
 
  close(fid)
-end subroutine read_grad_from_gms_dat
+end subroutine read_grad_from_dat
 
 ! read Cartesian gradient from a given (Open)Molcas .out file
 subroutine read_grad_from_molcas_out(outname, natom, grad)

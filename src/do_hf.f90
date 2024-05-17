@@ -727,7 +727,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
   call mkl2fch_wrap(mklname, fchname)
@@ -951,7 +951,8 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
   close(fid)
   ! pure spin state, simply calculate the spin square
   call read_mult_from_orca_out(outname, mult)
-  ss = DBLE(mult*(mult+1))
+  ss = 0.5d0*DBLE(mult-1)
+  ss = ss*(ss+1d0)
 
  case(3)   ! UHF
   do while(.true.)

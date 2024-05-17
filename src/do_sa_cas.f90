@@ -73,7 +73,7 @@ subroutine do_sa_cas()
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_orca_inp(inpname, hf_fch)
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
  case('gamess')
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
   outname = hf_fch(1:i-1)//'_SA-CAS.gms'

@@ -567,16 +567,19 @@ subroutine submit_gau_job(gau_path, gjfname, prt)
  call delete_file('fort.7')
 end subroutine submit_gau_job
 
-subroutine submit_orca_job(orca_path, inpname, prt)
+subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
  implicit none
  integer :: i, system
- character(len=240) :: outname
+ character(len=240) :: outname, gesname, denname, propname
  character(len=480) :: buf
  character(len=240), intent(in) :: orca_path, inpname
- logical, intent(in) :: prt
+ logical, intent(in) :: prt, del_den, del_prop
 
  call find_specified_suffix(inpname, '.inp', i)
  outname = inpname(1:i-1)//'.out'
+ gesname = inpname(1:i-1)//'.ges'
+ denname = inpname(1:i-1)//'.densities'
+ propname = inpname(1:i-1)//'_property.txt'
 
  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  if(prt) write(6,'(A)') '$orca '//TRIM(buf)
@@ -587,6 +590,10 @@ subroutine submit_orca_job(orca_path, inpname, prt)
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
+
+ call delete_file(TRIM(gesname))
+ if(del_den) call delete_file(TRIM(denname))
+ if(del_prop) call delete_file(TRIM(propname))
 end subroutine submit_orca_job
 
 ! need to distinguish between OpenMP version and MPI version of OpenMolcas

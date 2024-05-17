@@ -42,7 +42,7 @@ end program main
 subroutine bas_gms2dal(fort7, spherical)
  use pg, only: natom, nuc, ntimes, elem, coor, highest, all_ecp, ecp_exist
  implicit none
- integer :: i, nline, rc, charge, mult, rel, fid1, fid2
+ integer :: i, nline, rc, charge, mult, isph, rel, fid1, fid2
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, dalfile, molfile
  character(len=1) :: stype
@@ -62,7 +62,8 @@ subroutine bas_gms2dal(fort7, spherical)
  ! nuc cannot be deallocated here since subroutine prt_prim_gau will use it
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
+ call read_charge_mult_isph_from_gms_inp(fort7, charge, mult, isph, uhf, ghf, &
+                                         ecp_exist)
  if(uhf) then
   write(6,'(/,A)') 'WARNING in subroutine bas_gms2dal: Dalton does not support UHF.'
   write(6,'(A)') 'Basis set data will still be written.'
@@ -102,24 +103,7 @@ subroutine bas_gms2dal(fort7, spherical)
  call read_all_ecp_from_gms_inp(fort7)
 
  ! find the $DATA section
- open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)',iostat=rc) buf
-  if(rc /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6) == 'DATA') exit
-  end if
- end do ! for while
-
- if(rc /= 0) then
-  write(6,'(A)') 'ERROR in subroutine bas_gms2molcas: No $DATA section found&
-                   & in file '//TRIM(fort7)//'.'
-  close(fid1)
-  stop
- end if
-
- ! skip 2 lines: the Title line and the Point Group line
+ call goto_data_section_in_gms_inp(fort7, fid1)
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf
 
@@ -180,8 +164,8 @@ subroutine bas_gms2dal(fort7, spherical)
  deallocate(nuc, elem, ntimes, coor, all_ecp)
 
  if(rc /= 0) then
-  write(6,'(A)') "ERROR in subroutine bas_gms2dal: it seems the '$DATA'&
-                   & has no corresponding '$END'."
+  write(6,'(/,A)') "ERROR in subroutine bas_gms2dal: it seems the '$DATA' has n&
+                   &o corresponding '$END'."
   write(6,'(A)') 'Incomplete file '//TRIM(fort7)
   close(fid2,status='delete')
   stop

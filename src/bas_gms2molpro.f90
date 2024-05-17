@@ -41,7 +41,7 @@ end program main
 subroutine bas_gms2molpro(fort7, spherical)
  use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
- integer :: i, na, nb, nline, rc, rel, charge, mult, fid1, fid2
+ integer :: i, na, nb, nline, rc, rel, charge, mult, isph, fid1, fid2
  character(len=7) :: str
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input, orbfile, orbfile2
@@ -76,7 +76,8 @@ subroutine bas_gms2molpro(fort7, spherical)
  deallocate(nuc, ghost)
 
  call calc_ntimes(natom, elem, ntimes)
- call read_charge_and_mult_from_gms_inp(fort7, charge, mult, uhf, ghf, ecp_exist)
+ call read_charge_mult_isph_from_gms_inp(fort7, charge, mult, isph, uhf, ghf, &
+                                         ecp_exist)
  call read_all_ecp_from_gms_inp(fort7)
 
  open(newunit=fid2,file=TRIM(input),status='replace')
@@ -96,24 +97,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  write(fid2,'(A)') 'basis={'
 
  ! rewind and find the $DATA section
- open(newunit=fid1,file=TRIM(fort7),status='old',position='rewind')
- do while(.true.)
-  read(fid1,'(A)',iostat=rc) buf
-  if(rc /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:6))
-   if(buf(3:6) == 'DATA') exit
-  end if
- end do ! for while
-
- if(rc /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molpro: No $DATA section found &
-                   &in file '//TRIM(fort7)
-  close(fid1)
-  stop
- end if
-
- ! skip 2 lines: the Title line and the Point Group line
+ call goto_data_section_in_gms_inp(fort7, fid1)
  read(fid1,'(A)') buf
  read(fid1,'(A)') buf
 

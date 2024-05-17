@@ -376,7 +376,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
 end subroutine calc_unpaired_from_fch
 
 ! calculate the number of unpaired electrons using a GAMESS GVB .dat file
-subroutine calc_unpaired_from_gms_dat(datname, mult, unpaired_e)
+subroutine calc_unpaired_from_dat(datname, mult, unpaired_e)
  implicit none
  integer :: nopen, npair, nif
  integer, intent(in) :: mult
@@ -386,7 +386,7 @@ subroutine calc_unpaired_from_gms_dat(datname, mult, unpaired_e)
  real(kind=8), allocatable :: pair_coeff(:,:), noon(:,:)
 
  if(mult < 1) then
-  write(6,'(/,A)') 'ERROR in subroutine calc_unpaired_from_gms_dat: mult<1.'
+  write(6,'(/,A)') 'ERROR in subroutine calc_unpaired_from_dat: mult<1.'
   write(6,'(A)') 'Wrong parameter for spin multiplicity!'
   stop
  end if
@@ -404,7 +404,7 @@ subroutine calc_unpaired_from_gms_dat(datname, mult, unpaired_e)
  call prt_unpaired_e(nif, noon, upe)
  deallocate(noon)
  unpaired_e = upe(3)
-end subroutine calc_unpaired_from_gms_dat
+end subroutine calc_unpaired_from_dat
 
 ! calculate the number of unpaired electrons using a GAMESS GVB .gms file
 subroutine calc_unpaired_from_gms_out(outname, unpaired_e)

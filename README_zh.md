@@ -26,12 +26,12 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2024年5月9号
+2024年5月17号
 
 依赖
 ----------
 每个可执行文件或模块依赖于量子化学程序的情况不同。以下列出了最常用可执行文件`automr`，`frag_guess_wfn`和Python模块`py2xxx`的最少依赖：
-1. `automr`: Gaussian, GAMESS, PySCF
+1. `automr`: GAMESS, PySCF
 2. `frag_guess_wfn`: Gaussian
 3. 绝大多数传轨道的小程序没有依赖，除了`py2gau`, `py2orca`, `py2molpro`这些Python模块需要在安装有PySCF时才能正常使用
 

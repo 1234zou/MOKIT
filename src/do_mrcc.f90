@@ -57,7 +57,7 @@ subroutine do_mrcc()
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
  case('nwchem')
   ! call prt_mrcc_nwchem_inp(inpname)
  case default

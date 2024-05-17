@@ -338,13 +338,16 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  call upper(buf(2:6))
-  if(buf(2:6) == '$DATA') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:6))
+   if(buf(3:6) == 'DATA') exit
+  end if
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_natom_from_gms_inp: wrong format i&
-                   &n file '//TRIM(inpname)
+  write(6,'(/,A)') 'ERROR in subroutine goto_data_section_in_gms_inp: wrong for&
+                   &mat in file '//TRIM(inpname)
+  close(fid)
   stop
  end if
  read(fid,'(A)') buf
@@ -352,8 +355,10 @@ subroutine read_natom_from_gms_inp(inpname, natom)
 
  do while(.true.)
   read(fid,'(A)') buf
-  call upper(buf(3:5))
-  if(buf(2:5) == '$END') exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:5))
+   if(buf(3:5) == 'END') exit
+  end if
 
   do while(.true.)
    read(fid,'(A)') buf

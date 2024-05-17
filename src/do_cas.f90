@@ -22,7 +22,7 @@ subroutine do_cas(scf)
  use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
   nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
-  fch2inp_wrap, mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
+  fch2inp_wrap, dat2fch_wrap, mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
  implicit none
  integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
@@ -32,7 +32,7 @@ subroutine do_cas(scf)
  character(len=24) :: data_string = ' '
  character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
                        orbname, xmlname, gradname
- character(len=480) :: buf
+ character(len=500) :: buf
  logical, intent(in) :: scf
  logical :: alive1, alive2
 
@@ -194,10 +194,10 @@ subroutine do_cas(scf)
 
  select case(ist)
  case(1,3,6)
-  i = INDEX(datname, '.dat', back=.true.)
+  call find_specified_suffix(datname, '.dat', i)
   fchname = datname(1:i-1)//'.fch'
  case(2) ! UHF -> UNO -> CASCI/CASSCF
-  i = INDEX(hf_fch, '.fch', back=.true.)
+  call find_specified_suffix(hf_fch, '.fch', i)
   fchname = hf_fch(1:i-1)//'_uno.fch'
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
@@ -265,36 +265,39 @@ subroutine do_cas(scf)
   call prt_cas_gms_inp(inpname, idx1-1, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2gms_inp(inpname)
-
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
   ! make a copy of the .fch file to save NOs
-  if(ist /= 2) then ! datname is a GVB job .dat file
-   i = INDEX(datname, '.dat', back=.true.)
-   inpname = datname(1:i-1)//'.fch'
-  else              ! no GVB job
-   i = INDEX(hf_fch, '.fch')
-   inpname = hf_fch(1:i-1)//'_uno.fch'
-  end if
-  call copy_file(inpname, casnofch, .false.)
+  select case(ist)
+  case(1,3,6)
+   call find_specified_suffix(datname, '.dat', i)
+   mklname = datname(1:i-1)//'.fch'
+  case(2)
+   call find_specified_suffix(hf_fch, '.fch', i)
+   mklname = hf_fch(1:i-1)//'_uno.fch'
+  case(5)
+   mklname = fchname
+  end select
+  call copy_file(mklname, casnofch, .false.)
+  datname = TRIM(proname)//'.dat'
 
   ! transfer CASSCF pseudo-canonical MOs from .dat to .fch
-  i = INDEX(casnofch, '_NO.fch', back=.true.)
-  datname = casnofch(1:i-1)//'.dat'
   if(scf) then
-   buf = 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)
-   write(6,'(A)') '$'//TRIM(buf)
-   i = SYSTEM(TRIM(buf))
+   call dat2fch_wrap(datname, casnofch)
    write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                               TRIM(casnofch), idx1, idx2
    write(6,'(A)') '$'//TRIM(buf)
    i = SYSTEM(TRIM(buf))
+   if(i /= 0) then
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call extract_noon2f&
+                     &ch.'
+   end if
   end if
 
   ! transfer NOs from .dat to .fch
   write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',idx2
   write(6,'(A)') '$'//TRIM(buf)
-  i = SYSTEM(TRIM(buf))
+  i = SYSTEM(TRIM(buf)//' >/dev/null')
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'
    write(6,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
@@ -338,7 +341,7 @@ subroutine do_cas(scf)
   call delete_file(mklname)
   if(casscf_force) call add_force_key2orca_inp(inpname)
 
-  call submit_orca_job(orca_path, inpname, .true.)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   if(scf) then ! CASSCF
    orbname = TRIM(proname)//'.gbw'
@@ -556,7 +559,7 @@ end subroutine do_cas
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_script_into_py(pyname, scf)
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, block_mpi, RI, &
-  RIJK_bas, iroot, casnofch
+  RIJK_bas, iroot, ss_opt, casnofch
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -623,7 +626,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
  ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
  ! not to share common memory, they used two memory, so I have to divide them
  if(scf) then
-  if(iroot == 0) then
+  if((.not.ss_opt) .and. iroot==0) then
    call prt_gs_casscf_kywrd_py(fid2, RIJK_bas1) ! print ground state CASSCF keywords
   else
    call prt_es_casscf_kywrd_py(fid2, RIJK_bas1) ! print excited state CASSCF keywords
@@ -1682,11 +1685,11 @@ subroutine prt_hard_or_crazy_casci_pyscf(fid, nopen, hardwfn, crazywfn, skip2)
 
  if(skip2) then
   if(hardwfn) then
-   write(fid,'(2X,A)') 'mc.fcisolver.pspace_size = 900'
+   write(fid,'(2X,A)') 'mc.fcisolver.pspace_size = 1200'
    write(fid,'(2X,A)') 'mc.fcisolver.max_cycle = 400'
   else if(crazywfn) then
    write(fid,'(2X,A)') 'mc.fcisolver.level_shift = 0.2'
-   write(fid,'(2X,A)') 'mc.fcisolver.pspace_size = 1400'
+   write(fid,'(2X,A)') 'mc.fcisolver.pspace_size = 2400'
    write(fid,'(2X,A)') 'mc.fcisolver.max_space = 100'
    write(fid,'(2X,A)') 'mc.fcisolver.max_cycle = 600'
    ss = DBLE(nopen)*0.5d0
@@ -1697,11 +1700,11 @@ subroutine prt_hard_or_crazy_casci_pyscf(fid, nopen, hardwfn, crazywfn, skip2)
   end if
  else
   if(hardwfn) then
-   write(fid,'(A)') 'mc.fcisolver.pspace_size = 900'
+   write(fid,'(A)') 'mc.fcisolver.pspace_size = 1200'
    write(fid,'(A)') 'mc.fcisolver.max_cycle = 400'
   else if(crazywfn) then
    write(fid,'(A)') 'mc.fcisolver.level_shift = 0.2'
-   write(fid,'(A)') 'mc.fcisolver.pspace_size = 1400'
+   write(fid,'(A)') 'mc.fcisolver.pspace_size = 2400'
    write(fid,'(A)') 'mc.fcisolver.max_space = 100'
    write(fid,'(A)') 'mc.fcisolver.max_cycle = 600'
    ss = DBLE(nopen)*0.5d0
@@ -1792,7 +1795,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  implicit none
  integer :: k
  integer, intent(in) :: fid
- integer, parameter :: maxcyc = 250
+ integer, parameter :: max_cyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
  character(len=21), intent(in) :: RIJK_bas1
 
@@ -1811,7 +1814,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
    write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
   end if
 
-  write(fid,'(A,I0,A)') 'for i in range(',maxcyc,'):'
+  write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
   write(fid,'(2X,A)') "print('ITER=',i)"
   if(dkh2_or_x2c) then
    write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
