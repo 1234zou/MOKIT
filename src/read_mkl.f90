@@ -24,6 +24,31 @@ module mkl_content
 
 contains
 
+subroutine copy_type_pg4atom(p_in, p_out)
+ implicit none
+ integer :: i, nc, nline, ncol
+ type(pg4atom), intent(in) :: p_in
+ type(pg4atom), intent(out) :: p_out
+
+ nc = p_in%nc
+ p_out%nc = nc
+
+ if(nc > 0) then
+  allocate(p_out%prim_gau(nc))
+  do i = 1, nc, 1
+   p_out%prim_gau(i)%stype = p_in%prim_gau(i)%stype
+   nline = p_in%prim_gau(i)%nline
+   ncol = p_in%prim_gau(i)%ncol
+   p_out%prim_gau(i)%nline = nline
+   p_out%prim_gau(i)%ncol = ncol
+   if(nline>0 .and. ncol>0) then
+    allocate(p_out%prim_gau(i)%coeff(nline,ncol))
+    p_out%prim_gau(i)%coeff = p_in%prim_gau(i)%coeff
+   end if
+  end do ! for i
+ end if
+end subroutine copy_type_pg4atom
+
 ! check whether beta MOs exist in a given ORCA .mkl file
 subroutine check_uhf_in_mkl(mklname, uhf)
  implicit none
@@ -83,7 +108,7 @@ subroutine read_mkl(mklname, uhf, read_mo)
  end if
 end subroutine read_mkl
 
-! read the basis set data of all atoms
+! read the basis set data of all atoms from .mkl file
 subroutine read_all_pg_from_mkl(mklname)
  implicit none
  integer :: i, j, k, nc, nline, fid
@@ -803,6 +828,7 @@ subroutine del_zero_coeff_in_prim_gau(pg)
  pg%nline = nline
 end subroutine del_zero_coeff_in_prim_gau
 
+! read the basis set data of all atoms from GAMESS .inp/.dat file
 subroutine read_all_pg_from_gms_inp(inpname)
  implicit none
  integer :: i, j, k, m, nc, nline, fid
@@ -813,7 +839,7 @@ subroutine read_all_pg_from_gms_inp(inpname)
  character(len=240), intent(in) :: inpname
 
  if(natom == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_mkl: natom = 0.'
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_gms_inp: natom = 0.'
   stop
  end if
 
@@ -874,6 +900,108 @@ subroutine read_all_pg_from_gms_inp(inpname)
 
  close(fid)
 end subroutine read_all_pg_from_gms_inp
+
+! read the basis set data of all atoms from Amesp .amo file
+subroutine read_all_pg_from_amo(amoname, ntype, prim_per_shell)
+ implicit none
+ integer :: i, j, k, nc, nline, fid
+ integer, intent(in) :: ntype, prim_per_shell(ncontr)
+ integer, allocatable :: angshl(:)
+ character(len=2) :: str2 = '  '
+ character(len=2), allocatable :: elem0(:)
+ character(len=2), parameter :: i2s(0:6) = ['S ','P ','D ','F ','G ','H ','I ']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: amoname
+ type(pg4atom), allocatable :: all_pg0(:) ! size ntype
+
+ if(natom==0 .or. ncontr==0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_amo: natom or ncontr i&
+                   &s 0.'
+  stop
+ end if
+
+ if(.not. allocated(shl2atm)) then
+  write(6,'(/,A)') 'ERROR in subroutine read_all_pg_from_amo: array shl2atm is &
+                   &not allocated.'
+  stop
+ end if
+
+ if(allocated(all_pg)) deallocate(all_pg)
+ allocate(all_pg(natom))
+ k = 0
+
+ do i = 1, natom, 1
+  nc = COUNT(shl2atm == i)
+  all_pg(i)%nc = nc
+  allocate(all_pg(i)%prim_gau(nc))
+  do j = 1, nc, 1
+   k = k + 1
+   nline = prim_per_shell(k)
+   all_pg(i)%prim_gau(j)%nline = nline
+   all_pg(i)%prim_gau(j)%ncol = 2
+   allocate(all_pg(i)%prim_gau(j)%coeff(nline,2), source=0d0)
+  end do ! for j
+ end do ! for i
+
+ open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:9) == 'MaxAtmBas') exit
+ end do ! for while
+
+ allocate(all_pg0(ntype), elem0(ntype))
+
+ do i = 1, ntype, 1
+  read(fid,*) elem0(i)
+  elem0(i) = ADJUSTL(elem0(i))
+  read(fid,'(A)') buf
+  j = INDEX(buf,':')
+  read(buf(j+1:),*) nc
+  all_pg0(i)%nc = nc
+  allocate(all_pg0(i)%prim_gau(nc))
+  all_pg0(i)%prim_gau(:)%ncol = 2
+  allocate(angshl(nc), source=0)
+  read(fid,'(A)') buf
+  read(fid,*) angshl
+  read(fid,'(A)') buf
+  read(fid,*) all_pg0(i)%prim_gau(:)%nline
+  do j = 1, nc, 1
+   nline = all_pg0(i)%prim_gau(j)%nline
+   allocate(all_pg0(i)%prim_gau(j)%coeff(nline,2), source=0d0)
+  end do ! for j
+  forall(j=1:nc) all_pg0(i)%prim_gau(j)%stype = i2s(angshl(j))
+  deallocate(angshl)
+
+  read(fid,'(A)') buf
+  do j = 1, nc, 1
+   read(fid,*) all_pg0(i)%prim_gau(j)%coeff(:,1)
+  end do ! for j
+
+  read(fid,'(A)') buf
+  do j = 1, nc, 1
+   read(fid,*) all_pg0(i)%prim_gau(j)%coeff(:,2)
+  end do ! for j
+
+  read(fid,'(A)') buf
+  read(buf(7:),*) k
+  nline = k/5
+  if(k - 5*nline > 0) nline = nline + 1
+  do j = 1, nline, 1
+   read(fid,'(A)') buf
+  end do ! for j
+ end do ! for i
+
+ close(fid)
+ do i = 1, natom, 1
+  str2 = elem(i)
+  do j = 1, ntype, 1
+   if(elem0(j) == str2) exit
+  end do ! for j
+  call copy_type_pg4atom(all_pg0(j), all_pg(i))
+ end do ! for i
+
+ deallocate(elem0, all_pg0)
+end subroutine read_all_pg_from_amo
 
 end module mkl_content
 

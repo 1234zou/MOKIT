@@ -97,7 +97,8 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
  write(fid,'(A)') "noon = read_eigenvalues_from_fch(fchname, nif, 'a')"
  write(fid,'(A)') 'copyfile(fchname, lmofch)'
- write(fid,'(A)') "py2fch(lmofch, nbf, nif, mo_coeff, 'a', noon, False, False)"
+ write(fid,'(A)') "py2fch(fchname=lmofch,nbf=nbf,nif=nif,coeff2=mo_coeff,ab='a', \"
+ write(fid,'(A)') '       ev=noon,natorb=False,gen_density=False)'
  write(fid,'(A)') 'os.rename(lmofch, fchname)'
  close(fid)
 
@@ -648,7 +649,7 @@ subroutine get_mboys(nif, ncore, npair, nopen, mo_dipole)
 !f2py intent(in) :: nif, nocc, npair, nopen
  real(kind=8), intent(in) :: mo_dipole(3,nif,nif)
 !f2py intent(in) :: mo_dipole
-!f2py depend(nif) mo_dipole
+!f2py depend(nif) :: mo_dipole
  real(kind=8) :: ddot, fBoys, temp_dipole(3)
 
  nocc = ncore + npair + nopen

@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-May 17, 2024
+May 25, 2024
 
 
 Dependencies
@@ -202,7 +202,7 @@ Citation
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html), in which you can also find EndNote citation files. Your proper citation would be a great encouragement to developers.
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算），但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * Click [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html) to see published papers which cited MOKIT.
 

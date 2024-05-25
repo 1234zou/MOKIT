@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (May 17, 2024)
+MOKIT 1.2.6 (May 25, 2024)
 ------------------------
+* add utility amo2fch for Amesp->Gaussian
 * update dat2fch to generate a .fch file from scratch
 * standardize some subroutines to _from_dat and _from_gms_inp
 * update get_mokit_loc.py
@@ -39,7 +40,7 @@ MOKIT 1.2.6 (May 17, 2024)
 * fix bug of generating the F() array when NCO=0 in a GVB computation
 * add subroutines rotate_atoms_wfn and geom_lin_intrplt
 * set GVB_conv=5d-4 and FcGVB as default in (post-)CASSCF calculations
-* add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> AMESP
+* add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> Amesp
 * add module mirror_wfn
 * add interfaces of RI-MP2/CCD/CCSD/CCSD(T) analytical gradients in autosr
 * call programs to get analytical gradients of CASPT2 and MC-PDFT

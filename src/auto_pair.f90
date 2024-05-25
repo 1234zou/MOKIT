@@ -14,11 +14,11 @@ subroutine pair_by_dis(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, m
 !f2py intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
  real(kind=8) coeff(nbf,nif), mo_dipole(3,nif,nif), new_coeff(nbf,nif)
 !f2py intent(in,copy) :: coeff
-!f2py depend(nbf,nif) coeff
+!f2py depend(nbf,nif) :: coeff
 !f2py intent(in) :: mo_dipole
-!f2py depend(nif) mo_dipole
+!f2py depend(nif) :: mo_dipole
 !f2py intent(out) :: new_coeff
-!f2py depend(nbf,nif) new_coeff
+!f2py depend(nbf,nif) :: new_coeff
 
  if(nalpha-nopen-ncore>=npair .and. nvir_lmo==npair) then
   call pair_by_dis1(ncore, npair, nopen, nalpha, nbf, nif, coeff, mo_dipole)

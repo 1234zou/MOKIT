@@ -1,5 +1,4 @@
-! written by jxzou at 20230728: a wrapper of mkl2fch and fch2amo for ORCA ->
-! AMESP
+! written by jxzou at 20230728: a wrapper of mkl2fch and fch2amo for ORCA->Amesp
 
 program mkl2amo
  use util_wrapper, only: mkl2fch_wrap

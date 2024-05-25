@@ -4,6 +4,7 @@ module phys_cons ! physics constants
  implicit none
  real(kind=8), parameter :: au2ev = 27.211396d0
  real(kind=8), parameter :: au2kcal = 627.51d0 ! a.u. to kcal/mol
+ real(kind=8), parameter :: au2cm_1 = 5140.48736183442d0
  real(kind=8), parameter :: Bohr_const = 0.52917721092d0
  real(kind=8), parameter :: GPa2eVA3 = 6.241509074460764d-3
 end module phys_cons

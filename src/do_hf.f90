@@ -556,7 +556,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   write(fid,'(A)') '(mol)'
  end if
  write(fid,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
- write(fid,'(A)') 'mf.max_cycle = 200'
+ write(fid,'(A)') 'mf.max_cycle = 128'
 
  ! check if there is basis set linear dependency
  write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
@@ -570,8 +570,8 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  if(uhf .and. mult==1) then
   ! For singlet UHF, construct broken symm initial guess
   write(fid,'(A)') 'dm_a, dm_b = mf.get_init_guess()'
-  write(fid,'(A)') 'occ_a, mo_a = gen_no_from_density_and_ao_ovlp(nbf, nif, dm_&
-                   &a, S)'
+  write(fid,'(A)') 'occ_a, mo_a = gen_no_from_density_and_ao_ovlp(nbf=nbf,nif=n&
+                   &if,p=dm_a,ao_ovlp=S)'
   write(fid,'(A)') 'ndb = np.count_nonzero(occ_a > 0.5)'
   write(fid,'(A)') 'occ_a[0:ndb] = 1.0'
   write(fid,'(A)') 'occ_a[ndb:] = 0.0'
@@ -1145,8 +1145,8 @@ subroutine prt_hf_orca_inp(inpname, hf_type)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in file&
-                 & "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in fil&
+                   &e "//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
   stop

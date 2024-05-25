@@ -248,8 +248,8 @@ subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  real(kind=8), intent(out) :: mo(nbf,nif)
-!f2py depend(nbf,nif) mo
 !f2py intent(out) :: mo
+!f2py depend(nbf,nif) :: mo
  real(kind=8), allocatable :: coeff(:)
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
@@ -556,7 +556,8 @@ subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
  integer, intent(in) :: nif
 !f2py intent(in) :: nif
  real(kind=8), intent(out) :: noon(nif)
-!f2py intent(out), depend(nif) :: noon
+!f2py intent(out) :: noon
+!f2py depend(nif) :: noon
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=240) :: buf
@@ -1015,7 +1016,8 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  integer, intent(in) :: nif
 !f2py intent(in) :: nif
  real(kind=8), intent(in) :: on(nif)
-!f2py intent(in), depend(nif) :: on
+!f2py intent(in) :: on
+!f2py depend(nif) :: on
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=240) :: buf, fchname1
@@ -1172,17 +1174,17 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: mo(nbf,nif)
-!f2py depend(nbf,nif) :: mo
 !f2py intent(in) :: mo
+!f2py depend(nbf,nif) :: mo
  real(kind=8), allocatable :: coeff(:)
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=240) :: buf, fchname1
- character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
@@ -1456,8 +1458,8 @@ subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg,&
   call read_cas_energy_from_dalton_out(outname, e, scf)
   e = e + ptchg_e
  case default
-  write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog can&
-                 &not be identified.'
+  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog c&
+                   &annot be identified.'
   write(6,'(A)') 'CAS_prog='//TRIM(cas_prog)
   stop
  end select
@@ -1892,7 +1894,10 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:8)=='ITER. M' .or. buf(2:8)=='ITER  M') exit
+  select case(buf(2:8))
+  case('ITER. M','ITER  M','ITE  MI')
+   exit
+  end select
  end do ! for while
 
  if(i /= 0) then
@@ -3235,7 +3240,7 @@ end subroutine detect_spin_scf_density_in_fch
 ! add a given density string into a .fch(k) file
 subroutine add_density_str_into_fch(fchname, itype)
  implicit none
- integer :: i, k, nbf, fid, fid1, RENAME
+ integer :: i, j, k, nbf, fid, fid1, RENAME
  integer, intent(in) :: itype ! 1/2 for 'Total SCF Density'/'Spin SCF Density'
  character(len=17), parameter :: str(2) = ['Total SCF Density','Spin SCF Density ']
  character(len=240) :: buf, fchname1
@@ -3257,8 +3262,10 @@ subroutine add_density_str_into_fch(fchname, itype)
 
  if(i /= 0) then
   rewind(fid)
-  fchname1 = TRIM(fchname)//'.t'
+  call find_specified_suffix(fchname, '.fch', i)
+  fchname1 = fchname(1:i-1)//'.t'
   open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -3271,8 +3278,8 @@ subroutine add_density_str_into_fch(fchname, itype)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine add_density_str_into_fch: key not found&
-                  & in file '//TRIM(fchname)
+   write(6,'(/,A)') 'ERROR in subroutine add_density_str_into_fch: key not foun&
+                    &d in file '//TRIM(fchname)
    write(6,'(A,I0)') 'itype=', itype
    close(fid)
    close(fid1,status='delete')
@@ -3280,8 +3287,8 @@ subroutine add_density_str_into_fch(fchname, itype)
   end if
 
   do while(.true.)
-   read(fid,'(A)',iostat=k) buf
-   if(k /= 0) exit
+   read(fid,'(A)',iostat=j) buf ! use j here, not i or k
+   if(j /= 0) exit
    if(buf(49:49) == '=') exit
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
@@ -3289,7 +3296,7 @@ subroutine add_density_str_into_fch(fchname, itype)
   k = nbf*(nbf+1)/2
   write(fid1,'(A,I12)') str(itype)//'                          R   N=', k
   write(fid1,'(5(1X,ES15.8))') (0d0,i=1,k)
-  write(fid1,'(A)') TRIM(buf)
+  if(j == 0) write(fid1,'(A)') TRIM(buf)
 
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
@@ -3589,7 +3596,6 @@ subroutine gen_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 
  noon = 0d0; new_coeff = 0d0 ! initialization
-
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2

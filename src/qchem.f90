@@ -1,6 +1,6 @@
 ! written by jxzou at 20230217
 
-! Q-Chem .fch(k) -> AMESP (.aip, .amo)
+! Q-Chem .fch(k) -> Amesp (.aip, .amo)
 subroutine qchem2amesp(fchname, aipname)
  implicit none
  integer :: i, SYSTEM, RENAME

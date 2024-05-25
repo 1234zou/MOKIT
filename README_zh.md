@@ -26,7 +26,7 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2024年5月17号
+2024年5月25号
 
 依赖
 ----------
@@ -201,6 +201,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* 若您在您的研究中使用了MOKIT的任何一个子程序，请在正文参考文献中引用MOKIT。若仅在补充材料中引用MOKIT是不够的。更详细的引用说明和示例请见[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，目录下也提供了EndNote引用文件。您的规范引用是对开发者的极大鼓励。
+* 若您在您的研究中使用了MOKIT的任何一个子程序或模块，请在正文参考文献中恰当引用MOKIT，仅在补充材料中引用MOKIT是不够的。EndNote引用文件请见[此处](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads)。更详细的引用说明和示例请见[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算），但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * 点击[这里](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html)可以浏览引用MOKIT的已发表文章。
+

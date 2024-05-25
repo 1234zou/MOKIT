@@ -6,6 +6,7 @@ subroutine read_natom_from_file(fname, natom)
  integer, intent(out) :: natom
  character(len=240), intent(in) :: fname
 
+ call require_file_exist(fname)
  i = LEN_TRIM(fname)
 
  select case(fname(i-3:i))
@@ -431,6 +432,41 @@ subroutine read_natom_from_EIn(EIn, natom)
  read(fid,*) natom
  close(fid)
 end subroutine read_natom_from_EIn
+
+! read the number of atoms from an Amesp .amo file
+subroutine read_natom_from_amo(amoname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: amoname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == '[Atoms]') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_natom_from_amo: '[Atoms]' section &
+                   &not found in"
+  write(6,'(A)') 'file '//TRIM(amoname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf ! 'Natm='
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) == '[') exit
+  if(LEN_TRIM(buf) == 0) exit
+  natom = natom + 1
+ end do ! for while
+
+ close(fid)
+end subroutine read_natom_from_amo
 
 ! read the number of atoms from a .molden file
 subroutine read_natom_from_molden(molden, natom)

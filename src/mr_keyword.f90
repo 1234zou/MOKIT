@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc31 (2024-May-17)'
+ write(6,'(A)') '           Version: 1.2.6rc32 (2024-May-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -403,7 +403,14 @@ end subroutine check_gms_path
    close(fid)
    stop
   end if
-  if(index(buf,'scan') > 0) rigid_scan = .true.
+
+  if(DBLE(mem) < DBLE(nproc)*0.8d0) then
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: please specify larger m&
+                    &emory. Multi-'
+   write(6,'(A)') 'reference calculations usually requires large memory.'
+   stop
+  end if
+  if(INDEX(buf,'scan') > 0) rigid_scan = .true.
 
   j = INDEX(buf(1:i-1),' ', back=.true.)
   if(j == 0) then

@@ -22,6 +22,7 @@ module fch_content
  integer :: mult  = 1        ! spin multiplicity
  integer :: natom = 0        ! number of atoms
  integer :: LenNCZ = 0       ! ECP-LenNCZ
+ integer :: nmode = 0        ! Number of Normal Modes
  integer, parameter :: period_nelem = 118    ! 118 elements, H-Og
  integer, parameter :: shltyp2nbf(-5:5) = (/11,9,7,5,4,1,3,6,10,15,21/)
  integer, allocatable :: ielem(:)            ! elements, 6 for 'C', etc
@@ -49,6 +50,9 @@ module fch_content
  real(kind=8), allocatable :: tot_dm(:,:)       ! Total SCF Density
  real(kind=8), allocatable :: spin_dm(:,:)      ! Spin SCF Density
  real(kind=8), allocatable :: mull_char(:)      ! Mulliken Charges
+ real(kind=8), allocatable :: force_const(:,:)  ! Cartesian Force Constants
+ real(kind=8), allocatable :: vibe2(:)          ! Vib-E2, size 14*nmode
+ real(kind=8), allocatable :: norm_mode(:,:)    ! Vib-Modes
  character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
  ! Frozen core orbitals used in RHF_proj and dynamic correlation computations.
@@ -69,23 +73,48 @@ module fch_content
  ! https://www.ciaaw.org/atomic-weights.htm#m
  ! https://lynceans.org/tag/extended-periodic-table
  ! https://www.nist.gov/sites/default/files/images/2019/07/26/nist_periodictable_july2019_final_front.jpg
- real(kind=8), parameter :: ram(0:period_nelem) = (/0d0, 1.008d0,4.003d0,     &! Bq, H, He
-  6.938d0, 9.012d0, 10.806d0, 12.01d0, 14.006d0, 16d0, 18.998d0, 20.18d0,     &! Li~Ne
-  22.99d0, 24.304d0, 26.982d0, 28.084d0, 30.974d0, 32.059d0, 35.446d0,        &! Na~Cl
-  39.792d0, 39.098d0, 40.078d0, 44.956d0, 47.867d0, 50.942d0, 51.996d0,       &! Ar~Cr
-  54.938d0, 55.845d0, 58.933d0, 58.693d0, 63.546d0, 65.382d0, 69.723d0,       &! Mn~Ga
-  72.631d0, 74.922d0, 78.972d0, 79.901d0, 83.798d0, 85.468d0, 87.621d0,       &! Ge~Sr
-  88.906d0, 91.224d0, 92.906d0, 95.951d0, 98.907d0, 101.072d0, 102.905d0,     &! Y~Rh
-  106.421d0, 107.868d0, 112.414d0, 114.818d0, 118.711d0, 121.76d0, 127.603d0, &! Pd~Te
-  126.904d0, 131.294d0, 132.905d0, 137.328d0, 138.905d0, 140.116d0, 140.908d0,&! I~Pr
-  144.242d0, 144.913d0, 150.362d0, 151.964d0, 157.253d0, 158.925d0, 162.5d0,  &! Nd~Dy
-  164.93d0, 167.259d0, 168.934d0, 173.045d0, 174.967d0, 178.487d0, 180.948d0, &! Ho~Ta
-  183.841d0, 186.207d0, 190.233d0, 192.217d0, 195.085d0, 196.967d0, 200.592d0,&! W~Hg
-  204.382d0, 206.14d0, 208.98d0, 208.982d0, 209.987d0, 222.018d0, 223.02d0,   &! Tl~Fr
-  226.025d0, 227.028d0, 232.038d0, 231.036d0, 238.029d0, 237.048d0, 244.064d0,&! Ra~Pu
-  243.061d0, 247.07d0, 247.07d0, 251.08d0, 254d0, 257.095d0, 258.1d0,         &! Am~Md
-  259.101d0, 266d0, 267d0, 268d0, 269d0, 270d0, 269d0, 278d0, 281d0, 282d0,   &! No~Rg
-  285d0, 286d0, 289d0, 289d0, 293d0, 294d0, 294d0/)                            ! Cn~Og
+! real(kind=8), parameter :: ram(0:period_nelem) = (/0d0, 1.008d0,4.003d0,     &! Bq, H, He
+!  6.938d0, 9.012d0, 10.806d0, 12.01d0, 14.006d0, 16d0, 18.998d0, 20.18d0,     &! Li~Ne
+!  22.99d0, 24.304d0, 26.982d0, 28.084d0, 30.974d0, 32.059d0, 35.446d0,        &! Na~Cl
+!  39.792d0, 39.098d0, 40.078d0, 44.956d0, 47.867d0, 50.942d0, 51.996d0,       &! Ar~Cr
+!  54.938d0, 55.845d0, 58.933d0, 58.693d0, 63.546d0, 65.382d0, 69.723d0,       &! Mn~Ga
+!  72.631d0, 74.922d0, 78.972d0, 79.901d0, 83.798d0, 85.468d0, 87.621d0,       &! Ge~Sr
+!  88.906d0, 91.224d0, 92.906d0, 95.951d0, 98.907d0, 101.072d0, 102.905d0,     &! Y~Rh
+!  106.421d0, 107.868d0, 112.414d0, 114.818d0, 118.711d0, 121.76d0, 127.603d0, &! Pd~Te
+!  126.904d0, 131.294d0, 132.905d0, 137.328d0, 138.905d0, 140.116d0, 140.908d0,&! I~Pr
+!  144.242d0, 144.913d0, 150.362d0, 151.964d0, 157.253d0, 158.925d0, 162.5d0,  &! Nd~Dy
+!  164.93d0, 167.259d0, 168.934d0, 173.045d0, 174.967d0, 178.487d0, 180.948d0, &! Ho~Ta
+!  183.841d0, 186.207d0, 190.233d0, 192.217d0, 195.085d0, 196.967d0, 200.592d0,&! W~Hg
+!  204.382d0, 206.14d0, 208.98d0, 208.982d0, 209.987d0, 222.018d0, 223.02d0,   &! Tl~Fr
+!  226.025d0, 227.028d0, 232.038d0, 231.036d0, 238.029d0, 237.048d0, 244.064d0,&! Ra~Pu
+!  243.061d0, 247.07d0, 247.07d0, 251.08d0, 254d0, 257.095d0, 258.1d0,         &! Am~Md
+!  259.101d0, 266d0, 267d0, 268d0, 269d0, 270d0, 269d0, 278d0, 281d0, 282d0,   &! No~Rg
+!  285d0, 286d0, 289d0, 289d0, 293d0, 294d0, 294d0/)                            ! Cn~Og
+
+ ! H~Lr taken from the G16 output file.
+ real(kind=8), parameter :: ram(0:period_nelem)=(/0d0,1.00782504d0,4.0026032d0,&! Bq,H,He
+   7.0160045d0,   9.0121825d0,  11.0093053d0,  12.0000000d0,  14.0030740d0,  &! Li~N
+  15.9949146d0,  18.9984032d0,  19.9924391d0,  22.9897697d0,  23.9850450d0,  &! O~Mg
+  26.9815413d0,  27.9769284d0,  30.9737634d0,  31.9720718d0,  34.9688527d0,  &! Al~Cl
+  39.9623831d0,  38.9637079d0,  39.9625907d0,  44.9559136d0,  47.9479467d0,  &! Ar~Ti
+  50.9439625d0,  51.9405097d0,  54.9380463d0,  55.9349393d0,  58.9331978d0,  &! V~Co
+  57.9353471d0,  62.9295992d0,  63.9291454d0,  68.9255809d0,  73.9211788d0,  &! Ni~Ge
+  74.9215955d0,  79.9165205d0,  78.9183361d0,  83.9115064d0,  84.9117000d0,  &! As~Rb
+  87.9056000d0,  88.9054000d0,  89.9043000d0,  92.9060000d0,  97.9055000d0,  &! Sr~Mo
+  98.9063000d0, 101.9037000d0, 102.9048000d0, 105.9032000d0, 106.9050900d0,  &! Tc~Ag
+ 113.9036000d0, 114.9041000d0, 117.9018000d0, 120.9038000d0, 129.9067000d0,  &! Cd~Te
+ 126.9004000d0, 131.9042000d0, 132.9054290d0, 137.9050000d0, 138.9061000d0,  &! I~La
+ 139.9053000d0, 140.9074000d0, 141.9075000d0, 144.9127000d0, 151.9195000d0,  &! Ce~Sm
+ 152.9209000d0, 157.9241000d0, 158.9250000d0, 163.9288000d0, 164.9303000d0,  &! Eu~Ho
+ 165.9304000d0, 168.9344000d0, 173.9390000d0, 174.9409000d0, 179.9468000d0,  &! Er~Hf
+ 180.9480000d0, 183.9510000d0, 186.9560000d0, 189.9586000d0, 192.9633000d0,  &! Ta~Ir
+ 194.9648000d0, 196.9666000d0, 201.9706000d0, 204.9745000d0, 207.9766000d0,  &! Pt~Pb
+ 208.9804000d0, 208.9825000d0, 210.9875000d0, 222.0175000d0, 223.0198000d0,  &! Bi~Fr
+ 226.0254000d0, 227.0278000d0, 232.0382000d0, 231.0359000d0, 238.0508000d0,  &! Ra~U
+ 237.0480000d0, 242.0587000d0, 243.0614000d0, 246.0674000d0, 247.0702000d0,  &! Np~Bk
+ 249.0748000d0, 252.0829000d0, 252.0827000d0, 255.0906000d0, 259.1010000d0,  &! Cf~No
+ 262.1097d0, 267d0, 268d0, 269d0, 270d0, 269d0, 278d0, 281d0, 282d0, 285d0,  &! Lr~Cn
+ 286d0, 289d0, 289d0, 293d0, 294d0, 294d0/)                                   ! Nh~Og
 
  character(len=2), parameter :: period_elem(0:period_nelem) = (/'Bq',&
    'H ', 'He', 'Li', 'Be', 'B ', 'C ', 'N ', 'O ', 'F ', 'Ne', &
@@ -843,7 +872,7 @@ end subroutine mo_sph2cart
 subroutine write_fch(fchname)
  use fch_content
  implicit none
- integer :: i, j, ncoeff, nhigh, ncontr_l, len_dm, fid
+ integer :: i, j, k, ncoeff, nhigh, ncontr_l, len_dm, len_fc, fid
  integer, allocatable :: ilsw(:)
  real(kind=8), allocatable :: relem(:), shell_coor(:), coor1(:)
  character(len=4) :: hf_str
@@ -946,6 +975,8 @@ subroutine write_fch(fchname)
  if(.not. allocated(iatom_type)) allocate(iatom_type(natom), source=0)
  write(fid,'(A,I12)') 'Int Atom Types                             I   N=',natom
  write(fid,'(6I12)') iatom_type
+ write(fid,'(A,I12)') 'Real atomic weights                        R   N=',natom
+ write(fid,'(5(1X,ES15.8))') (ram(ielem(i)),i=1,natom)
  write(fid,'(A,I17)') 'Number of contracted shells                I',ncontr
  write(fid,'(A,I17)') 'Number of primitive shells                 I',nprim
  write(fid,'(A,I17)') 'Highest angular momentum                   I',nhigh
@@ -1030,6 +1061,24 @@ subroutine write_fch(fchname)
  if(allocated(mull_char)) then
   write(fid,'(A,I12)') 'Mulliken Charges                           R   N=',natom
   write(fid,'(5(1X,ES15.8))') mull_char
+ end if
+
+ if(allocated(force_const)) then
+  k = 3*natom
+  len_fc = k*(k+1)/2
+  write(fid,'(A,I12)') 'Cartesian Force Constants                  R   N=',len_fc
+  write(fid,'(5(1X,ES15.8))') ((force_const(j,i),j=1,i),i=1,k)
+ end if
+
+ if(nmode > 0) then
+  write(fid,'(A,9X,I8)') 'Number of Normal Modes                     I',nmode
+  write(fid,'(A,4X,I8)') 'Vib-AtMass                                 R   N=',natom
+  write(fid,'(5(1X,ES15.8))') (ram(ielem(i)),i=1,natom)
+  write(fid,'(A,4X,I8)') 'Vib-E2                                     R   N=',nmode*14
+  write(fid,'(5(1X,ES15.8))') vibe2
+  j = nmode*3*natom
+  write(fid,'(A,4X,I8)') 'Vib-Modes                                  R   N=',j
+  write(fid,'(5(1X,ES15.8))') norm_mode
  end if
 
  close(fid)

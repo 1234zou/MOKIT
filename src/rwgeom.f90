@@ -246,6 +246,9 @@ subroutine read_nuc_and_coor_from_file(fname, natom, nuc, coor)
  real(kind=8), intent(out) :: coor(3,natom)
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: natom, fname
+!f2py intent(out) :: nuc, coor
+!f2py depend(natom) :: nuc, coor
 
  allocate(elem(natom))
  i = LEN_TRIM(fname)
@@ -259,7 +262,9 @@ subroutine read_nuc_and_coor_from_file(fname, natom, nuc, coor)
   call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
   forall(i = 1:natom) nuc(i) = elem2nuc(elem(i))
  case default
-  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file:'
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file: file suff&
+                   &ix cannot be'
+  write(6,'(A)') 'recognized. Suffix='//fname(i-3:i)
   stop
  end select
 
@@ -461,16 +466,15 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, 
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
-!f2py intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
  character(len=2), intent(out) :: elem(natom)
-!f2py intent(out) :: elem, nuc, coor, charge, mult
-!f2py depend(natom) :: elem, nuc, coor
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
+!f2py intent(in) :: natom, fchname
+!f2py intent(out) :: elem, nuc, coor, charge, mult
+!f2py depend(natom) :: elem, nuc, coor
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
@@ -512,13 +516,12 @@ subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
  implicit none
  integer :: i
  integer, intent(in) :: natom
-!f2py intent(in) :: natom
  integer, intent(in) :: nuc(natom)
  real(kind=8), allocatable :: rnuc(:)
  real(kind=8), intent(in) :: coor(3,natom)
-!f2py intent(in) :: nuc, coor
-!f2py depend(natom) :: nuc, coor
  real(kind=8), intent(out) :: n_dipole(3) ! x,y,z 3-components
+!f2py intent(in) :: natom, nuc, coor
+!f2py depend(natom) :: nuc, coor
 !f2py intent(out) :: n_dipole
 
  allocate(rnuc(natom))
@@ -758,8 +761,8 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  cell = 0d0 ! a,b,c,alpha,beta,gama
  coor = 0d0
 
- if(natom <= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: natom<=0.'
+ if(natom < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine read_iframe_from_pdb: natom<1.'
   write(6,'(A,I0)') 'Your input natom=', natom
   stop
  end if
@@ -776,8 +779,8 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
 
  if(i /= 0) then
   if(iframe /= 1) then
-   write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read&
-                  & the i-th frame in file '//TRIM(pdbname)
+   write(6,'(/,A)') 'ERROR in subroutine read_iframe_from_pdb: fail to read the&
+                    & i-th frame in file '//TRIM(pdbname)
    write(6,'(A,I0)') 'iframe=', iframe
    close(fid)
    stop
@@ -789,8 +792,8 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
     if(buf(1:4)=='ATOM' .or. buf(1:6)=='HETATM') exit
    end do ! for while
    if(i /= 0) then
-    write(6,'(A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read&
-                   & the 1st frame in file '//TRIM(pdbname)
+    write(6,'(/,A)') 'ERROR in subroutine read_iframe_from_pdb: failed to read &
+                     &the 1st frame in file '//TRIM(pdbname)
     close(fid)
     stop
    end if
@@ -1042,20 +1045,13 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  implicit none
  integer :: i, fid
  integer, intent(in) :: iframe, natom
-!f2py intent(in) iframe, natom
  character*240, intent(in) :: pdbname
-!f2py intent(in) pdbname
  character*2, dimension(natom), intent(in) :: elem
-!f2py intent(in) elem
-!f2py depend(natom) elem
  character*3, dimension(natom), intent(in) :: resname
-!f2py intent(in) resname
-!f2py depend(natom) resname
  real(kind=8), intent(in) :: cell(6), coor(3,natom)
-!f2py intent(in) cell, coor
-!f2py depend(natom) cell, coor
  logical, intent(in) :: append
-!f2py intent(in) append
+!f2py intent(in) :: pdbname, iframe, natom, cell, elem, resname, coor, append
+!f2py depend(natom) :: elem, resname, coor
 
  if(append) then
   open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
@@ -1115,15 +1111,13 @@ subroutine gen_h_ring(numh, d_h_h, gjfname)
  implicit none
  integer :: i, mult
  integer, intent(in) :: numh
-!f2py intent(in) :: numh
  real(kind=8) :: r, theta, c
  real(kind=8), intent(in) :: d_h_h ! in Angstrom
-!f2py intent(in) :: d_h_h
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
  real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
+!f2py intent(in) :: numh, d_h_h, gjfname
 
  mult = 1
  if(MOD(numh,2) == 1) mult = 2
@@ -1151,13 +1145,11 @@ subroutine gen_h_chain(numh, d_h_h, gjfname)
  implicit none
  integer :: i, mult
  integer, intent(in) :: numh
-!f2py intent(in) :: numh
  real(kind=8), intent(in) :: d_h_h ! in Angstrom
-!f2py intent(in) :: d_h_h
  real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
+!f2py intent(in) :: numh, d_h_h, gjfname
 
  mult = 1
  if(MOD(numh,2) == 1) mult = 2
@@ -1337,14 +1329,13 @@ subroutine enlarge_cell_in_gjf(gjfname, nd)
  implicit none
  integer :: i, natom, natom1, charge, mult, ntimes, nt(3)
  integer, intent(in) :: nd(3) ! [nx,ny,nz]
-!f2py intent(in) :: nd
  integer, allocatable :: nuc(:)
  character(len=2), allocatable :: elem(:), elem1(:)
  character(len=240) :: gjfname1
  character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
  real(kind=8) :: lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor1(:,:)
+!f2py intent(in) :: gjfname, nd
 
  i = INDEX(gjfname, '.gjf', back=.true.)
  gjfname1 = gjfname(1:i-1)//'_new.gjf'
@@ -1381,12 +1372,10 @@ subroutine gen_cluster_from_cell(gjfname, dis_thres)
  integer, allocatable :: nuc(:), conn(:,:), map(:,:), idx(:)
  real(kind=8) :: min_dis, curr_dis, vt(3), lat_vec(3,3)
  real(kind=8), intent(in) :: dis_thres
-!f2py intent(in) :: dis_thres
  real(kind=8), allocatable :: coor(:,:), dis(:,:), mol_dis(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: proname, gjfname1
  character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
  type :: molecule_map
   integer :: natom = 0 ! No. of atoms in this cluster
   integer :: nadj = 0  ! No. of adjcent molecules within dis_thres
@@ -1396,6 +1385,7 @@ subroutine gen_cluster_from_cell(gjfname, dis_thres)
  end type molecule_map
  type(molecule_map), allocatable :: mol_map(:)
  logical, allocatable :: assigned(:), new_mol(:)
+!f2py intent(in) :: gjfname, dis_thres
 
  call complement_mol_around_cell(gjfname, dis_thres)
  i = INDEX(gjfname, '.gjf', back=.true.)
@@ -1580,13 +1570,12 @@ subroutine complement_mol_around_cell(gjfname, dis)
  character(len=2), allocatable :: elem(:), elem1(:)
  character(len=240) :: gjfname1
  character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
  real(kind=8) :: dis0, lat_vec(3,3), lat_vec1(3,3), norm(3), r1(3)
  real(kind=8), intent(in) :: dis ! distance threshold
-!f2py intent(in) :: dis
  real(kind=8), parameter :: max_dis = 5.8d0 ! Ang, maximum possible bond length
  real(kind=8), parameter :: thres = 1d-7
  real(kind=8), allocatable :: coor(:,:), coor1(:,:)
+!f2py intent(in) :: gjfname, dis
 
  call find_specified_suffix(gjfname, '.gjf', i)
  gjfname1 = gjfname(1:i-1)//'_new.gjf'
@@ -1760,6 +1749,9 @@ subroutine gen_conn_from_coor(natom, coor, nuc, dis, conn)
  real(kind=8) :: r
  real(kind=8), intent(in) :: coor(3,natom)
  real(kind=8), intent(out) :: dis(natom,natom)
+!f2py intent(in) :: natom, coor, nuc
+!f2py intent(out) :: dis, conn
+!f2py depend(natom) :: coor, nuc, dis, conn
 
  conn = 0 ! initialization
  n = natom

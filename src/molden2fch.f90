@@ -174,16 +174,18 @@ subroutine molden2fch(molden, iprog, natorb)
  use mkl_content, only: natom1=>natom, ncontr1=>ncontr, shell_type1=>shell_type,&
   shl2atm1=>shl2atm, all_pg, un_normalized_all_pg, merge_s_and_p_into_sp
  use molden_sph2cart, only: rd, rd1, rd2, rf, rf1, rf2, rg, rg1, rg2
+ use phys_cons, only: au2cm_1
  implicit none
- integer :: i, j, ne0, ne, nbf1, nif1
+ integer :: i, j, k, ne0, ne, nbf1, nif1
  integer :: ndmark, nfmark, ngmark, nhmark, nimark
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  integer, intent(in) :: iprog ! label of quantum chemistry packages
- real(kind=8), allocatable :: coeff(:,:), tmp_coeff(:,:), occ_a(:), occ_b(:)
+ real(kind=8), allocatable :: coeff(:,:), tmp_coeff(:,:), occ_a(:), occ_b(:), &
+  frcoor(:,:), freq(:), all_mode(:,:)
  character(len=3), parameter :: fname = 'mos'
  character(len=240) :: fchname
  character(len=240), intent(in) :: molden
- logical :: sph, has_sp
+ logical :: sph, has_sp, has_freq
  logical, intent(in) :: natorb
 
  i = INDEX(molden, '.molden', back=.true.)
@@ -200,7 +202,8 @@ subroutine molden2fch(molden, iprog, natorb)
  call read_natom_from_molden(molden, natom)
  allocate(ielem(natom), coor(3,natom))
  call read_nuc_and_coor_from_molden(molden, natom, ielem, coor)
-
+ ! It seems that the number of core electrons are not taken into consideration
+ ! in the 3rd column of the [ATOMS] section.
  call read_ncontr_from_molden(molden, ncontr)
  allocate(shell_type(ncontr), shell2atom_map(ncontr))
  call read_shltyp_and_shl2atm_from_molden(molden, ncontr, shell_type, &
@@ -340,7 +343,7 @@ subroutine molden2fch(molden, iprog, natorb)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case(10) ! ORCA
-  ! find F+3, G+3 and H+3 functions, multiply them by -1
+  ! find F+3, G+3, H+3, I+3 functions, multiply them by -1
   call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
                                  nimark, f_mark, g_mark, h_mark, i_mark)
   call update_mo_using_bas_mark(nbf, nif1, nfmark, ngmark, nhmark, nimark, &
@@ -421,6 +424,37 @@ subroutine molden2fch(molden, iprog, natorb)
                 & guessed spin is wrong,'
  write(6,'(A)') 'you need to modify it in file '//TRIM(fchname)
 
+ if(iprog == 13) then ! Turbomole
+  call check_freq_in_molden(molden, has_freq)
+  if(has_freq) then
+   k = 3*natom
+   allocate(frcoor(3,natom), freq(k), all_mode(k,k))
+   call read_freq_from_molden(molden, natom, nmode, frcoor, freq, all_mode)
+   frcoor = DABS(frcoor - coor)
+   if(SUM(frcoor) > 1d-3) then
+    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Cartesian coordinates are &
+                     &inconsistent in'
+    write(6,'(A)') 'file '//TRIM(molden)
+    stop
+   end if
+   deallocate(frcoor)
+   ! It seems that the Hessian matrix cannot be regenerated here
+   !do i = 1, k, 1
+   ! j = i/3
+   ! if(i - 3*j > 0) j = j + 1
+   ! all_mode(i,:) = all_mode(i,:)*DSQRT(ram(ielem(j)))
+   !end do ! for i
+   !do i = 1, k, 1
+   ! all_mode(:,i) = all_mode(:,i)/DSQRT(DOT_product(all_mode(:,i),all_mode(:,i)))
+   !end do ! for i
+   allocate(norm_mode(k,nmode), source=all_mode(:,k-nmode+1:k))
+   deallocate(all_mode)
+   allocate(vibe2(14*nmode), source=0d0)
+   vibe2(1:nmode) = freq(k-nmode+1:k)
+   deallocate(freq)
+  end if
+ end if
+
  call write_fch(fchname)
  call free_arrays_in_fch_content()
 end subroutine molden2fch
@@ -439,11 +473,10 @@ subroutine read_nuc_and_coor_from_molden(molden, natom, nuc, coor)
  logical :: coor_au
 
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:7)=='[Atoms]' .or. buf(2:8)=='[Atoms]' .or. buf(1:7)=='[ATOMS]') exit
+  if(INDEX(buf(1:8),'[Atoms]')>0 .or. buf(1:7)=='[ATOMS]') exit
  end do ! for while
 
  if(i /= 0) then
@@ -594,7 +627,7 @@ subroutine read_nbf_and_nif_from_molden(molden, nbf, nif)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(INDEX(buf,'Occup=') > 0) exit
+  if(INDEX(buf(1:10),'Occup=') > 0) exit
  end do ! for while
 
  if(i /= 0) then
@@ -619,6 +652,7 @@ subroutine read_nbf_and_nif_from_molden(molden, nbf, nif)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
+  if(buf(1:1) == '[') exit
 
   do i = 1, 3
    read(fid,'(A)') buf
@@ -920,4 +954,73 @@ subroutine check_sph_in_molden(molden, sph)
 
  close(fid)
 end subroutine check_sph_in_molden
+
+! check whether there is frequency data in the molden file
+subroutine check_freq_in_molden(molden, has_freq)
+ implicit none
+ integer :: i, fid
+ character(len=6) :: str6
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: has_freq
+
+ has_freq = .false.
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) str6
+  if(i /= 0) exit
+  if(str6(1:6) == '[FREQ]') then
+   has_freq = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine check_freq_in_molden
+
+! read frequency data from the molden file
+subroutine read_freq_from_molden(molden, natom, nmode, coor, e, ev)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ integer, intent(out) :: nmode
+ real(kind=8), parameter :: thres = 1d-3
+ real(kind=8), intent(out) :: coor(3,natom), e(3*natom), ev(3*natom,3*natom)
+ character(len=2) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+
+ coor = 0d0; e = 0d0; ev = 0d0; k = 3*natom
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:6) == '[FREQ]') exit
+ end do ! for while
+ read(fid,*) e
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:10) == '[FR-COORD]') exit
+ end do ! for while
+
+ do i = 1, natom, 1
+  read(fid,*) elem, coor(:,i)
+ end do ! for i
+
+ read(fid,'(A)') buf ! [FR-NORM-COORD]
+ do i = 1, k, 1
+  read(fid,'(A)') buf ! vibration    i
+  read(fid,*) ev(:,i)
+ end do ! for i
+
+ close(fid)
+ coor = coor*Bohr_const
+
+ do i = k, 1, -1
+  if(DABS(e(i)) < thres) exit
+ end do ! for i
+ nmode = k - i
+end subroutine read_freq_from_molden
 

@@ -66,8 +66,7 @@ program main
  else
   write(6,'(/,A)') 'Warning from program mkl2fch: fchname '//TRIM(fchname)//' d&
                    &oes not'
-  write(6,'(A)') 'exist, the program mkl2fch is trying to generate one from scr&
-                 &atch...'
+  write(6,'(A)') 'exist, the program is trying to generate one from scratch...'
   call mkl2fch_direct(mklname, fchname, no_type)
   write(6,'(/,A,/)') 'Done generation.'
  end if

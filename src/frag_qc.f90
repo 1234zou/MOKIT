@@ -30,50 +30,20 @@
 ! write(6,'(/,A)') TRIM(data_string)
 !end program frag_qc
 
-!program frag_qc
-! implicit none
-! integer :: i, wfn_type
-! integer, parameter :: n = 6
-! integer :: wfn_type0(n)
-! character(len=240) :: fchname0(n), fchname
-! character(len=24) :: data_string
-! logical :: pos(n)
-!
-! wfn_type0 = [3,3,3,3,3,3]
-! pos = [.true.,.false.,.true.,.false.,.true.,.false.]
-! wfn_type = 3
-! do i = 1, n, 1
-!  fchname0(i) = 'Cu_atom_6-31Gdp.fch'
-! end do ! for i
-! fchname = 'Cu_Imidazole-2_frag2.fch'
-!
-! call fdate(data_string)
-! write(6,'(A)') TRIM(data_string)
-!
-!! call direct_sum_frag_fock_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_type)
-! call direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_type)
-!! call direct_sum_frag_dm_in_fch(n, fchname0, fchname)
-!
-! call fdate(data_string)
-! write(6,'(/,A)') TRIM(data_string)
-!end program frag_qc
-
 program frag_qc
  implicit none
- integer :: i, wfn_type
- integer, parameter :: n = 5
+ integer :: wfn_type
+ integer, parameter :: n = 2
  integer :: wfn_type0(n)
  character(len=240) :: fchname0(n), fchname
  character(len=24) :: data_string
  logical :: pos(n)
 
- wfn_type0 = [1,3,3,3,3]
- pos = [.true.,.true.,.false.,.true.,.false.]
+ wfn_type0 = [1,3]
+ pos = [.true.,.false.]
  wfn_type = 3
- fchname0(1) = 'Cu_Imidazole-2_old.fch'
- fchname0(2) = 'Cu_Imidazole-2_frag2.fch'
- fchname0(3:5) = 'Cu_atom_6-31Gdp.fch'
- fchname = 'Cu_Imidazole-2_ds_dm2.fch'
+ fchname0 = ['Cu_Imidazole-1_wB97X.fch','Cu_Imidazole-2_UwB97X.fch']
+ fchname = 'Cu_Imidazole-3_frag_UwB97X.fch'
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)

@@ -59,7 +59,7 @@ program main
  else
   write(6,'(/,A)') 'Warning from program dat2fch: file '//TRIM(fchname)//' does&
                    & not exist,'
-  write(6,'(A)') 'the program dat2fch is trying to generate one from scratch...'
+  write(6,'(A)') 'the program is trying to generate one from scratch...'
   call gen_fch_from_gms_inp(datname, fchname)
  end if
 
@@ -487,6 +487,7 @@ subroutine gen_fch_from_gms_inp(datname, fchname)
  logical :: alive, ghf, has_sp
  logical, allocatable :: ghost(:)
 
+ call read_irel_from_gms_inp(datname, irel)
  call read_natom_from_gms_inp(datname, natom)
  allocate(mull_char(natom))
  call read_mul_char_from_dat(datname, natom, mull_char, alive)

@@ -221,13 +221,13 @@ subroutine read_charge_mult_isph_from_gms_inp(inpname, charge, mult, isph, uhf,&
  if(INDEX(buf1,'UHF') > 0) uhf = .true.
  if(INDEX(buf1,'GHF') > 0) ghf = .true.
 
- i = INDEX(buf1,'ICHARG=')
+ i = INDEX(buf1, 'ICHARG=')
  if(i > 0) read(buf1(i+7:),*) charge
 
- i = INDEX(buf1,'MULT=')
+ i = INDEX(buf1, 'MULT=')
  if(i > 0) read(buf1(i+5:),*) mult
 
- i = INDEX(buf1,'ISPHER=')
+ i = INDEX(buf1, 'ISPHER=')
  if(i > 0) read(buf1(i+7:),*) isph
 
  do while(.true.)
@@ -1262,4 +1262,77 @@ subroutine read_mul_char_from_dat(datname, natom, charge, alive)
   stop
  end if
 end subroutine read_mul_char_from_dat
+
+! read the relativistic setting from a GAMESS .inp file
+subroutine read_irel_from_gms_inp(inpname, irel)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: irel
+ ! -3/-2/-1/0/2/4 for sfX2C/RESC/None/DKH0/DKH2/DKH4
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ character(len=480) :: buf0
+
+ irel = -1
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:8))
+   if(buf(3:8) == 'CONTRL') exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_irel_from_gms_inp: no $CONTRL sect&
+                   &ion found in'
+  write(6,'(A)') 'file '//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '$END')
+ if(i == 0) then
+  read(fid,'(A)') buf0
+  buf0 = TRIM(buf)//' '//TRIM(buf0)
+ else
+  buf0 = TRIM(buf)
+ end if
+
+ call upper(buf0)
+ i = INDEX(buf0, 'RELWFN=DK')
+ if(i > 0) irel = 2
+ i = INDEX(buf0, 'RELWFN=RESC')
+ if(i > 0) irel = -2
+ i = INDEX(buf0, 'X2C')
+ if(i > 0) irel = -3
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:2) == '$') then
+   call upper(buf(3:8))
+   if(buf(3:8) == 'RELWFN') exit
+  end if
+ end do ! for while
+
+ close(fid)
+
+ if(i == 0) then
+  call upper(buf)
+  i = INDEX(buf, 'NORDER=')
+  if(i > 0) then
+   if(irel < -1) then
+    write(6,'(/,A)') 'ERROR in subroutine read_irel_from_gms_inp: relativistic &
+                     &settings are'
+    write(6,'(A)') 'inconsistent in file '//TRIM(inpname)
+    stop
+   end if
+   read(buf(i+7:),*) irel
+   if(irel == 1) irel = 0 ! DKH0
+  end if
+ end if
+end subroutine read_irel_from_gms_inp
 

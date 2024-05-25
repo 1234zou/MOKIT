@@ -1,6 +1,6 @@
-! written by jxzou at 20230519: transfer MOs from Gaussian -> AMESP
+! written by jxzou at 20230519: transfer MOs from Gaussian -> Amesp
 
-! Note: You should use AMESP >= 2023 May 28. Older AMESP versions have bugs in
+! Note: You should use Amesp >= 2023 May 28. Older Amesp versions have bugs in
 !  ECP/PP
 
 ! Current limitations:
@@ -68,8 +68,8 @@ subroutine fch2amo(fchname)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/Car&
-                   &tesian functions'
+  write(6,'(/,A)') 'ERROR in subroutine fch2amo: mixed spherical harmonic/Carte&
+                   &sian functions'
   write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
                  &sian. Its default'
   write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
@@ -228,16 +228,18 @@ subroutine fch2amo(fchname)
 
  if(ecp) then
   do i = 1, natom, 1
-   write(fid,'(A2,2X,I3,3(1X,F18.8))') elem(i), ielem(i)-frozen_e(i), coor(:,i)
+   write(fid,'(A2,2X,I3,3(1X,F20.10))') elem(i), ielem(i)-frozen_e(i), coor(:,i)
   end do ! for i
   deallocate(frozen_e)
  else
   do i = 1, natom, 1
-   write(fid,'(A2,2X,I3,3(1X,F18.8))') elem(i), ielem(i), coor(:,i)
+   write(fid,'(A2,2X,I3,3(1X,F20.10))') elem(i), ielem(i), coor(:,i)
   end do ! for i
  end if
 
  deallocate(coor)
+ write(fid,'(A,/,I0)') '[Charge]', charge
+ write(fid,'(A,/,I0)') '[Mult]', mult
  write(fid,'(A,/,A,I0)') '[GTO]', 'NAtom_Type: ', nelmtyp
 
  ! Check whether 'SP' or 'L' exists, Pople type basis set
@@ -401,18 +403,27 @@ subroutine fch2amo(fchname)
   write(fid,'(A)') 'ECP:   F'
  end if
 
+ if(irel == -3) then
+  write(fid,'(A,L1)') 'sfx2c1e:   T'
+ else
+  write(fid,'(A,L1)') 'sfx2c1e:   F'
+ end if
  sph_str = 'car'
  if(sph) sph_str = 'sph'
 
  if((.not.uhf) .and. mult==1) then
-  write(fid,'(A)') '[MO] '//sph_str//' C noRI'
+  write(fid,'(A)') '[MO] '//sph_str//' R noRI'
   write(fid,'(A,I0)') 'Nocc= ', na
   write(fid,'(A)') 'En:'
   write(fid,'(5(1X,ES15.8))') eigen_e_a
   write(fid,'(A)') 'MoCu:'
   write(fid,'(5(1X,ES15.8))') alpha_coeff
  else
-  write(fid,'(A)') '[MO] '//sph_str//' O noRI'
+  if(uhf) then
+   write(fid,'(A)') '[MO] '//sph_str//' U noRI'
+  else
+   write(fid,'(A)') '[MO] '//sph_str//' RO noRI'
+  end if
   write(fid,'(A,I0)') 'NoccA= ', na
   write(fid,'(A)') 'EnA:'
   write(fid,'(5(1X,ES15.8))') eigen_e_a

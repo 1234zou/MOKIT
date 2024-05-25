@@ -29,7 +29,6 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  real(kind=8), allocatable :: coeff(:)
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
-
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'

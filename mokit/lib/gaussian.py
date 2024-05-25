@@ -366,16 +366,18 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
 
   dm0 = mf.get_init_guess(mol, '1e')
   if ihf == 1:   # real RHF
-    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf=nbf,nif=nif,\
+                                                                p=dm0, ao_ovlp=S)
   elif ihf == 2: # UHF
     dm0 = dm0[0] + dm0[1]
-    mo_e_a, alpha_mo = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mo_e_a, alpha_mo = gen_no_from_density_and_ao_ovlp(nbf=nbf, nif=nif, p=dm0,\
+                                                       ao_ovlp=S)
     mf.mo_energy = (mo_e_a, mo_e_a)
     mf.mo_coeff = (alpha_mo, alpha_mo)
   if ihf == 101: # real ROHF
     dm0 = dm0[0] + dm0[1]
-    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
-
+    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf=nbf,nif=nif,\
+                                                                p=dm0, ao_ovlp=S)
   target_fch = fchname[0:fchname.rindex('.fch')]+'_proj.fch'
   fchk(mf, target_fch)
   make_orb_resemble(target_fch, fchname, nmo=nmo, align=False)

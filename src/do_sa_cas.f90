@@ -248,7 +248,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(/,A)') '# save MOs into .fch file'
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"', '"//TRIM(cmofch)//"')"
  write(fid2,'(A)') 'noon = np.zeros(nif)'
- write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mo,'a',noon,False,False)"
+ write(fid2,'(A)') "py2fch(fchname='"//TRIM(cmofch)//"',nbf=nbf,nif=nif,coeff2=mo, \"
+ write(fid2,'(A)') "       ab='a',ev=noon,natorb=False,gen_density=False)"
  ! Note: mc.mo_occ only exists for PySCF >= 1.7.4
 
  write(fid2,'(/,A)') '# perform multi-root CASCI'
@@ -309,9 +310,11 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') '                  tdm, dip_int, mc.e_tot[i]-mc.e_tot[0])'
  write(fid2,'(A)') '  noon[mc.ncore:idx2] = ev.copy()'
  write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = part_mo.copy()'
- write(fid2,'(A)') "  py2fch(part_fch,nbf,nif,mo,'a',noon,False,False)"
+ write(fid2,'(A)') "  py2fch(fchname=part_fch,nbf=nbf,nif=nif,coeff2=mo,ab='a', \"
+ write(fid2,'(A)') '         ev=noon,natorb=False,gen_density=False)'
  write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = hole_mo.copy()'
- write(fid2,'(A)') "  py2fch(hole_fch,nbf,nif,mo,'a',noon,False,False)"
+ write(fid2,'(A)') "  py2fch(fchname=hole_fch,nbf=nbf,nif=nif,coeff2=mo,ab='a', \"
+ write(fid2,'(A)') '         ev=noon,natorb=False,gen_density=False)'
  write(fid2,'(A)') "  print('|0> -> |%d>'%(i),', fosc =',fosc)"
 
  if(nevpt2) then

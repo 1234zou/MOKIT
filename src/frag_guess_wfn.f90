@@ -126,7 +126,7 @@ program main
  call find_specified_suffix(gjfname, '.gjf', i)
  call require_file_exist(gjfname)
  call get_gau_path(gau_path)
- !call calc_xo_pbc_ads_e(gjfname)
+ call calc_xo_pbc_ads_e(gjfname)
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)
@@ -2190,9 +2190,9 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  integer :: natom, natom1, natom2, natom4
  integer(kind=4) :: hostnm
  integer, parameter :: nfrag = 4
- integer, parameter :: max_step = 5
+ integer, parameter :: max_step = 1
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_min = 4.5d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_min = 5.5d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)

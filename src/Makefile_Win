@@ -14,6 +14,8 @@ LFLAGS = /libs:static
 
 OBJ_addH2singlet = file_op.obj string_manipulate.obj read_fch.obj math_sub.obj \
                    addH2singlet.obj
+OBJ_amo2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
+              read_natom.obj read_gms_inp.obj read_mkl.obj amo2fch.obj
 OBJ_bas_fch2py = file_op.obj string_manipulate.obj util_wrapper.obj math_sub.obj \
                  rwwfn.obj bas_fch2py.obj
 OBJ_bas_gau2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj read_fch.obj \
@@ -94,8 +96,8 @@ OBJ_mkl2psi = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2psi.obj
 OBJ_mkl2py = file_op.obj string_manipulate.obj util_wrapper.obj mkl2py.obj
 OBJ_mkl2qchem = file_op.obj string_manipulate.obj util_wrapper.obj mkl2qchem.obj
-OBJ_molden2fch = string_manipulate.obj math_sub.obj read_fch.obj read_natom.obj \
-                 read_mkl.obj split_sp.obj molden2fch.obj
+OBJ_molden2fch = file_op.obj string_manipulate.obj math_sub.obj read_natom.obj \
+                 read_fch.obj read_gms_inp.obj read_mkl.obj split_sp.obj molden2fch.obj
 OBJ_orb2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               read_fch.obj split_sp.obj orb2fch.obj
 OBJ_xml2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
@@ -103,7 +105,7 @@ OBJ_xml2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.
 OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                       solve_ON_matrix.obj
 
-.PHONY: clean distclean addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf \
+.PHONY: clean distclean addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch \
         bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour \
         fch2com fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d \
@@ -142,6 +144,9 @@ help:
 
 addH2singlet: $(OBJ_addH2singlet)
 	$(F90) $(OBJ_addH2singlet) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\addH2singlet
+
+amo2fch: $(OBJ_amo2fch)
+	$(F90) $(OBJ_amo2fch) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\amo2fch
 
 bas_fch2py: $(OBJ_bas_fch2py)
 	$(F90) $(OBJ_bas_fch2py) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\bas_fch2py
@@ -296,7 +301,7 @@ xml2fch: $(OBJ_xml2fch)
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\solve_ON_matrix
 
-all: addH2singlet bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas \
+all: addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas \
      bas_gms2molpro bas_gms2psi bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch \
      extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp \
      fch2inporb fch2psi fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn \

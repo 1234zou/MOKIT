@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc31 (2024-May-17)'
+ write(6,'(A)') '           Version: 1.2.6rc32 (2024-May-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -101,18 +101,24 @@ subroutine parse_sr_keyword()
 
  i = INDEX(buf,'/')
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine parse_sr_keyword: no '/' symbol detected&
-                 &in keyword line."
-  write(6,'(A)') "The method and basis set must be specified via '/' symbol,&
-                 & e.g. CCSD(T)/cc-pVTZ."
+  write(6,'(/,A)') "ERROR in subroutine parse_sr_keyword: no '/' symbol found i&
+                   &n the keyword line."
+  write(6,'(A)') "The method and basis set must be specified via '/' symbol, e.&
+                 &g. CCSD(T)/cc-pVTZ."
   close(fid)
+  stop
+ end if
+ if(mem < nproc) then
+  write(6,'(/,A)') 'ERROR in subroutine parse_sr_keyword: please specify larger&
+                   & memory. Post-'
+  write(6,'(A)') 'HF calculations usually requires large memory.'
   stop
  end if
 
  j = INDEX(buf(1:i-1),' ', back=.true.)
  if(j == 0) then
-  write(6,'(A)') 'ERROR in subroutine parse_sr_keyword: syntax error detected in'
-  write(6,'(A)') "the current line '"//TRIM(buf)//"'"
+  write(6,'(/,A)') 'ERROR in subroutine parse_sr_keyword: syntax error detected'
+  write(6,'(A)') "in the current line '"//TRIM(buf)//"'"
   stop
  end if
  method0 = buf(j+1:i-1)
@@ -537,7 +543,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc31 :: MOKIT, release date: 2024-May-17'
+  write(6,'(A)') 'AutoSR 1.2.6rc32 :: MOKIT, release date: 2024-May-25'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
