@@ -97,8 +97,7 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
  write(fid,'(A)') "noon = read_eigenvalues_from_fch(fchname, nif, 'a')"
  write(fid,'(A)') 'copyfile(fchname, lmofch)'
- write(fid,'(A)') "py2fch(fchname=lmofch,nbf=nbf,nif=nif,coeff2=mo_coeff,ab='a', \"
- write(fid,'(A)') '       ev=noon,natorb=False,gen_density=False)'
+ write(fid,'(A)') "py2fch(lmofch,nbf,nif,mo_coeff,'a',noon,False,False)"
  write(fid,'(A)') 'os.rename(lmofch, fchname)'
  close(fid)
 

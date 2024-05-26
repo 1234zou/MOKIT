@@ -290,8 +290,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid,'(A)') "proj_fch = '"//TRIM(proj_fch)//"'"
  write(fid,'(A)') "copyfile(hf_fch, proj_fch)"
  write(fid,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
- write(fid,'(A)') "py2fch(fchname=proj_fch,nbf=nbf,nif=nif,coeff2=mo,ab='a', \"
- write(fid,'(A)') '       ev=mo_occ,natorb=False,gen_density=False)'
+ write(fid,'(A)') "py2fch(proj_fch,nbf,nif,mo,'a',mo_occ,False,False)"
  write(fid,'(A)') '# save done'
  close(fid)
 end subroutine prt_rhf_proj_script_into_py
@@ -342,12 +341,11 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid1,'(A)') 'mo_dipole = dipole_integral(mol, mo)'
   write(fid1,'(A)') 'ref1 = get_core_valence_sep_idx(lmo_fch) - 1'
   write(fid1,'(A)') 'npair = nb - ref1'
-  write(fid1,'(A)') 'new_mo = assoc_loc(nbf, nif, ref1, nb, na, nif, mo, mo_dipole)'
+  write(fid1,'(A)') 'new_mo = assoc_loc(nbf,nif,ref1,nb,na,nif,mo,mo_dipole)'
   write(fid1,'(/,A)') "loc_fch = '"//TRIM(loc_fch)//"'"
   write(fid1,'(A)') 'copyfile(lmo_fch, loc_fch)'
   write(fid1,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
-  write(fid1,'(A)') "py2fch(fchname=loc_fch,nbf=nbf,nif=nif,coeff2=new_mo,ab='a', \"
-  write(fid1,'(A)') '       ev=mo_occ,natorb=False,gen_density=False)'
+  write(fid1,'(A)') "py2fch(loc_fch,nbf,nif,new_mo,'a',mo_occ,False,False)"
  else               ! all elements <= Xe
   open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
   open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -419,8 +417,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(/,A)') '# save the paired LMO into .fch file'
   write(fid2,'(A)') "loc_fch = '"//TRIM(loc_fch)//"'"
   write(fid2,'(A)') "copyfile(hf_fch, loc_fch)"
-  write(fid2,'(A)') "py2fch(fchname=loc_fch,nbf=nbf,nif=nif,coeff2=mo,ab='a', \"
-  write(fid2,'(A)') '       ev=mo_occ,natorb=False,gen_density=False)'
+  write(fid2,'(A)') "py2fch(loc_fch, nbf, nif, mo, 'a', mo_occ, False, False)"
   write(fid2,'(A)') "sort_pair(loc_fch, hf_fch, npair)"
   write(fid2,'(A)') '# save done'
   close(fid2)
@@ -518,8 +515,7 @@ subroutine prt_uno_script_into_py(pyname)
  ! does not exist now.
  write(fid1,'(A)') "with os.popen('fch_u2r '+hf_fch+' '+uno_fch) as run:"
  write(fid1,'(A)') '  null = run.read()'
- write(fid1,'(A)') 'py2fch(fchname=uno_fch,nbf=nbf,nif=nif,coeff2=mf.mo_coeff[0], \'
- write(fid1,'(A)') "       ab='a',ev=noon,natorb=True,gen_density=True)"
+ write(fid1,'(A)') "py2fch(uno_fch,nbf,nif,mf.mo_coeff[0],'a',noon,True,True)"
  write(fid1,'(A)') '# save done'
  close(fid1)
 end subroutine prt_uno_script_into_py
@@ -617,8 +613,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
  write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') 'py2fch(fchname=assoc_fch,nbf=nbf,nif=nif,coeff2=mf.mo_coeff[0], \'
- write(fid1,'(A)') "       ab='a',ev=noon,natorb=False,gen_density=False)"
+ write(fid1,'(A)') "py2fch(assoc_fch,nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
  write(fid1,'(A)') 'sort_pair(assoc_fch, uno_fch, npair)'
  close(fid1)
 end subroutine prt_assoc_rot_script_into_py
@@ -1065,8 +1060,8 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  write(fid3,'(A)') "mo2 = fch2py('"//TRIM(fchname2)//"', nbf2, nif2, 'a')"
  write(fid3,'(A)') "mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nif2, mo2, cross_S)"
  write(fid3,'(A)') 'noon = np.zeros(nif1)'
- write(fid3,'(A)') "py2fch(fchname='"//TRIM(fchname1)//"',nbf=nbf1,nif=nif1,coeff2=mo3, \"
- write(fid3,'(A)') "       ab='a',ev=noon,natorb=False,gen_density=False)"
+ write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"',nbf1,nif1,mo3,'a',noon,False,&
+                   &False)"
  i = RENAME(TRIM(pyname), TRIM(pyname1))
  pyname = pyname1
 end subroutine prt_orb_resemble_py_script

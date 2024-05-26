@@ -648,8 +648,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
   write(fid2,'(/,A)') '# save conveged MOs into .fch file'
   write(fid2,'(A)') 'copyfile(hf_fch, cmofch)'
   write(fid2,'(A)') 'noon = np.zeros(nif)'
-  write(fid2,'(A)') 'py2fch(fchname=cmofch,nbf=nbf,nif=nif,coeff2=mc.mo_coeff, \'
-  write(fid2,'(A)') "       ab='a',ev=noon,natorb=False,gen_density=False)"
+  write(fid2,'(A)') "py2fch(cmofch,nbf,nif,mc.mo_coeff,'a',noon,False,False)"
  end if
 
  if(dmrg) then
@@ -664,8 +663,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
   write(fid2,'(/,A)') '# save NOs into .fch file'
   write(fid2,'(A)') "casnofch = '"//TRIM(casnofch)//"'"
   write(fid2,'(A)') "copyfile(hf_fch, casnofch)"
-  write(fid2,'(A)') 'py2fch(fchname=casnofch,nbf=nbf,nif=nif,coeff2=mc.mo_coeff, \'
-  write(fid2,'(A)') "       ab='a',ev=mc.mo_occ,natorb=True,gen_density=True)"
+  write(fid2,'(A)') "py2fch(casnofch,nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True,True)"
   ! Note: mc.mo_occ is only valid for PySCF >= 1.7.4
  end if
 

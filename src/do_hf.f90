@@ -570,8 +570,8 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  if(uhf .and. mult==1) then
   ! For singlet UHF, construct broken symm initial guess
   write(fid,'(A)') 'dm_a, dm_b = mf.get_init_guess()'
-  write(fid,'(A)') 'occ_a, mo_a = gen_no_from_density_and_ao_ovlp(nbf=nbf,nif=n&
-                   &if,p=dm_a,ao_ovlp=S)'
+  write(fid,'(A)') 'occ_a, mo_a = gen_no_from_density_and_ao_ovlp(nbf, nif, dm_&
+                   &a, S)'
   write(fid,'(A)') 'ndb = np.count_nonzero(occ_a > 0.5)'
   write(fid,'(A)') 'occ_a[0:ndb] = 1.0'
   write(fid,'(A)') 'occ_a[ndb:] = 0.0'
