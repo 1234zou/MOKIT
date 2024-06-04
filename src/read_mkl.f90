@@ -344,7 +344,7 @@ subroutine merge_s_and_p_into_sp()
   ! and this upper limit does not change even if nc is updated within any loop
   do j = 1, nc-1, 1
    m = m + 1
-   if(j == nc) then   ! j==nc is possible and thus should be checked
+   if(j == nc) then ! this is possible for O 6-311G(d)
     final_contr = .true.
     exit
    end if
@@ -403,6 +403,10 @@ subroutine merge_s_and_p_into_sp()
    end if
 
    deallocate(rtmp)
+   if(j == nc) then ! this is possible for O 6-311G
+    final_contr = .true.
+    exit
+   end if
   end do ! for j
 
   if(.not. final_contr) m = m + 1
@@ -428,6 +432,7 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
 
  nbf = 0; nif = 0
  open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -435,7 +440,8 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: incomplete file.'
+  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: incomplete f&
+                   &ile.'
   write(6,'(A)') 'Filename='//TRIM(mklname)
   close(fid)
   stop
@@ -452,19 +458,23 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
  end do ! for while
 
  if(nbf == 0) then
-  write(6,'(A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis function.'
+  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis f&
+                   &unction.'
   write(6,'(A)') 'There must be something wrong in file '//TRIM(mklname)//'.'
   close(fid)
   stop
  end if
 
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+
  do while(.true.)
+  if(INDEX(buf(1:5),'$END') > 0) exit
   nif = nif + detect_ncol_in_buf(buf)
   do i = 1, nbf+1, 1
    read(fid,'(A)') buf
   end do ! for i
   read(fid,'(A)') buf
-  if(index(buf,'$END') /= 0) exit
  end do ! for while
 
  close(fid)

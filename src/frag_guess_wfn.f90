@@ -98,6 +98,7 @@ module theory_level
  integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
  character(len=11) :: method = ' '
  character(len=21) :: basis = ' '
+ character(len=21) :: auxbas = ' '
  character(len=60) :: scrf  = ' '
  character(len=40) :: solvent = ' '
  character(len=40) :: solvent_gau = ' '
@@ -109,9 +110,12 @@ end module theory_level
 program main
  use theory_level, only: gau_path
  implicit none
- integer :: i
+ integer :: i, i1, i2
+ integer(kind=4) :: hostnm
+ character(len=8) :: hostname
  character(len=24) :: data_string
  character(len=240) :: gjfname
+ logical :: xo_pbc
 
  i = iargc()
  if(i /= 1) then
@@ -121,22 +125,65 @@ program main
   stop
  end if
 
- gjfname = ' '
+ hostname = ' '; data_string = ' '; gjfname = ' '
  call getarg(1, gjfname)
  call find_specified_suffix(gjfname, '.gjf', i)
  call require_file_exist(gjfname)
  call get_gau_path(gau_path)
- call calc_xo_pbc_ads_e(gjfname)
 
+ i = hostnm(hostname)
  call fdate(data_string)
- write(6,'(A)') TRIM(data_string)
+ write(6,'(A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
- call frag_guess_wfn(gjfname)
- call gen_inp_of_frags()
+ call check_xo_pbc_in_gjf(gjfname, xo_pbc, i1, i2)
+ if(xo_pbc) then
+  call calc_xo_pbc_ads_e(gjfname, i1, i2)
+ else
+  call frag_guess_wfn(gjfname)
+  call gen_inp_of_frags()
+ end if
 
  call fdate(data_string)
  write(6,'(/,A)') TRIM(data_string)
 end program main 
+
+! check whether the XO-PBC calculation is requested in the .gjf file
+subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, i1, i2)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(out) :: i1, i2
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ logical, intent(out) :: xo_pbc
+
+ i1 = 0; i2 = 0; xo_pbc = .false.
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ close(fid)
+ buf = ADJUSTL(buf)
+ call upper(buf(1:6))
+
+ if(buf(1:6) == 'XO-PBC') then
+  xo_pbc = .true.
+  i = INDEX(buf,'{')
+  j = INDEX(buf,'-', back=.true.)
+  k = INDEX(buf,'}')
+  if( (i*j*k==0) .or. (.not. (i+1<j .and. j+1<k)) ) then
+   write(6,'(/,A)') 'ERROR in subroutine check_xo_pbc_in_gjf: {n1-n2} syntax no&
+                    &t found in the'
+   write(6,'(A)') 'Title Card line of file '//TRIM(gjfname)
+   stop
+  end if
+  read(buf(i+1:j-1),*) i1
+  read(buf(j+1:k-1),*) i2
+ end if
+end subroutine check_xo_pbc_in_gjf
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
 subroutine frag_guess_wfn(gjfname)
@@ -787,7 +834,8 @@ end subroutine read_nfrag_from_buf
 ! generate a .gjf file from a type frag
 subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  use frag_info, only: frag
- use theory_level, only: mem, nproc, method, basis, scrf, sph, eda_type, disp_type
+ use theory_level, only: mem, nproc, method, basis, auxbas, scrf, sph, &
+  eda_type, disp_type
  implicit none
  integer :: i, k(3),fid
  character(len=11) :: method0, method1
@@ -859,7 +907,11 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  write(fid,'(A)') '%chk='//frag0%fname(1:i-1)//'.chk'
  write(fid,'(A,I0,A)') '%mem=', mem, 'MB'
  write(fid,'(A,I0)') '%nprocshared=', nproc
- write(fid,'(A)',advance='no') '#p '//TRIM(method0)//'/'//TRIM(basis)//' nosymm'
+ write(fid,'(A)',advance='no') '#p '//TRIM(method0)//'/'//TRIM(basis)
+ ! For pure functional like PBE, we can enable the RIJ approximation
+ ! auxbas='W06' is equivalent to def2/J
+ if(LEN_TRIM(auxbas) > 0) write(fid,'(A)',advance='no') '/'//TRIM(auxbas)
+ write(fid,'(A)',advance='no') ' nosymm'
 
  call lower(method0)
  select case(TRIM(method0))
@@ -2166,7 +2218,7 @@ subroutine add_maxiter_in_orca_inp(inpname)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- write(fid1,'(A,/,A)') ' MaxIter 300', 'end'
+ write(fid1,'(A,/,A)') ' MaxIter 400', 'end'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -2180,59 +2232,77 @@ subroutine add_maxiter_in_orca_inp(inpname)
 end subroutine add_maxiter_in_orca_inp
 
 ! calculate the vertical adsorption energy using the 2D XO-PBC method
-subroutine calc_xo_pbc_ads_e(gjfname)
+subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  use frag_info, only: frag, comb_elem_coor_in_frags
  use theory_level
  use fch_content, only: elem2nuc
  use util_wrapper, only: formchk, mkl2gbw, gbw2molden
  implicit none
- integer :: i, j, k, m, i1, i2, charge, mult, mem_per_proc, SYSTEM
+ integer :: i, j, k, m, charge, mult, mem_per_proc, SYSTEM
  integer :: natom, natom1, natom2, natom4
- integer(kind=4) :: hostnm
+ integer, intent(in) :: i1, i2
  integer, parameter :: nfrag = 4
- integer, parameter :: max_step = 1
+ integer, parameter :: max_step = 2
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_min = 5.5d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_min = 4.5d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
  character(len=2), allocatable :: elem(:), elem2(:)
- character(len=8) :: hostname
- character(len=24) :: data_string
- character(len=240) :: buf, basname, chkname, orca_path
+ character(len=4) :: str4
+ character(len=240) :: buf, basname, proname, chkname, dirname, orca_path, &
+  orca_2mkl_path
  character(len=240), intent(in) :: gjfname
- character(len=240), allocatable :: fchname(:), inpname(:), outname(:), &
+ character(len=240), allocatable :: fchname(:), logname(:), inpname(:), outname(:),&
   mklname(:), gbwname(:), molden(:)
  type(frag) :: frags(nfrag)
 
- hostname = ' '; data_string = ' '; basname = ' '
- i = hostnm(hostname)
- call fdate(data_string)
- write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+ buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2TZVP'; auxbas = 'W06'
+
  call get_orca_path(orca_path)
+ if(TRIM(orca_path) == 'NOT FOUND') then
+  write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: orca path not found.'
+  write(6,'(A)') 'XO-PBC calculations require the ORCA program.'
+  stop
+ end if
+ write(6,'(A)') 'orca_path='//TRIM(orca_path)
+
+ call get_orca_2mkl_path(orca_2mkl_path)
+ if(TRIM(orca_2mkl_path) == 'NOT FOUND') then
+  write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: orca_2mkl not found.'
+  write(6,'(A)') 'XO-PBC calculations require orca_2mkl.'
+  stop
+ end if
+ write(6,'(A)') 'orca_2mkl_path='//TRIM(orca_2mkl_path)
 
  hf_prog_path = gau_path
- method = 'PBEPBE'
- basis = 'def2SVP'
  allocate(high_e(nfrag), source=0d0)
  allocate(ss(nfrag), source=0d0)
+ allocate(fchname(nfrag), logname(nfrag), inpname(nfrag), outname(nfrag), &
+          mklname(nfrag), gbwname(nfrag), molden(nfrag))
 
- allocate(fchname(nfrag), inpname(nfrag), outname(nfrag), mklname(nfrag), &
-          gbwname(nfrag), molden(nfrag))
- call find_specified_suffix(gjfname, '.gjf', j)
+ k = LEN_TRIM(gjfname)
+ proname = gjfname(1:k-4)
+#ifdef _WIN32
+ str4 = '.out'
+#else
+ str4 = '.log'
+#endif
+
  do i = 1, nfrag, 1
-  write(chkname,'(A,I1)') gjfname(1:j-1)//'-',i
-  frags(i)%fname = TRIM(chkname)//'.gjf'
-  fchname(i) = TRIM(chkname)//'.fch'
-  inpname(i) = TRIM(chkname)//'_o.inp'
-  outname(i) = TRIM(chkname)//'_o.out'
-  mklname(i) = TRIM(chkname)//'_o.mkl'
-  gbwname(i) = TRIM(chkname)//'_o.gbw'
-  molden(i) = TRIM(chkname)//'_o.molden'
+  write(buf,'(A,I1)') gjfname(1:k-4)//'-',i
+  frags(i)%fname = TRIM(buf)//'.gjf'
+  fchname(i) = TRIM(buf)//'.fch'
+  logname(i) = TRIM(buf)//str4
+  inpname(i) = TRIM(buf)//'_o.inp'
+  outname(i) = TRIM(buf)//'_o.out'
+  mklname(i) = TRIM(buf)//'_o.mkl'
+  gbwname(i) = TRIM(buf)//'_o.gbw'
+  molden(i)  = TRIM(buf)//'_o.molden'
  end do ! for i
 
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
- mem_per_proc = CEILING(1.8d0*DBLE(mem)/DBLE(nproc))   ! ORCA memory
+ mem_per_proc = CEILING(0.9d0*DBLE(mem)/DBLE(nproc))
  call read_natom_from_gjf_pbc(gjfname, natom)
  allocate(elem(natom), nuc(natom), coor(3,natom))
  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
@@ -2240,23 +2310,9 @@ subroutine calc_xo_pbc_ads_e(gjfname)
  deallocate(nuc)
 
  ! determine the adsorbate/adsorbent: frags(1)/frags(4)
- call read_title_card_from_gjf(gjfname, buf)
- buf = ADJUSTL(buf)
-
- i = INDEX(buf, '-')
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine calc_xo_pbc_ads_e: no '-' symbols found."
-  write(6,'(A)') "buf='"//buf//"'"
-  write(6,'(A)') 'File='//TRIM(gjfname)
-  stop
- end if
-
- read(buf(1:i-1),*) i1
- read(buf(i+1:),*) i2
  natom1 = i2 - i1 + 1
  natom4 = natom - natom1
- write(6,'(A,F8.3)') 'Cutoff radius (Ang): ', r_min
- write(6,'(A,I0)') 'Total number of atoms: ', natom
+ write(6,'(/,A,I0)') 'Total number of atoms: ', natom
  write(6,'(A,I0)') 'No. of atoms of adsorbate: ', natom1
  write(6,'(A,I0)') 'No. of atoms of adsorbent: ', natom4
  write(6,'(2(A,I0))') 'Atomic labels of adsorbate: ',i1,'-',i2
@@ -2301,8 +2357,9 @@ subroutine calc_xo_pbc_ads_e(gjfname)
   rtmp = r_min + DBLE(k-1)*stpsz
   natom2 = COUNT(dis < rtmp)
   write(6,'(/,A79)') REPEAT('-',79)
+  write(6,'(A,F8.3)') 'Cutoff radius (Ang): ', rtmp
   write(6,'(A,I0)') 'No. of chosen atoms in the slab: ', natom2
-  if(natom2 == natom4) then
+  if(k<max_step .and. natom2==natom4) then
    write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
                     &b are chosen.'
    write(6,'(A)') 'Two possible reasons: (1) the slab is to small; (2) the dista&
@@ -2383,7 +2440,7 @@ subroutine calc_xo_pbc_ads_e(gjfname)
    j = SYSTEM('fch2mkl '//TRIM(fchname(i))//' -dft wB97M-V')
    call mkl2gbw(mklname(i))
    ! use half cores and double memory for ORCA
-   call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc/2)
+   call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc)
    call add_maxiter_in_orca_inp(inpname(i))
    call submit_orca_job(orca_path, inpname(i), .false., .true., .true.)
    call gbw2molden(gbwname(i), molden(i))
@@ -2393,14 +2450,21 @@ subroutine calc_xo_pbc_ads_e(gjfname)
                                     ', frags(i)%ssquare_h=', ss(i)
    call delete_files(3, [inpname(i), mklname(i), gbwname(i)])
   end do ! for i
+
+  ! create a directory and move these files into the directory
+  write(dirname,'(A,I0)') TRIM(proname)//'_', k
+  call create_dir(TRIM(dirname))
+  do i = 2, 3
+   call move_files(5,[frags(i)%fname,logname(i),fchname(i),outname(i),molden(i)],&
+                   dirname)
+  end do ! for i
  end do ! for k
 
  ! TODO: when 5.0 -> 5.5 A, the initial orbitals of frags(2) at 5.5 should be
  ! constructed from the sum of total densities of frags(2) at 5.0 and remaining
  ! Cu atoms. The question is using direct sum of MOs or densities.
- deallocate(dis, fchname, inpname, outname, mklname, gbwname, molden, high_e, ss)
- call fdate(data_string)
- write(6,'(/,A)') 'Normal termination of calc_xo_pbc_ads_e at '//TRIM(data_string)
- stop
+ deallocate(dis, fchname, logname, inpname, outname, mklname, gbwname, molden, &
+            high_e, ss)
+ if(allocated(elem2)) deallocate(elem2, coor2)
 end subroutine calc_xo_pbc_ads_e
 

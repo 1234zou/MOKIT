@@ -39,11 +39,11 @@ program frag_qc
  character(len=24) :: data_string
  logical :: pos(n)
 
- wfn_type0 = [1,3]
- pos = [.true.,.false.]
+ wfn_type0 = [3,3]
+ pos = [.false.,.false.]
  wfn_type = 3
- fchname0 = ['Cu_Imidazole-1_wB97X.fch','Cu_Imidazole-2_UwB97X.fch']
- fchname = 'Cu_Imidazole-3_frag_UwB97X.fch'
+ fchname0 = ['Cu_Imidazole-1_uhf.fch','Cu_Imidazole-2_uhf.fch']
+ fchname = 'Cu_Imidazole-3_only.fch'
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)

@@ -9,7 +9,7 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              rwwfn.o read_fch.o read_natom.o read_grad.o rwgeom.o read_gms_inp.o \
              do_hf.o do_gvb.o do_cas.o do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o \
              do_mrcc.o call_qc_calc_int.o do_pes_scan.o do_cis.o do_sa_cas.o \
-             excited.o wfn_analysis.o lo.o automr.o
+             excited.o assoc_rot.o wfn_analysis.o lo.o automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              do_hf.o rwwfn.o read_fch.o read_mkl.o read_natom.o read_grad.o \
              rwgeom.o call_qc_calc_int.o read_gms_inp.o lo.o split_sp.o qchem.o \
@@ -84,7 +84,7 @@ OBJ_gvb_correct_pairs = file_op.o string_manipulate.o math_sub.o rwwfn.o \
                         gvb_correct_pairs.o
 OBJ_gvb_exclude_XH = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
                      call_qc_calc_int.o read_fch.o rwwfn.o read_natom.o rwgeom.o \
-                     wfn_analysis.o read_gms_inp.o gvb_exclude_XH.o
+                     assoc_rot.o wfn_analysis.o read_gms_inp.o gvb_exclude_XH.o
 OBJ_gvb_sort_pairs = file_op.o gvb_sort_pairs.o
 OBJ_mkl2amo = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2amo.o
 OBJ_mkl2bdf = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2bdf.o
@@ -125,9 +125,9 @@ OBJ_ortho = math_sub.f90 ortho.f90
 OBJ_assoc_rot = assoc_rot.f90
 OBJ_mirror_wfn = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
                  read_fch.o read_natom.o rwgeom.o mirror_wfn.f90
-OBJ_wfn_analysis = file_op.o string_manipulate.o read_natom.o read_fch.o rwgeom.o \
-                   read_gms_inp.o math_sub.f90 rwwfn.f90 util_wrapper.f90 \
-                   call_qc_calc_int.f90 wfn_analysis.f90
+OBJ_wfn_analysis = file_op.o string_manipulate.o math_sub.o read_natom.o read_fch.o \
+                   rwgeom.o read_gms_inp.o util_wrapper.o rwwfn.o assoc_rot.o \
+                   call_qc_calc_int.o wfn_analysis.f90
 OBJ_lo = file_op.o string_manipulate.o read_gms_inp.o math_sub.f90 util_wrapper.f90 \
          rwwfn.f90 call_qc_calc_int.f90 lo.f90
 OBJ_mo_svd = math_sub.f90 mo_svd.f90

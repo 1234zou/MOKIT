@@ -41,14 +41,14 @@ end program main
 ! multiconfigurational character)
 subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
  implicit none
- integer :: i, j, k, m, itmp, itmp1(1), itmp2(1)
+ integer :: i, j, k, k1, m, itmp, itmp1(1), itmp2(1), itmp3(1)
  integer :: natom, ncore, nopen, npair, npair2, nbf, nif
  integer, allocatable :: bf2atom(:), order(:)
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:)
  real(kind=8), allocatable :: tmp_coeff(:)
  real(kind=8), allocatable :: ci_coeff(:,:), ci_coeff2(:,:)
  real(kind=8) :: rtmp1, rtmp2, tmp_ci_coeff(2)
- real(kind=8), parameter :: Pt1 = 0.1d0
+ real(kind=8), parameter :: Pt1 = 0.1d0, thres = 0.9d0
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: datname, gmsname
  character(len=240) :: newdat, inpname
@@ -142,13 +142,24 @@ subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
 
  do i = 1, npair, 1
   if(ci_coeff(2,i) < -Pt1) cycle ! skip multiconfigurational pair(s)
-  tmp_coeff = coeff2(:,2*i-1) ! only consider the bonding orbital
+  tmp_coeff = coeff2(:,2*i-1)    ! only consider the bonding orbital
   forall(j = 1:nbf) tmp_coeff(j) = DABS(tmp_coeff(j))
   itmp1 = MAXLOC(tmp_coeff)
   j = itmp1(1)
+  rtmp1 = tmp_coeff(j)
   tmp_coeff(j) = 0d0
   itmp2 = MAXLOC(tmp_coeff)
   k = itmp2(1)
+  ! if j==k and the first 2 coefficients are close to each other, it is possible
+  ! that the 3rd coefficient is very close to them, and it is located on another
+  ! atom
+  if(bf2atom(j)==bf2atom(k) .and. DABS(tmp_coeff(k)/rtmp1)>thres) then
+   rtmp2 = tmp_coeff(k)
+   tmp_coeff(k) = 0d0
+   itmp3 = MAXLOC(tmp_coeff)
+   k1 = itmp3(1)
+   if(DABS(tmp_coeff(k1)/rtmp2) > thres) k = k1
+  end if
   if(elem(bf2atom(j))=='H ' .or. elem(bf2atom(k))=='H ') then
    xhbond(i) = .true.
    npair2 = npair2 + 1
@@ -340,6 +351,7 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
 
  elem = ' '; buf = ' '; bf2atom = 0
  open(newunit=fid,file=TRIM(gmsfile),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -347,8 +359,8 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_bf2atom_from_gms: no &
-                 &'EIGENVECTORS' found"
+  write(6,'(/,A)') "ERROR in subroutine read_bf2atom_from_gms: no 'EIGENVECTORS&
+                   &' found in"
   write(6,'(A)') 'file '//TRIM(gmsfile)//'.'
   close(fid)
   stop
@@ -365,7 +377,8 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
 
  do i = 2, nbf, 1
   read(fid,'(A)') buf
-  read(buf,*) j, tmp_elem, bf2atom(i)
+  read(buf(8:9),*) tmp_elem
+  read(buf(10:),*) bf2atom(i)
   if(bf2atom(i) /= bf2atom(i-1)) then
    nelem = nelem + 1
    elem(nelem) = tmp_elem

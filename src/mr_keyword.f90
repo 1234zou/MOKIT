@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc32 (2024-May-25)'
+ write(6,'(A)') '           Version: 1.2.6rc33 (2024-Jun-4)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -770,34 +770,34 @@ end subroutine check_gms_path
    case('crazywfn')
     crazywfn = .true.
    case('hf_prog')
-    read(longbuf(j+1:i-1),*) hf_prog
+    hf_prog = longbuf(j+1:i-1)
    case('gvb_prog')
-    read(longbuf(j+1:i-1),*) gvb_prog
+    gvb_prog = longbuf(j+1:i-1)
    case('casci_prog')
-    read(longbuf(j+1:i-1),*) casci_prog
+    casci_prog = longbuf(j+1:i-1)
    case('casscf_prog')
-    read(longbuf(j+1:i-1),*) casscf_prog
+    casscf_prog = longbuf(j+1:i-1)
    case('dmrgci_prog')
-    read(longbuf(j+1:i-1),*) dmrgci_prog
+    dmrgci_prog = longbuf(j+1:i-1)
    case('dmrgscf_prog')
-    read(longbuf(j+1:i-1),*) dmrgscf_prog
+    dmrgscf_prog = longbuf(j+1:i-1)
    case('caspt2_prog')
-    read(longbuf(j+1:i-1),*) caspt2_prog
+    caspt2_prog = longbuf(j+1:i-1)
    case('nevpt2_prog')
-    read(longbuf(j+1:i-1),*) nevpt2_prog
-    if(nevpt2_prog == 'bdf') FIC=.true.
+    nevpt2_prog = longbuf(j+1:i-1)
+    if(TRIM(nevpt2_prog) == 'bdf') FIC = .true.
    case('mrmp2_prog')
-    read(longbuf(j+1:i-1),*) mrmp2_prog
+    mrmp2_prog = longbuf(j+1:i-1)
    case('mrcisd_prog')
-    read(longbuf(j+1:i-1),*) mrcisd_prog
+    mrcisd_prog = longbuf(j+1:i-1)
    case('mrcisdt_prog')
-    read(longbuf(j+1:i-1),*) mrcisdt_prog
+    mrcisdt_prog = longbuf(j+1:i-1)
    case('mcpdft_prog')
-    read(longbuf(j+1:i-1),*) mcpdft_prog
+    mcpdft_prog = longbuf(j+1:i-1)
    case('mrcc_prog')
-    read(longbuf(j+1:i-1),*) mrcc_prog
+    mrcc_prog = longbuf(j+1:i-1)
    case('gvb_conv')
-    read(longbuf(j+1:i-1),*) GVB_conv
+    GVB_conv = longbuf(j+1:i-1)
     c_gvb_conv = .true.
    case('skip_uno')
     read(longbuf(j+1:i-1),*) nskip_uno
@@ -815,19 +815,19 @@ end subroutine check_gms_path
    case('ri')
     RI = .true.
    case('rijk_bas')
-    read(longbuf(j+1:i-1),*) RIJK_bas
+    RIJK_bas = longbuf(j+1:i-1)
    case('ric_bas')
-    read(longbuf(j+1:i-1),*) RIC_bas
+    RIC_bas = longbuf(j+1:i-1)
    case('f12')
     F12 = .true.; RI = .true.
    case('f12_cabs')
-    read(longbuf(j+1:i-1),*) F12_cabs
+    F12_cabs = longbuf(j+1:i-1)
    case('dlpno')
     DLPNO = .true.; RI = .true.; FIC = .true.
    case('fic')
     FIC = .true.
    case('otpdf')
-    read(longbuf(j+1:i-1),*) otpdf
+    otpdf = longbuf(j+1:i-1)
    case('on_thres')
     read(longbuf(j+1:i-1),*) on_thres
    case('uno_thres')
@@ -1715,15 +1715,13 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  integer :: i, j
  character(len=21) :: basis1
  character(len=21), intent(in) :: basis
- character(len=21), intent(inout) :: RIJK_bas
- character(len=21), intent(inout) :: RIC_bas
- character(len=21), intent(inout) :: F12_cabs
+ character(len=21), intent(inout) :: RIJK_bas, RIC_bas, F12_cabs
  logical, intent(in) :: dyn ! dynamic correlation
  logical, intent(in) :: F12 ! F12
 
- if(RIJK_bas /= 'NONE') then
+ if(TRIM(RIJK_bas) /= 'NONE') then
   call lower(RIJK_bas)
-  if(index(RIJK_bas, '/jk') == 0) then
+  if(INDEX(RIJK_bas, '/jk') == 0) then
    write(6,'(/,A)') REPEAT('-',79)
    write(6,'(A)') 'Warning in subroutine determine_auxbas: RI-JK auxiliary basi&
                   &s set does not'
@@ -1734,15 +1732,9 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  end if
 
  if(dyn) then
-  if(RIC_bas /= 'NONE') then
+  if(TRIM(RIC_bas) /= 'NONE') then
    call lower(RIC_bas)
-   if(RIC_bas(1:5) == 'def2-') then
-    write(6,'(/,A)') "ERROR in subroutine determine_auxbas: 'def2-' prefix is n&
-                     &ot supported as"
-    write(6,'(A)') "Gaussian syntax. You should change it to 'def2' prefix."
-    stop
-   end if
-   if(index(RIC_bas, '/c') == 0) then
+   if(INDEX(RIC_bas, '/c') == 0) then
     write(6,'(/,A)') REPEAT('-',79)
     write(6,'(A)') 'Warning in subroutine determine_auxbas: dynamic correlation&
                    & computations'
@@ -1750,9 +1742,13 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
                    &/C'. Caution!"
     write(6,'(A)') REPEAT('-',79)
    end if
+   select case(RIC_bas(1:5)) ! auto-switch Gaussian to ORCA syntax
+   case('def2s','def2t','def2q')
+    RIC_bas = RIC_bas(1:4)//'-'//TRIM(RIC_bas(5:))
+   end select
   end if
  else   ! no dynamic correlation computation
-  if(RIC_bas /= 'NONE') then
+  if(TRIM(RIC_bas) /= 'NONE') then
    write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: no dynamic correlati&
                     &on computation is'
    write(6,'(A)') 'activated. But you provide RIC_bas='//TRIM(RIC_bas)//'.'
@@ -1761,16 +1757,16 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  end if
 
  if(F12) then
-  if(F12_cabs /= 'NONE') then
+  if(TRIM(F12_cabs) /= 'NONE') then
    call lower(F12_cabs)
-   if(index(basis,'-f12') == 0) then
+   if(INDEX(F12_cabs,'-f12') == 0) then
     write(6,'(/,A)') REPEAT('-',79)
     write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation act&
                    &ivated. But your'
     write(6,'(A)') "provided basis set does not contain key '-F12'. Caution!"
     write(6,'(A)') REPEAT('-',79)
    end if
-   if(index(F12_cabs,'-cabs') == 0) then
+   if(INDEX(F12_cabs,'-CABS') == 0) then
     write(6,'(/,A)') REPEAT('-',79)
     write(6,'(A)') 'Warning in subroutine determine_auxbas: F12 computation act&
                    &ivated. But your'
@@ -1779,7 +1775,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
    end if
   end if
  else
-  if(F12_cabs /= 'NONE') then
+  if(TRIM(F12_cabs) /= 'NONE') then
    write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: F12 not activated, b&
                     &ut you provide'
    write(6,'(A)') 'F12_cabs='//TRIM(F12_cabs)//'.'
@@ -1787,37 +1783,36 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   end if
  end if
 
- ! RI-J, RIJCOSX are not supported in AutoMR. Only RIJK for CASSCF
- ! and RI for MRPT2/MRCISD is supported. These two are usually the
- ! most accurate RI techniques
- select case(basis)
+ ! RI-J, RIJCOSX are not supported in AutoMR. Only RIJK for CASSCF and RI for
+ ! MRPT2/MRCISD is supported.
+ select case(TRIM(basis))
  case('def2sv(p)','def2svp','def2svpd','def2tzvp(-f)','def2tzvp','def2tzvpp',&
       'def2tzvpd','def2tzvppd','def2qzvpp','def2qzvpd','def2qzvppd')
-  if(RIJK_bas == 'NONE') RIJK_bas = 'Def2/JK'
-  if(dyn .and. RIC_bas=='NONE') then
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = 'def2/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') then
    if(basis(5:5) == 's') then
-    RIC_bas = 'def2SVP/C'
+    RIC_bas = 'def2-SVP/C'
    else if(basis(5:5) == 'q') then
-    RIC_bas = 'def2QZVPP/C'
+    RIC_bas = 'def2-QZVPP/C'
    else if(basis(1:9) == 'def2tzvpp') then
-    RIC_bas = 'def2TZVPP/C'
+    RIC_bas = 'def2-TZVPP/C'
    else
-    RIC_bas = 'def2TZVP/C'
+    RIC_bas = 'def2-TZVP/C'
    end if
   end if
 
  case('ma-def2sv(p)','ma-def2svp','ma-def2tzvp(-f)','ma-def2tzvp','ma-def2tzvpp',&
       'ma-def2qzvpp')
-  if(RIJK_bas == 'NONE') RIJK_bas = 'Def2/JK'
-  if(dyn .and. RIC_bas=='NONE') then
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = 'def2/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') then
    if(basis(8:8) == 's') then
-    RIC_bas = 'def2SVP/C'
+    RIC_bas = 'def2-SVPD/C'
    else if(basis(8:8) == 'q') then
-    RIC_bas = 'def2QZVPP/C'
+    RIC_bas = 'def2-QZVPPD/C'
    else if(basis(1:12) == 'ma-def2tzvpp') then
-    RIC_bas = 'def2TZVPP/C'
+    RIC_bas = 'def2-TZVPPD/C'
    else
-    RIC_bas = 'def2TZVP/C'
+    RIC_bas = 'def2-TZVPD/C'
    end if
   end if
 
@@ -1825,8 +1820,8 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
       'aug-cc-pvqz','aug-cc-pv5z','mar-cc-pv5z','apr-cc-pvqz','apr-cc-pv5z',&
       'may-cc-pvtz','may-cc-pvqz','may-cc-pv5z','jun-cc-pvdz','jun-cc-pvtz',&
       'jun-cc-pvqz','jun-cc-pv5z')
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = TRIM(basis)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = TRIM(basis)//'/C'
   if(F12) then
    if(basis(1:4) == 'aug-') then
     F12_cabs = TRIM(basis(5:))//'-F12-CABS'
@@ -1840,8 +1835,8 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   i = INDEX(basis, 'wc')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+2:)
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = TRIM(basis)//'/C'
   if(F12) then
    if(basis1(1:4) == 'aug-') then
     F12_cabs = TRIM(basis1(5:))//'-F12-CABS'
@@ -1854,23 +1849,23 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
       'aug-cc-pvqz-pp')
   i = INDEX(basis, '-pp')
   basis1 = basis(1:i-1)
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = TRIM(basis)//'/C'
 
  case('cc-pwcvdz-pp','cc-pwcvtz-pp','cc-pwcvqz-pp','aug-cc-pwcvdz-pp',&
       'aug-cc-pwcvtz-pp','aug-cc-pwcvqz-pp')
   i = INDEX(basis, 'wc'); j = INDEX(basis, '-pp')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+2:j-1)
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = TRIM(basis)//'/C'
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = TRIM(basis)//'/C'
 
  case('cc-pvdz-f12','cc-pvtz-f12','cc-pvqz-f12')
-  if(RIJK_bas == 'NONE') then
+  if(TRIM(RIJK_bas) == 'NONE') then
    i = INDEX(basis, '-f12', back=.true.)
    RIJK_bas = basis(1:i-1)//'/JK'
   end if
-  if(dyn .and. RIC_bas=='NONE') then
+  if(dyn .and. TRIM(RIC_bas)=='NONE') then
    select case(basis)
    case('cc-pvdz-f12')
     RIC_bas = 'cc-pVDZ-F12-MP2Fit'
@@ -1886,8 +1881,8 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
   i = INDEX(basis, 'c'); j = INDEX(basis, '-f12')
   basis1(1:i-1) = basis(1:i-1)
   basis1(i:) = basis(i+1:j-1)
-  if(RIJK_bas == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') then
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = TRIM(basis1)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') then
    select case(basis)
    case('cc-pcvdz-f12')
     RIC_bas = 'cc-pCVDZ-F12-MP2Fit'
@@ -1902,8 +1897,8 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
  case('cc-pvdz-pp-f12','cc-pvtz-pp-f12','cc-pvqz-pp-f12')
   i = INDEX(basis, '-pp')
   j = INDEX(basis, '-f12')
-  if(RIJK_bas == 'NONE') RIJK_bas = basis(1:i-1)//'/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = basis(1:j-1)//'/C'
+  if(TRIM(RIJK_bas) == 'NONE') RIJK_bas = basis(1:i-1)//'/JK'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = basis(1:j-1)//'/C'
   if(F12) F12_cabs = basis(1:i-1)//'-F12-CABS'
 
  case('STO-3G','STO-6G','3-21G','6-31G','6-31G(d)','6-31G*','6-31G(d,p)','6-31G**')
@@ -1914,7 +1909,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
                  &ll continue.'
   write(6,'(A)') REPEAT('-',79)
   RIJK_bas = 'def2/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2SVP/C'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = 'def2-SVP/C'
 
  case('6-311G','6-311G(d)','6-311G*','6-311G(d,p)','6-311G**')
   write(6,'(/,A)') REPEAT('-',79)
@@ -1924,19 +1919,28 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
                  &ll continue.'
   write(6,'(A)') REPEAT('-',79)
   RIJK_bas = 'def2/JK'
-  if(dyn .and. RIC_bas=='NONE') RIC_bas = 'def2TZVP/C'  
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = 'def2-TZVP/C'
 
  case default
-  if(RIJK_bas=='NONE' .or. (dyn .and. RIC_bas=='NONE')) then
-   write(6,'(/,A)') "ERROR in subroutine determine_auxbas: auxiliary basis '/JK&
-                    &' or '/C' cannot"
-   write(6,'(A)') 'be automatically determined. You should provide them in moki&
-                  &t{}.'
-   stop
+  if(TRIM(RIJK_bas) == 'NONE') then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine determine_auxbas: RI-JK auxbas canno&
+                  &t be determined'
+   write(6,'(A)') 'from the orbital basis set. RIJK_bas=def2/JK will be used.'
+   write(6,'(A)') REPEAT('-',79)
+   RIJK_bas = 'def2/JK'
+  end if
+  if(dyn .and. TRIM(RIC_bas)=='NONE') then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine determine_auxbas: RIC auxbas cannot &
+                  &be determined'
+   write(6,'(A)') 'from the orbital basis set. RIC_bas=def2-TZVP/C will be used.'
+   write(6,'(A)') REPEAT('-',79)
+   RIC_bas = 'def2-TZVP/C'
   end if
  end select
 
- if(F12 .and. F12_cabs=='NONE') then
+ if(F12 .and. TRIM(F12_cabs)=='NONE') then
   write(6,'(/,A)') 'ERROR in subroutine determine_auxbas: near-complete auxilia&
                    &ry basis set for'
   write(6,'(A)') "F12 calculations '-CABS' cannot be automatically determined. &

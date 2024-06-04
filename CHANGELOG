@@ -1,5 +1,8 @@
-MOKIT 1.2.6 (May 25, 2024)
+MOKIT 1.2.6 (Jun 4, 2024)
 ------------------------
+* improvement of RIJK_bas and RIC_bas settings
+* fix bug (data out of range) in find_cos_quartic_poly_maximum
+* fix bug ("two successive SP/L") in mkl2fch and molden2fch
 * add utility amo2fch for Amesp->Gaussian
 * update dat2fch to generate a .fch file from scratch
 * standardize some subroutines to _from_dat and _from_gms_inp

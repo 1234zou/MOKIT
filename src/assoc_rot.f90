@@ -2,7 +2,7 @@
 
 module polyn_info
  implicit none
- real(kind=8), parameter :: zero = 1d-8
+ real(kind=8), parameter :: zero = 1d-9
  real(kind=8), parameter :: alpha = 0.01d0
  real(kind=8), parameter :: threshold1 = 1d-9, threshold2 = 1d-5
 ! threshold1: threshold to decide whether to rotate (and update MOs, dipole integrals)
@@ -200,7 +200,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
 !f2py depend(nbf,nif) :: new_coeff
  real(kind=8), intent(in) :: mo_dipole(3,nif,nif) ! MO basis dipole integrals
 !f2py intent(in) :: mo_dipole
-!f2py depend(nif) mo_dipole
+!f2py depend(nif) :: mo_dipole
  real(kind=8) :: increase, vt(3,6), motmp(nbf,2), sin_2t, cos_2t
  real(kind=8) :: Aij, Bij, Cij, Dij, cos_theta, sin_theta, cc, ss
  real(kind=8), allocatable :: diptmp(:,:)
@@ -249,10 +249,11 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
     end if
 
     Aij = 0.5d0*Aij
-    call find_cos_quartic_poly_maximum(Aij, Bij, Cij, Dij, cos_theta, sin_theta, cc)
+    call find_cos_quartic_poly_maximum(Aij,Bij,Cij,Dij,cos_theta,sin_theta,cc)
+    if(cc < threshold1) cycle
+    ! if the function change is too tiny, not to rotate, no matter what are cos_x
+    ! or sin_x
     increase = increase + cc
-    if(DABS(1d0-cos_theta) < threshold1) cycle
-    ! if theta is very close to 0, not to rotate
 
     ! update two orbitals
     motmp(:,1) = new_coeff(:,rot1+i)
@@ -318,25 +319,35 @@ subroutine find_cos_quartic_poly_maximum(a, b, c, d, cos_x, sin_x, y)
  real(kind=8), intent(in) :: a, b, c, d
  real(kind=8), intent(out) :: cos_x, sin_x, y
 
- sin_x = 0d0; cos_x = 1d0; y = 0d0 ! initialization
+ cos_x = 1d0; sin_x = 0d0; y = 0d0 ! initialization
 
  ! f'(x)=0 => -2Asin2x - 2Bcos2x - 4Csin4x - 4Dcos4x = 0
  !        i.e.  Asin2x + Bcos2x + 2Csin4x + 2Dcos4x = 0
- ! let t = cos2x, we can obtain the folowing equation
+ ! Let t = cos2x, we can obtain the folowing equation
  ! 16(C^2+D^2)t^4 + 8(AC+BD)t^3 + (A^2+B^2-16C^2-16D^2)t^2 - 4(2AC+BD)t +
  ! 4D^2-A^2 = 0
+ ! Note here -1 <= t <= 1
  a1 = 16d0*(c*c + d*d)
  b1 = 8d0*(a*c + b*d)
  c1 = a*a + b*b - a1
  d1 = -4d0*(2d0*a*c + b*d)
  e1 = 4d0*d*d - a*a
  call general_quartic_solver(a1, b1, c1, d1, e1, nroot, root)
+ ! The obtained roots are in ascending order
+
+ ! This quartic equation may have some root beyond [-1,1], which should be discarded
+ call discard_root(nroot, root)
+
+ y = -(2d0*DABS(A) + DABS(B) + 2d0*DABS(C) + DABS(D))
+ ! a negative value which is definitely < f(x)_min
 
  do i = 1, nroot, 1
-  c2 = root(i)          ! cos2x
-  c22 = c2*c2           ! (cos2x)^2
-  c4 = 2d0*c22 - 1d0    ! cos4x
-  s2 = DSQRT(1d0 - c22) ! sin2x
+  ! It is possible that c2 is slightly larger thant 1.0 due to numerical error,
+  ! so we need MIN() and MAX() here.
+  c2 = MAX(-1d0, MIN(root(i),1d0)) ! cos2x
+  c22 = c2*c2                      ! (cos2x)^2
+  c4 = 2d0*c22 - 1d0               ! cos4x
+  s2 = DSQRT(1d0 - c22)            ! sin2x
   ! determine the sign of sin2x
   y1 = 2d0*d - 4d0*d*c22 - b*c2
   y2 = a + 4d0*c*c2
@@ -365,8 +376,8 @@ subroutine general_quartic_solver(a, b, c, d, e, nroot, root)
  integer, intent(out) :: nroot
  real(kind=8), intent(in) :: a, b, c, d, e
  real(kind=8), intent(out) :: root(4)
- real(kind=8) :: b_a, c_a, d_a, e_a, a_c, b_c, c_c, d_c, root_c(3), y
- real(kind=8) :: a_p, b_p, c_p, a_q1, b_q1, b_q2, c_q1, c_q2
+ real(kind=8) :: b_a, c_a, d_a, e_a, b_c, c_c, d_c, root_c(3), y
+ real(kind=8) :: a_p, b_p, c_p, b_q1, b_q2, c_q1, c_q2
  real(kind=8) :: root_q1(2), root_q2(2), temp_value(4), tmpv
  logical :: alive(4)
 
@@ -388,20 +399,24 @@ subroutine general_quartic_solver(a, b, c, d, e, nroot, root)
 
  ! coefficient transformation and solve a cubic equation
  b_a = b/a ; c_a = c/a ; d_a = d/a ; e_a = e/a
- a_c = 1d0
  b_c = -c_a
  c_c = b_a*d_a - 4d0*e_a
  d_c = 4d0*c_a*e_a - d_a*d_a - b_a*b_a*e_a
- call general_cubic_solver(a_c, b_c, c_c, d_c, nroot_c, root_c)
+ call general_cubic_solver(1d0, b_c, c_c, d_c, nroot_c, root_c)
  y = root_c(1)
  ! done transform and solve cubic
+
+ ! The cubic equation above may have multiple solutions, but only one non-zero
+ ! root is needed. We are looking for a proper transformation, not for real
+ ! roots of the original quartic equation. Such transformation may be more than
+ ! 1, but only one is needed.
 
  ! coefficient transformation and solve two quadratic equations
  a_p = 0.25d0*b_a*b_a - c_a + y
  b_p = 0.5d0*b_a*y - d_a
  alive = .false.
- if(a_p<zero .and. a_p>-zero) alive(1) = .true.
- if(b_p<zero .and. b_p>-zero) alive(2) = .true.
+ if(DABS(a_p) < zero) alive(1) = .true.
+ if(DABS(b_p) < zero) alive(2) = .true.
 
  if(alive(1) .and. alive(2)) then ! a_p = b_p = 0
   c_p = 0.25d0*y*y-e
@@ -426,18 +441,18 @@ subroutine general_quartic_solver(a, b, c, d, e, nroot, root)
   root(4) = -root(3)
   root = 0.25d0*(root - b_a)
  else
-  ! a_p /= 0 and b_p /= 0
-  a_q1 = 1d0
+  ! a_p /= 0 or b_p /= 0
   temp_value(1) = DSQRT(DABS(a_p))
-  temp_value(2) = 0.5d0*b_p*temp_value(1)/a_p
+  temp_value(2) = DSQRT(DABS(0.25d0*y*y - e_a))
+  if(b_p < 0d0) temp_value(2) = -temp_value(2)
   temp_value(3) = 0.5d0*b_a
   temp_value(4) = 0.5d0*y
   b_q1 = temp_value(3) - temp_value(1)
   b_q2 = temp_value(3) + temp_value(1)
   c_q1 = temp_value(4) - temp_value(2)
   c_q2 = temp_value(4) + temp_value(2)
-  call general_quadratic_solver(a_q1, b_q1, c_q1, nroot_q1, root_q1)
-  call general_quadratic_solver(a_q1, b_q2, c_q2, nroot_q2, root_q2)
+  call general_quadratic_solver(1d0, b_q1, c_q1, nroot_q1, root_q1)
+  call general_quadratic_solver(1d0, b_q2, c_q2, nroot_q2, root_q2)
   ! done transform and solve quadratic
   ! combine all roots
   nroot = nroot_q1 + nroot_q2
@@ -518,7 +533,7 @@ subroutine general_cubic_solver(a, b, c, d, nroot, root)
   if(p > 0d0) p = 0d0
   nroot = 3
   cos_theta = -0.5d0*q*DSQRT(-27d0*p)/(p*p)
-  cos_theta = min(max(-1d0,cos_theta),1d0) ! in case of value >1 or <-1
+  cos_theta = MIN(MAX(-1d0,cos_theta),1d0) ! in case of value >1 or <-1
   theta = DACOS(cos_theta)/3
   q = 2d0*DSQRT(-p/3d0)
   cos_theta = 2d0*PI/3d0
@@ -675,4 +690,41 @@ subroutine sort_darray(n, a)
   end do ! for j
  end do ! for i
 end subroutine sort_darray
+
+! discard elements which are beyond the range [-1,1] in a real(kind=8) array
+subroutine discard_root(n, root)
+ use polyn_info, only: zero
+ implicit none
+ integer :: i, j, k
+ integer, intent(inout) :: n
+ real(kind=8), intent(inout) :: root(n)
+ real(kind=8), allocatable :: root1(:)
+ logical, allocatable :: del(:)
+
+ allocate(del(n))
+ del = .false.
+ ! use a threshold zero, not simply root(i)<-1d0, root(i)>1d0
+ do i = 1, n, 1
+  if(root(i)+1d0<-zero .or. root(i)-1d0>zero) del(i) = .true.
+ end do ! for i
+
+ k = COUNT(del .eqv. .true.)
+ if(k == 0) then
+  deallocate(del)
+  return
+ end if
+
+ allocate(root1(n-k))
+ j = 0
+ do i = 1, n, 1
+  if(.not. del(i)) then
+   j = j + 1
+   root1(j) = root(i)
+  end if
+ end do ! for i
+
+ n = n - k
+ root(1:n) = root1
+ deallocate(del, root1)
+end subroutine discard_root
 

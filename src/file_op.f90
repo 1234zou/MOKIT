@@ -168,6 +168,39 @@ subroutine copy_file_from_a_path(path, fname)
  call sys_copy_file(TRIM(buf), TRIM(fname), .false.)
 end subroutine copy_file_from_a_path
 
+! move a file into a specified directory
+subroutine move_file(fname, dirname)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=*), intent(in) :: fname, dirname
+
+#ifdef _WIN32
+ i = SYSTEM('move '//TRIM(fname)//' '//TRIM(dirname)//'\')
+#else
+ i = SYSTEM('mv '//TRIM(fname)//' '//TRIM(dirname)//'/')
+#endif
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine move_file: failed to move file to the s&
+                   &pecified directory.'
+  write(6,'(A)') 'fname='//TRIM(fname)
+  write(6,'(A)') 'dirname='//TRIM(dirname)
+  stop
+ end if
+end subroutine move_file
+
+! move several files into a specified directory
+subroutine move_files(n, fname, dirname)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ character(len=240), intent(in) :: fname(n), dirname
+
+ do i = 1, n, 1
+  call move_file(TRIM(fname(i)), TRIM(dirname))
+ end do ! for i
+end subroutine move_files
+
 ! create a directory
 subroutine create_dir(dirname)
  implicit none

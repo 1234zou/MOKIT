@@ -407,7 +407,7 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
  real(kind=8), intent(out) :: new_coeff(nbf,nif)
 !f2py intent(out) :: new_coeff
 !f2py depend(nbf,nif) :: new_coeff
- real(kind=8) :: ddot, rtmp
+ real(kind=8) :: ddot
  real(kind=8), allocatable :: gross(:,:,:), SC(:,:), rootS(:,:), e(:), ev(:,:), work(:)
  ! gross: gross population of an orthonormalized MO, (natom,nif,nif)
  ! SC: MATMUL(S,C)
@@ -458,31 +458,27 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
   bfirst(i) = bfirst(i) + bfirst(i-1)
  end do ! for i
 
- if(pop == 'mulliken') then
+ select case(TRIM(pop))
+ case('mulliken')
   allocate(SC(nbf,nif), source=0d0)
   call dsymm('L', 'L', nbf, nif, 1d0, S, nbf, coeff, nbf, 0d0, SC, nbf)
-  allocate(gross(natom,nif,nif), source=0d0)
+  allocate(gross(natom,nif,nif))
  
   do i = 1, nif, 1
    do j = i, nif, 1
     do k = 1, natom, 1
-     i1 = bfirst(k); i2 = bfirst(k+1)-1; i3 = bfirst(k+1)-bfirst(k)
-     rtmp = ddot(i3, coeff(i1:i2,i), 1, SC(i1:i2,j), 1) + &
-            ddot(i3, coeff(i1:i2,j), 1, SC(i1:i2,i), 1)
- 
-     rtmp = 0.5d0*rtmp
-     gross(k,j,i) = rtmp
-     gross(k,i,j) = rtmp
+     i1 = bfirst(k); i2 = bfirst(k+1) - 1
+     i3 = i2 - i1 + 1
+     gross(k,j,i) = ddot(i3, coeff(i1:i2,i), 1, SC(i1:i2,j), 1) + &
+                    ddot(i3, coeff(i1:i2,j), 1, SC(i1:i2,i), 1)
+     gross(k,j,i) = 0.5d0*gross(k,j,i)
     end do ! for k
    end do ! for j
   end do ! for i
 
- else if(pop == 'lowdin') then
+ case('lowdin')
   allocate(e(nbf), ev(nbf, nbf), isuppz(2*nbf))
   allocate(SC(nbf,nbf), source=S) ! use SC to temporarily store S
-
-  ! call dsyevr(jobz, range, uplo, n, a, lda, vl, vu, il, iu, abstol, m, w, z,
-  ! ldz, isuppz, work, lwork, iwork, liwork, info)
   lwork = -1
   liwork = -1
   allocate(work(1), iwork(1))
@@ -497,35 +493,34 @@ subroutine pm(nshl, shl2atm, ang, ibas, cart, nbf, nif, coeff, S, pop, new_coeff
   deallocate(SC, isuppz, work, iwork)
 
   allocate(rootS(nbf,nbf), source=0d0)
-  forall(i=1:nbf) rootS(i,i) = DSQRT(DABS(e(i)))
+  forall(i = 1:nbf) rootS(i,i) = DSQRT(DABS(e(i)))
   deallocate(e)
-  allocate(SC(nbf,nbf)) ! use SC to temporarily store US^1/2
+  allocate(SC(nbf,nbf), source=0d0) ! use SC to temporarily store US^1/2
   call dsymm('R', 'L', nbf, nbf, 1d0, rootS, nbf, ev, nbf, 0d0, SC, nbf)
   call dgemm('N', 'T', nbf, nbf, nbf, 1d0, SC, nbf, ev, nbf, 0d0, rootS, nbf)
   deallocate(ev, SC)
   allocate(SC(nbf,nif), source=0d0) ! use SC to temporarily store (S^-1/2)C
   call dsymm('L', 'L', nbf, nif, 1d0, rootS, nbf, coeff, nbf, 0d0, SC, nbf)
   deallocate(rootS)
-
-  allocate(gross(natom,nif,nif), source=0d0)
+  allocate(gross(natom,nif,nif))
 
   do i = 1, nif, 1
    do j = i, nif, 1
     do k = 1, natom, 1
-     i1 = bfirst(k); i2 = bfirst(k+1)-1; i3 = bfirst(k+1)-bfirst(k)
-     rtmp = ddot(i3, SC(i1:i2,i), 1, SC(i1:i2,j), 1)
-     gross(k,j,i) = rtmp
-     gross(k,i,j) = rtmp
+     i1 = bfirst(k); i2 = bfirst(k+1)-1
+     i3 = i2 - i1 + 1
+     gross(k,j,i) = ddot(i3, SC(i1:i2,i), 1, SC(i1:i2,j), 1)
     end do ! for k
    end do ! for j
   end do ! for i
 
- else
+ case default
   write(6,'(/,A)') 'ERROR in subroutine pm: wrong population method provided.'
   write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input pop="//pop
   stop
- end if
+ end select
 
+ forall(i=1:nif,j=1:nif,k=1:natom, (j>i)) gross(k,i,j) = gross(k,j,i)
  deallocate(bfirst, SC)
 
  call serial2by2(nbf, nif, new_coeff, natom, gross)
@@ -634,7 +629,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
  if(niter <= niter_max) then
   write(6,'(A)') 'Orbital localization converged successfully.'
  else
-  write(6,'(A)') 'ERROR in subroutine serial2by2: niter_max exceeded.'
+  write(6,'(/,A)') 'ERROR in subroutine serial2by2: niter_max exceeded.'
   write(6,'(A,I0)') 'niter_max=', niter_max
   stop
  end if

@@ -592,14 +592,15 @@ end subroutine prt_mrpt_bdf_inp
 ! print NEVPT2 keywords in to a given ORCA .inp file
 subroutine prt_nevpt2_orca_inp(inpname)
  use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, F12, F12_cabs, &
-  FIC, DLPNO, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, RIC_bas, F12, &
+  F12_cabs, FIC, DLPNO, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
+ i =  LEN_TRIM(inpname)
+ inpname1 = inpname(1:i-4)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -612,18 +613,17 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A)',advance='no') '!'
  if(CIonly) write(fid2,'(A)',advance='no') ' noiter'
  if(RI) then
-  ! RIJK in CASSCF must be combined with CONVentional
-  ! /C basis set cannot be used with /JK in CASSCF
-  write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
+  write(fid2,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
  end if
- if(F12) write(fid2,'(A)',advance='no') ' '//TRIM(F12_cabs)
  if(DLPNO) write(fid2,'(A)',advance='no') ' TightPNO'
+ if(F12) write(fid2,'(A)',advance='no') ' '//TRIM(F12_cabs)
  write(fid2,'(A)') ' TightSCF'
 
  if(X2C) then
   write(6,'(/,A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C is&
-                   & not supported in ORCA.'
-  write(6,'(A)') 'You can specify NEVPT2_prog=Molpro/OpenMolcas.'
+                   & not supported in'
+  write(6,'(A)') 'ORCA currently. You can specify NEVPT2_prog=Molpro/OpenMolcas&
+                 &.'
   stop
  end if
 
@@ -667,7 +667,7 @@ end subroutine prt_nevpt2_orca_inp
 subroutine prt_caspt2_orca_inp(inpname)
  use mol, only: nacte, nacto
  use mr_keyword, only: mem, nproc, caspt2k, X2C, CIonly, RI, RIJK_bas, &
-  hardwfn, crazywfn
+  RIC_bas, hardwfn, crazywfn
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -686,9 +686,7 @@ subroutine prt_caspt2_orca_inp(inpname)
  write(fid2,'(A)',advance='no') '!'
  if(CIonly) write(fid2,'(A)',advance='no') ' noiter'
  if(RI) then
-  ! RIJK in CASSCF must be combined with CONVentional
-  ! /C basis set cannot be used with /JK in CASSCF
-  write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
+  write(fid2,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
  end if
  write(fid2,'(A)') ' TightSCF'
 

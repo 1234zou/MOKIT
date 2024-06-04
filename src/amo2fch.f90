@@ -156,7 +156,8 @@ subroutine gen_fch_from_amo(amoname, fchname)
  use mkl_content, only: natom1=>natom, ncontr1=>ncontr,shell_type1=>shell_type,&
   shl2atm1=>shl2atm, elem1=>elem, all_pg, read_all_pg_from_amo, &
   un_normalized_all_pg, merge_s_and_p_into_sp
- integer :: necpatm
+ implicit none
+ integer :: i, necpatm
  integer :: ntype ! the number of types of atoms, e.g. 2 for H2O
  integer, allocatable :: ielem0(:)
  character(len=240), intent(in) :: amoname, fchname

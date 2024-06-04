@@ -110,7 +110,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
 
  call read_nif_from_fch(fchname, nif)
 
- if(nif == nbf) then     ! no linear dependence
+ if(nif == nbf) then ! no linear dependence
   allocate(mo(nbf,nbf))
   call read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
   if(success) call solve_ovlp_from_cct(nbf, mo, S)
@@ -370,6 +370,7 @@ end subroutine get_gau_path
 subroutine get_orca_path(orca_path)
  implicit none
  integer :: i, fid, SYSTEM
+ character(len=10), parameter :: fname = 'mokit.orca'
  character(len=240), intent(out) :: orca_path
 
  orca_path = ' '
@@ -377,9 +378,9 @@ subroutine get_orca_path(orca_path)
  ! on the current machine, the content 'which: no orca in...' will be printed
  ! into the automr output file, so I change it to the original version, simply
  ! `which orca`
- i = SYSTEM("which orca >mokit.orca 2>&1")
+ i = SYSTEM('which orca >'//fname//" 2>&1")
 
- open(newunit=fid,file='mokit.orca',status='old',position='rewind')
+ open(newunit=fid,file=fname,status='old',position='rewind')
  read(fid,'(A)',iostat=i) orca_path
  close(fid,status='delete')
 
@@ -393,6 +394,30 @@ subroutine get_orca_path(orca_path)
   end if
  end if
 end subroutine get_orca_path
+
+! find the path of the utility orca_2mkl
+subroutine get_orca_2mkl_path(orca_2mkl_path)
+ implicit none
+ integer :: i, fid, SYSTEM
+ character(len=15), parameter :: fname = 'mokit.orca_2mkl'
+ character(len=240), intent(out) :: orca_2mkl_path
+
+ orca_2mkl_path = ' '
+ i = SYSTEM('which orca_2mkl >'//fname//" 2>&1")
+ open(newunit=fid,file=fname,status='old',position='rewind')
+ read(fid,'(A)',iostat=i) orca_2mkl_path
+ close(fid,status='delete')
+
+ if(i /= 0) then
+  orca_2mkl_path = 'NOT FOUND'
+ else
+  if(LEN_TRIM(orca_2mkl_path) == 0) then
+   orca_2mkl_path = 'NOT FOUND'
+  else if(INDEX(orca_2mkl_path,'no orca') > 0) then
+   orca_2mkl_path = 'NOT FOUND'
+  end if
+ end if
+end subroutine get_orca_2mkl_path
 
 ! calculate the total number of electrons using total density in a .fch file
 subroutine get_ne_from_fch(fchname)

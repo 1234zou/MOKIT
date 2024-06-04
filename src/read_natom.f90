@@ -117,8 +117,10 @@ subroutine read_natom_from_fch(fchname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  natom = 0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')

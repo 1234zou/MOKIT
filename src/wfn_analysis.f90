@@ -31,43 +31,6 @@ module population
 
 contains
 
-! get integer array bfirst (the beginning index of basis func. of each atom)
-subroutine get_bfirst()
- implicit none
- integer :: i, j
- integer, allocatable :: ang0(:)
-
- if( ANY(shltyp>1) ) then
-  cart = .true. ! 6D 10F
- else
-  cart = .false. ! 5D 7F
- end if
-
- allocate(ang0(ncontr), source=0)
- if(cart) then
-  forall(i = 1:ncontr) ang0(i) = (shltyp(i)+1)*(shltyp(i)+2)/2
- else
-  where(shltyp == -1)
-   ang0 = 4
-  elsewhere
-   ang0 = 2*IABS(shltyp) + 1
-  end where
- end if
-
- bfirst = 0; bfirst(1) = 1
-
- do i = 1, ncontr, 1
-  j = shl2atm(i) + 1
-  bfirst(j) = bfirst(j) + ang0(i)
- end do ! for i
-
- deallocate(ang0)
-
- do i = 2, natom+1, 1
-  bfirst(i) = bfirst(i) + bfirst(i-1)
- end do ! for i
-end subroutine get_bfirst
-
 ! initialize arrays shell_type, shell2atom and bfirst
 subroutine init_shltyp_shl2atm_bfirst(fchname)
  implicit none
@@ -79,7 +42,7 @@ subroutine init_shltyp_shl2atm_bfirst(fchname)
 
  natom = shl2atm(ncontr)
  allocate(bfirst(natom+1))
- call get_bfirst()
+ call get_bfirst(ncontr, shltyp, shl2atm, natom, bfirst)
  deallocate(shltyp, shl2atm)
 end subroutine init_shltyp_shl2atm_bfirst
 
@@ -211,6 +174,7 @@ subroutine get_gvb_bond_order_from_fch(fchname)
  character(len=20) :: str
  character(len=240) :: datname
  character(len=240), intent(in) :: fchname
+!f2py itnent(in) :: fchname
 
  i = INDEX(fchname, '.fch', back=.true.)
  datname = fchname(1:i-1)//'.dat'
@@ -287,6 +251,284 @@ end subroutine get_gvb_bond_order_from_fch
 
 end module population
 
+! get integer array bfirst (the beginning index of basis func. of each atom)
+subroutine get_bfirst(ncontr, shltyp, shl2atm, natom, bfirst)
+ implicit none
+ integer :: i, j
+ integer, allocatable :: ang0(:)
+ integer, intent(in) :: ncontr, natom
+ integer, intent(in) :: shltyp(ncontr), shl2atm(ncontr)
+ integer, intent(out) :: bfirst(natom+1)
+ logical :: cart
+
+ bfirst = 0; cart = .false.
+ if( ANY(shltyp>1) ) cart = .true. ! 6D 10F
+
+ allocate(ang0(ncontr), source=0)
+ if(cart) then
+  forall(i = 1:ncontr) ang0(i) = (shltyp(i)+1)*(shltyp(i)+2)/2
+ else
+  where(shltyp == -1)
+   ang0 = 4
+  elsewhere
+   ang0 = 2*IABS(shltyp) + 1
+  end where
+ end if
+
+ bfirst = 0; bfirst(1) = 1
+
+ do i = 1, ncontr, 1
+  j = shl2atm(i) + 1
+  bfirst(j) = bfirst(j) + ang0(i)
+ end do ! for i
+
+ deallocate(ang0)
+
+ do i = 2, natom+1, 1
+  bfirst(i) = bfirst(i) + bfirst(i-1)
+ end do ! for i
+end subroutine get_bfirst
+
+! get the integer array bfirst from a specified .fch file
+subroutine get_bfirst_from_fch(fchname, natom, bfirst)
+ implicit none
+ integer :: ncontr
+ integer, intent(in) :: natom
+ integer, intent(out) :: bfirst(natom+1)
+ integer, allocatable :: shltyp(:) , shl2atm(:)
+ character(len=240), intent(in) :: fchname
+
+ call read_ncontr_from_fch(fchname, ncontr)
+ allocate(shltyp(ncontr), shl2atm(ncontr))
+ call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)
+
+ call get_bfirst(ncontr, shltyp, shl2atm, natom, bfirst)
+ deallocate(shltyp, shl2atm)
+end subroutine get_bfirst_from_fch
+
+! perform Mulliken gross population analysis based on provided density matrix
+subroutine mulliken_pop_of_dm(natom, bfirst, nbf, P, S, gross)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: natom, nbf
+ integer, intent(in) :: bfirst(natom+1)
+ ! bfirst: the beginning index of basis func. of each atom
+ real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+ real(kind=8) :: rtmp, ddot
+ real(kind=8), intent(out) :: gross(natom)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,rtmp)
+ do i = 1, natom, 1
+  rtmp = 0d0
+  do j = bfirst(i), bfirst(i+1)-1, 1
+   rtmp = rtmp + ddot(nbf, P(j,:), 1, S(:,j), 1)
+  end do ! for j
+  gross(i) = rtmp
+ end do ! for i
+!$omp end parallel do
+end subroutine mulliken_pop_of_dm
+
+! Rotate one pair of occ/vir orbitals each time, to make the Mulliken gross
+! populations match the given gross populations.
+subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
+                                 gross0, new_mo)
+ implicit none
+ integer :: i, j, a, u, v, niter
+ integer, parameter :: niter_max = 999
+ integer, intent(in) :: nocc, nbf, nif, natom
+ integer, intent(in) :: bfirst(natom+1)
+ real(kind=8) :: decr, r1, r2, H, II, JJ, KK, cos_t, sin_t, y, ddot
+ real(kind=8), intent(in) :: mo(nbf,nif), ovlp(nbf,nbf), gross0(natom)
+ real(kind=8), intent(out) :: new_mo(nbf,nif)
+ real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-6
+ real(kind=8), allocatable :: dm(:,:), gross(:), B(:,:), D(:,:), E(:),&
+  F(:), G(:), ri(:), ra(:)
+
+ new_mo = mo
+ allocate(dm(nbf,nbf))
+ dm = 2d0*MATMUL(mo(:,1:nocc), TRANSPOSE(mo(:,1:nocc)))
+ allocate(gross(natom))
+ call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
+ write(6,'(/,A)') 'Initial gross populations:'
+ write(6,'(5(1X,ES15.8))') gross
+
+ allocate(E(natom))
+ E = gross - gross0
+ y = DSQRT(ddot(natom, E, 1, E, 1))
+ if(y < threshold2) then
+  write(6,'(/,A)') 'Initial gross populations already equal to target ones.'
+!  deallocate(dm, gross, E)
+!  return
+ end if
+
+ allocate(B(nbf,nbf), D(nbf,nbf), F(natom), G(natom), ri(nbf), ra(nbf))
+
+ ! perform 2*2 rotation
+ niter = 0
+ do while(niter <= niter_max)
+  decr = 0d0
+
+  do a = nocc+1, nif, 1
+   do i = 2, nocc, 1
+    forall(u=1:nbf,v=1:nbf)
+     B(u,v) = new_mo(u,a)*new_mo(v,a) - new_mo(u,i)*new_mo(v,i)
+     D(u,v) = 2d0*(new_mo(u,i)*new_mo(v,a) + new_mo(u,a)*new_mo(v,i))
+    end forall
+
+    do j = 1, natom, 1
+     r1 = 0d0; r2 = 0d0
+     do u = bfirst(j), bfirst(j+1)-1, 1
+      r1 = r1 + ddot(nbf, B(u,:), 1, ovlp(:,u), 1)
+      r2 = r2 + ddot(nbf, D(u,:), 1, ovlp(:,u), 1)
+     end do ! for u
+     E(j) = r1; F(j) = r2
+    end do ! for j
+
+    G = E + gross - gross0
+    H = 2d0*ddot(natom, E, 1, G, 1)
+    II = -2d0*ddot(natom, F, 1, G, 1)
+    JJ = 0.5d0*(ddot(natom, F, 1, F, 1) - ddot(natom, E, 1, E, 1))
+    KK = ddot(natom, E, 1, F, 1)
+    ! this subroutine finds the maximum of function
+    ! f(x) = Acos2x - Bsin2x + Ccos4x - Dsin4x - A - C
+    call find_cos_quartic_poly_maximum(H, II, JJ, KK, cos_t, sin_t, y)
+    ! if the change of the function value is too tiny, no need to rotate
+    if(y < threshold1) cycle
+
+    decr = decr + y
+    ri = new_mo(:,i); ra = new_mo(:,a)
+    new_mo(:,i) = cos_t*ri - sin_t*ra
+    new_mo(:,a) = sin_t*ri + cos_t*ra
+    dm = 2d0*MATMUL(new_mo(:,1:nocc), TRANSPOSE(new_mo(:,1:nocc)))
+    call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
+   end do ! for a
+  end do ! for i
+
+  niter = niter + 1
+  write(6,'(A,I3,A,F13.8)') 'niter=', niter, ', decrease=', decr
+  if(decr < threshold2) exit
+ end do ! for while
+
+ deallocate(B, D, E, F, G, ri, ra)
+ if(niter <= niter_max) then
+  write(6,'(A)') 'Rotations converged successfully.'
+ else
+  write(6,'(A,I5)') 'niter_max=', niter_max
+  write(6,'(A)') 'Rotations failed to converge.'
+ end if
+
+ dm = 2d0*MATMUL(new_mo(:,1:nocc), TRANSPOSE(new_mo(:,1:nocc)))
+ call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
+ write(6,'(/,A)') 'Final gross populations:'
+ write(6,'(5(1X,ES15.8))') gross
+ deallocate(dm, gross)
+end subroutine rot_mo2match_mull_pop
+
+! read Mulliken gross populations from a specified .fch file
+subroutine read_mull_gross_pop_from_fch(fchname, natom, gross)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: gross(natom)
+!f2py intent(out) :: gross
+!f2py depend(natom) :: gross
+ real(kind=8), allocatable :: eff_nuc(:)
+ character(len=10) :: buf
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ gross = 0d0
+ allocate(eff_nuc(natom), source=0d0)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'Nuclear ch') exit
+ end do ! for i
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mull_gross_pop_from_fch: 'Nuclear &
+                   &ch' not found in"
+  write(6,'(A)') 'file '//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) eff_nuc
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'Mulliken C') exit
+ end do ! for i
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mull_gross_pop_from_fch: 'Mulliken&
+                   & C' not found"
+  write(6,'(A)') 'in file '//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) gross ! Mulliken charges
+ close(fid)
+
+ gross = eff_nuc - gross ! effect nuclear charges considered
+ ! Be careful about the sign of gross. The electrons possess negative charges.
+ ! The gross is usually taken as positive. -gross contain the electric charges
+ ! of each atom. eff_nuc-gross contain the atomic partial charges.
+ deallocate(eff_nuc)
+end subroutine read_mull_gross_pop_from_fch
+
+subroutine solve_mo_from_mull_pop(fchname, natom, gross0)
+ implicit none
+ integer :: i, nbf, nif, na, nb
+ integer, allocatable :: bfirst(:)
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), allocatable :: mo(:,:), new_mo(:,:), ovlp(:,:)
+ real(kind=8), intent(in) :: gross0(natom)
+!f2py intent(in) :: gross0
+!f2py depend(natom) :: gross0
+ character(len=240) :: new_fch
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call find_specified_suffix(fchname, '.fch', i)
+ new_fch = fchname(1:i-1)//'_new.fch'
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ if(na /= nb) then
+  write(6,'(/,A)') 'ERROR in subroutine solve_mo_from_mull_pop: currently only &
+                   &the closed-shell'
+  write(6,'(A)') 'system is supported.'
+  stop
+ end if
+
+ allocate(bfirst(natom+1))
+ call get_bfirst_from_fch(fchname, natom, bfirst)
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+
+ allocate(ovlp(nbf,nbf))
+ call get_ao_ovlp_using_fch(fchname, nbf, ovlp)
+
+ write(6,'(A)') 'Target gross populations:'
+ write(6,'(5(1X,ES15.8))') gross0
+
+ allocate(new_mo(nbf,nif))
+ call rot_mo2match_mull_pop(na,nbf,nif,natom, bfirst, mo, ovlp, gross0, new_mo)
+ deallocate(bfirst, mo, ovlp)
+
+ call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ call write_mo_into_fch(new_fch, nbf, nif, 'a', new_mo)
+ deallocate(new_mo)
+end subroutine solve_mo_from_mull_pop
+ 
 ! calculate the number of unpaired electrons and generate unpaired electron
 ! density .fch file
 ! Note: the input fchname must include natural orbitals and corresponding
@@ -295,12 +537,16 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  implicit none
  integer :: i, j, k, ne, nbf, nif, mult, fid, fid1
  integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
+!f2py intent(in) :: wfn_type
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  real(kind=8) :: t0, t1, y0, y1, upe(3)
  real(kind=8), intent(out) :: unpaired_e
+!f2py intent(out) :: unpaired_e
  real(kind=8), allocatable :: noon(:,:), coeff(:,:), dm(:,:)
  logical, intent(in) :: gen_dm
+!f2py intent(in) :: gen_dm
  ! True/False: generate unpaired/odd electron density or not
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -380,9 +626,12 @@ subroutine calc_unpaired_from_dat(datname, mult, unpaired_e)
  implicit none
  integer :: nopen, npair, nif
  integer, intent(in) :: mult
+!f2py intent(in) ::  mult
  character(len=240), intent(in) :: datname
+!f2py intent(in) :: datname
  real(kind=8) :: upe(3)
  real(kind=8), intent(out) :: unpaired_e
+!f2py intent(out) :: unpaired_e
  real(kind=8), allocatable :: pair_coeff(:,:), noon(:,:)
 
  if(mult < 1) then
@@ -411,8 +660,10 @@ subroutine calc_unpaired_from_gms_out(outname, unpaired_e)
  implicit none
  integer :: ncore, nopen, npair, nif
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
  real(kind=8) :: upe(3)
  real(kind=8), intent(out) :: unpaired_e
+!f2py intent(out) :: unpaired_e
  real(kind=8), allocatable :: pair_coeff(:,:), noon(:,:)
 
  call read_npair_from_gms(outname, ncore, nopen, npair)
@@ -476,8 +727,10 @@ subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
  implicit none
  integer :: i, fid
  integer, intent(out) :: ncore, nopen, npair
+!f2py intent(out) :: ncore, nopen, npair
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
+!f2py intent(in) :: gmsname
 
  ncore = 0; nopen = 0; npair = 0; buf = ' '
  open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
@@ -509,9 +762,12 @@ subroutine read_ci_coeff_from_gms(fname, npair, coeff)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: npair
+!f2py intent(in) :: npair
  character(len=240) :: buf
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
  real(kind=8), intent(out) :: coeff(2,npair)
+!f2py intent(out) :: coeff
 
  buf = ' '; coeff = 0d0
  open(newunit=fid,file=TRIM(fname),status='old',position='append')
