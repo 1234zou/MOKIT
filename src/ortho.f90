@@ -18,14 +18,14 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
  allocate(C_T_S_C(nif,nif))
  call calc_CTSC(nbf, nif, coeff, S, C_T_S_C)
 
- forall(i=1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1d0
+ forall(i = 1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1d0
  C_T_S_C = DABS(C_T_S_C)
 
  i0 = 1; j0 = 1
  maxv = C_T_S_C(1,1)
 
  do i = 1, nif, 1
-  do j = 1, nif, 1
+  do j = i, nif, 1
    if(C_T_S_C(j,i) > maxv) then
     maxv = C_T_S_C(j,i)
     i0 = i; j0 = j

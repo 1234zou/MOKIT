@@ -307,6 +307,7 @@ subroutine read_fch(fchname, uhf)
  deallocate(coor0)
  coor = coor*Bohr_const ! convert Bohr to Anstrom
 
+ ! TODO: PSI4-generated .fch file may not have this section
  ! find and read 'Int Atom Types'
  do while(.true.)
   read(fid,'(A)') buf

@@ -4,7 +4,7 @@ module polyn_info
  implicit none
  real(kind=8), parameter :: zero = 1d-9
  real(kind=8), parameter :: alpha = 0.01d0
- real(kind=8), parameter :: threshold1 = 1d-9, threshold2 = 1d-5
+ real(kind=8), parameter :: threshold1 = 1d-9, threshold2 = 1d-6
 ! threshold1: threshold to decide whether to rotate (and update MOs, dipole integrals)
 ! threshold2: threshold to decide if rotation/localization converged
 end module polyn_info
@@ -19,11 +19,12 @@ subroutine assoc_rot(nbf, nmo, coeff1, lo_coeff1, coeff2, new_coeff2)
 !f2py intent(in) :: nbf, nmo
  integer, allocatable :: ipiv(:)
  real(kind=8) :: coeff1(nbf,nmo), lo_coeff1(nbf,nmo), coeff2(nbf,nmo)
- real(kind=8) :: new_coeff2(nbf,nmo)
 !f2py intent(in,copy) :: coeff1, lo_coeff1
 !f2py intent(in) :: coeff2
+!f2py depend(nbf,nmo) :: coeff1, lo_coeff1, coeff2
+ real(kind=8), intent(out) :: new_coeff2(nbf,nmo)
 !f2py intent(out) :: new_coeff2
-!f2py depend(nbf,nmo) coeff1, lo_coeff1, coeff2, new_coeff2
+!f2py depend(nbf,nmo) :: new_coeff2
 
  ! find the unitary (orthogonal) matrix between coeff1 and lo_coeff1,
  !  where coeff1*U = lo_coeff1
@@ -33,18 +34,14 @@ subroutine assoc_rot(nbf, nmo, coeff1, lo_coeff1, coeff2, new_coeff2)
  deallocate(ipiv)
 
  ! reverse the coeff2
- forall(i = 1:nmo)
-  coeff1(:,i) = coeff2(:,nmo-i+1)
- end forall
+ forall(i = 1:nmo)  coeff1(:,i) = coeff2(:,nmo-i+1)
  coeff2 = coeff1
  ! rotate the coeff2
  new_coeff2 = 0d0
  call dgemm('N', 'N', nbf, nmo, nmo, 1d0, coeff2, nbf, lo_coeff1, nbf, 0d0, &
             new_coeff2, nbf)
  ! reverse the coeff2 again
- forall(i = 1:nmo)
-  coeff1(:,i) = new_coeff2(:,nmo-i+1)
- end forall
+ forall(i = 1:nmo)  coeff1(:,i) = new_coeff2(:,nmo-i+1)
 
  new_coeff2 = coeff1
 end subroutine assoc_rot
@@ -62,7 +59,6 @@ end subroutine assoc_rot
 !    i.e., strart with [0], and [rot1,rot2), [ref1,ref2)
 ! 3) orbitals obtained from this subroutine is delocalized, so I rename this subroutine 
 !    to assoc_loc2 and write a new subroutine assoc_loc
-
 ! perform associated separated localization on a set of MOs
 subroutine assoc_loc2(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
                       new_coeff)
@@ -183,7 +179,7 @@ end subroutine assoc_loc2
 ! rot2: the end index of orbitals to be rotated
 ! coeff: all MO coefficients of a molecule
 ! new_coeff: all MO coefficients with coeff(:,rot1+1:rot2) updated
-! mo_dipole: MO based dipole integrals of all MOs
+! mo_dipole: MO-based dipole integrals of all MOs
 subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
                      new_coeff)
  use polyn_info, only: alpha, threshold1, threshold2
@@ -191,7 +187,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
  integer :: i, j, k, niter, nrot, nref
  integer, intent(in) ::  nbf, nif, ref1, ref2, rot1, rot2
 !f2py intent(in) :: nbf, nif, ref1, ref2, rot1, rot2
- integer, parameter :: niter_max = 10000
+ integer, parameter :: niter_max = 9999
  real(kind=8), intent(in) :: coeff(nbf,nif) ! input orbitals
 !f2py intent(in) :: coeff
 !f2py depend(nbf,nif) :: coeff
@@ -203,13 +199,10 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
 !f2py depend(nif) :: mo_dipole
  real(kind=8) :: increase, vt(3,6), motmp(nbf,2), sin_2t, cos_2t
  real(kind=8) :: Aij, Bij, Cij, Dij, cos_theta, sin_theta, cc, ss
- real(kind=8), allocatable :: diptmp(:,:)
- real(kind=8), allocatable :: r(:,:,:) ! size (3,nref,nrot)
- real(kind=8), allocatable :: d(:,:,:) ! size (3,nrot,nrot)
-
+ real(kind=8), allocatable :: diptmp(:,:), r(:,:,:), d(:,:,:)
+                                      ! (3,nref,nrot) (3,nrot,nrot)
  nrot = rot2 - rot1
  nref = ref2 - ref1
-
  if(nref > nrot) then
   write(6,'(/,A)') 'ERROR in subroutine assoc_loc: the number of reference or&
                    &bitals is larger'
@@ -249,7 +242,7 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
     end if
 
     Aij = 0.5d0*Aij
-    call find_cos_quartic_poly_maximum(Aij,Bij,Cij,Dij,cos_theta,sin_theta,cc)
+    call find_cos_quartic_poly_maximum(Aij,Bij,Cij,Dij,cos_theta,sin_theta, cc)
     if(cc < threshold1) cycle
     ! if the function change is too tiny, not to rotate, no matter what are cos_x
     ! or sin_x
@@ -291,12 +284,13 @@ subroutine assoc_loc(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
      d(:,k,i) = cos_theta*diptmp(:,1) - sin_theta*diptmp(:,2)
      d(:,k,j) = sin_theta*diptmp(:,1) + cos_theta*diptmp(:,2)
     end do ! for k
+
     deallocate(diptmp)
    end do ! for j
   end do ! for i
 
   niter = niter + 1
-  write(6,'(A,I5,A,F13.6)') 'niter=', niter, ', increase=', increase
+  write(6,'(A,I4,A,F13.6)') 'niter=', niter, ', increase=', increase
   if(increase < threshold2) exit
   if(nref == 1) exit
  end do ! for while
@@ -727,4 +721,92 @@ subroutine discard_root(n, root)
  root(1:n) = root1
  deallocate(del, root1)
 end subroutine discard_root
+
+!! build the G matrix, i.e. the two-electron part of the Fock matrix
+!subroutine build_ao_g(nbf, dm, neri, eri, ao_g)
+! implicit none
+! integer :: u, v, l, s, i1, i2, i3, i4
+! integer, intent(in) :: nbf, neri
+! real(kind=8), intent(in) :: dm(nbf,,nbf), eri(neri)
+! real(kind=8), intent(out) :: ao_g(nbf,nbf)
+!
+! do u = 1, nbf, 1
+!  do v = u+1, nbf, 1
+!   i1 = 
+!   ao_g(v,u) = 0d0
+!   do l = 1, nbf, 1
+!    i2 = 
+!    do s = 1, nbf, 1
+!     i3 = 
+!     i4 = 
+!     ao_g(v,u) = ao_g(v,u) + dm(s,l)*(eri(i3)-0.5d0*eri(i4))
+!    end do ! for s
+!   end do ! for l
+!   ao_g(u,v) = ao_g(v,u)
+!  end do ! for v
+! end do ! for u
+!end subroutine build_ao_g
+!
+!! RHF orbital optimization using the Jacobian 2-by-2 rotation method
+!subroutine jacob22_rhf(ndb, nbf, nif, neri, hcore, eri, mo, new_mo)
+! implicit none
+! integer :: i, a, ap, nvir
+! integer, intent(in) :: ndb, nbf, nif, neri
+!!f2py intent(in) :: ndb, nbf, nif, neri
+! real(kind=8) :: cos_t, sin_t, y
+! real(kind=8), parameter :: inc_thres = 1d-10
+! real(kind=8), intent(in) :: hcore(nbf,nbf), eri(neri), mo(nbf,nif)
+!!f2py intent(in) :: hcore, eri, mo
+!!f2py depend(nbf) :: hcore
+!!f2py depend(nbf,nif) :: mo
+!!f2py depend(neri) :: eri
+! real(kind=8), intent(out) :: new_mo(nbf,nif)
+!!f2py intent(out) :: new_mo
+!!f2py depend(nbf,nif) :: new_mo
+! real(kind=8), allocatable :: dm(:,:), ao_g(:,:), fock(:,:), fock_mo(:,:), &
+!  X(:,:), Y(:,:), AA(:,:), B(:,:), C(:,:), D(:,:)
+! ! a is already used as an integer, here AA is used for the matrix A(a,i)
+!
+! new_mo = mo
+! ! calculate the density matrix
+! allocate(dm(nbf,nbf), source=0d0)
+! call dgemm('N','T',nbf,nbf,ndb,2d0,mo(:,1:ndb),nbf,mo(:,1:ndb),nbf,0d0,dm,nbf)
+!
+! ! calculate the G matrix
+! allocate(ao_g(nbf,nbf))
+! call build_ao_g(nbf, dm, neri, eri, ao_g)
+!
+! ! calculate the AO Fock and MO Fock
+! allocate(fock(nbf,nbf), source=hcore+ao_g)
+! allocate(fock_mo(nif,nif))
+! call calc_CTSC(nbf, nif, mo, fock, fock_mo)
+!
+! allocate(X(nvir,ndb), C(nvir,ndb), Y(nvir,ndb), D(nvir,ndb))
+! nvir = nif - ndb
+! do a = 1, nvir, 1
+!  ap = a + ndb
+!  do i = 1, ndb, 1
+!   X(a,i) = 0.5d0*(g_aaaa(a) - g_iiii(i))
+!   C(a,i) = 0.125d0*(2d0*g_iiaa(a,i) + 4d0*g_iaia(a,i) - g_aaaa(a) - g_iiii(i))
+!   Y(a,i) = 0.5d0*(g_iaaa(a) + g_iiia(i))
+!   D(a,i) = 0.5d0*(g_iaaa(a) - g_iiia(i))
+!  end do ! for i
+! end do ! for a
+!
+! allocate(AA(nvir,ndb), B(nvir,ndb))
+! forall(i=1:ndb, a=1:nvir)
+!  ap = a + ndb
+!  AA(a,i) = fock_mo(ap,ap) - fock_mo(i,i) + X(a,i)
+!  B(a,i) = -2d0*(fock_mo(ap,i) + Y(a,i))
+! end forall
+!
+! do a = 1, nvir, 1
+!  do i = 1, ndb, 1
+!   call find_cos_quartic_poly_maximum(AA(a,i),B(a,i),C(a,i),D(a,i),cos_t,sin_t,y)
+!   if(y < inc_thres) cycle
+!   ! update various matrices involving orbital i
+!  end do ! for i
+! end do ! for a
+!
+!end subroutine jacob22_rhf
 

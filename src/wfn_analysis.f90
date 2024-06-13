@@ -369,7 +369,7 @@ subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
   decr = 0d0
 
   do a = nocc+1, nif, 1
-   do i = 2, nocc, 1
+   do i = 1, nocc, 1
     forall(u=1:nbf,v=1:nbf)
      B(u,v) = new_mo(u,a)*new_mo(v,a) - new_mo(u,i)*new_mo(v,i)
      D(u,v) = 2d0*(new_mo(u,i)*new_mo(v,a) + new_mo(u,a)*new_mo(v,i))
@@ -903,4 +903,41 @@ end subroutine read_ci_coeff_from_gms
 !
 ! deallocate(gross)
 !end subroutine lowdin_pop_of_dm
+
+! perform SVD on MOs in two .fch(k) files
+subroutine mo_svd_in2fch(fchname1, fchname2, idx1, idx2)
+ implicit none
+ integer :: nbf, nif, nmo
+ integer, intent(in) :: idx1, idx2
+!f2py intent(in) :: idx1, idx2
+ character(len=240), intent(in) :: fchname1, fchname2
+!f2py intent(in) :: fchname1, fchname2
+ real(kind=8), allocatable :: S(:,:), mo_ovlp(:,:), mo1(:,:), mo2(:,:), u(:,:),&
+  vt(:,:), ev(:)
+
+ call read_nbf_and_nif_from_fch(fchname1, nbf, nif)
+ nmo = idx2 - idx1 + 1
+ allocate(mo1(nbf,nif), mo2(nbf,nif), S(nbf,nbf))
+ call read_mo_from_fch(fchname1, nbf, nif, 'a', mo1)
+ call read_mo_from_fch(fchname2, nbf, nif, 'a', mo2)
+ call get_ao_ovlp_using_fch(fchname1, nbf, S)
+
+ ! compute the MO-basis overlap matrix (C1^T)SC2
+ allocate(mo_ovlp(nmo,nmo))
+ call calc_CTSCp(nbf, nmo, mo1(:,idx1:idx2), S, mo2(:,idx1:idx2), mo_ovlp)
+ deallocate(mo1, mo2, S)
+
+ allocate(u(nmo,nmo), vt(nmo,nmo), ev(nmo))
+ call do_svd(nmo, nmo, mo_ovlp, u, vt, ev)
+ deallocate(mo_ovlp, u, vt)
+
+ write(6,'(/,A)') 'SVD analysis of two sets of MOs:'
+ write(6,'(A)') 'All singular values:'
+ write(6,'(5(1X,ES15.8))') ev
+ write(6,'(/,A,ES15.8)') 'The smallest singular value:', MINVAL(ev)
+ write(6,'(A,I0)') 'No. singular values > 0.9: ', COUNT(ev>0.9d0)
+ write(6,'(A,I0)') 'No. singular values < 0.1: ', COUNT(ev<0.1d0)
+ write(6,'(A,I0)') 'No. singular values <0.01: ', COUNT(ev<0.01d0)
+ deallocate(ev)
+end subroutine mo_svd_in2fch
 

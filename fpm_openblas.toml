@@ -329,12 +329,6 @@ main = "xml2fch.f90"
 link = "openblas"
 
 [[executable]]
-name = "mo_svd"
-source-dir = "src"
-main = "mo_svd_format.f90"
-link = "openblas"
-
-[[executable]]
 name = "solve_ON_matrix"
 source-dir = "src"
 main = "solve_ON_matrix.f90"

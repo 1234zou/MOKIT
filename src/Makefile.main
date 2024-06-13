@@ -111,7 +111,6 @@ OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o math_sub.o read_fch.o \
                          read_natom.o rwgeom.o replace_xyz_in_inp.o
 OBJ_xml2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
               split_sp.o xml2fch.o
-OBJ_mo_svd_format = file_op.o string_manipulate.o math_sub.o rwwfn.o mo_svd_format.o
 OBJ_solve_ON_matrix = file_op.o string_manipulate.o math_sub.o rwwfn.o solve_ON_matrix.o
 OBJ_auto_pair = auto_pair.f90
 OBJ_chk2py = split_sp.f90 chk2py.f90
@@ -146,8 +145,8 @@ OBJ_excited = file_op.o string_manipulate.o read_gms_inp.o util_wrapper.f90 \
         frag_qc find_mc_pair inp2gjf gau_external geom_opt gvb_correct_pairs \
         gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal \
         mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch \
-        obf orb2fch replace_xyz_in_inp xml2fch mo_svd mo_svd_format solve_ON_matrix \
-        rwgeom rwwfn excited
+        obf orb2fch replace_xyz_in_inp xml2fch mo_svd solve_ON_matrix rwgeom \
+        rwwfn excited
 
 %.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
@@ -462,9 +461,6 @@ mo_svd: $(OBJ_mo_svd)
 	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(MKL_FLAGS)
 	@mv mo_svd*.so $(LIB)/
 
-mo_svd_format: $(OBJ_mo_svd_format)
-	$(F90) $(OBJ_mo_svd_format) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mo_svd
-
 solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
@@ -504,7 +500,7 @@ all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair amo2fch bas_fch2py
      gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
      mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch replace_xyz_in_inp \
      xml2fch py2fch pyuno qchem construct_vir ortho assoc_rot mirror_wfn wfn_analysis \
-     lo mo_svd mo_svd_format solve_ON_matrix rwgeom rwwfn excited get_mokit_loc
+     lo mo_svd solve_ON_matrix rwgeom rwwfn excited get_mokit_loc
 
 rest: bas_fch2py bas_gms2py fch2inp fch2py ortho rest2fch
 

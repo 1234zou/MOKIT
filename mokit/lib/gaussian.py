@@ -380,6 +380,22 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   make_orb_resemble(target_fch, fchname, nmo=nmo, align=False)
 
 
+def mo_svd_in_fch(fchname1, fchname2, idx1=None, idx2=None):
+  '''
+  Perform SVD on two sets of MOs in two .fch(k) files.
+  idx1/idx2: the 1st/last index of the MO, starts from 0
+  '''
+  from mokit.lib.wfn_analysis import mo_svd_in2fch
+  from mokit.lib.rwwfn import read_nif_from_fch
+
+  if idx1 is None:
+    idx1 = 0
+  if idx2 is None:
+    nif = read_nif_from_fch(fchname1)
+  print('idx1= %d, idx2= %d' %(idx1, idx2) )
+  mo_svd_in2fch(fchname1, fchname2, idx1+1, idx2)
+
+
 def export_mo_e2txt(fchname):
   '''
   export the data of Alpha Orbital Energies in a .fch file into a plain text file

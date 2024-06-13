@@ -2195,7 +2195,8 @@ subroutine reorder_as_prev_coor(natom0, elem0, coor0, natom1, elem1, coor1)
  coor1(:,1:natom0) = coor0
 end subroutine reorder_as_prev_coor
 
-subroutine add_maxiter_in_orca_inp(inpname)
+! add MaxIter and STABPerform keywords in %scf, delete noTRAH
+subroutine add_maxiter_and_stab_in_orca_inp(inpname)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -2205,6 +2206,16 @@ subroutine add_maxiter_in_orca_inp(inpname)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) == '!') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ i = INDEX(buf, 'noTRAH')
+ if(i > 0) buf = buf(1:i-2)//TRIM(buf(i+6:))
+ write(fid1,'(A)') TRIM(buf)
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -2218,7 +2229,13 @@ subroutine add_maxiter_in_orca_inp(inpname)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- write(fid1,'(A,/,A)') ' MaxIter 400', 'end'
+ write(fid1,'(A)') ' MaxIter 500'
+ write(fid1,'(A)') ' STABPerform true'
+ write(fid1,'(A)') ' STABRestartUHFifUnstable true'
+ write(fid1,'(A)') ' STABMaxIter 500'
+ write(fid1,'(A)') ' STABDTol 1e-5'
+ write(fid1,'(A)') ' STABRTol 1e-5'
+ write(fid1,'(A)') 'end'
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -2229,7 +2246,7 @@ subroutine add_maxiter_in_orca_inp(inpname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine add_maxiter_in_orca_inp
+end subroutine add_maxiter_and_stab_in_orca_inp
 
 ! calculate the vertical adsorption energy using the 2D XO-PBC method
 subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
@@ -2242,9 +2259,9 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  integer :: natom, natom1, natom2, natom4
  integer, intent(in) :: i1, i2
  integer, parameter :: nfrag = 4
- integer, parameter :: max_step = 2
+ integer, parameter :: max_step = 1
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_min = 4.5d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_min = 5.0d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
@@ -2253,11 +2270,11 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  character(len=240) :: buf, basname, proname, chkname, dirname, orca_path, &
   orca_2mkl_path
  character(len=240), intent(in) :: gjfname
- character(len=240), allocatable :: fchname(:), logname(:), inpname(:), outname(:),&
-  mklname(:), gbwname(:), molden(:)
+ character(len=240), allocatable :: fchname(:), logname(:), inpname(:), &
+  outname(:), mklname(:), gbwname(:), molden(:)
  type(frag) :: frags(nfrag)
 
- buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2TZVP'; auxbas = 'W06'
+ buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2SVP'; auxbas = 'W06'
 
  call get_orca_path(orca_path)
  if(TRIM(orca_path) == 'NOT FOUND') then
@@ -2439,9 +2456,8 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
    if(k>1 .and. i==1) cycle
    j = SYSTEM('fch2mkl '//TRIM(fchname(i))//' -dft wB97M-V')
    call mkl2gbw(mklname(i))
-   ! use half cores and double memory for ORCA
    call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc)
-   call add_maxiter_in_orca_inp(inpname(i))
+   if(i > 1) call add_maxiter_and_stab_in_orca_inp(inpname(i))
    call submit_orca_job(orca_path, inpname(i), .false., .true., .true.)
    call gbw2molden(gbwname(i), molden(i))
    call read_hf_e_and_ss_from_orca_out(outname(i), frags(i)%wfn_type, &
