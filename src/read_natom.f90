@@ -495,6 +495,88 @@ subroutine read_natom_from_molden(molden, natom)
  close(fid)
 end subroutine read_natom_from_molden
 
+! Read AtomTypes from a Dalton .mol file. For the fch2dal/mkl2dal generated .mol
+! file, this number is equal to No. atoms.
+subroutine read_natmtyp_from_dalton_mol(molname, natmtyp)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natmtyp
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molname
+
+ natmtyp = 0
+ open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'AtomTypes=') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_natmtyp_from_dalton_mol: no '^Atom&
+                   &Types=' found in"
+  write(6,'(A)') 'file '//TRIM(molname)
+  stop
+ end if
+
+ read(buf(11:),*) natmtyp
+end subroutine read_natmtyp_from_dalton_mol
+
+! read elements and Cartesian coordinates from a Dalton .mol file
+subroutine read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, intent(out) :: nline(natom) ! No. of lines of basis set data per atom
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=2), intent(out) :: elem(natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molname
+
+ elem = ' '; coor = 0d0; nline = 0
+ open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'AtomTypes=') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_elem_and_coor_from_dalton_mol: no &
+                   &'AtomTypes=' found"
+  write(6,'(A)') 'in file '//TRIM(molname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(11:),*) i
+ if(i /= natom) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_dalton_mol: No.&
+                   & atoms in .mol is'
+  write(6,'(A)') 'not equal to input natom.'
+  stop
+ end if
+ read(fid,'(A)') buf
+
+ do i = 1, natom, 1
+  read(fid,*) elem(i), coor(:,i)
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(i == natom) then
+    if(LEN_TRIM(buf) == 0) exit
+   end if
+   if(buf(1:7) == 'Charge=') exit
+   nline(i) = nline(i) + 1
+  end do ! for while
+ end do ! for i
+
+ close(fid)
+end subroutine read_elem_and_coor_from_dalton_mol
+
 ! read total charge and spin multiplicity from a given .gjf file
 subroutine read_charge_and_mult_from_gjf(gjfname, charge, mult)
  implicit none

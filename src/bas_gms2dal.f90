@@ -29,7 +29,7 @@ program main
   if(str == '-sph') then
    spherical = .true.
   else
-   write(6,'(A)') 'ERROR in subroutine bas_gms2dal: wrong command line arguments!'
+   write(6,'(/,A)') 'ERROR in subroutine bas_gms2dal: wrong command line arguments!'
    write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if

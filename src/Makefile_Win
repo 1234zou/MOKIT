@@ -20,26 +20,33 @@ OBJ_bas_fch2py = file_op.obj string_manipulate.obj util_wrapper.obj math_sub.obj
                  rwwfn.obj bas_fch2py.obj
 OBJ_bas_gau2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj read_fch.obj \
                      bas_gau2molcas.obj
-OBJ_bas_gms2bdf = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2bdf.obj
-OBJ_bas_gms2dal = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2dal.obj
-OBJ_bas_gms2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2molcas.obj
-OBJ_bas_gms2molpro = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2molpro.obj
-OBJ_bas_gms2psi = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2psi.obj
-OBJ_bas_gms2py = file_op.obj string_manipulate.obj read_gms_inp.obj bas_gms2py.obj
+OBJ_bas_gms2bdf = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                  bas_gms2bdf.obj
+OBJ_bas_gms2dal = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                  bas_gms2dal.obj
+OBJ_bas_gms2molcas = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                     bas_gms2molcas.obj
+OBJ_bas_gms2molpro = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                     bas_gms2molpro.obj
+OBJ_bas_gms2psi = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                  bas_gms2psi.obj
+OBJ_bas_gms2py = file_op.obj string_manipulate.obj read_gms_inp.obj read_natom.obj \
+                 bas_gms2py.obj
 OBJ_bdf2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
               split_sp.obj bdf2fch.obj
 OBJ_bdf2mkl = file_op.obj bdf2mkl.obj
-OBJ_chk2gbw = file_op.obj util_wrapper.obj chk2gbw.obj
+OBJ_chk2gbw = file_op.obj string_manipulate.obj util_wrapper.obj chk2gbw.obj
 OBJ_dal2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj split_sp.obj \
               dal2fch.obj
-OBJ_dat2fch = file_op.obj string_manipulate.obj read_fch.obj math_sub.obj rwwfn.obj \
+OBJ_dat2fch = file_op.obj string_manipulate.obj math_sub.obj read_natom.obj \
+              read_gms_inp.obj read_fch.obj read_mkl.obj rwwfn.obj split_sp.obj \
               dat2fch.obj
 OBJ_extract_noon2fch = file_op.obj extract_noon2fch.obj
 OBJ_fch2amo = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
               split_sp.obj fch2amo.obj
 OBJ_fch2bdf = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj rwgeom.obj read_gms_inp.obj \
-              split_sp.obj fch2bdf.obj
+              read_natom.obj split_sp.obj fch2bdf.obj
 OBJ_fch2cfour = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
                 split_sp.obj fch2cfour.obj
 OBJ_fch2com = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
@@ -47,32 +54,33 @@ OBJ_fch2com = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 OBJ_fch2dal = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj split_sp.obj fch2dal.obj
 OBJ_fch2mkl = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
-              read_mkl.obj fch2mkl.obj
+              read_natom.obj read_gms_inp.obj read_mkl.obj fch2mkl.obj
 OBJ_fch2inp = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
-              fch2inp.obj
+              split_sp.obj fch2inp.obj
 OBJ_fch2inporb = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                  util_wrapper.obj read_fch.obj split_sp.obj fch2inporb.obj
 OBJ_fch2psi = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj fch2psi.obj
 OBJ_fch2qchem = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
                 split_sp.obj fch2qchem.obj
-OBJ_fch2qm4d = file_op.obj string_manipulate.obj read_fch.obj rwgeom.obj \
-               util_wrapper.obj fch2qm4d.obj
+OBJ_fch2qm4d = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
+               read_fch.obj read_natom.obj rwgeom.obj fch2qm4d.obj
 OBJ_fch2tm = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
              split_sp.obj fch2tm.obj
 OBJ_fch_u2r = file_op.obj string_manipulate.obj fch_u2r.obj
-OBJ_fch_mo_copy = file_op.obj math_sub.obj rwwfn.obj fch_mo_copy.obj
+OBJ_fch_mo_copy = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj fch_mo_copy.obj
 OBJ_fch2wfn = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
               fch2wfn.obj
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
-                     util_wrapper.obj math_sub.obj rwwfn.obj rwgeom.obj do_hf.obj \
-                     read_gms_inp.obj call_qc_calc_int.obj construct_vir.obj \
-                     ortho.obj frag_guess_wfn.obj
+                     util_wrapper.obj math_sub.obj rwwfn.obj read_natom.obj \
+                     rwgeom.obj do_hf.obj read_gms_inp.obj call_qc_calc_int.obj \
+                     construct_vir.obj ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
 OBJ_gvb_correct_pairs = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                         gvb_correct_pairs.obj
 OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
-                     util_wrapper.obj call_qc_calc_int.obj rwwfn.obj rwgeom.obj \
-                     wfn_analysis.obj read_gms_inp.obj gvb_exclude_XH.obj
+                     util_wrapper.obj call_qc_calc_int.obj read_fch.obj rwwfn.obj \
+                     read_natom.obj rwgeom.obj assoc_rot.obj wfn_analysis.obj \
+                     read_gms_inp.obj gvb_exclude_XH.obj
 OBJ_gvb_sort_pairs = file_op.obj gvb_sort_pairs.obj
 OBJ_mkl2amo = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2amo.obj
@@ -84,18 +92,19 @@ OBJ_mkl2com = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2com.obj
 OBJ_mkl2dal = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2dal.obj
-OBJ_mkl2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj read_fch.obj \
-              read_mkl.obj mkl2fch.obj
+OBJ_mkl2fch = file_op.obj string_manipulate.obj math_sub.obj read_natom.obj \
+              read_gms_inp.obj rwwfn.obj read_fch.obj read_mkl.obj mkl2fch.obj
 OBJ_mkl2inp = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2inp.obj
 OBJ_mkl2inporb = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
                  mkl2inporb.obj
-OBJ_mkl2gjf = file_op.obj string_manipulate.obj read_fch.obj read_mkl.obj \
-              mkl2gjf.obj
+OBJ_mkl2gjf = file_op.obj string_manipulate.obj read_fch.obj read_natom.obj \
+              read_gms_inp.obj read_mkl.obj mkl2gjf.obj
 OBJ_mkl2psi = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2psi.obj
 OBJ_mkl2py = file_op.obj string_manipulate.obj util_wrapper.obj mkl2py.obj
-OBJ_mkl2qchem = file_op.obj string_manipulate.obj util_wrapper.obj mkl2qchem.obj
+OBJ_mkl2qchem = file_op.obj string_manipulate.obj util_wrapper.obj math_sub.obj \
+                mkl2qchem.obj
 OBJ_molden2fch = file_op.obj string_manipulate.obj math_sub.obj read_natom.obj \
                  read_fch.obj read_gms_inp.obj read_mkl.obj split_sp.obj molden2fch.obj
 OBJ_orb2fch = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \

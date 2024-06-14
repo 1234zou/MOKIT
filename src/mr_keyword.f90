@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc34 (2024-Jun-13)'
+ write(6,'(A)') '           Version: 1.2.6rc34 (2024-Jun-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -364,7 +364,7 @@ subroutine check_gms_path()
 
  inquire(file=TRIM(gms_path),exist=alive)
  if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
+  write(6,'(/,A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
   write(6,'(A)') 'gms_path='//TRIM(gms_path)
   stop
  end if
@@ -377,8 +377,16 @@ subroutine check_gms_path()
  end do ! for while
  close(fid)
 
- i = INDEX(buf,'=')
- gms_scr_path = buf(i+1:)
+ i = INDEX(buf, '=')
+ if(i > 0) then
+  gms_scr_path = buf(i+1:)
+ else
+  write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path "&
+                  //TRIM(buf)
+  stop
+ end if
+ i = INDEX(gms_scr_path, '#')
+ if(i > 0) gms_scr_path = gms_scr_path(1:i-1)
  call replace_env_in_path(gms_scr_path)
  write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
 end subroutine check_gms_path

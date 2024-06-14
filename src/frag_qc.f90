@@ -42,7 +42,7 @@ program frag_qc
  wfn_type0 = [1,1]
  pos = [.true.,.true.]
  wfn_type = 1
- fchname0 = ['Cu_Imidazole-1.fch','Cu_Imidazole-2_UPBE_r.fch']
+ fchname0 = ['Cu_Imidazole-1_o.fch','Cu_Imidazole-2_UPBE_UwB97X_UwB97M-V_r.fch']
  fchname = 'Cu_Imidazole-3_only_r.fch'
 
  call fdate(data_string)

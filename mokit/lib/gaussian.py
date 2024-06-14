@@ -391,7 +391,7 @@ def mo_svd_in_fch(fchname1, fchname2, idx1=None, idx2=None):
   if idx1 is None:
     idx1 = 0
   if idx2 is None:
-    nif = read_nif_from_fch(fchname1)
+    idx2 = read_nif_from_fch(fchname1)
   print('idx1= %d, idx2= %d' %(idx1, idx2) )
   mo_svd_in2fch(fchname1, fchname2, idx1+1, idx2)
 

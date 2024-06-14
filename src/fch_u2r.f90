@@ -111,15 +111,17 @@ subroutine fch_u2r(fchname, newfch)
  do while(.true.)
   read(fchid,'(A)') buf
   if(buf(1:5) == 'IOpCl') exit
+  if(buf(1:7) == 'Alpha O') exit
   write(fchid1,'(A)') TRIM(buf)
-  if(buf(1:8) == 'Alpha Or') then
-   BACKSPACE(fchid)
-   exit
-  end if
  end do ! for while
+
  write(fchid1,'(A5,38X,A1,16X,A1)') 'IOpCl','I','0'
  write(fchid1,'(A5,38X,A1,16X,A1)') 'IROHF','I','0'
- read(fchid,'(A)') buf
+ if(buf(1:5) == 'IOpCl') then
+  read(fchid,'(A)') buf ! IROHF
+  read(fchid,'(A)') buf ! Alpha O
+ end if
+ write(fchid1,'(A)') TRIM(buf)
 
  ! Step 6: skip the 'Beta Orbital Energies'
  do while(.true.)
@@ -157,7 +159,8 @@ subroutine fch_u2r(fchname, newfch)
 
  ! Step 8: skip the 'Spin SCF Density'
  do while(.true.)
-  read(fchid,'(A)') buf
+  read(fchid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:8) == 'Spin SCF') exit
   if(buf(1:16) == 'Mulliken Charges') exit
   write(fchid1,'(A)') TRIM(buf)

@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Jun 13, 2024)
+MOKIT 1.2.6 (Jun 14, 2024)
 ------------------------
+* add subroutine merge_bas_in_dalton_mol
 * remove mo_svd_format.f90 and move this functionality into wfn_analysis
 * improvement of RIJK_bas and RIC_bas settings
 * fix bug (data out of range) in find_cos_quartic_poly_maximum
