@@ -1930,7 +1930,6 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
    write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
   end if
   write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
-  if(iroot > 0) write(fid,'(A,I0)',advance='no') ').state_specific_(',iroot
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -1956,8 +1955,12 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
   end if
  end if
 
+ if(iroot > 0) write(fid,'(A,I0,A)') 'mc = mc.state_specific_(',iroot,')'
+
  if(natorb) then
-  write(fid,'(A,/,A,/,A)') 'mc.natorb = True','mc.verbose = 4','mc.kernel()'
+  write(fid,'(A)') 'mc.natorb = True'
+  write(fid,'(A)') 'mc.verbose = 4'
+  write(fid,'(A)') 'mc.kernel()'
  end if
 end subroutine prt_casci_kywrd_py
 

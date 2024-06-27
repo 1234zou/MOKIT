@@ -42,8 +42,8 @@ subroutine addH2singlet(fchname, gvb_no)
  use fch_content
  implicit none
  integer :: i, j, nadd
- integer, allocatable :: ielem1(:), shell_type1(:), prim_per_shell1(:)
- integer, allocatable :: shell2atom_map1(:)
+ integer, allocatable :: ielem1(:), shell_type1(:), prim_per_shell1(:), &
+  shell2atom_map1(:)
  real(kind=8), parameter :: dis = 50d0 ! Angstrom
  real(kind=8), parameter :: root2 = 0.5d0*DSQRT(2d0)
  real(kind=8) :: w(3), it(3,3) ! it: inertia tensor
@@ -204,6 +204,22 @@ subroutine addH2singlet(fchname, gvb_no)
  ncontr = ncontr + nadd
  nprim = nprim + 2*nadd
  mult = 1
+ if(allocated(iatom_type)) then
+  allocate(ielem1(natom), source=iatom_type)
+  deallocate(iatom_type)
+  allocate(iatom_type(natom+nadd))
+  iatom_type(1:natom) = ielem1
+  iatom_type(natom+1:natom+nadd) = 0
+  deallocate(ielem1)
+ end if
+ if(allocated(mull_char)) then
+  allocate(prim_exp1(natom), source=mull_char)
+  deallocate(mull_char)
+  allocate(mull_char(natom+nadd))
+  mull_char(1:natom) = prim_exp1
+  mull_char(natom+1:natom+nadd) = 0d0
+  deallocate(prim_exp1)
+ end if
  natom = natom + nadd
 
  if(allocated(tot_dm)) deallocate(tot_dm)
@@ -219,9 +235,6 @@ subroutine addH2singlet(fchname, gvb_no)
   tot_dm = tot_dm + coeff
   deallocate(coeff)
  end if
-
- if(allocated(mull_char)) deallocate(mull_char)
- allocate(mull_char(natom), source=0d0)
 
  ! create/generate a new .fch file
  i = INDEX(fchname, '.fch')

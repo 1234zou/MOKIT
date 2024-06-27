@@ -766,7 +766,7 @@ subroutine check_cp2k_scf_conv(outname, scf_conv)
  write(fid1,'(A)') "   &MIXING"
  write(fid1,'(A)') '    METHOD BROYDEN_MIXING'
  write(fid1,'(A)') '    ALPHA 0.4'
- write(fid1,'(A)') '    NBROYDEN 4'
+ write(fid1,'(A)') '    NBROYDEN 8'
  write(fid1,'(A)') "   &END MIXING"
 
  do while(.true.)

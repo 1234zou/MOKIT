@@ -312,7 +312,7 @@ subroutine read_fch(fchname, uhf)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:12) == 'Int Atom Typ') exit
- end do
+ end do ! for while
  allocate(iatom_type(natom), source=0)
  read(fid,'(6(1X,I11))') iatom_type
  ! 0 for real atoms, 1000 for ghost atoms

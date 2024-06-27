@@ -320,7 +320,7 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  end do ! for while
 
  do i = 1, n, 1
-  write(fid1,'(A,1X,F11.6,3(1X,F17.8))') '  Q(1)',charge(4,i),charge(1:3,i)
+  write(fid1,'(A,1X,F11.6,3(1X,F17.8))') '  Q',charge(4,i),charge(1:3,i)
  end do ! for i
  write(fid1,'(A)') ' end'
  write(fid1,'(A)') 'end'
@@ -466,7 +466,7 @@ subroutine add_bgcharge_to_molpro_inp(inpname, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine add_bgcharge_to_molpro_inp:'
+  write(6,'(/,A)') 'ERROR in subroutine add_bgcharge_to_molpro_inp:'
   close(fid)
   close(fid1,status='delete')
   stop
