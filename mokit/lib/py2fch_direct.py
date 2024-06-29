@@ -6,7 +6,12 @@ try:
     from pyscf.data import elements, nist
     from pyscf.gto.mole import ANG_OF, NPRIM_OF, NCTR_OF, PTR_EXP, PTR_COEFF, gto_norm
 except:
-    print("Warning: pyscf not found. All py2xxx functionality cannot work, although you can import them.")
+    print("Warning: pyscf not found. All py2xxx functionality cannot work.")
+else:
+    if hasattr(mcscf.casci, 'CASBase'):
+        CASBase = mcscf.casci.CASBase
+    else:
+        CASBase = mcscf.casci.CASCI
 
 
 def mol2fch(mol, fchname='test.fch', uhf=False, mo=None, irel=-1, trim_zeros=True):
@@ -148,7 +153,7 @@ def find_irel_from_mf(mf):
         if hasattr(mf, 'with_x2c'):
             if mf.with_x2c is not False:
                 irel = -3 # sf-X2C1e
-    elif isinstance(mf, mcscf.casci.CASCI):
+    elif isinstance(mf, CASBase):
         if hasattr(mf._scf, 'with_x2c'):
             if mf._scf.with_x2c is not False:
                 irel = -3 # sf-X2C1e
@@ -179,7 +184,7 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
         else:
             py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], False, density)
             py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], False, density)
-    elif isinstance(mf, mcscf.casci.CASCI):
+    elif isinstance(mf, CASBase):
         if mf.mo_occ is None and mo_occ is None:
             if density is True:
                 raise NotImplementedError('mf.mo_occ is None, indicating natural orbital not used here.'
