@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Jun 27, 2024)
+MOKIT 1.2.6 (Jun 29, 2024)
 ------------------------
+* fix fortran read bug in gvb_exclude_XH (for very high ang. mom. and >99 atoms)
 * fix SS-DMRG-CASCI keyowrds
 * add Jocobian 2*2 rotation RHF
 * fix 'Int Atom Types' dimension in addH2singlet

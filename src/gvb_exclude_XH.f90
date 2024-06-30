@@ -378,7 +378,7 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
  do i = 2, nbf, 1
   read(fid,'(A)') buf
   read(buf(8:9),*) tmp_elem
-  read(buf(10:),*) bf2atom(i)
+  read(buf(10:11),*) bf2atom(i)
   if(bf2atom(i) /= bf2atom(i-1)) then
    nelem = nelem + 1
    elem(nelem) = tmp_elem
@@ -387,6 +387,11 @@ subroutine read_elem_and_bf2atom_from_gms(gmsfile, natom, elem, nbf, bf2atom)
 
  close(fid)
  forall(i = 1:natom) elem(i) = ADJUSTL(elem(i))
+ if(natom > 99) then
+  do i = 100, nbf, 1
+   if(bf2atom(i) == 0) bf2atom(i:) = bf2atom(i:) + 100
+  end do ! for i
+ end if
 end subroutine read_elem_and_bf2atom_from_gms
 
 ! print GVB CI coefficients into .dat file

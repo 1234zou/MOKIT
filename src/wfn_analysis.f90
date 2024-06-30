@@ -51,7 +51,7 @@ subroutine get_mo_center_from_fch(fchname, i1, i2)
  integer :: i, j, k, m, ak(1)
  integer, intent(in) :: i1, i2
  real(kind=8) :: r, ddot
- real(kind=8), parameter :: diff = 0.2d0, pop_thres = 0.75d0
+ real(kind=8), parameter :: diff = 0.2d0, pop_thres = 0.7d0
  ! diff: difference between the largest and the 2nd largest component
  real(kind=8), allocatable :: mo(:,:), S(:,:), rtmp(:), pop(:,:)
  character(len=240), intent(in) :: fchname
@@ -165,8 +165,11 @@ subroutine get_mo_dis_from_fch(fchname, ibegin, iend)
  call gen_mo_dis_from_mo_center(fchname)
 end subroutine get_mo_dis_from_fch
 
+end module population
+
 ! calculate GVB bond orders using information in _s.fch and _s.dat files
 subroutine get_gvb_bond_order_from_fch(fchname)
+ use population, only: mo_center, get_mo_center_from_fch
  implicit none
  integer :: i, j, k, m, i1, j1, npair, na, nb, nopen, ibegin
  integer, allocatable :: idx(:)
@@ -174,7 +177,7 @@ subroutine get_gvb_bond_order_from_fch(fchname)
  character(len=20) :: str
  character(len=240) :: datname
  character(len=240), intent(in) :: fchname
-!f2py itnent(in) :: fchname
+!f2py intent(in) :: fchname
 
  i = INDEX(fchname, '.fch', back=.true.)
  datname = fchname(1:i-1)//'.dat'
@@ -248,8 +251,6 @@ subroutine get_gvb_bond_order_from_fch(fchname)
  write(6,'(A)') 'orders coming from the doubly occupied space.'
  write(6,'(/,A)') '--- End of GVB Bond Order Analysis ---'
 end subroutine get_gvb_bond_order_from_fch
-
-end module population
 
 ! get integer array bfirst (the beginning index of basis func. of each atom)
 subroutine get_bfirst(ncontr, shltyp, shl2atm, natom, bfirst)

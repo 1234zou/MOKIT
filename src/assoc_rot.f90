@@ -11,8 +11,9 @@ end module polyn_info
 
 module ao2mo_arrays
  implicit none
- integer :: nbf, nuv, nls, nls2
- integer, allocatable :: idxuv(:,:), idxls(:,:), idxls2(:,:)
+ integer :: nbf, ndb, nvir, nuv, nls, nls2, nia, nsia
+ integer, allocatable :: idxuv(:,:), idxls(:,:), idxls2(:,:), idxia(:,:), &
+  idxsia(:,:)
  real(kind=8), parameter :: thres = 1d-12
  real(kind=8), allocatable :: x1(:,:,:,:), x2(:,:,:), x3(:,:), y1(:,:,:,:), &
   y2(:,:,:), y3(:,:)
@@ -740,14 +741,14 @@ end subroutine discard_root
 
 ! initialize compound-index arrays
 subroutine init_idx_arrays()
- use ao2mo_arrays, only: nbf, nuv, nls, nls2, idxuv, idxls, idxls2
+ use ao2mo_arrays, only: nbf, ndb, nvir, nuv, nls, nls2, nia, nsia, idxuv, &
+  idxls, idxls2, idxia, idxsia
  implicit none
- integer :: k, u, v, l, s
+ integer :: a, i, k, u, v, l, s
 
- nuv = nbf*nbf
- nls = nbf*(nbf+1)/2
- nls2 = nbf*(nbf-1)/2
- allocate(idxuv(2,nuv), idxls(2,nls), idxls2(2,nls2))
+ nuv = nbf*nbf; nia = ndb*nvir; nsia = nbf*nia
+ nls = nbf*(nbf+1)/2; nls2 = nbf*(nbf-1)/2
+ allocate(idxuv(2,nuv),idxls(2,nls),idxls2(2,nls2),idxia(2,nia),idxsia(3,nsia))
 
 !$omp parallel do schedule(static) default(private) shared(nbf,idxuv)
  do v = 1, nbf, 1
@@ -769,13 +770,30 @@ subroutine init_idx_arrays()
   forall(l = 1:s-1) idxls2(:,k+l) = [l,s]
  end do ! for s
 !$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(shared) private(u,k,v)
+ do u = ndb, 1, -1
+  k = (ndb-u)*nvir
+  forall(v = 1:nvir) idxia(:,k+v) = [v,u]
+ end do ! for u
+!$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(shared) private(s,i,k,a)
+ do s = 1, nbf, 1
+  do i = 1, ndb, 1
+   k = (s-1)*nia + (i-1)*nvir
+   forall(a = 1:nvir) idxsia(:,k+a) = [a,i,s]
+  end do ! for i
+ end do ! for s
+!$omp end parallel do
 end subroutine init_idx_arrays
 
 subroutine free_ao2mo_arrays()
- use ao2mo_arrays, only: x1, y1, idxuv, idxls, idxls2, small, small_dm
+ use ao2mo_arrays, only: x1, y1, idxuv, idxls, idxls2, idxia, idxsia, small, &
+  small_dm
  implicit none
 
- deallocate(x1, y1, idxuv, idxls, idxls2, small, small_dm)
+ deallocate(x1, y1, idxuv, idxls, idxls2, idxia, idxsia, small, small_dm)
 end subroutine free_ao2mo_arrays
 
 ! build the G matrix, i.e. the two-electron part of the Fock matrix
@@ -999,31 +1017,23 @@ subroutine ao2mo_x3p(nbf, nmo, nmo1, mo, x2, x3p)
  deallocate(mat1, mat2)
 end subroutine ao2mo_x3p
 
-! (ij|is) = X_3''(s,j,i) = sum_l (C_li)*X_2'(l,j,i,s)
-subroutine ao2mo_x3pp(nbf, nmo, nmo1, mo, x2p, x3pp)
+! (ia|is) = X_3''(s,a,i) = sum_l (C_li)*X_2'(l,a,i,s)
+subroutine ao2mo_x3pp(nbf, ndb, nvir, mo, x2p, x3pp)
+ use ao2mo_arrays, only: nsia, idxsia
  implicit none
- integer :: i, j, s
- integer, intent(in) :: nbf, nmo, nmo1
+ integer :: a, i, k, s
+ integer, intent(in) :: nbf, ndb, nvir
  real(kind=8) :: ddot
- real(kind=8), intent(in) :: mo(nbf,nmo), x2p(nbf,nmo1,nmo,nbf)
- real(kind=8), intent(out) :: x3pp(nbf,nmo1,nmo)
- real(kind=8), allocatable :: mo_i(:)
-
- allocate(mo_i(nbf))
+ real(kind=8), intent(in) :: mo(nbf,ndb), x2p(nbf,nvir,ndb,nbf)
+ real(kind=8), intent(out) :: x3pp(nbf,nvir,ndb)
 
 !$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(nbf,nmo,nmo1,x2p,x3pp,mo)
- do s = 1, nbf, 1
-  do i = 1, nmo, 1
-   mo_i = mo(:,i)
-   do j = 1, nmo1, 1
-    x3pp(s,j,i) = ddot(nbf, mo_i, 1, x2p(:,j,i,s), 1)
-   end do ! for j
-  end do ! for i
- end do ! for s
+!$omp shared(nbf,nsia,idxsia,mo,x2p,x3pp)
+ do k = 1, nsia, 1
+  a = idxsia(1,k); i = idxsia(2,k); s = idxsia(3,k)
+  x3pp(s,a,i) = ddot(nbf, mo(:,i), 1, x2p(:,a,i,s), 1)
+ end do ! for k
 !$omp end parallel do
-
- deallocate(mo_i)
 end subroutine ao2mo_x3pp
 
 ! (ii|ij) = X_4'(j,i) = sum_s (C_sj)*X_3(s,i)
@@ -1233,8 +1243,9 @@ subroutine calc_ddm(nbf, cos_t, sin_t, mo_i, mo_a, ddm)
 end subroutine calc_ddm
 
 subroutine update_XA(ndb, nvir, i, a, g_iiii, g_aaaa, fii, faa, X, AA)
+ use ao2mo_arrays, only: nia, idxia
  implicit none
- integer :: j, b
+ integer :: j, k, b
  integer, intent(in) :: ndb, nvir, i, a
  real(kind=8), intent(in) :: g_iiii(ndb), g_aaaa(nvir), fii(ndb,ndb), &
   faa(nvir,nvir)
@@ -1252,21 +1263,20 @@ subroutine update_XA(ndb, nvir, i, a, g_iiii, g_aaaa, fii, faa, X, AA)
  end do ! for b
 !$omp end parallel do
 
-!$omp parallel do schedule(dynamic) default(shared) private(b,j)
- do b = 1, nvir, 1
-  do j = 1, ndb, 1
-   AA(b,j) = faa(b,b) - fii(j,j)
-  end do ! for j
- end do ! for b
+!$omp parallel do schedule(dynamic) default(shared) private(k,b,j)
+ do k = 1, nia, 1
+  b = idxia(1,k); j = idxia(2,k)
+  AA(b,j) = faa(b,b) - fii(j,j)
+ end do ! for k
 !$omp end parallel do
 end subroutine update_XA
 
 ! RHF orbital optimization using the Jacobian 2-by-2 rotation method
 ! TODO: add DIIS
 subroutine jacob22_rhf(ndb, nbf, nif, hcore, eri, mo, new_mo)
- use ao2mo_arrays, only: nbf0=>nbf, small_dm
+ use ao2mo_arrays, only: nbf0=>nbf, ndb0=>ndb, nvir0=>nvir, nia, idxia, small_dm
  implicit none
- integer :: i, a, nvir, niter
+ integer :: i, k, a, nvir, niter
  integer(kind=4) :: hostnm
  integer, intent(in) :: ndb, nbf, nif
 !f2py intent(in) :: ndb, nbf, nif
@@ -1298,7 +1308,7 @@ subroutine jacob22_rhf(ndb, nbf, nif, hcore, eri, mo, new_mo)
  new_mo = mo
  nvir = nif - ndb
  write(6,'(2(A,I0))') 'ndb=', ndb, ', nvir=', nvir
- nbf0 = nbf
+ nbf0 = nbf; ndb0 = ndb; nvir0 = nvir
  call init_idx_arrays()
 
  ! calculate the density matrix
@@ -1337,13 +1347,12 @@ subroutine jacob22_rhf(ndb, nbf, nif, hcore, eri, mo, new_mo)
  D = 0.5d0*(g_iaaa - g_iiia)
  BB = -2d0*(fai + D)
 
-!$omp parallel do schedule(dynamic) default(shared) private(a,i)
- do a = 1, nvir, 1
-  do i = 1, ndb, 1
-   X(a,i) = 0.5d0*(g_iiii(i) + g_aaaa(a))
-   AA(a,i) = faa(a,a) - fii(i,i)
-  end do ! for i
- end do ! for a
+!$omp parallel do schedule(dynamic) default(shared) private(k,a,i)
+ do k = 1, nia, 1
+  a = idxia(1,k); i = idxia(2,k)
+  X(a,i) = 0.5d0*(g_iiii(i) + g_aaaa(a))
+  AA(a,i) = faa(a,a) - fii(i,i)
+ end do ! for k
 !$omp end parallel do
 
  AA = AA + g_iaia - 2d0*g_iiaa + X
@@ -1356,39 +1365,37 @@ subroutine jacob22_rhf(ndb, nbf, nif, hcore, eri, mo, new_mo)
  do while(niter <= niter_max)
   inc2 = 0d0
 
-  do i = ndb, 1, -1
-   do a = 1, nvir, 1
-    call find_cos_quartic_poly_maximum(AA(a,i),BB(a,i),C(a,i),D(a,i),cos_t,sin_t,lower_e)
-    if(lower_e < thres) cycle
-    inc2 = inc2 + lower_e
-    ! update various matrices
-    mo_i = new_mo(:,i); mo_a = new_mo(:,ndb+a)
-    new_mo(:,i) = cos_t*mo_i - sin_t*mo_a
-    new_mo(:,ndb+a) = sin_t*mo_i + cos_t*mo_a
-    call calc_ddm(nbf, cos_t, sin_t, mo_i, mo_a, ddm)
-    call build_ao_g(nbf, ddm, eri, dg) ! maybe time-consuming
-    f = f + dg
-    call calc_CTSC(nbf, ndb, new_mo(:,1:ndb), f, fii)
-    call calc_CTSC(nbf, nvir, new_mo(:,ndb+1:nif), f, faa)
-    call calc_CTSCp2(nbf, nvir, ndb, new_mo(:,ndb+1:nif), f, new_mo(:,1:ndb), fai)
-    v = [g_iiii(i),g_iiia(a,i),g_iiaa(a,i),g_iaia(a,i),g_iaaa(a,i),g_aaaa(a)]
-    call update_g4i_g4a(cos_t, sin_t, v, g_iiii(i), g_aaaa(a))
-    call update_x1_y1(cos_t, sin_t, i, a)
-    call ao2mo_ia2(nbf, ndb, nvir, new_mo, g_iiia, g_iiaa, g_iaia, g_iaaa)
-    D = 0.5d0*(g_iaaa - g_iiia)
-    BB = -2d0*(fai + D)
-    call update_XA(ndb, nvir, i, a, g_iiii, g_aaaa, fii, faa, X, AA)
-    AA = AA + g_iaia - 2d0*g_iiaa + X
-    C = 0.25d0*(g_iiaa + 2d0*g_iaia - X)
-   end do ! for a
-  end do ! for i
+  do k = 1, nia, 1
+   a = idxia(1,k); i = idxia(2,k)
+   call find_cos_quartic_poly_maximum(AA(a,i),BB(a,i),C(a,i),D(a,i),cos_t,sin_t,lower_e)
+   if(lower_e < thres) cycle
+   inc2 = inc2 + lower_e
+   ! update various matrices
+   mo_i = new_mo(:,i); mo_a = new_mo(:,ndb+a)
+   new_mo(:,i) = cos_t*mo_i - sin_t*mo_a
+   new_mo(:,ndb+a) = sin_t*mo_i + cos_t*mo_a
+   call calc_ddm(nbf, cos_t, sin_t, mo_i, mo_a, ddm)
+   call build_ao_g(nbf, ddm, eri, dg) ! maybe time-consuming
+   f = f + dg
+   call calc_CTSC(nbf, ndb, new_mo(:,1:ndb), f, fii)
+   call calc_CTSC(nbf, nvir, new_mo(:,ndb+1:nif), f, faa)
+   call calc_CTSCp2(nbf, nvir, ndb, new_mo(:,ndb+1:nif), f, new_mo(:,1:ndb), fai)
+   v = [g_iiii(i),g_iiia(a,i),g_iiaa(a,i),g_iaia(a,i),g_iaaa(a,i),g_aaaa(a)]
+   call update_g4i_g4a(cos_t, sin_t, v, g_iiii(i), g_aaaa(a))
+   call update_x1_y1(cos_t, sin_t, i, a)
+   call ao2mo_ia2(nbf, ndb, nvir, new_mo, g_iiia, g_iiaa, g_iaia, g_iaaa)
+   D = 0.5d0*(g_iaaa - g_iiia)
+   BB = -2d0*(fai + D)
+   call update_XA(ndb, nvir, i, a, g_iiii, g_aaaa, fii, faa, X, AA)
+   AA = AA + g_iaia - 2d0*g_iiaa + X
+   C = 0.25d0*(g_iiaa + 2d0*g_iaia - X)
+  end do ! for k
 
   inc1 = inc1 + inc2
   niter = niter + 1
   write(6,'(A,I3,A,E7.1,A,F15.9)') 'niter=',niter,', thres=',thres,', E_lower=',inc2
   if(check_conv) then
    if(inc2 < thres2) exit
-   if(ndb==1 .or. nvir==1) exit
   else
    if(thres > 1.1d0*thres1) then
     thres = MIN(inc2, MAX(thres*0.1d0,inc2*1d-3))

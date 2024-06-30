@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc35 :: MOKIT, release date: 2024-Jun-27'
+  write(6,'(A)') 'AutoMR 1.2.6rc35 :: MOKIT, release date: 2024-Jun-29'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -502,8 +502,8 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(/,A)') "uno_fch = '"//TRIM(uno_fch)//"'"
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
- write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_coeff[0],&
-                           &mf.mo_coeff[1],S,',uno_thres,')'
+ write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_co&
+                           &eff[0], mf.mo_coeff[1],S,',uno_thres,')'
  write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, alpha_coeff)'
  write(fid1,'(A)') '# done transform'
@@ -523,11 +523,9 @@ end subroutine prt_uno_script_into_py
 ! print associated rotation into a given .py file
 subroutine prt_assoc_rot_script_into_py(pyname)
  use mol, only: chem_core, ecp_core
-! use mol, only: natom, elem, nuc, chem_core, ecp_core
- use mr_keyword, only : localm, hf_fch, npair_wish, nskip_uno
+ use mr_keyword, only : localm, hf_fch, nskip_uno
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
-! integer, allocatable :: ntimes(:)
  character(len=240) :: buf, pyname1, assoc_fch
  character(len=240), intent(in) :: pyname
 
@@ -583,7 +581,6 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') 'if(npair > 0):'
  write(fid1,'(A)') '  idx2 = idx[0] + npair - 1'
  write(fid1,'(A)') '  idx3 = idx2 + idx[2]'
- if(npair_wish > 0) write(fid1,'(A,I0,A1)') '  npair = min(npair,',npair_wish,')'
  write(fid1,'(A)') '  idx1 = idx2 - npair'
  write(fid1,'(A)') '  idx4 = idx3 + npair'
  write(fid1,'(A,I0,A)') '  i = ',nskip_uno,' # pair(s) of UNO to be skipped'
@@ -609,7 +606,6 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') '# localization done'
 
 ! write(fid1,'(/,A)') '# using projection to supplement pairs (if needed)'
-
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
  write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
  write(fid1,'(A)') 'noon = np.zeros(nif)'
@@ -666,8 +662,9 @@ subroutine do_minimal_basis_gvb()
  i = SYSTEM(TRIM(buf))
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compress&
-                & minimal basis related files.'
+  write(6,'(/,A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compres&
+                   &s minimal basis'
+  write(6,'(A)') 'related files.'
   stop
  end if
 
@@ -676,8 +673,8 @@ subroutine do_minimal_basis_gvb()
  write(6,'(A)') '$'//TRIM(buf)
  i = SYSTEM(TRIM(buf))
 
- write(6,'(A)') 'GVB/STO-6G finished. Rotate MOs at target basis to resemble&
-               & GVB/STO-6G orbitals...'
+ write(6,'(A)') 'GVB/STO-6G finished. Rotate MOs at target basis to resemble GV&
+                &B/STO-6G orbitals...'
 
  call gen_fch_from_gjf(gjfname, hf_fch)
  call prt_orb_resemble_py_script(nproc, hf_fch, gvb_nofch, pyname)
