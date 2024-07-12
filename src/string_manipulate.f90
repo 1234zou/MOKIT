@@ -1086,10 +1086,10 @@ subroutine add_force_key2py_script(mem, pyname, ccsd_t)
 
  open(newunit=fid,file=TRIM(pyname),status='old',position='append')
  if(ccsd_t) then
-  write(fid,'(A)') 'from pyscf.grad import ccsd_t as ccsd_t_grad'
+  write(fid,'(/,A)') 'from pyscf.grad import ccsd_t as ccsd_t_grad'
   write(fid,'(A)') 'mcg = ccsd_t_grad.Gradients(mc)'
  else
-  write(fid,'(A)') 'from pyscf import grad'
+  write(fid,'(/,A)') 'from pyscf import grad'
   write(fid,'(A)') 'mcg = mc.Gradients()'
  end if
 

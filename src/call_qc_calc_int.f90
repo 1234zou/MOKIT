@@ -853,18 +853,19 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
  end if
 end subroutine submit_gvb_bccc_job
 
-subroutine submit_pyscf_job(pyname)
+subroutine submit_pyscf_job(pyname, prt)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: outname
- character(len=480) :: buf
  character(len=240), intent(in) :: pyname
+ character(len=500) :: buf
+ logical, intent(in) :: prt
 
  call find_specified_suffix(pyname, '.py', i)
  outname = pyname(1:i-1)//'.out'
 
  write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$'//TRIM(buf)
+ if(prt) write(6,'(A)') '$'//TRIM(buf)
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subrouitine submit_pyscf_job: PySCF job failed.'

@@ -384,7 +384,7 @@ subroutine do_gvb_bccc()
   i = SYSTEM('dat2fch '//TRIM(datname2)//' '//TRIM(fchname2))
   i = 2*npair + nopen
   call prt_py_script_to_gen_fcidump(fchname2, i, i, mem, nproc)
-  call submit_pyscf_job(pyname)
+  call submit_pyscf_job(pyname, .true.)
   call delete_files(3, [pyname, outname, fchname2])
   npair1 = npair
 
@@ -394,7 +394,7 @@ subroutine do_gvb_bccc()
   datname2 = datname(1:i-1)//'aH.dat'
   fcidump = datname(1:i-1)//'aH.FCIDUMP'
   call prt_py_script_loc_add_gen(fchname1, ndb, npair, nopen)
-  call submit_pyscf_job(pyname)
+  call submit_pyscf_job(pyname, .true.)
   call delete_file(outname)
   npair1 = npair + nopen
  end if

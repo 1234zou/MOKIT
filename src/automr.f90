@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc35 :: MOKIT, release date: 2024-Jun-29'
+  write(6,'(A)') 'AutoMR 1.2.6rc36 :: MOKIT, release date: 2024-Jul-12'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -177,7 +177,7 @@ subroutine get_paired_LMO()
    pyname = TRIM(proname)//'_proj_loc_pair.py'
    call prt_rhf_proj_script_into_py(pyname)
    call prt_auto_pair_script_into_py(pyname)
-   call submit_pyscf_job(pyname)
+   call submit_pyscf_job(pyname, .true.)
   end if
 
  else
@@ -199,7 +199,7 @@ subroutine get_paired_LMO()
   call prt_uno_script_into_py(pyname)
   if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-  call submit_pyscf_job(pyname)
+  call submit_pyscf_job(pyname, .true.)
   call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
 
   ! when ist=2, GVB will not be performed, so we need to read variables before CASCI
@@ -617,8 +617,8 @@ end subroutine prt_assoc_rot_script_into_py
 ! perform GVB/STO-6G, only valid for ist=6
 subroutine do_minimal_basis_gvb()
  use mol, only: mult, nbf, nif, nopen, ndb, npair
- use mr_keyword, only: nproc, ist, npair_wish, gjfname, localm, hf_fch, mo_rhf,&
-  nskip_uno, bgchg, inherit
+ use mr_keyword, only: nproc, ist, hf_prog, npair_wish, gjfname, localm, hf_fch,&
+  mo_rhf, nskip_uno, bgchg, inherit
  implicit none
  integer :: i, fid, SYSTEM
  real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
@@ -640,8 +640,8 @@ subroutine do_minimal_basis_gvb()
  pyname = gjfname(1:i-1)//'_proj_rem.py'
  outname = gjfname(1:i-1)//'_proj_rem.out'
 
- call prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair_wish, nskip_uno, localm, &
-                            bgchg, .true., inherit)
+ call prt_automr_mb_gvb_gjf(hf_prog, gjfname, mbgjf, npair_wish, nskip_uno, &
+                            localm, bgchg, .true., inherit)
  call submit_automr_job(mbgjf)
  call read_hf_and_gvb_e_from_automr_out(mbout, e, uhf_s2)
  call read_ndb_npair_nopen_from_automr_out(mbout, ndb, npair, nopen)
@@ -678,7 +678,7 @@ subroutine do_minimal_basis_gvb()
 
  call gen_fch_from_gjf(gjfname, hf_fch)
  call prt_orb_resemble_py_script(nproc, hf_fch, gvb_nofch, pyname)
- call submit_pyscf_job(pyname)
+ call submit_pyscf_job(pyname, .true.)
 
  ! Read GVB NOON of minimal basis set. The GVB/STO-6G may have many pairs, but
  ! we are only interested in moderate/strong-correlated pairs.
@@ -722,13 +722,14 @@ subroutine do_minimal_basis_gvb()
 end subroutine do_minimal_basis_gvb
 
 ! print/create a GVB/STO-6G MOKIT automr .gjf file
-subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
-                                 bgchg, fcgvb, inherit)
+subroutine prt_automr_mb_gvb_gjf(hf_prog, gjfname, mbgjf, npair, nskip_uno, &
+                                 localm, bgchg, fcgvb, inherit)
  implicit none
  integer :: i, j, fid1, fid2
  integer, intent(in) :: npair, nskip_uno
  character(len=240) :: buf
  character(len=4), intent(in) :: localm
+ character(len=10), intent(in) :: hf_prog
  character(len=240), intent(in) :: gjfname, mbgjf
  logical, intent(in) :: bgchg, fcgvb, inherit
 
@@ -757,6 +758,9 @@ subroutine prt_automr_mb_gvb_gjf(gjfname, mbgjf, npair, nskip_uno, localm, &
   write(fid2,'(A,//,A)',advance='no') '/STO-6G','mokit{LocalM=PM'
  end if
 
+ if(TRIM(hf_prog) /= 'gaussian') then
+  write(fid2,'(A)',advance='no') ',HF_prog='//TRIM(hf_prog)
+ end if
  if(bgchg) write(fid2,'(A)',advance='no') ',charge'
  write(fid2,'(A,/)') ',GVB_conv=5d-4}'
 
@@ -1084,8 +1088,9 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine find_npair0_from_fch: keyword 'Alpha O'&
-                 & not found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine find_npair0_from_fch: keyword 'Alpha O'&
+                   & not found in file "//TRIM(fchname)
+  close(fid)
   stop
  end if
 
@@ -1188,6 +1193,7 @@ subroutine do_min_bas_hf_pyscf(proname)
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  if(mult > 1) then
   write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
+  write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
   write(fid,'(A)') 'from mokit.lib.gaussian import uno'
   write(fid,'(A)') 'from os import rename'
  end if
@@ -1223,28 +1229,16 @@ subroutine do_min_bas_hf_pyscf(proname)
 
  write(fid,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
  write(fid,'(A)') 'mf.max_cycle = 200'
- write(fid,'(A)') 'old_e = mf.kernel()'
+ write(fid,'(A)') 'mf.kernel()'
 
  ! If SCF is not converged, use the Newton method to continue
  write(fid,'(/,A)') 'if mf.converged is False:'
  write(fid,'(A)')   '  mf = mf.newton()'
- write(fid,'(A,/)') '  old_e = mf.kernel()'
+ write(fid,'(A,/)') '  mf.kernel()'
 
  if(mult > 1) then ! UHF
-  ! loop to check wave function stability
-  write(fid,'(A)') 'new_e = old_e + 2e-5'
-  write(fid,'(A)') 'i = 0'
-  write(fid,'(A)') 'while(i < 10):'
-  write(fid,'(A)') '  mo1 = mf.stability()[0]'
-  write(fid,'(A)') '  dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
-  write(fid,'(A)') '  mf = mf.newton()'
-  write(fid,'(A)') '  new_e = mf.kernel(dm0=dm1)'
-  write(fid,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
-  write(fid,'(A)') '    break # cannot find lower solution'
-  write(fid,'(A)') '  old_e = new_e'
-  write(fid,'(A)') '  i += 1'
-  write(fid,'(A)') 'if i == 10:'
-  write(fid,'(A)') "  raise OSError('PySCF stable=opt failed after 10 attempts.')"
+  write(fid,'(A)') '# stable=opt'
+  write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
   write(fid,'(A)') "r_fch = '"//TRIM(r_fch)//"'"
@@ -1260,7 +1254,7 @@ subroutine do_min_bas_hf_pyscf(proname)
  end if
 
  close(fid)
- call submit_pyscf_job(pyname)
+ call submit_pyscf_job(pyname, .true.)
  call delete_files(2, [pyname, outname])
 end subroutine do_min_bas_hf_pyscf
 

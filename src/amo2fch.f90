@@ -13,9 +13,9 @@ program main
  i = iargc()
  if(i<1 .or. i>3) then
   write(6,'(/,A)') ' ERROR in subroutine amo2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF/CAS): amo2fch a.dat'
-  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF/CAS): amo2fch a.dat b.fch'
-  write(6,'(A,/)') ' Example 3 (for CAS NOs)       : amo2fch a.dat a.fch -no'
+  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF/CAS): amo2fch a.amo'
+  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF/CAS): amo2fch a.amo b.fch'
+  write(6,'(A,/)') ' Example 3 (for CAS NOs)       : amo2fch a.amo a.fch -no'
   stop
  end if
 

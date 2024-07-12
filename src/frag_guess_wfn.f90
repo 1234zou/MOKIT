@@ -1500,11 +1500,36 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   else ! PCM
    if(TRIM(solvent) == 'INPUT') then
     select case(TRIM(solvent_gau))
+    ! These RSOLV are calculated using M062X/def2TZVP optimized geometries, with
+    ! themself as PCM implicit solvent. The `volume iop(6/45=3000)` keywords are
+    ! used to calculate the molar volume.
+    case('1,1,1-trichloroethane')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.975 EPS=7.0826'
+    case('1,1,2-trichloroethane')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.97 EPS=7.1937'
+    case('1,2,4-trimethylbenzene')
+     write(fid2,'(A)',advance='no') ' RSOLV=2.19 EPS=2.3653'
+    case('1,2-dibromoethane')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.95 EPS=4.9313'
+    case('1,2-ethanediol')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.76 EPS=40.245'
+    case('diethylether')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.96 EPS=4.24'
+    case('isoquinoline')
+     write(fid2,'(A)',advance='no') ' RSOLV=2.14 EPS=11.0'
+    case('n-octanol')
+     write(fid2,'(A)',advance='no') ' RSOLV=2.285 EPS=9.8629'
+    case('quinoline')
+     write(fid2,'(A)',advance='no') ' RSOLV=2.14 EPS=9.16'
     case('n,n-dimethylacetamide')
-     write(fid2,'(A)',advance='no') ' RSOLV=1.935 EPS=37.781'
-    case('n,n-dimethylformamide')
-     write(fid2,'(A)',advance='no') ' RSOLV=1.885 EPS=37.219'
+     write(fid2,'(A)',advance='no') ' RSOLV=1.975 EPS=37.781'
+    case('dmf','n,n-dimethylformamide')
+     write(fid2,'(A)',advance='no') ' RSOLV=1.87 EPS=37.219'
     end select
+    ! Previously 1.935/1.885 were used for n,n-dimethylacetamide/n,n-
+    ! dimethylformamide, respectively. The calculation files cannot be found,
+    ! so here we compute these solvent molecules using M062X/def2TZVP with
+    ! corresponding PCM implicit solvents.
    end if
    write(fid2,'(A,/,A)') ' $END',' $PCMCAV ALPHA(1)=1.1'
    j = natom/8
@@ -1745,7 +1770,9 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'HEXANE'
  case('1,4-dioxane')
   solvent = 'dioxane'
- case('n,n-dimethylacetamide','n,n-dimethylformamide')
+ case('1,1,1-trichloroethane','1,1,2-trichloroethane','1,2,4-trimethylbenzene',&
+      '1,2-dibromoethane','1,2-ethanediol','diethylether','isoquinoline', &
+      'n-octanol','quinoline','n,n-dimethylacetamide','dmf','n,n-dimethylformamide')
   solvent = 'INPUT'
  case('water','h2o','methanol','ch3oh','ethanol','hexane','acetonitrile','dmso',&
       'thf','benzene','c6h6','nitromethane','ch3no2','aniline','c6h5nh2',&

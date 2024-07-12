@@ -292,14 +292,14 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
  use mo_ovlp_and_svd
  implicit none
  integer :: i
- integer :: nbf1, nmo1, nbf2, nmo2
+ integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
- real(kind=8) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2), mo_e(nmo1)
+ real(kind=8), intent(inout) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2), mo_e(nmo1)
 !f2py intent(inout) :: coeff1, coeff2, mo_e
 !f2py depend(nbf1,nmo1) :: coeff1
 !f2py depend(nbf2,nmo2) :: coeff2
 !f2py depend(nmo1) :: mo_e
- real(kind=8) :: ao_ovlp(nbf1,nbf2)
+ real(kind=8), intent(in) :: ao_ovlp(nbf1,nbf2)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf1,nbf2) :: ao_ovlp
  real(kind=8), allocatable :: mo_ovlp(:,:), sv(:)

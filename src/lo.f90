@@ -101,7 +101,7 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') 'os.rename(lmofch, fchname)'
  close(fid)
 
- call submit_pyscf_job(pyname)
+ call submit_pyscf_job(pyname, .true.)
  call delete_files(2, [pyname, outname])
 end subroutine localize_orb
 
@@ -538,7 +538,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
  integer, parameter :: niter_max = 9999
  ! niter_max: max number of iterations
 
- real(kind=8), parameter :: threshold1 = 1d-7, threshold2 = 1d-6
+ real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-6
  ! threshold1: determine whether to rotate (and update MOs, dipole integrals)
  ! threshold2: determine whether rotation/localization converged
  ! if threshold2 is set to 1d-5, the localization is sometimes not thorough
@@ -575,6 +575,10 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
     Bij = ddot(ncomp, vdiff, 1, vtmp(:,2), 1)
     rtmp = HYPOT(Aij, Bij)
     sin_4a = Bij/rtmp
+    rtmp = rtmp + Aij
+    if(rtmp < threshold1) cycle
+
+    sum_change = sum_change + rtmp
     sin_4a = MAX(-1d0, MIN(sin_4a, 1d0)) ! in case of numerical error
     alpha = DASIN(sin_4a) ! [-PI/2,PI/2]
     if(Aij > 0d0) then
@@ -583,12 +587,7 @@ subroutine serial2by2(nbf, nif, coeff, ncomp, mo_dipole)
      alpha = 2d0*PI + alpha
     end if
     alpha = 0.25d0*alpha
-    ! if theta/alpha is very close to zero or PI/2, not to rotate
-    if(alpha<threshold1 .or. 0.5d0*PI-alpha<threshold1) cycle
-
-    cos_a = DCOS(alpha)
-    sin_a = DSIN(alpha)
-    sum_change = sum_change + Aij + rtmp
+    cos_a = DCOS(alpha); sin_a = DSIN(alpha)
 
     ! update two orbitals
     motmp(:,1) = coeff(:,i)

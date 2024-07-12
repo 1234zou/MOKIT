@@ -3,34 +3,34 @@
 
 ! This subroutine is designed to be imported as a module by Python.
 
-subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
+subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_mo)
  implicit none
  integer :: i, j, nvir
- integer :: nbf, nif, idx
+ integer, intent(in) :: nbf, nif, idx
 !f2py intent(in) :: nbf, nif, idx
  ! nbf: the number of basis functions
  ! nif: the number of MOs
  ! idx: the beginning index (Fortran convention) of the virtual MOs
-
- real(kind=8) :: coeff(nbf,nif), ovlp(nbf,nbf), new_coeff(nbf,nif)
-!f2py depend(nbf,nif) :: coeff, new_coeff
+ real(kind=8), intent(in) :: coeff(nbf,nif), ovlp(nbf,nbf)
+!f2py intent(in) :: coeff, ovlp
 !f2py depend(nbf) :: ovlp
-!f2py intent(in) :: ovlp
-!f2py intent(in,copy) :: coeff
-!f2py intent(out) :: new_coeff
-
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: new_mo(nbf,nif)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nif) :: new_mo
  real(kind=8), allocatable :: p(:,:), v(:,:), s1(:,:), ev(:), x(:,:)
  ! V: projected atomic orbitals (PAO)
  ! P: density matrix of atomic basis functions, sigma_i(Cui*Cvi)
- ! Note that the index i can be larger than nocc, in which case we only
+ ! Note that the index idx can be larger than ndb+1, in which case we only
  !  construct part of virtual orbitals.
 
  if(idx == nif+1) then
   write(6,'(/,A)') 'Warning in subroutine construct_vir: idx=nif+1 found.'
   write(6,'(A)') 'No need to construct virtual MOs.'
-  new_coeff = coeff
+  new_mo = coeff
   return
  end if
+ new_mo(:,1:idx-1) = coeff(:,1:idx-1) ! occupied space
 
  ! Step 1: P = sigma_i(Cui*Cvi)
  allocate(p(nbf,nbf), source=0d0)
@@ -57,17 +57,16 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_coeff)
  deallocate(ev, s1)
 
  ! Step 5: get new virtual MO coefficients
- call dgemm('N','N', nbf,nvir,nbf, 1d0,v,nbf, x,nbf, 0d0,coeff(:,idx:nif),nbf)
+ call dgemm('N','N', nbf,nvir,nbf, 1d0,v,nbf, x,nbf, 0d0,new_mo(:,idx:nif),nbf)
  deallocate(x, v)
- new_coeff = coeff
 
  ! Step 6: check orthonormality
  allocate(x(nif,nif))
- call calc_CTSC(nbf, nif, coeff, ovlp, x)
+ call calc_CTSC(nbf, nif, new_mo, ovlp, x)
 
  forall(i = 1:nif) x(i,i) = x(i,i) - 1d0
  x = DABS(x)
- write(6,'(/,A)') 'The orthonormality of Alpha MO after PAO construction:'
+ write(6,'(/,A)') 'The orthonormality of MOs after PAO construction:'
  write(6,'(A,F16.10)') 'maxv=', MAXVAL(x)
  write(6,'(A,F16.10)') 'abs_mean=', SUM(x)/DBLE(nif*nif)
  deallocate(x)

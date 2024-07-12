@@ -3,6 +3,7 @@
 ! read Cartesian gradient from a given file
 subroutine read_grad_from_output(prog_name, outname, natom, grad)
  implicit none
+ integer :: i
  integer, intent(in) :: natom
  real(kind=8) :: e
  real(kind=8), intent(out) :: grad(3*natom)
@@ -17,7 +18,18 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
  case('dalton')
   call read_grad_from_dalton_out(outname, natom, grad)
  case('gamess')
-  call read_grad_from_dat(outname, natom, grad)
+  i = LEN_TRIM(outname)
+  select case(outname(i-3:i))
+  case('.dat')
+   call read_grad_from_dat(outname, natom, grad)
+  case('.gms')
+   call read_grad_from_gms_gms(outname, natom, grad)
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine read_grad_from_output: filetype not re&
+                    &cognized.'
+   write(6,'(A)') 'Suffix='//outname(i-3:i)
+   stop
+  end select
  case('gaussian')
   call read_grad_from_gau_log(outname, natom, grad)
  case('molpro')
@@ -122,30 +134,51 @@ end subroutine read_grad_from_gau_log
 ! read Cartesian gradient from a given GAMESS .gms file
 subroutine read_grad_from_gms_gms(outname, natom, grad)
  implicit none
- integer :: i, k, fid
+ integer :: i, k, icase, fid
  integer, intent(in) :: natom
+ real(kind=8) :: r
  real(kind=8), intent(out) :: grad(3*natom)
  character(len=2) :: elem = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- grad = 0d0
-
+ grad = 0d0; icase = 0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(26:47) == 'GRADIENT OF THE ENERGY') exit
+  if(buf(26:47) == 'GRADIENT OF THE ENERGY') then
+   icase = 1
+   exit
+  end if
+  if(buf(34:47) == 'GRADIENT (HART') then
+   icase = 2
+   exit
+  end if
  end do ! for while
 
  do i = 1, 3
   read(fid,'(A)') buf
  end do ! for i
 
- do i = 1, natom, 1
-  read(fid,*) k, elem, grad(3*i-2:3*i)
- end do ! for i
+ select case(icase)
+ case(1)
+  do i = 1, natom, 1
+   read(fid,*) k, elem, grad(3*i-2:3*i)
+  end do ! for i
+ case(2)
+  do i = 1, natom, 1
+   read(fid,*) k, elem, r, grad(3*i-2:3*i)
+  end do ! for i
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_grad_from_gms_gms: icase out of ra&
+                   &nge!'
+  write(6,'(A)') 'outname='//TRIM(outname)
+  close(fid)
+  stop
+ end select
 
  close(fid)
 end subroutine read_grad_from_gms_gms

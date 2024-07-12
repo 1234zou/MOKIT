@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc35 (2024-Jun-29)'
+ write(6,'(A)') '           Version: 1.2.6rc36 (2024-Jul-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1635,15 +1635,16 @@ end subroutine lower
   close(fid)
 
   call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
-  write(6,'(A,F18.8,A)') 'Coulomb interaction energy of background point charge&
-                         &s:', ptchg_e, ' a.u.'
-  write(6,'(A)') 'This energy is taken into account for all energies below.'
+  write(6,'(A,F18.8,A)') 'Self energy of the charges =', ptchg_e, ' a.u.'
 
   i = INDEX(gjfname, '.gjf', back=.true.)
   chgname = gjfname(1:i-1)//'.chg'
   call write_charge_into_chg(nbgchg, bgcharge, chgname)
 
   call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
+  write(6,'(A,F18.8,A)') 'Nuclei-charges interaction =',nuc_pt_e,' a.u.'
+  write(6,'(A)') 'Note: these two energies are included in all electronic energ&
+                 &ies below.'
  end subroutine read_bgchg_from_gjf
 
  ! check any readrhf/readuhf/readno in the given .gjf file

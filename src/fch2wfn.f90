@@ -181,7 +181,7 @@ subroutine fch2wfn(fchname, read_no)
   case(-5,5) ! H
    forall(m = 1:21) type_assign(k+1+j*(m-1):k+j*m) = 35 + m
   case default
-   write(6,'(A)') 'ERROR in subroutine fch2wfn: shell_type out of range.'
+   write(6,'(/,A)') 'ERROR in subroutine fch2wfn: shell_type out of range.'
    write(6,'(A,I0)') 'shell_type(i)=', shell_type(i)
    stop
   end select

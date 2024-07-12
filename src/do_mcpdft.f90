@@ -66,7 +66,7 @@ subroutine do_mcpdft()
   call bas_fch2py_wrap(casnofch, .false., inpname)
   call prt_mcpdft_script_into_py(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_pyscf_job(inpname)
+  call submit_pyscf_job(inpname, .true.)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)

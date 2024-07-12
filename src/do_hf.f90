@@ -514,6 +514,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  write(fid,'(A)') 'from mokit.lib.lo import get_nmo_from_ao_ovlp'
  if(uhf) then
   write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
+  write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
   if(mult == 1) then
    write(fid,'(A)') 'from mokit.lib.rwwfn import gen_no_from_density_and_ao_ovl&
                     &p, \'
@@ -581,31 +582,19 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   write(fid,'(A)') 'mo_a[:,ndb]   = homo.copy()'
   write(fid,'(A)') 'dm_b = calc_dm_using_mo_and_on(nbf, nif, mo_a, occ_a)'
   write(fid,'(A)') 'dm = (dm_a, dm_b)'
-  write(fid,'(A)') 'old_e = mf.kernel(dm0=dm)'
+  write(fid,'(A)') 'mf.kernel(dm0=dm)'
  else
-  write(fid,'(A)') 'old_e = mf.kernel()'
+  write(fid,'(A)') 'mf.kernel()'
  end if
 
- ! If SCF is not converged, use the Newton method to continue
+ ! If normal SCF is unconverged, use the Newton method to continue
  write(fid,'(/,A)') 'if mf.converged is False:'
  write(fid,'(A)')   '  mf = mf.newton()'
- write(fid,'(A,/)') '  old_e = mf.kernel()'
+ write(fid,'(A,/)') '  mf.kernel()'
 
  if(uhf) then ! UHF
-  ! loop to check wave function stability
-  write(fid,'(A)') 'new_e = old_e + 2e-5'
-  write(fid,'(A)') 'i = 0'
-  write(fid,'(A)') 'while(i < 10):'
-  write(fid,'(A)') '  mo1 = mf.stability()[0]'
-  write(fid,'(A)') '  dm1 = mf.make_rdm1(mo1, mf.mo_occ)'
-  write(fid,'(A)') '  mf = mf.newton()'
-  write(fid,'(A)') '  new_e = mf.kernel(dm0=dm1)'
-  write(fid,'(A)') '  if(abs(new_e-old_e) < 1e-5):'
-  write(fid,'(A)') '    break # cannot find lower solution'
-  write(fid,'(A)') '  old_e = new_e'
-  write(fid,'(A)') '  i += 1'
-  write(fid,'(A)') 'if i == 10:'
-  write(fid,'(A)') "  raise OSError('PySCF stable=opt failed after 10 attempts.')"
+  write(fid,'(A)') '# stable=opt'
+  write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
   write(fid,'(A)') 'fchk(mf, uhf_fch)'
@@ -654,7 +643,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
    stop
   end if
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
-  call submit_pyscf_job(inpname)
+  call submit_pyscf_job(inpname, .false.)
   call read_hf_e_and_ss_from_pyscf_out(outname, hf_type, e, ssquare)
   e = e + ptchg_e
   return
@@ -686,7 +675,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
    end if
   end if
 
-  call read_hf_e_and_ss_from_gau_out(outname, e, ssquare)
+  call read_hf_e_and_ss_from_gau_log(outname, e, ssquare)
 !  call delete_file(gjfname)
   return
  end if
@@ -742,7 +731,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
 end subroutine do_scf_and_read_e
 
 ! read HF electronic energy from a Gaussian .log/.out file
-subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
+subroutine read_hf_e_and_ss_from_gau_log(logname, e, ss)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: e, ss ! HF energy and spin square
@@ -766,7 +755,7 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_gau_out: 'SCF Don&
+  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_gau_log: 'SCF Don&
                    &e' not found"
   write(6,'(A)') 'in file '//TRIM(logname)
   close(fid)
@@ -788,7 +777,7 @@ subroutine read_hf_e_and_ss_from_gau_out(logname, e, ss)
  end do ! for i
 
  close(fid)
-end subroutine read_hf_e_and_ss_from_gau_out
+end subroutine read_hf_e_and_ss_from_gau_log
 
 ! read HF electronic energy from a PySCF .out file
 subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)

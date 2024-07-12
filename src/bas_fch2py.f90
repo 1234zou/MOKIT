@@ -235,6 +235,8 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest
   ! b3lypg is used for compatibility.
  case('pbepbe')
   dftname1 = 'pbe,pbe'
+ case('pbe1pbe')
+  dftname1 = 'pbe0' ! PySCF also recognizes pbe1pbe
  end select
  
  write(fid1,'(A)') 'dm = mf.make_rdm1()'

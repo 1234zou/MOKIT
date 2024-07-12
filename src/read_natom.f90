@@ -495,6 +495,25 @@ subroutine read_natom_from_molden(molden, natom)
  close(fid)
 end subroutine read_natom_from_molden
 
+subroutine read_natom_from_gau_log(outname, natom)
+ implicit none
+ integer :: fid
+ integer, intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:8) == 'NAtoms=') exit
+ end do ! for while
+
+ close(fid)
+ read(buf(9:),*) natom
+end subroutine read_natom_from_gau_log
+
 ! Read AtomTypes from a Dalton .mol file. For the fch2dal/mkl2dal generated .mol
 ! file, this number is equal to No. atoms.
 subroutine read_natmtyp_from_dalton_mol(molname, natmtyp)

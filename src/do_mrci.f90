@@ -71,7 +71,7 @@ subroutine do_mrcisd()
   call bas_fch2py_wrap(casnofch, .false., pyname)
   call prt_mrci_script_into_py(pyname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-  call submit_pyscf_job(pyname)
+  call submit_pyscf_job(pyname, .true.)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)

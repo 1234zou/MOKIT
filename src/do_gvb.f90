@@ -382,7 +382,7 @@ subroutine do_gvb_gau(proname, pair_fch)
   stop
  end if
 
- call read_gvb_e_from_gau_out(logname, gvb_e)
+ call read_gvb_e_from_gau_log(logname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  call formchk(chkname, fchname)
@@ -403,7 +403,7 @@ subroutine do_gvb_gau(proname, pair_fch)
 
  i = RENAME(TRIM(inpname), TRIM(datname))
  allocate(coeff(2,npair))
- call read_pair_coeff_from_gau_out(logname, npair, coeff)
+ call read_pair_coeff_from_gau_log(logname, npair, coeff)
  call write_pair_coeff_into_gms_inp(datname, npair, coeff)
  call determine_npair0_from_pair_coeff(npair, coeff, npair0)
  deallocate(coeff)
@@ -510,7 +510,7 @@ subroutine read_gvb_e_from_qchem_out(outname, gvb_e)
 end subroutine read_gvb_e_from_qchem_out
 
 ! read GVB energy from a Gaussian output file
-subroutine read_gvb_e_from_gau_out(logname, gvb_e)
+subroutine read_gvb_e_from_gau_log(logname, gvb_e)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: gvb_e
@@ -527,13 +527,13 @@ subroutine read_gvb_e_from_gau_out(logname, gvb_e)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_gau_out: no 'TOTAL&
+  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_gau_log: no 'TOTAL&
                      & ENERGY' found in file "//TRIM(logname)
   stop
  end if
 
  read(buf(34:),*) gvb_e
-end subroutine read_gvb_e_from_gau_out
+end subroutine read_gvb_e_from_gau_log
 
 subroutine read_pair_coeff_from_qchem_out(outname, npair, coeff)
  implicit none
@@ -577,7 +577,7 @@ subroutine read_pair_coeff_from_qchem_out(outname, npair, coeff)
 end subroutine read_pair_coeff_from_qchem_out
 
 ! read GVB pair coefficients from a Gaussian output file
-subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
+subroutine read_pair_coeff_from_gau_log(logname, npair, coeff)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: npair
@@ -598,7 +598,7 @@ subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_pair_coeff_from_gau_out: no&
+  write(6,'(/,A)') "ERROR in subroutine read_pair_coeff_from_gau_log: no&
                     & 'Separated pair' found in file "//TRIM(logname)
   close(fid)
   stop
@@ -620,7 +620,7 @@ subroutine read_pair_coeff_from_gau_out(logname, npair, coeff)
  forall(i = 1:npair) coeff0(:,npair-i+1) = coeff(:,i)
  coeff = coeff0
  deallocate(coeff0)
-end subroutine read_pair_coeff_from_gau_out
+end subroutine read_pair_coeff_from_gau_log
 
 ! write the GVB pair coefficients into a given GAMESS .inp/.dat file
 subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)

@@ -36,6 +36,7 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
  deallocate(C_T_S_C)
  write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0,&
                                      'maxv=', maxv
+ if(maxv > 1d-2) write(6,'(A)') 'Warning: severe non-orthonormal problem!'
 end subroutine check_orthonormal
 
 ! check whether a given set of complex MOs are orthonormal
@@ -117,11 +118,18 @@ subroutine orthonormalize_orb(sym_ortho, nbf, nif, ao_ovlp, old_mo, new_mo)
  implicit none
  integer :: i, j
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nif)
+!f2py intent(in) :: ao_ovlp, old_mo
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nif) :: old_mo
  real(kind=8), intent(out) :: new_mo(nbf,nif)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nif) :: new_mo
  real(kind=8), allocatable :: X(:,:), Y(:,:), ev(:)
  real(kind=8), allocatable :: Sp(:,:) ! S', S prime
  logical, intent(in) :: sym_ortho
+!f2py intent(in) :: sym_ortho
  ! True/False for symmetric/canonical orthonormalization
 
  new_mo = 0d0

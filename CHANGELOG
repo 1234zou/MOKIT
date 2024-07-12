@@ -1,8 +1,12 @@
-MOKIT 1.2.6 (Jun 29, 2024)
+MOKIT 1.2.6 (Jul 12, 2024)
 ------------------------
+* take point charges into consideration for autosr
+* optionally read `Int Atom Types` in fch
+* add stability.py in mokit/lib/ for tight wfn stability check
+* add parameters of 9 solvents in frag_guess_wfn
 * fix fortran read bug in gvb_exclude_XH (for very high ang. mom. and >99 atoms)
 * fix SS-DMRG-CASCI keyowrds
-* add Jocobian 2*2 rotation RHF
+* add Jocobian 2*2 rotation RHF and conventional RHF
 * fix 'Int Atom Types' dimension in addH2singlet
 * add subroutine merge_bas_in_dalton_mol
 * remove mo_svd_format.f90 and move this functionality into wfn_analysis

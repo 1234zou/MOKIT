@@ -64,7 +64,7 @@ subroutine do_sa_cas()
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
   call prt_sacas_script_into_py(inpname, hf_fch)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_pyscf_job(inpname)
+  call submit_pyscf_job(inpname, .true.)
  case('gaussian')
   inpname = hf_fch(1:i-1)//'_SA-CAS.gjf'
   outname = hf_fch(1:i-1)//'_SA-CAS.log'

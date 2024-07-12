@@ -151,7 +151,7 @@ subroutine do_mrpt2()
    call bas_fch2py_wrap(casnofch, .false., pyname)
    call prt_nevpt2_script_into_py(pyname)
    if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-   call submit_pyscf_job(pyname)
+   call submit_pyscf_job(pyname, .true.)
 
   case('molpro')
    call check_exe_exist(molpro_path)
@@ -381,7 +381,7 @@ subroutine do_mrpt2()
  else if(mrmp2) then  ! read MRMP2 energy
   call read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  else if(ovbmp2) then ! read OVB-MP2 energy
-  call read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
+  call read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
  else                 ! read SDSPT2 energy
   call read_mrpt_energy_from_bdf_out(outname, 1, ref_e, corr_e, davidson_e)
  end if
@@ -1103,7 +1103,7 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
 end subroutine prt_ovbmp2_gau_inp
 
 ! read CASSCF OVB-MP2 energy from a Gaussian output file
-subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
+subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: ref_e, corr_e
@@ -1119,7 +1119,7 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no '&
                       &EIGENVALUE' found in file "//TRIM(outname)
   close(fid)
  end if
@@ -1133,13 +1133,13 @@ subroutine read_mrpt_energy_from_gau_out(outname, ref_e, corr_e)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_out: no '&
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no '&
                       &EUMP2 =' found in file "//TRIM(outname)
  end if
 
  read(buf(35:),*) corr_e
  corr_e = corr_e - ref_e
-end subroutine read_mrpt_energy_from_gau_out
+end subroutine read_mrpt_energy_from_gau_log
 
 ! read nroots and target_root from a plain text file
 subroutine read_ss_root_from_txt(nroots, target_root)

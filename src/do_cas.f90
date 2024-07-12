@@ -239,7 +239,7 @@ subroutine do_cas(scf)
   call prt_cas_script_into_py(inpname, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2py_script(mem, inpname, .false.)
-  call submit_pyscf_job(inpname)
+  call submit_pyscf_job(inpname, .true.)
 
  case('gaussian')
   call check_exe_exist(gau_path)
@@ -426,9 +426,6 @@ subroutine do_cas(scf)
   end if
 
  case('dalton')
-  write(6,'(/,A)') 'Warning: Currently automr only supports the OpenMP version &
-                   &of Dalton. If you'
-  write(6,'(A,/)') 'are using MPI version of Dalton, you should kill the job.'
   i = SYSTEM('fch2dal '//TRIM(fchname))
   i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'.dal'

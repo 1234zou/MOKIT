@@ -188,10 +188,16 @@ subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
  implicit none
  integer :: i, charge, mult
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, allocatable :: nuc(:)
  real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
  character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
 
  i = LEN_TRIM(fname)
  select case(fname(i-3:i))
@@ -242,13 +248,16 @@ subroutine read_nuc_and_coor_from_file(fname, natom, nuc, coor)
  implicit none
  integer :: i, charge, mult
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(out) :: nuc(natom)
+!f2py intent(out) :: nuc
+!f2py depend(natom) :: nuc
  real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
  character(len=2), allocatable :: elem(:)
  character(len=240), intent(in) :: fname
-!f2py intent(in) :: natom, fname
-!f2py intent(out) :: nuc, coor
-!f2py depend(natom) :: nuc, coor
+!f2py intent(in) :: fname
 
  allocate(elem(natom))
  i = LEN_TRIM(fname)
@@ -443,8 +452,8 @@ subroutine read_coor_from_fch(fchname, natom, coor)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_coor_from_fch: no 'Current &
-                   & cart' found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_coor_from_fch: no 'Current cart' f&
+                   &ound in file "//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -460,21 +469,25 @@ end subroutine read_coor_from_fch
 
 ! read 3 arrays elem, nuc, coor, and the total charge as well as multiplicity
 ! from a given .fch file
-subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
+subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge,&
+                                       mult)
  use phys_cons, only: Bohr_const
  use fch_content, only: nuc2elem
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(out) :: charge, mult, nuc(natom)
+!f2py intent(out) :: charge, mult, nuc
+!f2py depend(natom) :: nuc
  real(kind=8), intent(out) :: coor(3,natom)
  real(kind=8), allocatable :: coor0(:)
  character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
-!f2py intent(in) :: natom, fchname
-!f2py intent(out) :: elem, nuc, coor, charge, mult
-!f2py depend(natom) :: elem, nuc, coor
+!f2py intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
@@ -545,14 +558,19 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
  character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
  character(len=240) :: buf
  character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
  logical :: bohr
 
  elem = '  '; coor = 0d0
-
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
  read(fid,'(A)') buf
  read(fid,'(A)') buf
@@ -594,13 +612,85 @@ subroutine read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
  end do ! for i
 end subroutine read_elem_and_coor_from_xyz
 
+subroutine read_elem_and_coor_from_gau_log(outname, last, natom, elem, coor)
+ use fch_content, only: nuc2elem
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, allocatable :: nuc(:)
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+ logical, intent(in) :: last
+!f2py intent(in) :: last
+
+ allocate(nuc(natom))
+ call read_nuc_and_coor_from_gau_log(outname, last, natom, nuc, coor)
+ forall(i = 1:natom) elem(i) = nuc2elem(nuc(i))
+ deallocate(nuc)
+end subroutine read_elem_and_coor_from_gau_log
+
+subroutine read_nuc_and_coor_from_gau_log(outname, last, natom, nuc, coor)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, intent(out) :: nuc(natom)
+!f2py intent(out) :: nuc
+!f2py depend(natom) :: nuc
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+ logical, intent(in) :: last
+!f2py intent(in) :: last
+
+ nuc = 0; coor = 0d0
+
+ if(last) then ! the last frame
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(27:35) == 'Input ori') exit
+  end do ! for while
+ else          ! the 1st frame
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(27:35) == 'Input ori') exit
+  end do ! for while
+ end if
+
+ do i = 1, 4
+  read(fid,'(A)') buf
+ end do
+
+ do i = 1, natom, 1
+  read(fid,*) j, nuc(i), k, coor(:,i) ! in Angstrom
+ end do ! for i
+
+ close(fid)
+end subroutine read_nuc_and_coor_from_gau_log
+
 ! read the number of frames from xyz file
 subroutine read_nframe_from_xyz(xyzname, nframe)
  implicit none
  integer :: i, fid, natom
  integer, intent(out) :: nframe
+!f2py intent(out) :: nframe
  character(len=240) :: buf
  character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
 
  nframe = 0
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
@@ -626,6 +716,7 @@ subroutine extract_final_frame_in_xyz(xyzname, new_xyz)
  character(len=2) :: elem
  character(len=300) :: buf
  character(len=240), intent(in) :: xyzname, new_xyz
+!f2py intent(in) :: xyzname, new_xyz
 
  open(newunit=fid,file=TRIM(xyzname),status='old',position='append')
  open(newunit=fid1,file=TRIM(new_xyz),status='replace')
@@ -1017,10 +1108,16 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  implicit none
  integer :: i, fid
  integer, intent(in) :: charge, mult, natom
+!f2py intent(in) :: charge, mult, natom
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  character(len=240) :: chkname
  character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
 
  call find_specified_suffix(gjfname, '.gjf', i)
  chkname = gjfname(1:i-1)//'.chk'
@@ -1220,6 +1317,33 @@ subroutine fch2xyz(fchname)
  call write_xyz(natom, elem, coor, xyzname)
  deallocate(elem, coor)
 end subroutine fch2xyz
+
+! convert a Gaussian .out/.log file to a .xyz file
+subroutine gau_log2xyz(logname)
+ use periodic_table, only: write_xyz
+ implicit none
+ integer :: i, natom
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: xyzname
+ character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
+
+ i = LEN_TRIM(logname)
+ if(.not. (logname(i-3:i)=='.out' .or. logname(i-3:i)=='.log')) then
+  write(6,'(/,A)') 'ERROR in subroutine gau_log2xyz: suffix .out/.log is requir&
+                   &ed.'
+  write(6,'(A)') 'logname='//TRIM(logname)
+  stop
+ end if
+ xyzname = logname(1:i-4)//'.xyz'
+
+ call read_natom_from_gau_log(logname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_gau_log(logname, .true., natom, elem, coor)
+ call write_xyz(natom, elem, coor, xyzname)
+ deallocate(elem, coor)
+end subroutine gau_log2xyz
 
 subroutine gjf2xyz(gjfname)
  implicit none
@@ -1453,10 +1577,12 @@ subroutine gen_cluster_from_cell(gjfname, dis_thres)
  integer, allocatable :: nuc(:), conn(:,:), map(:,:), idx(:)
  real(kind=8) :: min_dis, curr_dis, vt(3), lat_vec(3,3)
  real(kind=8), intent(in) :: dis_thres
+!f2py intent(in) :: dis_thres
  real(kind=8), allocatable :: coor(:,:), dis(:,:), mol_dis(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: proname, gjfname1
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
  type :: molecule_map
   integer :: natom = 0 ! No. of atoms in this cluster
   integer :: nadj = 0  ! No. of adjcent molecules within dis_thres
@@ -1466,7 +1592,6 @@ subroutine gen_cluster_from_cell(gjfname, dis_thres)
  end type molecule_map
  type(molecule_map), allocatable :: mol_map(:)
  logical, allocatable :: assigned(:), new_mol(:)
-!f2py intent(in) :: gjfname, dis_thres
 
  call complement_mol_around_cell(gjfname, dis_thres)
  i = INDEX(gjfname, '.gjf', back=.true.)
@@ -1651,12 +1776,13 @@ subroutine complement_mol_around_cell(gjfname, dis)
  character(len=2), allocatable :: elem(:), elem1(:)
  character(len=240) :: gjfname1
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
  real(kind=8) :: dis0, lat_vec(3,3), lat_vec1(3,3), norm(3), r1(3)
  real(kind=8), intent(in) :: dis ! distance threshold
+!f2py intent(in) :: dis
  real(kind=8), parameter :: max_dis = 5.8d0 ! Ang, maximum possible bond length
  real(kind=8), parameter :: thres = 1d-7
  real(kind=8), allocatable :: coor(:,:), coor1(:,:)
-!f2py intent(in) :: gjfname, dis
 
  call find_specified_suffix(gjfname, '.gjf', i)
  gjfname1 = gjfname(1:i-1)//'_new.gjf'
@@ -1824,15 +1950,21 @@ subroutine gen_conn_from_coor(natom, coor, nuc, dis, conn)
  implicit none
  integer :: i, j, k, m, n
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(in) :: nuc(natom)
+!f2py intent(in) :: nuc
+!f2py depend(natom) :: nuc
  integer, intent(out) :: conn(natom,natom)
+!f2py intent(out) :: conn
+!f2py depend(natom) :: conn
  integer, allocatable :: map(:,:)
  real(kind=8) :: r
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  real(kind=8), intent(out) :: dis(natom,natom)
-!f2py intent(in) :: natom, coor, nuc
-!f2py intent(out) :: dis, conn
-!f2py depend(natom) :: coor, nuc, dis, conn
+!f2py intent(out) :: dis
+!f2py depend(natom) :: dis
 
  conn = 0 ! initialization
  n = natom

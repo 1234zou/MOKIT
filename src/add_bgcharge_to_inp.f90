@@ -29,14 +29,15 @@ program main
  if(i /= 2) then
   write(6,'(/,A)') error_warn//'wrong command line arguments!'
   write(6,'(/,A)') 'Format: add_bgcharge_to_inp chgname inpname'
-  write(6,'(A)')   'Example 1 (PySCF) : add_bgcharge_to_inp a.chg a.py'
-  write(6,'(A)')   'Example 2 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A)')   'Example 3 (Molcas): add_bgcharge_to_inp a.chg a.input'
-  write(6,'(A)')   'Example 4 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 1 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 2 (Dalton): add_bgcharge_to_inp a.chg a.dal'
+  write(6,'(A)')   'Example 3 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 4 (Molcas): add_bgcharge_to_inp a.chg a.input'
   write(6,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
-  write(6,'(A)')   'Example 6 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 6 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
   write(6,'(A)')   'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A,/)') 'Example 8 (Q-Chem): add_bgcharge_to_inp a.chg a.in'
+  write(6,'(A)')   'Example 8 (PySCF) : add_bgcharge_to_inp a.chg a.py'
+  write(6,'(A,/)') 'Example 9 (Q-Chem): add_bgcharge_to_inp a.chg a.in'
   stop
  end if
 
@@ -78,7 +79,7 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  close(fid)
 
  if(j /= 0) then
-  write(6,'(A)') error_warn//' missing charges.'
+  write(6,'(/,A)') error_warn//' missing charges.'
   stop
  end if
 
@@ -121,11 +122,13 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   end if
  case('in') ! Q-Chem
   call add_bgcharge_to_qchem_inp(inpname, n, charge)
+ case('dal')
+  call add_bgcharge_to_dal(inpname, n, charge)
  case default
-  write(6,'(A)') error_warn//'filetype not supported!'
+  write(6,'(/,A)') error_warn//'filetype not supported!'
+  write(6,'(A)') 'inpname='//TRIM(inpname)
   stop
  end select
-
 end subroutine add_bgcharge_to_inp
 
 ! add background charges into a Gaussian .gjf file
@@ -543,37 +546,97 @@ subroutine add_bgcharge_to_bdf_inp(inpname, n, charge)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_bgcharge_to_bdf_inp
 
+! Used for PSI4 v1.6, obsoleted.
+!subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
+! implicit none
+! integer :: i, fid, fid1, RENAME
+! integer, intent(in) :: n
+! real(kind=8), intent(in) :: charge(4,n)
+! character(len=240) :: buf, inpname1
+! character(len=240), intent(in) :: inpname
+!
+! inpname1 = TRIM(inpname)//'.t'
+! open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+! open(newunit=fid1,file=TRIM(inpname1),status='replace')
+!
+! do while(.true.)
+!  read(fid,'(A)',iostat=i) buf
+!  if(i /= 0) exit
+!  if(buf(1:3) == 'set') exit
+!  write(fid1,'(A)') TRIM(buf)
+! end do ! for while
+!
+! write(fid1,'(A)') 'Chrgfield = QMMM()'
+! do i = 1, n, 1
+!  write(fid1,'(A,F11.6,A,3(F16.8,A))') 'Chrgfield.extern.addCharge(',charge(4,i),&
+!   ',',charge(1,i),',',charge(2,i),',',charge(3,i),')'
+! end do ! for i
+!
+! write(fid1,'(A)') "psi4.set_global_option_python('EXTERN', Chrgfield.extern)"
+! write(fid1,'(/,A)') 'set {'
+!
+! do while(.true.)
+!  read(fid,'(A)',iostat=i) buf
+!  if(i /= 0) exit
+!  write(fid1,'(A)') TRIM(buf)
+! end do ! for while
+!
+! close(fid,status='delete')
+! close(fid1)
+! i = RENAME(TRIM(inpname1), TRIM(inpname))
+!end subroutine add_bgcharge_to_psi4_inp
+
+! add background point charges into a PSI4 input file
 subroutine add_bgcharge_to_psi4_inp(inpname, n, charge)
+ use phys_cons, only: Bohr_const
  implicit none
- integer :: i, fid, fid1, RENAME
+ integer :: i, j, idx(3), fid, fid1, RENAME
  integer, intent(in) :: n
  real(kind=8), intent(in) :: charge(4,n)
+ real(kind=8), allocatable :: coor(:,:)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
+ allocate(coor(3,n))
+ coor = charge(1:3,:)/Bohr_const
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:3) == 'set') exit
+  if(buf(1:5) == 'set {') exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- write(fid1,'(A)') 'Chrgfield = QMMM()'
- do i = 1, n, 1
-  write(fid1,'(A,F11.6,A,3(F16.8,A))') 'Chrgfield.extern.addCharge(',charge(4,i),&
-   ',',charge(1,i),',',charge(2,i),',',charge(3,i),')'
+ write(fid1,'(A)') 'pt_chg = ['
+ do i = 1, n-1, 1
+  write(fid1,'(A,F11.6,A,3(F17.8,A))') '[',charge(4,i),',[',coor(1,i),',', &
+                                       coor(2,i),',',coor(3,i),']],'
  end do ! for i
+ write(fid1,'(A,F11.6,A,3(F17.8,A))') '[',charge(4,n),',[',coor(1,n),',', &
+                                      coor(2,n),',',coor(3,n),']]'
+ deallocate(coor)
+ write(fid1,'(A)') ']'
 
- write(fid1,'(A)') "psi4.set_global_option_python('EXTERN', Chrgfield.extern)"
  write(fid1,'(/,A)') 'set {'
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:1) == '}') exit
+ end do ! for while
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
+  idx = [INDEX(buf,"energy('"), INDEX(buf, "gradient('"), &
+         INDEX(buf,"properties('")]
+  if(ANY(idx > 0)) then
+   j = LEN_TRIM(buf)
+   buf = buf(1:j-1)//',external_potentials=pt_chg)'
+  end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
@@ -598,4 +661,74 @@ subroutine add_bgcharge_to_qchem_inp(inpname, n, charge)
  write(fid,'(A)') '$end'
  close(fid)
 end subroutine add_bgcharge_to_qchem_inp
+
+! Add background point charges into Dalton files: .dal file would be modified,
+! and .pot file would be generated.
+subroutine add_bgcharge_to_dal(dalname, n, charge)
+ implicit none
+ integer :: i, k, natom, fid, fid1, RENAME
+ integer, intent(in) :: n
+ integer, allocatable :: nline(:)
+ real(kind=8), intent(in) :: charge(4,n)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: buf, molname, potname, dalname1
+ character(len=240), intent(in) :: dalname
+
+ call find_specified_suffix(dalname, '.dal', i)
+ dalname1= dalname(1:i-1)//'.t'
+ molname = dalname(1:i-1)//'.mol'
+ potname = dalname(1:i-1)//'.pot'
+
+ open(newunit=fid,file=TRIM(dalname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(dalname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:9) == '.RUN WAVE') exit
+ end do ! for while
+
+ write(fid1,'(A)') '.PELIB'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(dalname1), TRIM(dalname))
+
+ call read_natmtyp_from_dalton_mol(molname, natom)
+ allocate(elem(natom), coor(3,natom), nline(natom))
+ call read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
+ deallocate(nline)
+
+ k = natom + n
+ open(newunit=fid,file=TRIM(potname),status='replace')
+ write(fid,'(A)') '! Point Charges'
+
+ write(fid,'(A,/,I0,/,A)') '@COORDINATES', k, 'AA'
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F17.8))') elem(i), coor(:,i)
+ end do ! for i
+ deallocate(elem, coor)
+
+ do i = 1, n, 1
+  write(fid,'(A2,3(1X,F17.8))') 'X ', charge(1:3,i)
+ end do ! for i
+
+ write(fid,'(A,/,A,/,I0)') '@MULTIPOLES', 'ORDER 0', k
+ do i = 1, natom, 1
+  write(fid,'(I0,A)') i, '  0.0'
+ end do ! for i
+
+ do i = 1, n, 1
+  write(fid,'(I0,1X,F13.8)') natom+i, charge(4,i)
+ end do ! for i
+ close(fid)
+ stop
+end subroutine add_bgcharge_to_dal
 

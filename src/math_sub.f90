@@ -111,6 +111,32 @@ subroutine diag_get_e_and_vec2(n, a, w)
  deallocate(U)
 end subroutine diag_get_e_and_vec2
 
+! reverse eigenvalues and eigenvectors which were obtained from a previous
+! matrix diagonalization
+subroutine reverse_e_and_vec(n, u, w)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(inout) :: u(n,n), w(n)
+ real(kind=8), allocatable :: y(:,:), z(:)
+
+ allocate(z(n), source=w)
+!$omp parallel do schedule(dynamic) default(shared) private(i)
+ do i = 1, n, 1
+  w(i) = z(n-i+1)
+ end do ! for i
+!$omp end parallel do
+ deallocate(z)
+
+ allocate(y(n,n), source=u)
+!$omp parallel do schedule(dynamic) default(shared) private(i)
+ do i = 1, n, 1
+  u(:,i) = y(:,n-i+1)
+ end do ! for i
+!$omp end parallel do
+ deallocate(y)
+end subroutine reverse_e_and_vec
+
 subroutine get_nmo_from_ao_ovlp(nbf, ovlp, nmo)
  implicit none
  integer :: i
@@ -556,10 +582,10 @@ end subroutine purify_dm
 ! calculate density matrix using MO coefficients and occupation numbers
 subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  implicit none
- integer :: i, j, k
+ integer :: u, v, k
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- real(kind=8), parameter :: thres = 1d-7
+ real(kind=8) :: ddot
  real(kind=8), intent(in) :: mo(nbf,nif), noon(nif)
 !f2py intent(in) :: mo, noon
 !f2py depend(nif,nbf) :: mo
@@ -567,19 +593,21 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  real(kind=8), intent(out) :: dm(nbf,nbf)
 !f2py intent(out) :: dm
 !f2py depend(nbf) :: dm
+ real(kind=8), allocatable :: r(:)
 
- dm = 0d0 ! initialization
+ allocate(r(nif))
 
- do i = 1, nbf, 1
-  do j = 1, i, 1
-   do k = 1, nif, 1
-    if(DABS(noon(k)) < thres) cycle
-    dm(j,i) = dm(j,i) + noon(k)*mo(j,k)*mo(i,k)
-   end do ! for k
-  end do ! for j
- end do ! for i
+!$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,noon,mo,dm)
+ do u = 1, nbf, 1
+  forall(k = 1:nif) r(k) = noon(k)*mo(u,k)
+  do v = 1, u, 1
+   dm(v,u) = ddot(nif, r, 1, mo(v,:), 1)
+  end do ! for v
+ end do ! for u
+!$omp end parallel do
 
- forall(i=1:nbf, j=1:nbf, j<i) dm(i,j) = dm(j,i)
+ deallocate(r)
+ forall(u=1:nbf, v=1:nbf, v<u) dm(u,v) = dm(v,u)
 end subroutine calc_dm_using_mo_and_on
 
 ! get a random integer
@@ -600,6 +628,39 @@ subroutine get_a_random_int(i)
 
  i = CEILING(r*1e6)
 end subroutine get_a_random_int
+
+! Compute X=Us^(-1/2)(U^T) or Us^(-1/2) from AO overlap integral matrix S
+subroutine solve_x_from_ao_ovlp(nbf, nif, S, X)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: S(nbf,nbf)
+ real(kind=8), intent(out) :: X(nbf,nif)
+ real(kind=8), allocatable :: U(:,:), w(:)
+
+ if(nbf == nif) then
+  ! no linear dependency, use symmetry orthogonalization
+  allocate(U(nbf,nbf))
+  call mat_dsqrt(nbf, S, U, X)
+  deallocate(U)
+ else if(nbf > nif) then
+  ! linear dependent, use canonical orthogonalization
+  allocate(w(nbf))
+  allocate(U(nbf,nbf), source=S)
+  call diag_get_e_and_vec(nbf, U, w) ! ascending order
+  call reverse_e_and_vec(nbf, U, w)  ! descending order
+!$omp parallel do schedule(dynamic) default(shared) private(i)
+  do i = 1, nif, 1
+   X(:,i) = U(:,i)/DSQRT(w(i))
+  end do ! for i
+!$omp end parallel do
+  deallocate(U, w)
+ else
+  write(6,'(/,A)') 'ERROR in subroutine solve_x_from_ao_ovlp: nbf>nif. Impossible.'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
+  stop
+ end if
+end subroutine solve_x_from_ao_ovlp
 
 ! solver AO-based overlap matrix (S) from condition (C^T)SC=I
 ! Note: this subroutine only applies to nbf=nif, i.e. no linear dependence
@@ -750,6 +811,62 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
  u = lo_coeff1(1:nmo,1:nmo)
  deallocate(lo_coeff1)
 end subroutine get_u
+
+! perform QR factorization on a matrix A
+subroutine qr_fac(m, n, A, Q, R)
+ implicit none
+ integer :: i, j, lwork
+ integer, intent(in) :: m, n
+ real(kind=8), intent(in) :: A(m,n)
+ real(kind=8), intent(out) :: Q(m,n), R(n,n)
+ real(kind=8), allocatable :: tau(:), work(:)
+
+ if(m < n) then
+  write(6,'(/,A)') 'ERROR in subroutine qr_fac: m < n. You can use A^T as the i&
+                   &nput.'
+  write(6,'(2(A,I0))') 'm=', m, ', n=', n
+  stop
+ end if
+
+ Q = A; R = 0d0
+ allocate(tau(n), source=0d0)
+ lwork = -1
+ allocate(work(1))
+ call dgeqrf(m, n, Q, m, tau, work, lwork, i)
+ lwork = work(1)
+ deallocate(work)
+ allocate(work(lwork))
+ call dgeqrf(m, n, Q, m, tau, work, lwork, i)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine qr_fac: failed to call dgeqrf.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+
+ deallocate(work)
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, n, 1
+  do j = 1, i, 1
+   R(j,i) = Q(j,i)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ ! calculate lwork again since a larger integer may be required here
+ lwork = -1
+ allocate(work(1))
+ call dorgqr(m, n, n, Q, m, tau, work, lwork, i)
+ lwork = work(1)
+ deallocate(work)
+ allocate(work(lwork))
+ call dorgqr(m, n, n, Q, m, tau, work, lwork, i)
+ deallocate(tau, work)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine qr_fac: failed to call dorgqr.'
+  write(6,'(A,I0)') 'info=', i
+  stop
+ end if
+end subroutine qr_fac
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none
