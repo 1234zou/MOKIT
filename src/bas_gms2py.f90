@@ -240,7 +240,8 @@ subroutine bas_gms2py(inpname, cart, rest)
  close(inpid)
 
  if(rest) then
-  call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom)
+  call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, &
+                               coor, ghost, natom, ecp)
  end if
  deallocate(ghost, coor)
  deallocate(elem, ntimes)
@@ -347,9 +348,9 @@ subroutine bas_gms2py(inpname, cart, rest)
  close(pyid)
 end subroutine bas_gms2py
 
-subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom)
+subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom, ecp)
  implicit none
- integer :: i, j, k, s, SYSTEM !, m, p, lmax, 
+ integer :: i, j, k, s, SYSTEM , m, p, lmax, ne
  integer, intent(in) :: charge, mult
  integer :: nline, ncol
  integer, intent(in) :: natom !, nif, nbf
@@ -357,7 +358,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
  integer, intent(in) :: ntimes(natom) ! number of times of an atom appears
 ! integer, allocatable :: nuc(:)
  integer, external :: detect_ncol_in_buf
-! real(kind=8) :: so_coeff
+ real(kind=8) :: so_coeff
  real(kind=8), allocatable :: prim_gau(:,:) 
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=1) :: bastype
@@ -366,7 +367,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
  character(len=240) :: buf, nwname, basename, jsonname
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
-! logical :: ecp, uhf, ghf, lin_dep
+ logical, intent(in) :: ecp !, uhf, ghf, lin_dep
 ! logical, intent(in) :: cart
  logical, intent(in) :: ghost(natom) ! size natom
  
@@ -456,7 +457,70 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
   !end if
   close(nwid)
 
+ end do ! k
+
+ if(ecp) then
+    rewind(inpid)
+    do while(.true.)
+     read(inpid,'(A)') buf
+     if(buf(2:2) == '$') then
+      call upper(buf(3:5))
+      if(buf(3:5) == 'ECP') exit
+     end if
+    end do ! for while
+
+
+  do m = 1, natom, 1
+    read(inpid,'(A)') buf
+    if(index(buf,'NONE') /= 0) cycle
+
+   write(nwname, '(A,I0,A)') TRIM(basename)//'-basis/'//TRIM(elem(m)), ntimes(m), ".nwbas"
+   open(newunit=nwid,file=TRIM(nwname),status='old',position='append')
+   !write(*, *) nwname
+   write(nwid,'(A)') ''
+   write(nwid,'(A)') 'ECP'
+   i = INDEX(buf,'GEN')
+   read(buf(i+3:),*) ne, lmax
+   write(nwid,'(A,I3)') TRIM(elem(m))//' nelec ', ne
+
+   allocate(prim_gau(2,1), source=0d0)
+   do k = 1, lmax+1, 1
+    read(inpid,'(A)') buf
+    if(k == 1) then
+     new_bastype = 'ul'
+    else
+     new_bastype = am_type(k-2)
+    end if
+    write(nwid,'(A)') TRIM(elem(m))//' '//TRIM(new_bastype)
+    read(buf,*) nline
+    do i = 1, nline, 1
+     read(inpid,'(A)') buf
+     p = detect_ncol_in_buf(buf)
+     select case(p)
+     case(3)
+      read(buf,*) prim_gau(1,1), j, prim_gau(2,1)
+      write(nwid,'(I1,1X,F17.10,3X,F17.10)') j, prim_gau(2,1), prim_gau(1,1)
+     case(4)
+      read(buf,*) prim_gau(1,1), j, prim_gau(2,1), so_coeff
+      write(nwid,'(I1,1X,F17.10,2(3X,F17.10))') j, prim_gau(2,1), prim_gau(1,1),&
+                                                so_coeff
+     case default
+      write(6,'(/,A,I0)') 'ERROR in subroutine bas_gms2py: invalid p=', p
+      stop
+     end select
+    end do ! for i
+   end do ! for k
+
+   deallocate(prim_gau)
+   write(nwid,'(A)') 'END'
+   close(nwid)
+  end do ! for m
+
+ end if ! for if(ecp)
+
+ do k = 1, natom, 1
   if (ntimes(k) == 1) then
+   write(nwname, '(A,I0,A)') TRIM(basename)//'-basis/'//TRIM(elem(k)), ntimes(k), ".nwbas"
    write(jsonname, '(A)') TRIM(basename)//'-basis/'//TRIM(elem(k))//".json"
    s = SYSTEM("bse convert-basis --in-fmt nwchem --out-fmt json "//TRIM(nwname)//" "//TRIM(jsonname))
    if (s /= 0) then
@@ -465,6 +529,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
     stop
    end if
   end if
- end do ! k
+ end do
+
 end subroutine write_rest_in_and_basis
 
