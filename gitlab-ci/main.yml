@@ -46,22 +46,20 @@ lint:
     - pip install flake8
     - flake8 --config .flake8 
 
-py38_gcc8:
-  image: python:3.8-buster
-  variables:
-    TARGET: mokit-master_linux_py38_gcc8
-  extends: .setup_lib
-  script:
-    - pip install numpy==1.21
-    - cd src
-    - make all -f Makefile.gnu_openblas_ci
-    - cd ..
-  artifacts:
-    name: $TARGET
-    paths:
-      - ./$TARGET/
-  #release:
-  #  name: 'MOKIT-1.2.4
+# py38_gcc8:
+#   image: python:3.8-buster
+#   variables:
+#     TARGET: mokit-master_linux_py38_gcc8
+#   extends: .setup_lib
+#   script:
+#     - pip install numpy==1.21
+#     - cd src
+#     - make all -f Makefile.gnu_openblas_ci
+#     - cd ..
+#   artifacts:
+#     name: $TARGET
+#     paths:
+#       - ./$TARGET/
 
 py39_gcc10:
   image: python:3.9-bullseye
