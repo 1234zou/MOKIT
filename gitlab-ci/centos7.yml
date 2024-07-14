@@ -11,7 +11,13 @@
     #  sed -e 's|^mirrorlist=|#mirrorlist=|g' 
     #  -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
     #  -i.bak /etc/yum.repos.d/CentOS-*.repo
-    #- yum makecache
+    - >
+      sed -e "s|^mirrorlist=|#mirrorlist=|g" 
+      -e "s|^#baseurl=http://mirror.centos.org/centos/\$releasever|baseurl=https://vault.centos.org/7.9.2009|g" 
+      -e "s|^#baseurl=http://mirror.centos.org/\$contentdir/\$releasever|baseurl=https://vault.centos.org/7.9.2009|g" 
+      -i.bak 
+      /etc/yum.repos.d/CentOS-*.repo
+    - yum makecache
     - yum install -y epel-release
     #- >
     #  sed -e 's!^metalink=!#metalink=!g' 
@@ -22,7 +28,7 @@
     #  -i /etc/yum.repos.d/epel*.repo
     #- yum makecache
     - yum install -y openblas-devel make gcc gcc-gfortran wget 
-    - wget -q --no-check-certificate https://mirrors.bfsu.edu.cn/anaconda/miniconda/Miniconda3-${MCONDA_VER}-Linux-x86_64.sh
+    - wget -q --no-check-certificate https://repo.anaconda.com/miniconda/Miniconda3-${MCONDA_VER}-Linux-x86_64.sh
     - sh ./Miniconda3-${MCONDA_VER}-Linux-x86_64.sh -b
     - /root/miniconda3/bin/conda init bash
     - . ~/.bashrc
@@ -42,21 +48,21 @@
     - mkdir $TARGET/src
     - cp src/modify* $TARGET/src
 
-centos7_conda_py37:
-  image: centos:7
-  variables:
-    TARGET: mokit-master_linux_centos7_conda_py37
-    MCONDA_VER: py37_4.10.3
-  extends: .setup_system
-  script:
-    - conda install numpy
-    - cd src
-    - make all -f Makefile.gnu_openblas_ci
-    - cd ..
-  artifacts:
-    name: $TARGET
-    paths:
-      - ./$TARGET/
+# centos7_conda_py37:
+#   image: centos:7
+#   variables:
+#     TARGET: mokit-master_linux_centos7_conda_py37
+#     MCONDA_VER: py37_4.10.3
+#   extends: .setup_system
+#   script:
+#     - conda install numpy
+#     - cd src
+#     - make all -f Makefile.gnu_openblas_ci
+#     - cd ..
+#   artifacts:
+#     name: $TARGET
+#     paths:
+#       - ./$TARGET/
 
 
 centos7_conda_py38:
@@ -66,7 +72,7 @@ centos7_conda_py38:
     MCONDA_VER: py38_4.10.3
   extends: .setup_system
   script:
-    - conda install numpy=1.21
+    - conda install numpy=1.20
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
@@ -90,3 +96,4 @@ centos7_conda_py39:
     name: $TARGET
     paths:
       - ./$TARGET/
+
