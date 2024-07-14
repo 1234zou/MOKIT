@@ -2275,6 +2275,84 @@ subroutine add_maxiter_and_stab_in_orca_inp(inpname)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_maxiter_and_stab_in_orca_inp
 
+! check whether the cell is cubic
+subroutine check_cell_cubic(lat_vec)
+ implicit none
+ real(kind=8) :: r(6)
+ real(kind=8), parameter :: thres = 1d-4
+ real(kind=8), intent(in) :: lat_vec(3,3)
+
+ r = [lat_vec(2,1),lat_vec(3,1),lat_vec(1,2),lat_vec(3,2),lat_vec(1,3),lat_vec(2,3)]
+ if(SUM(DABS(r)) > thres) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cell_cubic: this cell seems not c&
+                   &ubic.'
+  write(6,'(A)') 'Currently only cubic cell (and lattice vectors located on xyz&
+                 & axes) is supported.'
+  stop
+ end if
+
+ r(1:3) = [lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)]
+ if(ANY(r(1:3) < 0d0)) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cell_cubic: positive lattice vect&
+                   &ors are required.'
+  stop
+ end if
+end subroutine check_cell_cubic
+
+! check whether the cutoff radius is too large (access to adjcent cells)
+subroutine check_r_cut_valid(natom, coor, r_cut, lat_vec)
+ implicit none
+ integer, intent(in) :: natom
+ real(kind=8), allocatable :: r1(:), r2(:)
+ real(kind=8), intent(in) :: coor(3,natom), r_cut, lat_vec(3,3)
+ character(len=63), parameter :: str = 'ERROR in subroutine check_r_cut_valid: &
+                                       &this R_cut is too large.'
+ allocate(r1(natom), r2(natom))
+
+ r1 = coor(1,:) + r_cut
+ r2 = coor(1,:) - r_cut
+ if(ANY(r1>lat_vec(1,1)) .or. ANY(r2<0d0)) then
+  write(6,'(/,A)') str
+  write(6,'(A)') 'It is beyond the cell. You need to duplicate the cell in x di&
+                 &rection.'
+  deallocate(r1, r2)
+  stop
+ end if
+
+ r1 = coor(2,:) + r_cut
+ r2 = coor(2,:) - r_cut
+ if(ANY(r1>lat_vec(2,2)) .or. ANY(r2<0d0)) then
+  write(6,'(/,A)') str
+  write(6,'(A)') 'It is beyond the cell. You need to duplicate the cell in y di&
+                 &rection.'
+  deallocate(r1, r2)
+  stop
+ end if
+
+ r1 = coor(3,:) + r_cut
+ r2 = coor(3,:) - r_cut
+ if(ANY(r1>lat_vec(3,3)) .or. ANY(r2<0d0)) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine check_r_cut_valid: this R_cut is beyo&
+                 &nd the cell in'
+  write(6,'(A)') 'the z direction. Whether this is reasonable depends on your a&
+                 &toms in the cell.'
+  write(6,'(A)') 'So please take a look at the positions of atoms.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
+
+ if(r_cut > 0.999d0*lat_vec(3,3)) then
+  write(6,'(/,A)') str
+  write(6,'(A)') 'It is extremely close to or beyond the z-direction of the cel&
+                 &l. You need to'
+  write(6,'(A)') 'enlarge the lattice vector z of the current cell.'
+  deallocate(r1, r2)
+  stop
+ end if
+
+ deallocate(r1, r2)
+end subroutine check_r_cut_valid
+
 ! calculate the vertical adsorption energy using the 2D XO-PBC method
 subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  use frag_info, only: frag, comb_elem_coor_in_frags
@@ -2288,7 +2366,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  integer, parameter :: nfrag = 4
  integer, parameter :: max_step = 1
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_min = 5.0d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_cut = 6.0d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
@@ -2352,6 +2430,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
                                       lat_vec, charge, mult)
  deallocate(nuc)
+ call check_cell_cubic(lat_vec)
 
  ! determine the adsorbate/adsorbent: frags(1)/frags(4)
  natom1 = i2 - i1 + 1
@@ -2398,7 +2477,8 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  frags(1:3)%wfn_type = [1,1,1]
 
  do k = 1, max_step, 1
-  rtmp = r_min + DBLE(k-1)*stpsz
+  rtmp = r_cut + DBLE(k-1)*stpsz
+  call check_r_cut_valid(natom1, frags(1)%coor, rtmp, lat_vec)
   natom2 = COUNT(dis < rtmp)
   write(6,'(/,A79)') REPEAT('-',79)
   write(6,'(A,F8.3)') 'Cutoff radius (Ang): ', rtmp

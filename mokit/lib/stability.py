@@ -32,10 +32,12 @@ def uhf_internal(mf, tol=1e-7, verbose=None):
                                           with_symmetry=True)
   hdiag *= 2
   stable = True
+
   def precond(dx, e, x0):
     hdiagd = hdiag - e
     hdiagd[abs(hdiagd)<1e-8] = 1e-8
     return dx/hdiagd
+
   def hessian_x(x):
     return hop(x).real * 2
 
@@ -57,10 +59,10 @@ def uhf_internal(mf, tol=1e-7, verbose=None):
 
 def uhf_stable_opt_internal(mf):
   i = 0
-  while(i < 10):
+  while (i < 10):
     i += 1
     mo, stable = uhf_internal(mf, verbose=5)
-    if(stable):
+    if (stable):
       break
     else:
       dm = mf.make_rdm1(mo, mf.mo_occ)
