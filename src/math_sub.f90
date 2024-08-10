@@ -36,6 +36,44 @@ subroutine sort_int_array(n, a, ascending, idx)
  end if
 end subroutine sort_int_array
 
+! sort a set of MOs by the given eigenvalues (i.e. orbital energies or
+! occupation numbers)
+subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8) :: tmp_ev
+ real(kind=8), intent(in) :: mo(nbf,nmo), ev(nmo)
+!f2py intent(in) :: mo, ev
+!f2py depend(nbf,nmo) :: mo
+!f2py depend(nmo) :: ev
+ real(kind=8), intent(out) :: new_mo(nbf,nmo), new_ev(nmo)
+!f2py intent(out) :: new_mo, new_ev
+!f2py depend(nbf,nmo) :: new_mo
+!f2py depend(nmo) :: new_ev
+ real(kind=8), allocatable :: tmp_mo(:)
+
+ new_mo = mo; new_ev = ev
+ allocate(tmp_mo(nbf))
+
+ do i = 1, nmo-1, 1
+  tmp_ev = new_ev(i)
+  do j = i+1, nmo, 1
+   if(new_ev(j) < tmp_ev) then
+    new_ev(i) = new_ev(j)
+    new_ev(j) = tmp_ev
+    tmp_ev = new_ev(i)
+    tmp_mo = new_mo(:,i)
+    new_mo(:,i) = new_mo(:,j)
+    new_mo(:,j) = tmp_mo
+   end if
+  end do ! for j
+ end do ! for i
+
+ deallocate(tmp_mo)
+end subroutine sort_mo_by_ev
+
 ! Diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
 ! A = Ua(U^T). Eigenvectors U will be stored in the square matrix a, and eigenvalues
 ! in w() are in ascending order w(1)<=w(2)<=...
@@ -740,6 +778,43 @@ subroutine get_occ_from_na_nb(nif, na, nb, occ)
  if(na > nb) occ(nb+1:na) = 1d0
  occ(na+1:) = 0d0
 end subroutine get_occ_from_na_nb
+
+subroutine get_occ_from_na_nb2(nif, na, nb, occ)
+ implicit none
+ integer, intent(in) :: nif, na, nb
+!f2py intent(in) :: nif, na, nb
+ real(kind=8), intent(out) :: occ(2,nif)
+!f2py intent(out) :: occ
+!f2py depend(nif) :: occ
+
+ occ = 0d0
+ occ(1,1:na) = 1d0
+ occ(2,1:nb) = 1d0
+end subroutine get_occ_from_na_nb2
+
+! canonicalize MOs
+subroutine canonicalize_mo(nbf, nmo, f, old_mo, new_mo)
+ implicit none
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: f(nbf,nbf), old_mo(nbf,nmo)
+!f2py intent(in) :: f, old_mo
+!f2py depend(nbf) :: f
+!f2py depend(nbf,nmo) :: old_mo
+ real(kind=8), intent(out) :: new_mo(nbf,nmo)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nmo) :: new_mo
+ real(kind=8), allocatable :: CTFC(:,:), orb_e(:)
+
+ allocate(CTFC(nmo,nmo))
+ call calc_CTSC(nbf, nmo, old_mo, f, CTFC)
+ allocate(orb_e(nmo))
+ call diag_get_e_and_vec(nmo, CTFC, orb_e)
+ deallocate(orb_e)
+ new_mo = 0d0
+ call dgemm('N','N', nbf,nmo,nmo, 1d0,old_mo,nbf, CTFC,nmo, 0d0,new_mo,nbf)
+ deallocate(CTFC)
+end subroutine canonicalize_mo
 
 ! calculate the distance matrix from a set of coordinates
 subroutine cal_dis_mat_from_coor(natom, coor, dis)

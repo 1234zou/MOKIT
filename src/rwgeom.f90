@@ -1176,6 +1176,198 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  close(fid)
 end subroutine write_frame_into_pdb
 
+! write/create a CP2K input (.inp) file
+subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
+                          force, stress, broyden, smearing)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: charge, mult, natom
+ real(kind=8), intent(in) :: coor(3,natom), lat_vec(3,3)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=3), parameter :: dftname = 'PBE'
+ character(len=240) :: proname
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: force, stress, broyden, smearing
+
+ if(stress .and. (.not.force)) then
+  write(6,'(/,A)') 'ERROR in subroutine write_cp2k_inp: Stress=.T. and Force=.F&
+                   &. found.'
+  write(6,'(A)') 'When Stress=.T., Force=.T. is required.'
+  stop
+ end if
+ call find_specified_suffix(inpname, '.inp', i)
+ proname = inpname(1:i-1)
+
+ open(newunit=fid,file=TRIM(inpname),status='replace')
+ write(fid,'(A)') "&GLOBAL"
+ write(fid,'(A)') ' PROJECT '//TRIM(proname)
+ write(fid,'(A)') ' PRINT_LEVEL LOW'
+ if(force) then
+  write(fid,'(A)') ' RUN_TYPE ENERGY_FORCE'
+ else
+  write(fid,'(A)') ' RUN_TYPE ENERGY'
+ end if
+ write(fid,'(A)') ' EXTENDED_FFT_LENGTHS T'
+ write(fid,'(A)') "&END GLOBAL"
+
+ write(fid,'(/,A)') "&FORCE_EVAL"
+ write(fid,'(A)') ' METHOD QuickStep'
+ write(fid,'(A)') " &SUBSYS"
+ write(fid,'(A)') "  &CELL"
+ write(fid,'(3X,A1,3(1X,F20.8))') 'A', lat_vec(:,1)
+ write(fid,'(3X,A1,3(1X,F20.8))') 'B', lat_vec(:,2)
+ write(fid,'(3X,A1,3(1X,F20.8))') 'C', lat_vec(:,3)
+ write(fid,'(A)') '   PERIODIC XYZ'
+ write(fid,'(A)') "  &END CELL"
+ write(fid,'(A)') "  &COORD"
+ do i = 1, natom, 1
+  write(fid,'(3X,A2,3(1X,F20.8))') elem(i), coor(:,i)
+ end do ! for i
+ write(fid,'(A)') "  &END COORD"
+
+ ! assume the same basis set is used for all atoms of an element
+ do i = 1, natom, 1
+  if(i > 1) then
+   if( ANY(elem(1:i-1) == elem(i)) ) cycle
+  end if
+  write(fid,'(A)') "  &KIND "//TRIM(elem(i))
+  write(fid,'(A)') '   ELEMENT '//TRIM(elem(i))
+  write(fid,'(A)') '   BASIS_SET Ahlrichs-def2-SVP'
+  write(fid,'(A)') '   POTENTIAL ALL'
+  write(fid,'(A)') "  &END KIND"
+ end do ! for i
+ write(fid,'(A)') " &END SUBSYS"
+
+ write(fid,'(A)') " &DFT"
+ write(fid,'(A)') '  BASIS_SET_FILE_NAME EMSL_BASIS_SETS'
+ write(fid,'(A)') '  POTENTIAL_FILE_NAME POTENTIAL'
+ write(fid,'(A,I0)') '  CHARGE ', charge
+ write(fid,'(A,I0)') '  MULTIPLICITY ', mult
+ write(fid,'(A)') "  &QS"
+ write(fid,'(A)') '   EPS_DEFAULT 1E-12'
+ write(fid,'(A)') '   METHOD GAPW'
+ write(fid,'(A)') "  &END QS"
+ write(fid,'(A)') "  &POISSON"
+ write(fid,'(A)') '   PERIODIC XYZ'
+ write(fid,'(A)') '   PSOLVER PERIODIC'
+ write(fid,'(A)') "  &END POISSON"
+ write(fid,'(A)') "  &XC"
+ write(fid,'(A)') "   &XC_FUNCTIONAL "//TRIM(dftname)
+ write(fid,'(A)') "   &END XC_FUNCTIONAL"
+ write(fid,'(A)') "   &VDW_POTENTIAL"
+ write(fid,'(A)') '    POTENTIAL_TYPE PAIR_POTENTIAL'
+ write(fid,'(A)') "    &PAIR_POTENTIAL"
+ write(fid,'(A)') '     PARAMETER_FILE_NAME dftd3.dat'
+ write(fid,'(A)') '     TYPE DFTD3(BJ)'
+ write(fid,'(A)') '     REFERENCE_FUNCTIONAL PBE'
+ write(fid,'(A)') "    &END PAIR_POTENTIAL"
+ write(fid,'(A)') "   &END VDW_POTENTIAL"
+ write(fid,'(A)') "  &END XC"
+ write(fid,'(A)') "  &MGRID"
+ write(fid,'(A)') '   CUTOFF 900'
+ write(fid,'(A)') '   REL_CUTOFF 90'
+ write(fid,'(A)') '   NGRIDS 4'
+ write(fid,'(A)') "  &END MGRID"
+ write(fid,'(A)') "  &SCF"
+ write(fid,'(A)') '   MAX_SCF 256'
+ if(broyden) then
+  write(fid,'(A)') '   EPS_SCF 2E-8'
+ else
+  write(fid,'(A)') '   EPS_SCF 1E-6'
+ end if
+ write(fid,'(A)') "   &DIAGONALIZATION"
+ write(fid,'(A)') '    ALGORITHM STANDARD'
+ write(fid,'(A)') "   &END DIAGONALIZATION"
+ if(broyden) then
+  write(fid,'(A)') "   &MIXING"
+  write(fid,'(A)') '    METHOD BROYDEN_MIXING'
+  write(fid,'(A)') '    ALPHA 0.4'
+  write(fid,'(A)') '    NBROYDEN 8'
+  write(fid,'(A)') "   &END MIXING"
+ end if
+ if(smearing) then
+  write(fid,'(A)') "   &SMEAR"
+  write(fid,'(A)') '    METHOD FERMI_DIRAC'
+  write(fid,'(A)') '    ELECTRONIC_TEMPERATURE 1200'
+  write(fid,'(A)') "   &END SMEAR"
+  write(fid,'(A)') '   ADDED_MOS 260'
+ end if
+ write(fid,'(A)') "   &PRINT"
+ write(fid,'(A)') "    &RESTART"
+ write(fid,'(A)') '     BACKUP_COPIES 0'
+ write(fid,'(A)') "    &END RESTART"
+ write(fid,'(A)') "   &END PRINT"
+ write(fid,'(A)') "  &END SCF"
+ write(fid,'(A)') "  &PRINT"
+ write(fid,'(A)') "   &MO_MOLDEN"
+ write(fid,'(A)') '    NDIGITS 14'
+ write(fid,'(A)') "   &END MO_MOLDEN"
+ write(fid,'(A)') "  &END PRINT"
+ write(fid,'(A)') " &END DFT"
+ if(force) then
+  write(fid,'(A)') " &PRINT"
+  write(fid,'(A)') "  &FORCES ON"
+  write(fid,'(A)') "  &END FORCES"
+ end if
+ if(stress) then
+  write(fid,'(A)') "  &STRESS_TENSOR ON"
+  write(fid,'(A)') "  &END STRESS_TENSOR"
+ end if
+ if(force) write(fid,'(A)') " &END PRINT"
+ if(stress) write(fid,'(A)') ' STRESS_TENSOR ANALYTICAL'
+ write(fid,'(A)') "&END FORCE_EVAL"
+ close(fid)
+end subroutine write_cp2k_inp
+
+! Convert a .gjf file to CP2K .inp file with PBE-D3BJ/def2-SVP.
+! The molecule in .gjf file is supposed to be an isolated system and there is
+! no lattice vector in this file. This isolated molecule will be put/moved into
+! the center of the generated box, and the closest distance to each facet would
+! be two times of the molecular maximum length.
+subroutine gjf2cp2k_inp(gjfname, force, stress, broyden, smearing)
+ implicit none
+ integer :: i, charge, mult, natom
+ integer, allocatable :: nuc(:)
+ real(kind=8) :: r, c1(3), c2(3), lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:), dis(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: inpname
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+ logical, intent(in) :: force, stress, broyden, smearing
+!f2py intent(in) :: force, stress, broyden, smearing
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ inpname = gjfname(1:i-1)//'.inp'
+
+ call read_natom_from_gjf(gjfname, natom)
+ allocate(elem(natom), nuc(natom), coor(3,natom))
+ call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+ deallocate(nuc)
+ allocate(dis(natom,natom))
+ call cal_dis_mat_from_coor(natom, coor, dis)
+ r = MAXVAL(dis)
+ deallocate(dis)
+
+ lat_vec = 0d0
+ do i = 1, 3
+  lat_vec(i,i) = MAXVAL(coor(i,:)) - MINVAL(coor(i,:)) + 2d0*r
+  c1(i) = 0.5d0*lat_vec(i,i)
+  c2(i) = SUM(coor(i,:))
+ end do ! for i
+ c2 = c1 - c2/DBLE(natom)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i)
+ do i = 1, natom, 1
+  coor(:,i) = coor(:,i) + c2
+ end do ! for i
+!$omp end parallel do
+
+ call write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, force,&
+                     stress, broyden, smearing)
+ deallocate(elem, coor)
+end subroutine gjf2cp2k_inp
+
 ! calculate an internal coordinate (bond, angle, or dihedral)
 function calc_an_int_coor(n, coor) result(val)
  implicit none

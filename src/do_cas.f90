@@ -1260,6 +1260,7 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
   write(fid,'(A)') '*OPTIMIZATION'
   write(fid,'(A,/,A)') '.MAX CI','500'
   write(fid,'(A,/,A)') '.MAX MICRO ITERATIONS','200'
+  write(fid,'(A,/,A)') '.SYM CHECK','-1'
   if(iroot > 0) write(fid,'(A,/,I0)') '.STATE',iroot+1
  end if
  write(fid,'(A)') '*ORBITAL INPUT'

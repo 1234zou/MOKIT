@@ -3647,8 +3647,9 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to cal&
                    &l utility solve_ON_matrix.'
-  write(6,'(A)') 'Related files: '//TRIM(mo_fch)//', '//TRIM(no_fch)
-  write(6,'(A)') 'Did you forget to compile the utility solve_ON_matrix?'
+  write(6,'(A)') 'Did you forget to compile this utility?'
+  write(6,'(A)') 'mo_fch='//TRIM(mo_fch)
+  write(6,'(A)') 'no_fch='//TRIM(no_fch)
   stop
  end if
 

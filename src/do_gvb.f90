@@ -783,17 +783,17 @@ subroutine add_frz2gms_inp(inpname)
  if(i == 0) then
   close(fid)
   close(fid1, status='delete')
-  write(6,'(A)') "ERROR in subroutine add_frz2gms_inp: no 'NCO' found in file"
+  write(6,'(/,A)') "ERROR in subroutine add_frz2gms_inp: no 'NCO' found in file"
   write(6,'(A)') trim(inpname)
   stop
  end if
  read(buf(i+4:),*) ncore
 
- if(index(buf,'$END') == 0) then
+ if(INDEX(buf,'$END') == 0) then
   do while(.true.)
    read(fid,'(A)') buf
    write(fid1,'(A)') TRIM(buf)
-   if(index(buf,'$END') > 0) exit
+   if(INDEX(buf,'$END') > 0) exit
   end do ! for while
  end if
 
@@ -805,6 +805,18 @@ subroutine add_frz2gms_inp(inpname)
    write(fid1,'(A)') '1'
   end if
   write(fid1,'(A)') ' $END'
+
+  read(fid,'(A)') buf
+  if(buf(2:7) == '$MOFRZ') then
+   if(INDEX(buf,'$END') == 0) then
+    do while(.true.)
+     read(fid,'(A)') buf
+     if(buf(2:5) == '$END') exit
+    end do ! for while
+   end if
+  else
+   write(fid1,'(A)') TRIM(buf)
+  end if
  end if
 
  do while(.true.)

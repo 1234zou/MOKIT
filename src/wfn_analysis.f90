@@ -67,7 +67,8 @@ subroutine get_mo_center_from_fch(fchname, i1, i2)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
 
  allocate(rtmp(nbf), pop(natom,i1:i2))
-
+ ! calculate Mulliken population
+ ! TODO: a better population is required, e.g. works for coordination bonds
  do i = i1, i2, 1
   do j = 1, natom, 1
    k = bfirst(j); m = bfirst(j+1)-1
@@ -90,11 +91,13 @@ subroutine get_mo_center_from_fch(fchname, i1, i2)
   ! find the 2nd largest component and so on
   do j = 1, natom, 1
    if(j == k) cycle
-   if(DABS(r - pop(j,i)) < diff) then
+   if(r - pop(j,i) < diff) then
     m = m + 1
-    mo_center(0,i) = m; mo_center(m,i) = j
+    mo_center(m,i) = j
    end if
   end do ! for j
+
+  mo_center(0,i) = m
  end do ! for i
 
  deallocate(pop)

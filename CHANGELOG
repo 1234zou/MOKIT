@@ -1,5 +1,8 @@
-MOKIT 1.2.6 (Jul 14, 2024)
+MOKIT 1.2.6 (Aug 6, 2024)
 ------------------------
+* disable state deletion in Dalton
+* read [Pseudo] section in molden2fch for ORCA 6 molden
+* update molden2fch to read partial MO coefficients
 * take point charges into consideration for autosr
 * optionally read `Int Atom Types` in fch
 * add stability.py in mokit/lib/ for tight wfn stability check

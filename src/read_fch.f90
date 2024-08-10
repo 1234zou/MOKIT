@@ -172,8 +172,9 @@ subroutine check_uhf_in_fch(fchname, uhf)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
-  if(i < 0) exit ! end-of-file
-  if(i > 0) then
+  if(i < 0) then
+   exit ! end-of-file
+  else if(i > 0) then
    write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file &
                    &'//TRIM(fchname)
    close(fid)
