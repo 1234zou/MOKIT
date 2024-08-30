@@ -32,7 +32,7 @@ program main
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 
- call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
+ call fch2inp_wrap(fchname, .false., 0, 0, .false.) ! generate GAMESS .inp
 
  call check_sph_in_fch(fchname, sph)
  if(sph) then
@@ -42,8 +42,9 @@ program main
  end if
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility&
-                  & bas_gms2molpro. Two possible reasons:'
+  write(6,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility bas_gms&
+                   &2molpro.'
+  write(6,'(A)')   'Two possible reasons:'
   write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
   write(6,'(A,/)') '(2) You forgot to compile the utility bas_gms2molpro.'
   stop

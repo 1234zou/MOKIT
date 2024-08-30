@@ -20,8 +20,7 @@ program main
   stop
  end if
 
- fchname = ' '
- inpname = ' '
+ fchname = ' '; inpname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -46,14 +45,14 @@ program main
  end if
 
  call fch2bdf(fchname, prt_no)
- call fch2inp_wrap(fchname, .false., 0, 0)
+ call fch2inp_wrap(fchname, .false., 0, 0, .false.)
 
  i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
  i = SYSTEM('bas_gms2bdf '//TRIM(inpname))
-
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms2bdf.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms&
+                   &2bdf.'
   write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if

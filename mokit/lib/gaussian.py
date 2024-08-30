@@ -31,7 +31,7 @@ def load_mol_from_fch(fchname, path=None):
     lines = fp.readlines()
     fp.seek(0)
     fp.truncate()
-    fp.writelines('from pyscf import gto\n')
+    fp.writelines('from pyscf import gto, lib\n')
     for i, line in enumerate(lines):
       if ('mol.build' in line):
         j = i + 1

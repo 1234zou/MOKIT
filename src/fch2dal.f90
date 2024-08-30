@@ -32,7 +32,7 @@ program main
  i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
 
- call fch2inp_wrap(fchname, .false., 0, 0) ! generate GAMESS .inp file
+ call fch2inp_wrap(fchname, .false., 0, 0, .false.) ! generate GAMESS .inp
 
  call check_sph_in_fch(fchname, sph)
  if(sph) then

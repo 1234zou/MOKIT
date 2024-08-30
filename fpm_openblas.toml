@@ -86,11 +86,6 @@ source-dir = "src"
 main = "bas_gms2molpro.f90"
 
 [[executable]]
-name = "bas_gms2psi"
-source-dir = "src"
-main = "bas_gms2psi.f90"
-
-[[executable]]
 name = "bas_gms2py"
 source-dir = "src"
 main = "bas_gms2py.f90"

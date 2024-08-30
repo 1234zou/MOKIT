@@ -7,7 +7,8 @@ subroutine do_mrcisd()
   gms_path, gms_scr_path, molpro_path, psi4_path, dalton_mpi, bgchg, casci_prog,&
   casscf_prog, chgname
  use mol, only: casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inporb_wrap
+ use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
+  fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: e
@@ -171,7 +172,7 @@ subroutine do_mrcisd()
   call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
-  i = SYSTEM('fch2inp '//TRIM(casnofch))
+  call fch2inp_wrap(casnofch, .false., 0, 0)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)
@@ -280,8 +281,7 @@ end subroutine do_mrcisd
 ! print DMRG-FIC-MRCISD script into a given .py file
 subroutine prt_mrci_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, maxM, X2C, RI, RIJK_bas, iroot, target_root,&
-  block_mpi
+ use mr_keyword, only: mem, nproc, maxM, RI, RIJK_bas, iroot, target_root, block_mpi
  implicit none
  integer :: i, nroots, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -331,12 +331,8 @@ subroutine prt_mrci_script_into_py(pyname)
  close(fid1,status='delete')
 
  write(fid2,'(A)') '# generate CASCI wfn'
- if(X2C) then
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
- else
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
- end if
- write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+ write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, ')'
  if(RI) then
   write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
  else
@@ -433,24 +429,31 @@ end subroutine prt_mrci_molcas_inp
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
  use mol, only: nopen, nacta, nactb, npair0, mult
- use mr_keyword, only: mem, nproc, CtrType, DKH2, hardwfn, crazywfn
+ use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, hardwfn, crazywfn, &
+  orca_path
  implicit none
- integer :: i, fid1, fid2
- integer :: RENAME
+ integer :: i, iver, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
 
- inpname2 = TRIM(inpname1)//'.t'
+ call find_orca_ver(orca_path, iver)
+ call find_specified_suffix(inpname1, '.inp', i)
+ inpname2 = inpname1(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
+
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
- write(fid2,'(A)') '! NoIter'
+ if(iver < 6) write(fid2,'(A)') '! NoIter'
 
  if(DKH2) then
   write(fid2,'(A)') '%rel'
   write(fid2,'(A)') ' method DKH'
   write(fid2,'(A)') ' order 2'
+  write(fid2,'(A)') 'end'
+ else if(X2C) then
+  write(fid2,'(A)') '%rel'
+  write(fid2,'(A)') ' method X2C'
   write(fid2,'(A)') 'end'
  end if
 
@@ -475,7 +478,11 @@ subroutine prt_mrcisd_orca_inp(inpname1)
   end if
  else if(CtrType == 3) then ! FIC-MRCISD
   write(fid2,'(A)') '%autoci'
-  write(fid2,'(A)') ' CItype FICMRCI'
+  if(iver < 6) then
+   write(fid2,'(A)') ' CItype FICMRCI'
+  else
+   write(fid2,'(A)') ' CItype FIC-MRCI'
+  end if
   write(fid2,'(A,I0)') ' nel ',  nacta+nactb
   write(fid2,'(A,I0)') ' norb ', 2*npair0+nopen
   write(fid2,'(A,I0)') ' mult ', mult
@@ -882,7 +889,7 @@ subroutine do_mrcisdt()
   molcas_path, gau_path, psi4_path, dalton_mpi, gms_path, gms_scr_path, casnofch,&
   chgname, CIonly, bgchg, CtrType
  use mol , only: npair0, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
- use util_wrapper, only: unfchk, fch2inporb_wrap
+ use util_wrapper, only: unfchk, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
  real(kind=8) :: e
@@ -956,7 +963,7 @@ subroutine do_mrcisdt()
   call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
-  i = SYSTEM('fch2inp '//TRIM(casnofch))
+  call fch2inp_wrap(casnofch, .false., 0, 0)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

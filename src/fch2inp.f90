@@ -237,7 +237,7 @@ subroutine fch2inp(fchname, itype, npair, nopen0)
  if(.not. allocated(contr_coeff_sp)) allocate(contr_coeff_sp(nprim), source=0d0)
 
  if(LenNCZ > 0) ecp = .true.
- if(ALL(elem == 'H ')) DIIS = .true.
+ if(natom>2 .and. ALL(elem=='H ')) DIIS = .true.
  ! By default, SOSCF is good for most systems; but for a system containing only
  ! hydrogen atoms, DIIS is better than SOSCF
 

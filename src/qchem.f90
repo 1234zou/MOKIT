@@ -97,8 +97,9 @@ end subroutine qchem2dalton
 
 ! Q-Chem .fch(k) -> GAMESS (.inp)
 subroutine qchem2gms(fchname, inpname)
+ use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  character(len=240) :: std_fch, std_inp
  character(len=240), intent(in) :: fchname, inpname
 
@@ -106,7 +107,7 @@ subroutine qchem2gms(fchname, inpname)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std.inp'
  call standardize_fch(fchname)
- i = SYSTEM('fch2inp '//TRIM(std_fch))
+ call fch2inp_wrap(std_fch, .false., 0, 0)
  call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2gms

@@ -38,7 +38,6 @@ program main
   do j = 2, i, 1
    call getarg(j, buf)
    buf = ADJUSTL(buf)
-   !write(*,*) j, buf
    select case(TRIM(buf))
    case('-sph')
     cart = .false.
@@ -60,7 +59,7 @@ end program main
 ! which can be used as input file for PySCF
 subroutine bas_gms2py(inpname, cart, rest)
  implicit none
- integer :: i, j, k, m, p, lmax, charge, mult, isph, inpid, pyid
+ integer :: i, j, k, m, p, lmax, charge, mult, isph, inpid, pyid, order
  integer :: nline, ncol, natom, nif, nbf
  integer, allocatable :: ntimes(:) ! number of times of an atom appears
  integer, allocatable :: nuc(:)
@@ -73,7 +72,7 @@ subroutine bas_gms2py(inpname, cart, rest)
  character(len=240) :: buf, pyname, hf_fch
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
- logical :: ecp, uhf, ghf, lin_dep
+ logical :: ecp, uhf, ghf, X2C, lin_dep
  logical, intent(in) :: cart, rest
  logical, allocatable :: ghost(:) ! size natom
 
@@ -98,6 +97,16 @@ subroutine bas_gms2py(inpname, cart, rest)
   stop
  end if
 
+ call check_X2C_in_gms_inp(inpname, X2C)
+ if(.not. X2C) then
+  call check_DKH_in_gms_inp(inpname, order)
+  if(order > -2) then
+   write(6,'(/,A)') 'Warning from subroutine check_DKH_in_gms_inp: this type of &
+                    &relativistic'
+   write(6,'(A)') 'hamiltonian is not supported by PySCF. Anyway, file conversio&
+                  &n will be proceeded.'
+  end if
+ end if
  call read_natom_from_gms_inp(inpname, natom)
  allocate(elem(natom), nuc(natom), coor(3,natom), ghost(natom))
  call read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghost)
@@ -109,14 +118,16 @@ subroutine bas_gms2py(inpname, cart, rest)
 
  ! print the coordinates (optional) into .nwc file
  open(newunit=pyid,file=TRIM(pyname),status='replace')
- write(pyid,'(A)') 'from pyscf import gto, scf'
+ write(pyid,'(A)') 'from pyscf import gto, scf, lib'
  write(pyid,'(A)') 'from mokit.lib.fch2py import fch2py'
  if(ghf) then
   write(pyid,'(A)') 'from mokit.lib.ortho import check_cghf_orthonormal'
  else
   write(pyid,'(A)') 'from mokit.lib.ortho import check_orthonormal'
  end if
- write(pyid,'(/,A)') 'mol = gto.M()'
+
+ write(pyid,'(/,A)') 'lib.num_threads(2) # 2 CPU cores'
+ write(pyid,'(A)') 'mol = gto.M()'
  write(pyid,'(A,I0,A)') '# ',natom,' atom(s)'
  write(pyid,'(A)') "mol.atom = '''"
 
@@ -265,6 +276,8 @@ subroutine bas_gms2py(inpname, cart, rest)
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
   write(pyid,'(A)') "mf.init_guess = '1e'"
+  write(pyid,'(A)') 'mf.max_memory = 4000 # MB'
+  if(X2C) write(pyid,'(A)') 'mf = mf.x2c1e()'
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
@@ -298,6 +311,8 @@ subroutine bas_gms2py(inpname, cart, rest)
   ! Anyway, here the initial guess is not important since we will use fch2py to
   !  read MOs from a given .fch(k) file.
   write(pyid,'(A)') 'mf.max_cycle = 1'
+  write(pyid,'(A)') 'mf.max_memory = 4000 # MB'
+  if(X2C) write(pyid,'(A)') 'mf = mf.x2c1e()'
   write(pyid,'(A)') 'mf.kernel(dm0=dm)'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"
@@ -330,6 +345,8 @@ subroutine bas_gms2py(inpname, cart, rest)
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
   write(pyid,'(A)') "mf.init_guess = '1e'"
+  write(pyid,'(A)') 'mf.max_memory = 4000 # MB'
+  if(X2C) write(pyid,'(A)') 'mf = mf.x2c1e()'
   write(pyid,'(A)') 'mf.kernel()'
   write(pyid,'(/,A)') '# read MOs from .fch(k) file'
   write(pyid,'(A)') "hf_fch = '"//TRIM(hf_fch)//"'"

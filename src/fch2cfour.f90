@@ -368,7 +368,17 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
  write(fid,'(2(A,I0))') 'HF,SYM=OFF,CHARGE=', charge, ',MULTI=', mult
 
  if(.not. sph) write(fid,'(A)') 'SPHERICAL=OFF'
- if(irel == -3) write(fid,'(A)') 'RELATIVISTIC=X2C1E'
+ select case(irel)
+ case(-3)
+  write(fid,'(A)') 'RELATIVISTIC=X2C1E'
+ case(-1) ! do nothing
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine prt_cfour_zmat: irel out of range!'
+  write(6,'(A)') 'CFOUR does not support this type of Hamiltonian.'
+  close(fid)
+  stop
+ end select
+
  if(ecp) then
   write(fid,'(A,/)') 'BASIS=SPECIAL,ECP=ON)'
  else

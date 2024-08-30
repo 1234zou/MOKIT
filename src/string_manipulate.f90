@@ -82,6 +82,7 @@ subroutine check_DKH_in_gms_inp(inpname, order)
 
  longbuf = ' '
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)') buf
   longbuf = TRIM(longbuf)//TRIM(buf)
@@ -97,12 +98,13 @@ subroutine check_DKH_in_gms_inp(inpname, order)
   return
  else
   if(INDEX(longbuf,'RELWFN=DK') == 0) then
-   write(6,'(A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported&
-                    & relativistic method detected.'
-   write(6,'(A)') '(Open)Molcas does not support RELWFN=LUT-IOTC, IOTC,&
-                    & RESC, or NESC in GAMESS. Only RELWFN=DK is supported.'
-   write(6,'(A)') 'The MO transferring will still be proceeded. But the result&
-                    & may be non-sense.'
+   write(6,'(/,A)') 'Warning in subroutine check_DKH_in_gms_inp: unsupported re&
+                    &lativistic method'
+   write(6,'(A)') 'detected. (Open)Molcas does not support RELWFN=LUT-IOTC, IOT&
+                  &C, RESC, or NESC in'
+   write(6,'(A)') 'GAMESS. Only RELWFN=DK is supported. The MO transferring wil&
+                  &l still be proceeded.'
+   write(6,'(A)') 'But the result may be nonsense.'
   end if
  end if
 
@@ -135,12 +137,14 @@ subroutine check_X2C_in_gms_inp(inpname, X2C)
  logical, intent(out) :: X2C
 
  X2C = .false. ! default
-
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
  do i = 1, 5
   read(fid,'(A)') buf
-  if(INDEX(buf,'X2C') /= 0) X2C = .true.
-  if(INDEX(buf,'$END') /= 0) exit
+  if(INDEX(buf,'$END X2C')>0 .or. INDEX(buf,'$END sfX2C')>0) then
+   X2C = .true.
+   exit
+  end if
  end do ! for i
 
  close(fid)
@@ -442,6 +446,37 @@ subroutine add_X2C_into_fch(fchname)
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine add_X2C_into_fch
+
+! read the Route section from a specified .fch(k) file
+subroutine read_route_from_fch(fchname, route)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+ character(len=960), intent(out) :: route ! assuming up to 4 lines
+
+ route = ' '
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'Route') exit
+  if(buf(1:6) == 'Charge') then
+   close(fid)
+   return
+  end if
+ end do ! for while
+
+ read(fid,'(A)') route
+
+ do i = 2, 4
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'Charge') exit
+  route = TRIM(route)//TRIM(ADJUSTL(buf))
+ end do ! for i
+
+ close(fid)
+end subroutine read_route_from_fch
 
 ! detect the number of columns of data in a string buf
 function detect_ncol_in_buf(buf) result(ncol)
@@ -1013,6 +1048,7 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
 
  itype = 0
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1021,8 +1057,8 @@ subroutine read_disp_ver_from_gjf(gjfname, itype)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_disp_ver_from_gjf: no '#' symbol&
-                   & found in file "//TRIM(gjfname)
+  write(6,'(/,A)') "ERROR in subroutine read_disp_ver_from_gjf: no '#' symbol f&
+                   &ound in file "//TRIM(gjfname)
   stop
  end if
 

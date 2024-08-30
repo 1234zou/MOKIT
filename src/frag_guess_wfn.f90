@@ -1065,7 +1065,7 @@ subroutine gen_inp_of_frags()
    inpname1 = frags(i)%fname(1:k-1)//'_psi.inp'
    if(i < nfrag) call delete_files(2, [fchname, inpname1])
   else
-   call fch2inp_wrap(fchname, .false., 0, 0)
+   call fch2inp_wrap(fchname, .false., 0, 0, .false.)
    if(eda_type==1 .and. i==nfrag) call delete_file(fchname)
   end if
  end do ! for i

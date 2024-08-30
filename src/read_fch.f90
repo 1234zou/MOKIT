@@ -318,7 +318,7 @@ subroutine read_fch(fchname, uhf)
   case('Int Atom Type')
    int_atom_typ = .true.
    exit
-  case('Force Field  ','Real atomic w')
+  case('MM charges   ','Real atomic w','Atom fragment')
    exit
   case('Number of con')
    BACKSPACE(fid)
@@ -646,7 +646,7 @@ rh(21,11) = RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22,
                     [21,11])
 end module r_5D_2_6D
 
-! check whether there exists DKH/X2C keywords in a given .fch(k) file
+! check whether there exists DKH/X2C keywords in a specified .fch(k) file
 subroutine find_irel_in_fch(fchname, irel)
  implicit none
  integer :: i, fid
@@ -713,6 +713,81 @@ subroutine find_irel_in_fch(fchname, irel)
   irel = -1             ! no relativity
  end if
 end subroutine find_irel_in_fch
+
+! set the type of relativistic Hamiltonian in a specified .fch(k) file
+subroutine set_irel_in_fch(fchname, irel)
+ implicit none
+ integer :: i, j, fid, fid1, RENAME
+ integer, intent(in) :: irel
+!f2py intent(in) :: irel
+ character(len=7) :: ham(-3:4) = [',X2C)  ',',RESC) ',')      ',',DKH0) ',&
+                                  ',DKH1) ',',DKH2) ',',DKH3) ',',DKHSO)']
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ character(len=960) :: route
+
+ call find_specified_suffix(fchname, '.fch', i)
+ fchname1 = fchname(1:i-1)//'.t'
+ call read_route_from_fch(fchname, route)
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ if(LEN_TRIM(route) == 0) then ! no Route in .fch(k)
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(1:6) == 'Charge') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  if(irel == -1) then
+   write(fid1,'(A,38X,A)') 'Route','C   N=           4'
+   write(fid1,'(A)') '#p HF chkbasis nosymm int=nobasistransform'
+  else
+   write(fid1,'(A,38X,A)') 'Route','C   N=           5'
+   write(fid1,'(A)') '#p HF chkbasis nosymm int(nobasistransform'//TRIM(ham(irel))
+  end if
+  write(fid1,'(A)') TRIM(buf)
+
+ else                          ! there is Route in .fch(k)
+  do while(.true.)
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:5) == 'Route') exit
+  end do ! for while
+
+  i = INDEX(route,' int(')
+  if(i == 0) i = INDEX(route,' int=')
+  if(i == 0) then
+   write(6,'(/,A)') "ERROR in subroutine set_irel_in_fch: neither 'int(' nor 'i&
+                    &nt=' is found"
+   write(6,'(A)') 'in file '//TRIM(fchname)
+   close(fid)
+   close(fid1,status='delete')
+   stop
+  end if
+  j = INDEX(route(i+6:),' ')
+  route = route(1:i)//'int(nobasistransform'//TRIM(ham(irel))//TRIM(route(i+j+5:))
+  write(fid1,'(A)') TRIM(route)
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(1:6) == 'Charge') exit
+  end do ! for while
+  write(fid1,'(A)') TRIM(buf)
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+end subroutine set_irel_in_fch
 
 ! check whether 'nobasistransform' exists in a given .fch(k) file
 ! if not, print warning

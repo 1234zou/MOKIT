@@ -131,10 +131,11 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
   datname, bgchg, chgname, cart, check_gms_path, GVB_conv, fcgvb
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
+ use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
- character(len=240) :: buf, inpname, gmsname
+ character(len=240) :: inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
  character(len=480) :: longbuf = ' '
  logical, intent(in) :: name_determined
@@ -150,9 +151,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   gmsname = inpname(1:i-1)//'.gms'
  else ! not determined
   if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-   write(6,'(A)') '$'//TRIM(buf)
-   i = SYSTEM(TRIM(buf))
+   call fch2inp_wrap(pair_fch, .true., npair, nopen)
    if(ist == 6) then
     write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
     write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
@@ -165,9 +164,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
     i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
    end if
   else ! paired LMOs obtained from associated rotation of UNOs
-   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(pair_fch)//' -gvb ',npair,' -open ',nopen
-   write(6,'(A)') '$'//TRIM(buf)
-   i = SYSTEM(TRIM(buf))
+   call fch2inp_wrap(pair_fch, .true., npair, nopen)
    write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
    write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
    write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
@@ -207,8 +204,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                  & gvb_sort_pairs.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility gvb_&
+                   &sort_pairs.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   write(6,'(A)') 'Or maybe there is some unexpected error.'
   stop
@@ -258,7 +255,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  use mol, only: nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240) :: buf, inpname, outname, fchname0, fchname1, fchname, &
@@ -338,7 +335,8 @@ subroutine do_gvb_qchem(proname, pair_fch)
  write(6,'(A)') '0301-0104(95)00321-5. It is a non-variational method, so its e&
                 &nergy usually'
  write(6,'(A)') 'differs slightly with that calculated by GVB-PP in GAMESS/Gaus&
-                &sian.'
+                &sian. This tiny'
+ write(6,'(A)') 'difference does not affect the subsequent calculations.'
  write(6,'(A)') REPEAT('-',79)
 end subroutine do_gvb_qchem
 
@@ -347,9 +345,9 @@ subroutine do_gvb_gau(proname, pair_fch)
  use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, cart,&
   datname
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
- use util_wrapper, only: unfchk, formchk
+ use util_wrapper, only: unfchk, formchk, fch2inp_wrap
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
  real(kind=8), allocatable :: coeff(:,:) ! GVB pair coeff
  character(len=240) :: buf, chkname, fchname, gjfname, logname, inpname
@@ -387,19 +385,7 @@ subroutine do_gvb_gau(proname, pair_fch)
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
- if(nopen == 0) then
-  write(buf,'(A,I0)') 'fch2inp '//TRIM(fchname)//' -gvb ',npair
- else
-  write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
- end if
- write(6,'(A)') '$'//TRIM(buf)
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                  & fch2inp.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
+ call fch2inp_wrap(fchname, .true., npair, nopen)
 
  i = RENAME(TRIM(inpname), TRIM(datname))
  allocate(coeff(2,npair))

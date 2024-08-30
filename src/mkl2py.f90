@@ -4,33 +4,54 @@
 program mkl2py
  use util_wrapper, only: mkl2fch_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, k, narg, irel, SYSTEM, RENAME
+ character(len=240), allocatable :: str_arg(:)
  character(len=240) :: mklname, fchname, inpname0, inpname
 
- i = iargc()
- if(.not. (i==1 .or. i==2)) then
-  write(6,'(/,A)') 'ERROR in program mkl2py: wrong command line argument!'
-  write(6,'(A)')   'Example 1: mkl2py a.mkl'
-  write(6,'(A,/)') 'Example 2: mkl2py a.mkl b.py'
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
+  write(6,'(/,A)') ' ERROR in program mkl2py: wrong command line argument!'
+  write(6,'(A)')   ' Example 1: mkl2py a.mkl'
+  write(6,'(A)')   ' Example 2: mkl2py a.mkl b.py'
+  write(6,'(A)')   ' Example 3: mkl2py a.mkl -sfx2c'
+  write(6,'(A,/)') ' Example 4: mkl2py a.mkl b.py -sfx2c'
   stop
  end if
 
- mklname = ' '
- call getarg(1, mklname)
- call require_file_exist(mklname)
+ allocate(str_arg(narg))
+ do i = 1, narg, 1
+  call getarg(i, str_arg(i))
+ end do ! for i
 
- inpname = ' '
- if(i == 2) then
-  call getarg(2, inpname)
- else
-  call find_specified_suffix(mklname, '.mkl', i)
-  inpname = mklname(1:i-1)//'.py'
+ mklname = str_arg(1)
+ call require_file_exist(mklname)
+ call find_specified_suffix(mklname, '.mkl', i)
+ inpname = mklname(1:i-1)//'.py'
+ k = 2; irel = -1
+
+ if(narg > 1) then
+  i = LEN_TRIM(str_arg(2))
+  if(str_arg(2)(i-3:i) == '.py') then
+   inpname = str_arg(2)
+   k = 3
+  end if
+  if(k <= narg) then
+   if(TRIM(str_arg(k)) == '-sfx2c') then
+    irel = -3
+   else
+    write(6,'(/,A)') 'ERROR in subroutine mkl2py: wrong command line argument!'
+    write(6,'(A)')   'Example: mkl2py a.mkl -sfx2c'
+    stop
+   end if
+  end if
  end if
 
+ deallocate(str_arg)
+ fchname = ' '
  call find_specified_suffix(mklname, '.mkl', i)
  fchname = mklname(1:i-1)//'.fch'
 
- call mkl2fch_wrap(mklname, fchname)
+ call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
 
  i = SYSTEM('bas_fch2py '//TRIM(fchname))
  if(i /= 0) then

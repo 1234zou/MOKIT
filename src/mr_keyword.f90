@@ -275,7 +275,7 @@ subroutine get_molcas_path()
  end if
 end subroutine get_molcas_path
 
- ! repalce variables like '$USER' in path into real path
+! repalce variables like '$USER' in path into real path
 subroutine replace_env_in_path(path)
  implicit none
  integer :: i, j, k
@@ -306,7 +306,7 @@ subroutine replace_env_in_path(path)
  path = TRIM(buf)
 end subroutine replace_env_in_path
 
- ! read paths of various programs from environment variables
+! read paths of various programs from environment variables
 subroutine read_program_path()
  implicit none
  integer :: i
@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc37 (2024-Aug-6)'
+ write(6,'(A)') '           Version: 1.2.6rc38 (2024-Aug-30)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -355,7 +355,7 @@ subroutine read_program_path()
  write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
 end subroutine read_program_path
 
- ! check whether GAMESS path exists
+! check whether GAMESS path exists
 subroutine check_gms_path()
  implicit none
  integer :: i, fid

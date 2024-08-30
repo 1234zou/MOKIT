@@ -742,8 +742,8 @@ end subroutine prt_caspt2_orca_inp
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casci, casscf, maxM, X2C, RI, RIJK_bas, &
-  hardwfn, crazywfn, iroot, target_root, block_mpi
+ use mr_keyword, only: mem, nproc, casci, casscf, maxM, RI, RIJK_bas, hardwfn,&
+  crazywfn, iroot, target_root, block_mpi
  implicit none
  integer :: i, nroots, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -763,9 +763,9 @@ subroutine prt_nevpt2_script_into_py(pyname)
  end do ! for while
 
  if(casci .or. casscf) then
-  buf = TRIM(buf)//', mcscf, mrpt, lib'
+  buf = TRIM(buf)//', mcscf, mrpt'
  else
-  buf = TRIM(buf)//', mcscf, dmrgscf, mrpt, lib'
+  buf = TRIM(buf)//', mcscf, dmrgscf, mrpt'
  end if
  write(fid2,'(A)') TRIM(buf)
 
@@ -775,20 +775,25 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
- if(.not. (casci .or. casscf)) then
+ if(casci .or. casscf) then
+  write(fid2,'(/,A,I0)') 'nproc = ', nproc
+ else
   write(fid2,'(/,A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
   if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
   write(fid2,'(A)') "'"
+  write(fid2,'(A,I0)') 'nproc = ', nproc
  end if
- write(fid2,'(A,I0)') 'nproc = ', nproc
  write(fid2,'(A)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid1,'(A)') buf
+  if(buf(1:15) == 'lib.num_threads') cycle
+  if(buf(1:13) == 'mf.max_memory') cycle
+  if(buf(1:9) == 'mf.kernel') exit
   write(fid2,'(A)') TRIM(buf)
-  if(buf(1:12) == 'mf.max_cycle') exit
  end do ! for while
  write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
+ write(fid2,'(A)') TRIM(buf)
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -798,12 +803,8 @@ subroutine prt_nevpt2_script_into_py(pyname)
  close(fid1,status='delete')
 
  write(fid2,'(A)') '# generate CASCI wfn'
- if(X2C) then
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
- else
-  write(fid2,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
- end if
- write(fid2,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+ write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, ')'
  if(RI) then
   write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
  else

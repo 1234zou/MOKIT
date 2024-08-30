@@ -77,6 +77,9 @@ end subroutine check_uhf_in_mkl
 ! read various information from a given .mkl file
 subroutine read_mkl(mklname, uhf, read_mo)
  implicit none
+ integer :: i, k, nlin
+ real(kind=8), parameter :: thres = 1d-6
+ real(kind=8), allocatable :: r1(:), r2(:,:)
  character(len=240), intent(in) :: mklname
  logical, intent(in) :: uhf, read_mo
 
@@ -105,6 +108,39 @@ subroutine read_mkl(mklname, uhf, read_mo)
  if(uhf) then
   allocate(ev_b(nif))
   call read_ev_from_mkl(mklname, nif, 'b', ev_b)
+ end if
+
+ ! Check basis set linear dependency. ORCA set linear dependent MOs as zero in
+ ! .mkl and .molden files.
+ nlin = 0
+ do i = nif, 1, -1
+  if(DABS(ev_a(i)) < thres) then
+   if(SUM(DABS(alpha_coeff(:,i))) < thres) nlin = nlin + 1
+  else
+   exit
+  end if
+ end do ! for i
+
+ ! If there is linear dependency, remove MOs with zero coefficients and update
+ ! nif.
+ if(nlin > 0) then
+  k = nif - nlin
+  allocate(r1(k), source=ev_a(1:k))
+  deallocate(ev_a)
+  allocate(ev_a(k), source=r1)
+  allocate(r2(nbf,k), source=alpha_coeff(:,1:k))
+  deallocate(alpha_coeff)
+  allocate(alpha_coeff(nbf,k), source=r2)
+  if(uhf) then
+   r1 = ev_b(1:k)
+   deallocate(ev_b)
+   allocate(ev_b(k), source=r1)
+   r2 = beta_coeff(:,1:k)
+   deallocate(beta_coeff)
+   allocate(beta_coeff(nbf,k), source=r2)
+  end if
+  deallocate(r1, r2)
+  nif = k
  end if
 end subroutine read_mkl
 
@@ -718,8 +754,8 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found&
-                   & in file "//TRIM(mklname)
+  write(6,'(/,A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found &
+                   &in file "//TRIM(mklname)
   close(fid)
   stop
  end if
@@ -748,7 +784,7 @@ subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
 
  close(fid)
  if(rc /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
+  write(6,'(/,A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
   write(6,'(A)') 'Filename='//TRIM(mklname)
   stop
  end if
@@ -1147,4 +1183,100 @@ subroutine all_pg2prim_exp_and_contr_coeff(has_sp)
   end do ! for j
  end do ! for i
 end subroutine all_pg2prim_exp_and_contr_coeff
+
+! print MO coefficients and orbital energies in a given file ID (.mkl file)
+subroutine prt_mo_and_e_in_mkl(fid, nbf, nif, mo, ev)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: fid, nbf, nif
+ real(kind=8), intent(in) :: mo(nbf,nif), ev(nif)
+
+ k = 0
+ do while(.true.)
+  if(k+1 > nif) exit
+  if(k+5 > nif) then
+   j = nif
+  else
+   j = k + 5
+  end if
+  write(fid,'(5(A4,1X))') (' a1g', i=k+1,j)
+  write(fid,'(5(F14.8,1X))') (ev(i),i=k+1,j)
+  do i = 1, nbf, 1
+   write(fid,'(5(ES15.8,1X))') (mo(i,m),m=k+1,j)
+  end do ! for i
+  k = j
+ end do ! for while
+end subroutine prt_mo_and_e_in_mkl
+
+! Convert an RHF .mkl file into a UHF one by copying alpha MOs to beta MOs.
+! The input file will be updated. If brokensym is .True., the beta HOMO LUMO
+! will be interchanged to make a broken symmetry guess.
+subroutine mkl_r2u(mklname, brokensym)
+ use mkl_content, only: read_nbf_and_nif_from_mkl, read_mo_from_mkl, &
+  read_ev_from_mkl, read_on_from_mkl
+ implicit none
+ integer :: i, nbf, nif, ndb, fid
+ real(kind=8), parameter :: thres = 1d-6
+ real(kind=8), allocatable :: mo_a(:,:), on_a(:), e_a(:), rtmp(:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
+ logical, intent(in) :: brokensym
+!f2py intent(in) :: brokensym
+
+ call read_nbf_and_nif_from_mkl(mklname, nbf, nif)
+ allocate(mo_a(nbf,nif), on_a(nif), e_a(nif))
+ call read_mo_from_mkl(mklname, nbf, nif, 'a', mo_a)
+ call read_ev_from_mkl(mklname, nif, 'a', e_a)
+ call read_on_from_mkl(mklname, nif, 'a', on_a)
+
+ ndb = 0
+ do i = 1, nif, 1
+  if(DABS(on_a(i) - 2d0) < thres) then
+   ndb = ndb + 1
+  else if(DABS(on_a(i)) < thres) then
+   exit
+  end if
+ end do ! for i
+
+ if(brokensym) then
+  allocate(rtmp(nbf), source=mo_a(:,ndb))
+  mo_a(:,ndb) = mo_a(:,ndb+1)
+  mo_a(:,ndb+1) = rtmp
+  rtmp(1) = e_a(ndb)
+  e_a(ndb) = e_a(ndb+1)
+  e_a(ndb+1) = rtmp(1)
+  deallocate(rtmp)
+ end if
+ on_a = on_a*0.5d0
+
+ open(newunit=fid,file=TRIM(mklname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:6) == '$OCC_A') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine mkl_r2u: problematic file '//TRIM(mklname)
+  stop
+ end if
+
+ write(fid,'(5(F12.7,1X))') (on_a(i), i=1,nif)
+ write(fid,'(A,/)') '$END'
+
+ write(fid,'(A)') '$COEFF_BETA'
+ call prt_mo_and_e_in_mkl(fid, nbf, nif, mo_a, e_a)
+ write(fid,'(A)') '$END'
+ write(fid,'(/,A)') '$OCC_BETA'
+ write(fid,'(5(F12.7,1X))') (on_a(i), i=1,nif)
+ write(fid,'(A,/)') '$END'
+ close(fid)
+
+ deallocate(mo_a, on_a, e_a)
+end subroutine mkl_r2u
 

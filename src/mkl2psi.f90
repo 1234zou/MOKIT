@@ -4,37 +4,61 @@
 program mkl2psi
  use util_wrapper, only: mkl2fch_wrap
  implicit none
- integer :: i, k, SYSTEM, RENAME
+ integer :: i, k, narg, irel, SYSTEM, RENAME
  character(len=240) :: mklname, fchname, inpname0, inpname
  character(len=240) :: a_file0, b_file0, a_file, b_file
+ character(len=240), allocatable :: str_arg(:)
  logical :: alive
 
- i = iargc()
- if(.not. (i==1 .or. i==2)) then
-  write(6,'(/,A)') 'ERROR in program mkl2psi: wrong command line argument!'
-  write(6,'(A)')   'Example 1: mkl2psi a.mkl'
-  write(6,'(A,/)') 'Example 2: mkl2psi a.mkl b.inp'
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
+  write(6,'(/,A)') ' ERROR in program mkl2psi: wrong command line argument!'
+  write(6,'(A)')   ' Example 1: mkl2psi a.mkl'
+  write(6,'(A)')   ' Example 2: mkl2psi a.mkl b.inp'
+  write(6,'(A)')   ' Example 3: mkl2psi a.mkl -dkh2'
+  write(6,'(A)')   ' Example 4: mkl2psi a.mkl -sfx2c'
+  write(6,'(A,/)') ' Example 5: mkl2psi a.mkl b.inp -sfx2c'
   stop
  end if
 
- mklname = ' '
- call getarg(1, mklname)
- call require_file_exist(mklname)
+ allocate(str_arg(narg))
+ do i = 1, narg, 1
+  call getarg(i, str_arg(i))
+ end do ! for i
 
- inpname = ' '
- if(i == 2) then
-  call getarg(2, inpname)
- else
-  call find_specified_suffix(mklname, '.mkl', i)
-  inpname = mklname(1:i-1)//'.inp'
+ mklname = str_arg(1)
+ call require_file_exist(mklname)
+ call find_specified_suffix(mklname, '.mkl', i)
+ inpname = mklname(1:i-1)//'.inp'
+ k = 2; irel = -1
+
+ if(narg > 1) then
+  i = LEN_TRIM(str_arg(2))
+  if(str_arg(2)(i-3:i) == '.inp') then
+   inpname = str_arg(2)
+   k = 3
+  end if
+  if(k <= narg) then
+   select case(TRIM(str_arg(k)))
+   case('-sfx2c')
+    irel = -3
+   case('-dkh2')
+    irel = 2
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine mkl2psi: wrong command line argument!'
+    write(6,'(A)')   'Example: mkl2psi a.mkl -sfx2c'
+    stop
+   end select
+  end if
  end if
 
+ deallocate(str_arg)
  fchname = ' '
  call find_specified_suffix(mklname, '.mkl', i)
  call get_a_random_int(k)
  write(fchname,'(A,I0,A)') mklname(1:i-1)//'_',k,'.fch'
 
- call mkl2fch_wrap(mklname, fchname)
+ call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
 
  i = SYSTEM('fch2psi '//TRIM(fchname))
  if(i /= 0) then

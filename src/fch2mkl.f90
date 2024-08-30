@@ -273,9 +273,9 @@ subroutine fch2mkl(fchname, itype, dftname)
 
  select case(irel)
  case(-3) ! X2C, i.e. sf-x2c1e
-  write(6,'(/,A)') 'Warning in subroutine fch2mkl: X2C detected. But ORCA does &
-                   &not support X2C.'
-  write(6,'(A)') 'DKH2 keywords will be printed into ORCA .inp file.'
+  write(6,'(/,A)') 'Remark from subroutine fch2mkl: X2C detected. X2C is suppor&
+                   &ted since ORCA 6,'
+  write(6,'(A)') 'please make sure that your ORCA version is appropriate.'
  case(-2) ! RESC
   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in file &
                    &'//TRIM(fchname)//'.'
@@ -284,16 +284,17 @@ subroutine fch2mkl(fchname, itype, dftname)
  case(-1,2) ! none/DKH2
  case(0) ! DKH0
   write(6,'(/,A)') 'Warning in subroutine fch2mkl: DKH0 detected in file '//&
-                   TRIM(fchname)
-  write(6,'(A)') 'But ORCA does not support DKH0. DKH2 keywords will be printed&
-                 & into ORCA .inp file.'
+                    TRIM(fchname)
+  write(6,'(A)') 'But ORCA does not support DKH0. DKH2 keyword will be printed &
+                 &into ORCA input file.'
  case(4) ! DKHSO, DKH4 with SO
   write(6,'(/,A)') 'Warning in subroutine fch2mkl: DKHSO detected in file '//&
                     TRIM(fchname)//'.'
-  write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keywords will be printe&
-                 &d into ORCA .inp file.'
+  write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keyword will be printed&
+                 & into ORCA input file.'
  case default
   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: irel out of range!'
+  write(6,'(A)') 'This type of Hamiltonian is not supported.'
   write(6,'(A,I0)') 'irel=', irel
   stop
  end select
@@ -302,7 +303,6 @@ subroutine fch2mkl(fchname, itype, dftname)
   write(fid2,'(A,/,A)') '%rel',' method DKH'
   write(fid2,'(A,I0,/,A)') ' order ', irel, 'end'
  else if(irel == -3) then
- ! we assume that ORCA-6.0 will add sfX2C and it is just like this
   write(fid2,'(A,/,A,/,A)') '%rel',' method X2C','end'
  end if
 
@@ -434,22 +434,7 @@ subroutine fch2mkl(fchname, itype, dftname)
 
  ! print Alpha MO and corresponding energies into .mkl file
  write(fid1,'(A)') '$COEFF_ALPHA'
- k = 0
- do while(.true.)
-  if(k+1 > nif) exit
-  if(k+5 > nif) then
-   j = nif
-  else
-   j = k + 5
-  end if
-  write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
-  write(fid1,'(5(F14.8,1X))') (eigen_e_a(i),i=k+1,j)
-  do i = 1, nbf, 1
-   write(fid1,'(5(ES15.8,1X))') (alpha_coeff(i,m),m=k+1,j)
-  end do ! for i
-  k = j
- end do ! for while
-
+ call prt_mo_and_e_in_mkl(fid1, nbf, nif, alpha_coeff, eigen_e_a)
  write(fid1,'(A,/)') '$END'
  deallocate(alpha_coeff, eigen_e_a)
 
@@ -472,21 +457,7 @@ subroutine fch2mkl(fchname, itype, dftname)
 
  if(uhf) then ! print Beta MOs and corresponding energies
   write(fid1,'(A)') '$COEFF_BETA'
-  k = 0
-  do while(.true.)
-   if(k+1 > nif) exit
-   if(k+5 > nif) then
-    j = nif
-   else
-    j = k + 5
-   end if
-   write(fid1,'(5(A4,1X))') (' a1g', i=k+1,j)
-   write(fid1,'(5(F14.8,1X))') (eigen_e_b(i),i=k+1,j)
-   do i = 1, nbf, 1
-    write(fid1,'(5(ES15.8,1X))') (beta_coeff(i,m),m=k+1,j)
-   end do ! for i
-   k = j
-  end do ! for while
+  call prt_mo_and_e_in_mkl(fid1, nbf, nif, beta_coeff, eigen_e_b)
   write(fid1,'(A,/)') '$END'
   deallocate(beta_coeff, eigen_e_b)
 

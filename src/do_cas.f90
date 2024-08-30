@@ -580,9 +580,9 @@ subroutine prt_cas_script_into_py(pyname, scf)
  end do
 
  if(dmrg) then
-  write(fid2,'(A)') 'from pyscf import mcscf, dmrgscf, lib'
+  write(fid2,'(A)') 'from pyscf import mcscf, dmrgscf'
  else
-  write(fid2,'(A)') 'from pyscf import mcscf, lib'
+  write(fid2,'(A)') 'from pyscf import mcscf'
  end if
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
@@ -593,13 +593,16 @@ subroutine prt_cas_script_into_py(pyname, scf)
   write(fid2,'(A)') "'"
  end if
  write(fid2,'(A,I0)') 'nproc = ', nproc
- write(fid2,'(A,/)') 'lib.num_threads(nproc)'
+ write(fid2,'(A)') 'lib.num_threads(nproc)'
 
  do while(.true.)
   read(fid1,'(A)') buf
   if(buf(1:9) == 'mf.kernel') exit
+  if(buf(1:15) == 'lib.num_threads') cycle
+  if(buf(1:13) == 'mf.max_memory') cycle
   write(fid2,'(A)') TRIM(buf)
- end do
+ end do ! for while
+
  write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
  write(fid2,'(A)') 'mf.kernel()'
 
@@ -887,11 +890,12 @@ subroutine prt_cas_orca_inp(inpname, scf)
  logical, intent(in) :: scf
 
  if(iroot > 19) then
-  write(6,'(A)') 'ERROR in subroutine prt_cas_orca_inp: please contact the MOKI&
-                 &T developers to'
-  write(6,'(A)') 'modify the printing format.'
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_orca_inp: please contact the MO&
+                   &KIT developers'
+  write(6,'(A)') 'to modify the printing format.'
   stop
  end if
+
  inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
@@ -899,14 +903,14 @@ subroutine prt_cas_orca_inp(inpname, scf)
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
- if(.not. scf) write(fid2,'(A)',advance='no') ' noiter'
+ if(.not. scf) write(fid2,'(A)',advance='no') ' NoIter'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
- write(fid2,'(A)') ' TightSCF'
+ write(fid2,'(A)') ' VeryTightSCF'
 
  if(scf) then ! CASSCF
   write(fid2,'(A)') '%casscf'
@@ -1737,20 +1741,15 @@ end subroutine prt_hard_or_crazy_casci_orca
 ! print ground state CASSCF keywords into a PySCF .py file
 subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casscf, dkh2_or_x2c, RI, maxM, hardwfn, &
-  crazywfn, block_mpi
+ use mr_keyword, only: mem, nproc, casscf, RI, maxM, hardwfn, crazywfn, block_mpi
  implicit none
  integer :: i
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
 
  if(casscf) then ! CASSCF
-  if(dkh2_or_x2c) then
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
-  else
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASSCF(mf,'
-  end if
-  write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, ')'
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -1762,12 +1761,8 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
   write(fid,'(A)') 'mc.natorb = True'
  else ! DMRG-CASSCF
-  if(dkh2_or_x2c) then
-   write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf.x2c1e(),'
-  else
-   write(fid,'(A)',advance='no') 'mc = dmrgscf.DMRGSCF(mf,'
-  end if
-  write(fid,'(3(I0,A))') nacto,',(',nacta,',',nactb,'))'
+  write(fid,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, ',',&
+                           nactb, '))'
   if(block_mpi) then
    i = CEILING(0.5*REAL(mem)/REAL(nproc))
    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
@@ -1787,8 +1782,7 @@ end subroutine prt_gs_casscf_kywrd_py
 ! state tracking is achieved by detecting spin multiplicities of each state
 subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacte, nacta, nactb, mult
- use mr_keyword, only: mem, casscf, dkh2_or_x2c, RI, hardwfn, crazywfn, iroot,&
-  xmult
+ use mr_keyword, only: mem, casscf, RI, hardwfn, crazywfn, iroot, xmult
  implicit none
  integer :: k
  integer, intent(in) :: fid
@@ -1813,12 +1807,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
 
   write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
   write(fid,'(2X,A)') "print('ITER=',i)"
-  if(dkh2_or_x2c) then
-   write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
-  else
-   write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASCI(mf,'
-  end if
-  write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+                                           nacta, ',', nactb, ')'
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
@@ -1848,12 +1838,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   else
    write(fid,'(2X,A)') 'nroots = j + 3'
   end if
-  if(dkh2_or_x2c) then
-   write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASSCF(mf.x2c1e(),'
-  else
-   write(fid,'(2X,A)',advance='no') 'mc = mcscf.CASSCF(mf,'
-  end if
-  write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(',&
+                                           nacta, ',', nactb, ')'
   write(fid,'(A,I0)',advance='no') ').state_specific_(j'
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
@@ -1880,12 +1866,8 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   write(fid,'(A)') "f.write('nroots=%i\n' %nroots)"
   write(fid,'(A)') "f.write('target_root=%i' %j)"
   write(fid,'(A)') 'f.close()'
-  if(dkh2_or_x2c) then
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
-  else
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
-  end if
-  write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, ')'
   write(fid,'(A,I0)',advance='no') ').state_specific_(j'
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
@@ -1908,8 +1890,8 @@ end subroutine prt_es_casscf_kywrd_py
 
 subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: dmrgscf, dkh2_or_x2c, iroot, RI, mem, casci, hardwfn, &
-  crazywfn, maxM, nproc, block_mpi
+ use mr_keyword, only: dmrgscf, iroot, RI, mem, casci, hardwfn, crazywfn, maxM,&
+  nproc, block_mpi
  implicit none
  integer :: i
  integer, intent(in) :: fid
@@ -1922,12 +1904,8 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
  end if
 
  if((.not.natorb) .or. (natorb .and. dmrgscf)) then
-  if(dkh2_or_x2c) then
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf.x2c1e(),'
-  else
-   write(fid,'(A)',advance='no') 'mc = mcscf.CASCI(mf,'
-  end if
-  write(fid,'(3(I0,A))',advance='no') nacto,',(',nacta,',',nactb,')'
+  write(fid,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, ')'
   if(RI) then
    write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else

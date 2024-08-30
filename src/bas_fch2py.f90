@@ -32,7 +32,6 @@ program main
   do j = 2, i, 1
    call getarg(j, buf)
    buf = ADJUSTL(buf)
-   !write(*,*) j, buf
    select case(TRIM(buf))
    case('-dft')
     prt_dft = .true.
@@ -85,7 +84,7 @@ subroutine bas_fch2py(fchname, prt_dft, rest)
  if(alive) i = RENAME(TRIM(inpname), TRIM(inpname1))
 
  call determine_sph_or_cart(fchname, cart) 
- call fch2inp_wrap(fchname, .false., 0, 0)
+ call fch2inp_wrap(fchname, .false., 0, 0, .false.)
 
  command = 'bas_gms2py '//TRIM(inpname)
  if(.not. cart) command = TRIM(command)//' -sph'
@@ -93,8 +92,8 @@ subroutine bas_fch2py(fchname, prt_dft, rest)
 
  i = SYSTEM(TRIM(command))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: call utility bas_gms2py fai&
-                   &led.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: failed to call utility bas_&
+                   &gms2py.'
   write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
   stop
  end if

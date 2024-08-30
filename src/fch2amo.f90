@@ -94,7 +94,17 @@ subroutine fch2amo(fchname)
    write(fid,'(A)',advance='no') 'rohf'
   end if
  end if
- if(irel == -3) write(fid,'(A)',advance='no') ' sfx2c1e'
+
+ select case(irel)
+ case(-3)
+  write(fid,'(A)',advance='no') ' sfx2c1e'
+ case(-1) ! do nothing
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine fch2amo: irel out of range!'
+  write(6,'(A)') 'Amesp does not support this type of Hamiltonian.'
+  close(fid)
+  stop
+ end select
  write(fid,'(A)') ' define'
 
  if(ANY(shell_type>1)) write(fid,'(A,/,A,/,A)') '>ope',' inttype car','end'

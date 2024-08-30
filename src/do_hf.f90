@@ -80,9 +80,8 @@ subroutine do_hf(prt_mr_strategy)
  rhf_inp = TRIM(proname)//'_rhf.gjf'
  uhf_inp = TRIM(proname)//'_uhf.gjf'
 
- ! For HF_prog=Gaussian/PySCF, we simply perform HF calculations using them.
- ! For HF_prog=PSI4/ORCA, we need Gaussian .fch file to generate PSI4/ORCA
- ! input file
+ ! For HF_prog=Gaussian/PySCF/ORCA, we simply perform HF calculations using them.
+ ! For HF_prog=PSI4, we need Gaussian .fch file to generate PSI4 input file.
  select case(TRIM(hf_prog))
  case('gaussian')
   hf_prog_path = gau_path
@@ -98,6 +97,8 @@ subroutine do_hf(prt_mr_strategy)
  case('orca')
   hf_prog_path = orca_path
   noiter = .false.
+  rhf_inp = TRIM(proname)//'_rhf.inp'
+  uhf_inp = TRIM(proname)//'_uhf.inp'
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_hf: invalid HF_prog='//TRIM(hf_prog)
   write(6,'(A)') 'HF_prog can only be one of Gaussian/PySCF/PSI4/ORCA.'
@@ -163,7 +164,7 @@ subroutine do_hf(prt_mr_strategy)
  end if
 end subroutine do_hf
 
-subroutine process_basis_set(basis,basis1, dkh2_or_x2c, natom,nuc,elem, create)
+subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
  implicit none
  integer :: i
  integer, intent(in) :: natom
@@ -178,8 +179,7 @@ subroutine process_basis_set(basis,basis1, dkh2_or_x2c, natom,nuc,elem, create)
  logical, intent(in) :: dkh2_or_x2c
  logical, intent(out) :: create
 
- rel = .false.; create = .false.
- basis1 = ' '
+ rel = .false.; create = .false.; basis1 = ' '
  call upper(basis)
 
  i = INDEX(basis, 'CC-P')
@@ -302,6 +302,7 @@ subroutine process_basis_set(basis,basis1, dkh2_or_x2c, natom,nuc,elem, create)
  end if
 end subroutine process_basis_set
 
+! generate RHF/UHF input files
 subroutine gen_hf_inp(hf_prog, inpname, uhf, noiter)
  implicit none
  character(len=10), intent(in) :: hf_prog
@@ -313,6 +314,8 @@ subroutine gen_hf_inp(hf_prog, inpname, uhf, noiter)
   call gen_hf_gjf(inpname, uhf, noiter)
  case('pyscf')
   call gen_hf_pyscf_inp(inpname, uhf)
+ case('orca')
+  call gen_hf_orca_inp(inpname, uhf)
  case default
   write(6,'(/,A)') 'ERROR in subroutine gen_hf_inp: invalid HF_prog='//&
                    TRIM(hf_prog)
@@ -462,8 +465,8 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
    else
     write(fid,'(A)',advance='no') ' RHF'
    end if
-   write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1)&
-                    & int(nobasistransform,DKH2)'
+   write(fid,'(A)') ' chkbasis nosymm guess=read geom=allcheck iop(3/93=1) int(&
+                    &nobasistransform,DKH2)'
   end if
  else
   if(frag_guess .and. (.not. noiter)) then
@@ -471,8 +474,8 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
    write(fid,'(A)') '%chk='//TRIM(chkname)
    write(fid,'(A,I0,A)') '%mem=',mem,'GB'
    write(fid,'(A,I0)') '%nprocshared=', nproc
-   write(fid,'(A)') '#p scf(xqc,maxcycle=512) UHF chkbasis stable=opt nosymm&
-                   & guess=read geom=allcheck int(nobasistransform)'
+   write(fid,'(A)') '#p UHF chkbasis nosymm int=nobasistransform guess=read geo&
+                    &m=allcheck scf(xqc,maxcycle=512) stable=opt'
   end if
  end if
 
@@ -496,7 +499,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  if(frag_guess) then
   write(6,'(/,A)') 'ERROR in subroutine gen_hf_pyscf_inp: frag_guess is current&
                    &ly not supported'
-  write(6,'(A)') 'when HF_prog=PySCF.'
+  write(6,'(A)') 'when HF_prog=PySCF. Please use the default HF_prog=Gaussian'
   stop
  end if
 
@@ -533,6 +536,17 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  end do ! for i
  write(fid,'(A)') "'''"
  write(fid,'(A)') "mol.basis = '"//TRIM(basis1)//"'"
+
+ if(basis1(1:4)=='def2' .and. ANY(nuc>36)) then
+  write(fid,'(A)') 'mol.ecp = {'
+  do i = 1, natom, 1
+   if(nuc(i) > 36) then
+    write(fid,'(A)') " '"//TRIM(elem(i))//"': '"//TRIM(basis1)//"',"
+   end if
+  end do ! for i
+  write(fid,'(A)') '}'
+ end if
+
  write(fid,'(A)') '# Remember to check the charge and spin'
  write(fid,'(A,I0)') 'mol.charge = ', charge
  write(fid,'(A,I0)') 'mol.spin = ', mult-1
@@ -610,6 +624,118 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  if(TRIM(basis1) == 'gen') call add_gen_bas2pyscf_inp(basname,pyname,natom,elem)
 end subroutine gen_hf_pyscf_inp
 
+! generate an ORCA RHF/UHF .inp file
+subroutine gen_hf_orca_inp(inpname, uhf)
+ use mol, only: charge, mult, natom, nuc, elem, coor
+ use mr_keyword, only: mem, nproc, orca_path, basis, cart, DKH2, X2C, dkh2_or_x2c,&
+  RI, frag_guess
+ implicit none
+ integer :: i, iver, fid
+ character(len=21) :: basis1
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: uhf
+ logical :: create
+
+ if(frag_guess) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: frag_guess is currentl&
+                   &y not supported'
+  write(6,'(A)') 'when HF_prog=ORCA. Please use the default HF_prog=Gaussian.'
+  stop
+ end if
+
+ if(cart) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: Cartesian-type basis f&
+                   &unctions (6D 10F)'
+  write(6,'(A)') 'are not supported in ORCA. Please use spherical harmonic type&
+                 & basis functions.'
+  stop
+ end if
+
+ call find_orca_ver(orca_path, iver)
+ if(iver < 6) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: this is only supported&
+                   & since ORCA 6.'
+  write(6,'(A,I0)') 'Found ORCA version: ', iver
+  stop
+ end if
+
+ call process_basis_set(basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ if(basis1(1:3) == 'gen') then
+  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: gen/genecp is not supp&
+                   &orted in this'
+  write(6,'(A)') 'functionality. Please use an ORCA built-in basis set.'
+  stop
+ end if
+ i = INDEX(basis1, 'def2')
+ if(i > 0) then
+  if(basis1(i+4:i+4)/='-') basis1 = basis1(1:i+3)//'-'//TRIM(basis(i+4:))
+ end if
+
+ open(newunit=fid,file=TRIM(inpname),status='replace')
+ write(fid,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
+ write(fid,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+
+ if(uhf) then
+  write(fid,'(A)',advance='no') '! UHF '
+ else
+  write(fid,'(A)',advance='no') '! RHF '
+ end if
+ write(fid,'(A)',advance='no') TRIM(basis1)
+ if(RI) then
+  if(DKH2) then
+   write(fid,'(A)',advance='no') ' RIJCOSX SARC/J defgrid3'
+  else if(X2C) then
+   write(fid,'(A)',advance='no') ' RIJCOSX x2c/J defgrid3'
+  else
+   select case(basis1(1:6))
+   case('cc-pVT','cc-pVQ','cc-pV5','aug-cc')
+    write(fid,'(A)',advance='no') ' RIJK '//TRIM(basis1)//'/JK'
+   case default
+    write(fid,'(A)',advance='no') ' RIJK def2/JK'
+   end select
+  end if
+ else
+  write(fid,'(A)',advance='no') ' noRI'
+ end if
+ write(fid,'(A)') ' VeryTightSCF'
+
+ write(fid,'(A)') '%scf'
+ write(fid,'(A)') ' Thresh 1e-12'
+ write(fid,'(A)') ' Tcut 1e-14'
+ write(fid,'(A)') ' MaxIter 512'
+ write(fid,'(A)') ' sthresh 1e-6'
+ if(uhf) then
+  ! There is no need to use BrokenSym/FlipSpin for singlet UHF, since a .gbw
+  ! file includes broken symmetry MOs will be generated from RHF calculation
+  ! result. In fact, 'BrokenSym 1,1' + 'stable=opt' functionality seems not
+  ! correct in ORCA 6.0.0.
+  write(fid,'(A)') ' STABPerform true'
+  write(fid,'(A)') ' STABRestartUHFifUnstable true'
+  write(fid,'(A)') ' STABMaxIter 500'
+  write(fid,'(A)') ' STABDTol 1e-5'
+  write(fid,'(A)') ' STABRTol 1e-5'
+ end if
+ write(fid,'(A)') 'end'
+
+ if(dkh2_or_x2c) then
+  write(fid,'(A)') '%rel'
+  if(DKH2) then
+   write(fid,'(A)') ' method DKH'
+   write(fid,'(A)') ' order 2'
+  else if(X2C) then
+   write(fid,'(A)') ' method X2C'
+  end if
+  write(fid,'(A)') 'end'
+ end if
+
+ write(fid,'(A,I0,1X,I0)') '* xyz ', charge, mult
+ do i = 1, natom, 1
+  write(fid,'(A2,1X,3(1X,F17.8))') elem(i), coor(:,i)
+ end do ! for i
+ write(fid,'(A)') '*'
+ close(fid)
+end subroutine gen_hf_orca_inp
+
 ! perform SCF computaton using Gaussian/PySCF/PSI4/ORCA, then read electronic
 ! energy and spin square
 ! Note: parameters {nproc, bgchg, chgname} are taken from
@@ -620,11 +746,11 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  use util_wrapper, only: formchk, bas_fch2py_wrap, fch2psi_wrap, fch2mkl_wrap,&
   mkl2gbw, gbw2mkl, mkl2fch_wrap
  implicit none
- integer :: i, hf_type, system, RENAME
+ integer :: i, irel, hf_type, SYSTEM, RENAME
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
  character(len=240) :: proname, chkname, fchname, outname, mklname, gbwname, &
-  prpname1, prpname2, inpname1
+  prpname1, prpname2, prpname3, inpname1, denf1, denf2
  character(len=240), intent(in) :: gau_path, hf_prog_path, inpname
  ! gau_path is always the path of Gaussian
  ! when Gaussian is used to compute SCF, gau_path = hf_prog_path
@@ -635,8 +761,10 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  call find_specified_suffix(inpname, '.', i)
  proname = inpname(1:i-1)
  outname = inpname(1:i-1)//'.out'
+ fchname  = TRIM(proname)//'.fch'
+ i = LEN_TRIM(hf_prog_path)
 
- if(TRIM(hf_prog_path) == 'python') then
+ if(hf_prog_path(1:6) == 'python') then
   if(noiter) then
    write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: internal inconsiste&
                     &ncy.'
@@ -647,13 +775,40 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   call read_hf_e_and_ss_from_pyscf_out(outname, hf_type, e, ssquare)
   e = e + ptchg_e
   return
+ else if(hf_prog_path(i-3:i) == 'orca') then
+  if(noiter) then
+   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: internal inconsiste&
+                    &ncy.'
+   stop
+  end if
+  mklname  = TRIM(proname)//'.mkl'
+  gbwname  = TRIM(proname)//'.gbw'
+  prpname1 = TRIM(proname)//'.prop'
+  prpname2 = TRIM(proname)//'_property.txt'
+  prpname3 = TRIM(proname)//'.property.txt'
+  inpname1 = TRIM(proname)//'_o.inp'
+  denf1    = TRIM(proname)//'.densities'
+  denf2    = TRIM(proname)//'.densitiesinfo'
+  call read_hf_type_from_orca_inp(inpname, hf_type)
+  if(hf_type == 3) call gen_brokensym_guess_orca(mklname)
+  call submit_orca_job(orca_path, inpname, .true., .false., .false.)
+  call read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
+  e = e + ptchg_e
+  call gbw2mkl(gbwname)
+  irel = -1
+  if(DKH2) irel = 2
+  if(X2C) irel = -3
+  call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
+  call update_density_using_mo_in_fch(fchname)
+  call delete_files(7,[inpname,gbwname,prpname1,prpname2,prpname3,denf1,denf2])
+  if(hf_type == 3) call delete_file(TRIM(mklname))
+  return
  end if
 
  call submit_gau_job(gau_path, inpname, .false.)
  if(noiter) return ! no energy to read
 
  chkname = TRIM(proname)//'.chk'
- fchname = TRIM(proname)//'.fch'
 #ifdef _WIN32
  outname = TRIM(proname)//'.out' ! Gaussian output file under Windows
 #else
@@ -899,7 +1054,7 @@ subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
 
 end subroutine read_hf_e_and_ss_from_psi4_out
 
-! read HF electronic energy from a ORCA .out file
+! read HF electronic energy from an ORCA .out file
 subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  implicit none
  integer :: i, mult, fid
@@ -917,7 +1072,7 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
   BACKSPACE(fid,iostat=i)
   if(i /= 0) exit
   read(fid,'(A)') buf
-  if(buf(1:12) == 'Total Energy') exit
+  if(buf(1:15) == 'Total Energy   ') exit
   if(buf(2:12) == 'With contri') then
    i = -1
    exit
@@ -1080,7 +1235,7 @@ subroutine prt_hf_psi4_inp(inpname, hf_type)
  ! UHF wfn stability check
  if(hf_type == 3) then
   write(fid1,'(A)') ' stability_analysis follow'
-  write(fid1,'(A)') ' max_attempts 5'
+  write(fid1,'(A)') ' max_attempts 8'
  end if
 
  do while(.true.)
@@ -1401,4 +1556,61 @@ subroutine add_gen_bas2pyscf_inp(basname, pyname, natom, elem)
  close(fid1)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine add_gen_bas2pyscf_inp
+
+! find the version of ORCA
+subroutine find_orca_ver(orca_path, iver)
+ implicit none
+ integer :: i, fid, SYSTEM
+ integer, intent(out) :: iver ! 4/5/6
+ character(len=20) :: txtname
+ character(len=240) :: buf
+ character(len=240), intent(in) :: orca_path
+
+ iver = 0 ! initialization
+ call get_a_random_int(i)
+ write(txtname,'(I0,A)') i, '.txt'
+ i = SYSTEM(TRIM(orca_path)//' -v >'//TRIM(txtname)//" 2>&1")
+
+ open(newunit=fid,file=TRIM(txtname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(26:40) == 'Program Version') exit
+ end do ! for while
+
+ close(fid,status='delete')
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_orca_ver: no 'Program Version' found."
+  write(6,'(A)') 'Please check whether ORCA is installed correctly.'
+  stop
+ end if
+
+ i = INDEX(buf,'.')
+ read(buf(41:i-1),*) iver
+end subroutine find_orca_ver
+
+! Generate a singlet UHF broken symmetry initial guess. The input .mkl should be
+! xxx_uhf.mkl, in order to find the corresponding xxx_rhf.mkl and xxx_uhf.inp.
+subroutine gen_brokensym_guess_orca(uhf_mkl)
+ use util_wrapper, only: mkl2gbw
+ implicit none
+ integer :: i, mult, RENAME
+ character(len=240) :: uhf_inp, rhf_mkl
+ character(len=240), intent(in) :: uhf_mkl
+
+ i = LEN_TRIM(uhf_mkl)
+ if(uhf_mkl(i-7:i) /= '_uhf.mkl') return
+
+ uhf_inp = uhf_mkl(1:i-8)//'_uhf.inp'
+ call read_mult_from_orca_inp(uhf_inp, mult)
+ if(mult /= 1) return ! only singlet UHF is considered here
+
+ rhf_mkl = uhf_mkl(1:i-8)//'_rhf.mkl'
+ call require_file_exist(rhf_mkl)
+
+ i = RENAME(TRIM(rhf_mkl), TRIM(uhf_mkl))
+ call mkl_r2u(uhf_mkl, .true.)
+ call mkl2gbw(uhf_mkl)
+end subroutine gen_brokensym_guess_orca
 

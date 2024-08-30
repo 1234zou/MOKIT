@@ -22,8 +22,8 @@ subroutine do_mcpdft()
 
  if(dmrg) then
   if(mcpdft_prog == 'gamess') then
-   write(6,'(A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been&
-                  & implemented in GAMESS.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been impl&
+                    &emented in GAMESS.'
    write(6,'(A)') 'You can set MCPDFT_prog=OpenMolcas in mokit{}.'
    stop
   end if
@@ -136,7 +136,7 @@ end subroutine do_mcpdft
 ! print MC-PDFT or DMRG-PDFT keywords into PySCF .py file
 subroutine prt_mcpdft_script_into_py(inpname)
  use mol, only: nacto, nacta, nactb
- use mr_keyword, only: dmrgci, dmrgscf, otpdf, mem, mcpdft_force
+ use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, otpdf, mcpdft_force
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
@@ -144,7 +144,9 @@ subroutine prt_mcpdft_script_into_py(inpname)
  logical :: dmrg
 
  dmrg = (dmrgci .or. dmrgscf)
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.py', i)
+ inpname1 = inpname(1:i-1)//'.t'
+
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
@@ -159,6 +161,26 @@ subroutine prt_mcpdft_script_into_py(inpname)
  end do ! for i
 
  do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(/,A,I0)') 'nproc = ', nproc
+ write(fid1,'(A)') 'lib.num_threads(nproc)'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:15) == 'lib.num_threads') cycle
+  if(buf(1:13) == 'mf.max_memory') cycle
+  if(buf(1:9) == 'mf.kernel') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
+ write(fid1,'(A)') TRIM(buf)
+
+ do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid1,'(A)') TRIM(buf)
@@ -167,7 +189,7 @@ subroutine prt_mcpdft_script_into_py(inpname)
  close(fid,status='delete')
  write(fid1,'(3(A,I0),A)') "mc = mcpdft.CASCI(mf,'"//TRIM(otpdf)//"',",nacto, &
                            ',(',nacta,',',nactb,'))'
- write(fid1,'(A)') 'mc.grids.atom_grid = (99,590)'
+ write(fid1,'(A)') 'mc.grids.atom_grid = (99,590) # ultrafine'
  write(fid1,'(A,I0,A)') 'mc.max_memory = ',mem*1000,' # MB'
  write(fid1,'(A)') 'mc.kernel()'
  close(fid1)

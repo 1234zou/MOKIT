@@ -5,9 +5,9 @@ module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
   nstate, readrhf, readuhf, mo_rhf, hf_prog, hfonly, hf_fch, skiphf, chgname, &
-  gau_path, molcas_path, orca_path, psi4_path, dalton_path, gms_path, gms_scr_path, &
+  gau_path, molcas_path, orca_path, psi4_path, dalton_path, gms_path, gms_scr_path,&
   nmr, check_gms_path, molcas_omp, dalton_mpi
- use mol, only: chem_core, ecp_core, ptchg_e, nuc_pt_e
+ use mol, only: chem_core, ecp_core, ptchg_e, nuc_pt_e, lin_dep
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
  real(kind=8) :: ref_e = 0d0    ! reference wfn energy
@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc37 (2024-Aug-6)'
+ write(6,'(A)') '           Version: 1.2.6rc38 (2024-Aug-30)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -180,8 +180,8 @@ subroutine parse_sr_keyword()
  write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
 
  if(basis(1:5) == 'def2-') then
-  write(6,'(A)') "ERROR in subroutine parse_sr_keyword: 'def2-' prefix detec&
-                 &ted in given basis set."
+  write(6,'(/,A)') "ERROR in subroutine parse_sr_keyword: 'def2-' prefix detect&
+                   &ed in given basis set."
   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not &
                  &def2-TZVP.'
   stop
@@ -543,7 +543,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc37 :: MOKIT, release date: 2024-Aug-6'
+  write(6,'(A)') 'AutoSR 1.2.6rc38 :: MOKIT, release date: 2024-Aug-30'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -1296,8 +1296,8 @@ end subroutine prt_posthf_gau_inp
 ! add CC keywords into a ORCA input file
 subroutine prt_posthf_orca_inp(inpname, excited)
  use sr_keyword, only: mem, nproc, RI, DLPNO, F12, RIJK_bas, RIC_bas, F12_cabs,&
-  mo_rhf, mp2, ccd, ccsd, ccsd_t, iterative_t, gen_no, relaxed_dm, ip, ea, &
-  nstate, chem_core, force
+  mo_rhf, lin_dep, mp2, ccd, ccsd, ccsd_t, iterative_t, gen_no, relaxed_dm, ip,&
+  ea, nstate, chem_core, force
  use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -1390,11 +1390,12 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   write(fid1,'(/)',advance='no')
  end if
 
- ! keep the integral accuracy the same to Gaussian
+ ! keep the integral accuracy the same as Gaussian
  write(fid1,'(A)') '%scf'
  write(fid1,'(A)') ' Thresh 1e-12'
  write(fid1,'(A)') ' Tcut 1e-14'
  write(fid1,'(A)') ' CNVDamp False'
+ if(lin_dep) write(fid1,'(A)') ' sthresh 1e-6'
  write(fid1,'(A)') 'end'
 
  if(.not. mp2) then
@@ -1558,12 +1559,12 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  mo_npy = pyname(1:i-1)//'_mo.npy'
  t1_npy = pyname(1:i-1)//'_t1.npy'
  t2_npy = pyname(1:i-1)//'_t2.npy'
+
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(pyname1),status='replace')
 
- write(fid1,'(A)',advance='no') 'from pyscf import lib'
  if(mp2) then
-  write(fid1,'(A)') ', mp'
+  write(fid1,'(A)') 'from pyscf import mp'
   if(RI) then
    if(mo_rhf) then
     write(fid1,'(A)') 'from pyscf.mp.dfmp2_native import DFMP2'
@@ -1572,8 +1573,12 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
    end if
   end if
  else
-  if(RI) write(fid1,'(A)',advance='no') ', df'
-  write(fid1,'(A)') ', cc'
+  write(fid1,'(A)',advance='no') 'from pyscf import '
+  if(RI) then
+   write(fid1,'(A)') 'cc, df'
+  else
+   write(fid1,'(A)') 'cc'
+  end if
   if(ccsd_t) write(fid1,'(A)') 'from pyscf.cc import ccsd_t'
  end if
 
@@ -1596,8 +1601,12 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   if(LEN_TRIM(buf) == 0) exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
+
  write(fid1,'(/,A,I0)') 'nproc = ', nproc
  write(fid1,'(A)') 'lib.num_threads(nproc)'
+
+ read(fid,'(A)') buf
+ if(buf(1:15) /= 'lib.num_threads') write(fid1,'(A)') TRIM(buf)
 
  if(RI) then
   do while(.true.)
@@ -1605,6 +1614,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
    if(buf(1:2) == 'mf') exit
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
+
   call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
   write(fid1,'(A)') TRIM(buf)//".density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
  end if
@@ -1612,8 +1622,9 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:3) == '#dm') exit
+  if(buf(1:13) == 'mf.max_memory') cycle
   if(buf(1:9) == 'mf.kernel') then
-   write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' #MB'
+   write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
   end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while

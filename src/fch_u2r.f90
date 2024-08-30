@@ -20,7 +20,7 @@ program main
   write(6,'(/,A)') 'ERROR in subroutine fch_u2r: .fch(k) file are required.'
   write(6,'(A)')   'Example 1: fch_u2r a.fch       (a_r.fch generated)'
   write(6,'(A,/)') 'Example 2: fch_u2r a.fch b.fch (generate a_r.fch and rename&
-                  & it to b.fch)'
+                   & to b.fch)'
   stop
  end if
 

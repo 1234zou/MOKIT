@@ -857,9 +857,14 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
  integer, allocatable :: ipiv(:)
  real(kind=8), intent(in) :: coeff(nbf,nmo), lo_coeff(nbf,nmo)
+!f2py intent(in) :: coeff, lo_coeff
+!f2py depend(nbf,nmo) :: coeff, lo_coeff
  real(kind=8), intent(out) :: u(nmo,nmo)
+!f2py intent(out) :: u
+!f2py depend(nmo) :: u
  real(kind=8), allocatable :: coeff1(:,:), lo_coeff1(:,:)
 
  u = 0d0

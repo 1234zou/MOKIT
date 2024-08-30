@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc37 :: MOKIT, release date: 2024-Aug-6'
+  write(6,'(A)') 'AutoMR 1.2.6rc38 :: MOKIT, release date: 2024-Aug-30'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -227,7 +227,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  integer :: i, fid
  character(len=240) :: proj_fch, proname, minbas_fch
  character(len=240), intent(in) :: pyname
- logical :: beyond_kr
+ logical :: beyond_kr, beyond_i
 
  call find_specified_suffix(hf_fch, '.fch', i)
  proj_fch = hf_fch(1:i-1)//'_proj.fch'
@@ -237,6 +237,8 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  if(ANY(nuc > 54)) beyond_xe = .true.
  beyond_kr = .false.
  if(ANY(nuc > 36)) beyond_kr = .true.
+ beyond_i = .false.
+ if(ANY(nuc > 53)) beyond_i = .true.
 
  ! Perform a HF/STO-6G calculation using Gaussian/PySCF.
  ! Note: STO-6G in PySCF ranges from H~Kr, but in Gaussian ranges from H~Xe,
@@ -255,6 +257,17 @@ subroutine prt_rhf_proj_script_into_py(pyname)
   else
    call do_min_bas_hf_pyscf(proname)
   end if
+ case('orca')
+  if(beyond_i) then
+   beyond_xe = .true.
+   return
+  else
+   call do_min_bas_hf_orca(proname)
+  end if
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine prt_rhf_proj_script_into_py: invalid hf&
+                   &_prog='//TRIM(hf_prog)
+  stop
  end select
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
@@ -464,7 +477,6 @@ subroutine prt_uno_script_into_py(pyname)
   stop
  end if
 
- write(fid2,'(A)') 'from pyscf import lib'
  write(fid2,'(A)') 'import numpy as np'
  write(fid2,'(A)') 'import os'
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
@@ -478,6 +490,7 @@ subroutine prt_uno_script_into_py(pyname)
 
  do while(.true.)
   read(fid1,'(A)') buf
+  if(buf(1:15) == 'lib.num_threads') cycle
   if(buf(1:9) == 'mf.kernel') exit
   write(fid2,'(A)') TRIM(buf)
  end do
@@ -1018,14 +1031,7 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
 
  do while(.true.)
   read(fid1,'(A)') buf
-  if(buf(1:17) == 'from pyscf import') exit
-  write(fid3,'(A)') TRIM(buf)
- end do ! for while
- buf= TRIM(buf)//', lib'
- write(fid3,'(A)') TRIM(buf)
-
- do while(.true.)
-  read(fid1,'(A)') buf
+  if(buf(1:15) == 'lib.num_threads') cycle
   write(fid3,'(A)') TRIM(buf)
   if(buf(1:6) == 'mol.bu') exit
  end do ! for while
@@ -1117,7 +1123,7 @@ subroutine find_npair0_from_fch(fchname, nopen, npair0)
  npair0 = (npair0 - nopen)/2
 end subroutine find_npair0_from_fch
 
-! perform a RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO
+! perform an RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO
 subroutine do_min_bas_hf_gau(proname)
  use mr_keyword, only: mem, nproc, gau_path
  use mol, only: charge, mult, natom, elem, coor
@@ -1175,6 +1181,8 @@ subroutine do_min_bas_hf_gau(proname)
  call delete_files(3, [gjfname, chkname, logname])
 end subroutine do_min_bas_hf_gau
 
+! Perform an RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO, using
+! PySCF. Users who cannot use Gaussian needs this functionality.
 subroutine do_min_bas_hf_pyscf(proname)
  use mr_keyword, only: mem, nproc, dkh2_or_x2c
  use mol, only: charge, mult, natom, elem, coor
@@ -1187,17 +1195,19 @@ subroutine do_min_bas_hf_pyscf(proname)
  outname = TRIM(proname)//'.out'
  fchname = TRIM(proname)//'.fch'
  r_fch = TRIM(proname)//'_UNO.fch'
- open(newunit=fid,file=TRIM(pyname),status='replace')
 
+ open(newunit=fid,file=TRIM(pyname),status='replace')
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  if(mult > 1) then
   write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
   write(fid,'(A)') 'from mokit.lib.gaussian import uno'
-  write(fid,'(A)') 'from os import rename'
+  write(fid,'(A)') 'import os'
  end if
- write(fid,'(/,A,I0,A)') 'lib.num_threads(', nproc, ')'
+
+ write(fid,'(/,A,I0)') 'nproc = ', nproc
+ write(fid,'(A)') 'lib.num_threads(nproc)'
 
  write(fid,'(A)') 'mol = gto.M()'
  write(fid,'(A,I0,A)') '# ', natom, ' atom(s)'
@@ -1241,12 +1251,14 @@ subroutine do_min_bas_hf_pyscf(proname)
   write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
+  write(fid,'(A)') 'if os.path.exists(uhf_fch):'
+  write(fid,'(A)') '  os.remove(uhf_fch)'
   write(fid,'(A)') "r_fch = '"//TRIM(r_fch)//"'"
   write(fid,'(A)') 'fchk(mf, uhf_fch)'
   write(fid,'(A)') 'update_density_using_mo_in_fch(uhf_fch)'
   write(fid,'(A)') 'uno(uhf_fch)'
-  write(fid,'(A)') 'rename(r_fch, uhf_fch)'
- else         ! RHF
+  write(fid,'(A)') 'os.rename(r_fch, uhf_fch)'
+ else              ! RHF
   write(fid,'(A)') 'if mf.converged is False:'
   write(fid,'(A)') "  raise OSError('PySCF RHF job failed.')"
   write(fid,'(/,A)') '# save RHF MOs into .fch file'
@@ -1257,4 +1269,80 @@ subroutine do_min_bas_hf_pyscf(proname)
  call submit_pyscf_job(pyname, .true.)
  call delete_files(2, [pyname, outname])
 end subroutine do_min_bas_hf_pyscf
+
+! Perform an RHF/STO-6G calculation, or a UHF/STO-6G calculation plus UNO, using
+! ORCA. Users who cannot use Gaussian needs this functionality.
+subroutine do_min_bas_hf_orca(proname)
+ use mr_keyword, only: mem, nproc, dkh2_or_x2c, DKH2, X2C, orca_path
+ use mol, only: charge, mult, natom, elem, coor
+ use util_wrapper, only: gbw2molden, molden2fch_wrap
+ implicit none
+ integer :: i, fid, RENAME
+ character(len=7), parameter :: prog = 'orca   '
+ character(len=240) :: inpname, outname, gbwname, uno_gbw, qro_gbw, unso_gbw, &
+  mklname, fchname, molden, r_fch
+ character(len=240), intent(in) :: proname
+
+ inpname = TRIM(proname)//'.inp'
+ outname = TRIM(proname)//'.out'
+ gbwname = TRIM(proname)//'.gbw'
+ uno_gbw = TRIM(proname)//'.uno'
+ qro_gbw = TRIM(proname)//'.qro'
+ unso_gbw = TRIM(proname)//'.unso'
+ mklname = TRIM(proname)//'.mkl'
+ molden = TRIM(proname)//'.molden'
+ fchname = TRIM(proname)//'.fch'
+ r_fch = TRIM(proname)//'_UNO.fch'
+
+ open(newunit=fid,file=TRIM(inpname),status='replace')
+ write(fid,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
+ write(fid,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+
+ if(mult > 1) then
+  write(fid,'(A)',advance='no') '! UHF UNO '
+ else
+  write(fid,'(A)',advance='no') '! RHF '
+ end if
+ write(fid,'(A)') 'STO-3G VeryTightSCF'
+ ! ORCA has no STO-6G, here STO-3G is used for convenience
+
+ write(fid,'(A)') '%scf'
+ write(fid,'(A)') ' Thresh 1e-12'
+ write(fid,'(A)') ' Tcut 1e-14'
+ write(fid,'(A)') ' MaxIter 512'
+ write(fid,'(A)') ' sthresh 1e-6'
+ if(mult > 1) then
+  write(fid,'(A)') ' STABPerform true'
+  write(fid,'(A)') ' STABRestartUHFifUnstable true'
+  write(fid,'(A)') ' STABMaxIter 500'
+  write(fid,'(A)') ' STABDTol 1e-5'
+  write(fid,'(A)') ' STABRTol 1e-5'
+ end if
+ write(fid,'(A)') 'end'
+
+ if(dkh2_or_x2c) then
+  write(fid,'(A)') '%rel'
+  if(DKH2) then
+   write(fid,'(A)') ' method DKH'
+   write(fid,'(A)') ' order 2'
+  else if(X2C) then
+   write(fid,'(A)') ' method X2C'
+  end if
+  write(fid,'(A)') 'end'
+ end if
+
+ write(fid,'(A,I0,1X,I0)') '* xyz ', charge, mult
+ do i = 1, natom, 1
+  write(fid,'(A2,1X,3(1X,F17.8))') elem(i), coor(:,i)
+ end do ! for i
+ write(fid,'(A)') '*'
+ close(fid)
+
+ call submit_orca_job(orca_path, inpname, .true., .true., .true.)
+ i = RENAME(TRIM(uno_gbw), TRIM(gbwname))
+ call gbw2molden(gbwname, molden)
+ call molden2fch_wrap(molden, fchname, prog, .true.)
+ call delete_files(8, [gbwname, uno_gbw, qro_gbw, unso_gbw, molden, inpname, &
+                   outname, mklname])
+end subroutine do_min_bas_hf_orca
 

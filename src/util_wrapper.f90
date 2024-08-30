@@ -161,13 +161,17 @@ subroutine fch2psi_wrap(fchname, inpname)
 end subroutine fch2psi_wrap
 
 ! wrapper of the utility fch2inp
-subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
+subroutine fch2inp_wrap(fchname, gvb, npair, nopen, prt)
  implicit none
  integer :: i, SYSTEM
  integer, intent(in) :: npair, nopen
- character(len=240) :: buf = ' ', buf2 = ' '
+ character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+ logical :: alive
  logical, intent(in) :: gvb
+ logical, intent(in), optional :: prt
+
+ buf = ' '
 
  if(gvb) then
   if(npair<0 .or. nopen<0) then
@@ -177,19 +181,29 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
    stop
   end if
 
-  write(buf,'(A,I0)') 'fch2inp '//TRIM(fchname)//' -gvb ', npair
-  buf = ADJUSTL(buf)
   if(nopen == 0) then
-   buf2 = buf
-  else ! nopen > 0
-   write(buf2,'(A,I0)') ' -open ',nopen
-   buf2 = ADJUSTL(buf2)
-   buf2 = TRIM(buf)//TRIM(buf2)
+   write(buf,'(A,I0)') 'fch2inp '//TRIM(fchname)//' -gvb ', npair
+  else
+   write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
   end if
-  i = SYSTEM(TRIM(buf2))
+ else ! for R(O)HF, UHF, CAS
+  write(buf,'(A)') 'fch2inp '//TRIM(fchname)
+ end if
 
- else ! R(O)HF, UHF, CAS
-  i = SYSTEM('fch2inp '//TRIM(fchname))
+ alive = .true.
+ if(present(prt)) then
+  if(.not. prt) alive = .false.
+ end if
+
+ if(alive) then
+  write(6,'(A)') '$'//TRIM(buf)
+  i = SYSTEM(TRIM(buf))
+ else
+#ifdef _WIN32
+  i = SYSTEM(TRIM(buf)//' > NUL')
+#else
+  i = SYSTEM(TRIM(buf)//' > /dev/null')
+#endif
  end if
 
  if(i /= 0) then
@@ -201,10 +215,10 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen)
  end if
 end subroutine fch2inp_wrap
 
-subroutine mkl2fch_wrap(mklname, fchname, ino)
+subroutine mkl2fch_wrap(mklname, fchname, ino, irel)
  implicit none
  integer :: i, SYSTEM
- integer, intent(in), optional :: ino
+ integer, intent(in), optional :: ino, irel
  character(len=240), intent(in) :: mklname, fchname
  character(len=500) :: buf
 
@@ -224,6 +238,20 @@ subroutine mkl2fch_wrap(mklname, fchname, ino)
   end select
  end if
 
+ if(PRESENT(irel)) then
+  select case(irel)
+  case(-3) ! sfX2C
+   buf = TRIM(buf)//' -sfx2c'
+  case(-1) ! do nothing
+  case(2)  ! DKH2
+   buf = TRIM(buf)//' -dkh2'
+  case default
+   write(6,'(/,A,I0)') 'ERROR in subroutine mkl2fch_wrap: invalid irel=',irel
+   write(6,'(A)') 'Only {-3,-1,2} are allowed.'
+   stop
+  end select
+ end if
+
 #ifdef _WIN32
  i = SYSTEM(TRIM(buf)//' > NUL')
 #else
@@ -236,6 +264,7 @@ subroutine mkl2fch_wrap(mklname, fchname, ino)
   write(6,'(A)') 'mklname = '//TRIM(mklname)
   write(6,'(A)') 'fchname = '//TRIM(fchname)
   if(PRESENT(ino)) write(6,'(A,I0)') 'ino = ', ino
+  if(PRESENT(irel)) write(6,'(A,I0)') 'irel = ', irel
   stop
  end if
 end subroutine mkl2fch_wrap
@@ -528,29 +557,60 @@ end subroutine dat2fch_wrap
 ! call `orca_2mkl` to convert .gbw -> .molden
 subroutine gbw2molden(gbwname, molden)
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: proname
+ integer :: i, SYSTEM
+ character(len=240) :: molden0
  character(len=240), intent(in) :: gbwname
  character(len=240), intent(in), optional :: molden
- character(len=250) :: molden0
+ character(len=511) :: buf
 
- i = LEN_TRIM(gbwname)
- proname = gbwname(1:i-4)
- molden0 = gbwname(1:i-4)//'.molden.input'
+ call find_specified_suffix(gbwname, '.gbw', i)
+ if(present(molden)) then
+  molden0 = molden
+ else
+  molden0 = gbwname(1:i-1)//'.molden'
+ end if
+ buf = 'orca_2mkl '//TRIM(gbwname)//' '//TRIM(molden0)//' -molden -anyorbs >'
 
- i = SYSTEM('orca_2mkl '//TRIM(proname)//' -molden > /dev/null')
+#ifdef _WIN32
+ i = SYSTEM(TRIM(buf)//' NUL')
+#else
+ i = SYSTEM(TRIM(buf)//' /dev/null')
+#endif
+
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine gbw2molden: failed to call orca_2mkl.'
   write(6,'(A)') 'Please check your ORCA environment variables.'
   stop
  end if
-
- if(present(molden)) then
-  if(TRIM(molden) /= TRIM(molden0)) then
-   i = RENAME(TRIM(molden0), TRIM(molden))
-  end if
- end if
 end subroutine gbw2molden
+
+! wrapper for molden2fch
+subroutine molden2fch_wrap(molden, fchname, prog, natorb)
+ implicit none
+ integer :: i, SYSTEM, RENAME
+ character(len=7), intent(in) :: prog ! lower case
+ character(len=240) :: fchname0
+ character(len=240), intent(in) :: molden, fchname
+ character(len=500) :: buf
+ logical, intent(in) :: natorb
+
+ call find_specified_suffix(molden, '.molden', i)
+ fchname0 = molden(1:i-1)//'.fch'
+
+ buf = 'molden2fch '//TRIM(molden)//' -'//TRIM(prog)
+ if(natorb) buf = TRIM(buf)//' -no'
+
+#ifdef _WIN32
+ i = SYSTEM(TRIM(buf)//' > NUL')
+#else
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
+#endif
+ if(i /= 0) call prt_call_util_error('molden2fch', molden)
+
+ if(TRIM(fchname0) /= TRIM(fchname)) then
+  i = RENAME(TRIM(fchname0), TRIM(fchname))
+ end if
+end subroutine molden2fch_wrap
 
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)

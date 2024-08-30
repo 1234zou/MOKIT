@@ -12,80 +12,97 @@
 
 program main
  implicit none
- integer :: i, j, no_type
- character(len=4) :: str = ' '
+ integer :: i, k, narg, no_type, irel
+ character(len=240), allocatable :: str_arg(:)
  character(len=240) :: mklname, fchname
  logical :: alive
 
- i = iargc()
- if(i<1 .or. i>3) then
+ narg = iargc()
+ if(narg<1 .or. narg>4) then
   write(6,'(/,A)') ' ERROR in subroutine mkl2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF, UHF, CAS)    : mkl2fch a.mkl'
-  write(6,'(A)')   ' Example 2 (R(O)HF, UHF, CAS)    : mkl2fch a.mkl a.fch'
-  write(6,'(A)')   ' Example 3 (UNO, CAS NO)         : mkl2fch a.mkl a.fch -no'
-  write(6,'(A,/)') ' Example 4 (UHF, UMP2, UCCSD NSO): mkl2fch a.mkl a.fch -nso'
+  write(6,'(A)')   ' Example 1     (R(O)HF, UHF, CAS): mkl2fch a.mkl'
+  write(6,'(A)')   ' Example 2     (R(O)HF, UHF, CAS): mkl2fch a.mkl b.fch'
+  write(6,'(A)')   ' Example 3          (UNO, CAS NO): mkl2fch a.mkl -no'
+  write(6,'(A)')   ' Example 4 (UHF, UMP2, UCCSD NSO): mkl2fch a.mkl -nso'
+  write(6,'(A)')   ' Example 5     (add DKH2 keyword): mkl2fch a.mkl -dkh2'
+  write(6,'(A)')   ' Example 6    (add sfX2C keyword): mkl2fch a.mkl -sfx2c'
+  write(6,'(A,/)') ' Example 7          (combination): mkl2fch a.mkl -no -sfx2c'
   stop
  end if
 
- mklname = ' '; fchname = ' '
+ mklname = ' '; fchname = ' '; irel = -1
  no_type = 0   ! default, canonical orbitals assumed
 
- call getarg(1, mklname)
+ allocate(str_arg(narg))
+ do i = 1, narg, 1
+  call getarg(i, str_arg(i))
+ end do ! for i
+
+ mklname = str_arg(1)
  call require_file_exist(mklname)
+ call find_specified_suffix(mklname, '.mkl', i)
+ fchname = mklname(1:i-1)//'.fch'
+ k = 2
 
- if(i == 1) then
-  call find_specified_suffix(mklname, '.mkl', j)
-  fchname = mklname(1:j-1)//'.fch'
- else
-  call getarg(2, fchname)
-  call find_specified_suffix(fchname, '.fch', j)
+ if(narg > 1) then
+  i = LEN_TRIM(str_arg(2))
+  if(INDEX(str_arg(2)(i-4:i),'.fch') > 0) then
+   fchname = str_arg(2)
+   k = 3
+  end if
+
+  do i = k, narg, 1
+   select case(TRIM(str_arg(i)))
+   case('-no')    ! (spatial) natural orbtials
+    no_type = 1
+   case('-nso')   ! natural spin orbitals
+    no_type = 2
+   case('-dkh2')  ! DKH2 scalar relativistic Hamiltonian
+    irel = 2
+   case('-sfx2c') ! sfX2C1e scalar relativistic Hamiltonian
+    irel = -3
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine mkl2fch: there exists wrong command l&
+                     &ine argument!'
+    stop
+   end select
+  end do ! for i
  end if
 
- if(i > 2) then
-  call getarg(3, str)
-  select case(TRIM(str))
-  case('-no')  ! (spatial) natural orbtials
-   no_type = 1
-  case('-nso') ! natural spin orbitals
-   no_type = 2
-  case default
-   write(6,'(/,A)') "ERROR in subroutine mkl2fch: the third argument can only&
-                   & be '-no' or '-sno'."
-   write(6,'(A)') "But you specify '"//TRIM(str)//"'."
-   stop
-  end select
- end if
-
+ deallocate(str_arg)
  inquire(file=TRIM(fchname),exist=alive)
 
  if(alive) then
-  write(6,'(/,A)') 'Remark from program mkl2fch: fchname '//TRIM(fchname)//' ex&
-                   &ists.'
+  write(6,'(/,A)') 'Remark from program mkl2fch: fchname '//TRIM(fchname)//' al&
+                   &ready exists.'
   write(6,'(A)') 'It will be used directly.'
-  call mkl2fch(mklname, fchname, no_type)
+  call mkl2fch(mklname, fchname, no_type, irel)
  else
   write(6,'(/,A)') 'Warning from program mkl2fch: fchname '//TRIM(fchname)//' d&
                    &oes not'
   write(6,'(A)') 'exist, the program is trying to generate one from scratch...'
-  call mkl2fch_direct(mklname, fchname, no_type)
+  call mkl2fch_direct(mklname, fchname, no_type, irel)
   write(6,'(/,A,/)') 'Done generation.'
  end if
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine mkl2fch(mklname, fchname, no_type)
+subroutine mkl2fch(mklname, fchname, no_type, jrel)
  use fch_content
  use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
  implicit none
- integer :: i, k, nfmark, ngmark, nhmark, nimark
- integer, intent(in) :: no_type
+ integer :: k, nfmark, ngmark, nhmark, nimark
+ integer, intent(in) :: no_type, jrel
  integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
  character(len=240), intent(in) :: mklname, fchname
 
- call find_specified_suffix(fchname, '.fch', i)
  call check_uhf_in_fch(fchname, is_uhf) ! determine whether UHF
  call read_fch(fchname, is_uhf)         ! read content in .fch(k) file
+ if(irel /= jrel) then
+  irel = jrel
+  call set_irel_in_fch(fchname, irel)
+ end if
 
  if(no_type==2 .and. (.not.is_uhf)) then
   write(6,'(/,A)') 'ERROR in subroutine mkl2fch: Natural Spin Orbitals requeste&
@@ -194,12 +211,11 @@ subroutine mkl2fch(mklname, fchname, no_type)
  if(is_uhf) call write_mo_into_fch(fchname, nbf, nif, 'b', beta_coeff)
 
  call free_arrays_in_fch_content()
- stop
 end subroutine mkl2fch
 
 ! Convert a ORCA .mkl file to a Gaussian fch file. The fch file will be generated
 ! from scratch
-subroutine mkl2fch_direct(mklname, fchname, no_type)
+subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  use fch_content
  use mkl_content, only: check_uhf_in_mkl, read_mkl, read_on_from_mkl, nuc, &
   charge0=>charge, mult0=>mult, natom0=>natom, ncontr0=>ncontr, nbf0=>nbf, &
@@ -207,12 +223,13 @@ subroutine mkl2fch_direct(mklname, fchname, no_type)
   beta_coeff0=>beta_coeff, elem0=>elem, coor0=>coor, all_pg, ev_a, ev_b
  implicit none
  integer :: i, k, ne, nfmark, ngmark, nhmark, nimark
- integer, intent(in) :: no_type
+ integer, intent(in) :: no_type, jrel
  integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240), intent(in) :: mklname, fchname
  logical :: has_sp
 
+ irel = jrel
  call check_uhf_in_mkl(mklname, is_uhf)
  call read_mkl(mklname, is_uhf, .true.)
  deallocate(nuc)
@@ -382,7 +399,7 @@ subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
                  &nput file. You'
   write(6,'(A)') 'should manually add ECP data into the generated input file. I&
                  &f you are using'
-  write(6,'(A,/)') 'an all-electron basis set, there is no problem.'
+  write(6,'(A)') 'an all-electron basis set, there is no problem.'
   ! update the number of electrons
   na = na1; nb = nb1; ne = ne1
  end if

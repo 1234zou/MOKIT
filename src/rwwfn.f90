@@ -50,10 +50,14 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  implicit none
  integer :: i, fid
  integer, intent(out) :: charge, mult
+!fp2y intent(out) :: charge, mult
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
- call open_file(fchname, .true., fid)
+ charge = 0; mult = 1
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -61,8 +65,9 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_charge_and_mult_from_fch: no&
-                 & 'Charge' found in file "//TRIM(fchname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_fch: no 'Char&
+                   &ge' found in"
+  write(6,'(A)') 'file '//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -78,10 +83,15 @@ subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  implicit none
  integer :: i, fid
  integer, intent(out) :: charge, mult
+!f2py intent(out) :: charge, mult
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
 
- call open_file(mklname, .true., fid)
+ charge = 0; mult = 1
+ call require_file_exist(mklname)
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -89,8 +99,9 @@ subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no&
-                 & '$CHAR_M' found in file "//TRIM(mklname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no '$CHA&
+                   &R_M' found in"
+  write(6,'(A)') 'file '//TRIM(mklname)
   close(fid)
   stop
  end if
@@ -2755,7 +2766,7 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0; pdft_e = 0d0
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  select case(TRIM(prog))
  case('pyscf')
@@ -2766,33 +2777,36 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                  & 'CASCI E' found in file "//TRIM(outname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'CASCI E&
+                    &' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
 
-  read(buf(10:),*) ref_e
+  i = INDEX(buf,'=')
+  read(buf(i+1:),*) ref_e
 
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(buf(1:9) == 'MC-PDFT E') exit
+   if(buf(1:9)=='MC-PDFT E' .or. buf(1:17)=='MC-PDFT state 0 E') exit
   end do ! for while
 
   i = INDEX(buf,'=')
-  read(buf(12:),*) pdft_e
+  read(buf(i+1:),*) pdft_e
 
  case('openmolcas')
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,'MCSCF reference e') /= 0) exit
+   if(INDEX(buf,'MCSCF reference e') > 0) exit
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                  & 'MCSCF reference e' found in file "//TRIM(outname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'MCSCF r&
+                    &eference e' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2801,12 +2815,13 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,'Total MC-PDFT') /= 0) exit
+   if(INDEX(buf,'Total MC-PDFT') > 0) exit
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                  & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'Total M&
+                    &C-PDFT' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2816,15 +2831,17 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,'TOTAL MC-PDFT') /= 0) exit
+   if(INDEX(buf,'TOTAL MC-PDFT') > 0) exit
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                  & 'Total MC-PDFT' found in file "//TRIM(outname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'Total M&
+                    &C-PDFT' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
+
   i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) pdft_e
 
@@ -2839,11 +2856,13 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mcpdft_e_from_output: no&
-                  & 'STATE=   1   E' found in file "//TRIM(outname)//'.'
+   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'STATE= &
+                    &  1   E' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
+
   i = INDEX(buf, 'Y=', back=.true.)
   read(buf(i+2:),*) ref_e
  end select

@@ -175,6 +175,12 @@ subroutine bas_gms2molpro(fort7, spherical)
  ! for high-spin molecules
  if(mult > 1) then
   write(fid2,'(A,I0)',advance='no') ';closed,', nb
+  write(6,'(/,A)') 'Remark: UHF detected.'
+  write(6,'(A)') "If you encounter the error 'RHF occupation could not be assig&
+                 &ned' after"
+  write(6,'(A,I0,A)') "submitting the Molpro job, you need to delete ';closed,",&
+                      nb,"' in .com file."
+  write(6,'(A)') 'Some version of Molpro does not need this keyword.'
  end if
  write(fid2,'(A)') '}'
 

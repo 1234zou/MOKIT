@@ -442,6 +442,66 @@ subroutine read_mult_from_fch(fchname, mult)
  read(buf(50:),*) mult
 end subroutine read_mult_from_fch
 
+! read spin multiplicity from a specified ORCA input file
+subroutine read_mult_from_orca_inp(inpname, mult)
+ implicit none
+ integer :: i, j, itype, fid
+ integer, intent(out) :: mult
+!f2py intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ mult = 1; itype = 1
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:1) == '*') exit       ! * xyz 0 1
+  if(buf(1:7) == '%coords') then ! Mult = 1
+   itype = 2
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_mult_from_orca_inp: spin multiplic&
+                   &ity cannot be'
+  write(6,'(A)') 'found in file '//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ select case(itype)
+ case(1)
+  close(fid)
+  i = LEN_TRIM(buf)
+  j = INDEX(buf(1:i), ' ', back=.true.)
+  read(buf(j+1:i),*) mult
+ case(2)
+  do i = 1, 4
+   read(fid,'(A)') buf
+   if(INDEX(buf(1:5),'Mult') > 0) exit
+  end do ! for i
+  close(fid)
+  if(i == 5) then
+   write(6,'(/,A,I0)') 'ERROR in subroutine read_mult_from_orca_inp: spin multi&
+                       &plicity cannot be'
+   write(6,'(A)') 'found in file '//TRIM(inpname)
+   stop
+  end if
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) mult
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_mult_from_orca_inp: invalid ity&
+                      &pe=', itype
+  write(6,'(A)') 'inpname='//TRIM(inpname)
+  close(fid)
+  stop
+ end select
+end subroutine read_mult_from_orca_inp
+
 subroutine write_grad_into_fch(fchname, natom, grad)
  implicit none
  integer :: fid
