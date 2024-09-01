@@ -4,6 +4,7 @@ variables:
   except:
     - conda
     - newconda2
+    - cf
   #only:
   #  changes:
   #    - "mokit/__init__.py"
@@ -42,6 +43,8 @@ variables:
 
 lint:
   image: python:3.8-buster
+  except:
+    - cf
   script:
     - pip install flake8
     - flake8 --config .flake8 

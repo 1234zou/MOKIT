@@ -13,6 +13,18 @@
     #- ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
     #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
 
+.setup_cf:
+  image: 
+    name: continuumio/miniconda3:latest
+  before_script:
+    #- apt-get update -qy
+    - conda init bash
+    - source ~/.bashrc
+    - conda create -n mokit-build python=3.9
+    - conda activate mokit-build
+    - conda install anaconda-client conda-build setuptools_scm
+    - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
+
 conda_build:
   extends: .setup_conda
   only:
@@ -22,9 +34,9 @@ conda_build:
       #- newconda2
     changes:
       - "mokit/__init__.py"
-      - "conda/*/meta.yaml"
+      - "conda/conda*/meta.yaml"
   script:
-    - conda build --output-folder ./output conda/conda37
+    #- conda build --output-folder ./output conda/conda37
     - conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing 
@@ -38,10 +50,24 @@ conda_build_test:
       - conda-omp2
     changes:
       - "mokit/__init__.py"
-      - "conda/*/meta.yaml"
+      - "conda/conda*/meta.yaml"
   script:
-    - conda build --output-folder ./output conda/conda37
+    #- conda build --output-folder ./output conda/conda37
     - conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing --label test
+
+conda_build_cf:
+  extends: .setup_cf
+  only:
+    refs:
+      - cf
+      - master
+    changes:
+      - "mokit/__init__.py"
+      - "conda/cf*/meta.yaml"
+  script:
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39
+    - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label cf
+
 
