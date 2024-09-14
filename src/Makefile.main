@@ -11,7 +11,7 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              do_mrci.o do_mrcc.o call_qc_calc_int.o do_pes_scan.o do_cis.o do_sa_cas.o \
              excited.o construct_vir.o assoc_rot.o wfn_analysis.o lo.o automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
-             read_mkl.o do_hf.o rwwfn.o read_fch.o read_natom.o read_grad.o \
+             read_fch.o read_mkl.o do_hf.o rwwfn.o read_natom.o read_grad.o \
              rwgeom.o call_qc_calc_int.o read_gms_inp.o lo.o split_sp.o qchem.o \
              autosr.o
 OBJ_amo2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \

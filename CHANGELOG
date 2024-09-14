@@ -1,5 +1,8 @@
-MOKIT 1.2.6 (Aug 30, 2024)
+MOKIT 1.2.6 (Sep 14, 2024)
 ------------------------
+* add basis set files MINIX, vDZP, def2-mSVP, def2-mTZVP and def2-mTZVPP
+* update utility fch_u2r for R(O)HF->UHF file conversion
+* fix bug of calling Dalton to do MP2/CCSD when point charges are included
 * auto-detect of def2 ECP/PP when `HF_prog=PySCF`
 * remove Gaussian dependency of HF calculation when `HF_prog=ORCA`
 * move bas_gms2psi into fch2psi

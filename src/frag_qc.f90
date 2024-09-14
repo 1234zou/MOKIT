@@ -42,8 +42,8 @@ program frag_qc
  wfn_type0 = [1,3]
  pos = [.true.,.true.]
  wfn_type = 3
- fchname0 = ['Cu_Imidazole_y-1_wB97M-V_o6.fch','Cu_Imidazole_y-2_UPBE_UwB97M-V_o6.fch']
- fchname = 'Cu_Imidazole_y-3_only.fch'
+ fchname0 = ['Cu_Imidazole_xy-1_RPBE0-D3BJ.fch','Cu_Imidazole_xy-2_T_UPBE0-D3BJ.fch']
+ fchname = 'Cu_Imidazole_xy-3_only.fch'
 
  call fdate(data_string)
  write(6,'(A)') TRIM(data_string)

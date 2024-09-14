@@ -34,6 +34,7 @@ program main
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
   write(6,'(A)')  ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
   write(6,'(A)')  " Example 3 (R(O)DFT/UDFT)  : fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
+  write(6,'(A)')  "                             fch2mkl h2o.fch -dft 'HSE06 D3zero'"
   write(6,'(A,/)')"                             fch2mkl h2o.fch -dft 'wB97M-V'"
   stop
  end if
@@ -94,10 +95,30 @@ subroutine fch2mkl(fchname, itype, dftname)
   'SCS-B2GP-PLYP21 ','SOS-B2GP-PLYP21 ','SCS/SOS-WB2PLYP ','SCS-WB2GP-PLYP  ',&
   'SOS-WB2GP-PLYP  ','SCS-RSX-QIDH    ','SOS-RSX-QIDH    ','SCS-WB88PP86    ',&
   'SOS-WB88PP86    ','SCS-WPBEPP86    ','SOS-WPBEPP86    ']
+ character(len=30) :: dftname1
  character(len=30), intent(in) :: dftname
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp
+ logical :: uhf, ecp, composite, hse06, d3zero, d3bj
+
+ ecp = .false.; composite = .false.; hse06 = .false.
+ d3zero = .false.; d3bj = .false.
+
+ if(itype == 2) then
+  dftname1 = dftname
+  call upper(dftname1)
+  i = LEN_TRIM(dftname1)
+  if(i > 3) then ! B97-3c, r2SCAN-3c, HF-3c, etc.
+   if(dftname1(i-2:i) == '-3C') composite = .true.
+  end if
+  if(i > 4) then
+   if(dftname1(i-3:i) == 'D3BJ') d3bj = .true.
+   if(dftname1(1:5) == 'HSE06') hse06 = .true.
+  end if
+  if(i > 6) then
+   if(dftname1(i-5:i) == 'D3ZERO') d3zero = .true.
+  end if
+ end if
 
  call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
@@ -234,6 +255,7 @@ subroutine fch2mkl(fchname, itype, dftname)
  open(newunit=fid2,file=TRIM(inpname),status='replace')
  write(fid2,'(A)') '%pal nprocs 4 end'
  write(fid2,'(A)') '%maxcore 1000'
+
  if(itype == 0) then ! HF
   if(uhf) then
    write(fid2,'(A)',advance='no') '! UHF'
@@ -259,16 +281,46 @@ subroutine fch2mkl(fchname, itype, dftname)
   case(1)
    write(fid2,'(A)',advance='no') ' BHANDHLYP'
   case(2)
-   write(fid2,'(A)',advance='no') ' '//TRIM(dftname)
-   call upper(dftname)
+   if(hse06) then
+    if(d3bj) then
+     write(fid2,'(A)',advance='no') ' D3BJ'
+    else if(d3zero) then
+     write(fid2,'(A)',advance='no') ' D3ZERO'
+    end if
+   else
+    write(fid2,'(A)',advance='no') ' '//TRIM(dftname)
+   end if
    do i = 1, ndh, 1
-    if(INDEX(TRIM(dftname), TRIM(dhname(i))) > 0) then
+    if(INDEX(TRIM(dftname1), TRIM(dhname(i))) > 0) then
      write(fid2,'(A)',advance='no') ' def2-TZVPP/C'
      exit
     end if
    end do ! for i
   end select
-  write(fid2,'(A)') ' def2/J TightSCF noTRAH defgrid3'
+
+  if(composite) then
+   write(fid2,'(A)') ' TightSCF noTRAH defgrid3'
+  else
+   write(fid2,'(A)') ' def2/J TightSCF noTRAH defgrid3'
+  end if
+
+  if(hse06) then
+   write(fid2,'(A)') '%method'
+   write(fid2,'(A)') ' method dft'
+   write(fid2,'(A)') ' functional hyb_gga_xc_hse06'
+   if(d3bj) then
+    write(fid2,'(A)') ' D3S6 1.0'
+    write(fid2,'(A)') ' D3A1 0.383'
+    write(fid2,'(A)') ' D3S8 2.31'
+    write(fid2,'(A)') ' D3A2 5.685'
+   else if(d3zero) then
+    write(fid2,'(A)') ' D3S6 1.0'
+    write(fid2,'(A)') ' D3RS6 1.129'
+    write(fid2,'(A)') ' D3S8 0.109'
+    write(fid2,'(A)') ' D3alpha6 14'
+   end if
+   write(fid2,'(A)') 'end'
+  end if
  end if
 
  select case(irel)
@@ -317,117 +369,127 @@ subroutine fch2mkl(fchname, itype, dftname)
  write(fid2,'(A)') ' Thresh 1e-12'
  write(fid2,'(A)') ' Tcut 1e-14'
  write(fid2,'(A)') ' CNVDamp False'
- if(nif < nbf)  write(fid2,'(A)') ' sthresh 1e-6'
+ if(nif < nbf) write(fid2,'(A)') ' sthresh 1e-6'
  write(fid2,'(A)') 'end'
- write(fid2,'(A)') '%coords'
- write(fid2,'(A)') ' Units = angs'
- write(fid2,'(A,I0)') ' Charge = ', charge
- write(fid2,'(A,I0)') ' Mult = ', mult
- write(fid2,'(A)') ' Coords'
-
- k = 0
- do i = 1, ncontr, 1
-  m = shell2atom_map(i)
-
-  if(m == 1) then
-   if(i == 1) then
-    if(iatom_type(1) == 1000) str = ':'
-    write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//str, coor(:,1)
-    if(ielem(1)>36 .and. ielem(1)<87) write(fid2,'(2X,A)') 'DelECP'
-    write(fid2,'(2X,A)') 'NewGTO'
-   end if
-
-  else ! m > 1
-   if(shell2atom_map(i-1) == m-1) then
-    write(fid2,'(2X,A)') 'end'   ! print GTO end of last atom
-
-    if(ecp) then   ! print ECP/PP data of last atom
-     if(LPSkip(m-1) == 0) then
-      write(fid2,'(2X,A)') 'NewECP'
-      write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(m-1))
-      write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(m-1))
-      am = 0
-      do j = 1, 10, 1
-       n1 = KFirst(m-1,list(j)); n2 = KLast(m-1,list(j))
-       if(n1 == 0) cycle
-       am = am + 1
-       write(fid2,'(3X,A1,1X,I1)') am_type1(am-1), n2-n1+1
-       do n = n1, n2, 1
-        write(fid2,'(3X,I2,2(1X,ES15.8),1X,I1)') n-n1+1, ZLP(n), CLP(n), NLP(n)
-       end do ! for n
-      end do ! for j
-
-      write(fid2,'(2X,A)') 'end'  ! in accord with 'NewECP'
-     end if
-    end if         ! print ECP/PP data done
-
-    ! print coordinates of the current atom
-    str = ' '
-    if(iatom_type(m) == 1000) str = ':'
-    write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(m))//str, coor(:,m)
-    if(ielem(m)>36 .and. ielem(m)<87) write(fid2,'(2X,A)') 'DelECP'
-    write(fid2,'(2X,A)') 'NewGTO'
-   end if
-  end if
-
-  m = shell_type(i); n = prim_per_shell(i)
-
-  if(m /= -1) then
-   m = IABS(m)
-   write(fid2,'(4X,A1,1X,I3)') am_type(m), n
-   do j = k+1, k+n, 1
-    write(fid2,'(2X,I3,2(2X,ES15.8))') j-k,prim_exp(j), contr_coeff(j)
-   end do ! for j
-
-  else ! m = -1, 'L' or 'SP'
-   write(fid2,'(4X,A1,1X,I3)') 'S', n
-   do j = k+1, k+n, 1
-    write(fid2,'(2X,I3,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff(j)
-   end do ! for j
-   write(fid2,'(4X,A1,1X,I3)') 'P', n
-   do j = k+1, k+n, 1
-    write(fid2,'(2X,I3,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff_sp(j)
-   end do ! for j
-  end if
-
-  k = k + n
- end do ! for i
-
- write(fid2,'(2X,A)') 'end'  ! in accord with 'NewGTO'
- k = shell2atom_map(ncontr)
- if(k < natom) then
-  do i = k+1, natom, 1
-   write(fid2,'(1X,A2,3(1X,F16.8))') 'H:', coor(:,i)
-   write(fid2,'(2X,A)') 'NewGTO S 1 1 1e6 1 end'
+ if(composite) then ! composite method
+  write(fid2,'(A,I0,1X,I0)') '* xyz ', charge, mult
+  do i = 1, natom, 1
+   if(iatom_type(i) == 1000) str = ':'
+   write(fid2,'(A,3(1X,F16.8))') TRIM(elem(i))//str, coor(:,i)
   end do ! for i
+  write(fid2,'(A)') '*'
+  if(ecp) deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
+ else               ! not composite method
+  write(fid2,'(A)') '%coords'
+  write(fid2,'(A)') ' Units = angs'
+  write(fid2,'(A,I0)') ' Charge = ', charge
+  write(fid2,'(A,I0)') ' Mult = ', mult
+  write(fid2,'(A)') ' Coords'
+  k = 0
+
+  do i = 1, ncontr, 1
+   m = shell2atom_map(i)
+ 
+   if(m == 1) then
+    if(i == 1) then
+     if(iatom_type(1) == 1000) str = ':'
+     write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//str, coor(:,1)
+     if(ielem(1)>36 .and. ielem(1)<87) write(fid2,'(2X,A)') 'DelECP'
+     write(fid2,'(2X,A)') 'NewGTO'
+    end if
+ 
+   else ! m > 1
+    if(shell2atom_map(i-1) == m-1) then
+     write(fid2,'(2X,A)') 'end'   ! print GTO end of last atom
+ 
+     if(ecp) then   ! print ECP/PP data of last atom
+      if(LPSkip(m-1) == 0) then
+       write(fid2,'(2X,A)') 'NewECP'
+       write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(m-1))
+       write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(m-1))
+       am = 0
+       do j = 1, 10, 1
+        n1 = KFirst(m-1,list(j)); n2 = KLast(m-1,list(j))
+        if(n1 == 0) cycle
+        am = am + 1
+        write(fid2,'(3X,A1,1X,I1)') am_type1(am-1), n2-n1+1
+        do n = n1, n2, 1
+         write(fid2,'(3X,I2,2(1X,ES15.8),1X,I1)') n-n1+1, ZLP(n), CLP(n), NLP(n)
+        end do ! for n
+       end do ! for j
+ 
+       write(fid2,'(2X,A)') 'end'  ! in accord with 'NewECP'
+      end if
+     end if         ! print ECP/PP data done
+ 
+     ! print coordinates of the current atom
+     str = ' '
+     if(iatom_type(m) == 1000) str = ':'
+     write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(m))//str, coor(:,m)
+     if(ielem(m)>36 .and. ielem(m)<87) write(fid2,'(2X,A)') 'DelECP'
+     write(fid2,'(2X,A)') 'NewGTO'
+    end if
+   end if
+ 
+   m = shell_type(i); n = prim_per_shell(i)
+ 
+   if(m /= -1) then
+    m = IABS(m)
+    write(fid2,'(4X,A1,1X,I3)') am_type(m), n
+    do j = k+1, k+n, 1
+     write(fid2,'(2X,I3,2(2X,ES15.8))') j-k,prim_exp(j), contr_coeff(j)
+    end do ! for j
+ 
+   else ! m = -1, 'L' or 'SP'
+    write(fid2,'(4X,A1,1X,I3)') 'S', n
+    do j = k+1, k+n, 1
+     write(fid2,'(2X,I3,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff(j)
+    end do ! for j
+    write(fid2,'(4X,A1,1X,I3)') 'P', n
+    do j = k+1, k+n, 1
+     write(fid2,'(2X,I3,3(2X,ES15.8))') j-k, prim_exp(j), contr_coeff_sp(j)
+    end do ! for j
+   end if
+ 
+   k = k + n
+  end do ! for i
+ 
+  write(fid2,'(2X,A)') 'end'  ! in accord with 'NewGTO'
+  k = shell2atom_map(ncontr)
+  if(k < natom) then
+   do i = k+1, natom, 1
+    write(fid2,'(1X,A2,3(1X,F16.8))') 'H:', coor(:,i)
+    write(fid2,'(2X,A)') 'NewGTO S 1 1 1e6 1 end'
+   end do ! for i
+  end if
+ 
+  if(ecp) then   ! print ECP/PP data of the last atom
+   if(LPSkip(natom) == 0) then
+    write(fid2,'(2X,A)') 'NewECP'
+    write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(natom))
+    write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(natom))
+    am = 0
+    do j = 1, 10, 1
+     n1 = KFirst(natom,list(j)); n2 = KLast(natom,list(j))
+     if(n1 == 0) cycle
+     am = am + 1
+     write(fid2,'(3X,A1,1X,I1)') am_type1(am-1), n2-n1+1
+     do n = n1, n2, 1
+      write(fid2,'(3X,I2,2(1X,ES15.8),1X,I1)') n-n1+1, ZLP(n), CLP(n), NLP(n)
+     end do ! for n
+    end do ! for j
+ 
+    write(fid2,'(2X,A)') 'end'  ! in accord with 'NewECP'
+   end if
+ 
+   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
+  end if         ! print ECP/PP data done
+
+  write(fid2,'(1X,A)') 'end'  ! in accord with ' Coords'
+  write(fid2,'(A,/)') 'end'   ! in accord with '%coords'
  end if
 
- if(ecp) then   ! print ECP/PP data of the last atom
-  if(LPSkip(natom) == 0) then
-   write(fid2,'(2X,A)') 'NewECP'
-   write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(natom))
-   write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(natom))
-   am = 0
-   do j = 1, 10, 1
-    n1 = KFirst(natom,list(j)); n2 = KLast(natom,list(j))
-    if(n1 == 0) cycle
-    am = am + 1
-    write(fid2,'(3X,A1,1X,I1)') am_type1(am-1), n2-n1+1
-    do n = n1, n2, 1
-     write(fid2,'(3X,I2,2(1X,ES15.8),1X,I1)') n-n1+1, ZLP(n), CLP(n), NLP(n)
-    end do ! for n
-   end do ! for j
-
-   write(fid2,'(2X,A)') 'end'  ! in accord with 'NewECP'
-  end if
-
-  deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
- end if         ! print ECP/PP data done
-
- write(fid2,'(1X,A)') 'end'  ! in accord with ' Coords'
- write(fid2,'(A,/)') 'end'   ! in accord with '%coords'
  close(fid2)
-
  deallocate(ielem, elem, coor, shell_type, prim_per_shell, shell2atom_map, &
             prim_exp, contr_coeff)
  if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)

@@ -216,6 +216,7 @@ subroutine frag_guess_wfn(gjfname)
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: HF_prog not supported &
                    &by frag_guess_wfn'
   write(6,'(A)') 'currently. You input HF_prog='//TRIM(hf_prog)
+  write(6,'(A)') 'Please use HF_prog=Gaussian or PySCF.'
   stop
  end select
 
@@ -263,8 +264,9 @@ subroutine frag_guess_wfn(gjfname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: incomplete file '//TRIM(gjfname)
-  write(6,'(A)') "Failed to locate the Route Section '#' in .gjf file."
+  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: failed to locate the Ro&
+                   &ute Section '#'"
+  write(6,'(A)') 'in file '//TRIM(gjfname)
   close(fid)
   stop
  end if
@@ -301,21 +303,24 @@ subroutine frag_guess_wfn(gjfname)
   maxfrag = 499
  case(4) ! SAPT
   if(nfrag0 /= 2) then
-   write(6,'(A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid nfrag0=',nfrag0
+   write(6,'(/,A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid nfrag0=', &
+                       nfrag0
    write(6,'(A)') 'Only two fragments/monomers are allowed in SAPT.'
    stop
   end if
   nfrag = 3
   maxfrag = 3
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid eda_type=',eda_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid eda_type=',&
+                      eda_type
   write(6,'(A,I0)') 'Only 0,1,2,3,4 are allowed.'
   close(fid)
   stop
  end select
 
  if(nfrag0 > maxfrag) then
-  write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: nfrag0 > maxfrag, too large!'
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: nfrag0 > maxfrag, too l&
+                   &arge!'
   write(6,'(2(A,I0))') 'nfrag0=', nfrag0, ', maxfrag=', maxfrag
   close(fid)
   stop
@@ -423,9 +428,9 @@ subroutine frag_guess_wfn(gjfname)
 
  i = SUM(frags(1:nfrag0)%charge)
  if(i /= charge) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: sum of fragment&
-                   & charges is not equal to'
-  write(6,'(2(A,I0))') 'total charge. Total charge=', charge, &
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: sum of fragment charges&
+                   & is not equal'
+  write(6,'(2(A,I0))') 'to total charge. Total charge=', charge, &
                        ', sum(frag_charges)=', i
   write(6,'(A)') 'Wrong charges in file '//TRIM(gjfname)
   deallocate(frags)
@@ -437,6 +442,21 @@ subroutine frag_guess_wfn(gjfname)
   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: nonsense chare or spin&
                    & multiplicity'
   write(6,'(A)') 'Please check your file '//TRIM(gjfname)
+  deallocate(frags)
+  close(fid)
+  stop
+ end if
+
+ if(eda_type==4 .and. ANY(frags(:)%mult<-1)) then
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: negative spin multiplic&
+                   &ity detected.'
+  write(6,'(A)') 'Low-spin open-shell SAPT is not supported in PSI4 currently. &
+                 &You can use the'
+  write(6,'(A)') 'GKS-EDA method instead. If you still want to use PSI4, high-s&
+                 &pin open-shell'
+  write(6,'(A)') 'SAPT is supported, i.e. each fragment is supposed to have pos&
+                 &itive spin'
+  write(6,'(A)') 'multiplicity.'
   deallocate(frags)
   close(fid)
   stop
@@ -1153,11 +1173,13 @@ subroutine gen_inp_of_frags()
   write(6,'(A,I0,A)') 'xeda '//TRIM(inpname2)//' 00 ',i,' >'//TRIM(outname)&
                       //" 2>&1 &"
  end if
-
  write(6,'(A)') REPEAT('-',79)
- write(6,'(/,A)') "If you still find SCF convergence failure in .gms file, you &
-                 &can modify 'DIIS=.F. SOSCF=.T.'"
- write(6,'(A)') "to 'DIIS=.T. SOSCF=.F.' in .inp file."
+
+ if(eda_type>0 .and. eda_type<4) then
+  write(6,'(/,A)') "If you still find SCF convergence failure in GAMESS, you ca&
+                   &n modify 'DIIS=.F. SOSCF=.T.'"
+  write(6,'(A)') "to 'DIIS=.T. SOSCF=.F.' in .inp file."
+ end if
 end subroutine gen_inp_of_frags
 
 ! copy content of a provided .inp file and modify it to be SAPT job

@@ -312,6 +312,7 @@ subroutine chk2gbw(chkname)
  close(unit=i,status='delete')
 end subroutine chk2gbw
 
+! wrapper of fch_u2r
 subroutine fch_u2r_wrap(fchname, new_fch)
  implicit none
  integer :: i, SYSTEM, RENAME
@@ -325,7 +326,9 @@ subroutine fch_u2r_wrap(fchname, new_fch)
  if(PRESENT(new_fch)) then
   i = INDEX(fchname, '.fch', back=.true.)
   rfch = fchname(1:i-1)//'_r.fch'
-  i = RENAME(TRIM(rfch), TRIM(new_fch))
+  if(TRIM(rfch) /= TRIM(new_fch)) then
+   i = RENAME(TRIM(rfch), TRIM(new_fch))
+  end if
  end if
 end subroutine fch_u2r_wrap
 

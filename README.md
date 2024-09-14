@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Aug 30, 2024
+Sep 14, 2024
 
 
 Dependencies
@@ -46,14 +46,12 @@ Pre-built `Windows OS` executables for a few utilities are provided in [Releases
 ### Option 1: Install from conda (for Linux only)
 This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
 ```
-conda create -n mokit-py39 python=3.9 # 3.7~3.11 are available
+conda create -n mokit-py39 python=3.9 # 3.8~3.11 are available
 conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-You need to keep `mokit-py39` activated when using MOKIT. 
-
-If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
+You need to keep the environment `mokit-py39` activated when using MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
@@ -97,9 +95,7 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 export GMS=$HOME/software/gamess/rungms
 ```
-The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2.
-
-Note that you need to run `source ~/.bashrc` or exit the terminal as well as re-login, in order to activate newly written environment variables.
+The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 ### Option 4: Build from Source
 The latest version of MOKIT source code can be downloaded [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html).
@@ -124,9 +120,7 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
-Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2.
-
-Note that you need to run `source ~/.bashrc` or exit the terminal as well as re-login, in order to activate newly written environment variables.
+Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 Quick Start
 -----------

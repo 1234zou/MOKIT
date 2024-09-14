@@ -1326,11 +1326,12 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:11) == 'Shell types') exit
- end do
+ end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                 & missing 'Shell types' section in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch: missi&
+                   &ng 'Shell types'"
+  write(6,'(A)') 'section in file '//TRIM(fchname)
   close(fid)
   return
  end if
@@ -1344,10 +1345,12 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:13) == 'Shell to atom') exit
- end do
+ end do ! for while
+
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch:&
-                 & missing 'Shell to atom map' section in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_shltyp_and_shl2atm_from_fch: missi&
+                   &ng 'Shell to atom map'"
+  write(6,'(A)') "section in file "//TRIM(fchname)
   close(fid)
   return
  end if

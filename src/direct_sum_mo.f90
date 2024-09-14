@@ -340,8 +340,8 @@ subroutine sum_frag_dm_in_fch(n, fname0, pos, fname)
  ! if fname0(n) and fname are .gjf files, convert filenames into .fch
  call fnames_gjf2fch(n+1, fchname)
 
- call find_specified_suffix(fname, '.fch', i)
- chkname = fname(1:i-1)//'.chk'
+ call find_specified_suffix(fchname(n+1), '.fch', i)
+ chkname = fchname(n+1)(1:i-1)//'.chk'
  inquire(file=TRIM(fchname(n+1)), exist=alive)
  if(.not. alive) call formchk(chkname, fchname(n+1))
 

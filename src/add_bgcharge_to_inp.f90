@@ -30,7 +30,7 @@ program main
   write(6,'(/,A)') error_warn//'wrong command line arguments!'
   write(6,'(/,A)') 'Format: add_bgcharge_to_inp chgname inpname'
   write(6,'(A)')   'Example 1 (BDF)   : add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A)')   'Example 2 (Dalton): add_bgcharge_to_inp a.chg a.dal'
+  write(6,'(A)')   'Example 2 (Dalton): add_bgcharge_to_inp a.chg a.mol'
   write(6,'(A)')   'Example 3 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
   write(6,'(A)')   'Example 4 (Molcas): add_bgcharge_to_inp a.chg a.input'
   write(6,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
@@ -122,8 +122,8 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   end if
  case('in') ! Q-Chem
   call add_bgcharge_to_qchem_inp(inpname, n, charge)
- case('dal')
-  call add_bgcharge_to_dal(inpname, n, charge)
+ case('mol')
+  call add_bgcharge_to_dalton_mol(inpname, n, charge)
  case default
   write(6,'(/,A)') error_warn//'filetype not supported!'
   write(6,'(A)') 'inpname='//TRIM(inpname)
@@ -662,73 +662,44 @@ subroutine add_bgcharge_to_qchem_inp(inpname, n, charge)
  close(fid)
 end subroutine add_bgcharge_to_qchem_inp
 
-! Add background point charges into Dalton files: .dal file would be modified,
-! and .pot file would be generated.
-subroutine add_bgcharge_to_dal(dalname, n, charge)
+! Add background point charges into Dalton .mol file
+subroutine add_bgcharge_to_dalton_mol(molname, n, charge)
  implicit none
- integer :: i, k, natom, fid, fid1, RENAME
+ integer :: i, k, fid, fid1, RENAME
  integer, intent(in) :: n
- integer, allocatable :: nline(:)
  real(kind=8), intent(in) :: charge(4,n)
- real(kind=8), allocatable :: coor(:,:)
- character(len=2), allocatable :: elem(:)
- character(len=240) :: buf, molname, potname, dalname1
- character(len=240), intent(in) :: dalname
+ character(len=240) :: buf, molname1
+ character(len=240), intent(in) :: molname
 
- call find_specified_suffix(dalname, '.dal', i)
- dalname1= dalname(1:i-1)//'.t'
- molname = dalname(1:i-1)//'.mol'
- potname = dalname(1:i-1)//'.pot'
+ call find_specified_suffix(molname, '.mol', i)
+ molname1= molname(1:i-1)//'.t'
 
- open(newunit=fid,file=TRIM(dalname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(dalname1),status='replace')
+ open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(molname1),status='replace')
 
  do while(.true.)
   read(fid,'(A)') buf
+  if(buf(1:10) == 'AtomTypes=') exit
   write(fid1,'(A)') TRIM(buf)
-  if(buf(1:9) == '.RUN WAVE') exit
  end do ! for while
 
- write(fid1,'(A)') '.PELIB'
+ i = INDEX(buf, ' ')
+ read(buf(11:i-1),*) k
+ write(fid1,'(A,I0,A)') 'AtomTypes=', k+n, TRIM(buf(i:))
 
  do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
-
  close(fid,status='delete')
+
+ do i = 1, n, 1
+  write(fid1,'(A,F9.5,A)') 'Charge=',charge(4,i),'  Atoms=1 Basis=pointcharge'
+  write(fid1,'(A,3(1X,F18.8))') 'X', charge(1:3,i)
+ end do ! for i
+
  close(fid1)
- i = RENAME(TRIM(dalname1), TRIM(dalname))
-
- call read_natmtyp_from_dalton_mol(molname, natom)
- allocate(elem(natom), coor(3,natom), nline(natom))
- call read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
- deallocate(nline)
-
- k = natom + n
- open(newunit=fid,file=TRIM(potname),status='replace')
- write(fid,'(A)') '! Point Charges'
-
- write(fid,'(A,/,I0,/,A)') '@COORDINATES', k, 'AA'
- do i = 1, natom, 1
-  write(fid,'(A2,3(1X,F17.8))') elem(i), coor(:,i)
- end do ! for i
- deallocate(elem, coor)
-
- do i = 1, n, 1
-  write(fid,'(A2,3(1X,F17.8))') 'X ', charge(1:3,i)
- end do ! for i
-
- write(fid,'(A,/,A,/,I0)') '@MULTIPOLES', 'ORDER 0', k
- do i = 1, natom, 1
-  write(fid,'(I0,A)') i, '  0.0'
- end do ! for i
-
- do i = 1, n, 1
-  write(fid,'(I0,1X,F13.8)') natom+i, charge(4,i)
- end do ! for i
- close(fid)
- stop
-end subroutine add_bgcharge_to_dal
+ i = RENAME(TRIM(molname1), TRIM(molname))
+end subroutine add_bgcharge_to_dalton_mol
 

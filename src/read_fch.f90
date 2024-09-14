@@ -1125,14 +1125,14 @@ subroutine write_fch(fchname)
  write(fid,'(A,I12)') 'Alpha Orbital Energies                     R   N=',nif
  write(fid,'(5(1X,ES15.8))') eigen_e_a
  if(uhf) then
-  write(fid,'(A,I12)') 'Beta Orbital Energies                      R   N=',nif
+  write(fid,'(A,22X,A,I12)') 'Beta Orbital Energies','R   N=', nif
   write(fid,'(5(1X,ES15.8))') eigen_e_b
  end if
 
  write(fid,'(A,I12)') 'Alpha MO coefficients                      R   N=',ncoeff
  write(fid,'(5(1X,ES15.8))') alpha_coeff
  if(uhf) then
-  write(fid,'(A,I12)') 'Beta MO coefficients                       R   N=',ncoeff
+  write(fid,'(A,23X,A,I12)') 'Beta MO coefficients','R   N=', ncoeff
   write(fid,'(5(1X,ES15.8))') beta_coeff
  end if
 

@@ -236,6 +236,8 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, rest
   dftname1 = 'pbe,pbe'
  case('pbe1pbe')
   dftname1 = 'pbe0' ! PySCF also recognizes pbe1pbe
+ case('hseh1pbe')
+  dftname1 = 'hse06'
  end select
  
  write(fid1,'(A)') 'dm = mf.make_rdm1()'

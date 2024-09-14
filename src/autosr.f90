@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc38 (2024-Aug-30)'
+ write(6,'(A)') '           Version: 1.2.6rc39 (2024-Sep-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -127,9 +127,10 @@ subroutine parse_sr_keyword()
   method = method0(1:i-1)
 
   select case(TRIM(method))
-  case('mp2','ri-mp2','ccd','ccsd','ccsd(t)','ccsd(t)-f12','dlpno-ccsd','dlpno-&
-       &ccsd(t)','dlpno-ccsd(t0)','dlpno-ccsd(t1)','eomccsd','eom-ccsd','eom-ip&
-       &-ccsd','ip-eom-ccsd','eom-ea-ccsd','ea-eom-ccsd')
+  case('mp2','ri-mp2','ccd','ccsd','ccsd(t)','ccsd(t)-f12','ccsd(t)-f12a', &
+       'ccsd(t)-f12b','dlpno-ccsd','dlpno-ccsd(t)','dlpno-ccsd(t0)', &
+       'dlpno-ccsd(t1)','eomccsd','eom-ccsd','eom-ip-ccsd','ip-eom-ccsd', &
+       'eom-ea-ccsd','ea-eom-ccsd')
   case default
    write(6,'(/,A)') 'ERROR in subroutine parse_sr_keyword: unsupported method '&
                    //TRIM(method)
@@ -150,7 +151,7 @@ subroutine parse_sr_keyword()
   ccsd = .true.
  case('ccsd(t)')
   ccsd_t = .true.
- case('ccsd(t)-f12')
+ case('ccsd(t)-f12','ccsd(t)-f12a','ccsd(t)-f12b')
   ccsd_t = .true.; F12 = .true.
  case('dlpno-mp2')
   mp2 = .true.; DLPNO = .true.
@@ -367,7 +368,9 @@ subroutine check_sr_kywd_compatible()
  if(gen_no) then
   if(force .and. (.not.relaxed_dm)) then
    write(6,'(/,A)') error_warn//'force v.s. unrelaxed density is'
-   write(6,'(A)') 'incompatible.'
+   write(6,'(A)') 'incompatible, since analytic force means a calculation of re&
+                  &laxed density. You'
+   write(6,'(A)') 'are supposed to choose only one of force/unrelaxed density.'
    stop
   end if
   if(cc_enabled .and. relaxed_dm .and. TRIM(cc_prog)=='orca') then
@@ -384,15 +387,21 @@ subroutine check_sr_kywd_compatible()
     stop
    end select
   end if
-  if(cc_enabled .and. (.not. relaxed_dm) .and. TRIM(cc_prog)=='gaussian') then
-   write(6,'(/,A)') error_warn//'CC unrelaxed density is'
-   write(6,'(A)') 'not supported when CC_prog=Gaussian.'
-   stop
+  if(cc_enabled .and. (.not. relaxed_dm)) then
+   select case(TRIM(cc_prog))
+   case('gaussian','openmolcas')
+    write(6,'(/,A)') error_warn//'CC unrelaxed density is'
+    write(6,'(A)') 'not supported when CC_prog=Gaussian/OpenMolcas.'
+    stop
+   end select
   end if
-  if(cc_enabled .and. relaxed_dm .and. TRIM(cc_prog)=='pyscf') then
-   write(6,'(/,A)') error_warn//'CC relaxed density is'
-   write(6,'(A)') 'not supported when CC_prog=PySCF.'
-   stop
+  if(cc_enabled .and. relaxed_dm) then
+   select case(TRIM(cc_prog))
+   case('pyscf','openmolcas')
+    write(6,'(/,A)') error_warn//'CC relaxed density is'
+    write(6,'(A)') 'not supported when CC_prog=PySCF/OpenMolcas.'
+    stop
+   end select
   end if
   if(mp2) then
    if(noRI .and. TRIM(mp2_prog)=='psi4') then
@@ -543,7 +552,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc38 :: MOKIT, release date: 2024-Aug-30'
+  write(6,'(A)') 'AutoSR 1.2.6rc39 :: MOKIT, release date: 2024-Sep-14'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -553,13 +562,13 @@ program main
   write(6,'(A)')   '  -v, -V, --version: Print the version number of autosr and exit.'
   write(6,'(A)')   '  -t, --testprog: Print the path of programs detected by autosr and exit.'
   write(6,'(/,A)') 'Methods(#p ...):'
-  write(6,'(A)')   '  MP2, RI-MP2, CCD, CCSD, CCSD(T), CCSD-F12, CCSD(T)-F12, &
-                   &DLPNO-MP2, DLPNO-CCSD,'
-  write(6,'(A)')   '  DLPNO-CCSD(T), DLPNO-CCSD(T0), DLPNO-CCSD(T1), EOM-CCSD,&
-                   & EOM-SF-CCSD, EOM-IP-CCSD,'
-  write(6,'(A)')   '  EOM-DIP-CCSD, EOM-EA-CCSD, CC2, CC3, ADC(2), ADC(3), CIS&
-                   &(D), ROCIS, XCIS, SF-XCIS,'
-  write(6,'(A)')   '  SA-SF-CIS'
+  write(6,'(A)')   '  MP2, RI-MP2, CCD, CCSD, CCSD(T), CCSD-F12, CCSD(T)-F12, C&
+                   &CSD(T)-F12a, CCSD(T)-F12b,'
+  write(6,'(A)')   '  DLPNO-MP2, DLPNO-CCSD, DLPNO-CCSD(T), DLPNO-CCSD(T0), DLP&
+                   &NO-CCSD(T1), EOM-CCSD,'
+  write(6,'(A)')   '  EOM-SF-CCSD, EOM-IP-CCSD, EOM-DIP-CCSD, EOM-EA-CCSD, CC2,&
+                   & CC3, ADC(2), ADC(3),'
+  write(6,'(A)')   '  CIS(D), ROCIS, XCIS, SF-XCIS, SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
   write(6,'(A)')   '  HF_prog=Gaussian/PySCF/ORCA/PSI4'
   write(6,'(A)')   ' MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem/CFOUR'
@@ -658,7 +667,7 @@ subroutine do_mp2()
  real(kind=8) :: rtmp
  character(len=24) :: data_string = ' '
  character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname, &
-  no_chk, qcscratch
+  molname, no_chk, qcscratch
 
  if(.not. mp2) return
  write(6,'(//,A)') 'Enter subroutine do_mp2...'
@@ -823,14 +832,13 @@ subroutine do_mp2()
  case('dalton')
   old_inp = hf_fch(1:i-1)//'_MP2'
   inpname = hf_fch(1:i-1)//'_MP2.dal'
+  molname = hf_fch(1:i-1)//'_MP2.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(molname))
   call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .true., .false., .false., .false.,&
                                      rtmp, ref_e, mp2_e)
-  ref_e = ref_e + ptchg_e
-  mp2_e = mp2_e + ptchg_e
  case('openmolcas')
   inpname = hf_fch(1:i-1)//'_MP2.input'
   call fch2inporb_wrap(hf_fch, .false., inpname)
@@ -881,8 +889,8 @@ subroutine do_cc()
  real(kind=8) :: e = 0d0
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
- character(len=240) :: chkname, old_inp, inpname, mklname, outname, no_chk, &
-  qcscratch
+ character(len=240) :: chkname, old_inp, inpname, molname, mklname, outname, &
+  no_chk, qcscratch
 
  if(.not. cc_enabled) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
@@ -916,7 +924,8 @@ subroutine do_cc()
   stop
  end if
 
- if((force .or. gen_no) .and. chem_core>0 .and. (.not.RI) .and. relaxed_dm) then
+ if((force .or. gen_no) .and. (chem_core>0) .and. (.not.RI) .and. relaxed_dm &
+    .and. TRIM(CC_prog)=='psi4') then
   write(6,'(/,A)') 'ERROR in subroutine do_cc: conventional CCSD(T) relaxed den&
                    &sity or analytical'
   write(6,'(A)') 'gradients in PSI4 can only be used when no core orbitals are &
@@ -1042,13 +1051,13 @@ subroutine do_cc()
  case('dalton')
   old_inp = hf_fch(1:i-1)//'_CC'
   inpname = hf_fch(1:i-1)//'_CC.dal'
+  molname = hf_fch(1:i-1)//'_CC.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(molname))
   call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .false., ccd, ccsd, ccsd_t, t1diag,&
                                      ref_e, e)
-  ref_e = ref_e + ptchg_e
  case('openmolcas')
   inpname = hf_fch(1:i-1)//'_CC.input'
   call fch2inporb_wrap(hf_fch, .false., inpname)
@@ -3164,7 +3173,8 @@ subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
  end if
 end subroutine read_cc_e_from_cfour_out
 
-subroutine read_posthf_e_from_dalton_out(outname, mp2, ccd, ccsd, ccsd_t, t1diag, ref_e, tot_e)
+subroutine read_posthf_e_from_dalton_out(outname, mp2, ccd, ccsd, ccsd_t, &
+                                         t1diag, ref_e, tot_e)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: t1diag, ref_e, tot_e
@@ -3219,6 +3229,14 @@ subroutine read_posthf_e_from_dalton_out(outname, mp2, ccd, ccsd, ccsd_t, t1diag
  i = INDEX(buf, ':')
  read(buf(i+1:),*) ref_e ! SCF electronic energy
  close(fid)
+
+ if(ccsd .or. ccsd_t) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: t1 diagnostic value cannot be printed when CC_prog=D&
+                 &alton. Below it'
+  write(6,'(A)') 'will be set as zero.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
 end subroutine read_posthf_e_from_dalton_out
 
 subroutine read_cc_e_from_molcas_out(outname, ccsd_t, t1diag, ref_e, tot_e)

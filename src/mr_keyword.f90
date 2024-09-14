@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc38 (2024-Aug-30)'
+ write(6,'(A)') '           Version: 1.2.6rc39 (2024-Sep-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1070,11 +1070,10 @@ subroutine check_kywd_compatible()
                  &ify HF_prog=PSI4/ORCA.'
  end if
 
- if(X2C .and. .not.(TRIM(hf_prog)=='pyscf' .or. TRIM(hf_prog)=='psi4') .and. &
-    (.not.skiphf)) then
-  write(6,'(/,A)') 'Warning: X2C is activated but currently HF_prog is not PySC&
-                   &F/PSI4. Switching'
-  write(6,'(A)') 'to HF_prog=PySCF automatically.'
+ if(X2C .and. TRIM(hf_prog)=='gaussian' .and. (.not.skiphf)) then
+  write(6,'(/,A)') 'Warning: X2C is activated but currently HF_prog=Gaussian. S&
+                   &witching to'
+  write(6,'(A)') 'HF_prog=PySCF automatically.'
   hf_prog = 'pyscf'
  end if
 
@@ -1142,18 +1141,18 @@ subroutine check_kywd_compatible()
 
  alive = .false. ! remember to initialize
  select case(TRIM(casci_prog))
- case('gaussian','gamess','orca')
+ case('gaussian','gamess')
   alive(1) = .true.
  end select
  select case(TRIM(casscf_prog))
- case('gaussian','gamess','orca')
+ case('gaussian','gamess')
   alive(2) = .true.
  end select
  alive(3) = ((casci .and. alive(1)) .or. (casscf .and. alive(2)))
  if(X2C .and. alive(3)) then
-  write(6,'(/,A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS/ORCA is&
-                  & incompatible with'
-  write(6,'(A)') 'X2C. You can use PySCF/Molpro/OpenMolcas.'
+  write(6,'(/,A)') error_warn//'CASCI/CASSCF with Gaussian/GAMESS is incompatib&
+                  &le'
+  write(6,'(A)') 'with X2C. You can use CASSCF_prog=PySCF/ORCA/Molpro/OpenMolcas.'
   stop
  end if
 

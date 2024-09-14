@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc38 :: MOKIT, release date: 2024-Aug-30'
+  write(6,'(A)') 'AutoMR 1.2.6rc39 :: MOKIT, release date: 2024-Sep-14'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -139,7 +139,8 @@ end subroutine check_mokit_root
 
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
- use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno
+ use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
+  HFonly
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
@@ -217,6 +218,12 @@ subroutine get_paired_LMO()
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine get_paired_LMO at '//TRIM(data_string)
+
+ if(HFonly) then
+  write(6,'(/,A)') 'HFonly keyword is specified. Now stop the program.'
+  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
+  stop
+ end if
 end subroutine get_paired_LMO
 
 ! print RHF virtual MOs projection scheme into a given .py file
@@ -457,7 +464,12 @@ subroutine prt_uno_script_into_py(pyname)
  character(len=240), intent(in) :: pyname
 
  buf = ' '
- pyname1 = TRIM(pyname)//'.t'
+ call find_specified_suffix(pyname, '.py', i)
+ pyname1 = pyname(1:i-1)//'.t'
+
+ i = INDEX(hf_fch, '.fch', back=.true.)
+ uno_fch = hf_fch(1:i-1)//'_uno.fch'
+
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
 
@@ -508,8 +520,6 @@ subroutine prt_uno_script_into_py(pyname)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
- i = INDEX(hf_fch, '.fch', back=.true.)
- uno_fch = hf_fch(1:i-1)//'_uno.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') "uno_fch = '"//TRIM(uno_fch)//"'"

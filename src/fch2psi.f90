@@ -197,8 +197,18 @@ subroutine fch2psi(fchname, dftname)
  if(uhf) nif = nif/2
  call write_mo_into_psi_mat(fileA, nbf, nif, coeff(:,1:nif))
  if(uhf) call write_mo_into_psi_mat(fileB, nbf, nif, coeff(:,nif+1:2*nif))
-
  deallocate(coeff)
+
+ if(nbf > 500) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: more than 500 basis functions. If you find PSI4 comp&
+                 &utation is slow,'
+  write(6,'(A)') 'you can modify'
+  write(6,'(A)') ' scf_type pk => scf_type df'
+  write(6,'(A)') '                df_basis_scf def2-universal-jkfit'
+  write(6,'(A)') 'in the input file.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
 end subroutine fch2psi
 
 ! this subroutine is used only when spherical harmonic functions are used

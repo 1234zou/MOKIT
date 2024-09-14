@@ -875,8 +875,10 @@ subroutine read_npair_from_dat(datname, npair)
  implicit none
  integer :: i, fid
  integer, intent(out) :: npair
+!f2py intent(out) :: npair
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
+!f2py intent(in) :: datname
 
  npair = 0
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
@@ -910,9 +912,13 @@ subroutine read_ci_coeff_from_dat(fname, npair, coeff)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: npair
+!f2py intent(in) :: npair
  character(len=240) :: buf
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
  real(kind=8), intent(out) :: coeff(2,npair)
+!f2py intent(out) :: coeff
+!f2py depend(npair) :: coeff
 
  buf = ' '; coeff = 0d0
  open(newunit=fid,file=TRIM(fname),status='old',position='rewind')

@@ -7,7 +7,7 @@ subroutine do_hf(prt_mr_strategy)
   charge, mult, rhf_e, uhf_e
  use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
   ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
-  prt_strategy, gau_path, orca_path, psi4_path, frag_guess, HFonly
+  prt_strategy, gau_path, orca_path, psi4_path, frag_guess
  use util_wrapper, only: fch_u2r_wrap
  implicit none
  integer :: i, SYSTEM
@@ -155,19 +155,13 @@ subroutine do_hf(prt_mr_strategy)
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
-
- if(HFonly) then
-  write(6,'(/,A)') 'HFonly keyword is specified. Now stop the program.'
-  call fdate(data_string)
-  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
-  stop
- end if
 end subroutine do_hf
 
-subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
+subroutine process_basis_set(iprog, basis, basis1, dkh2_or_x2c, natom, nuc, &
+                             elem, create)
  implicit none
  integer :: i
- integer, intent(in) :: natom
+ integer, intent(in) :: iprog, natom
  integer, intent(in) :: nuc(natom)
  integer, parameter :: x2c_idx(38) = (/19,20,37,38,55,56,57,58,59,60,61,62,63,&
   64,65,66,67,68,69,70,71,87,88,89,90,91,92,93,94,95,96,97,98,99,100,101,102,&
@@ -206,7 +200,12 @@ subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
       'DKH-def2-TZVPP','DKH-def2-QZVPP','ma-DKH-def2-SV(P)','ma-DKH-def2-SVP',&
       'ma-DKH-def2-TZVP','ma-DKH-def2-TZVP(-f)','ma-DKH-def2-TZVPP', &
       'ma-DKH-def2-QZVPP')
-  basis1 = 'gen'; rel = .true.; create = .true.
+  rel = .true.
+  if(iprog == 3) then
+   basis1 = basis; create = .false.
+  else
+   basis1 = 'gen'; create = .true.
+  end if
 
   do i = 1, natom, 1
    if(nuc(i) > 36) then
@@ -219,7 +218,12 @@ subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
 
  case('x2c-SV(P)all','x2c-SVPall','x2c-TZVPall','x2c-TZVPPall','x2c-QZVPall',&
       'x2c-QZVPPall')
-  basis1 = 'gen'; rel = .true.; create = .true.
+  rel = .true.
+  if(iprog == 3) then
+   basis1 = basis; create = .false.
+  else
+   basis1 = 'gen'; create = .true.
+  end if
 
   do i = 1, natom, 1
    if(nuc(i) > 86) then
@@ -267,7 +271,11 @@ subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
   end do ! for i
 
  case('pcSseg-1','pcSseg-2')
-  basis1 = 'gen'; create = .true.
+  if(iprog == 3) then
+   basis1 = basis; create = .false.
+  else
+   basis1 = 'gen'; create = .true.
+  end if
 
   do i = 1, natom, 1
    if(nuc(i) > 36) then ! H~Kr
@@ -279,7 +287,11 @@ subroutine process_basis_set(basis,basis1,dkh2_or_x2c,natom,nuc,elem,create)
   end do ! for i
 
  case('cc-pVDZ-F12','cc-pVTZ-F12')
-  basis1 = 'gen'; create = .true.
+  if(iprog == 3) then
+   basis1 = basis; create = .false.
+  else
+   basis1 = 'gen'; create = .true.
+  end if
 
   do i = 1, natom, 1
    if(nuc(i) > 18) then ! H~Kr
@@ -344,7 +356,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   stop
  end if
 
- call process_basis_set(basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ call process_basis_set(1, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
 
  i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
@@ -503,7 +515,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   stop
  end if
 
- call process_basis_set(basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ call process_basis_set(2, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
  call find_specified_suffix(gjfname, '.gjf', i)
  basname = gjfname(1:i-1)//'.bas'
  if(create) call create_basfile(basname, TRIM(basis))
@@ -627,10 +639,10 @@ end subroutine gen_hf_pyscf_inp
 ! generate an ORCA RHF/UHF .inp file
 subroutine gen_hf_orca_inp(inpname, uhf)
  use mol, only: charge, mult, natom, nuc, elem, coor
- use mr_keyword, only: mem, nproc, orca_path, basis, cart, DKH2, X2C, dkh2_or_x2c,&
-  RI, frag_guess
+ use mr_keyword, only: mem, nproc, basis, cart, DKH2, X2C, dkh2_or_x2c, RI, &
+  frag_guess
  implicit none
- integer :: i, iver, fid
+ integer :: i, fid
  character(len=21) :: basis1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: uhf
@@ -651,21 +663,14 @@ subroutine gen_hf_orca_inp(inpname, uhf)
   stop
  end if
 
- call find_orca_ver(orca_path, iver)
- if(iver < 6) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: this is only supported&
-                   & since ORCA 6.'
-  write(6,'(A,I0)') 'Found ORCA version: ', iver
-  stop
- end if
-
- call process_basis_set(basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ call process_basis_set(3, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
  if(basis1(1:3) == 'gen') then
   write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: gen/genecp is not supp&
                    &orted in this'
   write(6,'(A)') 'functionality. Please use an ORCA built-in basis set.'
   stop
  end if
+
  i = INDEX(basis1, 'def2')
  if(i > 0) then
   if(basis1(i+4:i+4)/='-') basis1 = basis1(1:i+3)//'-'//TRIM(basis(i+4:))
@@ -704,11 +709,13 @@ subroutine gen_hf_orca_inp(inpname, uhf)
  write(fid,'(A)') ' Tcut 1e-14'
  write(fid,'(A)') ' MaxIter 512'
  write(fid,'(A)') ' sthresh 1e-6'
- if(uhf) then
+ if(uhf .and. (.not.dkh2_or_x2c)) then
   ! There is no need to use BrokenSym/FlipSpin for singlet UHF, since a .gbw
   ! file includes broken symmetry MOs will be generated from RHF calculation
   ! result. In fact, 'BrokenSym 1,1' + 'stable=opt' functionality seems not
   ! correct in ORCA 6.0.0.
+  ! ORCA stable=opt has many features not implemented when DKH2/X2C is invoked.
+  ! So stability check is not done here.
   write(fid,'(A)') ' STABPerform true'
   write(fid,'(A)') ' STABRestartUHFifUnstable true'
   write(fid,'(A)') ' STABMaxIter 500'
@@ -866,7 +873,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   i = RENAME(TRIM(inpname1), TRIM(inpname))
 
   call read_hf_type_from_orca_inp(inpname, hf_type)
-  call prt_hf_orca_inp(inpname, hf_type)
+  !call prt_hf_orca_inp(inpname, hf_type)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
@@ -1253,67 +1260,67 @@ subroutine prt_hf_psi4_inp(inpname, hf_type)
 end subroutine prt_hf_psi4_inp
 
 ! print HF job of ORCA input file
-subroutine prt_hf_orca_inp(inpname, hf_type)
- use mr_keyword, only: mem, nproc, dkh2_or_x2c
- implicit none
- integer :: i, fid, fid1, RENAME
- integer, intent(in) :: hf_type
- character(len=240) :: buf, inpname1
- character(len=240), intent(in) :: inpname
-
- inpname1 = TRIM(inpname)//'.t'
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(inpname1),status='replace')
-
- read(fid,'(A)') buf
- write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
- read(fid,'(A)') buf
- write(fid1,'(A,I0)') '%maxcore ',CEILING(DBLE(1000*mem)/DBLE(nproc))
-
- if(dkh2_or_x2c .and. hf_type==3) then
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:3) == 'end') exit
-   write(fid1,'(A)') TRIM(buf)
-  end do ! for while
-  write(fid1,'(A)') ' OneCenter True'
-  write(fid1,'(A)') 'end'
- end if
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
-  if(buf(1:4) == '%scf') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in fil&
-                   &e "//TRIM(inpname)
-  close(fid)
-  close(fid1,status='delete')
-  stop
- end if
-
- if(hf_type == 3) then
-  write(fid1,'(A)') ' STABPerform true'
-  write(fid1,'(A)') ' STABRestartUHFifUnstable true'
-  write(fid1,'(A)') ' STABMaxIter 500'
-  write(fid1,'(A)') ' STABDTol 1e-5'
-  write(fid1,'(A)') ' STABRTol 1e-5'
- end if
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- close(fid,status='delete')
- close(fid1)
- i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine prt_hf_orca_inp
+!subroutine prt_hf_orca_inp(inpname, hf_type)
+! use mr_keyword, only: mem, nproc, dkh2_or_x2c
+! implicit none
+! integer :: i, fid, fid1, RENAME
+! integer, intent(in) :: hf_type
+! character(len=240) :: buf, inpname1
+! character(len=240), intent(in) :: inpname
+!
+! inpname1 = TRIM(inpname)//'.t'
+! open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+! open(newunit=fid1,file=TRIM(inpname1),status='replace')
+!
+! read(fid,'(A)') buf
+! write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
+! read(fid,'(A)') buf
+! write(fid1,'(A,I0)') '%maxcore ',CEILING(DBLE(1000*mem)/DBLE(nproc))
+!
+! if(dkh2_or_x2c .and. hf_type==3) then
+!  do while(.true.)
+!   read(fid,'(A)',iostat=i) buf
+!   if(i /= 0) exit
+!   if(buf(1:3) == 'end') exit
+!   write(fid1,'(A)') TRIM(buf)
+!  end do ! for while
+!  write(fid1,'(A)') ' OneCenter True'
+!  write(fid1,'(A)') 'end'
+! end if
+!
+! do while(.true.)
+!  read(fid,'(A)',iostat=i) buf
+!  if(i /= 0) exit
+!  write(fid1,'(A)') TRIM(buf)
+!  if(buf(1:4) == '%scf') exit
+! end do ! for while
+!
+! if(i /= 0) then
+!  write(6,'(/,A)') "ERROR in subroutine prt_hf_orca_inp: no '%scf' found in fil&
+!                   &e "//TRIM(inpname)
+!  close(fid)
+!  close(fid1,status='delete')
+!  stop
+! end if
+!
+! if(hf_type == 3) then
+!  write(fid1,'(A)') ' STABPerform true'
+!  write(fid1,'(A)') ' STABRestartUHFifUnstable true'
+!  write(fid1,'(A)') ' STABMaxIter 500'
+!  write(fid1,'(A)') ' STABDTol 1e-5'
+!  write(fid1,'(A)') ' STABRTol 1e-5'
+! end if
+!
+! do while(.true.)
+!  read(fid,'(A)',iostat=i) buf
+!  if(i /= 0) exit
+!  write(fid1,'(A)') TRIM(buf)
+! end do ! for while
+!
+! close(fid,status='delete')
+! close(fid1)
+! i = RENAME(TRIM(inpname1), TRIM(inpname))
+!end subroutine prt_hf_orca_inp
 
 ! read hf_type from a PySCF .inp file
 subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
@@ -1478,6 +1485,7 @@ subroutine add_gen_bas2pyscf_inp(basname, pyname, natom, elem)
  str3 = ' '; buf = ' '; bas_copy = ' '
  call find_specified_suffix(pyname, '.py', i)
  pyname1 = pyname(1:i-1)//'.t'
+
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(pyname1),status='replace')
 

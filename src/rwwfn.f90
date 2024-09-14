@@ -463,10 +463,10 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
 
  if(ab=='a' .or. ab=='A') then
   key = key1
- else if (ab=='b' .or. ab=='B') then
+ else if(ab=='b' .or. ab=='B') then
   key = key2
  else
-  write(6,'(A)') 'ERROR in subroutine read_mo_from_bdf_orb: invalid ab.'
+  write(6,'(/,A)') 'ERROR in subroutine read_mo_from_bdf_orb: invalid ab.'
   write(6,'(A)') 'ab = '//ab
   stop
  end if
@@ -479,8 +479,9 @@ subroutine read_mo_from_bdf_orb(orbname, nbf, nif, ab, mo)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mo_from_bdf_orb: no '"//key//"'&
-                 & found in file "//TRIM(orbname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_mo_from_bdf_orb: no '"//key//"'&
+                   & found in file "//TRIM(orbname)
+  close(fid)
   stop
  end if
 
@@ -522,7 +523,6 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
                    & to read MOs from'
   write(6,'(A)') 'file '//TRIM(orbname)//'.'
   write(6,'(4(A,I0))') 'nbf=',nbf,',nif=',nif,',i=',i,',j=',j
-  close(fid)
   stop
  end if
 end subroutine read_mo_from_dalton_mopun
@@ -633,8 +633,9 @@ subroutine read_on_from_orb(orbname, nif, ab, on)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
-                 & //"' found in file "//TRIM(orbname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)//&
+                  &"' found in"
+  write(6,'(A)') 'file '//TRIM(orbname)
   stop
  end if
 
@@ -1119,8 +1120,9 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
-                 & //"' found in file "//TRIM(orbname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)//&
+                  &"' found in"
+  write(6,'(A)') 'file '//TRIM(orbname)
   stop
  end if
 
@@ -1129,7 +1131,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  write(fid2,'(5(1X,ES21.14))') (on(i),i=1,nif)
 
  nline = nif/5
- if(nif-5*nline > 0) nline = nline + 1
+ if(nif > 5*nline) nline = nline + 1
  ! skip the #OCC/#UOCC data in original file
  do i = 1, nline, 1 
   read(fid1,'(A)') buf
@@ -1146,8 +1148,9 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)&
-                 & //"' found in file "//TRIM(orbname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)//&
+                  &"' found in"
+  write(6,'(A)') 'file '//TRIM(orbname)
   stop
  end if
 
@@ -1156,7 +1159,7 @@ subroutine write_on_to_orb(orbname, nif, ab, on, replace)
  write(fid2,'(10(1X,F7.4))') (on(i),i=1,nif)
 
  nline = nif/10
- if(nif-10*nline > 0) nline = nline + 1
+ if(nif > 10*nline) nline = nline + 1
  ! skip the #OCHR/#UOCHR data in original file
  do i = 1, nline, 1 
   read(fid1,'(A)') buf
@@ -2876,11 +2879,14 @@ subroutine find_npair0_from_dat(datname, npair, npair0)
  implicit none
  integer :: i, k, datid
  integer, intent(in) :: npair
+!f2py intent(in) :: npair
  integer, intent(out) :: npair0
+!f2py intent(out) :: npair0
  real(kind=8) :: rtmp
  real(kind=8), allocatable :: pair_coeff(:,:)
  character(len=240) :: buf
  character(len=240), intent(in) :: datname
+!f2py intent(in) :: datname
 
  if(npair == 0) then
   npair0 = 0
@@ -3109,13 +3115,17 @@ subroutine read_dm_from_fch(fchname, itype, nbf, dm)
  implicit none
  integer :: i, j, fid, ncoeff1, ncoeff2
  integer, intent(in) :: itype, nbf
+!f2py intent(in) :: itype, nbf
  real(kind=8), intent(out) :: dm(nbf,nbf)
+!f2py intent(out) :: dm
+!f2py depend(nbf) :: dm
  character(len=11), parameter :: key(12) = ['Total SCF D', 'Spin SCF De',&
    'Total CI De', 'Spin CI Den', 'Total MP2 D', 'Spin MP2 De',&
    'Total CC De', 'Spin CC Den', 'Total CI Rh', 'Spin CI Rho',&
    'Total 2nd O', 'Spin 2nd Or']
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  dm = 0d0
  if(itype<1 .or. itype>12) then
@@ -3261,9 +3271,11 @@ subroutine add_density_str_into_fch(fchname, itype)
  implicit none
  integer :: i, j, k, nbf, fid, fid1, RENAME
  integer, intent(in) :: itype ! 1/2 for 'Total SCF Density'/'Spin SCF Density'
+!f2py intent(in) :: itype
  character(len=17), parameter :: str(2) = ['Total SCF Density','Spin SCF Density ']
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  if(itype<1 .or. itype>2) then
   write(6,'(/,A,I0)') 'ERROR in subroutine add_density_str_into_fch: invalid it&
@@ -3403,6 +3415,7 @@ subroutine update_density_using_no_and_on(fchname)
  integer :: nbf, nif
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:)
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(noon(nif))
@@ -3509,9 +3522,11 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
  integer :: i, fid, nbf, nif
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname1, fchname2
+!f2py intent(in) :: fchname1, fchname2
  real(kind=8), allocatable :: ev(:), mo(:,:), dm(:,:)
  logical :: uhf
  logical, intent(in) :: deleted
+!f2py intent(in) :: deleted
 
  call open_file(fchname1, .true., fid)
  uhf = .false.
@@ -3565,9 +3580,13 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  real(kind=8), intent(out) :: S(nbf,nbf)
+!f2py intent(out) :: S
+!f2py depend(nbf) :: S
  character(len=240) :: buf
  character(len=240), intent(in) :: file47
+!f2py intent(in) :: file47
 
  S = 0d0
  call open_file(file47, .true., fid)
@@ -3964,4 +3983,146 @@ subroutine reorder2dbabasv(fchname)
  call write_eigenvalues_to_fch(new_fch, nif, 'a', new_ev, .true.)
  deallocate(new_ev)
 end subroutine reorder2dbabasv
+
+! Convert an R(O)HF-type .fch(k) file into a UHF-type one. If
+! brokensym=.True., beta HOMO-LUMO will be interchanged.
+subroutine fch_r2u(fchname, brokensym)
+ implicit none
+ integer :: i, j, k, nbf, nif, ncoeff, na, nb, nline, fid, fid1
+ real(kind=8), allocatable :: e_a(:), rtmp(:), mo_a(:,:)
+ character(len=240) :: buf, uhf_fch
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical, intent(in) :: brokensym
+!f2py intent(in) :: brokensym
+
+ call find_specified_suffix(fchname, '.fch', i)
+ uhf_fch = fchname(1:i-1)//'_u.fch'
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(e_a(nif), mo_a(nbf,nif))
+ call read_eigenvalues_from_fch(fchname, nif, 'a', e_a)
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo_a)
+ call read_na_and_nb_from_fch(fchname, na, nb)
+
+ if(brokensym) then
+  allocate(rtmp(nbf), source=mo_a(:,nb))
+  mo_a(:,nb) = mo_a(:,nb+1)
+  mo_a(:,nb+1) = rtmp
+  rtmp(1) = e_a(nb)
+  e_a(nb) = e_a(nb+1)
+  e_a(nb+1) = rtmp(1)
+  deallocate(rtmp)
+ end if
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(uhf_fch),status='replace')
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)
+
+ read(fid,'(A)') buf
+ k = LEN_TRIM(buf)
+
+ if(k > 5) then
+  i = INDEX(buf, ' ')
+  do j = i+1, k, 1
+   if(buf(j:j) /= ' ') exit
+  end do ! for j
+  if(j < k) then
+   i = j - 1
+   if(buf(i+1:i+2) == 'RO') then
+    buf = buf(1:i)//'U'//TRIM(buf(i+3:))
+   else if(buf(i+1:i+1) == 'R') then
+    buf = buf(1:i)//'U'//TRIM(buf(i+2:))
+   end if
+  end if
+ end if
+
+ write(fid1,'(A)') TRIM(buf)
+
+ i = 0
+ ! set IOpCl as 1
+ do while(.true.)
+  read(fid,'(A)') buf
+  select case(buf(1:5))
+  case('IOpCl')
+   i = 1; exit
+  case('IROHF')
+   i = 2; exit
+  case('Alpha')
+   i = 3; exit
+  end select
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid1,'(A,38X,A,16X,A)') 'IOpCl','I','1'
+ write(fid1,'(A,38X,A,16X,A)') 'IROHF','I','0'
+
+ select case(i)
+ case(1)
+  read(fid,'(A)') buf
+  if(buf(1:5) /= 'IROHF') then
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+  end if
+ case(2) ! do nothing
+ case(3)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: invalid case.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  close(fid)
+  close(fid1)
+  stop
+ end select
+
+ ! find Alpha Orbital Energies
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:7) == 'Alpha O') exit
+ end do ! for while
+
+ nline = nif/5
+ if(nif > nline*5) nline = nline + 1
+
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ write(fid1,'(A,22X,A,I12)') 'Beta Orbital Energies','R   N=', nif
+ write(fid1,'(5(1X,ES15.8))') e_a
+ deallocate(e_a)
+
+ ! find Alpha MO coefficients
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:7) == 'Alpha M') exit
+ end do ! for while
+
+ ncoeff = nbf*nif
+ nline = ncoeff/5
+ if(ncoeff > nline*5) nline = nline + 1
+
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+
+ write(fid1,'(A,23X,A,I12)') 'Beta MO coefficients','R   N=', ncoeff
+ write(fid1,'(5(1X,ES15.8))') mo_a
+ deallocate(mo_a)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+end subroutine fch_r2u
 

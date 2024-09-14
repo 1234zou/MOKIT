@@ -1,6 +1,4 @@
-# written by jxzou at 20200322
-# updated by jxzou at 20200515: delete 'install', add $(BIN)
-# updated by jxzou at 20221008: delete F2_MKL_FLAGS
+# written by wsr at 20240831: -lgomp is needed in this case
 
 BIN = ../bin
 LIB = ../mokit/lib

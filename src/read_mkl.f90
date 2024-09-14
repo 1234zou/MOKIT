@@ -1262,7 +1262,8 @@ subroutine mkl_r2u(mklname, brokensym)
 
  if(i /= 0) then
   close(fid)
-  write(6,'(/,A)') 'ERROR in subroutine mkl_r2u: problematic file '//TRIM(mklname)
+  write(6,'(/,A)') 'ERROR in subroutine mkl_r2u: problematic file '//&
+                   TRIM(mklname)
   stop
  end if
 

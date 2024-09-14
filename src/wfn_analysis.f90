@@ -746,8 +746,8 @@ subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_npair_from_gms: no 'NCO    =' found&
-                & in file "//TRIM(gmsname)
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_gms: no 'NCO    =' foun&
+                   &d in file "//TRIM(gmsname)
   close(fid)
   stop
  end if
@@ -772,6 +772,7 @@ subroutine read_ci_coeff_from_gms(fname, npair, coeff)
 !f2py intent(in) :: fname
  real(kind=8), intent(out) :: coeff(2,npair)
 !f2py intent(out) :: coeff
+!f2py depend(npair) :: coeff
 
  buf = ' '; coeff = 0d0
  open(newunit=fid,file=TRIM(fname),status='old',position='append')
@@ -786,9 +787,9 @@ subroutine read_ci_coeff_from_gms(fname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_ci_coeff_from_gms: no GVB CI&
-                & coefficients'
-  write(6,'(A)') 'found in file '//TRIM(fname)//'!'
+  write(6,'(/,A)') 'ERROR in subroutine read_ci_coeff_from_gms: no GVB CI coeff&
+                   &icients found'
+  write(6,'(A)') 'in file '//TRIM(fname)
   close(fid)
   stop
  end if

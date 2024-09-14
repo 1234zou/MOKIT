@@ -1370,6 +1370,7 @@ subroutine copy_mol_and_add_atomtypes(molname, molname1)
 
  open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(molname1),status='replace')
+
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:10) == 'AtomTypes=') exit
