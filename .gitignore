@@ -19,3 +19,4 @@ noarch/
 /test/*/*.fch*
 /test/*/*.chk
 /test/*/*.log
+/test/bas_fch2py/
