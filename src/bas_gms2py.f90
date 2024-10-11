@@ -252,7 +252,7 @@ subroutine bas_gms2py(inpname, cart, rest)
 
  if(rest) then
   call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, &
-                               coor, ghost, natom, ecp)
+                               coor, ghost, natom, ecp, uhf)
  end if
  deallocate(ghost, coor)
  deallocate(elem, ntimes)
@@ -365,7 +365,7 @@ subroutine bas_gms2py(inpname, cart, rest)
  close(pyid)
 end subroutine bas_gms2py
 
-subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom, ecp)
+subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, ghost, natom, ecp, uhf)
  implicit none
  integer :: i, j, k, s, SYSTEM , m, p, lmax, ne
  integer, intent(in) :: charge, mult
@@ -384,7 +384,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
  character(len=240) :: buf, nwname, basename, jsonname
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
- logical, intent(in) :: ecp !, uhf, ghf, lin_dep
+ logical, intent(in) :: ecp, uhf !, ghf, lin_dep
 ! logical, intent(in) :: cart
  logical, intent(in) :: ghost(natom) ! size natom
  
@@ -399,9 +399,17 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
  write(restid,'(A)')    '  print_level = 2'
  write(restid,'(A)')    '  num_threads = 4'
  write(restid,'(A)')    '  basis_path = "./'//TRIM(basename)//'-basis"'
+ write(restid,'(A)')    '#  auxbas_path = '
  write(restid,'(A)')    '  chkfile    = "'//TRIM(basename)//'.pchk"'
  write(restid,'(A,I0)') '  charge     = ',charge 
  write(restid,'(A,I0)') '  spin       = ',mult
+ if (uhf) then
+  write(restid,'(A)')   '  spin_polarization = true'
+ end if
+ write(restid,'(A)')    '  max_scf_cycle     = 30'
+ write(restid,'(A)')    '# try options below if not converged but close to convergence at the beginning'
+ write(restid,'(A)')    '#  start_diis_cycle = 10'
+ write(restid,'(A)')    '#  scf_acc_eev = 1.0e-4'
  write(restid,'(A)') "[geom]"
  write(restid,'(A)') '  name = "'//TRIM(basename)//'"'
  write(restid,'(A)') '  unit = "angstrom"'
