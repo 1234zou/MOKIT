@@ -5,6 +5,7 @@ variables:
     - conda
     - newconda2
     - cf
+    - distu-fix
   #only:
   #  changes:
   #    - "mokit/__init__.py"

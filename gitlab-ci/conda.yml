@@ -30,8 +30,7 @@ conda_build:
   only:
     refs:
       - master
-      #- conda
-      #- newconda2
+      - distu-fix
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
@@ -39,6 +38,7 @@ conda_build:
     #- conda build --output-folder ./output conda/conda37
     - conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
+    - conda build --output-folder ./output conda/conda310p
     - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing 
 
 conda_build_test:
@@ -63,11 +63,13 @@ conda_build_cf:
     refs:
       - cf
       - master
+      - distu-fix
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
   script:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label cf
 
 
