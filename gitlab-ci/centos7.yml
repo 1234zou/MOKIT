@@ -2,6 +2,7 @@
   except:
     - conda
     - newconda2
+    - distu-fix
   #only:
   #  changes:
   #    - "mokit/__init__.py"

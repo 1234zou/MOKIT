@@ -17,6 +17,7 @@ build:
 requirements:
   build:
     - python {{ python }}
+    - setuptools <=73
     - make
     - mkl {{ mkl }}
     - numpy {{ numpy }}
