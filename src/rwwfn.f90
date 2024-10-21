@@ -3672,13 +3672,15 @@ end subroutine gen_no_from_density_and_ao_ovlp
 ! 2) sort paired MOs in mo_fch by 1e expectation values
 subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  implicit none
- integer :: i, k, na, nb, ndb, nopen, nbf, nif, system
+ integer :: i, k, na, nb, ndb, nopen, ncore, nbf, nif, SYSTEM
 ! here ndb is the number of doubly occupied orbitals in R(O)HF, ndb = nb
  integer, intent(in) :: npair
+!f2py intent(in) :: npair
  real(kind=8) :: rtmp
  real(kind=8), allocatable :: coeff(:), mo(:,:), noon(:)
  character(len=240) :: dname
  character(len=240), intent(in) :: mo_fch, no_fch
+!f2py intent(in) :: mo_fch, no_fch
  logical :: nat_orb, changed
 
  i = SYSTEM('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
@@ -3715,13 +3717,13 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  ! reorder paired MOs as the ascending/descending order of diagonal elements
  ! For NOs, use descending order; for MOs, use ascending order
  k = 2*ndb + nopen + 1
+ ncore = ndb - npair
 
  if(npair > 1) then
-
-  if(nat_orb) then   ! assuming natural orbitals
+  if(nat_orb) then ! assuming natural orbitals
    do while(.true.)
     changed = .false.
-    do i = ndb-npair+1, ndb-1, 1
+    do i = ncore+1, ndb-1, 1
      if(noon(i) < noon(i+1)) then
       rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
       rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp
@@ -3733,10 +3735,10 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
     if(.not. changed) exit
    end do ! for while
 
-  else   ! assuming canonical MOs, sorting by orbital energies
-   do while(.true.)
+  else ! assuming MOs with <i|Fock|i>
+   do while(.true.)   ! sort paired MOs
     changed = .false.
-    do i = ndb-npair+1, ndb-1, 1
+    do i = ncore+1, ndb-1, 1
      if(noon(i) > noon(i+1)) then
       rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
       rtmp = noon(k-i); noon(k-i) = noon(k-i-1); noon(k-i-1) = rtmp
@@ -3747,8 +3749,19 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
     end do ! for i
     if(.not. changed) exit
    end do ! for while
-  end if
 
+   do while(.true.)   ! sort core MOs
+    changed = .false.
+    do i = 1, ncore-1, 1
+     if(noon(i) > noon(i+1)) then
+      rtmp = noon(i); noon(i) = noon(i+1); noon(i+1) = rtmp
+      coeff = mo(:,i); mo(:,i) = mo(:,i+1); mo(:,i+1) = coeff
+      changed = .true.
+     end if
+    end do ! for i
+    if(.not. changed) exit
+   end do ! for while
+  end if
  end if
 
  deallocate(coeff)
@@ -3769,7 +3782,7 @@ subroutine sort_no_by_noon(fchname, i1, i2)
 
  if(i1 == i2) return
  if(i1<1 .or. i2<1 .or. i1>i2) then
-  write(6,'(A)') 'ERROR in subroutine sort_no_by_noon: invalid orbital index!'
+  write(6,'(/,A)') 'ERROR in subroutine sort_no_by_noon: wrong orbital indices!'
   write(6,'(2(A,I0))') 'i1=', i1, ', i2=', i2
   stop
  end if

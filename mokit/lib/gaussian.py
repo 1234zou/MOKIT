@@ -10,7 +10,7 @@ from mokit.lib.lo import boys, pm
 
 def load_mol_from_fch(fchname, path=None):
   '''
-  Load the PySCF mol object from a given Gaussian .fch(k) file
+  Load the PySCF mol object from a specified Gaussian .fch(k) file
 
   Simple usage::
   >>> from pyscf import scf
@@ -52,6 +52,22 @@ def load_mol_from_fch(fchname, path=None):
   # other process(es) might be using this directory. Only the .pyc file (e.g.
   # gau5141.cpython-39.pyc) would be deleted.
   return molpy.mol
+
+
+def load_mol_from_molden(molden, program):
+  '''
+  Load the PySCF mol object from a specified .molden file
+
+  Simple usage::
+  >>> from pyscf import scf
+  >>> from mokit.lib.gaussian import load_mol_from_molden
+  >>> mol = load_mol_from_molden(molden='benzene.molden',program='orca')
+  >>> mf = scf.RHF(mol).run()
+  '''
+  os.system('molden2fch '+molden+' -'+program.lower())
+  fchname = molden[0:molden.rindex('.molden')]+'.fch'
+  mol = load_mol_from_fch(fchname)
+  return mol
 
 
 def mo_fch2py(fchname):

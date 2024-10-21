@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc39 :: MOKIT, release date: 2024-Sep-14'
+  write(6,'(A)') 'AutoMR 1.2.6rc40 :: MOKIT, release date: 2024-Oct-21'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -151,12 +151,11 @@ subroutine get_paired_LMO()
  character(len=240) :: proname, pyname, outname, fchname
 
  if(eist == 1) return ! excited state calculation
- if(ist == 5) return ! no need for this subroutine
+ if(ist == 5) return  ! no need for this subroutine
  write(6,'(//,A)') 'Enter subroutine get_paired_LMO...'
-
  if(ist == 0) then
-  write(6,'(A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be non-&
-                 &zero before this subroutine.'
+  write(6,'(/,A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be non&
+                   &-zero.'
   stop
  end if
 
@@ -317,11 +316,11 @@ end subroutine prt_rhf_proj_script_into_py
 
 ! print localization and automatically pairing information into a given .py file
 subroutine prt_auto_pair_script_into_py(pyname)
- use mr_keyword, only: localm, hf_fch
+ use mr_keyword, only: localm, hf_fch, npair_wish
  use mol, only: beyond_xe, chem_core, ecp_core
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, loc_fch, lmo_fch
+ character(len=240) :: buf, pyname1, loc_fch, lmo_fch, a_fch
  character(len=240), intent(in) :: pyname
 
  buf = ' '
@@ -330,6 +329,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
  i = INDEX(hf_fch, '.fch', back=.true.)
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
  lmo_fch = hf_fch(1:i-1)//'_LMO.fch'
+ a_fch   = hf_fch(1:i-1)//'_proj_loc_pair_a.fch'
  ncore = chem_core - ecp_core
 
  if(beyond_xe) then ! some element >Xe
@@ -387,6 +387,12 @@ subroutine prt_auto_pair_script_into_py(pyname)
 
   write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sor&
                     &t_pair'
+  if(npair_wish > 0) then
+   write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, mv&
+                     &_deg_docc_below_bo'
+   write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
+   write(fid2,'(A)') 'from os import rename'
+  end if
   if(TRIM(localm) == 'pm') then ! Pipek-Mezey localization
    write(fid2,'(A)') 'from mokit.lib.lo import pm'
   else                          ! Foster-Boys localization
@@ -406,24 +412,31 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(A,I0)') 'ncore = ', ncore
   write(fid2,'(A)') 'nopen = na - nb'
   write(fid2,'(A)') 'nvir_lmo = npair # backup'
-  write(fid2,'(A)') 'npair = min(npair, nb-ncore)'
+  write(fid2,'(A)') 'nval = nb - ncore'
+  write(fid2,'(A)') 'npair = min(npair, nval)'
   write(fid2,'(A)') 'occ_idx = range(ncore,nb)'
   write(fid2,'(A)') 'vir_idx = range(na,nif2)'
 
-  if(TRIM(localm) == 'pm') then ! Pipek-Mezey localization
+  select case(TRIM(localm))
+  case('pm') ! Pipek-Mezey orbital localization
    write(fid2,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
    write(fid2,'(A)') 'occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
                      &_bas[:,3],mol.cart,nbf,'
-   write(fid2,'(17X,A)') "nb-ncore,mo[:,occ_idx],S,'mulliken')"
+   write(fid2,'(17X,A)') "nval,mo[:,occ_idx],S,'mulliken')"
    write(fid2,'(A)') 'vir_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol.&
                      &_bas[:,3],mol.cart,nbf,'
    write(fid2,'(17X,A)') "nif2-na,mo[:,vir_idx],S,'mulliken')"
-  else                          ! Foster-Boys localization
+  case('boys') ! Foster-Boys orbital localization
    write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo[:,occ_idx])'
-   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, nb-ncore, mo[:,occ_idx], mo_dipole)'
+   write(fid2,'(A)') 'occ_loc_orb = boys(nbf, nval, mo[:,occ_idx], mo_dipole)'
    write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo[:,vir_idx])'
    write(fid2,'(A)') 'vir_loc_orb = boys(nbf, nif2-na, mo[:,vir_idx], mo_dipole)'
-  end if
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: unknown &
+                    &orbital local-'
+   write(6,'(A)') 'ization method: '//TRIM(localm)
+   stop
+  end select
 
   write(fid2,'(A)') 'mo[:,occ_idx] = occ_loc_orb.copy()'
   write(fid2,'(A)') 'mo[:,vir_idx] = vir_loc_orb.copy()'
@@ -440,6 +453,33 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(A)') "py2fch(loc_fch, nbf, nif, mo, 'a', mo_occ, False, False)"
   write(fid2,'(A)') "sort_pair(loc_fch, hf_fch, npair)"
   write(fid2,'(A)') '# save done'
+  if(npair_wish > 0) then ! the user may want more pairs
+   write(fid2,'(/,A,I0)') 'npair_wish = ', npair_wish
+   write(fid2,'(A)') 'if npair_wish > nval:'
+   write(fid2,'(A)') "  print('Max_npair =', nval)"
+   write(fid2,'(A)') "  print('npair_wish =', npair_wish)"
+   write(fid2,'(A)') "  raise OSError('Too many pairs are required.')"
+   write(fid2,'(A)') 'elif npair_wish > npair:'
+   write(fid2,'(A)') '  # move doubly occ LMOs which are degenerate to current &
+                     &bonding orbitals to'
+   write(fid2,'(A)') '  # proper positions'
+   write(fid2,'(A)') "  ev = read_eigenvalues_from_fch(loc_fch, nif, 'a')"
+   write(fid2,'(A)') "  mo = fch2py(loc_fch, nbf, nif, 'a')"
+   write(fid2,'(A)') '  new_ev, new_mo = mv_deg_docc_below_bo(nbf,nb,npair,ev[:&
+                     &nb],mo[:,:nb])'
+   write(fid2,'(A)') '  ev[:nb] = new_ev'
+   write(fid2,'(A)') '  mo[:,:nb] = new_mo'
+   write(fid2,'(A)') "  py2fch(loc_fch, nbf, nif, mo, 'a', ev, False, False)"
+   write(fid2,'(A)') '  # find corresponding antibonding orbitals'
+   write(fid2,'(A)') '  nadd = npair_wish - npair'
+   write(fid2,'(A)') '  i1 = ncore + nval - npair_wish + 1'
+   write(fid2,'(A)') '  find_antibonding_orb(loc_fch, i1, nb, na+1)'
+   write(fid2,'(A)') "  a_fch = '"//TRIM(a_fch)//"'"
+   write(fid2,'(A)') '  rename(a_fch, loc_fch)'
+   write(fid2,'(A)') '  npair = npair_wish'
+   ! Here find_antibonding_orb depends on Gaussian. This dependency needs to be
+   ! removed in the future.
+  end if
   close(fid2)
   i = RENAME(TRIM(pyname1), TRIM(pyname))
   open(newunit=fid1,file=TRIM(pyname),status='old',position='append')

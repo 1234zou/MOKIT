@@ -93,7 +93,7 @@ subroutine direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_t
  allocate(ovlp(nbf,nbf), mo_a0(nbf,nif))
  call get_ao_ovlp_using_fch(fchname, nbf, ovlp)
  ! orthonormalize occupied MOs
- call orthonormalize_orb(.true., nbf, k2, ovlp, mo_a(:,1:k2), mo_a0(:,1:k2))
+ call orthonormalize_orb(.true.,.true.,nbf,k2,ovlp,mo_a(:,1:k2),mo_a0(:,1:k2))
  call construct_vir(nbf, nif, k2+1, mo_a0, ovlp, mo_a)
  deallocate(mo_a0)
  call write_mo_into_fch(fchname, nbf, nif, 'a', mo_a)
@@ -101,7 +101,7 @@ subroutine direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_t
 
  if(wfn_type == 3) then
   allocate(mo_b0(nbf,nif))
-  call orthonormalize_orb(.true., nbf, k3, ovlp, mo_b(:,1:k3), mo_b0(:,1:k3))
+  call orthonormalize_orb(.true.,.true.,nbf,k3,ovlp,mo_b(:,1:k3),mo_b0(:,1:k3))
   call construct_vir(nbf, nif, k3+1, mo_b0, ovlp, mo_b)
   deallocate(mo_b0)
   call write_mo_into_fch(fchname, nbf, nif, 'b', mo_b)
@@ -246,7 +246,7 @@ subroutine direct_sum_frag_fock_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn
 
 ! if(wfn_type == 3) then
 !  allocate(mo_b0(nbf,nif))
-!  call orthonormalize_orb(.true., nbf, k3, ovlp, mo_b(:,1:k3), mo_b0(:,1:k3))
+!  call orthonormalize_orb(.true.,.true.,nbf,k3,ovlp,mo_b(:,1:k3),mo_b0(:,1:k3))
 !  call construct_vir(nbf, nif, k3+1, mo_b0, ovlp, mo_b)
 !  deallocate(mo_b0)
 !  call write_mo_into_fch(fchname, nbf, nif, 'b', mo_b)

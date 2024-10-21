@@ -13,16 +13,17 @@ program main
  character(len=240) :: fchname
  character(len=61), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
                                               & wrong command line arguments!'
- logical :: sasf
+ logical :: sf, sasf
 
- str = ' '; fchname = ' '; npair = 0; sasf = .false.
+ str = ' '; fchname = ' '; npair = 0; sf = .false.; sasf = .false.
 
  i = iargc()
  if(i<1 .or. i>3) then
   write(6,'(/,A)') error_warn
   write(6,'(A)')  ' Example 1: fch2qchem h2o.fch'
   write(6,'(A)')  ' Example 2: fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
-  write(6,'(A,/)')' Example 3: fch2qchem high_spin.fch -sasf'
+  write(6,'(A)')  ' Example 3: fch2qchem high_spin.fch -sf'
+  write(6,'(A,/)')' Example 4: fch2qchem high_spin.fch -sasf'
   stop
  end if
 
@@ -32,7 +33,6 @@ program main
  if(i > 1) then
   call getarg(2, str)
   select case(TRIM(str))
-
   case('-gvb')
    if(i == 2) then
     write(6,'(/,A)') error_warn
@@ -46,16 +46,23 @@ program main
     write(6,'(A)') 'The 3rd argument npair should be >=0.'
     stop
    end if
+  case('-sf')
+   if(i == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-sf' is specified."
+    stop
+   end if
+   sf = .true.
   case('-sasf')
    if(i == 3) then
     write(6,'(/,A)') error_warn
-    write(6,'(A)') 'You cannot specify the 3rd argument.'
+    write(6,'(A)') "Only two arguments are allowed when '-sasf' is specified."
     stop
    end if
    sasf = .true.
   case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') "The 2nd argument can only be '-gvb'/'-sasf'."
+   write(6,'(A)') "The 2nd argument can only be '-gvb'/'-sf'/'-sasf'."
    stop
   end select
  end if
@@ -67,10 +74,10 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call fch2qchem(fchname, npair, sasf)
+ call fch2qchem(fchname, npair, sf, sasf)
 end program main
 
-subroutine fch2qchem(fchname, npair, sasf)
+subroutine fch2qchem(fchname, npair, sf, sasf)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4), SYSTEM
@@ -84,11 +91,11 @@ subroutine fch2qchem(fchname, npair, sasf)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
- logical, intent(in) :: sasf
+ logical, intent(in) :: sf, sasf
 
- if(npair>0 .and. sasf) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: both npair>0 and sasf=.T. ar&
-                   &e activated.'
+ if(npair>0 .and. (sf .or. sasf)) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: npair>0 is not allowed when &
+                   &sf/sasf is .True.'
   write(6,'(A)') 'Please check your input arguments.'
   stop
  end if
@@ -102,18 +109,25 @@ subroutine fch2qchem(fchname, npair, sasf)
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
 
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- if(uhf .and. sasf) then
+ if(sasf .and. uhf) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
-                   &n ROHF/RODFT reference.'
-  write(6,'(A)') 'It seems that you provide a UHF/UDFT .fch(k) file.'
+                   &n ROHF/ROKS reference.'
+  write(6,'(A)') 'It seems that you provide a UHF/UKS .fch(k) file.'
+  stop
+ end if
+ if(sf .and. (.not.uhf)) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-TDDFT must be based on a&
+                   & UHF/UKS reference'
+  write(6,'(A)') 'in Q-Chem. It seems that you provide an ROHF/ROKS .fch(k) file.'
   stop
  end if
 
  call read_fch(fchname, uhf)
- if(sasf .and. mult<3) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
-                   & high-spin ROHF/RODFT'
-  write(6,'(A)') 'reference, where the spin multiplicity should be >=3.'
+ if((sf .or. sasf) .and. mult<3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-TDDFT/SA-SF-DFT must be b&
+                   &ased on a high-spin'
+  write(6,'(A)') 'reference wave function, where the spin multiplicity should b&
+                 &e >=3.'
   stop
  end if
 
@@ -126,11 +140,13 @@ subroutine fch2qchem(fchname, npair, sasf)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/Carte&
+                 &sian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' (recommended) or &
+                 &'6D 10F' keywords"
+  write(6,'(A)') 'in Gaussian input file.'
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
@@ -182,12 +198,18 @@ subroutine fch2qchem(fchname, npair, sasf)
   !write(fid,'(A,I0)') 'gvb_n_pairs ', npair
   !write(fid,'(A)') 'gvb_restart false'
  end if
- if(sasf) then
+
+ if(sf .or. sasf) then
   write(fid,'(A)') 'exchange bhhlyp'
   write(fid,'(A)') 'cis_n_roots 5'
-  write(fid,'(A)') 'sasf_rpa true'
+  if(sf) then
+   write(fid,'(A)') 'spin_flip true'
+  else
+   write(fid,'(A)') 'sasf_rpa true'
+  end if
   write(fid,'(A)') 'xc_grid 000099000590'
  end if
+
  write(fid,'(A)') 'gui = 2' ! generate fchk
  write(fid,'(A)') 'mem_total 4000'
  write(fid,'(A,/)') '$end'

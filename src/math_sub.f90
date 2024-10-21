@@ -175,6 +175,7 @@ subroutine reverse_e_and_vec(n, u, w)
  deallocate(y)
 end subroutine reverse_e_and_vec
 
+! find the number of independent MOs from the AO overlap integral matrix
 subroutine get_nmo_from_ao_ovlp(nbf, ovlp, nmo)
  implicit none
  integer :: i
@@ -382,6 +383,22 @@ subroutine newton_inv(n, a, inv_a)
  end if
 end subroutine newton_inv
 
+! Solve systems of linear equations Ax=b with only 1 right-hand side, i.e.
+! x and b are both vectors, not matrices.
+subroutine solve_lin_eqs(a1, a2, a, b, x)
+ implicit none
+ integer, intent(in) :: a1, a2
+ real(kind=8), intent(in) :: a(a1,a2), b(a1)
+ real(kind=8), intent(out) :: x(a2)
+ real(kind=8), allocatable :: bp(:,:), xp(:,:)
+
+ allocate(bp(a1,1), xp(a2,1))
+ bp(:,1) = b
+ call solve_multi_lin_eqs(a1, a2, a, 1, bp, xp)
+ x = xp(:,1)
+ deallocate(xp, bp)
+end subroutine solve_lin_eqs
+
 ! solving systems of linear equations with multiple right-hand sides
 ! Ax = b, x can be with multiple right-hand sides
 subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
@@ -506,8 +523,69 @@ subroutine grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k)
  deallocate(vt, us)
 end subroutine grassmann_C2GAMMA
 
+! calculate (C^T)SC, S is real symmetric, C is a vector
+function calc_CiTSCi(nbf, C, S) result(res)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8) :: ddot, res
+ real(kind=8), intent(in) :: C(nbf), S(nbf,nbf)
+ real(kind=8), allocatable :: SC(:)
+
+ allocate(SC(nbf), source=0d0)
+ call dsymv('U', nbf, 1d0, S, nbf, C, 1, 0d0, SC, 1)
+ res = ddot(nbf, C, 1, SC, 1)
+end function calc_CiTSCi
+
+! normalize an MO
+subroutine normalize_mo(nbf, ao_ovlp, mo)
+ implicit none
+ integer, intent(in) :: nbf
+ real(kind=8) :: a_2
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
+ real(kind=8), intent(inout) :: mo(nbf)
+ real(kind=8), external :: calc_CiTSCi
+
+ a_2 = calc_CiTSCi(nbf, mo, ao_ovlp)
+ mo = mo/DSQRT(a_2)
+end subroutine normalize_mo
+
+! normalize a set of MOs
+subroutine normalize_mos(nbf, nif, ao_ovlp, mo)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
+ real(kind=8), intent(inout) :: mo(nbf,nif)
+
+!$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,ao_ovlp,mo)
+ do i = 1, nif, 1
+  call normalize_mo(nbf, ao_ovlp, mo(:,i))
+ end do ! for i
+!$omp end parallel do
+end subroutine normalize_mos
+
+! calculate/compute normalized PAOs
+subroutine get_normalized_pao(nbf, nif, ao_ovlp, occ_mo, pao)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), occ_mo(nbf,nif)
+ real(kind=8), intent(out) :: pao(nbf,nbf)
+ real(kind=8), allocatable :: cct(:,:)
+
+ allocate(cct(nbf,nbf), source=0d0)
+ call dgemm('N','T', nbf,nbf,nif, 1d0,occ_mo,nbf, occ_mo,nbf, 0d0,cct,nbf)
+
+ pao = 0d0
+ forall(i = 1:nbf) pao(i,i) = 1d0
+ call dsymm('L','L', nbf,nbf, -1d0,cct,nbf, ao_ovlp,nbf, 1d0,pao,nbf)
+ deallocate(cct)
+
+ call normalize_mos(nbf, nbf, ao_ovlp, pao) ! normalize each PAO
+end subroutine get_normalized_pao
+
 ! calculate (C^T)SC, S must be real symmetric since dsymm is called
-! C: nbf*nif  S: nbf*nbf
+! C: nbf*nif, S: nbf*nbf
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  implicit none
  integer, intent(in) :: nbf, nif
@@ -551,6 +629,20 @@ subroutine calc_CTSCp2(nbf, nif1, nif2, C, S, Cp, CTSCp)
  call dgemm('T', 'N', nif1, nif2, nbf, 1d0, C, nbf, SCp, nbf, 0d0, CTSCp, nif1)
  deallocate(SCp)
 end subroutine calc_CTSCp2
+
+! calculate ((C_i)^T)S(C'_i), where C_i and C'_i are both vectors
+function calc_CiTSCip(nbf1, nbf2, C, S, Cp) result(res)
+ implicit none
+ integer, intent(in) :: nbf1, nbf2
+ real(kind=8), intent(in) :: C(nbf1), Cp(nbf2), S(nbf1,nbf2)
+ real(kind=8), allocatable :: SCp(:)
+ real(kind=8) :: ddot, res
+
+ allocate(SCp(nbf1), source=0d0)
+ call dgemv('N', nbf1, nbf2, 1d0, S, nbf1, Cp, 1, 0d0, SCp, 1)
+ res = ddot(nbf1, C, 1, SCp, 1)
+ deallocate(SCp)
+end function calc_CiTSCip
 
 ! calculate CX(C^T), where X is a square matrix (symmetric is not required)
 subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
@@ -792,7 +884,7 @@ subroutine get_occ_from_na_nb2(nif, na, nb, occ)
  occ(2,1:nb) = 1d0
 end subroutine get_occ_from_na_nb2
 
-! canonicalize MOs
+! canonicalize MOs (digonalize the Fock matrix to get canonical MOs)
 subroutine canonicalize_mo(nbf, nmo, f, old_mo, new_mo)
  implicit none
  integer, intent(in) :: nbf, nmo
@@ -947,6 +1039,84 @@ subroutine qr_fac(m, n, A, Q, R)
   stop
  end if
 end subroutine qr_fac
+
+! Detect the number of MOs with all zero coefficients in the array mo.
+! Note: detection begins from the last MO, i.e. mo(:,nif).
+subroutine detect_zero_mo(nbf, nif, mo, nzero)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+ integer, intent(out) :: nzero
+ real(kind=8), parameter :: thres = 1d-8
+ real(kind=8), intent(in) :: mo(nbf,nif)
+
+ nzero = 0
+
+ do i = nif, 1, -1
+  if(SUM(DABS(mo(:,i))) < thres) then
+   nzero = nzero + 1
+  else
+   exit
+  end if
+ end do ! for i
+end subroutine detect_zero_mo
+
+! Move doubly occupied MOs (whose 1e expectation values are degenerate with
+!  that of any bonding orbitals) below/close to the bonding orbitals. These
+!  special doubly occupied MOs can be viewed as extra/new bonding orbitals.
+!  Their corresponding antibonding orbitals may be found by calling other sub-
+!  routines later.
+! nb: the number of beta electrons
+! npair: the number of bonding orbitals already exists
+subroutine mv_deg_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
+ implicit none
+ integer :: i, j, k, ndocc
+ integer, intent(in) :: nbf, nb, npair
+!f2py intent(in) :: nbf, nb, npair
+ real(kind=8) :: r
+ real(kind=8), parameter :: thres = 1d-3 ! |<i|F|i> - <j|F|j>|
+ real(kind=8), intent(in) :: ev(nb), mo(nbf,nb)
+!f2py intent(in) :: ev, mo
+!f2py depend(nb) :: ev
+!f2py depend(nbf,nb) :: mo
+ real(kind=8), intent(out) :: new_ev(nb), new_mo(nbf,nb)
+!f2py intent(out) :: new_ev, new_mo
+!f2py depend(nb) :: new_ev
+!f2py depend(nbf,nb) :: new_mo
+ real(kind=8), allocatable :: mo_i(:)
+ logical :: degenerate
+
+ new_ev = ev; new_mo = mo
+ ndocc = nb - npair; k = ndocc
+ allocate(mo_i(nbf))
+
+ do i = ndocc, 1, -1
+  degenerate = .false.
+  r = new_ev(i)
+
+  do j = ndocc+1, nb, 1
+   if(DABS(r - new_ev(j)) < thres) then
+    degenerate = .true.
+    exit
+   end if
+  end do ! for j
+
+  if(degenerate) then
+   if(i < k) then
+    mo_i = new_mo(:,i)
+    do j = i, k-1, 1
+     new_ev(j) = new_ev(j+1)
+     new_mo(:,j) = new_mo(:,j+1)
+    end do ! for j
+    new_ev(k) = r
+    new_mo(:,k) = mo_i
+   end if
+   k = k - 1 ! remember to update k
+  end if
+ end do ! for i
+
+ deallocate(mo_i)
+end subroutine mv_deg_docc_below_bo
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none

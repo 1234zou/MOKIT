@@ -105,7 +105,7 @@ subroutine fch2mkl(fchname, itype, dftname)
  d3zero = .false.; d3bj = .false.
 
  if(itype == 2) then
-  dftname1 = dftname
+  dftname1 = ADJUSTL(dftname)
   call upper(dftname1)
   i = LEN_TRIM(dftname1)
   if(i > 3) then ! B97-3c, r2SCAN-3c, HF-3c, etc.
@@ -117,6 +117,14 @@ subroutine fch2mkl(fchname, itype, dftname)
   end if
   if(i > 6) then
    if(dftname1(i-5:i) == 'D3ZERO') d3zero = .true.
+  end if
+  if(dftname1(1:5)=='B3LYP' .and. dftname1(6:7)/='/G') then
+   write(6,'(/,A)') 'Remark: it seems that B3LYP is used. Note that B3LYP in Ga&
+                    &ussian is equi-'
+   write(6,'(A)') 'valent to B3LYP/G in ORCA. If you want a close/closer energy&
+                  & result between'
+   write(6,'(A)') 'Gaussian/ORCA B3LYP, you need to specify B3LYP/G when using &
+                  &fch2mkl.'
   end if
  end if
 

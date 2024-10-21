@@ -90,8 +90,8 @@ subroutine assoc_loc2(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
  real(kind=8), intent(in) :: mo_dipole(3,nif,nif) ! MO basis dipole integrals
 !f2py intent(in) :: mo_dipole
 !f2py depend(nif) mo_dipole
- real(kind=8) :: rtmp, increase, vtmp(3,4), motmp(nbf,2), diptmp(ref2-ref1,2)
- real(kind=8) :: Aij, Bij, cos_a, cos_theta, sin_theta
+ real(kind=8) :: Aij, Bij, cos_a, cos_theta, sin_theta, rtmp, increase, &
+                 vtmp(3,4), motmp(nbf,2), diptmp(ref2-ref1,2)
  real(kind=8), allocatable :: dipole(:,:,:) ! size (3,ref,rot)
 
  nrot = rot2 - rot1
@@ -134,11 +134,13 @@ subroutine assoc_loc2(nbf, nif, ref1, ref2, rot1, rot2, coeff, mo_dipole, &
     Aij = 0.5d0*Aij
     rtmp = DSQRT(Aij*Aij + Bij*Bij)
     cos_a = Aij/rtmp
-    cos_theta = DSQRT(0.5d0*(1d0+cos_a))
-    if(DABS(1d0-cos_theta) < threshold1) cycle
-    ! if theta is very close to 0, not to rotate
+    rtmp = rtmp - Aij
+    if(rtmp < threshold1) cycle
+    ! if the function change is too tiny, not to rotate, no matter what are cos_x
+    ! or sin_x
 
-    increase = increase + rtmp - Aij
+    increase = increase + rtmp
+    cos_theta = DSQRT(0.5d0*(1d0+cos_a))
     rtmp = DSQRT(0.5d0*(1d0-cos_a))
     if(Bij > 0d0) then
      sin_theta = -rtmp

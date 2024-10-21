@@ -303,7 +303,7 @@ subroutine molden2fch(molden, iprog, natorb)
 
  allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  select case(iprog)
- case(1,4,5,8,9,11,12)
+ case(1,5,8,9,11,12)
   write(6,'(/,A)') 'ERROR in program molden2fch: not implemented yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
@@ -353,12 +353,22 @@ subroutine molden2fch(molden, iprog, natorb)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case(3) ! CP2K, nothing to do
+ case(4) ! Dalton, nothing to do
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine molden2fch: the absolute value of MO &
+                 &coefficients'
+  write(6,'(A)') 'smaller than 5e-7 are not printed in Dalton-generated molden.&
+                 & So the accuracy'
+  write(6,'(A)') 'is not very good. Please use the utility dal2fch instead of m&
+                 &olden2fch whenever'
+  write(6,'(A)') 'possible. Anyway, molden2fch will continue.'
+  write(6,'(A)') REPEAT('-',79)
  case(6) ! (Open)Molcas, nothing to do
   if(ANY(shell_type < -4)) then
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: OpenMolcas cannot generat&
-                     &e .molden file'
-    write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
-    stop
+   write(6,'(/,A)') 'ERROR in subroutine molden2fch: (Open)Molcas cannot genera&
+                    &te .molden file'
+   write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
+   stop
   end if
  case(7) ! Molpro
   nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
@@ -488,11 +498,13 @@ subroutine molden2fch(molden, iprog, natorb)
   write(6,'(A,I0)') 'charge=', charge
  end if
  mult = nopen + 1
- write(6,'(/,A)') 'Warning from subroutine molden2fch: molden file does not inc&
-                  &lude spin multi-'
+ write(6,'(/,A)') REPEAT('-',79)
+ write(6,'(A)') 'Warning from subroutine molden2fch: molden file does not inclu&
+                &de spin multi-'
  write(6,'(A)') 'plicity. It will be guessed according to the occupation number&
                 &s. If the guessed'
  write(6,'(A)') 'spin is wrong, you need to modify it in file '//TRIM(fchname)
+ write(6,'(A)') REPEAT('-',79)
 
  if(iprog == 13) then ! Turbomole
   call check_freq_in_molden(molden, has_freq)
@@ -893,18 +905,18 @@ subroutine read_mo_from_molden(molden, nbf, nif, ab, coeff, ev, occ)
    end do ! for j
    k = INDEX(buf, 'Occup=')
    if(k > 0) read(buf(k+6:),*) occ(i)
-!   do j = 1, nbf, 1
-!    read(fid,*) k, coeff(j,i)
-!   end do ! for j
-! Some molden file only has cofficients larger than a given threshold. Not all
-! coefficients are printed. So we have to read the basis function index as well.
+   ! Some molden file only has cofficients larger than a given threshold. Not all
+   ! coefficients are printed. So we have to read the basis function index as well.
    do j = 1, nbf, 1
     read(fid,'(A)',iostat=k) buf
     if(k /= 0) exit
-    if(INDEX(buf(1:5),'Ene=')>0 .or. INDEX(buf(1:6),'Spin=')>0) then
+    str = buf(1:5)
+    if(INDEX(str,'Sym=')>0 .or. INDEX(str,'Ene=')>0 .or. &
+       INDEX(str,'Spin')>0) then
      BACKSPACE(fid)
      exit
     end if
+    if(i==nif .and. buf(1:1)=='[') exit
     read(buf,*) k, coeff(k,i)
    end do ! for j
   end do ! for i

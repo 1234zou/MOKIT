@@ -152,7 +152,7 @@ subroutine fch2inp(fchname, itype, npair, nopen0)
   write(6,'(/,A)') 'Warning in subroutine fch2inp: GHF detected in file '//&
                     TRIM(fchname)
   write(6,'(A)') 'GAMESS does not support GHF currently. But fch2inp will be&
-                & continued.'
+                 & continued.'
   write(6,'(A)') 'Orbitals in the generated .inp file are meanningless.'
  end if
 
@@ -193,7 +193,7 @@ subroutine fch2inp(fchname, itype, npair, nopen0)
   end if
  else
   nif1 = nif
-  if(itype == 0) then
+  if(itype==0 .and. (.not.ghf)) then
    if(mult == 1) then
     itype1 = -1 ! RHF
    else

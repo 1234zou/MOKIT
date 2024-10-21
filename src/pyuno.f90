@@ -10,11 +10,10 @@
 ! updated by jxzou at 20220711: change ON_thres to uno_thres
 
 ! This subroutine is designed to be imported as a module in Python.
-!
-subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
-               uno_thres, idx, noon, uno_coeff)
+subroutine uno(nbf, nif, nalpha, nbeta, mo_a, mo_b, ao_ovlp, uno_thres, idx, &
+               noon, uno_coeff)
  implicit none
- integer :: i, outid
+ integer :: i, fid
  integer :: ndb, nact, nact0, nopen, nocc
  ! ndb: the number of doubly occupied MOs
  ! nact: the number of active occupied orbitals
@@ -42,16 +41,16 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf) :: ao_ovlp
 
- real(kind=8) :: alpha_coeff(nbf,nif), beta_coeff(nbf,nif)
-!f2py intent(in,copy) :: alpha_coeff
-!f2py intent(in) :: beta_coeff
-!f2py depend(nbf,nif) :: alpha_coeff, beta_coeff
+ real(kind=8) :: mo_a(nbf,nif), mo_b(nbf,nif)
+!f2py intent(in,copy) :: mo_a
+!f2py intent(in) :: mo_b
+!f2py depend(nbf,nif) :: mo_a, mo_b
 
  real(kind=8) :: noon(nif), uno_coeff(nbf,nif)
 !f2py intent(out) :: noon, uno_coeff
 !f2py depend(nif) :: noon
 !f2py depend(nbf,nif) :: uno_coeff
- real(kind=8), allocatable :: mo_basis_ovlp(:,:), alpha_occ(:,:), beta_occ(:,:)
+ real(kind=8), allocatable :: mo_ovlp(:,:), occ_a(:,:), occ_b(:,:)
  real(kind=8), allocatable :: sv_occ0(:), sv_occ(:)
  character(len=7), parameter :: outname = 'uno.out'
  character(len=63), parameter :: on_warn1 = 'Warning in subroutine uno: uno_th&
@@ -66,58 +65,58 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
   stop
  end if
 
- open(newunit=outid,file=outname,status='replace')
- write(outid,'(A4,I5)') 'nbf=', nbf
- write(outid,'(A4,I5)') 'nif=', nif
- write(outid,'(A,F11.7)') 'ON_criteria=', ON_criteria
- write(outid,'(A,F11.7)') 'uno_thres=', uno_thres
+ open(newunit=fid,file=outname,status='replace')
+ write(fid,'(A4,I5)') 'nbf=', nbf
+ write(fid,'(A4,I5)') 'nif=', nif
+ write(fid,'(A,F11.7)') 'ON_criteria=', ON_criteria
+ write(fid,'(A,F11.7)') 'uno_thres=', uno_thres
  if(DABS(uno_thres - ON_criteria) > 1d-5) then
-  write(outid,'(/,A)') on_warn1
-  write(outid,'(A)') on_warn2
+  write(fid,'(/,A)') on_warn1
+  write(fid,'(A)') on_warn2
   write(6,'(/,A)') on_warn1
   write(6,'(A)') on_warn2
  end if
 
  ! check the orthonormality of initial Alpha and Beta MO, respectively
- allocate(mo_basis_ovlp(nif,nif))
- call calc_CTSC(nbf, nif, alpha_coeff, ao_ovlp, mo_basis_ovlp)
- call check_unity(nif, mo_basis_ovlp, maxv, abs_mean)
- write(outid,'(/,A)') 'The orthonormality of initial Alpha MO:'
- write(outid,'(A,F16.10)') 'maxv=', maxv
- write(outid,'(A,F16.10)') 'abs_mean=', abs_mean
+ allocate(mo_ovlp(nif,nif))
+ call calc_CTSC(nbf, nif, mo_a, ao_ovlp, mo_ovlp)
+ call check_unity(nif, mo_ovlp, maxv, abs_mean)
+ write(fid,'(/,A)') 'The orthonormality of initial Alpha MO:'
+ write(fid,'(A,F16.10)') 'maxv=', maxv
+ write(fid,'(A,F16.10)') 'abs_mean=', abs_mean
 
- call calc_CTSC(nbf, nif, beta_coeff, ao_ovlp, mo_basis_ovlp)
- call check_unity(nif, mo_basis_ovlp, maxv, abs_mean)
- deallocate(mo_basis_ovlp)
- write(outid,'(/,A)') 'The orthonormality of initial Beta MO:'
- write(outid,'(A,F16.10)') 'maxv=', maxv
- write(outid,'(A,F16.10)') 'abs_mean=', abs_mean
+ call calc_CTSC(nbf, nif, mo_b, ao_ovlp, mo_ovlp)
+ call check_unity(nif, mo_ovlp, maxv, abs_mean)
+ deallocate(mo_ovlp)
+ write(fid,'(/,A)') 'The orthonormality of initial Beta MO:'
+ write(fid,'(A,F16.10)') 'maxv=', maxv
+ write(fid,'(A,F16.10)') 'abs_mean=', abs_mean
  ! check orthonormality done
 
  if(nbeta == 0) then ! no beta electrons, return
   forall(i = 1:nopen) noon(i) = 1d0
-  uno_coeff = alpha_coeff
+  uno_coeff = mo_a
   idx = [1, nopen+1, nopen]
-  write(outid,'(/,A6,I5)') 'ndb  =', 0
-  write(outid,'(A6,I5)')   'nact =', nalpha
-  write(outid,'(A6,I5)')   'nact0=', 0
-  write(outid,'(A6,3I5)')  'idx  =', idx
-  close(outid)
+  write(fid,'(/,A6,I5)') 'ndb  =', 0
+  write(fid,'(A6,I5)')   'nact =', nalpha
+  write(fid,'(A6,I5)')   'nact0=', 0
+  write(fid,'(A6,3I5)')  'idx  =', idx
+  close(fid)
   return
  end if
  ! allocate arrays for alpha and beta occupied orbitals, prepare for SVD
- allocate(alpha_occ(nbf,nalpha), source=alpha_coeff(:,1:nalpha))
- allocate(beta_occ(nbf,nbeta), source=beta_coeff(:,1:nbeta))
+ allocate(occ_a(nbf,nalpha), source=mo_a(:,1:nalpha))
+ allocate(occ_b(nbf,nbeta), source=mo_b(:,1:nbeta))
 
  ! calculate the overlap between alpha and beta occupied spatial orbitals
- allocate(mo_basis_ovlp(nalpha,nbeta))
- call calc_CTSCp2(nbf, nalpha, nbeta, alpha_occ, ao_ovlp, beta_occ, mo_basis_ovlp)
+ allocate(mo_ovlp(nalpha,nbeta))
+ call calc_CTSCp2(nbf, nalpha, nbeta, occ_a, ao_ovlp, occ_b, mo_ovlp)
  ! calculate done
 
  ! do SVD on the alpha_beta_ovlp of occupied spatial orbitals
  allocate(sv_occ(nalpha))
- call svd_and_rotate(nalpha, nbeta, nbf, alpha_occ, beta_occ, mo_basis_ovlp, sv_occ, .false.)
- deallocate(mo_basis_ovlp)
+ call svd_and_rotate(nalpha, nbeta, nbf, occ_a, occ_b, mo_ovlp, sv_occ, .false.)
+ deallocate(mo_ovlp)
  write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
  write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
  ! SVD done in occ space
@@ -128,10 +127,10 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  nact0 = nact - nopen
  nocc = nalpha + nact0
  idx = [ndb+1, nocc+1, nopen]
- write(outid,'(/,A6,I5)') 'ndb  =', ndb
- write(outid,'(A6,I5)')   'nact =', nact
- write(outid,'(A6,I5)')   'nact0=', nact0
- write(outid,'(A6,3I5)')  'idx  =', idx
+ write(fid,'(/,A6,I5)') 'ndb  =', ndb
+ write(fid,'(A6,I5)')   'nact =', nact
+ write(fid,'(A6,I5)')   'nact0=', nact0
+ write(fid,'(A6,3I5)')  'idx  =', idx
 
  ! generate NOON (Natural Orbital Occupation Number)
  forall(i = 1:nalpha) noon(i) = 1d0 + sv_occ(i)
@@ -139,10 +138,10 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
  deallocate(sv_occ)
 
  ! copy the doubly occupied MOs
- alpha_coeff(:,1:ndb) = alpha_occ(:,1:ndb)
+ mo_a(:,1:ndb) = occ_a(:,1:ndb)
 
  ! copy the singly occupied MO
- if(nopen > 0) alpha_coeff(:,nbeta+1:nalpha) = alpha_occ(:,nbeta+1:nalpha)
+ if(nopen > 0) mo_a(:,nbeta+1:nalpha) = occ_a(:,nbeta+1:nalpha)
 
  ! transform the corresponding orbitals to UNOs in occ space
  allocate(idx1(nact0), idx2(nact0))
@@ -151,26 +150,26 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
   idx2(i) = nocc + 1 - i
  end forall
  forall(i = 1:nact0)
-  alpha_coeff(:,idx1(i)) = (alpha_occ(:,idx1(i)) + beta_occ(:,idx1(i)))/DSQRT(2d0*noon(idx1(i)))
-  alpha_coeff(:,idx2(i)) = (alpha_occ(:,idx1(i)) - beta_occ(:,idx1(i)))/DSQRT(2d0*noon(idx2(i)))
+  mo_a(:,idx1(i)) = (occ_a(:,idx1(i)) + occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx1(i)))
+  mo_a(:,idx2(i)) = (occ_a(:,idx1(i)) - occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx2(i)))
  end forall
- deallocate(idx1, idx2, alpha_occ, beta_occ)
+ deallocate(idx1, idx2, occ_a, occ_b)
  ! done transform in occ space
 
- ! Set virtual MOs to be zero. They may be calculated in following PAO constructions
- if(nocc < nif) alpha_coeff(:,nocc+1:nif) = 0d0
+ ! Set virtual MOs to be zero. They are supposed to be calculated in subsequent
+ ! PAO constructions
+ if(nocc < nif) mo_a(:,nocc+1:nif) = 0d0
 
  ! check the orthonormality of final Alpha MO
- allocate(mo_basis_ovlp(nocc,nocc))
- call calc_CTSC(nbf, nocc, alpha_coeff(:,1:nocc), ao_ovlp, mo_basis_ovlp)
- call check_unity(nocc, mo_basis_ovlp, maxv, abs_mean)
- deallocate(mo_basis_ovlp)
- write(outid,'(/,A)') 'The orthonormality of final Alpha MO:'
- write(outid,'(A,F16.10)') 'maxv=', maxv
- write(outid,'(A,F16.10)') 'abs_mean=', abs_mean
+ allocate(mo_ovlp(nocc,nocc))
+ call calc_CTSC(nbf, nocc, mo_a(:,1:nocc), ao_ovlp, mo_ovlp)
+ call check_unity(nocc, mo_ovlp, maxv, abs_mean)
+ deallocate(mo_ovlp)
+ write(fid,'(/,A)') 'The orthonormality of final Alpha MO:'
+ write(fid,'(A,F16.10)') 'maxv=', maxv
+ write(fid,'(A,F16.10)') 'abs_mean=', abs_mean
 
- ! copy the UNO coefficients
- uno_coeff = alpha_coeff
+ uno_coeff = mo_a
 
  ! now let's update ndb, nact, nact0, idx according to input uno_thres
  if(DABS(uno_thres - ON_criteria) > 1d-5) then
@@ -181,11 +180,11 @@ subroutine uno(nbf, nif, nalpha, nbeta, alpha_coeff, beta_coeff, ao_ovlp, &
   idx = [ndb+1, nocc+1, nopen]
  end if
 
- write(outid,'(/,A6,I5)') 'ndb  =', ndb
- write(outid,'(A6,I5)')   'nact =', nact
- write(outid,'(A6,I5)')   'nact0=', nact0
- write(outid,'(A6,3I5)')  'idx  =', idx
- close(outid)
+ write(fid,'(/,A6,I5)') 'ndb  =', ndb
+ write(fid,'(A6,I5)')   'nact =', nact
+ write(fid,'(A6,I5)')   'nact0=', nact0
+ write(fid,'(A6,3I5)')  'idx  =', idx
+ close(fid)
  deallocate(sv_occ0)
 end subroutine uno
 

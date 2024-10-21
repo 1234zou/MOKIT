@@ -36,19 +36,19 @@ subroutine do_gvb()
 
  if(npair_wish>0 .and. npair_wish/=npair) then
   write(6,'(/,2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but user&
-                          & specifies GVB(',npair_wish,'). Try to fulfill...'
+                           & specifies GVB(',npair_wish,'). Try to fulfill...'
   if(npair_wish < npair) then
    ndb = ndb + npair - npair_wish
    npair = npair_wish
    nvir = nif - ndb - 2*npair - nopen
-   write(6,'(A)') 'OK, fulfilled. You are recommended to check GVB orbitals aft&
-                  &er converged.'
+   write(6,'(A)') 'OK, fulfilled. You are supposed to check GVB orbitals after &
+                  &converged.'
    write(6,'(/,A)') 'Updated number of various orbitals:'
    write(6,'(4(A,I0))') 'doubly_occ=',ndb,', npair=',npair,', nopen=',nopen, &
                         ', nvir=', nvir
   else if(npair_wish > npair) then
-   write(6,'(/,A)') 'ERROR in subroutine do_gvb: too many number of pairs spec&
-                    &ified. Cannot be fulfilled.'
+   write(6,'(/,A)') 'ERROR in subroutine do_gvb: too many pairs specified. Cann&
+                    &ot be fulfilled.'
    stop
   end if
  end if

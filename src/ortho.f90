@@ -109,84 +109,128 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
   end do ! for j
  end do ! for i
 
- write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=',j0,'i=',i0,'maxv=',maxv
+ write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0,&
+                                     'maxv=', maxv
  deallocate(B)
 end subroutine check_cghf_orthonormal
 
-! perform canonical orthonormalization on a set of non-orthogonal MOs
-subroutine orthonormalize_orb(sym_ortho, nbf, nif, ao_ovlp, old_mo, new_mo)
+! Perform canonical/symmetric orthonormalization on a set of non-orthogonal MOs.
+! This subroutine is different from subroutines can_ortho and sym_ortho below.
+subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
+                              new_mo)
  implicit none
- integer :: i, j
- integer, intent(in) :: nbf, nif
-!f2py intent(in) :: nbf, nif
- real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nif)
+ integer :: i, j, nif
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8) :: a_2
+ real(kind=8), parameter :: thres = 1d-6
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nmo)
 !f2py intent(in) :: ao_ovlp, old_mo
 !f2py depend(nbf) :: ao_ovlp
-!f2py depend(nbf,nif) :: old_mo
- real(kind=8), intent(out) :: new_mo(nbf,nif)
+!f2py depend(nbf,nmo) :: old_mo
+ real(kind=8), intent(out) :: new_mo(nbf,nmo)
 !f2py intent(out) :: new_mo
-!f2py depend(nbf,nif) :: new_mo
+!f2py depend(nbf,nmo) :: new_mo
  real(kind=8), allocatable :: X(:,:), Y(:,:), ev(:)
  real(kind=8), allocatable :: Sp(:,:) ! S', S prime
- logical, intent(in) :: sym_ortho
-!f2py intent(in) :: sym_ortho
- ! True/False for symmetric/canonical orthonormalization
+ real(kind=8), external :: normalize_mo
+ logical, intent(in) :: sym_ortho, prt_warn
+!f2py intent(in) :: sym_ortho, prt_warn
+ ! sym_ortho: True/False for symmetric/canonical orthonormalization
 
- new_mo = 0d0
- allocate(Sp(nif,nif))
- call calc_CTSC(nbf, nif, old_mo, ao_ovlp, Sp) !(C^T)SC = S'
- ! S' is not I, so C is not orthonormal
-
- allocate(ev(nif), source=0d0)
- call diag_get_e_and_vec(nif, Sp, ev) ! S' = U(s')(U^T), U stored in Sp
-
- if(ANY(ev < 0d0)) then
-  write(6,'(/,A)') 'ERROR in subroutine orthonormalize_orb: some eigenvalues ar&
-                   &e negative. ev='
-  write(6,'(5(1X,ES15.8))') ev
+ if(nmo > nbf) then
+  write(6,'(/,A)') 'ERROR in subroutine orthonormalize_orb: nmo>nbf. Impossible.'
+  write(6,'(A,L1)') 'sym_ortho=', sym_ortho
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nmo=', nmo
   stop
  end if
 
+ if(nmo == 1) then ! only one MO, normalize and return
+  a_2 = normalize_mo(nbf, ao_ovlp, old_mo(:,1))
+  new_mo = old_mo/DSQRT(a_2)
+  return
+ else
+  new_mo = 0d0 ! initialization
+ end if
+
+ allocate(Sp(nmo,nmo))
+ call calc_CTSC(nbf, nmo, old_mo, ao_ovlp, Sp) ! (C^T)SC = S'
+ ! S' is not I, so C is not orthonormal
+
+ allocate(ev(nmo), source=0d0)
+ call diag_get_e_and_vec(nmo, Sp, ev) ! S' = U(s')(U^T), U stored in Sp
+ call reverse_e_and_vec(nmo, Sp, ev)  ! in descending order
+
+ nif = COUNT(ev > thres)
+ if(nmo > nif) then
+  if(prt_warn) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine orthonormalize_orb: the input integer&
+                  & nmo is larger'
+   write(6,'(A)') 'than independent MOs nif. Independent MOs will be stored in n&
+                  &ew_mo(:,1:nif),'
+   write(6,'(A)') 'while new_mo(:,nif+1:nmo) will be set to zero. This is not an&
+                  & error, but just'
+   write(6,'(A)') 'to remind you that you are supposed to know what you are calc&
+                  &ulating.'
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(3(A,I0))') 'nbf=', nbf, ', nif=', nif, ', nmo=', nmo
+  end if
+  if(sym_ortho) then
+   write(6,'(/,A)') 'ERROR in subroutine orthonormalize_orb: symmetric orthogon&
+                    &alization cannot'
+   write(6,'(A)') 'be used when there is linear dependency among these MOs. You&
+                  & can use canonical'
+   write(6,'(A)') 'orthogonalization instead.'
+   stop
+  end if
+ end if
+
  forall(i = 1:nif) ev(i) = 1d0/DSQRT(ev(i))
- allocate(X(nif,nif))   ! X = U((s')^(-1/2))
- forall(i=1:nif, j=1:nif) X(i,j) = Sp(i,j)*ev(j)
+ allocate(X(nmo,nmo), source=0d0) ! X = U((s')^(-1/2))
+ forall(i=1:nmo, j=1:nif) X(i,j) = Sp(i,j)*ev(j)
  deallocate(ev)
- if(sym_ortho) then     ! X = X(U^T)
-  allocate(Y(nif,nif), source=0d0)
-  call dgemm('N','T', nif,nif,nif, 1d0,X,nif, Sp,nif, 0d0,Y,nif)
+
+ if(sym_ortho) then ! X = X(U^T)
+  allocate(Y(nmo,nmo), source=0d0)
+  call dgemm('N','T', nmo,nmo,nmo, 1d0,X,nmo, Sp,nmo, 0d0,Y,nmo)
   X = Y
   deallocate(Y)
  end if
  deallocate(Sp)
 
  ! C' = CX
- call dgemm('N','N', nbf,nif,nif, 1d0,old_mo,nbf, X,nif, 0d0,new_mo,nbf)
+ call dgemm('N','N', nbf,nmo,nmo, 1d0,old_mo,nbf, X,nmo, 0d0,new_mo,nbf)
  deallocate(X)
 end subroutine orthonormalize_orb
 
-! generate canonical orthonormalized atomic orbitals
+! generate canonical orthonormalized atomic orbitals from the given AO overlap
+! integral matrix
 subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  implicit none
  integer :: i, nif0
- integer :: nbf, nif
+ integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  real(kind=8), parameter :: thresh = 1d-6
- real(kind=8) :: ao_ovlp(nbf,nbf), mo_coeff(nbf,nif)
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
 !f2py depend(nbf) :: ao_ovlp
-!f2py intent(in,copy) :: ao_ovlp
+!f2py intent(in) :: ao_ovlp
+ real(kind=8), intent(out) :: mo_coeff(nbf,nif)
 !f2py depend(nbf,nif) :: mo_coeff
 !f2py intent(out) :: mo_coeff
- real(kind=8), allocatable :: U(:,:), s(:)
+ real(kind=8), allocatable :: ovlp(:,:), U(:,:), s(:)
 
  mo_coeff = 0d0
+ allocate(ovlp(nbf,nbf), source=ao_ovlp)
  allocate(s(nbf))
- call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
+ call diag_get_e_and_vec(nbf, ovlp, s) ! S = UsU^T, U stored in ovlp
 
  nif0 = COUNT(s > thresh)
  if(nif0 /= nif) then
   write(6,'(/,A)') 'ERROR in subroutine can_ortho: nif /= nif0. This is because&
                    & the linear dependence'
   write(6,'(A)') 'threshold here and outside subroutine is inconsistent.'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
   write(6,'(A,ES15.8)') 'Default threshold here:', thresh
   stop
  end if
@@ -200,41 +244,45 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
 
  ! reverse the eigenvectors, according to the descending order of eigenvalues
  allocate(U(nbf, nbf), source=0d0)
- forall(i = 1:nbf) U(:,i) = ao_ovlp(:,nbf-i+1)
+ forall(i = 1:nbf) U(:,i) = ovlp(:,nbf-i+1)
 
- ! compute s^(-1/2) (only the first nif ones), stored as diagonal in ao_ovlp
- ao_ovlp = 0d0
- forall(i = 1:nif) ao_ovlp(i,i) = 1d0/DSQRT(s(i))
+ ! compute s^(-1/2) (only the first nif ones), stored as diagonal in ovlp
+ ovlp = 0d0
+ forall(i = 1:nif) ovlp(i,i) = 1d0/DSQRT(s(i))
  deallocate(s)
- ! ao_ovlp now is a nif*nif diagonal matrix
+ ! ovlp now is a nif*nif diagonal matrix
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
- call dsymm('R', 'L', nbf, nif, 1d0, ao_ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
-
- deallocate(U)
+ call dsymm('R', 'L', nbf, nif, 1d0, ovlp, nif, U, nbf, 0d0, mo_coeff, nbf)
+ deallocate(ovlp, U)
 end subroutine can_ortho
 
-! generate symmetric orthonormalized atomic orbitals
+! generate symmetric orthonormalized atomic orbitals (OAO) from the given AO
+! overlap integral matrix
 subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
  implicit none
  integer :: i
- integer :: nbf
+ integer, intent(in) :: nbf
 !f2py intent(in) :: nbf
  real(kind=8), parameter :: thresh = 1d-6
- real(kind=8) :: ao_ovlp(nbf,nbf), mo_coeff(nbf,nbf)
-!f2py depend(nbf) :: ao_ovlp, mo_coeff
-!f2py intent(in,copy) :: ao_ovlp
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
+!f2py depend(nbf) :: ao_ovlp
+!f2py intent(in) :: ao_ovlp
+ real(kind=8), intent(out) :: mo_coeff(nbf,nbf)
+!f2py depend(nbf) :: mo_coeff
 !f2py intent(out) :: mo_coeff
- real(kind=8), allocatable :: X(:,:), U(:,:), s(:)
+ real(kind=8), allocatable :: ovlp(:,:), X(:,:), U(:,:), s(:)
 
  mo_coeff = 0d0
+ allocate(ovlp(nbf,nbf), source=ao_ovlp)
  allocate(s(nbf))
- call diag_get_e_and_vec(nbf, ao_ovlp, s) ! S = UsU^T, U stored in ao_ovlp
+ call diag_get_e_and_vec(nbf, ovlp, s) ! S = UsU^T, U stored in ovlp
 
- if(ANY(s<thresh)) then
-  write(6,'(/,A)') 'Warning: linear dependence detected in symmetric orthogonal&
-                   &ization!'
-  write(6,'(A,ES15.8)') 'Default threshold here:', thresh
+ if( ANY(s<thresh) ) then
+  write(6,'(/,A)') 'ERROR in subroutine sym_ortho: linear dependence detected d&
+                   &uring symmetric'
+  write(6,'(A)') 'orthogonalization.'
+  stop
  end if
 
  ! reverse the eigenvalues
@@ -246,20 +294,20 @@ subroutine sym_ortho(nbf, ao_ovlp, mo_coeff)
 
  ! reverse the eigenvectors, according to the descending order of eigenvalues
  allocate(U(nbf, nbf), source=0d0)
- forall(i = 1:nbf) U(:,i) = ao_ovlp(:,nbf-i+1)
+ forall(i = 1:nbf) U(:,i) = ovlp(:,nbf-i+1)
 
- ! compute s^(-1/2), stored as diagonal in ao_ovlp
- ao_ovlp = 0d0
- forall(i = 1:nbf) ao_ovlp(i,i) = 1d0/DSQRT(s(i))
+ ! compute s^(-1/2), stored as diagonal in ovlp
+ ovlp = 0d0
+ forall(i = 1:nbf) ovlp(i,i) = 1d0/DSQRT(s(i))
  deallocate(s)
 
  ! compute Us^(-1/2), where s^(-1/2) is symmetric (in fact, diagonal)
  allocate(X(nbf,nbf), source=0d0)
- call dsymm('R', 'L', nbf, nbf, 1d0, ao_ovlp, nbf, U, nbf, 0d0, X, nbf)
+ call dsymm('R', 'L', nbf, nbf, 1d0, ovlp, nbf, U, nbf, 0d0, X, nbf)
+ deallocate(ovlp)
 
  ! compute X1*U^T, where X1 is Us^(-1/2)
  call dgemm('N', 'T', nbf, nbf, nbf, 1d0, X, nbf, U, nbf, 0d0, mo_coeff, nbf)
-
  deallocate(X, U)
 end subroutine sym_ortho
 

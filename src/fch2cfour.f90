@@ -167,11 +167,12 @@ subroutine fch2cfour(fchname)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2cfour: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(/,A)') 'ERROR in subroutine fch2cfour: mixed spherical harmonic/Car&
+                   &tesian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
+                 &rds in Gaussian."
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
@@ -471,9 +472,11 @@ subroutine prt_cfour_genbas(ecp)
    i2 = i2 + k
   end do ! for i
 
-  i1 = i ! remember to update i1
-  highest = shell_type(i-1)
-  if(highest < 0) highest = -highest
+  ! One cannot use `highest = shell_type(i-1)` here, since it would lead to wrong
+  ! result if diffuse functions are used, e.g. maug-cc-pVTZ. The shell_type(i-1)
+  ! is not necessary the one which has the highest angular momentum.
+  highest = MAXVAL(IABS(shell_type(i1:i-1)))
+  i1 = i   ! remember to update i1
   if(highest > 7) then
    write(6,'(/,A)') 'ERROR in subroutine prt_cfour_genbas: angular momentum too&
                     & high. Not supported!'

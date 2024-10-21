@@ -106,6 +106,12 @@ subroutine copy_file(fname1, fname2, delete)
  logical, intent(in) :: delete
 
  call require_file_exist(fname1)
+ if(LEN_TRIM(fname2) == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine copy_file: empty filename for fname2.'
+  write(6,'(A)') 'For bug tracking: fname1='//TRIM(fname1)
+  stop
+ end if
+
  open(newunit=fid1,file=TRIM(fname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(fname2),status='replace')
 
@@ -129,6 +135,12 @@ subroutine sys_copy_file(fname1, fname2, delete)
  integer :: i, SYSTEM
  character(len=*), intent(in) :: fname1, fname2
  logical, intent(in) :: delete
+
+ if(LEN_TRIM(fname1) == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine sys_copy_file: empty filename for fname1.'
+  write(6,'(A)') 'For bug tracking: fname2='//TRIM(fname2)
+  stop
+ end if
 
 #ifdef _WIN32
  i = SYSTEM('copy /Y '//TRIM(fname1)//' '//TRIM(fname2)//' > NUL')

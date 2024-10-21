@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc39 (2024-Sep-14)'
+ write(6,'(A)') '           Version: 1.2.6rc40 (2024-Oct-21)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -329,6 +329,7 @@ subroutine parse_sr_keyword()
   if(LEN_TRIM(longbuf) == 0) exit
  end do ! for while
 
+ dkh2_or_x2c = (DKH2 .or. X2C)
  if(readrhf .or. readuhf) then
   skiphf = .true.
   call check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
@@ -349,6 +350,32 @@ subroutine check_sr_kywd_compatible()
   write(6,'(A)') 'CC_prog is automatically switched to ORCA.'
   write(6,'(A)') REPEAT('-',79)
   cc_prog = 'orca'
+ end if
+
+ if(DKH2) then
+  if(mp2 .and. TRIM(mp2_prog)=='pyscf') then
+   write(6,'(/,A)') error_warn//'PySCF does not support the DKH2 Hamiltonian.'
+   write(6,'(A)') 'Please use another MP2_prog.'
+   stop
+  end if
+  if(cc_enabled .and. TRIM(cc_prog)=='pyscf') then
+   write(6,'(/,A)') error_warn//'PySCF does not support the DKH2 Hamiltonian.'
+   write(6,'(A)') 'Please use another CC_prog.'
+   stop
+  end if
+ end if
+
+ if(X2C) then
+  if(mp2 .and. TRIM(mp2_prog)=='gaussian') then
+   write(6,'(/,A)') error_warn//'Gaussian does not support the sfX2C Hamiltonian.'
+   write(6,'(A)') 'Please use another MP2_prog.'
+   stop
+  end if
+  if(cc_enabled .and. TRIM(cc_prog)=='gaussian') then
+   write(6,'(/,A)') error_warn//'Gaussian does not support the sfX2C Hamiltonian.'
+   write(6,'(A)') 'Please use another CC_prog.'
+   stop
+  end if
  end if
 
  if(customized_core) then
@@ -552,7 +579,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc39 :: MOKIT, release date: 2024-Sep-14'
+  write(6,'(A)') 'AutoSR 1.2.6rc40 :: MOKIT, release date: 2024-Oct-21'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
