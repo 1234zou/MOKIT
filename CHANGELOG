@@ -1,5 +1,6 @@
-MOKIT 1.2.6 (Oct 21, 2024)
+MOKIT 1.2.6 (Oct 31, 2024)
 ------------------------
+* fix keyword bug in SA-DMRG-CASSCF
 * fix recognition bug of the highest angular momentum in fch2cfour when low angular momentum diffuse functions are used
 * add subroutines about finding (extra) antibonding orbitals
 * fix GHF dectection bug introduced in commit f0dbe662

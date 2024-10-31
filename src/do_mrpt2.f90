@@ -852,7 +852,7 @@ end subroutine prt_nevpt2_script_into_py
 
 ! print PySCF DMRG-NEVPT2 settings
 subroutine prt_dmrg_nevpt2_setting(fid)
- use mr_keyword, only: mem, nproc, maxM, iroot, target_root
+ use mr_keyword, only: mem, nproc, maxM, iroot, target_root, nstate
  use mol, only: nif, nacto
  implicit none
  integer :: i, real_nproc, nthread
@@ -871,15 +871,23 @@ subroutine prt_dmrg_nevpt2_setting(fid)
  write(fid,'(/,A,I0,A)') "dmrgscf.settings.MPIPREFIX = 'mpirun -n ",real_nproc,&
                          "'"
  write(fid,'(A)') 'lib.num_threads(1)'
- i = CEILING(0.5*REAL(mem)/REAL(real_nproc))
+ i = CEILING(0.5d0*DBLE(mem)/DBLE(real_nproc))
  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-real_nproc*i)*1000, ' # MB'
  write(fid,'(A,I0)') 'mc.fcisolver.threads = ', nthread
  write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
  write(fid,'(A,I0,A)') "mc.fcisolver.mpiprefix = 'mpirun -n ", real_nproc, &
                        " --bind-to none'"
- write(fid,'(A)',advance='no') 'mrpt.NEVPT(mc'
- if(iroot > 0) write(fid,'(A,I0)',advance='no') ', root=', target_root
- write(fid,'(A,I0,A)') ').compress_approx(maxM=', maxM, ').kernel()'
+
+ if(nstate > 0) then ! SS-DMRG-NEVPT2 for each root
+  write(fid,'(A,I0)') 'nstate = ', nstate
+  write(fid,'(A)') 'for i in range(nstate+1):'
+  write(fid,'(A,I0,A)') '  mrpt.NEVPT(mc,root=i).compress_approx(maxM=', maxM, &
+                        ').kernel()'
+ else                ! SS-DMRG-NEVPT2 for one specific root
+  write(fid,'(A)',advance='no') 'mrpt.NEVPT(mc'
+  if(iroot > 0) write(fid,'(A,I0)',advance='no') ', root=', target_root
+  write(fid,'(A,I0,A)') ').compress_approx(maxM=', maxM, ').kernel()'
+ end if
 end subroutine prt_dmrg_nevpt2_setting
 
 ! print NEVPT2 keywords into OpenMolcas .input file

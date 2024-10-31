@@ -919,8 +919,11 @@ subroutine read_cluster_e_from_out()
   longbuf = 'tar -zcf '//TRIM(proname1)//'.tar.gz '//TRIM(proname1)//'.* '//&
             TRIM(proname1)//'_* --remove-files'
   k = SYSTEM(longbuf)
-  if(k /= 0) write(6,'(A)') 'ERROR in subroutine read_cluster_e_from_out: faile&
-                            &d to create package '//TRIM(proname1)//'.tar.gz'
+  if(k /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine read_cluster_e_from_out: failed to cre&
+                    &ate package'
+   write(6,'(A)') TRIM(proname1)//'.tar.gz'
+  end if
  end do ! for i
 
  deallocate(den1)

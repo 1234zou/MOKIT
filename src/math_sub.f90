@@ -674,6 +674,33 @@ subroutine calc_SPS(nbf, P, S, SPS)
  deallocate(PS)
 end subroutine calc_SPS
 
+! Calculate expectation values using the given unitary matrix and eigenvalues.
+! E.g. LMO=CMO*U, where ev are orbital energies.
+subroutine calc_expect_value(n, u, old_ev, new_ev)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ real(kind=8), intent(in) :: u(n,n)
+!f2py intent(in) :: u
+!f2py depend(n) :: u
+ real(kind=8), intent(in) :: old_ev(n)
+!f2py intent(in) :: old_ev
+!f2py depend(n) :: old_ev
+ real(kind=8), intent(out) :: new_ev(n)
+!f2py intent(out) :: new_ev
+!f2py depend(n) :: new_ev
+ real(kind=8), allocatable :: ev(:,:), utnu(:,:)
+
+ allocate(ev(n,n), source=0d0)
+ forall(i = 1:n) ev(i,i) = old_ev(i)
+ allocate(utnu(n,n))
+ call calc_CTSC(n, n, u, ev, utnu)
+ deallocate(ev)
+ forall(i = 1:n) new_ev(i) = utnu(i,i)
+ deallocate(utnu)
+end subroutine calc_expect_value
+
 ! perform density matrix purification
 subroutine purify_dm(nbf, S, P)
  implicit none
@@ -792,7 +819,7 @@ subroutine solve_x_from_ao_ovlp(nbf, nif, S, X)
  end if
 end subroutine solve_x_from_ao_ovlp
 
-! solver AO-based overlap matrix (S) from condition (C^T)SC=I
+! solve AO-based overlap matrix (S) from condition (C^T)SC=I
 ! Note: this subroutine only applies to nbf=nif, i.e. no linear dependence
 subroutine solve_ovlp_from_ctsc(nbf, C, S)
  implicit none
@@ -811,7 +838,7 @@ subroutine solve_ovlp_from_ctsc(nbf, C, S)
  call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, TRANSPOSE(SC), S)
 end subroutine solve_ovlp_from_ctsc
 
-! solver AO-based overlap matrix (S) by calculating (C(C^T))^(-1)
+! solve AO-based overlap matrix (S) by calculating (C(C^T))^(-1)
 ! This subroutine has the same result as subroutine solve_ovlp_from_ctsc.
 subroutine solve_ovlp_from_cct(nbf, C, S)
  implicit none
@@ -829,7 +856,7 @@ subroutine solve_ovlp_from_cct(nbf, C, S)
  deallocate(CCT)
 end subroutine solve_ovlp_from_cct
 
-! solver AO-based Fock matrix (F) from condition (C^T)FC=E
+! solve AO-based Fock matrix (F) from condition (C^T)FC=E
 subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
  implicit none
  integer :: i
@@ -837,6 +864,14 @@ subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
  real(kind=8), intent(in) :: C(nbf,nif), E(nif)
  real(kind=8), intent(out) :: F(nbf,nbf)
  real(kind=8), allocatable :: FC(:,:), E1(:,:)
+
+ if(nbf > nif) then
+  write(6,'(/,A)') 'Warning from subroutine solve_fock_from_ctfc: nbf > nif. Ba&
+                   &sis set linear'
+  write(6,'(A)') 'dependency detected. The AO Fock matrix obtained by this subr&
+                 &outine may be'
+  write(6,'(A)') 'nonsense. You need to check.'
+ end if
 
  allocate(E1(nif,nif), source=0d0)
  forall(i = 1:nif) E1(i,i) = E(i) ! diagonal matrix
@@ -960,9 +995,8 @@ subroutine get_u(nbf, nmo, coeff, lo_coeff, u)
  real(kind=8), allocatable :: coeff1(:,:), lo_coeff1(:,:)
 
  u = 0d0
- allocate(coeff1(nbf,nmo), lo_coeff1(nbf,nmo))
- coeff1 = coeff
- lo_coeff1 = lo_coeff
+ allocate(coeff1(nbf,nmo), source=coeff)
+ allocate(lo_coeff1(nbf,nmo), source=lo_coeff)
  allocate(ipiv(min(nbf,nmo)), source=0)
 
  call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
@@ -1068,7 +1102,7 @@ end subroutine detect_zero_mo
 !  routines later.
 ! nb: the number of beta electrons
 ! npair: the number of bonding orbitals already exists
-subroutine mv_deg_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
+subroutine mv_dege_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
  implicit none
  integer :: i, j, k, ndocc
  integer, intent(in) :: nbf, nb, npair
@@ -1116,7 +1150,7 @@ subroutine mv_deg_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
  end do ! for i
 
  deallocate(mo_i)
-end subroutine mv_deg_docc_below_bo
+end subroutine mv_dege_docc_below_bo
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none

@@ -5,8 +5,8 @@ subroutine do_sa_cas()
  use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
   npair0, sa_cas_e, ci_mult, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
-  bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, nstate, nevpt2,&
-  on_thres, orca_path, molcas_omp
+  dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, &
+  nstate, nevpt2, on_thres, orca_path, molcas_omp
  use phys_cons, only: au2ev
  implicit none
  integer :: i, system
@@ -46,12 +46,16 @@ subroutine do_sa_cas()
  end if
 
  casscf = .true.
- if(nacto > 15) casscf = .false.
+ if(nacto > 15) then
+  casscf = .false.
+  dmrgscf = .true.
+ end if
+
  if(casscf) then
   data_string = 'SA-CASSCF'
   cas_prog = casscf_prog
  else
-  data_string = 'DMRG-SA-CASSCF'
+  data_string = 'SA-DMRG-CASSCF'
   cas_prog = dmrgscf_prog
  end if
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
@@ -92,7 +96,15 @@ subroutine do_sa_cas()
 
  allocate(sa_cas_e(0:nstate), ci_mult(0:nstate), fosc(nstate))
  call read_sa_cas_energies_from_output(cas_prog,outname,nstate,sa_cas_e,ci_mult)
- call read_fosc_from_output(cas_prog, outname, nstate, fosc)
+ if(dmrgscf) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: DMRG NTOs are not implemented yet. Oscillator stren&
+                 &gths f_osc'
+  write(6,'(A)') 'below will be set to zero.'
+  write(6,'(A)') REPEAT('-',79)
+ else
+  call read_fosc_from_output(cas_prog, outname, nstate, fosc)
+ end if
 
  allocate(e_ev(nstate), source=0d0)
  forall(i = 1:nstate) e_ev(i) = (sa_cas_e(i) - sa_cas_e(0))*au2ev
@@ -117,10 +129,13 @@ subroutine do_sa_cas()
   allocate(nevpt2_e(0:nstate))
   select case(TRIM(nevpt2_prog))
   case('pyscf')
-   call read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
+   call read_multiroot_nevpt2_from_pyscf(outname, dmrgscf, nstate, nevpt2_e)
   case('orca')
    call read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
   case default
+   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: NEVPT2_prog cannot be recog&
+                    &nized.'
+   write(6,'(A)') 'NEVPT2_prog='//TRIM(nevpt2_prog)
    stop
   end select
 
@@ -161,8 +176,31 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  call bas_fch2py_wrap(gvb_fch, .false., pyname)
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
  pyname1 = TRIM(pyname)//'.t'
+
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(buf(1:31) == 'from pyscf import gto, scf, lib') exit
+  write(fid2,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(dmrgscf) then
+  if(nevpt2) then
+   write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, dmrgscf, mrpt, lib'
+  else
+   write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, dmrgscf, lib'
+  end if
+ else
+  if(nevpt2) then
+   write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, mrpt, lib'
+  else
+   write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, lib'
+  end if
+ end if
+ write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid2,'(A)') 'from mokit.lib.excited import gen_nto_and_fosc_from_mo_tdm'
 
  do while(.true.)
   read(fid1,'(A)') buf
@@ -170,17 +208,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
- write(fid2,'(A)',advance='no') 'from pyscf import mcscf'
- if(dmrgscf) write(fid2,'(A)',advance='no') ', dmrgscf'
- if(nevpt2) then
-  write(fid2,'(A)') ', mrpt'
- else
-  write(fid2,'(/)',advance='no')
- end if
- write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
- write(fid2,'(A)') 'from mokit.lib.excited import gen_nto_and_fosc_from_mo_tdm'
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
+
  if(dmrgscf) then
   write(fid2,'(A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
   if(block_mpi) write(fid2,'(A,I0)',advance='no') 'mpirun -n ', nproc
@@ -216,12 +246,13 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   else
    write(fid2,'(A)') ')'
   end if
-  write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*300,' # MB'
  else ! DMRG-SA-CASSCF
   write(fid2,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta1, &
                             ',', nactb1, '))'
   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
-  write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
+  call prt_block_mem(fid2, mem, nproc, block_mpi)
  end if
 
  write(fid2,'(A)',advance='no') 'mc = mc.state_average_(['
@@ -234,14 +265,17 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') '])'
  end if
  write(fid2,'(A)') 'mc.conv_tol = 1e-9'
- write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*800, ' # MB'
  write(fid2,'(A)') 'mc.max_cycle = 200'
- if(.not. mixed_spin) write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
+ if(.not. (mixed_spin .or. dmrgscf)) then
+  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
+ end if
 
- call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb, hardwfn,crazywfn,.false.)
- ss = DBLE(nacta - nactb)*0.5d0
- ss = ss*(ss+1d0)
- if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+ if(.not. dmrgscf) then
+  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+  ss = DBLE(nacta - nactb)*0.5d0
+  ss = ss*(ss + 1d0)
+  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+ end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel()'
  write(fid2,'(A)') 'mo = mc.mo_coeff.copy() # backup'
@@ -258,17 +292,18 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
                                          nacta1, ',', nactb1, ')'
 
- if(casscf) then ! CASCI
+ if(casscf) then ! multi-root CASCI
   if(RI) then
    write(fid2,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   else
    write(fid2,'(A)') ')'
   end if
-  write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*200,' # MB'
- else            ! DMRG-SA-CASCI
+  write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
+  write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*300,' # MB'
+ else            ! multi-root DMRG-CASCI
   write(fid2,'(A)') ')'
   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
-  write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ',CEILING(DBLE(mem)/DBLE((5*nproc))),' # GB'
+  call prt_block_mem(fid2, mem, nproc, block_mpi)
  end if
 
  write(fid2,'(A)',advance='no') 'mc.fcisolver.nroots = '
@@ -279,48 +314,63 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  else
   write(fid2,'(I0)') nstate+1
  end if
- call prt_hard_or_crazy_casci_pyscf(fid2, nacta-nactb,hardwfn,crazywfn,.false.)
- if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=',ss,')'
+
+ if(.not. dmrgscf) then
+  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+ end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel(mo)'
 
  ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
- write(fid2,'(/,A)') '# calculate oscillator strengths and NTOs of transition |&
-                     &0> -> |i>'
- write(fid2,'(A)') 'charges = mol.atom_charges()'
- write(fid2,'(A)') 'coords = mol.atom_coords()'
- write(fid2,'(A)') "charge_center = np.einsum('z,zx->x', charges, coords)/charg&
-                   &es.sum()"
- write(fid2,'(A)') 'with mol.with_common_origin(charge_center):'
- write(fid2,'(A)') "  dip_int = mol.intor('int1e_r')"
- write(fid2,'(A)') 'nroots = mc.fcisolver.nroots'
- write(fid2,'(A)') 'nacto = mc.ncas'
- write(fid2,'(A)') 'idx1 = mc.ncore + 1'
- write(fid2,'(A)') 'idx2 = mc.ncore + nacto'
- write(fid2,'(A)') 'mo_cas = mo[:,mc.ncore:idx2].copy()'
- write(fid2,'(A)') 'for i in range(1,nroots):'
- i = INDEX(cmofch, '.fch', back=.true.)
- write(fid2,'(A)') "  part_fch = '"//cmofch(1:i-1)//"_NTO_P0'+str(i)+'.fch'"
- write(fid2,'(A)') "  hole_fch = '"//cmofch(1:i-1)//"_NTO_H0'+str(i)+'.fch'"
- write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', part_fch)"
- write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', hole_fch)"
- write(fid2,'(A)') '  tdm = mc.fcisolver.trans_rdm1(mc.ci[0],mc.ci[i], nacto, m&
-                   &c.nelecas)'
- write(fid2,'(A)') '  ev, part_mo, hole_mo, fosc = gen_nto_and_fosc_from_mo_tdm&
-                   &(nbf, nacto, mo_cas, \'
- write(fid2,'(A)') '                               tdm, dip_int, mc.e_tot[i]-mc&
-                   &.e_tot[0])'
- write(fid2,'(A)') '  noon[mc.ncore:idx2] = ev.copy()'
- write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = part_mo.copy()'
- write(fid2,'(A)') "  py2fch(part_fch,nbf,nif,mo,'a',noon,False,False)"
- write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = hole_mo.copy()'
- write(fid2,'(A)') "  py2fch(hole_fch,nbf,nif,mo,'a',noon,False,False)"
- write(fid2,'(A)') "  print('|0> -> |%d>'%(i),', fosc =',fosc)"
+ if(dmrgscf) then
+  write(fid2,'(/,A)') '# NTOs of DMRG-CASCI will be skipped since they are not &
+                      &implemented yet.'
+ else
+  write(fid2,'(/,A)') '# calculate oscillator strengths and NTOs of transition &
+                      &|0> -> |i>'
+  write(fid2,'(A)') 'charges = mol.atom_charges()'
+  write(fid2,'(A)') 'coords = mol.atom_coords()'
+  write(fid2,'(A)') "charge_center = np.einsum('z,zx->x', charges, coords)/char&
+                    &ges.sum()"
+  write(fid2,'(A)') 'with mol.with_common_origin(charge_center):'
+  write(fid2,'(A)') "  dip_int = mol.intor('int1e_r')"
+  write(fid2,'(A)') 'nroots = mc.fcisolver.nroots'
+  write(fid2,'(A)') 'nacto = mc.ncas'
+  write(fid2,'(A)') 'idx1 = mc.ncore + 1'
+  write(fid2,'(A)') 'idx2 = mc.ncore + nacto'
+  write(fid2,'(A)') 'mo_cas = mo[:,mc.ncore:idx2].copy()'
+  write(fid2,'(A)') 'for i in range(1,nroots):'
+  i = INDEX(cmofch, '.fch', back=.true.)
+  write(fid2,'(A)') "  part_fch = '"//cmofch(1:i-1)//"_NTO_P0'+str(i)+'.fch'"
+  write(fid2,'(A)') "  hole_fch = '"//cmofch(1:i-1)//"_NTO_H0'+str(i)+'.fch'"
+  write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', part_fch)"
+  write(fid2,'(A)') "  copyfile('"//TRIM(cmofch)//"', hole_fch)"
+  write(fid2,'(A)') '  tdm = mc.fcisolver.trans_rdm1(mc.ci[0],mc.ci[i], nacto, &
+                    &mc.nelecas)'
+  write(fid2,'(A)') '  ev, part_mo, hole_mo, fosc = gen_nto_and_fosc_from_mo_td&
+                    &m(nbf, nacto, mo_cas, \'
+  write(fid2,'(A)') '                               tdm, dip_int, mc.e_tot[i]-m&
+                    &c.e_tot[0])'
+  write(fid2,'(A)') '  noon[mc.ncore:idx2] = ev.copy()'
+  write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = part_mo.copy()'
+  write(fid2,'(A)') "  py2fch(part_fch,nbf,nif,mo,'a',noon,False,False)"
+  write(fid2,'(A)') '  mo[:,mc.ncore:idx2] = hole_mo.copy()'
+  write(fid2,'(A)') "  py2fch(hole_fch,nbf,nif,mo,'a',noon,False,False)"
+  write(fid2,'(A)') "  print('|0> -> |%d>'%(i),', fosc =',fosc)"
+ end if
 
  if(nevpt2) then
-  write(fid2,'(/,A)') '# NEVPT2 based on multi-root CASCI'
-  write(fid2,'(A)') 'for i in range(nroots):'
-  write(fid2,'(A)') '  mrpt.NEVPT(mc, root=i).kernel()'
+  if(dmrgscf) then
+   write(fid2,'(/,A)') '# State-specific DMRG-NEVPT2 based on multi-root DMRG-C&
+                       &ASCI'
+   call prt_dmrg_nevpt2_setting(fid2)
+  else
+   write(fid2,'(/,A)') '# State-specific NEVPT2 based on multi-root CASCI'
+   write(fid2,'(A,I0)') 'nstate = ', nstate
+   write(fid2,'(A)') 'for i in range(nstate+1):'
+   write(fid2,'(A)') '  mrpt.NEVPT(mc, root=i).kernel()'
+  end if
  end if
 
  close(fid2)
@@ -754,7 +804,7 @@ subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
 end subroutine read_sa_cas_e_from_molcas_out
 
 ! read multi-root CASCI-based NEVPT2 energies from a PySCF out file
-subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
+subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
  use phys_cons, only: au2ev
  implicit none
  integer :: i, j, fid
@@ -764,41 +814,63 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, nstate, nevpt2_e)
  real(kind=8), allocatable :: casci_e(:)
  real(kind=8), intent(out) :: nevpt2_e(0:nstate)
  logical :: no_conv
+ logical, intent(in) :: dmrg
 
  no_conv = .false.
  allocate(casci_e(0:nstate), source=0d0)
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:10) == 'CASCI conv') exit
-  if(buf(1:14) == 'CASCI not conv') then
-   no_conv = .true.
-   exit
+ if(dmrg) then ! DMRG-NEVPT2 based on multi-root DMRG-CASCI
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:12) == 'CASCI state ') then
+    BACKSPACE(fid)
+    exit
+   end if
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_pyscf: no '&
+                    &CASCI state ' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   close(fid)
+   stop
   end if
- end do ! for while
+ else          ! NEVPT2 based on multi-root CASCI
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:10) == 'CASCI conv') exit
+   if(buf(1:14) == 'CASCI not conv') then
+    no_conv = .true.
+    exit
+   end if
+  end do ! for while
 
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_pyscf: no &
-                  &'CASCI conv' found in"
-  write(6,'(A)') 'file '//TRIM(outname)
-  stop
- end if
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_pyscf: no '&
+                    &CASCI conv' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
 
- if(no_conv) then
-  write(6,'(A)') REPEAT('-',79)
-  write(6,'(A)') 'Warning in subroutine read_multiroot_nevpt2_from_pyscf: CASCI&
-                 & not converged.'
-  write(6,'(A)') 'You should be cautious about the CASCI and NEVPT2 energies. Y&
-                 &ou are recommended'
-  write(6,'(A)') 'to open file '//TRIM(outname)//' and check.'
-  write(6,'(A)') 'The program will not stop but continue...'
-  write(6,'(A)') REPEAT('-',79)
+  if(no_conv) then
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning in subroutine read_multiroot_nevpt2_from_pyscf: CASC&
+                  &I not converged.'
+   write(6,'(A)') 'You should be cautious about the CASCI and NEVPT2 energies. &
+                  &You are recommended'
+   write(6,'(A)') 'to open file '//TRIM(outname)//' and check.'
+   write(6,'(A)') 'The program will not stop but continue...'
+   write(6,'(A)') REPEAT('-',79)
+  end if
  end if
 
  do i = 0, nstate, 1

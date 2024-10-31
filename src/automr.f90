@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc40 :: MOKIT, release date: 2024-Oct-21'
+  write(6,'(A)') 'AutoMR 1.2.6rc41 :: MOKIT, release date: 2024-Oct-31'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -389,7 +389,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
                     &t_pair'
   if(npair_wish > 0) then
    write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, mv&
-                     &_deg_docc_below_bo'
+                     &_dege_docc_below_bo'
    write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
    write(fid2,'(A)') 'from os import rename'
   end if
@@ -465,8 +465,8 @@ subroutine prt_auto_pair_script_into_py(pyname)
    write(fid2,'(A)') '  # proper positions'
    write(fid2,'(A)') "  ev = read_eigenvalues_from_fch(loc_fch, nif, 'a')"
    write(fid2,'(A)') "  mo = fch2py(loc_fch, nbf, nif, 'a')"
-   write(fid2,'(A)') '  new_ev, new_mo = mv_deg_docc_below_bo(nbf,nb,npair,ev[:&
-                     &nb],mo[:,:nb])'
+   write(fid2,'(A)') '  new_ev, new_mo = mv_dege_docc_below_bo(nbf,nb,npair,ev[&
+                     &:nb],mo[:,:nb])'
    write(fid2,'(A)') '  ev[:nb] = new_ev'
    write(fid2,'(A)') '  mo[:,:nb] = new_mo'
    write(fid2,'(A)') "  py2fch(loc_fch, nbf, nif, mo, 'a', ev, False, False)"
@@ -534,8 +534,8 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from mokit.lib.uno import uno'
  write(fid2,'(A)') 'from mokit.lib.gaussian import mo_fch2py'
- write(fid2,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
- write(fid2,'(A)') '                            read_na_and_nb_from_fch'
+ write(fid2,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read&
+                   &_na_and_nb_from_fch'
  write(fid2,'(A,/)') 'from mokit.lib.construct_vir import construct_vir'
  write(fid2,'(A,I0)') 'nproc = ', nproc
  write(fid2,'(A,/)') 'lib.num_threads(nproc)'
@@ -564,6 +564,7 @@ subroutine prt_uno_script_into_py(pyname)
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') "uno_fch = '"//TRIM(uno_fch)//"'"
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
+ write(fid1,'(A)') 'mo_a = mf.mo_coeff[0].copy()'
  write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
  write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_co&
                            &eff[0], mf.mo_coeff[1],S,',uno_thres,')'
@@ -586,10 +587,10 @@ end subroutine prt_uno_script_into_py
 ! print associated rotation into a given .py file
 subroutine prt_assoc_rot_script_into_py(pyname)
  use mol, only: chem_core, ecp_core
- use mr_keyword, only : localm, hf_fch, nskip_uno
+ use mr_keyword, only : localm, hf_fch, nskip_uno, npair_wish
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, assoc_fch
+ character(len=240) :: buf, pyname1, assoc_fch, a_fch
  character(len=240), intent(in) :: pyname
 
  ncore = chem_core - ecp_core
@@ -623,6 +624,12 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid2,'(A)') 'from mokit.lib.assoc_rot import assoc_rot'
  write(fid2,'(A)') 'from mokit.lib.mo_svd import proj_occ_get_act_vir'
  write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort_pair'
+ if(npair_wish > 0) then
+  write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, cal&
+                    &c_expect_value, \'
+  write(fid2,'(A)') ' get_u, sort_mo_by_ev, modify_uno_out'
+  write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
+ end if
  write(fid2,'(A,/)') 'from shutil import copyfile'
 
  do while(.true.)
@@ -636,6 +643,7 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
  i = INDEX(hf_fch, '.fch', back=.true.)
  assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
+ a_fch = hf_fch(1:i-1)//'_uno_asrot_a.fch'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') "assoc_fch = '"//TRIM(assoc_fch)//"'"
@@ -673,7 +681,44 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
  write(fid1,'(A)') 'noon = np.zeros(nif)'
  write(fid1,'(A)') "py2fch(assoc_fch,nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
- write(fid1,'(A)') 'sort_pair(assoc_fch, uno_fch, npair)'
+ write(fid1,'(A,/)') 'sort_pair(assoc_fch, uno_fch, npair)'
+
+ if(npair_wish > 0) then ! the user may want more pairs
+  write(fid1,'(A,I0)') 'npair_wish = ', npair_wish
+  write(fid1,'(A)') 'if npair_wish > nb:'
+  write(fid1,'(A)') "  print('Max_npair =', nb)"
+  write(fid1,'(A)') "  print('npair_wish =', npair_wish)"
+  write(fid1,'(A)') "  raise OSError('Nonsense number of pairs are required.')"
+  write(fid1,'(A)') 'elif npair_wish > npair:'
+  write(fid1,'(A)') '  # localize doubly occupied MOs (usually core MOs)'
+  write(fid1,'(A)') '  ncore = nb - npair'
+  write(fid1,'(A)') "  mf.mo_coeff[0][:,:] = mo_fch2py(assoc_fch)"
+  write(fid1,'(A)') '  core_lmo = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mol._&
+                    &bas[:,3],mol.cart,'
+  write(fid1,'(16X,A)') "nbf,ncore,mf.mo_coeff[0][:,:ncore],S,'mulliken')"
+  write(fid1,'(A)') '  mf.mo_coeff[0][:,:ncore] = core_lmo.copy()'
+  write(fid1,'(A)') '  # calculate <i|F_a|i>'
+  write(fid1,'(A)') '  u = get_u(nbf, nif, mo_a, mf.mo_coeff[0])'
+  write(fid1,'(A)') "  ev_a = read_eigenvalues_from_fch(hf_fch, nif, 'a')"
+  write(fid1,'(A)') '  new_ev = calc_expect_value(nif, u, ev_a)'
+  write(fid1,'(A)') '  # sort doubly occupied MOs as <i|F_a|i>'
+  write(fid1,'(A)') '  core_lmo, core_ev = sort_mo_by_ev(nbf, ncore, mf.mo_coef&
+                    &f[0][:,:ncore], new_ev[:ncore])'
+  write(fid1,'(A)') "  noon = read_eigenvalues_from_fch(assoc_fch, nif, 'a')"
+  write(fid1,'(A)') '  noon[:ncore] = core_ev'
+  write(fid1,'(A)') '  mf.mo_coeff[0][:,:ncore] = core_lmo'
+  write(fid1,'(A)') "  py2fch(assoc_fch, nbf, nif, mf.mo_coeff[0], 'a', noon, F&
+                    &alse, False)"
+  write(fid1,'(A)') '  # find corresponding antibonding orbitals'
+  write(fid1,'(A)') '  nadd = npair_wish - npair'
+  write(fid1,'(A)') '  i1 = ncore - nadd + 1'
+  write(fid1,'(A)') '  find_antibonding_orb(assoc_fch, i1, ncore, na+npair+1)'
+  write(fid1,'(A)') "  a_fch = '"//TRIM(a_fch)//"'"
+  write(fid1,'(A)') '  os.rename(a_fch, assoc_fch)'
+  write(fid1,'(A)') '  npair = npair_wish'
+  write(fid1,'(A,/)') '  modify_uno_out(ncore-nadd, npair, na-nb)'
+ end if
+
  close(fid1)
 end subroutine prt_assoc_rot_script_into_py
 

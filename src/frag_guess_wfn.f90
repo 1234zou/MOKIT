@@ -1367,9 +1367,9 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
 
  i = INDEX(buf1, '$END')
  if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found&
-                 & in the 2nd"
-  write(6,'(A)') 'line of file '//TRIM(inpname1)
+  write(6,'(/,A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found in th&
+                   &e 2nd line"
+  write(6,'(A)') 'of file '//TRIM(inpname1)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -1400,7 +1400,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   if(disp_type == 1) then
    write(fid2,'(A)',advance='no') ' IDCVER=3' ! GD3
 ! Some dispersion parameters are not built-in in GAMESS, and some built-in
-! dispersion parameters are wrong. So I have to explicitly add them
+! dispersion parameters were wrong. So I have to explicitly specify them.
    select case(TRIM(dft_in_gms))
    case('B3PW91')
     write(fid2,'(A)',advance='no') ' DCSR=1.176 DCS8=1.775'
@@ -1503,8 +1503,8 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   write(fid2,'(A,/,A)') ' RDVECM=.T. $END',' $GUESS GUESS=HCORE $END'
 
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine gen_inp_of_frags: invalid eda_type=',&
-                     eda_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine gen_inp_of_frags: invalid eda_type=',&
+                      eda_type
   close(fid1)
   close(fid2)
   stop
@@ -1513,7 +1513,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  if(LEN_TRIM(scrf) > 0) then
   write(fid2,'(A)',advance='no') ' $PCM IEF=-3 SOLVNT='//TRIM(solvent)
 
-  if(index(scrf,'smd') > 0) then
+  if(INDEX(scrf,'smd') > 0) then
    write(fid2,'(A)') ' SMD=.T. $END'
    write(6,'(/,A)') 'Warning from subroutine gen_inp_of_frags: scrf=SMD detected.'
    write(6,'(A)') 'If you encounter SCF convergence problems later in GAMESS,&
@@ -1578,8 +1578,8 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  close(fid2)
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine copy_and_modify_gms_eda_file: no '$VEC&
-                &' found in file "//TRIM(inpname1)
+  write(6,'(/,A)') "ERROR in subroutine copy_and_modify_gms_eda_file: no '$VEC'&
+                   & found in file "//TRIM(inpname1)
   stop
  end if
 end subroutine copy_and_modify_gms_eda_file
@@ -1776,8 +1776,8 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'CHCl3'
  case('carbontetrachloride')
   solvent = 'CCl4'
- case('methylenechloride')
-  solvent = 'CH2Cl2'
+ case('methylenechloride','dichloromethane','ch2cl2')
+  solvent = 'DCM'
  case('dichloroethane','1,2-dichloroethane','ch2clch2cl')
   solvent = 'C2H4Cl2'
  case('heptane','n-heptane')
@@ -1798,8 +1798,7 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'INPUT'
  case('water','h2o','methanol','ch3oh','ethanol','hexane','acetonitrile','dmso',&
       'thf','benzene','c6h6','nitromethane','ch3no2','aniline','c6h5nh2',&
-      'cyclohexane','c6h12','ccl4','dichloromethane','ch2cl2','toluene','c6h5ch3',&
-      'chlorobenzene','c6h5cl')
+      'cyclohexane','c6h12','ccl4','toluene','c6h5ch3','chlorobenzene','c6h5cl')
   solvent = TRIM(solvent_gau)
  case default
   write(6,'(A)') REPEAT('-',79)

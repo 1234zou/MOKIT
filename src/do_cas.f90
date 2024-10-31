@@ -1744,7 +1744,6 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, casscf, RI, maxM, hardwfn, crazywfn, block_mpi
  implicit none
- integer :: i
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
 
@@ -1764,15 +1763,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  else ! DMRG-CASSCF
   write(fid,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, ',',&
                            nactb, '))'
-  if(block_mpi) then
-   i = CEILING(0.5*REAL(mem)/REAL(nproc))
-   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
-  else
-   i = CEILING(0.4*REAL(mem))
-   write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
-   write(fid,'(A)') 'mc.fcisolver.threads = nproc'
-  end if
-  write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
+  call prt_block_mem(fid, mem, nproc, block_mpi)
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
  end if
 
@@ -1914,7 +1905,6 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
  use mr_keyword, only: dmrgscf, iroot, RI, mem, casci, hardwfn, crazywfn, maxM,&
   nproc, block_mpi
  implicit none
- integer :: i
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
  logical, intent(in) :: natorb
@@ -1940,15 +1930,7 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
    write(fid,'(A)') 'mc.natorb = True'
   else           ! DMRG-CASCI
    write(fid,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
-   if(block_mpi) then
-    i = CEILING(0.5*REAL(mem)/REAL(nproc))
-    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
-   else
-    i = CEILING(0.4*REAL(mem))
-    write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
-    write(fid,'(A)') 'mc.fcisolver.threads = nproc'
-   end if
-   write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
+   call prt_block_mem(fid, mem, nproc, block_mpi)
   end if
  end if
 
@@ -1990,4 +1972,22 @@ subroutine prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
 
  if(alive1 .or. alive2) write(6,'(A)') REPEAT('-',79)
 end subroutine prt_active_space_warn
+
+! print block-1.5/block2 memory settings into a specified file ID
+subroutine prt_block_mem(fid, mem, nproc, block_mpi)
+ implicit none
+ integer :: i
+ integer, intent(in) :: fid, mem, nproc ! mem in GB
+ logical, intent(in) :: block_mpi
+
+ if(block_mpi) then
+  i = CEILING(0.5d0*DBLE(mem)/DBLE(nproc))
+  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
+ else
+  i = CEILING(0.4d0*DBLE(mem))
+  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
+  write(fid,'(A)') 'mc.fcisolver.threads = nproc'
+ end if
+ write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
+end subroutine prt_block_mem
 
