@@ -1,16 +1,55 @@
 MOKIT 1.2.6 (Oct 31, 2024)
 ------------------------
+Fixes
 * fix keyword bug in SA-DMRG-CASSCF
 * fix recognition bug of the highest angular momentum in fch2cfour when low angular momentum diffuse functions are used
-* add subroutines about finding (extra) antibonding orbitals
 * fix GHF dectection bug introduced in commit f0dbe662
-* improved SS-CASSCF keywords
-* add basis set files MINIX, vDZP, def2-mSVP, def2-mTZVP and def2-mTZVPP
-* update utility fch_u2r for R(O)HF->UHF file conversion
 * fix bug of calling Dalton to do MP2/CCSD when point charges are included
-* auto-detect of def2 ECP/PP when `HF_prog=PySCF`
+* fix fortran read bug in gvb_exclude_XH (for very high ang. mom. and >99 atoms)
+* fix SS-DMRG-CASCI keyowrds
+* fix 'Int Atom Types' dimension in addH2singlet
+* fix bug (data out of range) in find_cos_quartic_poly_maximum
+* fix bug ("two successive SP/L") in mkl2fch and molden2fch
+* update get_mokit_loc.py
+* fix bug of frozen core counting when large core ECP is used
+* fix bug of DMRG excited calculation keywords
+* fix bug in subroutine solve_ovlp_from_ctsc
+* fix the bug of using CASCI obj in module fchk()
+* fix bug of generating the F() array when NCO=0 in a GVB computation
+Features
+* add subroutines about finding (extra) antibonding orbitals
+* add basis set files MINIX, vDZP, def2-mSVP, def2-mTZVP and def2-mTZVPP
 * remove Gaussian dependency of HF calculation when `HF_prog=ORCA`
-* move bas_gms2psi into fch2psi
+* add Jocobian 2*2 rotation RHF and conventional RHF
+* add subroutine merge_bas_in_dalton_mol
+* add utility amo2fch for Amesp->Gaussian
+* update dat2fch to generate a .fch file from scratch
+* add a new keyword LocDocc (associated with LocalM)
+* add `-sf`,`-mrsf`,`-sasf` arguments for fch2mkl, fch2inp, fch2qchem
+* put basis sets ANO-R1, ANO-R2 and ANO-R3 into `$MOKIT_ROOT/mokit/basis/`
+* put basis sets cc-pVDZ-F12 and cc-pVTZ-F12 into `$MOKIT_ROOT/mokit/basis/`
+* put basis sets cc-pVDZ-X2C and cc-pVTZ-X2C into `$MOKIT_ROOT/mokit/basis/`
+* remove Gaussian dependency of HF calculation when `HF_prog=PySCF`
+* support of ORCA/Turbomole/CFOUR/OpenMolcas/Molpro molden in molden2fch
+* add DMRG-FIC-MRCISD interface (calling PySCF+Block2)
+* add utilities molden2fch, fch2tm
+* add interfaces for MP2, CCSD, CCSD(T) gradients in autosr
+* add interfaces for MP2, CCSD, CCSD(T) NOs in autosr
+* put basis sets x2c-SVPall, x2c-TZVPall, etc into `$MOKIT_ROOT/mokit/basis/`
+* add subroutine mo_grassmann_intrplt
+* add subroutine permute_atoms_wfn
+* add utilities mkl2amo, mkl2bdf, mkl2cfour, mkl2com, mkl2dal, mkl2inp, mkl2inporb, mkl2psi, mkl2py, mkl2qchem
+* update utility mkl2fch for generating .fch file from scratch
+* add subroutines rotate_atoms_wfn and geom_lin_intrplt
+* add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> Amesp
+* add module mirror_wfn
+* add interfaces of RI-MP2/CCD/CCSD/CCSD(T) analytical gradients in autosr
+* call programs to get analytical gradients of CASPT2 and MC-PDFT
+* support HF_prog=PySCF in frag_guess_wfn
+Improvement
+* improved SS-CASSCF keywords
+* update utility fch_u2r for R(O)HF->UHF file conversion
+* auto-detect of def2 ECP/PP when `HF_prog=PySCF`
 * update automr and autosr for better compatibility with ORCA 6
 * re-distributions of lib.num_threads, mf.max_memory and X2C keywords
 * disable state deletion in Dalton
@@ -20,62 +59,27 @@ MOKIT 1.2.6 (Oct 31, 2024)
 * optionally read `Int Atom Types` in fch
 * add stability.py in mokit/lib/ for tight wfn stability check
 * add parameters of 9 solvents in frag_guess_wfn
-* fix fortran read bug in gvb_exclude_XH (for very high ang. mom. and >99 atoms)
-* fix SS-DMRG-CASCI keyowrds
-* add Jocobian 2*2 rotation RHF and conventional RHF
-* fix 'Int Atom Types' dimension in addH2singlet
-* add subroutine merge_bas_in_dalton_mol
-* remove mo_svd_format.f90 and move this functionality into wfn_analysis
 * improvement of RIJK_bas and RIC_bas settings
-* fix bug (data out of range) in find_cos_quartic_poly_maximum
-* fix bug ("two successive SP/L") in mkl2fch and molden2fch
-* add utility amo2fch for Amesp->Gaussian
-* update dat2fch to generate a .fch file from scratch
-* standardize some subroutines to _from_dat and _from_gms_inp
-* update get_mokit_loc.py
 * add decontracted basis set in fch2psi when sfx2c is used
-* add a new keyword LocDocc (associated with LocalM)
 * change `-b3lyp` type to `-dft 'b3lyp'` type for fch2mkl
-* put basis sets ANO-R1, ANO-R2 and ANO-R3 into `$MOKIT_ROOT/mokit/basis/`
-* add `-sf`,`-mrsf`,`-sasf` arguments for fch2mkl, fch2inp, fch2qchem
 * automatically detect MPI/OpenMP version of Dalton
-* put basis sets cc-pVDZ-F12 and cc-pVTZ-F12 into `$MOKIT_ROOT/mokit/basis/`
-* put basis sets cc-pVDZ-X2C and cc-pVTZ-X2C into `$MOKIT_ROOT/mokit/basis/`
-* remove Gaussian dependency of HF calculation when `HF_prog=PySCF`
 * support of I angular momentum in fch2mkl and mkl2fch
-* support of ORCA/Turbomole/CFOUR/OpenMolcas/Molpro molden in molden2fch
-* add DMRG-FIC-MRCISD interface (calling PySCF+Block2)
 * modify Makefile to support OpenMP for some subroutines
-* add utilities molden2fch, fch2tm
 * optimize DMRG OpenMP/MPI settings
 * for atoms<=Xe in ist=3, use Gaussian instead of PySCF to do HF/STO-6G
 * for atoms>Xe in ist=3, find antibonding orbitals by orbital rotations (def2-SVP removed)
 * add support for ghost atoms in fch2mkl
-* fix bug of frozen core counting when large core ECP is used
-* fix bug of DMRG excited calculation keywords
-* fix bug in subroutine solve_ovlp_from_ctsc
 * update fch2inporb to fit OpenMolcas>=23.02
 * add readrhf/readuhf support in autosr
 * change default MPI to OpenMP when calling Block
-* add interfaces for MP2, CCSD, CCSD(T) gradients in autosr
-* add interfaces for MP2, CCSD, CCSD(T) NOs in autosr
-* remove ZORA related basis sets
-* put basis sets x2c-SVPall, x2c-TZVPall, etc into `$MOKIT_ROOT/mokit/basis/`
-* add subroutine mo_grassmann_intrplt
-* add subroutine permute_atoms_wfn
-* fix the bug of using CASCI obj in module fchk()
-* add utilities mkl2amo, mkl2bdf, mkl2cfour, mkl2com, mkl2dal, mkl2inp, mkl2inporb, mkl2psi, mkl2py, mkl2qchem
-* update utility mkl2fch for generating .fch file from scratch
-* fix bug of generating the F() array when NCO=0 in a GVB computation
-* add subroutines rotate_atoms_wfn and geom_lin_intrplt
 * set GVB_conv=5d-4 and FcGVB as default in (post-)CASSCF calculations
-* add fch2amo/py2amesp/qchem2amesp for Gaussian/PySCF/Q-Chem -> Amesp
-* add module mirror_wfn
-* add interfaces of RI-MP2/CCD/CCSD/CCSD(T) analytical gradients in autosr
-* call programs to get analytical gradients of CASPT2 and MC-PDFT
-* support HF_prog=PySCF in frag_guess_wfn
 * add attribute natorb in subroutine py2fch
 * update examples and tests (add prefix mokit.lib when importing Python modules)
+Re-factor and removal
+* move bas_gms2psi into fch2psi
+* remove mo_svd_format.f90 and move this functionality into wfn_analysis
+* standardize some subroutines to _from_dat and _from_gms_inp
+* remove ZORA related basis sets
 
 MOKIT 1.2.5 (Apr 27, 2023)
 ------------------------
