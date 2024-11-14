@@ -122,7 +122,6 @@ subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
  integer :: i, j, nif
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
- real(kind=8) :: a_2
  real(kind=8), parameter :: thres = 1d-6
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo(nbf,nmo)
 !f2py intent(in) :: ao_ovlp, old_mo
@@ -133,7 +132,6 @@ subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
 !f2py depend(nbf,nmo) :: new_mo
  real(kind=8), allocatable :: X(:,:), Y(:,:), ev(:)
  real(kind=8), allocatable :: Sp(:,:) ! S', S prime
- real(kind=8), external :: normalize_mo
  logical, intent(in) :: sym_ortho, prt_warn
 !f2py intent(in) :: sym_ortho, prt_warn
  ! sym_ortho: True/False for symmetric/canonical orthonormalization
@@ -146,13 +144,12 @@ subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
  end if
 
  if(nmo == 1) then ! only one MO, normalize and return
-  a_2 = normalize_mo(nbf, ao_ovlp, old_mo(:,1))
-  new_mo = old_mo/DSQRT(a_2)
+  new_mo = old_mo
+  call normalize_mo(nbf, ao_ovlp, new_mo(:,1))
   return
- else
-  new_mo = 0d0 ! initialization
  end if
 
+ new_mo = 0d0 ! initialization
  allocate(Sp(nmo,nmo))
  call calc_CTSC(nbf, nmo, old_mo, ao_ovlp, Sp) ! (C^T)SC = S'
  ! S' is not I, so C is not orthonormal

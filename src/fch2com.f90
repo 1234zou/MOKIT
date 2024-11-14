@@ -6,19 +6,32 @@ program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
  integer :: i, SYSTEM
+ character(len=4) :: str
  character(len=240) :: fchname, inpname
- logical :: sph
+ character(len=300) :: buf
+ logical :: sph, m15
 
  i = iargc()
- if(i /= 1) then
+ if(i<1 .or. i>2) then
   write(6,'(/,A)') ' ERROR in subroutine fch2com: wrong command line argument!'
-  write(6,'(A,/)') ' Example (R(O)HF, GVB, CAS): fch2com a.fch'
+  write(6,'(A)') ' Example 1 (R(O)HF/GVB/CAS)  : fch2com h2o.fch'
+  write(6,'(A,/)') ' Example 2 (only Molpro 2015): fch2com h2o.fch -m15'
   stop
  end if
 
- fchname = ' '
+ m15 = .false.; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
+
+ if(i == 2) then
+  call getarg(2, str)
+  if(str /= '-m15') then
+   write(6,'(/,A)') 'ERROR in subroutine fch2com: wrong command line argument!'
+   write(6,'(A)') "The 2nd argument can only be '-m15'."
+   stop
+  end if
+  m15 = .true.
+ end if
 
  ! if .chk file provided, convert into .fch file automatically
  i = LEN_TRIM(fchname)
@@ -34,13 +47,12 @@ program main
 
  call fch2inp_wrap(fchname, .false., 0, 0, .false.) ! generate GAMESS .inp
 
+ write(buf,'(A)') 'bas_gms2molpro '//TRIM(inpname)
  call check_sph_in_fch(fchname, sph)
- if(sph) then
-  i = SYSTEM('bas_gms2molpro '//TRIM(inpname)//' -sph')
- else
-  i = SYSTEM('bas_gms2molpro '//TRIM(inpname))
- end if
+ if(sph) buf = TRIM(buf)//' -sph'
+ if(m15) buf = TRIM(buf)//' -m15'
 
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility bas_gms&
                    &2molpro.'

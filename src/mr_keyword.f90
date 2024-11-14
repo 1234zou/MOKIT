@@ -318,7 +318,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc41 (2024-Oct-31)'
+ write(6,'(A)') '           Version: 1.2.6rc42 (2024-Nov-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -616,8 +616,7 @@ end subroutine check_gms_path
   read(fid,'(A)') buf ! skip a blank line
   read(fid,'(A)') buf ! Title Card, the 1st line of keywords
   call lower(buf)
-  ! Note: this lower() is not from string_manipulate.f90, but defined in this
-  ! module
+  ! This lower is not from string_manipulate.f90, but defined in this module
 
   if(buf(1:6) /= 'mokit{') then
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected i&
@@ -667,6 +666,12 @@ end subroutine check_gms_path
 
   write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(6,'(A)') TRIM(longbuf)
+  if(INDEX(longbuf,"""") > 0) then
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: double quote "" not all&
+                    &owed in mokit{}."
+   write(6,'(A)') 'Please use single quotes.'
+   stop
+  end if
 
   alive1(1:3) = [(INDEX(longbuf,'hf_prog')>0), (INDEX(longbuf,'readuhf')>0), &
                  (INDEX(longbuf,'readno')>0)]
@@ -1682,7 +1687,7 @@ subroutine read_mem_nproc_route(fid, mem, nproc, buf)
  integer, intent(out) :: mem, nproc
  character(len=240), intent(out) :: buf
  character(len=42), parameter :: warn_str = 'ERROR in subroutine read_mem_nproc&
-                                             &_route: '
+                                            &_route: '
  buf = ' '
  do while(.true.)
   read(fid,'(A)',iostat=ifail) buf

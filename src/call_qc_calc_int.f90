@@ -117,7 +117,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
   deallocate(mo)
  end if
 
- if( (nif==nbf .and. (.not.success)) .or. nif<nbf ) then
+ if(nif<nbf .or. (nif==nbf .and. (.not.success))) then
   call call_gaussian_gen47_from_fch(fchname, file47)
   call read_ao_ovlp_from_47(file47, nbf, S)
   call delete_file(TRIM(file47))
@@ -324,7 +324,7 @@ subroutine get_gau_path(gau_path)
                    &au_path="//TRIM(buf)
   write(6,'(/,A)') 'This error often occurs when your machine has no (or has i&
                    &ncorrect) Gaussian'
-  write(6,'(A)') 'environment variables. Here I offer a correct example:'
+  write(6,'(A)') 'environment variables. Here a correct example is shown:'
   write(6,'(A)') REPEAT('-',45)
   write(6,'(A)') ' export g16root=/opt'
   write(6,'(A)') ' source $g16root/g16/bsd/g16.profile'

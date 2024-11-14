@@ -75,6 +75,15 @@ subroutine comb_elem_coor_in_frags(frag1, frag2, frag3)
  type(frag), intent(in) :: frag1, frag2
  type(frag), intent(inout) :: frag3
 
+ if(frag1%mult /= 1) then
+  write(6,'(/,A)') 'Currently the 1st fragment must be closed-shell.'
+  write(6,'(A,I0)') 'frag1%mult=', frag1%mult
+  stop
+ end if
+ ! now the spin of frag3 is equal to that of frag2
+ frag3%mult = frag2%mult
+ frag3%wfn_type = frag2%wfn_type
+
  natom1 = frag1%natom
  natom3 = natom1 + frag2%natom
  frag3%natom = natom3
@@ -105,10 +114,13 @@ module theory_level
  character(len=240) :: gau_path
  character(len=240) :: hf_prog_path = ' '
  logical :: sph = .true.  ! '5D 7F'/'6D 10F'
+ logical :: even_e = .false. ! force the number of electrons in XO-PBC to be even
+ logical :: complement = .false.
+ ! complement neighbouring metal atoms to obtain more a reasonable structure
 end module theory_level
 
 program main
- use theory_level, only: gau_path
+ use theory_level, only: gau_path, even_e, complement
  implicit none
  integer :: i, i1, i2
  integer(kind=4) :: hostnm
@@ -135,7 +147,7 @@ program main
  call fdate(data_string)
  write(6,'(A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
- call check_xo_pbc_in_gjf(gjfname, xo_pbc, i1, i2)
+ call check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
  if(xo_pbc) then
   call calc_xo_pbc_ads_e(gjfname, i1, i2)
  else
@@ -148,17 +160,22 @@ program main
 end program main 
 
 ! check whether the XO-PBC calculation is requested in the .gjf file
-subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, i1, i2)
+subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
  implicit none
- integer :: i, j, k, fid
+ integer :: i, j, k, m1, m2, nkey, fid
  integer, intent(out) :: i1, i2
+ character(len=10) :: str(2)
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
- logical, intent(out) :: xo_pbc
+ character(len=80), parameter :: error_str = 'ERROR in subroutine check_xo_pbc_&
+                               &in_gjf: syntax error in the Title Card of file '
+ logical, intent(out) :: xo_pbc, even_e, complement
 
- i1 = 0; i2 = 0; xo_pbc = .false.
+ i1 = 0; i2 = 0; nkey = 0
+ str(1) = ' '; str(2) = ' '
+ xo_pbc = .false.; even_e = .false.; complement = .false.
+
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)') buf
   if(LEN_TRIM(buf) == 0) exit
@@ -167,22 +184,48 @@ subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, i1, i2)
  read(fid,'(A)') buf
  close(fid)
  buf = ADJUSTL(buf)
- call upper(buf(1:6))
+ k = LEN_TRIM(buf)
+ call upper(buf(1:k))
+ if(buf(1:6) /= 'XO-PBC') return
 
- if(buf(1:6) == 'XO-PBC') then
-  xo_pbc = .true.
-  i = INDEX(buf,'{')
-  j = INDEX(buf,'-', back=.true.)
-  k = INDEX(buf,'}')
-  if( (i*j*k==0) .or. (.not. (i+1<j .and. j+1<k)) ) then
-   write(6,'(/,A)') 'ERROR in subroutine check_xo_pbc_in_gjf: {n1-n2} syntax no&
-                    &t found in the'
-   write(6,'(A)') 'Title Card line of file '//TRIM(gjfname)
-   stop
-  end if
-  read(buf(i+1:j-1),*) i1
-  read(buf(j+1:k-1),*) i2
+ xo_pbc = .true.
+ buf = ADJUSTL(buf(7:))
+ i = INDEX(buf, '{'); j = INDEX(buf, '-'); k = INDEX(buf, '}')
+
+ if(i==0 .or. j==0. .or. k==0 .or. (i+1>=j) .or. (j+1>=k)) then
+  write(6,'(/,A)') error_str//TRIM(gjfname)
+  close(fid)
+  stop
  end if
+
+ read(buf(i+1:j-1),*) i1
+ m1 = INDEX(buf, ',')
+ if(m1 == 0) then
+  read(buf(j+1:k-1),*) i2
+ else
+  read(buf(j+1:m1-1),*) i2
+  m2 = INDEX(buf, ',', back=.true.)
+  if(m2 == m1) then
+   str(1) = buf(m1+1:k-1)
+   nkey = 1
+  else
+   str(1) = buf(m1+1:m2-1)
+   str(2) = buf(m2+1:k-1)
+   nkey = 2
+  end if
+ end if
+
+ do i = 1, nkey, 1
+  select case(TRIM(str(i)))
+  case('EVEN_E')
+   even_e = .true.
+  case('COMPLEMENT')
+   complement = .true.
+  case default
+   write(6,'(/,A)') error_str//TRIM(gjfname)
+   stop
+  end select
+ end do ! for i
 end subroutine check_xo_pbc_in_gjf
 
 ! perform fragment-guess wavefunction calculations, one by one fragment
@@ -241,11 +284,13 @@ subroutine frag_guess_wfn(gjfname)
 
  call check_sph_in_gjf(gjfname, sph)
  if(sph .and. eda_type==1) then
+  write(6,'(A)') REPEAT('-', 79)
   write(6,'(A)') 'Warning in subroutine frag_guess_wfn: spherical harmonic func&
-                 &tions (5D 7F) cannot'
-  write(6,'(A)') 'be used for the Morokuma-EDA method in GAMESS. Automatically switc&
-                 &h to Cartesian functions'
-  write(6,'(A)') '(6D 10F).'
+                 &tions (5D 7F)'
+  write(6,'(A)') 'cannot be used for the Morokuma-EDA method in GAMESS. Automat&
+                 &ically switch'
+  write(6,'(A)') 'to Cartesian functions (6D 10F).'
+  write(6,'(A)') REPEAT('-', 79)
   sph = .false.
  end if
 
@@ -481,10 +526,10 @@ subroutine frag_guess_wfn(gjfname)
  end do ! for i
 
  if(mult-1 /= j) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired ele&
-                   &ctrons calculated from'
-  write(6,'(A)') 'fragments spin multiplicities is not equal to that calculate&
-                 &d from the total spin'
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired elec&
+                   &trons calculated from'
+  write(6,'(A)') 'fragments spin multiplicities is not equal to that calculated&
+                 & from the total spin'
   write(6,'(A)') 'multiplicity. Some spin multiplicity must be wrong.'
   write(6,'(A)') 'Check your spin in file '//TRIM(gjfname)
   deallocate(frags)
@@ -513,11 +558,11 @@ subroutine frag_guess_wfn(gjfname)
   k = INDEX(buf,'=')
   m = INDEX(buf,')')
   if(j*k*m == 0) then
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in&
-                    & file '//TRIM(gjfname)//'.'
-   write(6,'(A)') 'Please read examples in Section 5.3.2 ~ 5.3.4 of MOKIT&
-                  & manual and learn'
-   write(6,'(A)') 'how to write a valid input file.'
+   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in file '&
+                     //TRIM(gjfname)
+   write(6,'(A)') 'Please read examples in Section 5.3.2 ~ 5.3.4 of MOKIT manua&
+                  &l and learn how'
+   write(6,'(A)') 'to write a valid input file.'
    stop
   end if
   read(buf(1:j-1),*) elem(i)
@@ -526,8 +571,8 @@ subroutine frag_guess_wfn(gjfname)
   if((i==1 .and. eda_type/=0 .and. ifrag/=1) .or. ifrag<ifrag0) then
    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fr&
                     &agment number.'
-   write(6,'(A)') 'This task requires the definition of fragment number is mon&
-                  &omer1, monomer2,'
+   write(6,'(A)') 'This task requires the definition of fragment number is mono&
+                  &mer1, monomer2,'
    write(6,'(A)') 'monomer3, ...'
    close(fid)
    stop
@@ -673,8 +718,8 @@ subroutine frag_guess_wfn(gjfname)
   i = nfrag
   call modify_guess_conv_stab_in_gjf(frags(i)%fname, frags(i)%wfn_type, stab_chk)
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
-        frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
-        frags(i)%wfn_type)
+   frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
+   frags(i)%wfn_type)
   ! According to my tests, the fragment MOs guess above is slightly better than
   !  the sum of fragment densities below
   !call sum_frag_dm_in_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname, &
@@ -944,6 +989,9 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  select case(frag0%wfn_type)
  case(1) ! RHF
   write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=128)'
+  !if(stab_chk .and. (.not. frag0%noiter)) then
+  ! write(fid,'(A)',advance='no') ' stable'
+  !end if
  case(2) ! ROHF
   write(fid,'(A)',advance='no') ' scf(maxcycle=300,NoIncFock,NoVarAcc)'
  case(3) ! UHF
@@ -1331,7 +1379,7 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  write(fid2,'(A)') "psi4.IO.set_default_namespace('dimer')"
 
  write(fid2,'(/,A)') "aux_basis = psi4.core.BasisSet.build(wfn_dimer.molecule(),&
-                   & ""DF_BASIS_SAPT"","
+                     & ""DF_BASIS_SAPT"","
  write(fid2,'(A)') " psi4.core.get_global_option(""DF_BASIS_SAPT""),"
  write(fid2,'(A)') " ""RIFIT"", psi4.core.get_global_option(""BASIS""))"
  write(fid2,'(A)') "wfn_dimer.set_basisset(""DF_BASIS_SAPT"", aux_basis)"
@@ -1579,7 +1627,8 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine copy_and_modify_gms_eda_file: no '$VEC'&
-                   & found in file "//TRIM(inpname1)
+                   & found in file"
+  write(6,'(A)') TRIM(inpname1)
   stop
  end if
 end subroutine copy_and_modify_gms_eda_file
@@ -1774,7 +1823,7 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'C2H5OH'
  case('chloroform')
   solvent = 'CHCl3'
- case('carbontetrachloride')
+ case('carbontetrachloride','ccl4')
   solvent = 'CCl4'
  case('methylenechloride','dichloromethane','ch2cl2')
   solvent = 'DCM'
@@ -1792,13 +1841,20 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'HEXANE'
  case('1,4-dioxane')
   solvent = 'dioxane'
+ case('acetonitrile')
+  solvent = 'CH3CN'
+ case('chlorobenzene','c6h5cl')
+  solvent = 'C6H5Cl'
+ case('nitromethane')
+  solvent = 'CH3NO2'
+ case('cyclohexane','c6h12')
+  solvent = 'C6H12'
  case('1,1,1-trichloroethane','1,1,2-trichloroethane','1,2,4-trimethylbenzene',&
       '1,2-dibromoethane','1,2-ethanediol','diethylether','isoquinoline', &
       'n-octanol','quinoline','n,n-dimethylacetamide','dmf','n,n-dimethylformamide')
   solvent = 'INPUT'
- case('water','h2o','methanol','ch3oh','ethanol','hexane','acetonitrile','dmso',&
-      'thf','benzene','c6h6','nitromethane','ch3no2','aniline','c6h5nh2',&
-      'cyclohexane','c6h12','ccl4','toluene','c6h5ch3','chlorobenzene','c6h5cl')
+ case('water','h2o','methanol','ch3oh','ethanol','hexane','dmso','thf', &
+      'benzene','c6h6','ch3no2','aniline','c6h5nh2','toluene','c6h5ch3')
   solvent = TRIM(solvent_gau)
  case default
   write(6,'(A)') REPEAT('-',79)
@@ -2124,69 +2180,105 @@ subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
 end subroutine del_ecp_of_ghost_in_buf
 
 ! Select adjcent atoms according to the cutoff radius. The distance between an
-! atom in frag4 and the adsorbate is stored in the array dis0.
-! If the selected atoms have odd electrons, one more atom will be selected to
-! obtain even electrons. This is because for some metals (e.g. Cu), RDFT wave
-! function is often stable, and thus using RDFT can save computational time. For
-! special metals, we can use broken-symmetry guess or antiferromagnetic guess.
-subroutine select_adj_atoms_in_frag(frag4, natom4, dis0, r_cut, frag2)
+!  atom in frag4 and the adsorbate is stored in the array dis.
+! If selected atoms have odd total electrons, the farthest atom will be deleted
+!  to obtain even electrons. This is because for some metals (e.g. Cu), RDFT
+!  wave function is often stable, and thus using RDFT can save computational
+!  time. For special metals, we can use broken-symmetry guess or antiferromagnetic
+!  guess.
+subroutine select_adj_atoms_in_frag(even_e, complement, frag4, natom4, dis, &
+                                    r_cut, frag2)
  use frag_info, only: frag
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, j, k(1), ne, natom2
+ integer :: i, j, k, ne, idx
  integer, intent(in) :: natom4
- real(kind=8) :: rtmp
- real(kind=8), intent(in) :: dis0(natom4), r_cut
- real(kind=8), allocatable :: dis(:), coor2(:,:)
+ integer, allocatable :: stype(:)
+ real(kind=8) :: max_dis, coor(3), min_xyz(3), max_xyz(3)
+ real(kind=8), intent(in) :: dis(natom4), r_cut
  character(len=2) :: str2
- character(len=2), allocatable :: elem2(:)
+ logical, intent(in) :: even_e, complement
  type(frag), intent(in) :: frag4
  type(frag), intent(inout) :: frag2
 
- allocate(dis(natom4), source=dis0)
- natom2 = frag2%natom
- allocate(elem2(natom2), coor2(3,natom2))
- ne = 0; j = 0; rtmp = MAXVAL(dis) + 0.01d0
+ allocate(stype(natom4), source=0)
+ ! type of selected atoms
+ ! 0: not selected/chosen
+ ! 1: selected by distance threshold
+ ! 2: selected by xyz range
+ ne = 0; j = 0
 
  do i = 1, natom4, 1
   if(dis(i) < r_cut) then
-   str2 = frag4%elem(i)
-   ne = ne + elem2nuc(str2)
+   coor = frag4%coor(:,i)
    j = j + 1
-   elem2(j) = str2
-   coor2(:,j) = frag4%coor(:,i)
-   dis(i) = rtmp
+   if(j == 1) then
+    min_xyz = coor; max_xyz = coor
+    idx = i; max_dis = dis(i)
+   else
+    do k = 1, 3
+     if(coor(k) < min_xyz(k)) min_xyz(k) = coor(k)
+     if(coor(k) > max_xyz(k)) max_xyz(k) = coor(k)
+    end do ! for k
+    if(dis(i) > max_dis) then
+     idx = i; max_dis = dis(i)
+    end if
+   end if
+   stype(i) = 1
+   ne = ne + elem2nuc(frag4%elem(i))
   end if
  end do ! for i
 
- if(allocated(frag2%elem)) deallocate(frag2%elem)
- if(allocated(frag2%coor)) deallocate(frag2%coor)
-
- if(MOD(ne,2) == 1) then ! select 1 more metal atom
-  write(6,'(A)') 'Selected atoms have odd electrons, trying to select one more &
-                 &atom...'
-  allocate(frag2%elem(natom2+1), frag2%coor(3,natom2+1))
-  frag2%elem(1:natom2) = elem2
-  frag2%coor(:,1:natom2) = coor2
-  k = MINLOC(dis)
-  write(6,'(A,F10.4,A)') 'dis(k)=', dis(k(1)), ' A'
-  str2 = frag4%elem(k(1))
-  ne = ne + elem2nuc(str2)
-  if(MOD(ne,2) == 1) then
-   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: odd electrons.'
-   write(6,'(A,I0)') 'k=', k(1)
-   stop
-  end if
-  frag2%elem(natom2+1) = str2
-  frag2%coor(:,natom2+1) = frag4%coor(:,k(1))
-  natom2 = natom2 + 1
- else
-  allocate(frag2%elem(natom2), source=elem2)
-  allocate(frag2%coor(3,natom2), source=coor2)
+ ! select surrounding metal atoms to get a more reasonable cluster shape
+ if(complement) then
+  write(6,'(A)') 'Complementing surrounding metal atoms...'
+  k = j
+  do i = 1, natom4, 1
+   if(stype(i) == 1) cycle
+   coor = frag4%coor(:,i)
+   if(coor(1)<min_xyz(1) .or. coor(1)>max_xyz(1)) cycle
+   if(coor(2)<min_xyz(2) .or. coor(2)>max_xyz(2)) cycle
+   if(coor(3)<min_xyz(3) .or. coor(3)>max_xyz(3)) cycle
+   if(dis(i) > max_dis) then
+    idx = i; max_dis = dis(i)
+   end if
+   j = j + 1
+   stype(i) = 2
+   ne = ne + elem2nuc(frag4%elem(i))
+  end do ! for i
+  write(6,'(A,I0)') 'complemented atoms: ', j-k
  end if
 
- deallocate(elem2, coor2, dis)
- frag2%natom = natom2
+ ! delete the farthest metal atom to get even number of electrons, if required
+ if(even_e .and. MOD(ne,2)==1) then
+  write(6,'(A)') 'Selected atoms have odd electrons, deleting the farthest atom&
+                 &...'
+  write(6,'(A,F10.4,A)') 'dis(idx)=', dis(idx), ' A'
+  str2 = frag4%elem(idx)
+  ne = ne - elem2nuc(str2)
+  if(MOD(ne,2) == 1) then
+   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: still odd electrons.'
+   write(6,'(2(A,I0))') 'natom4=', natom4, ', idx=', idx
+   stop
+  end if
+  j = j - 1
+  stype(idx) = 0
+ end if
+
+ frag2%natom = j
+ allocate(frag2%elem(j), frag2%coor(3,j))
+ k = j; j = 0
+ do i = 1, natom4, 1
+  if(stype(i) > 0) then
+   j = j + 1
+   frag2%elem(j) = frag4%elem(i)
+   frag2%coor(:,j) = frag4%coor(:,i)
+  end if
+ end do ! for i
+
+ deallocate(stype)
+ frag2%wfn_type = 3 ! always assume UHF/UKS
+ if(MOD(ne,2) == 1) frag2%mult = 2
 end subroutine select_adj_atoms_in_frag
 
 ! Reorder elements and Cartesian coordinates as coordinates of previous loop.
@@ -2350,16 +2442,14 @@ subroutine check_r_cut_valid(natom, coor, r_cut, lat_vec)
   stop
  end if
 
- r1 = coor(3,:) + r_cut
  r2 = coor(3,:) - r_cut
- if(ANY(r1>lat_vec(3,3)) .or. ANY(r2<0d0)) then
-  write(6,'(/,A)') REPEAT('-',79)
-  write(6,'(A)') 'Warning from subroutine check_r_cut_valid: this R_cut is beyo&
-                 &nd the cell in'
-  write(6,'(A)') 'the z direction. Whether this is reasonable depends on your a&
-                 &toms in the cell.'
-  write(6,'(A)') 'So please take a look at the positions of atoms.'
-  write(6,'(A)') REPEAT('-',79)
+ if(ANY(r2 < 0d0)) then
+  write(6,'(/,A)') str
+  write(6,'(A)') 'It is below the xOy plane of the cell. You need to duplicate &
+                 &the cell in'
+  write(6,'(A)') 'z- direction.'
+  deallocate(r1, r2)
+  stop
  end if
 
  if(r_cut > 0.999d0*lat_vec(3,3)) then
@@ -2387,7 +2477,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  integer, parameter :: nfrag = 4
  integer, parameter :: max_step = 1
  integer, allocatable :: nuc(:)
- real(kind=8), parameter :: r_cut = 6.0d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_cut = 4.5d0 ! Angstrom, the minimum radius
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
@@ -2417,6 +2507,8 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   stop
  end if
  write(6,'(A)') 'orca_2mkl_path='//TRIM(orca_2mkl_path)
+ write(6,'(A,L1)') 'Even_e=', even_e
+ write(6,'(A,L1)') 'Complement=', complement
 
  hf_prog_path = gau_path
  allocate(high_e(nfrag), source=0d0)
@@ -2507,15 +2599,16 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   if(k<max_step .and. natom2==natom4) then
    write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: all atoms in the sla&
                     &b are chosen.'
-   write(6,'(A)') 'Two possible reasons: (1) the slab is to small; (2) the dista&
-                  &nce threshold'
+   write(6,'(A)') 'Two possible reasons: (1) the slab is too small; (2) the dist&
+                  &ance threshold'
    write(6,'(A)') 'is too large. File='//TRIM(gjfname)
    stop
   end if
 
   ! determine frags(2), i.e. special atoms in the slab
   frags(2)%natom = natom2
-  call select_adj_atoms_in_frag(frags(4), natom4, dis, rtmp, frags(2))
+  call select_adj_atoms_in_frag(even_e, complement, frags(4), natom4, dis, &
+                                rtmp, frags(2))
   ! frags(2)%natom may be updated in subroutine select_adj_atoms_in_frag, so
   ! here we update natom2
   natom2 = frags(2)%natom
@@ -2538,13 +2631,14 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
    end do ! for i
   end if
 
+  ! Gaussian PBE/def2SVP/W06 default
   ! the adsorbate is calculated only once
   if(k == 1) call gen_gjf_from_type_frag(frags(1), .false., .true., basname)
   call gen_gjf_from_type_frag(frags(2), .false., .true., basname)
-
-  ! Gaussian PBE/def2TZVP
   frags(3)%noiter = .true.
   call gen_gjf_from_type_frag(frags(3), .false., .false., basname)
+  stop
+
   do i = 1, 3
    if(k>1 .and. i==1) cycle
    call do_scf_and_read_e(gau_path,hf_prog_path, frags(i)%fname,frags(i)%noiter,&
@@ -2579,10 +2673,10 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   allocate(coor2(3,m), source=frags(2)%coor)
   allocate(elem2(m), source=frags(2)%elem)
 
-  ! ORCA wB97M-V/def2TZVP
+  ! ORCA PBE0/def2SVP RIJCOSX default
   do i = 1, 3
    if(k>1 .and. i==1) cycle
-   j = SYSTEM('fch2mkl '//TRIM(fchname(i))//' -dft wB97M-V')
+   j = SYSTEM('fch2mkl '//TRIM(fchname(i))//" -dft 'PBE0 D3BJ'")
    call mkl2gbw(mklname(i))
    call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc)
    if(i > 1) call add_maxiter_and_stab_in_orca_inp(inpname(i))
@@ -2594,6 +2688,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
                                     ', frags(i)%ssquare_h=', ss(i)
    call delete_files(3, [inpname(i), mklname(i), gbwname(i)])
   end do ! for i
+  stop
 
   ! create a directory and move these files into the directory
   write(dirname,'(A,I0)') TRIM(proname)//'_', k

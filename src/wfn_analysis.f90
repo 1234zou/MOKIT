@@ -50,10 +50,10 @@ subroutine init_shltyp_shl2atm_bfirst(fchname)
 end subroutine init_shltyp_shl2atm_bfirst
 
 ! find centers of each MOs from a specified .fch(k) file
-subroutine get_mo_center_from_fch(fchname, i1, i2)
+subroutine get_mo_center_from_fch(fchname, ibegin, iend)
  implicit none
  integer :: k
- integer, intent(in) :: i1, i2
+ integer, intent(in) :: ibegin, iend
  character(len=240), intent(in) :: fchname
 
  ! get integer array bfirst (natom would be initialized in this subroutine)
@@ -69,12 +69,12 @@ subroutine get_mo_center_from_fch(fchname, i1, i2)
  call get_ao_ovlp_using_fch(fchname, nbf, ao_ovlp)
 
  if(allocated(mo_center)) deallocate(mo_center)
- allocate(mo_center(0:natom,i1:i2), source=0)
+ allocate(mo_center(0:natom,ibegin:iend), source=0)
  ! mo_center(0,i) is the number of centers of the i-th MO
 
- k = i2 - i1 + 1
- call get_mo_center_from_ovlp_and_mo(natom, nbf, k, bfirst, ao_ovlp, mo(:,i1:i2),&
-                                     mo_center)
+ k = iend - ibegin + 1
+ call get_mo_center_from_ovlp_and_mo(natom, nbf, k, bfirst, ao_ovlp, &
+                                     mo(:,ibegin:iend), mo_center)
  ! arrays mo and ao_ovlp are not deallocated here, since they may be re-used by
  ! other subroutines in this file
 end subroutine get_mo_center_from_fch

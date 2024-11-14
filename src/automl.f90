@@ -502,7 +502,8 @@ subroutine split_pbc_xyz_into_cp2k_inp(xyzname, charge, mult)
   do i = 1, natom, 1
    read(fid,*) elem(i), coor(:,i)
   end do ! for i
-  call write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec)
+  call write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
+                      .false., .false., .false., .false., .false.)
   deallocate(elem, coor)
  end do ! for while
 

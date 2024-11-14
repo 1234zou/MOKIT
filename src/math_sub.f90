@@ -861,8 +861,14 @@ subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: C(nbf,nif), E(nif)
+!f2py intent(in) :: C, E
+!f2py depend(nbf,nif) :: C
+!f2py depend(nif) :: E
  real(kind=8), intent(out) :: F(nbf,nbf)
+!f2py intent(out) :: F
+!f2py depend(nbf) :: F
  real(kind=8), allocatable :: FC(:,:), E1(:,:)
 
  if(nbf > nif) then

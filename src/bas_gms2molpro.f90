@@ -5,40 +5,53 @@
 ! Note: Currently isotopes are not tested.
 program main
  implicit none
- integer :: i
- character(len=4) :: str
+ integer :: i, k
+ character(len=4) :: str(2)
  character(len=240) :: fname
  ! input file contains basis sets and Cartesian coordinates in GAMESS format
- logical :: spherical
+ logical :: sph, m15
 
  i = iargc()
- if(i<1 .or. i>2) then
-  write(6,'(/,A,/)') 'Example1: bas_gms2molpro a.inp (generate a Molpro a.com file)'
-  write(6,'(A,/)') "Example2: bas_gms2molpro a.inp -sph (without 'Cartesian')"
+ if(i<1 .or. i>3) then
+  write(6,'(/,A)') ' Example 1: bas_gms2molpro h2o.inp'
+  write(6,'(A)') ' Example 2: bas_gms2molpro h2o.inp -sph'
+  write(6,'(A)') ' Example 3: bas_gms2molpro h2o.inp -m15'
+  write(6,'(A,/)') ' Example 4: bas_gms2molpro h2o.inp -sph -m15'
   stop
  end if
 
- str = ' '; fname = ' '; spherical = .false.
+ k = 0; sph = .false.; m15 = .false.
+ str(1) = ' '; str(2) = ' '; fname = ' '
  call getarg(1, fname)
  call require_file_exist(fname)
 
- if(i == 2) then
-  call getarg(2,str)
-
-  if(str == '-sph') then
-   spherical = .true.
-  else
-   write(6,'(A)') 'ERROR in subroutine bas_gms2molpro: wrong command line arguments!'
-   write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
-   stop
+ if(i > 1) then
+  k = 1
+  call getarg(2, str(1))
+  if(i == 3) then
+   call getarg(3, str(2))
+   k = 2
   end if
+
+  do i = 1, k, 1
+   select case(TRIM(str(i)))
+   case('-sph')
+    sph = .true.
+   case('-m15')
+    m15 = .true.
+   case default
+    write(6,'(/,A)') 'ERROR in subroutine bas_gms2molpro: wrong command line arguments!'
+    write(6,'(A)') "The 2nd/3rd argument can only be '-sph' or '-m15'."
+    stop
+   end select
+  end do ! for i
  end if
 
- call bas_gms2molpro(fname, spherical)
+ call bas_gms2molpro(fname, sph, m15)
 end program main
 
 ! Transform the basis sets in GAMESS format to those in Molpro format
-subroutine bas_gms2molpro(fort7, spherical)
+subroutine bas_gms2molpro(fort7, sph, m15)
  use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
  implicit none
  integer :: i, na, nb, nline, rc, rel, charge, mult, isph, fid1, fid2
@@ -46,7 +59,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  character(len=240), intent(in) :: fort7
  character(len=240) :: buf, input, orbfile, orbfile2
  character(len=1) :: stype
- logical, intent(in) :: spherical
+ logical, intent(in) :: sph, m15
  logical :: uhf, ghf, X2C
  logical, allocatable :: ghost(:)
 
@@ -93,7 +106,7 @@ subroutine bas_gms2molpro(fort7, spherical)
  deallocate(coor)
 
  write(fid2,'(A)') '}'
- if(.not. spherical) write(fid2,'(A)') 'Cartesian'
+ if(.not. sph) write(fid2,'(A)') 'Cartesian'
  write(fid2,'(A)') 'basis={'
 
  ! rewind and find the $DATA section
@@ -173,19 +186,13 @@ subroutine bas_gms2molpro(fort7, spherical)
 
  ! For Molpro 2015, the number of doubly occupied orbitals should be specified
  ! for high-spin molecules
- if(mult > 1) then
+ if(mult>1 .and. m15) then
   write(fid2,'(A,I0)',advance='no') ';closed,', nb
-  write(6,'(/,A)') 'Remark: UHF detected.'
-  write(6,'(A)') "If you encounter the error 'RHF occupation could not be assig&
-                 &ned' after"
-  write(6,'(A,I0,A)') "submitting the Molpro job, you need to delete ';closed,",&
-                      nb,"' in .com file."
-  write(6,'(A)') 'Some version of Molpro does not need this keyword.'
  end if
  write(fid2,'(A)') '}'
 
  write(fid2,'(A)',advance='no') '{put,xml'
- if(spherical) write(fid2,'(A)',advance='no') ';keepspherical'
+ if(sph) write(fid2,'(A)',advance='no') ';keepspherical'
  write(fid2,'(A)') '}'
 
  close(fid2)

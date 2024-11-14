@@ -1178,7 +1178,7 @@ end subroutine write_frame_into_pdb
 
 ! write/create a CP2K input (.inp) file
 subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
-                          force, stress, broyden, smearing)
+                          uks, force, stress, broyden, smearing)
  implicit none
  integer :: i, fid
  integer, intent(in) :: charge, mult, natom
@@ -1187,7 +1187,7 @@ subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
  character(len=3), parameter :: dftname = 'PBE'
  character(len=240) :: proname
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: force, stress, broyden, smearing
+ logical, intent(in) :: uks, force, stress, broyden, smearing
 
  if(stress .and. (.not.force)) then
   write(6,'(/,A)') 'ERROR in subroutine write_cp2k_inp: Stress=.T. and Force=.F&
@@ -1243,6 +1243,13 @@ subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
  write(fid,'(A)') '  POTENTIAL_FILE_NAME POTENTIAL'
  write(fid,'(A,I0)') '  CHARGE ', charge
  write(fid,'(A,I0)') '  MULTIPLICITY ', mult
+ if(.not. smearing) then
+  if(uks) then
+   write(fid,'(A)') '  UKS'
+  else
+   if(mult > 1) write(fid,'(A)') '  ROKS'
+  end if
+ end if
  write(fid,'(A)') "  &QS"
  write(fid,'(A)') '   EPS_DEFAULT 1E-12'
  write(fid,'(A)') '   METHOD GAPW'
@@ -1324,7 +1331,7 @@ end subroutine write_cp2k_inp
 ! no lattice vector in this file. This isolated molecule will be put/moved into
 ! the center of the generated box, and the closest distance to each facet would
 ! be two times of the molecular maximum length.
-subroutine gjf2cp2k_inp(gjfname, force, stress, broyden, smearing)
+subroutine gjf2cp2k_inp(gjfname, uks, force, stress, broyden, smearing)
  implicit none
  integer :: i, charge, mult, natom
  integer, allocatable :: nuc(:)
@@ -1334,8 +1341,8 @@ subroutine gjf2cp2k_inp(gjfname, force, stress, broyden, smearing)
  character(len=240) :: inpname
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
- logical, intent(in) :: force, stress, broyden, smearing
-!f2py intent(in) :: force, stress, broyden, smearing
+ logical, intent(in) :: uks, force, stress, broyden, smearing
+!f2py intent(in) :: uks, force, stress, broyden, smearing
 
  call find_specified_suffix(gjfname, '.gjf', i)
  inpname = gjfname(1:i-1)//'.inp'
@@ -1363,8 +1370,8 @@ subroutine gjf2cp2k_inp(gjfname, force, stress, broyden, smearing)
  end do ! for i
 !$omp end parallel do
 
- call write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, force,&
-                     stress, broyden, smearing)
+ call write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, uks, &
+                     force, stress, broyden, smearing)
  deallocate(elem, coor)
 end subroutine gjf2cp2k_inp
 

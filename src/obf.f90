@@ -8,14 +8,14 @@ module obf   ! orbital-based fragmentation
  integer :: n_old, n_new
  integer :: n_prim ! number of primitive MO clusters
  integer :: n_tot  ! total number of MO clusters (primitive + derivative)
- integer :: na, nb, nopen ! number of alpha, beta and singly occupied orbitals
+ integer :: na, nb, nopen ! number of alpha/beta/singly occupied orbitals
  integer, allocatable :: icoeff0(:), icoeff1(:), icoeff(:)
  integer, allocatable :: label0(:,:), label1(:,:), del_lab(:,:)
  real(kind=8) :: e_tot = 0d0       ! total electronic energy
  real(kind=8), parameter :: dis_thres0 = 4d0  ! Angstrom
  real(kind=8), allocatable :: cluster_e(:) ! size n_tot
  character(len=240) :: fchname = ' '
- logical :: calc_no = .false.
+ logical :: calc_no = .false. ! calculate density and NOs
  type(mo_cluster), allocatable :: cluster(:), cluster0(:), cluster1(:)
 
 contains
@@ -44,9 +44,11 @@ subroutine copy_type_mo_clusters(n, old_c, new_c)
  type(mo_cluster), intent(in) :: old_c(n)
  type(mo_cluster), intent(out) :: new_c(n)
 
+!$omp parallel do schedule(dynamic) default(private) shared(n,old_c,new_c)
  do i = 1, n, 1
   call copy_type_mo_cluster(old_c(i), new_c(i))
  end do ! for i
+!$omp end parallel do
 end subroutine copy_type_mo_clusters
 
 ! Generate the MO-cluster for each occupied MO
@@ -306,10 +308,10 @@ subroutine gen_prim_cluster(dis_thres)
  call delete_embraced_cluster0()
 
  if(n_new == 1) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_prim_cluster: only one primitive&
-                  & subsystem is generated'
-  write(6,'(A)') 'and it is equal to the whole system. So there is no need to&
-                & use obf.'
+  write(6,'(/,A)') 'ERROR in subroutine gen_prim_cluster: only one primitive su&
+                   &bsystem is generated'
+  write(6,'(A)') 'and it is equal to the whole system. So there is no need to u&
+                 &se obf.'
   stop
  end if
 
@@ -568,10 +570,9 @@ subroutine merge_mo_cluster()
  n_tot = j
 end subroutine merge_mo_cluster
 
-! Add paired active virtual MO indices into the type cluster
-! This is because we always assume the input fchname includes paired active or-
-!  bitals, e.g. paired localized UNO(i.e. associated rotatied UNO), or GVB orb-
-!  itals
+! Add paired active virtual MO indices into the type cluster.
+! This is because we always assume the input fchname includes paired active orb-
+! itals, e.g. associated rotated UNO, or GVB orbitals.
 subroutine add_paired_vir2cluster()
  implicit none
  integer :: i, j, k, nocc
@@ -637,9 +638,11 @@ program main
  i = iargc()
  if(i<3 .or. i>4) then
   write(6,'(/,A)') ' ERROR in program obf: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1: obf tetracene_uno_asrot.fch 52 60'
-  write(6,'(A)')   ' Example 2: obf tetracene_uno_asrot.fch 52 60 4.0'
-  write(6,'(A,/)') ' Note: do not include any singly occupied orbital.'
+  write(6,'(A)') ' Example 1: obf tetracene_uno_asrot.fch 52 60'
+  write(6,'(A)') ' Example 2: obf tetracene_uno_asrot.fch 52 60 4.0'
+  write(6,'(A)') ' Note: do not include singly occupied orbitals since they can&
+                 & be recognized'
+  write(6,'(A,/)') ' from the .fch file.'
   stop
  end if
 
@@ -689,7 +692,7 @@ program main
   write(6,'(I2,A1,23I4)') icoeff(i),':',cluster(i)%occ_idx
  end do ! for i
 
- write(6,'(A)') 'Checkpoint. STOP'
+ write(6,'(A)') 'Debug checkpoint. STOP'
  stop
  ! generate all .fch files with active orbitals permuted near HONO or LUNO
  call gen_permute_fch()
@@ -794,6 +797,7 @@ function check_subset(n1, a1, n2, a2) result(subset)
     return
    end if
   end do ! for j
+
  end do ! for i
 end function check_subset
 
@@ -858,6 +862,7 @@ subroutine gen_automr_gjf_and_submit(calc_no)
   write(gjfname,'(A,I0,A)') TRIM(proname),i,'.gjf'
   write(new_fch,'(A,I0,A)') TRIM(proname),i,'.fch'
   open(newunit=fid,file=TRIM(gjfname),status='replace')
+
   write(fid,'(A,I0)') '%nprocshared=',nproc
   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
   ne = cluster(i)%nocc
@@ -906,8 +911,10 @@ subroutine read_cluster_e_from_out()
   close(fid)
 
   if(buf(1:7) /= 'CASCI E') then
-   write(6,'(A)') "ERROR in subroutine gen_automr_gjf_and_submit: 'CASCI E' not&
-                 & found at the end of "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine gen_automr_gjf_and_submit: 'CASCI E' n&
+                    &ot found at the"
+   write(6,'(A)') "end of "//TRIM(outname)
+   close(fid)
    stop
   end if
   k = INDEX(buf, '=')

@@ -104,7 +104,7 @@ OBJ_molden2fch = file_op.o string_manipulate.o math_sub.o read_natom.o read_fch.
                  read_gms_inp.o read_mkl.o split_sp.o molden2fch.o
 OBJ_obf = file_op.o string_manipulate.o util_wrapper.o call_qc_calc_int.o \
           math_sub.o read_fch.o read_natom.o rwgeom.o rwwfn.o read_gms_inp.o \
-          ortho.o wfn_analysis.o obf.o
+          ortho.o construct_vir.o assoc_rot.o wfn_analysis.o obf.o
 OBJ_orb2fch = file_op.o string_manipulate.o math_sub.o rwwfn.o read_fch.o \
               split_sp.o orb2fch.o
 OBJ_replace_xyz_in_inp = file_op.o string_manipulate.o math_sub.o read_fch.o \

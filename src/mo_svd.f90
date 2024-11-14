@@ -430,8 +430,9 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
 end subroutine orb_resemble
 
 ! Note: nocc is the number of doubly occupied orbitals in post-HF calculation,
-!  the number of frozen core orbitals are not included in it
-subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, new_t1, new_t2)
+!  and the number of frozen core orbitals is not included in it.
+subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, &
+                              new_t1, new_t2)
  implicit none
  integer :: i, j, k, m, nfz, nmo
  integer, intent(in) :: nbf, nif, nocc, nvir
@@ -457,7 +458,7 @@ subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, new_
  if(ANY(sum_of_diff > thres)) then
   allocate(pos(nmo))
   pos = .true.
-  forall(i=1:nmo, sum_of_diff(i)>1d-4)
+  forall(i=1:nmo, sum_of_diff(i)>thres)
    sum_of_diff(i) = SUM(DABS(old_mo(:,i+nfz) + new_mo(:,i+nfz)))
    pos(i) = .false.
   end forall
@@ -466,8 +467,8 @@ subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, new_
  if(ANY(sum_of_diff > thres)) then
   write(6,'(/,A)') 'ERROR in subroutine update_amp_from_mo: the difference betw&
                    &een old and new MOs'
-  write(6,'(A)') 'are not simple positive-negative relationship. Consider doing&
-                 &orbital projection.'
+  write(6,'(A)') 'are not simple positive-negative relationship. Probably somet&
+                 &hing is wrong.'
   deallocate(sum_of_diff)
   stop
  end if
@@ -477,18 +478,104 @@ subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, new_
  new_t2 = t2
 
  if(allocated(pos)) then
-  allocate(pos1(nocc,nvir))
-  forall(i=1:nocc, j=1:nvir) pos1(i,j) = (pos(i) .eqv. pos(j+nocc))
-  forall(i=1:nocc, j=1:nvir, (.not.pos1(i,j))) new_t1(i,j) = -t1(i,j)
-  allocate(pos2(nocc,nocc,nvir,nvir))
-  forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir)
-   pos2(i,j,k,m) = (pos1(i,k) .eqv. pos1(j,m))
-  end forall
-  deallocate(pos1)
-  forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir, (.not.pos2(i,j,k,m)))
-   new_t2(i,j,k,m) = -t2(i,j,k,m)
-  end forall
-  deallocate(pos, pos2)
+  write(6,'(A)') 'Performing sign changes for t1 and t2...'
+  if(ANY(pos .eqv. .false.)) then
+   allocate(pos1(nocc,nvir))
+   forall(i=1:nocc, j=1:nvir) pos1(i,j) = (pos(i) .eqv. pos(j+nocc))
+   forall(i=1:nocc, j=1:nvir, (.not.pos1(i,j))) new_t1(i,j) = -t1(i,j)
+   allocate(pos2(nocc,nocc,nvir,nvir))
+   forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir)
+    pos2(i,j,k,m) = (pos1(i,k) .eqv. pos1(j,m))
+   end forall
+   deallocate(pos1)
+   forall(i=1:nocc,j=1:nocc,k=1:nvir,m=1:nvir, (.not.pos2(i,j,k,m)))
+    new_t2(i,j,k,m) = -t2(i,j,k,m)
+   end forall
+   deallocate(pos, pos2)
+  else
+   deallocate(pos)
+  end if
  end if
 end subroutine update_amp_from_mo
+
+! update t2ab in PySCF CCSD according to the sign changes of MOs
+subroutine update_t2ab_from_uhf_mo(nbf, nif, nocc_a, nocc_b, nvir_a, nvir_b, &
+                                   old_mo, new_mo, t2ab, new_t2ab)
+ implicit none
+ integer :: i, j, k, m, nmo, nmo_b, nfz
+ integer, intent(in) :: nbf, nif, nocc_a, nocc_b, nvir_a, nvir_b
+!f2py intent(in) :: nbf, nif, nocc_a, nocc_b, nvir_a, nvir_b
+ real(kind=8), parameter :: thres = 1d-4
+ real(kind=8), intent(in) :: old_mo(2,nbf,nif), new_mo(2,nbf,nif)
+!f2py intent(in) :: old_mo, new_mo
+!f2py depend(nbf,nif) :: old_mo, new_mo
+ real(kind=8), intent(in) :: t2ab(nocc_a,nocc_b,nvir_a,nvir_b)
+!f2py intent(in) :: t2ab
+!f2py depend(nocc_a,nocc_b,nvir_a,nvir_b) :: t2ab
+ real(kind=8), intent(out) :: new_t2ab(nocc_a,nocc_b,nvir_a,nvir_b)
+!f2py intent(out) :: new_t2ab
+!f2py depend(nocc_a,nocc_b,nvir_a,nvir_b) :: new_t2ab
+ real(kind=8), allocatable :: sum_of_diff(:,:)
+ logical, allocatable :: pos(:,:), pos_a(:,:), pos_b(:,:), pos2(:,:,:,:)
+
+ nmo = nocc_a + nvir_a
+ nmo_b = nocc_b + nvir_b
+ nfz = nif - nmo   ! the number of frozen cores
+ if(nif-nmo_b /= nfz) then
+  write(6,'(/,A)') 'ERROR in subroutine update_t2ab_from_uhf_mo: the number of &
+                   &frozen alpha core'
+  write(6,'(A)') 'orbitals is not equal to that of frozen beta core orbitals.'
+  stop
+ end if
+
+ allocate(sum_of_diff(nmo,2), source=0d0)
+ forall(j = 1:2)
+  forall(i = nfz+1:nif)
+   sum_of_diff(i-nfz,j) = SUM(DABS(old_mo(j,:,i) - new_mo(j,:,i)))
+  end forall
+ end forall
+
+ if(ANY(sum_of_diff > thres)) then
+  allocate(pos(nmo,2))
+  pos = .true.
+  forall(j = 1:2)
+   forall(i=1:nmo, sum_of_diff(i,j)>thres)
+    sum_of_diff(i,j) = SUM(DABS(old_mo(j,:,i+nfz) + new_mo(j,:,i+nfz)))
+    pos(i,j) = .false.
+   end forall
+  end forall
+ end if
+
+ if(ANY(sum_of_diff > thres)) then
+  write(6,'(/,A)') 'ERROR in subroutine update_t2ab_from_uhf_mo: the difference&
+                   & between old and'
+  write(6,'(A)') 'new MOs are not simple positive-negative relationship. Probab&
+                 &ly something is wrong.'
+  deallocate(sum_of_diff)
+  stop
+ end if
+
+ deallocate(sum_of_diff)
+ new_t2ab = t2ab
+
+ if(allocated(pos)) then
+  write(6,'(A)') 'Performing sign changes for t2ab...'
+  if(ANY(pos .eqv. .false.)) then
+   allocate(pos_a(nocc_a,nvir_a), pos_b(nocc_b,nvir_b))
+   forall(i=1:nocc_a, j=1:nvir_a) pos_a(i,j) = (pos(i,1) .eqv. pos(j+nocc_a,1))
+   forall(i=1:nocc_b, j=1:nvir_b) pos_b(i,j) = (pos(i,2) .eqv. pos(j+nocc_b,2))
+   allocate(pos2(nocc_a,nocc_b,nvir_a,nvir_b))
+   forall(i=1:nocc_a,j=1:nocc_b,k=1:nvir_a,m=1:nvir_b)
+    pos2(i,j,k,m) = (pos_a(i,k) .eqv. pos_b(j,m))
+   end forall
+   deallocate(pos_a, pos_b)
+   forall(i=1:nocc_a,j=1:nocc_b,k=1:nvir_a,m=1:nvir_b, (.not.pos2(i,j,k,m)))
+    new_t2ab(i,j,k,m) = -t2ab(i,j,k,m)
+   end forall
+   deallocate(pos, pos2)
+  else
+   deallocate(pos)
+  end if
+ end if
+end subroutine update_t2ab_from_uhf_mo
 

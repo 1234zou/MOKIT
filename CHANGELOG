@@ -1,6 +1,8 @@
-MOKIT 1.2.6 (Oct 31, 2024)
+MOKIT 1.2.6 (Nov 14, 2024)
 ------------------------
 Fixes
+* fix bug in molden2fch for high-spin UHF/UKS wfn conversion
+* fix solvent name conversion for GKS-EDA interface in frag_guess_wfn
 * fix keyword bug in SA-DMRG-CASSCF
 * fix recognition bug of the highest angular momentum in fch2cfour when low angular momentum diffuse functions are used
 * fix GHF dectection bug introduced in commit f0dbe662
@@ -47,6 +49,8 @@ Features
 * call programs to get analytical gradients of CASPT2 and MC-PDFT
 * support HF_prog=PySCF in frag_guess_wfn
 Improvement
+* improved CCSD keywords in the interface to PySCF CC
+* improved efficiency for reading MOs in molden2fch
 * improved SS-CASSCF keywords
 * update utility fch_u2r for R(O)HF->UHF file conversion
 * auto-detect of def2 ECP/PP when `HF_prog=PySCF`
@@ -76,6 +80,7 @@ Improvement
 * add attribute natorb in subroutine py2fch
 * update examples and tests (add prefix mokit.lib when importing Python modules)
 Re-factor and removal
+* change `closed,` to argument `-m15` for high spin case in fch2com and bas_gms2molpro
 * move bas_gms2psi into fch2psi
 * remove mo_svd_format.f90 and move this functionality into wfn_analysis
 * standardize some subroutines to _from_dat and _from_gms_inp

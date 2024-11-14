@@ -4,9 +4,9 @@
 module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
-  nstate, readrhf, readuhf, mo_rhf, hf_prog, hfonly, hf_fch, skiphf, chgname, &
-  gau_path, molcas_path, orca_path, psi4_path, dalton_path, gms_path, gms_scr_path,&
-  nmr, check_gms_path, molcas_omp, dalton_mpi
+  nstate, readrhf, readuhf, hardwfn, crazywfn, mo_rhf, hf_prog, hfonly, hf_fch,&
+  skiphf, chgname, gau_path, molcas_path, orca_path, psi4_path, dalton_path, &
+  gms_path, gms_scr_path, nmr, check_gms_path, molcas_omp, dalton_mpi
  use mol, only: chem_core, ecp_core, ptchg_e, nuc_pt_e, lin_dep
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -54,7 +54,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc41 (2024-Oct-31)'
+ write(6,'(A)') '           Version: 1.2.6rc42 (2024-Nov-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -204,7 +204,7 @@ subroutine parse_sr_keyword()
  read(fid,'(A)') buf ! skip a blank line
  read(fid,'(A)') buf ! Title Card, the 1st line of keywords
  call lower(buf)
- ! This lower() is not from string_manipulate.f90, but from module mr_keyword
+ ! This lower is not from string_manipulate.f90, but from module mr_keyword
 
  if(buf(1:6) /= 'mokit{') then
   write(6,'(/,A)') "ERROR in subroutine parse_sr_keyword: 'mokit{' not detected&
@@ -254,6 +254,12 @@ subroutine parse_sr_keyword()
 
  write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
  write(6,'(A)') TRIM(longbuf)
+ if(INDEX(longbuf,"""") > 0) then
+  write(6,'(/,A)') "ERROR in subroutine parse_sr_keyword: double quote "" not a&
+                   &llowed in mokit{}."
+  write(6,'(A)') 'Please use single quotes.'
+  stop
+ end if
 
  do while(.true.)
   i = INDEX(longbuf,',')
@@ -295,6 +301,10 @@ subroutine parse_sr_keyword()
   case('fc')
    read(longbuf(j+1:i-1),*) core_wish
    customized_core = .true.
+  case('hardwfn')
+   hardwfn = .true.
+  case('crazywfn')
+   crazywfn = .true.
   case('nstates')
    read(longbuf(j+1:i-1),*) nstate
   case('charge')
@@ -579,7 +589,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.6rc41 :: MOKIT, release date: 2024-Oct-31'
+  write(6,'(A)') 'AutoSR 1.2.6rc42 :: MOKIT, release date: 2024-Nov-14'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -1580,12 +1590,14 @@ subroutine prt_posthf_molpro_inp(inpname)
 end subroutine prt_posthf_molpro_inp
 
 subroutine prt_posthf_pyscf_inp(pyname, excited)
- use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, hf_fch,&
-  force, gen_no, relaxed_dm, mo_rhf, RI, RIJK_bas, RIC_bas, ip, ea, nstate
+ use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, &
+  hf_fch, force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, RI, RIJK_bas, &
+  RIC_bas, ip, ea, nstate
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
- character(len=240) :: buf, pyname1, no_fch, mo_npy, t1_npy, t2_npy
+ character(len=240) :: buf, pyname1, no_fch, mo_npy, t1a_npy, t1b_npy, t2a_npy,&
+  t2b_npy, t2c_npy
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: excited
 
@@ -1593,8 +1605,16 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  pyname1 = pyname(1:i-1)//'.t'
  no_fch = pyname(1:i-1)//'_NO.fch'
  mo_npy = pyname(1:i-1)//'_mo.npy'
- t1_npy = pyname(1:i-1)//'_t1.npy'
- t2_npy = pyname(1:i-1)//'_t2.npy'
+ if(mo_rhf) then
+  t1a_npy = pyname(1:i-1)//'_t1.npy'
+  t2a_npy = pyname(1:i-1)//'_t2.npy'
+ else
+  t1a_npy = pyname(1:i-1)//'_t1a.npy'
+  t1b_npy = pyname(1:i-1)//'_t1b.npy'
+  t2a_npy = pyname(1:i-1)//'_t2a.npy'
+  t2b_npy = pyname(1:i-1)//'_t2b.npy'
+  t2c_npy = pyname(1:i-1)//'_t2c.npy'
+ end if
 
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(pyname1),status='replace')
@@ -1629,7 +1649,12 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  end if
  if(.not. mp2) then
   write(fid1,'(A,/,A)') 'import numpy as np', 'import os'
-  write(fid1,'(A)') 'from mokit.lib.mo_svd import update_amp_from_mo'
+  if(mo_rhf) then
+   write(fid1,'(A)') 'from mokit.lib.mo_svd import update_amp_from_mo'
+  else
+   write(fid1,'(A)') 'from mokit.lib.mo_svd import update_amp_from_mo, update_t&
+                     &2ab_from_uhf_mo'
+  end if
  end if
 
  do while(.true.)
@@ -1681,6 +1706,17 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   end if
  else
   write(fid1,'(/,A)') 'mc = cc.CCSD(mf)'
+  if(hardwfn) then
+   write(fid1,'(A)') 'mc.max_cycle = 200'
+   write(fid1,'(A)') 'mc.diis_space = 10'
+   write(fid1,'(A)') 'mc.level_shift = 0.1'
+  else if(crazywfn) then
+   write(fid1,'(A)') 'mc.max_cycle = 300'
+   write(fid1,'(A)') 'mc.diis_space = 14'
+   write(fid1,'(A)') 'mc.level_shift = 0.2'
+  else
+   write(fid1,'(A)') 'mc.max_cycle = 100'
+  end if
  end if
 
  write(fid1,'(A)') 'mc.verbose = 4'
@@ -1702,27 +1738,69 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  if(mp2) then
   write(fid1,'(A)') 'mc.kernel()'
  else
-  write(fid1,'(/,A)') "alive1 = os.path.exists('"//TRIM(t1_npy)//"')"
-  write(fid1,'(A)') "alive2 = os.path.exists('"//TRIM(t2_npy)//"')"
+  write(fid1,'(/,A)') "alive1 = os.path.exists('"//TRIM(t1a_npy)//"')"
+  write(fid1,'(A)') "alive2 = os.path.exists('"//TRIM(t2a_npy)//"')"
+  if(.not. mo_rhf) then
+   write(fid1,'(A)') 'nocc_a = np.count_nonzero(mf.mo_occ[0] > 0)'
+   write(fid1,'(A)') 'nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)'
+  end if
   write(fid1,'(A)') 'if alive1 and alive2:'
-  write(fid1,'(A)') '  nocc = np.count_nonzero(mf.mo_occ > 0)'
-  write(fid1,'(A)') '  nvir = nif - nocc'
-  write(fid1,'(A)') '  nocc = nocc - mc.frozen'
   write(fid1,'(A)') "  old_mo = np.load('"//TRIM(mo_npy)//"')"
-  write(fid1,'(A)') "  t1 = np.load('"//TRIM(t1_npy)//"')"
-  write(fid1,'(A)') "  t2 = np.load('"//TRIM(t2_npy)//"')"
-  write(fid1,'(A)') '  new_t1, new_t2 = update_amp_from_mo(nbf,nif,nocc,nvir,ol&
-                    &d_mo,mc.mo_coeff,t1,t2)'
+  if(mo_rhf) then
+   write(fid1,'(A)') '  nocc = np.count_nonzero(mf.mo_occ > 0)'
+   write(fid1,'(A)') '  nvir = nif - nocc'
+   write(fid1,'(A)') '  nocc = nocc - mc.frozen'
+   write(fid1,'(A)') "  t1 = np.load('"//TRIM(t1a_npy)//"')"
+   write(fid1,'(A)') "  t2 = np.load('"//TRIM(t2a_npy)//"')"
+   write(fid1,'(A)') '  new_t1, new_t2 = update_amp_from_mo(nbf,nif,nocc,nvir,o&
+                     &ld_mo,mc.mo_coeff,t1,t2)'
+  else
+   write(fid1,'(A)') '  nvir_a = nif - nocc_a'
+   write(fid1,'(A)') '  nvir_b = nif - nocc_b'
+   write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
+   write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
+   write(fid1,'(A)') "  t1a = np.load('"//TRIM(t1a_npy)//"')"
+   write(fid1,'(A)') "  t1b = np.load('"//TRIM(t1b_npy)//"')"
+   write(fid1,'(A)') "  t2a = np.load('"//TRIM(t2a_npy)//"')"
+   write(fid1,'(A)') "  t2b = np.load('"//TRIM(t2b_npy)//"')"
+   write(fid1,'(A)') "  t2c = np.load('"//TRIM(t2c_npy)//"')"
+   write(fid1,'(A)') '  new_t1a, new_t2a = update_amp_from_mo(nbf,nif,nocc_a,nv&
+                     &ir_a,old_mo[0],mc.mo_coeff[0],t1a,t2a)'
+   write(fid1,'(A)') '  new_t1b, new_t2c = update_amp_from_mo(nbf,nif,nocc_b,nv&
+                     &ir_b,old_mo[1],mc.mo_coeff[1],t1b,t2c)'
+   write(fid1,'(A)') '  new_t2b = update_t2ab_from_uhf_mo(nbf,nif,nocc_a,nocc_b&
+                     &,nvir_a,nvir_b,old_mo,mc.mo_coeff,t2b)'
+   write(fid1,'(A)') '  new_t1 = (new_t1a, new_t1b)'
+   write(fid1,'(A)') '  new_t2 = (new_t2a, new_t2b, new_t2c)'
+  end if
   write(fid1,'(A)') '  mc.kernel(t1=new_t1, t2=new_t2)'
   write(fid1,'(A)') 'else:'
   write(fid1,'(A)') '  mc.kernel()'
+  if(.not. mo_rhf) then
+   write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
+   write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
+  end if
   write(fid1,'(A)') "np.save('"//TRIM(mo_npy)//"', mc.mo_coeff)"
-  write(fid1,'(A)') "np.save('"//TRIM(t1_npy)//"', mc.t1)"
-  write(fid1,'(A)') "np.save('"//TRIM(t2_npy)//"', mc.t2)"
+  if(mo_rhf) then
+   write(fid1,'(A)') "np.save('"//TRIM(t1a_npy)//"', mc.t1)"
+   write(fid1,'(A)') "np.save('"//TRIM(t2a_npy)//"', mc.t2)"
+  else
+   write(fid1,'(A)') "np.save('"//TRIM(t1a_npy)//"', mc.t1[0])"
+   write(fid1,'(A)') "np.save('"//TRIM(t1b_npy)//"', mc.t1[1])"
+   write(fid1,'(A)') "np.save('"//TRIM(t2a_npy)//"', mc.t2[0])"
+   write(fid1,'(A)') "np.save('"//TRIM(t2b_npy)//"', mc.t2[1])"
+   write(fid1,'(A)') "np.save('"//TRIM(t2c_npy)//"', mc.t2[2])"
+  end if
  end if
 
  if((.not.mp2) .and. (.not.ccd)) then
-  write(fid1,'(/,A)') 'T1diag = mc.get_t1_diagnostic()'
+  if(mo_rhf) then
+   write(fid1,'(/,A)') 'T1diag = mc.get_t1_diagnostic()'
+  else
+   write(fid1,'(/,A)') 't1_0 = np.linalg.norm(mc.t1[0])**2'
+   write(fid1,'(A)') 't1_1 = np.linalg.norm(mc.t1[1])**2'
+   write(fid1,'(A)') 'T1diag = np.sqrt(0.5*(t1_0 + t1_1) / (nocc_a + nocc_b))'
+  end if
   write(fid1,'(A)') "print('T1_diag =', T1diag)"
  end if
 
@@ -2780,6 +2858,8 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
    read(buf(10:),*) tot_e
   case('E(RCCSD) ')
    read(buf(11:),*) tot_e
+  case('E(UCCSD) ')
+   read(buf(11:),*) tot_e
   case('T1_diag =')
    read(buf(10:),*) t1diag
   case('converged')
@@ -2849,6 +2929,7 @@ subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
    if(INDEX(buf,'DF-CCSD(T) Tot') > 0) exit
   end do ! for while
   close(fid)
+
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no '&
                     &DF-CCSD(T) Tot'"
@@ -2864,6 +2945,7 @@ subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
    if(i /= 0) exit
    if(buf(51:56) == 'T1Diag') exit
   end do ! for while
+
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no 'T&
                     &1Diag' found in"
@@ -2871,6 +2953,7 @@ subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
    close(fid)
    stop
   end if
+
   read(fid,'(A)') ! skip 1 line
   do while(.true.)
    read(fid,'(A)') buf
@@ -4007,7 +4090,7 @@ subroutine read_t1diag_from_cfour_t1(nocc, t1diag)
  inquire(file='T1',exist=alive)
  if(.not. alive) then
   write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_cfour_t1: file T1 does&
-                  & not exist.'
+                   & not exist.'
   stop
  end if
 

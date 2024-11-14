@@ -43,7 +43,8 @@ program main
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine fch2dal: failed to call utility&
-                  & bas_gms2dal. Two possible reasons:'
+                   & bas_gms2dal. Two'
+  write(6,'(A)')   'possible reasons:'
   write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
   write(6,'(A)')   '(2) You forgot to compile the utility bas_gms2dal.'
   write(6,'(A,/)') '(3) This is a bug of the utility bas_gms2dal.'
@@ -90,11 +91,12 @@ subroutine fch2dal(fchname)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/&
-                 &Cartesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(/,A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/Carte&
+                   &sian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
+                 &rds in Gaussian."
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
@@ -141,7 +143,8 @@ subroutine fch2dal(fchname)
 
  i = INDEX(fchname, '.fch', back=.true.)
  dalfile = fchname(1:i-1)//'.dal'
- dalfile1 = fchname(1:i-1)//'.dal1'
+ dalfile1 = fchname(1:i-1)//'.dt'
+
  open(newunit=fid,file=TRIM(dalfile),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(dalfile1),status='replace')
 
@@ -153,7 +156,8 @@ subroutine fch2dal(fchname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine fch2dal: no '' found in file "//TRIM(dalfile)
+  write(6,'(/,A)') "ERROR in subroutine fch2dal: no '.PUNCHOUT' found in file "&
+                   //TRIM(dalfile)
   close(fid)
   close(fid1,status='delete')
   stop
