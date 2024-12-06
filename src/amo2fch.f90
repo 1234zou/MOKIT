@@ -159,7 +159,7 @@ subroutine gen_fch_from_amo(amoname, fchname)
  implicit none
  integer :: i, necpatm
  integer :: ntype ! the number of types of atoms, e.g. 2 for H2O
- integer, allocatable :: ielem0(:)
+ integer, allocatable :: nuc(:)
  character(len=240), intent(in) :: amoname, fchname
  logical :: sfx2c1e, has_sp, ecp
 
@@ -172,8 +172,12 @@ subroutine gen_fch_from_amo(amoname, fchname)
  call check_uhf_in_amo(amoname, is_uhf)
  call check_ecp_in_amo(amoname, ecp)
  call read_natom_from_amo(amoname, natom)
- allocate(elem(natom), ielem(natom), coor(3,natom))
- call read_elem_nuc_coor_from_amo(amoname, natom, elem, ielem, coor)
+ allocate(elem(natom), coor(3,natom), nuc(natom))
+ call read_elem_nuc_coor_from_amo(amoname, natom, elem, nuc, coor)
+
+ allocate(rnuc(natom), source=DBLE(nuc))
+ allocate(ielem(natom))
+ forall(i = 1:natom) ielem(i) = elem2nuc(elem(i))
 
  call read_ncontr_from_amo(amoname, natom, elem, ncontr, ntype)
  allocate(shell_type(ncontr), prim_per_shell(ncontr), shell2atom_map(ncontr))
@@ -200,14 +204,13 @@ subroutine gen_fch_from_amo(amoname, fchname)
  call all_pg2prim_exp_and_contr_coeff(has_sp)
  deallocate(all_pg)
 
+ ! We assume that ECP/PP is not compatible with semi-empirical methods, i.e.
+ ! they cannot occur at the same time.
  if(ecp) then
   call find_LenNCZ_in_amo(amoname, LenNCZ, necpatm)
   allocate(KFirst(natom,10), KLast(natom,10), Lmax(natom), LPSkip(natom), &
-   NLP(LenNCZ), RNFroz(natom), CLP(LenNCZ), ZLP(LenNCZ), ielem0(natom))
-  forall(i = 1:natom) ielem0(i) = elem2nuc(elem(i))
-  forall(i = 1:natom) RNFroz(i) = DBLE(ielem0(i) - ielem(i))
-  ielem = ielem0
-  deallocate(ielem0)
+   NLP(LenNCZ), RNFroz(natom), CLP(LenNCZ), ZLP(LenNCZ))
+  forall(i = 1:natom) RNFroz(i) = DBLE(ielem(i) - nuc(i))
   call read_ecp_arrays_from_amo(amoname, natom, LenNCZ, necpatm, KFirst, KLast,&
                                 Lmax, LPSkip, NLP, CLP, ZLP)
  end if

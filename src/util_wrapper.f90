@@ -2,6 +2,7 @@
 
 module util_wrapper
  implicit none
+ integer :: ishit
 contains
 
 ! wrapper of the Gaussian utility formchk
@@ -24,7 +25,7 @@ subroutine formchk(chkname, fchname)
  if(PRESENT(fchname)) then
   fchname0 = fchname
  else
-  i = INDEX(chkname, '.chk', back=.true.)
+  call find_specified_suffix(chkname, '.chk', i)
   fchname0 = chkname(1:i-1)//'.fch'
  end if
  buf = 'formchk '//TRIM(chkname)//' '//TRIM(fchname0)
@@ -39,7 +40,8 @@ subroutine formchk(chkname, fchname)
   write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utilit&
                    &y formchk.'
   write(6,'(A)') 'The file '//TRIM(chkname)//' may be problematic, or the utili&
-                 &ty formchk does not exist.'
+                 &ty formchk does'
+  write(6,'(A)') 'not exist.'
   stop
  end if
 end subroutine formchk
@@ -56,7 +58,7 @@ subroutine unfchk(fchname, chkname)
  if(PRESENT(chkname)) then
   chkname0 = chkname
  else
-  i = INDEX(fchname, '.fch', back=.true.)
+  call find_specified_suffix(fchname, '.fch', i)
   chkname0 = fchname(1:i-1)//'.chk'
  end if
  buf = 'unfchk '//TRIM(fchname)//' '//TRIM(chkname0)
@@ -68,9 +70,10 @@ subroutine unfchk(fchname, chkname)
 #endif
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine formchk: failed to call Gaussian utility unfchk.'
+  write(6,'(/,A)') 'ERROR in subroutine formchk: failed to call Gaussian utilit&
+                   &y unfchk.'
   write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete, or Gaussian&
-                   & utility unfchk does not exist.'
+                 & utility unfchk does not exist.'
   stop
  end if
 end subroutine unfchk
@@ -78,7 +81,8 @@ end subroutine unfchk
 ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
 subroutine gbw2mkl(gbwname, mklname)
  implicit none
- integer :: i, k, SYSTEM, RENAME
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: buf, mklname0
  character(len=240), intent(in) :: gbwname
  character(len=240), intent(in), optional :: mklname
  logical :: alive
@@ -90,18 +94,21 @@ subroutine gbw2mkl(gbwname, mklname)
   stop
  end if
 
- k = INDEX(gbwname, '.gbw', back=.true.)
+ call find_specified_suffix(gbwname, '.gbw', i)
+ mklname0 = gbwname(1:i-1)//'.mkl'
+ buf = 'orca_2mkl '//gbwname(1:i-1)//' -mkl'
+
 #ifdef _WIN32
- i = SYSTEM('orca_2mkl '//gbwname(1:k-1)//' -mkl > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = SYSTEM('orca_2mkl '//gbwname(1:k-1)//' -mkl > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) call prt_orca_2mkl_error(gbwname)
 
  if(PRESENT(mklname)) then
-  if(TRIM(mklname) /= gbwname(1:k-1)//'.mkl') then
-   i = RENAME(gbwname(1:k-1)//'.mkl', TRIM(mklname))
+  if(TRIM(mklname) /= TRIM(mklname0)) then
+   i = RENAME(TRIM(mklname0), TRIM(mklname))
   end if
  end if
 end subroutine gbw2mkl
@@ -109,53 +116,46 @@ end subroutine gbw2mkl
 ! wrapper of the ORCA utility orca_2mkl, only .mkl -> .gbw
 subroutine mkl2gbw(mklname, gbwname)
  implicit none
- integer :: i, k, SYSTEM, RENAME
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: buf, gbwname0
  character(len=240), intent(in) :: mklname
  character(len=240), intent(in), optional :: gbwname
 
- k = INDEX(mklname, '.mkl', back=.true.)
+ call find_specified_suffix(mklname, '.mkl', i)
+ gbwname0 = mklname(1:i-1)//'.gbw'
+ buf = 'orca_2mkl '//mklname(1:i-1)//' -gbw'
+
 #ifdef _WIN32
- i = SYSTEM('orca_2mkl '//mklname(1:k-1)//' -gbw > NUL')
+ i = SYSTEM(TRIM(buf)//' > NUL')
 #else
- i = SYSTEM('orca_2mkl '//mklname(1:k-1)//' -gbw > /dev/null')
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
 #endif
 
  if(i /= 0) call prt_orca_2mkl_error(mklname)
 
  if(PRESENT(gbwname)) then
-  if(TRIM(gbwname) /= mklname(1:k-1)//'.gbw') then
-   i = RENAME(mklname(1:k-1)//'.gbw', TRIM(gbwname))
+  if(TRIM(gbwname0) /= TRIM(gbwname)) then
+   i = RENAME(TRIM(gbwname0), TRIM(gbwname))
   end if
  end if
 end subroutine mkl2gbw
-
-subroutine prt_orca_2mkl_error(fname)
- implicit none
- character(len=240), intent(in) :: fname
-
- write(6,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. Three&
-                 & possible reasons:'
- write(6,'(A)') '(1) Your ORCA environment variables are incorrect.'
- write(6,'(A)') '(2) ORCA utility orca_2mkl does not exist.'
- write(6,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
- stop
-end subroutine prt_orca_2mkl_error
 
 ! wrapper of the utility fch2psi
 subroutine fch2psi_wrap(fchname, inpname)
  implicit none
  integer :: i, SYSTEM, RENAME
- character(len=240) :: inpname1
+ character(len=240) :: inpname0
  character(len=240), intent(in) :: fchname
  character(len=240), intent(in), optional :: inpname
 
  i = SYSTEM('fch2psi '//TRIM(fchname))
  if(i /= 0) call prt_call_util_error('fch2psi', fchname)
+
  if(PRESENT(inpname)) then
-  i = INDEX(fchname, '.fch')
-  inpname1 = fchname(1:i-1)//'_psi.inp'
-  if(TRIM(inpname) /= TRIM(inpname1)) then
-   i = RENAME(TRIM(inpname1), TRIM(inpname))
+  call find_specified_suffix(fchname, '.fch', i)
+  inpname0 = fchname(1:i-1)//'_psi.inp'
+  if(TRIM(inpname) /= TRIM(inpname0)) then
+   i = RENAME(TRIM(inpname0), TRIM(inpname))
   end if
  end if
 end subroutine fch2psi_wrap
@@ -165,7 +165,7 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen, prt)
  implicit none
  integer :: i, SYSTEM
  integer, intent(in) :: npair, nopen
- character(len=240) :: buf
+ character(len=260) :: buf
  character(len=240), intent(in) :: fchname
  logical :: alive
  logical, intent(in) :: gvb
@@ -272,7 +272,7 @@ end subroutine mkl2fch_wrap
 subroutine fch2mkl_wrap(fchname, mklname)
  implicit none
  integer :: i, SYSTEM, RENAME
- character(len=240) :: mklname1
+ character(len=240) :: mklname0
  character(len=240), intent(in) :: fchname
  character(len=240), intent(in), optional :: mklname
 
@@ -280,10 +280,10 @@ subroutine fch2mkl_wrap(fchname, mklname)
  if(i /= 0) call prt_call_util_error('fch2mkl', fchname)
 
  if(PRESENT(mklname)) then
-  i = INDEX(fchname, '.fch')
-  mklname1 = fchname(1:i-1)//'_o.mkl'
-  if(TRIM(mklname) /= TRIM(mklname1)) then
-   i = RENAME(TRIM(mklname1), TRIM(mklname))
+  call find_specified_suffix(fchname, '.fch', i)
+  mklname0 = fchname(1:i-1)//'_o.mkl'
+  if(TRIM(mklname0) /= TRIM(mklname)) then
+   i = RENAME(TRIM(mklname0), TRIM(mklname))
   end if
  end if
 end subroutine fch2mkl_wrap
@@ -294,7 +294,7 @@ subroutine chk2gbw(chkname)
  character(len=240) :: fchname, inpname, mklname, gbwname
  character(len=240), intent(in) :: chkname
 
- i = INDEX(chkname, '.chk')
+ call find_specified_suffix(chkname, '.chk', i)
  fchname = chkname(1:i-1)//'.fch'
  inpname = chkname(1:i-1)//'_o.inp'
  mklname = chkname(1:i-1)//'_o.mkl'
@@ -324,7 +324,7 @@ subroutine fch_u2r_wrap(fchname, new_fch)
  if(i /= 0) call prt_call_util_error('fch_u2r', fchname)
 
  if(PRESENT(new_fch)) then
-  i = INDEX(fchname, '.fch', back=.true.)
+  call find_specified_suffix(fchname, '.fch', i)
   rfch = fchname(1:i-1)//'_r.fch'
   if(TRIM(rfch) /= TRIM(new_fch)) then
    i = RENAME(TRIM(rfch), TRIM(new_fch))
@@ -343,15 +343,14 @@ subroutine fch2dal_wrap(fchname, dalname)
  if(i /= 0) call prt_call_util_error('fch2dal', fchname)
 
  if(PRESENT(dalname)) then
-  i = INDEX(dalname, '.dal')
+  call find_specified_suffix(dalname, '.dal', i)
   molname = dalname(1:i-1)//'.mol'
-  i = INDEX(fchname, '.fch')
+  call find_specified_suffix(fchname, '.fch', i)
   dalname1 = fchname(1:i-1)//'.dal'
   molname1 = fchname(1:i-1)//'.mol'
   i = RENAME(TRIM(dalname1), TRIM(dalname))
   i = RENAME(TRIM(molname1), TRIM(molname))
  end if
-
 end subroutine fch2dal_wrap
 
 ! wrapper of utility fch2qchem
@@ -380,7 +379,7 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
   dirname = ' '
   call getenv('QCSCRATCH', dirname)
 
-  i = INDEX(fchname, '.fch', back=.true.)
+  call find_specified_suffix(fchname, '.fch', i)
   scr_dir0 = TRIM(dirname)//'/'//fchname(1:i-1)
   inpname0 = fchname(1:i-1)//'.in'
   i = RENAME(TRIM(inpname0), TRIM(inpname))
@@ -397,9 +396,12 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: pyname0
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=240), intent(in), optional :: pyname
+!f2py intent(in), optional :: pyname
  character(len=256) :: buf
  logical, intent(in) :: dft
+!f2py intent(in) :: dft
 
  buf = 'bas_fch2py '//TRIM(fchname)
  if(dft) buf = TRIM(buf)//' -dft'
@@ -407,9 +409,11 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  if(i /= 0) call prt_call_util_error('bas_fch2py', fchname)
 
  if(PRESENT(pyname)) then
-  i = INDEX(fchname, '.fch', back=.true.)
+  call find_specified_suffix(fchname, '.fch', i)
   pyname0 = fchname(1:i-1)//'.py'
-  i = RENAME(TRIM(pyname0), TRIM(pyname))
+  if(TRIM(pyname0) /= TRIM(pyname)) then
+   i = RENAME(TRIM(pyname0), TRIM(pyname))
+  end if
  end if
 end subroutine bas_fch2py_wrap
 
@@ -424,9 +428,9 @@ subroutine fch2com_wrap(fchname, inpname)
  if(i /= 0) call prt_call_util_error('fch2com', fchname)
 
  if(PRESENT(inpname)) then
-  i = INDEX(fchname, '.fch')
+  call find_specified_suffix(fchname, '.fch', i)
   inpname1 = fchname(1:i-1)//'.com'
-  if(TRIM(inpname) /= TRIM(inpname1)) then
+  if(TRIM(inpname1) /= TRIM(inpname)) then
    i = RENAME(TRIM(inpname1), TRIM(inpname))
   end if
  end if
@@ -447,7 +451,7 @@ subroutine fch2inporb_wrap(fchname, prt_no, inpname)
  if(i /= 0) call prt_call_util_error('fch2inporb', fchname)
 
  if(PRESENT(inpname)) then
-  k = INDEX(fchname, '.fch')
+  call find_specified_suffix(fchname, '.fch', k)
   old_inp = fchname(1:k-1)//'.input'
   if(TRIM(inpname) /= TRIM(old_inp)) then
    old_orb = fchname(1:k-1)//'.INPORB'
@@ -632,7 +636,7 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine gvb_exclude_XH_A_wrap: failed to call&
-                  & utility gvb_exclude_XH.'
+                   & utility gvb_exclude_XH.'
   write(6,'(A)') 'Did you delete it or forget to compiled it?'
   stop
  end if
@@ -648,6 +652,20 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  read(buf(i+1:),*) new_inp
 end subroutine gvb_exclude_XH_A_wrap
 
+end module util_wrapper
+
+subroutine prt_orca_2mkl_error(fname)
+ implicit none
+ character(len=240), intent(in) :: fname
+
+ write(6,'(/,A)') 'ERROR: failed to call ORCA utility orca_2mkl. 3 possible rea&
+                  &sons:'
+ write(6,'(A)') '(1) Your ORCA environment variables are incorrect.'
+ write(6,'(A)') '(2) ORCA utility orca_2mkl does not exist.'
+ write(6,'(A)') '(3) The file '//TRIM(fname)//' may be incomplete.'
+ stop
+end subroutine prt_orca_2mkl_error
+
 subroutine prt_call_util_error(utilname, fname)
  implicit none
  character(len=*), intent(in) :: utilname
@@ -658,6 +676,4 @@ subroutine prt_call_util_error(utilname, fname)
  write(6,'(A)') 'fname='//TRIM(fname)
  stop
 end subroutine prt_call_util_error
-
-end module util_wrapper
 

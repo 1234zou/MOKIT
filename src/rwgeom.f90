@@ -1375,6 +1375,60 @@ subroutine gjf2cp2k_inp(gjfname, uks, force, stress, broyden, smearing)
  deallocate(elem, coor)
 end subroutine gjf2cp2k_inp
 
+! report molecule size and space spread information
+subroutine report_mol_size(gjfname)
+ implicit none
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ real(kind=8) :: r1, r2, lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:), dis(:,:)
+ character(len=1), parameter :: str(3) = ['x','y','z']
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+ logical :: pbc
+ logical, external :: check_pbc_in_gjf
+
+ pbc = check_pbc_in_gjf(gjfname)
+
+ if(pbc) then ! periodic
+  call read_natom_from_gjf_pbc(gjfname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, lat_vec,&
+                                       charge, mult)
+  write(6,'(/,A)') 'Periodic cell detected. Only atoms belong to the central ce&
+                   &ll would be considered.'
+  write(6,'(A)') 'Lattice vectors:'
+  do i = 1, 3
+   write(6,'(A,3(1X,F14.5))') str(i)//':', lat_vec(:,i)
+  end do ! for i
+ else
+  call read_natom_from_gjf(gjfname, natom)
+  allocate(elem(natom), nuc(natom), coor(3,natom))
+  call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
+  write(6,'(/,A)') 'Non-periodic system detected.'
+ end if
+
+ write(6,'(/,A)') 'xyz range of atoms:'
+ do i = 1, 3
+  r1 = MINVAL(coor(i,:))
+  r2 = MAXVAL(coor(i,:))
+  write(6,'(2(F16.5,A),F10.3,A)') r1, ' <= '//str(i)//' <= ', r2, ', spread ',&
+                                  r2-r1, ' A'
+ end do ! for i
+ deallocate(elem, nuc)
+ allocate(dis(natom,natom))
+ call cal_dis_mat_from_coor(natom, coor, dis)
+ deallocate(coor)
+
+ r1 = MAXVAL(dis)
+ write(6,'(/,A,F10.3,A)') 'Maximum distance of two atoms:',r1,' A'
+
+ forall(i = 1:natom) dis(i,i) = r1 + 1d0
+ write(6,'(A,F10.3,A,/)') 'Minimum distance of two atoms:',MINVAL(dis),' A'
+ deallocate(dis)
+end subroutine report_mol_size
+
 ! calculate an internal coordinate (bond, angle, or dihedral)
 function calc_an_int_coor(n, coor) result(val)
  implicit none

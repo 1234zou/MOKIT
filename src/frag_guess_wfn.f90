@@ -35,7 +35,13 @@ module frag_info
   logical, allocatable :: ghost(:)   ! .True./.False. for ghost atoms or not, size natom
  end type frag
 
+ type :: adjcent_atoms
+  integer :: nadj = 0
+  integer, allocatable :: iadj(:) ! size nadj
+ end type adjcent_atoms
+
  type(frag), allocatable :: frags(:)
+ type(adjcent_atoms), allocatable :: adj(:)
 contains
 
 ! copy type frag
@@ -96,6 +102,142 @@ subroutine comb_elem_coor_in_frags(frag1, frag2, frag3)
  frag3%coor(:,natom1+1:natom3) = frag2%coor
 end subroutine comb_elem_coor_in_frags
 
+! generate type adj from the integer array conn(i.e. connectivity)
+subroutine gen_adj_from_conn(natom, conn)
+ implicit none
+ integer :: i, j, nadj
+ integer, intent(in) :: natom
+ integer, intent(in) :: conn(natom,natom)
+
+ allocate(adj(natom))
+
+ do i = 1, natom, 1
+  nadj = COUNT(conn(:,i) > 0)
+  adj(i)%nadj = nadj
+  if(nadj == 0) cycle
+  allocate(adj(i)%iadj(nadj))
+
+  nadj = 0
+  do j = 1, natom, 1
+   if(conn(j,i) == 0) cycle
+   nadj = nadj + 1
+   adj(i)%iadj(nadj) = j
+  end do ! for j
+ end do ! for i
+end subroutine gen_adj_from_conn
+
+! delete the integer i in a type adjcent_atoms
+subroutine del_i_in_a_type_adj(i, a)
+ implicit none
+ integer :: k, nadj
+ integer, allocatable :: iadj(:)
+ integer, intent(in) :: i
+ integer, external :: find_1st_loc
+ type(adjcent_atoms), intent(inout) :: a
+
+ k = COUNT(a%iadj == i)
+ if(k /= 1) then
+  write(6,'(/,A)') 'ERROR in subroutine del_i_in_a_type_adj: i occurs more tha&
+                   &n once or does not'
+  write(6,'(A,I0)') 'occur in the array a%iadj. i=', i
+  stop
+ end if
+
+ nadj = a%nadj
+ allocate(iadj(nadj), source=a%iadj)
+ deallocate(a%iadj)
+ allocate(a%iadj(nadj-1))
+
+ k = find_1st_loc(nadj, iadj, i)
+ if(k == 1) then
+  a%iadj = iadj(2:)
+ else if(k == nadj) then
+  a%iadj = iadj(1:nadj-1)
+ else
+  a%iadj(1:k-1) = iadj(1:k-1)
+  a%iadj(k:) = iadj(k+1:)
+ end if
+
+ deallocate(iadj)
+ a%nadj = nadj - 1
+end subroutine del_i_in_a_type_adj
+
+! Find atoms whose coordination number < cn_thres, where cn_thres is the thres-
+! hold of coordination numbers.
+! Note: the array adj will be changed and finally deallocated in this subroutine.
+subroutine find_lcn_in_adj(cn_thres, natom, lcn)
+ implicit none
+ integer :: i, j, k, natom0, nadj
+ integer, intent(in) :: cn_thres, natom
+ character(len=37),parameter::error_warn='ERROR in subroutine find_lcn_in_adj: '
+ logical, intent(out) :: lcn(natom)
+
+ lcn = .false.
+ natom0 = size(adj)
+ if(natom0 /= natom) then
+  write(6,'(/,A)') error_warn//'natom /= natom0. Internal inconsistency.'
+  write(6,'(2(A,I0))') 'natom=', natom, ', natom0=', natom0
+  stop
+ end if
+
+ if(cn_thres < 0) then
+  write(6,'(/,A)') error_warn//'cn_thres<0. Invalid threshold.'
+  write(6,'(2(A,I0))') 'cn_thres=', cn_thres, ', natom0=', natom0
+  stop
+ end if
+
+ natom0 = natom
+ ! Deleting one low-coordination atom will change the coordination number of
+ ! other atoms, so we need a loop to deal with this.
+ do while(.true.)
+  do i = 1, natom, 1
+   if(lcn(i)) cycle
+   nadj = adj(i)%nadj
+   if(nadj >= cn_thres) cycle
+   lcn(i) = .true.
+   do j = 1, nadj, 1
+    k = adj(i)%iadj(j)
+    call del_i_in_a_type_adj(i, adj(k))
+   end do ! for j
+  end do ! for i
+
+  k = COUNT(lcn .eqv. .false.)
+  if(k == natom0) exit
+  natom0 = k
+ end do ! for while
+
+ if(ALL(lcn .eqv. .true.)) then
+  write(6,'(/,A)') error_warn//'all selected atoms are found to be of'
+  write(6,'(A)') 'low-coodination numbers. Please check the geometry of your mo&
+                 &lecule.'
+  write(6,'(2(A,I0))') 'cn_thres=', cn_thres, ', natom0=', natom0
+  stop
+ end if
+end subroutine find_lcn_in_adj
+
+! print coordination number distribution of the type array adj
+subroutine prt_cn_in_adj(free)
+ implicit none
+ integer :: i, k, natom
+ logical, intent(in) :: free
+
+ if(.not. allocated(adj)) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_cn_in_adj: the array adj is not all&
+                   &ocated.'
+  stop
+ end if
+
+ natom = size(adj)
+ k = MAXVAL(adj(:)%nadj)
+ write(6,'(A)') 'Now the distribution of coordination number is:'
+
+ do i = 0, k, 1
+  write(6,'(A,I2,A,I6)') 'CN=',i,', n_CN=',COUNT(adj(:)%nadj==i)
+ end do ! for i
+
+ if(free) deallocate(adj)
+end subroutine prt_cn_in_adj
+
 end module frag_info
 
 module theory_level
@@ -104,7 +246,8 @@ module theory_level
  integer :: nproc = 4
  integer :: wfn_type = 0  ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
- integer :: disp_type = 0 ! 0/1/2 for no dispersion correction/GD3/GD3BJ
+ integer :: disp_type = 0 ! 0/1/2/3 for none/D3/D3BJ/D4
+ integer, parameter :: cn_thres = 4 ! coordination number threshold in XO-PBC
  character(len=11) :: method = ' '
  character(len=21) :: basis = ' '
  character(len=21) :: auxbas = ' '
@@ -114,13 +257,16 @@ module theory_level
  character(len=240) :: gau_path
  character(len=240) :: hf_prog_path = ' '
  logical :: sph = .true.  ! '5D 7F'/'6D 10F'
- logical :: even_e = .false. ! force the number of electrons in XO-PBC to be even
+ logical :: even_e = .false.
+ ! In XO-PBC, force the number of electrons to be even, by deleting an atom
  logical :: complement = .false.
- ! complement neighbouring metal atoms to obtain more a reasonable structure
+ ! In XO-PBC, complement neighbouring atoms to obtain more a reasonable structure
+ logical :: del_lcn = .false.
+ ! In XO-PBC, delete atoms (in the slab) which have low-coordination numbers
 end module theory_level
 
 program main
- use theory_level, only: gau_path, even_e, complement
+ use theory_level, only: gau_path, even_e, complement, del_lcn
  implicit none
  integer :: i, i1, i2
  integer(kind=4) :: hostnm
@@ -147,7 +293,7 @@ program main
  call fdate(data_string)
  write(6,'(A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
- call check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
+ call check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, del_lcn, i1, i2)
  if(xo_pbc) then
   call calc_xo_pbc_ads_e(gjfname, i1, i2)
  else
@@ -160,7 +306,8 @@ program main
 end program main 
 
 ! check whether the XO-PBC calculation is requested in the .gjf file
-subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
+subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, del_lcn, &
+                               i1, i2)
  implicit none
  integer :: i, j, k, m1, m2, nkey, fid
  integer, intent(out) :: i1, i2
@@ -169,11 +316,12 @@ subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
  character(len=240), intent(in) :: gjfname
  character(len=80), parameter :: error_str = 'ERROR in subroutine check_xo_pbc_&
                                &in_gjf: syntax error in the Title Card of file '
- logical, intent(out) :: xo_pbc, even_e, complement
+ logical, intent(out) :: xo_pbc, even_e, complement, del_lcn
 
  i1 = 0; i2 = 0; nkey = 0
  str(1) = ' '; str(2) = ' '
- xo_pbc = .false.; even_e = .false.; complement = .false.
+ xo_pbc = .false.; even_e = .false.
+ complement = .false.; del_lcn = .false.
 
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
  do while(.true.)
@@ -221,6 +369,8 @@ subroutine check_xo_pbc_in_gjf(gjfname, xo_pbc, even_e, complement, i1, i2)
    even_e = .true.
   case('COMPLEMENT')
    complement = .true.
+  case('DEL_LCN')
+   del_lcn = .true.
   case default
    write(6,'(/,A)') error_str//TRIM(gjfname)
    stop
@@ -974,7 +1124,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  write(fid,'(A,I0)') '%nprocshared=', nproc
  write(fid,'(A)',advance='no') '#p '//TRIM(method0)//'/'//TRIM(basis)
  ! For pure functional like PBE, we can enable the RIJ approximation
- ! auxbas='W06' is equivalent to def2/J
+ ! W06 in Gaussian is equivalent to def2/J in ORCA
  if(LEN_TRIM(auxbas) > 0) write(fid,'(A)',advance='no') '/'//TRIM(auxbas)
  write(fid,'(A)',advance='no') ' nosymm'
 
@@ -1006,10 +1156,12 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
 
  if(LEN_TRIM(scrf) > 0) write(fid,'(A)',advance='no') ' '//TRIM(scrf)
 
- if(sph) then
-  write(fid,'(A)',advance='no') ' 5D 7F'
- else
-  write(fid,'(A)',advance='no') ' 6D 10F'
+ if(TRIM(basis) /= 'chkbasis') then
+  if(sph) then
+   write(fid,'(A)',advance='no') ' 5D 7F'
+  else
+   write(fid,'(A)',advance='no') ' 6D 10F'
+  end if
  end if
 
  if(disp_type == 1) then
@@ -2181,23 +2333,25 @@ end subroutine del_ecp_of_ghost_in_buf
 
 ! Select adjcent atoms according to the cutoff radius. The distance between an
 !  atom in frag4 and the adsorbate is stored in the array dis.
-! If selected atoms have odd total electrons, the farthest atom will be deleted
-!  to obtain even electrons. This is because for some metals (e.g. Cu), RDFT
-!  wave function is often stable, and thus using RDFT can save computational
+! If selected atoms have odd total electrons, the farthest atom is optional to
+!  be deleted to obtain even electrons. This is because for some metals (e.g. Cu),
+!  RDFT wave function is often stable, and thus using RDFT can save computational
 !  time. For special metals, we can use broken-symmetry guess or antiferromagnetic
 !  guess.
-subroutine select_adj_atoms_in_frag(even_e, complement, frag4, natom4, dis, &
-                                    r_cut, frag2)
- use frag_info, only: frag
+subroutine select_adj_atoms_in_frag(frag4, natom4, dis, r_cut, frag2)
+ use frag_info, only: frag, gen_adj_from_conn, find_lcn_in_adj, prt_cn_in_adj
+ use theory_level, only: even_e, complement, del_lcn, cn_thres
  use fch_content, only: elem2nuc
  implicit none
- integer :: i, j, k, ne, idx
+ integer :: i, j, k, m, ne, natml, idx
  integer, intent(in) :: natom4
- integer, allocatable :: stype(:)
- real(kind=8) :: max_dis, coor(3), min_xyz(3), max_xyz(3)
+ integer, allocatable :: stype(:), tmp_idx(:), nuc(:), conn(:,:)
+ real(kind=8) :: max_dis, xy_dis, r_xy, min_z, max_z, coor(3), xy_center(2)
+ real(kind=8), parameter :: zdiff = 0.2d0
  real(kind=8), intent(in) :: dis(natom4), r_cut
+ real(kind=8), allocatable :: tmp_coor(:,:), tmp_dis(:,:)
  character(len=2) :: str2
- logical, intent(in) :: even_e, complement
+ logical, allocatable :: lcn(:)
  type(frag), intent(in) :: frag4
  type(frag), intent(inout) :: frag2
 
@@ -2205,49 +2359,143 @@ subroutine select_adj_atoms_in_frag(even_e, complement, frag4, natom4, dis, &
  ! type of selected atoms
  ! 0: not selected/chosen
  ! 1: selected by distance threshold
- ! 2: selected by xyz range
+ ! 2: atoms belong to the 1st layer, which are part of atoms stype(i)=1
+ ! 3: extra selection by xyz range
  ne = 0; j = 0
 
  do i = 1, natom4, 1
-  if(dis(i) < r_cut) then
-   coor = frag4%coor(:,i)
-   j = j + 1
-   if(j == 1) then
-    min_xyz = coor; max_xyz = coor
+  if(dis(i) > r_cut) cycle
+  coor = frag4%coor(:,i)
+  j = j + 1
+  if(j == 1) then
+   min_z = coor(3); max_z = coor(3)
+   idx = i; max_dis = dis(i)
+  else
+   if(coor(3) < min_z) min_z = coor(3)
+   if(coor(3) > max_z) max_z = coor(3)
+   if(dis(i) > max_dis) then
     idx = i; max_dis = dis(i)
-   else
-    do k = 1, 3
-     if(coor(k) < min_xyz(k)) min_xyz(k) = coor(k)
-     if(coor(k) > max_xyz(k)) max_xyz(k) = coor(k)
-    end do ! for k
-    if(dis(i) > max_dis) then
-     idx = i; max_dis = dis(i)
-    end if
    end if
-   stype(i) = 1
-   ne = ne + elem2nuc(frag4%elem(i))
   end if
+  stype(i) = 1
+  ne = ne + elem2nuc(frag4%elem(i))
  end do ! for i
 
- ! select surrounding metal atoms to get a more reasonable cluster shape
+ ! Select surrounding metal atoms to get a more reasonable cluster shape.
+ ! The algorithm here assumes that cubic box is used, and the metal slab spreads
+ ! the xy directions. At the z direction, the adsorbate is above the slab.
  if(complement) then
   write(6,'(A)') 'Complementing surrounding metal atoms...'
+  natml = 0; xy_center = 0d0
+
+  ! find the x,y center of the 1st layer metal atoms
+  do i = 1, natom4, 1
+   if(stype(i) /= 1) cycle
+   coor = frag4%coor(:,i)
+   if(DABS(coor(3) - max_z) > zdiff) cycle
+   ! only metal atoms in the 1st layer will come here
+   stype(i) = 2
+   natml = natml + 1
+   xy_center(1) = xy_center(1) + coor(1)
+   xy_center(2) = xy_center(2) + coor(2)
+  end do ! for i
+  xy_center = xy_center/DBLE(natml)
+
+  ! calculate the radius of the 1st layer
+  r_xy = 0d0
+  do i = 1, natom4, 1
+   if(stype(i) /= 2) cycle
+   coor(1:2) = frag4%coor(1:2,i) - xy_center
+   xy_dis = DSQRT(DOT_PRODUCT(coor(1:2),coor(1:2)))
+   if(xy_dis > r_xy) r_xy = xy_dis
+  end do ! for i
+
+  ! The radius should be smaller in the 2nd layer (and below), so that atoms
+  ! which occur in the 2nd layer (and below) would probably not go beyond the
+  ! range of the 1st layer.
+  r_xy = r_xy - 1d0
+  if(r_xy < 0.1d0) then
+   write(6,'(/,A)') 'ERROR in subroutine select_adj_atoms_in_frag: the cutted c&
+                    &luster is too'
+   write(6,'(A)') 'small. Please consider increasing the cutoff radius.'
+   stop
+  end if
+
+  ! find complemented atoms
   k = j
   do i = 1, natom4, 1
-   if(stype(i) == 1) cycle
+   if(stype(i) > 0) cycle
    coor = frag4%coor(:,i)
-   if(coor(1)<min_xyz(1) .or. coor(1)>max_xyz(1)) cycle
-   if(coor(2)<min_xyz(2) .or. coor(2)>max_xyz(2)) cycle
-   if(coor(3)<min_xyz(3) .or. coor(3)>max_xyz(3)) cycle
+   if(DABS(coor(3) - max_z) < zdiff) cycle
+   if(min_z - coor(3) > zdiff) cycle
+   coor(1:2) = coor(1:2) - xy_center
+   xy_dis = DSQRT(DOT_PRODUCT(coor(1:2),coor(1:2)))
+   if(xy_dis > r_xy) cycle
    if(dis(i) > max_dis) then
     idx = i; max_dis = dis(i)
    end if
    j = j + 1
-   stype(i) = 2
+   stype(i) = 3
    ne = ne + elem2nuc(frag4%elem(i))
   end do ! for i
   write(6,'(A,I0)') 'complemented atoms: ', j-k
- end if
+ end if ! complement
+
+ ! delete atoms in the slab which have low-coordination numbers
+ if(del_lcn) then
+  allocate(tmp_idx(j), tmp_coor(3,j), nuc(j))
+  j = 0
+  do i = 1, natom4, 1
+   if(stype(i) == 0) cycle
+   j = j + 1
+   tmp_idx(j) = i
+   tmp_coor(:,j) = frag4%coor(:,i)
+   nuc(j) = elem2nuc(frag4%elem(i))
+  end do ! for i
+
+  allocate(tmp_dis(j,j), conn(j,j))
+  call gen_conn_from_coor(j, tmp_coor, nuc, tmp_dis, conn)
+  deallocate(tmp_coor, nuc, tmp_dis)
+  call gen_adj_from_conn(j, conn)
+  deallocate(conn)
+  allocate(lcn(j))
+  write(6,'(A,I0)') 'CN_thres=', cn_thres
+  call find_lcn_in_adj(cn_thres, j, lcn)
+  call prt_cn_in_adj(.true.)
+
+  m = COUNT(lcn .eqv. .true.)
+  if(m > 0) then
+   do i = 1, j, 1
+    if(lcn(i)) then
+     k = tmp_idx(i)
+     stype(k) = 0
+     ne = ne - elem2nuc(frag4%elem(k))
+    end if
+   end do ! for i
+
+   deallocate(tmp_idx, lcn)
+   j = j - m
+   k = 0 ! remember to update idx and max_dis
+
+   do i = 1, natom4, 1
+    if(stype(i) == 0) cycle
+    coor = frag4%coor(:,i)
+    k = k + 1
+    if(k == 1) then
+     min_z = coor(3); max_z = coor(3)
+     idx = i; max_dis = dis(i)
+    else
+     if(coor(3) < min_z) min_z = coor(3)
+     if(coor(3) > max_z) max_z = coor(3)
+     if(dis(i) > max_dis) then
+      idx = i; max_dis = dis(i)
+     end if
+    end if
+   end do ! for i
+  end if ! m >0
+
+  write(6,'(A,I0)') 'deleted low-coordination atoms: ', m
+ end if ! del_lcn
 
  ! delete the farthest metal atom to get even number of electrons, if required
  if(even_e .and. MOD(ne,2)==1) then
@@ -2464,6 +2712,50 @@ subroutine check_r_cut_valid(natom, coor, r_cut, lat_vec)
  deallocate(r1, r2)
 end subroutine check_r_cut_valid
 
+! Add level shift and Fermi-Dirac smearing options into a .gjf. Only useful for
+! metal cluster >6.5 A.
+subroutine add_vshift_and_fermi(gjfname)
+ implicit none
+ integer :: i, j, k, fid, fid1, RENAME
+ character(len=240) :: buf, new_gjf
+ character(len=240), intent(in) :: gjfname
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ new_gjf = gjfname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(new_gjf),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  j = INDEX(buf, 'scf(')
+  if(j > 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid1,status='delete')
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine add_vshift_and_fermi: no 'scf(' found i&
+                   &n file "//TRIM(gjfname)
+  stop
+ end if
+
+ k = INDEX(buf(j+4:),')')
+ buf = buf(1:j+k+2)//',vshift=2000,fermi'//TRIM(buf(j+k+3:))
+ write(fid1,'(A)') TRIM(buf)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(new_gjf), TRIM(gjfname))
+end subroutine add_vshift_and_fermi
+
 ! calculate the vertical adsorption energy using the 2D XO-PBC method
 subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  use frag_info, only: frag, comb_elem_coor_in_frags
@@ -2478,6 +2770,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  integer, parameter :: max_step = 1
  integer, allocatable :: nuc(:)
  real(kind=8), parameter :: r_cut = 4.5d0 ! Angstrom, the minimum radius
+ real(kind=8), parameter :: r_cut_thres = 6.5d0 ! for 'vshift=2000,fermi'
  real(kind=8), parameter :: stpsz = 0.5d0 ! Angstrom, stepsize
  real(kind=8) :: rtmp, r1(3), r2(3), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
@@ -2491,6 +2784,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  type(frag) :: frags(nfrag)
 
  buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2SVP'; auxbas = 'W06'
+ disp_type = 2 ! D3BJ
 
  call get_orca_path(orca_path)
  if(TRIM(orca_path) == 'NOT FOUND') then
@@ -2507,8 +2801,8 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   stop
  end if
  write(6,'(A)') 'orca_2mkl_path='//TRIM(orca_2mkl_path)
- write(6,'(A,L1)') 'Even_e=', even_e
- write(6,'(A,L1)') 'Complement=', complement
+ write(6,'(3(A,L1))') 'Complement=', complement, ', Del_LCN=', del_lcn, &
+                      ', Even_e=', even_e
 
  hf_prog_path = gau_path
  allocate(high_e(nfrag), source=0d0)
@@ -2537,7 +2831,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  end do ! for i
 
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
- mem_per_proc = CEILING(0.9d0*DBLE(mem)/DBLE(nproc))
+ mem_per_proc = CEILING(0.95d0*DBLE(mem)/DBLE(nproc))
  call read_natom_from_gjf_pbc(gjfname, natom)
  allocate(elem(natom), nuc(natom), coor(3,natom))
  call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
@@ -2607,8 +2901,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
 
   ! determine frags(2), i.e. special atoms in the slab
   frags(2)%natom = natom2
-  call select_adj_atoms_in_frag(even_e, complement, frags(4), natom4, dis, &
-                                rtmp, frags(2))
+  call select_adj_atoms_in_frag(frags(4), natom4, dis, rtmp, frags(2))
   ! frags(2)%natom may be updated in subroutine select_adj_atoms_in_frag, so
   ! here we update natom2
   natom2 = frags(2)%natom
@@ -2635,13 +2928,13 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   ! the adsorbate is calculated only once
   if(k == 1) call gen_gjf_from_type_frag(frags(1), .false., .true., basname)
   call gen_gjf_from_type_frag(frags(2), .false., .true., basname)
+  if(r_cut > r_cut_thres) call add_vshift_and_fermi(frags(2)%fname)
   frags(3)%noiter = .true.
   call gen_gjf_from_type_frag(frags(3), .false., .false., basname)
-  stop
 
   do i = 1, 3
    if(k>1 .and. i==1) cycle
-   call do_scf_and_read_e(gau_path,hf_prog_path, frags(i)%fname,frags(i)%noiter,&
+   call do_scf_and_read_e(gau_path,hf_prog_path,frags(i)%fname,frags(i)%noiter,&
                           frags(i)%e, frags(i)%ssquare)
    if(i < 3) then
     write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e, &
@@ -2682,8 +2975,8 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
    if(i > 1) call add_maxiter_and_stab_in_orca_inp(inpname(i))
    call submit_orca_job(orca_path, inpname(i), .false., .true., .true.)
    call gbw2molden(gbwname(i), molden(i))
-   call read_hf_e_and_ss_from_orca_out(outname(i), frags(i)%wfn_type, &
-                                       high_e(i), ss(i))
+   call read_dft_e_and_ss_from_orca_out(outname(i),frags(i)%wfn_type,high_e(i),&
+                                        ss(i))
    write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e_h = ', high_e(i), &
                                     ', frags(i)%ssquare_h=', ss(i)
    call delete_files(3, [inpname(i), mklname(i), gbwname(i)])

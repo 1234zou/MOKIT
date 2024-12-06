@@ -242,9 +242,15 @@ subroutine fch2amo(fchname)
   end do ! for i
   deallocate(frozen_e)
  else
+  if(allocated(rnuc)) then
+   allocate(itmp(natom), source=NINT(rnuc))
+  else
+   allocate(itmp(natom), source=ielem)
+  end if
   do i = 1, natom, 1
-   write(fid,'(A2,2X,I3,3(1X,F20.10))') elem(i), ielem(i), coor(:,i)
+   write(fid,'(A2,2X,I3,3(1X,F20.10))') elem(i), itmp(i), coor(:,i)
   end do ! for i
+  deallocate(itmp)
  end if
 
  deallocate(coor)

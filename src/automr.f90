@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.6rc42 :: MOKIT, release date: 2024-Nov-14'
+  write(6,'(A)') 'AutoMR 1.2.7rc1 :: MOKIT, release date: 2024-Dec-6'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -535,8 +535,8 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'from mokit.lib.uno import uno'
  write(fid2,'(A)') 'from mokit.lib.gaussian import mo_fch2py'
  write(fid2,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read&
-                   &_na_and_nb_from_fch'
- write(fid2,'(A,/)') 'from mokit.lib.construct_vir import construct_vir'
+                   &_na_and_nb_from_fch, \'
+ write(fid2,'(A)') ' construct_vir'
  write(fid2,'(A,I0)') 'nproc = ', nproc
  write(fid2,'(A,/)') 'lib.num_threads(nproc)'
 
@@ -1110,11 +1110,11 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  call read_nbf_and_nif_from_fch(fchname1, nbf1, nif1)
  call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
 
- i = INDEX(fchname1, '.fch', back=.true.)
+ call find_specified_suffix(fchname1, '.fch', i)
  pyname = fchname1(1:i-1)//'.py0'
  pyname1 = fchname1(1:i-1)//'.py'
 
- i = INDEX(fchname2, '.fch', back=.true.)
+ call find_specified_suffix(fchname2, '.fch', i)
  pyname2 = fchname2(1:i-1)//'.py'
 
  open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
@@ -1157,12 +1157,13 @@ subroutine prt_orb_resemble_py_script(nproc, fchname1, fchname2, pyname)
  write(fid3,'(A)') 'lib.num_threads(nproc)'
 
  write(fid3,'(/,A)') '# rotate MOs at target basis to resemble known orbitals'
+ write(fid3,'(A)') "ao_S1 = mol.intor_symmetric('int1e_ovlp')"
  write(fid3,'(A)') "cross_S = gto.intor_cross('int1e_ovlp', mol, mol2)"
- write(fid3,'(A)') "mo1 = fch2py('"//TRIM(fchname1)//"', nbf1, nif1, 'a')"
  write(fid3,'(A)') "mo2 = fch2py('"//TRIM(fchname2)//"', nbf2, nif2, 'a')"
- write(fid3,'(A)') "mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nif2, mo2, cross_S)"
+ write(fid3,'(A)') "mo1 = orb_resemble(nbf1, nif1, nbf2, nif2, mo2, ao_S1, cros&
+                   &s_S)"
  write(fid3,'(A)') 'noon = np.zeros(nif1)'
- write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"',nbf1,nif1,mo3,'a',noon,False,&
+ write(fid3,'(A)') "py2fch('"//TRIM(fchname1)//"',nbf1,nif1,mo1,'a',noon,False,&
                    &False)"
  i = RENAME(TRIM(pyname), TRIM(pyname1))
  pyname = pyname1

@@ -318,14 +318,57 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
  deallocate(mo_ovlp, sv)
 end subroutine mo_svd_qcmo
 
+! Update mo1 to resemble mo2 using the Boughton-Pulay projection method, which
+! is a non-iterative method.
+! For example, mo1 contains MOs at cc-pVDZ, mo2 contains GVB/STO-6G orbitals, we
+!  want to find mo1(:,1:nmo2) which resembles mo2
+subroutine orb_resemble(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
+ implicit none
+ integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
+!f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
+ real(kind=8), intent(in) :: mo2(nbf2,nmo2), ao_S1(nbf1,nbf1), cross_S(nbf1,nbf2)
+!f2py intent(in) :: mo2, ao_S1, cross_S
+!f2py depend(nbf2,nmo2) :: mo2
+!f2py depend(nbf1) :: ao_S1
+!f2py depend(nbf1,nbf2) :: cross_S
+ real(kind=8), intent(out) :: mo1(nbf1,nmo1)
+!f2py intent(out) :: mo1
+!f2py depend(nbf1,nmo1) :: mo1
+ real(kind=8), allocatable :: sc(:,:), old_mo(:,:)
+
+ if(nmo1 < nmo2) then
+  write(6,'(/,A)') 'ERROR in subroutine orb_resemble: nmo1 < nmo2.'
+  write(6,'(A)') 'This subroutine requires nmo1 >= nmo2. But got'
+  write(6,'(2(A,I0))') 'nmo1=', nmo1, ', nmo2=', nmo2
+  stop
+ end if
+
+ ! calculate (S_12)C
+ allocate(sc(nbf1,nmo2), source=0d0)
+ call dgemm('N','N',nbf1,nmo2,nbf2,1d0,cross_S,nbf1,mo2,nbf2,0d0,sc,nbf1)
+
+ ! perform Boughton-Pulay projection
+ allocate(old_mo(nbf1,nmo2))
+ call solve_multi_lin_eqs(nbf1, nbf1, ao_S1, nmo2, sc, old_mo)
+ deallocate(sc)
+
+ ! old_mo is not orthonormalized, symmetric orthonormalization is required
+ call orthonormalize_orb(.true.,.true., nbf1,nmo2,ao_S1, old_mo, mo1(:,1:nmo2))
+ deallocate(old_mo)
+
+ allocate(old_mo(nbf1,nmo1), source=mo1)
+ call construct_vir(nbf1, nmo1, nmo2+1, old_mo, ao_S1, mo1)
+ deallocate(old_mo)
+end subroutine orb_resemble
+
 ! 2*2 Jacobian rotate mo1 to resemble mo2
 ! For example, mo1 contains MOs at cc-pVDZ, mo2 contains GVB/STO-6G orbitals, we
-!  want to find the unitary transformation of mo1 to resemble mo2
-subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
+!  want to find mo1(:,1:nmo2) which resembles mo2
+subroutine orb_resemble_iter(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_on_ovlp
  implicit none
  integer :: i, j, niter
- integer :: nbf1, nmo1, nbf2, nmo2
+ integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
  integer, parameter :: niter_max = 9999   ! max number of iterations
  real(kind=8) :: Aij, Bij, r1, r2, rtmp, sin_a, cos_a, alpha, sum_change
@@ -333,23 +376,25 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  ! threshold1: determine whether to rotate (and update MOs and overlap integrals)
  ! threshold2: determine whether orbital rotations converged
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
- real(kind=8) :: mo1(nbf1,nmo1), mo2(nbf2,nmo2), cross_S(nbf1,nbf2)
-!f2py intent(in) :: mo1, mo2, cross_S
-!f2py depend(nbf1,nmo1) :: mo1
+ real(kind=8), intent(in) :: mo2(nbf2,nmo2), ao_S1(nbf1,nbf1), cross_S(nbf1,nbf2)
+!f2py intent(in) :: mo2, ao_S1, cross_S
 !f2py depend(nbf2,nmo2) :: mo2
+!f2py depend(nbf1,nbf1) :: ao_S1
 !f2py depend(nbf1,nbf2) :: cross_S
-! cross_S is the cross AO overlap integral matrix
- real(kind=8) :: new_mo1(nbf1,nmo1)
-!f2py intent(out) :: new_mo1
-!f2py depend(nbf1,nmo1) :: new_mo1
- real(kind=8), allocatable :: S(:,:), u(:,:), vt(:,:), w(:)
+ real(kind=8), intent(out) :: mo1(nbf1,nmo1)
+!f2py intent(out) :: mo1
+!f2py depend(nbf1,nmo1) :: mo1
+ real(kind=8), allocatable :: S(:,:), u(:,:), vt(:,:), w(:), new_mo1(:,:)
 
  if(nmo1 < nmo2) then
-  write(6,'(/,A)') 'ERROR in subroutine orb_resemble: nmo1 < nmo2.'
-  write(6,'(A)') 'This subroutine requires nmo1 >= nmo2. But currently'
+  write(6,'(/,A)') 'ERROR in subroutine orb_resemble_iter: nmo1 < nmo2.'
+  write(6,'(A)') 'This subroutine requires nmo1 >= nmo2. But got'
   write(6,'(2(A,I0))') 'nmo1=', nmo1, ', nmo2=', nmo2
   stop
  end if
+
+ ! get a set of orthonormalized MOs using canonical orthogonalization
+ call can_ortho(nbf1, nmo1, ao_S1, mo1)
 
  ! transform cross AO overlap to MO overlap
  allocate(S(nmo1,nmo2))
@@ -362,17 +407,17 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  write(6,'(5(1X,ES15.8))') w
  deallocate(S, vt, w)
 
- new_mo1 = 0d0 ! C' = CU
+ allocate(new_mo1(nbf1,nmo1), source=0d0)
  call dgemm('N','N', nbf1,nmo1,nmo1, 1d0,mo1,nbf1, u,nmo1, 0d0, new_mo1,nbf1)
- deallocate(u)
+ mo1 = new_mo1
+ deallocate(u, new_mo1)
  ! now the 1~nmo2 spaces of two basis set have maximum overlap, then rotate to
  ! resemble
  if(nmo2 == 1) return
 
  ! calculate new MO overlap for 1~n2 MOs
  allocate(S(nmo2,nmo2))
- call get_mo_basis_ovlp2(nbf1, nmo2, nbf2, nmo2, new_mo1(:,1:nmo2), mo2, &
-                         cross_S, S)
+ call get_mo_basis_ovlp2(nbf1, nmo2, nbf2, nmo2, mo1(:,1:nmo2), mo2, cross_S, S)
 
  allocate(u(nbf1,2), vt(nmo2,2))
  niter = 0
@@ -402,9 +447,9 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
     sum_change = sum_change + rtmp - Bij
 
     ! update two orbitals
-    u(:,1) = new_mo1(:,i); u(:,2) = new_mo1(:,j)
-    new_mo1(:,i) = cos_a*u(:,1) - sin_a*u(:,2)
-    new_mo1(:,j) = sin_a*u(:,1) + cos_a*u(:,2)
+    u(:,1) = mo1(:,i); u(:,2) = mo1(:,j)
+    mo1(:,i) = cos_a*u(:,1) - sin_a*u(:,2)
+    mo1(:,j) = sin_a*u(:,1) + cos_a*u(:,2)
 
     ! update MO-based cross overlap integrals
     vt(:,1) = S(i,:); vt(:,2) = S(j,:)
@@ -423,11 +468,11 @@ subroutine orb_resemble(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_S, new_mo1)
  if(niter <= niter_max) then
   write(6,'(A)') 'Orbital resemblance converged successfully.'
  else
-  write(6,'(A)') 'ERROR in subroutine orb_resemble: niter_max exceeded.'
+  write(6,'(A)') 'ERROR in subroutine orb_resemble_iter: niter_max exceeded.'
   write(6,'(A,I0)') 'niter_max=', niter_max
   stop
  end if
-end subroutine orb_resemble
+end subroutine orb_resemble_iter
 
 ! Note: nocc is the number of doubly occupied orbitals in post-HF calculation,
 !  and the number of frozen core orbitals is not included in it.
@@ -478,7 +523,8 @@ subroutine update_amp_from_mo(nbf, nif, nocc, nvir, old_mo, new_mo, t1, t2, &
  new_t2 = t2
 
  if(allocated(pos)) then
-  write(6,'(A)') 'Performing sign changes for t1 and t2...'
+  write(6,'(/,A)') 'Remark from update_amp_from_mo: performing sign changes for&
+                   & t1 and t2...'
   if(ANY(pos .eqv. .false.)) then
    allocate(pos1(nocc,nvir))
    forall(i=1:nocc, j=1:nvir) pos1(i,j) = (pos(i) .eqv. pos(j+nocc))

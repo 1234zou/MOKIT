@@ -5,9 +5,6 @@ module icss_param
  implicit none
  integer :: ngrid(3)
  real(kind=8) :: origin(3)
- real(kind=8), parameter :: r_ext = 6.5d0 ! 6.5 Angstrom
- real(kind=8), parameter :: interval = 0.3d0 ! 0.3 Angstrom
- ! this can be viewed as coarse grids
 end module icss_param
 
 ! do CASCI(npair<=7) or DMRG-CASCI(npair>7) when scf=.False.
@@ -1293,8 +1290,9 @@ end subroutine prt_cas_dalton_nmr_inp
 
 ! add ghost atoms into Dalton .mol file
 subroutine add_ghost2dalton_mol(inpname, nfile)
+ use mr_keyword, only: icss_r, icss_intv
  use mol, only: natom, coor
- use icss_param, only: r_ext, interval, ngrid, origin
+ use icss_param, only: ngrid, origin
  implicit none
  integer :: i, j, k, m, n, p, fid, tot_ngrid
  integer, intent(out) :: nfile
@@ -1303,15 +1301,16 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
  character(len=240), intent(in) :: inpname
 
  do i = 1, 3   ! x,y,z
-  bound(1,i) = MINVAL(coor(i,:)) - r_ext
-  bound(2,i) = MAXVAL(coor(i,:)) + r_ext
-  ngrid(i) = INT((bound(2,i) - bound(1,i))/interval)
+  bound(1,i) = MINVAL(coor(i,:)) - icss_r
+  bound(2,i) = MAXVAL(coor(i,:)) + icss_r
+  ngrid(i) = INT((bound(2,i) - bound(1,i))/icss_intv)
  end do ! for i
+
  origin = bound(1,:)
  tot_ngrid = PRODUCT(ngrid)
- write(6,'(/,A,I0)') 'ICSS rectangular box range: bound atoms + 6.5 Angstrom.&
-                    & Total grid = ', tot_ngrid
- write(6,'(A,F6.3,A,3I5)') 'Interval=', interval, '. Ngrid along x,y,z are', &
+ write(6,'(/,A,F5.2,A,I0)') 'ICSS rectangular box range: bound atoms +',icss_r,&
+                            ' Angstrom. Total grid = ', tot_ngrid
+ write(6,'(A,F5.2,A,3I5)') 'Interval=', icss_intv, '. Ngrid along x,y,z are', &
                            (ngrid(i),i=1,3)
 
  i = INDEX(inpname, '.dal', back=.true.)
@@ -1323,18 +1322,18 @@ subroutine add_ghost2dalton_mol(inpname, nfile)
  dalname1 = inpname(1:j-1)//'00001.dal'
  call copy_file(dalname, dalname1, .false.)
  call copy_mol_and_add_atomtypes(molname, molname1)
- open(newunit=fid,file=TRIM(molname1),status='old',position='append')
 
+ open(newunit=fid,file=TRIM(molname1),status='old',position='append')
  n = 333 - natom
  write(fid,'(A,I0,A)') 'Charge=0. Atoms=', n, ' Basis=INTGRL Ghost'
  m = 0; p = 1
 
  do i = 1, ngrid(1), 1
-  x = bound(1,1) + DBLE(i-1)*interval
+  x = bound(1,1) + DBLE(i-1)*icss_intv
   do j = 1, ngrid(2), 1
-   y = bound(1,2) + DBLE(j-1)*interval
+   y = bound(1,2) + DBLE(j-1)*icss_intv
    do k = 1, ngrid(3), 1
-    z = bound(1,3) + DBLE(k-1)*interval
+    z = bound(1,3) + DBLE(k-1)*icss_intv
     m = m + 1
     write(fid,'(A,3(1X,F15.8))') 'Bq',x,y,z
     if(m == n) then
@@ -1460,9 +1459,10 @@ end subroutine submit_dalton_icss_job
 
 ! Cube format: https://gaussian.com/cubegen; http://sobereva.com/125
 subroutine gen_icss_cub(proname, nfile)
+ use mr_keyword, only: icss_intv
  use mol, only: natom, coor, elem
  use fch_content, only: elem2nuc, Bohr_const
- use icss_param, only: ngrid, interval, origin
+ use icss_param, only: ngrid, origin
  implicit none
  integer :: i, j, k, tot_ngrid, fid, cubid
  integer, intent(in) :: nfile
@@ -1481,7 +1481,7 @@ subroutine gen_icss_cub(proname, nfile)
  write(cubid,'(1X,I0,A)') tot_ngrid, ' grid points in total'
 
  write(cubid,'(I5,3(1X,F11.6),A)') natom, origin/Bohr_const, '    1'
- intv = interval/Bohr_const
+ intv = icss_intv/Bohr_const
  write(cubid,'(I5,1X,F11.6,A)') ngrid(1),intv,'    0.000000    0.000000'
  write(cubid,'(I5,A,1X,F11.6,A)') ngrid(2),'    0.000000',intv,'    0.000000'
  write(cubid,'(I5,A,1X,F11.6)') ngrid(3),'    0.000000    0.000000',intv
@@ -1495,6 +1495,7 @@ subroutine gen_icss_cub(proname, nfile)
  allocate(iso(ngrid(3),ngrid(2),ngrid(1)), source=0d0)
  call merge_shielding_into_one_file(proname, bqfile, nfile)
  open(newunit=fid,file=TRIM(bqfile),status='old',position='rewind')
+
  do i = 1, ngrid(1), 1
   do j = 1, ngrid(2), 1
    do k = 1, ngrid(3), 1

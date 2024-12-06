@@ -1,3 +1,20 @@
+MOKIT 1.2.7 (Dec 6, 2024)
+------------------------
+Fixes
+* fix occasional bug ModuleNotFoundError in load_mol_from_fch
+Features
+* add keywords ICSS_r and ICSS_intv in mokit{}
+* support semi-empirical type .fch(k) in fch2amo and amo2fch
+* add non-iterative basis set projection
+* add ADC(2)/ADC(3) interface to PSI4
+* add IP-/EE-/EA-ADC(2) interface to ORCA
+* add IP-/EA-ADC(2), IP-/EA-ADC(3) interface to PySCF
+* add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
+* add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
+Re-factor and removal
+* mv original subroutine orb_resemble into orb_resemble_iter
+* remove construct_vir.f90 and move this subroutine into math_sub.f90
+
 MOKIT 1.2.6 (Nov 14, 2024)
 ------------------------
 Fixes

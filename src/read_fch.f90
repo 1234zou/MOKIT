@@ -53,6 +53,7 @@ module fch_content
  real(kind=8), allocatable :: force_const(:,:)  ! Cartesian Force Constants
  real(kind=8), allocatable :: vibe2(:)          ! Vib-E2, size 14*nmode
  real(kind=8), allocatable :: norm_mode(:,:)    ! Vib-Modes
+ real(kind=8), allocatable :: rnuc(:) ! nuclear charges with real(kind=8) type
  character(len=2), allocatable :: elem(:)       ! elements ('H ', 'C ', etc)
 
  ! Frozen core orbitals used in RHF_proj and dynamic correlation computations.
@@ -246,14 +247,16 @@ subroutine read_fch(fchname, uhf)
  implicit none
  integer :: i, j, fid
  integer :: ncoeff ! = nbf*nif
+ integer, allocatable :: itmp(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coor0(:) ! Cartesian coordinates
  real(kind=8), allocatable :: coeff(:) ! MOs, nbf*nif
  logical, intent(in) :: uhf
- logical :: ecp, int_atom_typ
+ logical :: ecp, has_rnuc, int_atom_typ
 
- buf = ' '
+ ecp = .false.; has_rnuc = .false.; buf = ' '
+
  call find_specified_suffix(fchname, '.fch', i)
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
@@ -287,7 +290,8 @@ subroutine read_fch(fchname, uhf)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:14) == 'Atomic numbers') exit
- end do
+ end do ! for while
+
  BACKSPACE(fid)
  read(fid,'(A49,2X,I10)') buf, natom
  allocate(ielem(natom), source=0)
@@ -296,13 +300,37 @@ subroutine read_fch(fchname, uhf)
  elem = ' '
  forall(i = 1:natom) elem(i) = nuc2elem(ielem(i))
 
+ ! find 'Nuclear charges'
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:12) == 'Nuclear char') then
+   has_rnuc = .true.
+   exit
+  end if
+  if(buf(1:12) == 'Current cart') then
+   BACKSPACE(fid)
+   exit
+  end if
+ end do ! for while
+
+ if(has_rnuc) then
+  allocate(rnuc(natom))
+  read(fid,'(5(1X,ES15.8))') (rnuc(i),i=1,natom)
+  allocate(itmp(natom), source=NINT(rnuc))
+  ! if it is ab inito all-electron basis set, this array is useless
+  if(SUM(IABS(itmp-ielem)) == 0) deallocate(rnuc)
+  deallocate(itmp)
+  ! If the array rnuc still exists, the case should be either ab inito calculat-
+  ! ion with ECP/PP, or semi-empirical calculation with only valence electrons.
+ end if
+
  ! find and read coordinates
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:12) == 'Current cart') exit
- end do
- allocate(coor0(3*natom), source=0d0)
- allocate(coor(3,natom), source=0d0)
+ end do ! for while
+
+ allocate(coor0(3*natom), coor(3,natom))
  read(fid,'(5(1X,ES15.8))') (coor0(i),i=1,3*natom)
  coor = RESHAPE(coor0,(/3,natom/))
  deallocate(coor0)
@@ -393,7 +421,6 @@ subroutine read_fch(fchname, uhf)
 
  ! check if there is any ECP/PP data
  ! Note that def2TZVP for the 4th row will cause LenNCZ=0
- ecp = .false.
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:10) == 'ECP-LenNCZ') then
@@ -535,6 +562,17 @@ subroutine read_fch(fchname, uhf)
  end if
 
  close(fid)
+
+ if(allocated(rnuc) .and. ecp) then
+  if(SUM(DABS(DBLE(ielem)-RNFroz-rnuc)) < 1d-6) then
+   deallocate(rnuc)
+  else
+   write(6,'(/,A)') 'ERROR in subroutine read_fch: unknown basis type.'
+   write(6,'(A)') 'This seems not an all-electron basis set, not with ECP/PP, n&
+                  &ot semi-empirical.'
+   stop
+  end if
+ end if
 end subroutine read_fch
 
 ! map a nuclear charge to an element (e.g. 6->'C')
@@ -965,7 +1003,7 @@ subroutine write_fch(fchname)
  implicit none
  integer :: i, j, k, ncoeff, nhigh, ncontr_l, len_dm, len_fc, fid
  integer, allocatable :: ilsw(:)
- real(kind=8), allocatable :: relem(:), shell_coor(:), coor1(:)
+ real(kind=8), allocatable :: shell_coor(:), coor1(:)
  character(len=4) :: hf_str
  character(len=240), intent(in) :: fchname
  logical :: uhf
@@ -985,10 +1023,18 @@ subroutine write_fch(fchname)
  nhigh = MAX(i,j)
  ncontr_l = MAXVAL(prim_per_shell)
 
- allocate(relem(natom), coor1(3*natom))
- forall(i = 1:natom) relem(i) = DBLE(ielem(i))
- ! If ECP/PP is used, the pseudo core electrons need to be substracted
- if(allocated(RNFroz)) relem = relem - RNFroz
+ ! Note: for semi-empirical methods, the array rnuc may be allocated outside of
+ ! this subroutine, and used to keep the effective nuclear charges.
+ ! For semi-empirical methods, there is usually no ECP/PP for core electrons,
+ ! yet with GTO for valence electrons.
+ if(.not. allocated(rnuc)) then
+  allocate(rnuc(natom))
+  forall(i = 1:natom) rnuc(i) = DBLE(ielem(i))
+  ! If ECP/PP is used, the pseudo core electrons need to be substracted
+  if(allocated(RNFroz)) rnuc = rnuc - RNFroz
+ end if
+
+ allocate(coor1(3*natom))
  forall(i = 1:natom) coor1(3*i-2:3*i) = coor(:,i)
  coor1 = coor1/Bohr_const
 
@@ -1058,8 +1104,8 @@ subroutine write_fch(fchname)
  write(fid,'(A,I12)') 'Atomic numbers                             I   N=',natom
  write(fid,'(6I12)') ielem
  write(fid,'(A,I12)') 'Nuclear charges                            R   N=',natom
- write(fid,'(5(1X,ES15.8))') relem
- deallocate(relem)
+ write(fid,'(5(1X,ES15.8))') rnuc
+ deallocate(rnuc)
  write(fid,'(A,I12)') 'Current cartesian coordinates              R   N=',natom*3
  write(fid,'(5(1X,ES15.8))') coor1
  deallocate(coor1)

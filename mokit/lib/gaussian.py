@@ -8,7 +8,7 @@ from mokit.lib.py2fch import py2fch
 from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
 from mokit.lib.lo import boys, pm
 
-def load_mol_from_fch(fchname, path=None):
+def load_mol_from_fch(fchname):
   '''
   Load the PySCF mol object from a specified Gaussian .fch(k) file
 
@@ -18,7 +18,8 @@ def load_mol_from_fch(fchname, path=None):
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
   >>> mf = scf.RHF(mol).run()
   '''
-  import sys, time, importlib
+  import sys, importlib
+  from mokit.lib.qchem import find_and_del_pyc
 
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
@@ -38,16 +39,10 @@ def load_mol_from_fch(fchname, path=None):
         break
     fp.writelines(lines[3:j])
 
-  if (path):
-    sys.path.append(path)
-  time.sleep(0.1)
+  importlib.invalidate_caches() # important
   molpy = importlib.import_module(proname)
-  time.sleep(0.1)
-  importlib.invalidate_caches()
-  # invalidate_caches() is needed, otherwise a second call of load_mol_from_fch
-  # may lead to the error `ModuleNotFoundError: No module named 'gauxxx'`
   os.remove(tmp_py)
-  os.system('rm -f __pycache__/'+proname+'.*.pyc')
+  find_and_del_pyc(proname, sys.version)
   # It is not appropriate to delete the whole `__pycache__` directory since
   # other process(es) might be using this directory. Only the .pyc file (e.g.
   # gau5141.cpython-39.pyc) would be deleted.
@@ -156,8 +151,7 @@ def uno(fchname):
   >>> uno(fchname='benzene_uhf.fch')
   '''
   import mokit.lib.uno as pyuno
-  from mokit.lib.construct_vir import construct_vir
-  from mokit.lib.rwwfn import read_na_and_nb_from_fch
+  from mokit.lib.rwwfn import read_na_and_nb_from_fch, construct_vir
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
@@ -305,9 +299,11 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
   from mokit.lib.mo_svd import orb_resemble
   from mokit.lib.qchem import read_hf_type_from_fch
 
+  nmo_given = True
   if nmo is None:
+    nmo_given = False
     nmo, nb = read_na_and_nb_from_fch(ref_fch)
-    # set nmo as the number of alpha occupied orbitals
+    # nmo default: the number of alpha occupied orbitals
 
   if align is True:
     natom = read_natom_from_fch(target_fch)
@@ -319,17 +315,17 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
 
   mol1 = load_mol_from_fch(target_fch)
   mol2 = load_mol_from_fch(ref_fch1)
+  ao_S1 = mol1.intor_symmetric('int1e_ovlp')
   cross_S = gto.intor_cross('int1e_ovlp', mol1, mol2)
 
   nbf1, nif1 = read_nbf_and_nif_from_fch(target_fch)
-  mo1 = fch2py(target_fch, nbf1, nif1, 'a')
   nbf2, nif2 = read_nbf_and_nif_from_fch(ref_fch1)
   mo2 = fch2py(ref_fch1, nbf2, nif2, 'a')
 
   # rotate alpha MOs of target molecule at target basis to resemble known orbitals
-  mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
+  mo1 = orb_resemble(nbf1, nif1, nbf2, nmo, mo2[:,:nmo], ao_S1, cross_S)
   noon = np.zeros(nif1)
-  py2fch(target_fch, nbf1, nif1, mo3, 'a', noon, False, False)
+  py2fch(target_fch, nbf1, nif1, mo1, 'a', noon, False, False)
 
   # If UHF, rotate beta MOs, too
   ihf = read_hf_type_from_fch(ref_fch1)
@@ -337,17 +333,16 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
     if align is True:
       os.remove(ref_fch1)
   elif ihf == 2: # UHF
-    if nmo is None:
+    if nmo_given is False:
       na, nmo = read_na_and_nb_from_fch(ref_fch1)
-      # set nmo as the number of beta occupied orbitals
-    mo1 = fch2py(target_fch, nbf1, nif1, 'b')
+      # reset nmo as the number of beta occupied orbitals
     mo2 = fch2py(ref_fch1, nbf2, nif2, 'b')
     if align is True:
       os.remove(ref_fch1)
-    mo3 = orb_resemble(nbf1, nif1, mo1, nbf2, nmo, mo2[:,0:nmo], cross_S)
-    py2fch(target_fch, nbf1, nif1, mo3, 'b', noon, False, False)
+    mo1 = orb_resemble(nbf1, nif1, nbf2, nmo, mo2[:,:nmo], ao_S1, cross_S)
+    py2fch(target_fch, nbf1, nif1, mo1, 'b', noon, False, False)
   else:
-    raise NotImplementedError('make_orb_resemble supports only R(O)HF/UHF currently.')
+    raise NotImplementedError('Unsupported HF type in make_orb_resemble')
 
 
 def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
@@ -358,6 +353,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   from pyscf import scf
   from mokit.lib.qchem import read_hf_type_from_fch
   from mokit.lib.rwwfn import gen_no_from_density_and_ao_ovlp
+  from mokit.lib.lo import get_nmo_from_ao_ovlp
   from mokit.lib.py2fch_direct import fchk
 
   mol = load_mol_from_fch(fchname)
@@ -377,8 +373,10 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
 
   S = mol.intor_symmetric('int1e_ovlp')
   nbf = S.shape[0]
-  nif = nbf
-  # we cannot check linear dependency of basis functions here, so set nif to nbf
+  nif = get_nmo_from_ao_ovlp(nbf, S)
+  if(nif < nbf):
+    mf2 = mf.copy()
+    mf = scf.remove_linear_dep_(mf2, threshold=1.1e-6, lindep=1.1e-6)
 
   dm0 = mf.get_init_guess(mol, '1e')
   if ihf == 1:   # real RHF
@@ -438,11 +436,10 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
     mo_g_int(['h2o_105.fch', 'h2o_115.fch', 'h2o_120.fch', 'h2o_109_5.gjf'],
              [105.0, 115.0, 120.0, 109.5])
   '''
-  from mokit.lib.qchem import read_hf_type_from_fch
+  from mokit.lib.qchem import read_hf_type_from_fch, construct_vir
   from mokit.lib.rwwfn import read_na_and_nb_from_fch
   from mokit.lib.mirror_wfn import mo_grassmann_intrplt
   from mokit.lib.rwgeom import replace_coor_in_fch_by_gjf
-  from mokit.lib.construct_vir import construct_vir
 
   nfile = len(fnames)
   if nfile < 2:

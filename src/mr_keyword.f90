@@ -67,7 +67,7 @@ module mol
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
 
  real(kind=8), allocatable :: sa_cas_e(:) ! multi-root CASCI energies in SA-CASSCF
- real(kind=8), allocatable :: ci_mult(:)  ! spin multiplicities of excited states
+ real(kind=8), allocatable :: ci_ssquare(:)  ! <S^2> of ground and excited states
  ! size 0:nstate, the ground states is included as 0
  real(kind=8), allocatable :: fosc(:)     ! oscillator strengths, size nstate
 
@@ -83,7 +83,6 @@ module mr_keyword
  integer :: npair_wish = 0 ! number of GVB pairs specified by user
  integer :: nacto_wish = 0 ! number of active orbitals specified by user
  integer :: nacte_wish = 0 ! number of active electrons specified by user
-
  integer :: ist = 0        ! the i-th strategy
  ! 0: if RHF wfn is stable, use strategy 3; otherwise use strategy 1
  ! 1: UHF -> UNO -> associated rotation -> GVB -> CASCI/CASSCF -> ...
@@ -108,10 +107,8 @@ module mr_keyword
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
-
  integer :: nstate = 0 ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
-
  integer :: iroot = 0 ! the state you are interested in SS-CASSCF
  ! 0/1 for ground state/the 1st excited state. Related variable: ss_opt
  integer :: target_root = 0 ! the real i-th number of the interested state
@@ -120,6 +117,13 @@ module mr_keyword
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
  real(kind=8) :: on_thres = 2d-2 ! threshold for NO occupation number, ist=5
+
+ real(kind=8) :: icss_r = 6.5d0   ! default ICSS range
+ real(kind=8) :: icss_intv = 0.3d0 ! default ICSS interval
+ ! minimum/maximum allowed ICSS range
+ real(kind=8), parameter :: icss_r_min=3d0, icss_r_max=12d0
+ ! minimum/maximum allowed ICSS grid interval
+ real(kind=8), parameter :: icss_intv_min=0.1d0, icss_intv_max=0.5d0
  real(kind=8), allocatable :: scan_val(:) ! values of scanned variables
 
  character(len=4) :: GVB_conv = '5d-4'
@@ -318,7 +322,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.6rc42 (2024-Nov-14)'
+ write(6,'(A)') '           Version: 1.2.7rc1 (2024-Dec-6)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -845,6 +849,10 @@ end subroutine check_gms_path
     read(longbuf(j+1:i-1),*) on_thres
    case('uno_thres')
     read(longbuf(j+1:i-1),*) uno_thres
+   case('icss_r')
+    read(longbuf(j+1:i-1),*) icss_r
+   case('icss_intv')
+    read(longbuf(j+1:i-1),*) icss_intv
    case('npair') ! numbers of pairs for non-GVB calculations
     if(npair_wish /= 0) then
      write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified by&
@@ -1053,12 +1061,25 @@ subroutine check_kywd_compatible()
   end if
  end if
 
- if(icss .and. dalton_mpi) then
-  write(6,'(/,A)') error_warn//'you are using MPI version of Dalton.'
-  write(6,'(A)') 'Please use MKL version of Dalton for CASSCF ICSS computations&
-                 &, which is'
-  write(6,'(A)') 'supposed to be faster.'
-  stop
+ if(icss) then
+  if(dalton_mpi) then
+   write(6,'(/,A)') error_warn//'you are using MPI version of Dalton.'
+   write(6,'(A)') 'Please use MKL version of Dalton for CASSCF ICSS computations&
+                  &, which is'
+   write(6,'(A)') 'supposed to be much faster.'
+   stop
+  end if
+  if(icss_r<icss_r_min .or. icss_r>icss_r_max) then
+   write(6,'(/,A)') error_warn//'invalid ICSS_R.'
+   write(6,'(2(A,F5.2))') 'ICSS_R_min=',icss_r_min,', ICSS_R_max=',icss_r_max
+   stop
+  end if
+  if(icss_intv<icss_intv_min .or. icss_intv>icss_intv_max) then
+   write(6,'(/,A)') error_warn//'invalid ICSS_intv.'
+   write(6,'(2(A,F5.2))') 'ICSS_intv_min=', icss_intv_min, ', ICSS_intv_max=', &
+                          icss_intv_max
+   stop
+  end if
  end if
 
  if(DKH2 .and. X2C) then

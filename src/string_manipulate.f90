@@ -581,7 +581,7 @@ subroutine modify_memory_in_qchem_inp(inpname, mem)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- i = INDEX(inpname, '.in', back=.true.)
+ call find_specified_suffix(inpname, '.in', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
@@ -605,7 +605,8 @@ subroutine modify_memory_in_qchem_inp(inpname, mem)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine modify_memory_in_qchem_inp
 
-! modify memory in a given ORCA .inp file (mem is in MB!!!)
+! Modify memory and the number of MPI processes in a given ORCA .inp file. Note
+! that the mem must be given in MB and for each core.
 subroutine modify_mem_and_nproc_in_orca_inp(inpname, mem, nproc)
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -613,7 +614,10 @@ subroutine modify_mem_and_nproc_in_orca_inp(inpname, mem, nproc)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
  write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
  write(fid1,'(A,I0)') '%maxcore ', mem
 

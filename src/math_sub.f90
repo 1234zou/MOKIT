@@ -589,8 +589,14 @@ end subroutine get_normalized_pao
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  implicit none
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: C(nbf,nif), S(nbf,nbf)
+!f2py intent(in) :: C, S
+!f2py depend(nbf,nif) :: C
+!f2py depend(nbf) :: S
  real(kind=8), intent(out) :: CTSC(nif,nif)
+!f2py intent(out) :: CTSC
+!f2py depend(nif) :: CTSC
  real(kind=8), allocatable :: SC(:,:)
 
  CTSC = 0d0
@@ -899,6 +905,76 @@ subroutine symmetrize_dmat(n, a)
  forall(i=1:n-1, j=1:n, j>i) a(i,j) = a(j,i)
 end subroutine symmetrize_dmat
 
+! construct partial/all virtual orbitals using the PAO (projected atomic orbitals)
+subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_mo)
+ implicit none
+ integer :: i, j, nvir
+ integer, intent(in) :: nbf, nif, idx
+!f2py intent(in) :: nbf, nif, idx
+ ! nbf: the number of basis functions
+ ! nif: the number of MOs
+ ! idx: the beginning index (Fortran convention) of the virtual MOs
+ real(kind=8), intent(in) :: coeff(nbf,nif), ovlp(nbf,nbf)
+!f2py intent(in) :: coeff, ovlp
+!f2py depend(nbf) :: ovlp
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: new_mo(nbf,nif)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nif) :: new_mo
+ real(kind=8), allocatable :: p(:,:), v(:,:), s1(:,:), ev(:), x(:,:)
+ ! V: projected atomic orbitals (PAO)
+ ! P: density matrix of atomic basis functions, sigma_i(Cui*Cvi)
+ ! Note that the index idx can be larger than ndb+1, in which case we only
+ !  construct part of virtual orbitals.
+
+ if(idx == nif+1) then
+  write(6,'(/,A)') 'Warning in subroutine construct_vir: idx=nif+1 found.'
+  write(6,'(A)') 'No need to construct virtual MOs.'
+  new_mo = coeff
+  return
+ end if
+ new_mo(:,1:idx-1) = coeff(:,1:idx-1) ! occupied space
+
+ ! Step 1: P = sigma_i(Cui*Cvi)
+ allocate(p(nbf,nbf), source=0d0)
+ call dgemm('N','T', nbf,nbf,idx-1, 1d0,coeff(1:nbf,1:idx-1),nbf, &
+            coeff(1:nbf,1:idx-1),nbf, 0d0,p,nbf)
+
+ ! Step 2: V = 1 - PS
+ allocate(v(nbf, nbf), source=0d0)
+ forall(i = 1:nbf) v(i,i) = 1d0
+ call dsymm('R', 'L', nbf, nbf, -1d0, ovlp, nbf, p, nbf, 1d0, v, nbf)
+ deallocate(p)
+
+ ! Step 3: S1 = (VT)SV
+ allocate(s1(nbf,nbf))
+ call calc_CTSC(nbf, nbf, v, ovlp, s1)
+
+ ! Step 4: diagonalize S1 (note that S1 is symmetric) and get X
+ allocate(ev(nbf))
+ call diag_get_e_and_vec(nbf, s1, ev)
+ nvir = nif - idx + 1
+ forall(i = nbf-nvir+1:nbf) ev(i) = 1d0/DSQRT(ev(i))
+ allocate(x(nbf,nvir), source=0d0)
+ forall(i=1:nbf, j=1:nvir) x(i,j) = s1(i,nbf-nvir+j)*ev(nbf-nvir+j)
+ deallocate(ev, s1)
+
+ ! Step 5: get new virtual MO coefficients
+ call dgemm('N','N', nbf,nvir,nbf, 1d0,v,nbf, x,nbf, 0d0,new_mo(:,idx:nif),nbf)
+ deallocate(x, v)
+
+ ! Step 6: check orthonormality
+ allocate(x(nif,nif))
+ call calc_CTSC(nbf, nif, new_mo, ovlp, x)
+
+ forall(i = 1:nif) x(i,i) = x(i,i) - 1d0
+ x = DABS(x)
+ write(6,'(/,A)') 'The orthonormality of MOs after PAO construction:'
+ write(6,'(A,F16.10)') 'maxv=', MAXVAL(x)
+ write(6,'(A,F16.10)') 'abs_mean=', SUM(x)/DBLE(nif*nif)
+ deallocate(x)
+end subroutine construct_vir
+
 subroutine get_occ_from_na_nb(nif, na, nb, occ)
  implicit none
  integer, intent(in) :: nif, na, nb
@@ -961,6 +1037,7 @@ subroutine cal_dis_mat_from_coor(natom, coor, dis)
 
  n = natom
  forall(i = 1:n) dis(i,i) = 0d0
+ if(n == 1) return
  k = n*(n-1)/2
  allocate(map(2,k))
  forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
@@ -1079,6 +1156,31 @@ subroutine qr_fac(m, n, A, Q, R)
   stop
  end if
 end subroutine qr_fac
+
+! convert spin multiplicity to spin square <S^2>
+elemental function mult2ssquare(mult) result(ss)
+ implicit none
+ integer, intent(in) :: mult
+ real(kind=8) :: s, ss
+
+ s = 0.5d0*DBLE(mult - 1)
+ ss = s*(s + 1d0)
+end function mult2ssquare
+
+! `findloc` is in Fortran 2008, which cannot be used in gfortran 4.8.5, so use
+! this function instead.
+function find_1st_loc(n, a, i) result(k)
+ implicit none
+ integer :: k
+ integer, intent(in) :: n, i
+ integer, intent(in) :: a(n)
+
+ do k = 1, n, 1
+  if(a(k) == i) return
+ end do ! for k
+
+ if(k == n+1) k = 0
+end function find_1st_loc
 
 ! Detect the number of MOs with all zero coefficients in the array mo.
 ! Note: detection begins from the last MO, i.e. mo(:,nif).

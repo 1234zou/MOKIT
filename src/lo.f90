@@ -72,15 +72,11 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
   write(fid,'(A)') 'from pyscf.lo.boys import dipole_integral'
   write(fid,'(A)') 'from mokit.lib.lo import boys'
  end if
-
- ! the current directory have to be added, otherwise some machine/some python
- ! cannot find the gauxxx.py in the current directory
  write(fid,'(A)') 'import os'
- write(fid,'(A)') 'current_dir = os.getcwd()'
 
  write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
  write(fid,'(A)') "lmofch = '"//TRIM(lmofch)//"'"
- write(fid,'(A)') 'mol = load_mol_from_fch(fchname, path=current_dir)'
+ write(fid,'(A)') 'mol = load_mol_from_fch(fchname)'
  write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(fchname)'
  write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
  write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'

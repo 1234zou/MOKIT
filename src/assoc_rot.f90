@@ -1257,6 +1257,7 @@ subroutine calc_elec_c(nbf, dm, h_plus_f, e)
   e = e + ddot(nbf, dm(:,u), 1, h_plus_f(u,:), 1)
  end do ! for u
 !$omp end parallel do
+
  e = 0.5d0*e
 end subroutine calc_elec_c
 

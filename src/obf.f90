@@ -531,7 +531,7 @@ subroutine merge_mo_cluster()
  j = COUNT(del .eqv. .false.)
  if(j == 0) then
   write(6,'(/,A)') 'ERROR in subroutine merge_mo_cluster: all MO clusters are&
-                  & deleted.'
+                   & deleted.'
   write(6,'(A)') 'Something must be wrong.'
   stop
  end if

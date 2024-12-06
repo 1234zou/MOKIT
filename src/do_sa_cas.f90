@@ -3,7 +3,7 @@
 ! perform SA-CASSCF calculations
 subroutine do_sa_cas()
  use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
-  npair0, sa_cas_e, ci_mult, fosc
+  npair0, sa_cas_e, ci_ssquare, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
   dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, &
   nstate, nevpt2, on_thres, orca_path, molcas_omp
@@ -94,8 +94,8 @@ subroutine do_sa_cas()
   stop
  end select
 
- allocate(sa_cas_e(0:nstate), ci_mult(0:nstate), fosc(nstate))
- call read_sa_cas_energies_from_output(cas_prog,outname,nstate,sa_cas_e,ci_mult)
+ allocate(sa_cas_e(0:nstate), ci_ssquare(0:nstate), fosc(nstate))
+ call read_sa_cas_energies_from_output(cas_prog,outname,nstate,sa_cas_e,ci_ssquare)
  if(dmrgscf) then
   write(6,'(A)') REPEAT('-',79)
   write(6,'(A)') 'Warning: DMRG NTOs are not implemented yet. Oscillator stren&
@@ -111,10 +111,10 @@ subroutine do_sa_cas()
  write(6,'(A)') 'CASCI energies after SA-CASSCF(0 for ground state):   E_ex/eV &
                 &  fosc'
  write(6,'(A,I3,A,F16.8,A,F6.3)') 'State ',0,', E =',sa_cas_e(0),' a.u. <S**2> =',&
-                                   ci_mult(0)
+                                   ci_ssquare(0)
  do i = 1, nstate, 1
   write(6,'(A,I3,A,F16.8,A,F6.3,2X,F7.3,2X,F7.4)') 'State ', i, ', E =', &
-               sa_cas_e(i), ' a.u. <S**2> =', ci_mult(i), e_ev(i), fosc(i)
+               sa_cas_e(i), ' a.u. <S**2> =', ci_ssquare(i), e_ev(i), fosc(i)
  end do ! for i
 
  if(nevpt2) then
@@ -599,24 +599,23 @@ end subroutine prt_sacas_molcas_inp
 
 ! read SA-CASSCF energies from various output files
 subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
-                                            sa_cas_e, ci_mult)
- use mol, only: mult
+                                            sa_cas_e, ci_ssquare)
  implicit none
  integer, intent(in) :: nstate ! ground state included
  character(len=10), intent(in) :: cas_prog
  character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_ssquare(0:nstate)
 
  select case(TRIM(cas_prog))
  case('gaussian')
 !  call read_sa_cas_energies_from_gau_log(outname, nstate, sa_cas_e)
-  ci_mult = mult
+  ci_ssquare = 0d0
  case('pyscf')
-  call read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
+  call read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_ssquare)
  case('orca')
-  call read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+  call read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_ssquare)
  case('openmolcas')
-  call read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
+  call read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_ssquare)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_sa_cas_energies_from_output: &
                    &cas_prog cannot be recognized.'
@@ -626,13 +625,13 @@ subroutine read_sa_cas_energies_from_output(cas_prog, outname, nstate, &
 end subroutine read_sa_cas_energies_from_output
 
 ! read SA-CASSCF energies from PySCF output
-subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
+subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_ssquare)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_ssquare(0:nstate)
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
@@ -647,7 +646,7 @@ subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_sa_cas_e_from_pyscf_out: no 'CASCI&
-                  & energy for'"
+                   & energy for'"
   write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
@@ -658,23 +657,23 @@ subroutine read_sa_cas_e_from_pyscf_out(outname, nstate, sa_cas_e, ci_mult)
   read(buf(j+1:),*) sa_cas_e(i)
   buf(j:j) = ' '
   j = INDEX(buf, '=')
-  read(buf(j+1:),*) ci_mult(i)
+  read(buf(j+1:),*) ci_ssquare(i)
  end do ! for i
 
  close(fid)
 end subroutine read_sa_cas_e_from_pyscf_out
 
 ! read SA-CASSCF energies from ORCA output
-subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
+subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_ssquare)
  implicit none
  integer :: i, j, k, m, mult, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8) :: s
- real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_ssquare(0:nstate)
 
- sa_cas_e = 0d0; ci_mult = 1d0
+ sa_cas_e = 0d0; ci_ssquare = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
@@ -698,7 +697,7 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
  j = INDEX(buf, '=')
  read(buf(j+1:),*) mult
  s = 0.5d0*DBLE(mult-1)
- ci_mult(0:k-1) = s*(s+1d0)
+ ci_ssquare(0:k-1) = s*(s+1d0)
 
  m = -1
  do while(.true.)
@@ -727,7 +726,7 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
  j = INDEX(buf, '=')
  read(buf(j+1:),*) mult
  s = 0.5d0*DBLE(mult-1)
- ci_mult(m+1:) = s*(s+1d0)
+ ci_ssquare(m+1:) = s*(s+1d0)
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -746,23 +745,23 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_mult)
   do j = i+1, nstate, 1
    if(sa_cas_e(i) > sa_cas_e(j)) then
     s = sa_cas_e(i); sa_cas_e(i) = sa_cas_e(j); sa_cas_e(j) = s
-    s = ci_mult(i); ci_mult(i) = ci_mult(j); ci_mult(j) = s
+    s = ci_ssquare(i); ci_ssquare(i) = ci_ssquare(j); ci_ssquare(j) = s
    end if
   end do ! for i
  end do ! for j
 end subroutine read_sa_cas_e_from_orca_out
 
 ! read SA-CASSCF energies from OpenMolcas output
-subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
+subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_ssquare)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8) :: s
- real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_mult(0:nstate)
+ real(kind=8), intent(out) :: sa_cas_e(0:nstate), ci_ssquare(0:nstate)
 
- sa_cas_e = 0d0; ci_mult = 1d0
+ sa_cas_e = 0d0; ci_ssquare = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
@@ -794,7 +793,7 @@ subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_mult)
   if(buf(4:12) == 'SPIN MULT') then
    read(buf(40:),*) j
    s = 0.5d0*DBLE(j-1)
-   ci_mult(i) = s*(s+1d0)
+   ci_ssquare(i) = s*(s+1d0)
    i = i + 1
    if(i == nstate+1) exit
   end if
@@ -984,13 +983,14 @@ end subroutine read_fosc_from_pyscf_out
 ! read oscillator strengths from ORCA output file
 subroutine read_fosc_from_orca_out(outname, nstate, fosc)
  implicit none
- integer :: i, fid
+ integer :: i, k, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: fosc(nstate)
+ logical :: orca6
 
- fosc = 0d0
+ orca6 = .false.; fosc = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
@@ -1004,21 +1004,27 @@ subroutine read_fosc_from_orca_out(outname, nstate, fosc)
    exit
   end if
   if(buf(1:8) == '  States') exit
+  if(buf(6:55) == 'Transition      Energy     Energy  Wavelength fosc') then
+   orca6 = .true.
+   exit
+  end if
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_fosc_from_orca_out: no '  States' &
-                   &found in file "//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_orca_out: failed to read&
+                   & fosc in file '//TRIM(outname)
   close(fid)
   stop
  end if
 
- read(fid,'(A)') buf ! slip 2 lines
+ read(fid,'(A)') buf ! skip 2 lines
  read(fid,'(A)') buf
 
+ k = 39
+ if(orca6) k = 49
  do i = 1, nstate, 1
   read(fid,'(A)') buf
-  read(buf(39:),*) fosc(i)
+  read(buf(k:),*) fosc(i)
  end do ! for i
 
  close(fid)

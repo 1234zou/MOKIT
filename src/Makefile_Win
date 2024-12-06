@@ -73,13 +73,13 @@ OBJ_fch2wfn = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
                      util_wrapper.obj math_sub.obj rwwfn.obj read_natom.obj \
                      rwgeom.obj read_mkl.obj do_hf.obj read_gms_inp.obj call_qc_calc_int.obj \
-                     construct_vir.obj ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
+                     ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
 OBJ_gvb_correct_pairs = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                         gvb_correct_pairs.obj
 OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                      util_wrapper.obj call_qc_calc_int.obj read_fch.obj rwwfn.obj \
-                     read_natom.obj rwgeom.obj construct_vir.obj assoc_rot.obj \
-                     wfn_analysis.obj read_gms_inp.obj gvb_exclude_XH.obj
+                     read_natom.obj rwgeom.obj assoc_rot.obj wfn_analysis.obj \
+		     read_gms_inp.obj gvb_exclude_XH.obj
 OBJ_gvb_sort_pairs = file_op.obj gvb_sort_pairs.obj
 OBJ_mkl2amo = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2amo.obj

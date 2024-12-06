@@ -596,3 +596,28 @@ subroutine modify_uno_out(ndb, npair, nopen)
  close(fid)
 end subroutine modify_uno_out
 
+! find and delete the target .pyc file
+subroutine find_and_del_pyc(proname, py_ver)
+ implicit none
+ integer :: i
+ character(len=5) :: ver
+ character(len=300) :: pycname, py_ver1
+ character(len=240), intent(in) :: proname, py_ver
+!f2py intent(in) :: proname, py_ver
+
+ if(py_ver(1:6) == 'Python') then
+  py_ver1 = ADJUSTL(TRIM(py_ver(7:)))
+ else
+  py_ver1 = TRIM(py_ver)
+ end if
+
+ i = INDEX(py_ver1, '.')
+ ver = py_ver1(1:i-1)
+ py_ver1 = ADJUSTL(py_ver1(i+1:))
+ i = INDEX(py_ver1, '.')
+ ver = TRIM(ver)//py_ver1(1:i-1)
+
+ pycname = '__pycache__/'//TRIM(proname)//'.cpython-'//TRIM(ver)//'.pyc'
+ call delete_file(TRIM(pycname))
+end subroutine find_and_del_pyc
+

@@ -799,7 +799,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   call read_hf_type_from_orca_inp(inpname, hf_type)
   if(hf_type == 3) call gen_brokensym_guess_orca(mklname)
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
-  call read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
+  call read_scf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
   e = e + ptchg_e
   call gbw2mkl(gbwname)
   irel = -1
@@ -879,7 +879,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
-  call read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
+  call read_scf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
   call mkl2fch_wrap(mklname, fchname)
   call update_density_using_mo_in_fch(fchname)
@@ -1061,10 +1061,53 @@ subroutine read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ss)
 
 end subroutine read_hf_e_and_ss_from_psi4_out
 
-! read HF electronic energy from an ORCA .out file
-subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+! read spin square <S^2> from a specified ORCA output file
+subroutine read_spin_square_from_orca_out(outname, hf_type, ss)
  implicit none
  integer :: i, mult, fid
+ integer, intent(in) :: hf_type
+ real(kind=8), intent(out) :: ss
+ real(kind=8), external :: mult2ssquare
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ss = 0d0
+ select case(hf_type)
+ case(1,2) ! R(O)HF
+  ! pure spin state, simply calculate the spin square
+  call read_mult_from_orca_out(outname, mult)
+  ss = mult2ssquare(mult)
+
+ case(3)   ! UHF
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:15) == 'Expectation val') exit
+  end do ! for while
+
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_spin_square_from_orca_out: no 'Ex&
+                    &pectation val' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   stop
+  end if
+  i = INDEX(buf, ':', back=.true.)
+  read(buf(i+1:),*) ss
+
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_spin_square_from_orca_out: inva&
+                      &lid hf_type=', hf_type
+  write(6,'(A)') 'outname='//TRIM(outname)
+  stop
+ end select
+end subroutine read_spin_square_from_orca_out
+
+! read HF energy from an ORCA .out file
+subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+ implicit none
+ integer :: i, fid
  integer, intent(in) :: hf_type
  real(kind=8), intent(out) :: e, ss
  character(len=240) :: buf
@@ -1088,48 +1131,104 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no 'To&
-                   &tal Energy' found in"
-  write(6,'(A)') 'file '//TRIM(outname)
+                   &tal Energy' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
 
  i = INDEX(buf, ':')
  read(buf(i+1:),*) e
+ close(fid)
+ call read_spin_square_from_orca_out(outname, hf_type, ss)
+end subroutine read_hf_e_and_ss_from_orca_out
 
- select case(hf_type)
- case(1,2) ! R(O)HF
-  close(fid)
-  ! pure spin state, simply calculate the spin square
-  call read_mult_from_orca_out(outname, mult)
-  ss = 0.5d0*DBLE(mult-1)
-  ss = ss*(ss+1d0)
+! read KS-DFT energy from an ORCA .out file
+subroutine read_dft_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: hf_type
+ real(kind=8), intent(out) :: e, ss
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
 
- case(3)   ! UHF
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:15) == 'Expectation val') exit
-  end do ! for while
+ e = 0d0; ss = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
-  close(fid)
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_orca_out: no 'Ex&
-                    &pectation val' found"
-   write(6,'(A)') 'in file '//TRIM(outname)
-   stop
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:15) == 'FINAL SINGLE PO') exit
+  if(buf(2:12) == 'With contri') then
+   i = -1
+   exit
   end if
-  i = INDEX(buf, ':', back=.true.)
-  read(buf(i+1:),*) ss
+ end do ! for while
 
- case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine read_hf_e_and_ss_from_orca_out: inva&
-                      &lid hf_type=', hf_type
-  write(6,'(A)') 'outname='//TRIM(outname)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_dft_e_and_ss_from_orca_out: no 'FI&
+                   &NAL SINGLE PO' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
- end select
-end subroutine read_hf_e_and_ss_from_orca_out
+ end if
+
+ read(buf(26:),*) e
+ close(fid)
+ call read_spin_square_from_orca_out(outname, hf_type, ss)
+end subroutine read_dft_e_and_ss_from_orca_out
+
+! check whether DFT or HF is used in an ORCA output file
+subroutine check_dft_in_orca_out(outname, dft)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(out) :: dft
+
+ dft = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == 'SCF SETTINGS') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine check_dft_in_orca_out: 'SCF SETTINGS' n&
+                   &ot found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf 
+ close(fid)
+ if(buf(46:48) == 'DFT') dft = .true.
+end subroutine check_dft_in_orca_out
+
+! Read SCF energy from an ORCA .out file. DFT may have extra terms like D3
+! correction, so we have to use two different subroutines.
+subroutine read_scf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+ implicit none
+ integer, intent(in) :: hf_type
+ real(kind=8), intent(out) :: e, ss
+ character(len=240), intent(in) :: outname
+ logical :: dft
+
+ call check_dft_in_orca_out(outname, dft)
+ if(dft) then
+  call read_dft_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+ else
+  call read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
+ end if
+end subroutine read_scf_e_and_ss_from_orca_out
 
 ! read spin multiplicity from a PySCF .py file
 subroutine read_mult_from_pyscf_inp(inpname, mult)

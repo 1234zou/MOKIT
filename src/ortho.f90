@@ -210,11 +210,11 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
 !f2py intent(in) :: nbf, nif
  real(kind=8), parameter :: thresh = 1d-6
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
-!f2py depend(nbf) :: ao_ovlp
 !f2py intent(in) :: ao_ovlp
+!f2py depend(nbf) :: ao_ovlp
  real(kind=8), intent(out) :: mo_coeff(nbf,nif)
-!f2py depend(nbf,nif) :: mo_coeff
 !f2py intent(out) :: mo_coeff
+!f2py depend(nbf,nif) :: mo_coeff
  real(kind=8), allocatable :: ovlp(:,:), U(:,:), s(:)
 
  mo_coeff = 0d0
@@ -225,27 +225,21 @@ subroutine can_ortho(nbf, nif, ao_ovlp, mo_coeff)
  nif0 = COUNT(s > thresh)
  if(nif0 /= nif) then
   write(6,'(/,A)') 'ERROR in subroutine can_ortho: nif /= nif0. This is because&
-                   & the linear dependence'
-  write(6,'(A)') 'threshold here and outside subroutine is inconsistent.'
+                   & the linear depend-'
+  write(6,'(A)') 'ence threshold here and outside subroutine is inconsistent.'
   write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
   write(6,'(A,ES15.8)') 'Default threshold here:', thresh
   stop
  end if
 
- ! reverse the eigenvalues
- allocate(U(nbf,1), source=0d0)
- forall(i = 1:nbf) U(i,1) = s(nbf-i+1)
- s = U(:,1)
- deallocate(U)
- ! now s1 > s2 > s3 > ...
-
  ! reverse the eigenvectors, according to the descending order of eigenvalues
- allocate(U(nbf, nbf), source=0d0)
- forall(i = 1:nbf) U(:,i) = ovlp(:,nbf-i+1)
+ allocate(U(nbf,nif), source=0d0)
+ forall(i = 1:nif) U(:,i) = ovlp(:,nbf-i+1)
 
  ! compute s^(-1/2) (only the first nif ones), stored as diagonal in ovlp
- ovlp = 0d0
- forall(i = 1:nif) ovlp(i,i) = 1d0/DSQRT(s(i))
+ deallocate(ovlp)
+ allocate(ovlp(nif,nif), source=0d0)
+ forall(i = 1:nif) ovlp(i,i) = 1d0/DSQRT(s(nbf-i+1))
  deallocate(s)
  ! ovlp now is a nif*nif diagonal matrix
 

@@ -1625,8 +1625,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2> de&
                  &viates too much'
-  write(6,'(2(A,F10.6))') 'from the expectation value. Expectation=', expect, &
-                          ', S_square=', s_square
+  write(6,'(A,F10.4,A,F16.4)') 'from the expectation value. Expectation=', &
+                               expect, ', S_square=', s_square
   write(6,'(A)') 'If this is a ground state calculation, then something may be &
                  &wrong.'
   write(6,'(A)') 'If this is an excited state calculation where the spin of the&
