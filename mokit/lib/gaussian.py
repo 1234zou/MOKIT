@@ -374,7 +374,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   S = mol.intor_symmetric('int1e_ovlp')
   nbf = S.shape[0]
   nif = get_nmo_from_ao_ovlp(nbf, S)
-  if(nif < nbf):
+  if nif < nbf:
     mf2 = mf.copy()
     mf = scf.remove_linear_dep_(mf2, threshold=1.1e-6, lindep=1.1e-6)
 

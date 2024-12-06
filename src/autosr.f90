@@ -1210,9 +1210,9 @@ subroutine do_adc()
 
  if(nstate == 0) nstate = 3
  allocate(ex_elec_e(0:nstate), ci_ssquare(0:nstate), fosc(nstate))
+ ex_elec_e = 0d0; ci_ssquare = 0d0; fosc = 0d0
  ci_ssquare(0) = mult2ssquare(mult)
  if(ip .or. ea) ci_ssquare(1:nstate) = 0.75d0
- fosc = 0d0
 
  ! The ADCC program should be considered in the future since PySCF only has IP-
  ! ADC and EA-ADC, but no EE-ADC.
@@ -1247,8 +1247,7 @@ subroutine do_adc()
   call prt_posthf_psi4_inp(inpname, .true.)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_psi4_job(psi4_path, inpname, nproc)
-  call read_adc_e_from_psi4_out(outname, (adc_n==3), nstate, ex_elec_e, ci_ssquare,&
-                                fosc)
+  call read_adc_e_from_psi4_out(outname, (adc_n==3), nstate, ex_elec_e, fosc)
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_adc: unsupported ADC_prog='//&
                    TRIM(adc_prog)
@@ -3988,8 +3987,9 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:6) == 'E_corr') exit
+  if(buf(1:6)=='E_corr' .or. buf(1:6)=='MP2 co') exit
  end do ! for while
+
  i = INDEX(buf, '=')
  read(buf(i+1:),*) e(0) ! MP2 correlation energy
  e(0) = e(0) + scf_e
@@ -4070,19 +4070,19 @@ subroutine read_adc_e_from_orca_out(outname, ip_or_ea, nstate, e, fosc)
  call read_fosc_from_orca_out(outname, nstate, fosc)
 end subroutine read_adc_e_from_orca_out
 
-subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, ssquare, fosc)
+subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nstate
  real(kind=8) :: scf_e, corr_e2, corr_e3
- real(kind=8), intent(out) :: e(0:nstate), ssquare(0:nstate), fosc(nstate)
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
  character(len=1) :: str1
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: adc3
 
  scf_e = 0d0; corr_e2 = 0d0; corr_e3 = 0d0
- e = 0d0; ssquare = 0d0; fosc = 0d0
+ e = 0d0; fosc = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  ! read SCF energy, only the 2nd 'Total Energy' is useful
@@ -4342,8 +4342,8 @@ subroutine read_eomcc_e_from_gms_out(outname, ip, ea, nstate, e, ssquare, fosc)
  integer, intent(in) :: nstate ! the number of excited states
  integer, allocatable :: mult(:)
  real(kind=8) :: rtmp, r(3)
- real(kind=8), intent(out) :: e(0:nstate), ssquare(0:nstate), fosc(nstate)
  real(kind=8), external :: mult2ssquare
+ real(kind=8), intent(out) :: e(0:nstate), ssquare(0:nstate), fosc(nstate)
  character(len=1) :: str1
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -4380,11 +4380,15 @@ subroutine read_eomcc_e_from_gms_out(outname, ip, ea, nstate, e, ssquare, fosc)
  if(.not. ip) read(fid,'(A)') buf
 
  if(ip .or. ea) then
-  allocate(mult(nstate), source=1)
+  allocate(mult(0:nstate), source=1)
   do i = 1, nstate, 1
    read(fid,*) str1, mult(i), rtmp, e(i)
   end do ! for i
-  ssquare = mult2ssquare(mult)
+  do i = 0, nstate, 1
+   ssquare(i) = mult2ssquare(mult(i))
+  end do ! for i
+  ! The following usage will trigger compiler error, I do not know why.
+  !forall(i = 0:nstate) ssquare(i) = mult2ssquare(mult(i))
   deallocate(mult)
  else   ! (EE-)EOM-CCSD
   do i = 1, nstate, 1

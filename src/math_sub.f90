@@ -1158,13 +1158,12 @@ subroutine qr_fac(m, n, A, Q, R)
 end subroutine qr_fac
 
 ! convert spin multiplicity to spin square <S^2>
-elemental function mult2ssquare(mult) result(ss)
+pure function mult2ssquare(mult) result(ss)
  implicit none
  integer, intent(in) :: mult
- real(kind=8) :: s, ss
+ real(kind=8) :: ss
 
- s = 0.5d0*DBLE(mult - 1)
- ss = s*(s + 1d0)
+ ss = 0.25d0*DBLE(mult*mult - 1)
 end function mult2ssquare
 
 ! `findloc` is in Fortran 2008, which cannot be used in gfortran 4.8.5, so use
