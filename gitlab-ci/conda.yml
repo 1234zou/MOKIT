@@ -72,4 +72,19 @@ conda_build_cf:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label cf
 
+conda_build_cf_test:
+  extends: .setup_cf
+  only:
+    refs:
+      - cf-debug
+    changes:
+      - "mokit/__init__.py"
+      - "conda/cf*/meta.yaml"
+  script:
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label testcf
+
+
+
 
