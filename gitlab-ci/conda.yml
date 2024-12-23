@@ -22,7 +22,7 @@
     - source ~/.bashrc
     - conda create -n mokit-build python=3.9
     - conda activate mokit-build
-    - conda install anaconda-client conda-build setuptools_scm
+    - conda install anaconda-client conda-build=24.9 setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
 conda_build:
