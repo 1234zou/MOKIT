@@ -7,7 +7,7 @@
     - source ~/.bashrc
     - conda create -n mokit-build python=3.8
     - conda activate mokit-build
-    - conda install anaconda-client conda-build setuptools_scm
+    - conda install anaconda-client conda-build=24.9 setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
     #- ldconfig -p | grep libgfort
     #- ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
@@ -22,7 +22,7 @@
     - source ~/.bashrc
     - conda create -n mokit-build python=3.9
     - conda activate mokit-build
-    - conda install anaconda-client conda-build setuptools_scm
+    - conda install anaconda-client conda-build=24.9 setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
 conda_build:
@@ -70,6 +70,22 @@ conda_build_cf:
   script:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
     - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    # TODO: deal with new package format '.conda' in upcoming conda-build 25.1
     - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label cf
+
+conda_build_cf_test:
+  extends: .setup_cf
+  only:
+    refs:
+      - cf-debug
+    changes:
+      - "mokit/__init__.py"
+      - "conda/cf*/meta.yaml"
+  script:
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    - anaconda upload ./output_cf/linux-64/mokit*.bz2 --skip-existing --label testcf
+
+
 
 

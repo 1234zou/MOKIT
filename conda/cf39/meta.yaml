@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 12
+  number: 15
   string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
 
 requirements:
@@ -19,7 +19,7 @@ requirements:
     - make
     - {{ compiler('fortran') }}
     - python {{ python }}
-    - setuptools <=73
+    #- setuptools <=73
     - numpy {{ numpy }}
     #- blas=*=*openblas
     - openblas {{ openblas }} 
