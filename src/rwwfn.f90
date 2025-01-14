@@ -78,6 +78,77 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  close(fid)
 end subroutine read_charge_and_mult_from_fch
 
+! modify the charge and spin multiplicity in a specified .fch(k) file
+subroutine modify_charge_and_mult_in_fch(fchname, charge, mult)
+ implicit none
+ integer :: i, j, charge0, mult0, ne, na, fid, fid1, RENAME
+ integer, intent(in) :: charge, mult
+!f2py intent(in) :: charge, mult
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ character(len=240) :: buf, fchname1
+
+ call read_charge_and_mult_from_fch(fchname, charge0, mult0)
+ if(charge0==charge .and. mult0==mult) return
+
+ i = MOD(IABS(charge0-charge), 2)
+ j = MOD(IABS(mult0-mult), 2)
+ if(i /= j) then
+  write(6,'(/,A)') 'ERROR in subroutine modify_charge_and_mult_in_fch: the spec&
+                   &ified charge and'
+  write(6,'(A)') 'mult are inconsistent.'
+  write(6,'(2(A,I0))') 'charge=', charge, ', mult=', mult
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ call find_specified_suffix(fchname, '.fch', i)
+ fchname1 = fchname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'Charge') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ read(fid,'(A)') buf              ! Multiplicity
+ read(fid,'(A49,2X,I10)') buf, ne ! Number of electrons
+ ne = ne + charge0 - charge
+
+ if(mult > ne+1) then
+  write(6,'(/,A)') 'ERROR in subroutine modify_charge_and_mult_in_fch: the spec&
+                   &ified mult is'
+  write(6,'(A)') 'too large.'
+  write(6,'(2(A,I0))') 'charge=', charge, ', mult=', mult
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ na = (ne + mult - 1)/2
+ write(fid1,'(A,I17)') 'Charge                                     I',charge
+ write(fid1,'(A,I17)') 'Multiplicity                               I',mult
+ write(fid1,'(A,I17)') 'Number of electrons                        I',ne
+ write(fid1,'(A,I17)') 'Number of alpha electrons                  I',na
+ write(fid1,'(A,I17)') 'Number of beta electrons                   I',ne-na
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:16) == 'Number of beta e') exit
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+end subroutine modify_charge_and_mult_in_fch
+
 ! read the total charge and the spin mltiplicity from a given .mkl file
 subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
  implicit none
@@ -1317,7 +1388,7 @@ subroutine determine_sph_or_cart(fchname, cart)
  deallocate(shltyp)
 end subroutine determine_sph_or_cart
 
-subroutine read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep)
+subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  implicit none
  integer :: i, fid, idx(3), nvir
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
@@ -1326,7 +1397,7 @@ subroutine read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep
  logical, intent(out) :: lin_dep
 
  buf = ' '; lin_dep = .false.
- open(newunit=fid,file=unofile,status='old',position='rewind')
+ open(newunit=fid,file=TRIM(unofile),status='old',position='rewind')
 
  read(fid,'(A)') buf
  i = INDEX(buf,'=')
@@ -1345,7 +1416,7 @@ subroutine read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep
  end if
 
  close(fid)
- open(newunit=fid,file=unofile,status='old',position='append')
+ open(newunit=fid,file=TRIM(unofile),status='old',position='append')
 
  do while(.true.)
   BACKSPACE(fid)
@@ -1541,9 +1612,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  logical, intent(in) :: scf, dmrg
  logical :: state_specific = .false.
 
- e = 0d0
- i = 0; j = 0; k = 0
- expect = DBLE(spin)/2d0
+ e = 0d0; i = 0; j = 0; k = 0
+ expect = 0.5d0*DBLE(spin)
  expect = expect*(expect + 1d0)
 
  if(scf) then ! CASSCF/DMRG-CASSCF
@@ -3636,7 +3706,7 @@ subroutine gen_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  noon = 0d0; new_coeff = 0d0 ! initialization
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
- call mat_dsqrt(nbf, S, sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
+ call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
  call calc_SPS(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
  deallocate(sqrt_S)
 

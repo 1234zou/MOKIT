@@ -10,7 +10,7 @@ module pg
  character(len=2), allocatable :: elem(:)  ! elements
 
  ! 'L' will be divided into two parts: 'S' and 'P'
- type primitive_gaussian
+ type :: primitive_gaussian
   character(len=1) :: stype = ' ' ! 'S','P','D','F','G','H','I'
   integer :: nline = 0
   integer :: ncol  = 0
@@ -22,14 +22,14 @@ module pg
  type(primitive_gaussian) :: prim_gau(7)
 
  ! --- below are arrays for ECP/PP ---
- type ecp_potential
+ type :: ecp_potential
   integer :: n = 0   ! size for col1, 2, and 3
   real(kind=8), allocatable :: col1(:)
   integer, allocatable :: col2(:)
   real(kind=8), allocatable :: col3(:)
  end type ecp_potential
 
- type ecp4atom
+ type :: ecp4atom
   logical :: ecp = .false. ! whether this atom has ECP/PP
   integer :: core_e  = 0   ! number of core electrons
   integer :: highest = 0   ! highest angular momentum
@@ -39,6 +39,675 @@ module pg
  type(ecp4atom), allocatable :: all_ecp(:) ! size natom
  logical :: ecp_exist = .false.
 end module pg
+
+! Shared variables and arrays for serial and parallel Jacobi 2-by-2 rotations.
+! The derivative type in this module cannot be recognized by f2py. So I have to
+! put them here.
+module lo_info
+ implicit none
+ integer :: np, npair, eff_npair, nsweep
+ integer, parameter :: niter_max = 999 ! maximum iterations
+ ! When the rotation angle alpha fulfills |alpha|<=PI/4 and no (effect) rotation
+ ! is missing in a sweep, the number of iterations is usualy very small.
+ integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
+ real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
+ real(kind=8), parameter :: HPI = 2d0*DATAN(1d0) ! PI/2
+ real(kind=8), parameter :: dis_thres = 16d0
+ ! dis_thres = 16d0   ! A, boys, pbc water512
+ ! dis_thres = 14.0d0 ! A, boys, pbc water128
+ ! dis_thres = 10.5d0 ! A, boys, pbc water64
+ ! dis_thres = 14.5d0 ! A, boys, cluster water64
+ ! dis_thres = 11.5d0 ! A, pm water64 cluster
+ ! dis_thres = 10d0   ! A, serial/pm dis pm, pbc water64
+ real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-6
+ ! threshold1: determine whether to rotate (and update MOs, dipole integrals)
+ ! threshold2: determine whether rotation/localization converged
+ ! If threshold2 is set to 1d-5, the localization is sometimes not thorough for
+ ! isolated molcules.
+ type :: rotation_index
+  integer :: npair
+  integer, allocatable :: pair_idx(:,:) ! size (2,npair)
+ end type rotation_index
+ type(rotation_index), allocatable :: rot_idx(:) ! size nsweep
+
+contains
+
+subroutine init_para22_idx_map(nmo)
+ implicit none
+ integer, intent(in) :: nmo
+
+ npair = nmo*(nmo-1)/2
+ allocate(ijmap(2,npair))
+ call get_triu_idx1(nmo, ijmap)
+
+ np = (nmo+1)/2
+ nsweep = 2*np - 1
+ allocate(rrmap(2,np,nsweep))
+ call init_round_robin_idx(nmo, np, rrmap)
+end subroutine init_para22_idx_map
+
+subroutine free_para22_idx_map()
+ implicit none
+ deallocate(ijmap, rrmap, rot_idx)
+end subroutine free_para22_idx_map
+
+! The same subroutine to get_mo_center_from_pop in math_sub.f90, except that
+! here we use the 3d array gross, not 2d array in get_mo_center_from_pop. This
+! is to avoid copying matrix elements of gross and saving time.
+subroutine get_mo_center_from_gross(natom, nmo, gross, mo_center)
+ implicit none
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: natom, nmo
+ integer, intent(out) :: mo_center(0:8,nmo)
+ real(kind=8) :: r
+ real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+ ! diff: difference between the largest and the 2nd largest component
+ real(kind=8), intent(in) :: gross(natom,nmo,nmo)
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,gross,mo_center)
+ do i = 1, nmo, 1
+  ! the largest component on an atom of an orbital
+  ak = MAXLOC(gross(:,i,i)); k = ak(1); r = gross(k,i,i)
+  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
+  ! if this is lone pair, no need to check the 2nd largest component
+  if(r > pop_thres) cycle
+
+  ! find the 2nd largest component and so on
+  do j = 1, natom, 1
+   if(j == k) cycle
+   if(r - gross(j,i,i) < diff) then
+    m = m + 1
+    if(m > 8) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_gross: ncenter>8.&
+                      & MOs are too'
+     write(6,'(A,2I7)') 'delocalized. natom, nmo=', natom, nmo
+     stop
+    end if
+    mo_center(m,i) = j
+   end if
+  end do ! for j
+
+  mo_center(0,i) = m
+ end do ! for i
+!$omp end parallel do
+end subroutine get_mo_center_from_gross
+
+! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
+subroutine get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_center)
+ implicit none
+ integer :: i, j, k, m, i1, i2, ak(1)
+ integer, intent(in) :: natom, nbf, nmo
+ integer, intent(in) :: bfirst(natom+1)
+ integer, intent(out) :: mo_center(0:8,nmo)
+ real(kind=8) :: r
+ real(kind=8), parameter :: diff = 0.02d0, pop_thres = 0.7d0
+ real(kind=8), intent(in) :: mo(nbf,nmo)
+ real(kind=8), allocatable :: tmp_mo(:), gross(:,:)
+
+ allocate(tmp_mo(nbf), gross(natom,nmo))
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,bfirst,mo,gross)
+ do i = 1, nmo, 1
+  tmp_mo = mo(:,i)**2
+  tmp_mo = tmp_mo/SUM(tmp_mo)
+  do j = 1, natom, 1
+   i1 = bfirst(j); i2 = bfirst(j+1) - 1
+   gross(j,i) = SUM(tmp_mo(i1:i2))
+  end do ! for k
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(tmp_mo)
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,gross,mo_center)
+ do i = 1, nmo, 1
+  ! the largest component on an atom of an orbital
+  ak = MAXLOC(gross(:,i)); k = ak(1); r = gross(k,i)
+  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
+  ! if this is lone pair, no need to check the 2nd largest component
+  if(r > pop_thres) cycle
+
+  ! find the 2nd largest component and so on
+  do j = 1, natom, 1
+   if(j == k) cycle
+   if(r - gross(j,i) < diff) then
+    m = m + 1
+    if(m > 8) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_by_scpa: ncenter>8. MO&
+                      &s are too'
+     write(6,'(A,3I7)') 'delocalized. natom, nmo, i=', natom, nmo, i
+     stop
+    end if
+    mo_center(m,i) = j
+   end if
+  end do ! for j
+
+  mo_center(0,i) = m
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(gross)
+end subroutine get_mo_center_by_scpa
+
+! Find/get distance matrix of MOs using the corresponding MO dipole integrals.
+! Note: the input mo_dipole is supposed to be in Angstrom, so that mo_dis is in
+! Angstrom.
+!subroutine get_mo_dis_from_dipole(nmo, mo_dipole, mo_dis)
+! implicit none
+! integer :: i, j, n
+! integer, intent(in) :: nmo
+! real(kind=8) :: r(3)
+! real(kind=8), intent(in) :: mo_dipole(3,nmo,nmo)
+! real(kind=8), intent(out) :: mo_dis(nmo*(nmo-1)/2)
+!
+!!$omp parallel do schedule(dynamic) default(private) &
+!!$omp shared(npair,ijmap,mo_dipole,mo_dis)
+! do n = 1, npair, 1
+!  i = ijmap(1,n); j = ijmap(2,n)
+!  r = mo_dipole(:,i,i) - mo_dipole(:,j,j)
+!  mo_dis(n) = DSQRT(DOT_PRODUCT(r,r))
+! end do ! for n
+!!$omp end parallel do
+!end subroutine get_mo_dis_from_dipole
+
+! find/get the distance matrix of MOs from the distance matrix of atoms
+subroutine atm_dis2mo_dis(natom, nmo, dis, mo_center, mo_dis)
+ implicit none
+ integer :: i, j, k, m, n, k1, nc1, nc2
+ integer, intent(in) :: natom, nmo
+ integer, intent(in) :: mo_center(0:8,nmo)
+ real(kind=8) :: r, min_dis
+ real(kind=8), intent(in) :: dis(natom,natom)
+ real(kind=8), intent(out) :: mo_dis(nmo*(nmo-1)/2)
+
+ if(ANY(mo_center(0,:)==0)) then
+  write(6,'(/,A)') 'ERROR in subroutine atm_dis2mo_dis: some MO does not have i&
+                   &ts center.'
+  write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
+  write(6,'(A)') 'mo_center(0,:)='
+  write(6,'(12I7)') mo_center(0,:)
+  stop
+ end if
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(npair,ijmap,mo_center,dis,mo_dis)
+ do n = 1, npair, 1
+  i = ijmap(1,n); j = ijmap(2,n)
+  min_dis = dis(mo_center(1,i),mo_center(1,j))
+  nc1 = mo_center(0,i); nc2 = mo_center(0,j)
+
+  if(nc1>1 .and. nc2>1) then
+   do k = 1, nc1, 1
+    k1 = mo_center(k,i)
+    do m = 1, nc2, 1
+     r = dis(mo_center(m,j),k1)
+     if(r < min_dis) min_dis = r
+    end do ! for m
+   end do ! for k
+  else if(nc1==1 .and. nc2>1) then
+   k1 = mo_center(1,i)
+   do m = 1, nc2, 1
+    r = dis(mo_center(m,j),k1)
+    if(r < min_dis) min_dis = r
+   end do ! for m
+  else if(nc1>1 .and. nc2==1) then
+   k1 = mo_center(1,j)
+   do k = 1, nc1, 1
+    r = dis(mo_center(k,i),k1)
+    if(r < min_dis) min_dis = r
+   end do ! for k
+  end if
+
+  mo_dis(n) = min_dis
+ end do ! for n
+!$omp end parallel do
+end subroutine atm_dis2mo_dis
+
+!! find/get the distance matrix of MOs from the distance matrix of atoms
+!subroutine atm_dis2mo_dis2(natom, nmo, dis, mo_center, mo_dis)
+! implicit none
+! integer :: i, j, k, m, n, k1, nc1, nc2
+! integer, intent(in) :: natom, nmo
+! integer, intent(in) :: mo_center(0:8,nmo)
+! real(kind=8) :: r, min_dis
+! real(kind=8), intent(in) :: dis(natom,natom)
+! real(kind=8), intent(out) :: mo_dis(nmo,nmo)
+!
+! if(ANY(mo_center(0,:)==0)) then
+!  write(6,'(/,A)') 'ERROR in subroutine atm_dis2mo_dis2: some MO does not have &
+!                   &its center.'
+!  write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
+!  write(6,'(A)') 'mo_center(0,:)='
+!  write(6,'(12I7)') mo_center(0,:)
+!  stop
+! end if
+!
+! forall(i = 1:nmo) mo_dis(i,i) = 0d0
+!
+!!$omp parallel do schedule(dynamic) default(private) &
+!!$omp shared(npair,ijmap,mo_center,dis,mo_dis)
+! do n = 1, npair, 1
+!  i = ijmap(1,n); j = ijmap(2,n)
+!  min_dis = dis(mo_center(1,i),mo_center(1,j))
+!  nc1 = mo_center(0,i); nc2 = mo_center(0,j)
+!
+!  if(nc1>1 .and. nc2>1) then
+!   do k = 1, nc1, 1
+!    k1 = mo_center(k,i)
+!    do m = 1, nc2, 1
+!     r = dis(mo_center(m,j),k1)
+!     if(r < min_dis) min_dis = r
+!    end do ! for m
+!   end do ! for k
+!  else if(nc1==1 .and. nc2>1) then
+!   k1 = mo_center(1,i)
+!   do m = 1, nc2, 1
+!    r = dis(mo_center(m,j),k1)
+!    if(r < min_dis) min_dis = r
+!   end do ! for m
+!  else if(nc1>1 .and. nc2==1) then
+!   k1 = mo_center(1,j)
+!   do k = 1, nc1, 1
+!    r = dis(mo_center(k,i),k1)
+!    if(r < min_dis) min_dis = r
+!   end do ! for k
+!  end if
+!
+!  mo_dis(j,i) = min_dis; mo_dis(i,j) = min_dis
+! end do ! for n
+!!$omp end parallel do
+!end subroutine atm_dis2mo_dis2
+
+! Find effective i-j map using the distance matrix of MOs, i.e. create/update
+! the eff_ijmap array.
+subroutine find_eff_ijmap(nmo, mo_dis)
+ implicit none
+ integer :: i, n
+ integer, intent(in) :: nmo
+ real(kind=8), intent(in) :: mo_dis(nmo*(nmo-1)/2)
+
+ eff_npair = COUNT(mo_dis < dis_thres)
+ allocate(eff_ijmap(2,eff_npair))
+ i = 0
+
+ do n = 1, npair, 1
+  if(mo_dis(n) < dis_thres) then
+   i = i + 1
+   eff_ijmap(:,i) = ijmap(:,n)
+  end if
+ end do ! for n
+end subroutine find_eff_ijmap
+
+! generate effective round robin ordering within the orbital distance threshold
+subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
+ implicit none
+ integer :: i, j, k, k1, k2, k3, m
+ integer, intent(in) :: nmo
+ real(kind=8), intent(in) :: mo_dis(nmo*(nmo-1)/2)
+
+ if(.not. allocated(rot_idx)) allocate(rot_idx(nsweep))
+ m = 2*nmo
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,k1,k2,k3)
+ do i = 1, nsweep, 1
+  k = 0
+  do j = 1, np, 1
+   k1 = rrmap(1,j,i); k2 = rrmap(2,j,i)
+   if(k1>0 .and. k2>0) then
+    if(k1 < k2) then
+     k3 = (m-k1)*(k1-1)/2 + k2 - k1
+    else
+     k3 = (m-k2)*(k2-1)/2 + k1 - k2
+    end if
+    if(mo_dis(k3) < dis_thres) k = k + 1
+   end if
+  end do ! for j
+  rot_idx(i)%npair = k
+  if(allocated(rot_idx(i)%pair_idx)) deallocate(rot_idx(i)%pair_idx)
+  allocate(rot_idx(i)%pair_idx(2,k))
+ end do ! for i
+!$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,k1,k2,k3)
+ do i = 1, nsweep, 1
+  k = 0
+  do j = 1, np, 1
+   k1 = rrmap(1,j,i); k2 = rrmap(2,j,i)
+   if(k1>0 .and. k2>0) then
+    if(k1 < k2) then
+     k3 = (m-k1)*(k1-1)/2 + k2 - k1
+    else
+     k3 = (m-k2)*(k2-1)/2 + k1 - k2
+    end if
+    if(mo_dis(k3) < dis_thres) then
+     k = k + 1
+     rot_idx(i)%pair_idx(:,k) = [k1,k2]
+    end if
+   end if
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+end subroutine init_round_robin_idx_with_dis
+
+subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: nbf, nmo
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
+  sin_2a, cos_2a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: dipole(:,:,:), tmp_mo(:), vtmp(:,:), vdiff(:)
+
+ change = 0d0
+ allocate(dipole(3,nmo,2), tmp_mo(nbf), vtmp(3,3), vdiff(3))
+
+ do m = 1, eff_npair, 1
+  i = eff_ijmap(1,m); j = eff_ijmap(2,m)
+  vtmp(:,1) = mo_dipole(:,i,i)
+  vtmp(:,2) = mo_dipole(:,j,i)
+  vtmp(:,3) = mo_dipole(:,j,j)
+  vdiff = vtmp(:,1) - vtmp(:,3)
+  Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
+  Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
+  rtmp = HYPOT(Aij, Bij)
+  sin_4a = Bij/rtmp
+  rtmp = rtmp + Aij
+  if(rtmp < threshold1) cycle
+
+  change = change + rtmp
+  alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+  if(Aij > 0d0) then
+   alpha = QPI - alpha
+  else if(Aij<0d0 .and. Bij<0d0) then
+   alpha = HPI + alpha
+  end if
+  if(alpha > QPI) alpha = alpha - HPI
+  cos_a = DCOS(alpha); sin_a = DSIN(alpha)
+
+  ! update two orbitals
+  tmp_mo = coeff(:,i)
+  coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+  coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+
+  ! update corresponding dipole integrals, only indices in range to be updated
+  cc = cos_a*cos_a
+  ss = sin_a*sin_a
+  sin_2a = 2d0*sin_a*cos_a
+  cos_2a = cc - ss
+  dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  dipole(:,j,1) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  dipole(:,i,2) = dipole(:,j,1)
+
+  ! It seems that OpenMP makes this loop slower
+  do k = 1, nmo, 1
+   if(k==i .or. k==j) cycle
+   dipole(:,k,1) = cos_a*mo_dipole(:,k,i) + sin_a*mo_dipole(:,k,j)
+   dipole(:,k,2) = cos_a*mo_dipole(:,k,j) - sin_a*mo_dipole(:,k,i)
+  end do ! for k
+
+  mo_dipole(:,:,i) = dipole(:,:,1)
+  mo_dipole(:,:,j) = dipole(:,:,2)
+  mo_dipole(:,i,:) = dipole(:,:,1)
+  mo_dipole(:,j,:) = dipole(:,:,2)
+ end do ! for m
+
+ deallocate(eff_ijmap, dipole, tmp_mo, vtmp, vdiff)
+end subroutine serial22boys_kernel
+
+subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
+ implicit none
+ integer :: i, j, k, m, n, npair0
+ integer, intent(in) :: nbf, nmo
+ integer, allocatable :: idx(:,:)
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: vtmp(:,:), cos_a(:), sin_a(:), dipole(:), &
+                              tmp_mo(:), vdiff(:)
+ logical, allocatable :: skip(:)
+
+ change = 0d0
+ allocate(dipole(3), tmp_mo(nbf), vtmp(3,3), vdiff(3))
+
+ do m = 1, nsweep, 1
+  npair0 = rot_idx(m)%npair
+  allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
+  allocate(cos_a(npair0), source=1d0)
+  allocate(sin_a(npair0), source=0d0)
+  allocate(skip(npair0))
+  skip = .false.
+
+!$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+!$omp shared(npair0,cos_a,sin_a,idx,mo_dipole,coeff,skip)
+  do n = 1, npair0, 1
+   i = idx(1,n); j = idx(2,n)
+   vtmp(:,1) = mo_dipole(:,i,i)
+   vtmp(:,2) = mo_dipole(:,j,i)
+   vtmp(:,3) = mo_dipole(:,j,j)
+   vdiff = vtmp(:,1) - vtmp(:,3)
+   Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
+   Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
+   rtmp = HYPOT(Aij, Bij)
+   sin_4a = Bij/rtmp
+   rtmp = rtmp + Aij
+   if(rtmp < threshold1) then
+    skip(n) = .true.
+    cycle
+   end if
+
+   change = change + rtmp
+   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+   if(Aij > 0d0) then
+    alpha = QPI - alpha
+   else if(Aij<0d0 .and. Bij<0d0) then
+    alpha = HPI + alpha
+   end if
+   if(alpha > QPI) alpha = alpha - HPI
+   cos_a(n) = DCOS(alpha); sin_a(n) = DSIN(alpha)
+
+   ! update two orbitals
+   tmp_mo = coeff(:,i)
+   coeff(:,i) = cos_a(n)*tmp_mo + sin_a(n)*coeff(:,j)
+   coeff(:,j) = cos_a(n)*coeff(:,j) - sin_a(n)*tmp_mo
+
+   ! update corresponding dipole integrals, only indices in range to be updated
+   cc = cos_a(n)*cos_a(n)
+   ss = sin_a(n)*sin_a(n)
+   sin_2a = 2d0*sin_a(n)*cos_a(n)
+   cos_2a = cc - ss
+   mo_dipole(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+   mo_dipole(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+   mo_dipole(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+   mo_dipole(:,i,j) = mo_dipole(:,j,i)
+  end do ! for n
+!$omp end parallel do
+
+  ! update remaining off-diagonal elements of mo_dipole(:,x,y)
+  do n = 1, npair0, 1
+   if(skip(n)) cycle
+   i = idx(1,n); j = idx(2,n)
+   cc = cos_a(n); ss = sin_a(n)
+   do k = 1, nmo, 1
+    if(k==i .or. k==j) cycle
+    dipole = mo_dipole(:,k,i)
+    mo_dipole(:,k,i) = cc*dipole + ss*mo_dipole(:,k,j)
+    mo_dipole(:,k,j) = cc*mo_dipole(:,k,j) - ss*dipole
+   end do ! for k
+   mo_dipole(:,i,:) = mo_dipole(:,:,i)
+   mo_dipole(:,j,:) = mo_dipole(:,:,j)
+  end do ! for n
+
+  deallocate(idx, cos_a, sin_a, skip)
+ end do ! for m
+
+ deallocate(dipole, tmp_mo, vtmp, vdiff)
+end subroutine para22boys_kernel
+
+subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: nbf, nmo, natom
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
+  sin_2a, cos_2a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: dipole(:,:,:), tmp_mo(:), vtmp(:,:), vdiff(:)
+
+ change = 0d0
+ allocate(dipole(natom,nmo,2), tmp_mo(nbf), vtmp(natom,3), vdiff(natom))
+
+ do m = 1, eff_npair, 1
+  i = eff_ijmap(1,m); j = eff_ijmap(2,m)
+  vtmp(:,1) = gross(:,i,i)
+  vtmp(:,2) = gross(:,j,i)
+  vtmp(:,3) = gross(:,j,j)
+  vdiff = vtmp(:,1) - vtmp(:,3)
+  Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
+  Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+  rtmp = HYPOT(Aij, Bij)
+  sin_4a = Bij/rtmp
+  rtmp = rtmp + Aij
+  if(rtmp < threshold1) cycle
+
+  change = change + rtmp
+  alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+  if(Aij > 0d0) then
+   alpha = QPI - alpha
+  else if(Aij<0d0 .and. Bij<0d0) then
+   alpha = HPI + alpha
+  end if
+  if(alpha > QPI) alpha = alpha - HPI
+  cos_a = DCOS(alpha); sin_a = DSIN(alpha)
+
+  ! update two orbitals
+  tmp_mo = coeff(:,i)
+  coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+  coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+
+  ! update corresponding dipole integrals, only indices in range to be updated
+  cc = cos_a*cos_a
+  ss = sin_a*sin_a
+  sin_2a = 2d0*sin_a*cos_a
+  cos_2a = cc - ss
+  dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  dipole(:,j,1) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  dipole(:,i,2) = dipole(:,j,1)
+
+  ! It seems that OpenMP makes this loop slower
+  do k = 1, nmo, 1
+   if(k==i .or. k==j) cycle
+   dipole(:,k,1) = cos_a*gross(:,k,i) + sin_a*gross(:,k,j)
+   dipole(:,k,2) = cos_a*gross(:,k,j) - sin_a*gross(:,k,i)
+  end do ! for k
+
+  gross(:,:,i) = dipole(:,:,1)
+  gross(:,:,j) = dipole(:,:,2)
+  gross(:,i,:) = dipole(:,:,1)
+  gross(:,j,:) = dipole(:,:,2)
+ end do ! for m
+
+ deallocate(eff_ijmap, dipole, tmp_mo, vtmp, vdiff)
+end subroutine serial22pm_kernel
+
+subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+ implicit none
+ integer :: i, j, k, m, n, npair0
+ integer, intent(in) :: nbf, nmo, natom
+ integer, allocatable :: idx(:,:)
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: vtmp(:,:), cos_a(:), sin_a(:), dipole(:), &
+                              tmp_mo(:), vdiff(:)
+ logical, allocatable :: skip(:)
+ ! for meanings of variables, please see subroutine serial2by2
+
+ change = 0d0
+ allocate(dipole(natom), tmp_mo(nbf), vtmp(natom,3), vdiff(natom))
+
+ do m = 1, nsweep, 1
+  npair0 = rot_idx(m)%npair
+  allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
+  allocate(cos_a(npair0), source=1d0)
+  allocate(sin_a(npair0), source=0d0)
+  allocate(skip(npair0))
+  skip = .false.
+
+!$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+!$omp shared(natom,npair0,cos_a,sin_a,idx,gross,coeff,skip)
+  do n = 1, npair0, 1
+   i = idx(1,n); j = idx(2,n)
+   vtmp(:,1) = gross(:,i,i)
+   vtmp(:,2) = gross(:,j,i)
+   vtmp(:,3) = gross(:,j,j)
+   vdiff = vtmp(:,1) - vtmp(:,3)
+   Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
+   Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+   rtmp = HYPOT(Aij, Bij)
+   sin_4a = Bij/rtmp
+   rtmp = rtmp + Aij
+   if(rtmp < threshold1) then
+    skip(n) = .true.
+    cycle
+   end if
+
+   change = change + rtmp
+   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+   if(Aij > 0d0) then
+    alpha = QPI - alpha
+   else if(Aij<0d0 .and. Bij<0d0) then
+    alpha = HPI + alpha
+   end if
+   if(alpha > QPI) alpha = alpha - HPI
+   cos_a(n) = DCOS(alpha); sin_a(n) = DSIN(alpha)
+
+   ! update two orbitals
+   tmp_mo = coeff(:,i)
+   coeff(:,i) = cos_a(n)*tmp_mo + sin_a(n)*coeff(:,j)
+   coeff(:,j) = cos_a(n)*coeff(:,j) - sin_a(n)*tmp_mo
+
+   ! update corresponding dipole integrals, only indices in range to be updated
+   cc = cos_a(n)*cos_a(n)
+   ss = sin_a(n)*sin_a(n)
+   sin_2a = 2d0*sin_a(n)*cos_a(n)
+   cos_2a = cc - ss
+   gross(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+   gross(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+   gross(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+   gross(:,i,j) = gross(:,j,i)
+  end do ! for n
+!$omp end parallel do
+
+  ! update remaining off-diagonal elements of gross(:,x,y)
+  do n = 1, npair0, 1
+   if(skip(n)) cycle
+   i = idx(1,n); j = idx(2,n)
+   cc = cos_a(n); ss = sin_a(n)
+!$omp parallel do schedule(dynamic) default(shared) private(k,dipole)
+   do k = 1, nmo, 1
+    if(k==i .or. k==j) cycle
+    dipole = gross(:,k,i)
+    gross(:,k,i) = cc*dipole + ss*gross(:,k,j)
+    gross(:,k,j) = cc*gross(:,k,j) - ss*dipole
+   end do ! for k
+!$omp end parallel do
+   gross(:,i,:) = gross(:,:,i)
+   gross(:,j,:) = gross(:,:,j)
+  end do ! for n
+
+  deallocate(idx, cos_a, sin_a, skip)
+ end do ! for m
+
+ deallocate(dipole, tmp_mo, vtmp, vdiff)
+end subroutine para22pm_kernel
+
+end module lo_info
 
 ! open a GAMESS .inp/.dat file and jump to the $DATA section
 subroutine goto_data_section_in_gms_inp(inpname, fid)

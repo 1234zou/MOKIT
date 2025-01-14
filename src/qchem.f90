@@ -107,7 +107,7 @@ subroutine qchem2gms(fchname, inpname)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std.inp'
  call standardize_fch(fchname)
- call fch2inp_wrap(std_fch, .false., 0, 0)
+ call fch2inp_wrap(std_fch, .false., 0, 0, .false.)
  call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2gms
@@ -531,247 +531,247 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  deallocate(dm0)
 end subroutine write_qchem_dm_into_fch
 
-subroutine freq_dep_diag(npyname, nacto, nacte, init_e)
- implicit none
- integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
- integer, parameter :: max_it = 99
- integer, intent(in) :: nacto, nacte
-!f2py intent(in) :: nacto, nacte
- integer(kind=4) :: t0, t1, TIME
- real(kind=8) :: old_e
- real(kind=8), parameter :: thres = 1d-7
- real(kind=8), allocatable :: ham(:,:), R_w(:,:), x(:,:), S0(:,:), S(:,:), &
-  C(:,:), CCT(:,:), CR_w(:,:), w(:)
- real(kind=8), intent(in) :: init_e
-!f2py intent(in) :: init_e
- character(len=240), intent(in) :: npyname
-!f2py intent(in) :: npyname
+!subroutine freq_dep_diag(npyname, nacto, nacte, init_e)
+! implicit none
+! integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
+! integer, parameter :: max_it = 99
+! integer, intent(in) :: nacto, nacte
+!!f2py intent(in) :: nacto, nacte
+! integer(kind=4) :: t0, t1, TIME
+! real(kind=8) :: old_e
+! real(kind=8), parameter :: thres = 1d-7
+! real(kind=8), allocatable :: ham(:,:), R_w(:,:), x(:,:), S0(:,:), S(:,:), &
+!  C(:,:), CCT(:,:), CR_w(:,:), w(:)
+! real(kind=8), intent(in) :: init_e
+!!f2py intent(in) :: init_e
+! character(len=240), intent(in) :: npyname
+!!f2py intent(in) :: npyname
+!
+! t0 = TIME()
+! nocc_b = nacte/2        ! number of beta occupied spin orbitals
+! nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
+! nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
+! nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
+! i = nocc_a*nvir_a; j = nocc_b*nvir_b
+! n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
+!
+! call read_sym_mat_size_from_npy(npyname, nconf)
+! write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
+! if(n_cisd >= nconf) then
+!  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
+!  write(6,'(A)') 'The excitation level is <= CISD level.'
+!  write(6,'(A)') 'npyname='//TRIM(npyname)
+!  stop
+! end if
+!
+! allocate(ham(nconf,nconf), w(n_cisd))
+! call read_sym_mat_from_npy(npyname, nconf, ham)
+! i = n_cisd + 1
+! nlarge = nconf - n_cisd
+! allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
+! allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
+! allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
+! deallocate(ham)
+! allocate(CCT(n_cisd,n_cisd), source=0d0)
+! call dgemm('N', 'T', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, C, n_cisd, 0d0, &
+!            CCT, n_cisd)
+!
+! old_e = init_e
+! write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
+! t1 = TIME()
+! write(6,'(I3)') t1-t0
+! t0 = t1
+!
+! do i = 1, max_it, 1
+!  ! R-w
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
+!  ! C(R-w)
+!  allocate(CR_w(n_cisd,nlarge), source=0d0)
+!  call dgemm('N', 'N', n_cisd, nlarge, nlarge, 1d0, C, n_cisd, R_w, nlarge, &
+!             0d0, CR_w, n_cisd)
+!  ! (R-w)^(-1) (C^T)
+!  allocate(x(nlarge,n_cisd))
+!  call solve_multi_lin_eqs(n_cisd, nlarge, CR_w, n_cisd, CCT, x)
+!  deallocate(CR_w)
+!  t1 = TIME()
+!  write(6,'(/,I3)') t1-t0
+!  t0 = t1
+!  ! S - C (R-w)^(-1) (C^T)
+!  allocate(S(n_cisd,n_cisd), source=S0)
+!  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -x, nlarge, 1d0,&
+!             S, n_cisd)
+!  deallocate(x)
+!  ! diagonalize (S - C1 (R-w)^(-1) C)
+!  call diag_get_e_and_vec(n_cisd, S, w)
+!  deallocate(S)
+!  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
+!  if(DABS(w(1)-old_e) < thres) exit
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e ! recover R
+!  old_e = w(1) ! update old_e
+!  t1 = TIME()
+!  write(6,'(I3)') t1-t0
+!  t0 = t1
+! end do ! for i
+!
+! deallocate(R_w, S0, C, CCT, w)
+!end subroutine freq_dep_diag
 
- t0 = TIME()
- nocc_b = nacte/2        ! number of beta occupied spin orbitals
- nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
- nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
- nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
- i = nocc_a*nvir_a; j = nocc_b*nvir_b
- n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
+!subroutine freq_dep_diag2(npyname, nacto, nacte, init_e)
+! implicit none
+! integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
+! integer, parameter :: max_it = 99
+! integer, intent(in) :: nacto, nacte
+!!f2py intent(in) :: nacto, nacte
+! integer(kind=4) :: t0, t1, TIME
+! real(kind=8) :: old_e
+! real(kind=8), parameter :: thres = 1d-7
+! real(kind=8), allocatable :: ham(:,:), R_w(:,:), x(:,:), S0(:,:), S(:,:), &
+!  C(:,:), w(:)
+! real(kind=8), intent(in) :: init_e
+!!f2py intent(in) :: init_e
+! character(len=240), intent(in) :: npyname
+!!f2py intent(in) :: npyname
+!
+! t0 = TIME()
+! nocc_b = nacte/2        ! number of beta occupied spin orbitals
+! nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
+! nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
+! nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
+! i = nocc_a*nvir_a; j = nocc_b*nvir_b
+! n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
+!
+! call read_sym_mat_size_from_npy(npyname, nconf)
+! write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
+! if(n_cisd >= nconf) then
+!  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
+!  write(6,'(A)') 'The excitation level is <= CISD level.'
+!  write(6,'(A)') 'npyname='//TRIM(npyname)
+!  stop
+! end if
+!
+! allocate(ham(nconf,nconf), w(n_cisd))
+! call read_sym_mat_from_npy(npyname, nconf, ham)
+! i = n_cisd + 1
+! nlarge = nconf - n_cisd
+! allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
+! allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
+! allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
+! deallocate(ham)
+!
+! old_e = init_e
+! write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
+! t1 = TIME()
+! write(6,'(I3)') t1-t0
+! t0 = t1
+!
+! do i = 1, max_it, 1
+!  ! R-w
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
+!  ! (R-w)^(-1) (C^T)
+!  allocate(x(nlarge,n_cisd))
+!  call solve_multi_lin_eqs(nlarge, nlarge, R_w, n_cisd, TRANSPOSE(C), x)
+!  t1 = TIME()
+!  write(6,'(/,I3)') t1-t0
+!  t0 = t1
+!  ! S - C (R-w)^(-1) (C^T)
+!  allocate(S(n_cisd,n_cisd), source=S0)
+!  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -x, nlarge, 1d0,&
+!             S, n_cisd)
+!  deallocate(x)
+!  ! diagonalize (S - C1 (R-w)^(-1) C)
+!  call diag_get_e_and_vec(n_cisd, S, w)
+!  deallocate(S)
+!  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
+!  if(DABS(w(1)-old_e) < thres) exit
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e ! recover R
+!  old_e = w(1) ! update old_e
+!  t1 = TIME()
+!  write(6,'(I3)') t1-t0
+!  t0 = t1
+! end do ! for i
+!
+! deallocate(R_w, S0, C, w)
+!end subroutine freq_dep_diag2
 
- call read_sym_mat_size_from_npy(npyname, nconf)
- write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
- if(n_cisd >= nconf) then
-  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
-  write(6,'(A)') 'The excitation level is <= CISD level.'
-  write(6,'(A)') 'npyname='//TRIM(npyname)
-  stop
- end if
-
- allocate(ham(nconf,nconf), w(n_cisd))
- call read_sym_mat_from_npy(npyname, nconf, ham)
- i = n_cisd + 1
- nlarge = nconf - n_cisd
- allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
- allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
- allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
- deallocate(ham)
- allocate(CCT(n_cisd,n_cisd), source=0d0)
- call dgemm('N', 'T', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, C, n_cisd, 0d0, &
-            CCT, n_cisd)
-
- old_e = init_e
- write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
- t1 = TIME()
- write(6,'(I3)') t1-t0
- t0 = t1
-
- do i = 1, max_it, 1
-  ! R-w
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
-  ! C(R-w)
-  allocate(CR_w(n_cisd,nlarge), source=0d0)
-  call dgemm('N', 'N', n_cisd, nlarge, nlarge, 1d0, C, n_cisd, R_w, nlarge, &
-             0d0, CR_w, n_cisd)
-  ! (R-w)^(-1) (C^T)
-  allocate(x(nlarge,n_cisd))
-  call solve_multi_lin_eqs(n_cisd, nlarge, CR_w, n_cisd, CCT, x)
-  deallocate(CR_w)
-  t1 = TIME()
-  write(6,'(/,I3)') t1-t0
-  t0 = t1
-  ! S - C (R-w)^(-1) (C^T)
-  allocate(S(n_cisd,n_cisd), source=S0)
-  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -x, nlarge, 1d0,&
-             S, n_cisd)
-  deallocate(x)
-  ! diagonalize (S - C1 (R-w)^(-1) C)
-  call diag_get_e_and_vec(n_cisd, S, w)
-  deallocate(S)
-  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
-  if(DABS(w(1)-old_e) < thres) exit
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e ! recover R
-  old_e = w(1) ! update old_e
-  t1 = TIME()
-  write(6,'(I3)') t1-t0
-  t0 = t1
- end do ! for i
-
- deallocate(R_w, S0, C, CCT, w)
-end subroutine freq_dep_diag
-
-subroutine freq_dep_diag2(npyname, nacto, nacte, init_e)
- implicit none
- integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
- integer, parameter :: max_it = 99
- integer, intent(in) :: nacto, nacte
-!f2py intent(in) :: nacto, nacte
- integer(kind=4) :: t0, t1, TIME
- real(kind=8) :: old_e
- real(kind=8), parameter :: thres = 1d-7
- real(kind=8), allocatable :: ham(:,:), R_w(:,:), x(:,:), S0(:,:), S(:,:), &
-  C(:,:), w(:)
- real(kind=8), intent(in) :: init_e
-!f2py intent(in) :: init_e
- character(len=240), intent(in) :: npyname
-!f2py intent(in) :: npyname
-
- t0 = TIME()
- nocc_b = nacte/2        ! number of beta occupied spin orbitals
- nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
- nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
- nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
- i = nocc_a*nvir_a; j = nocc_b*nvir_b
- n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
-
- call read_sym_mat_size_from_npy(npyname, nconf)
- write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
- if(n_cisd >= nconf) then
-  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
-  write(6,'(A)') 'The excitation level is <= CISD level.'
-  write(6,'(A)') 'npyname='//TRIM(npyname)
-  stop
- end if
-
- allocate(ham(nconf,nconf), w(n_cisd))
- call read_sym_mat_from_npy(npyname, nconf, ham)
- i = n_cisd + 1
- nlarge = nconf - n_cisd
- allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
- allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
- allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
- deallocate(ham)
-
- old_e = init_e
- write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
- t1 = TIME()
- write(6,'(I3)') t1-t0
- t0 = t1
-
- do i = 1, max_it, 1
-  ! R-w
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
-  ! (R-w)^(-1) (C^T)
-  allocate(x(nlarge,n_cisd))
-  call solve_multi_lin_eqs(nlarge, nlarge, R_w, n_cisd, TRANSPOSE(C), x)
-  t1 = TIME()
-  write(6,'(/,I3)') t1-t0
-  t0 = t1
-  ! S - C (R-w)^(-1) (C^T)
-  allocate(S(n_cisd,n_cisd), source=S0)
-  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -x, nlarge, 1d0,&
-             S, n_cisd)
-  deallocate(x)
-  ! diagonalize (S - C1 (R-w)^(-1) C)
-  call diag_get_e_and_vec(n_cisd, S, w)
-  deallocate(S)
-  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
-  if(DABS(w(1)-old_e) < thres) exit
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e ! recover R
-  old_e = w(1) ! update old_e
-  t1 = TIME()
-  write(6,'(I3)') t1-t0
-  t0 = t1
- end do ! for i
-
- deallocate(R_w, S0, C, w)
-end subroutine freq_dep_diag2
-
-subroutine freq_dep_diag3(npyname, nacto, nacte, init_e)
- implicit none
- integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
- integer, parameter :: max_it = 99
- integer, intent(in) :: nacto, nacte
-!f2py intent(in) :: nacto, nacte
- integer(kind=4) :: t0, t1, TIME
- real(kind=8) :: old_e
- real(kind=8), parameter :: thres = 1d-7
- real(kind=8), allocatable :: ham(:,:), w(:), R_w(:,:), inv_R_w(:,:), S0(:,:), &
-  S(:,:), C(:,:), inv_R_wCT(:,:)
- real(kind=8), intent(in) :: init_e
-!f2py intent(in) :: init_e
- character(len=240), intent(in) :: npyname
-!f2py intent(in) :: npyname
-
- t0 = TIME()
- nocc_b = nacte/2        ! number of beta occupied spin orbitals
- nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
- nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
- nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
- i = nocc_a*nvir_a; j = nocc_b*nvir_b
- n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
-
- call read_sym_mat_size_from_npy(npyname, nconf)
- write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
- if(n_cisd >= nconf) then
-  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
-  write(6,'(A)') 'The excitation level is <= CISD level.'
-  write(6,'(A)') 'npyname='//TRIM(npyname)
-  stop
- end if
-
- allocate(ham(nconf,nconf), w(n_cisd))
- call read_sym_mat_from_npy(npyname, nconf, ham)
- i = n_cisd + 1
- nlarge = nconf - n_cisd
- allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
- allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
- allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
- deallocate(ham)
-
- old_e = init_e
- write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
- t1 = TIME()
- write(6,'(I3)') t1-t0
- t0 = t1
-
- do i = 1, max_it, 1
-  ! (R-w)^(-1)
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
-  allocate(inv_R_w(nlarge,nlarge))
-  !call inverse(nlarge, R_w, inv_R_w)
-  call newton_inv(nlarge, R_w, inv_R_w)
-  t1 = TIME()
-  write(6,'(/,I3)') t1-t0
-  t0 = t1
-  ! (R-w)^(-1) (C^T)
-  allocate(inv_R_wCT(nlarge,n_cisd), source=0d0)
-  call dsymm('L', 'L', nlarge, n_cisd, 1d0, inv_R_w, nlarge, TRANSPOSE(C), &
-             nlarge, 0d0, inv_R_wCT, nlarge)
-  deallocate(inv_R_w)
-  ! S - C (R-w)^(-1) (C^T)
-  allocate(S(n_cisd,n_cisd), source=S0)
-  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -inv_R_wCT, &
-             nlarge, 1d0, S, n_cisd)
-  deallocate(inv_R_wCT)
-  ! diagonalize (S - C1 (R-w)^(-1) C2)
-  call diag_get_e_and_vec(n_cisd, S, w)
-  deallocate(S)
-  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
-  if(DABS(w(1)-old_e) < thres) exit
-  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e
-  old_e = w(1)
-  t1 = TIME()
-  write(6,'(I3)') t1-t0
-  t0 = t1
- end do ! for i
-
- deallocate(S0, C, R_w, w)
-end subroutine freq_dep_diag3
+!subroutine freq_dep_diag3(npyname, nacto, nacte, init_e)
+! implicit none
+! integer :: i, j, nocc_a, nocc_b, nvir_a, nvir_b, n_cisd, nlarge, nconf
+! integer, parameter :: max_it = 99
+! integer, intent(in) :: nacto, nacte
+!!f2py intent(in) :: nacto, nacte
+! integer(kind=4) :: t0, t1, TIME
+! real(kind=8) :: old_e
+! real(kind=8), parameter :: thres = 1d-7
+! real(kind=8), allocatable :: ham(:,:), w(:), R_w(:,:), inv_R_w(:,:), S0(:,:), &
+!  S(:,:), C(:,:), inv_R_wCT(:,:)
+! real(kind=8), intent(in) :: init_e
+!!f2py intent(in) :: init_e
+! character(len=240), intent(in) :: npyname
+!!f2py intent(in) :: npyname
+!
+! t0 = TIME()
+! nocc_b = nacte/2        ! number of beta occupied spin orbitals
+! nocc_a = nacte - nocc_b ! number of alpha occupied spin orbitals
+! nvir_a = nacto - nocc_a ! number of alpha unoccupied spin orbitals
+! nvir_b = nacto - nocc_b ! number of beta unoccupied spin orbitals
+! i = nocc_a*nvir_a; j = nocc_b*nvir_b
+! n_cisd = 1 + i*j + (i*(i-nacto+5) + j*(j-nacto+5))/4
+!
+! call read_sym_mat_size_from_npy(npyname, nconf)
+! write(6,'(A,2I7)') 'n_cisd, nconf=', n_cisd, nconf
+! if(n_cisd >= nconf) then
+!  write(6,'(/,A)') 'ERROR in subroutine freq_dep_diag: n_cisd >= nconf.'
+!  write(6,'(A)') 'The excitation level is <= CISD level.'
+!  write(6,'(A)') 'npyname='//TRIM(npyname)
+!  stop
+! end if
+!
+! allocate(ham(nconf,nconf), w(n_cisd))
+! call read_sym_mat_from_npy(npyname, nconf, ham)
+! i = n_cisd + 1
+! nlarge = nconf - n_cisd
+! allocate(S0(n_cisd,n_cisd), source=ham(1:n_cisd,1:n_cisd))
+! allocate(C(n_cisd,nlarge), source=ham(1:n_cisd,i:nconf))
+! allocate(R_w(nlarge,nlarge), source=ham(i:nconf,i:nconf))
+! deallocate(ham)
+!
+! old_e = init_e
+! write(6,'(A,F18.12)') 'i=  0, ini_e = ', init_e
+! t1 = TIME()
+! write(6,'(I3)') t1-t0
+! t0 = t1
+!
+! do i = 1, max_it, 1
+!  ! (R-w)^(-1)
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) - old_e
+!  allocate(inv_R_w(nlarge,nlarge))
+!  !call inverse(nlarge, R_w, inv_R_w)
+!  call newton_inv(nlarge, R_w, inv_R_w)
+!  t1 = TIME()
+!  write(6,'(/,I3)') t1-t0
+!  t0 = t1
+!  ! (R-w)^(-1) (C^T)
+!  allocate(inv_R_wCT(nlarge,n_cisd), source=0d0)
+!  call dsymm('L', 'L', nlarge, n_cisd, 1d0, inv_R_w, nlarge, TRANSPOSE(C), &
+!             nlarge, 0d0, inv_R_wCT, nlarge)
+!  deallocate(inv_R_w)
+!  ! S - C (R-w)^(-1) (C^T)
+!  allocate(S(n_cisd,n_cisd), source=S0)
+!  call dgemm('N', 'N', n_cisd, n_cisd, nlarge, 1d0, C, n_cisd, -inv_R_wCT, &
+!             nlarge, 1d0, S, n_cisd)
+!  deallocate(inv_R_wCT)
+!  ! diagonalize (S - C1 (R-w)^(-1) C2)
+!  call diag_get_e_and_vec(n_cisd, S, w)
+!  deallocate(S)
+!  write(6,'(A,I3,A,F18.12)') 'i=', i, ', new_e = ', w(1)
+!  if(DABS(w(1)-old_e) < thres) exit
+!  forall(j = 1:nlarge) R_w(j,j) = R_w(j,j) + old_e
+!  old_e = w(1)
+!  t1 = TIME()
+!  write(6,'(I3)') t1-t0
+!  t0 = t1
+! end do ! for i
+!
+! deallocate(S0, C, R_w, w)
+!end subroutine freq_dep_diag3
 

@@ -24,7 +24,7 @@ module population
  ! the shortest distances of two atomic centers
  logical :: cart
 
- type mo_cluster       ! an MO cluster
+ type :: mo_cluster       ! an MO cluster
   integer :: nocc = 0  ! number of occupied MOs
   integer :: nvir = 0  ! number of virtual MOs
   integer, allocatable :: occ_idx(:) ! indices of occupied MOs, size nocc
@@ -69,7 +69,7 @@ subroutine get_mo_center_from_fch(fchname, ibegin, iend)
  call get_ao_ovlp_using_fch(fchname, nbf, ao_ovlp)
 
  if(allocated(mo_center)) deallocate(mo_center)
- allocate(mo_center(0:natom,ibegin:iend), source=0)
+ allocate(mo_center(0:4,ibegin:iend))
  ! mo_center(0,i) is the number of centers of the i-th MO
 
  k = iend - ibegin + 1
@@ -150,17 +150,14 @@ end module population
 subroutine get_mo_center_from_ovlp_and_mo(natom, nbf, nif, bfirst, ovlp, mo, &
                                           mo_center)
  implicit none
- integer :: i, j, k, m, ak(1)
+ integer :: i, j, k, m
  integer, intent(in) :: natom, nbf, nif
  integer, intent(in) :: bfirst(natom+1)
- integer, intent(out) :: mo_center(0:natom,nif)
- real(kind=8) :: r, ddot
- real(kind=8), parameter :: diff = 0.2d0, pop_thres = 0.7d0
- ! diff: difference between the largest and the 2nd largest component
+ integer, intent(out) :: mo_center(0:4,nif)
+ real(kind=8) :: ddot
  real(kind=8), intent(in) :: ovlp(nbf,nbf), mo(nbf,nif)
  real(kind=8), allocatable :: rtmp(:), pop(:,:)
 
- mo_center = 0d0
  allocate(rtmp(nbf), pop(natom,nif))
 
  ! calculate Mulliken population
@@ -175,26 +172,7 @@ subroutine get_mo_center_from_ovlp_and_mo(natom, nbf, nif, bfirst, ovlp, mo, &
  end do ! for i
 
  deallocate(rtmp)
-
- do i = 1, nif, 1
-  ! the largest component on an atom of an orbital
-  ak = MAXLOC(pop(:,i)); k = ak(1); r = pop(k,i)
-  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
-  ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
-
-  ! find the 2nd largest component and so on
-  do j = 1, natom, 1
-   if(j == k) cycle
-   if(r - pop(j,i) < diff) then
-    m = m + 1
-    mo_center(m,i) = j
-   end if
-  end do ! for j
-
-  mo_center(0,i) = m
- end do ! for i
-
+ call get_mo_center_from_pop(natom, nif, pop, mo_center)
  deallocate(pop)
 end subroutine get_mo_center_from_ovlp_and_mo
 

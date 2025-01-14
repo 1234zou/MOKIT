@@ -36,6 +36,42 @@ subroutine sort_int_array(n, a, ascending, idx)
  end if
 end subroutine sort_int_array
 
+! sort a double precision array
+subroutine sort_dp_array(n, a, ascending, idx)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: n
+ real(kind=8) :: r
+ real(kind=8), intent(inout) :: a(n)
+ integer, intent(out) :: idx(n)
+ logical, intent(in) :: ascending
+
+ forall(i = 1:n) idx(i) = i
+ if(n == 1) return
+
+ if(ascending) then
+  do i = 1, n-1, 1
+   r = a(i)
+   do j = i+1, n, 1
+    if(r > a(j)) then
+     r = a(j); a(j) = a(i); a(i) = r
+     k = idx(i); idx(i) = idx(j); idx(j) = k
+    end if
+   end do ! for j
+  end do ! for i
+ else ! descending order
+  do i = 1, n-1, 1
+   r = a(i)
+   do j = i+1, n, 1
+    if(r < a(j)) then
+     r = a(j); a(j) = a(i); a(i) = r
+     k = idx(i); idx(i) = idx(j); idx(j) = k
+    end if
+   end do ! for j
+  end do ! for i
+ end if
+end subroutine sort_dp_array
+
 ! sort a set of MOs by the given eigenvalues (i.e. orbital energies or
 ! occupation numbers)
 subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
@@ -61,9 +97,7 @@ subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
   tmp_ev = new_ev(i)
   do j = i+1, nmo, 1
    if(new_ev(j) < tmp_ev) then
-    new_ev(i) = new_ev(j)
-    new_ev(j) = tmp_ev
-    tmp_ev = new_ev(i)
+    new_ev(i) = new_ev(j); new_ev(j) = tmp_ev; tmp_ev = new_ev(i)
     tmp_mo = new_mo(:,i)
     new_mo(:,i) = new_mo(:,j)
     new_mo(:,j) = tmp_mo
@@ -73,6 +107,93 @@ subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
 
  deallocate(tmp_mo)
 end subroutine sort_mo_by_ev
+
+! get upper triangle index pairs (j>=i), similar to numpy.triu_indices
+subroutine get_triu_idx(n, map)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ integer, intent(out) :: map(2,n*(n+1)/2)
+!f2py intent(out) :: map
+!f2py depend(n) :: map
+
+ if(n < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine get_triu_idx: n<1 not allowed.'
+  write(6,'(A,I0)') 'n=', n
+  stop
+ end if
+
+ if(n < 99) then
+  forall(i=1:n, j=1:n, j>=i) map(:,(2*n-i)*(i-1)/2+j) = [i,j]
+ else
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+  do i = 1, n, 1
+   do j = i, n, 1
+    map(:,(2*n-i)*(i-1)/2+j) = [i,j]
+   end do ! for j
+  end do ! for i
+!$omp end parallel do
+ end if
+end subroutine get_triu_idx
+
+! get upper triangle index pairs (j>i), similar to numpy.triu_indices
+subroutine get_triu_idx1(n, map)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ integer, intent(out) :: map(2,n*(n-1)/2)
+!f2py intent(out) :: map
+!f2py depend(n) :: map
+
+ if(n < 2) then
+  write(6,'(/,A)') 'ERROR in subroutine get_triu_idx1: n<2 not allowed.'
+  write(6,'(A,I0)') 'n=', n
+  stop
+ end if
+
+ if(n < 99) then
+  forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
+ else
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+  do i = 1, n-1, 1
+   do j = i+1, n, 1
+    map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
+   end do ! for j
+  end do ! for i
+!$omp end parallel do
+ end if
+end subroutine get_triu_idx1
+
+! generate the round robin ordering (DOI: 10.1109/EMPDP.1995.389182)
+subroutine init_round_robin_idx(n, np, map)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: n, np
+ integer, intent(out) :: map(2,np,2*np-1)
+
+ forall(i = 1:np) map(:,i,1) = [2*i, 2*i-1]
+ if(MOD(n,2) == 1) then
+  map(1,np,:) = 0
+ else
+  map(1,np,:) = n
+ end if
+ k = 2*np - 1
+
+ do i = 2, k, 1
+  do j = 1, np-2, 1
+   map(1,j,i) = map(1,j+1,i-1)
+  end do ! for j
+
+  map(1,np-1,i) = map(2,np,i-1)
+  map(2,1,i) = map(1,1,i-1)
+
+  do j = 2, np, 1
+   map(2,j,i) = map(2,j-1,i-1)
+  end do ! for j
+ end do ! for i
+end subroutine init_round_robin_idx
 
 ! Diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
 ! A = Ua(U^T). Eigenvectors U will be stored in the square matrix a, and eigenvalues
@@ -92,8 +213,7 @@ subroutine diag_get_e_and_vec(n, a, w)
   return
  end if
 
- w = 0d0
- lwork = -1; liwork = -1
+ w = 0d0; lwork = -1; liwork = -1
  allocate(work(1), iwork(1))
  call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, i)
  lwork = CEILING(work(1))
@@ -117,7 +237,8 @@ subroutine diag_get_e_and_vec(n, a, w)
 end subroutine diag_get_e_and_vec
 
 ! It seems that dsyevr is slower than dsyevd, according to my experience in
-! 15315*15315.
+! 15315*15315. Eigenvectors U will be stored in the square matrix a, and
+! eigenvalues in w() are in ascending order w(1)<=w(2)<=...
 subroutine diag_get_e_and_vec2(n, a, w)
  implicit none
  integer :: i, m, lwork, liwork
@@ -126,6 +247,12 @@ subroutine diag_get_e_and_vec2(n, a, w)
  real(kind=8), intent(inout) :: a(n,n)
  real(kind=8), intent(out) :: w(n)
  real(kind=8), allocatable :: U(:,:), work(:)
+
+ if(n == 1) then
+  w(1) = a(1,1)
+  a(1,1) = 1d0
+  return
+ end if
 
  w = 0d0; lwork = -1; liwork = -1
  allocate(U(n,n), isuppz(2*n), work(1), iwork(1))
@@ -189,9 +316,9 @@ subroutine get_nmo_from_ao_ovlp(nbf, ovlp, nmo)
  real(kind=8), parameter :: thres = 1d-6
  real(kind=8), allocatable :: S(:,:), w(:)
 
- allocate(S(nbf,nbf), w(nbf))
- S = ovlp
- call diag_get_e_and_vec2(nbf, S, w)
+ allocate(S(nbf,nbf), source=ovlp)
+ allocate(w(nbf))
+ call diag_get_e_and_vec(nbf, S, w) ! w(1)<=w(2)<=...
  deallocate(S)
 
  nmo = 0
@@ -204,66 +331,105 @@ subroutine get_nmo_from_ao_ovlp(nbf, ovlp, nmo)
  nmo = nbf - nmo
 end subroutine get_nmo_from_ao_ovlp
 
+! calculate Us(U^T), s is an array and will be enlarged into a diagonal matrix
+subroutine calc_usut(n, s, U, usut)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: s(n), U(n,n)
+ real(kind=8), intent(out) :: usut(n,n)
+ real(kind=8), allocatable :: e(:,:), Ue(:,:)
+
+ allocate(e(n,n), source=0d0)
+ forall(i = 1:n) e(i,i) = s(i)
+ allocate(Ue(n,n), source=0d0)
+ call dsymm('R', 'L', n, n, 1d0, e, n, U, n, 0d0, Ue, n)
+ deallocate(e)
+ usut = 0d0
+ call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, usut, n)
+ deallocate(Ue)
+end subroutine calc_usut
+
+! calculate only diagonal elements of Us(U^T)
+subroutine calc_usut_diag_elem(n, s, u, d)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: s(n), u(n,n)
+ real(kind=8), intent(out) :: d(n)
+ real(kind=8), allocatable :: u2(:,:)
+
+ allocate(u2(n,n))
+ do i = 1, n, 1
+  do j = 1, n, 1
+   u2(j,i) = u(j,i)*u(j,i)
+  end do ! for j
+ end do !for i
+
+ d = 0d0
+ call dgemv('N', n, n, 1d0, u2, n, s, 1, 0d0, d, 1)
+ deallocate(u2)
+end subroutine calc_usut_diag_elem
+
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
 ! Note: the input matrix A must be symmetric
-subroutine mat_dsqrt(n, a0, sqrt_a, n_sqrt_a)
+subroutine mat_dsqrt(n, a, calc_n_sqrt_a, sqrt_a, n_sqrt_a)
  implicit none
- integer :: i, m, lwork, liwork
+ integer :: i
  integer, intent(in) :: n
- integer, allocatable :: iwork(:), isuppz(:)
+!f2py intent(in) :: n
  real(kind=8), parameter :: lin_dep = 1d-6
  ! 1D-6 is the default threshold of linear dependence in Gaussian and GAMESS
- ! But in PySCF, one needs to manually adjust the threshold if linear dependence occurs
- real(kind=8), intent(in) :: a0(n,n)
- real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n)
- ! sqrt_a: A^1/2
- ! n_sqrt_a: A(-1/2)
- real(kind=8), allocatable :: a(:,:), e(:), U(:,:), Ue(:,:), work(:), e1(:,:)
- ! a: copy of a0
- ! e: eigenvalues; e1: all 0 except diagonal e(i)
- ! U: eigenvectors
- ! Ue: U*e
+ ! But in PySCF and ORCA, one needs to manually adjust the threshold if linear
+ ! dependence occurs.
+ real(kind=8), intent(in) :: a(n,n)
+!f2py intent(in) :: a
+!f2py depend(n) :: a
+ real(kind=8), intent(out) :: sqrt_a(n,n), n_sqrt_a(n,n) ! A^1/2, A(-1/2)
+!f2py intent(out) :: sqrt_a, n_sqrt_a
+!f2py depend(n) :: sqrt_a, n_sqrt_a
+ real(kind=8), allocatable :: U(:,:), e(:)
+ ! U: copy of a; eigenvectors from diagonalizing a
+ ! e: eigenvalues
+ logical, intent(in) :: calc_n_sqrt_a ! whether to calculate A^(-1/2)
 
- allocate(a(n,n), source=a0)
- lwork = -1
- liwork = -1
- allocate(e(n), U(n,n), isuppz(2*n), work(1), iwork(1))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A', 'L', n, a, n, 0d0, 0d0, 0, 0, 1d-8, m, e, U, n, &
-             isuppz, work, lwork, iwork, liwork, i)
+ allocate(U(n,n), source=a)
+ allocate(e(n))
+ call diag_get_e_and_vec(n, U, e) ! e(1)<=e(2)<=...
 
- deallocate(a, work, iwork, isuppz)
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine mat_dsqrt: diagonalization failed.'
-  write(6,'(A,I0)') 'i=', i
-  stop
- end if
-
- if(e(1) < -1d-6) then
+ if(e(1) < -lin_dep) then
+  deallocate(U, e)
   write(6,'(/,A)') 'ERROR in subroutine mat_dsqrt: too negative eigenvalue.'
   write(6,'(A,F16.9)') 'e(1)=', e(1)
   stop
  end if
 
- allocate(e1(n,n), source=0d0)
- allocate(Ue(n,n), source=0d0)
- sqrt_a = 0d0
- forall(i=1:n, e(i)>0d0) e1(i,i) = DSQRT(e(i))
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, sqrt_a, n)
+ if(calc_n_sqrt_a .and. ANY(e<lin_dep)) then
+  write(6,'(/,A)') 'ERROR in subroutine mat_dsqrt: linear dependency detected i&
+                   &n matrix A.'
+  write(6,'(A)') 'A^(-1/2) cannot be calculated.'
+  write(6,'(A,I0)') 'n=', n
+  write(6,'(A)') 'e='
+  write(6,'(5(1X,ES15.8))') e
+  stop
+ end if
 
- e1 = 0d0
- n_sqrt_a = 0d0
- forall(i=1:n, e(i)>=lin_dep) e1(i,i) = 1d0/DSQRT(e(i))
- call dsymm('R', 'L', n, n, 1d0, e1, n, U, n, 0d0, Ue, n)
- call dgemm('N', 'T', n, n, n, 1d0, Ue, n, U, n, 0d0, n_sqrt_a, n)
+ ! Some tiny negative values are allowed, and they will be set to zero.
+ do i = 1, n, 1
+  if(e(i)>-lin_dep .and. e(i)<0d0) then
+   e(i) = 0d0
+  else
+   e(i) = DSQRT(e(i))
+  end if
+ end do ! for i
 
- deallocate(e, e1, U, Ue)
+ call calc_usut(n, e, U, sqrt_a)
+ if(calc_n_sqrt_a) then
+  e = 1d0/e
+  call calc_usut(n, e, U, n_sqrt_a)
+ end if
+
+ deallocate(U, e)
 end subroutine mat_dsqrt
 
 ! find the absolute value of the determinant of a square matrix by LU decomposition
@@ -584,6 +750,28 @@ subroutine get_normalized_pao(nbf, nif, ao_ovlp, occ_mo, pao)
  call normalize_mos(nbf, nbf, ao_ovlp, pao) ! normalize each PAO
 end subroutine get_normalized_pao
 
+! calculate (A^T)BC
+subroutine calc_atbc(n1, n2, n3, n4, a, b, c, atbc)
+ implicit none
+ integer, intent(in) :: n1, n2, n3, n4
+!f2py intent(in) :: n1, n2, n3, n4
+ real(kind=8), intent(in) :: a(n2,n1), b(n2,n3), c(n3,n4)
+!f2py intent(in) :: a, b, c
+!f2py depend(n1,n2) :: a
+!f2py depend(n2,n3) :: b
+!f2py depend(n3,n4) :: c
+ real(kind=8), intent(out) :: atbc(n1,n4)
+!f2py intent(out) :: atbc
+!f2py depend(n1,n4) :: atbc
+ real(kind=8), allocatable :: bc(:,:)
+
+ allocate(bc(n2,n4), source=0d0)
+ call dgemm('N', 'N', n2, n4, n3, 1d0, b, n2, c, n3, 0d0, bc, n2)
+ atbc = 0d0
+ call dgemm('T', 'N', n1, n4, n2, 1d0, a, n2, bc, n2, 0d0, atbc, n1)
+ deallocate(bc)
+end subroutine calc_atbc
+
 ! calculate (C^T)SC, S must be real symmetric since dsymm is called
 ! C: nbf*nif, S: nbf*nbf
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
@@ -606,13 +794,37 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  deallocate(SC)
 end subroutine calc_CTSC
 
+! transform AO dipole integrals into MO dipole integrals
+subroutine ao2mo_dipole(nbf, nmo, ao_dip, mo, mo_dip)
+ implicit none
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: ao_dip(3,nbf,nbf), mo(nbf,nmo)
+!f2py intent(in) :: ao_dip, mo
+!f2py depend(nbf) :: ao_dip
+!f2py depend(nbf,nmo) :: mo
+ real(kind=8), intent(out) :: mo_dip(3,nmo,nmo)
+!f2py intent(out) :: mo_dip
+!f2py depend(nmo) :: mo_dip
+
+ call calc_CTSC(nbf, nmo, mo, ao_dip(1,:,:), mo_dip(1,:,:))
+ call calc_CTSC(nbf, nmo, mo, ao_dip(2,:,:), mo_dip(2,:,:))
+ call calc_CTSC(nbf, nmo, mo, ao_dip(3,:,:), mo_dip(3,:,:))
+end subroutine ao2mo_dipole
+
 ! calculate (C^T)S(C'), S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf, C': nbf*nif
 subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
  implicit none
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: C(nbf,nif), S(nbf,nbf), Cp(nbf,nif)
+!f2py intent(in) :: C, S, Cp
+!f2py depend(nbf,nif) :: C, Cp
+!f2py depend(nbf) :: S
  real(kind=8), intent(out) :: CTSCp(nif,nif)
+!f2py intent(out) :: CTSCp
+!f2py depend(nif) :: CTSCp
  real(kind=8), allocatable :: SCp(:,:)
 
  CTSCp = 0d0
@@ -706,6 +918,76 @@ subroutine calc_expect_value(n, u, old_ev, new_ev)
  forall(i = 1:n) new_ev(i) = utnu(i,i)
  deallocate(utnu)
 end subroutine calc_expect_value
+
+! Find a subset of MOs in mo1 to resemble mo2, which is a non-iterative method
+! with nmo1>=nmo2. For example, mo2 contains RHF/STO-6G localized virtual MOs
+! and mo1 is exactly the virtual space at cc-pVDZ. Now we want to find
+! mo1(:,1:nmo2) which resembles mo2.
+subroutine orb_resemble_ref1(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_s, new_mo1)
+ implicit none
+ integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
+!f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
+ real(kind=8), intent(in) :: mo1(nbf1,nmo1), mo2(nbf2,nmo2), cross_s(nbf1,nbf2)
+!f2py intent(in) :: mo1, mo2, cross_s
+!f2py depend(nbf1,nmo1) :: mo1
+!f2py depend(nbf2,nmo2) :: mo2
+!f2py depend(nbf1,nbf2) :: cross_s
+ real(kind=8), intent(out) :: new_mo1(nbf1,nmo1)
+!f2py intent(out) :: new_mo1
+!f2py depend(nbf1,nmo1) :: new_mo1
+ real(kind=8), allocatable :: mo_ovlp(:,:), u(:,:), vt(:,:), rtmp(:,:), s(:)
+
+ if(nmo1 < nmo2) then
+  write(6,'(/,A)') 'ERROR in subroutine orb_resemble_ref1: this subroutine requ&
+                   &ires nmo1>=nmo2.'
+  write(6,'(2(A,I0))') 'But got nmo1=', nmo1, ', nmo2=', nmo2
+  stop
+ end if
+
+ allocate(mo_ovlp(nmo1,nmo2))
+ call calc_atbc(nmo1, nbf1, nbf2, nmo2, mo1, cross_s, mo2, mo_ovlp)
+ allocate(u(nmo1,nmo1), vt(nmo2,nmo2), s(nmo1))
+ call do_svd(nmo1, nmo2, mo_ovlp, u, vt, s)
+ deallocate(mo_ovlp, s)
+ new_mo1 = 0d0
+ call dgemm('N','N', nbf1,nmo1,nmo1, 1d0,mo1,nbf1, u,nmo1, 0d0,new_mo1,nbf1)
+ deallocate(u)
+
+ allocate(rtmp(nbf1,nmo2), source=0d0)
+ call dgemm('N','N', nbf1,nmo2,nmo2, 1d0,new_mo1(:,1:nmo2),nbf1, vt,nmo2, 0d0,&
+            rtmp,nbf1)
+ deallocate(vt)
+ new_mo1(:,1:nmo2) = rtmp
+ deallocate(rtmp)
+end subroutine orb_resemble_ref1
+
+! Update mo1 to resemble a set of MOs in mo2, which is a non-iterative method
+! with nmo1<=nmo2. For example, mo2 contains orthogonal AOs (OAO) and mo1
+! contains some MOs to be localized. Now we want to update mo1 which resembles
+! nmo1 orbitals in mo2 as much as possible. mo1 and mo2 are assumed to share
+! one AO overlap integral matrix.
+!subroutine orb_resemble_ref3(nbf, nmo1, nmo2, mo1, mo2, ao_ovlp, new_mo1)
+! implicit none
+! integer, intent(in) :: nbf, nmo1, nmo2
+!!f2py intent(in) :: nbf, nmo1, nmo2
+! real(kind=8), intent(in) :: mo1(nbf,nmo1), mo2(nbf,nmo2), ao_ovlp(nbf,nbf)
+!!f2py intent(in) :: mo1, mo2, ao_ovlp
+!!f2py depend(nbf,nmo1) :: mo1
+!!f2py depend(nbf,nmo2) :: mo2
+!!f2py depend(nbf) :: ao_ovlp
+! real(kind=8), intent(out) :: new_mo1(nbf,nmo1)
+!!f2py intent(out) :: new_mo1
+!!f2py depend(nbf,nmo1) :: new_mo1
+!
+! if(nmo1 > nmo2) then
+!  write(6,'(/,A)') 'ERROR in subroutine orb_resemble_ref3: this subroutine requ&
+!                   &ires nmo1<=nmo2.'
+!  write(6,'(2(A,I0))') 'But got nmo1=', nmo1, ', nmo2=', nmo2
+!  stop
+! end if
+!
+! new_mo1 = mo1
+!end subroutine orb_resemble_ref3
 
 ! perform density matrix purification
 subroutine purify_dm(nbf, S, P)
@@ -804,7 +1086,7 @@ subroutine solve_x_from_ao_ovlp(nbf, nif, S, X)
  if(nbf == nif) then
   ! no linear dependency, use symmetry orthogonalization
   allocate(U(nbf,nbf))
-  call mat_dsqrt(nbf, S, U, X)
+  call mat_dsqrt(nbf, S, .true., U, X)
   deallocate(U)
  else if(nbf > nif) then
   ! linear dependent, use canonical orthogonalization
@@ -1025,22 +1307,74 @@ subroutine canonicalize_mo(nbf, nmo, f, old_mo, new_mo)
  deallocate(CTFC)
 end subroutine canonicalize_mo
 
+! Find the centers of each MO, using the population matrix. The population method
+! is determined when generating the pop array, so we do not need to know the
+! population method in this subroutine.
+! Note: the maximum number of centers for each MO is 4.
+subroutine get_mo_center_from_pop(natom, nmo, pop, mo_center)
+ implicit none
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: natom, nmo
+ integer, intent(out) :: mo_center(0:4,nmo)
+ real(kind=8) :: r
+ real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+ ! diff: difference between the largest and the 2nd largest component
+ real(kind=8), intent(in) :: pop(natom,nmo)
+
+ mo_center = 0
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,pop,mo_center)
+ do i = 1, nmo, 1
+  ! the largest component on an atom of an orbital
+  ak = MAXLOC(pop(:,i)); k = ak(1); r = pop(k,i)
+  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
+  ! if this is lone pair, no need to check the 2nd largest component
+  if(r > pop_thres) cycle
+
+  ! find the 2nd largest component and so on
+  do j = 1, natom, 1
+   if(j == k) cycle
+   if(r - pop(j,i) < diff) then
+    m = m + 1
+    if(m > 4) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_pop: ncenter>4. M&
+                      &Os are too'
+     write(6,'(A,2I7)') 'delocalized. natom, nmo=', natom, nmo
+     stop
+    end if
+    mo_center(m,i) = j
+   end if
+  end do ! for j
+
+  mo_center(0,i) = m
+ end do ! for i
+!$omp end parallel do
+
+end subroutine get_mo_center_from_pop
+
 ! calculate the distance matrix from a set of coordinates
-subroutine cal_dis_mat_from_coor(natom, coor, dis)
+subroutine calc_dis_mat_from_coor(natom, coor, dis)
  implicit none
  integer :: i, j, k, m, n
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, allocatable :: map(:,:)
  real(kind=8) :: r(3)
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  real(kind=8), intent(out) :: dis(natom,natom)
+!f2py intent(out) :: dis
+!f2py depend(natom) :: dis
 
  n = natom
  forall(i = 1:n) dis(i,i) = 0d0
  if(n == 1) return
+
  k = n*(n-1)/2
  allocate(map(2,k))
- forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
+ call get_triu_idx1(n, map)
 
 !$omp parallel do schedule(dynamic) default(private) shared(k,map,coor,dis)
  do m = 1, k, 1
@@ -1052,7 +1386,83 @@ subroutine cal_dis_mat_from_coor(natom, coor, dis)
 !$omp end parallel do
 
  deallocate(map)
-end subroutine cal_dis_mat_from_coor
+end subroutine calc_dis_mat_from_coor
+
+! calculate the distance matrix from a set of coordinates in a cell
+subroutine calc_dis_mat_from_coor_pbc(natom, cell, coor, dis)
+ implicit none
+ integer :: i, j, k, m, n, np
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, allocatable :: map(:,:)
+ real(kind=8) :: tmp_dis, min_dis, r1(3), r2(3)
+ real(kind=8), intent(in) :: cell(3,3), coor(3,natom)
+!f2py intent(in) :: cell, coor
+!f2py depend(natom) :: coor
+ real(kind=8), intent(out) :: dis(natom,natom)
+!f2py intent(out) :: dis
+!f2py depend(natom) :: dis
+ real(kind=8), allocatable :: coor1(:,:,:)
+
+ n = natom
+ forall(i = 1:n) dis(i,i) = 0d0
+ if(n == 1) return
+ allocate(coor1(3,2:27,natom))
+
+!$omp parallel do schedule(static) default(shared) private(i)
+ do i = 1, natom, 1
+  coor1(:, 2,i) = coor(:,i) + cell(:,1)
+  coor1(:, 3,i) = coor(:,i) + cell(:,2)
+  coor1(:, 4,i) = coor(:,i) + cell(:,3)
+  coor1(:, 5,i) = coor(:,i) - cell(:,1)
+  coor1(:, 6,i) = coor(:,i) - cell(:,2)
+  coor1(:, 7,i) = coor(:,i) - cell(:,3)
+  coor1(:, 8,i) = coor(:,i) + cell(:,1) + cell(:,2)
+  coor1(:, 9,i) = coor(:,i) + cell(:,1) - cell(:,2)
+  coor1(:,10,i) = coor(:,i) - cell(:,1) + cell(:,2)
+  coor1(:,11,i) = coor(:,i) - cell(:,1) - cell(:,2)
+  coor1(:,12,i) = coor(:,i) + cell(:,1) + cell(:,3)
+  coor1(:,13,i) = coor(:,i) + cell(:,1) - cell(:,3)
+  coor1(:,14,i) = coor(:,i) - cell(:,1) + cell(:,3)
+  coor1(:,15,i) = coor(:,i) - cell(:,1) - cell(:,3)
+  coor1(:,16,i) = coor(:,i) + cell(:,2) + cell(:,3)
+  coor1(:,17,i) = coor(:,i) + cell(:,2) - cell(:,3)
+  coor1(:,18,i) = coor(:,i) - cell(:,2) + cell(:,3)
+  coor1(:,19,i) = coor(:,i) - cell(:,2) - cell(:,3)
+  coor1(:,20,i) = coor(:,i) + cell(:,1) + cell(:,2) + cell(:,3)
+  coor1(:,21,i) = coor(:,i) + cell(:,1) + cell(:,2) - cell(:,3)
+  coor1(:,22,i) = coor(:,i) + cell(:,1) - cell(:,2) + cell(:,3)
+  coor1(:,23,i) = coor(:,i) - cell(:,1) + cell(:,2) + cell(:,3)
+  coor1(:,24,i) = coor(:,i) + cell(:,1) - cell(:,2) - cell(:,3)
+  coor1(:,25,i) = coor(:,i) - cell(:,1) + cell(:,2) - cell(:,3)
+  coor1(:,26,i) = coor(:,i) - cell(:,1) - cell(:,2) + cell(:,3)
+  coor1(:,27,i) = coor(:,i) - cell(:,1) - cell(:,2) - cell(:,3)
+ end do ! for i
+!$omp end parallel do
+
+ np = n*(n-1)/2
+ allocate(map(2,np))
+ call get_triu_idx1(n, map)
+
+!$omp parallel do schedule(static) default(private) &
+!$omp shared(np,map,coor,coor1,dis)
+ do m = 1, np, 1
+  i = map(1,m); j = map(2,m)
+  r1 = coor(:,i)
+  r2 = r1 - coor(:,j)
+  min_dis = DSQRT(DOT_PRODUCT(r2,r2))
+  do k = 2, 27
+   r2 = r1 - coor1(:,k,j)
+   tmp_dis = DSQRT(DOT_PRODUCT(r2,r2))
+   if(tmp_dis < min_dis) min_dis = tmp_dis
+  end do ! for k
+  dis(j,i) = min_dis
+  dis(i,j) = min_dis
+ end do ! for m
+!$omp end parallel do
+
+ deallocate(coor1, map)
+end subroutine calc_dis_mat_from_coor_pbc
 
 ! compute the unitary matrix U between two sets of MOs
 ! --------------------------------------------------

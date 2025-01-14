@@ -250,6 +250,7 @@ subroutine read_fch(fchname, uhf)
  integer, allocatable :: itmp(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+ real(kind=8) :: sum_res
  real(kind=8), allocatable :: coor0(:) ! Cartesian coordinates
  real(kind=8), allocatable :: coeff(:) ! MOs, nbf*nif
  logical, intent(in) :: uhf
@@ -564,7 +565,12 @@ subroutine read_fch(fchname, uhf)
  close(fid)
 
  if(allocated(rnuc) .and. ecp) then
-  if(SUM(DABS(DBLE(ielem)-RNFroz-rnuc)) < 1d-6) then
+  sum_res = 0d0
+  do i = 1, natom, 1
+   if(iatom_type(i) == 1000) cycle ! skip ghost atoms
+   sum_res = sum_res + DABS(DBLE(ielem(i))- RNFroz(i) - rnuc(i))
+  end do ! for i
+  if(sum_res < 1d-6) then
    deallocate(rnuc)
   else
    write(6,'(/,A)') 'ERROR in subroutine read_fch: unknown basis type.'
@@ -617,11 +623,12 @@ end function elem2nuc
 subroutine free_arrays_in_fch_content()
  implicit none
 
- deallocate(ielem, iatom_type, shell_type, prim_per_shell, shell2atom_map,coor,&
-            prim_exp, contr_coeff, eigen_e_a, alpha_coeff)
+ deallocate(ielem, iatom_type, shell_type, prim_per_shell, shell2atom_map, &
+            coor, prim_exp, contr_coeff, eigen_e_a, alpha_coeff)
  if(is_uhf) deallocate(eigen_e_b, beta_coeff)
  if(LenNCZ > 0) deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2,&
                            ZLP)
+ if(allocated(rnuc)) deallocate(rnuc)
  if(allocated(elem)) deallocate(elem)
  if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
  if(allocated(tot_dm)) deallocate(tot_dm)

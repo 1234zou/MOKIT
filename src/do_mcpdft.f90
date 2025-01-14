@@ -80,7 +80,7 @@ subroutine do_mcpdft()
 
  case('gamess')
   call check_gms_path()
-  call fch2inp_wrap(casnofch, .false., 0, 0)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
   i = INDEX(casnofch, '.fch', back=.true.)
   fname(1) = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

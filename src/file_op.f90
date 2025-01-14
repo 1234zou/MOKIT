@@ -569,35 +569,6 @@ subroutine read_sym_mat_from_npy(npyname, n, a)
  end if
 end subroutine read_sym_mat_from_npy
 
-! modify the file uno.out
-subroutine modify_uno_out(unofile, ndb, npair, nopen)
- implicit none
- integer :: k, fid, idx(3)
- integer, intent(in) :: ndb, npair, nopen
-!f2py intent(in) :: ndb, npair, nopen
- character(len=240), intent(in) :: unofile
-!f2py intent(in) :: unofile
- character(len=240) :: buf
-
- open(newunit=fid,file=unofile,status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(1:3) == 'ndb') exit
- end do ! for while
-
- BACKSPACE(fid)
- k = ndb + 1
- idx = [k, k+nopen+2*npair, nopen]
- write(fid,'(A6,I5)') 'ndb  =', ndb
- write(fid,'(A6,I5)') 'nact =', npair+nopen
- write(fid,'(A6,I5)') 'nact0=', npair
- write(fid,'(A6,3I5)')'idx  =', idx
- close(fid)
-end subroutine modify_uno_out
-
 ! find and delete the target .pyc file
 subroutine find_and_del_pyc(proname, py_ver)
  implicit none
@@ -622,4 +593,53 @@ subroutine find_and_del_pyc(proname, py_ver)
  pycname = '__pycache__/'//TRIM(proname)//'.cpython-'//TRIM(ver)//'.pyc'
  call delete_file(TRIM(pycname))
 end subroutine find_and_del_pyc
+
+! modify the file uno.out
+subroutine modify_uno_out(unofile, ndb, npair, nopen)
+ implicit none
+ integer :: k, fid, idx(3)
+ integer, intent(in) :: ndb, npair, nopen
+!f2py intent(in) :: ndb, npair, nopen
+ character(len=240) :: buf
+ character(len=240), intent(in) :: unofile
+!f2py intent(in) :: unofile
+
+ open(newunit=fid,file=TRIM(unofile),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(1:3) == 'ndb') exit
+ end do ! for while
+
+ BACKSPACE(fid)
+ k = ndb + 1
+ idx = [k, k+nopen+2*npair, nopen]
+ write(fid,'(A6,I5)') 'ndb  =', ndb
+ write(fid,'(A6,I5)') 'nact =', npair+nopen
+ write(fid,'(A6,I5)') 'nact0=', npair
+ write(fid,'(A6,3I5)')'idx  =', idx
+ close(fid)
+end subroutine modify_uno_out
+
+! print the Cartesian coordinates of LMO/MLWF centers
+subroutine prt_mo_center2xyz(nmo, coor, xyzname)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nmo
+!f2py intent(in) :: nmo
+ real(kind=8), intent(in) :: coor(3,nmo)
+!f2py intent(in) :: coor
+!f2py depend(nmo) :: coor
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+
+ open(newunit=fid,file=TRIM(xyzname),status='replace')
+ write(fid,'(I0,/)') nmo
+
+ do i = 1, nmo, 1
+  write(fid,'(A,3(1X,F18.8))') 'X', coor(:,i)
+ end do ! for i
+ close(fid)
+end subroutine prt_mo_center2xyz
 

@@ -1,17 +1,31 @@
-MOKIT 1.2.7 (Dec 6, 2024)
+MOKIT 1.2.7 (Jan 14, 2025)
 ------------------------
 Fixes
+* update nmo_b in molden2fch when basis set linear dep. occurs
+* fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* ist=7 for UHF -> SUHF NO -> (associated rotation ->) CASCI/CASSCF -> ...
+* load a cell object using load_cell_from_fch
+* support automatic SS-DMRG-CASSCF orbital optimization by calling PySCF+Block
+* fast orbital localization of PBC gamma point for a large cell
+* fast orbital localization using Cholesky LMOs and OpenMP parallel for large molecules
 * add keywords ICSS_r and ICSS_intv in mokit{}
-* support semi-empirical type .fch(k) in fch2amo and amo2fch
 * add non-iterative basis set projection
 * add ADC(2)/ADC(3) interface to PSI4
 * add IP-/EE-/EA-ADC(2) interface to ORCA
 * add IP-/EA-ADC(2), IP-/EA-ADC(3) interface to PySCF
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
+Improvement
+* add `-novec` argument for fch2inp
+* add `-pbc` and `-obj` arguments for bas_gms2py and bas_fch2py
+* discard pairs which have small tdm values in pair_by_tdm
+* support automatic SS-CASSCF calculations (Xmult/=mult) via calling ORCA
+* support DLPNO double hybrid keywords for `-dft` in fch2mkl
+* support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* merge subroutines sym_ortho and can_ortho into gen_ortho_mo
 * mv original subroutine orb_resemble into orb_resemble_iter
 * remove construct_vir.f90 and move this subroutine into math_sub.f90
 

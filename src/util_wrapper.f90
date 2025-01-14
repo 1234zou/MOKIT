@@ -2,7 +2,6 @@
 
 module util_wrapper
  implicit none
- integer :: ishit
 contains
 
 ! wrapper of the Gaussian utility formchk
@@ -161,14 +160,14 @@ subroutine fch2psi_wrap(fchname, inpname)
 end subroutine fch2psi_wrap
 
 ! wrapper of the utility fch2inp
-subroutine fch2inp_wrap(fchname, gvb, npair, nopen, prt)
+subroutine fch2inp_wrap(fchname, gvb, npair, nopen, no_vec, prt)
  implicit none
  integer :: i, SYSTEM
  integer, intent(in) :: npair, nopen
  character(len=260) :: buf
  character(len=240), intent(in) :: fchname
  logical :: alive
- logical, intent(in) :: gvb
+ logical, intent(in) :: gvb, no_vec
  logical, intent(in), optional :: prt
 
  buf = ' '
@@ -187,7 +186,8 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen, prt)
    write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
   end if
  else ! for R(O)HF, UHF, CAS
-  write(buf,'(A)') 'fch2inp '//TRIM(fchname)
+  buf = 'fch2inp '//TRIM(fchname)
+  if(no_vec) buf = TRIM(buf)//' -novec'
  end if
 
  alive = .true.
@@ -210,7 +210,8 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen, prt)
   write(6,'(/,A)') 'ERROR in subroutine fch2inp_wrap: failed to call utility fc&
                    &h2inp.'
   write(6,'(A)') 'Filename = '//TRIM(fchname)
-  write(6,'(2(A,I0),A,L1)') 'npair= ',npair,', nopen= ',nopen,', gvb= ',gvb
+  write(6,'(2(A,I0))') 'npair=', npair, ', nopen=', nopen
+  write(6,'(2(A,L1))') 'gvb=', gvb, ', no_vec=', no_vec
   stop
  end if
 end subroutine fch2inp_wrap
@@ -396,12 +397,9 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: pyname0
  character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
  character(len=240), intent(in), optional :: pyname
-!f2py intent(in), optional :: pyname
  character(len=256) :: buf
  logical, intent(in) :: dft
-!f2py intent(in) :: dft
 
  buf = 'bas_fch2py '//TRIM(fchname)
  if(dft) buf = TRIM(buf)//' -dft'

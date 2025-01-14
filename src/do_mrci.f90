@@ -172,7 +172,7 @@ subroutine do_mrcisd()
   call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
-  call fch2inp_wrap(casnofch, .false., 0, 0)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)
@@ -963,7 +963,7 @@ subroutine do_mrcisdt()
   call submit_dalton_job(mklname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
 
  case('gamess')
-  call fch2inp_wrap(casnofch, .false., 0, 0)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

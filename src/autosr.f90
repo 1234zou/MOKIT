@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc1 (2024-Dec-6)'
+ write(6,'(A)') '           Version: 1.2.7rc2 (2025-Jan-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -624,7 +624,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc1 :: MOKIT, release date: 2024-Dec-6'
+  write(6,'(A)') 'AutoSR 1.2.7rc2 :: MOKIT, release date: 2025-Jan-14'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -811,7 +811,7 @@ subroutine do_mp2()
   datname = hf_fch(1:i-1)//'_MP2.dat'
   inpname = hf_fch(1:i-1)//'_MP2.inp'
   outname = hf_fch(1:i-1)//'_MP2.gms'
-  call fch2inp_wrap(hf_fch, .false., 0, 0)
+  call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -1042,7 +1042,7 @@ subroutine do_cc()
   call check_gms_path()
   inpname = hf_fch(1:i-1)//'_CC.inp'
   outname = hf_fch(1:i-1)//'_CC.gms'
-  call fch2inp_wrap(hf_fch, .false., 0, 0)
+  call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
@@ -1333,7 +1333,7 @@ subroutine do_eomcc()
   call check_gms_path()
   inpname = hf_fch(1:i-1)//'_EOMCC.inp'
   outname = hf_fch(1:i-1)//'_EOMCC.gms'
-  call fch2inp_wrap(hf_fch, .false., 0, 0)
+  call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))

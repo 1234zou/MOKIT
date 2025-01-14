@@ -319,9 +319,9 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
 end subroutine mo_svd_qcmo
 
 ! Update mo1 to resemble mo2 using the Boughton-Pulay projection method, which
-! is a non-iterative method.
-! For example, mo1 contains MOs at cc-pVDZ, mo2 contains GVB/STO-6G orbitals, we
-!  want to find mo1(:,1:nmo2) which resembles mo2
+! is a non-iterative method with nmo1>=nmo2. For example, mo2 contains GVB/STO-6G
+! orbitals and we want to find mo1(:,1:nmo2) which resembles mo2. This subroutine
+! does not support the input of mo1, but only output mo1.
 subroutine orb_resemble(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
  implicit none
  integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
@@ -361,10 +361,13 @@ subroutine orb_resemble(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
  deallocate(old_mo)
 end subroutine orb_resemble
 
-! 2*2 Jacobian rotate mo1 to resemble mo2
-! For example, mo1 contains MOs at cc-pVDZ, mo2 contains GVB/STO-6G orbitals, we
-!  want to find mo1(:,1:nmo2) which resembles mo2
-subroutine orb_resemble_iter(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
+! 2*2 Jacobian rotate mo1 to resemble mo2. For example, mo1 contains MOs at
+! cc-pVDZ, mo2 contains GVB/STO-6G orbitals, we want to find mo1(:,1:nmo2) which
+! resembles mo2. This subroutine allows the input of mo1. The output mo1 will be
+! unitary transformation of input. It is useful when we only input some
+! specified orbitals, but not all orbitals. The output orbitals will still be
+! orthogonal to remaining MOs beyond this subroutine.
+subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, ao_S1, cross_S, move)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_on_ovlp
  implicit none
  integer :: i, j, niter
@@ -376,15 +379,17 @@ subroutine orb_resemble_iter(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
  ! threshold1: determine whether to rotate (and update MOs and overlap integrals)
  ! threshold2: determine whether orbital rotations converged
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), intent(inout) :: mo1(nbf1,nmo1)
+!f2py intent(inout) :: mo1
+!f2py depend(nbf1,nmo1) :: mo1
  real(kind=8), intent(in) :: mo2(nbf2,nmo2), ao_S1(nbf1,nbf1), cross_S(nbf1,nbf2)
 !f2py intent(in) :: mo2, ao_S1, cross_S
 !f2py depend(nbf2,nmo2) :: mo2
 !f2py depend(nbf1,nbf1) :: ao_S1
 !f2py depend(nbf1,nbf2) :: cross_S
- real(kind=8), intent(out) :: mo1(nbf1,nmo1)
-!f2py intent(out) :: mo1
-!f2py depend(nbf1,nmo1) :: mo1
  real(kind=8), allocatable :: S(:,:), u(:,:), vt(:,:), w(:), new_mo1(:,:)
+ logical, intent(in) :: move
+!f2py intent(in) :: move
 
  if(nmo1 < nmo2) then
   write(6,'(/,A)') 'ERROR in subroutine orb_resemble_iter: nmo1 < nmo2.'
@@ -392,9 +397,6 @@ subroutine orb_resemble_iter(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
   write(6,'(2(A,I0))') 'nmo1=', nmo1, ', nmo2=', nmo2
   stop
  end if
-
- ! get a set of orthonormalized MOs using canonical orthogonalization
- call can_ortho(nbf1, nmo1, ao_S1, mo1)
 
  ! transform cross AO overlap to MO overlap
  allocate(S(nmo1,nmo2))
@@ -466,6 +468,12 @@ subroutine orb_resemble_iter(nbf1, nmo1, nbf2, nmo2, mo2, ao_S1, cross_S, mo1)
 
  deallocate(u, vt)
  if(niter <= niter_max) then
+  if(move) then
+   allocate(new_mo1(nbf1,nmo1), source=mo1)
+   mo1(:,nmo1-nmo2+1:nmo1) = new_mo1(:,1:nmo2)
+   mo1(:,1:nmo1-nmo2) = new_mo1(:,nmo2+1:nmo1)
+   deallocate(new_mo1)
+  end if
   write(6,'(A)') 'Orbital resemblance converged successfully.'
  else
   write(6,'(A)') 'ERROR in subroutine orb_resemble_iter: niter_max exceeded.'

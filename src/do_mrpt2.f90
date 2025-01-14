@@ -291,7 +291,7 @@ subroutine do_mrpt2()
   write(6,'(A)') 'MRMP2 using program gamess'
   call check_gms_path()
 
-  call fch2inp_wrap(casnofch, .false., 0, 0)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
   i = INDEX(casnofch, '.fch')
   pyname = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

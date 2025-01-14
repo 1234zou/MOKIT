@@ -78,7 +78,11 @@ subroutine do_gvb()
  end select
 
  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-  write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+  if(ist == 6) then
+   write(proname1,'(A,I0)') TRIM(proname)//'2gvb',npair
+  else
+   write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+  end if
  else ! paired LMOs obtained from associated rotation of UNOs
   write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
  end if
@@ -152,7 +156,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   gmsname = inpname(1:i-1)//'.gms'
  else ! not determined
   if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-   call fch2inp_wrap(pair_fch, .true., npair, nopen)
+   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false.)
    if(ist == 6) then
     write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
     write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
@@ -165,7 +169,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
     i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
    end if
   else ! paired LMOs obtained from associated rotation of UNOs
-   call fch2inp_wrap(pair_fch, .true., npair, nopen)
+   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false.)
    write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
    write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
    write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
@@ -317,7 +321,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
   stop
  end if
 
- call fch2inp_wrap(fchname, .true., npair, nopen)
+ call fch2inp_wrap(fchname, .true., npair, nopen, .false.)
  i = RENAME(TRIM(gms_inp), TRIM(datname))
  allocate(coeff(2,npair))
  call read_pair_coeff_from_qchem_out(outname, npair, coeff)
@@ -386,7 +390,7 @@ subroutine do_gvb_gau(proname, pair_fch)
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
- call fch2inp_wrap(fchname, .true., npair, nopen)
+ call fch2inp_wrap(fchname, .true., npair, nopen, .false.)
 
  i = RENAME(TRIM(inpname), TRIM(datname))
  allocate(coeff(2,npair))

@@ -269,8 +269,7 @@ subroutine molden2fch(molden, iprog, natorb)
  if(iprog==2 .and. (.not.is_uhf) .and. (.not.natorb)) occ_a = 2d0*occ_a
 
  if(is_uhf) then
-  allocate(eigen_e_b(nif), source=0d0)
-  allocate(occ_b(nif), source=0d0)
+  allocate(eigen_e_b(nif), occ_b(nif))
   call read_mo_from_molden(molden, nbf, nmo_b, 'b', all_coeff, coeff(:,nif+1:nif+nmo_b),&
                            eigen_e_b(1:nmo_b), occ_b(1:nmo_b))
  end if
@@ -315,6 +314,7 @@ subroutine molden2fch(molden, iprog, natorb)
 
   deallocate(r1, r2)
   nif = k
+  nmo_b = k ! remember to update nmo_b
  end if
 
  allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))

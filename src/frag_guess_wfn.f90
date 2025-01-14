@@ -569,8 +569,8 @@ subroutine frag_guess_wfn(gjfname)
  charge = cm(1); mult = cm(2)
 
  if(mult/=1 .and. eda_type==1) then
-  write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only&
-                 & be applied to RHF.'
+  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only b&
+                   &e applied to RHF.'
   write(6,'(A)') 'But the total spin is not singlet.'
   close(fid)
   stop
@@ -870,8 +870,8 @@ subroutine frag_guess_wfn(gjfname)
   call direct_sum_frag_mo2super_mo(nfrag0, frags(1:nfrag0)%fname, &
    frags(1:nfrag0)%wfn_type, frags(1:nfrag0)%pos, frags(i)%fname, &
    frags(i)%wfn_type)
-  ! According to my tests, the fragment MOs guess above is slightly better than
-  !  the sum of fragment densities below
+  ! According to jxzou's tests, the fragment MOs guess above is slightly better
+  !  than the sum of fragment densities below.
   !call sum_frag_dm_in_fch(nfrag0, frags(nfrag0+1:2*nfrag0)%fname, &
   !                        frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
   !k = 1
@@ -896,7 +896,9 @@ subroutine frag_guess_wfn(gjfname)
   write(6,'(A)') "'ALL BASIS SET' section in GAMESS output:"
   write(6,'(F10.2,A)') (frags(i)%e-SUM(frags(nfrag0+1:2*nfrag0)%e))*au2kcal,&
                        ' kcal/mol'
-  write(6,'(/,A)') 'If the deviations are too large, probably something is wrong. '
+  write(6,'(/,A)') 'If two values above deviate too much from those in GAMESS o&
+                   &utput, maybe the'
+  write(6,'(A)') 'basis set you use is too small, or maybe something is wrong.'
  case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
          ! total SCF density
   call sum_frag_dm_in_fch(2, frags(1:2)%fname, frags(1:2)%pos, frags(3)%fname)
@@ -1168,6 +1170,11 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
   write(fid,'(A)',advance='no') ' em=GD3'
  else if(disp_type == 2) then
   write(fid,'(A)',advance='no') ' em=GD3BJ'
+  i = LEN_TRIM(method0)
+  if(method0(i-4:i) == 'tpssh') then
+   write(fid,'(A)',advance='no') ' iop(3/174=1000000,3/175=2238200,3/177=452900&
+                                 &,3/178=4655000)'
+  end if
  end if
 
  if(guess_read) then
@@ -1218,6 +1225,11 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
    write(fid,'(A)',advance='no') ' em=GD3'
   else if(disp_type == 2) then
    write(fid,'(A)',advance='no') ' em=GD3BJ'
+   i = LEN_TRIM(method0)
+   if(method0(i-4:i) == 'tpssh') then
+    write(fid,'(A)',advance='no') ' iop(3/174=1000000,3/175=2238200,3/177=45290&
+                                  &0,3/178=4655000)'
+   end if
   end if
 
   select case(TRIM(method0))
@@ -1285,7 +1297,7 @@ subroutine gen_inp_of_frags()
    inpname1 = frags(i)%fname(1:k-1)//'_psi.inp'
    if(i < nfrag) call delete_files(2, [fchname, inpname1])
   else
-   call fch2inp_wrap(fchname, .false., 0, 0, .false.)
+   call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
    if(eda_type==1 .and. i==nfrag) call delete_file(fchname)
   end if
  end do ! for i
@@ -2069,7 +2081,6 @@ subroutine convert_dft_name_gau2gms(method, dft_in_gms)
                  &ify it by yourself.'
   dft_in_gms = 'NONE'
  end select
-
 end subroutine convert_dft_name_gau2gms
 
 ! delete ECP/PP of ghost atoms in a given .gjf file

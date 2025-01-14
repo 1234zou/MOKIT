@@ -54,7 +54,7 @@ program main
 
  ! ->prt_no, <-sph
  call fch2inporb(fname, prt_no, sph)
- call fch2inp_wrap(fname, .false., 0, 0, .false.)
+ call fch2inp_wrap(fname, .false., 0, 0, .false., .false.)
 
  k = INDEX(fname,'.fch', back=.true.)
  inpname = fname(1:k-1)//'.inp'

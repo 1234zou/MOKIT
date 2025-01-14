@@ -308,8 +308,7 @@ subroutine replace_env_in_path(path)
  str = ADJUSTL(str)
  k = LEN_TRIM(str)
  buf(i:i+k-1) = TRIM(str)
-
- if(j > 0) buf(i+k:) = path(j:)
+ if(j > 0) buf(i+k:) = TRIM(path(j:))
 
  path = TRIM(buf)
 end subroutine replace_env_in_path
@@ -326,7 +325,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc1 (2024-Dec-6)'
+ write(6,'(A)') '           Version: 1.2.7rc2 (2025-Jan-14)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -389,10 +388,11 @@ subroutine check_gms_path()
  if(i > 0) then
   gms_scr_path = buf(i+1:)
  else
-  write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path "&
-                  //TRIM(buf)
+  write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path&
+                   & '"//TRIM(buf)//"'"
   stop
  end if
+
  i = INDEX(gms_scr_path, '#')
  if(i > 0) gms_scr_path = gms_scr_path(1:i-1)
  call replace_env_in_path(gms_scr_path)
@@ -1050,7 +1050,8 @@ subroutine check_kywd_compatible()
    stop
   end if
   if(casci) then
-   write(6,'(/,A)') error_warn//'Root is expected to be used in CASSCF, not CASCI.'
+   write(6,'(/,A)') error_warn//'Root is expected to be used in CASSCF,'
+   write(6,'(A)') 'not in CASCI.'
    stop
   end if
  end if
@@ -1537,7 +1538,8 @@ subroutine check_kywd_compatible()
   end if
   if(TRIM(nevpt2_prog)=='bdf' .and. bgchg) then
    write(6,'(/,A)') error_warn//'NEVPT2 with BDF program is incompatible with'
-   write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or ORCA.'
+   write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or &
+                  &ORCA.'
    stop
   end if
   if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then

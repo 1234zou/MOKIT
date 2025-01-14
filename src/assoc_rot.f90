@@ -388,6 +388,7 @@ subroutine general_quartic_solver(a, b, c, d, e, nroot, root)
  use polyn_info, only: zero
  implicit none
  integer :: i, j, nroot_c, nroot_q1, nroot_q2
+ integer, allocatable :: itmp(:)
  integer, intent(out) :: nroot
  real(kind=8), intent(in) :: a, b, c, d, e
  real(kind=8), intent(out) :: root(4)
@@ -505,13 +506,16 @@ subroutine general_quartic_solver(a, b, c, d, e, nroot, root)
   nroot = j ! remember to update nroot
  end if
 
- call sort_darray(nroot, root)
+ allocate(itmp(nroot))
+ call sort_dp_array(nroot, root, .true., itmp)
+ deallocate(itmp)
 end subroutine general_quartic_solver
 
 ! Find roots of Ax^3 + Bx^2 + Cx + D = 0. Return roots in ascending order
 subroutine general_cubic_solver(a, b, c, d, nroot, root)
  use polyn_info, only: zero
  implicit none
+ integer :: itmp(3)
  integer, intent(out) :: nroot
  real(kind=8), intent(in) :: a, b, c, d
  real(kind=8), intent(out) :: root(3)
@@ -555,7 +559,7 @@ subroutine general_cubic_solver(a, b, c, d, nroot, root)
   root(1) = q*DCOS(theta) - temp_value
   root(2) = q*DCOS(theta + cos_theta) - temp_value
   root(3) = q*DCOS(theta - cos_theta) - temp_value
-  call sort_darray(3, root)
+  call sort_dp_array(3, root, .true., itmp)
  else ! delta = 0
   nroot = 2
   tmpv1 = 0.5d0*q
@@ -685,26 +689,6 @@ subroutine dcurt(num)
   num = -num
  end if
 end subroutine dcurt
-
-! sort an double precision array
-subroutine sort_darray(n, a)
- implicit none
- integer :: i, j
- integer, intent(in) :: n
- real(kind=8) :: r
- real(kind=8), intent(inout) :: a(n)
-
- if(n < 2) return
-
- do i = 1, n-1, 1
-  r = a(i)
-  do j = i+1, n, 1
-   if(a(j) < r) then
-    r = a(j); a(j) = a(i); a(i) = r
-   end if
-  end do ! for j
- end do ! for i
-end subroutine sort_darray
 
 ! discard elements which are beyond the range [-1,1] in a real(kind=8) array
 subroutine discard_root(n, root)

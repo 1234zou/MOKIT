@@ -53,7 +53,7 @@ program mkl2inp
  write(fchname,'(A,I0,A)') mklname(1:i-1)//'_',k,'.fch'
 
  call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
- call fch2inp_wrap(fchname, .false., 0, 0)
+ call fch2inp_wrap(fchname, .false., 0, 0, .false.)
  call delete_file(fchname)
  call find_specified_suffix(fchname, '.fch', i)
  inpname0 = fchname(1:i-1)//'.inp'

@@ -45,7 +45,7 @@ program main
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 
- call fch2inp_wrap(fchname, .false., 0, 0, .false.) ! generate GAMESS .inp
+ call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
 
  write(buf,'(A)') 'bas_gms2molpro '//TRIM(inpname)
  call check_sph_in_fch(fchname, sph)

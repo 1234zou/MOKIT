@@ -31,10 +31,9 @@ program main
  implicit none
  integer :: i, k, npair, nopen0, itype
  character(len=4) :: string
- character(len=5) :: arg2, arg3
+ character(len=6) :: arg2, arg3
  character(len=240) :: fchname
-
- npair = 0; nopen0 = 0; itype = 0; string = ' '; fchname = ' '
+ logical :: no_vec ! whether to print the $VEC section
 
  i = iargc()
  select case(i)
@@ -45,11 +44,14 @@ program main
   write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
   write(6,'(A)')   ' Example 3 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
   write(6,'(A)')   ' Example 4 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
-  write(6,'(A,/)') ' Example 5 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
+  write(6,'(A)')   ' Example 5 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
                    &open [Nopen]'
+  write(6,'(A,/)') ' Example 6 (no $VEC)       : fch2inp h2o.fch -novec'
   stop
  end select
 
+ npair = 0; nopen0 = 0; itype = 0; no_vec = .false.
+ string = ' '; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -69,9 +71,16 @@ program main
    itype = 2
   case('-gvb')
    itype = 3
+  case('-novec')
+   no_vec = .true.
+   if(i > 2) then
+    write(6,'(/,A)') 'ERROR in subroutine fch2inp: -novec is incompatible with &
+                     &other arguments!'
+    stop
+   end if
   case default
    write(6,'(/,A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
-   write(6,'(A)') "It can only be one of {'-gvb','-sf','-mrsf'}"
+   write(6,'(A)') 'It can only be one of -gvb/-sf/-mrsf/-novec'
    stop
   end select
 
@@ -91,12 +100,12 @@ program main
   end if
  end if
 
- call fch2inp(fchname, itype, npair, nopen0)
+ call fch2inp(fchname, no_vec, itype, npair, nopen0)
 end program main
 
 ! Generate GAMESS .inp file from Gaussian .fch(k) file.
 ! itype: 0/1/2/3 for default/SF/MRSF/GVB methods
-subroutine fch2inp(fchname, itype, npair, nopen0)
+subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, fid
@@ -116,6 +125,7 @@ subroutine fch2inp(fchname, itype, npair, nopen0)
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
  logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
+ logical, intent(in) :: no_vec
 
  itype1 = itype; ecp = .false.; so_ecp = .false.; X2C = .false.; DIIS = .false.
 
@@ -332,6 +342,12 @@ subroutine fch2inp(fchname, itype, npair, nopen0)
   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP)
  end if
 
+ if(no_vec) then ! do not print the $VEC section
+  close(fid)
+  deallocate(alpha_coeff)
+  if(allocated(beta_coeff)) deallocate(beta_coeff)
+  return
+ end if
  allocate(temp_coeff(nbf1,nif1))
 
  if(sph) then ! spherical harmonic functions, expanding

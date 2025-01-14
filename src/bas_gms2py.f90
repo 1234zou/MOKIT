@@ -16,14 +16,17 @@ program main
  integer :: i, j
  character(len=5) :: buf
  character(len=240) :: fname = ' '
- logical :: cart, rest
+ logical :: cart, pbc, obj_only, rest
 
  i = iargc()
- if(i<1 .or. i>3) then
+ if(i<1 .or. i>4) then
   write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
   write(6,'(A)')   ' Example 1: bas_gms2py a.inp'
   write(6,'(A)')   ' Example 2: bas_gms2py a.inp -sph'
-  write(6,'(A,/)') ' Example 3: bas_gms2py a.inp -sph -rest'
+  write(6,'(A)')   ' Example 3: bas_gms2py a.inp -sph -rest'
+  write(6,'(A)')   ' Example 4: bas_gms2py a.inp -sph -pbc'
+  write(6,'(A)')   ' Example 5: bas_gms2py a.inp -sph -obj'
+  write(6,'(A,/)') ' Example 6: bas_gms2py a.inp -sph -pbc -obj'
   stop
  end if
 
@@ -31,8 +34,7 @@ program main
  call getarg(1, fname)
  call require_file_exist(fname)
 
- cart = .true.
- rest = .false.
+ cart=.true.; pbc=.false.; obj_only=.false.; rest=.false.
 
  if(i > 1) then
   do j = 2, i, 1
@@ -41,23 +43,27 @@ program main
    select case(TRIM(buf))
    case('-sph')
     cart = .false.
+   case('-pbc')
+    pbc = .true.
+   case('-obj')
+    obj_only = .true.
    case('-rest')
     rest = .true.
    case default
     write(6,'(/,A)') ' ERROR in subroutine bas_gms2py: wrong command line arguments!'
-    write(6,'(A)') "The 2nd/3rd argument must be '-sph' or '-rest'."
+    write(6,'(A)') "The arguments can only be -sph/-pbc/-obj/-rest"
     stop
    end select
   end do ! for j
  end if
  !write(*,*) cart, json
 
- call bas_gms2py(fname, cart, rest)
+ call bas_gms2py(fname, cart, pbc, obj_only, rest)
 end program main
 
 ! transform the GAMESS format of basis sets to the NWChem format,
 ! which can be used as input file for PySCF
-subroutine bas_gms2py(inpname, cart, rest)
+subroutine bas_gms2py(inpname, cart, pbc, obj_only, rest)
  implicit none
  integer :: i, j, k, m, p, lmax, charge, mult, isph, inpid, pyid, order
  integer :: nline, ncol, natom, nif, nbf
@@ -69,17 +75,17 @@ subroutine bas_gms2py(inpname, cart, rest)
  character(len=1) :: bastype
  character(len=2) :: new_bastype
  character(len=2), allocatable :: elem(:)
+ character(len=4) :: str4
  character(len=240) :: buf, pyname, hf_fch
  character(len=240), intent(in) :: inpname
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  logical :: ecp, uhf, ghf, X2C, lin_dep
- logical, intent(in) :: cart, rest
+ logical, intent(in) :: cart, pbc, obj_only, rest
  logical, allocatable :: ghost(:) ! size natom
 
- buf = ' '
- pyname = ' '
- bastype = ' '
- new_bastype = ' '
+ str4 = 'mol'
+ if(pbc) str4 = 'cell'
+ buf = ' '; pyname = ' '; bastype = ' '; new_bastype = ' '
  i = INDEX(inpname, '.', back=.true.)
  pyname = inpname(1:i-1)//'.py'
  hf_fch = inpname(1:i-1)//'.fch'
@@ -87,12 +93,18 @@ subroutine bas_gms2py(inpname, cart, rest)
  call read_charge_mult_isph_from_gms_inp(inpname, charge, mult, isph, uhf, ghf,&
                                          ecp)
  call read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
+
+ ! We have no AO overlap here to detect the basis set linear dependency, so use
+ ! nbf and nif.
+ ! Some .fch(k) file only includes occupied MOs and thus nif<nbf does not neces-
+ ! sarily means basis set linear dependency. Luckily, setting lin_dep=.true.
+ ! would not lead to anything wrong.
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf == nif) then
   lin_dep = .false.
  else
-  write(6,'(/,A)') 'ERROR in ERROR in subroutine bas_gms2py: nbf<nif.'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2py: nbf<nif, impossible.'
   write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
   stop
  end if
@@ -116,20 +128,42 @@ subroutine bas_gms2py(inpname, cart, rest)
  allocate(ntimes(natom))
  call calc_ntimes(natom, elem, ntimes)
 
- ! print the coordinates (optional) into .nwc file
  open(newunit=pyid,file=TRIM(pyname),status='replace')
- write(pyid,'(A)') 'from pyscf import gto, scf, lib'
- write(pyid,'(A)') 'from mokit.lib.fch2py import fch2py'
- if(ghf) then
-  write(pyid,'(A)') 'from mokit.lib.ortho import check_cghf_orthonormal'
+ if(obj_only) then
+  write(pyid,'(A)') 'from pyscf import gto, lib'
  else
-  write(pyid,'(A)') 'from mokit.lib.ortho import check_orthonormal'
+  if(pbc) then
+   write(pyid,'(A)') 'from pyscf import gto, lib'
+   write(pyid,'(A)') 'from pyscf.pbc import scf'
+  else
+   write(pyid,'(A)') 'from pyscf import gto, scf, lib'
+  end if
  end if
 
- write(pyid,'(/,A)') 'lib.num_threads(2) # 2 CPU cores'
- write(pyid,'(A)') 'mol = gto.M()'
+ if(pbc) then
+  write(pyid,'(A)') 'from pyscf.pbc import gto as pgto'
+  write(pyid,'(A)') 'import numpy as np'
+ end if
+
+ if(.not. obj_only) then
+  write(pyid,'(A)') 'from mokit.lib.fch2py import fch2py'
+  if(ghf) then
+   write(pyid,'(A)') 'from mokit.lib.ortho import check_cghf_orthonormal'
+  else
+   write(pyid,'(A)') 'from mokit.lib.ortho import check_orthonormal'
+  end if
+  write(pyid,'(/,A)') 'lib.num_threads(2) # 2 CPU cores'
+ else
+  write(pyid,'(/)',advance='no')
+ end if
+
+ if(pbc) then
+  write(pyid,'(A)') 'cell = pgto.Cell()'
+ else
+  write(pyid,'(A)') 'mol = gto.M()'
+ end if
  write(pyid,'(A,I0,A)') '# ',natom,' atom(s)'
- write(pyid,'(A)') "mol.atom = '''"
+ write(pyid,'(A)') TRIM(str4)//".atom = '''"
 
  do i = 1, natom, 1
   if(ghost(i)) then
@@ -147,7 +181,7 @@ subroutine bas_gms2py(inpname, cart, rest)
  read(inpid,'(A)') buf
 
  ! read and print basis sets
- write(pyid,'(/,A)') 'mol.basis = {'
+ write(pyid,'(/,A)') TRIM(str4)//'.basis = {'
  do k = 1, natom, 1
   read(inpid,'(A)') buf
   ! 'buf' contains the element, relative atomic mass and coordinates
@@ -201,7 +235,7 @@ subroutine bas_gms2py(inpname, cart, rest)
    end if
   end do ! for while
 
-  write(pyid,'(/,A)') 'mol.ecp = {'
+  write(pyid,'(/,A)') TRIM(str4)//'.ecp = {'
 
   do m = 1, natom, 1
    read(inpid,'(A)') buf
@@ -249,30 +283,35 @@ subroutine bas_gms2py(inpname, cart, rest)
  end if ! for if(ecp)
 
  close(inpid)
-
  if(rest) then
-  call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, &
-                               coor, ghost, natom, ecp, uhf)
+  call write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, &
+                               ghost, natom, ecp, uhf)
  end if
- deallocate(ghost, coor)
- deallocate(elem, ntimes)
+ deallocate(ghost, coor, elem, ntimes)
 
  write(pyid,'(/,A)') '# Remember to check the charge and spin'
- write(pyid,'(A,I0)') 'mol.charge = ', charge
- write(pyid,'(A,I0)') 'mol.spin = ', mult-1
- write(pyid,'(A)') 'mol.verbose = 4'
- if(cart) write(pyid,'(A)') 'mol.cart = True'
- write(pyid,'(A,/)') 'mol.build(parse_arg=False)'
+ write(pyid,'(A,I0)') TRIM(str4)//'.charge = ', charge
+ write(pyid,'(A,I0)') TRIM(str4)//'.spin = ', mult-1
+ if(pbc) then
+  write(pyid,'(A)') 'cell.verbose = 3'
+  write(pyid,'(A)') 'cell.a = np.eye(3)*100.0'
+ else
+  write(pyid,'(A)') 'mol.verbose = 4'
+ end if
+ if(cart) write(pyid,'(A)') TRIM(str4)//'.cart = True'
 
- i = INDEX(inpname, '.', back=.true.)
+ if(.not. (pbc .and. obj_only)) then
+  write(pyid,'(A,/)') TRIM(str4)//'.build(parse_arg=False)'
+ end if
+ if(obj_only) return ! no more to print
 
  if(uhf) then
   if(lin_dep) then
-   write(pyid,'(A)') 'old_mf = scf.UHF(mol)'
+   write(pyid,'(A)') 'old_mf = scf.UHF('//TRIM(str4)//')'
    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lin&
                      &dep=1.1e-6)'
   else
-   write(pyid,'(A)') 'mf = scf.UHF(mol)'
+   write(pyid,'(A)') 'mf = scf.UHF('//TRIM(str4)//')'
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
   write(pyid,'(A)') "mf.init_guess = '1e'"
@@ -288,17 +327,21 @@ subroutine bas_gms2py(inpname, cart, rest)
   write(pyid,'(A)') 'mf.mo_coeff = (alpha_coeff, beta_coeff)'
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
-  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  if(pbc) then
+   write(pyid,'(A)') "S = cell.pbc_intor('int1e_ovlp',hermi=1)"
+  else
+   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  end if
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[0], S)'
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff[1], S)'
 
  else if(ghf) then ! complex GHF
   if(lin_dep) then
-   write(pyid,'(A)') 'old_mf = scf.GHF(mol)'
+   write(pyid,'(A)') 'old_mf = scf.GHF('//TRIM(str4)//')'
    write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, lin&
                      &dep=1.1e-6)'
   else
-   write(pyid,'(A)') 'mf = scf.GHF(mol)'
+   write(pyid,'(A)') 'mf = scf.GHF('//TRIM(str4)//')'
   end if
   if(ecp) then
    write(pyid,'(A)') 'mf.with_soc = True'
@@ -322,25 +365,29 @@ subroutine bas_gms2py(inpname, cart, rest)
   write(pyid,'(A)') "mf.mo_coeff.imag = fch2py(hf_fch, nbf, nif, 'i')"
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
-  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  if(pbc) then
+   write(pyid,'(A)') "S = cell.pbc_intor('int1e_ovlp',hermi=1)"
+  else
+   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  end if
   write(pyid,'(A)') 'check_cghf_orthonormal(nbf, nif, mf.mo_coeff, S)'
 
  else ! using R(O)HF format
   if(mult == 1) then
    if(lin_dep) then
-    write(pyid,'(A)') 'old_mf = scf.RHF(mol)'
+    write(pyid,'(A)') 'old_mf = scf.RHF('//TRIM(str4)//')'
     write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, li&
                       &ndep=1.1e-6)'
    else
-    write(pyid,'(A)') 'mf = scf.RHF(mol)'
+    write(pyid,'(A)') 'mf = scf.RHF('//TRIM(str4)//')'
    end if
   else
    if(lin_dep) then
-    write(pyid,'(A)') 'old_mf = scf.ROHF(mol)'
+    write(pyid,'(A)') 'old_mf = scf.ROHF('//TRIM(str4)//')'
     write(pyid,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1.1e-6, li&
                       &ndep=1.1e-6)'
    else
-    write(pyid,'(A)') 'mf = scf.ROHF(mol)'
+    write(pyid,'(A)') 'mf = scf.ROHF('//TRIM(str4)//')'
    end if
   end if
   write(pyid,'(A)') 'mf.max_cycle = 1'
@@ -355,7 +402,11 @@ subroutine bas_gms2py(inpname, cart, rest)
   write(pyid,'(A)') "mf.mo_coeff = fch2py(hf_fch, nbf, nif, 'a')"
   write(pyid,'(A)') '# read done'
   write(pyid,'(/,A)') '# check if input MOs are orthonormal'
-  write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  if(pbc) then
+   write(pyid,'(A)') "S = cell.pbc_intor('int1e_ovlp',hermi=1)"
+  else
+   write(pyid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  end if
   write(pyid,'(A)') 'check_orthonormal(nbf, nif, mf.mo_coeff, S)'
  end if
 
@@ -554,7 +605,7 @@ subroutine write_rest_in_and_basis(inpname, charge, mult, elem, ntimes, coor, gh
     stop
    end if
   end if
- end do
+ end do ! for k
 
 end subroutine write_rest_in_and_basis
 

@@ -8,14 +8,14 @@ module mkl_content
  real(kind=8), allocatable :: coor(:,:), ev_a(:), ev_b(:)
  character(len=2), allocatable :: elem(:)
 
- type primitive_gaussian
+ type :: primitive_gaussian
   character(len=2) :: stype = '  ' ! S,P,SP,D,F,G,H,I
   integer :: nline = 0
   integer :: ncol  = 0
   real(kind=8), allocatable :: coeff(:,:)
  end type primitive_gaussian
 
- type pg4atom
+ type :: pg4atom
   integer :: nc   ! size of array prim_gau
   type(primitive_gaussian), allocatable :: prim_gau(:)
  end type pg4atom
@@ -1100,37 +1100,49 @@ end subroutine read_bas_mark_from_shltyp
 subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
                                 ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
  implicit none
- integer :: i
+ integer :: i, k
  integer, intent(in) :: nbf, nif, nfmark, ngmark, nhmark, nimark, ncontr
  integer, intent(in) :: f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
   i_mark(ncontr)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
- forall(i = 1:nfmark:1)
-  coeff(f_mark(i)+5,:) = -coeff(f_mark(i)+5,:)
-  coeff(f_mark(i)+6,:) = -coeff(f_mark(i)+6,:)
- end forall
+!$omp parallel do schedule(dynamic) default(shared) private(i,k)
+ do i = 1, nfmark, 1
+  k = f_mark(i)
+  coeff(k+5,:) = -coeff(k+5,:)
+  coeff(k+6,:) = -coeff(k+6,:)
+ end do ! for i
+!$omp end parallel do
 
- forall(i = 1:ngmark:1)
-  coeff(g_mark(i)+5,:) = -coeff(g_mark(i)+5,:)
-  coeff(g_mark(i)+6,:) = -coeff(g_mark(i)+6,:)
-  coeff(g_mark(i)+7,:) = -coeff(g_mark(i)+7,:)
-  coeff(g_mark(i)+8,:) = -coeff(g_mark(i)+8,:)
- end forall
+!$omp parallel do schedule(dynamic) default(shared) private(i,k)
+ do i = 1, ngmark, 1
+  k = g_mark(i)
+  coeff(k+5,:) = -coeff(k+5,:)
+  coeff(k+6,:) = -coeff(k+6,:)
+  coeff(k+7,:) = -coeff(k+7,:)
+  coeff(k+8,:) = -coeff(k+8,:)
+ end do ! for i
+!$omp end parallel do
 
- forall(i = 1:nhmark:1)
-  coeff(h_mark(i)+5,:) = -coeff(h_mark(i)+5,:)
-  coeff(h_mark(i)+6,:) = -coeff(h_mark(i)+6,:)
-  coeff(h_mark(i)+7,:) = -coeff(h_mark(i)+7,:)
-  coeff(h_mark(i)+8,:) = -coeff(h_mark(i)+8,:)
- end forall
+!$omp parallel do schedule(dynamic) default(shared) private(i,k)
+ do i = 1, nhmark, 1
+  k = h_mark(i)
+  coeff(k+5,:) = -coeff(k+5,:)
+  coeff(k+6,:) = -coeff(k+6,:)
+  coeff(k+7,:) = -coeff(k+7,:)
+  coeff(k+8,:) = -coeff(k+8,:)
+ end do ! for i
+!$omp end parallel do
 
- forall(i = 1:nimark:1)
-  coeff(i_mark(i)+5,:) = -coeff(i_mark(i)+5,:)
-  coeff(i_mark(i)+6,:) = -coeff(i_mark(i)+6,:)
-  coeff(i_mark(i)+7,:) = -coeff(i_mark(i)+7,:)
-  coeff(i_mark(i)+8,:) = -coeff(i_mark(i)+8,:)
- end forall
+!$omp parallel do schedule(dynamic) default(shared) private(i,k)
+ do i = 1, nimark, 1
+  k = i_mark(i)
+  coeff(k+5,:) = -coeff(k+5,:)
+  coeff(k+6,:) = -coeff(k+6,:)
+  coeff(k+7,:) = -coeff(k+7,:)
+  coeff(k+8,:) = -coeff(k+8,:)
+ end do ! for i
+!$omp end parallel do
 end subroutine update_mo_using_bas_mark
 
 ! find nprim from type all_pg

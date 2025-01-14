@@ -1,11 +1,12 @@
+! written by jeanwsr at Jan 2025: subroutines for SUHF
+
 subroutine do_suhf()
  use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
   HFonly, loc_asrot, suhf_prog
- use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
-  lin_dep, chem_core, ecp_core
+ use mol, only: chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
- integer :: i, SYSTEM, hf_type
+ integer :: i, hf_type
  real(kind=8) :: unpaired_e
  real(kind=8) :: e, ssquare
  character(len=24) :: data_string = ' '
@@ -182,7 +183,7 @@ end subroutine prt_suhf_script_into_py
 ! read HF electronic energy from a PySCF .out file
 subroutine read_suhf_e_and_ss_from_exscf_out(outname, wfn_type, e, ss)
  implicit none
- integer :: i, j, mult, fid
+ integer :: i, j, fid
  integer, intent(in) :: wfn_type
  real(kind=8), intent(out) :: e, ss
  character(len=240) :: buf
@@ -238,8 +239,9 @@ subroutine read_suhf_e_and_ss_from_exscf_out(outname, wfn_type, e, ss)
   read(buf(j+1:),*) ss
   close(fid)
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine read_suhf_e_and_ss_from_exscf_out: inva&
-                    &lid wfn_type=', wfn_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_suhf_e_and_ss_from_exscf_out: i&
+                      &nvalid wfn_type=', wfn_type
   stop
  end select
 end subroutine read_suhf_e_and_ss_from_exscf_out
+

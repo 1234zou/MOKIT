@@ -107,9 +107,9 @@ subroutine do_mrpt3()
 
  if(i /= 0) then
   if(caspt3) then
-   write(6,'(A)') 'ERROR in subroutine do_mrpt3: CASPT3 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt3: CASPT3 computation failed.'
   else
-   write(6,'(A)') 'ERROR in subroutine do_mrpt3: NEVPT3 computation failed.'
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt3: NEVPT3 computation failed.'
   end if
   write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop

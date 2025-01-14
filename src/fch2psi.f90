@@ -81,7 +81,7 @@ subroutine fch2psi(fchname, dftname)
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf)
- call fch2inp_wrap(fchname, .false., 0, 0, .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
  call check_sph_in_fch(fchname, sph)
 
  i = INDEX(fchname,'.fch', back=.true.)

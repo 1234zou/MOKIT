@@ -45,7 +45,7 @@ program main
  end if
 
  call fch2bdf(fchname, prt_no)
- call fch2inp_wrap(fchname, .false., 0, 0, .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
 
  i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'

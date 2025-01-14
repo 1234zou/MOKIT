@@ -5,8 +5,22 @@ import random, os, shutil
 import numpy as np
 from mokit.lib.fch2py import fch2py
 from mokit.lib.py2fch import py2fch
-from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
-from mokit.lib.lo import boys, pm
+from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
+
+BOHR2ANG = 0.52917721092e0
+
+
+def ao_dipole_int(mol):
+  # mol can be either molecule or cell object
+  charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
+                   / mol.atom_charges().sum())
+  with mol.with_common_origin(charge_center):
+    if getattr(mol, 'pbc_intor', None):
+      ao_dip = mol.pbc_intor('int1e_r', comp=3, hermi=1)
+    else:
+      ao_dip = mol.intor_symmetric('int1e_r', comp=3)
+  return charge_center, ao_dip
+
 
 def load_mol_from_fch(fchname):
   '''
@@ -16,7 +30,8 @@ def load_mol_from_fch(fchname):
   >>> from pyscf import scf
   >>> from mokit.lib.gaussian import load_mol_from_fch
   >>> mol = load_mol_from_fch(fchname='benzene.fch')
-  >>> mf = scf.RHF(mol).run()
+  >>> mf = scf.RHF(mol)
+  >>> mf.kernel()
   '''
   import sys, importlib
   from mokit.lib.qchem import find_and_del_pyc
@@ -25,19 +40,9 @@ def load_mol_from_fch(fchname):
   tmp_fch = proname+'.fch'
   tmp_py  = proname+'.py'
   shutil.copyfile(fchname, tmp_fch)
-  os.system('bas_fch2py '+tmp_fch)
+  with os.popen('bas_fch2py '+tmp_fch+' -obj') as run:
+    null = run.read()
   os.remove(tmp_fch)
-
-  with open(tmp_py, 'r+') as fp:
-    lines = fp.readlines()
-    fp.seek(0)
-    fp.truncate()
-    fp.writelines('from pyscf import gto, lib\n')
-    for i, line in enumerate(lines):
-      if ('mol.build' in line):
-        j = i + 1
-        break
-    fp.writelines(lines[3:j])
 
   importlib.invalidate_caches() # important
   molpy = importlib.import_module(proname)
@@ -51,7 +56,8 @@ def load_mol_from_fch(fchname):
 
 def load_mol_from_molden(molden, program):
   '''
-  Load the PySCF mol object from a specified .molden file
+  Load the PySCF mol object from a specified .molden file. Be careful that
+  .molden file does not have any ECP/PP data.
 
   Simple usage::
   >>> from pyscf import scf
@@ -59,10 +65,47 @@ def load_mol_from_molden(molden, program):
   >>> mol = load_mol_from_molden(molden='benzene.molden',program='orca')
   >>> mf = scf.RHF(mol).run()
   '''
-  os.system('molden2fch '+molden+' -'+program.lower())
+  with os.popen('molden2fch '+molden+' -'+program.lower()) as run:
+    null = run.read()
   fchname = molden[0:molden.rindex('.molden')]+'.fch'
   mol = load_mol_from_fch(fchname)
   return mol
+
+
+def load_cell_from_fch(fchname):
+  '''
+  Load the PySCF cell object from a specified Gaussian .fch(k) file. This file
+  is supposed to include the wave function of an isolated molecule. The true PBC
+  Gaussian .fch file is not supported currently. Since the lattice vectors are
+  unknown, they will be set to 50.0 A temporarily. One should set cell.a
+  appropriately and call cell.build after using this function. See pbc_loc()
+  below for an example.
+
+  Simple usage::
+  >>> from pyscf import scf
+  >>> from mokit.lib.gaussian import load_cell_from_fch
+  >>> cell = load_cell_from_fch(fchname='water64.fch')
+  >>> cell.a = np.eye(3)*12.42
+  >>> cell.build(parse_arg=False)
+  >>> mf = scf.RHF(cell)
+  >>> mf.kernel()
+  '''
+  import sys, importlib
+  from mokit.lib.qchem import find_and_del_pyc
+
+  proname = 'gau'+str(random.randint(1,10000))
+  tmp_fch = proname+'.fch'
+  tmp_py  = proname+'.py'
+  shutil.copyfile(fchname, tmp_fch)
+  with os.popen('bas_fch2py '+tmp_fch+' -pbc -obj') as run:
+    null = run.read()
+  os.remove(tmp_fch)
+
+  importlib.invalidate_caches() # important
+  cellpy = importlib.import_module(proname)
+  os.remove(tmp_py)
+  find_and_del_pyc(proname, sys.version)
+  return cellpy.cell
 
 
 def mo_fch2py(fchname):
@@ -93,7 +136,7 @@ def mo_fch2py(fchname):
   return mo
 
 
-def loc(fchname, idx, method='pm', alpha=True):
+def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given
   Gaussian .fch(k) file.
@@ -108,35 +151,153 @@ def loc(fchname, idx, method='pm', alpha=True):
   >>> from mokit.lib.gaussian import loc
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
-  from pyscf.lo.boys import dipole_integral
+  from mokit.lib.lo import boys, pm, calc_dis_mat_from_coor, get_bfirst_from_shl
+  from mokit.lib.rwwfn import ao2mo_dipole, prt_mo_center2xyz
 
   print('\nOrbital range:', idx)
   if alpha is True:
     spin = 'a'
   else:
     spin = 'b'
+
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_LMO.fch'
   mol = load_mol_from_fch(fchname)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mo_coeff = fch2py(fchname, nbf, nif, spin)
   nmo = len(idx)
-  print('nmo=', nmo)
+  print('nmo= %d' % nmo)
+
+  lines = mol.atom.strip().split('\n')
+  coor_s = [line.split()[1:4] for line in lines]
+  coor = np.transpose(np.array(coor_s, dtype=float))
+  natom = mol.natm
+  dis = calc_dis_mat_from_coor(natom, coor)
+  nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, natom, mol._bas[:,0], \
+                                     mol._bas[:,1], mol._bas[:,3])
+  if nbf0 != nbf:
+    print('nbf0, nbf=%d, %d' % (nbf0, nbf))
+    raise ValueError('Number of basis functions is inconsistent.')
+  S = mol.intor_symmetric('int1e_ovlp')
 
   if method == 'pm':
-    S = mol.intor_symmetric('int1e_ovlp')
-    loc_orb = pm(mol.nbas, mol._bas[:,0],mol._bas[:,1],mol._bas[:,3], mol.cart,
-                 nbf, nmo, mo_coeff[:,idx], S, 'mulliken')
+    lmo = pm(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,'mulliken')
+    if center_xyz is not None:
+      center, ao_dip = ao_dipole_int(mol)
+      center = center*BOHR2ANG
+      mo_dip = ao2mo_dipole(nbf, nmo, ao_dip, lmo)
+      mo_dip = mo_dip*BOHR2ANG
   elif method == 'boys':
-    mo_dipole = dipole_integral(mol, mo_coeff[:,idx])
-    loc_orb = boys(nbf, nmo, mo_coeff[:,idx], mo_dipole)
+    center, ao_dip = ao_dipole_int(mol)
+    center = center*BOHR2ANG
+    ao_dip = ao_dip*BOHR2ANG
+    lmo, mo_dip = boys(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,ao_dip)
   else:
     raise ValueError('Localization method cannot be recognized.')
 
-  mo_coeff[:,idx] = loc_orb.copy()
+  if center_xyz is not None:   # print LMO centers into xyz
+    mo_center = np.zeros((3,nmo))
+    for i in range(3):
+      mo_center[i,:] = np.diagonal(mo_dip[i])
+    for i in range(nmo):
+      mo_center[:,i] = mo_center[:,i] + center
+    prt_mo_center2xyz(nmo, mo_center, center_xyz)
+
+  mo_coeff[:,idx] = lmo.copy()
   noon = np.zeros(nif)
   shutil.copyfile(fchname, fchname1)
   py2fch(fchname1, nbf, nif, mo_coeff, spin, noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
+
+
+def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
+  '''
+  Perform orbital localization for a specified set of orbitals in a given
+  CP2K .molden file.
+  The following 1e AO-basis integrals are computed using PySCF:
+   1) gamma-point dipole integrals for Boys;
+   2) gamma-point overlap integrals for Pipek-Mezey.
+  The method can be either 'boys' or 'pm'.
+  Current limitations:
+   1) only gamma-point; 2) only CP2K molden; 3) only Alpha spin.
+
+  Simple usage::
+  >>> # perform Boys orbital localization for water64 box
+  >>> from mokit.lib.gaussian import pbc_loc
+  >>> pbc_loc('water64-MOS-1_0.molden',box=np.eye(3)*12.42)
+  '''
+  from mokit.lib.rwwfn import read_lat_vec_from_file, ao2mo_dipole, prt_mo_center2xyz
+  from mokit.lib.lo import boys, pm, calc_dis_mat_from_coor_pbc, get_bfirst_from_shl
+  from mokit.lib.ortho import check_orthonormal
+
+  if isinstance(box, np.ndarray):
+    lat_vec = box
+  elif isinstance(box, str):
+    lat_vec = read_lat_vec_from_file(box)
+  else:
+    raise ValueError('datatype of box cannot be identified.')
+  print('Lattice vectors\n', lat_vec)
+
+  proname = molden[0:molden.rindex('.molden')]
+  fchname = proname+'.fch'
+  lmo_fch = proname+'_LMO.fch'
+  if wannier_xyz is None:
+    wannier_xyz = proname+'_wanner.xyz'
+
+  with os.popen('molden2fch '+molden+' -cp2k') as run:
+    null = run.read()
+  cell = load_cell_from_fch(fchname)
+  cell.a = lat_vec
+  cell.build(parse_arg=False)
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  na, nmo = read_na_and_nb_from_fch(fchname)
+  print('nmo= %d' % nmo)
+
+  lines = cell.atom.strip().split('\n')
+  coor_s = [line.split()[1:4] for line in lines]
+  coor = np.transpose(np.array(coor_s, dtype=float))
+  natom = cell.natm
+  dis = calc_dis_mat_from_coor_pbc(natom, cell.a, coor)
+  nbf0, bfirst = get_bfirst_from_shl(cell.cart, cell.nbas, natom, cell._bas[:,0], \
+                                     cell._bas[:,1], cell._bas[:,3])
+  if nbf0 != nbf:
+    print('nbf0, nbf=%d, %d' % (nbf0, nbf))
+    raise ValueError('Number of basis functions is inconsistent.')
+
+  mo = fch2py(fchname, nbf, nif, 'a')
+  S = cell.pbc_intor('int1e_ovlp', hermi=1)
+  # do not use cell.intor_symmetric('int1e_ovlp') here, since it returns the AO
+  # overlap of an isolated molecule
+
+  if method == 'boys':
+    center, ao_dip = ao_dipole_int(cell)
+    center = center*BOHR2ANG
+    ao_dip = ao_dip*BOHR2ANG
+    loc_orb, mo_dip = boys(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, ao_dip)
+  elif method == 'pm':
+    loc_orb = pm(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, 'mulliken')
+    center, ao_dip = ao_dipole_int(cell)
+    center = center*BOHR2ANG
+    mo_dip = ao2mo_dipole(nbf, nmo, ao_dip, loc_orb)
+    mo_dip = mo_dip*BOHR2ANG
+  else:
+    raise ValueError('Localization method cannot be recognized.')
+
+  # print LMO centers into xyz
+  mo_center = np.zeros((3,nmo))
+  for i in range(3):
+    mo_center[i,:] = np.diagonal(mo_dip[i])
+  for i in range(nmo):
+    mo_center[:,i] = mo_center[:,i] + center
+  prt_mo_center2xyz(nmo, mo_center, wannier_xyz)
+
+  # update MOs and print them into .fch
+  mo[:,:nmo] = loc_orb.copy()
+  check_orthonormal(nbf, nif, mo, S)
+  if save_lmo is True:
+    noon = np.zeros(nif)
+    shutil.copyfile(fchname, lmo_fch)
+    py2fch(lmo_fch, nbf, nif, mo, 'a', noon, False, False)
+    print('Localized orbitals exported to file '+lmo_fch)
 
 
 def uno(fchname):
@@ -151,7 +312,7 @@ def uno(fchname):
   >>> uno(fchname='benzene_uhf.fch')
   '''
   import mokit.lib.uno as pyuno
-  from mokit.lib.rwwfn import read_na_and_nb_from_fch, construct_vir
+  from mokit.lib.rwwfn import construct_vir
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
@@ -293,7 +454,6 @@ def make_orb_resemble(target_fch, ref_fch, nmo=None, align=False):
   If nmo is not given, it will be set as na (the number of alpha electrons)
   '''
   from pyscf import gto
-  from mokit.lib.rwwfn import read_na_and_nb_from_fch
   from mokit.lib.rwgeom import read_natom_from_fch, read_coor_from_fch
   from mokit.lib.mirror_wfn import rotate_atoms_wfn2
   from mokit.lib.mo_svd import orb_resemble
@@ -437,7 +597,6 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
              [105.0, 115.0, 120.0, 109.5])
   '''
   from mokit.lib.qchem import read_hf_type_from_fch, construct_vir
-  from mokit.lib.rwwfn import read_na_and_nb_from_fch
   from mokit.lib.mirror_wfn import mo_grassmann_intrplt
   from mokit.lib.rwgeom import replace_coor_in_fch_by_gjf
 

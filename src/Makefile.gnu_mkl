@@ -8,7 +8,7 @@ LIB = ../mokit/lib
 # --- gfortran + Intel MKL ---
 F90 = gfortran
 FFLAGS = -O2 -cpp -fPIC -fopenmp
-MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -L$(CONDA_PREFIX)/lib -lmkl_rt
+MKL_FLAGS = -L$(CONDA_PREFIX)/lib -lmkl_rt
 F2PY = f2py
 F2_FLAGS = --f90flags="-cpp -fopenmp"
 

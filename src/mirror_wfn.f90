@@ -1610,7 +1610,7 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
 
  ! Calculate S^1/2, S^(-1/2) of the 1st geometry
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
- call mat_dsqrt(nbf, S(:,:,k), sqrt_S, n_sqrt_S)
+ call mat_dsqrt(nbf, S(:,:,k), .false., sqrt_S, n_sqrt_S)
 
  ! C_ref' = (S^1/2)C_ref. MOs at orthogonal basis of the reference geometry
  allocate(mo_ref(nbf,nmo))
@@ -1625,7 +1625,7 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
   !if(i == k) cycle
   if(DABS(weight(i)) < diff) cycle
 
-  call mat_dsqrt(nbf, S(:,:,i), sqrt_S, n_sqrt_S)
+  call mat_dsqrt(nbf, S(:,:,i), .false., sqrt_S, n_sqrt_S)
   call dsymm('L', 'L', nbf, nmo, 1d0, sqrt_S, nbf, mo(:,:,i),nbf, 0d0, mo_k,nbf)
   call grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k) ! GAMMA_i stored in mo_k
   new_mo = new_mo + weight(i)*mo_k               ! linear combination of GAMMA_i
@@ -1661,7 +1661,7 @@ subroutine mo_grassmann_intrplt(nbf, nmo, nfile, x, S, mo, new_mo)
 
  ! C_unk = (S^(-1/2))(C_unk')
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
- call mat_dsqrt(nbf, S(:,:,nfile), sqrt_S, n_sqrt_S)
+ call mat_dsqrt(nbf, S(:,:,nfile), .true., sqrt_S, n_sqrt_S)
  deallocate(sqrt_S)
  allocate(mo_ref(nbf,nmo))
  call dsymm('L', 'L', nbf, nmo, 1d0,n_sqrt_S,nbf, new_mo, nbf, 0d0, mo_ref,nbf)

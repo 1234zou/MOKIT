@@ -8,7 +8,7 @@ module basis_data ! to store basis set data for an atom
  implicit none
  integer :: ncol(0:7), nline(0:7)
 
- type one_momentum
+ type :: one_momentum
   real(kind=8), allocatable :: prim_exp(:) ! size nline(i)
   real(kind=8), allocatable :: coeff(:,:)  ! size (ncol(i),nline(i))
  end type one_momentum

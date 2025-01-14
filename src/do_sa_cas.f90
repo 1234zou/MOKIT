@@ -252,7 +252,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta1, &
                             ',', nactb1, '))'
   write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
-  call prt_block_mem(fid2, mem, nproc, block_mpi)
+  call prt_block_mem(0, fid2, mem, nproc, block_mpi)
  end if
 
  write(fid2,'(A)',advance='no') 'mc = mc.state_average_(['
@@ -303,7 +303,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  else            ! multi-root DMRG-CASCI
   write(fid2,'(A)') ')'
   write(fid2,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
-  call prt_block_mem(fid2, mem, nproc, block_mpi)
+  call prt_block_mem(0, fid2, mem, nproc, block_mpi)
  end if
 
  write(fid2,'(A)',advance='no') 'mc.fcisolver.nroots = '
@@ -523,7 +523,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  character(len=240), intent(in) :: inpname, hf_fch
 
  ncore = ndb + npair - npair0
- call fch2inp_wrap(hf_fch, .false., 0, 0)
+ call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
  i = INDEX(hf_fch, '.fch', back=.true.)
  inpname1 = hf_fch(1:i-1)//'.inp'
  i = RENAME(TRIM(inpname1), TRIM(inpname))

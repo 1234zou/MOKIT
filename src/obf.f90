@@ -11,8 +11,8 @@ module obf   ! orbital-based fragmentation
  integer :: na, nb, nopen ! number of alpha/beta/singly occupied orbitals
  integer, allocatable :: icoeff0(:), icoeff1(:), icoeff(:)
  integer, allocatable :: label0(:,:), label1(:,:), del_lab(:,:)
- real(kind=8) :: e_tot = 0d0       ! total electronic energy
- real(kind=8), parameter :: dis_thres0 = 4d0  ! Angstrom
+ real(kind=8) :: e_tot = 0d0   ! total electronic energy
+ real(kind=8), parameter :: dis_thres0 = 4d0 ! Angstrom
  real(kind=8), allocatable :: cluster_e(:) ! size n_tot
  character(len=240) :: fchname = ' '
  logical :: calc_no = .false. ! calculate density and NOs
@@ -366,7 +366,7 @@ subroutine gen_deri_cluster()
     if(n > i) then
      cycle
     else if(n < i) then
-     write(6,'(A)') 'ERROR in subroutine gen_deri_cluster: n<i is impossible.'
+     write(6,'(/,A)') 'ERROR in subroutine gen_deri_cluster: n<i is impossible.'
      write(6,'(A,3I3,A,10I3)') 'j,k,n=', j,k,n, ', itmp=', itmp
      write(6,'(A,10I3)') 'label1(:,j)=',label1(:,j)
      write(6,'(A,10I3)') 'label1(:,k)=',label1(:,k)
@@ -492,7 +492,7 @@ subroutine check_occur_once(alive)
  end do ! for i
 end subroutine check_occur_once
 
-! merger primitive and derivative MO clusters, n_tot and type cluster will be
+! merge primitive and derivative MO clusters, n_tot and type cluster will be
 ! updated if there exists any derivative MO cluster which is identical to some
 ! primitive MO cluster
 subroutine merge_mo_cluster()

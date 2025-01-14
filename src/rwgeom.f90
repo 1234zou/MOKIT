@@ -1352,7 +1352,7 @@ subroutine gjf2cp2k_inp(gjfname, uks, force, stress, broyden, smearing)
  call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
  deallocate(nuc)
  allocate(dis(natom,natom))
- call cal_dis_mat_from_coor(natom, coor, dis)
+ call calc_dis_mat_from_coor(natom, coor, dis)
  r = MAXVAL(dis)
  deallocate(dis)
 
@@ -1418,7 +1418,7 @@ subroutine report_mol_size(gjfname)
  end do ! for i
  deallocate(elem, nuc)
  allocate(dis(natom,natom))
- call cal_dis_mat_from_coor(natom, coor, dis)
+ call calc_dis_mat_from_coor(natom, coor, dis)
  deallocate(coor)
 
  r1 = MAXVAL(dis)
@@ -2221,7 +2221,7 @@ subroutine gen_conn_from_coor(natom, coor, nuc, dis, conn)
 
  conn = 0 ! initialization
  n = natom
- call cal_dis_mat_from_coor(n, coor, dis)
+ call calc_dis_mat_from_coor(n, coor, dis)
 
  k = n*(n-1)/2
  allocate(map(2,k))
@@ -2251,8 +2251,12 @@ subroutine find_nmol_from_conn(natom, conn, nmol)
  implicit none
  integer :: i, j, k, nconn, natom_old, natom_new
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(in) :: conn(natom,natom)
+!f2py intent(in) :: conn
+!f2py depend(natom) :: conn
  integer, intent(out) :: nmol
+!f2py intent(out) :: nmol
  logical, allocatable :: assigned(:), new_mol(:)
 
  nmol = 0

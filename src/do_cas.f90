@@ -218,9 +218,9 @@ subroutine do_cas(scf)
   end if
  case(2)
   if(scf) then
-   write(proname,'(A)') hf_fch(1:i-1)//'_uno2CASSCF'
+   proname = hf_fch(1:i-1)//'_uno2CASSCF'
   else
-   write(proname,'(A)') hf_fch(1:i-1)//'_uno2CASCI'
+   proname = hf_fch(1:i-1)//'_uno2CASCI'
   end if
  case(5)
   if(scf) then
@@ -230,9 +230,9 @@ subroutine do_cas(scf)
   end if
  case(7)
   if(scf) then
-   write(proname,'(A)') hf_fch(1:i-1)//'_suno2CASSCF'
+   proname = hf_fch(1:i-1)//'_suno2CASSCF'
   else
-   write(proname,'(A)') hf_fch(1:i-1)//'_suno2CASCI'
+   proname = hf_fch(1:i-1)//'_suno2CASCI'
   end if
  end select
  casnofch = TRIM(proname)//'_NO.fch'
@@ -262,7 +262,7 @@ subroutine do_cas(scf)
 
  case('gamess')
   call check_gms_path()
-  call fch2inp_wrap(fchname, .false., 0, 0)
+  call fch2inp_wrap(fchname, .false., 0, 0, .false.)
   i = INDEX(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'
@@ -561,8 +561,9 @@ end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_script_into_py(pyname, scf)
- use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, block_mpi, RI, &
-  RIJK_bas, iroot, ss_opt, casnofch
+ use mr_keyword, only: mem, nproc, xmult, dmrgci, dmrgscf, dmrg_no, block_mpi, &
+  RI, RIJK_bas, iroot, ss_opt, casnofch
+ use mol, only: mult
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
@@ -572,9 +573,18 @@ subroutine prt_cas_script_into_py(pyname, scf)
  logical :: dmrg
 
  dmrg = (dmrgci .or. dmrgscf)
+ if(dmrgscf .and. ss_opt .and. iroot>0 .and. (xmult/=mult)) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_script_into_py: SS-DMRG-CASSCF &
+                   &can only be'
+  write(6,'(A)') 'applied to an excited state which has the same spin as the gr&
+                 &ound state.'
+  write(6,'(A,I0)') 'But you specify xmult=', xmult
+  stop
+ end if
+
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- pyname1 = TRIM(pyname)//'.t'
- i = INDEX(pyname, '.py', back=.true.)
+ call find_specified_suffix(pyname, '.py', i)
+ pyname1 = pyname(1:i-1)//'.t'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -616,7 +626,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
- end do
+ end do ! for while
  close(fid1,status='delete')
 
  ! For CASCI/CASSCF, always set mc.natorb = True.
@@ -902,12 +912,13 @@ subroutine prt_cas_orca_inp(inpname, scf)
   stop
  end if
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
- read(fid1,'(A)') buf   ! skip nproc
- read(fid1,'(A)') buf   ! skip memory
+ read(fid1,'(A)') buf   ! skip %pal
+ read(fid1,'(A)') buf   ! skip %maxcore
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
 
@@ -925,22 +936,29 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A)') ' maxiter 300'
   write(fid2,'(A)') ' ActOrbs NatOrbs'
   if(iroot > 0) then ! SS-CASSCF
-   write(fid2,'(A,I0)') ' mult ', xmult
-   j = 2
-   if(xmult /= mult) j = 1
-   write(fid2,'(A,I0)') ' nroots ', iroot+j+1
-   allocate(weight(iroot+j))
-   weight = '0.0'
-   write(fid2,'(A)',advance='no') ' weights[0]='
    if(xmult == mult) then
-    write(fid2,'(19A4)',advance='no') (weight(i)//',',i=1,iroot)
-   else ! xmult /= mult
-    if(iroot > 1) then
-     write(fid2,'(19A4)',advance='no') (weight(i)//',',i=1,iroot-1)
-    end if
+    j = 3
+    write(fid2,'(A,I0)') ' mult ', mult
+    write(fid2,'(A,I0)') ' nroots ', iroot+j
+    write(fid2,'(A)',advance='no') ' weights[0]='
+    allocate(weight(iroot+j))
+    weight = '0.0'
+    weight(iroot+1) = '1.0'
+   else
+    j = 2
+    write(fid2,'(2(A,I0))') ' mult ', mult, ',', xmult
+    write(fid2,'(A,I0)') ' nroots 1,', iroot+j
+    write(fid2,'(A)') ' weights[0]=0.0'
+    write(fid2,'(A)',advance='no') ' weights[1]='
+    allocate(weight(iroot+j))
+    weight = '0.0'
+    weight(iroot) = '1.0'
    end if
-   write(fid2,'(A)') '1.0,0.0,0.0'
+   write(buf,'(19A4)') (weight(i)//',',i=1,iroot+j)
    deallocate(weight)
+   i = LEN_TRIM(buf)
+   buf(i:i) = ' '
+   write(fid2,'(A)') TRIM(buf)
   end if
   call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
  else ! CASCI
@@ -1773,7 +1791,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  else ! DMRG-CASSCF
   write(fid,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, ',',&
                            nactb, '))'
-  call prt_block_mem(fid, mem, nproc, block_mpi)
+  call prt_block_mem(0, fid, mem, nproc, block_mpi)
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
  end if
 
@@ -1784,7 +1802,8 @@ end subroutine prt_gs_casscf_kywrd_py
 ! state tracking is achieved by detecting spin multiplicities of each state
 subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacte, nacta, nactb, mult
- use mr_keyword, only: mem, casscf, RI, hardwfn, crazywfn, iroot, xmult
+ use mr_keyword, only: mem, nproc, dmrgscf, block_mpi, maxM, RI, hardwfn, crazywfn,&
+  iroot, xmult
  implicit none
  integer :: k
  integer, intent(in) :: fid
@@ -1792,37 +1811,63 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
  character(len=21), intent(in) :: RIJK_bas1
 
- spin = DBLE(xmult-1)/2
+ spin = 0.5d0*DBLE(xmult-1)
  xss = spin*(spin + 1d0)
 
- if(casscf) then ! CASSCF
-  if(xmult == mult) then
-   if(nacto==2 .and. nacte==2) then ! CAS(2,2)
-    k = 4
-   else                             ! >=CAS(4,4)
+ if(xmult == mult) then
+  if(nacto==2 .and. nacte==2) then ! CAS(2,2)
+   k = 4
+  else                             ! >=CAS(4,4)
+   if(dmrgscf) then
+    k = iroot + 3
+   else
     k = iroot + 6
    end if
-   write(fid,'(A,I0)') 'nroots = ', k ! initial nroots
-  else
-   write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
   end if
+  write(fid,'(A,I0)') 'nroots = ', k ! initial nroots
+ else
+  write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
+ end if
 
-  write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
-  write(fid,'(2X,A)') "print('ITER=',i)"
-  write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
-                                           nacta, ',', nactb, ')'
-  if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
-  end if
+ write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
+ write(fid,'(2X,A)') "print('ITER=',i)"
+ write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+                                          nacta, ',', nactb, ')'
+ if(RI) then
+  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ else
+  write(fid,'(A)') ')'
+ end if
+
+ if(dmrgscf) then
+  write(fid,'(2X,A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
+  call prt_block_mem(2, fid, mem, nproc, block_mpi)
+ else
   write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
-  write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
   write(fid,'(2X,A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.true.)
-  write(fid,'(2X,A)') 'mc.verbose = 5'
-  write(fid,'(2X,A)') 'mc.kernel()'
+ end if
+ write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
+ write(fid,'(2X,A)') 'mc.verbose = 5'
+ write(fid,'(2X,A)') 'mc.kernel()'
+
+ if(dmrgscf) then
+  write(fid,'(2X,A,I0)') 'iroot = ', iroot
+  write(fid,'(2X,A,I0)') 'j = ', iroot
+  if(nacto==2 .and. nacte==2) then
+   write(fid,'(2X,A)') 'nroots = 3'
+  else
+   write(fid,'(2X,A)') 'nroots = j + 2'
+  end if
+  write(fid,'(2X,A)') 'if (j == 0):'
+  write(fid,'(4X,3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, &
+                              ',', nactb, '))'
+  write(fid,'(2X,A)') 'else:'
+  write(fid,'(4X,3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, &
+                              ',', nactb, ')).state_specific_(j)'
+  call prt_block_mem(2, fid, mem, nproc, block_mpi)
+ else
   if(xmult == mult) then
    write(fid,'(2X,A)') 'iroot = -1'
   else
@@ -1834,7 +1879,6 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   write(fid,'(6X,A)') 'iroot = iroot + 1'
   write(fid,'(4X,A,I0,A)') 'if(iroot == ',iroot,'):'
   write(fid,'(6X,A)') 'break'
-  write(fid,'(2X,A)') 'e = mc.e_tot[j]'
   if(nacto==2 .and. nacte==2) then
    write(fid,'(2X,A)') 'nroots = 4'
   else
@@ -1859,55 +1903,62 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   end if
   write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
-  write(fid,'(2X,A)') 'if (j > 0):'
-  write(fid,'(4X,A)') 'mc.fcisolver.nroots = nroots'
   write(fid,'(2X,A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb, hardwfn,crazywfn,.true.)
-  write(fid,'(2X,A)') 'mc.verbose = 5'
-  write(fid,'(2X,A)') 'mc.max_cycle = 1' ! only 1 cycle
-  write(fid,'(2X,A)') 'mc.kernel()'
-  write(fid,'(2X,A)') 'mf.mo_coeff = mc.mo_coeff.copy()'
-  write(fid,'(2X,A)') 'if mc.converged is True:'
-  write(fid,'(4X,A)') 'break'
-  ! assume the SS-CASSCF orbital optimization is accomplished, now run a multi
-  !  -root CASCI calculation and generate NOs
-  ! print a label to show that this is a successful SS-CASSCF job
-  write(fid,'(A)') "print('SSS')"
-  ! print the target state and nroots for possible use of NEVPT2, etc
-  write(fid,'(A)') "f = open('ss-cas.txt', 'w+')"
-  write(fid,'(A)') "f.write('nroots=%i\n' %nroots)"
-  write(fid,'(A)') "f.write('target_root=%i' %j)"
-  write(fid,'(A)') 'f.close()'
-  write(fid,'(/,A)') 'if (j == 0):'
-  write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
-                                           nacta, ',', nactb, ')'
-  if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
-  end if
-  write(fid,'(A)') 'else:'
-  write(fid,'(2X3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+ end if
+ write(fid,'(2X,A)') 'if (j > 0):'
+ write(fid,'(4X,A)') 'mc.fcisolver.nroots = nroots'
+ write(fid,'(2X,A)') 'mc.verbose = 5'
+ write(fid,'(2X,A)') 'mc.max_cycle = 1' ! only 1 cycle
+ write(fid,'(2X,A)') 'mc.kernel()'
+ write(fid,'(2X,A)') 'mf.mo_coeff = mc.mo_coeff.copy()'
+ write(fid,'(2X,A)') 'if mc.converged is True:'
+ write(fid,'(4X,A)') 'break'
+ ! assume the SS-CASSCF orbital optimization is accomplished, now run a multi
+ !  -root CASCI calculation and generate NOs
+ ! print a label to show that this is a successful SS-CASSCF job
+ write(fid,'(A)') "print('SSS')"
+ ! print the target state and nroots for possible use of NEVPT2, etc
+ write(fid,'(A)') "f = open('ss-cas.txt', 'w+')"
+ write(fid,'(A)') "f.write('nroots=%i\n' %nroots)"
+ write(fid,'(A)') "f.write('target_root=%i' %j)"
+ write(fid,'(A)') 'f.close()'
+
+ write(fid,'(/,A)') 'if (j == 0):'
+ write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
                                           nacta, ',', nactb, ')'
-  write(fid,'(A,I0)',advance='no') ').state_specific_(j'
-  if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
-  end if
+ if(RI) then
+  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ else
+  write(fid,'(A)') ')'
+ end if
+ write(fid,'(A)') 'else:'
+ write(fid,'(2X3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+                                         nacta, ',', nactb, ')'
+ write(fid,'(A,I0)',advance='no') ').state_specific_(j'
+ if(RI) then
+  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ else
+  write(fid,'(A)') ')'
+ end if
+
+ if(dmrgscf) then
+  write(fid,'(2X,A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=',maxM,')'
+  call prt_block_mem(2, fid, mem, nproc, block_mpi)
+ else
   write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
-  write(fid,'(A)') 'if (j > 0):'
-  write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
+ end if
+
+ write(fid,'(A)') 'if (j > 0):'
+ write(fid,'(2X,A)') 'mc.fcisolver.nroots = nroots'
+
+ if(.not. dmrgscf) then
   write(fid,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
-  write(fid,'(A)') 'mc.natorb = True'
- else ! DMRG-CASSCF
-  write(6,'(/,A)') 'ERROR in subroutine prt_es_casscf_kywrd_py: the excited sta&
-                   &te SS-DMRG-CASSCF'
-  write(6,'(A)') 'job is not supported by MOKIT currently.'
-  stop
  end if
+
+ write(fid,'(A)') 'mc.natorb = True'
 end subroutine prt_es_casscf_kywrd_py
 
 subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
@@ -1940,7 +1991,7 @@ subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)
    write(fid,'(A)') 'mc.natorb = True'
   else           ! DMRG-CASCI
    write(fid,'(A,I0,A)') 'mc.fcisolver = dmrgscf.DMRGCI(mol, maxM=', maxM, ')'
-   call prt_block_mem(fid, mem, nproc, block_mpi)
+   call prt_block_mem(0, fid, mem, nproc, block_mpi)
   end if
  end if
 
@@ -1984,20 +2035,30 @@ subroutine prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
 end subroutine prt_active_space_warn
 
 ! print block-1.5/block2 memory settings into a specified file ID
-subroutine prt_block_mem(fid, mem, nproc, block_mpi)
+subroutine prt_block_mem(nx, fid, mem, nproc, block_mpi)
  implicit none
  integer :: i
- integer, intent(in) :: fid, mem, nproc ! mem in GB
+ integer, intent(in) :: nx, fid, mem, nproc ! mem in GB
+ character(len=12) :: buf1
+ character(len=7) :: buf2
  logical, intent(in) :: block_mpi
+
+ if(nx > 0) then
+  write(buf1,'(A,I0,A)') '(',nx,'X,A,I0,A)'
+  write(buf2,'(A,I0,A)') '(',nx,'X,A)'
+ else
+  buf1 = '(A,I0,A)'
+  buf2 = '(A)'
+ end if
 
  if(block_mpi) then
   i = CEILING(0.5d0*DBLE(mem)/DBLE(nproc))
-  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-nproc*i)*1000, ' # MB'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.max_memory = ',(mem-nproc*i)*1000,' # MB'
  else
   i = CEILING(0.4d0*DBLE(mem))
-  write(fid,'(A,I0,A)') 'mc.max_memory = ', (mem-i)*1000, ' # MB'
-  write(fid,'(A)') 'mc.fcisolver.threads = nproc'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.max_memory = ',(mem-i)*1000,' # MB'
+  write(unit=fid,fmt=TRIM(buf2)) 'mc.fcisolver.threads = nproc'
  end if
- write(fid,'(A,I0,A)') 'mc.fcisolver.memory = ', i,' # GB'
+ write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.memory = ', i, ' # GB'
 end subroutine prt_block_mem
 

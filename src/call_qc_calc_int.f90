@@ -97,33 +97,8 @@ subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
  deallocate(dm, D)
 end subroutine get_e_dipole_using_density_in_fch
 
-! call Gaussian to compute AO-basis overlap integrals using the given .fch file
-subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
- implicit none
- integer :: nif
- integer, intent(in) :: nbf
- real(kind=8), intent(out) :: S(nbf,nbf)
- real(kind=8), allocatable :: mo(:,:)
- character(len=240), intent(in) :: fchname
- character(len=240) :: file47
- logical :: success
-
- call read_nif_from_fch(fchname, nif)
-
- if(nif == nbf) then ! no linear dependence
-  allocate(mo(nbf,nbf))
-  call read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
-  if(success) call solve_ovlp_from_cct(nbf, mo, S)
-  deallocate(mo)
- end if
-
- if(nif<nbf .or. (nif==nbf .and. (.not.success))) then
-  call call_gaussian_gen47_from_fch(fchname, file47)
-  call read_ao_ovlp_from_47(file47, nbf, S)
-  call delete_file(TRIM(file47))
- end if
-end subroutine get_ao_ovlp_using_fch
-
+! Read orthonormal basis (also called orthonormal atomic orbitals, OAO) from a
+! given .fch(k) file.
 subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
  implicit none
  integer :: i, fid
@@ -160,6 +135,33 @@ subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
  success = .true.
 end subroutine read_orthonormal_basis_from_fch
 
+! call Gaussian to compute AO-basis overlap integrals using the given .fch file
+subroutine get_ao_ovlp_using_fch(fchname, nbf, S)
+ implicit none
+ integer :: nif
+ integer, intent(in) :: nbf
+ real(kind=8), intent(out) :: S(nbf,nbf)
+ real(kind=8), allocatable :: mo(:,:)
+ character(len=240), intent(in) :: fchname
+ character(len=240) :: file47
+ logical :: success
+
+ call read_nif_from_fch(fchname, nif)
+
+ if(nif == nbf) then ! no linear dependence
+  allocate(mo(nbf,nbf))
+  call read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
+  if(success) call solve_ovlp_from_cct(nbf, mo, S)
+  deallocate(mo)
+ end if
+
+ if(nif<nbf .or. (nif==nbf .and. (.not.success))) then
+  call call_gaussian_gen47_from_fch(fchname, file47)
+  call read_ao_ovlp_from_47(file47, nbf, S)
+  call delete_file(TRIM(file47))
+ end if
+end subroutine get_ao_ovlp_using_fch
+
 ! call Gaussian to compute AO-basis dipole integrals using the given .fch file
 subroutine get_ao_dipole_using_fch(fchname, nbf, D)
  use phys_cons, only: Bohr_const
@@ -179,7 +181,7 @@ end subroutine get_ao_dipole_using_fch
 subroutine call_gaussian_gen47_from_fch(fchname, file47)
  use util_wrapper, only: unfchk
  implicit none
- integer :: i, fid, system
+ integer :: i, k, fid, system
  character(len=10) :: str
  character(len=24) :: mem
  character(len=240), intent(in) :: fchname
@@ -202,7 +204,16 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
 #endif
 
  call getenv('GAUSS_MEMDEF', mem)
- if(LEN_TRIM(mem) == 0) mem = '1GB'
+ if(LEN_TRIM(mem) == 0) then
+  mem = '1GB'
+ else
+  mem = ADJUSTL(mem)
+  k = LEN_TRIM(mem)
+  if(mem(k-1:k-1) == 'G') then
+   read(mem(1:k-2),*) i
+   if(i > 4) mem = '4GB'
+  end if
+ end if
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
  write(fid,'(A)') '%nprocshared=1'
@@ -419,6 +430,22 @@ subroutine get_orca_2mkl_path(orca_2mkl_path)
  end if
 end subroutine get_orca_2mkl_path
 
+! compute the number of electrons by tracing the product of density matrix and
+! AO-basis overlap
+subroutine get_ne_from_PS(nbf, P, S, ne)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf
+ real(kind=8), allocatable :: ne0(:)
+ real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+ real(kind=8), intent(out) :: ne
+
+ allocate(ne0(nbf))
+ forall(i = 1:nbf) ne0(i) = DOT_PRODUCT(P(:,i),S(:,i))
+ ne = SUM(ne0)
+ deallocate(ne0)
+end subroutine get_ne_from_PS
+
 ! calculate the total number of electrons using total density in a .fch file
 subroutine get_ne_from_fch(fchname)
  implicit none
@@ -435,22 +462,6 @@ subroutine get_ne_from_fch(fchname)
  deallocate(den, S)
  write(6,'(A,F11.4)') 'ne = ', ne
 end subroutine get_ne_from_fch
-
-! compute the number of electrons by tracing the product of density matrix and
-! AO-basis overlap
-subroutine get_ne_from_PS(nbf, P, S, ne)
- implicit none
- integer :: i
- integer, intent(in) :: nbf
- real(kind=8), allocatable :: ne0(:)
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
- real(kind=8), intent(out) :: ne
-
- allocate(ne0(nbf))
- forall(i = 1:nbf) ne0(i) = DOT_PRODUCT(P(:,i),S(:,i))
- ne = SUM(ne0)
- deallocate(ne0)
-end subroutine get_ne_from_PS
 
 ! check whether two double precision values equal to each other
 subroutine check_two_real8_eq(r1, r2, thres)
@@ -539,8 +550,8 @@ subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  ! move the .dat file into current directory
  i = SYSTEM('mv '//TRIM(gms_scr_path)//'/'//TRIM(datname)//' .')
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine submit_gms_job: fail to move file. Possi&
-                 &bly wrong gms_scr_path.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gms_job: fail to move file. Poss&
+                   &ibly wrong gms_scr_path.'
   write(6,'(A)') 'gms_scr_path='//TRIM(gms_scr_path)
   stop
  end if
