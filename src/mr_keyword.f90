@@ -90,6 +90,7 @@ module mr_keyword
  ! 3: RHF -> virtual orbital projection -> localization -> pairing -> GVB -> CASCI/CASSCF -> ...
  ! 4: RHF -> virtual orbital projection -> CASCI/CASSCF -> ...
  ! 5: NOs -> CASCI/CASSCF -> ...
+ ! 7: UHF -> SUHF NO -> (associated rotation ->) CASCI/CASSCF -> ...
 
  integer :: eist = 0       ! the i-th strategy for excited state calculation
  ! 0: if RHF wfn is stable, use strategy 2; otherwise use strategy 1
@@ -163,11 +164,13 @@ module mr_keyword
 
  logical :: vir_proj = .false.    ! virtual orbitals projection onto those of STO-6G
  logical :: uno = .false.         ! generate UNOs
+ logical :: loc_asrot = .false.   ! loc_asrot for ist 7
  logical :: inherit = .false.     ! whether to inherit keywords in GVB/STO-6G
  logical :: frag_guess = .false.
  ! whether to perform UHF using initial guess constructed from fragments
 
  logical :: gvb     = .false.
+ logical :: suhf    = .false.
  logical :: casci   = .false.
  logical :: casscf  = .false.
  logical :: dmrgci  = .false.
@@ -221,6 +224,7 @@ module mr_keyword
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
+ character(len=10) :: suhf_prog    = 'exscf'
  character(len=10) :: casci_prog   = 'pyscf'
  character(len=10) :: casscf_prog  = 'pyscf'
  character(len=10) :: dmrgci_prog  = 'pyscf'
@@ -770,6 +774,8 @@ end subroutine check_gms_path
    case('localm')    ! localization method
     read(longbuf(j+1:i-1),*) localm
     localm = ADJUSTL(localm)
+   case('loc_asrot')
+    loc_asrot = .true.
    case('ist')       ! the i-th strategy
     read(longbuf(j+1:i-1),*) ist
    case('ctrtype')   ! unconctracted-/ic-/FIC- MRCI
@@ -933,10 +939,12 @@ end subroutine check_gms_path
    gvb = .false.
   case(6) ! GVB/STO-6G GVB -> GVB/target basis set
    gvb = .true.; skiphf = .true.
+  case(7) ! SUHF
+   suhf = .true.; gvb = .false.
   case default
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: the parameter 'ist' is &
                     & out of range."
-   write(6,'(A)') 'Only 1~6 are allowed. See MOKIT manual $4.4.4 for details of&
+   write(6,'(A)') 'Only 1~7 are allowed. See MOKIT manual $4.4.4 for details of&
                   & ist.'
    stop
   end select

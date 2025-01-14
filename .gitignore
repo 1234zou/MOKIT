@@ -20,3 +20,4 @@ noarch/
 /test/*/*.chk
 /test/*/*.log
 /test/bas_fch2py/
+/test/ist7/

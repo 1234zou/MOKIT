@@ -1317,11 +1317,11 @@ subroutine determine_sph_or_cart(fchname, cart)
  deallocate(shltyp)
 end subroutine determine_sph_or_cart
 
-subroutine read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
+subroutine read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep)
  implicit none
  integer :: i, fid, idx(3), nvir
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
- character(len=7), parameter :: unofile = 'uno.out'
+ character(len=240), intent(in) :: unofile
  character(len=240) :: buf
  logical, intent(out) :: lin_dep
 

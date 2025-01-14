@@ -176,9 +176,9 @@ subroutine do_cas(scf)
   call prt_strategy()
  end if
 
- if(ist<1 .or. ist>6) then
+ if(ist<1 .or. ist>7) then
   write(6,'(/,A)') 'ERROR in subroutine do_cas: invalid ist.'
-  write(6,'(A,I0)') 'Allowed values are 1~6. But got ist=', ist
+  write(6,'(A,I0)') 'Allowed values are 1~7. But got ist=', ist
   stop
  end if
 
@@ -202,6 +202,9 @@ subroutine do_cas(scf)
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another filename
  case(5)
   fchname = hf_fch
+ case(7) ! SUNO -> CASCI/CASSCF
+  call find_specified_suffix(hf_fch, '.fch', i)
+  fchname = hf_fch(1:i-1)//'_suno.fch'
  end select
 
  proname = ' '
@@ -224,6 +227,12 @@ subroutine do_cas(scf)
    proname = hf_fch(1:i-1)//'_CASSCF'
   else
    proname = hf_fch(1:i-1)//'_CASCI'
+  end if
+ case(7)
+  if(scf) then
+   write(proname,'(A)') hf_fch(1:i-1)//'_suno2CASSCF'
+  else
+   write(proname,'(A)') hf_fch(1:i-1)//'_suno2CASCI'
   end if
  end select
  casnofch = TRIM(proname)//'_NO.fch'

@@ -92,6 +92,7 @@ subroutine automr(fname)
  call check_kywd_compatible()
 
  call do_hf(.true.)          ! RHF and/or UHF
+ call do_suhf()       ! SUHF
  call do_minimal_basis_gvb() ! GVB/STO-6G, only valid for ist=6
  call get_paired_LMO()
  call do_gvb()        ! GVB
@@ -140,7 +141,7 @@ end subroutine check_mokit_root
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
-  HFonly
+  HFonly, loc_asrot
  use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
   lin_dep, chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
@@ -149,6 +150,7 @@ subroutine get_paired_LMO()
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, pyname, outname, fchname
+ character(len=240) :: unofile
 
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return  ! no need for this subroutine
@@ -181,30 +183,39 @@ subroutine get_paired_LMO()
   end if
 
  else
-  if(ist == 1) then
+  select case(ist)
+  case(1)
    write(6,'(A)') 'Two sets of MOs, ist=1, invoke UNO associated rotation.'
-  else if(ist == 2) then
-   write(6,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
-  end if
-
-  fchname = hf_fch(1:i-1)//'_uno.fch'
-  if(ist == 1) then
+   fchname = hf_fch(1:i-1)//'_uno.fch'
    pyname = TRIM(proname)//'_uno_asrot.py'
    outname = TRIM(proname)//'_uno_asrot.out'
-  else
+  case(2)
+   write(6,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
+   fchname = hf_fch(1:i-1)//'_uno.fch'
    pyname = TRIM(proname)//'_uno.py'
    outname = TRIM(proname)//'_uno.out'
-  end if
-  call bas_fch2py_wrap(hf_fch, .false., pyname)
-  call prt_uno_script_into_py(pyname)
-  if(ist == 1) call prt_assoc_rot_script_into_py(pyname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
-  call submit_pyscf_job(pyname, .true.)
-  call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
+  case(7)
+   write(6,'(A)') 'Find SUHF, ist=7, SUNO (and asrot) is already done, skip.'
+   fchname = hf_fch(1:i-1)//'_suno.fch'
+  end select
 
-  ! when ist=2, GVB will not be performed, so we need to read variables before CASCI
+  if (ist == 1 .or. ist == 2) then
+   call bas_fch2py_wrap(hf_fch, .false., pyname)
+   call prt_uno_script_into_py(pyname)
+   if(ist == 1) call prt_assoc_rot_script_into_py(pyname, .false.)
+   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+   call submit_pyscf_job(pyname, .true.)
+   call calc_unpaired_from_fch(fchname, 1, .false., unpaired_e)
+  end if
+
+  ! when ist=2/7, GVB will not be performed, so we need to read variables before CASCI
   if(ist == 2) then
-   call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
+   unofile = 'uno.out'
+  else if(ist == 7) then
+   unofile = 'suno.out'
+  end if
+  if (ist == 2 .or. ist == 7) then
+   call read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep)
    ! find npair0: the number of active orbitals (NOON <- [0.02,0.98])
    call find_npair0_from_fch(fchname, nopen, npair0)
    ! determine the number of orbitals/electrons in following CAS/DMRG computations
@@ -585,13 +596,14 @@ subroutine prt_uno_script_into_py(pyname)
 end subroutine prt_uno_script_into_py
 
 ! print associated rotation into a given .py file
-subroutine prt_assoc_rot_script_into_py(pyname)
+subroutine prt_assoc_rot_script_into_py(pyname, suno)
  use mol, only: chem_core, ecp_core
  use mr_keyword, only : localm, hf_fch, nskip_uno, npair_wish
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
  character(len=240) :: buf, pyname1, assoc_fch, a_fch
  character(len=240), intent(in) :: pyname
+ logical, intent(in) :: suno
 
  ncore = chem_core - ecp_core
  pyname1 = TRIM(pyname)//'.t'
@@ -625,11 +637,12 @@ subroutine prt_assoc_rot_script_into_py(pyname)
  write(fid2,'(A)') 'from mokit.lib.mo_svd import proj_occ_get_act_vir'
  write(fid2,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort_pair'
  if(npair_wish > 0) then
-  write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, cal&
-                    &c_expect_value, \'
-  write(fid2,'(A)') ' get_u, sort_mo_by_ev, modify_uno_out'
+  write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, &
+                     &sort_mo_by_ev, modify_uno_out'
   write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
  end if
+ write(fid2,'(A)') 'from mokit.lib.util import get_npair_and_ovidx, get_Fii, &
+                    &get_Fii_native'
  write(fid2,'(A,/)') 'from shutil import copyfile'
 
  do while(.true.)
@@ -642,46 +655,53 @@ subroutine prt_assoc_rot_script_into_py(pyname)
 
  i = RENAME(TRIM(pyname1), TRIM(pyname))
  i = INDEX(hf_fch, '.fch', back=.true.)
- assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
- a_fch = hf_fch(1:i-1)//'_uno_asrot_a.fch'
+ if(suno) then
+  assoc_fch = hf_fch(1:i-1)//'_suno_asrot.fch'
+  a_fch = hf_fch(1:i-1)//'_suno_asrot_a.fch'
+ else
+  assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
+  a_fch = hf_fch(1:i-1)//'_uno_asrot_a.fch'
+ end if
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') "assoc_fch = '"//TRIM(assoc_fch)//"'"
  write(fid1,'(/,A)') '# associated rotation'
- write(fid1,'(A)') 'npair = np.int64((idx[1]-idx[0]-idx[2])/2)'
- write(fid1,'(A)') 'if(npair > 0):'
- write(fid1,'(A)') '  idx2 = idx[0] + npair - 1'
- write(fid1,'(A)') '  idx3 = idx2 + idx[2]'
- write(fid1,'(A)') '  idx1 = idx2 - npair'
- write(fid1,'(A)') '  idx4 = idx3 + npair'
- write(fid1,'(A,I0,A)') '  i = ',nskip_uno,' # pair(s) of UNO to be skipped'
- write(fid1,'(A)') '  occ_idx = range(idx1,idx2-i)'
- write(fid1,'(A)') '  vir_idx = range(idx3+i,idx4)'
+ write(fid1,'(A,I2)')   'nskip_uno = ', nskip_uno
+ write(fid1,'(A,I2,A)') 'npair, occ_idx, vir_idx = get_npair_and_ovidx(idx&
+                       &, nskip_uno)'
+ write(fid1,'(A)') 'if npair > 0:'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
   write(fid1,'(A)') "  occ_loc_orb = pm(mol.nbas,mol._bas[:,0],mol._bas[:,1],mo&
                     &l._bas[:,3],mol.cart,nbf,"
-  write(fid1,'(19X,A)') "npair-i,mf.mo_coeff[0][:,occ_idx],S,'mulliken')"
+  write(fid1,'(19X,A)') "npair-nskip_uno,mf.mo_coeff[0][:,occ_idx],S,'mulliken')"
  else ! Boys localization
   write(fid1,'(A)') '  mo_dipole = dipole_integral(mol, mf.mo_coeff[0][:,occ_id&
                       &x])'
-  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair-i, mf.mo_coeff[0][:,occ_id&
-                      &x], mo_dipole)'
+  write(fid1,'(A)') '  occ_loc_orb = boys(nbf, npair-nskip_uno, mf.mo_coeff[0]&
+                      &[:,occ_idx], mo_dipole)'
  end if
 
- write(fid1,'(A)') '  vir_loc_orb = assoc_rot(nbf, npair-i, mf.mo_coeff[0][:,oc&
-                     &c_idx], occ_loc_orb,'
- write(fid1,'(26X,A)') 'mf.mo_coeff[0][:,vir_idx])'
+ write(fid1,'(A)') '  vir_loc_orb = assoc_rot(nbf, npair-nskip_uno, mf.mo_coeff&
+                      &[0][:,occ_idx], occ_loc_orb,'
+ write(fid1,'(26X,A)') '  mf.mo_coeff[0][:,vir_idx])'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,occ_idx] = occ_loc_orb.copy()'
  write(fid1,'(A)') '  mf.mo_coeff[0][:,vir_idx] = vir_loc_orb.copy()'
  write(fid1,'(A)') '# localization done'
 
 ! write(fid1,'(/,A)') '# using projection to supplement pairs (if needed)'
  write(fid1,'(/,A)') '# save associated rotation MOs into .fch(k) file'
- write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
- write(fid1,'(A)') 'noon = np.zeros(nif)'
- write(fid1,'(A)') "py2fch(assoc_fch,nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
- write(fid1,'(A,/)') 'sort_pair(assoc_fch, uno_fch, npair)'
+ if(suno) then
+  write(fid1,'(A)') 'copyfile(suno_fch, assoc_fch)'
+  write(fid1,'(A)') 'noon = np.zeros(nif)'
+  write(fid1,'(A)') "py2fch(assoc_fch,nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
+  write(fid1,'(A,/)') 'sort_pair(assoc_fch, suno_fch, npair)'
+ else
+  write(fid1,'(A)') 'copyfile(uno_fch, assoc_fch)'
+  write(fid1,'(A)') 'noon = np.zeros(nif)'
+  write(fid1,'(A)') "py2fch(assoc_fch,nbf,nif,mf.mo_coeff[0],'a',noon,False,False)"
+  write(fid1,'(A,/)') 'sort_pair(assoc_fch, uno_fch, npair)'
+ end if
 
  if(npair_wish > 0) then ! the user may want more pairs
   write(fid1,'(A,I0)') 'npair_wish = ', npair_wish
@@ -698,9 +718,15 @@ subroutine prt_assoc_rot_script_into_py(pyname)
   write(fid1,'(16X,A)') "nbf,ncore,mf.mo_coeff[0][:,:ncore],S,'mulliken')"
   write(fid1,'(A)') '  mf.mo_coeff[0][:,:ncore] = core_lmo.copy()'
   write(fid1,'(A)') '  # calculate <i|F_a|i>'
-  write(fid1,'(A)') '  u = get_u(nbf, nif, mo_a, mf.mo_coeff[0])'
   write(fid1,'(A)') "  ev_a = read_eigenvalues_from_fch(hf_fch, nif, 'a')"
-  write(fid1,'(A)') '  new_ev = calc_expect_value(nif, u, ev_a)'
+  ! for SUHF, there's no GVB step, so the following code for suno is not needed 
+  ! actually. Keep them for future use.
+  if (suno) then
+   write(fid1,'(A)') '  new_ev = get_Fii_native(mf, mf.mo_coeff[0], sunoon)'
+  else
+   write(fid1,'(A)') '  new_ev = get_Fii(nbf, nif, mo_a, mf.mo_coeff[0], ev_a)'
+  end if
+
   write(fid1,'(A)') '  # sort doubly occupied MOs as <i|F_a|i>'
   write(fid1,'(A)') '  core_lmo, core_ev = sort_mo_by_ev(nbf, ncore, mf.mo_coef&
                     &f[0][:,:ncore], new_ev[:ncore])'
@@ -716,7 +742,11 @@ subroutine prt_assoc_rot_script_into_py(pyname)
   write(fid1,'(A)') "  a_fch = '"//TRIM(a_fch)//"'"
   write(fid1,'(A)') '  os.rename(a_fch, assoc_fch)'
   write(fid1,'(A)') '  npair = npair_wish'
-  write(fid1,'(A,/)') '  modify_uno_out(ncore-nadd, npair, na-nb)'
+  if(suno) then
+   write(fid1,'(A)') "  modify_uno_out('suno.out', ncore-nadd, npair, na-nb)"
+  else
+   write(fid1,'(A)') "  modify_uno_out('uno.out', ncore-nadd, npair, na-nb)"
+  end if
  end if
 
  close(fid1)
