@@ -570,14 +570,16 @@ subroutine read_sym_mat_from_npy(npyname, n, a)
 end subroutine read_sym_mat_from_npy
 
 ! modify the file uno.out
-subroutine modify_uno_out(ndb, npair, nopen)
+subroutine modify_uno_out(unofile, ndb, npair, nopen)
  implicit none
  integer :: k, fid, idx(3)
  integer, intent(in) :: ndb, npair, nopen
 !f2py intent(in) :: ndb, npair, nopen
+ character(len=240), intent(in) :: unofile
+!f2py intent(in) :: unofile
  character(len=240) :: buf
 
- open(newunit=fid,file='uno.out',status='old',position='append')
+ open(newunit=fid,file=unofile,status='old',position='append')
 
  do while(.true.)
   BACKSPACE(fid)

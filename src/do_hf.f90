@@ -114,7 +114,7 @@ subroutine do_hf(prt_mr_strategy)
  !  guess .fch file.
  ! 3) Then the input file will be submitted to PSI4/ORCA, respectively.
 
- if(mult==1 .and. (.not.frag_guess)) then
+ if(mult==1 .and. (.not.frag_guess) .and. (ist /= 7)) then
   call gen_hf_inp(hf_prog, rhf_inp, .false., noiter)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_inp))
   call do_scf_and_read_e(gau_path, hf_prog_path, rhf_inp, .false., rhf_e, ssquare)
@@ -143,12 +143,12 @@ subroutine do_hf(prt_mr_strategy)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_inp))
   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp, .false., uhf_e, ssquare)
   write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
-  ist = 1
+  if(ist /= 7) ist = 1
   mo_rhf = .false.
   hf_fch = TRIM(proname)//'_uhf.fch'
  end if
 
- if(prt_mr_strategy) then
+ if(prt_mr_strategy .and. (ist /= 7)) then
   write(6,'(A)') 'Strategy updated:'
   call prt_strategy()
  end if

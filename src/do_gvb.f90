@@ -13,7 +13,7 @@ subroutine do_gvb()
  integer :: i, nvir
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, datname,&
-                       gmsname
+                       gmsname, unofile
  logical :: pm_loc
 
  if(.not. gvb) return
@@ -31,7 +31,8 @@ subroutine do_gvb()
  proname = hf_fch(1:i-1)
 
  ! In RHF virtual MO projection, it will generate a file uno.out additionally
- call read_npair_from_uno_out(nbf, nif, ndb, npair, nopen, lin_dep)
+ unofile = 'uno.out'
+ call read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep)
  write(6,'(2(A,L1))') 'LocDocc=', LocDocc, ', Lin_dep=', lin_dep
 
  if(npair_wish>0 .and. npair_wish/=npair) then
