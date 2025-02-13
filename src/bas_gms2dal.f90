@@ -79,8 +79,8 @@ subroutine bas_gms2dal(fort7, spherical)
  case(2)  ! DKH2
   write(fid1,'(A)') '.DOUGLAS-KROLL'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine bas_gms2dal: Dalton supports only the&
-                  & DKH2 relativistic'
+  write(6,'(/,A)') 'ERROR in subroutine bas_gms2dal: Dalton supports only the &
+                   &DKH2 relativistic'
   write(6,'(A,I0)') 'Hamiltonian. But the variable rel=', rel
   stop
  end select

@@ -217,17 +217,17 @@ end subroutine mo_svd
 !    a large basis set, leading to virtual orbitals of the small basis set
 ! 2) project virtual MOs of the large basis set onto those orbitals of the small
 !    basis set
-subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, coeff)
+subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, s2, cross_s, coeff1, coeff)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_and_rotate2
  implicit none
  integer :: i, j, nmo2, nvir1, nvir2
  integer :: nbf1, nmo1, nbf2, na_np
 !f2py intent(in) :: nbf1, nmo1, nbf2, na_np
- real(kind=8) :: S2(nbf2,nbf2), cross_S(nbf1,nbf2)
-!f2py intent(in,copy) :: S2
-!f2py intent(in) :: cross_S
-!f2py depend(nbf2) :: S2
-!f2py depend(nbf1,nbf2) :: cross_S
+ real(kind=8) :: s2(nbf2,nbf2), cross_s(nbf1,nbf2)
+!f2py intent(in,copy) :: s2
+!f2py intent(in) :: cross_s
+!f2py depend(nbf2) :: s2
+!f2py depend(nbf1,nbf2) :: cross_s
  real(kind=8) :: coeff1(nbf1,nmo1), coeff(nbf1,nmo1)
 !f2py intent(in,copy) :: coeff1
 !f2py intent(out) :: coeff
@@ -241,7 +241,7 @@ subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, co
 
  ! U^(T)SU = s, X = Us^(-1/2), a orthonormal set of MOs of small basis set
  allocate(sv(nbf2))
- call diag_get_e_and_vec(nbf2, S2, sv)
+ call diag_get_e_and_vec(nbf2, s2, sv)
  nmo2 = COUNT(sv > 1d-6)
  if(na_np >= nmo2) then
   write(6,'(/,A)') 'ERROR in subroutine proj_occ_get_act_vir: na_np>=nmo2.'
@@ -254,13 +254,13 @@ subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, co
  sv2 = 0d0
  j = nbf2 - nmo2
  forall(i = 1:nmo2) sv2(i,i) = 1d0/DSQRT(sv(j+i))
- call dgemm('N', 'N', nbf2, nmo2, nmo2, 1d0, S2(j+1:nbf2,j+1:nbf2), nbf2, sv2,&
+ call dgemm('N', 'N', nbf2, nmo2, nmo2, 1d0, s2(j+1:nbf2,j+1:nbf2), nbf2, sv2,&
             nmo2, 0d0, coeff2, nbf2)
  deallocate(sv, sv2)
 
  allocate(mo_ovlp(nmo2,na_np))
  call get_mo_basis_ovlp2(nbf2, nmo2, nbf1, na_np, coeff2, coeff1(:,1:na_np), &
-                         TRANSPOSE(cross_S), mo_ovlp)
+                         TRANSPOSE(cross_s), mo_ovlp)
 
  coeff(:,1:na_np) = coeff1(:,1:na_np)
  allocate(sv(nmo2))
@@ -274,7 +274,7 @@ subroutine proj_occ_get_act_vir(nbf1, nmo1, nbf2, na_np, S2, cross_S, coeff1, co
  nvir2 = nmo2 - na_np
  allocate(mo_ovlp(nvir1,nvir2))
  call get_mo_basis_ovlp2(nbf1, nvir1, nbf2, nvir2, coeff1(:,na_np+1:nmo1), &
-                         coeff2(:,na_np+1:nmo2), cross_S, mo_ovlp)
+                         coeff2(:,na_np+1:nmo2), cross_s, mo_ovlp)
  allocate(sv(nvir1))
  call svd_and_rotate2(nbf1, nvir1, nbf2, nvir2, coeff1(:,na_np+1:nmo1), &
                       coeff2(:,na_np+1:nmo2), mo_ovlp, sv, .false.)
@@ -367,7 +367,7 @@ end subroutine orb_resemble
 ! unitary transformation of input. It is useful when we only input some
 ! specified orbitals, but not all orbitals. The output orbitals will still be
 ! orthogonal to remaining MOs beyond this subroutine.
-subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, ao_S1, cross_S, move)
+subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_s, move)
  use mo_ovlp_and_svd, only: get_mo_basis_ovlp2, svd_on_ovlp
  implicit none
  integer :: i, j, niter
@@ -382,11 +382,10 @@ subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, ao_S1, cross_S, m
  real(kind=8), intent(inout) :: mo1(nbf1,nmo1)
 !f2py intent(inout) :: mo1
 !f2py depend(nbf1,nmo1) :: mo1
- real(kind=8), intent(in) :: mo2(nbf2,nmo2), ao_S1(nbf1,nbf1), cross_S(nbf1,nbf2)
-!f2py intent(in) :: mo2, ao_S1, cross_S
+ real(kind=8), intent(in) :: mo2(nbf2,nmo2), cross_s(nbf1,nbf2)
+!f2py intent(in) :: mo2, cross_s
 !f2py depend(nbf2,nmo2) :: mo2
-!f2py depend(nbf1,nbf1) :: ao_S1
-!f2py depend(nbf1,nbf2) :: cross_S
+!f2py depend(nbf1,nbf2) :: cross_s
  real(kind=8), allocatable :: S(:,:), u(:,:), vt(:,:), w(:), new_mo1(:,:)
  logical, intent(in) :: move
 !f2py intent(in) :: move
@@ -400,7 +399,7 @@ subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, ao_S1, cross_S, m
 
  ! transform cross AO overlap to MO overlap
  allocate(S(nmo1,nmo2))
- call get_mo_basis_ovlp2(nbf1, nmo1, nbf2, nmo2, mo1, mo2, cross_S, S)
+ call get_mo_basis_ovlp2(nbf1, nmo1, nbf2, nmo2, mo1, mo2, cross_s, S)
 
  ! perform SVD on MO-based overlap matrix S
  allocate(u(nmo1,nmo1), vt(nmo2,nmo2), w(nmo1))
@@ -419,7 +418,7 @@ subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, ao_S1, cross_S, m
 
  ! calculate new MO overlap for 1~n2 MOs
  allocate(S(nmo2,nmo2))
- call get_mo_basis_ovlp2(nbf1, nmo2, nbf2, nmo2, mo1(:,1:nmo2), mo2, cross_S, S)
+ call get_mo_basis_ovlp2(nbf1, nmo2, nbf2, nmo2, mo1(:,1:nmo2), mo2, cross_s, S)
 
  allocate(u(nbf1,2), vt(nmo2,2))
  niter = 0

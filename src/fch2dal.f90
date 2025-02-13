@@ -164,23 +164,36 @@ subroutine fch2dal(fchname)
  end if
  close(fid,status='delete')
 
+ write(fid1,'(A)') '.PUNCHOUTPUTORBITALS'
  write(fid1,'(A)') '.MOSTART'
  write(fid1,'(A)') 'FORM18'
- write(fid1,'(A)') '.PUNCHOUTPUTORBITALS'
+
+ ! For basis set linear dependency, Dalton require it to be printed as 0.0
+ if(nif < nbf) then
+  write(fid1,'(A)') '.DELETE'
+  write(fid1,'(I0)') nbf-nif
+  allocate(coeff0(nbf,nbf))
+  coeff0(:,1:nif) = coeff
+  coeff0(:,nif+1:nbf) = 0d0
+ else
+  allocate(coeff0(nbf,nif), source=coeff)
+ end if
+ deallocate(coeff)
+
  data_string = ' '
  call fdate(data_string)
  write(fid1,'(A)') '**MOLORB (punched by fch2dal of MOKIT '//TRIM(data_string)//')'
- do i = 1, nif, 1
-  write(fid1,'(4F18.14)') (coeff(k,i),k=1,nbf)
+ do i = 1, nbf, 1
+  write(fid1,'(4F18.14)') (coeff0(k,i),k=1,nbf)
  end do ! for i
- deallocate(coeff)
+ deallocate(coeff0)
 
  write(fid1,'(A)') '**END OF INPUT'
  close(fid1)
  i = RENAME(TRIM(dalfile1), TRIM(dalfile))
 end subroutine fch2dal
 
-! ultrafine in Dalton is
+! DFT ultrafine grid in Dalton is
 !*DFT INPUT
 !.ULTRAF
 ! which may be used in the future

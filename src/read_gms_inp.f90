@@ -46,13 +46,17 @@ end module pg
 module lo_info
  implicit none
  integer :: np, npair, eff_npair, nsweep
- integer, parameter :: niter_max = 999 ! maximum iterations
+ integer, parameter :: max_niter = 999 ! maximum iterations
  ! When the rotation angle alpha fulfills |alpha|<=PI/4 and no (effect) rotation
- ! is missing in a sweep, the number of iterations is usualy very small.
+ ! is missing in a sweep, only a few iterations are needed usually.
+ integer, parameter :: max_ncenter = 670
+ ! maximum number of centers of an MO
  integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
  real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
  real(kind=8), parameter :: HPI = 2d0*DATAN(1d0) ! PI/2
- real(kind=8), parameter :: dis_thres = 16d0
+ real(kind=8), parameter :: ovlp_thres = 0.56d0
+ ! threshold to generate Cholesky LMOs
+ real(kind=8), parameter :: dis_thres = 17d0
  ! dis_thres = 16d0   ! A, boys, pbc water512
  ! dis_thres = 14.0d0 ! A, boys, pbc water128
  ! dis_thres = 10.5d0 ! A, boys, pbc water64
@@ -91,78 +95,74 @@ subroutine free_para22_idx_map()
  deallocate(ijmap, rrmap, rot_idx)
 end subroutine free_para22_idx_map
 
-! The same subroutine to get_mo_center_from_pop in math_sub.f90, except that
-! here we use the 3d array gross, not 2d array in get_mo_center_from_pop. This
-! is to avoid copying matrix elements of gross and saving time.
-subroutine get_mo_center_from_gross(natom, nmo, gross, mo_center)
+! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
+subroutine get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
  implicit none
- integer :: i, j, k, m, ak(1)
- integer, intent(in) :: natom, nmo
- integer, intent(out) :: mo_center(0:8,nmo)
- real(kind=8) :: r
+ integer :: i, j, k, m, i1, i2, ak(1)
+ integer, intent(in) :: natom, nbf, nmo, ncenter
+ integer, intent(in) :: bfirst(natom+1)
+ integer, intent(out) :: mo_center(0:ncenter,nmo)
+ real(kind=8) :: r1, r2, sum_r
  real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
- ! diff: difference between the largest and the 2nd largest component
- real(kind=8), intent(in) :: gross(natom,nmo,nmo)
+ real(kind=8), intent(in) :: mo(nbf,nmo)
+ real(kind=8), allocatable :: tmp_mo(:), gross(:)
+
+ allocate(tmp_mo(nbf), gross(natom))
 
 !$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,gross,mo_center)
+!$omp shared(natom,nmo,ncenter,mo,bfirst,mo_center)
  do i = 1, nmo, 1
+  tmp_mo = mo(:,i)**2
+  tmp_mo = tmp_mo/SUM(tmp_mo)
+  do j = 1, natom, 1
+   i1 = bfirst(j); i2 = bfirst(j+1) - 1
+   gross(j) = SUM(tmp_mo(i1:i2))
+  end do ! for j
+
   ! the largest component on an atom of an orbital
-  ak = MAXLOC(gross(:,i,i)); k = ak(1); r = gross(k,i,i)
+  ak = MAXLOC(gross); k = ak(1)
+  r1 = gross(k); sum_r = r1
   mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
   ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
+  if(r1 > pop_thres) cycle
 
   ! find the 2nd largest component and so on
   do j = 1, natom, 1
    if(j == k) cycle
-   if(r - gross(j,i,i) < diff) then
+   r2 = gross(j)
+   if(r1 - r2 < diff) then
     m = m + 1
-    if(m > 8) then
-     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_gross: ncenter>8.&
-                      & MOs are too'
-     write(6,'(A,2I7)') 'delocalized. natom, nmo=', natom, nmo
+    if(m > ncenter) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_by_scpa: MOs are too d&
+                      &elocalized.'
+     write(6,'(A,3I7)') 'natom, nmo, i=', natom, nmo, i
      stop
     end if
     mo_center(m,i) = j
+    sum_r = sum_r + r2
+    if(sum_r > pop_thres) exit
    end if
   end do ! for j
 
   mo_center(0,i) = m
  end do ! for i
 !$omp end parallel do
-end subroutine get_mo_center_from_gross
 
-! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
-subroutine get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_center)
+ deallocate(tmp_mo, gross)
+end subroutine get_mo_center_by_scpa
+
+subroutine get_mo_center_from_diag_gross(natom, nmo, ncenter, gross, mo_center)
  implicit none
- integer :: i, j, k, m, i1, i2, ak(1)
- integer, intent(in) :: natom, nbf, nmo
- integer, intent(in) :: bfirst(natom+1)
- integer, intent(out) :: mo_center(0:8,nmo)
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: natom, nmo, ncenter
+ integer, intent(out) :: mo_center(0:ncenter,nmo)
  real(kind=8) :: r
- real(kind=8), parameter :: diff = 0.02d0, pop_thres = 0.7d0
- real(kind=8), intent(in) :: mo(nbf,nmo)
- real(kind=8), allocatable :: tmp_mo(:), gross(:,:)
-
- allocate(tmp_mo(nbf), gross(natom,nmo))
+ real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+ ! diff: difference between the largest and the 2nd largest component
+ real(kind=8), intent(in) :: gross(natom,nmo)
 
 !$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,bfirst,mo,gross)
- do i = 1, nmo, 1
-  tmp_mo = mo(:,i)**2
-  tmp_mo = tmp_mo/SUM(tmp_mo)
-  do j = 1, natom, 1
-   i1 = bfirst(j); i2 = bfirst(j+1) - 1
-   gross(j,i) = SUM(tmp_mo(i1:i2))
-  end do ! for k
- end do ! for i
-!$omp end parallel do
-
- deallocate(tmp_mo)
-
-!$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,gross,mo_center)
+!$omp shared(natom,nmo,ncenter,gross,mo_center)
  do i = 1, nmo, 1
   ! the largest component on an atom of an orbital
   ak = MAXLOC(gross(:,i)); k = ak(1); r = gross(k,i)
@@ -175,10 +175,10 @@ subroutine get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_center)
    if(j == k) cycle
    if(r - gross(j,i) < diff) then
     m = m + 1
-    if(m > 8) then
-     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_by_scpa: ncenter>8. MO&
-                      &s are too'
-     write(6,'(A,3I7)') 'delocalized. natom, nmo, i=', natom, nmo, i
+    if(m > ncenter) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_diag_gross: MOs a&
+                      &re too'
+     write(6,'(A,2I7)') 'delocalized. natom, nmo=', natom, nmo
      stop
     end if
     mo_center(m,i) = j
@@ -188,37 +188,56 @@ subroutine get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_center)
   mo_center(0,i) = m
  end do ! for i
 !$omp end parallel do
+end subroutine get_mo_center_from_diag_gross
 
- deallocate(gross)
-end subroutine get_mo_center_by_scpa
+! The same subroutine to get_mo_center_from_pop in math_sub.f90, except that
+! here we use the 3d array gross, not 2d array in get_mo_center_from_pop. This
+! is to avoid copying matrix elements of gross and saving time.
+subroutine get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
+ implicit none
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: natom, nmo, ncenter
+ integer, intent(out) :: mo_center(0:ncenter,nmo)
+ real(kind=8) :: r
+ real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+ ! diff: difference between the largest and the 2nd largest component
+ real(kind=8), intent(in) :: gross(natom,nmo,nmo)
 
-! Find/get distance matrix of MOs using the corresponding MO dipole integrals.
-! Note: the input mo_dipole is supposed to be in Angstrom, so that mo_dis is in
-! Angstrom.
-!subroutine get_mo_dis_from_dipole(nmo, mo_dipole, mo_dis)
-! implicit none
-! integer :: i, j, n
-! integer, intent(in) :: nmo
-! real(kind=8) :: r(3)
-! real(kind=8), intent(in) :: mo_dipole(3,nmo,nmo)
-! real(kind=8), intent(out) :: mo_dis(nmo*(nmo-1)/2)
-!
-!!$omp parallel do schedule(dynamic) default(private) &
-!!$omp shared(npair,ijmap,mo_dipole,mo_dis)
-! do n = 1, npair, 1
-!  i = ijmap(1,n); j = ijmap(2,n)
-!  r = mo_dipole(:,i,i) - mo_dipole(:,j,j)
-!  mo_dis(n) = DSQRT(DOT_PRODUCT(r,r))
-! end do ! for n
-!!$omp end parallel do
-!end subroutine get_mo_dis_from_dipole
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,ncenter,gross,mo_center)
+ do i = 1, nmo, 1
+  ! the largest component on an atom of an orbital
+  ak = MAXLOC(gross(:,i,i)); k = ak(1); r = gross(k,i,i)
+  mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
+  ! if this is lone pair, no need to check the 2nd largest component
+  if(r > pop_thres) cycle
+
+  ! find the 2nd largest component and so on
+  do j = 1, natom, 1
+   if(j == k) cycle
+   if(r - gross(j,i,i) < diff) then
+    m = m + 1
+    if(m > ncenter) then
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_gross: MOs are to&
+                      &o delocalized.'
+     write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
+     stop
+    end if
+    mo_center(m,i) = j
+   end if
+  end do ! for j
+
+  mo_center(0,i) = m
+ end do ! for i
+!$omp end parallel do
+end subroutine get_mo_center_from_gross
 
 ! find/get the distance matrix of MOs from the distance matrix of atoms
-subroutine atm_dis2mo_dis(natom, nmo, dis, mo_center, mo_dis)
+subroutine atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
  implicit none
  integer :: i, j, k, m, n, k1, nc1, nc2
- integer, intent(in) :: natom, nmo
- integer, intent(in) :: mo_center(0:8,nmo)
+ integer, intent(in) :: natom, nmo, ncenter
+ integer, intent(in) :: mo_center(0:ncenter,nmo)
  real(kind=8) :: r, min_dis
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(out) :: mo_dis(nmo*(nmo-1)/2)
@@ -266,61 +285,6 @@ subroutine atm_dis2mo_dis(natom, nmo, dis, mo_center, mo_dis)
 !$omp end parallel do
 end subroutine atm_dis2mo_dis
 
-!! find/get the distance matrix of MOs from the distance matrix of atoms
-!subroutine atm_dis2mo_dis2(natom, nmo, dis, mo_center, mo_dis)
-! implicit none
-! integer :: i, j, k, m, n, k1, nc1, nc2
-! integer, intent(in) :: natom, nmo
-! integer, intent(in) :: mo_center(0:8,nmo)
-! real(kind=8) :: r, min_dis
-! real(kind=8), intent(in) :: dis(natom,natom)
-! real(kind=8), intent(out) :: mo_dis(nmo,nmo)
-!
-! if(ANY(mo_center(0,:)==0)) then
-!  write(6,'(/,A)') 'ERROR in subroutine atm_dis2mo_dis2: some MO does not have &
-!                   &its center.'
-!  write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
-!  write(6,'(A)') 'mo_center(0,:)='
-!  write(6,'(12I7)') mo_center(0,:)
-!  stop
-! end if
-!
-! forall(i = 1:nmo) mo_dis(i,i) = 0d0
-!
-!!$omp parallel do schedule(dynamic) default(private) &
-!!$omp shared(npair,ijmap,mo_center,dis,mo_dis)
-! do n = 1, npair, 1
-!  i = ijmap(1,n); j = ijmap(2,n)
-!  min_dis = dis(mo_center(1,i),mo_center(1,j))
-!  nc1 = mo_center(0,i); nc2 = mo_center(0,j)
-!
-!  if(nc1>1 .and. nc2>1) then
-!   do k = 1, nc1, 1
-!    k1 = mo_center(k,i)
-!    do m = 1, nc2, 1
-!     r = dis(mo_center(m,j),k1)
-!     if(r < min_dis) min_dis = r
-!    end do ! for m
-!   end do ! for k
-!  else if(nc1==1 .and. nc2>1) then
-!   k1 = mo_center(1,i)
-!   do m = 1, nc2, 1
-!    r = dis(mo_center(m,j),k1)
-!    if(r < min_dis) min_dis = r
-!   end do ! for m
-!  else if(nc1>1 .and. nc2==1) then
-!   k1 = mo_center(1,j)
-!   do k = 1, nc1, 1
-!    r = dis(mo_center(k,i),k1)
-!    if(r < min_dis) min_dis = r
-!   end do ! for k
-!  end if
-!
-!  mo_dis(j,i) = min_dis; mo_dis(i,j) = min_dis
-! end do ! for n
-!!$omp end parallel do
-!end subroutine atm_dis2mo_dis2
-
 ! Find effective i-j map using the distance matrix of MOs, i.e. create/update
 ! the eff_ijmap array.
 subroutine find_eff_ijmap(nmo, mo_dis)
@@ -355,13 +319,10 @@ subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
  do i = 1, nsweep, 1
   k = 0
   do j = 1, np, 1
-   k1 = rrmap(1,j,i); k2 = rrmap(2,j,i)
-   if(k1>0 .and. k2>0) then
-    if(k1 < k2) then
-     k3 = (m-k1)*(k1-1)/2 + k2 - k1
-    else
-     k3 = (m-k2)*(k2-1)/2 + k1 - k2
-    end if
+   k1 = MIN(rrmap(1,j,i), rrmap(2,j,i))
+   k2 = MAX(rrmap(1,j,i), rrmap(2,j,i))
+   if(k1 > 0) then
+    k3 = (m-k1)*(k1-1)/2 + k2 - k1
     if(mo_dis(k3) < dis_thres) k = k + 1
    end if
   end do ! for j
@@ -375,13 +336,10 @@ subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
  do i = 1, nsweep, 1
   k = 0
   do j = 1, np, 1
-   k1 = rrmap(1,j,i); k2 = rrmap(2,j,i)
-   if(k1>0 .and. k2>0) then
-    if(k1 < k2) then
-     k3 = (m-k1)*(k1-1)/2 + k2 - k1
-    else
-     k3 = (m-k2)*(k2-1)/2 + k1 - k2
-    end if
+   k1 = MIN(rrmap(1,j,i), rrmap(2,j,i))
+   k2 = MAX(rrmap(1,j,i), rrmap(2,j,i))
+   if(k1 > 0) then
+    k3 = (m-k1)*(k1-1)/2 + k2 - k1
     if(mo_dis(k3) < dis_thres) then
      k = k + 1
      rot_idx(i)%pair_idx(:,k) = [k1,k2]
@@ -394,16 +352,16 @@ end subroutine init_round_robin_idx_with_dis
 
 subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
  implicit none
- integer :: i, j, k, m
+ integer :: i, j, m
  integer, intent(in) :: nbf, nmo
  real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
-  sin_2a, cos_2a
+  sin_2a, cos_2a, vdiff(3), vtmp(3,3)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
  real(kind=8), intent(out) :: change
- real(kind=8), allocatable :: dipole(:,:,:), tmp_mo(:), vtmp(:,:), vdiff(:)
+ real(kind=8), allocatable :: tmp_mo(:)
 
  change = 0d0
- allocate(dipole(3,nmo,2), tmp_mo(nbf), vtmp(3,3), vdiff(3))
+ allocate(tmp_mo(nbf))
 
  do m = 1, eff_npair, 1
   i = eff_ijmap(1,m); j = eff_ijmap(2,m)
@@ -429,50 +387,41 @@ subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
   cos_a = DCOS(alpha); sin_a = DSIN(alpha)
 
   ! update two orbitals
+!dir$ ivdep
   tmp_mo = coeff(:,i)
+!dir$ ivdep
   coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+!dir$ ivdep
   coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
 
-  ! update corresponding dipole integrals, only indices in range to be updated
+  ! update corresponding dipole integrals
   cc = cos_a*cos_a
   ss = sin_a*sin_a
   sin_2a = 2d0*sin_a*cos_a
   cos_2a = cc - ss
-  dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
-  dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
-  dipole(:,j,1) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
-  dipole(:,i,2) = dipole(:,j,1)
-
-  ! It seems that OpenMP makes this loop slower
-  do k = 1, nmo, 1
-   if(k==i .or. k==j) cycle
-   dipole(:,k,1) = cos_a*mo_dipole(:,k,i) + sin_a*mo_dipole(:,k,j)
-   dipole(:,k,2) = cos_a*mo_dipole(:,k,j) - sin_a*mo_dipole(:,k,i)
-  end do ! for k
-
-  mo_dipole(:,:,i) = dipole(:,:,1)
-  mo_dipole(:,:,j) = dipole(:,:,2)
-  mo_dipole(:,i,:) = dipole(:,:,1)
-  mo_dipole(:,j,:) = dipole(:,:,2)
+  mo_dipole(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  mo_dipole(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  mo_dipole(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  call update_up_tri_ij_dipole(nmo, i, j, cos_a, sin_a, mo_dipole)
  end do ! for m
 
- deallocate(eff_ijmap, dipole, tmp_mo, vtmp, vdiff)
+ deallocate(eff_ijmap, tmp_mo)
 end subroutine serial22boys_kernel
 
 subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
  implicit none
- integer :: i, j, k, m, n, npair0
+ integer :: i, j, m, n, npair0
  integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:,:)
- real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, &
+  vdiff(3), vtmp(3,3)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
  real(kind=8), intent(out) :: change
- real(kind=8), allocatable :: vtmp(:,:), cos_a(:), sin_a(:), dipole(:), &
-                              tmp_mo(:), vdiff(:)
+ real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
  logical, allocatable :: skip(:)
 
  change = 0d0
- allocate(dipole(3), tmp_mo(nbf), vtmp(3,3), vdiff(3))
+ allocate(tmp_mo(nbf))
 
  do m = 1, nsweep, 1
   npair0 = rot_idx(m)%npair
@@ -482,10 +431,10 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
   allocate(skip(npair0))
   skip = .false.
 
-!$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
-!$omp shared(npair0,cos_a,sin_a,idx,mo_dipole,coeff,skip)
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp shared(npair0,cos_a,sin_a,idx,mo_dipole,coeff,skip)
   do n = 1, npair0, 1
-   i = idx(1,n); j = idx(2,n)
+   i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
    vtmp(:,1) = mo_dipole(:,i,i)
    vtmp(:,2) = mo_dipole(:,j,i)
    vtmp(:,3) = mo_dipole(:,j,j)
@@ -511,11 +460,14 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
    cos_a(n) = DCOS(alpha); sin_a(n) = DSIN(alpha)
 
    ! update two orbitals
+!dir$ ivdep
    tmp_mo = coeff(:,i)
+!dir$ ivdep
    coeff(:,i) = cos_a(n)*tmp_mo + sin_a(n)*coeff(:,j)
+!dir$ ivdep
    coeff(:,j) = cos_a(n)*coeff(:,j) - sin_a(n)*tmp_mo
 
-   ! update corresponding dipole integrals, only indices in range to be updated
+   ! update corresponding dipole integrals
    cc = cos_a(n)*cos_a(n)
    ss = sin_a(n)*sin_a(n)
    sin_2a = 2d0*sin_a(n)*cos_a(n)
@@ -523,29 +475,20 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
    mo_dipole(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
    mo_dipole(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
    mo_dipole(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
-   mo_dipole(:,i,j) = mo_dipole(:,j,i)
   end do ! for n
-!$omp end parallel do
+  !$omp end parallel do
 
   ! update remaining off-diagonal elements of mo_dipole(:,x,y)
   do n = 1, npair0, 1
    if(skip(n)) cycle
-   i = idx(1,n); j = idx(2,n)
-   cc = cos_a(n); ss = sin_a(n)
-   do k = 1, nmo, 1
-    if(k==i .or. k==j) cycle
-    dipole = mo_dipole(:,k,i)
-    mo_dipole(:,k,i) = cc*dipole + ss*mo_dipole(:,k,j)
-    mo_dipole(:,k,j) = cc*mo_dipole(:,k,j) - ss*dipole
-   end do ! for k
-   mo_dipole(:,i,:) = mo_dipole(:,:,i)
-   mo_dipole(:,j,:) = mo_dipole(:,:,j)
+   call update_up_tri_ij_dipole(nmo, idx(1,n), idx(2,n), cos_a(n), sin_a(n), &
+                                mo_dipole)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
  end do ! for m
 
- deallocate(dipole, tmp_mo, vtmp, vdiff)
+ deallocate(tmp_mo)
 end subroutine para22boys_kernel
 
 subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)

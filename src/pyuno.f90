@@ -1,7 +1,7 @@
 ! written by jxzou at 20180331
 ! generate UHF natural orbtials (UNO) from UHF canonical orbitals
 
-! updated by jxzou at 20180420: to support nalpha > nbeta
+! updated by jxzou at 20180420: to support na > nb
 ! updated by jxzou at 20180520: modify the intent of array alpha_coeff from (inout) to (in,copy)
 ! updated by jxzou at 20180825: fix the bug when only 1 pair
 ! updated by jxzou at 20191215: delete SVD generation of virtual/inactive MOs (PAO outside recommanded)
@@ -10,62 +10,56 @@
 ! updated by jxzou at 20220711: change ON_thres to uno_thres
 
 ! This subroutine is designed to be imported as a module in Python.
-subroutine uno(nbf, nif, nalpha, nbeta, mo_a, mo_b, ao_ovlp, uno_thres, idx, &
-               noon, uno_coeff)
+subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, noon, &
+               uno_coeff)
  implicit none
- integer :: i, fid
- integer :: ndb, nact, nact0, nopen, nocc
+ integer :: i, ndb, nact, nact0, nopen, nocc, fid
  ! ndb: the number of doubly occupied MOs
  ! nact: the number of active occupied orbitals
  ! nact = nact0 + nopen
- ! nocc = nalpha + nact0
-
- integer :: nbf, nif, nalpha, nbeta
-!f2py intent(in) :: nbf, nif, nalpha, nbeta
+ ! nocc = na + nact0
+ integer, intent(in) :: nbf, nif, na, nb
+!f2py intent(in) :: nbf, nif, na, nb
  ! nbf: the number of basis functions
  ! nif: the number of independent functions, i.e., the number of MOs
- ! nalpha: the number of alpha electrons
- ! nbeta: the number of beta electrons
+ ! na: the number of alpha electrons
+ ! nb: the number of beta electrons
 
  ! array idx is in Fortran convention, i.e., begins from 1, not 0
- integer :: idx(3) ! 1: start of pair, 2: start of virtual, 3: nopen
+ integer, intent(out) :: idx(3) ! 1/2/3: start of pair/start of virtual/nopen
 !f2py intent(out) :: idx
  integer, allocatable :: idx1(:), idx2(:)
 
  real(kind=8) :: maxv, abs_mean
- real(kind=8), parameter :: ON_criteria = 1d-5
- real(kind=8) :: uno_thres ! UNO occupation number threshold
+ real(kind=8), intent(in) :: uno_thres ! UNO occupation number threshold
 !f2py intent(in) :: uno_thres
-
- real(kind=8) :: ao_ovlp(nbf,nbf)
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf) :: ao_ovlp
-
- real(kind=8) :: mo_a(nbf,nif), mo_b(nbf,nif)
-!f2py intent(in,copy) :: mo_a
-!f2py intent(in) :: mo_b
+ real(kind=8), intent(in) :: mo_a(nbf,nif), mo_b(nbf,nif)
+!f2py intent(in) :: mo_a, mo_b
 !f2py depend(nbf,nif) :: mo_a, mo_b
-
- real(kind=8) :: noon(nif), uno_coeff(nbf,nif)
+ real(kind=8), intent(out) :: noon(nif), uno_coeff(nbf,nif)
 !f2py intent(out) :: noon, uno_coeff
 !f2py depend(nif) :: noon
 !f2py depend(nbf,nif) :: uno_coeff
- real(kind=8), allocatable :: mo_ovlp(:,:), occ_a(:,:), occ_b(:,:)
- real(kind=8), allocatable :: sv_occ0(:), sv_occ(:)
- character(len=7), parameter :: outname = 'uno.out'
+ real(kind=8), parameter :: ON_criteria = 1d-5
+ real(kind=8), allocatable :: mo_ovlp(:,:), occ_a(:,:), occ_b(:,:), sv_occ0(:),&
+  sv_occ(:)
+ character(len=*), intent(in) :: outname
  character(len=63), parameter :: on_warn1 = 'Warning in subroutine uno: uno_th&
                                             &res deviates from ON_criteria.'
  character(len=35), parameter :: on_warn2 = 'You better know what you are doing.'
 
  noon = 0d0
- nopen = nalpha - nbeta
+ nopen = na - nb
  if(nopen < 0) then
-  write(6,'(/,A)') 'ERROR in subroutine uno: nalpha < nbeta.'
-  write(6,'(2(A,I0))') 'nalpha=', nalpha, ', nbeta=', nbeta
+  write(6,'(/,A)') 'ERROR in subroutine uno: na < nb.'
+  write(6,'(2(A,I0))') 'na=', na, ', nb=', nb
   stop
  end if
 
- open(newunit=fid,file=outname,status='replace')
+ open(newunit=fid,file=TRIM(outname),status='replace')
  write(fid,'(A4,I5)') 'nbf=', nbf
  write(fid,'(A4,I5)') 'nif=', nif
  write(fid,'(A,F11.7)') 'ON_criteria=', ON_criteria
@@ -93,39 +87,39 @@ subroutine uno(nbf, nif, nalpha, nbeta, mo_a, mo_b, ao_ovlp, uno_thres, idx, &
  write(fid,'(A,F16.10)') 'abs_mean=', abs_mean
  ! check orthonormality done
 
- if(nbeta == 0) then ! no beta electrons, return
+ uno_coeff = mo_a
+ if(nb == 0) then ! no beta electrons, return
   forall(i = 1:nopen) noon(i) = 1d0
-  uno_coeff = mo_a
   idx = [1, nopen+1, nopen]
   write(fid,'(/,A6,I5)') 'ndb  =', 0
-  write(fid,'(A6,I5)')   'nact =', nalpha
+  write(fid,'(A6,I5)')   'nact =', na
   write(fid,'(A6,I5)')   'nact0=', 0
   write(fid,'(A6,3I5)')  'idx  =', idx
   close(fid)
   return
  end if
- ! allocate arrays for alpha and beta occupied orbitals, prepare for SVD
- allocate(occ_a(nbf,nalpha), source=mo_a(:,1:nalpha))
- allocate(occ_b(nbf,nbeta), source=mo_b(:,1:nbeta))
+
+ allocate(occ_a(nbf,na), source=mo_a(:,1:na))
+ allocate(occ_b(nbf,nb), source=mo_b(:,1:nb))
 
  ! calculate the overlap between alpha and beta occupied spatial orbitals
- allocate(mo_ovlp(nalpha,nbeta))
- call calc_CTSCp2(nbf, nalpha, nbeta, occ_a, ao_ovlp, occ_b, mo_ovlp)
+ allocate(mo_ovlp(na,nb))
+ call calc_CTSCp2(nbf, na, nb, occ_a, ao_ovlp, occ_b, mo_ovlp)
  ! calculate done
 
  ! do SVD on the alpha_beta_ovlp of occupied spatial orbitals
- allocate(sv_occ(nalpha))
- call svd_and_rotate(nalpha, nbeta, nbf, occ_a, occ_b, mo_ovlp, sv_occ, .false.)
+ allocate(sv_occ(na))
+ call svd_and_rotate(na, nb, nbf, occ_a, occ_b, mo_ovlp, sv_occ, .false.)
  deallocate(mo_ovlp)
  write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
- write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,nalpha)
+ write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,na)
  ! SVD done in occ space
 
- allocate(sv_occ0(nalpha), source=sv_occ)
+ allocate(sv_occ0(na), source=sv_occ)
  nact = COUNT(sv_occ < 1d0-ON_criteria)
- ndb = nalpha - nact
+ ndb = na - nact
  nact0 = nact - nopen
- nocc = nalpha + nact0
+ nocc = na + nact0
  idx = [ndb+1, nocc+1, nopen]
  write(fid,'(/,A6,I5)') 'ndb  =', ndb
  write(fid,'(A6,I5)')   'nact =', nact
@@ -133,15 +127,15 @@ subroutine uno(nbf, nif, nalpha, nbeta, mo_a, mo_b, ao_ovlp, uno_thres, idx, &
  write(fid,'(A6,3I5)')  'idx  =', idx
 
  ! generate NOON (Natural Orbital Occupation Number)
- forall(i = 1:nalpha) noon(i) = 1d0 + sv_occ(i)
- forall(i = 1:nact0) noon(nalpha+i) = 2d0 - noon(nbeta-i+1)
+ forall(i = 1:na) noon(i) = 1d0 + sv_occ(i)
+ forall(i = 1:nact0) noon(na+i) = 2d0 - noon(nb-i+1)
  deallocate(sv_occ)
 
  ! copy the doubly occupied MOs
- mo_a(:,1:ndb) = occ_a(:,1:ndb)
+ uno_coeff(:,1:ndb) = occ_a(:,1:ndb)
 
  ! copy the singly occupied MO
- if(nopen > 0) mo_a(:,nbeta+1:nalpha) = occ_a(:,nbeta+1:nalpha)
+ if(nopen > 0) uno_coeff(:,nb+1:na) = occ_a(:,nb+1:na)
 
  ! transform the corresponding orbitals to UNOs in occ space
  allocate(idx1(nact0), idx2(nact0))
@@ -150,33 +144,31 @@ subroutine uno(nbf, nif, nalpha, nbeta, mo_a, mo_b, ao_ovlp, uno_thres, idx, &
   idx2(i) = nocc + 1 - i
  end forall
  forall(i = 1:nact0)
-  mo_a(:,idx1(i)) = (occ_a(:,idx1(i)) + occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx1(i)))
-  mo_a(:,idx2(i)) = (occ_a(:,idx1(i)) - occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx2(i)))
+  uno_coeff(:,idx1(i)) = (occ_a(:,idx1(i)) + occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx1(i)))
+  uno_coeff(:,idx2(i)) = (occ_a(:,idx1(i)) - occ_b(:,idx1(i)))/DSQRT(2d0*noon(idx2(i)))
  end forall
  deallocate(idx1, idx2, occ_a, occ_b)
  ! done transform in occ space
 
  ! Set virtual MOs to be zero. They are supposed to be calculated in subsequent
  ! PAO constructions
- if(nocc < nif) mo_a(:,nocc+1:nif) = 0d0
+ if(nocc < nif) uno_coeff(:,nocc+1:nif) = 0d0
 
  ! check the orthonormality of final Alpha MO
  allocate(mo_ovlp(nocc,nocc))
- call calc_CTSC(nbf, nocc, mo_a(:,1:nocc), ao_ovlp, mo_ovlp)
+ call calc_CTSC(nbf, nocc, uno_coeff(:,1:nocc), ao_ovlp, mo_ovlp)
  call check_unity(nocc, mo_ovlp, maxv, abs_mean)
  deallocate(mo_ovlp)
  write(fid,'(/,A)') 'The orthonormality of final Alpha MO:'
  write(fid,'(A,F16.10)') 'maxv=', maxv
  write(fid,'(A,F16.10)') 'abs_mean=', abs_mean
 
- uno_coeff = mo_a
-
  ! now let's update ndb, nact, nact0, idx according to input uno_thres
  if(DABS(uno_thres - ON_criteria) > 1d-5) then
   nact = COUNT(sv_occ0 < 1d0-uno_thres)
-  ndb = nalpha - nact
+  ndb = na - nact
   nact0 = nact - nopen
-  nocc = nalpha + nact0
+  nocc = na + nact0
   idx = [ndb+1, nocc+1, nopen]
  end if
 
@@ -233,13 +225,14 @@ subroutine check_unity(n, a, maxv, abs_mean)
  integer, intent(in) :: n
  real(kind=8), intent(in) :: a(n,n)
  real(kind=8), intent(out) :: maxv, abs_mean
- real(kind=8) :: b(n,n)
+ real(kind=8), allocatable :: b(:,:)
 
- b = a
+ allocate(b(n,n), source=a)
  forall(i = 1:n) b(i,i) = b(i,i) - 1d0
  b = DABS(b)
  maxv = MAXVAL(b)
  abs_mean = SUM(b)/DBLE(n*n)
+ deallocate(b)
 end subroutine check_unity
 
 ! Enlarge the active space by utilizing two sets of singular values:

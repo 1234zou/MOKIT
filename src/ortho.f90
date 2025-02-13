@@ -215,11 +215,11 @@ subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
 !f2py intent(out) :: nif
  real(kind=8), parameter :: thresh = 1d-6 ! commonly used threshold
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
-!f2py depend(nbf) :: ao_ovlp
 !f2py intent(in) :: ao_ovlp
+!f2py depend(nbf) :: ao_ovlp
  real(kind=8), intent(out) :: mo(nbf,nbf)
-!f2py depend(nbf) :: mo
 !f2py intent(out) :: mo
+!f2py depend(nbf) :: mo
  real(kind=8), allocatable :: diag(:,:), U(:,:), s(:)
 
  allocate(U(nbf,nbf), source=ao_ovlp)

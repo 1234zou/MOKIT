@@ -12,8 +12,8 @@ BOHR2ANG = 0.52917721092e0
 
 def ao_dipole_int(mol):
   # mol can be either molecule or cell object
-  charge_center = (np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
-                   / mol.atom_charges().sum())
+  numerator = np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
+  charge_center = (numerator / mol.atom_charges().sum())
   with mol.with_common_origin(charge_center):
     if getattr(mol, 'pbc_intor', None):
       ao_dip = mol.pbc_intor('int1e_r', comp=3, hermi=1)
@@ -172,7 +172,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   coor = np.transpose(np.array(coor_s, dtype=float))
   natom = mol.natm
   dis = calc_dis_mat_from_coor(natom, coor)
-  nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, natom, mol._bas[:,0], \
+  nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, natom, mol._bas[:,0],
                                      mol._bas[:,1], mol._bas[:,3])
   if nbf0 != nbf:
     print('nbf0, nbf=%d, %d' % (nbf0, nbf))
@@ -241,7 +241,7 @@ def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
   fchname = proname+'.fch'
   lmo_fch = proname+'_LMO.fch'
   if wannier_xyz is None:
-    wannier_xyz = proname+'_wanner.xyz'
+    wannier_xyz = proname+'_wannier.xyz'
 
   with os.popen('molden2fch '+molden+' -cp2k') as run:
     null = run.read()
@@ -257,7 +257,7 @@ def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
   coor = np.transpose(np.array(coor_s, dtype=float))
   natom = cell.natm
   dis = calc_dis_mat_from_coor_pbc(natom, cell.a, coor)
-  nbf0, bfirst = get_bfirst_from_shl(cell.cart, cell.nbas, natom, cell._bas[:,0], \
+  nbf0, bfirst = get_bfirst_from_shl(cell.cart, cell.nbas, natom, cell._bas[:,0],
                                      cell._bas[:,1], cell._bas[:,3])
   if nbf0 != nbf:
     print('nbf0, nbf=%d, %d' % (nbf0, nbf))
@@ -311,12 +311,13 @@ def uno(fchname):
   >>> from mokit.lib.gaussian import uno
   >>> uno(fchname='benzene_uhf.fch')
   '''
-  import mokit.lib.uno as pyuno
+  import mokit.lib.uno.uno as uhf_no
   from mokit.lib.rwwfn import construct_vir
 
   os.system('fch_u2r '+fchname)
   fchname0 = fchname[0:fchname.rindex('.fch')]+'_r.fch'
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_UNO.fch'
+  outname = str(random.randint(1,10000))+'.out'
   os.rename(fchname0, fchname1)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   na, nb = read_na_and_nb_from_fch(fchname)
@@ -324,9 +325,9 @@ def uno(fchname):
   beta_mo  = fch2py(fchname, nbf, nif, 'b')
   mol = load_mol_from_fch(fchname)
   S = mol.intor_symmetric('int1e_ovlp')
-  idx, noon, alpha_coeff = pyuno.uno(nbf, nif, na, nb, alpha_mo, beta_mo, S, 1e-5)
+  idx, noon, alpha_coeff = uhf_no(outname,nbf,nif,na,nb,alpha_mo,beta_mo,S,1e-5)
   alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)
-  os.remove('uno.out')
+  os.remove(outname)
   py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True, True)
   print('UNOs exported to file '+fchname1)
 

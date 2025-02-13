@@ -256,33 +256,6 @@ module mr_keyword
  character(len=21) :: F12_cabs = 'NONE' ! F12 cabs
 contains
 
-subroutine get_molcas_path()
- implicit none
- integer :: i, fid, system
-
- i = SYSTEM("which pymolcas >mokit.pymolcas 2>&1")
- if(i /= 0) then
-  molcas_path = 'mokit.pymolcas'
-  call delete_file(TRIM(molcas_path))
-  molcas_path = 'NOT FOUND'
-  return
- end if
-
- open(newunit=fid,file='mokit.pymolcas',status='old',position='rewind')
- read(fid,'(A)',iostat=i) molcas_path
- close(fid,status='delete')
-
- if(i /= 0) then
-  molcas_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(molcas_path) == 0) then
-   molcas_path = 'NOT FOUND'
-  else if(index(molcas_path,'no pymolcas') > 0) then
-   molcas_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_molcas_path
-
 ! repalce variables like '$USER' in path into real path
 subroutine replace_env_in_path(path)
  implicit none
@@ -325,7 +298,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc2 (2025-Jan-14)'
+ write(6,'(A)') '           Version: 1.2.7rc3 (2025-Feb-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -340,12 +313,12 @@ subroutine read_program_path()
  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
 
  call get_gau_path(gau_path)
- call get_molcas_path()
+ call get_exe_path('pymolcas', molcas_path)
  call check_molcas_is_omp(molcas_omp)
- call get_molpro_path(molpro_path)
- call get_orca_path(orca_path)
+ call get_exe_path('molpro', molpro_path)
+ call get_exe_path('orca', orca_path)
  call get_psi4_path(psi4_path)
- call get_dalton_path(dalton_path)
+ call get_exe_path('dalton', dalton_path)
  if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  call getenv('BDF', bdf_path)
@@ -455,19 +428,18 @@ end subroutine check_gms_path
         'bwmrccsd(t)')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
-    if(nacte_wish<1 .or. nacto_wish<1 .or. nacte_wish/=nacto_wish) then
-     write(6,'(A)') 'ERROR in subroutine parse_keyword: wrong number of active&
-                   & electrons/orbitals specified.'
-     write(6,'(2(A,I0))') 'nacte/nacto=', nacte_wish, '/', nacto_wish
-     write(6,'(A)') 'Currently only NactE = NactO > 0 such as (6,6) supported.'
+    if(nacte_wish<1 .or. nacto_wish<1) then
+     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: wrong number of activ&
+                      &e electrons/orbitals'
+     write(6,'(2(A,I0))') 'specified. nacte/nacto=',nacte_wish,'/',nacto_wish
      stop
     end if
    case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
     if(j /= 0) then
      write(6,'(/,A)') 'ERROR in subroutine parse_keyword: GVB active space shou&
-                      &ld be specified like GVB(3),'
-     write(6,'(A)') 'where 3 is the number of pairs. Did you specify (6,6) like&
-                    & CAS?'
+                      &ld be specified like'
+     write(6,'(A)') 'GVB(3), where 3 is the number of pairs. Did you specify (6&
+                    &,6) like CAS?'
      stop
     end if
     read(method0(i+1:k-1),*) npair_wish
@@ -506,38 +478,28 @@ end subroutine check_gms_path
 
   select case(TRIM(method))
   case('mcpdft','mc-pdft')
-   mcpdft = .true.
-   casscf = .true.
+   mcpdft = .true.; casscf = .true.
   case('mrcisd')
-   mrcisd = .true.
-   casscf = .true.
+   mrcisd = .true.; casscf = .true.
   case('mrcisdt')
-   mrcisdt= .true.
-   casscf = .true.
+   mrcisdt= .true.; casscf = .true.
   case('sdspt2')
-   sdspt2 = .true.
-   casscf = .true.
+   sdspt2 = .true.; casscf = .true.
   case('mrmp2')
-   mrmp2 = .true.
-   casscf = .true.
+   mrmp2 = .true.; casscf = .true.
   case('ovbmp2')
-   ovbmp2 = .true.
-   casscf = .true.
+   ovbmp2 = .true.; casscf = .true.
   case('caspt2')
-   caspt2 = .true.
-   casscf = .true.
+   caspt2 = .true.; casscf = .true.
   case('caspt2k','caspt2-k')
    caspt2 = .true.; casscf = .true.
    caspt2k = .true.; caspt2_prog = 'orca'
   case('caspt3')
-   caspt3 = .true.
-   casscf = .true.
+   caspt3 = .true.; casscf = .true.
   case('nevpt2')
-   nevpt2 = .true.
-   casscf = .true.
+   nevpt2 = .true.; casscf = .true.
   case('nevpt3')
-   nevpt3 = .true.
-   casscf = .true.
+   nevpt3 = .true.; casscf = .true.
   case('casscf')
    casscf = .true.
   case('dmrgscf')
@@ -613,8 +575,9 @@ end subroutine check_gms_path
    frag_guess = .true.
    j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
    if(j*k == 0)then
-    write(6,'(A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)' synt&
-                   &ax is wrong in file "//TRIM(gjfname)
+    write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)' sy&
+                     &ntax is wrong in"
+    write(6,'(A)') 'file '//TRIM(gjfname)
     close(fid)
     stop
    end if
@@ -735,14 +698,14 @@ end subroutine check_gms_path
   end if
 
   if(dmrgscf .and. alive1(3)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated,&
-                   & but you specify the DMRGCI_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated, &
+                    &but you specify the DMRGCI_prog.'
    stop
   end if
 
   if(dmrgci .and. alive1(4)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated,&
-                   & but you specify the DMRGSCF_prog.'
+   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated, b&
+                    &ut you specify the DMRGSCF_prog.'
    stop
   end if
 
@@ -1329,23 +1292,31 @@ subroutine check_kywd_compatible()
  case('pyscf','openmolcas','gamess')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '&
-                //TRIM(mcpdft_prog)
+  write(6,'(A)') 'User specified MC-PDFT program cannot be identified: '//&
+                 TRIM(mcpdft_prog)
+  if(INDEX(TRIM(mcpdft_prog),"'") > 0) then
+   write(6,'(A)') "Note that single quotes '' are not allowed in mcpdft_prog."
+  end if
+  stop
  end select
 
  select case(TRIM(casci_prog))
- case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
+ case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4', &
+      'dalton')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'User specified CASCI program cannot be identified: '//TRIM(casci_prog)
+  write(6,'(A)') 'User specified CASCI program cannot be identified: '//&
+                 TRIM(casci_prog)
   stop
  end select
 
  select case(TRIM(casscf_prog))
- case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4','dalton')
+ case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4', &
+      'dalton')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'User specified CASSCF program cannot be identified: '//TRIM(casscf_prog)
+  write(6,'(A)') 'User specified CASSCF program cannot be identified: '//&
+                 TRIM(casscf_prog)
   stop
  end select
 
@@ -2156,85 +2127,6 @@ subroutine check_exe_exist(path)
   stop
  end if
 end subroutine check_exe_exist
-
-subroutine get_molpro_path(molpro_path)
- implicit none
- integer :: i, fid, system
- character(len=240), intent(out) :: molpro_path
-
- molpro_path = ' '
- i = SYSTEM("which molpro >mokit.molpro 2>&1")
- if(i /= 0) then
-  molpro_path = 'mokit.molpro'
-  call delete_file(TRIM(molpro_path))
-  molpro_path = 'NOT FOUND'
-  return
- end if
-
- open(newunit=fid,file='mokit.molpro',status='old',position='rewind')
- read(fid,'(A)',iostat=i) molpro_path
- close(fid,status='delete')
-
- if(i /= 0) then
-  molpro_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(molpro_path) == 0) then
-   molpro_path = 'NOT FOUND'
-  else if(index(molpro_path,'no molpro') > 0) then
-   molpro_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_molpro_path
-
-subroutine get_psi4_path(psi4_path)
- implicit none
- integer :: i, fid, system
- character(len=240), intent(out) :: psi4_path
-
- psi4_path = ' '
- call getenv('PSI4', psi4_path)
- if(LEN_TRIM(psi4_path) > 0) return
- ! $PSI4 has higher priority than 'which psi4'
-
- i = SYSTEM("which psi4 >mokit.psi4 2>&1")
- open(newunit=fid,file='mokit.psi4',status='old',position='rewind')
-
- read(fid,'(A)',iostat=i) psi4_path
- close(fid,status='delete')
-
- if(i /= 0) then
-  psi4_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(psi4_path) == 0) then
-   psi4_path = 'NOT FOUND'
-  else if(index(psi4_path,'no psi4') > 0) then
-   psi4_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_psi4_path
-
-subroutine get_dalton_path(dalton_path)
- implicit none
- integer :: i, fid, system
- character(len=240), intent(out) :: dalton_path
-
- dalton_path = ' '
- i = SYSTEM("which dalton >mokit.dalton 2>&1")
-
- open(newunit=fid,file='mokit.dalton',status='old',position='rewind')
- read(fid,'(A)',iostat=i) dalton_path
- close(fid,status='delete')
-
- if(i /= 0) then
-  dalton_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(dalton_path) == 0) then
-   dalton_path = 'NOT FOUND'
-  else if(index(dalton_path,'no dalton') > 0) then
-   dalton_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_dalton_path
 
 ! set memory and nproc in the module mr_keyword
 subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)

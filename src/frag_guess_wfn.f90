@@ -2797,7 +2797,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2SVP'; auxbas = 'W06'
  disp_type = 2 ! D3BJ
 
- call get_orca_path(orca_path)
+ call get_exe_path('orca', orca_path)
  if(TRIM(orca_path) == 'NOT FOUND') then
   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: orca path not found.'
   write(6,'(A)') 'XO-PBC calculations require the ORCA program.'
@@ -2805,7 +2805,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  end if
  write(6,'(A)') 'orca_path='//TRIM(orca_path)
 
- call get_orca_2mkl_path(orca_2mkl_path)
+ call get_exe_path('orca_2mkl', orca_2mkl_path)
  if(TRIM(orca_2mkl_path) == 'NOT FOUND') then
   write(6,'(/,A)') 'ERROR in subroutine calc_xo_pbc_ads_e: orca_2mkl not found.'
   write(6,'(A)') 'XO-PBC calculations require orca_2mkl.'

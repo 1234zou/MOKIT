@@ -161,6 +161,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  implicit none
  integer :: i, nacta1, nactb1, fid1, fid2, RENAME
  real(kind=8) :: ss ! spin square S(S+1)
+ !real(kind=8), parameter :: conv_tol_grad = 3d-3
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
  character(len=240), intent(in) :: pyname, gvb_fch
@@ -270,7 +271,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
  end if
 
- if(.not. dmrgscf) then
+ if(dmrgscf) then
+  !write(fid2,'(A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
+ else
   call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
   ss = DBLE(nacta - nactb)*0.5d0
   ss = ss*(ss + 1d0)

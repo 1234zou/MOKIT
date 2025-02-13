@@ -9,21 +9,24 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: i, npair
- character(len=5) :: str
+ character(len=8) :: str
  character(len=240) :: fchname
  character(len=61), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
                                               & wrong command line arguments!'
- logical :: sf, sasf
+ logical :: sfcis, sasfcis, sftd, sasf
 
- str = ' '; fchname = ' '; npair = 0; sf = .false.; sasf = .false.
+ str = ' '; fchname = ' '; npair = 0
+ sfcis = .false.; sasfcis = .false.; sftd = .false.; sasf = .false.
 
  i = iargc()
  if(i<1 .or. i>3) then
   write(6,'(/,A)') error_warn
-  write(6,'(A)')  ' Example 1: fch2qchem h2o.fch'
-  write(6,'(A)')  ' Example 2: fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
-  write(6,'(A)')  ' Example 3: fch2qchem high_spin.fch -sf'
-  write(6,'(A,/)')' Example 4: fch2qchem high_spin.fch -sasf'
+  write(6,'(A)')  ' Example 1 (HF/DFT)   : fch2qchem h2o.fch'
+  write(6,'(A)')  ' Example 2 (GVB)      : fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
+  write(6,'(A)')  ' Example 3 (SF-CIS)   : fch2qchem high_spin.fch -sfcis'
+  write(6,'(A)')  ' Example 4 (SF-SF-CIS): fch2qchem high_spin.fch -sasfcis'
+  write(6,'(A)')  ' Example 5 (SF-TDDFT) : fch2qchem high_spin.fch -sf'
+  write(6,'(A,/)')' Example 6 (SA-SF-DFT): fch2qchem high_spin.fch -sasf'
   stop
  end if
 
@@ -46,13 +49,27 @@ program main
     write(6,'(A)') 'The 3rd argument npair should be >=0.'
     stop
    end if
+  case('-sfcis')
+   if(i == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-sfcis' is specified."
+    stop
+   end if
+   sfcis = .true.
+  case('-sasfcis')
+   if(i == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-sasfcis' is specified."
+    stop
+   end if
+   sasfcis = .true.
   case('-sf')
    if(i == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sf' is specified."
     stop
    end if
-   sf = .true.
+   sftd = .true.
   case('-sasf')
    if(i == 3) then
     write(6,'(/,A)') error_warn
@@ -62,7 +79,8 @@ program main
    sasf = .true.
   case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') "The 2nd argument can only be '-gvb'/'-sf'/'-sasf'."
+   write(6,'(A)') "The 2nd argument can only be one of '-gvb', '-sasfcis', '-sf&
+                  &cis', '-sf', '-sasf'."
    stop
   end select
  end if
@@ -74,10 +92,10 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call fch2qchem(fchname, npair, sf, sasf)
+ call fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
 end program main
 
-subroutine fch2qchem(fchname, npair, sf, sasf)
+subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4), SYSTEM
@@ -90,13 +108,14 @@ subroutine fch2qchem(fchname, npair, sf, sasf)
  character(len=240) :: proname, inpname, dirname
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
- logical :: uhf, sph, has_sp, ecp, so_ecp
- logical, intent(in) :: sf, sasf
+ logical :: spin_flip, uhf, sph, has_sp, ecp, so_ecp
+ logical, intent(in) :: sfcis, sasfcis, sftd, sasf
 
- if(npair>0 .and. (sf .or. sasf)) then
+ spin_flip = (sfcis .or. sasfcis .or. sftd .or. sasf)
+ if(npair>0 .and. spin_flip) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: npair>0 is not allowed when &
-                   &sf/sasf is .True.'
-  write(6,'(A)') 'Please check your input arguments.'
+                   &any SF-type method'
+  write(6,'(A)') 'is activated. Please check your input arguments.'
   stop
  end if
 
@@ -109,13 +128,13 @@ subroutine fch2qchem(fchname, npair, sf, sasf)
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
 
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- if(sasf .and. uhf) then
+ if((sasfcis .or. sasf) .and. uhf) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
                    &n ROHF/ROKS reference.'
   write(6,'(A)') 'It seems that you provide a UHF/UKS .fch(k) file.'
   stop
  end if
- if(sf .and. (.not.uhf)) then
+ if(sftd .and. (.not.uhf)) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-TDDFT must be based on a&
                    & UHF/UKS reference'
   write(6,'(A)') 'in Q-Chem. It seems that you provide an ROHF/ROKS .fch(k) file.'
@@ -123,9 +142,9 @@ subroutine fch2qchem(fchname, npair, sf, sasf)
  end if
 
  call read_fch(fchname, uhf)
- if((sf .or. sasf) .and. mult<3) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-TDDFT/SA-SF-DFT must be b&
-                   &ased on a high-spin'
+ if(spin_flip .and. mult<3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-type methods must be base&
+                   &d on a high-spin'
   write(6,'(A)') 'reference wave function, where the spin multiplicity should b&
                  &e >=3.'
   stop
@@ -199,10 +218,17 @@ subroutine fch2qchem(fchname, npair, sf, sasf)
   !write(fid,'(A)') 'gvb_restart false'
  end if
 
- if(sf .or. sasf) then
-  write(fid,'(A)') 'exchange bhhlyp'
+ if(sfcis) then
+  write(fid,'(A)') 'correlation ci'
+  write(fid,'(A)') 'eom_corr cis'
+  write(fid,'(A)') 'ccman2 false'
+  write(fid,'(A)') 'sf_states 5'
+ end if
+
+ if(sftd .or. sasfcis .or. sasf) then
+  if(.not. sasfcis) write(fid,'(A)') 'exchange bhhlyp'
   write(fid,'(A)') 'cis_n_roots 5'
-  if(sf) then
+  if(sftd) then
    write(fid,'(A)') 'spin_flip true'
   else
    write(fid,'(A)') 'sasf_rpa true'

@@ -1428,7 +1428,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
-  write(6,'(A)') "The file 'uno.out' may be incomplete."
+  write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
   close(fid)
   stop
  end if
@@ -1444,7 +1444,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
-  write(6,'(A)') "The file 'uno.out' may be incomplete."
+  write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
   close(fid)
   stop
  end if

@@ -378,57 +378,51 @@ subroutine get_gau_path(gau_path)
 #endif
 end subroutine get_gau_path
 
-subroutine get_orca_path(orca_path)
+! find/get the absolute path of a specified binary executable
+subroutine get_exe_path(exe_name, exe_path)
  implicit none
  integer :: i, fid, SYSTEM
- character(len=10), parameter :: fname = 'mokit.orca'
- character(len=240), intent(out) :: orca_path
+ character(len=30) :: fname
+ character(len=*), intent(in) :: exe_name
+ character(len=240), intent(out) :: exe_path
 
- orca_path = ' '
- ! Previously, I use "echo `\which orca` >mokit.orca". But if no ORCA installed
- ! on the current machine, the content 'which: no orca in...' will be printed
- ! into the automr output file, so I change it to the original version, simply
- ! `which orca`
- i = SYSTEM('which orca >'//fname//" 2>&1")
+ exe_path = ' '
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') 'mokit.'//TRIM(exe_name)//'.', i
 
- open(newunit=fid,file=fname,status='old',position='rewind')
- read(fid,'(A)',iostat=i) orca_path
+ i = SYSTEM('which '//TRIM(exe_name)//' >'//TRIM(fname)//" 2>&1")
+ if(i /= 0) then
+  call delete_file(TRIM(fname))
+  exe_path = 'NOT FOUND'
+  return
+ end if
+
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ read(fid,'(A)',iostat=i) exe_path
  close(fid,status='delete')
 
  if(i /= 0) then
-  orca_path = 'NOT FOUND'
+  exe_path = 'NOT FOUND'
  else
-  if(LEN_TRIM(orca_path) == 0) then
-   orca_path = 'NOT FOUND'
-  else if(index(orca_path,'no orca') > 0) then
-   orca_path = 'NOT FOUND'
+  if(LEN_TRIM(exe_path) == 0) then
+   exe_path = 'NOT FOUND'
+  else if(INDEX(exe_path,'no '//TRIM(exe_name)) > 0) then
+   exe_path = 'NOT FOUND'
   end if
  end if
-end subroutine get_orca_path
+end subroutine get_exe_path
 
-! find the path of the utility orca_2mkl
-subroutine get_orca_2mkl_path(orca_2mkl_path)
+subroutine get_psi4_path(psi4_path)
  implicit none
- integer :: i, fid, SYSTEM
- character(len=15), parameter :: fname = 'mokit.orca_2mkl'
- character(len=240), intent(out) :: orca_2mkl_path
+ character(len=240), intent(out) :: psi4_path
 
- orca_2mkl_path = ' '
- i = SYSTEM('which orca_2mkl >'//fname//" 2>&1")
- open(newunit=fid,file=fname,status='old',position='rewind')
- read(fid,'(A)',iostat=i) orca_2mkl_path
- close(fid,status='delete')
+ psi4_path = ' '
+ call getenv('PSI4', psi4_path)
+ if(LEN_TRIM(psi4_path) > 0) return
+ ! $PSI4 has higher priority than 'which psi4'
 
- if(i /= 0) then
-  orca_2mkl_path = 'NOT FOUND'
- else
-  if(LEN_TRIM(orca_2mkl_path) == 0) then
-   orca_2mkl_path = 'NOT FOUND'
-  else if(INDEX(orca_2mkl_path,'no orca') > 0) then
-   orca_2mkl_path = 'NOT FOUND'
-  end if
- end if
-end subroutine get_orca_2mkl_path
+ call get_exe_path('psi4', psi4_path)
+end subroutine get_psi4_path
 
 ! compute the number of electrons by tracing the product of density matrix and
 ! AO-basis overlap
@@ -674,8 +668,9 @@ subroutine submit_molcas_job(inpname, mem, nproc, omp)
 
  i = SYSTEM('/bin/bash '//TRIM(shname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job fail&
+                   &ed. Please'
+  write(6,'(A)') 'open file '//TRIM(outname)//' and check.'
   stop
  end if
 
@@ -687,27 +682,30 @@ end subroutine submit_molcas_job
 subroutine get_psi4_version(version)
  implicit none
  integer :: i, fid, SYSTEM
- character(len=8), parameter :: ftmp = 'psi4.ver'
  character(len=10), intent(out) :: version
+ character(len=30) :: fname
  character(len=240) :: psi4_path
 
  version = ' '; psi4_path = ' '
- call getenv('PSI4', psi4_path)
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') 'psi4.ver.', i
 
+ call getenv('PSI4', psi4_path)
  if(LEN_TRIM(psi4_path) > 0) then
-  i = SYSTEM('$PSI4 --version >'//ftmp//" 2>&1")
+  i = SYSTEM('$PSI4 --version >'//TRIM(fname)//" 2>&1")
  else
-  i = SYSTEM('psi4 --version >'//ftmp//" 2>&1")
+  i = SYSTEM('psi4 --version >'//TRIM(fname)//" 2>&1")
  end if
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine get_psi4_version: failed to find PSI4 v&
                    &ersion.'
   write(6,'(A)') 'Please check whether your PSI4 has been installed correctly.'
+  call delete_file(TRIM(fname))
   stop
  end if
 
- open(newunit=fid,file=ftmp,status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
  read(fid,'(A)') version
  close(fid,status='delete')
 end subroutine get_psi4_version
@@ -967,25 +965,27 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
 end subroutine submit_dalton_job
 
 ! check/detect OpenMolcas is OpenMP version or MPI version
-subroutine check_molcas_is_omp(omp)
+subroutine check_molcas_is_omp(molcas_omp)
  implicit none
  integer :: i, fid, SYSTEM
  character(len=3) :: str
- character(len=10), parameter :: ftmp = 'molcas.ver'
+ character(len=30) :: fname
  character(len=240) :: buf
- logical, intent(out) :: omp
+ logical, intent(out) :: molcas_omp
 
- str = ' '; omp = .true.
- i = SYSTEM('pymolcas --banner >'//ftmp//" 2>&1")
+ str = ' '; molcas_omp = .true.
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') 'molcas.ver.', i
+ i = SYSTEM('pymolcas --banner >'//TRIM(fname)//" 2>&1")
 
  ! maybe OpenMolcas not installed, assume OpenMP version
  if(i /= 0) then
-  call delete_file(TRIM(ftmp))
+  call delete_file(TRIM(fname))
   return
  end if
 
  ! OK, now it is installed
- open(newunit=fid,file=ftmp,status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1004,8 +1004,8 @@ subroutine check_molcas_is_omp(omp)
  str = ADJUSTL(str)
 
  select case(TRIM(str))
- case('ON') ! MPI version
-  omp = .false.
+ case('ON')  ! MPI version
+  molcas_omp = .false.
  case('OFF') ! OpenMP version
  case default
   write(6,'(/,A)') 'ERROR in subroutine check_molcas_is_omp: unrecognized paral&
@@ -1018,22 +1018,24 @@ end subroutine check_molcas_is_omp
 subroutine check_dalton_is_mpi(mpi)
  implicit none
  integer :: i, fid, SYSTEM
- character(len=3) :: str
- character(len=10), parameter :: ftmp = 'dalton.ver'
+ character(len=30) :: fname
  character(len=240) :: buf
  logical, intent(out) :: mpi
 
- str = ' '; mpi = .false.
- i = SYSTEM('ldd `(which dalton.x)` >'//ftmp//" 2>&1")
+ mpi = .false.
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') 'dalton.ver.', i
+ i = SYSTEM('ldd `(which dalton.x)` >'//TRIM(fname)//" 2>&1")
 
  ! maybe Dalton not installed, assume MKL version
  if(i /= 0) then
-  call delete_file(TRIM(ftmp))
+  call delete_file(TRIM(fname))
   return
  end if
 
  ! OK, now it is installed
- open(newunit=fid,file=ftmp,status='old',position='rewind')
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit

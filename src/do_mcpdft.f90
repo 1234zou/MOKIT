@@ -24,7 +24,7 @@ subroutine do_mcpdft()
   if(mcpdft_prog == 'gamess') then
    write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: DMRG-PDFT has not been impl&
                     &emented in GAMESS.'
-   write(6,'(A)') 'You can set MCPDFT_prog=OpenMolcas in mokit{}.'
+   write(6,'(A)') 'You can set MCPDFT_prog=PySCF or OpenMolcas in mokit{}.'
    stop
   end if
   if(dmrgci) then
@@ -93,6 +93,11 @@ subroutine do_mcpdft()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_gms_job(gms_path, gms_scr_path, inpname, 1)
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
+
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: wrong MCPDFT_prog='//&
+                   TRIM(mcpdft_prog)
+  stop
  end select
 
  ! read MC-PDFT/DMRG-PDFT energy from output file
@@ -191,6 +196,7 @@ subroutine prt_mcpdft_script_into_py(inpname)
                            ',(',nacta,',',nactb,'))'
  write(fid1,'(A)') 'mc.grids.atom_grid = (99,590) # ultrafine'
  write(fid1,'(A,I0,A)') 'mc.max_memory = ',mem*1000,' # MB'
+ write(fid1,'(A)') 'mc.verbose = 5'
  write(fid1,'(A)') 'mc.kernel()'
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
@@ -328,7 +334,7 @@ subroutine detect_and_change_otpdf(otpdf)
  integer :: i, k, iv, fid, system
  character(len=3) :: sv
  character(len=9), intent(inout) :: otpdf
- character(len=10), parameter :: ftmp = 'molcas.ver'
+ character(len=30) :: ftmp
  character(len=240) :: buf
 
  if(LEN_TRIM(otpdf)==0 .or. otpdf=='NONE') then
@@ -338,8 +344,10 @@ subroutine detect_and_change_otpdf(otpdf)
  end if
 
  ! find the OpenMolcas version
- i = SYSTEM('pymolcas --banner >'//ftmp)
- open(newunit=fid,file=ftmp,status='old',position='rewind')
+ call get_a_random_int(i)
+ write(ftmp,'(A,I0)') 'molcas.ver.', i
+ i = SYSTEM('pymolcas --banner >'//TRIM(ftmp)//" 2>&1")
+ open(newunit=fid,file=TRIM(ftmp),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -368,8 +376,8 @@ subroutine detect_and_change_otpdf(otpdf)
    case('f')
     otpdf = 'ft:'//TRIM(otpdf(3:))
    case default
-    write(6,'(A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
-                   //TRIM(OtPDF)
+    write(6,'(/,A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
+                    //TRIM(OtPDF)
     stop
    end select
   end if
@@ -383,8 +391,8 @@ subroutine detect_and_change_otpdf(otpdf)
    case('f')
     otpdf = 'ft'//TRIM(otpdf(i+1:))
    case default
-    write(6,'(A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
-                   //TRIM(OtPDF)
+    write(6,'(/,A)') 'ERROR in subroutine detect_and_change_otpdf: wrong OtPDF='&
+                    //TRIM(OtPDF)
    end select
   end if
  end if

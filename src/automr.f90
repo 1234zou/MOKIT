@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc2 :: MOKIT, release date: 2025-Jan-14'
+  write(6,'(A)') 'AutoMR 1.2.7rc3 :: MOKIT, release date: 2025-Feb-12'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -113,31 +113,6 @@ subroutine automr(fname)
  write(6,'(/,A)') 'Normal termination of AutoMR at '//TRIM(data_string)
 end subroutine automr
 
-! check if MOKIT_ROOT present. Set it if not present.
-subroutine check_mokit_root()
- integer :: i, SYSTEM
- character(len=240) :: mokit_root
-
- write(6,'(/,A)') 'Checking MOKIT_ROOT ... '
- mokit_root = ' '
- call getenv('MOKIT_ROOT', mokit_root)
- if (len_trim(mokit_root) < 1) then
-   ! assume we are under conda install
-   i = SYSTEM("echo `get_mokit_loc.py` > ~/.mokitrc ")
-   !i = SYSTEM("echo `get_mokit_loc.py` ")
-   !i = SYSTEM('echo $MOKIT_ROOT')
-   if(i /= 0) then
-    write(6,'(/,A)') 'ERROR in subroutine check_mokit_root: '
-    write(6,'(A)') '    fail to set MOKIT_ROOT for conda-installed MOKIT.'
-    write(6,'(A)') 'If MOKIT is installed via conda, please report this issue.'
-    write(6,'(A)') 'Otherwise, it means your MOKIT_ROOT is not properly set.'
-    stop
-   else
-    write(6,'(A)') 'reset MOKIT_ROOT for conda-installed version'
-   end if
- endif
-end subroutine check_mokit_root
-
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
@@ -149,7 +124,7 @@ subroutine get_paired_LMO()
  integer :: i, SYSTEM
  real(kind=8) :: unpaired_e
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, pyname, outname, fchname, unofile
+ character(len=240) :: proname, pyname, outname, fchname, uno_out
 
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return  ! no need for this subroutine
@@ -165,7 +140,7 @@ subroutine get_paired_LMO()
  write(6,'(3(A,I0))') 'chem_core=', chem_core, ', ecp_core=', ecp_core, &
                       ', Nskip_UNO=', nskip_uno
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
  proname = hf_fch(1:i-1)
 
  if(mo_rhf) then
@@ -191,14 +166,16 @@ subroutine get_paired_LMO()
   case(2)
    write(6,'(A)') 'Two sets of MOs, ist=2, invoke UNO generation.'
    fchname = hf_fch(1:i-1)//'_uno.fch'
+   uno_out = hf_fch(1:i-1)//'_uno.txt'
    pyname = TRIM(proname)//'_uno.py'
    outname = TRIM(proname)//'_uno.out'
   case(7)
    write(6,'(A)') 'Find SUHF, ist=7, SUNO (and asrot) is already done, skip.'
    fchname = hf_fch(1:i-1)//'_suno.fch'
+   uno_out = hf_fch(1:i-1)//'_suno.txt'
   end select
 
-  if (ist==1 .or. ist==2) then
+  if(ist==1 .or. ist==2) then
    call bas_fch2py_wrap(hf_fch, .false., pyname)
    call prt_uno_script_into_py(pyname)
    if(ist == 1) call prt_assoc_rot_script_into_py(pyname, .false.)
@@ -208,13 +185,8 @@ subroutine get_paired_LMO()
   end if
 
   ! when ist=2/7, GVB will not be performed, so we need to read variables before CASCI
-  if(ist == 2) then
-   unofile = 'uno.out'
-  else if(ist == 7) then
-   unofile = 'suno.out'
-  end if
   if(ist==2 .or. ist==7) then
-   call read_npair_from_uno_out(unofile, nbf, nif, ndb, npair, nopen, lin_dep)
+   call read_npair_from_uno_out(uno_out, nbf, nif, ndb, npair, nopen, lin_dep)
    ! find npair0: the number of active orbitals (NOON <- [0.02,0.98])
    call find_npair0_from_fch(fchname, nopen, npair0)
    ! determine the number of orbitals/electrons in following CAS/DMRG computations
@@ -338,13 +310,15 @@ subroutine prt_auto_pair_script_into_py(pyname)
  use mol, only: beyond_xe, chem_core, ecp_core
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, loc_fch, lmo_fch, a_fch
+ character(len=240) :: buf, pyname1, uno_out, loc_fch, lmo_fch, a_fch
  character(len=240), intent(in) :: pyname
 
  buf = ' '
- i = INDEX(pyname, '.py', back=.true.)
+ call find_specified_suffix(pyname, '.py', i)
  pyname1 = pyname(1:i-1)//'.t'
- i = INDEX(hf_fch, '.fch', back=.true.)
+
+ call find_specified_suffix(hf_fch, '.fch', i)
+ uno_out = hf_fch(1:i-1)//'_uno.txt'
  loc_fch = hf_fch(1:i-1)//'_proj_loc_pair.fch'
  lmo_fch = hf_fch(1:i-1)//'_LMO.fch'
  a_fch   = hf_fch(1:i-1)//'_proj_loc_pair_a.fch'
@@ -517,7 +491,8 @@ subroutine prt_auto_pair_script_into_py(pyname)
   open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  end if
 
- write(fid1,'(/,A)') "f = open('uno.out', 'w+')"
+ write(fid1,'(/,A)') "uno_out = '"//TRIM(uno_out)//"'"
+ write(fid1,'(A)') "f = open(uno_out, 'w+')"
  write(fid1,'(A)') "f.write('nbf=%i\n' %nbf)"
  write(fid1,'(A)') "f.write('nif=%i\n\n' %nif)"
  write(fid1,'(A)') 'idx1 = nb - npair'
@@ -532,15 +507,16 @@ subroutine prt_uno_script_into_py(pyname)
  use mr_keyword, only: nproc, hf_fch, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, uno_fch
+ character(len=240) :: buf, pyname1, uno_fch, uno_out
  character(len=240), intent(in) :: pyname
 
  buf = ' '
  call find_specified_suffix(pyname, '.py', i)
  pyname1 = pyname(1:i-1)//'.t'
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
  uno_fch = hf_fch(1:i-1)//'_uno.fch'
+ uno_out = hf_fch(1:i-1)//'_uno.txt'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -595,12 +571,13 @@ subroutine prt_uno_script_into_py(pyname)
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
  write(fid1,'(/,A)') "uno_fch = '"//TRIM(uno_fch)//"'"
+ write(fid1,'(A)') "uno_out = '"//TRIM(uno_out)//"'"
  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'
  write(fid1,'(A)') 'mo_a = mf.mo_coeff[0].copy()'
  write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
- write(fid1,'(A,E12.5,A)') 'idx, noon, alpha_coeff = uno(nbf,nif,na,nb,mf.mo_co&
-                           &eff[0], mf.mo_coeff[1],S,',uno_thres,')'
- write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)'
+ write(fid1,'(A,E12.5,A)') 'idx,noon,alpha_coeff = uno(uno_out,nbf,nif,na,nb,mf&
+  &.mo_coeff[0],mf.mo_coeff[1],S,',uno_thres,')'
+ write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf,nif,idx[1],alpha_coeff,S)'
  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, alpha_coeff)'
  write(fid1,'(A)') '# done transform'
 
@@ -622,7 +599,7 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  use mr_keyword, only : localm, hf_fch, nskip_uno, npair_wish
  implicit none
  integer :: i, ncore, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, assoc_fch, a_fch
+ character(len=240) :: buf, pyname1, uno_out, suno_out, assoc_fch, a_fch
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: suno
 
@@ -681,9 +658,11 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  if(suno) then
   assoc_fch = hf_fch(1:i-1)//'_suno_asrot.fch'
   a_fch = hf_fch(1:i-1)//'_suno_asrot_a.fch'
+  suno_out = hf_fch(1:i-1)//'_suno.txt'
  else
   assoc_fch = hf_fch(1:i-1)//'_uno_asrot.fch'
   a_fch = hf_fch(1:i-1)//'_uno_asrot_a.fch'
+  uno_out = hf_fch(1:i-1)//'_uno.txt'
  end if
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='append')
@@ -772,9 +751,11 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
   write(fid1,'(A)') '  os.rename(a_fch, assoc_fch)'
   write(fid1,'(A)') '  npair = npair_wish'
   if(suno) then
-   write(fid1,'(A)') "  modify_uno_out('suno.out', ncore-nadd, npair, na-nb)"
+   write(fid1,'(A)') "  suno_out = '"//TRIM(suno_out)//"'"
+   write(fid1,'(A)') '  modify_uno_out(suno_out, ncore-nadd, npair, na-nb)'
   else
-   write(fid1,'(A)') "  modify_uno_out('uno.out', ncore-nadd, npair, na-nb)"
+   write(fid1,'(A)') "  uno_out = '"//TRIM(uno_out)//"'"
+   write(fid1,'(A)') '  modify_uno_out(uno_out, ncore-nadd, npair, na-nb)'
   end if
  end if
 
@@ -792,18 +773,19 @@ subroutine do_minimal_basis_gvb()
  real(kind=8) :: gvb_mult     ! GVB spin mult
  real(kind=8), allocatable :: noon(:)
  character(len=24) :: data_string
- character(len=240) :: buf, proname, mbgjf, gvb_nofch, mbout, pyname, outname
- ! mbgjf: minimal basis gjf
+ character(len=240) :: buf, proname, mbgjf, gvb_nofch, mbout, pyname, outname, &
+  uno_out
 
  if(ist /= 6) return
  i = (mult - 1)/2
  gvb_mult = DBLE(i*(i+1))
 
- i = INDEX(gjfname, '.gjf', back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
  proname = gjfname(1:i-1)
- mbgjf = gjfname(1:i-1)//'_mb.gjf'
+ mbgjf = gjfname(1:i-1)//'_mb.gjf' ! minimal basis gjf
  mbout = gjfname(1:i-1)//'_mb.out'
  hf_fch = gjfname(1:i-1)//'_proj_rem.fch'
+ uno_out = gjfname(1:i-1)//'_proj_rem_uno.txt'
  pyname = gjfname(1:i-1)//'_proj_rem.py'
  outname = gjfname(1:i-1)//'_proj_rem.out'
 
@@ -826,8 +808,8 @@ subroutine do_minimal_basis_gvb()
  buf = 'tar -zcf '//TRIM(proname)//'_minb.tar.gz '//TRIM(proname)//&
        '_mb* --remove-files'
  write(6,'(A)') '$'//TRIM(buf)
- i = SYSTEM(TRIM(buf))
 
+ i = SYSTEM(TRIM(buf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compres&
                    &s minimal basis'
@@ -879,7 +861,7 @@ subroutine do_minimal_basis_gvb()
  mo_rhf = .true. ! set to .True., actually ist=6, but mimicking ist=3
 
  call read_nbf_and_nif_from_fch(hf_fch, nbf, nif)
- open(newunit=fid,file='uno.out',status='replace')
+ open(newunit=fid,file=TRIM(uno_out),status='replace')
  write(fid,'(A,I0,/,A,I0)') 'nbf=', nbf, 'nif=', nif
  write(fid,'(/,A,I0,/)') 'ndb=',ndb
  write(fid,'(A,I0,2(1X,I0))') 'idx=', ndb+1, ndb+2*npair+nopen+1, nopen

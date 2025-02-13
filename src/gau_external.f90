@@ -53,14 +53,14 @@ program gau_external
   end if
  end if
 
- call get_orca_path(orca_path)
+ call get_exe_path('orca', orca_path)
  call submit_orca_job(orca_path, inpname, .false., .false., .false.)
  call read_natom_from_engrad(gradname, natom)
  allocate(grad(3*natom))
  call read_grad_from_engrad(gradname, natom, e, grad)
 
  inquire(file=TRIM(bakfile),exist=alive)
- if(alive) then   ! update MO coefficients (and coordinates if necessary)
+ if(alive) then ! update MO coefficients (and coordinates if necessary)
   call gbw2mkl(gbwname)
   call sys_copy_file(fchname, new_fch, .false.)
   call mkl2fch_wrap(mklname, new_fch)

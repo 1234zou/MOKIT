@@ -47,7 +47,7 @@ module sr_keyword
 contains
 
 subroutine read_sr_program_path()
- use mr_keyword, only: mokit_root, gau_path, molpro_path, get_molcas_path
+ use mr_keyword, only: mokit_root, gau_path, molpro_path
  implicit none
  integer :: i
  integer(kind=4) :: hostnm
@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc2 (2025-Jan-14)'
+ write(6,'(A)') '           Version: 1.2.7rc3 (2025-Feb-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -72,12 +72,12 @@ subroutine read_sr_program_path()
  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
 
  call get_gau_path(gau_path)
- call get_molcas_path()
+ call get_exe_path('pymolcas', molcas_path)
  call check_molcas_is_omp(molcas_omp)
- call get_orca_path(orca_path)
- call get_molpro_path(molpro_path)
+ call get_exe_path('orca', orca_path)
+ call get_exe_path('molpro', molpro_path)
  call get_psi4_path(psi4_path)
- call get_dalton_path(dalton_path)
+ call get_exe_path('dalton', dalton_path)
  if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
@@ -624,7 +624,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc2 :: MOKIT, release date: 2025-Jan-14'
+  write(6,'(A)') 'AutoSR 1.2.7rc3 :: MOKIT, release date: 2025-Feb-12'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -651,6 +651,7 @@ program main
   write(6,'(A,/)') ' EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
+  call check_mokit_root()
   call read_sr_program_path()
   stop
  end select
@@ -682,6 +683,7 @@ subroutine autosr(fname)
 
  gjfname = fname
  ! read paths of various programs from environment variables
+ call check_mokit_root()
  call read_sr_program_path()
  call parse_sr_keyword()
  call check_sr_kywd_compatible()

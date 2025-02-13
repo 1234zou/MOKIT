@@ -637,10 +637,8 @@ subroutine prt_cas_script_into_py(pyname, scf)
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
  ! Since DMRG is not strictly invariant to unitary rotations of active orbitals,
  ! I hope the original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations.
- ! NOs are usually more delocalized than original MOs.
+ ! NOs are usually much more delocalized than original MOs.
 
- ! mem*500 is in fact mem*1000/2. The mc.max_memory and fcisolver.max_memory seem
- ! not to share common memory, they used two memory, so I have to divide them
  if(scf) then
   if((.not.ss_opt) .and. iroot==0) then
    call prt_gs_casscf_kywrd_py(fid2, RIJK_bas1) ! print ground state CASSCF keywords
@@ -1010,8 +1008,9 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
 
  if(put(1:4) /= '{put') then
   close(fid)
-  write(6,'(A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
-                 & in the final line of file '//TRIM(inpname)
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_molpro_inp: wrong content found&
+                   & in the final'
+  write(6,'(A)') 'line of file '//TRIM(inpname)
   stop
  end if
 
@@ -1773,6 +1772,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mr_keyword, only: mem, nproc, casscf, RI, maxM, hardwfn, crazywfn, block_mpi
  implicit none
  integer, intent(in) :: fid
+ !real(kind=8), parameter :: conv_tol_grad = 3d-3
  character(len=21), intent(in) :: RIJK_bas1
 
  if(casscf) then ! CASSCF
@@ -1791,6 +1791,13 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  else ! DMRG-CASSCF
   write(fid,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta, ',',&
                            nactb, '))'
+  ! Default conv_tol_grad < 3.16e-4 is not easy for DMRG-CASSCF even when the
+  ! energy can be converged to 1e-13 a.u.
+  ! TODO: the DMRG-CASSCF orbital gradients are often larger than the default
+  ! threshold, and often larger than 3d-3. I remember there is no such case several
+  ! years ago. Simply enlarge maxM does not solve the problem. The reason is not
+  ! clear so far.
+  !write(fid,'(A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
   call prt_block_mem(0, fid, mem, nproc, block_mpi)
   write(fid,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
  end if
@@ -1798,7 +1805,7 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  write(fid,'(A)') 'mc.max_cycle = 300'
 end subroutine prt_gs_casscf_kywrd_py
 
-! print excited state CASSCF keywords into a PySCF .py file
+! print excited state (DMRG-)CASSCF keywords into a PySCF script
 ! state tracking is achieved by detecting spin multiplicities of each state
 subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacte, nacta, nactb, mult
@@ -1809,6 +1816,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  integer, intent(in) :: fid
  integer, parameter :: max_cyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
+ !real(kind=8), parameter :: conv_tol_grad = 3d-3
  character(len=21), intent(in) :: RIJK_bas1
 
  spin = 0.5d0*DBLE(xmult-1)
@@ -1908,6 +1916,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  end if
  write(fid,'(2X,A)') 'if (j > 0):'
  write(fid,'(4X,A)') 'mc.fcisolver.nroots = nroots'
+ !write(fid,'(2X,A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
  write(fid,'(2X,A)') 'mc.verbose = 5'
  write(fid,'(2X,A)') 'mc.max_cycle = 1' ! only 1 cycle
  write(fid,'(2X,A)') 'mc.kernel()'
@@ -1956,9 +1965,10 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  if(.not. dmrgscf) then
   write(fid,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
   call prt_hard_or_crazy_casci_pyscf(fid, nacta-nactb,hardwfn,crazywfn,.false.)
+  write(fid,'(A)') 'mc.natorb = True'
  end if
-
- write(fid,'(A)') 'mc.natorb = True'
+ ! For CASSCF, its NOs are computed in this step.
+ ! For DMRG-CASSCF, its NOs are not computed in this step.
 end subroutine prt_es_casscf_kywrd_py
 
 subroutine prt_casci_kywrd_py(fid, RIJK_bas1, natorb)

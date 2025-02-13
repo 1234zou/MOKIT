@@ -41,12 +41,13 @@ program main
  case default
   write(6,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
-  write(6,'(A)')   ' Example 2 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
-  write(6,'(A)')   ' Example 3 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
-  write(6,'(A)')   ' Example 4 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
-  write(6,'(A)')   ' Example 5 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
+  write(6,'(A)')   ' Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis'
+  write(6,'(A)')   ' Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
+  write(6,'(A)')   ' Example 4 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
+  write(6,'(A)')   ' Example 5 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
+  write(6,'(A)')   ' Example 6 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
                    &open [Nopen]'
-  write(6,'(A,/)') ' Example 6 (no $VEC)       : fch2inp h2o.fch -novec'
+  write(6,'(A,/)') ' Example 7 (no $VEC)       : fch2inp h2o.fch -novec'
   stop
  end select
 
@@ -65,12 +66,14 @@ program main
  if(i > 1) then
   call getarg(2, arg2)
   select case(TRIM(arg2))
-  case('-sf')
+  case('-sfcis')
    itype = 1
-  case('-mrsf')
+  case('-sf')
    itype = 2
-  case('-gvb')
+  case('-mrsf')
    itype = 3
+  case('-gvb')
+   itype = 4
   case('-novec')
    no_vec = .true.
    if(i > 2) then
@@ -104,7 +107,7 @@ program main
 end program main
 
 ! Generate GAMESS .inp file from Gaussian .fch(k) file.
-! itype: 0/1/2/3 for default/SF/MRSF/GVB methods
+! itype: 0/1/2/3/4 for default/SF-CIS/SF-TDDFT/MRSF/GVB methods
 subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  use fch_content
  implicit none
@@ -112,7 +115,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
- integer :: itype1  ! -3/-2/-1/0/1/2/3 for GHF/ROHF/RHF/UHF/SF/MRSF/GVB
+ integer :: itype1  ! -3/-2/-1/0/1/2/3/4 for GHF/ROHF/RHF/UHF/SF-CIS/SF-TDDFT/MRSF/GVB
  integer, intent(in) :: itype, npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -169,17 +172,17 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf)         ! read content in .fch(k) file
 
- if(itype==1 .and. mult<3) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: SF-TDDFT in GAMESS is supposed&
-                   & to be based on'
-  write(6,'(A)') 'a high-spin ROHF/UHF reference, with spin multiplicity >=3. B&
-                 &ut the spin'
+ if((itype==1 .or. itype==2) .and. mult<3) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2inp: SF-CIS/SF-TDDFT in GAMESS is s&
+                   &upposed to be based'
+  write(6,'(A)') 'on a high-spin ROHF/UHF reference, with spin multiplicity >=3&
+                 &. But the spin'
   write(6,'(A)') 'multiplicity in your .fch file is: ', mult
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
- if(itype==2 .and. mult/=3) then
+ if(itype==3 .and. mult/=3) then
   write(6,'(/,A)') 'ERROR in subroutine fch2inp: MRSF-TDDFT in GAMESS can only &
                    &be based on a'
   write(6,'(A,I0)') 'triplet ROHF reference! The spin multiplicity in your .fch&
@@ -190,11 +193,11 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
 
  if(uhf) then
   nif1 = 2*nif
-  if(itype == 2) then
+  if(itype == 3) then
    write(6,'(/,A)') 'ERROR in subroutine fch2inp: UHF and MRSF both activated.'
    write(6,'(A)') 'Please use an ROHF .fch(k) file.'
    stop
-  else if(itype == 3) then
+  else if(itype == 4) then
    write(6,'(/,A)') 'ERROR in subroutine fch2inp: uhf and gvb both activated.'
    write(6,'(A)') 'Did you provide a wrong .fch(k) file, or specify wrong argum&
                   &ents?'
@@ -395,7 +398,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  nbf = nbf1 ! update nbf
 
  ! if active orbitals in GAMESS order are required, permute them
- if(itype == 3) then ! GVB
+ if(itype == 4) then ! GVB
   if(npair > 1) then
    allocate(order(2*npair), source=0)
    allocate(temp_coeff(nbf,2*npair), source=0d0)
@@ -460,13 +463,13 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(A)',advance='no') 'RHF'
  case(0)  ! UHF
   write(fid,'(A)',advance='no') 'UHF'
- case(1,2)! SF/MRSF
+ case(1,2,3)! SF/MRSF
   if(uhf) then
    write(fid,'(A)',advance='no') 'UHF'
   else
    write(fid,'(A)',advance='no') 'ROHF'
   end if
- case(3)  ! GVB
+ case(4)  ! GVB
   write(fid,'(A)',advance='no') 'GVB'
  case default
   write(6,'(/,A)') 'ERROR in subroutine creat_gamess_inp_head: itype out of ran&
@@ -479,7 +482,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  write(fid,'(A)',advance='no') ' NOSYM=1 ICUT=11'
  if(ecp) write(fid,'(A)',advance='no') ' PP=READ'
 
- if(itype == 3) then ! GVB
+ if(itype == 4) then ! GVB
   write(fid,'(/,A)',advance='no') '  MAXIT=500'
  else
   write(fid,'(/,A)',advance='no') '  MAXIT=200'
@@ -493,11 +496,14 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  if(sph) write(fid,'(A)',advance='no') ' ISPHER=1'
 
- if(itype == 1) then
+ select case(itype)
+ case(1) ! SF-CIS
+  write(fid,'(A)',advance='no') ' CITYP=SFCIS'
+ case(2) ! SF-TDDFT
   write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=SPNFLP'
- else if(itype == 2) then
+ case(3) ! MRSF-TDDFT
   write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=MRSF'
- end if
+ end select
 
  if(X2C) then
   write(fid,'(A)') ' $END X2C'
@@ -509,7 +515,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  if(irel == 0) write(fid,'(A)') ' $RELWFN NORDER=1 $END' ! DKH 0-th
 
- if(itype == 3) then
+ if(itype == 4) then
   write(fid,'(2(A,I0))',advance='no') ' $SCF NCO=',ncore,' NPAIR=',npair
   if(nopen > 0) then
    write(fid,'(A,I0,A)',advance='no') ' NSETO=',nopen,' NO(1)=1'
@@ -538,14 +544,16 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  end if
 
  write(fid,'(A,I0,A)') ' $GUESS GUESS=MOREAD NORB=', nif, ' $END'
- if(itype==1 .or. itype==2) then
+ if(itype == 1) then
+  write(fid,'(A)') ' $CIS NSTATE=5 $END'
+ else if(itype==2 .or. itype==3) then
   write(fid,'(A)') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590 $END'
   write(fid,'(A)') ' $TDDFT NSTATE=5 $END'
  end if
 
  write(fid,'(A)') ' $DATA'
  write(fid,'(A)',advance='no') 'GAMESS inp file produced by MOKIT'
- if(itype /= 3) write(fid,'(2(A,I0))',advance='no') ',na=',na,',nb=',nb
+ if(itype /= 4) write(fid,'(2(A,I0))',advance='no') ',na=',na,',nb=',nb
  write(fid,'(2(A,I0))') ',nif=',nif,',nbf=',nbf
  write(fid,'(A)') 'C1   1'
  close(fid)

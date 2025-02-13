@@ -24,6 +24,9 @@ categories = ["science"]
 keywords = ["quantum-chemistry","computational-chemistry"]
 homepage = "https://gitlab.com/jxzou/mokit"
 
+[fortran]
+implicit-external = true
+
 [build]
 auto-executables = false
 auto-examples = false
@@ -33,6 +36,7 @@ auto-tests = false
 name = "add_bgcharge_to_inp"
 source-dir = "src"
 main = "add_bgcharge_to_inp.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "addH2singlet"
@@ -68,31 +72,37 @@ link = "mkl_rt"
 name = "bas_gau2molcas"
 source-dir = "src"
 main = "bas_gau2molcas.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bas_gms2bdf"
 source-dir = "src"
 main = "bas_gms2bdf.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bas_gms2dal"
 source-dir = "src"
 main = "bas_gms2dal.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bas_gms2molcas"
 source-dir = "src"
 main = "bas_gms2molcas.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bas_gms2molpro"
 source-dir = "src"
 main = "bas_gms2molpro.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bas_gms2py"
 source-dir = "src"
 main = "bas_gms2py.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "bdf2fch"
@@ -161,6 +171,7 @@ link = "mkl_rt"
 name = "fch2mkl"
 source-dir = "src"
 main = "fch2mkl.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "fch2inp"
@@ -285,6 +296,7 @@ link = "mkl_rt"
 name = "mkl2gjf"
 source-dir = "src"
 main = "mkl2gjf.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "mkl2psi"

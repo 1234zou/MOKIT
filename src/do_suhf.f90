@@ -1,8 +1,8 @@
 ! written by jeanwsr at Jan 2025: subroutines for SUHF
 
 subroutine do_suhf()
- use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
-  HFonly, loc_asrot, suhf_prog
+ use mr_keyword, only: mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
+  loc_asrot, suhf_prog
  use mol, only: chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
@@ -12,7 +12,6 @@ subroutine do_suhf()
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, pyname, outname, fchname, fchname_suno
 
- !if(eist == 1) return ! excited state calculation
  if(ist /= 7) return  ! no need for this subroutine
  write(6,'(//,A)') 'Enter subroutine do_suhf...'
 
@@ -76,16 +75,17 @@ subroutine prt_suhf_script_into_py(pyname)
  use mr_keyword, only: nproc, hf_fch, uno_thres
  implicit none
  integer :: i, fid1, fid2, RENAME
- character(len=240) :: buf, pyname1, suhf_fch, suno_fch
+ character(len=240) :: buf, pyname1, suhf_fch, suno_fch, suno_out
  character(len=240), intent(in) :: pyname
 
  buf = ' '
  call find_specified_suffix(pyname, '.py', i)
  pyname1 = pyname(1:i-1)//'.t'
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
  suhf_fch = hf_fch(1:i-1)//'_suhf.fch'
  suno_fch = hf_fch(1:i-1)//'_suno.fch'
+ suno_out = hf_fch(1:i-1)//'_suno.txt'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
@@ -154,10 +154,12 @@ subroutine prt_suhf_script_into_py(pyname)
 
  write(fid1,'(/,A)') '# save the SUNO into .fch file'
  write(fid1,'(A)') "suno_fch = '"//TRIM(suno_fch)//"'"
+ write(fid1,'(A)') "suno_out = '"//TRIM(suno_out)//"'"
  write(fid1,'(A)') 'nopen = mol.spin'
  ! compute idx for next step asrot
  write(fid1,'(A,F12.10)') 'uno_thres = ', uno_thres
- write(fid1,'(A)') 'idx = get_idx_from_noon(sunoon, nbf, nif, nopen, uno_thres)'
+ write(fid1,'(A)') 'idx = get_idx_from_noon(suno_out, sunoon, nbf, nif, nopen, &
+                   &uno_thres)'
  write(fid1,'(A)') 'na, nb = mf.nelec'
  write(fid1,'(A)') 'mf.mo_coeff = (suno, suno)'
 !  write(fid1,'(/,A)') '# transform UHF canonical orbitals to UNO'

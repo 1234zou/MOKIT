@@ -278,6 +278,33 @@ subroutine remove_dir(dirname)
 #endif
 end subroutine remove_dir
 
+! check if MOKIT_ROOT present. Set it if not present.
+subroutine check_mokit_root()
+ implicit none
+ integer :: i, SYSTEM
+ character(len=240) :: mokit_root
+
+ write(6,'(/,A)') 'Checking MOKIT_ROOT ... '
+ mokit_root = ' '
+ call getenv('MOKIT_ROOT', mokit_root)
+
+ if (LEN_TRIM(mokit_root) == 0) then
+  ! assume we are under conda install
+  i = SYSTEM("echo `get_mokit_loc.py` > ~/.mokitrc ")
+  !i = SYSTEM("echo `get_mokit_loc.py` ")
+  !i = SYSTEM('echo $MOKIT_ROOT')
+  if(i /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine check_mokit_root: '
+   write(6,'(A)') '    fail to set MOKIT_ROOT for conda-installed MOKIT.'
+   write(6,'(A)') 'If MOKIT is installed via conda, please report this issue.'
+   write(6,'(A)') 'Otherwise, it means your MOKIT_ROOT is not properly set.'
+   stop
+  else
+   write(6,'(A)') 'reset MOKIT_ROOT for conda-installed version'
+  end if
+ endif
+end subroutine check_mokit_root
+
 ! export a real(kind=8) array into a plain .txt file
 subroutine export_rarray2txt(txtname, label, n, a)
  implicit none
@@ -594,17 +621,17 @@ subroutine find_and_del_pyc(proname, py_ver)
  call delete_file(TRIM(pycname))
 end subroutine find_and_del_pyc
 
-! modify the file uno.out
-subroutine modify_uno_out(unofile, ndb, npair, nopen)
+! modify the file xxx_uno.txt
+subroutine modify_uno_out(uno_out, ndb, npair, nopen)
  implicit none
  integer :: k, fid, idx(3)
  integer, intent(in) :: ndb, npair, nopen
 !f2py intent(in) :: ndb, npair, nopen
  character(len=240) :: buf
- character(len=240), intent(in) :: unofile
-!f2py intent(in) :: unofile
+ character(len=240), intent(in) :: uno_out
+!f2py intent(in) :: uno_out
 
- open(newunit=fid,file=TRIM(unofile),status='old',position='append')
+ open(newunit=fid,file=TRIM(uno_out),status='old',position='append')
  do while(.true.)
   BACKSPACE(fid)
   BACKSPACE(fid)
@@ -642,4 +669,34 @@ subroutine prt_mo_center2xyz(nmo, coor, xyzname)
  end do ! for i
  close(fid)
 end subroutine prt_mo_center2xyz
+
+! Note: the parameter mem must be provided in unit MB.
+subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
+                           numfreq)
+ implicit none
+ integer :: i, fid
+ integer,intent(in) :: mem, charge, mult, natom
+ real(kind=8), intent(in) :: coor(3,natom)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: gjfname
+ logical, intent(in) :: numfreq
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A,I0,A)') '%mem=', min(mem,6000), 'MB'
+ write(fid,'(A)') '%nprocshared=1'
+ write(fid,'(A)',advance='no') '# opt(nomicro,maxcycles=300)'
+ if(numfreq) write(fid,'(A)',advance='no') ' freq=numer'
+ write(fid,'(A)') " def2SVPP nosymm external='gau_external'"
+ ! TODO: automatically switch to UGBS or mixed basis set when there is any
+ ! element which is out of range of def2SVPP.
+
+ write(fid,'(/,A)') 'Using Gaussian as the geometry optimizer'
+ write(fid,'(/,I0,1X,I0)') charge, mult
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+ end do ! for i
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+end subroutine gen_gau_opt_gjf
 

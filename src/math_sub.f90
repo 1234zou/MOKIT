@@ -124,7 +124,7 @@ subroutine get_triu_idx(n, map)
   stop
  end if
 
- if(n < 99) then
+ if(n < 300) then
   forall(i=1:n, j=1:n, j>=i) map(:,(2*n-i)*(i-1)/2+j) = [i,j]
  else
 !$omp parallel do schedule(dynamic) default(shared) private(i,j)
@@ -153,7 +153,7 @@ subroutine get_triu_idx1(n, map)
   stop
  end if
 
- if(n < 99) then
+ if(n < 300) then
   forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
  else
 !$omp parallel do schedule(dynamic) default(shared) private(i,j)
@@ -794,6 +794,38 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  deallocate(SC)
 end subroutine calc_CTSC
 
+! Update upper triangular part of i,j columns of a dipole integral matrix.
+! Note: i<j is required.
+subroutine update_up_tri_ij_dipole(nmo, i, j, cos_a, sin_a, mo_dipole)
+ implicit none
+ integer :: k
+ integer, intent(in) :: nmo, i, j
+ real(kind=8) :: tmp_dip(3)
+ real(kind=8), intent(in) :: cos_a, sin_a
+ real(kind=8), intent(inout) :: mo_dipole(3,nmo,nmo)
+
+ !$omp parallel sections private(k,tmp_dip)
+ !$omp section
+ do k = 1, i-1, 1
+  tmp_dip = mo_dipole(:,i,k)
+  mo_dipole(:,i,k) = cos_a*tmp_dip + sin_a*mo_dipole(:,j,k)
+  mo_dipole(:,j,k) = cos_a*mo_dipole(:,j,k) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = i+1, j-1, 1
+  tmp_dip = mo_dipole(:,k,i)
+  mo_dipole(:,k,i) = cos_a*tmp_dip + sin_a*mo_dipole(:,j,k)
+  mo_dipole(:,j,k) = cos_a*mo_dipole(:,j,k) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = j+1, nmo, 1
+  tmp_dip = mo_dipole(:,k,i)
+  mo_dipole(:,k,i) = cos_a*tmp_dip + sin_a*mo_dipole(:,k,j)
+  mo_dipole(:,k,j) = cos_a*mo_dipole(:,k,j) - sin_a*tmp_dip
+ end do ! for k
+ !$omp end parallel sections
+end subroutine update_up_tri_ij_dipole
+
 ! transform AO dipole integrals into MO dipole integrals
 subroutine ao2mo_dipole(nbf, nmo, ao_dip, mo, mo_dip)
  implicit none
@@ -1056,17 +1088,34 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
 end subroutine calc_dm_using_mo_and_on
 
 ! get a random integer
+! TODO: better random integer generator for Windows.
 subroutine get_a_random_int(i)
  implicit none
- integer :: n, clock
+ integer :: ierr, n, clock, fid
  integer, intent(out) :: i
  integer, allocatable :: seed(:)
  real(kind=4) :: r
+ character(len=12), parameter :: fname = '/dev/urandom'
 
+ clock = 0
  call RANDOM_SEED(size=n)
- allocate(seed(n))
+ allocate(seed(n), source=0)
+
+#ifdef _WIN32
  call SYSTEM_CLOCK(count=clock)
  seed = clock
+#else
+ open(unit=fid,file=fname,access='stream',form='unformatted',status='old',&
+      iostat=ierr)
+ if(ierr == 0) then
+  read(fid) seed
+  close(fid)
+ else
+  close(fid)
+  call SYSTEM_CLOCK(count=seed(1))
+ end if
+#endif
+
  call RANDOM_SEED(put=seed)
  call RANDOM_NUMBER(r)
  deallocate(seed)
@@ -1307,6 +1356,136 @@ subroutine canonicalize_mo(nbf, nmo, f, old_mo, new_mo)
  deallocate(CTFC)
 end subroutine canonicalize_mo
 
+! Calculate diagonal elements of Mulliken/Lowdin gross population matrix.
+! TODO: if one wants to frequently call this subroutine to calculate the Lowdin
+!  population, the rootS is supposed to be given as an optional input, so that
+!  rootS would not be calculated multiple times.
+subroutine calc_diag_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross)
+ implicit none
+ integer :: i, j, i1, i2, i3
+ integer, intent(in) :: natom, nbf, nif
+ integer, intent(in) ::  bfirst(natom+1)
+ real(kind=8) :: ddot
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo(nbf,nif)
+ real(kind=8), intent(out) :: gross(natom,nif)
+ real(kind=8), allocatable :: rootS(:,:), SC(:,:)
+ character(len=*), intent(in) :: popm
+
+ select case(TRIM(popm))
+ case('mulliken')
+  allocate(SC(nbf,nif), source=0d0)
+  call dsymm('L', 'L', nbf, nif, 1d0, ao_ovlp, nbf, mo, nbf, 0d0, SC, nbf)
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(nif,natom,bfirst,mo,SC,gross)
+  do i = 1, nif, 1
+   do j = 1, natom, 1
+    i1 = bfirst(j); i2 = bfirst(j+1) - 1
+    i3 = i2 - i1 + 1
+    gross(j,i) = ddot(i3, mo(i1:i2,i), 1, SC(i1:i2,i), 1)
+   end do ! for j
+  end do ! for i
+!$omp end parallel do
+
+ case('lowdin')
+  allocate(rootS(nbf,nbf), SC(nbf,nbf))
+  call mat_dsqrt(nbf, ao_ovlp, .false., rootS, SC)
+  deallocate(SC)
+  ! Note that Lowdin populations do not require S^(-1/2), but only S^1/2
+  allocate(SC(nbf,nif), source=0d0) ! use SC to store (S^1/2)C
+  call dsymm('L', 'L', nbf, nif, 1d0, rootS, nbf, mo, nbf, 0d0, SC, nbf)
+  deallocate(rootS)
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(nif,natom,bfirst,SC,gross)
+  do i = 1, nif, 1
+   do j = 1, natom, 1
+    i1 = bfirst(j); i2 = bfirst(j+1) - 1
+    i3 = i2 - i1 + 1
+    gross(j,i) = ddot(i3, SC(i1:i2,i), 1, SC(i1:i2,i), 1)
+   end do ! for j
+  end do ! for i
+!$omp end parallel do
+
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine calc_diag_gross_pop: wrong population m&
+                   &ethod provided.'
+  write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input popm="//popm
+  stop
+ end select
+
+ deallocate(SC)
+end subroutine calc_diag_gross_pop
+
+! Calculate Mulliken/Lowdin gross population matrix.
+! TODO: if one wants to frequently call this subroutine to calculate the Lowdin
+!  population, the rootS is supposed to be given as an optional input, so that
+!  rootS would not be calculated multiple times.
+subroutine calc_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross)
+ implicit none
+ integer :: i, j, k, m, i1, i2, i3, np
+ integer, intent(in) :: natom, nbf, nif
+ integer, intent(in) ::  bfirst(natom+1)
+ integer, allocatable :: map(:,:)
+ real(kind=8) :: ddot
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo(nbf,nif)
+ real(kind=8), intent(out) :: gross(natom,nif,nif)
+ real(kind=8), allocatable :: rootS(:,:), SC(:,:)
+ character(len=*), intent(in) :: popm
+
+ np = nif*(nif+1)/2
+ allocate(map(2,np))
+ call get_triu_idx(nif, map)
+
+ select case(TRIM(popm))
+ case('mulliken')
+  allocate(SC(nbf,nif), source=0d0)
+  call dsymm('L', 'L', nbf, nif, 1d0, ao_ovlp, nbf, mo, nbf, 0d0, SC, nbf)
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(np,natom,map,bfirst,mo,SC,gross)
+  do m = 1, np, 1
+   i = map(1,m); j = map(2,m)
+   do k = 1, natom, 1
+    i1 = bfirst(k); i2 = bfirst(k+1) - 1
+    i3 = i2 - i1 + 1
+    gross(k,j,i) = 0.5d0*(ddot(i3, mo(i1:i2,i), 1, SC(i1:i2,j), 1) + &
+                          ddot(i3, mo(i1:i2,j), 1, SC(i1:i2,i), 1) )
+    gross(k,i,j) = gross(k,j,i)
+   end do ! for k
+  end do ! for m
+!$omp end parallel do
+
+ case('lowdin')
+  allocate(rootS(nbf,nbf), SC(nbf,nbf))
+  call mat_dsqrt(nbf, ao_ovlp, .false., rootS, SC)
+  deallocate(SC)
+  ! Note that Lowdin populations do not require S^(-1/2), but only S^1/2
+  allocate(SC(nbf,nif), source=0d0) ! use SC to store (S^1/2)C
+  call dsymm('L', 'L', nbf, nif, 1d0, rootS, nbf, mo, nbf, 0d0, SC, nbf)
+  deallocate(rootS)
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(np,natom,map,bfirst,SC,gross)
+  do m = 1, np, 1
+   i = map(1,m); j = map(2,m)
+   do k = 1, natom, 1
+    i1 = bfirst(k); i2 = bfirst(k+1) - 1
+    i3 = i2 - i1 + 1
+    gross(k,j,i) = ddot(i3, SC(i1:i2,i), 1, SC(i1:i2,j), 1)
+    gross(k,i,j) = gross(k,j,i)
+   end do ! for k
+  end do ! for m
+!$omp end parallel do
+
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine calc_gross_pop: wrong population method&
+                   & provided.'
+  write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input popm="//popm
+  stop
+ end select
+
+ deallocate(SC, map)
+end subroutine calc_gross_pop
+
 ! Find the centers of each MO, using the population matrix. The population method
 ! is determined when generating the pop array, so we do not need to know the
 ! population method in this subroutine.
@@ -1532,7 +1711,7 @@ subroutine qr_fac(m, n, A, Q, R)
  lwork = -1
  allocate(work(1))
  call dgeqrf(m, n, Q, m, tau, work, lwork, i)
- lwork = work(1)
+ lwork = CEILING(work(1))
  deallocate(work)
  allocate(work(lwork))
  call dgeqrf(m, n, Q, m, tau, work, lwork, i)
@@ -1555,7 +1734,7 @@ subroutine qr_fac(m, n, A, Q, R)
  lwork = -1
  allocate(work(1))
  call dorgqr(m, n, n, Q, m, tau, work, lwork, i)
- lwork = work(1)
+ lwork = CEILING(work(1))
  deallocate(work)
  allocate(work(lwork))
  call dorgqr(m, n, n, Q, m, tau, work, lwork, i)

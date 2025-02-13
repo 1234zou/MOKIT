@@ -100,7 +100,8 @@ program geom_opt
  implicit none
  integer :: i, fid
  character(len=240) :: gjfname, gjfname1, gjfname2, hfile, bakfile, numfile, &
-  gbwname, gesname, engrad, mklname, dm_name, fchname1, fchname2, propfile
+  gbwname, gesname, engrad, mklname, dm_name1, dm_name2, fchname1, fchname2, &
+  propfile1, propfile2, bibtex
 
  i = iargc()
  if(i /= 1) then
@@ -119,13 +120,16 @@ program geom_opt
  gesname = gjfname(1:i-1)//'_o.ges'
  engrad = gjfname(1:i-1)//'_o.engrad'
  mklname = gjfname(1:i-1)//'_o.mkl'
- dm_name = gjfname(1:i-1)//'_o.densities'
+ dm_name1 = gjfname(1:i-1)//'_o.densities'
+ dm_name2 = gjfname(1:i-1)//'_o.densitiesinfo'
  fchname1 = gjfname(1:i-1)//'_o.fch'
  fchname2 = gjfname(1:i-1)//'_g.fch'
  hfile = gjfname(1:i-1)//'_o.nc'
  bakfile = gjfname(1:i-1)//'_o.bak'
  numfile = gjfname(1:i-1)//'_o.num'
- propfile = gjfname(1:i-1)//'_o_property.txt'
+ propfile1 = gjfname(1:i-1)//'_o_property.txt'
+ propfile2 = gjfname(1:i-1)//'_o.property.txt'
+ bibtex = gjfname(1:i-1)//'_o.bibtex'
 
  call init_mol_comp_info(gjfname)
  call gen_guess_only_gjf(gjfname, gjfname1)
@@ -150,8 +154,8 @@ program geom_opt
  close(fid)
 
  call submit_gau_job(gau_path, gjfname2, .false.)
- call delete_files(8, [gbwname, gesname, mklname, fchname1, bakfile, dm_name, &
-                       engrad, propfile])
+ call delete_files(11, [gbwname, gesname, mklname, fchname1, bakfile, dm_name1,&
+                        dm_name2, engrad, propfile1, propfile2, bibtex])
 end program geom_opt
 
 subroutine gen_guess_only_gjf(gjfname, gjfname1)
@@ -275,26 +279,4 @@ subroutine gen_orca_inp_gbw(gjfname)
  close(fid,status='delete')
  close(fid1)
 end subroutine gen_orca_inp_gbw
-
-subroutine gen_gau_opt_gjf(gjfname)
- use mol_comp_info, only: mem, charge, mult, natom, elem, coor, numfreq
- implicit none
- integer :: i, fid
- character(len=240), intent(in) :: gjfname
-
- open(newunit=fid,file=TRIM(gjfname),status='replace')
- write(fid,'(A,I0,A)') '%mem=', min(mem,4000), 'MB'
- write(fid,'(A)') '%nprocshared=1'
- write(fid,'(A)',advance='no') '# opt(nomicro,maxcycles=300)'
- if(numfreq) write(fid,'(A)',advance='no') ' freq=numer'
- write(fid,'(A)') " def2SVPP nosymm external='gau_external'"
- ! TODO: automatically switch to UGBS when elements are out of range of def2SVPP
- write(fid,'(/,A)') 'Using Gaussian as the geometry optimizer'
- write(fid,'(/,I0,1X,I0)') charge, mult
- do i = 1, natom, 1
-  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
- end do ! for i
- write(fid,'(/)',advance='no')
- close(fid)
-end subroutine gen_gau_opt_gjf
 

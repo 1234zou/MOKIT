@@ -1,6 +1,9 @@
-MOKIT 1.2.7 (Jan 14, 2025)
+MOKIT 1.2.7 (Feb 12, 2025)
 ------------------------
 Fixes
+* support basis set linear dependency in fch2dal
+* add implicit-external option for recent verions of fortran-lang fpm
+* fix bug caused by simultaneously reading fixed filenames of multiple jobs
 * update nmo_b in molden2fch when basis set linear dep. occurs
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
@@ -18,7 +21,8 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
-* add `-novec` argument for fch2inp
+* add `-sfcis` and `-sasfcis` arguments for fch2qchem
+* add `-sfcis` and `-novec` arguments for fch2inp
 * add `-pbc` and `-obj` arguments for bas_gms2py and bas_fch2py
 * discard pairs which have small tdm values in pair_by_tdm
 * support automatic SS-CASSCF calculations (Xmult/=mult) via calling ORCA

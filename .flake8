@@ -17,6 +17,6 @@ exclude = build, .git, __pycache__
 max-line-length = 120
 
 per-file-ignores =
-    mokit/lib/gaussian.py: E111, E114
+    mokit/lib/gaussian.py: E111, E114, F841
     mokit/lib/stability.py: E111
     examples/utilities/*: F601 
