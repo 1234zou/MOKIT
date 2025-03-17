@@ -1,5 +1,190 @@
 ! written by jxzou at 20220214: move math library wrappers into this file
 
+! Reduce a fraction, where
+! the product of nume_deno(1,:) is the numerator,
+! the product of nume_deno(2,:) is the denominator.
+! For example, (7*6*5)/(3*2) = 7*5/1
+subroutine reduce_frac(n, nume_deno, deno_one)
+ implicit none
+ integer :: i, j, k1, k2
+ integer, intent(in) :: n
+ integer, intent(inout) :: nume_deno(2,n)
+ logical :: changed
+ logical, intent(in) :: deno_one
+
+ do while(.true.)
+  changed = .false.
+
+  do i = 1, n, 1
+   k1 = nume_deno(1,i)
+   if(k1 == 1) cycle
+   do j = 1, n-1, 1
+    k2 = nume_deno(2,j)
+    if(k2 == 1) cycle
+    if(MOD(k1,k2) == 0) then
+     k1 = k1/k2; nume_deno(1,i) = k1; nume_deno(2,j) = 1
+     changed = .true.
+    end if
+   end do ! for j
+  end do ! for i
+
+  do i = 1, n-1, 1
+   k1 = nume_deno(2,i)
+   if(k1 == 1) cycle
+   do j = 1, n, 1
+    k2 = nume_deno(1,j)
+    if(k2 == 1) cycle
+    if(MOD(k1,k2) == 0) then
+     k1 = k1/k2; nume_deno(2,i) = k1; nume_deno(1,j) = 1
+     changed = .true.
+    end if
+   end do ! for j
+  end do ! for i
+
+  if(.not. changed) exit
+ end do ! for while
+
+ if(deno_one) then
+  if(ANY( nume_deno(2,:)/=1 )) then
+   write(6,'(/,A)') 'ERROR in subroutine reduce_frac: some integer in denominat&
+                    &or is not reduced to 1.'
+   write(6,'(A,I0)') 'n=', n
+   write(6,'(20I3)') nume_deno(1,:)
+   write(6,'(20I3)') nume_deno(2,:)
+   stop
+  end if
+ end if
+end subroutine reduce_frac
+
+! simplify/reduce a combinatorial number C_{n}^{p}, e.g.
+! C_{6}^{3} = (6*5*4)/(3*2*1) = 5*4
+! C_{7}^{4} = C_{7}^{3} = (7*6*5)/(3*2*1) = 7*5
+subroutine simplify_comb_cnp(n, p, p_min, int_prod)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n, p, p_min
+ ! p_min = min(p, n-p)
+ integer, intent(out) :: int_prod(p_min)
+ integer, allocatable :: nume_deno(:,:)
+
+ if(p==0 .or. p==n) then
+  int_prod(1) = 1
+  return
+ else if(p==1 .or. p==n-1) then
+  int_prod(1) = n
+  return
+ else if(p > n) then
+  write(6,'(/,A)') 'ERROR in subroutine reduce_comb_cnp: p>n. Input values are &
+                   &nonsense.'
+  write(6,'(A,2I8)') 'n, p=', n, p
+  stop
+ end if
+
+ allocate(nume_deno(2,p_min))
+
+ do i = 1, p_min, 1
+  nume_deno(1,i) = n - i + 1
+  nume_deno(2,i) = p_min - i + 1
+ end do ! for i
+
+ call reduce_frac(p_min, nume_deno, .true.)
+ int_prod = nume_deno(1,:)
+ deallocate(nume_deno)
+end subroutine simplify_comb_cnp
+
+! combine two integer arrays with elements<2 discarded
+subroutine combine_int_prod(n1, int_prod1, n2, int_prod2, n3, int_prod3)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: n1, n2, n3
+ integer, intent(in) :: int_prod1(n1), int_prod2(n2)
+ integer, intent(out) :: int_prod3(n3)
+
+ k = 0
+
+ do i = 1, n1, 1
+  j = int_prod1(i)
+  if(j > 1) then
+   k = k + 1
+   int_prod3(k) = j
+  end if
+ end do ! for i
+
+ do i = 1, n2, 1
+  j = int_prod2(i)
+  if(j > 1) then
+   k = k + 1
+   int_prod3(k) = j
+  end if
+ end do ! for i
+end subroutine combine_int_prod
+
+! check whether (C_{n}^{p1})*(C_{n}^{p2}) > (C_{m}^{q1})*(C_{m}^{q2})
+function compare_cnp_cmq_prod(n, p1, p2, m, q1, q2) result(larger)
+ implicit none
+ integer :: k, k1, k2, p1_min, p2_min, q1_min, q2_min
+ integer, intent(in) :: n, p1, p2, m, q1, q2
+!f2py intent(in) :: n, p1, p2, m, q1, q2
+ integer, allocatable :: int_prod1(:),int_prod2(:), int_prod3(:),int_prod4(:), &
+  nume_deno(:,:)
+ logical :: larger
+
+ larger = .false.
+
+ p1_min = MAX(1, MIN(p1, n-p1))
+ p2_min = MAX(1, MIN(p2, n-p2))
+ allocate(int_prod1(p1_min), int_prod2(p2_min))
+ call simplify_comb_cnp(n, p1, p1_min, int_prod1)
+ call simplify_comb_cnp(n, p2, p2_min, int_prod2)
+ k1 = COUNT(int_prod1>1) + COUNT(int_prod2>1)
+ allocate(int_prod3(k1))
+ call combine_int_prod(p1_min,int_prod1, p2_min,int_prod2, k1,int_prod3)
+ deallocate(int_prod1, int_prod2)
+
+ q1_min = MAX(1, MIN(q1, m-q1))
+ q2_min = MAX(1, MIN(q2, m-q2))
+ allocate(int_prod1(q1_min), int_prod2(q2_min))
+ call simplify_comb_cnp(m, q1, q1_min, int_prod1)
+ call simplify_comb_cnp(m, q2, q2_min, int_prod2)
+ k2 = COUNT(int_prod1>1) + COUNT(int_prod2>1)
+ allocate(int_prod4(k2))
+ call combine_int_prod(q1_min,int_prod1, q2_min,int_prod2, k2,int_prod4)
+ deallocate(int_prod1, int_prod2)
+
+ k = MAX(k1, k2)
+ allocate(nume_deno(2,k), source=1)
+ nume_deno(1,1:k1) = int_prod3
+ nume_deno(2,1:k2) = int_prod4
+ deallocate(int_prod3, int_prod4)
+
+ call reduce_frac(k, nume_deno, .false.)
+ k1 = PRODUCT(nume_deno(1,:))
+ k2 = PRODUCT(nume_deno(2,:))
+ deallocate(nume_deno)
+ if(k1 > k2) larger = .true.
+end function compare_cnp_cmq_prod
+
+! compare which active space size is larger by active orbitals, electrons and
+! spin multiplicity
+function compare_as_size(nacto1,nacte1,mult1, nacto2,nacte2,mult2) result(larger)
+ implicit none
+ integer :: nopen1, nacta1, nactb1, nopen2, nacta2, nactb2
+ integer, intent(in) :: nacto1,nacte1,mult1, nacto2,nacte2,mult2
+!f2py intent(in) :: nacto1,nacte1,mult1, nacto2,nacte2,mult2
+ logical :: larger
+ logical, external :: compare_cnp_cmq_prod
+
+ nopen1 = mult1 - 1
+ nactb1 = (nacte1 - nopen1)/2
+ nacta1 = nacte1 - nactb1
+
+ nopen2 = mult2 - 1
+ nactb2 = (nacte2 - nopen2)/2
+ nacta2 = nacte2 - nactb2
+
+ larger = compare_cnp_cmq_prod(nacto1,nacta1,nactb1, nacto2,nacta2,nactb2)
+end function compare_as_size
+
 ! sort an integer array by ascending/descending order
 subroutine sort_int_array(n, a, ascending, idx)
  implicit none
@@ -107,6 +292,48 @@ subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
 
  deallocate(tmp_mo)
 end subroutine sort_mo_by_ev
+
+! check whether a (double) complex matrix is hermitian
+subroutine check_hermitian(n, a)
+ implicit none
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ complex(kind=8), intent(in) :: a(n,n)
+!f2py intent(in) :: a
+!f2py depend(n) :: a
+ real(kind=8), allocatable :: b_real(:,:), b_imag(:,:)
+ complex(kind=8), allocatable :: b(:,:)
+
+ allocate(b(n,n))
+ b = CONJG(TRANSPOSE(a)) - a
+ allocate(b_real(n,n), source=DABS(REAL(b)))
+ allocate(b_imag(n,n), source=DABS(AIMAG(b)))
+ deallocate(b)
+ write(6,'(A,F20.8)') 'Ave abs REAL:', SUM(b_real)/DBLE(n*n)
+ write(6,'(A,F20.8)') 'Ave abs IMAG:', SUM(b_imag)/DBLE(n*n)
+ deallocate(b_real, b_imag)
+end subroutine check_hermitian
+
+! check whether a (duoble) complex matrix is symmetric
+subroutine check_symm_cmplx(n, a)
+ implicit none
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ complex(kind=8), intent(in) :: a(n,n)
+!f2py intent(in) :: a
+!f2py depend(n) :: a
+ real(kind=8), allocatable :: b_real(:,:), b_imag(:,:)
+ complex(kind=8), allocatable :: b(:,:)
+
+ allocate(b(n,n))
+ b = TRANSPOSE(a) - a
+ allocate(b_real(n,n), source=DABS(REAL(b)))
+ allocate(b_imag(n,n), source=DABS(AIMAG(b)))
+ deallocate(b)
+ write(6,'(A,F20.8)') 'Ave abs REAL:', SUM(b_real)/DBLE(n*n)
+ write(6,'(A,F20.8)') 'Ave abs IMAG:', SUM(b_imag)/DBLE(n*n)
+ deallocate(b_real, b_imag)
+end subroutine check_symm_cmplx
 
 ! get upper triangle index pairs (j>=i), similar to numpy.triu_indices
 subroutine get_triu_idx(n, map)
@@ -353,18 +580,28 @@ end subroutine calc_usut
 ! calculate only diagonal elements of Us(U^T)
 subroutine calc_usut_diag_elem(n, s, u, d)
  implicit none
- integer :: i, j
+ integer :: i, j, k, m, n2
  integer, intent(in) :: n
  real(kind=8), intent(in) :: s(n), u(n,n)
  real(kind=8), intent(out) :: d(n)
  real(kind=8), allocatable :: u2(:,:)
 
  allocate(u2(n,n))
- do i = 1, n, 1
-  do j = 1, n, 1
-   u2(j,i) = u(j,i)*u(j,i)
-  end do ! for j
- end do !for i
+ n2 = n*n
+ ! using one compound loop is faster than double loops (j,i)
+
+ !$omp parallel do schedule(static) default(private) shared(n,n2,u,u2)
+ do k = 1, n2, 1
+  m = k/n
+  if(k == n*m) then
+   i = m
+  else
+   i = m + 1
+  end if
+  j = k - (i-1)*n
+  u2(j,i) = u(j,i)*u(j,i)
+ end do ! for k
+ !$omp end parallel do
 
  d = 0d0
  call dgemv('N', n, n, 1d0, u2, n, s, 1, 0d0, d, 1)
@@ -534,7 +771,7 @@ subroutine newton_inv(n, a, inv_a)
  forall(i = 1:n) old_inv(i,i) = 1d0/a(i,i)
 
  do i = 1, max_it, 1
-  call calc_SPS(n, a, old_inv, inv_a)
+  call calc_sps(n, a, old_inv, inv_a)
   inv_a = 2d0*old_inv - inv_a
   if(SUM(DABS(old_inv - inv_a))/DBLE(n*n) < thres) exit
   old_inv = inv_a
@@ -647,48 +884,6 @@ subroutine do_svd_get_uvt_s(n, a, uvt, s)
  deallocate(u, vt)
 end subroutine do_svd_get_uvt_s
 
-! compute the GAMMA_k matrix using the reference MOs and MOs of geometry/point k
-! Note: here mo_ref and mo_k are both expressed at the orthogonal basis, i.e.
-!  C' = (S^1/2)C
-subroutine grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k)
- implicit none
- integer :: i
- integer, intent(in) :: nbf, nmo
- real(kind=8), intent(in) :: mo_ref(nbf,nmo)
- real(kind=8), intent(inout) :: mo_k(nbf,nmo) ! return G_k in mo_k
- real(kind=8), allocatable :: CTC(:,:), inv_CTC(:,:), u(:,:), vt(:,:), s(:), &
-  s1(:,:), us(:,:), L_k(:,:)
-
- ! (mo_ref^T)mo_k
- allocate(CTC(nmo,nmo))
- call dgemm('T','N', nmo, nmo, nbf, 1d0, mo_ref, nbf, mo_k, nbf, 0d0, CTC, nmo)
-
- ! ((mo_ref^T)mo_k)^(-1)
- allocate(inv_CTC(nmo,nmo))
- call inverse(nmo, CTC, inv_CTC)
- ! Maybe using SVD to calculate the inverse would be more efficient
- deallocate(CTC)
-
- ! L_k = mo_k((mo_ref^T)mo_k)^(-1) - mo_ref
- allocate(L_k(nbf,nmo), source=mo_ref)
- call dgemm('N','N', nbf, nmo, nmo, 1d0, mo_k, nbf, inv_CTC, nmo, -1d0, L_k, nbf)
- deallocate(inv_CTC)
-
- allocate(u(nbf,nbf), vt(nmo,nmo), s(nbf))
- call do_svd(nbf, nmo, L_k, u, vt, s)
- deallocate(L_k)
-
- allocate(s1(nbf,nmo), source=0d0)
- forall(i = 1:nmo) s1(i,i) = DATAN(s(i))
- deallocate(s)
-
- allocate(us(nbf,nmo))
- call dgemm('N', 'N', nbf, nmo, nbf, 1d0, u, nbf, s1, nbf, 0d0, us, nbf)
- deallocate(u, s1)
- call dgemm('N', 'N', nbf, nmo, nmo, 1d0, us, nbf, vt, nmo, 0d0, mo_k, nbf)
- deallocate(vt, us)
-end subroutine grassmann_C2GAMMA
-
 ! calculate (C^T)SC, S is real symmetric, C is a vector
 function calc_CiTSCi(nbf, C, S) result(res)
  implicit none
@@ -700,7 +895,19 @@ function calc_CiTSCi(nbf, C, S) result(res)
  allocate(SC(nbf), source=0d0)
  call dsymv('U', nbf, 1d0, S, nbf, C, 1, 0d0, SC, 1)
  res = ddot(nbf, C, 1, SC, 1)
+ deallocate(SC)
 end function calc_CiTSCi
+
+! calculate C(C^T)
+subroutine calc_cct(nbf, nif, occ_mo, cct)
+ implicit none
+ integer, intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: occ_mo(nbf,nif)
+ real(kind=8), intent(out) :: cct(nbf,nbf)
+
+ cct = 0d0
+ call dgemm('N','T', nbf,nbf,nif, 1d0,occ_mo,nbf, occ_mo,nbf, 0d0,cct,nbf)
+end subroutine calc_cct
 
 ! normalize an MO
 subroutine normalize_mo(nbf, ao_ovlp, mo)
@@ -720,14 +927,22 @@ subroutine normalize_mos(nbf, nif, ao_ovlp, mo)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nif
+ real(kind=8) :: norm, ddot
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
  real(kind=8), intent(inout) :: mo(nbf,nif)
+ real(kind=8), allocatable :: sc(:,:)
 
-!$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,ao_ovlp,mo)
+ allocate(sc(nbf,nif), source=0d0)
+ call dsymm('L', 'L', nbf, nif, 1d0, ao_ovlp, nbf, mo, nbf, 0d0, sc, nbf)
+
+ !$omp parallel do schedule(static) default(private) shared(nbf,nif,mo,sc)
  do i = 1, nif, 1
-  call normalize_mo(nbf, ao_ovlp, mo(:,i))
+  norm = ddot(nbf, mo(:,i), 1, sc(:,i), 1)
+  mo(:,i) = mo(:,i)/DSQRT(norm)
  end do ! for i
-!$omp end parallel do
+ !$omp end parallel do
+
+ deallocate(sc)
 end subroutine normalize_mos
 
 ! calculate/compute normalized PAOs
@@ -739,8 +954,8 @@ subroutine get_normalized_pao(nbf, nif, ao_ovlp, occ_mo, pao)
  real(kind=8), intent(out) :: pao(nbf,nbf)
  real(kind=8), allocatable :: cct(:,:)
 
- allocate(cct(nbf,nbf), source=0d0)
- call dgemm('N','T', nbf,nbf,nif, 1d0,occ_mo,nbf, occ_mo,nbf, 0d0,cct,nbf)
+ allocate(cct(nbf,nbf))
+ call calc_cct(nbf, nif, occ_mo, cct)
 
  pao = 0d0
  forall(i = 1:nbf) pao(i,i) = 1d0
@@ -772,6 +987,61 @@ subroutine calc_atbc(n1, n2, n3, n4, a, b, c, atbc)
  deallocate(bc)
 end subroutine calc_atbc
 
+! calculate diagonal elements of (C^T)SC, where S is real symmetric
+subroutine calc_ctsc_diag(nbf, nif, s, c, diag)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8) :: ddot
+ real(kind=8), intent(in) :: s(nbf,nbf), c(nbf,nif)
+!f2py intent(in) :: s, c
+!f2py depend(nbf) :: s
+!f2py depend(nbf,nif) :: c
+ real(kind=8), intent(out) :: diag(nif)
+!f2py intent(out) :: diag
+!f2py depend(nif) :: diag
+ real(kind=8), allocatable :: sc(:,:)
+
+ allocate(sc(nbf,nif), source=0d0)
+ call dsymm('L', 'L', nbf, nif, 1d0, s, nbf, c, nbf, 0d0, sc, nbf)
+
+ !$omp parallel do schedule(static) default(private) shared(nbf,nif,c,sc,diag)
+ do i = 1, nif, 1
+  diag(i) = ddot(nbf, c(:,i), 1, sc(:,i), 1)
+ end do ! for i
+ !$omp end parallel do
+
+ deallocate(sc)
+end subroutine calc_ctsc_diag
+
+! calculate diagonal elements of each component of (C^T)DC, where D(i,:,:),
+! i=1,2,3 is real symmetric
+subroutine calc_ctdc_diag(nbf, nif, d, c, diag)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: d(3,nbf,nbf), c(nbf,nif)
+!f2py intent(in) :: d, c
+!f2py depend(nbf) :: d
+!f2py depend(nbf,nif) :: c
+ real(kind=8), intent(out) :: diag(3,nif)
+!f2py intent(out) :: diag
+!f2py depend(nif) :: diag
+ real(kind=8), allocatable :: diag0(:), s(:,:)
+
+ allocate(diag0(nbf), s(nbf,nbf))
+
+ do i = 1, 3
+  s = d(i,:,:)
+  call calc_ctsc_diag(nbf, nif, s, c, diag0)
+  diag(i,:) = diag0
+ end do ! for i
+
+ deallocate(diag0, s)
+end subroutine calc_ctdc_diag
+
 ! calculate (C^T)SC, S must be real symmetric since dsymm is called
 ! C: nbf*nif, S: nbf*nbf
 subroutine calc_CTSC(nbf, nif, C, S, CTSC)
@@ -794,40 +1064,136 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  deallocate(SC)
 end subroutine calc_CTSC
 
+! Calculate (C^T)SC, where C is (double precision) real and S is (double)
+! complex symmetric.
+subroutine calc_ct_zs_c(nbf, nif, c, s, ctsc)
+ implicit none
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: c(nbf,nif)
+!f2py intent(in) :: c
+!f2py depend(nbf,nif) :: c
+ complex(kind=8), parameter :: zero=(0d0,0d0), one=(1d0,0d0)
+ complex(kind=8), intent(in) :: s(nbf,nbf)
+!f2py intent(in) :: s
+!f2py depend(nbf) :: s
+ complex(kind=8), intent(out) :: ctsc(nif,nif)
+!f2py intent(out) :: ctsc
+!f2py depend(nif) :: ctsc
+ complex(kind=8), allocatable :: zc(:,:), sc(:,:)
+
+ ctsc = zero
+ ! transform real matrix C to complex matrix
+ allocate(zc(nbf,nif), sc(nbf,nif))
+ zc = CMPLX(c, 0d0)
+ sc = zero
+ call zsymm('L', 'L', nbf, nif, one, s, nbf, zc, nbf, zero, sc, nbf)
+ call zgemm('T', 'N', nif, nif, nbf, one, zc, nbf, sc, nbf, zero, ctsc, nif)
+ deallocate(sc, zc)
+end subroutine calc_ct_zs_c
+
 ! Update upper triangular part of i,j columns of a dipole integral matrix.
 ! Note: i<j is required.
-subroutine update_up_tri_ij_dipole(nmo, i, j, cos_a, sin_a, mo_dipole)
+subroutine update_up_tri_ij_dip(nmo, i, j, cos_a, sin_a, mo_dip)
  implicit none
  integer :: k
  integer, intent(in) :: nmo, i, j
  real(kind=8) :: tmp_dip(3)
  real(kind=8), intent(in) :: cos_a, sin_a
- real(kind=8), intent(inout) :: mo_dipole(3,nmo,nmo)
+ real(kind=8), intent(inout) :: mo_dip(3,nmo,nmo)
 
  !$omp parallel sections private(k,tmp_dip)
  !$omp section
  do k = 1, i-1, 1
-  tmp_dip = mo_dipole(:,i,k)
-  mo_dipole(:,i,k) = cos_a*tmp_dip + sin_a*mo_dipole(:,j,k)
-  mo_dipole(:,j,k) = cos_a*mo_dipole(:,j,k) - sin_a*tmp_dip
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
  end do ! for k
  !$omp section
  do k = i+1, j-1, 1
-  tmp_dip = mo_dipole(:,k,i)
-  mo_dipole(:,k,i) = cos_a*tmp_dip + sin_a*mo_dipole(:,j,k)
-  mo_dipole(:,j,k) = cos_a*mo_dipole(:,j,k) - sin_a*tmp_dip
+  tmp_dip = mo_dip(:,k,i)
+  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
  end do ! for k
  !$omp section
  do k = j+1, nmo, 1
-  tmp_dip = mo_dipole(:,k,i)
-  mo_dipole(:,k,i) = cos_a*tmp_dip + sin_a*mo_dipole(:,k,j)
-  mo_dipole(:,k,j) = cos_a*mo_dipole(:,k,j) - sin_a*tmp_dip
+  tmp_dip = mo_dip(:,k,i)
+  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
+  mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
  end do ! for k
  !$omp end parallel sections
-end subroutine update_up_tri_ij_dipole
+end subroutine update_up_tri_ij_dip
+
+! Update upper triangular part of i,j columns of a complex dipole integral matrix.
+! Note: i<j is required.
+subroutine update_up_tri_ij_zdip(nmo, i, j, cos_a, sin_a, mo_dip)
+ implicit none
+ integer :: k
+ integer, intent(in) :: nmo, i, j
+ real(kind=8), intent(in) :: cos_a, sin_a
+ complex(kind=8) :: tmp_dip(3)
+ complex(kind=8), intent(inout) :: mo_dip(3,nmo,nmo)
+
+ !$omp parallel sections private(k,tmp_dip)
+ !$omp section
+ do k = 1, i-1, 1
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = i+1, j-1, 1
+  tmp_dip = mo_dip(:,k,i)
+  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = j+1, nmo, 1
+  tmp_dip = mo_dip(:,k,i)
+  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
+  mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
+ end do ! for k
+ !$omp end parallel sections
+end subroutine update_up_tri_ij_zdip
+
+! Update upper triangular part of i,j columns of a gross matrix.
+! Note: i<j is required.
+subroutine update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
+ implicit none
+ integer :: k
+ integer, intent(in) :: natom, nmo, i, j
+ real(kind=8), allocatable :: tmp_g(:)
+ real(kind=8), intent(in) :: cos_a, sin_a
+ real(kind=8), intent(inout) :: gross(natom,nmo,nmo)
+
+ allocate(tmp_g(natom))
+
+ !$omp parallel sections private(k,tmp_g)
+ !$omp section
+ do k = 1, i-1, 1
+  tmp_g = gross(:,i,k)
+  gross(:,i,k) = cos_a*tmp_g + sin_a*gross(:,j,k)
+  gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
+ end do ! for k
+ !$omp section
+ do k = i+1, j-1, 1
+  tmp_g = gross(:,k,i)
+  gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,j,k)
+  gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
+ end do ! for k
+ !$omp section
+ do k = j+1, nmo, 1
+  tmp_g = gross(:,k,i)
+  gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,k,j)
+  gross(:,k,j) = cos_a*gross(:,k,j) - sin_a*tmp_g
+ end do ! for k
+ !$omp end parallel sections
+
+ deallocate(tmp_g)
+end subroutine update_up_tri_ij_gross
 
 ! transform AO dipole integrals into MO dipole integrals
-subroutine ao2mo_dipole(nbf, nmo, ao_dip, mo, mo_dip)
+subroutine ao2mo_dip(nbf, nmo, ao_dip, mo, mo_dip)
  implicit none
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
@@ -842,7 +1208,29 @@ subroutine ao2mo_dipole(nbf, nmo, ao_dip, mo, mo_dip)
  call calc_CTSC(nbf, nmo, mo, ao_dip(1,:,:), mo_dip(1,:,:))
  call calc_CTSC(nbf, nmo, mo, ao_dip(2,:,:), mo_dip(2,:,:))
  call calc_CTSC(nbf, nmo, mo, ao_dip(3,:,:), mo_dip(3,:,:))
-end subroutine ao2mo_dipole
+end subroutine ao2mo_dip
+
+! Transform complex AO dipole integrals into complex MO dipole integrals,
+! where the MO coefficients are real.
+! Note: ao_dip must be double complex and symmetric.
+subroutine ao2mo_zdip(nbf, nmo, ao_dip, mo, mo_dip)
+ implicit none
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: mo(nbf,nmo)
+!f2py intent(in) :: mo
+!f2py depend(nbf,nmo) :: mo
+ complex(kind=8), intent(in) :: ao_dip(3,nbf,nbf)
+!f2py intent(in) :: ao_dip
+!f2py depend(nbf) :: ao_dip
+ complex(kind=8), intent(out) :: mo_dip(3,nmo,nmo)
+!f2py intent(out) :: mo_dip
+!f2py depend(nmo) :: mo_dip
+
+ call calc_ct_zs_c(nbf, nmo, mo, ao_dip(1,:,:), mo_dip(1,:,:))
+ call calc_ct_zs_c(nbf, nmo, mo, ao_dip(2,:,:), mo_dip(2,:,:))
+ call calc_ct_zs_c(nbf, nmo, mo, ao_dip(3,:,:), mo_dip(3,:,:))
+end subroutine ao2mo_zdip
 
 ! calculate (C^T)S(C'), S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf, C': nbf*nif
@@ -910,19 +1298,19 @@ subroutine calc_CXCT(nbf, nmo, C, X, CXCT)
 end subroutine calc_CXCT
 
 ! calculate SPS, where S and P are both symmetric matrices
-subroutine calc_SPS(nbf, P, S, SPS)
+subroutine calc_sps(nbf, dm, s, sps)
  implicit none
  integer, intent(in) :: nbf
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
- real(kind=8), intent(out) :: SPS(nbf,nbf)
- real(kind=8), allocatable :: PS(:,:)
+ real(kind=8), intent(in) :: dm(nbf,nbf), s(nbf,nbf)
+ real(kind=8), intent(out) :: sps(nbf,nbf)
+ real(kind=8), allocatable :: dm_s(:,:)
 
- SPS = 0d0
- allocate(PS(nbf,nbf), source=0d0)
- call dsymm('R', 'L', nbf, nbf, 1d0, S, nbf, P, nbf, 0d0, PS, nbf)
- call dsymm('L', 'L', nbf, nbf, 1d0, S, nbf, PS, nbf, 0d0, SPS, nbf)
- deallocate(PS)
-end subroutine calc_SPS
+ sps = 0d0
+ allocate(dm_s(nbf,nbf), source=0d0)
+ call dsymm('R', 'L', nbf, nbf, 1d0, s, nbf, dm, nbf, 0d0, dm_s, nbf)
+ call dsymm('L', 'L', nbf, nbf, 1d0, s, nbf, dm_s, nbf, 0d0, sps, nbf)
+ deallocate(dm_s)
+end subroutine calc_sps
 
 ! Calculate expectation values using the given unitary matrix and eigenvalues.
 ! E.g. LMO=CMO*U, where ev are orbital energies.
@@ -1021,6 +1409,48 @@ end subroutine orb_resemble_ref1
 ! new_mo1 = mo1
 !end subroutine orb_resemble_ref3
 
+! compute the GAMMA_k matrix using the reference MOs and MOs of geometry/point k
+! Note: here mo_ref and mo_k are both expressed at the orthogonal basis, i.e.
+!  C' = (S^1/2)C
+subroutine grassmann_C2GAMMA(nbf, nmo, mo_ref, mo_k)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: mo_ref(nbf,nmo)
+ real(kind=8), intent(inout) :: mo_k(nbf,nmo) ! return G_k in mo_k
+ real(kind=8), allocatable :: CTC(:,:), inv_CTC(:,:), u(:,:), vt(:,:), s(:), &
+  s1(:,:), us(:,:), L_k(:,:)
+
+ ! (mo_ref^T)mo_k
+ allocate(CTC(nmo,nmo))
+ call dgemm('T','N', nmo, nmo, nbf, 1d0, mo_ref, nbf, mo_k, nbf, 0d0, CTC, nmo)
+
+ ! ((mo_ref^T)mo_k)^(-1)
+ allocate(inv_CTC(nmo,nmo))
+ call inverse(nmo, CTC, inv_CTC)
+ ! Maybe using SVD to calculate the inverse would be more efficient
+ deallocate(CTC)
+
+ ! L_k = mo_k((mo_ref^T)mo_k)^(-1) - mo_ref
+ allocate(L_k(nbf,nmo), source=mo_ref)
+ call dgemm('N','N', nbf, nmo, nmo, 1d0, mo_k, nbf, inv_CTC, nmo, -1d0, L_k, nbf)
+ deallocate(inv_CTC)
+
+ allocate(u(nbf,nbf), vt(nmo,nmo), s(nbf))
+ call do_svd(nbf, nmo, L_k, u, vt, s)
+ deallocate(L_k)
+
+ allocate(s1(nbf,nmo), source=0d0)
+ forall(i = 1:nmo) s1(i,i) = DATAN(s(i))
+ deallocate(s)
+
+ allocate(us(nbf,nmo))
+ call dgemm('N', 'N', nbf, nmo, nbf, 1d0, u, nbf, s1, nbf, 0d0, us, nbf)
+ deallocate(u, s1)
+ call dgemm('N', 'N', nbf, nmo, nmo, 1d0, us, nbf, vt, nmo, 0d0, mo_k, nbf)
+ deallocate(vt, us)
+end subroutine grassmann_C2GAMMA
+
 ! perform density matrix purification
 subroutine purify_dm(nbf, S, P)
  implicit none
@@ -1036,7 +1466,7 @@ subroutine purify_dm(nbf, S, P)
 
  do i = 1, max_it, 1
   P0 = P
-  call calc_SPS(nbf, S, P, PSP)
+  call calc_sps(nbf, S, P, PSP)
 
   SP = 0d0
   call dsymm('L', 'L', nbf, nbf, 1d0, S, nbf, P, nbf, 0d0, SP, nbf)
@@ -1182,15 +1612,15 @@ subroutine solve_ovlp_from_cct(nbf, C, S)
  integer, intent(in) :: nbf
  real(kind=8), intent(in) :: C(nbf,nbf)
  real(kind=8), intent(out) :: S(nbf,nbf)
- real(kind=8), allocatable :: CCT(:,:)
+ real(kind=8), allocatable :: cct(:,:)
 
  ! calculate C(C^T)
- allocate(CCT(nbf,nbf), source=0d0)
- call dgemm('N','T', nbf,nbf,nbf, 1d0,C,nbf, C,nbf, 0d0,CCT,nbf)
+ allocate(cct(nbf,nbf))
+ call calc_cct(nbf, nbf, C, cct)
 
  ! calculate (C(C^T))^(-1)
- call inverse(nbf, CCT, S)
- deallocate(CCT)
+ call inverse(nbf, cct, S)
+ deallocate(cct)
 end subroutine solve_ovlp_from_cct
 
 ! solve AO-based Fock matrix (F) from condition (C^T)FC=E
@@ -1902,7 +2332,7 @@ end subroutine mv_dege_docc_below_bo
 !!f2py intent(in) :: mo0, mo1
 !!f2py depend(nbf,nmo) :: mo0, mo1
 ! real(kind=8), intent(inout) :: t1(nocc,nmo-nocc), t2(nocc,nocc,nmo-nocc,nmo-nocc)
-!!f2py intent(inout) :: t1, t2
+!!f2py intent(in,out) :: t1, t2
 !!f2py depend(nocc,nmo) :: t1, t2
 ! real(kind=8), intent(in) :: ovlp(nbf,nbf)
 !!f2py intent(in) :: ovlp

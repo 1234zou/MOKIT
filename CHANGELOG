@@ -1,6 +1,8 @@
-MOKIT 1.2.7 (Feb 12, 2025)
+MOKIT 1.2.7 (Mar 17, 2025)
 ------------------------
 Fixes
+* fix bug of reading PySCF UCCSD(T) and RI-RCCSD(T) energy
+* fix the npair<=0 case in get_npair_and_ovidx
 * support basis set linear dependency in fch2dal
 * add implicit-external option for recent verions of fortran-lang fpm
 * fix bug caused by simultaneously reading fixed filenames of multiple jobs
@@ -8,11 +10,13 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* allow arbitrary number of active electrons/orbitals for post-CAS
 * ist=7 for UHF -> SUHF NO -> (associated rotation ->) CASCI/CASSCF -> ...
 * load a cell object using load_cell_from_fch
 * support automatic SS-DMRG-CASSCF orbital optimization by calling PySCF+Block
 * fast orbital localization of PBC gamma point for a large cell
-* fast orbital localization using Cholesky LMOs and OpenMP parallel for large molecules
+* fast orbital localization using Cholesky/Atomic/Mixed LMOs as initial guess
+* fast orbital localization using OpenMP parallel for large molecules
 * add keywords ICSS_r and ICSS_intv in mokit{}
 * add non-iterative basis set projection
 * add ADC(2)/ADC(3) interface to PSI4
@@ -21,6 +25,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* replace RIJK by RICD when invoking RI in OpenMolcas
 * add `-sfcis` and `-sasfcis` arguments for fch2qchem
 * add `-sfcis` and `-novec` arguments for fch2inp
 * add `-pbc` and `-obj` arguments for bas_gms2py and bas_fch2py
@@ -29,6 +34,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* replace calc_dis_mat_from_coor by BOHR2ANG*gto.inter_distance for isolated molecules
 * merge subroutines sym_ortho and can_ortho into gen_ortho_mo
 * mv original subroutine orb_resemble into orb_resemble_iter
 * remove construct_vir.f90 and move this subroutine into math_sub.f90

@@ -382,6 +382,7 @@ subroutine fch2mkl(fchname, itype, dftname)
  write(fid2,'(A)') ' Thresh 1e-12'
  write(fid2,'(A)') ' Tcut 1e-14'
  write(fid2,'(A)') ' CNVDamp False'
+ ! ORCA default is `sthresh 1e-7`
  if(nif < nbf) write(fid2,'(A)') ' sthresh 1e-6'
  write(fid2,'(A)') 'end'
  if(composite) then ! composite method

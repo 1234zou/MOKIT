@@ -1,6 +1,5 @@
 ! written by jxzou at 20210111: 3rd order MRPT interfaces
 
-! do CASCI/CASSCF-CASPT3 or CASSCF-NEVPT3 when npair<=7
 subroutine do_mrpt3()
  use mr_keyword, only: dmrgci, dmrgscf, CIonly, caspt3, nevpt3, casnofch, &
   casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, bdf_path,&
@@ -22,8 +21,8 @@ subroutine do_mrpt3()
  mem0 = CEILING(DBLE(mem*125)/DBLE(nproc))
 
  if((dmrgci .or. dmrgscf)) then
-  write(6,'(A)') 'ERROR in subroutine do_mrpt3: CASPT3/NEVPT3 based on DMRG&
-                   & reference is not supported.'
+  write(6,'(/,A)') 'ERROR in subroutine do_mrpt3: CASPT3/NEVPT3 based on DMRG r&
+                   &eference is not supported.'
   stop
  end if
 
@@ -152,6 +151,9 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: ref_e, corr2_e, corr3_e
+ character(len=19), parameter :: key(6) = ['!MCSCF STATE  1.1 E', &
+ '!MCSCF STATE 1.1 En', '!RSPT2 STATE  1.1 E', '!RSPT2 STATE 1.1 En', &
+ '!RSPT3 STATE  1.1 E', '!RSPT3 STATE 1.1 En']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -162,12 +164,12 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:20) == '!MCSCF STATE  1.1 E') exit
+  if(buf(2:20)==key(1) .or. buf(2:20)==key(2)) exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
-  write(6,'(A)') "'!MCSCF STATE  1.1 E' not found in file "//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASSCF energy not found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -178,12 +180,12 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:20) == '!RSPT2 STATE  1.1 E') exit
+  if(buf(2:20)==key(3) .or. buf(2:20)==key(4)) exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
-  write(6,'(A)') "'!RSPT2 STATE  1.1 E' not found in file "//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASPT2 energy not found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -195,13 +197,13 @@ subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:20) == '!RSPT3 STATE  1.1 E') exit
+  if(buf(2:20)==key(5) .or. buf(2:20)==key(6)) exit
  end do ! for while
  close(fid)
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
-  write(6,'(A)') "'!RSPT3 STATE  1.1 E' not found in file "//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASPT3 energy not found in file '//TRIM(outname)
   stop
  end if
 

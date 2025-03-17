@@ -1,8 +1,6 @@
 ! written by jxzou at 20210111: moved from subroutine do_mrpt2 in automr.f90
 ! updated by jxzou at 20210224: add CASPT2 interface with ORCA
 
-! do CASCI/CASPT2(npair<=7) or DMRG-CASCI/DMRG-NEVPT2 (npair>7) when scf=.False.
-! do CASSCF/CASPT2(npair<=7) or DMRG-CASSCF/DMRG-NEVPT2 (npair>7) when scf=.True.
 subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, dmrg_no, CIonly, caspt2,&
   caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, &
@@ -453,9 +451,9 @@ end subroutine do_mrpt2
 ! print NEVPT2/CASPT2/CASPT3 keywords into Molpro input file
 subroutine prt_mrpt_molpro_inp(inpname, itype)
  use mr_keyword, only: CIonly, caspt2_force
- use mol, only: ndb, npair, npair0, nacto
+ use mol, only: ndb, nacto
  implicit none
- integer :: fid, nclosed, nocc
+ integer :: n_pocc, fid
  integer, intent(in) :: itype ! 1/2/3 for NEVPT2/CASPT2/CASPT3
  character(len=240) :: put, buf, orbfile
  character(len=240), intent(in) :: inpname
@@ -486,15 +484,14 @@ subroutine prt_mrpt_molpro_inp(inpname, itype)
  write(fid,'(A)') 'read,mo,ORB,file='//TRIM(orbfile)//';'
  write(fid,'(A)') 'save,mo,2140.2,ORBITALS}'
 
- nclosed = ndb + npair - npair0
- nocc = nclosed + nacto
+ n_pocc = ndb + nacto
 
  if(CIonly) then
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,&
-                           ';DONT,ORBITAL;CANONICAL;NoExtra}'
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',ndb,';occ,',n_pocc,';DONT,ORBITAL;&
+                           &CANONICAL;NoExtra}'
  else
-  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',nclosed,';occ,',nocc,&
-                           ';CANONICAL;NoExtra}'
+  write(fid,'(2(A,I0),A)') '{CASSCF;closed,',ndb,';occ,',n_pocc,';CANONICAL;NoE&
+                           &xtra}'
  end if
 
  write(fid,'(A)') TRIM(put)
@@ -523,15 +520,14 @@ end subroutine prt_mrpt_molpro_inp
 
 ! print SDSPT2/NEVPT2/NEVPT3 keywords in to a given BDF .inp file
 subroutine prt_mrpt_bdf_inp(inpname, itype)
- use mol, only: charge, mult, nacte, nacto, npair, npair0, ndb
+ use mol, only: charge, mult, nacte, nacto, ndb
  use mr_keyword, only: CIonly
  implicit none
- integer :: i, nclosed, fid
+ integer :: i, fid
  integer, intent(in) :: itype ! 1/2/3 for SDSPT2/NEVPT2/NEVPT3
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 
- nclosed = ndb + npair - npair0
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
 
  do while(.true.)
@@ -551,7 +547,7 @@ subroutine prt_mrpt_bdf_inp(inpname, itype)
  write(fid,'(A)') '$MCSCF'
  write(fid,'(A,/,I0)') 'Charge', charge
  write(fid,'(A,/,I0)') 'Spin', mult
- write(fid,'(A,/,I0)') 'Close', nclosed
+ write(fid,'(A,/,I0)') 'Close', ndb
  write(fid,'(A,/,I0)') 'Active', nacto
  write(fid,'(A,/,I0)') 'Actel', nacte
  write(fid,'(A)') 'Guess'
@@ -580,7 +576,8 @@ subroutine prt_mrpt_bdf_inp(inpname, itype)
  case(3)
   write(fid,'(A)') 'NEVPT3'
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine prt_mrpt_bdf_inp: invalid itype=',itype
+  write(6,'(/,A,I0)') 'ERROR in subroutine prt_mrpt_bdf_inp: invalid itype=',&
+                       itype
   write(6,'(A)') 'itype=1/2/3 for SDSPT2/NEVPT2/NEVPT3.'
   stop
  end select
@@ -894,43 +891,18 @@ end subroutine prt_dmrg_nevpt2_setting
 ! It seems that OpenMolcas does not support CASSCF-NEVPT2. So I have to use
 ! DMRG-NEVPT2.
 subroutine prt_nevpt2_molcas_inp(inpname)
- use mr_keyword, only: CIonly, RI, RIJK_bas
+ use mr_keyword, only: CIonly, RI
  implicit none
- integer :: i, j, fid1, fid2, RENAME
- character(len=21) :: RIJK_bas1
+ integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- inpname1 = TRIM(inpname)//'.t'
+ if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
+
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:7) == 'SEWARD') exit
-  j = INDEX(buf, '...')
-  if(j > 0) then
-   if(RI) then
-    j = INDEX(buf, '.')
-    write(fid2,'(A)') buf(1:j)//TRIM(RIJK_bas1)//'..'//TRIM(buf(j+3:))
-   else
-    write(fid2,'(A)') TRIM(buf)
-   end if
-  else
-   write(fid2,'(A)') TRIM(buf)
-  end if
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SEWARD'&
-                & found in file "//TRIM(inpname)
-  stop
- end if
-
- if(RI) write(fid2,'(A)') 'RIJK'
- write(fid2,'(A)') "&SEWARD"
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -939,13 +911,7 @@ subroutine prt_nevpt2_molcas_inp(inpname)
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_nevpt2_molcas_inp: no 'SCF'&
-                & found in file "//TRIM(inpname)
-  stop
- end if
  close(fid1,status='delete')
-
  call prt_molcas_cas_para(fid2, .true., .true., .false., CIonly, inpname)
 
  write(fid2,'(/,A)') "&MOTRA"
@@ -959,50 +925,37 @@ subroutine prt_nevpt2_molcas_inp(inpname)
 end subroutine prt_nevpt2_molcas_inp
 
 ! print CASTP2 keywords into OpenMolcas .input file
-subroutine prt_caspt2_molcas_inp(inputname)
- use mr_keyword, only: CIonly, dmrgci, dmrgscf, caspt2_force
+subroutine prt_caspt2_molcas_inp(inpname)
+ use mr_keyword, only: RI, CIonly, dmrgci, dmrgscf, caspt2_force
  implicit none
  integer :: i, fid1, fid2, RENAME
- character(len=240) :: buf, inputname1
- character(len=240), intent(in) :: inputname
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
  logical :: dmrg
 
- dmrg = (dmrgci .or. dmrgscf)
- inputname1 = TRIM(inputname)//'.t'
-
- open(newunit=fid1,file=TRIM(inputname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(inputname1),status='replace')
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
-  if(buf(2:7) == 'SEWARD') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_caspt2_molcas_inp: no 'SEWARD'&
-                & found in file "//TRIM(inputname)
+ if(CIonly .and. dmrgci) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not a&
+                   &llowed in DMRG-CASPT2.'
+  write(6,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'
   stop
  end if
 
+ if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
+ dmrg = (dmrgci .or. dmrgscf)
+
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
  do while(.true.)
   read(fid1,'(A)') buf
-  if(LEN_TRIM(buf) == 0) exit
   if(buf(1:4)=="&SCF" .or. buf(1:7)=="&RASSCF") exit
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
+
  close(fid1,status='delete')
-
- call prt_molcas_cas_para(fid2, dmrg, .false., dmrg, CIonly, inputname)
-
- if(CIonly) then
-  if(dmrgci) then
-   write(6,'(A)') 'ERROR in subroutine prt_caspt2_molcas_inp: CIonly is not all&
-                  &owed in DMRG-CASPT2.'
-   write(6,'(A)') 'It must be based on converged (DMRG-)CASSCF orbitals.'
-   stop
-  end if
- end if
+ call prt_molcas_cas_para(fid2, dmrg, .false., dmrg, CIonly, inpname)
 
  if(caspt2_force) write(fid2,'(/,A)') '>>> Export MOLCAS_NPROCS=1'
  ! currently MPI is not supported for the CASPT2 gradient in OpenMolcas-v23.02
@@ -1011,7 +964,7 @@ subroutine prt_caspt2_molcas_inp(inputname)
  if(dmrgscf) write(fid2,'(A)') ' CheMPS2'
  if(.not. caspt2_force) write(fid2,'(A)') ' IPEA= 0.25'
  ! OpenMolcas has an environment variable $MOLCAS_NEW_DEFAULTS, which will
- !  affect the default value of IPEA shift. So here we write it explicitly.
+ !  affect the default value of IPEA shift. So here we specify it explicitly.
  write(fid2,'(A)') ' Frozen= 0'
  write(fid2,'(A,/,A)') ' MaxIter',' 500'
 
@@ -1024,23 +977,22 @@ subroutine prt_caspt2_molcas_inp(inputname)
  end if
 
  close(fid2)
- i = RENAME(inputname1, inputname)
+ i = RENAME(inpname1, inpname)
 end subroutine prt_caspt2_molcas_inp
 
 ! print MRMP2 keywords into GAMESS .inp file
 subroutine prt_mrmp2_gms_inp(inpname)
- use mol, only: charge, mult, ndb, npair, npair0, nacte, nacto
+ use mol, only: charge, mult, ndb, nacte, nacto
  use mr_keyword, only: mem, nproc, hardwfn, crazywfn, DKH2, cart
  implicit none
- integer :: i, ncore, fid1, fid2, RENAME
+ integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
-
- ncore = ndb + npair - npair0
 
  inpname1 = TRIM(inpname)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
+
  write(fid2,'(A)',advance='no') ' $CONTRL SCFTYP=MCSCF RUNTYP=ENERGY ICHARG='
  write(fid2,'(2(I0,A))') charge, ' MULT=', mult, ' NOSYM=1'
 
@@ -1056,7 +1008,7 @@ subroutine prt_mrmp2_gms_inp(inpname)
  write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)), ' $END'
 
  write(fid2,'(A)',advance='no') ' $DET'
- write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',nacto
+ write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ndb,' NELS=',nacte,' NACT=',nacto
 
  if(hardwfn) then
   write(fid2,'(A)',advance='no') ' NSTATE=5'
@@ -1064,7 +1016,7 @@ subroutine prt_mrmp2_gms_inp(inpname)
   write(fid2,'(A)',advance='no') ' NSTATE=10'
  end if
  write(fid2,'(A)') ' ITERMX=500 $END'
- write(fid2,'(A,I0,A)') ' $DETPT NVAL=', ncore,' $END'
+ write(fid2,'(A,I0,A)') ' $DETPT NVAL=', ndb,' $END'
 
  do while(.true.)
   read(fid1,'(A)') buf

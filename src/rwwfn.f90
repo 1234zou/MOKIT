@@ -2728,13 +2728,13 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    BACKSPACE(fid)
    BACKSPACE(fid)
    read(fid,'(A)') buf
-   if(buf(3:10) == '!Total e') exit
+   if(INDEX(buf(2:10),'!Total e') > 0) exit
   end do ! for while
 
-  i = INDEX(buf,':')
-  read(buf(i+1:),*) e
+  read(buf(17:),*) e
   read(fid,'(A)') buf
   read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) read(fid,'(A)') buf
   i = INDEX(buf,':')
   read(buf(i+1:),*) davidson_e
   davidson_e = davidson_e - e
@@ -2822,6 +2822,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid m&
                    &rcisd_prog='//TRIM(mrcisd_prog)
+  close(fid)
   stop
  end select
 
@@ -3707,7 +3708,7 @@ subroutine gen_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
- call calc_SPS(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
+ call calc_sps(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
  deallocate(sqrt_S)
 
  lwork = -1; liwork = -1
@@ -4005,10 +4006,12 @@ subroutine reorder2dbabasv(fchname)
  new_fch = fchname(1:i-5)//'new.fch'
 
  k = INDEX(fchname, 'gvb', back=.true.)
+ if(k == 0) k = INDEX(fchname, 'GVB', back=.true.)
  if(k == 0) then
-  write(6,'(/,A)') "ERROR in subroutine reorder2dbabasv: 'gvb' key not found in&
-                   & filename "//TRIM(fchname)
-  write(6,'(/,A,/)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  write(6,'(/,A)') "ERROR in subroutine reorder2dbabasv: 'gvb'/'GVB' key not fo&
+                   &und in filename "//TRIM(fchname)
+  write(6,'(A)') 'Example 1: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  write(6,'(A)') 'Example 2: ben_triplet_FcGVB14_s.fch'
   stop
  end if
 
@@ -4016,7 +4019,7 @@ subroutine reorder2dbabasv(fchname)
  if(j /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine reorder2dbabasv: failed to read npair &
                    &from filename '//TRIM(fchname)
-  write(6,'(/,A,/)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
+  write(6,'(A)') 'Example: ben_triplet_uhf_uno_asrot2gvb2_s.fch'
   stop
  end if
 

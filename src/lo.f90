@@ -60,8 +60,9 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  end if
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from pyscf import gto'
  write(fid,'(A)') 'from shutil import copyfile'
- write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
+ write(fid,'(A)') 'from mokit.lib.gaussian import BOHR2ANG, load_mol_from_fch'
  write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
  write(fid,'(A)') ' read_eigenvalues_from_fch'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
@@ -69,10 +70,10 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  if(pm_loc) then
   write(fid,'(A)',advance='no') 'from mokit.lib.lo import pm'
  else
-  write(fid,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
+  write(fid,'(A)') 'from mokit.lib.gaussian import ao_dipole_int'
   write(fid,'(A)',advance='no') 'from mokit.lib.lo import boys'
  end if
- write(fid,'(A)') ', calc_dis_mat_from_coor, get_bfirst_from_shl'
+ write(fid,'(A)') ', get_bfirst_from_shl'
  write(fid,'(A)') 'import numpy as np'
  write(fid,'(A)') 'import os'
 
@@ -83,11 +84,8 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
  write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'
  write(fid,'(A)') 'nmo = len(idx)'
- write(fid,'(A)') "lines = mol.atom.strip().split('\n')"
- write(fid,'(A)') 'coor_s = [line.split()[1:4] for line in lines]'
- write(fid,'(A)') 'coor = np.transpose(np.array(coor_s, dtype=float))'
  write(fid,'(A)') 'natom = mol.natm'
- write(fid,'(A)') 'dis = calc_dis_mat_from_coor(natom, coor)'
+ write(fid,'(A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
  write(fid,'(A)') 'nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, natom&
                   &, mol._bas[:,0], \'
  write(fid,'(35X,A)') 'mol._bas[:,1], mol._bas[:,3])'
@@ -98,12 +96,12 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
 
  if(pm_loc) then
   write(fid,'(A)') "loc_orb = pm(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,'mu&
-                   &lliken')"
+                   &lliken',17.0,1e-5)"
  else
   write(fid,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
   write(fid,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
-  write(fid,'(A)') 'loc_orb, mo_dip = boys(natom,nbf,nmo,bfirst,dis,mo_coeff[:,&
-                   &idx],S,ao_dip)'
+  write(fid,'(A)') 'loc_orb = boys(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,a&
+                   &o_dip,17.0,1e-5)'
  end if
 
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
@@ -280,7 +278,7 @@ subroutine gen_cf_orb(datname, ndb, nopen)
  call read_ci_coeff_from_dat(datname, npair, ci_coeff)
 
  if(ANY(ci_coeff(1,:)<0d0) .or. ANY(ci_coeff(2,:)>0d0)) then
-  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: pair coefficients in file '&
+  write(6,'(/,A)') 'ERROR in subroutine gen_cf_orb: pair coefficients in file '&
                   //TRIM(datname)//' violate'
   write(6,'(A)') 'the rule C1>0, C2<0 for each pair. If your MOs and pair coef&
                  &ficients are correct,'
@@ -292,7 +290,7 @@ subroutine gen_cf_orb(datname, ndb, nopen)
 
  k = ndb + nopen
  if(k+2*npair > nif) then
-  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: probably wrong ndb or nopen.'
+  write(6,'(/,A)') 'ERROR in subroutine gen_cf_orb: probably wrong ndb or nopen.'
   write(6,'(A,2I4)') 'Your input ndb, nopen=', ndb, nopen
   stop
  end if
@@ -372,7 +370,7 @@ subroutine cholesky_mo(nbf, nif, mo)
  implicit none
  integer, intent(in) :: nbf, nif
  real(kind=8), intent(inout) :: mo(nbf,nif)
- real(kind=8), allocatable :: P(:,:)
+ real(kind=8), allocatable :: dm(:,:)
 
  if(nif == 1) then
   write(6,'(/,A)') 'Warning from subroutine cholesky_mo: only 1 orbital. No rot&
@@ -380,13 +378,12 @@ subroutine cholesky_mo(nbf, nif, mo)
   return
  end if
 
- ! P = C(C^T)
- allocate(P(nbf,nbf), source=0d0)
- call dgemm('N', 'T', nbf, nbf, nif, 1d0, mo, nbf, mo, nbf, 0d0, P, nbf)
+ allocate(dm(nbf,nbf)) ! P = C(C^T)
+ call calc_cct(nbf, nif, mo, dm)
 
  ! generate Cholesky LMOs
- call cholesky_dm(nbf, nif, P, mo)
- deallocate(P)
+ call cholesky_dm(nbf, nif, dm, mo)
+ deallocate(dm)
 end subroutine cholesky_mo
 
 ! Use Cholesky factorization/decomposition of the density matrix to generate
@@ -431,9 +428,6 @@ end subroutine cholesky_mo2
 ! According to jxzou's tests, the locality of obtained LMOs are usually
 !  atomic > Cho2 > Cho, where Cho2 means Cholesky LMOs based on orthogonal AO
 !  basis.
-! According to jxzou's tests, using Cho2 for small overlap orbitals of the AO-
-!  like MOs does not lead to more locality. So a combination of two algorithms
-!  is not used.
 subroutine resemble_ao(nbf, nif, ao_ovlp, mo)
  implicit none
  integer :: i, k
@@ -675,32 +669,93 @@ subroutine classify_lmo(nmo, natom, gross, conn)
  deallocate(ijmap)
 end subroutine classify_lmo
 
-! perform Boys orbital localization (Jacobian 2*2 rotations) on a set of MOs
-subroutine boys(natom, nbf, nif, bfirst, dis, coeff, S, ao_dipole, new_coeff, &
-                mo_dipole)
+! Perform Berry orbital localization (Jacobian 2*2 rotations) on a set of MOs.
+! This subroutine is used for PBC gamma-point orbital localization, and cannot
+! be used for an isolated molecule.
+! The input ao_zdip must be in unit Angstrom.
+subroutine berry(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, dis_tol, &
+                 conv_tol, ao_zdip, new_coeff)
+ use lo_info, only: dis_thres, conv_thres, npair, ijmap
  implicit none
- integer :: t0, t1, time
  integer, intent(in) :: natom, nbf, nif
 !f2py intent(in) :: natom, nbf, nif
  integer, intent(in) :: bfirst(natom+1)
 !f2py intent(in) :: bfirst
 !f2py depend(natom) :: bfirst
- real(kind=8), intent(in) :: dis(natom,natom), coeff(nbf,nif), S(nbf,nbf)
-!f2py intent(in) :: dis, coeff, S
+ real(kind=8), intent(in) :: dis(natom,natom), coeff(nbf,nif), ao_ovlp(nbf,nbf),&
+                             dis_tol, conv_tol
+!f2py intent(in) :: dis, coeff, ao_ovlp, dis_tol, conv_tol
 !f2py depend(natom) :: dis
-!f2py depend(nbf) :: S
+!f2py depend(nbf) :: ao_ovlp
 !f2py depend(nbf,nif) :: coeff
  real(kind=8), intent(out) :: new_coeff(nbf,nif)
 !f2py intent(out) :: new_coeff
 !f2py depend(nbf,nif) :: new_coeff
- real(kind=8), intent(in) :: ao_dipole(3,nbf,nbf)
-!f2py intent(in) :: ao_dipole
-!f2py depend(nbf) :: ao_dipole
- real(kind=8), intent(out) :: mo_dipole(3,nif,nif)
-!f2py intent(out) :: mo_dipole
-!f2py depend(nif) :: mo_dipole
+ complex(kind=8), intent(in) :: ao_zdip(3,nbf,nbf) ! it is complex symmetric
+!f2py intent(in) :: ao_zdip
+!f2py depend(nbf) :: ao_zdip
+ complex(kind=8), allocatable :: mo_zdip(:,:,:)
 
- t0 = time()
+ write(6,'(/,A)') 'Berry orbital localization begins:'
+ new_coeff = coeff
+
+ if(nif == 1) then
+  write(6,'(A)') 'Warning in subroutine berry: only 1 orbital. No rotation.'
+  return
+ end if
+
+ dis_thres = dis_tol; conv_thres = conv_tol
+ npair = nif*(nif-1)/2
+ allocate(ijmap(2,npair))
+ call get_triu_idx1(nif, ijmap)
+
+ ! Theoretically, Berry orbital localization does not require the AO overlap
+ ! integral matrix. But here we need it to construct a good initial guess.
+ write(6,'(/,A)') 'Construct mixed AO-like LMOs and Cholesky LMOs as initial gu&
+                  &ess...'
+ call combined_ao_cholesky(nbf, nif, ao_ovlp, new_coeff)
+ write(6,'(A)') 'Done construction.'
+
+ write(6,'(/,A)') 'Transform AO dipole integrals to MO ones...'
+ allocate(mo_zdip(3,nif,nif))
+ call ao2mo_zdip(nbf, nif, ao_zdip, new_coeff, mo_zdip)
+ write(6,'(A)') 'Done update.'
+
+ if(nif < 500) then
+  call serial22berry(natom, nbf, nif, bfirst, dis, new_coeff, mo_zdip)
+ else
+  call para22berry(natom, nbf, nif, bfirst, dis, new_coeff, mo_zdip)
+ end if
+
+ ! job accomplished, no need to update the lower triangle part of mo_zdip
+ deallocate(mo_zdip, ijmap)
+end subroutine berry
+
+! Perform Boys orbital localization (Jacobian 2*2 rotations) on a set of MOs.
+! The input ao_dip must be in unit Angstrom.
+subroutine boys(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, ao_dip, dis_tol,&
+                conv_tol, new_coeff)
+ use lo_info, only: dis_thres, conv_thres, npair, ijmap
+ implicit none
+ integer, intent(in) :: natom, nbf, nif
+!f2py intent(in) :: natom, nbf, nif
+ integer, intent(in) :: bfirst(natom+1)
+!f2py intent(in) :: bfirst
+!f2py depend(natom) :: bfirst
+ real(kind=8), intent(in) :: dis(natom,natom), coeff(nbf,nif), ao_ovlp(nbf,nbf),&
+                             dis_tol, conv_tol
+!f2py intent(in) :: dis, coeff, ao_ovlp, dis_tol, conv_tol
+!f2py depend(natom) :: dis
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: new_coeff(nbf,nif)
+!f2py intent(out) :: new_coeff
+!f2py depend(nbf,nif) :: new_coeff
+ real(kind=8), intent(in) :: ao_dip(3,nbf,nbf)
+!f2py intent(in) :: ao_dip
+!f2py depend(nbf) :: ao_dip
+ real(kind=8), allocatable :: mo_dip(:,:,:)
+
  write(6,'(/,A)') 'Boys orbital localization begins:'
  new_coeff = coeff
 
@@ -709,39 +764,51 @@ subroutine boys(natom, nbf, nif, bfirst, dis, coeff, S, ao_dipole, new_coeff, &
   return
  end if
 
+ dis_thres = dis_tol; conv_thres = conv_tol
+ npair = nif*(nif-1)/2
+ allocate(ijmap(2,npair))
+ call get_triu_idx1(nif, ijmap)
+
  ! Theoretically, Foster-Boys orbital localization does not require the AO
  ! overlap integral matrix. But here we need it to construct a good initial
  ! guess.
  write(6,'(/,A)') 'Construct mixed AO-like LMOs and Cholesky LMOs as initial gu&
                   &ess...'
- call combined_ao_cholesky(nbf, nif, S, new_coeff)
+ call combined_ao_cholesky(nbf, nif, ao_ovlp, new_coeff)
  write(6,'(A)') 'Done construction.'
 
  write(6,'(/,A)') 'Transform AO dipole integrals to MO ones...'
- call ao2mo_dipole(nbf, nif, ao_dipole, new_coeff, mo_dipole)
+ allocate(mo_dip(3,nif,nif))
+ call ao2mo_dip(nbf, nif, ao_dip, new_coeff, mo_dip)
  write(6,'(A)') 'Done update.'
 
- !call serial2by2(nbf, nif, 3, new_coeff, mo_dipole)
- call serial22boys(natom, nbf, nif, bfirst, dis, new_coeff, mo_dipole)
- !call para22boys(natom, nbf, nif, bfirst, dis, new_coeff, mo_dipole)
+ if(nif < 50) then
+  call serial2by2(nbf, nif, 3, new_coeff, mo_dip)
+ else if(nif < 500) then
+  call serial22boys(natom, nbf, nif, bfirst, dis, new_coeff, mo_dip)
+ else
+  call para22boys(natom, nbf, nif, bfirst, dis, new_coeff, mo_dip)
+ end if
 
- t1 = time()
- write(6,'(A,I0)') 'Localization time(sec):', t1-t0
+ ! job accomplished, no need to update the lower triangle part of mo_dip
+ deallocate(mo_dip, ijmap)
 end subroutine boys
 
 ! perform Pipek-Mezey orbital localization (Jacobian 2*2 rotations) on a set of MOs
-subroutine pm(natom, nbf, nif, bfirst, dis, coeff, S, popm, new_coeff)
+subroutine pm(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, popm, dis_tol, &
+              conv_tol, new_coeff)
+ use lo_info, only: dis_thres, conv_thres, npair, ijmap
  implicit none
- integer :: t0, t1, time
  integer, intent(in) :: natom, nbf, nif
 !f2py intent(in) :: natom, nbf, nif
  integer, intent(in) :: bfirst(natom+1)
 !f2py intent(in) :: bfirst
 !f2py depend(natom) :: bfirst
- real(kind=8), intent(in) :: dis(natom,natom), coeff(nbf,nif), S(nbf,nbf)
-!f2py intent(in) :: dis, coeff, S
+ real(kind=8), intent(in) :: dis(natom,natom), coeff(nbf,nif), ao_ovlp(nbf,nbf),&
+                             dis_tol, conv_tol
+!f2py intent(in) :: dis, coeff, ao_ovlp, dis_tol, conv_tol
 !f2py depend(natom) :: dis
-!f2py depend(nbf) :: S
+!f2py depend(nbf) :: ao_ovlp
 !f2py depend(nbf,nif) :: coeff
  real(kind=8), intent(out) :: new_coeff(nbf,nif)
 !f2py intent(out) :: new_coeff
@@ -750,7 +817,6 @@ subroutine pm(natom, nbf, nif, bfirst, dis, coeff, S, popm, new_coeff)
  character(len=*), intent(in) :: popm ! 'mulliken'/'lowdin'
 !f2py intent(in) :: popm
 
- t0 = time()
  write(6,'(/,A)') 'PM orbital localization begins: using '//TRIM(popm)//&
                   ' population'
  new_coeff = coeff
@@ -760,32 +826,39 @@ subroutine pm(natom, nbf, nif, bfirst, dis, coeff, S, popm, new_coeff)
   return
  end if
 
+ dis_thres = dis_tol; conv_thres = conv_tol
+ npair = nif*(nif-1)/2
+ allocate(ijmap(2,npair))
+ call get_triu_idx1(nif, ijmap)
+
  write(6,'(/,A)') 'Construct mixed AO-like LMOs and Cholesky LMOs as initial gu&
                   &ess...'
- call combined_ao_cholesky(nbf, nif, S, new_coeff)
+ call combined_ao_cholesky(nbf, nif, ao_ovlp, new_coeff)
  write(6,'(A)') 'Done construction.'
 
  write(6,'(/,A)') 'Construct gross matrix...'
  allocate(gross(natom,nif,nif))
- call calc_gross_pop(natom, nbf, nif, bfirst, S, new_coeff, popm, gross)
+ call calc_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, new_coeff, popm, gross)
  write(6,'(A)') 'Done construction.'
 
- !call serial2by2(nbf, nif, natom, new_coeff, gross)
- call serial22pm(natom, nbf, nif, dis, new_coeff, gross)
- !call para22pm(natom, nbf, nif, dis, new_coeff, gross)
- deallocate(gross)
+ if(nif < 50) then
+  call serial2by2(nbf, nif, natom, new_coeff, gross)
+ else if(nif < 500) then
+  call serial22pm(natom, nbf, nif, dis, new_coeff, gross)
+ else
+  call para22pm(natom, nbf, nif, dis, new_coeff, gross)
+ end if
 
- t1 = time()
- write(6,'(A,I0)') 'Localization time(sec):', t1-t0
+ ! job accomplished, no need to update the lower triangle part of gross
+ deallocate(gross, ijmap)
 end subroutine pm
 
 ! perform serial 2-by-2 rotation on given MOs
 subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
- use lo_info, only: max_niter, QPI, HPI, threshold1, threshold2
+ use lo_info, only: npair, ijmap, max_niter, QPI, HPI, upd_thres, conv_thres
  implicit none
- integer :: i, j, k, m, np, niter
+ integer :: i, j, k, m, niter
  integer, intent(in) :: nbf, nif, ncomp
- integer, allocatable :: map(:,:)
  real(kind=8) :: ddot, rtmp, tot_change, sum_change
  real(kind=8) :: Aij, Bij, alpha, sin_4a, cos_a, sin_a
  real(kind=8) :: cc, ss, sin_2a, cos_2a
@@ -799,10 +872,6 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
  ! vtmp: array dipole(:,y,x)
  ! vdiff := vtmp(:,1) - vtmp(:,3)
 
- np = nif*(nif-1)/2
- allocate(map(2,np))
- call get_triu_idx1(nif, map)
-
  write(6,'(/,A)') 'Perform serial 2*2 rotation...'
  allocate(dipole(ncomp,nif,2), tmp_mo(nbf), vtmp(ncomp,3), vdiff(ncomp))
  tot_change = 0d0; niter = 0
@@ -810,8 +879,8 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
  do while(niter <= max_niter)
   sum_change = 0d0
 
-  do m = 1, np, 1
-   i = map(1,m); j = map(2,m)
+  do m = 1, npair, 1
+   i = ijmap(1,m); j = ijmap(2,m)
    vtmp(:,1) = mo_dipole(:,i,i)
    vtmp(:,2) = mo_dipole(:,j,i)
    vtmp(:,3) = mo_dipole(:,j,j)
@@ -821,7 +890,7 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
    rtmp = HYPOT(Aij, Bij)
    sin_4a = Bij/rtmp
    rtmp = rtmp + Aij
-   if(rtmp < threshold1) cycle
+   if(rtmp < upd_thres) cycle
 
    sum_change = sum_change + rtmp
    alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
@@ -869,10 +938,10 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
   tot_change = tot_change + sum_change
   niter = niter + 1
   write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
-  if(sum_change < threshold2) exit
+  if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(map, tmp_mo, vdiff, vtmp, dipole)
+ deallocate(tmp_mo, vdiff, vtmp, dipole)
  write(6,'(A,F20.7)') 'tot_change=', tot_change
 
  if(niter <= max_niter) then
@@ -884,26 +953,120 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
  end if
 end subroutine serial2by2
 
-! perform serial Boys 2-by-2 Jacobi rotations on given MOs with distance considered
-subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dipole)
- use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
-  threshold2, ijmap, get_mo_center_by_scpa, atm_dis2mo_dis, find_eff_ijmap, &
-  serial22boys_kernel
+! perform serial Berry 2-by-2 Jacobi rotations on given MOs with distance considered
+subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
+ use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
+  get_mo_center_by_scpa, atm_dis2mo_dis, find_eff_ijmap, serial22berry_kernel
  implicit none
- integer :: i, j, k, ncenter, niter
+ integer :: ncenter, niter
  integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
  integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
- real(kind=8), intent(inout) :: mo(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8), intent(inout) :: mo(nbf,nmo)
  real(kind=8), allocatable :: mo_dis(:)
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
 
- npair = nmo*(nmo-1)/2
- allocate(ijmap(2,npair))
- call get_triu_idx1(nmo, ijmap)
+ write(6,'(/,A)') 'Perform serial Berry 2*2 rotation...'
+ write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+ ncenter = MIN(natom, max_ncenter)
+ allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ tot_change = 0d0; niter = 0
+
+ do while(niter <= max_niter)
+  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
+  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call find_eff_ijmap(nmo, mo_dis)
+  call serial22berry_kernel(nbf, nmo, mo, mo_zdip, sum_change)
+  tot_change = tot_change + sum_change
+  niter = niter + 1
+  write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
+  if(sum_change < conv_thres) exit
+ end do ! for while
+
+ write(6,'(A,F20.7)') 'tot_change=', tot_change
+ deallocate(mo_center, mo_dis)
+
+ if(niter <= max_niter) then
+  write(6,'(A)') 'Orbital localization converged successfully.'
+ else
+  write(6,'(/,A)') 'ERROR in subroutine serial22berry: max_niter exceeded.'
+  write(6,'(A,I0)') 'max_niter=', max_niter
+  stop
+ end if
+end subroutine serial22berry
+
+! perform parallel Berry 2-by-2 Jacobi rotation on given MOs
+subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
+ use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
+  conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
+  init_round_robin_idx_with_dis, para22berry_kernel
+ implicit none
+ integer :: ncenter, niter
+ integer, intent(in) :: natom, nbf, nmo
+ integer, intent(in) :: bfirst(natom+1)
+ integer, allocatable :: mo_center(:,:)
+ real(kind=8) :: sum_change, tot_change
+ real(kind=8), intent(in) :: dis(natom,natom)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo)
+ real(kind=8), allocatable :: mo_dis(:)
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
+
+ if(nmo < 4) then
+  write(6,'(/,A)') 'ERROR in subroutine para22berry: nmo<4. Too few orbitals.'
+  write(6,'(A,I0)') 'nmo=', nmo
+  stop
+ end if
+
+ write(6,'(/,A)') 'Perform parallel Berry 2*2 rotation...'
+ write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+
  np = (nmo+1)/2
  nsweep = 2*np - 1
+ allocate(rrmap(2,np,nsweep))
+ call init_round_robin_idx(nmo, np, rrmap)
+
+ ncenter = MIN(natom, max_ncenter)
+ allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ tot_change = 0d0; niter = 0
+
+ do while(niter <= max_niter)
+  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
+  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call para22berry_kernel(nbf, nmo, coeff, mo_zdip, sum_change)
+  tot_change = tot_change + sum_change
+  niter = niter + 1
+  write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
+  if(sum_change < conv_thres) exit
+ end do ! for while
+
+ deallocate(mo_center, mo_dis, rrmap, rot_idx)
+ write(6,'(A,F20.7)') 'tot_change=', tot_change
+
+ if(niter <= max_niter) then
+  write(6,'(A)') 'Orbital localization converged successfully.'
+ else
+  write(6,'(/,A)') 'ERROR in subroutine para22berry: max_niter exceeded.'
+  write(6,'(A,I0)') 'max_niter=', max_niter
+  stop
+ end if
+end subroutine para22berry
+
+! perform serial Boys 2-by-2 Jacobi rotations on given MOs with distance considered
+subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
+ use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
+  get_mo_center_by_scpa, atm_dis2mo_dis, find_eff_ijmap, serial22boys_kernel
+ implicit none
+ integer :: ncenter, niter
+ integer, intent(in) :: natom, nbf, nmo
+ integer, intent(in) :: bfirst(natom+1)
+ integer, allocatable :: mo_center(:,:)
+ real(kind=8) :: sum_change, tot_change
+ real(kind=8), intent(in) :: dis(natom,natom)
+ real(kind=8), intent(inout) :: mo(nbf,nmo), mo_dip(3,nmo,nmo)
+ real(kind=8), allocatable :: mo_dis(:)
 
  write(6,'(/,A)') 'Perform serial Boys 2*2 rotation...'
  write(6,'(A,F8.2)') 'dis_thres=', dis_thres
@@ -915,21 +1078,15 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dipole)
   call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
   call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
   call find_eff_ijmap(nmo, mo_dis)
-  call serial22boys_kernel(nbf, nmo, mo, mo_dipole, sum_change)
+  call serial22boys_kernel(nbf, nmo, mo, mo_dip, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
   write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
-  if(sum_change < threshold2) exit
+  if(sum_change < conv_thres) exit
  end do ! for while
 
  write(6,'(A,F20.7)') 'tot_change=', tot_change
  deallocate(mo_center, mo_dis)
-
- do k = 1, npair, 1
-  i = ijmap(1,k); j = ijmap(2,k)
-  mo_dipole(:,i,j) = mo_dipole(:,j,i)
- end do ! for k
- deallocate(ijmap)
 
  if(niter <= max_niter) then
   write(6,'(A)') 'Orbital localization converged successfully.'
@@ -941,51 +1098,51 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dipole)
 end subroutine serial22boys
 
 ! perform parallel Foster-Boys 2-by-2 Jacobi rotation on given MOs
-subroutine para22boys(natom, nbf, nif, bfirst, dis, coeff, mo_dipole)
- use lo_info, only: npair, max_niter, max_ncenter, threshold2, ijmap, &
-  init_para22_idx_map, get_mo_center_by_scpa, atm_dis2mo_dis, &
-  init_round_robin_idx_with_dis, para22boys_kernel, free_para22_idx_map
+subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
+ use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
+  conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
+  init_round_robin_idx_with_dis, para22boys_kernel
  implicit none
- integer :: i, j, k, ncenter, niter
- integer, intent(in) :: natom, nbf, nif
+ integer :: ncenter, niter
+ integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
  integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
- real(kind=8), intent(inout) :: coeff(nbf,nif), mo_dipole(3,nif,nif)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dip(3,nmo,nmo)
  real(kind=8), allocatable :: mo_dis(:)
 
- if(nif < 4) then
-  write(6,'(/,A)') 'ERROR in subroutine para22boys: nif<4. Too few orbitals.'
-  write(6,'(A,I0)') 'nif=', nif
+ if(nmo < 4) then
+  write(6,'(/,A)') 'ERROR in subroutine para22boys: nmo<4. Too few orbitals.'
+  write(6,'(A,I0)') 'nmo=', nmo
   stop
  end if
 
  write(6,'(/,A)') 'Perform parallel Boys 2*2 rotation...'
- call init_para22_idx_map(nif)
+ write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+
+ np = (nmo+1)/2
+ nsweep = 2*np - 1
+ allocate(rrmap(2,np,nsweep))
+ call init_round_robin_idx(nmo, np, rrmap)
+
  ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nif), mo_dis(npair))
+ allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_by_scpa(natom, nbf, nif, ncenter, bfirst, coeff, mo_center)
-  call atm_dis2mo_dis(natom, nif, ncenter, dis, mo_center, mo_dis)
-  call init_round_robin_idx_with_dis(nif, mo_dis)
-  call para22boys_kernel(nbf, nif, coeff, mo_dipole, sum_change)
+  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
+  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call para22boys_kernel(nbf, nmo, coeff, mo_dip, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
   write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
-  if(sum_change < threshold2) exit
+  if(sum_change < conv_thres) exit
  end do ! for while
 
+ deallocate(mo_center, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.7)') 'tot_change=', tot_change
- deallocate(mo_center, mo_dis)
-
- do k = 1, npair, 1
-  i = ijmap(1,k); j = ijmap(2,k)
-  mo_dipole(:,i,j) = mo_dipole(:,j,i)
- end do ! for k
- call free_para22_idx_map()
 
  if(niter <= max_niter) then
   write(6,'(A)') 'Orbital localization converged successfully.'
@@ -997,43 +1154,36 @@ subroutine para22boys(natom, nbf, nif, bfirst, dis, coeff, mo_dipole)
 end subroutine para22boys
 
 ! perform serial Pipek-Mezey 2-by-2 Jacobi rotation on given MOs with distance considered
-subroutine serial22pm(natom, nbf, nif, dis, coeff, gross)
- use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
-  threshold2, ijmap, get_mo_center_from_gross, atm_dis2mo_dis, find_eff_ijmap, &
-  serial22pm_kernel
+subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
+ use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
+  get_mo_center_from_gross, atm_dis2mo_dis, find_eff_ijmap, serial22pm_kernel
  implicit none
  integer :: ncenter, niter
- integer, intent(in) :: natom, nbf, nif
+ integer, intent(in) :: natom, nbf, nmo
  integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
- real(kind=8), intent(inout) :: coeff(nbf,nif), gross(natom,nif,nif)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
  real(kind=8), allocatable :: mo_dis(:)
-
- npair = nif*(nif-1)/2
- allocate(ijmap(2,npair))
- call get_triu_idx1(nif, ijmap)
- np = (nif+1)/2
- nsweep = 2*np - 1
 
  write(6,'(/,A)') 'Perform serial PM 2*2 rotation...'
  write(6,'(A,F8.2)') 'dis_thres=', dis_thres
  ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nif), mo_dis(npair))
+ allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_from_gross(natom, nif, ncenter, gross, mo_center)
-  call atm_dis2mo_dis(natom, nif, ncenter, dis, mo_center, mo_dis)
-  call find_eff_ijmap(nif, mo_dis)
-  call serial22pm_kernel(nbf, nif, natom, coeff, gross, sum_change)
+  call get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
+  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call find_eff_ijmap(nmo, mo_dis)
+  call serial22pm_kernel(nbf, nmo, natom, coeff, gross, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
   write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
-  if(sum_change < threshold2) exit
+  if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(ijmap, mo_center, mo_dis)
+ deallocate(mo_center, mo_dis)
  write(6,'(A,F20.7)') 'tot_change=', tot_change
 
  if(niter <= max_niter) then
@@ -1046,45 +1196,50 @@ subroutine serial22pm(natom, nbf, nif, dis, coeff, gross)
 end subroutine serial22pm
 
 ! perform parallel Pipek-Mezey 2-by-2 Jacobi rotation on given MOs
-subroutine para22pm(natom, nbf, nif, dis, coeff, gross)
- use lo_info, only: npair, max_niter, max_ncenter, threshold2, init_para22_idx_map,&
-  get_mo_center_from_gross, atm_dis2mo_dis, init_round_robin_idx_with_dis, &
-  para22pm_kernel, free_para22_idx_map
+subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
+ use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
+  conv_thres, rrmap, rot_idx, get_mo_center_from_gross, atm_dis2mo_dis, &
+  init_round_robin_idx_with_dis, para22pm_kernel
  implicit none
  integer :: ncenter, niter
- integer, intent(in) :: natom, nbf, nif
+ integer, intent(in) :: natom, nbf, nmo
  integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
- real(kind=8), intent(inout) :: coeff(nbf,nif), gross(natom,nif,nif)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
  real(kind=8), allocatable :: mo_dis(:)
 
- if(nif < 4) then
-  write(6,'(/,A)') 'ERROR in subroutine para22pm: nif<4. Too small number of or&
+ if(nmo < 4) then
+  write(6,'(/,A)') 'ERROR in subroutine para22pm: nmo<4. Too small number of or&
                    &bitals.'
-  write(6,'(A,I0)') 'nif=', nif
+  write(6,'(A,I0)') 'nmo=', nmo
   stop
  end if
 
  write(6,'(/,A)') 'Perform parallel PM 2*2 rotation...'
- call init_para22_idx_map(nif)
+ write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+
+ np = (nmo+1)/2
+ nsweep = 2*np - 1
+ allocate(rrmap(2,np,nsweep))
+ call init_round_robin_idx(nmo, np, rrmap)
+
  ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nif), mo_dis(npair))
+ allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_from_gross(natom, nif, ncenter, gross, mo_center)
-  call atm_dis2mo_dis(natom, nif, ncenter, dis, mo_center, mo_dis)
-  call init_round_robin_idx_with_dis(nif, mo_dis)
-  call para22pm_kernel(nbf, nif, natom, coeff, gross, sum_change)
+  call get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
+  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call para22pm_kernel(nbf, nmo, natom, coeff, gross, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
   write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
-  if(sum_change < threshold2) exit
+  if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis)
- call free_para22_idx_map()
+ deallocate(mo_center, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.7)') 'tot_change=', tot_change
 
  if(niter <= max_niter) then

@@ -5,7 +5,7 @@
 ! check whether a given set of MOs are orthonormal
 subroutine check_orthonormal(nbf, nif, coeff, S)
  implicit none
- integer :: i, j, i0, j0
+ integer :: i, j, k2(2)
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: coeff(nbf,nif), S(nbf,nbf)
@@ -13,30 +13,27 @@ subroutine check_orthonormal(nbf, nif, coeff, S)
 !f2py depend(nbf,nif) :: coeff
 !f2py depend(nbf) :: S
  real(kind=8) :: maxv
- real(kind=8), allocatable :: C_T_S_C(:,:)
+ real(kind=8), allocatable :: ctsc(:,:)
 
- allocate(C_T_S_C(nif,nif))
- call calc_CTSC(nbf, nif, coeff, S, C_T_S_C)
-
- forall(i = 1:nif) C_T_S_C(i,i) = C_T_S_C(i,i) - 1d0
- C_T_S_C = DABS(C_T_S_C)
-
- i0 = 1; j0 = 1
- maxv = C_T_S_C(1,1)
+ allocate(ctsc(nif,nif))
+ call calc_CTSC(nbf, nif, coeff, S, ctsc)
 
  do i = 1, nif, 1
-  do j = i, nif, 1
-   if(C_T_S_C(j,i) > maxv) then
-    maxv = C_T_S_C(j,i)
-    i0 = i; j0 = j
-   end if
-  end do ! for j
+  ctsc(i,i) = ctsc(i,i) - 1d0
  end do ! for i
 
- deallocate(C_T_S_C)
- write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0,&
-                                     'maxv=', maxv
- if(maxv > 1d-2) write(6,'(A)') 'Warning: severe non-orthonormal problem!'
+ ctsc = DABS(ctsc)
+ k2 = MAXLOC(ctsc)
+ j = k2(1); i = k2(2)
+ maxv = ctsc(j,i)
+ deallocate(ctsc)
+
+ write(6,'(/,2(A,I0),A,ES15.8)') 'Orthonormality check: j=', j, ', i=', i,&
+                                 ', maxv=', maxv
+ if(maxv > 1d-2) then
+  write(6,'(/,A)') 'Warning: severe non-orthonormal problem!'
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nif=', nif
+ end if
 end subroutine check_orthonormal
 
 ! check whether a given set of complex MOs are orthonormal
@@ -47,7 +44,6 @@ end subroutine check_orthonormal
 !  basis oerder of a MO is (ar, ai, br, bi)1, (ar, ai, br, bi)2, ...
 subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  implicit none
- integer :: i, j, i0, j0
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  complex(kind=8), intent(in) :: coeff(nbf,nif)
@@ -56,9 +52,8 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  real(kind=8), intent(in) :: S(nbf/2,nbf/2)
 !f2py intent(in) :: S
 !f2py depend(nbf) :: S
- real(kind=8) :: rtmp, maxv
+ real(kind=8) :: rtmp
  real(kind=8), allocatable :: C_r(:,:), C_i(:,:), A(:,:), A_b(:,:)
- real(kind=8), allocatable :: B(:,:), B_2(:,:)
 
  allocate(C_r(nbf,nif), source=REAL(coeff))  ! real part
  allocate(C_i(nbf,nif), source=AIMAG(coeff)) ! imaginary part
@@ -69,49 +64,24 @@ subroutine check_cghf_orthonormal(nbf, nif, coeff, S)
  allocate(A_b(nif,nif))
  call calc_CTSCp(nbf/2, nif, C_r(nbf/2+1:nbf,:), S, C_i(nbf/2+1:nbf,:), A_b)
 
- A = A + A_b
+ A = DABS(A) + DABS(A_b)
  deallocate(A_b)
- A = A - TRANSPOSE(A)
 
- rtmp = SUM(DABS(A))/DBLE(nif*nif)
+ rtmp = SUM(A)/DBLE(nif*nif)
  deallocate(A)
  write(6,'(/,A,ES15.8)') 'SUM(DABS(A))/nif^2=', rtmp
- if(rtmp > 1d-7) then
-  write(6,'(/,A)') 'Warning in subroutine check_cghf_orthonormal: rtmp>1D-7.'
-  write(6,'(A)') 'SUM(DABS(A))/nif^2 should be zero. Orthonormality not good.'
+ if(rtmp > 1d-6) then
+  write(6,'(/,A)') 'Warning in subroutine check_cghf_orthonormal: rtmp>1d-6.'
+  write(6,'(A)') 'SUM(DABS(A))/nif^2 should be zero. Orthogonality not good.'
  end if
 
- allocate(B(nif,nif))
- call calc_CTSC(nbf/2, nif, C_r(1:nbf/2,:), S, B)
-
- allocate(B_2(nif,nif))
- call calc_CTSC(nbf/2, nif, C_r(nbf/2+1:nbf,:), S, B_2)
+ call check_orthonormal(nbf/2, nif, C_r(1:nbf/2,:), S)
+ call check_orthonormal(nbf/2, nif, C_r(nbf/2+1:nbf,:), S)
  deallocate(C_r)
- B = B + B_2
 
- call calc_CTSC(nbf/2, nif, C_i(1:nbf/2,:), S, B_2)
- B = B + B_2
-
- call calc_CTSC(nbf/2, nif, C_i(nbf/2+1:nbf,:), S, B_2)
+ call check_orthonormal(nbf/2, nif, C_i(1:nbf/2,:), S)
+ call check_orthonormal(nbf/2, nif, C_i(nbf/2+1:nbf,:), S)
  deallocate(C_i)
- B = B + B_2
- deallocate(B_2)
-
- forall(i = 1:nif) B(i,i) = B(i,i)- 1d0
- B = DABS(B)
-
- do i = 1, nif, 1
-  do j = 1, nif, 1
-   if(B(j,i) > maxv) then
-    maxv = B(j,i)
-    i0 = i; j0 = j
-   end if
-  end do ! for j
- end do ! for i
-
- write(6,'(/,2(A,I4,1X),A5,ES15.8)') 'Orthonormality check: j=', j0, 'i=', i0,&
-                                     'maxv=', maxv
- deallocate(B)
 end subroutine check_cghf_orthonormal
 
 ! Perform canonical/symmetric orthonormalization on a set of non-orthogonal MOs.
@@ -244,6 +214,7 @@ subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
   deallocate(s, U)
  else
   write(6,'(/,A)') 'ERROR in subroutine gen_ortho_mo: nbf<nif. Impossible.'
+  write(6,'(A,2I8)') 'nbf, nif=', nbf, nif
   stop
  end if
 end subroutine gen_ortho_mo

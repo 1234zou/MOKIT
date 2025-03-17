@@ -190,7 +190,7 @@ subroutine mo_svd(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, reverse)
  integer :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
  real(kind=8) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2)
-!f2py intent(inout) :: coeff1, coeff2
+!f2py intent(in,out) :: coeff1, coeff2
 !f2py depend(nbf1,nmo1) :: coeff1
 !f2py depend(nbf2,nmo2) :: coeff2
  real(kind=8) :: ao_ovlp(nbf1,nbf2)
@@ -295,7 +295,7 @@ subroutine mo_svd_qcmo(nbf1, nmo1, nbf2, nmo2, coeff1, coeff2, ao_ovlp, mo_e)
  integer, intent(in) :: nbf1, nmo1, nbf2, nmo2
 !f2py intent(in) :: nbf1, nmo1, nbf2, nmo2
  real(kind=8), intent(inout) :: coeff1(nbf1,nmo1), coeff2(nbf2,nmo2), mo_e(nmo1)
-!f2py intent(inout) :: coeff1, coeff2, mo_e
+!f2py intent(in,out) :: coeff1, coeff2, mo_e
 !f2py depend(nbf1,nmo1) :: coeff1
 !f2py depend(nbf2,nmo2) :: coeff2
 !f2py depend(nmo1) :: mo_e
@@ -380,7 +380,7 @@ subroutine orb_resemble_iter(nbf1, nmo1, mo1, nbf2, nmo2, mo2, cross_s, move)
  ! threshold2: determine whether orbital rotations converged
  real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
  real(kind=8), intent(inout) :: mo1(nbf1,nmo1)
-!f2py intent(inout) :: mo1
+!f2py intent(in,out) :: mo1
 !f2py depend(nbf1,nmo1) :: mo1
  real(kind=8), intent(in) :: mo2(nbf2,nmo2), cross_s(nbf1,nbf2)
 !f2py intent(in) :: mo2, cross_s

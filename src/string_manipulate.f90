@@ -1438,7 +1438,8 @@ subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: ricd ! T/F for RICD/Cholesky
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
@@ -1449,6 +1450,7 @@ subroutine add_RI_kywd_into_molcas_inp(inpname, ricd)
    write(fid1,'(A)') TRIM(buf)
   end do ! for while
   write(fid1,'(A)') 'RICD'
+  write(fid1,'(A)') 'CDth = 1e-7'
  else
   do while(.true.)
    read(fid,'(A)') buf

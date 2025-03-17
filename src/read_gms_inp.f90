@@ -49,25 +49,26 @@ module lo_info
  integer, parameter :: max_niter = 999 ! maximum iterations
  ! When the rotation angle alpha fulfills |alpha|<=PI/4 and no (effect) rotation
  ! is missing in a sweep, only a few iterations are needed usually.
- integer, parameter :: max_ncenter = 670
+ integer, parameter :: max_ncenter = 20
  ! maximum number of centers of an MO
  integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
+
+ real(kind=8) :: dis_thres, conv_thres
+ ! dis_thres: MO distances beyond the threshold will not undergo 2*2 rotations
+ ! conv_thres: determine whether rotation/localization is converged
+ ! Whether 1d-5 or 1d-6 is needed for conv_thres remains to be checked.
+
  real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
  real(kind=8), parameter :: HPI = 2d0*DATAN(1d0) ! PI/2
+
  real(kind=8), parameter :: ovlp_thres = 0.56d0
- ! threshold to generate Cholesky LMOs
- real(kind=8), parameter :: dis_thres = 17d0
- ! dis_thres = 16d0   ! A, boys, pbc water512
- ! dis_thres = 14.0d0 ! A, boys, pbc water128
- ! dis_thres = 10.5d0 ! A, boys, pbc water64
- ! dis_thres = 14.5d0 ! A, boys, cluster water64
- ! dis_thres = 11.5d0 ! A, pm water64 cluster
- ! dis_thres = 10d0   ! A, serial/pm dis pm, pbc water64
- real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-6
- ! threshold1: determine whether to rotate (and update MOs, dipole integrals)
- ! threshold2: determine whether rotation/localization converged
- ! If threshold2 is set to 1d-5, the localization is sometimes not thorough for
- ! isolated molcules.
+ ! threshold for selecting MOs transformed to Cholesky LMOs
+
+ real(kind=8), parameter :: upd_thres = 1d-8
+ ! determine whether to rotate (and update MOs, dipole integrals)
+ ! If upd_thres is set to 1d-7, the total change of the target function might
+ ! have non-negligible difference with the total change obtained at 1d-8.
+
  type :: rotation_index
   integer :: npair
   integer, allocatable :: pair_idx(:,:) ! size (2,npair)
@@ -75,25 +76,6 @@ module lo_info
  type(rotation_index), allocatable :: rot_idx(:) ! size nsweep
 
 contains
-
-subroutine init_para22_idx_map(nmo)
- implicit none
- integer, intent(in) :: nmo
-
- npair = nmo*(nmo-1)/2
- allocate(ijmap(2,npair))
- call get_triu_idx1(nmo, ijmap)
-
- np = (nmo+1)/2
- nsweep = 2*np - 1
- allocate(rrmap(2,np,nsweep))
- call init_round_robin_idx(nmo, np, rrmap)
-end subroutine init_para22_idx_map
-
-subroutine free_para22_idx_map()
- implicit none
- deallocate(ijmap, rrmap, rot_idx)
-end subroutine free_para22_idx_map
 
 ! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
 subroutine get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
@@ -350,31 +332,33 @@ subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
 !$omp end parallel do
 end subroutine init_round_robin_idx_with_dis
 
-subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
+subroutine serial22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  implicit none
  integer :: i, j, m
  integer, intent(in) :: nbf, nmo
- real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
-  sin_2a, cos_2a, vdiff(3), vtmp(3,3)
- real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8) :: rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, sin_2a,&
+  cos_2a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: tmp_mo(:)
+ complex(kind=8) :: zdotc, vdiff(3), vtmp(3,3)
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
 
  change = 0d0
  allocate(tmp_mo(nbf))
 
  do m = 1, eff_npair, 1
   i = eff_ijmap(1,m); j = eff_ijmap(2,m)
-  vtmp(:,1) = mo_dipole(:,i,i)
-  vtmp(:,2) = mo_dipole(:,j,i)
-  vtmp(:,3) = mo_dipole(:,j,j)
+  vtmp(:,1) = mo_zdip(:,i,i)
+  vtmp(:,2) = mo_zdip(:,j,i)
+  vtmp(:,3) = mo_zdip(:,j,j)
   vdiff = vtmp(:,1) - vtmp(:,3)
-  Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
-  Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
+  Aij = REAL(zdotc(3,vtmp(:,2),1,vtmp(:,2),1)) - 0.25d0*REAL(zdotc(3,vdiff,1,vdiff,1))
+  Bij = REAL(zdotc(3, vdiff, 1, vtmp(:,2), 1))
   rtmp = HYPOT(Aij, Bij)
   sin_4a = Bij/rtmp
   rtmp = rtmp + Aij
-  if(rtmp < threshold1) cycle
+  if(rtmp < upd_thres) cycle
 
   change = change + rtmp
   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
@@ -399,25 +383,26 @@ subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
   ss = sin_a*sin_a
   sin_2a = 2d0*sin_a*cos_a
   cos_2a = cc - ss
-  mo_dipole(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
-  mo_dipole(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
-  mo_dipole(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
-  call update_up_tri_ij_dipole(nmo, i, j, cos_a, sin_a, mo_dipole)
+  mo_zdip(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  mo_zdip(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  mo_zdip(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  call update_up_tri_ij_zdip(nmo, i, j, cos_a, sin_a, mo_zdip)
  end do ! for m
 
  deallocate(eff_ijmap, tmp_mo)
-end subroutine serial22boys_kernel
+end subroutine serial22berry_kernel
 
-subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
+subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  implicit none
  integer :: i, j, m, n, npair0
  integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:,:)
- real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, &
-  vdiff(3), vtmp(3,3)
- real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(3,nmo,nmo)
+ real(kind=8) :: rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
+ complex(kind=8) :: zdotc, vdiff(3), vtmp(3,3)
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
  logical, allocatable :: skip(:)
 
  change = 0d0
@@ -432,19 +417,19 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
   skip = .false.
 
   !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
-  !$omp shared(npair0,cos_a,sin_a,idx,mo_dipole,coeff,skip)
+  !$omp shared(npair0,cos_a,sin_a,idx,mo_zdip,coeff,skip)
   do n = 1, npair0, 1
    i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
-   vtmp(:,1) = mo_dipole(:,i,i)
-   vtmp(:,2) = mo_dipole(:,j,i)
-   vtmp(:,3) = mo_dipole(:,j,j)
+   vtmp(:,1) = mo_zdip(:,i,i)
+   vtmp(:,2) = mo_zdip(:,j,i)
+   vtmp(:,3) = mo_zdip(:,j,j)
    vdiff = vtmp(:,1) - vtmp(:,3)
-   Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
-   Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
+   Aij = REAL(zdotc(3,vtmp(:,2),1,vtmp(:,2),1)) - 0.25d0*REAL(zdotc(3,vdiff,1,vdiff,1))
+   Bij = REAL(zdotc(3, vdiff, 1, vtmp(:,2), 1))
    rtmp = HYPOT(Aij, Bij)
    sin_4a = Bij/rtmp
    rtmp = rtmp + Aij
-   if(rtmp < threshold1) then
+   if(rtmp < upd_thres) then
     skip(n) = .true.
     cycle
    end if
@@ -472,50 +457,50 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dipole, change)
    ss = sin_a(n)*sin_a(n)
    sin_2a = 2d0*sin_a(n)*cos_a(n)
    cos_2a = cc - ss
-   mo_dipole(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
-   mo_dipole(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
-   mo_dipole(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+   mo_zdip(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+   mo_zdip(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+   mo_zdip(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
   end do ! for n
   !$omp end parallel do
 
-  ! update remaining off-diagonal elements of mo_dipole(:,x,y)
+  ! update remaining off-diagonal elements of mo_zdip(:,x,y)
   do n = 1, npair0, 1
    if(skip(n)) cycle
-   call update_up_tri_ij_dipole(nmo, idx(1,n), idx(2,n), cos_a(n), sin_a(n), &
-                                mo_dipole)
+   call update_up_tri_ij_zdip(nmo, idx(1,n), idx(2,n), cos_a(n), sin_a(n), &
+                              mo_zdip)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
  end do ! for m
 
  deallocate(tmp_mo)
-end subroutine para22boys_kernel
+end subroutine para22berry_kernel
 
-subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+subroutine serial22boys_kernel(nbf, nmo, coeff, mo_dip, change)
  implicit none
- integer :: i, j, k, m
- integer, intent(in) :: nbf, nmo, natom
+ integer :: i, j, m
+ integer, intent(in) :: nbf, nmo
  real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
-  sin_2a, cos_2a
- real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+  sin_2a, cos_2a, vdiff(3), vtmp(3,3)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dip(3,nmo,nmo)
  real(kind=8), intent(out) :: change
- real(kind=8), allocatable :: dipole(:,:,:), tmp_mo(:), vtmp(:,:), vdiff(:)
+ real(kind=8), allocatable :: tmp_mo(:)
 
  change = 0d0
- allocate(dipole(natom,nmo,2), tmp_mo(nbf), vtmp(natom,3), vdiff(natom))
+ allocate(tmp_mo(nbf))
 
  do m = 1, eff_npair, 1
   i = eff_ijmap(1,m); j = eff_ijmap(2,m)
-  vtmp(:,1) = gross(:,i,i)
-  vtmp(:,2) = gross(:,j,i)
-  vtmp(:,3) = gross(:,j,j)
+  vtmp(:,1) = mo_dip(:,i,i)
+  vtmp(:,2) = mo_dip(:,j,i)
+  vtmp(:,3) = mo_dip(:,j,j)
   vdiff = vtmp(:,1) - vtmp(:,3)
-  Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
-  Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+  Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
+  Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
   rtmp = HYPOT(Aij, Bij)
   sin_4a = Bij/rtmp
   rtmp = rtmp + Aij
-  if(rtmp < threshold1) cycle
+  if(rtmp < upd_thres) cycle
 
   change = change + rtmp
   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
@@ -528,51 +513,41 @@ subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
   cos_a = DCOS(alpha); sin_a = DSIN(alpha)
 
   ! update two orbitals
+!dir$ ivdep
   tmp_mo = coeff(:,i)
+!dir$ ivdep
   coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+!dir$ ivdep
   coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
 
-  ! update corresponding dipole integrals, only indices in range to be updated
+  ! update corresponding dipole integrals
   cc = cos_a*cos_a
   ss = sin_a*sin_a
   sin_2a = 2d0*sin_a*cos_a
   cos_2a = cc - ss
-  dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
-  dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
-  dipole(:,j,1) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
-  dipole(:,i,2) = dipole(:,j,1)
-
-  ! It seems that OpenMP makes this loop slower
-  do k = 1, nmo, 1
-   if(k==i .or. k==j) cycle
-   dipole(:,k,1) = cos_a*gross(:,k,i) + sin_a*gross(:,k,j)
-   dipole(:,k,2) = cos_a*gross(:,k,j) - sin_a*gross(:,k,i)
-  end do ! for k
-
-  gross(:,:,i) = dipole(:,:,1)
-  gross(:,:,j) = dipole(:,:,2)
-  gross(:,i,:) = dipole(:,:,1)
-  gross(:,j,:) = dipole(:,:,2)
+  mo_dip(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  mo_dip(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  mo_dip(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  call update_up_tri_ij_dip(nmo, i, j, cos_a, sin_a, mo_dip)
  end do ! for m
 
- deallocate(eff_ijmap, dipole, tmp_mo, vtmp, vdiff)
-end subroutine serial22pm_kernel
+ deallocate(eff_ijmap, tmp_mo)
+end subroutine serial22boys_kernel
 
-subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+subroutine para22boys_kernel(nbf, nmo, coeff, mo_dip, change)
  implicit none
- integer :: i, j, k, m, n, npair0
- integer, intent(in) :: nbf, nmo, natom
+ integer :: i, j, m, n, npair0
+ integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:,:)
- real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
- real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, &
+  vdiff(3), vtmp(3,3)
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dip(3,nmo,nmo)
  real(kind=8), intent(out) :: change
- real(kind=8), allocatable :: vtmp(:,:), cos_a(:), sin_a(:), dipole(:), &
-                              tmp_mo(:), vdiff(:)
+ real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
  logical, allocatable :: skip(:)
- ! for meanings of variables, please see subroutine serial2by2
 
  change = 0d0
- allocate(dipole(natom), tmp_mo(nbf), vtmp(natom,3), vdiff(natom))
+ allocate(tmp_mo(nbf))
 
  do m = 1, nsweep, 1
   npair0 = rot_idx(m)%npair
@@ -582,20 +557,20 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
   allocate(skip(npair0))
   skip = .false.
 
-!$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
-!$omp shared(natom,npair0,cos_a,sin_a,idx,gross,coeff,skip)
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp shared(npair0,cos_a,sin_a,idx,mo_dip,coeff,skip)
   do n = 1, npair0, 1
-   i = idx(1,n); j = idx(2,n)
-   vtmp(:,1) = gross(:,i,i)
-   vtmp(:,2) = gross(:,j,i)
-   vtmp(:,3) = gross(:,j,j)
+   i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
+   vtmp(:,1) = mo_dip(:,i,i)
+   vtmp(:,2) = mo_dip(:,j,i)
+   vtmp(:,3) = mo_dip(:,j,j)
    vdiff = vtmp(:,1) - vtmp(:,3)
-   Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
-   Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+   Aij = ddot(3,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(3,vdiff,1,vdiff,1)
+   Bij = ddot(3, vdiff, 1, vtmp(:,2), 1)
    rtmp = HYPOT(Aij, Bij)
    sin_4a = Bij/rtmp
    rtmp = rtmp + Aij
-   if(rtmp < threshold1) then
+   if(rtmp < upd_thres) then
     skip(n) = .true.
     cycle
    end if
@@ -611,11 +586,154 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
    cos_a(n) = DCOS(alpha); sin_a(n) = DSIN(alpha)
 
    ! update two orbitals
+!dir$ ivdep
    tmp_mo = coeff(:,i)
+!dir$ ivdep
    coeff(:,i) = cos_a(n)*tmp_mo + sin_a(n)*coeff(:,j)
+!dir$ ivdep
    coeff(:,j) = cos_a(n)*coeff(:,j) - sin_a(n)*tmp_mo
 
-   ! update corresponding dipole integrals, only indices in range to be updated
+   ! update corresponding dipole integrals
+   cc = cos_a(n)*cos_a(n)
+   ss = sin_a(n)*sin_a(n)
+   sin_2a = 2d0*sin_a(n)*cos_a(n)
+   cos_2a = cc - ss
+   mo_dip(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+   mo_dip(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+   mo_dip(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  end do ! for n
+  !$omp end parallel do
+
+  ! update remaining off-diagonal elements of mo_dip(:,x,y)
+  do n = 1, npair0, 1
+   if(skip(n)) cycle
+   call update_up_tri_ij_dip(nmo, idx(1,n), idx(2,n), cos_a(n), sin_a(n), &
+                             mo_dip)
+  end do ! for n
+
+  deallocate(idx, cos_a, sin_a, skip)
+ end do ! for m
+
+ deallocate(tmp_mo)
+end subroutine para22boys_kernel
+
+subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+ implicit none
+ integer :: i, j, m
+ integer, intent(in) :: nbf, nmo, natom
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, &
+  sin_2a, cos_2a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: vdiff(:), vtmp(:,:), tmp_mo(:)
+
+ change = 0d0
+ allocate(vdiff(natom), vtmp(natom,3), tmp_mo(nbf))
+
+ do m = 1, eff_npair, 1
+  i = eff_ijmap(1,m); j = eff_ijmap(2,m)
+  vtmp(:,1) = gross(:,i,i)
+  vtmp(:,2) = gross(:,j,i)
+  vtmp(:,3) = gross(:,j,j)
+  vdiff = vtmp(:,1) - vtmp(:,3)
+  Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
+  Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+  rtmp = HYPOT(Aij, Bij)
+  sin_4a = Bij/rtmp
+  rtmp = rtmp + Aij
+  if(rtmp < upd_thres) cycle
+
+  change = change + rtmp
+  alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+  if(Aij > 0d0) then
+   alpha = QPI - alpha
+  else if(Aij<0d0 .and. Bij<0d0) then
+   alpha = HPI + alpha
+  end if
+  if(alpha > QPI) alpha = alpha - HPI
+  cos_a = DCOS(alpha); sin_a = DSIN(alpha)
+
+  ! update two orbitals
+!dir$ ivdep
+  tmp_mo = coeff(:,i)
+!dir$ ivdep
+  coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+!dir$ ivdep
+  coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+
+  ! update corresponding gross integrals
+  cc = cos_a*cos_a
+  ss = sin_a*sin_a
+  sin_2a = 2d0*sin_a*cos_a
+  cos_2a = cc - ss
+  gross(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+  gross(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+  gross(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+  call update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
+ end do ! for m
+
+ deallocate(vdiff, vtmp, tmp_mo, eff_ijmap)
+end subroutine serial22pm_kernel
+
+subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
+ implicit none
+ integer :: i, j, m, n, npair0
+ integer, intent(in) :: nbf, nmo, natom
+ integer, allocatable :: idx(:,:)
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
+ real(kind=8), intent(out) :: change
+ real(kind=8), allocatable :: vdiff(:), vtmp(:,:), tmp_mo(:), cos_a(:), sin_a(:)
+ logical, allocatable :: skip(:)
+
+ change = 0d0
+ allocate(vdiff(natom), vtmp(natom,3), tmp_mo(nbf))
+
+ do m = 1, nsweep, 1
+  npair0 = rot_idx(m)%npair
+  allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
+  allocate(cos_a(npair0), source=1d0)
+  allocate(sin_a(npair0), source=0d0)
+  allocate(skip(npair0))
+  skip = .false.
+
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp shared(natom,npair0,cos_a,sin_a,idx,gross,coeff,skip)
+  do n = 1, npair0, 1
+   i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
+   vtmp(:,1) = gross(:,i,i)
+   vtmp(:,2) = gross(:,j,i)
+   vtmp(:,3) = gross(:,j,j)
+   vdiff = vtmp(:,1) - vtmp(:,3)
+   Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
+   Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
+   rtmp = HYPOT(Aij, Bij)
+   sin_4a = Bij/rtmp
+   rtmp = rtmp + Aij
+   if(rtmp < upd_thres) then
+    skip(n) = .true.
+    cycle
+   end if
+
+   change = change + rtmp
+   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+   if(Aij > 0d0) then
+    alpha = QPI - alpha
+   else if(Aij<0d0 .and. Bij<0d0) then
+    alpha = HPI + alpha
+   end if
+   if(alpha > QPI) alpha = alpha - HPI
+   cos_a(n) = DCOS(alpha); sin_a(n) = DSIN(alpha)
+
+   ! update two orbitals
+!dir$ ivdep
+   tmp_mo = coeff(:,i)
+!dir$ ivdep
+   coeff(:,i) = cos_a(n)*tmp_mo + sin_a(n)*coeff(:,j)
+!dir$ ivdep
+   coeff(:,j) = cos_a(n)*coeff(:,j) - sin_a(n)*tmp_mo
+
+   ! update gross(:,x,x)
    cc = cos_a(n)*cos_a(n)
    ss = sin_a(n)*sin_a(n)
    sin_2a = 2d0*sin_a(n)*cos_a(n)
@@ -623,31 +741,20 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
    gross(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
    gross(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
    gross(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
-   gross(:,i,j) = gross(:,j,i)
   end do ! for n
-!$omp end parallel do
+  !$omp end parallel do
 
   ! update remaining off-diagonal elements of gross(:,x,y)
   do n = 1, npair0, 1
    if(skip(n)) cycle
-   i = idx(1,n); j = idx(2,n)
-   cc = cos_a(n); ss = sin_a(n)
-!$omp parallel do schedule(dynamic) default(shared) private(k,dipole)
-   do k = 1, nmo, 1
-    if(k==i .or. k==j) cycle
-    dipole = gross(:,k,i)
-    gross(:,k,i) = cc*dipole + ss*gross(:,k,j)
-    gross(:,k,j) = cc*gross(:,k,j) - ss*dipole
-   end do ! for k
-!$omp end parallel do
-   gross(:,i,:) = gross(:,:,i)
-   gross(:,j,:) = gross(:,:,j)
+   call update_up_tri_ij_gross(natom, nmo, idx(1,n), idx(2,n), cos_a(n), &
+                               sin_a(n), gross)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
  end do ! for m
 
- deallocate(dipole, tmp_mo, vtmp, vdiff)
+ deallocate(vdiff, vtmp, tmp_mo)
 end subroutine para22pm_kernel
 
 end module lo_info

@@ -122,10 +122,8 @@ subroutine do_gvb()
 
  ! determine the number of active orbitals/electrons in subsequent CAS/DMRG
  ! computations
- nacta = npair0 + nopen
- nactb = npair0
- nacte = nacta + nactb
- nacto = nacte
+ nacta = npair0 + nopen; nactb = npair0
+ nacte = nacta + nactb ; nacto = nacte
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)

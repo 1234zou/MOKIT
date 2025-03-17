@@ -1,6 +1,6 @@
 ! written by jxzou at 20210727
 
-! do MRCC based on CASCI/CASSCF, npair<=8
+! do MRCC based on CASCI/CASSCF
 subroutine do_mrcc()
  use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
   orca_path, chgname, eist
@@ -116,14 +116,16 @@ end subroutine do_mrcc
 
 ! print FIC-MRCCSD keywords into ORCA .inp file
 subroutine prt_mrcc_orca_inp(inpname1)
- use mol, only: ndb, nopen, nacta, nactb, npair, npair0, mult
- use mr_keyword, only: mem, nproc, DKH2, mrcc_type, RI
+ use mol, only: ndb, nacto, nacte, mult
+ use mr_keyword, only: mem, nproc, DKH2, mrcc_type, RI, orca_path
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, iver, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
 
- inpname2 = TRIM(inpname1)//'.t'
+ call find_orca_ver(orca_path, iver)
+ call find_specified_suffix(inpname1, '.inp', i)
+ inpname2 = inpname1(1:i-1)//'.t'
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
@@ -144,9 +146,13 @@ subroutine prt_mrcc_orca_inp(inpname1)
  select case(mrcc_type)
  case(1) ! FIC-MRCCSD
   write(fid2,'(A)') '%autoci'
-  write(fid2,'(A)') ' CItype FICMRCC'
-  write(fid2,'(A,I0)') ' nel ',  nacta+nactb
-  write(fid2,'(A,I0)') ' norb ', 2*npair0+nopen
+  if(iver < 6) then
+   write(fid2,'(A)') ' CItype FICMRCC'
+  else
+   write(fid2,'(A)') ' CItype FIC-MRCC'
+  end if
+  write(fid2,'(A,I0)') ' nel ',  nacte
+  write(fid2,'(A,I0)') ' norb ', nacto
   write(fid2,'(A,I0)') ' mult ', mult
   write(fid2,'(A)') ' nroots 1'
   write(fid2,'(A)') ' MaxIter 100'
@@ -160,11 +166,11 @@ subroutine prt_mrcc_orca_inp(inpname1)
   else
    write(fid2,'(A)') 'bwcc'
   end if
-  write(fid2,'(A,I0)') ' n_docc ', ndb+npair-npair0
+  write(fid2,'(A,I0)') ' n_docc ', ndb
   write(fid2,'(A)') " refs ""2200,2020,2002,0220,0202,0022"""
  case default
-  write(fid2,'(A,I0)') 'ERROR in subroutine prt_mrcc_orca_inp: invalid mrcc_typ&
-                       &e=',mrcc_type
+  write(fid2,'(/,A,I0)') 'ERROR in subroutine prt_mrcc_orca_inp: invalid mrcc_t&
+                         &ype=',mrcc_type
   stop
  end select
  write(fid2,'(A)') 'end'

@@ -136,14 +136,19 @@ def mo_fch2py(fchname):
   return mo
 
 
-def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
+def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, dis_tol=17.0,
+        conv_tol=1e-5):
   '''
   Perform orbital localization for a specified set of orbitals in a given
   Gaussian .fch(k) file.
   (The following 1e AO-basis integrals are computed using PySCF:
    1) overlap integrals for Pipek-Mezey localization;
    2) dipole integrals for Boys localization.)
-  The method can be either 'pm' or 'boys'.
+  The method can be either 'pm' or 'boys'. This function/module is designed for
+  isolated molecules. For PBC systems, please use pbc_loc() instead.
+  dis_tol=17.0 A for Boys, water64 cluster
+  dis_tol=26.5 A for Boys, water128 cluster
+  dis_tol=24.5 A for PM, water128 cluster
 
   Simple usage::
   >>> # perform Pipek-Mezey localization for occupied PI orbitals of benzene
@@ -151,10 +156,17 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   >>> from mokit.lib.gaussian import loc
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
-  from mokit.lib.lo import boys, pm, calc_dis_mat_from_coor, get_bfirst_from_shl
-  from mokit.lib.rwwfn import ao2mo_dipole, prt_mo_center2xyz
+  import time
+  from pyscf import gto
+  from mokit.lib.lo import boys, pm, get_bfirst_from_shl
+  from mokit.lib.rwwfn import prt_mo_center2xyz
 
-  print('\nOrbital range:', idx)
+  t0 = time.perf_counter()
+  if dis_tol < 0.1:
+    raise ValueError('dis_tol must be a reasonable and positive float number')
+  if conv_tol > 0.1:
+    raise ValueError('conv_tol must be <= 0.1')
+
   if alpha is True:
     spin = 'a'
   else:
@@ -165,13 +177,14 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mo_coeff = fch2py(fchname, nbf, nif, spin)
   nmo = len(idx)
+
+  print('\nOrbital range:', idx)
+  print(f"distance threshold (A): {dis_tol:.3f}")
+  print(f"convergence threshold: {conv_tol:.7f}")
   print('nmo= %d' % nmo)
 
-  lines = mol.atom.strip().split('\n')
-  coor_s = [line.split()[1:4] for line in lines]
-  coor = np.transpose(np.array(coor_s, dtype=float))
   natom = mol.natm
-  dis = calc_dis_mat_from_coor(natom, coor)
+  dis = BOHR2ANG*gto.inter_distance(mol)
   nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, natom, mol._bas[:,0],
                                      mol._bas[:,1], mol._bas[:,3])
   if nbf0 != nbf:
@@ -180,24 +193,24 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   S = mol.intor_symmetric('int1e_ovlp')
 
   if method == 'pm':
-    lmo = pm(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,'mulliken')
+    lmo = pm(natom, nbf, nmo, bfirst, dis, mo_coeff[:,idx], S, 'mulliken',
+             dis_tol, conv_tol)
     if center_xyz is not None:
       center, ao_dip = ao_dipole_int(mol)
-      center = center*BOHR2ANG
-      mo_dip = ao2mo_dipole(nbf, nmo, ao_dip, lmo)
-      mo_dip = mo_dip*BOHR2ANG
+      center *= BOHR2ANG
+      ao_dip *= BOHR2ANG
   elif method == 'boys':
     center, ao_dip = ao_dipole_int(mol)
-    center = center*BOHR2ANG
-    ao_dip = ao_dip*BOHR2ANG
-    lmo, mo_dip = boys(natom,nbf,nmo,bfirst,dis,mo_coeff[:,idx],S,ao_dip)
+    center *= BOHR2ANG
+    ao_dip *= BOHR2ANG
+    lmo = boys(natom, nbf, nmo, bfirst, dis, mo_coeff[:,idx], S, ao_dip,
+               dis_tol, conv_tol)
   else:
     raise ValueError('Localization method cannot be recognized.')
 
   if center_xyz is not None:   # print LMO centers into xyz
-    mo_center = np.zeros((3,nmo))
-    for i in range(3):
-      mo_center[i,:] = np.diagonal(mo_dip[i])
+    mo_center = np.einsum('ui,xuv,vi->xi', lmo, ao_dip, lmo, optimize=True)
+    # np.einsum with optimize=True seems slightly faster than calc_ctdc_diag
     for i in range(nmo):
       mo_center[:,i] = mo_center[:,i] + center
     prt_mo_center2xyz(nmo, mo_center, center_xyz)
@@ -208,34 +221,95 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None):
   py2fch(fchname1, nbf, nif, mo_coeff, spin, noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
 
+  t1 = time.perf_counter()
+  elapsed_time = t1 - t0
+  print(f"Localization time(sec): {elapsed_time:.2f}")
 
-def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
+
+#def pbc_mo_center(cell, loc_orb):
+#  '''
+#  Calculate orbital centers/centroid of gamma-point localized orbitals
+#  '''
+#  from pyscf.pbc.dft import gen_grid
+#
+#  nmo = loc_orb.shape[1]
+#  ngrids = np.prod(cell.mesh)
+#  blksize = 2400*56
+#  grids = gen_grid.UniformGrids(cell)
+#  # Note: grids are generated around the origin (0,0,0) by default
+#  # grids.coords.shape is (ngrids,3)
+#  # G*r
+#  Gr = np.dot(cell.reciprocal_vectors(), grids.coords.T)
+#  # e^(-iG*r)
+#  r = np.exp(-Gr*1j)
+#  # MO values on grids
+#  mo_on_grid = np.empty((ngrids,nmo))
+#  for ip0, ip1 in lib.prange(0, ngrids, blksize):
+#    ao = cell.pbc_eval_gto('GTOval', grids.coords[ip0:ip1])
+#    mo_on_grid[ip0:ip1] = np.dot(ao, loc_orb)
+#
+#  # M_nn = < w_n | e^(-iG*r) | w_n >, size (nmo,3)
+#  dip_complex = np.einsum('gi,gi,g,xg->ix', mo_on_grid, mo_on_grid, grids.weights, r)
+#
+#  # Any complex number z can be written as z = C*e^(i*t) = C*(cos(t) + i*sin(t)),
+#  # where C is a real number and t is the angle theta, so
+#  #  ln(z) = ln(C*e^(i*t)) = ln(C) + i*t
+#  #  Im(ln(z)) = t
+#  # Interestingly, the result does not depend on C and is just theta.
+#  # Im(In(M_nn)) is np.angle(dip_complex)
+#  # -Im(In(M_nn))/(2*PI) is
+#  dip = -np.angle(dip_complex)/(2*np.pi)
+#
+#  # Now dip[i,:] are fractional coordinates of the i-th MO center (which can be
+#  # seen from subsequent np.dot(a, dip.T)). These fractional coordinates can be
+#  # positive/negative. Since the box is located in the subspace (x>0,y>0,z>0),
+#  # we may hope that all MO centers are also located in that subspace for a better
+#  # visual inspection. This can be done via translation by adding lattice vectors.
+#  # Multiple integer times of lattice vectors can be applied, but usually one a/b/c
+#  # is enough.
+#  dip[dip < 0] += 1.0
+#  # a = cell.lattice_vectors()
+#  mo_center = BOHR2ANG*np.dot(cell.lattice_vectors(), dip.T)
+#  return mo_center
+
+
+def pbc_loc(molden, box, method='berry', wannier_xyz=None, projected=None,
+            dis_tol=27.0, conv_tol=1e-5, save_lmo=False, old_fch=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given
-  CP2K .molden file.
-  The following 1e AO-basis integrals are computed using PySCF:
-   1) gamma-point dipole integrals for Boys;
-   2) gamma-point overlap integrals for Pipek-Mezey.
-  The method can be either 'boys' or 'pm'.
+  CP2K .molden file. The method can be either 'berry' or 'pm'.
+  dis_tol=17.0/27.0 are sufficient for water / SnO2-H2O, respectively.
   Current limitations:
    1) only gamma-point; 2) only CP2K molden; 3) only Alpha spin.
+  Only cubic cells have been tested so far.
+  dis_tol=10.0 A for Berry, water128 box
+  dis_tol= 9.5 A for Berry, water512 box
+  dis_tol=27.0 A for Berry, SnO2-H2O box
 
   Simple usage::
   >>> # perform Boys orbital localization for water64 box
   >>> from mokit.lib.gaussian import pbc_loc
   >>> pbc_loc('water64-MOS-1_0.molden',box=np.eye(3)*12.42)
   '''
-  from mokit.lib.rwwfn import read_lat_vec_from_file, ao2mo_dipole, prt_mo_center2xyz
-  from mokit.lib.lo import boys, pm, calc_dis_mat_from_coor_pbc, get_bfirst_from_shl
-  from mokit.lib.ortho import check_orthonormal
+  import time
+  from pyscf.pbc.df.ft_ao import ft_aopair
+  from mokit.lib.rwwfn import read_lat_vec_from_file, prt_mo_center2xyz
+  from mokit.lib.lo import berry, boys, pm, calc_dis_mat_from_coor_pbc, \
+                           get_bfirst_from_shl
 
+  t0 = time.perf_counter()
+  if dis_tol < 0.1:
+    raise ValueError('dis_tol must be a reasonable and positive float number')
+  if conv_tol > 0.1:
+    raise ValueError('conv_tol must be <= 0.1')
+
+  # determine the lattice vectors
   if isinstance(box, np.ndarray):
     lat_vec = box
   elif isinstance(box, str):
     lat_vec = read_lat_vec_from_file(box)
   else:
     raise ValueError('datatype of box cannot be identified.')
-  print('Lattice vectors\n', lat_vec)
 
   proname = molden[0:molden.rindex('.molden')]
   fchname = proname+'.fch'
@@ -243,19 +317,29 @@ def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
   if wannier_xyz is None:
     wannier_xyz = proname+'_wannier.xyz'
 
-  with os.popen('molden2fch '+molden+' -cp2k') as run:
-    null = run.read()
+  if old_fch is None:
+    with os.popen('molden2fch '+molden+' -cp2k') as run:
+      null = run.read()
+  else:
+    fchname = old_fch
+
   cell = load_cell_from_fch(fchname)
   cell.a = lat_vec
   cell.build(parse_arg=False)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   na, nmo = read_na_and_nb_from_fch(fchname)
+
+  print('Lattice vectors\n', lat_vec)
+  print(f"distance threshold (A): {dis_tol:.3f}")
+  print(f"convergence threshold: {conv_tol:.7f}")
   print('nmo= %d' % nmo)
 
   lines = cell.atom.strip().split('\n')
   coor_s = [line.split()[1:4] for line in lines]
   coor = np.transpose(np.array(coor_s, dtype=float))
   natom = cell.natm
+  # Currently `gto.inter_distance` cannot be used here, since it calculates the
+  # inter-atomic distances of an isolated molecule.
   dis = calc_dis_mat_from_coor_pbc(natom, cell.a, coor)
   nbf0, bfirst = get_bfirst_from_shl(cell.cart, cell.nbas, natom, cell._bas[:,0],
                                      cell._bas[:,1], cell._bas[:,3])
@@ -263,41 +347,63 @@ def pbc_loc(molden, box, method='boys', wannier_xyz=None, save_lmo=False):
     print('nbf0, nbf=%d, %d' % (nbf0, nbf))
     raise ValueError('Number of basis functions is inconsistent.')
 
+  # determine which atoms are chosen (default: all atoms)
+  # LMOs centered on chosen atoms would be constructed.
+  if projected is None:
+    chosen = np.ones(natom, dtype=bool)
+  else:
+    chosen = np.zeros(natom, dtype=bool)
+    chosen[projected] = True
+
   mo = fch2py(fchname, nbf, nif, 'a')
   S = cell.pbc_intor('int1e_ovlp', hermi=1)
   # do not use cell.intor_symmetric('int1e_ovlp') here, since it returns the AO
   # overlap of an isolated molecule
 
-  if method == 'boys':
+  if method == 'berry':
+    # Note: ao_zdip is a (double) complex array with size (3,nmo,nmo)
+    ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
+    ao_zdip *= BOHR2ANG
+    lmo = berry(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, dis_tol, conv_tol,
+                ao_zdip)
+  elif method == 'boys':
+    raise ValueError('Boys orbital localization not implemented yet.')
     center, ao_dip = ao_dipole_int(cell)
-    center = center*BOHR2ANG
-    ao_dip = ao_dip*BOHR2ANG
-    loc_orb, mo_dip = boys(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, ao_dip)
+    ao_dip *= BOHR2ANG
+    lmo = boys(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, ao_dip, dis_tol,
+               conv_tol)
   elif method == 'pm':
-    loc_orb = pm(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, 'mulliken')
-    center, ao_dip = ao_dipole_int(cell)
-    center = center*BOHR2ANG
-    mo_dip = ao2mo_dipole(nbf, nmo, ao_dip, loc_orb)
-    mo_dip = mo_dip*BOHR2ANG
+    lmo = pm(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, 'mulliken', dis_tol,
+             conv_tol)
   else:
     raise ValueError('Localization method cannot be recognized.')
 
   # print LMO centers into xyz
-  mo_center = np.zeros((3,nmo))
-  for i in range(3):
-    mo_center[i,:] = np.diagonal(mo_dip[i])
-  for i in range(nmo):
-    mo_center[:,i] = mo_center[:,i] + center
+  if method != 'berry':
+    ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
+    # Theoretically, the array ao_zdip is in unit Bohr currently, and is supposed
+    # to be multiplied by the constant BOHR2ANG. But actually there is no need
+    # to do that since np.angle will lead to a dimensionless array, where the
+    # constant BOHR2ANG will be cancelled.
+  mo_zdip = np.einsum('ui,xuv,vi->xi', lmo, ao_zdip, lmo, optimize=True)
+  mo_dip = -np.angle(mo_zdip)/(2*np.pi)
+  mo_dip[mo_dip < 0] += 1.0
+  mo_center = BOHR2ANG*np.dot(cell.lattice_vectors(), mo_dip)
   prt_mo_center2xyz(nmo, mo_center, wannier_xyz)
 
   # update MOs and print them into .fch
-  mo[:,:nmo] = loc_orb.copy()
-  check_orthonormal(nbf, nif, mo, S)
+  mo[:,:nmo] = lmo.copy()
   if save_lmo is True:
     noon = np.zeros(nif)
     shutil.copyfile(fchname, lmo_fch)
     py2fch(lmo_fch, nbf, nif, mo, 'a', noon, False, False)
     print('Localized orbitals exported to file '+lmo_fch)
+
+  if old_fch is None:
+    os.remove(fchname)
+  t1 = time.perf_counter()
+  elapsed_time = t1 - t0
+  print(f"Localization time(sec): {elapsed_time:.1f}")
 
 
 def uno(fchname):
@@ -311,7 +417,7 @@ def uno(fchname):
   >>> from mokit.lib.gaussian import uno
   >>> uno(fchname='benzene_uhf.fch')
   '''
-  import mokit.lib.uno.uno as uhf_no
+  from mokit.lib.uno import uno as uhf_no
   from mokit.lib.rwwfn import construct_vir
 
   os.system('fch_u2r '+fchname)
@@ -402,19 +508,15 @@ def get_dipole(fchname, itype=1):
   return dipole
 
 
-def gen_fcidump(fchname, nacto, nacte, mem=4000, np=None):
+def gen_fcidump(fchname, nacto, nacte, mem=4000):
   '''
   generate a FCIDUMP file using the provided .fch(k) file
   nacto: the number of active orbitals
   nacte: the number of active electrons
   mem: total memory, in MB
-  np: the number of OpenMP threads
   '''
-  from pyscf import scf, mcscf, ao2mo, lib
+  from pyscf import scf, mcscf, ao2mo
   from pyscf.tools.fcidump import from_integrals
-
-  if (np):
-    lib.num_threads(np)
 
   # load the mol object from a given .fch(k) file
   mol = load_mol_from_fch(fchname)

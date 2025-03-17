@@ -16,22 +16,23 @@ subroutine do_cas(scf)
   molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, &
   dalton_mpi, bgchg, chgname, casscf_force, check_gms_path, prt_strategy, RI, &
   nmr, ICSS, on_thres, iroot, xmult, dyn_corr
- use mol, only: nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, nacta, &
-  nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
+ use mol, only: mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, &
+  nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
   fch2inp_wrap, dat2fch_wrap, mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
  implicit none
- integer :: i, j, idx1, idx2, nvir, nfile, system, RENAME
+ integer :: i, n_pocc, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)       ! e(1) is CASCI enery, e(2) is CASSCF energy
  real(kind=8), allocatable :: noon(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
-                       orbname, xmlname, gradname
+  orbname, xmlname, gradname
  character(len=500) :: buf
  logical, intent(in) :: scf
- logical :: alive1, alive2
+ logical, external :: compare_as_size
+ logical :: alive1, alive2, beyond_cas
 
  if(scf) then
   if((.not. casscf) .and. (.not.dmrgscf)) return
@@ -46,18 +47,16 @@ subroutine do_cas(scf)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
   call read_no_info_from_fch(hf_fch, on_thres, nbf, nif, ndb, nopen, nacta, &
                              nactb, nacto, nacte)
-  i = nacte; j = nacto
-  npair0 = nactb; npair = npair0
- else
-  i = 2*npair0 + nopen; j = i
  end if
 
- alive1 = (nacte_wish>0 .and. nacte_wish/=i)
- alive2 = (nacto_wish>0 .and. nacto_wish/=j)
+ ! check whether the user has specified the active space size
+ alive1 = (nacte_wish>0 .and. nacte_wish/=nacte)
+ alive2 = (nacto_wish>0 .and. nacto_wish/=nacto)
 
+ ! if specified, check whether it is reasonable
  if(alive1 .or. alive2) then
-  write(6,'(4(A,I0),A)') 'Warning: AutoMR recommends CAS(',i,'e,',j,'o), but&
-   & you specify CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
+  write(6,'(4(A,I0),A)') 'Warning: CAS(',nacte,'e,',nacto,'o) is recommended, b&
+   &ut you specify CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
 
   ! check the odevity of nacte_wish, in case that the user requires nonsense
   ! number of active electrons
@@ -70,28 +69,32 @@ subroutine do_cas(scf)
 
   if(ist == 5) then
    call prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
-   i = nacte_wish; j = nacto_wish
-   npair0 = (i - nopen)/2; npair = npair0
-   ndb = ndb + nactb - npair
-   nacta = npair0 + nopen; nactb = npair0
-   nacto = nacto_wish;     nacte = nacto_wish
+   ndb = ndb - (nacte_wish - nacte)/2
+   nactb = (nacte_wish - nopen)/2
+   nacta = nacte_wish - nactb
+   nacto = nacto_wish; nacte = nacte_wish
    write(6,'(A)') 'OK, fulfilled.'
-
   else ! ist /= 5
    if(2*npair+nopen < nacte_wish) then
     write(6,'(/,A)') 'ERROR in subroutine do_cas: too large space specified. Ca&
                      &nnot be fulfilled.'
-    write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen, ', nacte_wish=',nacte_wish
+    write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen,', nacte_wish=',nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
     write(6,'(A)') 'OK, fulfilled.'
-    npair0 = (nacte_wish - nopen)/2
-    i = 2*npair0 + nopen; j = i
-    nacta = npair0 + nopen; nactb = npair0
-    nacto = nacto_wish; nacte = nacto_wish
+    ndb = ndb - (nacte_wish - nacte)/2
+    nactb = (nacte_wish - nopen)/2
+    nacta = nacte_wish - nactb
+    nacto = nacto_wish; nacte = nacte_wish
    end if
   end if
+
+ else ! the use does not specify the active space
+  ndb = ndb + npair - npair0
  end if
+
+ n_pocc = ndb + nacto ! doubly occupied + active orbitals
+ nvir = nif - n_pocc
 
  if(scf) then
   if(casscf) then
@@ -111,13 +114,9 @@ subroutine do_cas(scf)
   end if
  end if
  write(6,'(A)',advance='no') TRIM(data_string)
+ write(6,'(A,2(I0,A))') '(',nacte,'e,',nacto,'o) using program '//TRIM(cas_prog)
 
- idx1 = ndb + npair - npair0 + 1
- idx2 = idx1 + 2*npair0 + nopen - 1
- nvir = nif - (idx1-1) - 2*npair0 - nopen
- write(6,'(A,2(I0,A))') '(',i,'e,',j,'o) using program '//TRIM(cas_prog)
-
- if(i*j == 0) then
+ if(nacte==0 .and. nacto==0) then
   write(6,'(/,A)') REPEAT('-', 79)
   write(6,'(A)') 'There is zero active orbital/electron. AutoMR terminated.'
   write(6,'(/,A)') 'The reason is this molecule has little multi-configurationa&
@@ -137,41 +136,46 @@ subroutine do_cas(scf)
   stop
  end if
 
- write(6,'(4(A,I0),A,L1)') 'doubly_occ=', idx1-1, ', nvir=', nvir, ', Root=', &
-                           iroot, ', Xmult=', xmult, ', RIJK=', RI
+ write(6,'(4(A,I0),A,L1)') 'doubly_occ=', ndb, ', nvir=', nvir, ', Root=', &
+                           iroot, ', Xmult=', xmult, ', RI=', RI
  write(6,'(2(A,I0))') 'No. of active alpha/beta e = ', nacta,'/',nactb
 
- if(nopen+2*npair0 > 15) then
-  if(nmr) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO is&
-                    & not supported.'
-   stop
-  end if
-  if(scf) then
+ if(scf) then ! (DMRG-)CASSCF
+  beyond_cas = compare_as_size(nacto,nacte,mult, 15,15,2)
+  if(beyond_cas) then
+   if(nmr) then
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO is&
+                     & not supported currently.'
+    stop
+   end if
    casscf = .false.
    dmrgscf = .true.
    cas_prog = dmrgscf_prog
    write(6,'(A)') 'Remark: CASSCF is switched to DMRG-CASSCF due to active spac&
                   &e larger than (15,15).'
-   if(casscf_prog /= 'pyscf') then
+   if(TRIM(casscf_prog) /= 'pyscf') then
     write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGSCF required. But CASSCF_&
                      &prog='//TRIM(casscf_prog)//'.'
     stop
    end if
-
-  else ! not scf
+  end if
+ else         ! (DMRG-)CASCI
+  beyond_cas = compare_as_size(nacto,nacte,mult, 16,16,1)
+  if(beyond_cas) then
    casci = .false.
    dmrgci = .true.
    cas_prog = dmrgci_prog
    write(6,'(A)') 'Remark: CASCI is switched to DMRG-CASCI due to active space &
-                  &larger than (15,15).'
-   if(casci_prog /= 'pyscf') then
+                  &larger than (16,16).'
+   if(TRIM(casci_prog) /= 'pyscf') then
     write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGCI required. But CASCI_pr&
                      &og='//TRIM(casci_prog)//'.'
     stop
    end if
   end if
+ end if
 
+ if(beyond_cas) then
   write(6,'(A)') 'Strategy updated:'
   call prt_strategy()
  end if
@@ -184,8 +188,10 @@ subroutine do_cas(scf)
 
  if((dmrgci .or. dmrgscf) .and. TRIM(cas_prog)/='pyscf') then
   write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation i&
-                   &s only supported by'
-  write(6,'(A)') 'PySCF. Wrong CASCI_prog/CASSCF_prog='//TRIM(cas_prog)
+                   &s only supported'
+  write(6,'(A)') 'by PySCF+Block currently, which means that CASCI_prog or CASS&
+                 &CF_prog is supposed'
+  write(6,'(A)') 'to be PySCF. Bot got '//TRIM(cas_prog)
   stop
  end if
 
@@ -268,7 +274,7 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.inp'
   i = RENAME(TRIM(outname), TRIM(inpname))
   outname = TRIM(proname)//'.gms'
-  call prt_cas_gms_inp(inpname, idx1-1, scf)
+  call prt_cas_gms_inp(inpname, ndb, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2gms_inp(inpname)
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
@@ -291,7 +297,7 @@ subroutine do_cas(scf)
   if(scf) then
    call dat2fch_wrap(datname, casnofch)
    write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
-                              TRIM(casnofch), idx1, idx2
+                              TRIM(casnofch), ndb+1, n_pocc
    write(6,'(A)') '$'//TRIM(buf)
    i = SYSTEM(TRIM(buf))
    if(i /= 0) then
@@ -301,7 +307,8 @@ subroutine do_cas(scf)
   end if
 
   ! transfer NOs from .dat to .fch
-  write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ',idx2
+  write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ', &
+                      n_pocc
   write(6,'(A)') '$'//TRIM(buf)
   i = SYSTEM(TRIM(buf)//' >/dev/null')
   if(i /= 0) then
@@ -321,10 +328,10 @@ subroutine do_cas(scf)
   if(casscf_force) i = SYSTEM("echo '&ALASKA' >> "//TRIM(inpname))
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
-  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
+  call copy_file(fchname, casnofch, .false.) !make a copy to save NOs
   call orb2fch_wrap(orbname, casnofch, .true.) ! transfer NOs from .dat to .fch
   ! OpenMolcas CASSCF NOs may not be in ascending order, sort them
-  call sort_no_by_noon(casnofch, idx1, idx2)
+  call sort_no_by_noon(casnofch, ndb+1, n_pocc)
 
  case('orca')
   call check_exe_exist(orca_path)
@@ -423,7 +430,7 @@ subroutine do_cas(scf)
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
-                             TRIM(casnofch), idx1, idx2
+                             TRIM(casnofch), ndb+1, n_pocc
   i = SYSTEM(TRIM(buf))
   if(i /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility extract&
@@ -468,7 +475,7 @@ subroutine do_cas(scf)
   ! Now transfer NOONs when force=.T.
   if(casscf_force) then
    allocate(noon(nif), source=0d0)
-   call read_on_from_dalton_out(outname, idx2, noon(1:idx2))
+   call read_on_from_dalton_out(outname, n_pocc, noon(1:n_pocc))
    call write_eigenvalues_to_fch(casnofch, nif, 'a', noon, .true.)
    deallocate(noon)
   end if
@@ -614,8 +621,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
  do while(.true.)
   read(fid1,'(A)') buf
   if(buf(1:9) == 'mf.kernel') exit
-  if(buf(1:15) == 'lib.num_threads') cycle
-  if(buf(1:13) == 'mf.max_memory') cycle
+  if(buf(1:13)=='mf.max_memory' .or. buf(1:15)=='lib.num_threads') cycle
   write(fid2,'(A)') TRIM(buf)
  end do ! for while
 
@@ -631,13 +637,13 @@ subroutine prt_cas_script_into_py(pyname, scf)
 
  ! For CASCI/CASSCF, always set mc.natorb = True.
  ! For DMRG-CASCI/CASSCF, a two-step job is employed here: 
- !  1) use input MOs to perform (DMRG-)CASCI/CASSCF;
- !  2) perform a CASCI to generate NOs.
+ !  1) use input MOs to perform DMRG-CASCI/CASSCF;
+ !  2) perform DMRG-CASCI to generate NOs.
 
  ! For DMRG-CASCI/CASSCF, both the original MOs and NOs will be saved/punched.
  ! Since DMRG is not strictly invariant to unitary rotations of active orbitals,
  ! I hope the original MOs to be used in DMRG-PDFT/NEVPT2/CASPT2 computations.
- ! NOs are usually much more delocalized than original MOs.
+ ! NOs are much more delocalized than original MOs.
 
  if(scf) then
   if((.not.ss_opt) .and. iroot==0) then
@@ -800,50 +806,25 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_cas_gms_inp
 
-! print CASCI/CASSCF keywords in to a given (Open)Molcas input file
+! print CASCI/CASSCF and RI (if required) keywords in to a given (Open)Molcas
+! input file
 subroutine prt_cas_molcas_inp(inpname, scf)
- use mr_keyword, only: dmrgci, dmrgscf, RI, RIJK_bas, mokit_root
+ use mr_keyword, only: dmrgci, dmrgscf, RI
  implicit none
- integer :: i, j, fid1, fid2, RENAME, system
- character(len=21) :: RIJK_bas1
+ integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
  logical :: dmrg
 
- if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
+ ! since MOKIT v1.2.7rc4, we use RICD rather than RIJK in OpenMolcas, if RI is required
+ if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
  dmrg = (dmrgci .or. dmrgscf)
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
-
- do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:4) == 'noCD') exit
-  j = INDEX(buf, '...')
-  if(j > 0) then
-   if(RI) then
-    j = INDEX(buf, '.')
-    write(fid2,'(A)') buf(1:j)//TRIM(RIJK_bas1)//'..'//TRIM(buf(j+3:))
-   else
-    write(fid2,'(A)') TRIM(buf)
-   end if
-  else
-   write(fid2,'(A)') TRIM(buf)
-  end if
- end do
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: no 'SEWARD' found i&
-                   &n file "//TRIM(inpname)
-  close(fid1)
-  close(fid2,status='delete')
-  stop
- end if
-
- if(RI) write(fid2,'(A)') 'RIJK'
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -867,29 +848,6 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  close(fid2)
  close(fid1,status='delete')
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-
- ! if RIJK is on, we need to generate the fitting basis set file for OpenMolcas
- if(RI) then
-  i = SYSTEM('cp '//TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' .')
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to copy fil&
-                    &e from'
-   write(6,'(A)') TRIM(mokit_root)//'/mokit/basis/'//TRIM(RIJK_bas1)//' to the&
-                 & current directory.'
-   stop
-  end if
-  i = SYSTEM('bas_gau2molcas '//TRIM(RIJK_bas1))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine prt_cas_molcas_inp: failed to call uti&
-                    &lity bas_gau2molcas.'
-   write(6,'(A)') 'Did you forget to compile it?'
-   stop
-  end if
-
-  call delete_file(RIJK_bas1)
-  call upper(RIJK_bas1)
-  i = SYSTEM('mv '//TRIM(RIJK_bas1)//' $MOLCAS/basis_library/jk_Basis/')
- end if
 end subroutine prt_cas_molcas_inp
 
 ! print CASCI/CASSCF keywords in to a given ORCA .inp file
@@ -989,10 +947,10 @@ end subroutine prt_cas_orca_inp
 
 ! print CASCI/CASSCF keywords into a given Molpro input file
 subroutine prt_cas_molpro_inp(inpname, scf, force)
- use mol, only: ndb, npair, npair0, nacto
+ use mol, only: ndb, nacto
  use mr_keyword, only: RI, RIJK_bas
  implicit none
- integer :: fid, nclosed, nocc
+ integer :: fid
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, orbfile, put
  character(len=240), intent(in) :: inpname
@@ -1024,9 +982,6 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
  write(fid,'(A)') 'read,mo,ORB,file='//TRIM(orbfile)//';'
  write(fid,'(A)') 'save,mo,2140.2,ORBITALS}'
 
- nclosed = ndb + npair - npair0
- nocc = nclosed + nacto
-
  write(fid,'(A)',advance='no') '{'
  if(RI) write(fid,'(A)',advance='no') 'DF-'
  write(fid,'(A)',advance='no') 'CASSCF'
@@ -1036,7 +991,7 @@ subroutine prt_cas_molpro_inp(inpname, scf, force)
                                 //TRIM(RIJK_bas1)
  end if
 
- write(fid,'(2(A,I0))',advance='no') ';closed,', nclosed, ';occ,', nocc
+ write(fid,'(2(A,I0))',advance='no') ';closed,', ndb, ';occ,', ndb+nacto
  ! Note: we need 'NoExtra' to completely turn off symmetry.
  ! Otherwise the CASCI energy is slightly different to that of other programs
  if(scf) then
@@ -1052,9 +1007,9 @@ end subroutine prt_cas_molpro_inp
 
 ! print CASCI/CASSCF keywords into a given BDF input file
 subroutine prt_cas_bdf_inp(inpname, scf, force)
- use mol, only: nbf, nif, charge, mult, ndb, npair, npair0, nacto, nacte
+ use mol, only: nbf, nif, charge, mult, ndb, nacto, nacte
  implicit none
- integer :: i, nclosed, fid
+ integer :: i, fid
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
@@ -1073,7 +1028,6 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
   stop
  end if
 
- nclosed = ndb + npair - npair0
  BACKSPACE(fid)
  write(fid,'(A)') '$MCSCF'
  if(nbf > nif) then
@@ -1083,7 +1037,7 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  end if
  write(fid,'(A,/,I0)') 'Charge', charge
  write(fid,'(A,/,I0)') 'Spin', mult
- write(fid,'(A,/,I0)') 'Close', nclosed
+ write(fid,'(A,/,I0)') 'Close', ndb
  write(fid,'(A,/,I0)') 'Active', nacto
  write(fid,'(A,/,I0)') 'Actel', nacte
  write(fid,'(A)') 'Guess'
@@ -1102,10 +1056,10 @@ end subroutine prt_cas_bdf_inp
 
 ! print CASCI/CASSCF keywords into a given PSI4 input file
 subroutine prt_cas_psi4_inp(inpname, scf)
- use mol, only: ndb, npair, npair0, nacte
+ use mol, only: ndb, nacto
  use mr_keyword, only: mem, hardwfn, crazywfn, RI, RIJK_bas
  implicit none
- integer :: i, nclosed, fid
+ integer :: i, fid
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, casnofch
  character(len=240), intent(in) :: inpname
@@ -1114,7 +1068,6 @@ subroutine prt_cas_psi4_inp(inpname, scf)
  call modify_memory_in_psi4_inp(inpname, mem)
  i = INDEX(inpname, '.inp', back=.true.)
  casnofch = inpname(1:i-1)//'_NO.fch'
- nclosed = ndb + npair - npair0
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
  do while(.true.)
@@ -1145,8 +1098,8 @@ subroutine prt_cas_psi4_inp(inpname, scf)
   write(fid,'(A,I0)') ' ci_maxiter 200'
  end if
 
- write(fid,'(A,I0,A)') ' restricted_docc [', nclosed, ']'
- write(fid,'(A,I0,A)') ' active [', nacte, ']'
+ write(fid,'(A,I0,A)') ' restricted_docc [', ndb, ']'
+ write(fid,'(A,I0,A)') ' active [', nacto, ']'
  write(fid,'(A)') ' canonicalize_inactive_favg true'
  write(fid,'(A)') ' nat_orbs true'
  write(fid,'(A)') '}'
@@ -1170,16 +1123,15 @@ end subroutine prt_cas_psi4_inp
 
 ! print CASCI/CASSCF keywords into a given Dalton input file
 subroutine prt_cas_dalton_inp(inpname, scf, force)
- use mol, only: mult, ndb, npair, npair0, nacto, nacte
+ use mol, only: mult, ndb, nacto, nacte
  use mr_keyword, only: DKH2
  implicit none
- integer :: i, nclosed, fid, fid1, RENAME
+ integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
 
  inpname1 = TRIM(inpname)//'.t'
- nclosed = ndb + npair - npair0
 
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
  write(fid1,'(A)') '**DALTON INPUT'
@@ -1199,7 +1151,7 @@ subroutine prt_cas_dalton_inp(inpname, scf, force)
  write(fid1,'(A,/,A)') '.NOQCSCF','.NONCANONICAL'
  write(fid1,'(A,/,A)') '*CONFIGURATION INPUT', '.SPIN MULTIPLICITY'
  write(fid1,'(I0)') mult
- write(fid1,'(A,/,I0)') '.INACTIVE ORBITALS', nclosed
+ write(fid1,'(A,/,I0)') '.INACTIVE ORBITALS', ndb
  write(fid1,'(A,/,I0)') '.CAS SPACE', nacto
  write(fid1,'(A,/,I0)') '.ELECTRONS', nacte
  if(scf) then
@@ -1244,11 +1196,11 @@ end subroutine prt_cas_dalton_inp
 
 ! print CASSCF NMR keywords into a given Dalton input file
 subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
- use mol, only: mult, ndb, npair, npair0, nacto, nacte
+ use mol, only: mult, ndb, nacto, nacte
  use mr_keyword, only: DKH2
  use util_wrapper, only: fch2dal_wrap
  implicit none
- integer :: i, nclosed, fid, fid1, RENAME
+ integer :: i, fid, fid1, RENAME
  integer, intent(in) :: iroot
  ! 0 for ground state, 1 for the first excited state
  integer, intent(out) :: nfile
@@ -1267,7 +1219,6 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
  call fch2dal_wrap(fchname)
  i = RENAME(TRIM(oldmol), TRIM(molname))
 
- nclosed = ndb + npair - npair0
  open(newunit=fid,file=TRIM(dalname),status='replace')
  write(fid,'(A)') '**DALTON INPUT'
  if(DKH2) write(fid,'(A)') '.DOUGLAS-KROLL'
@@ -1280,7 +1231,7 @@ subroutine prt_cas_dalton_nmr_inp(fchname, scf, ICSS, iroot, nfile)
  end if
  write(fid,'(A,/,A)') '*CONFIGURATION INPUT', '.SPIN MULTIPLICITY'
  write(fid,'(I0)') mult
- write(fid,'(A,/,I0)') '.INACTIVE ORBITALS', nclosed
+ write(fid,'(A,/,I0)') '.INACTIVE ORBITALS', ndb
  write(fid,'(A,/,I0)') '.CAS SPACE', nacto
  write(fid,'(A,/,I0)') '.ELECTRONS', nacte
  if(scf) then
@@ -1681,7 +1632,7 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   write(fid,'(A,2(1X,I0),A)') 'CIroot=',nroots,lroots,' 1'
  end if
 
- i = INDEX(inpname, '.input', back=.true.)
+ call find_specified_suffix(inpname, '.in', i)
  write(fid,'(A)') 'FILEORB= '//inpname(1:i-1)//'.INPORB'
 
  if(CIonly) write(fid,'(A)') 'CIonly'

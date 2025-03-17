@@ -206,7 +206,7 @@ end subroutine prt_mcpdft_script_into_py
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname)
- use mr_keyword, only: dmrgci, dmrgscf, otpdf, DKH2, mcpdft_force
+ use mr_keyword, only: RI, dmrgci, dmrgscf, otpdf, DKH2, mcpdft_force
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
@@ -215,8 +215,11 @@ subroutine prt_mcpdft_molcas_inp(inpname)
 
  ! detect the OpenMolcas version and update otpdf if needed
  call detect_and_change_otpdf(otpdf)
+ if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
+ dmrg = (dmrgci .or. dmrgscf)
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.input', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -229,22 +232,22 @@ subroutine prt_mcpdft_molcas_inp(inpname)
  close(fid1,status='delete')
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD'&
-                 & found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_mcpdft_molcas_inp: no 'SEWARD' foun&
+                   &d in file "//TRIM(inpname)
+  close(fid2)
   stop
  end if
 
  write(fid2,'(A)') 'Grid input'
  write(fid2,'(A)') ' grid=ultrafine'
  write(fid2,'(A)') 'End of grid input'
- if(DKH2) write(fid2,'(A)') ' Relativistic = R02O'
+ if(DKH2) write(fid2,'(A)') 'Relativistic = R02O'
 
  ! I used to use &RASSCF, DMRG, RGinput for DMRGCI calculations. I found it
  ! seems that RGinput in &RASSCF had many disadvantages and often converged
  ! to higher energy local minimum. So I changed in into &DMRGSCF, and it
  ! seems to get more reasonable results
 
- dmrg = (dmrgci .or. dmrgscf)
  call prt_molcas_cas_para(fid2, dmrg, .false., .false., .true., inpname)
 
  write(fid2,'(/,A)') "&MCPDFT"
@@ -261,15 +264,14 @@ end subroutine prt_mcpdft_molcas_inp
 
 ! print MC-PDFT keywords into GAMESS .inp file
 subroutine prt_mcpdft_gms_inp(inpname)
- use mol, only: charge, mult, ndb, nacte, nacto, npair, npair0
+ use mol, only: charge, mult, ndb, nacte, nacto
  use mr_keyword, only: mem, cart, otpdf, DKH2, hardwfn, crazywfn, CIonly, &
   mcpdft_force
  implicit none
- integer :: i, ncore, fid1, fid2, RENAME
+ integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- ncore = ndb + npair - npair0
  inpname1 = TRIM(inpname)//'.t'
 
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
@@ -297,7 +299,7 @@ subroutine prt_mcpdft_gms_inp(inpname)
  else
   write(fid2,'(A)',advance='no') ' $DET'
  end if
- write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',nacto
+ write(fid2,'(3(A,I0))',advance='no') ' NCORE=',ndb,' NELS=',nacte,' NACT=',nacto
 
  if(hardwfn) then
   write(fid2,'(A)',advance='no') ' NSTATE=5'

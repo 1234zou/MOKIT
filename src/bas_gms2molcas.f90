@@ -139,13 +139,14 @@ subroutine bas_gms2molcas(fort7, spherical)
  ! RICD becomes default when MOLCAS_NEW_DEFAULTS=YES. To control RI behavior in
  ! MOKIT, we have to write noCD here. In utilities like automr/autosr, noCD will
  ! be checked and deleted if RI is required.
- write(fid2,'(A)') 'noCD'
 
  call check_X2C_in_gms_inp(fort7, X2C)
  if(X2C) write(fid2,'(A)') 'RX2C'
- write(fid2,'(/,A)') "&SEWARD"
+ write(fid2,'(A)') 'noCD'
 
+ write(fid2,'(/,A)') "&SEWARD"
  call check_DKH_in_gms_inp(fort7, rel)
+
  select case(rel)
  case(-2) ! nothing
  case(-1) ! RESC

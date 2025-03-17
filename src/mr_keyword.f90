@@ -298,7 +298,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc3 (2025-Feb-12)'
+ write(6,'(A)') '           Version: 1.2.7rc4 (2025-Mar-17)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -424,8 +424,8 @@ end subroutine check_gms_path
    select case(TRIM(method))
    case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
         'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
-        'casci','dmrgci','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd', &
-        'bwmrccsd(t)')
+        'casci','dmrgci','ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)', &
+        'bwmrccsd', 'bwmrccsd(t)')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1) then
@@ -461,8 +461,8 @@ end subroutine check_gms_path
   select case(TRIM(method))
   case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
        'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
-       'casci','dmrgci','gvb','ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd', &
-       'bwmrccsd(t)','bccc2b','bccc3b')
+       'casci','dmrgci','gvb','ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)',&
+       'bwmrccsd','bwmrccsd(t)','bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
@@ -509,10 +509,10 @@ end subroutine check_gms_path
   case('dmrgci')
    dmrgci = .true.
   ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
-  case('ficmrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrcccsd(t)')
+  case('ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrcccsd(t)')
    mrcc = .true.; casscf = .true.
    select case(TRIM(method))
-   case('ficmrccsd')
+   case('ficmrccsd','fic-mrccsd')
     mrcc_type = 1
    case('mkmrccsd')
     mrcc_type = 2
@@ -1516,10 +1516,6 @@ subroutine check_kywd_compatible()
   if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then
    write(6,'(/,A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
    write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
-   stop
-  end if
-  if(RI .and. TRIM(nevpt2_prog)=='openmolcas') then
-   write(6,'(/,A)') error_warn//'RI not supported in DMRG-NEVPT2 using OpenMolcas.'
    stop
   end if
  end if

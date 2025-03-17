@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc3 :: MOKIT, release date: 2025-Feb-12'
+  write(6,'(A)') 'AutoMR 1.2.7rc4 :: MOKIT, release date: 2025-Mar-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -291,7 +291,7 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid,'(A)') "cross_s = gto.intor_cross('int1e_ovlp', mol, mol2)"
  write(fid,'(A)') "mo2 = fch2py(minbas_loc_fch, nbf2, nif2, 'a')"
  write(fid,'(A)') 'new_vir = orb_resemble_ref1(nbf, nvir, mo[:,vir_idx], nbf2&
-                  &, npair, \'
+                  &, npair,'
  write(fid,'(28X,A)') 'mo2[:,vir_idx2], cross_s)'
  write(fid,'(A)') 'mo[:,vir_idx] = new_vir.copy()'
  write(fid,'(A)') '# project done'
@@ -387,9 +387,11 @@ subroutine prt_auto_pair_script_into_py(pyname)
   end if
 
   write(fid2,'(A)') 'from mokit.lib.lo import '//TRIM(localm)//&
-                    ', calc_dis_mat_from_coor, get_bfirst_from_shl'
+                    ', get_bfirst_from_shl'
   if(TRIM(localm) == 'boys') then
    write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
+  else
+   write(fid2,'(A)') 'from mokit.lib.gaussian import BOHR2ANG'
   end if
   ! dipole_integral is always needed in this file
   write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
@@ -410,17 +412,15 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(A)') 'nval = nb - ncore'
   write(fid2,'(A)') 'npair = min(npair, nval)'
   write(fid2,'(A)') 'occ_idx = range(ncore,nb)'
-  write(fid2,'(A)') "lines = mol.atom.strip().split('\n')"
-  write(fid2,'(A)') 'coor_s = [line.split()[1:4] for line in lines]'
-  write(fid2,'(A)') 'coor = np.transpose(np.array(coor_s, dtype=float))'
   write(fid2,'(A)') 'natom = mol.natm'
-  write(fid2,'(A)') 'dis = calc_dis_mat_from_coor(natom, coor)'
+  write(fid2,'(A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
   write(fid2,'(A)') 'nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, nat&
-                    &om, mol._bas[:,0], \'
-  write(fid2,'(A)') '                                   mol._bas[:,1], mol._bas[:,3])'
+                    &om, mol._bas[:,0],'
+  write(fid2,'(35X,A)') 'mol._bas[:,1], mol._bas[:,3])'
   write(fid2,'(A)') 'if nbf0 != nbf:'
   write(fid2,'(A)') "  print('nbf0, nbf=%d, %d' % (nbf0, nbf))"
-  write(fid2,'(A)') "  raise ValueError('Number of basis functions is inconsistent.')"
+  write(fid2,'(A)') "  raise ValueError('Number of basis functions is inconsist&
+                    &ent.')"
   write(fid2,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
 
   ! There exist multiple local minima of vir_idx orbital localization at target
@@ -430,12 +430,12 @@ subroutine prt_auto_pair_script_into_py(pyname)
   select case(TRIM(localm))
   case('pm')   ! Pipek-Mezey orbital localization
    write(fid2,'(A)') "occ_lmo = pm(natom,nbf,nval,bfirst,dis,mo[:,occ_idx],S,'m&
-                     &ulliken')"
+                     &ulliken',17.0,1e-5)"
   case('boys') ! Foster-Boys orbital localization
    write(fid2,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
    write(fid2,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
-   write(fid2,'(A)') 'occ_lmo, mo_dip = boys(natom,nbf,nval,bfirst,dis,mo[:,occ&
-                     &_idx],S,ao_dip)'
+   write(fid2,'(A)') 'occ_lmo = boys(natom,nbf,nval,bfirst,dis,mo[:,occ_idx],S,&
+                     &ao_dip,17.0,1e-5)'
   case default
    write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: unknown &
                     &orbital local-'
@@ -448,7 +448,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(/,A)') '# pair the active orbitals'
   write(fid2,'(A)') 'mo_dipole = dipole_integral(mol, mo)'
   write(fid2,'(A)') 'npair_eff, alpha_coeff = pair_by_tdm(ncore,npair,nopen,na,&
-                    &nvir_lmo,nbf,nif,mo, \'
+                    &nvir_lmo,nbf,nif,mo,'
   write(fid2,'(37X,A)') 'mo_dipole)'
   write(fid2,'(A)') 'npair = npair_eff'
   write(fid2,'(A)') 'mo = alpha_coeff.copy()'
@@ -625,12 +625,11 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  end if
 
  if(TRIM(localm) == 'boys') then
-  write(fid2,'(A)') 'from mokit.lib.lo import boys, pm, calc_dis_mat_from_coor,&
-                    & get_bfirst_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.lo import boys, pm, get_bfirst_from_shl'
   write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
  else
-  write(fid2,'(A)') 'from mokit.lib.lo import pm, calc_dis_mat_from_coor, get_b&
-                    &first_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.lo import pm, get_bfirst_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.gaussian import BOHR2ANG'
  end if
  write(fid2,'(A)') 'from mokit.lib.auto_pair import pair_by_tdm'
  write(fid2,'(A)') 'from mokit.lib.assoc_rot import assoc_rot'
@@ -671,29 +670,26 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  write(fid1,'(A,I0)') 'nskip_uno = ', nskip_uno
  write(fid1,'(A)') 'npair, occ_idx, vir_idx = get_npair_and_ovidx(idx,nskip_uno)'
  write(fid1,'(A)') 'if npair > 0:'
- write(fid1,'(2X,A)') "lines = mol.atom.strip().split('\n')"
- write(fid1,'(2X,A)') 'coor_s = [line.split()[1:4] for line in lines]'
- write(fid1,'(2X,A)') 'coor = np.transpose(np.array(coor_s, dtype=float))'
  write(fid1,'(2X,A)') 'natom = mol.natm'
- write(fid1,'(2X,A)') 'dis = calc_dis_mat_from_coor(natom, coor)'
+ write(fid1,'(2X,A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
  write(fid1,'(2X,A)') 'nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, n&
-                      &atom, mol._bas[:,0], \'
+                      &atom, mol._bas[:,0],'
  write(fid1,'(37X,A)') 'mol._bas[:,1], mol._bas[:,3])'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
   write(fid1,'(2X,A)') 'occ_lmo = pm(natom,nbf,npair-nskip_uno,bfirst,dis,mf.mo&
-                       &_coeff[0][:,occ_idx], \'
-  write(fid1,'(15X,A)') "S,'mulliken')"
+                       &_coeff[0][:,occ_idx],'
+  write(fid1,'(15X,A)') "S,'mulliken',17.0,1e-5)"
  else                    ! Boys localization
   write(fid1,'(2X,A)') 'center, ao_dip = ao_dipole_int(mol)'
   write(fid1,'(2X,A)') 'ao_dip = ao_dip*BOHR2ANG'
-  write(fid1,'(2X,A)') 'occ_lmo, mo_dip = boys(natom,nbf,npair-nskip_uno,bfirst&
-                       &,dis,mf.mo_coeff[0][:,occ_idx], \'
-  write(fid1,'(25X,A)') 'S, ao_dip)'
+  write(fid1,'(2X,A)') 'occ_lmo = boys(natom,nbf,npair-nskip_uno,bfirst,dis,mf.&
+                       &mo_coeff[0][:,occ_idx],'
+  write(fid1,'(17X,A)') 'S,ao_dip,17.0,1e-5)'
  end if
 
  write(fid1,'(2X,A)') 'vir_lmo = assoc_rot(nbf,npair-nskip_uno,mf.mo_coeff[0][:&
-                      &,occ_idx],occ_lmo, \'
+                      &,occ_idx],occ_lmo,'
  write(fid1,'(22X,A)') 'mf.mo_coeff[0][:,vir_idx])'
  write(fid1,'(2X,A)') 'mf.mo_coeff[0][:,occ_idx] = occ_lmo.copy()'
  write(fid1,'(2X,A)') 'mf.mo_coeff[0][:,vir_idx] = vir_lmo.copy()'
@@ -723,7 +719,7 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
   write(fid1,'(A)') '  ncore = nb - npair'
   write(fid1,'(A)') "  mf.mo_coeff[0][:,:] = mo_fch2py(assoc_fch)"
   write(fid1,'(A)') "  core_lmo = pm(natom,nbf,ncore,bfirst,dis,mf.mo_coeff[0][&
-                    &:,:ncore],S,'mulliken')"
+                    &:,:ncore],S,'mulliken',17.0,1e-5)"
   write(fid1,'(A)') '  mf.mo_coeff[0][:,:ncore] = core_lmo.copy()'
   write(fid1,'(A)') '  # calculate <i|F_a|i>'
   write(fid1,'(A)') "  ev_a = read_eigenvalues_from_fch(hf_fch, nif, 'a')"

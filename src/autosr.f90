@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc3 (2025-Feb-12)'
+ write(6,'(A)') '           Version: 1.2.7rc4 (2025-Mar-17)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -624,7 +624,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc3 :: MOKIT, release date: 2025-Feb-12'
+  write(6,'(A)') 'AutoSR 1.2.7rc4 :: MOKIT, release date: 2025-Mar-17'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -3224,21 +3224,30 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
    read(buf(k+1:),*) ccsd_t_corr
   case('E(CCSD) =')
    read(buf(10:),*) tot_e
-  case('E(RCCSD) ')
-   read(buf(11:),*) tot_e
-  case('E(UCCSD) ')
-   read(buf(11:),*) tot_e
   case('T1_diag =')
    read(buf(10:),*) t1diag
   case('converged')
    exit
   end select
+
+  select case(buf(1:10))
+  case('RCCSD(T) c')
+   k = INDEX(buf, '=')
+   read(buf(k+1:),*) ccsd_t_corr
+  case('UCCSD(T) c')
+   k = INDEX(buf, '=')
+   read(buf(k+1:),*) ccsd_t_corr
+  case('E(RCCSD) =')
+   read(buf(11:),*) tot_e
+  case('E(UCCSD) =')
+   read(buf(11:),*) tot_e
+  end select
  end do ! for while
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_cc_e_from_pyscf_out: incomplete fi&
-                   &le '//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_cc_e_from_pyscf_out: problematic f&
+                   &ile '//TRIM(outname)
   stop
  end if
 

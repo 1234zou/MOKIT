@@ -161,7 +161,8 @@ subroutine get_mo_center_from_ovlp_and_mo(natom, nbf, nif, bfirst, ovlp, mo, &
  allocate(rtmp(nbf), pop(natom,nif))
 
  ! calculate Mulliken population
- ! TODO: a better population may be required, e.g. for coordination bonds
+ ! TODO: maybe change to Lowdin population
+ ! TODO: use common subroutines from math_sub.f90
  do i = 1, nif, 1
   do j = 1, natom, 1
    k = bfirst(j); m = bfirst(j+1)-1
@@ -283,6 +284,7 @@ end subroutine svd_get_one_mo
 ! 1) mo(:,i3:nif) will be updated, where mo(:,i3:i3+i2-i1) are generated anti-
 !  bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
 ! 2) all MOs are still orthonormalized.
+!TODO: remove Gaussian dependence and use PySCF instead
 subroutine find_antibonding_orb(fchname, i1, i2, i3)
  use population, only: nbf, nif, bfirst, mo, ao_ovlp, mo_center, &
   get_mo_center_from_fch
@@ -579,85 +581,149 @@ subroutine get_bfirst_from_fch(fchname, natom, bfirst)
  deallocate(shltyp, shl2atm)
 end subroutine get_bfirst_from_fch
 
-! perform Mulliken gross population analysis based on provided density matrix
-subroutine mulliken_pop_of_dm(natom, bfirst, nbf, P, S, gross)
+! calculate the Mulliken gross populations based on provided density matrix
+subroutine mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
  implicit none
- integer :: i, j
+ integer :: i, u
  integer, intent(in) :: natom, nbf
  integer, intent(in) :: bfirst(natom+1)
  ! bfirst: the beginning index of basis func. of each atom
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+ real(kind=8), intent(in) :: dm(nbf,nbf), ovlp(nbf,nbf)
  real(kind=8) :: rtmp, ddot
  real(kind=8), intent(out) :: gross(natom)
 
-!$omp parallel do schedule(dynamic) default(shared) private(i,j,rtmp)
+!$omp parallel do schedule(dynamic) default(shared) private(i,u,rtmp)
  do i = 1, natom, 1
   rtmp = 0d0
-  do j = bfirst(i), bfirst(i+1)-1, 1
-   rtmp = rtmp + ddot(nbf, P(j,:), 1, S(:,j), 1)
-  end do ! for j
+  do u = bfirst(i), bfirst(i+1)-1, 1
+   rtmp = rtmp + ddot(nbf, dm(u,:), 1, ovlp(:,u), 1)
+  end do ! for u
   gross(i) = rtmp
  end do ! for i
 !$omp end parallel do
 end subroutine mulliken_pop_of_dm
 
-! Rotate one pair of occ/vir orbitals each time, to make the Mulliken gross
-! populations match the given gross populations.
-subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
-                                 gross0, new_mo)
+! calculate the Lowdin gross populations based on provided density matrix
+subroutine lowdin_pop_of_dm(natom, bfirst, nbf, dm, ovlp, is_sqrt, gross)
+ implicit none
+ integer :: i, u
+ integer, intent(in) :: natom, nbf
+ integer, intent(in) :: bfirst(natom+1)
+ ! bfirst: the beginning index of basis func. of each atom
+ real(kind=8) :: rtmp, ddot
+ real(kind=8), intent(in) :: dm(nbf,nbf), ovlp(nbf,nbf)
+ real(kind=8), intent(out) :: gross(natom)
+ real(kind=8), allocatable :: sqrt_s(:,:), n_sqrt_s(:,:)
+ logical, intent(in) :: is_sqrt
+ ! True : input ovlp is S^(1/2) actually
+ ! False: input ovlp is S and we need to calculate S^(1/2)
+ ! When this subroutine is frequently called, repeated calculation of S^(1/2)
+ ! is time-consuming, so the input of S^(1/2) is allowed. We can calculate
+ ! S^(1/2) outside of this subroutine and use it repeatedly.
+
+ if(is_sqrt) then
+  allocate(sqrt_s(nbf,nbf), source=ovlp)
+  allocate(n_sqrt_s(nbf,nbf), source=0d0)
+ else
+  allocate(sqrt_s(nbf,nbf), n_sqrt_s(nbf,nbf))
+  call mat_dsqrt(nbf, ovlp, .false., sqrt_s, n_sqrt_s)
+  n_sqrt_s = 0d0
+ end if
+
+ ! use n_sqrt_s to store (S^(1/2))P
+ call dsymm('L', 'L', nbf, nbf, 1d0,sqrt_s,nbf, dm,nbf, 0d0,n_sqrt_s,nbf)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,u,rtmp)
+ do i = 1, natom, 1
+  rtmp = 0d0
+  do u = bfirst(i), bfirst(i+1)-1, 1
+   rtmp = rtmp + ddot(nbf, n_sqrt_s(u,:), 1, sqrt_s(:,u), 1)
+  end do ! for u
+  gross(i) = rtmp
+ end do ! for i
+!$omp end parallel do
+end subroutine lowdin_pop_of_dm
+
+! Rotate one pair of occ/vir orbitals each time, to make the Mulliken(+Lowdin)
+! gross populations match the given gross populations.
+subroutine rot_mo2match_gross_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
+                                  m_gross0, l_gross0, new_mo)
  implicit none
  integer :: i, j, a, u, v, niter
  integer, parameter :: niter_max = 999
  integer, intent(in) :: nocc, nbf, nif, natom
  integer, intent(in) :: bfirst(natom+1)
  real(kind=8) :: decr, r1, r2, H, II, JJ, KK, cos_t, sin_t, y, ddot
- real(kind=8), intent(in) :: mo(nbf,nif), ovlp(nbf,nbf), gross0(natom)
+ real(kind=8), intent(in) :: mo(nbf,nif), ovlp(nbf,nbf), m_gross0(natom), &
+  l_gross0(natom)
  real(kind=8), intent(out) :: new_mo(nbf,nif)
  real(kind=8), parameter :: threshold1 = 1d-8, threshold2 = 1d-6
- real(kind=8), allocatable :: dm(:,:), gross(:), B(:,:), D(:,:), E(:),&
-  F(:), G(:), ri(:), ra(:)
+ real(kind=8), allocatable :: sqrt_s(:,:), n_sqrt_s(:,:), sqrt_s_b(:,:), &
+  sqrt_s_d(:,:), dm(:,:), m_gross(:), l_gross(:), B(:,:), D(:,:), E(:), F(:), &
+  G(:), ri(:), ra(:)
 
  new_mo = mo
  allocate(dm(nbf,nbf))
- dm = 2d0*MATMUL(mo(:,1:nocc), TRANSPOSE(mo(:,1:nocc)))
- allocate(gross(natom))
- call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
- write(6,'(/,A)') 'Initial gross populations:'
- write(6,'(5(1X,ES15.8))') gross
+ call calc_cct(nbf, nocc, mo(:,1:nocc), dm)
+ dm = 2d0*dm
+ allocate(m_gross(natom))
+ call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, m_gross)
+ write(6,'(/,A)') 'Initial Mulliken gross populations:'
+ write(6,'(5(1X,ES15.8))') m_gross
+
+ allocate(sqrt_s(nbf,nbf), n_sqrt_s(nbf,nbf))
+ call mat_dsqrt(nbf, ovlp, .false., sqrt_s, n_sqrt_s)
+ deallocate(n_sqrt_s)
+ allocate(l_gross(natom))
+ call lowdin_pop_of_dm(natom, bfirst, nbf, dm, sqrt_s, .true., l_gross)
+ write(6,'(A)') 'Initial Lowdin gross populations:'
+ write(6,'(5(1X,ES15.8))') l_gross
 
  allocate(E(natom))
- E = gross - gross0
- y = DSQRT(ddot(natom, E, 1, E, 1))
+ E = m_gross - m_gross0 + l_gross - l_gross0
+ y = ddot(natom, E, 1, E, 1)
  if(y < threshold2) then
   write(6,'(/,A)') 'Initial gross populations already equal to target ones.'
 !  deallocate(dm, gross, E)
 !  return
  end if
 
- allocate(B(nbf,nbf), D(nbf,nbf), F(natom), G(natom), ri(nbf), ra(nbf))
+ allocate(B(nbf,nbf), D(nbf,nbf), sqrt_s_b(nbf,nbf), sqrt_s_d(nbf,nbf), &
+          F(natom), G(natom), ri(nbf), ra(nbf))
 
  ! perform 2*2 rotation
  niter = 0
  do while(niter <= niter_max)
   decr = 0d0
 
-  do a = nocc+1, nif, 1
-   do i = 1, nocc, 1
-    forall(u=1:nbf,v=1:nbf)
-     B(u,v) = new_mo(u,a)*new_mo(v,a) - new_mo(u,i)*new_mo(v,i)
-     D(u,v) = 2d0*(new_mo(u,i)*new_mo(v,a) + new_mo(u,a)*new_mo(v,i))
-    end forall
+  do i = nocc, 1, -1
+   do a = nocc+1, nif, 1
+    !$omp parallel do schedule(dynamic) default(shared) private(u,v,r1,r2)
+    do v = 1, nbf, 1
+     r1 = new_mo(v,a); r2 = new_mo(v,i)
+     do u = 1, nbf, 1
+      B(u,v) = new_mo(u,a)*r1 - new_mo(u,i)*r2
+      D(u,v) = 2d0*(new_mo(u,i)*r1 + new_mo(u,a)*r2)
+     end do ! for u
+    end do ! for v
+    !$omp end parallel do
+
+    sqrt_s_b = 0d0; sqrt_s_d = 0d0
+    call dsymm('L', 'L', nbf, nbf, 1d0,sqrt_s,nbf, B,nbf, 0d0,sqrt_s_b,nbf)
+    call dsymm('L', 'L', nbf, nbf, 1d0,sqrt_s,nbf, D,nbf, 0d0,sqrt_s_d,nbf)
 
     do j = 1, natom, 1
      r1 = 0d0; r2 = 0d0
      do u = bfirst(j), bfirst(j+1)-1, 1
-      r1 = r1 + ddot(nbf, B(u,:), 1, ovlp(:,u), 1)
-      r2 = r2 + ddot(nbf, D(u,:), 1, ovlp(:,u), 1)
+      r1 = r1 + ddot(nbf, B(u,:), 1, ovlp(:,u), 1) + &
+                ddot(nbf, sqrt_s_b(u,:), 1, sqrt_s(:,u), 1)
+      r2 = r2 + ddot(nbf, D(u,:), 1, ovlp(:,u), 1) + &
+                ddot(nbf, sqrt_s_d(u,:), 1, sqrt_s(:,u), 1)
      end do ! for u
      E(j) = r1; F(j) = r2
     end do ! for j
 
-    G = E + gross - gross0
+    G = E + m_gross - m_gross0 + l_gross - l_gross0
     H = 2d0*ddot(natom, E, 1, G, 1)
     II = -2d0*ddot(natom, F, 1, G, 1)
     JJ = 0.5d0*(ddot(natom, F, 1, F, 1) - ddot(natom, E, 1, E, 1))
@@ -668,12 +734,15 @@ subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
     ! if the change of the function value is too tiny, no need to rotate
     if(y < threshold1) cycle
 
+    write(6,'(2I4,3F20.10)') i, a, cos_t, sin_t, y
     decr = decr + y
     ri = new_mo(:,i); ra = new_mo(:,a)
     new_mo(:,i) = cos_t*ri - sin_t*ra
     new_mo(:,a) = sin_t*ri + cos_t*ra
-    dm = 2d0*MATMUL(new_mo(:,1:nocc), TRANSPOSE(new_mo(:,1:nocc)))
-    call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
+    call calc_cct(nbf, nocc, new_mo(:,1:nocc), dm)
+    dm = 2d0*dm
+    call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, m_gross)
+    call lowdin_pop_of_dm(natom, bfirst, nbf, dm, sqrt_s, .true., l_gross)
    end do ! for a
   end do ! for i
 
@@ -682,7 +751,7 @@ subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
   if(decr < threshold2) exit
  end do ! for while
 
- deallocate(B, D, E, F, G, ri, ra)
+ deallocate(sqrt_s_b, sqrt_s_d, B, D, E, F, G, ri, ra)
  if(niter <= niter_max) then
   write(6,'(A)') 'Rotations converged successfully.'
  else
@@ -690,12 +759,17 @@ subroutine rot_mo2match_mull_pop(nocc, nbf, nif, natom, bfirst, mo, ovlp, &
   write(6,'(A)') 'Rotations failed to converge.'
  end if
 
- dm = 2d0*MATMUL(new_mo(:,1:nocc), TRANSPOSE(new_mo(:,1:nocc)))
- call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, gross)
- write(6,'(/,A)') 'Final gross populations:'
- write(6,'(5(1X,ES15.8))') gross
- deallocate(dm, gross)
-end subroutine rot_mo2match_mull_pop
+ call calc_cct(nbf, nocc, new_mo(:,1:nocc), dm)
+ dm = 2d0*dm
+ call mulliken_pop_of_dm(natom, bfirst, nbf, dm, ovlp, m_gross)
+ write(6,'(/,A)') 'Final Mulliken gross populations:'
+ write(6,'(5(1X,ES15.8))') m_gross
+ call lowdin_pop_of_dm(natom, bfirst, nbf, dm, sqrt_s, .true., l_gross)
+ write(6,'(A)') 'Final Lowdin gross populations:'
+ write(6,'(5(1X,ES15.8))') l_gross
+
+ deallocate(dm, sqrt_s, m_gross, l_gross)
+end subroutine rot_mo2match_gross_pop
 
 ! read Mulliken gross populations from a specified .fch file
 subroutine read_mull_gross_pop_from_fch(fchname, natom, gross)
@@ -755,16 +829,16 @@ subroutine read_mull_gross_pop_from_fch(fchname, natom, gross)
  deallocate(eff_nuc)
 end subroutine read_mull_gross_pop_from_fch
 
-subroutine solve_mo_from_mull_pop(fchname, natom, gross0)
+subroutine solve_mo_from_gross_pop(fchname, natom, m_gross0, l_gross0)
  implicit none
  integer :: i, nbf, nif, na, nb
  integer, allocatable :: bfirst(:)
  integer, intent(in) :: natom
 !f2py intent(in) :: natom
  real(kind=8), allocatable :: mo(:,:), new_mo(:,:), ovlp(:,:)
- real(kind=8), intent(in) :: gross0(natom)
-!f2py intent(in) :: gross0
-!f2py depend(natom) :: gross0
+ real(kind=8), intent(in) :: m_gross0(natom), l_gross0(natom)
+!f2py intent(in) :: m_gross0, l_gross0
+!f2py depend(natom) :: m_gross0, l_gross0
  character(len=240) :: new_fch
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
@@ -774,8 +848,8 @@ subroutine solve_mo_from_mull_pop(fchname, natom, gross0)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  if(na /= nb) then
-  write(6,'(/,A)') 'ERROR in subroutine solve_mo_from_mull_pop: currently only &
-                   &the closed-shell'
+  write(6,'(/,A)') 'ERROR in subroutine solve_mo_from_gross_pop: currently only&
+                   & the closed-shell'
   write(6,'(A)') 'system is supported.'
   stop
  end if
@@ -790,17 +864,20 @@ subroutine solve_mo_from_mull_pop(fchname, natom, gross0)
  allocate(ovlp(nbf,nbf))
  call get_ao_ovlp_using_fch(fchname, nbf, ovlp)
 
- write(6,'(A)') 'Target gross populations:'
- write(6,'(5(1X,ES15.8))') gross0
+ write(6,'(A)') 'Target Mulliken gross populations:'
+ write(6,'(5(1X,ES15.8))') m_gross0
+ write(6,'(A)') 'Target Lowdin gross populations:'
+ write(6,'(5(1X,ES15.8))') l_gross0
 
  allocate(new_mo(nbf,nif))
- call rot_mo2match_mull_pop(na,nbf,nif,natom, bfirst, mo, ovlp, gross0, new_mo)
+ call rot_mo2match_gross_pop(na, nbf, nif, natom, bfirst, mo, ovlp, m_gross0, &
+                             l_gross0, new_mo)
  deallocate(bfirst, mo, ovlp)
 
  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
  call write_mo_into_fch(new_fch, nbf, nif, 'a', new_mo)
  deallocate(new_mo)
-end subroutine solve_mo_from_mull_pop
+end subroutine solve_mo_from_gross_pop
  
 ! calculate the number of unpaired electrons and generate unpaired electron
 ! density .fch file

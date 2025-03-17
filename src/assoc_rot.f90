@@ -330,8 +330,8 @@ subroutine find_cos_quartic_poly_maximum(a, b, c, d, cos_x, sin_x, y)
  logical :: valid_root
 
  cos_x = 1d0; sin_x = 0d0   ! initialization
- y = -(2d0*DABS(A) + DABS(B) + 2d0*DABS(C) + DABS(D))
- ! a negative value which is definitely < f(x)_min
+ y = -(2d0*DABS(a) + DABS(b) + 2d0*DABS(c) + DABS(d))
+ ! set y as a negative value which is definitely < f(x)_min
 
  ! f'(x)=0 => -2Asin2x - 2Bcos2x - 4Csin4x - 4Dcos4x = 0
  !        i.e.  Asin2x + Bcos2x + 2Csin4x + 2Dcos4x = 0
@@ -354,16 +354,16 @@ subroutine find_cos_quartic_poly_maximum(a, b, c, d, cos_x, sin_x, y)
  do i = 1, nroot, 1
   ! It is possible that c2 is slightly larger thant 1.0 due to numerical error,
   ! so we need MIN() and MAX() here.
-  c2 = MAX(-1d0, MIN(root(i),1d0)) ! cos2x
-  c22 = c2*c2                      ! (cos2x)^2
-  c4 = 2d0*c22 - 1d0               ! cos4x
-  s2 = DSQRT(1d0 - c22)            ! sin2x
+  c2 = MAX(-1d0, MIN(root(i), 1d0)) ! cos2x
+  c22 = c2*c2                       ! (cos2x)^2
+  c4 = 2d0*c22 - 1d0                ! cos4x
+  s2 = DSQRT(1d0 - c22)             ! |sin2x|
   ! determine the sign of sin2x
   y1 = 2d0*d - 4d0*d*c22 - b*c2
   y2 = a + 4d0*c*c2
   if((y1<0d0 .and. y2>0d0) .or. (y1>0d0 .and. y2<0d0)) s2 = -s2
   ! done determine
-  s4 = 2d0*c2*s2        ! sin4x
+  s4 = 2d0*c2*s2   ! sin4x
   y1 = a*c2 - b*s2 + c*c4 - d*s4 - a - c
   if(y1 < 0d0) cycle
   if(y1 > y) then
