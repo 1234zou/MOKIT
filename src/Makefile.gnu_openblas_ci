@@ -11,6 +11,6 @@ F90 = gfortran
 FFLAGS = -O2 -cpp -fPIC -fopenmp -L../lib 
 MKL_FLAGS = -lopenblas
 F2PY = f2py
-F2_FLAGS = --f90flags="-cpp -fopenmp"
+F2_FLAGS = --f90flags="-cpp -fopenmp" -lgomp
 
 include Makefile.main

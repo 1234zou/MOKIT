@@ -9,6 +9,6 @@ LIB = ../mokit/lib
 FFLAGS += -O2 -cpp -fPIC -fopenmp
 MKL_FLAGS = -L$(BUILD_PREFIX)/lib -lmkl_rt
 F2PY = f2py
-F2_FLAGS = --f90flags="-cpp -fopenmp"
+F2_FLAGS = --f90flags="-cpp -fopenmp" -lgomp
 
 include Makefile.main
