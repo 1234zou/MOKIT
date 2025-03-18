@@ -1,4 +1,4 @@
-MOKIT 1.2.7 (Mar 17, 2025)
+MOKIT 1.2.7 (Mar 18, 2025)
 ------------------------
 Fixes
 * fix bug of reading PySCF UCCSD(T) and RI-RCCSD(T) energy

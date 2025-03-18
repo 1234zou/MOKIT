@@ -691,7 +691,7 @@ subroutine berry(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, dis_tol, &
  real(kind=8), intent(out) :: new_coeff(nbf,nif)
 !f2py intent(out) :: new_coeff
 !f2py depend(nbf,nif) :: new_coeff
- complex(kind=8), intent(in) :: ao_zdip(3,nbf,nbf) ! it is complex symmetric
+ complex(kind=8), intent(in) :: ao_zdip(3,nbf,nbf) ! complex symmetric
 !f2py intent(in) :: ao_zdip
 !f2py depend(nbf) :: ao_zdip
  complex(kind=8), allocatable :: mo_zdip(:,:,:)

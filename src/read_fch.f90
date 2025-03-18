@@ -1216,6 +1216,10 @@ subroutine write_fch(fchname)
 
  if(nmode > 0) then
   write(fid,'(A,9X,I8)') 'Number of Normal Modes                     I',nmode
+  write(fid,'(A)') 'Vib-NDFDPol                                I                0'
+  write(fid,'(A)') 'Vib-NumROA                                 I                0'
+  write(fid,'(A,9X,I8)') 'Vib-NDim                                   I',nmode
+  write(fid,'(A,9X,I8)') 'Vib-NDim0                                  I',nmode
   write(fid,'(A,4X,I8)') 'Vib-AtMass                                 R   N=',natom
   write(fid,'(5(1X,ES15.8))') (ram(ielem(i)),i=1,natom)
   write(fid,'(A,4X,I8)') 'Vib-E2                                     R   N=',nmode*14

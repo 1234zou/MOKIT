@@ -341,7 +341,8 @@ subroutine serial22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  real(kind=8), intent(inout) :: coeff(nbf,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: tmp_mo(:)
- complex(kind=8) :: zdotc, vdiff(3), vtmp(3,3)
+ real(kind=8), external :: cmplx_v3_square, cmplx_v3_dot_real
+ complex(kind=8) :: vdiff(3), vtmp(3,3)
  complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
 
  change = 0d0
@@ -353,8 +354,8 @@ subroutine serial22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
   vtmp(:,2) = mo_zdip(:,j,i)
   vtmp(:,3) = mo_zdip(:,j,j)
   vdiff = vtmp(:,1) - vtmp(:,3)
-  Aij = REAL(zdotc(3,vtmp(:,2),1,vtmp(:,2),1)) - 0.25d0*REAL(zdotc(3,vdiff,1,vdiff,1))
-  Bij = REAL(zdotc(3, vdiff, 1, vtmp(:,2), 1))
+  Aij = cmplx_v3_square(vtmp(:,2)) - 0.25d0*cmplx_v3_square(vdiff)
+  Bij = cmplx_v3_dot_real(vdiff, vtmp(:,2))
   rtmp = HYPOT(Aij, Bij)
   sin_4a = Bij/rtmp
   rtmp = rtmp + Aij
@@ -401,7 +402,8 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  real(kind=8), intent(inout) :: coeff(nbf,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
- complex(kind=8) :: zdotc, vdiff(3), vtmp(3,3)
+ real(kind=8), external :: cmplx_v3_square, cmplx_v3_dot_real
+ complex(kind=8) :: vdiff(3), vtmp(3,3)
  complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
  logical, allocatable :: skip(:)
 
@@ -424,8 +426,8 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
    vtmp(:,2) = mo_zdip(:,j,i)
    vtmp(:,3) = mo_zdip(:,j,j)
    vdiff = vtmp(:,1) - vtmp(:,3)
-   Aij = REAL(zdotc(3,vtmp(:,2),1,vtmp(:,2),1)) - 0.25d0*REAL(zdotc(3,vdiff,1,vdiff,1))
-   Bij = REAL(zdotc(3, vdiff, 1, vtmp(:,2), 1))
+   Aij = cmplx_v3_square(vtmp(:,2)) - 0.25d0*cmplx_v3_square(vdiff)
+   Bij = cmplx_v3_dot_real(vdiff, vtmp(:,2))
    rtmp = HYPOT(Aij, Bij)
    sin_4a = Bij/rtmp
    rtmp = rtmp + Aij

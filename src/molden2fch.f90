@@ -523,7 +523,7 @@ subroutine molden2fch(molden, iprog, natorb)
  write(6,'(A)') 'spin is wrong, you need to modify it in file '//TRIM(fchname)
  write(6,'(A)') REPEAT('-',79)
 
- if(iprog == 13) then ! Turbomole
+ if(iprog==6 .or. iprog==13) then ! OpenMolcas/Turbomole
   call check_freq_in_molden(molden, has_freq)
   if(has_freq) then
    k = 3*natom
@@ -788,7 +788,7 @@ subroutine read_nbf_and_nif_from_molden(molden, nbf, nif)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:1) == '[') exit
+  if(buf(1:1)=='[' .or. buf(2:2)=='[') exit
 
   do i = 1, 3
    read(fid,'(A)') buf
@@ -1220,7 +1220,7 @@ end subroutine check_sph_in_molden
 subroutine check_freq_in_molden(molden, has_freq)
  implicit none
  integer :: i, fid
- character(len=6) :: str6
+ character(len=7) :: str7
  character(len=240), intent(in) :: molden
  logical, intent(out) :: has_freq
 
@@ -1228,9 +1228,9 @@ subroutine check_freq_in_molden(molden, has_freq)
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
  do while(.true.)
-  read(fid,'(A)',iostat=i) str6
+  read(fid,'(A)',iostat=i) str7
   if(i /= 0) exit
-  if(str6(1:6) == '[FREQ]') then
+  if(INDEX(str7,'[FREQ]') > 0) then
    has_freq = .true.
    exit
   end if
@@ -1257,13 +1257,13 @@ subroutine read_freq_from_molden(molden, natom, nmode, coor, e, ev)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:6) == '[FREQ]') exit
+  if(INDEX(buf(1:7),'[FREQ]') > 0) exit
  end do ! for while
  read(fid,*) e
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:10) == '[FR-COORD]') exit
+  if(INDEX(buf(1:11),'[FR-COORD]') > 0) exit
  end do ! for while
 
  do i = 1, natom, 1

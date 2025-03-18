@@ -1,5 +1,29 @@
 ! written by jxzou at 20220214: move math library wrappers into this file
 
+! This is a function to replace zdotc(3,z,1,z,1). zdotc leads to segmentation
+! fault during running if compiled using f2py+gfortran+OpenBLAS.
+function cmplx_v3_square(z) result(s)
+ implicit none
+ real(kind=8) :: s
+ complex(kind=8), intent(in) :: z(3)
+
+ s = REAL(z(1))*REAL(z(1)) + AIMAG(z(1))*AIMAG(z(1)) + &
+     REAL(z(2))*REAL(z(2)) + AIMAG(z(2))*AIMAG(z(2)) + &
+     REAL(z(3))*REAL(z(3)) + AIMAG(z(3))*AIMAG(z(3))
+end function cmplx_v3_square
+
+! This is a function to replace REAL(zdotc(3,y,1,z,1)). zdotc leads to
+! segmentation fault during running if compiled using f2py+gfortran+OpenBLAS.
+function cmplx_v3_dot_real(z1, z2) result(s)
+ implicit none
+ real(kind=8) :: s
+ complex(kind=8), intent(in) :: z1(3), z2(3)
+
+ s = REAL(z1(1))*REAL(z2(1)) + AIMAG(z1(1))*AIMAG(z2(1)) + &
+     REAL(z1(2))*REAL(z2(2)) + AIMAG(z1(2))*AIMAG(z2(2)) + &
+     REAL(z1(3))*REAL(z2(3)) + AIMAG(z1(3))*AIMAG(z2(3))
+end function cmplx_v3_dot_real
+
 ! Reduce a fraction, where
 ! the product of nume_deno(1,:) is the numerator,
 ! the product of nume_deno(2,:) is the denominator.
