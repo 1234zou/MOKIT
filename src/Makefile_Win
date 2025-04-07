@@ -213,7 +213,7 @@ fch2com: $(OBJ_fch2com)
 
 fch2dal: $(OBJ_fch2dal)
 	$(F90) $(OBJ_fch2dal) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\fch2dal
-	@echo fch2dal requires utilites fch2inp and bas_gms2dal, please also compile them
+	@echo fch2dal requires utilities fch2inp and bas_gms2dal, please also compile them
 
 fch2mkl: $(OBJ_fch2mkl)
 	$(F90) $(OBJ_fch2mkl) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2mkl

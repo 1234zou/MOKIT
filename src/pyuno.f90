@@ -4,7 +4,7 @@
 ! updated by jxzou at 20180420: to support na > nb
 ! updated by jxzou at 20180520: modify the intent of array alpha_coeff from (inout) to (in,copy)
 ! updated by jxzou at 20180825: fix the bug when only 1 pair
-! updated by jxzou at 20191215: delete SVD generation of virtual/inactive MOs (PAO outside recommanded)
+! updated by jxzou at 20191215: delete SVD generation of virtual/inactive MOs (PAO outside recommended)
 ! updated by jxzou at 20200426: add NOON output
 ! updated by jxzou at 20210518: add an intent(in) parameter ON_thres
 ! updated by jxzou at 20220711: change ON_thres to uno_thres

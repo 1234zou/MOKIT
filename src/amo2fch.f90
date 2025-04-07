@@ -55,7 +55,7 @@ program main
  end if
 
  if(uhf .and. itype>1) then
-  write(6,'(/,A)') "ERROR in subroutine amo2fch: '-no' argument is imcompatible&
+  write(6,'(/,A)') "ERROR in subroutine amo2fch: '-no' argument is incompatible&
                    & with a UHF-type"
   write(6,'(A)') '.fch file. An R(O)HF-type .fch file is required in such case.'
   stop

@@ -1,4 +1,4 @@
-! written by jxzou at 20221112: input file conveted in to Gaussian .gjf file
+! written by jxzou at 20221112: input file converted in to Gaussian .gjf file
 
 program inp2gjf
  implicit none

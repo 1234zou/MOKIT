@@ -5,7 +5,7 @@
 ! updated by jxzou at 20180824: fix the bug: forgot to move open shell orbitals when npair=1
 ! updated by jxzou at 20190226: change data to parameter when declare constant arrays
 ! updated by jxzou at 20200322: renamed as fch2inp; simplify code; support ECP/PP
-! updated by jxzou at 20200811: add coupling cofficients for high spin GVB (MULT>3)
+! updated by jxzou at 20200811: add coupling coefficients for high spin GVB (MULT>3)
 ! updated by jxzou at 20201113: support for spherical harmonic functions
 !                               (expand 5D,7F,9G,11H to 6D,10F,15G,21H)
 ! updated by jxzou at 20201118: detect DKH/RESC keywords in .fch(k) file
@@ -15,7 +15,7 @@
 !  order of Gamess. In this case, you must specify the argument [npair] in command line.
 
 ! After '-gvb [npair]' is specified, you can also append '-open [nopen0]' if your system
-!  is truely open shell, i.e., doublet, triplet and so on.
+!  is truly open shell, i.e., doublet, triplet and so on.
 
 ! The order of Cartesian functions in Gaussian can be acquired by adding keyword
 ! 'pop=reg' in .gjf file. In GAMESS output files(.out, .gms), the order of Cartesian
@@ -259,7 +259,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
                            nbf, na, nb, itype1, irel, uhf, ecp, sph, X2C, DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
- ! for ghost atoms (0 charge, has basis fucntion), make ielem(i) negative,
+ ! for ghost atoms (0 charge, has basis function), make ielem(i) negative,
  ! which can be recognized by GAMESS
  forall(i=1:natom, iatom_type(i)==1000) ielem(i) = -ielem(i)
 

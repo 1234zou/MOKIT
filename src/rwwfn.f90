@@ -1350,7 +1350,7 @@ subroutine write_mo_into_psi_mat(matfile, nbf, nif, mo)
  close(fid)
 end subroutine write_mo_into_psi_mat
 
-! determine whether sperical harmonic or Cartesian fucntions are used in .fch(k) file
+! determine whether spherical harmonic or Cartesian functions are used in .fch(k) file
 subroutine determine_sph_or_cart(fchname, cart)
  implicit none
  integer :: i, k, fid

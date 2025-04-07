@@ -186,7 +186,7 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among NWCHEM, BAGEL, COLUMBUS, etc.
+* MOs transferring among NWCHEM, BAGEL, COLUMBUS, etc.
 
 * Develop/Implement robust black-box strategies of excited state calculations
 
@@ -196,7 +196,7 @@ Citation
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
-* If you use MOKIT to peform calculations involving GVB, citing the following two papers would be appreciated
+* If you use MOKIT to perform calculations involving GVB, citing the following two papers would be appreciated
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 

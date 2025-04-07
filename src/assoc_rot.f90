@@ -69,7 +69,7 @@ end subroutine assoc_rot
 ! Note:
 ! 1) This is different from subroutine assoc_rot;
 ! 2) input integers 'rot1, rot2, ref1, ref2' are in Python/C convention
-!    i.e., strart with [0], and [rot1,rot2), [ref1,ref2)
+!    i.e., start with [0], and [rot1,rot2), [ref1,ref2)
 ! 3) orbitals obtained from this subroutine is delocalized, so I rename this subroutine 
 !    to assoc_loc2 and write a new subroutine assoc_loc
 ! perform associated separated localization on a set of MOs
@@ -335,7 +335,7 @@ subroutine find_cos_quartic_poly_maximum(a, b, c, d, cos_x, sin_x, y)
 
  ! f'(x)=0 => -2Asin2x - 2Bcos2x - 4Csin4x - 4Dcos4x = 0
  !        i.e.  Asin2x + Bcos2x + 2Csin4x + 2Dcos4x = 0
- ! Let t = cos2x, we can obtain the folowing equation
+ ! Let t = cos2x, we can obtain the following equation
  ! 16(C^2+D^2)t^4 + 8(AC+BD)t^3 + (A^2+B^2-16C^2-16D^2)t^2 - 4(2AC+BD)t +
  ! 4D^2-A^2 = 0
  ! Note here -1 <= t <= 1
@@ -352,7 +352,7 @@ subroutine find_cos_quartic_poly_maximum(a, b, c, d, cos_x, sin_x, y)
  valid_root = .false.
 
  do i = 1, nroot, 1
-  ! It is possible that c2 is slightly larger thant 1.0 due to numerical error,
+  ! It is possible that c2 is slightly larger than 1.0 due to numerical error,
   ! so we need MIN() and MAX() here.
   c2 = MAX(-1d0, MIN(root(i), 1d0)) ! cos2x
   c22 = c2*c2                       ! (cos2x)^2

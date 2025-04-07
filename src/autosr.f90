@@ -367,7 +367,7 @@ subroutine parse_sr_keyword()
  end if
 end subroutine parse_sr_keyword
 
-! check the compatiblity of keywords in single reference calculations
+! check the compatibility of keywords in single reference calculations
 subroutine check_sr_kywd_compatible()
  implicit none
  character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&

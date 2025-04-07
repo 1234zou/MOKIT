@@ -224,7 +224,7 @@ subroutine addH2singlet(fchname, gvb_no)
 
  if(allocated(tot_dm)) deallocate(tot_dm)
  allocate(tot_dm(nbf,nbf), source=0d0)
- ! if this is UHF/UDFT wave funtion, update tot_dm
+ ! if this is UHF/UDFT wave function, update tot_dm
  if(uhf) then
   if(allocated(spin_dm)) deallocate(spin_dm)
   allocate(spin_dm(nbf,nbf), source=0d0)

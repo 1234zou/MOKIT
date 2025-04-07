@@ -23,7 +23,7 @@ subroutine do_cas(scf)
  implicit none
  integer :: i, n_pocc, nvir, nfile, system, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
- real(kind=8) :: e(2)       ! e(1) is CASCI enery, e(2) is CASSCF energy
+ real(kind=8) :: e(2)       ! e(1) is CASCI energy, e(2) is CASSCF energy
  real(kind=8), allocatable :: noon(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '

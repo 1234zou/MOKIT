@@ -260,7 +260,7 @@ subroutine gen_cf_orb(datname, ndb, nopen)
 
  if(ndb<0 .or. nopen<0) then
   write(6,'(A)') 'ERROR in subroutine gen_cf_orb: ndb<0 or nopen<0 found.'
-  write(6,'(A)') 'Correct values should be assgined to these two parameters.'
+  write(6,'(A)') 'Correct values should be assigned to these two parameters.'
   stop
  end if
 

@@ -161,7 +161,7 @@ subroutine gvb_correct_pairs(fchname, idx1, idx2, gau)
       angle(n,i) = tmp_norm
       paired(i) = .true.; paired(tmp_idx(1)) = .true.
       target_pair_idx(i) = tmp_idx(1)
-      m = tmp_idx(1) ! udpate m
+      m = tmp_idx(1) ! update m
       write(6,'(3I5,2F10.6)') i, j, n, angle(n,j), angle(n,i)
       write(6,'(6I5)') target_pair_idx
      end if

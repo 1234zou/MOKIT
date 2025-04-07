@@ -338,7 +338,7 @@ subroutine check_hermitian(n, a)
  deallocate(b_real, b_imag)
 end subroutine check_hermitian
 
-! check whether a (duoble) complex matrix is symmetric
+! check whether a (double) complex matrix is symmetric
 subroutine check_symm_cmplx(n, a)
  implicit none
  integer, intent(in) :: n
@@ -2433,7 +2433,7 @@ end subroutine mv_dege_docc_below_bo
 ! t2(nocc1+1:nocc,nocc1+1:nocc,1:nvir2,1:nvir2) = t2_2
 !end subroutine merge_two_sets_of_t2
 !
-!! Rotate old t1 and t2 amplitudes accoording to old MOs and new MOs.
+!! Rotate old t1 and t2 amplitudes according to old MOs and new MOs.
 !! Note: in this subroutine, the old MOs and new MOs share the same geometry and
 !!  basis set, so they share one AO overlap integral matrix
 !subroutine rotate_t1_t2_amp(nbf, nmo, mo0, mo1, nocc, t1, t2, ovlp)
