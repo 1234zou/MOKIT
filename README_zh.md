@@ -39,7 +39,7 @@ or
 
 安装
 ----------
-在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，还有更简洁的安装方式，见[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn)。
+在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，或其他二进制小程序，如`fch2mkl`，还有更简洁的安装方式，见[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn)。
 开发者还提供`Windows系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
 
 ### 方式1：conda 联网安装（适用于Linux）
@@ -93,10 +93,11 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 export GMS=$HOME/software/gamess/rungms
 ```
-此处需要设置`LD_LIBRARY_PATH`是由于OpenBLAS动态库放在那里。GAMESS主程序路径`GMS`请按照您机器上的实际情况修改。注意：自MOKIT-v1.2.5rc2以后，`PYTHONPATH` 发生了变化。修改后需退出重登，以使环境变量生效。
+此处需要设置`LD_LIBRARY_PATH`是由于OpenBLAS动态库放在那里。GAMESS主程序路径`GMS`请按照您机器上的实际情况修改。
+修改后需退出重登，以使环境变量生效。
 
 ### 方式4：从源码编译
-MOKIT最新源代码可从[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html)下载。
+下载MOKIT最新源代码可参阅[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html)。
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)
@@ -117,7 +118,8 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
-GAMESS可执行文件的路径请按照您机器上的实际情况修改。注意：自MOKIT-v1.2.5rc2以后，`PYTHONPATH` 发生了变化。修改后需退出重登，以使环境变量生效。
+GAMESS可执行文件的路径请按照您机器上的实际情况修改。
+修改后需退出重登，以使环境变量生效。
 
 快速开始
 ----------
@@ -151,7 +153,9 @@ H      -0.73568721    2.31589843   -0.068688
 automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ```
 
-命令，`automr`程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。更多例子请见[examples](examples/)。
+命令，`automr`程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。
+更多信息请见 [程序文档 Quick Start](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) 及 [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html)。
+更多例子请见[examples](examples/)。
 
 支持调用的量子化学程序
 ----------
