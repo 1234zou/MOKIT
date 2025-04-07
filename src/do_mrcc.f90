@@ -4,7 +4,7 @@
 subroutine do_mrcc()
  use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
   orca_path, chgname, eist
- use mol, only: nevpt2_e, mrcc_e
+ use mol, only: nacte, nacto, nevpt2_e, mrcc_e
  use util_wrapper, only: mkl2gbw
  implicit none
  integer :: i, system, RENAME
@@ -23,7 +23,8 @@ subroutine do_mrcc()
  end if
 
  write(6,'(//,A)') 'Enter subroutine do_mrcc...'
- write(6,'(A)',advance='no') TRIM(method(mrcc_type))//' based on CAS'
+ write(6,'(A,2(I0,A))',advance='no') TRIM(method(mrcc_type))//'(', nacte, 'e,',&
+                                     nacto, 'o) based on CAS'
  if(CIonly) then
   write(6,'(A)') 'CI orbitals.'
  else

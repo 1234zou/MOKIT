@@ -30,7 +30,7 @@ program main
  if(i == 2) then
   call getarg(2, str)
   if(str /= '-no') then
-   write(6,'(A)') 'ERROR in subroutine fch2wfn: the 2nd argument is wrong!'
+   write(6,'(/,A)') 'ERROR in subroutine fch2wfn: the 2nd argument is wrong!'
    write(6,'(A)') "It can only be '-no'."
    stop
   else
@@ -73,24 +73,18 @@ subroutine fch2wfn(fchname, read_no)
  logical :: uhf, sph
  logical, intent(in) :: read_no
 
- i = INDEX(fchname,'.fch')
- if(i == 0) then
-  write(6,'(A)') "ERROR in subroutine fch2wfn: '.fch' key not found in file&
-                    &name "//TRIM(fchname)
-  stop
- end if
-
+ call find_specified_suffix(fchname, '.fch', i)
  wfnname = fchname(1:i-1)//'.wfn'
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- call read_fch(fchname, uhf) ! read content in .fch(k) file
+ call read_fch(fchname, uhf)         ! read content in .fch(k) file
 
  ! Only occupied orbitals (including partially occupied) are recorded in .wfn
  if(read_no) then
   nmo = nif
  else
-  if(uhf) then ! UHF-type wave function
+  if(uhf) then ! UHF-type
    nmo = na + nb
-  else ! R(O)HF-type wave function
+  else         ! R(O)HF-type
    nmo = na
   end if
  end if
@@ -310,11 +304,12 @@ subroutine contr_coeff_multiply_norm_fac(n, p, prim_exp, contr_coeff)
  real(kind=8), intent(inout) :: contr_coeff(n)
 
  if(p == -1) then
-  write(6,'(A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
-  write(6,'(A)') 'You should divide L/SP into separate S/P before calling &
-                    &this subroutine.'
+  write(6,'(/,A)') 'ERROR in subroutine contr_coeff_multiply_norm_fac: p=-1.'
+  write(6,'(A)') 'You should divide L/SP into separate S/P before calling this &
+                 &subroutine.'
   stop
  end if
+
  if(p < 0) then
   p0 = -p
  else
@@ -343,6 +338,7 @@ subroutine scale_mo_as_wfn(ncontr, shell_type, nbf, nif, coeff)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
  j = 0
+
  do i = 1, ncontr, 1
   select case(shell_type(i))
   case(0) ! S
@@ -365,11 +361,10 @@ subroutine scale_mo_as_wfn(ncontr, shell_type, nbf, nif, coeff)
    forall(k = 1:21) coeff(j+k,:) = coeff(j+k,:)/c21h(k)
    j = j + 21
   case default
-   write(6,'(A)') 'ERROR in scale_mo_as_wfn: shell_type(i) out of range!'
+   write(6,'(/,A)') 'ERROR in scale_mo_as_wfn: shell_type(i) out of range!'
    write(6,'(A,3I5)') 'i, ncontr, shell_type(i)=', i, ncontr, shell_type(i)
    stop
   end select
  end do ! for i
-
 end subroutine scale_mo_as_wfn
 

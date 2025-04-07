@@ -1557,7 +1557,7 @@ end subroutine copy_and_modify_psi4_sapt_file
 subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  use frag_info, only: nfrag0, frags
  use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, &
-  solvent_gau, disp_type, hf_prog_path
+  solvent_gau, disp_type
  implicit none
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
@@ -1654,15 +1654,10 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   if(buf1(2:7) == '$GUESS') exit
   if(buf1(2:5) == '$SCF') then
    if(eda_type == 1) then
+    ! direct SCF is not supported in Morokuma-EDA
     buf1 = ' $SCF DIRSCF=.F. $END'
    else
-    if(TRIM(dft_in_gms) /= 'NONE') then
-     if(TRIM(hf_prog_path) == 'python') then
-      buf1 = ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
-     else
-      buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. $END'
-     end if
-    end if
+    buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. RESET=.F. $END'
    end if
   end if
   write(fid2,'(A)') TRIM(buf1)

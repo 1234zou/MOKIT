@@ -2,9 +2,10 @@
 
 subroutine do_mrpt3()
  use mr_keyword, only: dmrgci, dmrgscf, CIonly, caspt3, nevpt3, casnofch, &
-  casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, bdf_path,&
+  casscf_prog, casci_prog, bgchg, chgname, mem, nproc, molpro_path, bdf_path, &
   eist
- use mol, only: caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, nuc_pt_e
+ use mol, only: nacte, nacto, caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, &
+  nuc_pt_e
  implicit none
  integer :: i, mem0, RENAME, system
  character(len=24) :: data_string
@@ -60,7 +61,7 @@ subroutine do_mrpt3()
  write(6,'(A)',advance='no') 'Frozen_core = F, '
 
  if(caspt3) then ! CASPT3
-  write(6,'(A)') 'CASPT3 using program molpro'
+  write(6,'(A,2(I0,A))') 'CASPT3(',nacte,'e,',nacto,'o) using program molpro'
   call check_exe_exist(molpro_path)
 
   i = SYSTEM('fch2com '//TRIM(casnofch))
@@ -83,7 +84,7 @@ subroutine do_mrpt3()
   i = SYSTEM(TRIM(string))
 
  else ! FIC-NEVPT3
-  write(6,'(A)') 'NEVPT3 using program bdf'
+  write(6,'(A,2(I0,A))') 'NEVPT3(',nacte,'e,',nacto,'o) using program BDF'
   call check_exe_exist(bdf_path)
 
   i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')

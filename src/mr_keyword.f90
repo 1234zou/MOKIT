@@ -298,7 +298,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc4 (2025-Mar-18)'
+ write(6,'(A)') '           Version: 1.2.7rc5 (2025-Apr-7)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -2038,7 +2038,7 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
    r(j,i) = DSQRT(DOT_PRODUCT(rtmp2, rtmp2))
 
    if(r(j,i) < zero2) then
-    write(6,'(A)') 'ERROR in subroutine calc_Coulomb_energy_of_charges:'
+    write(6,'(/,A)') 'ERROR in subroutine calc_Coulomb_energy_of_charges:'
     write(6,'(2(A,I0))') 'There exists two point charges too close: i=',i,',j=',j
     write(6,'(A,F15.8)') 'r(j,i) = ', r(j,i)
     stop

@@ -92,8 +92,8 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine orb2fch: mixed spherical harmonic/Cartes&
-                 &ian functions detected.'
+  write(6,'(/,A)') 'ERROR in subroutine orb2fch: mixed spherical harmonic/Carte&
+                   &sian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                  & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
@@ -124,13 +124,13 @@ subroutine orb2fch(orbname, fchname, prt_no)
  if(sph) then ! spherical harmonic
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
                                  n11hmark, d_mark, f_mark, g_mark, h_mark)
-  call orb2fch_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
-                           f_mark, g_mark, h_mark, nbf, idx)
+  call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
+                              f_mark, g_mark, h_mark, nbf, idx)
  else ! Cartesian-type basis
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
-  call orb2fch_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
-                            f_mark, g_mark, h_mark, nbf, idx, norm)
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
+                               d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
  end if
 ! adjustment finished
 
@@ -189,7 +189,7 @@ subroutine orb2fch(orbname, fchname, prt_no)
  nbf = nbf0
  allocate(idx2(nbf), coeff2(nbf,nif))
  forall(i = 1:nbf) idx2(idx(i)) = i
- forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)*norm(idx2(i))
+ forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)/norm(idx2(i))
  deallocate(idx, idx2, norm, coeff)
 
 ! print MOs into .fch(k) file

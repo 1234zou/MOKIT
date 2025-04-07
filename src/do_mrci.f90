@@ -6,7 +6,8 @@ subroutine do_mrcisd()
   mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
   gms_path, gms_scr_path, check_gms_path, molpro_path, psi4_path, dalton_mpi, &
   bgchg, casci_prog, casscf_prog, chgname
- use mol, only: casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
+ use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
+  nuc_pt_e
  use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
   fch2inporb_wrap
  implicit none
@@ -43,8 +44,8 @@ subroutine do_mrcisd()
   end if
  end if
 
- write(6,'(A)') 'Frozen_Core = F, MRCISD computation using program '//&
-                 TRIM(mrcisd_prog)
+ write(6,'(A,2(I0,A))') 'Frozen_Core = F, MRCISD(', nacte, 'e,', nacto, &
+                        'o) using program '//TRIM(mrcisd_prog)
 
  select case(TRIM(mrcisd_prog))
  case('pyscf')
@@ -906,7 +907,8 @@ subroutine do_mrcisdt()
  use mr_keyword, only: mem, nproc, eist, dmrgci, dmrgscf, mrcisdt, mrcisdt_prog,&
   molcas_omp, molcas_path, gau_path, psi4_path, dalton_mpi, gms_path, gms_scr_path,&
   check_gms_path, casnofch, chgname, CIonly, bgchg, CtrType
- use mol, only: casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e, nuc_pt_e
+ use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
+  nuc_pt_e
  use util_wrapper, only: unfchk, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
@@ -926,8 +928,8 @@ subroutine do_mrcisdt()
  end if
 
  call prt_mrci_orb_type(3, CIonly)
- write(6,'(A)') 'Frozen_Core = F, MRCISDT computation using program '//&
-                 TRIM(mrcisdt_prog)
+ write(6,'(A,2(I0,A))') 'Frozen_Core = F, MRCISDT(', nacte, 'e,', nacto, &
+                        'o) using program '//TRIM(mrcisdt_prog)
 
  select case(TRIM(mrcisdt_prog))
  case('openmolcas')

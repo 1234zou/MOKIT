@@ -231,7 +231,16 @@ subroutine replace_coor_in_orca_inp(inpname, natom, coor)
 
  do i = 1, natom, 1
   read(fid,*) str
-  write(fid1,'(1X,A,3(1X,F18.8))') TRIM(str), coor(:,i)
+  if(TRIM(str) == 'NewECP') then
+   write(fid1,'(A)') '  NewECP'
+   do while(.true.)
+    read(fid,'(A)') buf
+    write(fid1,'(A)') TRIM(buf)
+    if(buf(3:5) == 'end') exit
+   end do ! for while
+   read(fid,*) str
+  end if
+  write(fid1,'(1X,A,3(1X,F17.9))') TRIM(str), coor(:,i)
   do while(.true.)
    read(fid,'(A)') buf
    write(fid1,'(A)') TRIM(buf)

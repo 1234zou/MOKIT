@@ -2889,13 +2889,13 @@ subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,'Total MC-PDFT') > 0) exit
+   if(INDEX(buf,'Total MC-PDFT')>0 .or. INDEX(buf,'Total MCPDFT')>0) exit
   end do ! for while
 
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'Total M&
-                    &C-PDFT' found"
-   write(6,'(A)') 'in file '//TRIM(outname)
+                    &C-PDFT' or 'Total MCPDFT'"
+   write(6,'(A)') 'found in file '//TRIM(outname)
    close(fid)
    stop
   end if

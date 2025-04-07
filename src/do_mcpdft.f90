@@ -5,7 +5,7 @@ subroutine do_mcpdft()
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
   casnofch, molcas_omp, molcas_path, gms_path, bgchg, chgname, check_gms_path, &
   gms_scr_path, mcpdft_force, eist
- use mol, only: ptchg_e, mcpdft_e, natom, grad
+ use mol, only: nacte, nacto, ptchg_e, mcpdft_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, system, RENAME
@@ -32,14 +32,16 @@ subroutine do_mcpdft()
   else
    write(6,'(A)') 'DMRG-PDFT based on DMRG-CASSCF orbitals.'
   end if
-  write(6,'(A)') 'DMRG-PDFT using program openmolcas'
+  write(6,'(A,2(I0,A))') 'DMRG-PDFT(', nacte, 'e,', nacto, &
+                         'o) using program OpenMolcas'
  else
   if(casci) then
    write(6,'(A)') 'MC-PDFT based on CASCI orbitals.'
   else
    write(6,'(A)') 'MC-PDFT based on CASSCF orbitals.'
   end if
-  write(6,'(A)') 'MC-PDFT using program '//TRIM(mcpdft_prog)
+  write(6,'(A,2(I0,A))') 'MC-PDFT(',nacte,'e,',nacto,'o) using program '//&
+                         TRIM(mcpdft_prog)
  end if
 
  if(dmrgci .or. casci) then
@@ -333,39 +335,34 @@ end subroutine prt_mcpdft_gms_inp
 ! OpenMolcas-v21.xx: tPBE, ftPBE
 subroutine detect_and_change_otpdf(otpdf)
  implicit none
- integer :: i, k, iv, fid, system
- character(len=3) :: sv
+ integer :: i, j, k, iv, fid, SYSTEM
  character(len=9), intent(inout) :: otpdf
  character(len=30) :: ftmp
  character(len=240) :: buf
 
+ iv = 0
  if(LEN_TRIM(otpdf)==0 .or. otpdf=='NONE') then
   write(6,'(/,A)') 'ERROR in subroutine detect_and_change_otpdf: OtPDF=None.'
   write(6,'(A)') 'Something must be wrong.'
   stop
  end if
 
- ! find the OpenMolcas version
- call get_a_random_int(i)
+ ! Find the OpenMolcas version. Note: `pymolcas --banner` cannot be used at 1st,
+ ! Apr each year. So we use `pymolcas version` instead.
  write(ftmp,'(A,I0)') 'molcas.ver.', i
- i = SYSTEM('pymolcas --banner >'//TRIM(ftmp)//" 2>&1")
+ i = SYSTEM('pymolcas version >'//TRIM(ftmp)//" 2>&1")
+
  open(newunit=fid,file=TRIM(ftmp),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  k = INDEX(buf,'version:')
-  if(k > 0) exit
- end do ! for while
-
+ read(fid,'(A)',iostat=i) buf
  close(fid,status='delete')
  if(i /= 0) return
  ! if something like 'version: v22.06' not found, just return
 
- i = INDEX(buf, '.')
- read(buf(k+8:i-1),*) sv     ! 'v22'
- read(sv(2:3),*,iostat=i) iv ! 22
- if(i /= 0) return
+ buf = ADJUSTL(buf)
+ i = INDEX(buf, 'v')
+ j = INDEX(buf, '.')
+ read(buf(i+1:j-1),fmt=*,iostat=k) iv ! 22
+ if(k /= 0) return
  ! if the user uses some strange version of OpenMolcas, just return
 
  call lower(otpdf)

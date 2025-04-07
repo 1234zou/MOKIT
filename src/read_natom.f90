@@ -112,6 +112,28 @@ function check_pbc_in_gjf(gjfname) result(pbc)
  if(buf0(1:2) == 'Tv') pbc = .true.
 end function check_pbc_in_gjf
 
+! check whether the system is periodic in a given .xyz file
+function check_pbc_in_xyz(xyzname) result(pbc)
+ implicit none
+ integer :: fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: xyzname
+ logical :: pbc
+
+ pbc = .false. ! initialization
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ buf = ADJUSTL(buf)
+ if(LEN_TRIM(buf) > 6) then
+  call upper(buf(1:1))
+  call lower(buf(2:7))
+  if(buf(1:7) == 'Lattice') pbc = .true.
+ end if
+end function check_pbc_in_xyz
+
 ! read the number of atoms from a given .fch file
 subroutine read_natom_from_fch(fchname, natom)
  implicit none

@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc4 (2025-Mar-18)'
+ write(6,'(A)') '           Version: 1.2.7rc5 (2025-Apr-7)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -383,6 +383,8 @@ subroutine check_sr_kywd_compatible()
   cc_prog = 'orca'
  end if
 
+ if(TRIM(method)=='ccsd(t)-f12a' .or. TRIM(method)=='ccsd(t)-f12b') cc_prog='molpro'
+
  if(DKH2) then
   if(mp2 .and. TRIM(mp2_prog)=='pyscf') then
    write(6,'(/,A)') error_warn//'PySCF does not support the DKH2 Hamiltonian.'
@@ -550,8 +552,8 @@ subroutine check_sr_kywd_compatible()
  end if
 
  if(adc_n > 0) then
-  if((.not.mo_rhf) .and. TRIM(adc_prog)=='orca') then
-   write(6,'(/,A)') error_warn//'UADC is not yet implemented in ORCA.'
+  if((.not.mo_rhf) .and. LEN_TRIM(hf_fch)>0 .and. TRIM(adc_prog)=='orca') then
+   write(6,'(/,A)') error_warn//'UHF-based ADC is not yet implemented in ORCA.'
    stop
   end if
   if((.not.ip) .and. (.not.ea) .and. TRIM(adc_prog)=='pyscf') then
@@ -624,7 +626,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc4 :: MOKIT, release date: 2025-Mar-18'
+  write(6,'(A)') 'AutoSR 1.2.7rc5 :: MOKIT, release date: 2025-Apr-7'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -1489,7 +1491,9 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
+ logical :: std_def2j
 
+ std_def2j = .true.
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -1514,15 +1518,21 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   write(fid1,'(A)',advance='no') '! U'
  end if
  write(fid1,'(A)',advance='no') 'HF VeryTightSCF'
+
  if(RI) then
-  if(TRIM(RIJK_bas) == 'autoaux') then
-   write(fid1,'(A)',advance='no') ' RIJK AutoAux'
+  i = LEN_TRIM(RIJK_bas)
+  if(RIJK_bas(1:i) == 'autoaux') then
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 AutoAux'
+  else if(RIJK_bas(i-2:i) == '/JK') then
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//RIJK_bas(1:i-1)//' '//&
+                                  TRIM(RIC_bas)
   else
-   write(fid1,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
+   std_def2j = .false.
   end if
  else
   write(fid1,'(A)',advance='no') ' noRI'
  end if
+
  if(F12) write(fid1,'(A)',advance='no') ' '//TRIM(F12_cabs)
  if(chem_core == 0) write(fid1,'(A)',advance='no') ' NoFrozenCore'
  if(force) write(fid1,'(A)',advance='no') ' EnGrad'
@@ -1588,6 +1598,12 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  write(fid1,'(A)') ' CNVDamp False'
  if(lin_dep) write(fid1,'(A)') ' sthresh 1e-6'
  write(fid1,'(A)') 'end'
+
+ if(.not. std_def2j) then
+  write(fid1,'(A)') '%basis'
+  write(fid1,'(A)') " AuxJ """//TRIM(RIJK_bas)//""""
+  write(fid1,'(A)') 'end'
+ end if
 
  if(.not. mp2) then
   write(fid1,'(A)') '%mdci'
@@ -1682,13 +1698,10 @@ subroutine prt_posthf_molpro_inp(inpname)
   write(fid,'(A)') '}'
   write(fid,'(A)',advance='no') '{DF-'
   if(mo_rhf) then
-    if(mult /= 1) write(fid,'(A)',advance='no') 'U' ! ROHF-UCCSD
-    ! ROHF-ROCCSD interface is currently not supported in autosr
+   if(mult /= 1) write(fid,'(A)',advance='no') 'U' ! ROHF-UCCSD
+   ! ROHF-ROCCSD interface is currently not supported in autosr
   else
-   write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UHF-based CC i&
-                    &s not supported in Molpro.'
-   close(fid)
-   stop
+   write(fid,'(A)',advance='no') 'U' ! UHF-UCCSD
   end if
   if(mp2) then
    write(fid,'(A)',advance='no') 'MP2'
@@ -2550,13 +2563,21 @@ end subroutine prt_adc_pyscf_inp
 
 ! Print ORCA IP-/EE-/EA- ADC(2) input
 subroutine prt_adc_orca_inp(inpname)
- use sr_keyword, only: mem, nproc, RIC_bas, mo_rhf, ip, ea, nstate, chem_core, &
-  force
+ use sr_keyword, only: mem, nproc, RI, RIJK_bas, RIC_bas, mo_rhf, ip, ea, nstate,&
+  chem_core, force
  use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, inpname1
+ logical :: std_def2j
+
+ std_def2j = .true.
+ if(.not. mo_rhf) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_adc_orca_inp: UHF-based ADC is not &
+                   &yet implemented in ORCA.'
+  stop
+ end if
 
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
@@ -2581,7 +2602,21 @@ subroutine prt_adc_orca_inp(inpname)
  else
   write(fid1,'(A)',advance='no') '! U'
  end if
- write(fid1,'(A)',advance='no') 'HF VeryTightSCF '//TRIM(RIC_bas)
+ write(fid1,'(A)',advance='no') 'HF VeryTightSCF'
+
+ if(RI) then
+  i = LEN_TRIM(RIJK_bas)
+  if(RIJK_bas(1:i) == 'autoaux') then
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 AutoAux'
+  else if(RIJK_bas(i-2:i) == '/JK') then
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//RIJK_bas(1:i-1)//' '//&
+                                  TRIM(RIC_bas)
+  else
+   std_def2j = .false.
+  end if
+ else
+  write(fid1,'(A)',advance='no') ' noRI'
+ end if
 
  if(ip) then
   write(fid1,'(A)',advance='no') ' IP-ADC2'
@@ -2604,6 +2639,11 @@ subroutine prt_adc_orca_inp(inpname)
  write(fid1,'(A)') ' CNVDamp False'
  write(fid1,'(A)') ' sthresh 1e-6'
  write(fid1,'(A)') 'end'
+ if(.not. std_def2j) then
+  write(fid1,'(A)') '%basis'
+  write(fid1,'(A)') " AuxJ """//TRIM(RIJK_bas)//""""
+  write(fid1,'(A)') 'end'
+ end if
  write(fid1,'(A)') '%mdci'
  write(fid1,'(A)') ' MaxIter 300'
  write(fid1,'(A,I0)') ' nroots ',nstate

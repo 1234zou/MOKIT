@@ -53,14 +53,8 @@ module lo_info
  ! maximum number of centers of an MO
  integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
 
- real(kind=8) :: dis_thres, conv_thres
- ! dis_thres: MO distances beyond the threshold will not undergo 2*2 rotations
- ! conv_thres: determine whether rotation/localization is converged
- ! Whether 1d-5 or 1d-6 is needed for conv_thres remains to be checked.
-
  real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
  real(kind=8), parameter :: HPI = 2d0*DATAN(1d0) ! PI/2
-
  real(kind=8), parameter :: ovlp_thres = 0.56d0
  ! threshold for selecting MOs transformed to Cholesky LMOs
 
@@ -68,6 +62,12 @@ module lo_info
  ! determine whether to rotate (and update MOs, dipole integrals)
  ! If upd_thres is set to 1d-7, the total change of the target function might
  ! have non-negligible difference with the total change obtained at 1d-8.
+
+ real(kind=8) :: dis_thres, conv_thres
+ ! dis_thres: MO distances beyond the threshold will not undergo 2*2 rotations
+ ! conv_thres: determine whether rotation/localization is converged
+ ! Values of these two variables will be copied from loc()/pbc_loc() in
+ !  $MOKIT_ROOT/mokit/lib/gaussian.py
 
  type :: rotation_index
   integer :: npair
@@ -85,7 +85,7 @@ subroutine get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center
  integer, intent(in) :: bfirst(natom+1)
  integer, intent(out) :: mo_center(0:ncenter,nmo)
  real(kind=8) :: r1, r2, sum_r
- real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+ real(kind=8), parameter :: diff = 0.12d0, pop_thres = 0.7d0
  real(kind=8), intent(in) :: mo(nbf,nmo)
  real(kind=8), allocatable :: tmp_mo(:), gross(:)
 
@@ -287,8 +287,8 @@ subroutine find_eff_ijmap(nmo, mo_dis)
  end do ! for n
 end subroutine find_eff_ijmap
 
-! generate effective round robin ordering within the orbital distance threshold
-subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
+! generate effective ordering within the orbital distance threshold
+subroutine screen_jacobi_idx_by_dis(nmo, mo_dis)
  implicit none
  integer :: i, j, k, k1, k2, k3, m
  integer, intent(in) :: nmo
@@ -310,7 +310,7 @@ subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
   end do ! for j
   rot_idx(i)%npair = k
   if(allocated(rot_idx(i)%pair_idx)) deallocate(rot_idx(i)%pair_idx)
-  allocate(rot_idx(i)%pair_idx(2,k))
+  if(k > 0) allocate(rot_idx(i)%pair_idx(2,k))
  end do ! for i
 !$omp end parallel do
 
@@ -330,7 +330,7 @@ subroutine init_round_robin_idx_with_dis(nmo, mo_dis)
   end do ! for j
  end do ! for i
 !$omp end parallel do
-end subroutine init_round_robin_idx_with_dis
+end subroutine screen_jacobi_idx_by_dis
 
 subroutine serial22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  implicit none
@@ -398,7 +398,7 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
  integer :: i, j, m, n, npair0
  integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:,:)
- real(kind=8) :: rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8) :: rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, rchange
  real(kind=8), intent(inout) :: coeff(nbf,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
@@ -412,13 +412,12 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
 
  do m = 1, nsweep, 1
   npair0 = rot_idx(m)%npair
+  if(npair0 == 0) cycle
   allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
-  allocate(cos_a(npair0), source=1d0)
-  allocate(sin_a(npair0), source=0d0)
-  allocate(skip(npair0))
-  skip = .false.
+  allocate(cos_a(npair0), sin_a(npair0), skip(npair0))
+  skip = .false.; rchange = 0d0
 
-  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:rchange) &
   !$omp shared(npair0,cos_a,sin_a,idx,mo_zdip,coeff,skip)
   do n = 1, npair0, 1
    i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
@@ -436,7 +435,7 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
     cycle
    end if
 
-   change = change + rtmp
+   rchange = rchange + rtmp
    alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
    if(Aij > 0d0) then
     alpha = QPI - alpha
@@ -473,6 +472,7 @@ subroutine para22berry_kernel(nbf, nmo, coeff, mo_zdip, change)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
+  change = change + rchange
  end do ! for m
 
  deallocate(tmp_mo)
@@ -542,7 +542,7 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dip, change)
  integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:,:)
  real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, &
-  vdiff(3), vtmp(3,3)
+  rchange, vdiff(3), vtmp(3,3)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dip(3,nmo,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: cos_a(:), sin_a(:), tmp_mo(:)
@@ -553,13 +553,12 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dip, change)
 
  do m = 1, nsweep, 1
   npair0 = rot_idx(m)%npair
+  if(npair0 == 0) cycle
   allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
-  allocate(cos_a(npair0), source=1d0)
-  allocate(sin_a(npair0), source=0d0)
-  allocate(skip(npair0))
-  skip = .false.
+  allocate(cos_a(npair0), sin_a(npair0), skip(npair0))
+  skip = .false.; rchange = 0d0
 
-  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:rchange) &
   !$omp shared(npair0,cos_a,sin_a,idx,mo_dip,coeff,skip)
   do n = 1, npair0, 1
    i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
@@ -577,7 +576,7 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dip, change)
     cycle
    end if
 
-   change = change + rtmp
+   rchange = rchange + rtmp
    alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
    if(Aij > 0d0) then
     alpha = QPI - alpha
@@ -614,6 +613,7 @@ subroutine para22boys_kernel(nbf, nmo, coeff, mo_dip, change)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
+  change = change + rchange
  end do ! for m
 
  deallocate(tmp_mo)
@@ -634,9 +634,13 @@ subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
 
  do m = 1, eff_npair, 1
   i = eff_ijmap(1,m); j = eff_ijmap(2,m)
+!dir$ ivdep
   vtmp(:,1) = gross(:,i,i)
+!dir$ ivdep
   vtmp(:,2) = gross(:,j,i)
+!dir$ ivdep
   vtmp(:,3) = gross(:,j,j)
+!dir$ ivdep
   vdiff = vtmp(:,1) - vtmp(:,3)
   Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
   Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
@@ -668,8 +672,11 @@ subroutine serial22pm_kernel(nbf, nmo, natom, coeff, gross, change)
   ss = sin_a*sin_a
   sin_2a = 2d0*sin_a*cos_a
   cos_2a = cc - ss
+!dir$ ivdep
   gross(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+!dir$ ivdep
   gross(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+!dir$ ivdep
   gross(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
   call update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
  end do ! for m
@@ -682,7 +689,8 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
  integer :: i, j, m, n, npair0
  integer, intent(in) :: nbf, nmo, natom
  integer, allocatable :: idx(:,:)
- real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a
+ real(kind=8) :: ddot, rtmp, Aij, Bij, alpha, cc, ss, cos_2a, sin_2a, sin_4a, &
+  rchange
  real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
  real(kind=8), intent(out) :: change
  real(kind=8), allocatable :: vdiff(:), vtmp(:,:), tmp_mo(:), cos_a(:), sin_a(:)
@@ -693,19 +701,22 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
 
  do m = 1, nsweep, 1
   npair0 = rot_idx(m)%npair
+  if(npair0 == 0) cycle
   allocate(idx(2,npair0), source=rot_idx(m)%pair_idx)
-  allocate(cos_a(npair0), source=1d0)
-  allocate(sin_a(npair0), source=0d0)
-  allocate(skip(npair0))
-  skip = .false.
+  allocate(cos_a(npair0), sin_a(npair0), skip(npair0))
+  skip = .false.; rchange = 0d0
 
-  !$omp parallel do schedule(dynamic) default(private) reduction(+:change) &
+  !$omp parallel do schedule(dynamic) default(private) reduction(+:rchange) &
   !$omp shared(natom,npair0,cos_a,sin_a,idx,gross,coeff,skip)
   do n = 1, npair0, 1
    i = idx(1,n); j = idx(2,n) ! i<j ensured when generating rot_idx
+!dir$ ivdep
    vtmp(:,1) = gross(:,i,i)
+!dir$ ivdep
    vtmp(:,2) = gross(:,j,i)
+!dir$ ivdep
    vtmp(:,3) = gross(:,j,j)
+!dir$ ivdep
    vdiff = vtmp(:,1) - vtmp(:,3)
    Aij = ddot(natom,vtmp(:,2),1,vtmp(:,2),1) - 0.25d0*ddot(natom,vdiff,1,vdiff,1)
    Bij = ddot(natom, vdiff, 1, vtmp(:,2), 1)
@@ -717,7 +728,7 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
     cycle
    end if
 
-   change = change + rtmp
+   rchange = rchange + rtmp
    alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
    if(Aij > 0d0) then
     alpha = QPI - alpha
@@ -740,8 +751,11 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
    ss = sin_a(n)*sin_a(n)
    sin_2a = 2d0*sin_a(n)*cos_a(n)
    cos_2a = cc - ss
+!dir$ ivdep
    gross(:,i,i) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+!dir$ ivdep
    gross(:,j,j) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+!dir$ ivdep
    gross(:,j,i) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
   end do ! for n
   !$omp end parallel do
@@ -754,6 +768,7 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
   end do ! for n
 
   deallocate(idx, cos_a, sin_a, skip)
+  change = change + rchange
  end do ! for m
 
  deallocate(vdiff, vtmp, tmp_mo)

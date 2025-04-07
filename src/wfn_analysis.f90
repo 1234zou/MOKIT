@@ -885,7 +885,7 @@ end subroutine solve_mo_from_gross_pop
 ! orbital occupation numbers.
 subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  implicit none
- integer :: i, j, k, ne, nbf, nif, mult, fid, fid1
+ integer :: i, j, k, ne, nbf, nif, mult, fid
  integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
 !f2py intent(in) :: wfn_type
  character(len=240) :: buf, fchname1
@@ -941,18 +941,11 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  if(gen_dm) then
   i = INDEX(fchname, '.fch')
   fchname1 = fchname(1:i-1)//'_unpaired.fch'
-  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-  open(newunit=fid1,file=TRIM(fchname1),status='replace')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   write(fid1,'(A)') TRIM(buf)
-  end do ! for while
-  close(fid)
-  close(fid1)
-  allocate(coeff(nbf,nif), source=0d0)
+  call copy_file(fchname, fchname1, .false.)
+
+  allocate(coeff(nbf,nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
-  allocate(dm(nbf,nbf), source=0d0)
+  allocate(dm(nbf,nbf), source=0d0) ! initialization
 
   do i = 1, nbf, 1
    do j = 1, i, 1
@@ -963,8 +956,9 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
    end do ! for j
   end do ! for i
 
+  deallocate(coeff)
   call write_dm_into_fch(fchname1, .true., nbf, dm)
-  deallocate(dm, coeff)
+  deallocate(dm)
   call write_eigenvalues_to_fch(fchname1, nif, 'a', noon(:,5), .true.)
  end if
 
@@ -1059,7 +1053,7 @@ subroutine prt_unpaired_e(nif, noon, upe)
  forall(i = 1:nif) noon(i,2) = 2d0 - noon(i,1)
  forall(i = 1:nif)
   noon(i,3) = noon(i,1)*noon(i,2)
-  noon(i,4) = min(noon(i,1), noon(i,2))
+  noon(i,4) = MIN(noon(i,1), noon(i,2))
  end forall
  forall(i = 1:nif) noon(i,5) = noon(i,3)*noon(i,3)
 

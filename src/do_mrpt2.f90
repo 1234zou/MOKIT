@@ -7,8 +7,8 @@ subroutine do_mrpt2()
   nevpt2_prog, caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path,&
   check_gms_path, molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, &
   gau_path, FIC, eist, target_root, caspt2_force
- use mol, only: caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, davidson_e, &
-  ptchg_e, nuc_pt_e, natom, grad
+ use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
+  davidson_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
   fch2inporb_wrap
  implicit none
@@ -127,8 +127,8 @@ subroutine do_mrpt2()
  write(6,'(A)',advance='no') 'Frozen_core = F, '
 
  if(nevpt2) then
-  write(6,'(A)') 'NEVPT2 using program '//TRIM(nevpt2_prog)
-
+  write(6,'(A,2(I0,A))') 'NEVPT2(',nacte,'e,',nacto,'o) using program '//&
+                         TRIM(nevpt2_prog)
   select case(TRIM(nevpt2_prog))
   case('pyscf')
    ! For DMRG-NEVPT2, use CMOs rather than NOs
@@ -223,8 +223,8 @@ subroutine do_mrpt2()
   end select
 
  else if(caspt2) then ! CASPT2
-  write(6,'(A)') 'CASPT2 using program '//TRIM(caspt2_prog)
-
+  write(6,'(A,2(I0,A))') 'CASPT2(',nacte,'e,',nacto,'o) using program '//&
+                         TRIM(caspt2_prog)
   select case(TRIM(caspt2_prog))
   case('openmolcas')
    call check_exe_exist(molcas_path)
@@ -286,7 +286,7 @@ subroutine do_mrpt2()
   end select
 
  else if(mrmp2) then ! CASSCF-MRMP2
-  write(6,'(A)') 'MRMP2 using program gamess'
+  write(6,'(A,2(I0,A))') 'MRMP2(',nacte,'e,',nacto,'o) using program GAMESS'
   call check_gms_path()
 
   call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
@@ -302,7 +302,7 @@ subroutine do_mrpt2()
   call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
-  write(6,'(A)') 'OVB-MP2 using program gaussian'
+  write(6,'(A,2(I0,A))') 'OVB-MP2(',nacte,'e,',nacto,'o) using program Gaussian'
   call check_exe_exist(gau_path)
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'OVBMP2.chk'
@@ -314,7 +314,7 @@ subroutine do_mrpt2()
   call submit_gau_job(gau_path, inpname, .true.)
 
  else ! CASSCF-SDSPT2
-  write(6,'(A)') 'SDSPT2 using program bdf'
+  write(6,'(A,2(I0,A))') 'SDSPT2(',nacte,'e,',nacto,'o) using program BDF'
   call check_exe_exist(bdf_path)
 
   i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')

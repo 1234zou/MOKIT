@@ -547,6 +547,7 @@ subroutine combined_ao_cholesky(nbf, nif, ao_ovlp, mo)
  ! orbitals.
 
  if(nlmo == 0) then
+  deallocate(u, vt)
   call cholesky_mo(k, nif, u0)
   mo = 0d0
   call dgemm('N','N', nbf,nif,k, 1d0,orth_mo(:,1:k),nbf, u0,k, 0d0,mo,nbf)
@@ -568,12 +569,13 @@ subroutine combined_ao_cholesky(nbf, nif, ao_ovlp, mo)
   if(nlmo < nif-1) then ! generate Cholesky LMOs for remaining orbitals
    j = nif - nlmo
    allocate(u0(k,j))
-   call calc_CTSCp2(nbf, k, j, orth_mo(:,1:k), ao_ovlp, mo(:,nlmo+1:nif), u0)
+   allocate(u1(nbf,j), source=mo(:,nlmo+1:nif))
+   call calc_CTSCp2(nbf, k, j, orth_mo(:,1:k), ao_ovlp, u1, u0)
    call cholesky_mo(k, j, u0)
-   mo(:,nlmo+1:nif) = 0d0
-   call dgemm('N','N', nbf,j,k, 1d0,orth_mo(:,1:k),nbf, u0,k, 0d0, &
-              mo(:,nlmo+1:nif), nbf)
-   deallocate(u0)
+   u1 = 0d0
+   call dgemm('N','N', nbf,j,k, 1d0,orth_mo(:,1:k),nbf, u0,k, 0d0, u1, nbf)
+   mo(:,nlmo+1:nif) = u1
+   deallocate(u0, u1)
   end if
  end if
 
@@ -673,8 +675,8 @@ end subroutine classify_lmo
 ! This subroutine is used for PBC gamma-point orbital localization, and cannot
 ! be used for an isolated molecule.
 ! The input ao_zdip must be in unit Angstrom.
-subroutine berry(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, dis_tol, &
-                 conv_tol, ao_zdip, new_coeff)
+subroutine berry(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, ao_zdip, dis_tol,&
+                 conv_tol, new_coeff)
  use lo_info, only: dis_thres, conv_thres, npair, ijmap
  implicit none
  integer, intent(in) :: natom, nbf, nif
@@ -711,17 +713,18 @@ subroutine berry(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, dis_tol, &
 
  ! Theoretically, Berry orbital localization does not require the AO overlap
  ! integral matrix. But here we need it to construct a good initial guess.
- write(6,'(/,A)') 'Construct mixed AO-like LMOs and Cholesky LMOs as initial gu&
-                  &ess...'
- call combined_ao_cholesky(nbf, nif, ao_ovlp, new_coeff)
+ write(6,'(/,A)') 'Construct AO-like LMOs as initial guess...'
+ call resemble_ao(nbf, nif, ao_ovlp, new_coeff)
  write(6,'(A)') 'Done construction.'
 
- write(6,'(/,A)') 'Transform AO dipole integrals to MO ones...'
+ write(6,'(/,A)') 'Transform AO complex dipole integrals to MO ones...'
  allocate(mo_zdip(3,nif,nif))
  call ao2mo_zdip(nbf, nif, ao_zdip, new_coeff, mo_zdip)
  write(6,'(A)') 'Done update.'
 
- if(nif < 500) then
+ if(nif < 50) then
+  call serial2by2_cmplx(nbf, nif, new_coeff, mo_zdip)
+ else if(nif < 500) then
   call serial22berry(natom, nbf, nif, bfirst, dis, new_coeff, mo_zdip)
  else
   call para22berry(natom, nbf, nif, bfirst, dis, new_coeff, mo_zdip)
@@ -854,6 +857,102 @@ subroutine pm(natom, nbf, nif, bfirst, dis, coeff, ao_ovlp, popm, dis_tol, &
 end subroutine pm
 
 ! perform serial 2-by-2 rotation on given MOs
+subroutine serial2by2_cmplx(nbf, nif, coeff, mo_dipole)
+ use lo_info, only: npair, ijmap, max_niter, QPI, HPI, upd_thres, conv_thres
+ implicit none
+ integer :: i, j, k, m, niter
+ integer, intent(in) :: nbf, nif
+ real(kind=8) :: rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, sin_2a, &
+  cos_2a, tot_change, sum_change
+ real(kind=8), intent(inout) :: coeff(nbf,nif)
+ real(kind=8), allocatable :: tmp_mo(:)
+ real(kind=8), external :: cmplx_v3_square, cmplx_v3_dot_real
+ complex(kind=8) :: vtmp(3,3), vdiff(3)
+ complex(kind=8), allocatable :: dipole(:,:,:)
+ complex(kind=8), intent(inout) :: mo_dipole(3,nif,nif)
+
+ write(6,'(/,A)') 'Perform serial 2*2 rotation...'
+ allocate(dipole(3,nif,2), tmp_mo(nbf))
+ tot_change = 0d0; niter = 0
+
+ do while(niter <= max_niter)
+  sum_change = 0d0
+
+  do m = 1, npair, 1
+   i = ijmap(1,m); j = ijmap(2,m)
+   vtmp(:,1) = mo_dipole(:,i,i)
+   vtmp(:,2) = mo_dipole(:,j,i)
+   vtmp(:,3) = mo_dipole(:,j,j)
+   vdiff = vtmp(:,1) - vtmp(:,3)
+   Aij = cmplx_v3_square(vtmp(:,2)) - 0.25d0*cmplx_v3_square(vdiff)
+   Bij = cmplx_v3_dot_real(vdiff, vtmp(:,2))
+   rtmp = HYPOT(Aij, Bij)
+   sin_4a = Bij/rtmp
+   rtmp = rtmp + Aij
+   if(rtmp < upd_thres) cycle
+
+   sum_change = sum_change + rtmp
+   alpha = 0.25d0*DASIN(MAX(-1d0, MIN(sin_4a, 1d0)))
+   if(Aij > 0d0) then
+    alpha = QPI - alpha
+   else if(Aij<0d0 .and. Bij<0d0) then
+    alpha = HPI + alpha
+   end if
+   ! if alpha>PI/4, make an equivalent rotation so that these two orbital do
+   ! not change significantly
+   if(alpha > QPI) alpha = alpha - HPI
+   cos_a = DCOS(alpha); sin_a = DSIN(alpha)
+
+   ! update two orbitals
+!dir$ ivdep
+   tmp_mo = coeff(:,i)
+!dir$ ivdep
+   coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
+!dir$ ivdep
+   coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+
+   ! update corresponding dipole integrals, only indices in range to be updated
+   cc = cos_a*cos_a
+   ss = sin_a*sin_a
+   sin_2a = 2d0*sin_a*cos_a
+   cos_2a = cc - ss
+   dipole(:,i,1) = cc*vtmp(:,1) + ss*vtmp(:,3) + sin_2a*vtmp(:,2)
+   dipole(:,j,2) = ss*vtmp(:,1) + cc*vtmp(:,3) - sin_2a*vtmp(:,2)
+   dipole(:,j,1) = cos_2a*vtmp(:,2) - 0.5d0*sin_2a*vdiff
+   dipole(:,i,2) = dipole(:,j,1)
+
+   ! It seems that OpenMP makes this loop slower
+   do k = 1, nif, 1
+    if(k==i .or. k==j) cycle
+    dipole(:,k,1) = cos_a*mo_dipole(:,k,i) + sin_a*mo_dipole(:,k,j)
+    dipole(:,k,2) = cos_a*mo_dipole(:,k,j) - sin_a*mo_dipole(:,k,i)
+   end do ! for k
+
+   mo_dipole(:,:,i) = dipole(:,:,1)
+   mo_dipole(:,:,j) = dipole(:,:,2)
+   mo_dipole(:,i,:) = dipole(:,:,1)
+   mo_dipole(:,j,:) = dipole(:,:,2)
+  end do ! for m
+
+  tot_change = tot_change + sum_change
+  niter = niter + 1
+  write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
+  if(sum_change < conv_thres) exit
+ end do ! for while
+
+ deallocate(tmp_mo, dipole)
+ write(6,'(A,F20.7)') 'tot_change=', tot_change
+
+ if(niter <= max_niter) then
+  write(6,'(A)') 'Orbital localization converged successfully.'
+ else
+  write(6,'(/,A)') 'ERROR in subroutine serial2by2_cmplx: max_niter exceeded.'
+  write(6,'(A,I0)') 'max_niter=', max_niter
+  stop
+ end if
+end subroutine serial2by2_cmplx
+
+! perform serial 2-by-2 rotation on given MOs
 subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
  use lo_info, only: npair, ijmap, max_niter, QPI, HPI, upd_thres, conv_thres
  implicit none
@@ -869,8 +968,6 @@ subroutine serial2by2(nbf, nif, ncomp, coeff, mo_dipole)
  ! dipole: for Boys, store updated dipole integrals matrix
  !         for PM,   store updated population matrix
  ! tmp_mo: store one MO
- ! vtmp: array dipole(:,y,x)
- ! vdiff := vtmp(:,1) - vtmp(:,3)
 
  write(6,'(/,A)') 'Perform serial 2*2 rotation...'
  allocate(dipole(ncomp,nif,2), tmp_mo(nbf), vtmp(ncomp,3), vdiff(ncomp))
@@ -997,11 +1094,67 @@ subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
  end if
 end subroutine serial22berry
 
-! perform parallel Berry 2-by-2 Jacobi rotation on given MOs
+!! perform parallel Berry 2-by-2 Jacobi rotation on given MOs
+!subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
+! use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
+!  conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
+!  screen_jacobi_idx_by_dis, para22berry_kernel
+! implicit none
+! integer :: ncenter, niter
+! integer, intent(in) :: natom, nbf, nmo
+! integer, intent(in) :: bfirst(natom+1)
+! integer, allocatable :: mo_center(:,:)
+! real(kind=8) :: sum_change, tot_change
+! real(kind=8), intent(in) :: dis(natom,natom)
+! real(kind=8), intent(inout) :: coeff(nbf,nmo)
+! real(kind=8), allocatable :: mo_dis(:)
+! complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
+!
+! if(nmo < 4) then
+!  write(6,'(/,A)') 'ERROR in subroutine para22berry: nmo<4. Too few orbitals.'
+!  write(6,'(A,I0)') 'nmo=', nmo
+!  stop
+! end if
+!
+! write(6,'(/,A)') 'Perform parallel Berry 2*2 rotation...'
+! write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+!
+! np = (nmo+1)/2
+! nsweep = 2*np - 1
+! allocate(rrmap(2,np,nsweep))
+! call init_round_robin_idx(nmo, np, rrmap)
+!
+! ncenter = MIN(natom, max_ncenter)
+! allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+! tot_change = 0d0; niter = 0
+!
+! do while(niter <= max_niter)
+!  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
+!  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+!  call screen_jacobi_idx_by_dis(nmo, mo_dis)
+!  call para22berry_kernel(nbf, nmo, coeff, mo_zdip, sum_change)
+!  tot_change = tot_change + sum_change
+!  niter = niter + 1
+!  write(6,'(A,I3,A,F15.7)') 'niter=', niter, ', sum_change=', sum_change
+!  if(sum_change < conv_thres) exit
+! end do ! for while
+!
+! deallocate(mo_center, mo_dis, rrmap, rot_idx)
+! write(6,'(A,F20.7)') 'tot_change=', tot_change
+!
+! if(niter <= max_niter) then
+!  write(6,'(A)') 'Orbital localization converged successfully.'
+! else
+!  write(6,'(/,A)') 'ERROR in subroutine para22berry: max_niter exceeded.'
+!  write(6,'(A,I0)') 'max_niter=', max_niter
+!  stop
+! end if
+!end subroutine para22berry
+
 subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
  use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
   conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
-  init_round_robin_idx_with_dis, para22berry_kernel
+  screen_jacobi_idx_by_dis, para22berry_kernel
  implicit none
  integer :: ncenter, niter
  integer, intent(in) :: natom, nbf, nmo
@@ -1023,9 +1176,9 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
  write(6,'(A,F8.2)') 'dis_thres=', dis_thres
 
  np = (nmo+1)/2
- nsweep = 2*np - 1
+ nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
- call init_round_robin_idx(nmo, np, rrmap)
+ call init_ring_jacobi_idx(nmo, np, rrmap)
 
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
@@ -1034,7 +1187,7 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
  do while(niter <= max_niter)
   call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
   call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
-  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22berry_kernel(nbf, nmo, coeff, mo_zdip, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
@@ -1101,7 +1254,7 @@ end subroutine serial22boys
 subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
  use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
   conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
-  init_round_robin_idx_with_dis, para22boys_kernel
+  screen_jacobi_idx_by_dis, para22boys_kernel
  implicit none
  integer :: ncenter, niter
  integer, intent(in) :: natom, nbf, nmo
@@ -1122,9 +1275,9 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
  write(6,'(A,F8.2)') 'dis_thres=', dis_thres
 
  np = (nmo+1)/2
- nsweep = 2*np - 1
+ nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
- call init_round_robin_idx(nmo, np, rrmap)
+ call init_ring_jacobi_idx(nmo, np, rrmap)
 
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
@@ -1133,7 +1286,7 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
  do while(niter <= max_niter)
   call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
   call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
-  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22boys_kernel(nbf, nmo, coeff, mo_dip, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1
@@ -1199,7 +1352,7 @@ end subroutine serial22pm
 subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
  use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
   conv_thres, rrmap, rot_idx, get_mo_center_from_gross, atm_dis2mo_dis, &
-  init_round_robin_idx_with_dis, para22pm_kernel
+  screen_jacobi_idx_by_dis, para22pm_kernel
  implicit none
  integer :: ncenter, niter
  integer, intent(in) :: natom, nbf, nmo
@@ -1220,9 +1373,9 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
  write(6,'(A,F8.2)') 'dis_thres=', dis_thres
 
  np = (nmo+1)/2
- nsweep = 2*np - 1
+ nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
- call init_round_robin_idx(nmo, np, rrmap)
+ call init_ring_jacobi_idx(nmo, np, rrmap)
 
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
@@ -1231,7 +1384,7 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
  do while(niter <= max_niter)
   call get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
   call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
-  call init_round_robin_idx_with_dis(nmo, mo_dis)
+  call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22pm_kernel(nbf, nmo, natom, coeff, gross, sum_change)
   tot_change = tot_change + sum_change
   niter = niter + 1

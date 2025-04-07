@@ -129,16 +129,27 @@ subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  real(kind=8), intent(in), optional :: lat_vec(3,3)
+!f2py intent(in), optional :: lat_vec
  character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
  character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
 
  open(newunit=fid,file=TRIM(xyzname),status='replace')
  write(fid,'(I0)') natom
 
  if(present(lat_vec)) then
-  write(fid,'(A,9F8.3,A)') "Lattice=""", lat_vec, """"
+  if(SUM(DABS(lat_vec)) < 1d-6) then
+   write(fid,'(/)',advance='no')
+  else
+   write(fid,'(A,9F8.3,A)') "Lattice=""", lat_vec, """"
+  end if
  else
   write(fid,'(A)') 'produced by rwgeom of MOKIT'
  end if
@@ -361,6 +372,96 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
   end if
  end if
 end subroutine read_elem_and_coor_from_gjf
+
+! Wrap/move atoms into the reference cell by proper translation. This subroutine
+! can only be applied to cubic cell currently.
+subroutine pbc_wrap_atoms(xyzname, a)
+ use periodic_table, only: write_xyz
+ implicit none
+ integer :: i, j, k, natom
+ real(kind=8) :: r
+ real(kind=8), intent(in) :: a(3)
+!f2py intent(in) :: a
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: xyzname1
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+
+ if(ANY(a < 1d-4)) then
+  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms: wrong cell parameters.'
+  write(6,'(3F20.8)') a
+  stop
+ end if
+
+ call read_natom_from_xyz(xyzname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+
+ if(ANY(elem == 'Tv')) then
+  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms: elements in .xyz file i&
+                   &nclude cell parameters.'
+  write(6,'(A)') "Symbol 'Tv' detected. xyzname="//TRIM(xyzname)
+  deallocate(elem, coor)
+  stop
+ end if
+
+ do i = 1, 3
+  coor(i,:) = coor(i,:)/a(i)
+ end do ! for i
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,r)
+ do k = 1, 3*natom, 1
+  i = k/3
+  if(k == i*3) then
+   j = 3
+  else
+   j = k - i*3
+   i = i + 1
+  end if
+  r = coor(j,i)
+  if(r < 0d0) then
+   r = r + CEILING(-r)
+  else if(r > 1d0) then
+   r = r - FLOOR(r)
+  end if
+  coor(j,i) = r
+ end do ! for k
+!$omp end parallel do
+
+ do i = 1, 3
+  coor(i,:) = coor(i,:)*a(i)
+ end do ! for i
+
+ call find_specified_suffix(xyzname, '.xyz', i)
+ xyzname1 = xyzname(1:i-1)//'_new.xyz'
+ call write_xyz(natom, elem, coor, xyzname1)
+ deallocate(elem, coor)
+end subroutine pbc_wrap_atoms
+
+subroutine compare_dummy_atoms_in_xyz(xyzname1, xyzname2)
+ implicit none
+ integer :: natom
+ real(kind=8), allocatable :: coor1(:,:), coor2(:,:), diffm(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: xyzname1, xyzname2
+!f2py intent(in) :: xyzname1, xyzname2
+
+ call read_natom_from_xyz(xyzname1, natom)
+ allocate(elem(natom), coor1(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname1, natom, elem, coor1)
+
+ allocate(coor2(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname2, natom, elem, coor2)
+ deallocate(elem)
+
+ allocate(diffm(natom,natom))
+ call calc_coor_diff_mat(natom, coor1, coor2, diffm)
+ write(6,'(A,I0)') 'No. <1e-3: ', COUNT(diffm < 1d-3)
+ write(6,'(A,I0)') 'No. <0.01: ', COUNT(diffm < 1d-2)
+ write(6,'(A,I0)') 'No. <0.03: ', COUNT(diffm < 3d-2)
+ write(6,'(A,I0)') 'No. <0.05: ', COUNT(diffm < 5d-2)
+end subroutine compare_dummy_atoms_in_xyz
 
 ! read charge, spin multiplicities and atom2frag from a given .gjf file
 subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_mult)
@@ -1124,7 +1225,7 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
  write(fid,'(A)') '%chk='//TRIM(chkname)
- write(fid,'(A)') '%nprocshared=4'
+ write(fid,'(A)') '%nprocshared=1'
  write(fid,'(A)') '%mem=2GB'
  write(fid,'(A,//,A,//,I0,1X,I0)') '#p B3LYP/6-31G(d,p) em=GD3BJ nosymm', &
                                    'Title', charge, mult
@@ -1684,20 +1785,35 @@ end subroutine gjf2other
 subroutine xyz2gjf(xyzname)
  implicit none
  integer :: i, natom, charge, mult
+ real(kind=8) :: lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: gjfname
  character(len=240), intent(in) :: xyzname
 !f2py intent(in) :: xyzname
+ logical :: pbc
+ logical, external :: check_pbc_in_xyz
 
  call find_specified_suffix(xyzname, '.xyz', i)
  gjfname = xyzname(1:i-1)//'.gjf'
  charge = 0; mult = 1  ! initialization
 
  call read_natom_from_xyz(xyzname, natom)
- allocate(elem(natom), coor(3,natom))
- call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
- call write_gjf(gjfname, charge, mult, natom, elem, coor)
+ pbc = check_pbc_in_xyz(xyzname)
+
+ if(pbc) then
+  call read_lat_vec_from_xyz(xyzname, lat_vec)
+  allocate(elem(natom+3), coor(3,natom+3))
+  call read_elem_and_coor_from_xyz(xyzname, natom, elem(1:natom), coor(:,1:natom))
+  elem(natom+1:natom+3) = 'Tv'
+  coor(:,natom+1:natom+3) = lat_vec
+  call write_gjf(gjfname, charge, mult, natom+3, elem, coor)
+ else
+  allocate(elem(natom), coor(3,natom))
+  call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+  call write_gjf(gjfname, charge, mult, natom, elem, coor)
+ end if
+
  deallocate(elem, coor)
 end subroutine xyz2gjf
 

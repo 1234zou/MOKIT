@@ -417,34 +417,77 @@ subroutine get_triu_idx1(n, map)
  end if
 end subroutine get_triu_idx1
 
-! generate the round robin ordering (DOI: 10.1109/EMPDP.1995.389182)
-subroutine init_round_robin_idx(n, np, map)
- implicit none
- integer :: i, j, k
- integer, intent(in) :: n, np
- integer, intent(out) :: map(2,np,2*np-1)
+!! generate the round robin ordering (DOI: 10.1109/EMPDP.1995.389182)
+!subroutine init_round_robin_idx(n, np, map)
+! implicit none
+! integer :: i, j, k
+! integer, intent(in) :: n, np
+! integer, intent(out) :: map(2,np,2*np-1)
+!
+! forall(i = 1:np) map(:,i,1) = [2*i, 2*i-1]
+! if(MOD(n,2) == 1) then
+!  map(1,np,:) = 0
+! else
+!  map(1,np,:) = n
+! end if
+! k = 2*np - 1
+!
+! do i = 2, k, 1
+!  do j = 1, np-2, 1
+!   map(1,j,i) = map(1,j+1,i-1)
+!  end do ! for j
+!
+!  map(1,np-1,i) = map(2,np,i-1)
+!  map(2,1,i) = map(1,1,i-1)
+!
+!  do j = 2, np, 1
+!   map(2,j,i) = map(2,j-1,i-1)
+!  end do ! for j
+! end do ! for i
+!end subroutine init_round_robin_idx
 
- forall(i = 1:np) map(:,i,1) = [2*i, 2*i-1]
+! Generate the ring Jacobi ordering (DOI: 10.1109/EMPDP.1995.389182). This
+! map array leads to more effective Jacobi rotations according to jxzou's test.
+subroutine init_ring_jacobi_idx(n, np, map)
+ implicit none
+ integer :: i, j, k, m, dnp
+ integer, intent(in) :: n, np
+ integer, intent(out) :: map(2,np,4*np-2)
+
+ dnp = 2*np
+
+!$omp parallel do schedule(static) default(shared) private(i,j,k)
+ do i = 1, np, 1
+  j = 2*i
+  k = dnp - j + 1
+  map(:,i,1) = [k, k+1]
+  map(:,i,dnp) = [j, j-1]
+ end do ! for i
+!$omp end parallel do
+
  if(MOD(n,2) == 1) then
-  map(1,np,:) = 0
- else
-  map(1,np,:) = n
+  map(2,1,1) = 0
+  map(1,np,dnp) = 0
  end if
  k = 2*np - 1
 
- do i = 2, k, 1
-  do j = 1, np-2, 1
-   map(1,j,i) = map(1,j+1,i-1)
-  end do ! for j
-
-  map(1,np-1,i) = map(2,np,i-1)
-  map(2,1,i) = map(1,1,i-1)
-
-  do j = 2, np, 1
-   map(2,j,i) = map(2,j-1,i-1)
-  end do ! for j
+!$omp parallel sections private(i,m)
+!$omp section
+ do i = 1, k-1, 1
+  map(:,:,i+1) = map(:,:,i)
+  m = (i+1)/2
+  map(:,m,i+1) = [map(2,m,i), map(1,m,i)]
+  map(2,:,i+1) = CSHIFT(map(2,:,i+1), -1)
  end do ! for i
-end subroutine init_round_robin_idx
+!$omp section
+ do i = dnp, 2*k-1, 1
+  map(:,:,i+1) = map(:,:,i)
+  m = np - (i-dnp)/2
+  map(:,m,i+1) = [map(2,m,i), map(1,m,i)]
+  map(1,:,i+1) = CSHIFT(map(1,:,i+1), 1)
+ end do ! for i
+!$omp end parallel sections
+end subroutine init_ring_jacobi_idx
 
 ! Diagonalize a real symmetric matrix and get all eigenvalues and eigenvectors.
 ! A = Ua(U^T). Eigenvectors U will be stored in the square matrix a, and eigenvalues
@@ -631,6 +674,37 @@ subroutine calc_usut_diag_elem(n, s, u, d)
  call dgemv('N', n, n, 1d0, u2, n, s, 1, 0d0, d, 1)
  deallocate(u2)
 end subroutine calc_usut_diag_elem
+
+! calculate the difference matrix of two sets of coordinates
+subroutine calc_coor_diff_mat(n, coor1, coor2, mat)
+ implicit none
+ integer :: i, j, k, m, n2
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ real(kind=8) :: v(3)
+ real(kind=8), intent(in) :: coor1(3,n), coor2(3,n)
+!f2py intent(in) :: coor1, coor2
+!f2py depend(n) :: coor1, coor2
+ real(kind=8), intent(out) :: mat(n,n)
+!f2py intent(out) :: mat
+!f2py depend(n) :: mat
+
+ n2 = n*n
+
+ !$omp parallel do schedule(static) default(shared) private(i,j,k,m,v)
+ do k = 1, n2, 1
+  m = k/n
+  if(k == n*m) then
+   i = m
+  else
+   i = m + 1
+  end if
+  j = k - (i-1)*n
+  v = coor1(:,j) - coor2(:,i)
+  mat(j,i) = DSQRT(DOT_PRODUCT(v,v))
+ end do ! for k
+ !$omp end parallel do
+end subroutine calc_coor_diff_mat
 
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
 ! Note: the input matrix A must be symmetric
@@ -922,15 +996,39 @@ function calc_CiTSCi(nbf, C, S) result(res)
  deallocate(SC)
 end function calc_CiTSCi
 
+! symmetrize a double precision matrix
+subroutine symmetrize_dmat(n, a)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8), intent(inout) :: a(n,n)
+
+ if(n == 1) return
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, n, 1
+  do j = 1, i-1, 1
+   a(j,i) = a(i,j)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+end subroutine symmetrize_dmat
+
 ! calculate C(C^T)
 subroutine calc_cct(nbf, nif, occ_mo, cct)
  implicit none
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(in) :: occ_mo(nbf,nif)
+!f2py intent(in) :: occ_mo
+!f2py depend(nbf,nif) :: occ_mo
  real(kind=8), intent(out) :: cct(nbf,nbf)
+!f2py intent(out) :: cct
+!f2py depend(nbf) :: cct
 
  cct = 0d0
- call dgemm('N','T', nbf,nbf,nif, 1d0,occ_mo,nbf, occ_mo,nbf, 0d0,cct,nbf)
+ call dsyrk('L', 'N', nbf, nif, 1d0, occ_mo, nbf, 0d0, cct, nbf)
+ call symmetrize_dmat(nbf, cct)
 end subroutine calc_cct
 
 ! normalize an MO
@@ -1192,26 +1290,26 @@ subroutine update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
 
  allocate(tmp_g(natom))
 
- !$omp parallel sections private(k,tmp_g)
- !$omp section
+!$omp parallel sections private(k,tmp_g)
+!$omp section
  do k = 1, i-1, 1
   tmp_g = gross(:,i,k)
   gross(:,i,k) = cos_a*tmp_g + sin_a*gross(:,j,k)
   gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
  end do ! for k
- !$omp section
+!$omp section
  do k = i+1, j-1, 1
   tmp_g = gross(:,k,i)
   gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,j,k)
   gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
  end do ! for k
- !$omp section
+!$omp section
  do k = j+1, nmo, 1
   tmp_g = gross(:,k,i)
   gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,k,j)
   gross(:,k,j) = cos_a*gross(:,k,j) - sin_a*tmp_g
  end do ! for k
- !$omp end parallel sections
+!$omp end parallel sections
 
  deallocate(tmp_g)
 end subroutine update_up_tri_ij_gross
@@ -1526,6 +1624,8 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
 !f2py depend(nbf) :: dm
  real(kind=8), allocatable :: r(:)
 
+ ! There is no need to initialize values in dm since each element in this
+ ! array will be assigned a value below.
  allocate(r(nif))
 
 !$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,noon,mo,dm)
@@ -1678,17 +1778,6 @@ subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
  ! FC = X -> (C^T)(F^T) = X^T, (F^T) = F
  call solve_multi_lin_eqs(nif, nbf, TRANSPOSE(C), nif, TRANSPOSE(FC), F)
 end subroutine solve_fock_from_ctfc
-
-! symmetrize a double precision matrix
-subroutine symmetrize_dmat(n, a)
- implicit none
- integer :: i, j
- integer, intent(in) :: n
- real(kind=8), intent(inout) :: a(n,n)
-
- if(n == 1) return
- forall(i=1:n-1, j=1:n, j>i) a(i,j) = a(j,i)
-end subroutine symmetrize_dmat
 
 ! construct partial/all virtual orbitals using the PAO (projected atomic orbitals)
 subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_mo)

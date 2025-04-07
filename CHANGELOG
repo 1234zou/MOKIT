@@ -1,6 +1,7 @@
-MOKIT 1.2.7 (Mar 18, 2025)
+MOKIT 1.2.7 (Apr 7, 2025)
 ------------------------
 Fixes
+* fix bug of uninitialized den array when calculating densities in py2fch.f90
 * fix bug of reading PySCF UCCSD(T) and RI-RCCSD(T) energy
 * fix the npair<=0 case in get_npair_and_ovidx
 * support basis set linear dependency in fch2dal
@@ -10,7 +11,9 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
-* allow arbitrary number of active electrons/orbitals for post-CAS
+* add utility fch2mrcc for Gaussian -> MRCC
+* add `ions_centers` option to loc() and pbc_loc()
+* allow arbitrary number of active electrons/orbitals for SS-CAS, SA-CAS, and post-CAS
 * ist=7 for UHF -> SUHF NO -> (associated rotation ->) CASCI/CASSCF -> ...
 * load a cell object using load_cell_from_fch
 * support automatic SS-DMRG-CASSCF orbital optimization by calling PySCF+Block
@@ -25,6 +28,8 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* add output of active space size for post-CAS calculations
+* add MRCC support in add_bgcharge_to_inp
 * replace RIJK by RICD when invoking RI in OpenMolcas
 * add `-sfcis` and `-sasfcis` arguments for fch2qchem
 * add `-sfcis` and `-novec` arguments for fch2inp
@@ -34,6 +39,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* remove some basis reordering subroutines which have identical funtionalities to others
 * replace calc_dis_mat_from_coor by BOHR2ANG*gto.inter_distance for isolated molecules
 * merge subroutines sym_ortho and can_ortho into gen_ortho_mo
 * mv original subroutine orb_resemble into orb_resemble_iter

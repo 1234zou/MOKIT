@@ -649,27 +649,6 @@ subroutine modify_uno_out(uno_out, ndb, npair, nopen)
  close(fid)
 end subroutine modify_uno_out
 
-! print the Cartesian coordinates of LMO/MLWF centers
-subroutine prt_mo_center2xyz(nmo, coor, xyzname)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nmo
-!f2py intent(in) :: nmo
- real(kind=8), intent(in) :: coor(3,nmo)
-!f2py intent(in) :: coor
-!f2py depend(nmo) :: coor
- character(len=240), intent(in) :: xyzname
-!f2py intent(in) :: xyzname
-
- open(newunit=fid,file=TRIM(xyzname),status='replace')
- write(fid,'(I0,/)') nmo
-
- do i = 1, nmo, 1
-  write(fid,'(A,3(1X,F18.8))') 'X', coor(:,i)
- end do ! for i
- close(fid)
-end subroutine prt_mo_center2xyz
-
 ! Note: the parameter mem must be provided in unit MB.
 subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
                            numfreq)

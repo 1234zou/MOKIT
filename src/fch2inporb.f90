@@ -136,8 +136,8 @@ subroutine fch2inporb(fchname, prt_no, sph)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/Car&
-                 &tesian functions detected.'
+  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/Ca&
+                   &rtesian functions detected.'
   write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
                  & default setting is (6D,7F).'
   write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
@@ -175,8 +175,8 @@ subroutine fch2inporb(fchname, prt_no, sph)
   allocate(norm(nbf), source=1d0)
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
-  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-                               f_mark, g_mark, h_mark, nbf, idx, norm)
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
+                           d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
   forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
   deallocate(norm)
  end if
@@ -234,7 +234,7 @@ subroutine fch2inporb(fchname, prt_no, sph)
 ! move done
 
 ! print MOs into INPORB
- i = SCAN(fchname, '.', BACK=.TRUE.)
+ i = SCAN(fchname, '.', BACK=.true.)
  orbfile = fchname(1:i-1)//'.INPORB'
  open(newunit=orbid,file=TRIM(orbfile),status='replace')
 
@@ -329,8 +329,8 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
-                 & shell_type is 0 or -1. Impossible.'
+  write(6,'(/,A)') 'ERROR in subroutine zeta_mv_forwd: this element of shell_ty&
+                   &pe is 0 or -1.'
   write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if

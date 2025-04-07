@@ -1771,7 +1771,7 @@ subroutine get_atom_map_idx_from_coor(natom, coor1, coor2, idx)
  integer, intent(in) :: natom
  integer, intent(out) :: idx(natom)
  real(kind=8) :: norm, rtmp1(3), rtmp2(3)
- real(kind=8), parameter :: thres = 1d-5
+ real(kind=8), parameter :: thres = 1d-4
  real(kind=8), intent(in) :: coor1(3,natom), coor2(3,natom)
  logical, allocatable :: used1(:), used2(:)
 

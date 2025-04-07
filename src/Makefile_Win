@@ -57,6 +57,9 @@ OBJ_fch2inp = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
               split_sp.obj fch2inp.obj
 OBJ_fch2inporb = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                  util_wrapper.obj read_fch.obj split_sp.obj fch2inporb.obj
+OBJ_fch2mrcc = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
+               read_natom.obj read_fch.obj read_mkl.obj read_gms_inp.obj \
+               split_sp.obj fch2mrcc.obj
 OBJ_fch2psi = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj read_natom.obj read_gms_inp.obj \
               fch2psi.obj
@@ -116,8 +119,8 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 .PHONY: clean distclean addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf \
         bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl \
         chk2gbw dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com \
-        fch2dal fch2mkl fch2inp fch2inporb fch2psi fch2qchem fch2qm4d fch2tm \
-        fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
+        fch2dal fch2mkl fch2inp fch2inporb fch2mrcc fch2psi fch2qchem fch2qm4d \
+        fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
         gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
         mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
         solve_ON_matrix
@@ -135,6 +138,7 @@ help:
 	@echo  fch2inp   : generate fch2inp    (Gau-^>GAMESS)
 	@echo  fch2inporb: generate fch2inporb (Gau-^>OpenMolcas)
 	@echo  fch2mkl   : generate fch2mkl    (Gau-^>ORCA)
+	@echo  fch2mrcc  : generate fch2mrcc   (Gau-^>MRCC)
 	@echo  fch2psi   : generate fch2psi    (Gau-^>PSI4)
 	@echo  fch2qchem : generate fch2qchem  (Gau-^>Q-Chem)
 	@echo  fch2tm    : generate fch2tm     (Gau-^>Turbomole)
@@ -220,6 +224,9 @@ fch2inp: $(OBJ_fch2inp)
 fch2inporb: $(OBJ_fch2inporb)
 	$(F90) $(OBJ_fch2inporb) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2inporb
 	@echo fch2inporb requires utilities fch2inp and bas_gms2molcas, please also compile them
+
+fch2mrcc: $(OBJ_fch2mrcc)
+	$(F90) $(OBJ_fch2mrcc) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2mrcc
 
 fch2psi: $(OBJ_fch2psi)
 	$(F90) $(OBJ_fch2psi) $(FFLAGS) $(LFLAGS) -o $(BIN)\fch2psi
@@ -309,9 +316,9 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 all: addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal \
      bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch \
      dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl \
-     fch2inp fch2inporb fch2psi fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy \
-     fch2wfn frag_guess_wfn gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf \
-     mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi \
+     fch2inp fch2inporb fch2mrcc fch2psi fch2qchem fch2qm4d fch2tm fch_u2r \
+     fch_mo_copy fch2wfn frag_guess_wfn gvb_exclude_XH gvb_sort_pairs mkl2amo \
+     mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi \
      mkl2py mkl2qchem molden2fch orb2fch xml2fch solve_ON_matrix
 
 clean:

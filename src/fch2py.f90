@@ -159,8 +159,8 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine fch2py: missing the 'Shell to atom map'&
-                & section in .fch file!"
+  write(6,'(/,A)') "ERROR in subroutine fch2py: missing the 'Shell to atom map'&
+                   & section in file"
   write(6,'(A)') TRIM(fchname)
   close(fchid)
   stop
@@ -260,7 +260,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
    h_mark(n21hmark) = nbf0 + 1
    nbf0 = nbf0 + 21
   case default
-   write(6,'(A)') 'ERROR in subroutine fch2py: shell_type(i) out of range.'
+   write(6,'(/,A)') 'ERROR in subroutine fch2py: shell_type(i) out of range.'
    write(6,'(A,3I4)') 'k, i, shell_type(i)=', k, i, shell_type(i)
    stop
   end select

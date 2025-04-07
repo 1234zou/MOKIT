@@ -84,8 +84,8 @@ subroutine molecp2fch(fchname, uhf, nbf_in, nif_in, na_in, nb_in, ncontr_in, &
 
  call write_fch(fchname)
 
- deallocate(coor, shell_type, prim_per_shell, shell2atom_map, prim_exp, &
-            contr_coeff)
+ deallocate(iatom_type, coor, shell_type, prim_per_shell, shell2atom_map, &
+            prim_exp, contr_coeff)
  if(LenNCZ > 0) then
   deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
   if(allocated(CLP2)) deallocate(CLP2)
@@ -344,7 +344,6 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
    stop
   end if
 
-  allocate(den(nbf,nbf))
   if(natorb) then ! some kind of natural orbitals
    allocate(norm(nif), source=ev)
   else            ! not natural orbitals
@@ -360,18 +359,12 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
    write(6,'(A)') REPEAT('-',79)
   end if
 
-  ! only den(j,i) j<=i will be assigned values
-  do i = 1, nbf, 1
-   do j = 1, i, 1
-    do k = 1, nif, 1
-     if(DABS(norm(k)) < 1d-8) cycle
-     den(j,i) = den(j,i) + norm(k)*coeff3(j,k)*coeff3(i,k)
-    end do ! for k
-   end do ! for j
-  end do ! for i
-  deallocate(norm)
+  ! There is no need to initialize den currently, since each element of den will
+  ! be assigned a value in subroutine calc_dm_using_mo_and_on().
+  allocate(den(nbf,nbf))
+  call calc_dm_using_mo_and_on(nbf, nif, coeff3, norm, den)
   write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
-  deallocate(den)
+  deallocate(den, norm)
 
   do while(.true.) ! skip density in the original .fch(k) file
    read(fid,'(A)',iostat=i) buf

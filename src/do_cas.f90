@@ -697,12 +697,16 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nacto, nacte
+ character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: scf, force
 
+ call find_specified_suffix(gjfname, '.gjf', i)
  i = INDEX(gjfname, '.gjf', back=.true.)
+ chkname = gjfname(1:i-1)//'.chk'
+
  open(newunit=fid,file=TRIM(gjfname),status='replace')
- write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
+ write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
  write(fid,'(2(A,I0))',advance='no') '#p CASSCF(',nacte,',',nacto
@@ -724,7 +728,7 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
  end if
 
  write(fid,'(/,A)') '--Link1--'
- write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
+ write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
  write(fid,'(A)',advance='no') '#p chkbasis nosymm guess(read,only,save,&

@@ -1,4 +1,10 @@
 # Transfer MOs from PySCF to ORCA
+# Note: the Bohr constant is different between PySCF/MOKIT v.s. ORCA, so the
+# difference of the nuclear repulsion energy may be as large as 1e-5 ~ 1e-6 a.u.
+# which is usually larger than the difference of electronic energies. If you
+# observe a 1e-5 ~ 1e-6 a.u. total energy difference between PySCF/ORCA, it is
+# likely due to the Bohr constant. You can find the nuclear repulsion energy
+# both in PySCF and ORCA output file, and make a comparison.
 
 def py2orca(mf, inpname):
     from mokit.lib.py2fch_direct import fchk

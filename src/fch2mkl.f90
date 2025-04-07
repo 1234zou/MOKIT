@@ -213,7 +213,7 @@ subroutine fch2mkl(fchname, itype, dftname)
 
  write(fid1,'(A)') '$COORD'
  do i = 1, natom, 1
-  write(fid1,'(I3,1X,3F15.8)') ielem(i), (coor(j,i), j=1,3)
+  write(fid1,'(I3,1X,3F17.9)') ielem(i), (coor(j,i), j=1,3)
  end do ! for i
  write(fid1,'(A,/)') '$END'
 
@@ -389,7 +389,7 @@ subroutine fch2mkl(fchname, itype, dftname)
   write(fid2,'(A,I0,1X,I0)') '* xyz ', charge, mult
   do i = 1, natom, 1
    if(iatom_type(i) == 1000) str = ':'
-   write(fid2,'(A,3(1X,F16.8))') TRIM(elem(i))//str, coor(:,i)
+   write(fid2,'(A,3(1X,F17.9))') TRIM(elem(i))//str, coor(:,i)
   end do ! for i
   write(fid2,'(A)') '*'
   if(ecp) deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, ZLP)
@@ -407,7 +407,7 @@ subroutine fch2mkl(fchname, itype, dftname)
    if(m == 1) then
     if(i == 1) then
      if(iatom_type(1) == 1000) str = ':'
-     write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(1))//str, coor(:,1)
+     write(fid2,'(1X,A,3(1X,F17.9))') TRIM(elem(1))//str, coor(:,1)
      if(ielem(1)>36 .and. ielem(1)<87) write(fid2,'(2X,A)') 'DelECP'
      write(fid2,'(2X,A)') 'NewGTO'
     end if
@@ -439,7 +439,7 @@ subroutine fch2mkl(fchname, itype, dftname)
      ! print coordinates of the current atom
      str = ' '
      if(iatom_type(m) == 1000) str = ':'
-     write(fid2,'(1X,A,3(1X,F16.8))') TRIM(elem(m))//str, coor(:,m)
+     write(fid2,'(1X,A,3(1X,F17.9))') TRIM(elem(m))//str, coor(:,m)
      if(ielem(m)>36 .and. ielem(m)<87) write(fid2,'(2X,A)') 'DelECP'
      write(fid2,'(2X,A)') 'NewGTO'
     end if
@@ -472,7 +472,7 @@ subroutine fch2mkl(fchname, itype, dftname)
   k = shell2atom_map(ncontr)
   if(k < natom) then
    do i = k+1, natom, 1
-    write(fid2,'(1X,A2,3(1X,F16.8))') 'H:', coor(:,i)
+    write(fid2,'(1X,A2,3(1X,F17.9))') 'H:', coor(:,i)
     write(fid2,'(2X,A)') 'NewGTO S 1 1 1e6 1 end'
    end do ! for i
   end if

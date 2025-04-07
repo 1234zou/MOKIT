@@ -2,8 +2,8 @@
 
 ! perform SA-CASSCF calculations
 subroutine do_sa_cas()
- use mol, only: nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, npair, &
-  npair0, sa_cas_e, ci_ssquare, fosc
+ use mol, only: mult, nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, sa_cas_e,&
+  ci_ssquare, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
   dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, &
   nstate, nevpt2, on_thres, orca_path, molcas_omp
@@ -15,6 +15,8 @@ subroutine do_sa_cas()
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: inpname, outname
+ logical, external :: compare_as_size
+ logical :: alive1, alive2, beyond_cas
 
  if(.not. excited) return
 
@@ -24,40 +26,53 @@ subroutine do_sa_cas()
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
   call read_no_info_from_fch(hf_fch, on_thres, nbf, nif, ndb, nopen, nacta, &
                              nactb, nacto, nacte)
-  npair0 = nactb; npair = npair0
+ end if
 
-  ! if the user has specified the active space size, overwrite
-  if(nacto_wish>0 .and. nacte_wish>0) then
-   nacto = nacto_wish
-   nacte = nacte_wish
-   nacta = (nacte + nopen)/2
-   nactb = (nacte - nopen)/2
+ ! check whether the user has specified the active space size
+ alive1 = (nacte_wish>0 .and. nacte_wish/=nacte)
+ alive2 = (nacto_wish>0 .and. nacto_wish/=nacto)
+
+ if(alive1 .or. alive2) then
+  write(6,'(4(A,I0),A)') 'Warning: SA-CAS(',nacte,'e,',nacto,'o) recommended, &
+   &but you specify SA-CAS(',nacte_wish,'e,',nacto_wish,'o). Trying to fulfill...'
+ 
+  ! check the odevity of nacte_wish, in case that the user requires nonsense
+  ! number of active electrons
+  if(MOD(nacte_wish-nopen,2) /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: wrong active space specified.'
+   write(6,'(3(A,I0),A)') 'Nopen=',nopen,'. Incompatible with SA-CAS(',nacte_wish,&
+                          'e,',nacto_wish,'o)'
+   stop
   end if
+
+  call prt_active_space_warn(nacte_wish, nacto_wish, nacte, nacto)
+  ndb = ndb - (nacte_wish - nacte)/2
+  nactb = (nacte_wish - nopen)/2
+  nacta = nacte_wish - nactb
+  nacto = nacto_wish; nacte = nacte_wish
+  write(6,'(A)') 'OK, fulfilled.'
  end if
 
- if(nacto*nacte == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: nacto*nacte is 0.'
-  write(6,'(A)') 'Some variables have not been initialized.'
-  stop
- end if
- if(nacto /= nacte) then
-  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: nacto/=nacte not supported.'
+ if(nacto==0 .or. nacte==0) then
+  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: some variables have not been&
+                   & initialized correctly.'
+  write(6,'(2(A,I0))') 'nacte=', nacte, ', nacto=', nacto
   stop
  end if
 
- casscf = .true.
- if(nacto > 15) then
+ beyond_cas = compare_as_size(nacto,nacte,mult, 15,15,2)
+ if(beyond_cas) then
   casscf = .false.
   dmrgscf = .true.
- end if
-
- if(casscf) then
-  data_string = 'SA-CASSCF'
-  cas_prog = casscf_prog
- else
   data_string = 'SA-DMRG-CASSCF'
   cas_prog = dmrgscf_prog
+ else
+  casscf = .true.
+  dmrgscf = .false.
+  data_string = 'SA-CASSCF'
+  cas_prog = casscf_prog
  end if
+
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
                           'o) using program '//TRIM(cas_prog)
 
@@ -277,7 +292,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
   ss = DBLE(nacta - nactb)*0.5d0
   ss = ss*(ss + 1d0)
-  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+  if(.not. (mixed_spin .or. crazywfn)) then
+   write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+  end if
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel()'
@@ -320,7 +337,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
 
  if(.not. dmrgscf) then
   call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
-  if(.not. mixed_spin) write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+  if(.not. (mixed_spin .or. crazywfn)) then
+   write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+  end if
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel(mo)'
@@ -438,6 +457,7 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
 
  open(newunit=fid,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname),status='replace')
+
  write(fid1,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid1,'(A,I0)') '%maxcore ', CEILING(1000d0*DBLE(mem)/DBLE(nproc))
  write(fid1,'(A)',advance='no') '! CASSCF'
@@ -516,21 +536,21 @@ end subroutine prt_sacas_orca_inp
 ! print SA-CASSCF input file of GAMESS
 subroutine prt_sacas_gms_inp(inpname, hf_fch)
  use util_wrapper, only: fch2inp_wrap
- use mol, only: ndb, npair, npair0, nacto, nacte, charge, mult
+ use mol, only: ndb, nacto, nacte, charge, mult
  use mr_keyword, only: mem, nproc, hardwfn, crazywfn, dkh2_or_x2c, cart, &
   mixed_spin, nstate
  implicit none
- integer :: i, ncore, fid1, fid2, RENAME
+ integer :: i, fid1, fid2, RENAME
  real(kind=8), allocatable :: weight(:)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname, hf_fch
 
- ncore = ndb + npair - npair0
  call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
  i = INDEX(hf_fch, '.fch', back=.true.)
  inpname1 = hf_fch(1:i-1)//'.inp'
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  inpname1 = TRIM(inpname)//'.t'
+
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
@@ -547,7 +567,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',CEILING(DBLE(mem*125)/DBLE(nproc)),&
                         ' $END'
  write(fid2,'(A)',advance='no') ' $DET'
- write(fid2,'(3(A,I0),A)',advance='no') ' NCORE=',ncore,' NELS=',nacte,' NACT=',&
+ write(fid2,'(3(A,I0),A)',advance='no') ' NCORE=',ndb,' NELS=',nacte,' NACT=',&
                                         nacto,' ITERMX=500'
  if(mixed_spin) write(fid2,'(A)',advance='no') ' PURES=.FALSE.'
  write(fid2,'(A)',advance='no') ' NSTATE='

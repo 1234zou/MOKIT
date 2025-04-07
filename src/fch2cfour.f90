@@ -4,118 +4,6 @@
 ! currently the generated internal coordinates and basis function order are
 ! correct, but need to use the rotated coordinates in CFOUR
 
-module basis_data ! to store basis set data for an atom
- implicit none
- integer :: ncol(0:7), nline(0:7)
-
- type :: one_momentum
-  real(kind=8), allocatable :: prim_exp(:) ! size nline(i)
-  real(kind=8), allocatable :: coeff(:,:)  ! size (ncol(i),nline(i))
- end type one_momentum
-
- type(one_momentum) :: bas4atom(0:7) ! SPDFGHIJ
-
-contains
-
-! enlarge the arrays prim_exp and/or coeff in type bas4atom
-subroutine enlarge_bas4atom(j, k, prim_exp, contr_coeff, enlarge_exp)
- implicit none
- integer :: p, q
- integer, intent(in) :: j, k
- real(kind=8), intent(in) :: prim_exp(k), contr_coeff(k)
- real(kind=8), allocatable :: r1(:), r2(:,:)
- logical, intent(in) :: enlarge_exp
-
- p = ncol(j); q = nline(j)
-
- if(enlarge_exp)then
-  if(allocated(bas4atom(j)%prim_exp)) then
-   allocate(r1(q-k), source=bas4atom(j)%prim_exp)
-   deallocate(bas4atom(j)%prim_exp)
-   allocate(bas4atom(j)%prim_exp(q))
-   bas4atom(j)%prim_exp(1:q-k) = r1
-   deallocate(r1)
-   bas4atom(j)%prim_exp(q-k+1:q) = prim_exp
-  else
-   allocate(bas4atom(j)%prim_exp(k), source=prim_exp)
-  end if
-
-  if(allocated(bas4atom(j)%coeff)) then
-   allocate(r2(p-1,q-k), source=bas4atom(j)%coeff)
-   deallocate(bas4atom(j)%coeff)
-   allocate(bas4atom(j)%coeff(p,q), source=0d0)
-   bas4atom(j)%coeff(1:p-1,1:q-k) = r2
-   deallocate(r2)
-   bas4atom(j)%coeff(p,q-k+1:q) = contr_coeff
-  else
-   allocate(bas4atom(j)%coeff(1,k))
-   bas4atom(j)%coeff(1,:) = contr_coeff
-  end if
-
- else
-  allocate(r2(p-1,q), source=bas4atom(j)%coeff)
-  deallocate(bas4atom(j)%coeff)
-  allocate(bas4atom(j)%coeff(p,q), source=0d0)
-  bas4atom(j)%coeff(1:p-1,:) = r2
-  deallocate(r2)
-  bas4atom(j)%coeff(p,:) = contr_coeff
- end if
-end subroutine enlarge_bas4atom
-
-! enlarge the arrays prim_exp and/or coeff in type bas4atom, only for L or SP,
-! i.e. Pople-type basis set
-subroutine enlarge_bas4atom_sp(k, prim_exp, contr_coeff, contr_coeff_sp)
- implicit none
- integer :: i, p(0:1), q(0:1)
- integer, intent(in) :: k
- real(kind=8), intent(in) :: prim_exp(k), contr_coeff(k), contr_coeff_sp(k)
- real(kind=8), allocatable :: r1(:), r2(:,:), coeff(:,:)
-
- allocate(coeff(k,0:1))
- coeff(:,0) = contr_coeff; coeff(:,1) = contr_coeff_sp
- p = ncol(0:1); q = nline(0:1)
-
- do i = 0, 1 ! 0/1 for S/P, respectively
-  if(allocated(bas4atom(i)%prim_exp)) then
-   allocate(r1(q(i)-k), source=bas4atom(i)%prim_exp)
-   deallocate(bas4atom(i)%prim_exp)
-   allocate(bas4atom(i)%prim_exp(q(i)))
-   bas4atom(i)%prim_exp(1:q(i)-k) = r1
-   deallocate(r1)
-   bas4atom(i)%prim_exp(q(i)-k+1:q(i)) = prim_exp
-  else
-   allocate(bas4atom(i)%prim_exp(k), source=prim_exp)
-  end if
-
-  if(allocated(bas4atom(i)%coeff)) then
-   allocate(r2(p(i)-1,q(i)-k), source=bas4atom(i)%coeff)
-   deallocate(bas4atom(i)%coeff)
-   allocate(bas4atom(i)%coeff(p(i),q(i)), source=0d0)
-   bas4atom(i)%coeff(1:p(i)-1,1:q(i)-k) = r2
-   deallocate(r2)
-   bas4atom(i)%coeff(p(i),q(i)-k+1:q(i)) = coeff(:,i)
-  else
-   allocate(bas4atom(i)%coeff(1,k))
-   bas4atom(i)%coeff(1,:) = coeff(:,i)
-  end if
- end do ! for i
-
- deallocate(coeff)
-end subroutine enlarge_bas4atom_sp
-
-! deallocate arrays in type bas4atom
-subroutine clear_bas4atom
- implicit none
- integer :: i
-
- do i = 0, 7
-  if(allocated(bas4atom(i)%prim_exp)) deallocate(bas4atom(i)%prim_exp)
-  if(allocated(bas4atom(i)%coeff)) deallocate(bas4atom(i)%coeff)
- end do ! for i
-end subroutine clear_bas4atom
-
-end module basis_data
-
 program main
  use util_wrapper, only: formchk
  implicit none
@@ -154,7 +42,6 @@ subroutine fch2cfour(fchname)
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp
 
- call find_specified_suffix(fchname, '.fch', i)
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
  call find_irel_in_fch(fchname, irel)
@@ -165,7 +52,7 @@ subroutine fch2cfour(fchname)
  nbf0 = nbf ! make a copy of nbf
  if(LenNCZ > 0) ecp = .true.
 
- ! check if any spherical functions
+ ! check whether pure spherical harmonic, pure Cartesian or mixed functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
   write(6,'(/,A)') 'ERROR in subroutine fch2cfour: mixed spherical harmonic/Car&
                    &tesian functions'
@@ -185,7 +72,7 @@ subroutine fch2cfour(fchname)
  deallocate(coor)
 
  ! generate files GENBAS and ECPDATA(if needed)
- call prt_cfour_genbas(ecp)
+ call prt_cfour_genbas(ecp, .false.)
 
  if(uhf) then ! UHF
   allocate(coeff(nbf,2*nif))
@@ -194,8 +81,7 @@ subroutine fch2cfour(fchname)
   deallocate(alpha_coeff, beta_coeff)
   nif1 = 2*nif
  else         ! R(O) HF
-  allocate(coeff(nbf,nif))
-  coeff(:,:) = alpha_coeff
+  allocate(coeff(nbf,nif), source=alpha_coeff)
   deallocate(alpha_coeff)
   nif1 = nif
  end if
@@ -240,8 +126,8 @@ subroutine fch2cfour(fchname)
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)
   ! adjust the order of 6d, 10f, etc. functions
-  call orb2fch_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-                            f_mark, g_mark, h_mark, nbf, idx, norm)
+  call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
+                           d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
  end if
 
  deallocate(d_mark, f_mark, g_mark, h_mark)
@@ -298,7 +184,7 @@ subroutine fch2cfour(fchname)
 
  nbf = nbf0
  allocate(coeff2(nbf,nif1), source=coeff)
- forall(i=1:nbf, j=1:nif1) coeff(i,j) = coeff2(idx(i),j)/norm(i)
+ forall(i=1:nbf, j=1:nif1) coeff(i,j) = coeff2(idx(i),j)*norm(i)
  deallocate(norm, coeff2)
 
  allocate(alpha_coeff(nbf,nif))
@@ -388,13 +274,7 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
 
  if(ecp) then
   do i = 1, natom, 1
-   if(LPSkip(i) == 0) then
-    str = elem(i)
-    if(str(2:2) /= ' ') call upper(str(2:2))
-    write(fid,'(A)') TRIM(str)//':ECP-10-MDF'
-   else
-    write(fid,'(A)') TRIM(elem(i))//':PVTZ'
-   end if
+   write(fid,'(A)') TRIM(elem(i))//':PVTZ'
   end do ! for i
 
   write(fid,'(/)',advance='no')
@@ -414,151 +294,6 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
 
  close(fid)
 end subroutine prt_cfour_zmat
-
-! print basis set and ECP(if any) data into GENBAS and ECPDATA
-subroutine prt_cfour_genbas(ecp)
- use fch_content
- use basis_data
- implicit none
- integer :: i, j, k, n, n1, n2, i1, i2, highest, iatom, fid
- character(len=1) :: str = ' '
- character(len=2) :: str2 = '  '
- character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
- character(len=61), parameter :: c1 = 'generated by fch2cfour(not necessarily P&
-                                      &VTZ, borrowed string)'
- character(len=67), parameter :: c2 = 'generated by fch2cfour(not necessarily E&
-                                      &CP-10-MDF, borrowed string)'
- logical :: cycle_atom
- logical, intent(in) :: ecp
-
- open(newunit=fid,file='GENBAS',status='replace')
- iatom = 1; i1 = 1; i2 = 1 ! initialization
-
- do while(.true.)
-  ncol = 0; nline = 0
-
-  do i = i1, ncontr, 1
-   if(shell2atom_map(i) == iatom+1) exit
-   j = shell_type(i); k = prim_per_shell(i)
-
-   if(j == -1) then ! L or SP
-    ncol(0:1) = ncol(0:1) + 1
-    nline(0:1) = nline(0:1) + k
-    call enlarge_bas4atom_sp(k, prim_exp(i2:i2+k-1), contr_coeff(i2:i2+k-1), &
-                                                  contr_coeff_sp(i2:i2+k-1))
-   else ! j /= -1
-    if(j < 0) j = -j ! -2,-3,... -> 2,3,...
-    ncol(j) = ncol(j) + 1
-    if(i == i1) then
-     nline(j) = k
-     allocate(bas4atom(j)%prim_exp(k), source=prim_exp(i2:i2+k-1))
-     allocate(bas4atom(j)%coeff(1,k),source=0d0)
-     bas4atom(j)%coeff(1,:) = contr_coeff(i2:i2+k-1)
-    else ! i > i1
-     if(k /= prim_per_shell(i-1)) then
-      nline(j) = nline(j) + k
-      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
-     else ! k = prim_per_shell(i-1)
-      if( ANY( DABS(prim_exp(i2:i2+k-1)-prim_exp(i2-k:i2-1)) >1d-5 ) ) then
-       nline(j) = nline(j) + k
-       call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
-      else ! identical primitive exponents
-       call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.false.)
-      end if
-     end if
-    end if
-   end if
-
-   i2 = i2 + k
-  end do ! for i
-
-  ! One cannot use `highest = shell_type(i-1)` here, since it would lead to wrong
-  ! result if diffuse functions are used, e.g. maug-cc-pVTZ. The shell_type(i-1)
-  ! is not necessary the one which has the highest angular momentum.
-  highest = MAXVAL(IABS(shell_type(i1:i-1)))
-  i1 = i   ! remember to update i1
-  if(highest > 7) then
-   write(6,'(/,A)') 'ERROR in subroutine prt_cfour_genbas: angular momentum too&
-                    & high. Not supported!'
-   close(fid)
-   stop
-  end if
-
-  cycle_atom = .false.
-  if(iatom > 1) then
-   if(ANY(elem(1:iatom-1) == elem(iatom))) cycle_atom = .true.
-  end if
-
-  if(.not. cycle_atom) then
-   str2 = elem(iatom)
-   if(str2(2:2) /= ' ') call upper(str2(2:2))
-   if(ecp) then
-    if(LPSkip(iatom) == 0) then
-     write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
-    else
-     write(fid,'(A)') TRIM(str2)//':PVTZ'
-    end if
-   else
-    write(fid,'(A)') TRIM(str2)//':PVTZ'
-   end if
-   write(fid,'(A)') c1
-   write(fid,'(/,I3)') highest+1
-   write(fid,'(9I5)') (i, i=0,highest)
-   write(fid,'(9I5)') ncol(0:highest)
-   write(fid,'(9I5)') nline(0:highest)
-   write(fid,'(/)',advance='no')
-
-   do i = 0, highest, 1
-    write(fid,'(5(1X,ES15.8))') bas4atom(i)%prim_exp
-    write(fid,'(/)',advance='no')
-
-    do j = 1, nline(i), 1
-     write(fid,'(16(1X,ES15.8))') bas4atom(i)%coeff(1:ncol(i),j)
-    end do ! for j
-    write(fid,'(/)',advance='no')
-   end do ! for i
-  end if
-
-  call clear_bas4atom()
-  if(iatom == natom) exit
-  iatom = iatom + 1
- end do ! for while
-
- close(fid)
- deallocate(ielem, prim_per_shell, prim_exp, contr_coeff)
- if(allocated(contr_coeff_sp)) deallocate(contr_coeff_sp)
-
- if(.not. ecp) return
- open(newunit=fid,file='ECPDATA',status='replace')
-
- do i = 1, natom, 1
-  if(LPSkip(i) /= 0) cycle
-  str2 = elem(i)
-  if(str2(2:2) /= ' ') call upper(str2(2:2))
-  write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
-  write(fid,'(A,/,A)') c2, '*'
-  write(fid,'(4X,A,I3,4X,A,I2)') 'NCORE =', NINT(RNFroz(i)), 'LMAX =', LMax(i)
-  str = am_type1(LMax(i))
-
-  do j = 1, 10, 1
-   n1 = KFirst(i,j); n2 = KLast(i,j)
-   if(n1 == 0) exit
-   if(j == 1) then
-    write(fid,'(A)') str
-   else
-    write(fid,'(A)') am_type1(j-2)//'-'//str
-   end if
-   do n = n1, n2, 1
-    write(fid,'(2X,ES15.8,4X,I0,2X,ES15.8)') CLP(n), NLP(n), ZLP(n)
-   end do ! for n
-  end do ! for j
-
-  write(fid,'(A)') '*'
- end do ! for i
-
- close(fid)
- deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP, elem)
-end subroutine prt_cfour_genbas
 
 ! print CFOUR orbital file OLDMOS
 subroutine prt_cfour_oldmos(nbf, nif, coeff, append)
@@ -591,7 +326,7 @@ subroutine prt_cfour_oldmos(nbf, nif, coeff, append)
 end subroutine prt_cfour_oldmos
 
 subroutine fch2cfour_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, &
-  d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
+                           d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
  implicit none
  integer :: i, j
  integer, intent(in) :: n5dmark, n7fmark, n9gmark, n11hmark, k, nbf
@@ -635,8 +370,8 @@ subroutine fch2cfour_permute_5d(idx, norm)
 ! d0 , d2-, d1+, d2+, d1-
 
  idx0 = idx
- norm(1) = norm(1)*2d0*root3
- norm(4) = norm(4)*2d0
+ norm(1) = 0.5d0*norm(1)/root3
+ norm(4) = 0.5d0*norm(4)
  norm0 = norm
 
  forall(i = 1:5)
@@ -664,7 +399,7 @@ subroutine fch2cfour_permute_7f(idx, norm)
 ! f1+, f1-, f0 , f3+, f2-, f3-, f2+
 
  idx0 = idx
- forall(i = 1:7) norm(i) = norm(i)*ratio(i)
+ forall(i = 1:7) norm(i) = norm(i)/ratio(i)
  norm0 = norm
 
  forall(i = 1:7)
@@ -693,7 +428,7 @@ subroutine fch2cfour_permute_9g(idx, norm)
 ! g0 , g2-, g1+, g4+, g3-, g2+, g4-, g3+, g1-
 
  idx0 = idx
- forall(i = 1:9) norm(i) = norm(i)*ratio(i)
+ forall(i = 1:9) norm(i) = norm(i)/ratio(i)
  norm0 = norm
 
  forall(i = 1:9)
@@ -723,7 +458,7 @@ subroutine fch2cfour_permute_11h(idx, norm)
 ! h1+, h1-, h2+, h3+, h4-, h5-, h4+, h3-, h0 , h5+, h2-
 
  idx0 = idx
- forall(i = 1:11) norm(i) = norm(i)*ratio(i)
+ forall(i = 1:11) norm(i) = norm(i)/ratio(i)
  norm0 = norm
 
  forall(i = 1:11)

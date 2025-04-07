@@ -34,10 +34,11 @@ program main
   write(6,'(A)')   'Example 3 (GAMESS): add_bgcharge_to_inp a.chg a.inp'
   write(6,'(A)')   'Example 4 (Molcas): add_bgcharge_to_inp a.chg a.input'
   write(6,'(A)')   'Example 5 (Molpro): add_bgcharge_to_inp a.chg a.com'
-  write(6,'(A)')   'Example 6 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A)')   'Example 7 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
-  write(6,'(A)')   'Example 8 (PySCF) : add_bgcharge_to_inp a.chg a.py'
-  write(6,'(A,/)') 'Example 9 (Q-Chem): add_bgcharge_to_inp a.chg a.in'
+  write(6,'(A)')   'Example 6 (MRCC)  : add_bgcharge_to_inp a.chg MINP'
+  write(6,'(A)')   'Example 7 (ORCA)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 8 (PSI4)  : add_bgcharge_to_inp a.chg a.inp'
+  write(6,'(A)')   'Example 9 (PySCF) : add_bgcharge_to_inp a.chg a.py'
+  write(6,'(A,/)') 'Example10 (Q-Chem): add_bgcharge_to_inp a.chg a.in'
   stop
  end if
 
@@ -62,12 +63,12 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
  open(newunit=fid,file=TRIM(chgname),status='old',position='rewind')
  read(fid,*,iostat=i) n
  if(i /= 0) then
-  write(6,'(A)') error_warn//'failed to read number of charges!'
+  write(6,'(/,A)') error_warn//'failed to read number of charges!'
   stop
  end if
 
  if(n < 1) then
-  write(6,'(A)') error_warn//'number of charges less than 1!'
+  write(6,'(/,A)') error_warn//'number of charges less than 1!'
   stop
  end if
 
@@ -82,53 +83,61 @@ subroutine add_bgcharge_to_inp(chgname, inpname)
   write(6,'(/,A)') error_warn//' missing charges.'
   stop
  end if
-
  i = INDEX(inpname, '.', back=.true.)
 
- select case(TRIM(inpname(i+1:)))
- case('gjf')
-  call add_bgcharge_to_gjf(inpname, n, charge)
- case('py')    ! PySCF .py file
-  call add_bgcharge_to_py(inpname, n, charge)
- case('input') ! OpenMolcas .input file
-  call add_bgcharge_to_molcas_input(inpname, n, charge)
- case('inp')
-  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-  read(fid,'(A)') buf
-  close(fid)
-
-  call lower(buf)
-  if(buf(2:8) == '$contrl') then  ! GAMESS .inp file
-   call add_bgcharge_to_gms_inp(inpname, n, charge)
-  else if(buf(1:3) == '***') then ! Molpro .inp file
-   call add_bgcharge_to_molpro_inp(inpname, n, charge)
-  else if(buf(1:8) == '$compass') then ! BDF .inp file
-   call add_bgcharge_to_bdf_inp(inpname, n, charge)
-  else if(buf(1:4)=='%pal' .or. buf(1:8)=='%maxcore') then ! ORCA .inp file
-   call add_bgcharge_to_orca_inp(inpname, n, charge)
-  else ! PSI4 .inp file
-   call add_bgcharge_to_psi4_inp(inpname, n, charge)
-  end if
-
- case('com')
-  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-  read(fid,'(A)') buf
-  close(fid)
-
-  if(buf(1:3) == '***') then   ! Molpro .inp file
-   call add_bgcharge_to_molpro_inp(inpname, n, charge) 
-  else                         ! Gaussian .com file
+ if(i == 0) then
+  select case(TRIM(inpname))
+  case('MINP')
+   call add_bgcharge_to_mrcc_inp(n, charge)
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine add_bgcharge_to_inp: filetype cannot b&
+                    &e identified.'
+   write(6,'(A)') 'Currently only MINP of MRCC is supported.'
+   stop
+  end select
+ else
+  select case(TRIM(inpname(i+1:)))
+  case('gjf')
    call add_bgcharge_to_gjf(inpname, n, charge)
-  end if
- case('in') ! Q-Chem
-  call add_bgcharge_to_qchem_inp(inpname, n, charge)
- case('mol')
-  call add_bgcharge_to_dalton_mol(inpname, n, charge)
- case default
-  write(6,'(/,A)') error_warn//'filetype not supported!'
-  write(6,'(A)') 'inpname='//TRIM(inpname)
-  stop
- end select
+  case('py')    ! PySCF .py file
+   call add_bgcharge_to_py(inpname, n, charge)
+  case('input') ! OpenMolcas .input file
+   call add_bgcharge_to_molcas_input(inpname, n, charge)
+  case('inp')
+   open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+   read(fid,'(A)') buf
+   close(fid)
+   call lower(buf)
+   if(buf(2:8) == '$contrl') then  ! GAMESS .inp file
+    call add_bgcharge_to_gms_inp(inpname, n, charge)
+   else if(buf(1:3) == '***') then ! Molpro .inp file
+    call add_bgcharge_to_molpro_inp(inpname, n, charge)
+   else if(buf(1:8) == '$compass') then ! BDF .inp file
+    call add_bgcharge_to_bdf_inp(inpname, n, charge)
+   else if(buf(1:4)=='%pal' .or. buf(1:8)=='%maxcore') then ! ORCA .inp file
+    call add_bgcharge_to_orca_inp(inpname, n, charge)
+   else ! PSI4 .inp file
+    call add_bgcharge_to_psi4_inp(inpname, n, charge)
+   end if
+  case('com')
+   open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+   read(fid,'(A)') buf
+   close(fid)
+   if(buf(1:3) == '***') then   ! Molpro .inp file
+    call add_bgcharge_to_molpro_inp(inpname, n, charge) 
+   else                         ! Gaussian .com file
+    call add_bgcharge_to_gjf(inpname, n, charge)
+   end if
+  case('in') ! Q-Chem
+   call add_bgcharge_to_qchem_inp(inpname, n, charge)
+  case('mol')
+   call add_bgcharge_to_dalton_mol(inpname, n, charge)
+  case default
+   write(6,'(/,A)') error_warn//'filetype not supported!'
+   write(6,'(A)') 'inpname='//TRIM(inpname)
+   stop
+  end select
+ end if
 end subroutine add_bgcharge_to_inp
 
 ! add background charges into a Gaussian .gjf file
@@ -702,4 +711,33 @@ subroutine add_bgcharge_to_dalton_mol(molname, n, charge)
  close(fid1)
  i = RENAME(TRIM(molname1), TRIM(molname))
 end subroutine add_bgcharge_to_dalton_mol
+
+subroutine add_bgcharge_to_mrcc_inp(n, charge)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: charge(4,n)
+ character(len=4), parameter :: fname = 'MINP'
+ character(len=6), parameter :: fname1 = 'MINP.t'
+ character(len=240) :: buf
+
+ open(newunit=fid,file=fname,status='old',position='rewind')
+ open(newunit=fid1,file=fname1,status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:12) == 'pointcharges') exit
+ end do ! for while
+
+ close(fid,status='delete')
+ write(fid1,'(I0)') n
+
+ do i = 1, n, 1
+  write(fid1,'(4(1X,F18.8))') charge(:,i)
+ end do ! for i
+
+ close(fid1)
+ i = RENAME(TRIM(fname1), TRIM(fname))
+end subroutine add_bgcharge_to_mrcc_inp
 

@@ -1566,55 +1566,16 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
 
-! Read latice vectors (3,3) from a specified CP2K input file. It is allowed that
-! inpname does not end with '.inp'. Only the &CELL section is required in this
-! file.
-subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
- implicit none
- integer :: i, fid
- character(len=1) :: str1
- character(len=5) :: str5
- character(len=240) :: buf
- character(len=240), intent(in) :: inpname
-!f2py intent(in) :: inpname
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
-
- lat_vec = 0d0
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  buf = ADJUSTL(buf)
-  str5 = buf(1:5)
-  call upper(str5)
-  if(str5 == "&CELL") exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_cp2k_inp: &CELL secti&
-                   &on not found in file "//TRIM(inpname)
-  close(fid)
-  stop
- end if
-
- do i = 1, 3
-  read(fid,*) str1, lat_vec(:,i)
- end do ! for i
- close(fid)
-end subroutine read_lat_vec_from_cp2k_inp
-
 ! read latice vectors (3,3) from a specified .molden file
 subroutine read_lat_vec_from_molden(molden, lat_vec)
  implicit none
  integer :: i, fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
+!f2py intent(out) :: lat_vec
  character(len=6) :: str6
  character(len=240) :: buf
  character(len=240), intent(in) :: molden
 !f2py intent(in) :: molden
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
 
  lat_vec = 0d0
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
@@ -1641,25 +1602,95 @@ subroutine read_lat_vec_from_molden(molden, lat_vec)
  close(fid)
 end subroutine read_lat_vec_from_molden
 
+! read latice vectors (3,3) from a specified .xyz file
+subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
+ implicit none
+ integer :: i, j, fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
+!f2py intent(out) :: lat_vec
+ character(len=240) :: buf
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+
+ lat_vec = 0d0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ i = INDEX(buf, """")
+ j = INDEX(buf(i+1:), """")
+ if(i==0 .or. j<=i) then
+  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_xyz: wrong lattice ve&
+                   &ctors found in file '//TRIM(xyzname)
+  stop
+ end if
+ read(buf(i+1:i+j-1),*) lat_vec
+end subroutine read_lat_vec_from_xyz
+
+! Read latice vectors (3,3) from a specified CP2K input file. It is allowed that
+! inpname does not end with '.inp'. Only the &CELL section is required in this
+! file.
+subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
+!f2py intent(out) :: lat_vec
+ character(len=1) :: str1
+ character(len=5) :: str5
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ lat_vec = 0d0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  buf = ADJUSTL(buf)
+  str5 = buf(1:5)
+  call upper(str5)
+  if(str5 == "&CELL") exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_cp2k_inp: &CELL secti&
+                   &on not found in file "//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 3
+  read(fid,*) str1, lat_vec(:,i)
+ end do ! for i
+ close(fid)
+end subroutine read_lat_vec_from_cp2k_inp
+
 ! Read latice vectors (3,3) from a specified file, where the filetype would be
 ! detected automatically.
 subroutine read_lat_vec_from_file(fname, lat_vec)
  implicit none
  integer :: i
- character(len=240), intent(in) :: fname
-!f2py intent(in) :: fname
  real(kind=8), intent(out) :: lat_vec(3,3)
 !f2py intent(out) :: lat_vec
- logical :: is_molden
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
+ logical :: is_molden, is_xyz
 
- is_molden = .false.
+ is_molden = .false.; is_xyz = .false.
+
  i = LEN_TRIM(fname)
  if(i > 7) then
   if(fname(i-6:i) == '.molden') is_molden = .true.
+ else if(i > 4) then
+  if(fname(i-3:i) == '.xyz') is_xyz = .true.
  end if
 
  if(is_molden) then
   call read_lat_vec_from_molden(fname, lat_vec)
+ else if(is_xyz) then
+  call read_lat_vec_from_xyz(fname, lat_vec)
  else
   call read_lat_vec_from_cp2k_inp(fname, lat_vec)
  end if
