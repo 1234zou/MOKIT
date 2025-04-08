@@ -1,6 +1,7 @@
-MOKIT 1.2.7 (Apr 7, 2025)
+MOKIT 1.2.7 (Apr 8, 2025)
 ------------------------
 Fixes
+* fix -1 case lost in subroutine read_mark_from_shltyp_sph/cart introduced in commit a512cc84
 * fix bug of uninitialized den array when calculating densities in py2fch.f90
 * fix bug of reading PySCF UCCSD(T) and RI-RCCSD(T) energy
 * fix the npair<=0 case in get_npair_and_ovidx
@@ -11,6 +12,7 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* add py2mrcc for PySCF -> MRCC
 * add utility fch2mrcc for Gaussian -> MRCC
 * add `ions_centers` option to loc() and pbc_loc()
 * allow arbitrary number of active electrons/orbitals for SS-CAS, SA-CAS, and post-CAS

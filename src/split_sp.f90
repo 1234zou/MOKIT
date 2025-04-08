@@ -605,7 +605,7 @@ subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
  do i = 1, ncontr, 1
   k = shltyp(i)
   select case(k)
-  case(0,1)
+  case(-1,0,1)
   case(-2) ! 5D
    nd = nd + 1
    d_mark(nd) = nbf + 1
@@ -648,7 +648,7 @@ subroutine read_mark_from_shltyp_cart(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
  do i = 1, ncontr, 1
   k = shltyp(i)
   select case(k)
-  case(0,1)
+  case(-1,0,1)
   case(2) ! 6D
    nd = nd + 1
    d_mark(nd) = nbf + 1

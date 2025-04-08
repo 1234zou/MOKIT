@@ -290,9 +290,14 @@ subroutine bas_gms2py(inpname, cart, pbc, obj_only, rest)
  deallocate(ghost, coor, elem, ntimes)
 
  write(pyid,'(/,A)') '# Remember to check the charge and spin'
- write(pyid,'(A,I0)') TRIM(str4)//'.charge = ', charge
+ if(pbc) then
+  write(pyid,'(A,I0)') TRIM(str4)//'.charge = 0'
+ else
+  write(pyid,'(A,I0)') TRIM(str4)//'.charge = ', charge
+ end if
  write(pyid,'(A,I0)') TRIM(str4)//'.spin = ', mult-1
  if(pbc) then
+  write(pyid,'(A)') "cell.pseudo = 'gth-pbe'"
   write(pyid,'(A)') 'cell.verbose = 3'
   write(pyid,'(A)') 'cell.a = np.eye(3)*100.0'
  else

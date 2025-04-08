@@ -336,7 +336,6 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   lmo_fch = proname+'_LMO.fch'
   if wannier_xyz is None:
     wannier_xyz = proname+'_wannier.xyz'
-    wannier_xyz_num = proname+'_wannier_num.xyz'
 
   if old_fch is None:
     with os.popen('molden2fch '+molden+' -cp2k') as run:

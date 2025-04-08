@@ -1205,12 +1205,12 @@ subroutine check_sph_in_molden(molden, sph)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(INDEX(buf,'[5D') > 0) exit
-  if(INDEX(buf,'[6D') > 0) then
+  if(INDEX(buf(1:5),'[5D') > 0) exit
+  if(INDEX(buf(1:5),'[6D') > 0) then
    sph = .false.
    exit
   end if
-  if(INDEX(buf,'[MO]') > 0) exit
+  if(INDEX(buf(1:5),'[MO]') > 0) exit
  end do ! for while
 
  close(fid)
@@ -1260,6 +1260,8 @@ subroutine read_freq_from_molden(molden, natom, nmode, coor, e, ev)
   if(INDEX(buf(1:7),'[FREQ]') > 0) exit
  end do ! for while
  read(fid,*) e
+ write(6,'(A)') 'debug point'
+ stop
 
  do while(.true.)
   read(fid,'(A)') buf
