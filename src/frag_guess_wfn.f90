@@ -611,7 +611,7 @@ subroutine frag_guess_wfn(gjfname)
 
  ! Initially, the restricted/unrestricted type of wfn of each fragment is
  !  inherited from the method of the total system.
- ! This paramter type may be updated when reading Cartesian coordinates
+ ! This parameter type may be updated when reading Cartesian coordinates
  allocate(frags(nfrag))
  frags(:)%wfn_type = wfn_type
 
@@ -2337,7 +2337,7 @@ subroutine del_ecp_of_ghost_in_buf(natom, elem, ghost, buf, skipped)
  deallocate(str, ghost2)
 end subroutine del_ecp_of_ghost_in_buf
 
-! Select adjcent atoms according to the cutoff radius. The distance between an
+! Select adjacent atoms according to the cutoff radius. The distance between an
 !  atom in frag4 and the adsorbate is stored in the array dis.
 ! If selected atoms have odd total electrons, the farthest atom is optional to
 !  be deleted to obtain even electrons. This is because for some metals (e.g. Cu),
@@ -2666,7 +2666,7 @@ subroutine check_cell_cubic(lat_vec)
  end if
 end subroutine check_cell_cubic
 
-! check whether the cutoff radius is too large (access to adjcent cells)
+! check whether the cutoff radius is too large (access to adjacent cells)
 subroutine check_r_cut_valid(natom, coor, r_cut, lat_vec)
  implicit none
  integer, intent(in) :: natom

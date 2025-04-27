@@ -6,7 +6,7 @@ Fixes
 * fix bug of reading PySCF UCCSD(T) and RI-RCCSD(T) energy
 * fix the npair<=0 case in get_npair_and_ovidx
 * support basis set linear dependency in fch2dal
-* add implicit-external option for recent verions of fortran-lang fpm
+* add implicit-external option for recent versions of fortran-lang fpm
 * fix bug caused by simultaneously reading fixed filenames of multiple jobs
 * update nmo_b in molden2fch when basis set linear dep. occurs
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
@@ -41,7 +41,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
-* remove some basis reordering subroutines which have identical funtionalities to others
+* remove some basis reordering subroutines which have identical functionalities to others
 * replace calc_dis_mat_from_coor by BOHR2ANG*gto.inter_distance for isolated molecules
 * merge subroutines sym_ortho and can_ortho into gen_ortho_mo
 * mv original subroutine orb_resemble into orb_resemble_iter
@@ -54,10 +54,10 @@ Fixes
 * fix solvent name conversion for GKS-EDA interface in frag_guess_wfn
 * fix keyword bug in SA-DMRG-CASSCF
 * fix recognition bug of the highest angular momentum in fch2cfour when low angular momentum diffuse functions are used
-* fix GHF dectection bug introduced in commit f0dbe662
+* fix GHF detection bug introduced in commit f0dbe662
 * fix bug of calling Dalton to do MP2/CCSD when point charges are included
 * fix fortran read bug in gvb_exclude_XH (for very high ang. mom. and >99 atoms)
-* fix SS-DMRG-CASCI keyowrds
+* fix SS-DMRG-CASCI keywords
 * fix 'Int Atom Types' dimension in addH2singlet
 * fix bug (data out of range) in find_cos_quartic_poly_maximum
 * fix bug ("two successive SP/L") in mkl2fch and molden2fch

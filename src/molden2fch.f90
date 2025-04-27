@@ -1012,7 +1012,7 @@ subroutine read_mo_from_molden(molden, nbf, nif, ab, all_coeff, coeff, ev, occ)
    end do ! for j
    k = INDEX(buf(1:7), 'Occup=')
    if(k > 0) read(buf(k+6:),*) occ(i)
-   ! Some molden file only has cofficients larger than a given threshold. Not all
+   ! Some molden file only has coefficients larger than a given threshold. Not all
    ! coefficients are printed. So we have to read the basis function index as well.
    if(all_coeff) then
     call read_all_coeff_of_a_mo(fid, nbf, coeff(:,i))

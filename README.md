@@ -40,7 +40,7 @@ Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowada
 
 Installation
 ------------
-You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or other binary utilities, like `fch2mkl`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
 Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
 ### Option 1: Install from conda (for Linux only)
@@ -95,10 +95,11 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 export GMS=$HOME/software/gamess/rungms
 ```
-The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
+The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. 
+Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 ### Option 4: Build from Source
-The latest version of MOKIT source code can be downloaded [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html).
+The link to latest version of MOKIT source code can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html).
 
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
@@ -120,7 +121,8 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
 
-Remember to modify the `GMS` path to suit your local environment. Attention: the `PYTHONPATH` has changed since MOKIT-v1.2.5rc2. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
+Remember to modify the `GMS` path to suit your local environment. 
+Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 Quick Start
 -----------
@@ -153,7 +155,9 @@ Run
 ```
 automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ```
-in Shell. The `automr` program will successively perform HF, GVB, and CASSCF computations. The active space will be automatically determined as (4,4) during computations. See [examples/](examples/) for more examples.
+in Shell. The `automr` program will successively perform HF, GVB, and CASSCF computations. The active space will be automatically determined as (4,4) during computations. 
+See [Quick Start at documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) and [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html) for more information.
+See [examples/](examples/) for more examples.
 
 QC Packages can be called
 ----------
@@ -182,7 +186,7 @@ Bug Report
 
 TODO
 ----
-* MOs trasferring among NWCHEM, BAGEL, COLUMBUS, etc.
+* MOs transferring among NWCHEM, BAGEL, COLUMBUS, etc.
 
 * Develop/Implement robust black-box strategies of excited state calculations
 
@@ -192,7 +196,7 @@ Citation
 
    Jingxiang Zou, Molecular Orbital Kit (MOKIT), https://gitlab.com/jxzou/mokit (accessed month day, year)
 
-* If you use MOKIT to peform calculations involving GVB, citing the following two papers would be appreciated
+* If you use MOKIT to perform calculations involving GVB, citing the following two papers would be appreciated
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 

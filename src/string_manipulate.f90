@@ -1566,7 +1566,7 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
 
-! read latice vectors (3,3) from a specified .molden file
+! read lattice vectors (3,3) from a specified .molden file
 subroutine read_lat_vec_from_molden(molden, lat_vec)
  implicit none
  integer :: i, fid
@@ -1602,7 +1602,7 @@ subroutine read_lat_vec_from_molden(molden, lat_vec)
  close(fid)
 end subroutine read_lat_vec_from_molden
 
-! read latice vectors (3,3) from a specified .xyz file
+! read lattice vectors (3,3) from a specified .xyz file
 subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
  implicit none
  integer :: i, j, fid
@@ -1628,7 +1628,7 @@ subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
  read(buf(i+1:i+j-1),*) lat_vec
 end subroutine read_lat_vec_from_xyz
 
-! Read latice vectors (3,3) from a specified CP2K input file. It is allowed that
+! Read lattice vectors (3,3) from a specified CP2K input file. It is allowed that
 ! inpname does not end with '.inp'. Only the &CELL section is required in this
 ! file.
 subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
@@ -1667,7 +1667,7 @@ subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
  close(fid)
 end subroutine read_lat_vec_from_cp2k_inp
 
-! Read latice vectors (3,3) from a specified file, where the filetype would be
+! Read lattice vectors (3,3) from a specified file, where the filetype would be
 ! detected automatically.
 subroutine read_lat_vec_from_file(fname, lat_vec)
  implicit none

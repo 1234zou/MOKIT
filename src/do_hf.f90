@@ -743,10 +743,10 @@ subroutine gen_hf_orca_inp(inpname, uhf)
  close(fid)
 end subroutine gen_hf_orca_inp
 
-! perform SCF computaton using Gaussian/PySCF/PSI4/ORCA, then read electronic
+! perform SCF computation using Gaussian/PySCF/PSI4/ORCA, then read electronic
 ! energy and spin square
 ! Note: parameters {nproc, bgchg, chgname} are taken from
-!  module mr_keyword. You need to initilize them before calling this subroutine.
+!  module mr_keyword. You need to initialize them before calling this subroutine.
 subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare)
  use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path, DKH2, X2C
  use mol, only: ptchg_e

@@ -142,7 +142,7 @@ module mr_keyword
  logical :: dalton_mpi = .false. ! MKL/MPI version of Dalton
 
  logical :: mo_rhf  = .false.     ! whether the initial wfn is RHF/UHF for True/False
- ! mo_rhf will be set as .True. in the follwing 3 cases:
+ ! mo_rhf will be set as .True. in the following 3 cases:
  ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
  ! the rhf/uhf variable/flag will be used in utilities like fch2inp
 
@@ -205,9 +205,9 @@ module mr_keyword
  logical :: F12 = .false.         ! whether F12 used in NEVPT2, MRCI
  logical :: DLPNO = .false.       ! whether to turn on DLPNO-NEVPT2
  logical :: pop = .false.         ! whether to perform population analysis
- logical :: nmr = .false.         ! whether to calcuate nuclear shielding
- logical :: ICSS = .false.        ! whether to calcuate ICSS
- logical :: soc = .false.         ! whether to calcuate spin-orbit coupling (SOC)
+ logical :: nmr = .false.         ! whether to calculate nuclear shielding
+ logical :: ICSS = .false.        ! whether to calculate ICSS
+ logical :: soc = .false.         ! whether to calculate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: onlyXH = .false.      ! whether to keep only X-H bonds in GVB
  logical :: LocDocc = .false.     ! whether to localize GVB doubly occupied orb
@@ -256,7 +256,7 @@ module mr_keyword
  character(len=21) :: F12_cabs = 'NONE' ! F12 cabs
 contains
 
-! repalce variables like '$USER' in path into real path
+! replace variables like '$USER' in path into real path
 subroutine replace_env_in_path(path)
  implicit none
  integer :: i, j, k
@@ -1266,7 +1266,7 @@ subroutine check_kywd_compatible()
  end if
 
  if(CIonly .and. TRIM(nevpt2_prog)=='bdf') then
-  write(6,'(/,A)') error_warn//'currently CASCI-NEVPT2 is not sopported in BDF &
+  write(6,'(/,A)') error_warn//'currently CASCI-NEVPT2 is not supported in BDF &
                   &program.'
   write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
   stop
@@ -1487,7 +1487,7 @@ subroutine check_kywd_compatible()
 
  if(casscf_force .and. cart .and. TRIM(casscf_prog)=='pyscf') then
   write(6,'(/,A)') error_warn//"current version of PySCF can only compute force"
-  write(6,'(A)') 'using spherical harmonic basis fucntions.'
+  write(6,'(A)') 'using spherical harmonic basis functions.'
   stop
  end if
 

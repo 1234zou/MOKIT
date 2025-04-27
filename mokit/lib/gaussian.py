@@ -776,7 +776,7 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
   mo_e = np.zeros(nif)
   py2fch(new_fch, nbf, nif, coeff, 'a', mo_e, False, False)
 
-  # check the numeber of alpha electrons
+  # check the number of alpha electrons
   if trace_PS is True:
     dm = np.dot(coeff[:,:na], coeff[:,:na].transpose())
     ne_a = np.trace(np.dot(dm,S[:,:,nfile-1]))
@@ -798,7 +798,7 @@ def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
     coeff = construct_vir(nbf, nif, nb+1, coeff0, S[:,:,nfile-1])
     # export beta MOs to .fch file
     py2fch(new_fch, nbf, nif, coeff, 'b', mo_e, False, False)
-    # check the numeber of beta electrons
+    # check the number of beta electrons
     if trace_PS is True:
       dm = np.dot(coeff[:,:nb], coeff[:,:nb].transpose())
       ne_b = np.trace(np.dot(dm,S[:,:,nfile-1]))

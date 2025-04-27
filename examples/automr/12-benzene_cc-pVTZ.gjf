@@ -20,6 +20,6 @@ mokit{RI}
 
 # This examples how to turn on the RI-JK approximation in CASSCF.
 # Currently CASSCF-RIJK is supported when using one of CASSCF_prog=PySCF/OpenMolcas/ORCA.
-# RIJK auxiliary basis set will be assigned automaticlly (in this case cc-pVTZ/JK).
+# RIJK auxiliary basis set will be assigned automatically (in this case cc-pVTZ/JK).
 
 # To run this example, Gaussian, GAMESS and PySCF should be installed.

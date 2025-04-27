@@ -2,10 +2,10 @@
 !  in Gaussian .chk file, to the orders in PySCF
 
 ! Step1:
-!  tranform the .chk file to _chk.txt file using Gaussian utility chkchk,
+!  transform the .chk file to _chk.txt file using Gaussian utility chkchk,
 !  and read the MOs from _chk.txt
 ! Step2:
-!  tranform the .chk file to _tmp.fchk file using Gaussian utility formchk,
+!  transform the .chk file to _tmp.fchk file using Gaussian utility formchk,
 !  and read shell types from _tmp.fchk
 !  (The _chk.txt and _tmp.fchk file will be deleted after reading)
 ! Step3:
@@ -45,7 +45,7 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  i = INDEX(chkname,'.chk')
  txtname = chkname(1:i-1)//'_chk.txt'
 
- ! Step1: tranform .chk to _chk.txt using Gaussian utility chkchk
+ ! Step1: transform .chk to _chk.txt using Gaussian utility chkchk
  i = SYSTEM('chkchk -p '//TRIM(chkname)//' > '//TRIM(txtname))
  if(i /= 0) then
   write(6,'(A)') 'ERROR in subroutine chk2py: fail to transform the .chk file t&
@@ -79,12 +79,12 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  close(chkid,status='delete')
 
 
- ! Step2: tranform .chk to _tmp.fchk using Gaussian utility formchk
+ ! Step2: transform .chk to _tmp.fchk using Gaussian utility formchk
  i = INDEX(chkname,'.chk')
  txtname = chkname(1:i-1)//'_tmp.fchk'
  i = SYSTEM('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine chk2py: fail to tranform the .chk file&
+  write(6,'(A)') 'ERROR in subroutine chk2py: fail to transform the .chk file&
                    & to _tmp.fchk file, using Gaussian utility formchk.'
   write(6,'(A)') TRIM(chkname)
   write(6,'(A)') "You can use 'which formchk' to check if this command exists."

@@ -269,7 +269,7 @@ fch2amo: $(OBJ_fch2amo)
 fch2bdf: $(OBJ_fch2bdf)
 	$(F90) $(OBJ_fch2bdf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2bdf
 	@echo ;\
-	echo "fch2bdf requires utilites fch2inp and bas_gms2bdf, please also compile them" ;\
+	echo "fch2bdf requires utilities fch2inp and bas_gms2bdf, please also compile them" ;\
 	echo
 
 fch2cfour: $(OBJ_fch2cfour)
@@ -278,13 +278,13 @@ fch2cfour: $(OBJ_fch2cfour)
 fch2com: $(OBJ_fch2com)
 	$(F90) $(OBJ_fch2com) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2com
 	@echo ;\
-	echo "fch2com requires utilites fch2inp and bas_gms2molpro, please also compile them" ;\
+	echo "fch2com requires utilities fch2inp and bas_gms2molpro, please also compile them" ;\
 	echo
 
 fch2dal: $(OBJ_fch2dal)
 	$(F90) $(OBJ_fch2dal) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2dal
 	@echo ;\
-	echo "fch2dal requires utilites fch2inp and bas_gms2dal, please also compile them" ;\
+	echo "fch2dal requires utilities fch2inp and bas_gms2dal, please also compile them" ;\
 	echo
 
 fch2mkl: $(OBJ_fch2mkl)

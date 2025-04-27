@@ -356,7 +356,7 @@ subroutine do_gvb_bccc()
  ! print warnings for non-singlet calculations
  if(mult > 1) then
   write(6,'(A)') REPEAT('-',79)
-  write(6,'(A)') 'Remark: non-singlet dectected. The molecule will be augmented&
+  write(6,'(A)') 'Remark: non-singlet detected. The molecule will be augmented&
                  & by proper number'
   write(6,'(A)') 'of H atoms far away. Then it becomes a singlet complex, and s&
                  &inglet GVB-BCCC w-'
@@ -375,7 +375,7 @@ subroutine do_gvb_bccc()
  i = INDEX(datname, '_s.dat', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine do_gvb_bccc: '_s.dat' suffix not found&
-                   & in filname "//TRIM(datname)
+                   & in filename "//TRIM(datname)
   stop
  end if
  fchname1 = datname(1:i+1)//'.fch'

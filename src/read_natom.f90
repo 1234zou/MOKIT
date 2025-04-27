@@ -178,7 +178,7 @@ subroutine read_natom_from_xyz(xyzname, natom)
 end subroutine read_natom_from_xyz
 
 ! read the number of atoms from a .pdb file
-! Note: if there exists >1 frames, only the first frame will be dectected
+! Note: if there exists >1 frames, only the first frame will be detected
 subroutine read_natom_from_pdb(pdbname, natom)
  implicit none
  integer :: i, fid

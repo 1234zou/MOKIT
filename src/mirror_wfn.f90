@@ -1041,7 +1041,7 @@ subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  deallocate(elem2, coor2)
 end subroutine rmsd_wrapper
 
-! Calculate the RMSD value of two sets of Cartesian coordindates.
+! Calculate the RMSD value of two sets of Cartesian coordinates.
 ! This subroutine assumes that the atomic labels are in one-to-one correspondence
 ! in two files.
 subroutine rmsd(natom, coor1, coor2, rmsd_v, trans1, trans2, rotation)
