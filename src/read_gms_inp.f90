@@ -46,19 +46,16 @@ end module pg
 module lo_info
  implicit none
  integer :: np, npair, eff_npair, nsweep
- integer, parameter :: max_niter = 999 ! maximum iterations
+ integer, parameter :: max_niter = 4999 ! maximum iterations
  ! When the rotation angle alpha fulfills |alpha|<=PI/4 and no (effect) rotation
  ! is missing in a sweep, only a few iterations are needed usually.
- integer, parameter :: max_ncenter = 20
+ integer, parameter :: max_ncenter = 16
  ! maximum number of centers of an MO
  integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
 
  real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
  real(kind=8), parameter :: HPI = 2d0*DATAN(1d0) ! PI/2
- real(kind=8), parameter :: ovlp_thres = 0.56d0
- ! threshold for selecting MOs transformed to Cholesky LMOs
-
- real(kind=8), parameter :: upd_thres = 1d-8
+ real(kind=8), parameter :: upd_thres = 1d-10
  ! determine whether to rotate (and update MOs, dipole integrals)
  ! If upd_thres is set to 1d-7, the total change of the target function might
  ! have non-negligible difference with the total change obtained at 1d-8.

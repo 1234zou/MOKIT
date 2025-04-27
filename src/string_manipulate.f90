@@ -1628,9 +1628,9 @@ subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
  read(buf(i+1:i+j-1),*) lat_vec
 end subroutine read_lat_vec_from_xyz
 
-! Read lattice vectors (3,3) from a specified CP2K input file. It is allowed that
-! inpname does not end with '.inp'. Only the &CELL section is required in this
-! file.
+! Read lattice vectors (3,3) from a specified CP2K input file. It is allowed
+! that inpname does not end with '.inp'. Only the &CELL section is required in
+! this file.
 subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
  implicit none
  integer :: i, fid

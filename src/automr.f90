@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc5 :: MOKIT, release date: 2025-Apr-8'
+  write(6,'(A)') 'AutoMR 1.2.7rc6 :: MOKIT, release date: 2025-Apr-26'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -116,9 +116,9 @@ end subroutine automr
 ! generate PySCF input file .py from Gaussian .fch(k) file, and get paired LMOs
 subroutine get_paired_LMO()
  use mr_keyword, only: eist, mo_rhf, ist, hf_fch, bgchg, chgname, nskip_uno, &
-  HFonly, loc_asrot
- use mol, only: nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0, nopen,&
-  lin_dep, chem_core, ecp_core
+  HFonly, npair_wish, loc_asrot
+ use mol, only: mult, nbf, nif, ndb, nacte, nacto, nacta, nactb, npair, npair0,&
+  nopen, lin_dep, chem_core, ecp_core
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
  integer :: i, SYSTEM
@@ -129,9 +129,19 @@ subroutine get_paired_LMO()
  if(eist == 1) return ! excited state calculation
  if(ist == 5) return  ! no need for this subroutine
  write(6,'(//,A)') 'Enter subroutine get_paired_LMO...'
+
  if(ist == 0) then
   write(6,'(/,A)') 'ERROR in subroutine get_paired_LMO: ist=0. It should be non&
-                   &-zero.'
+                   &-zero here.'
+  stop
+ end if
+
+ if(npair_wish==0 .and. mult==1) then
+  write(6,'(/,A)') 'ERROR in subroutine get_paired_LMO: GVB(0) is not supported&
+                   & for singlet.'
+  write(6,'(A)') 'You can specify GVB(n) (n>=0) for non-singlet, or you can spe&
+                 &cify GVB(n) (n>0)'
+  write(6,'(A)') 'for singlet.'
   stop
  end if
 
@@ -386,8 +396,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
    write(fid2,'(A)') 'from os import rename'
   end if
 
-  write(fid2,'(A)') 'from mokit.lib.lo import '//TRIM(localm)//&
-                    ', get_bfirst_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, '//TRIM(localm)
   if(TRIM(localm) == 'boys') then
    write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
   else
@@ -414,14 +423,12 @@ subroutine prt_auto_pair_script_into_py(pyname)
   write(fid2,'(A)') 'occ_idx = range(ncore,nb)'
   write(fid2,'(A)') 'natom = mol.natm'
   write(fid2,'(A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
-  write(fid2,'(A)') 'nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, nat&
-                    &om, mol._bas[:,0],'
-  write(fid2,'(35X,A)') 'mol._bas[:,1], mol._bas[:,3])'
-  write(fid2,'(A)') 'if nbf0 != nbf:'
-  write(fid2,'(A)') "  print('nbf0, nbf=%d, %d' % (nbf0, nbf))"
-  write(fid2,'(A)') "  raise ValueError('Number of basis functions is inconsist&
-                    &ent.')"
+  write(fid2,'(A)') 'bfirst = np.ones(natom+1, dtype=np.int32)'
+  write(fid2,'(A)') 'bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1'
   write(fid2,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+  write(fid2,'(A)') 'chosen = np.ones(natom, dtype=bool)'
+  write(fid2,'(A)') 'nmo1, lmo_ini = gen_loc_ini_guess(natom,nbf,nval,chosen,bf&
+                    &irst,S,mo[:,occ_idx])'
 
   ! There exist multiple local minima of vir_idx orbital localization at target
   ! basis set. Since 20250113 this orbital localization is replaced by an
@@ -429,13 +436,13 @@ subroutine prt_auto_pair_script_into_py(pyname)
   ! virtual space projection using orb_resemble_ref1().
   select case(TRIM(localm))
   case('pm')   ! Pipek-Mezey orbital localization
-   write(fid2,'(A)') "occ_lmo = pm(natom,nbf,nval,bfirst,dis,mo[:,occ_idx],S,'m&
-                     &ulliken',17.0,1e-5)"
+   write(fid2,'(A)') "occ_lmo = pm(natom,nbf,nval,bfirst,dis,lmo_ini,S,'mullike&
+                     &n',17.0,1e-5)"
   case('boys') ! Foster-Boys orbital localization
    write(fid2,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
    write(fid2,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
-   write(fid2,'(A)') 'occ_lmo = boys(natom,nbf,nval,bfirst,dis,mo[:,occ_idx],S,&
-                     &ao_dip,17.0,1e-5)'
+   write(fid2,'(A)') 'occ_lmo = boys(natom,nbf,nval,bfirst,dis,lmo_ini,ao_dip,1&
+                     &7.0,1e-5)'
   case default
    write(6,'(/,A)') 'ERROR in subroutine prt_auto_pair_script_into_py: unknown &
                     &orbital local-'
@@ -625,10 +632,10 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  end if
 
  if(TRIM(localm) == 'boys') then
-  write(fid2,'(A)') 'from mokit.lib.lo import boys, pm, get_bfirst_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, boys, pm'
   write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
  else
-  write(fid2,'(A)') 'from mokit.lib.lo import pm, get_bfirst_from_shl'
+  write(fid2,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, pm'
   write(fid2,'(A)') 'from mokit.lib.gaussian import BOHR2ANG'
  end if
  write(fid2,'(A)') 'from mokit.lib.auto_pair import pair_by_tdm'
@@ -672,24 +679,26 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  write(fid1,'(A)') 'if npair > 0:'
  write(fid1,'(2X,A)') 'natom = mol.natm'
  write(fid1,'(2X,A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
- write(fid1,'(2X,A)') 'nbf0, bfirst = get_bfirst_from_shl(mol.cart, mol.nbas, n&
-                      &atom, mol._bas[:,0],'
- write(fid1,'(37X,A)') 'mol._bas[:,1], mol._bas[:,3])'
+ write(fid1,'(2X,A)') 'bfirst = np.ones(natom+1, dtype=np.int32)'
+ write(fid1,'(2X,A)') 'bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1'
+ write(fid1,'(2X,A)') 'chosen = np.ones(natom, dtype=bool)'
+ write(fid1,'(2X,A)') 'npair1 = npair - nskip_uno'
+ write(fid1,'(2X,A)') 'nmo1, lmo_ini = gen_loc_ini_guess(natom, nbf, npair1, ch&
+                      &osen, bfirst, S,'
+ write(fid1,'(36X,A)') 'mf.mo_coeff[0][:,occ_idx])'
 
  if(localm == 'pm') then ! Pipek-Mezey localization
-  write(fid1,'(2X,A)') 'occ_lmo = pm(natom,nbf,npair-nskip_uno,bfirst,dis,mf.mo&
-                       &_coeff[0][:,occ_idx],'
-  write(fid1,'(15X,A)') "S,'mulliken',17.0,1e-5)"
+  write(fid1,'(2X,A)') "occ_lmo = pm(natom,nbf,npair1,bfirst,dis,lmo_ini,S,'mul&
+                       &liken',17.0,1e-5)"
  else                    ! Boys localization
   write(fid1,'(2X,A)') 'center, ao_dip = ao_dipole_int(mol)'
   write(fid1,'(2X,A)') 'ao_dip = ao_dip*BOHR2ANG'
-  write(fid1,'(2X,A)') 'occ_lmo = boys(natom,nbf,npair-nskip_uno,bfirst,dis,mf.&
-                       &mo_coeff[0][:,occ_idx],'
-  write(fid1,'(17X,A)') 'S,ao_dip,17.0,1e-5)'
+  write(fid1,'(2X,A)') 'occ_lmo = boys(natom,nbf,npair1,bfirst,dis,lmo_ini,ao_d&
+                       &ip,17.0,1e-5)'
  end if
 
- write(fid1,'(2X,A)') 'vir_lmo = assoc_rot(nbf,npair-nskip_uno,mf.mo_coeff[0][:&
-                      &,occ_idx],occ_lmo,'
+ write(fid1,'(2X,A)') 'vir_lmo = assoc_rot(nbf,npair1,mf.mo_coeff[0][:,occ_idx]&
+                      &,occ_lmo,'
  write(fid1,'(22X,A)') 'mf.mo_coeff[0][:,vir_idx])'
  write(fid1,'(2X,A)') 'mf.mo_coeff[0][:,occ_idx] = occ_lmo.copy()'
  write(fid1,'(2X,A)') 'mf.mo_coeff[0][:,vir_idx] = vir_lmo.copy()'
@@ -718,8 +727,11 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
   write(fid1,'(A)') '  # localize doubly occupied MOs (usually core MOs)'
   write(fid1,'(A)') '  ncore = nb - npair'
   write(fid1,'(A)') "  mf.mo_coeff[0][:,:] = mo_fch2py(assoc_fch)"
-  write(fid1,'(A)') "  core_lmo = pm(natom,nbf,ncore,bfirst,dis,mf.mo_coeff[0][&
-                    &:,:ncore],S,'mulliken',17.0,1e-5)"
+  write(fid1,'(A)') '  chosen = np.ones(natom, dtype=bool)'
+  write(fid1,'(A)') '  nmo1, lmo_ini = gen_loc_ini_guess(natom,nbf,ncore,chosen&
+                    &,bfirst,S,mf.mo_coeff[0][:,:ncore])'
+  write(fid1,'(A)') "  core_lmo = pm(natom,nbf,ncore,bfirst,dis,lmo_ini,S,'mull&
+                    &iken',17.0,1e-5)"
   write(fid1,'(A)') '  mf.mo_coeff[0][:,:ncore] = core_lmo.copy()'
   write(fid1,'(A)') '  # calculate <i|F_a|i>'
   write(fid1,'(A)') "  ev_a = read_eigenvalues_from_fch(hf_fch, nif, 'a')"

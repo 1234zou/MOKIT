@@ -171,7 +171,7 @@ subroutine bas_gms2py(inpname, cart, pbc, obj_only, rest)
   else
    write(buf,'(A,I0)') TRIM(elem(i)), ntimes(i)
   end if
-  write(pyid,'(A,2X,3(1X,F17.8))') TRIM(buf), coor(1:3,i)
+  write(pyid,'(A,2X,3(1X,F19.9))') TRIM(buf), coor(1:3,i)
  end do ! for i
  write(pyid,'(A)') "'''"
  ! print coordinates done

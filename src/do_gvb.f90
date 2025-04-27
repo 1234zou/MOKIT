@@ -27,7 +27,7 @@ subroutine do_gvb()
   stop
  end select
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
  proname = hf_fch(1:i-1)
 
  ! In RHF virtual MO projection, it will generate a file _uno.txt additionally
@@ -35,7 +35,7 @@ subroutine do_gvb()
  call read_npair_from_uno_out(uno_out, nbf, nif, ndb, npair, nopen, lin_dep)
  write(6,'(2(A,L1))') 'LocDocc=', LocDocc, ', Lin_dep=', lin_dep
 
- if(npair_wish>0 .and. npair_wish/=npair) then
+ if(npair_wish>-1 .and. npair_wish/=npair) then
   write(6,'(/,2(A,I0),A)') 'Warning: AutoMR recommends GVB(',npair,'), but user&
                            & specifies GVB(',npair_wish,'). Try to fulfill...'
   if(npair_wish < npair) then

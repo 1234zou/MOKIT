@@ -1672,6 +1672,37 @@ subroutine fch2xyz(fchname)
  deallocate(elem, coor)
 end subroutine fch2xyz
 
+! extract Hessian information from .fch(k) file and write an ORCA .hess file
+subroutine fch2hess(fchname)
+ use fch_content, only: ram
+ implicit none
+ integer :: k, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ real(kind=8), allocatable :: ram1(:), coor(:,:), cfc(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: hessname
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call find_specified_suffix(fchname, '.fch', k)
+ hessname = fchname(1:k-1)//'.hess'
+
+ call read_natom_from_fch(fchname, natom)
+ allocate(elem(natom), nuc(natom), coor(3,natom))
+ call read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
+
+ allocate(ram1(natom))
+ forall(k = 1:natom) ram1(k) = ram(nuc(k))
+ deallocate(nuc)
+
+ k = 3*natom
+ allocate(cfc(k,k))
+ call read_cart_force_const_from_fch(fchname, natom, cfc)
+ call write_orca_hess(natom, elem, ram1, coor, cfc, hessname)
+
+ deallocate(elem, ram1, coor, cfc)
+end subroutine fch2hess
+
 ! convert a Gaussian .out/.log file to a .xyz file
 subroutine gau_log2xyz(logname)
  use periodic_table, only: write_xyz

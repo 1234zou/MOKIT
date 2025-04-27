@@ -1,4 +1,4 @@
-MOKIT 1.2.7 (Apr 8, 2025)
+MOKIT 1.2.7 (Apr 29, 2025)
 ------------------------
 Fixes
 * fix -1 case lost in subroutine read_mark_from_shltyp_sph/cart introduced in commit a512cc84
@@ -12,7 +12,9 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
-* add py2mrcc for PySCF -> MRCC
+* add subroutine fch2hess in rwgeom.f90
+* add Python module py2mrcc for PySCF -> MRCC
+* add utility mkl2mrcc for ORCA -> MRCC
 * add utility fch2mrcc for Gaussian -> MRCC
 * add `ions_centers` option to loc() and pbc_loc()
 * allow arbitrary number of active electrons/orbitals for SS-CAS, SA-CAS, and post-CAS
@@ -30,7 +32,10 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
-* add output of active space size for post-CAS calculations
+* GVB(0) can be specified for a non-singlet calculation
+* add mc.analyze() when CASSCF_prog=PySCF
+* update molden2fch for compatibility with arbitrary number of normal modes
+* print active space size for post-CAS calculations
 * add MRCC support in add_bgcharge_to_inp
 * replace RIJK by RICD when invoking RI in OpenMolcas
 * add `-sfcis` and `-sasfcis` arguments for fch2qchem

@@ -594,3 +594,91 @@ subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
  close(fid)
 end subroutine read_efs_from_cp2k_out
 
+! read Cartesian Force Constants from a .fch(k) file
+subroutine read_cart_force_const_from_fch(fchname, natom, cfc)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: cfc(3*natom,3*natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+
+ cfc = 0d0
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:21) == 'Cartesian Force Const') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cart_force_const_from_fch: failed &
+                   &to locate 'Cartesian"
+  write(6,'(A)') " Force Const' in file "//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ k = 3*natom
+ read(fid,*) ((cfc(j,i),j=1,i),i=1,k)
+ close(fid)
+ call symmetrize_dmat(k, cfc)
+end subroutine read_cart_force_const_from_fch
+
+! Write/create an ORCA .hess file which only contains Cartesian Force Constants
+! and Cartesian coordinates. Such a .hess file can be used as the initial Hessian
+! in an ORCA geometry optimization job.
+! A full .hess file includes also spin multiplicity, normal modes, etc, which
+! will not be printed in this subroutine.
+! Note: the input coor must be in unit Angstrom.
+subroutine write_orca_hess(natom, elem, ram, coor, cfc, hessname)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: i, j, k, m, n, nb, fid
+ integer, intent(in) :: natom
+ real(kind=8), allocatable :: coor_b(:,:)
+ real(kind=8), intent(in) :: ram(natom), coor(3,natom), cfc(3*natom,3*natom)
+ character(len=2), intent(in) :: elem(natom)
+ character(len=240), intent(in) :: hessname
+
+ k = 3*natom
+ open(newunit=fid,file=TRIM(hessname),status='replace')
+ write(fid,'(/,A)') "$orca_hessian_file"
+ write(fid,'(/,A)') "$hessian"
+ write(fid,'(I0)') k
+ nb = k/5
+
+ do i = 1, nb, 1
+  write(fid,'(2X,5(9X,I10))') (5*i-6+j, j=1,5)
+  m = 5*i - 4
+  do j = 1, k, 1
+   write(fid,'(I5,3X,5(1X,ES18.10))') j-1, cfc(j,m:m+4)
+  end do ! for j
+ end do ! for i
+
+ n = k - nb*5
+ if(n > 0) then
+  write(fid,'(2X,5(9X,I10))') (5*nb-1+j, j=1,n)
+  m = 5*nb + 1
+  do j = 1, k, 1
+   write(fid,'(I5,3X,5(1X,ES18.10))') j-1, cfc(j,m:m+n-1)
+  end do ! for j
+ end if
+
+ write(fid,'(/,A)') '#'
+ write(fid,'(A)') '# The atoms: label  mass x y z (in bohrs)'
+ write(fid,'(A)') '#'
+ write(fid,'(A)') '$atoms'
+ write(fid,'(I0)') natom
+
+ allocate(coor_b(3,natom))
+ coor_b = coor/Bohr_const
+ do i = 1, natom, 1
+  write(fid,'(A2,3X,F10.5,3(1X,F20.10))') elem(i), ram(i), coor_b(:,i)
+ end do ! for i
+
+ close(fid)
+ deallocate(coor_b)
+end subroutine write_orca_hess
+

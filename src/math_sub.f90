@@ -1008,7 +1008,7 @@ subroutine symmetrize_dmat(n, a)
 !$omp parallel do schedule(dynamic) default(shared) private(i,j)
  do i = 1, n, 1
   do j = 1, i-1, 1
-   a(j,i) = a(i,j)
+   a(i,j) = a(j,i)
   end do ! for j
  end do ! for i
 !$omp end parallel do
@@ -1027,7 +1027,7 @@ subroutine calc_cct(nbf, nif, occ_mo, cct)
 !f2py depend(nbf) :: cct
 
  cct = 0d0
- call dsyrk('L', 'N', nbf, nif, 1d0, occ_mo, nbf, 0d0, cct, nbf)
+ call dsyrk('U', 'N', nbf, nif, 1d0, occ_mo, nbf, 0d0, cct, nbf)
  call symmetrize_dmat(nbf, cct)
 end subroutine calc_cct
 
@@ -1335,7 +1335,7 @@ end subroutine ao2mo_dip
 ! Transform complex AO dipole integrals into complex MO dipole integrals,
 ! where the MO coefficients are real.
 ! Note: ao_dip must be double complex and symmetric.
-subroutine ao2mo_zdip(nbf, nmo, ao_dip, mo, mo_dip)
+subroutine ao2mo_zdip(nbf, nmo, mo, ao_dip, mo_dip)
  implicit none
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
@@ -1638,7 +1638,7 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
 !$omp end parallel do
 
  deallocate(r)
- forall(u=1:nbf, v=1:nbf, v<u) dm(u,v) = dm(v,u)
+ call symmetrize_dmat(nbf, dm)
 end subroutine calc_dm_using_mo_and_on
 
 ! get a random integer

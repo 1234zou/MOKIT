@@ -80,7 +80,7 @@ module mr_keyword
  implicit none
  integer :: mem = 4        ! memory, default 4 GB
  integer :: nproc = 4      ! number of processors, default 4
- integer :: npair_wish = 0 ! number of GVB pairs specified by user
+ integer :: npair_wish =-1 ! number of GVB pairs specified by user
  integer :: nacto_wish = 0 ! number of active orbitals specified by user
  integer :: nacte_wish = 0 ! number of active electrons specified by user
  integer :: ist = 0        ! the i-th strategy
@@ -298,7 +298,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc5 (2025-Apr-8)'
+ write(6,'(A)') '           Version: 1.2.7rc6 (2025-Apr-26)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -558,7 +558,7 @@ end subroutine check_gms_path
    end do ! for while
   end if
 
-  if(npair_wish > 0) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
+  if(npair_wish >= 0) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
@@ -823,7 +823,7 @@ end subroutine check_gms_path
    case('icss_intv')
     read(longbuf(j+1:i-1),*) icss_intv
    case('npair') ! numbers of pairs for non-GVB calculations
-    if(npair_wish /= 0) then
+    if(npair_wish > -1) then
      write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified by&
                       &more than once.'
      write(6,'(A)') 'Please check your input file.'

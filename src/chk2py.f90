@@ -84,8 +84,9 @@ subroutine chk2py(chkname, nbf, nif, ab, coeff)
  txtname = chkname(1:i-1)//'_tmp.fchk'
  i = SYSTEM('formchk '//TRIM(chkname)//' '//TRIM(txtname)//" >junk_tmp 2>&1")
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine chk2py: fail to transform the .chk file&
-                   & to _tmp.fchk file, using Gaussian utility formchk.'
+  write(6,'(/,A)') 'ERROR in subroutine chk2py: fail to transform the .chk file&
+                   & to _tmp.fchk'
+  write(6,'(A)') 'file, using Gaussian utility formchk.'
   write(6,'(A)') TRIM(chkname)
   write(6,'(A)') "You can use 'which formchk' to check if this command exists."
   stop

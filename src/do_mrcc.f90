@@ -356,8 +356,8 @@ subroutine do_gvb_bccc()
  ! print warnings for non-singlet calculations
  if(mult > 1) then
   write(6,'(A)') REPEAT('-',79)
-  write(6,'(A)') 'Remark: non-singlet detected. The molecule will be augmented&
-                 & by proper number'
+  write(6,'(A)') 'Remark: non-singlet detected. The molecule will be augmented &
+                 &by proper number'
   write(6,'(A)') 'of H atoms far away. Then it becomes a singlet complex, and s&
                  &inglet GVB-BCCC w-'
   write(6,'(A)') 'ill be invoked. ROHF energies of H atoms using STO-2G have be&

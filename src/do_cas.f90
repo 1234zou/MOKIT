@@ -248,7 +248,7 @@ subroutine do_cas(scf)
   inpname = TRIM(proname)//'.py'
   outname = TRIM(proname)//'.out'
   call bas_fch2py_wrap(fchname, .false., inpname)
-  call prt_cas_script_into_py(inpname, scf)
+  call prt_cas_pyscf_script(inpname, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2py_script(mem, inpname, .false.)
   call submit_pyscf_job(inpname, .true.)
@@ -264,7 +264,7 @@ subroutine do_cas(scf)
   call unfchk(fchname, mklname)
   call submit_gau_job(gau_path, inpname, .true.)
   call formchk(mklname, casnofch)
-  call modify_IROHF_in_fch(casnofch, 0)
+  call modify_irohf_in_fch(casnofch, 0)
 
  case('gamess')
   call check_gms_path()
@@ -567,7 +567,7 @@ subroutine do_cas(scf)
 end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
-subroutine prt_cas_script_into_py(pyname, scf)
+subroutine prt_cas_pyscf_script(pyname, scf)
  use mr_keyword, only: mem, nproc, xmult, dmrgci, dmrgscf, dmrg_no, block_mpi, &
   RI, RIJK_bas, iroot, ss_opt, casnofch
  use mol, only: mult
@@ -581,11 +581,11 @@ subroutine prt_cas_script_into_py(pyname, scf)
 
  dmrg = (dmrgci .or. dmrgscf)
  if(dmrgscf .and. ss_opt .and. iroot>0 .and. (xmult/=mult)) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_cas_script_into_py: SS-DMRG-CASSCF &
-                   &can only be'
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_pyscf_script: SS-DMRG-CASSCF ca&
+                   &n only be'
   write(6,'(A)') 'applied to an excited state which has the same spin as the gr&
                  &ound state.'
-  write(6,'(A,I0)') 'But you specify xmult=', xmult
+  write(6,'(A,I0)') 'But you specify Xmult=', xmult
   stop
  end if
 
@@ -610,6 +610,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from shutil import copyfile'
  write(fid2,'(A,/)') 'import numpy as np'
+
  if(dmrg) then
   write(fid2,'(A)',advance='no') "dmrgscf.settings.MPIPREFIX = '"
   if(block_mpi) write(fid2,'(A,I0)',advance='no') "mpirun -n ", nproc
@@ -657,6 +658,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
 
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
+ if(.not. dmrg) write(fid2,'(A)') 'mc.analyze()'
 
  i = INDEX(casnofch, '_NO', back=.true.)
  cmofch = casnofch(1:i)//'CMO.fch'
@@ -677,6 +679,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
   else             ! do not generate NOs
    casnofch = cmofch
   end if
+  write(fid2,'(A)') 'mc.analyze()'
  end if
 
  if((dmrg .and. dmrg_no) .or. (.not. dmrg)) then
@@ -689,7 +692,7 @@ subroutine prt_cas_script_into_py(pyname, scf)
 
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
-end subroutine prt_cas_script_into_py
+end subroutine prt_cas_pyscf_script
 
 ! print a CASCI or CASSCF gjf file
 subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)

@@ -182,12 +182,12 @@ subroutine molden2fch(molden, iprog, natorb)
   i_mark(:)
  integer, intent(in) :: iprog ! label of quantum chemistry packages
  real(kind=8), allocatable :: coeff(:,:), tmp_coeff(:,:), occ_a(:), occ_b(:), &
-  frcoor(:,:), freq(:), all_mode(:,:), r1(:), r2(:,:)
+  r1(:), r2(:,:)
  real(kind=8), parameter :: e_thres = 1d-6
  character(len=3), parameter :: fname = 'mos'
  character(len=240) :: fchname
  character(len=240), intent(in) :: molden
- logical :: sph, has_sp, all_coeff, has_freq
+ logical :: sph, has_sp, all_coeff
  logical, intent(in) :: natorb
 
  i = INDEX(molden, '.molden', back=.true.)
@@ -523,35 +523,22 @@ subroutine molden2fch(molden, iprog, natorb)
  write(6,'(A)') 'spin is wrong, you need to modify it in file '//TRIM(fchname)
  write(6,'(A)') REPEAT('-',79)
 
- if(iprog==6 .or. iprog==13) then ! OpenMolcas/Turbomole
-  call check_freq_in_molden(molden, has_freq)
-  if(has_freq) then
-   k = 3*natom
-   allocate(frcoor(3,natom), freq(k), all_mode(k,k))
-   call read_freq_from_molden(molden, natom, nmode, frcoor, freq, all_mode)
-   frcoor = DABS(frcoor - coor)
-   if(SUM(frcoor) > 1d-3) then
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Cartesian coordinates are &
-                     &inconsistent in'
-    write(6,'(A)') 'file '//TRIM(molden)
-    stop
-   end if
-   deallocate(frcoor)
-   ! It seems that the Hessian matrix cannot be regenerated here
-   !do i = 1, k, 1
-   ! j = i/3
-   ! if(i - 3*j > 0) j = j + 1
-   ! all_mode(i,:) = all_mode(i,:)*DSQRT(ram(ielem(j)))
-   !end do ! for i
-   !do i = 1, k, 1
-   ! all_mode(:,i) = all_mode(:,i)/DSQRT(DOT_product(all_mode(:,i),all_mode(:,i)))
-   !end do ! for i
-   allocate(norm_mode(k,nmode), source=all_mode(:,k-nmode+1:k))
-   deallocate(all_mode)
-   allocate(vibe2(14*nmode), source=0d0)
-   vibe2(1:nmode) = freq(k-nmode+1:k)
-   deallocate(freq)
-  end if
+ ! check whether there is frequency data
+ call read_nmode_from_molden(molden, nmode)
+ if(nmode > 0) then
+  k = 3*natom
+  allocate(vibe2(14*nmode), norm_mode(k,nmode))
+  vibe2 = 0d0
+  call read_freq_from_molden(molden, natom, nmode, vibe2(1:nmode), norm_mode)
+  ! It seems that the Hessian matrix cannot be regenerated here
+  !do i = 1, k, 1
+  ! j = i/3
+  ! if(i - 3*j > 0) j = j + 1
+  ! all_mode(i,:) = all_mode(i,:)*DSQRT(ram(ielem(j)))
+  !end do ! for i
+  !do i = 1, k, 1
+  ! all_mode(:,i) = all_mode(:,i)/DSQRT(DOT_product(all_mode(:,i),all_mode(:,i)))
+  !end do ! for i
  end if
 
  call write_fch(fchname)
@@ -1216,43 +1203,39 @@ subroutine check_sph_in_molden(molden, sph)
  close(fid)
 end subroutine check_sph_in_molden
 
-! check whether there is frequency data in the molden file
-subroutine check_freq_in_molden(molden, has_freq)
+! find the number of normal modes in a given .molden file
+subroutine read_nmode_from_molden(molden, nmode)
  implicit none
  integer :: i, fid
- character(len=7) :: str7
+ integer, intent(out) :: nmode
+ character(len=9) :: str9
  character(len=240), intent(in) :: molden
- logical, intent(out) :: has_freq
 
- has_freq = .false.
+ nmode = 0
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
  do while(.true.)
-  read(fid,'(A)',iostat=i) str7
+  read(fid,'(A)',iostat=i) str9
   if(i /= 0) exit
-  if(INDEX(str7,'[FREQ]') > 0) then
-   has_freq = .true.
+  if(INDEX(str9,'[N_FREQ]') > 0) then
+   read(fid,*) nmode
    exit
   end if
  end do ! for while
 
  close(fid)
-end subroutine check_freq_in_molden
+end subroutine read_nmode_from_molden
 
 ! read frequency data from the molden file
-subroutine read_freq_from_molden(molden, natom, nmode, coor, e, ev)
- use phys_cons, only: Bohr_const
+subroutine read_freq_from_molden(molden, natom, nmode, e, ev)
  implicit none
- integer :: i, k, fid
- integer, intent(in) :: natom
- integer, intent(out) :: nmode
- real(kind=8), parameter :: thres = 1d-3
- real(kind=8), intent(out) :: coor(3,natom), e(3*natom), ev(3*natom,3*natom)
- character(len=2) :: elem
+ integer :: i, fid
+ integer, intent(in) :: natom, nmode
+ real(kind=8), intent(out) :: e(nmode), ev(3*natom,nmode)
  character(len=240) :: buf
  character(len=240), intent(in) :: molden
 
- coor = 0d0; e = 0d0; ev = 0d0; k = 3*natom
+ e = 0d0; ev = 0d0
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
  do while(.true.)
@@ -1260,30 +1243,17 @@ subroutine read_freq_from_molden(molden, natom, nmode, coor, e, ev)
   if(INDEX(buf(1:7),'[FREQ]') > 0) exit
  end do ! for while
  read(fid,*) e
- write(6,'(A)') 'debug point'
- stop
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(INDEX(buf(1:11),'[FR-COORD]') > 0) exit
+  if(INDEX(buf(1:16),'[FR-NORM-COORD]') > 0) exit
  end do ! for while
 
- do i = 1, natom, 1
-  read(fid,*) elem, coor(:,i)
- end do ! for i
-
- read(fid,'(A)') buf ! [FR-NORM-COORD]
- do i = 1, k, 1
+ do i = 1, nmode, 1
   read(fid,'(A)') buf ! vibration    i
   read(fid,*) ev(:,i)
  end do ! for i
 
  close(fid)
- coor = coor*Bohr_const
-
- do i = k, 1, -1
-  if(DABS(e(i)) < thres) exit
- end do ! for i
- nmode = k - i
 end subroutine read_freq_from_molden
 

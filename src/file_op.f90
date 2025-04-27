@@ -679,3 +679,64 @@ subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
  close(fid)
 end subroutine gen_gau_opt_gjf
 
+! delete specified density matrix in a given .fch(k) file
+subroutine del_dm_in_fch(fchname, itype)
+ implicit none
+ integer :: i, ncoeff, nline, fid, fid1, RENAME
+ integer, intent(in) :: itype
+!f2py intent(in) :: itype
+ character(len=11), parameter :: key(12) = ['Total SCF D', 'Spin SCF De',&
+   'Total CI De', 'Spin CI Den', 'Total MP2 D', 'Spin MP2 De',&
+   'Total CC De', 'Spin CC Den', 'Total CI Rh', 'Spin CI Rho',&
+   'Total 2nd O', 'Spin 2nd Or']
+ character(len=240) :: buf, fchname1
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ if(itype<1 .or. itype>12) then
+  write(6,'(/,A,I0)') 'ERROR in subroutine del_dm_in_fch: invalid itype=',itype
+  write(6,'(A)') 'Allowed values are 1~12.'
+  stop
+ end if
+
+ i = INDEX(fchname, '.fch', back=.true.)
+ fchname1 = fchname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == key(itype)) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') 'ERROR in subroutine del_dm_in_fch: specified dm type not fo&
+                   &und in file'
+  write(6,'(A)') TRIM(fchname)
+  stop
+ end if
+
+ read(buf(50:),*) ncoeff
+ nline = ncoeff/5
+ if(ncoeff - 5*nline > 0) nline = nline + 1
+
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5)=='ONIOM' .or. buf(1:5)=='ClPar') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(fchname1), TRIM(fchname))
+end subroutine del_dm_in_fch
+

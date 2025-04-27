@@ -343,6 +343,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel(mo)'
+ write(fid2,'(A)') 'mc.analyze()'
 
  ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
  if(dmrgscf) then

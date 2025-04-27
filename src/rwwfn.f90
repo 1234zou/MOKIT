@@ -5,7 +5,7 @@
 ! updated by jxzou at 20210128: add read int1e subroutines of Gaussian log
 
 ! modify the IROHF value in a given .fch(k) file
-subroutine modify_IROHF_in_fch(fchname, k)
+subroutine modify_irohf_in_fch(fchname, k)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: k
@@ -13,10 +13,10 @@ subroutine modify_IROHF_in_fch(fchname, k)
  character(len=240), intent(in) :: fchname
 
  buf = ' '
- i = INDEX(fchname, '.fch', back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  fchname1 = fchname(1:i-1)//'.t'
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
@@ -43,7 +43,7 @@ subroutine modify_IROHF_in_fch(fchname, k)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
-end subroutine modify_IROHF_in_fch
+end subroutine modify_irohf_in_fch
 
 ! read the total charge and the spin mltiplicity from a given .fch(k) file
 subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
@@ -147,6 +147,12 @@ subroutine modify_charge_and_mult_in_fch(fchname, charge, mult)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
+
+ ! GaussView checks some information
+ if(mult0>1 .and. mult==1) then
+  call del_dm_in_fch(fchname, 2)
+  call modify_irohf_in_fch(fchname, 0)
+ end if
 end subroutine modify_charge_and_mult_in_fch
 
 ! read the total charge and the spin mltiplicity from a given .mkl file
@@ -1053,8 +1059,9 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ovlp_from_molcas_out: no 'SO&
-                 & Integrals of type Mltpl  0' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_ovlp_from_molcas_out: no 'SO Integ&
+                   &rals of type Mltpl  0'"
+  write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
 
@@ -1065,9 +1072,10 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  i = INDEX(buf, 'x')
  read(buf(i+1:),*) j
  if(j /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine read_ovlp_from_molcas_out: inconsistent&
-                 & nbf in orbital file and overlap file.'
-   write(6,'(2(A,I5))') 'j=', j, ', nbf=', nbf
+  write(6,'(/,A)') 'ERROR in subroutine read_ovlp_from_molcas_out: inconsistent&
+                   & nbf in orbital'
+  write(6,'(A)') 'file and overlap file.'
+  write(6,'(2(A,I5))') 'j=', j, ', nbf=', nbf
   stop
  end if
 
@@ -1084,12 +1092,7 @@ subroutine read_ovlp_from_molcas_out(outname, nbf, S)
  end do ! for i
 
  close(fid)
-
- do i = 1, nbf-1, 1
-  do j = i+1, nbf, 1
-   S(j,i) = S(i,j)
-  end do ! for j
- end do ! for i
+ call symmetrize_dmat(nbf, S)
 end subroutine read_ovlp_from_molcas_out
 
 ! write/print eigenvalues/occupation numbers into a .fch(k) file
@@ -1350,7 +1353,7 @@ subroutine write_mo_into_psi_mat(matfile, nbf, nif, mo)
  close(fid)
 end subroutine write_mo_into_psi_mat
 
-! determine whether spherical harmonic or Cartesian functions are used in .fch(k) file
+! determine whether sperical harmonic or Cartesian functions are used in .fch(k) file
 subroutine determine_sph_or_cart(fchname, cart)
  implicit none
  integer :: i, k, fid
@@ -3201,7 +3204,7 @@ subroutine read_dm_from_fch(fchname, itype, nbf, dm)
  dm = 0d0
  if(itype<1 .or. itype>12) then
   write(6,'(/,A,I0)') 'ERROR in subroutine read_dm_from_fch: invalid itype=',itype
-  write(6,'(A)') 'Allowed values are 1~11:'
+  write(6,'(A)') 'Allowed values are 1~12.'
   stop
  end if
 
@@ -3235,7 +3238,7 @@ subroutine read_dm_from_fch(fchname, itype, nbf, dm)
  close(fid)
 
  ! symmetrize the density matrix
- forall(i=1:nbf-1, j=1:nbf, j>i) dm(j,i) = dm(i,j)
+ call symmetrize_dmat(nbf, dm)
 end subroutine read_dm_from_fch
 
 ! Write 'Total SCF Density' or 'Spin SCF Density' into a .fch(k) file.
@@ -3516,8 +3519,8 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
  character(len=240), intent(in) :: logname
 
  if(itype<1 .or. itype>3) then
-  write(6,'(A,I0)') 'ERROR in subroutine read_density_from_gau_log: invalid&
-                    & itype = ', itype
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_density_from_gau_log: invalid i&
+                      &type = ', itype
   write(6,'(A)') 'Allowed values are 1/2/3 for Total/Alpha/Beta density.'
   stop
  end if
@@ -3532,8 +3535,9 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_density_from_gau_log: no key '"&
-                 &//key(itype)//"' found in file "//TRIM(logname)
+  write(6,'(/,A)') "ERROR in subroutine read_density_from_gau_log: no key '"&
+                   &//key(itype)//"'"
+  write(6,'(A)') 'found in file '//TRIM(logname)
   close(fid)
   stop
  end if
@@ -3553,12 +3557,8 @@ subroutine read_density_from_gau_log(logname, itype, nbf, dm)
 
  close(fid)
 
- ! make density matrix symmetric
- do i = 1, nbf-1, 1
-  do j = i+1, nbf, 1
-   dm(j,i) = dm(i,j)
-  end do ! for j
- end do ! for i
+ ! symmetrize the density matrix
+ call symmetrize_dmat(nbf, dm)
 end subroutine read_density_from_gau_log
 
 ! check whether UHF wave function in .fch(k) file is equivalent to RHF
@@ -3678,12 +3678,7 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
 
  read(fid,'(2X,5E15.7)') ((S(j,i),j=1,i),i=1,nbf)
  close(fid)
-
- do i = 1, nbf-1, 1
-  do j = i+1, nbf, 1
-   S(j,i) = S(i,j)
-  end do ! for j
- end do ! for i
+ call symmetrize_dmat(nbf, S)
 end subroutine read_ao_ovlp_from_47
 
 ! generate natural orbitals from provided density matrix and overlap matrix

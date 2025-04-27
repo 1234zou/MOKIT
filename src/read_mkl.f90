@@ -1408,7 +1408,8 @@ subroutine find_nprim_from_all_pg(ncontr, prim_per_shell, nprim, has_sp)
  integer, intent(out) :: nprim, prim_per_shell(ncontr)
  logical, intent(out) :: has_sp
 
- k = 0; nprim = 0; has_sp = .false.
+ has_sp = .false.
+ nprim = 0; prim_per_shell = 0; k = 0
 
  do i = 1, natom, 1
   nc = all_pg(i)%nc

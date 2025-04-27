@@ -44,7 +44,7 @@ OBJ_fch2amo = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
               split_sp.obj fch2amo.obj
 OBJ_fch2bdf = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
               util_wrapper.obj read_fch.obj rwgeom.obj read_gms_inp.obj \
-              read_natom.obj split_sp.obj fch2bdf.obj
+              read_natom.obj read_grad.obj split_sp.obj fch2bdf.obj
 OBJ_fch2cfour = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
                 split_sp.obj fch2cfour.obj
 OBJ_fch2com = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
@@ -66,7 +66,7 @@ OBJ_fch2psi = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
 OBJ_fch2qchem = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
                 split_sp.obj fch2qchem.obj
 OBJ_fch2qm4d = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
-               read_fch.obj read_natom.obj rwgeom.obj fch2qm4d.obj
+               read_fch.obj read_natom.obj read_grad.obj rwgeom.obj fch2qm4d.obj
 OBJ_fch2tm = file_op.obj string_manipulate.obj util_wrapper.obj read_fch.obj \
              split_sp.obj fch2tm.obj
 OBJ_fch_u2r = file_op.obj string_manipulate.obj fch_u2r.obj
@@ -75,14 +75,14 @@ OBJ_fch2wfn = file_op.obj string_manipulate.obj read_fch.obj util_wrapper.obj \
               fch2wfn.obj
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj read_fch.obj mr_keyword.obj \
                      util_wrapper.obj math_sub.obj rwwfn.obj read_natom.obj \
-                     rwgeom.obj read_mkl.obj do_hf.obj read_gms_inp.obj call_qc_calc_int.obj \
-                     ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
+                     read_grad.obj rwgeom.obj read_mkl.obj do_hf.obj read_gms_inp.obj \
+                     call_qc_calc_int.obj ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
 OBJ_gvb_correct_pairs = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                         gvb_correct_pairs.obj
 OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
                      util_wrapper.obj call_qc_calc_int.obj read_fch.obj rwwfn.obj \
-                     read_natom.obj rwgeom.obj assoc_rot.obj wfn_analysis.obj \
-		     read_gms_inp.obj gvb_exclude_XH.obj
+                     read_natom.obj read_grad.obj rwgeom.obj assoc_rot.obj \
+                     wfn_analysis.obj read_gms_inp.obj gvb_exclude_XH.obj
 OBJ_gvb_sort_pairs = file_op.obj gvb_sort_pairs.obj
 OBJ_mkl2amo = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2amo.obj
@@ -102,6 +102,8 @@ OBJ_mkl2inporb = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj
                  mkl2inporb.obj
 OBJ_mkl2gjf = file_op.obj string_manipulate.obj read_fch.obj read_natom.obj \
               read_gms_inp.obj read_mkl.obj mkl2gjf.obj
+OBJ_mkl2mrcc = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
+               mkl2mrcc.obj
 OBJ_mkl2psi = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
               mkl2psi.obj
 OBJ_mkl2py = file_op.obj string_manipulate.obj util_wrapper.obj mkl2py.obj
@@ -122,8 +124,8 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj rwwfn.obj \
         fch2dal fch2mkl fch2inp fch2inporb fch2mrcc fch2psi fch2qchem fch2qm4d \
         fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_correct_pairs gvb_exclude_XH \
         gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp \
-        mkl2inporb mkl2gjf mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch \
-        solve_ON_matrix
+        mkl2inporb mkl2gjf mkl2mrcc mkl2psi mkl2py mkl2qchem molden2fch orb2fch \
+        xml2fch solve_ON_matrix
 
 %.obj: %.f90
 	$(F90) /c $< -o $@ $(FFLAGS) $(MKL_FLAGS)
@@ -289,6 +291,9 @@ mkl2inporb: $(OBJ_mkl2inporb)
 mkl2gjf: $(OBJ_mkl2gjf)
 	$(F90) $(OBJ_mkl2gjf) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2gjf
 
+mkl2mrcc: $(OBJ_mkl2mrcc)
+	$(F90) $(OBJ_mkl2mrcc) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2mrcc
+
 mkl2psi: $(OBJ_mkl2psi)
 	$(F90) $(OBJ_mkl2psi) $(FFLAGS) $(LFLAGS) -o $(BIN)\mkl2psi
 
@@ -318,8 +323,8 @@ all: addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal \
      dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl \
      fch2inp fch2inporb fch2mrcc fch2psi fch2qchem fch2qm4d fch2tm fch_u2r \
      fch_mo_copy fch2wfn frag_guess_wfn gvb_exclude_XH gvb_sort_pairs mkl2amo \
-     mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi \
-     mkl2py mkl2qchem molden2fch orb2fch xml2fch solve_ON_matrix
+     mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2mrcc \
+     mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch solve_ON_matrix
 
 clean:
 	del *.obj *.mod

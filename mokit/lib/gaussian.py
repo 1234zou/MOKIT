@@ -158,7 +158,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   '''
   import time
   from pyscf import gto
-  from mokit.lib.lo import boys, pm
+  from mokit.lib.lo import gen_loc_ini_guess, boys, pm
   from mokit.lib.rwgeom import periodic_table as pt
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
 
@@ -179,7 +179,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   fchname1 = fchname[0:fchname.rindex('.fch')]+'_LMO.fch'
   mol = load_mol_from_fch(fchname)
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
-  mo_coeff = fch2py(fchname, nbf, nif, spin)
+  mo = fch2py(fchname, nbf, nif, spin)
   nmo = len(idx)
 
   print('\nOrbital range:', idx)
@@ -189,14 +189,18 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
 
   natom = mol.natm
   dis = BOHR2ANG*gto.inter_distance(mol)
-  bfirst = np.zeros(natom+1, dtype=np.int32)
-  bfirst[0] = 1
+  bfirst = np.ones(natom+1, dtype=np.int32)
   bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1
   S = mol.intor_symmetric('int1e_ovlp')
 
+  # generate initial guess orbitals (which are unitary transformation of
+  # original orbitals)
+  chosen = np.ones(natom, dtype=bool)
+  nmo1, lmo_ini = gen_loc_ini_guess(natom, nbf, nmo, chosen, bfirst, S, mo[:,idx])
+
   if method == 'pm':
-    lmo = pm(natom, nbf, nmo, bfirst, dis, mo_coeff[:,idx], S, 'mulliken',
-             dis_tol, conv_tol)
+    lmo = pm(natom, nbf, nmo, bfirst, dis, lmo_ini, S, 'mulliken', dis_tol,
+             conv_tol)
     if center_xyz is not None:
       center, ao_dip = ao_dipole_int(mol)
       center *= BOHR2ANG
@@ -205,8 +209,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
     center, ao_dip = ao_dipole_int(mol)
     center *= BOHR2ANG
     ao_dip *= BOHR2ANG
-    lmo = boys(natom, nbf, nmo, bfirst, dis, mo_coeff[:,idx], S, ao_dip,
-               dis_tol, conv_tol)
+    lmo = boys(natom, nbf, nmo, bfirst, dis, lmo_ini, ao_dip, dis_tol, conv_tol)
   else:
     raise ValueError('Localization method cannot be recognized.')
 
@@ -228,10 +231,10 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
       elem = np.full(nmo, 'X ', dtype='U2')
       pt.write_xyz(nmo, elem, mo_center, center_xyz, np.zeros((3,3)))
 
-  mo_coeff[:,idx] = lmo.copy()
+  mo[:,idx] = lmo.copy()
   noon = np.zeros(nif)
   shutil.copyfile(fchname, fchname1)
-  py2fch(fchname1, nbf, nif, mo_coeff, spin, noon, False, False)
+  py2fch(fchname1, nbf, nif, mo, spin, noon, False, False)
   print('Localized orbitals exported to file '+fchname1)
 
   t1 = time.perf_counter()
@@ -239,56 +242,56 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   print(f"Localization time(sec): {elapsed_time:.2f}")
 
 
-def pbc_mo_center(cell, loc_orb):
-  '''
-  Calculate orbital centers/centroid of gamma-point localized orbitals
-  '''
-  from pyscf import lib
-  from pyscf.pbc.dft import gen_grid
-
-  nmo = loc_orb.shape[1]
-  ngrids = np.prod(cell.mesh)
-  blksize = 2400*56
-  grids = gen_grid.UniformGrids(cell)
-  # Note: grids are generated around the origin (0,0,0) by default
-  # grids.coords.shape is (ngrids,3)
-  # G*r
-  Gr = np.dot(cell.reciprocal_vectors(), grids.coords.T)
-  # e^(-iG*r)
-  r = np.exp(-Gr*1j)
-  # MO values on grids
-  mo_on_grid = np.empty((ngrids,nmo))
-  for ip0, ip1 in lib.prange(0, ngrids, blksize):
-    ao = cell.pbc_eval_gto('GTOval', grids.coords[ip0:ip1])
-    mo_on_grid[ip0:ip1] = np.dot(ao, loc_orb)
-
-  # M_nn = < w_n | e^(-iG*r) | w_n >, size (nmo,3)
-  dip_complex = np.einsum('gi,gi,g,xg->ix', mo_on_grid, mo_on_grid, grids.weights, r)
-
-  # Any complex number z can be written as z = C*e^(i*t) = C*(cos(t) + i*sin(t)),
-  # where C is a real number and t is the angle theta, so
-  #  ln(z) = ln(C*e^(i*t)) = ln(C) + i*t
-  #  Im(ln(z)) = t
-  # Interestingly, the result does not depend on C and is just theta.
-  # Im(In(M_nn)) is np.angle(dip_complex)
-  # -Im(In(M_nn))/(2*PI) is
-  dip = -np.angle(dip_complex)/(2*np.pi)
-
-  # Now dip[i,:] are fractional coordinates of the i-th MO center (which can be
-  # seen from subsequent np.dot(a, dip.T)). These fractional coordinates can be
-  # positive/negative. Since the box is located in the subspace (x>0,y>0,z>0),
-  # we may hope that all MO centers are also located in that subspace for a better
-  # visual inspection. This can be done via translation by adding lattice vectors.
-  # Multiple integer times of lattice vectors can be applied, but usually one a/b/c
-  # is enough.
-  dip[dip < 0] += 1.0
-  # a = cell.lattice_vectors()
-  mo_center = BOHR2ANG*np.dot(cell.lattice_vectors(), dip.T)
-  return mo_center, dip_complex
+#def pbc_mo_center(cell, loc_orb):
+#  '''
+#  Calculate orbital centers/centroid of gamma-point localized orbitals
+#  '''
+#  from pyscf import lib
+#  from pyscf.pbc.dft import gen_grid
+#
+#  nmo = loc_orb.shape[1]
+#  ngrids = np.prod(cell.mesh)
+#  blksize = 2400*56
+#  grids = gen_grid.UniformGrids(cell)
+#  # Note: grids are generated around the origin (0,0,0) by default
+#  # grids.coords.shape is (ngrids,3)
+#  # G*r
+#  Gr = np.dot(cell.reciprocal_vectors(), grids.coords.T)
+#  # e^(-iG*r)
+#  r = np.exp(-Gr*1j)
+#  # MO values on grids
+#  mo_on_grid = np.empty((ngrids,nmo))
+#  for ip0, ip1 in lib.prange(0, ngrids, blksize):
+#    ao = cell.pbc_eval_gto('GTOval', grids.coords[ip0:ip1])
+#    mo_on_grid[ip0:ip1] = np.dot(ao, loc_orb)
+#
+#  # M_nn = < w_n | e^(-iG*r) | w_n >, size (nmo,3)
+#  dip_complex = np.einsum('gi,gi,g,xg->ix', mo_on_grid, mo_on_grid, grids.weights, r)
+#
+#  # Any complex number z can be written as z = C*e^(i*t) = C*(cos(t) + i*sin(t)),
+#  # where C is a real number and t is the angle theta, so
+#  #  ln(z) = ln(C*e^(i*t)) = ln(C) + i*t
+#  #  Im(ln(z)) = t
+#  # Interestingly, the result does not depend on C and is just theta.
+#  # Im(In(M_nn)) is np.angle(dip_complex)
+#  # -Im(In(M_nn))/(2*PI) is
+#  dip = -np.angle(dip_complex)/(2*np.pi)
+#
+#  # Now dip[i,:] are fractional coordinates of the i-th MO center (which can be
+#  # seen from subsequent np.dot(a, dip.T)). These fractional coordinates can be
+#  # positive/negative. Since the box is located in the subspace (x>0,y>0,z>0),
+#  # we may hope that all MO centers are also located in that subspace for a better
+#  # visual inspection. This can be done via translation by adding lattice vectors.
+#  # Multiple integer times of lattice vectors can be applied, but usually one a/b/c
+#  # is enough.
+#  dip[dip < 0] += 1.0
+#  # a = cell.lattice_vectors()
+#  mo_center = BOHR2ANG*np.dot(cell.lattice_vectors(), dip.T)
+#  return mo_center
 
 
 def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
-            projected=None, dis_tol=27.0, conv_tol=1e-5, save_lmo=False,
+            proj_list=None, dis_tol=27.0, conv_tol=1e-5, save_lmo=False,
             old_fch=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given
@@ -311,17 +314,18 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   from mokit.lib.rwwfn import read_lat_vec_from_file
   from mokit.lib.rwgeom import periodic_table as pt
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
-  from mokit.lib.lo import berry, boys, pm, calc_dis_mat_from_coor_pbc
+  from mokit.lib.lo import gen_loc_ini_guess, berry, boys, pm, \
+                           calc_dis_mat_from_coor_pbc
   from mokit.lib.ortho import check_orthonormal
 
   t0 = time.perf_counter()
   if dis_tol < 0.1:
     raise ValueError('dis_tol must be a reasonable and positive float number')
 
-  #if conv_tol > 0.1:
-  #  raise ValueError('conv_tol must be <= 0.1')
-  #elif conv_tol < 1e-8:
-  #  raise ValueError('conv_tol must be >= 1e-8')
+  if conv_tol > 0.1:
+    raise ValueError('conv_tol must be <= 0.1')
+  elif conv_tol < 1e-9:
+    raise ValueError('conv_tol must be >= 1e-9')
 
   # determine the lattice vectors
   if isinstance(box, np.ndarray):
@@ -349,11 +353,6 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   na, nmo = read_na_and_nb_from_fch(fchname)
 
-  print('Lattice vectors\n', lat_vec)
-  print(f"distance threshold (A): {dis_tol:.3f}")
-  print(f"convergence threshold: {conv_tol:.7f}")
-  print('nmo= %d' % nmo)
-
   lines = cell.atom.strip().split('\n')
   coor_s = [line.split()[1:4] for line in lines]
   coor = np.transpose(np.array(coor_s, dtype=float))
@@ -361,54 +360,63 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   # Currently `gto.inter_distance` cannot be used here, since it calculates the
   # inter-atomic distances of an isolated molecule.
   dis = calc_dis_mat_from_coor_pbc(natom, cell.a, coor)
-  bfirst = np.zeros(natom+1, dtype=np.int32)
-  bfirst[0] = 1
+  bfirst = np.ones(natom+1, dtype=np.int32)
   bfirst[1:] = cell.aoslice_by_atom()[:,3] + 1
 
   # determine which atoms are chosen (default: all atoms)
   # LMOs centered on chosen atoms would be constructed.
-  if projected is None:
+  if proj_list is None:
     chosen = np.ones(natom, dtype=bool)
   else:
     chosen = np.zeros(natom, dtype=bool)
-    chosen[projected] = True
+    chosen[proj_list] = True
+
+  print('Lattice vectors\n', lat_vec)
+  print(f"distance threshold (A): {dis_tol:.3f}")
+  print(f"convergence threshold: {conv_tol:.9f}")
+  if proj_list is not None:
+    print('LEN(proj_list)= %d' % len(proj_list))
+  print('nmo= %d' % nmo)
 
   mo = fch2py(fchname, nbf, nif, 'a')
   S = cell.pbc_intor('int1e_ovlp', hermi=1)
   # do not use cell.intor_symmetric('int1e_ovlp') here, since it returns the AO
   # overlap of an isolated molecule
 
+  # generate initial guess orbitals (which are unitary transformation of
+  # original orbitals)
+  nmo1, lmo_ini = gen_loc_ini_guess(natom, nbf, nmo, chosen, bfirst, S, mo[:,:nmo])
+
   if method == 'berry':
     # Note: ao_zdip is a (double) complex array with size (3,nmo,nmo)
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
-    ao_zdip *= BOHR2ANG
-    lmo = berry(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, ao_zdip, dis_tol,
-                conv_tol)
+    for i in range(3):
+      ao_zdip[i,:,:] *= cell.a[i,i]
+    lmo = berry(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], ao_zdip,
+                dis_tol, conv_tol)
   elif method == 'boys':
     raise ValueError('Boys orbital localization not implemented yet.')
     center, ao_dip = ao_dipole_int(cell)
-    ao_dip *= BOHR2ANG
-    lmo = boys(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, ao_dip, dis_tol,
+    lmo = boys(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], ao_dip, dis_tol,
                conv_tol)
   elif method == 'pm':
-    lmo = pm(natom, nbf, nmo, bfirst, dis, mo[:,:nmo], S, 'mulliken', dis_tol,
-             conv_tol)
+    lmo = pm(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], S, 'mulliken',
+             dis_tol, conv_tol)
   else:
     raise ValueError('Localization method cannot be recognized.')
 
   # print LMO centers into xyz
-  if method != 'berry':
+  if method == 'berry':
+    for i in range(3):
+      ao_zdip[i,:,:] /= cell.a[i,i]
+  else:
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
-    # Theoretically, the array ao_zdip is in unit Bohr currently, and is supposed
-    # to be multiplied by the constant BOHR2ANG. But actually there is no need
-    # to do that since np.angle will lead to a dimensionless array, where the
-    # constant BOHR2ANG will be cancelled.
   mo_zdip = np.einsum('ui,xuv,vi->xi', lmo, ao_zdip, lmo, optimize=True)
   mo_dip = -np.angle(mo_zdip)/(2*np.pi)
   mo_dip[mo_dip < 0] += 1.0
   mo_center = BOHR2ANG*np.dot(cell.lattice_vectors(), mo_dip)
   if ions_centers is True:
-    k = natom + nmo
+    k = natom + nmo1
     elem = np.full(k, 'X ', dtype='U2')
     elem0, nuc, coor0, ch, mu = read_elem_and_coor_from_fch(fchname, natom)
     elem[:natom] = elem0
@@ -417,12 +425,14 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     coor[:,natom:] = mo_center
     pt.write_xyz(k, elem, coor, wannier_xyz, cell.a)
   else:
-    elem = np.full(nmo, 'X ', dtype='U2')
-    pt.write_xyz(nmo, elem, mo_center, wannier_xyz, cell.a)
+    elem = np.full(nmo1, 'X ', dtype='U2')
+    pt.write_xyz(nmo1, elem, mo_center, wannier_xyz, cell.a)
 
   # update MOs and print them into .fch
-  check_orthonormal(nbf, nmo, lmo, S)
-  mo[:,:nmo] = lmo.copy()
+  check_orthonormal(nbf, nmo1, lmo, S)
+  mo[:,:nmo1] = lmo.copy()
+  if nmo1 < nmo:
+    mo[:,nmo1:nmo] = lmo_ini[:,nmo1:].copy()
   if save_lmo is True:
     noon = np.zeros(nif)
     shutil.copyfile(fchname, lmo_fch)
