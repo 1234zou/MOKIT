@@ -11,8 +11,8 @@ source:
   path: ../..
 
 build:
-  number: 1
-  string: "py{{PY_VER}}_{{PKG_HASH}}_{{PKG_BUILDNUM}}"
+  number: 6
+  string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
   build:
