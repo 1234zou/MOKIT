@@ -3,4 +3,4 @@ python:
 numpy:
   - 2.0
 mkl:
-  - 2023
+  - 2025
