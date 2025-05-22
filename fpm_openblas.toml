@@ -4,8 +4,8 @@
 # ```
 # mv fpm.toml fpm_mkl.toml
 # mv fpm_openblas.toml fpm.toml
-# fpm build --flag="-O2 -cpp -fPIC -fopenmp" --link-flag="-L$HOME/software/openblas-0.3.21/lib64 -lopenblas"
-# fpm install --flag="-O2 -cpp -fPIC -fopenmp" --link-flag="-L$HOME/software/openblas-0.3.21/lib64 -lopenblas" --prefix .
+# fpm build --flag="-O2 -cpp -fPIC -fopenmp" --link-flag="-L$HOME/software/openblas-0.3.29/lib64 -lopenblas"
+# fpm install --flag="-O2 -cpp -fPIC -fopenmp" --link-flag="-L$HOME/software/openblas-0.3.29/lib64 -lopenblas" --prefix .
 # mv fpm.toml fpm_openblas.toml
 # mv fpm_mkl.toml fpm.toml
 # ```

@@ -254,7 +254,7 @@ subroutine replace_coor_in_orca_inp(inpname, natom, coor)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- close(fid, status='delete')
+ close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine replace_coor_in_orca_inp

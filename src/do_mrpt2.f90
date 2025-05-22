@@ -12,7 +12,7 @@ subroutine do_mrpt2()
  use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
   fch2inporb_wrap
  implicit none
- integer :: i, RENAME, system
+ integer :: i, SYSTEM, RENAME
  character(len=24) :: data_string
  character(len=240) :: string, pyname, outname, inpname, inporb
  character(len=240) :: mklname, cmofch
@@ -830,7 +830,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
  end if
 
  if(casci .or. casscf) then
-  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+  call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
  end if
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'

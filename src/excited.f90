@@ -1,7 +1,7 @@
 ! written by jxzou at 20210128: subroutines involving excited states wave function
 ! Currently only CIS/TDHF/TDDFT can be analyzed
 
-! read NROrb, NOA, NOB from a Gaussian output file
+! Read NROrb, NOA, NOB from a Gaussian output file.
 ! NFC          : number of frozen doubly occupied orbitals
 ! NROrb(nif_ex): number of spatial orbitals involved in excitation, nif_ex<=nif
 ! NOA     (noa): number of alpha occupied spin orbitals involved in excitation
@@ -21,8 +21,8 @@ subroutine read_noa_nob_from_gau_log(logname, nfc, nif_ex, noa, nob)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_noa_nob_from_gau_log: no 'Range'&
-                & found in file "//TRIM(logname)
+  write(6,'(/,A)') "ERROR in subroutine read_noa_nob_from_gau_log: no 'Range' f&
+                   &ound in file "//TRIM(logname)
   close(fid)
   stop
  end if
@@ -61,27 +61,27 @@ subroutine check_noa_nob_in_logname(logname, alpha, nocc, nvir, nfc, nif_ex)
 
  if(alpha) then ! check alpha excitation information
   if(nocc/=noa .or. nvir/=nva) then
-   write(6,'(A)') 'ERROR in subroutine check_noa_nob_in_logname: nocc/=noa or&
-                 & nvir/=nva.'
+   write(6,'(/,A)') 'ERROR in subroutine check_noa_nob_in_logname: nocc/=noa or&
+                    & nvir/=nva.'
    write(6,'(A)') 'logname='//TRIM(logname)
    write(6,'(A,4I5)') 'nocc, noa,  nvir, nva=', nocc, noa,  nvir, nva
    stop
   end if
  else ! check beta excitation information
   if(nocc/=nob .or. nvir/=nvb) then
-   write(6,'(A)') 'ERROR in subroutine check_noa_nob_in_logname: nocc/=nob or&
-                 & nvir/=nvb.'
+   write(6,'(/,A)') 'ERROR in subroutine check_noa_nob_in_logname: nocc/=nob or&
+                    & nvir/=nvb.'
    write(6,'(A)') 'logname='//TRIM(logname)
    write(6,'(A,4I5)') 'nocc, nob,  nvir, nvb=', nocc, nob,  nvir, nvb
    stop
   end if
  end if
-
 end subroutine check_noa_nob_in_logname
 
-! read excitation coefficients from Gaussian output file
-! This subroutine is only used for RHF-based CIS/TDHF/TDDFT
-! For UHF-based CIS/TDHF/TDDFT, please use read_ex_coeff_from_gau_log2
+! Read CIS/TDHF/TDDFT excitation coefficients (also called amplitudes) from a
+!  specified Gaussian output file.
+! This subroutine is only used for RHF-based CIS/TDHF/TDDFT. For UHF-based ones,
+!  please use read_ex_coeff_from_gau_log2 below.
 subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  implicit none
  integer :: i, j, k, fid, nfc, nif_ex
@@ -90,14 +90,17 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
 ! nvir: number of beta occupied orbitals involved in excitation
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: exc(nocc,nvir)
+ real(kind=8), parameter :: diff_thres = 0.01d0
  character(len=17) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
 
+ exc = 0d0
  call check_noa_nob_in_logname(logname, .true., nocc, nvir, nfc, nif_ex)
 
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
  write(str,'(A13,I4)') 'Excited State', istate
+ open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -106,11 +109,11 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_ex_coeff_from_gau_log: no '"//&
-                   str//"' found in file "//TRIM(logname)
+                    str//"' found"
+  write(6,'(A)') 'in file '//TRIM(logname)
   close(fid)
   stop
  end if
- exc = 0d0
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -119,9 +122,9 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
   if(i == 0) i = INDEX(buf,'<-') ! de-excitation
   if(i == 0) then
    close(fid)
-   write(6,'(A)') "ERROR in subroutine read_ex_coeff_from_gau_log: no '->'&
-                 & or '<-' symbol found"
-   write(6,'(A)') 'in file '//TRIM(logname)
+   write(6,'(/,A)') "ERROR in subroutine read_ex_coeff_from_gau_log: no '->' or&
+                    & '<-' symbol"
+   write(6,'(A)') 'found in file '//TRIM(logname)
    write(6,'(A)') TRIM(buf)
    stop
   end if
@@ -136,6 +139,17 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  end do ! for while
 
  close(fid)
+ rtmp = 0d0
+ do i = 1, nvir, 1
+  rtmp = rtmp + DOT_PRODUCT(exc(:,i), exc(:,i))
+ end do ! for i
+
+ if(DABS(rtmp - 0.5d0) > diff_thres) then
+  write(6,'(/,A)') 'ERROR in subroutine read_ex_coeff_from_gau_log: the sum of &
+                   &|C_ia|^2 differs'
+  write(6,'(A)') 'from 0.5. Did you forget to write IOP(9/40=4) in gjf?'
+  stop
+ end if
 end subroutine read_ex_coeff_from_gau_log
 
 ! read excitation coefficients from Gaussian output file
@@ -219,7 +233,279 @@ subroutine read_ex_coeff_from_gau_log2(logname, istate, nocc_a, nvir_a, nocc_b,&
  close(fid)
 end subroutine read_ex_coeff_from_gau_log2
 
-! generate NTO for restricted-type CIS/TDHF/TDDFT wave function
+! Read SF-/MRSF- CIS/TD excitation coefficients (also called amplitudes) from a
+!  specified GAMESS output file (.gms).
+! Note:
+! 1) istate=0 means the ground state 'STATE #   1' in the .gms file.
+! 2) nval is the number of valence doubly occupied orbitals in nocc. Frozen
+!    core orbitals are neither considered in nval, nor in nocc.
+subroutine read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: istate, nval, nocc, nvir
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: exc(nocc,nvir)
+ real(kind=8), parameter :: diff_thres = 0.01d0
+ character(len=2) :: str
+ character(len=11) :: key
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gmsname
+
+ exc = 0d0
+ write(key,'(A7,I4)') 'STATE #', istate+1
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:12) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_sf_ex_coeff_from_gms_gms: no '"//&
+                    key//"'"
+  write(6,'(A)') 'is found in file '//TRIM(gmsname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 4 ! skip 4 lines
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  read(buf,*) k, rtmp, i, str, j
+  exc(i,j-nval) = rtmp
+ end do ! for while
+
+ close(fid)
+ rtmp = 0d0
+ do i = 1, nvir, 1
+  rtmp = rtmp + DOT_PRODUCT(exc(:,i),exc(:,i))
+ end do ! for i
+
+ if(DABS(rtmp - 1d0) > diff_thres) then
+  write(6,'(/,A)') 'ERROR in subroutine read_sf_ex_coeff_from_gms_gms: the sum &
+                   &of |C_ia|^2'
+  write(6,'(A)') 'differs from 1.0. Did you forget to modify GAMESS code so as &
+                 &to print more'
+  write(6,'(A)') 'excitation coefficients?'
+  stop
+ end if
+end subroutine read_sf_ex_coeff_from_gms_gms
+
+! Generate CIS/TD MO-based density matrix using excitation coefficients from a
+!  Gaussian output file. The reference can only be RHF/RKS.
+! Note:
+! 1) Iop(9/40=4) is recommended when generating the log/out file.
+! 2) the calculation of CIS/TD MO-based dm requires only the excitation
+!  coefficients (also called amplitudes sometimes). The MO coefficients are not
+!  needed. For CIS/TD AO-based dm, see subroutine gen_cis_ao_dm_from_fch_and_log
+!  below.
+subroutine gen_cis_mo_dm_from_gau_log(logname, istate, averaged, nif, mo_dm)
+ implicit none
+ integer :: i, nfc, nif_ex, nocc, nob, ndb, nvir
+ integer, intent(in) :: istate, nif
+!f2py intent(in) :: istate, nif
+ real(kind=8), intent(out) :: mo_dm(nif,nif)
+!f2py intent(out) :: mo_dm
+!f2py depend(nif) :: mo_dm
+ real(kind=8), allocatable :: mo_dm0(:,:), exc(:,:)
+ character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
+ logical, intent(in) :: averaged
+!f2py intent(in) :: averaged
+ ! True: generate MO-based averaged density matrix of all 0~i states
+ ! False: only generate MO-based density matrix of the i-th excited state
+
+ if(istate < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_cis_mo_dm_from_gau_log: istate>=1 i&
+                   &s required.'
+  write(6,'(A)') 'logname='//TRIM(logname)
+  write(6,'(A,I0)') 'istate=', istate
+  stop
+ end if
+
+ call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
+ if(nif-nfc-nif_ex /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_cis_mo_dm_from_gau_log: inconsisten&
+                   &cy detected in'
+  write(6,'(A)') 'file '//TRIM(logname)
+  write(6,'(A,3I6)') 'nif, nfc, nif_ex=', nif, nfc, nif_ex
+  stop
+ end if
+
+ ndb = nfc + nocc; nvir = nif_ex - nocc
+ allocate(exc(nocc,nvir))
+
+ if(averaged) then
+  write(6,'(A,I0,A)') 'State-averaged NO generated using states 0~',istate,'.'
+  call init_rhf_occ_mat(ndb, nif, mo_dm) ! RHF occupation numbers
+  allocate(mo_dm0(nif,nif))
+  do i = 1, istate, 1
+   call read_ex_coeff_from_gau_log(logname, i, nocc, nvir, exc)
+   exc = DSQRT(2d0)*exc  ! sum of square of exc is 0.5, so multiply root2
+   call calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, mo_dm0)
+   mo_dm = mo_dm + mo_dm0
+  end do ! for i
+  deallocate(mo_dm0)
+  mo_dm = mo_dm/DBLE(istate+1)
+
+ else ! a specific excited state
+  call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
+  exc = DSQRT(2d0)*exc  ! sum of square of exc is 0.5, so multiply root2
+  call calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, mo_dm)
+ end if
+
+ deallocate(exc)
+ ! The diagonalization of mo_dm leads to CIS/TD natural orbital occupation
+ ! numbers, but we will not do it here.
+end subroutine gen_cis_mo_dm_from_gau_log
+
+! Generate SF-/MRSF- CIS/TD MO-based density matrix using excitation coefficients
+!  from a GAMESS output file (.gms). The spin multiplicity of the ROHF/ROKS
+!  reference must be >= 3.
+subroutine gen_sfcis_mo_dm_from_gms_gms(gmsname, mrsf, averaged, istate, nfc, &
+                                        nval, nif, mo_dm)
+ implicit none
+ integer :: i, mult, nopen, nocc, nvir
+ integer, intent(in) :: istate, nfc, nval, nif
+!f2py intent(in) :: istate, nfc, nval, nif
+ real(kind=8), intent(out) :: mo_dm(nif,nif)
+!f2py intent(out) :: mo_dm
+!f2py depend(nif) :: mo_dm
+ real(kind=8), allocatable :: mo_dm0(:,:), exc(:,:)
+ character(len=240), intent(in) :: gmsname
+!f2py intent(in) :: gmsname
+ logical, intent(in) :: mrsf, averaged
+!f2py intent(in) :: mrsf, averaged
+
+ if(istate < 0) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_sfcis_mo_dm_from_gms_gms: istate>=0&
+                   & is required.'
+  write(6,'(A)') 'gmsname='//TRIM(gmsname)
+  write(6,'(A,I0)') 'istate=', istate
+  stop
+ end if
+
+ call read_mult_from_gms_gms(gmsname, mult)
+ if(mrsf .and. mult/=3) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_sfcis_mo_dm_from_gms_gms: MRSF can &
+                   &only be applied'
+  write(6,'(A)') 'in the triplet case. But a different spin multiplicity is det&
+                 &ected in file '//TRIM(gmsname)
+  write(6,'(A,I0)') 'mult=', mult
+  stop
+ end if
+
+ nopen = mult - 1
+ nocc = nval + nopen
+ nvir = nif - nfc - nval
+
+ allocate(exc(nocc,nvir))
+
+ if(averaged) then
+  if(mrsf) then
+   write(6,'(A,I0,A)') 'State-averaged MRSF-CIS NO generated using states 0~', &
+                       istate, '.'
+  else
+   write(6,'(A,I0,A)') 'State-averaged SF-CIS NO generated using states 0~', &
+                       istate, '.'
+  end if
+  mo_dm = 0d0
+  allocate(mo_dm0(nif,nif))
+  do i = 0, istate, 1
+   call read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
+   call calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, mo_dm0)
+   mo_dm = mo_dm + mo_dm0
+  end do ! for i
+  deallocate(mo_dm0)
+  mo_dm = mo_dm/DBLE(istate+1)
+
+ else ! a specific electronic state
+  call read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
+  call calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, mo_dm)
+ end if
+
+ deallocate(exc)
+end subroutine gen_sfcis_mo_dm_from_gms_gms
+
+! Generate CIS/TDHF AO-based density matrix using excitation coefficients from
+!  Gaussian .fch(k) and .log/.out files. The reference can only be RHF/RKS.
+! Canonical MOs are included in the input fchname. Those MOs will be used and
+!  will not be changed. 'Total SCF D' section will be updated using ao_dm.
+! Note:
+! 1) Iop(9/40=4) is recommended when generating the log/out file.
+! 2) the calculation of CIS/TDHF AO-based dm requires both MO coefficients
+!  and excitation coefficients. For CIS/TDHF MO-based dm, see subroutine
+!  gen_cis_mo_dm_from_gau_log above.
+subroutine gen_cis_ao_dm_from_fch_and_log(fchname, logname, istate, averaged)
+ implicit none
+ integer :: nbf, nif
+ integer, intent(in) :: istate
+ real(kind=8), allocatable :: ao_dm(:,:)
+ real(kind=8), allocatable :: mo(:,:), mo_t(:,:), mo_dm(:,:)
+ character(len=240), intent(in) :: fchname, logname
+ logical, intent(in) :: averaged
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(mo_t(nif,nbf), source=TRANSPOSE(mo))
+ deallocate(mo)
+
+ allocate(mo_dm(nif,nif))
+ call gen_cis_mo_dm_from_gau_log(logname, istate, averaged, nif, mo_dm)
+
+ ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
+ allocate(ao_dm(nbf,nbf))
+ call calc_CTSC(nif, nbf, mo_t, mo_dm, ao_dm)
+ deallocate(mo_t, mo_dm)
+
+ call write_dm_into_fch(fchname, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+end subroutine gen_cis_ao_dm_from_fch_and_log
+
+! Generate SF-/MRSF- CIS/TD AO-based density matrix using excitation coefficients
+!  from Gaussian .fch(k) and GAMESS .gms files. The reference can only be ROHF/ROKS.
+! Canonical ROHF MOs are included in the input fchname. Those MOs will be used
+!  and will not be changed. 'Total SCF D' section will be updated using ao_dm.
+! We cannot read nfc and nval from fch and gms files, so these two variables are
+!  provided as input.
+subroutine gen_sfcis_ao_dm_from_fch_and_gms(fchname, gmsname, istate, nfc, &
+                                            nval, mrsf, averaged)
+ implicit none
+ integer :: nbf, nif
+ integer, intent(in) :: istate, nfc, nval
+ real(kind=8), allocatable :: ao_dm(:,:)
+ real(kind=8), allocatable :: mo(:,:), mo_t(:,:), mo_dm(:,:)
+ character(len=240), intent(in) :: fchname, gmsname
+ logical, intent(in) :: mrsf, averaged
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(mo_t(nif,nbf), source=TRANSPOSE(mo))
+ deallocate(mo)
+
+ allocate(mo_dm(nif,nif))
+ call gen_sfcis_mo_dm_from_gms_gms(gmsname, mrsf, averaged, istate, nfc, nval, &
+                                   nif, mo_dm)
+
+ ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
+ allocate(ao_dm(nbf,nbf))
+ call calc_CTSC(nif, nbf, mo_t, mo_dm, ao_dm)
+ deallocate(mo_t, mo_dm)
+
+ call write_dm_into_fch(fchname, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+end subroutine gen_sfcis_ao_dm_from_fch_and_gms
+
+! Generate (State-averaged) NTO for restricted-type CIS/TDHF/TDDFT wave function.
+! Canonical MOs are included in the input fchname, and those MOs will be replaced
+!  by NTOs.
 ! T*(T^) = U(n_occ)U^ -> occupied NTOs
 ! (T^)*T = V(n_vir)V^ -> unoccupied NTOs
 subroutine gen_nto(logname, fchname, istate, averaged)
@@ -233,7 +519,7 @@ subroutine gen_nto(logname, fchname, istate, averaged)
  ! logname: it includes CIS excitation coefficients in .log file
  ! fchname: it includes canonical MOs in .fch file
  logical, intent(in) :: averaged
- ! True: State-Averaged NTO; False: NTO of the ground state -> a excited state
+ ! True: State-Averaged NTO; False: NTO of the ground state -> an excited state
 
  call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
  ndb = nfc + nocc
@@ -241,7 +527,8 @@ subroutine gen_nto(logname, fchname, istate, averaged)
  allocate(exc(nocc,nvir), source=0d0)
 
  if(averaged) then
-  write(6,'(A,I0,A)') 'State-Averaged NTO generated using ',istate,' states.'
+  write(6,'(A,I0,A)') 'State-averaged NTO generated using ', istate, &
+                      ' excited states.'
   allocate(exc0(nocc,nvir))
   do i = 1, istate, 1
    call read_ex_coeff_from_gau_log(logname, i, nocc, nvir, exc0)
@@ -249,24 +536,25 @@ subroutine gen_nto(logname, fchname, istate, averaged)
   end do ! for i
   deallocate(exc0)
   exc = DSQRT(2d0)*exc/DSQRT(DBLE(istate)) ! sum of square of exc is 0.5
-
- else ! ground state -> a excited state
+ else ! ground state -> an excited state
   call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
   exc = DSQRT(2d0)*exc  ! sum of square of exc is 0.5, so multiply root2
  end if
 
  allocate(ttd(nocc,nocc), source=0d0) ! T*(T^dagger)
- ! call dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc)
  call dgemm('N','T',nocc,nocc,nvir,1d0,exc,nocc,exc,nocc,0d0,ttd,nocc)
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(ev(nif), source=0d0)
  call diag_get_e_and_vec(nocc, ttd, ev(nfc+1:ndb)) ! occupied NTO eigenvalues
 
- allocate(mo(nbf,nif), occ_mo(nbf,nocc))
+ allocate(mo(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
- occ_mo = mo(:,nfc+1:ndb) ! C'_occ = (C_occ)U
- call dgemm('N','N',nbf,nocc,nocc,1d0,occ_mo,nbf,ttd,nocc,0d0,mo(:,nfc+1:ndb),nbf)
+ allocate(occ_mo(nbf,nocc), source=0d0)
+ ! C'_occ = (C_occ)U
+ call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, ttd, nocc, &
+            0d0, occ_mo, nbf)
+ mo(:,nfc+1:ndb) = occ_mo
  deallocate(occ_mo, ttd)
 
  allocate(ttd(nvir,nvir), source=0d0) ! (T^dagger)*T
@@ -275,9 +563,11 @@ subroutine gen_nto(logname, fchname, istate, averaged)
  ! unoccupied NTO eigenvalues
  call diag_get_e_and_vec(nvir, ttd, ev(ndb+1:ndb+nvir))
  deallocate(exc)
- allocate(vir_mo(nbf,nvir))
- vir_mo = mo(:,ndb+1:ndb+nvir) ! C'_vir = (C_vir)U
- call dgemm('N','N',nbf,nvir,nvir,1d0,vir_mo,nbf,ttd,nvir,0d0,mo(:,ndb+1:ndb+nvir),nbf)
+ allocate(vir_mo(nbf,nvir), source=0d0)
+ ! C'_vir = (C_vir)U
+ call dgemm('N', 'N', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, ttd, &
+            nvir, 0d0, vir_mo, nbf)
+ mo(:,ndb+1:ndb+nvir) = vir_mo
  deallocate(ttd)
 
  ! reverse the eigenvalues and virtual NTOs
@@ -286,6 +576,7 @@ subroutine gen_nto(logname, fchname, istate, averaged)
   ev2(i-ndb) = ev(2*ndb+nvir-i+1)
   vir_mo(:,i-ndb) = mo(:,2*ndb+nvir-i+1)
  end do ! for i
+
  ev(ndb+1:ndb+nvir) = ev2
  mo(:,ndb+1:ndb+nvir) = vir_mo
  deallocate(ev2, vir_mo)
@@ -381,11 +672,10 @@ subroutine average_cis_tdm(fchname, logname, n, nbf, nif, tdm)
    tdm = tdm + tdm2(:,:,1) + tdm2(:,:,2)
   end do ! for i
   deallocate(mo2, tdm2)
-
  else
   allocate(mo1(nbf,nif))
   call read_mo_from_fch(fchname, nbf, nif, 'a', mo1)
-  allocate(tdm1(nbf,nbf), source=0d0)
+  allocate(tdm1(nbf,nbf))
   do i = 1, n, 1
    call gen_ao_tdm(logname, nbf, nif, mo1, i, tdm1)
    tdm = tdm + tdm1
@@ -423,8 +713,8 @@ subroutine check_uhf_in_fch(fchname, uhf)
   read(fid,'(A)',iostat=i) buf
   if(i < 0) exit ! end-of-file
   if(i > 0) then
-   write(6,'(A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
-                  & '//TRIM(fchname)
+   write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
+                    & '//TRIM(fchname)
    close(fid)
    stop
   end if

@@ -9,7 +9,7 @@ subroutine do_sa_cas()
   nstate, nevpt2, on_thres, orca_path, molcas_omp
  use phys_cons, only: au2ev
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8), allocatable :: e_ev(:), nevpt2_e(:)
  character(len=10) :: cas_prog = ' '
@@ -278,22 +278,19 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  else if(crazywfn) then
   write(fid2,'(A)') '0.0,0.0,0.0,0.0,0.0,0.0])'
  else
-  write(fid2,'(A)') '])'
+  write(fid2,'(A)') '0.0])'
  end if
  write(fid2,'(A)') 'mc.conv_tol = 1e-9'
- write(fid2,'(A)') 'mc.max_cycle = 200'
- if(.not. (mixed_spin .or. dmrgscf)) then
-  write(fid2,'(A,I0)') 'mc.fcisolver.spin = ', nacta-nactb
- end if
+ write(fid2,'(A)') 'mc.max_cycle = 300'
 
  if(dmrgscf) then
   !write(fid2,'(A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
  else
-  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+  call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
   ss = DBLE(nacta - nactb)*0.5d0
   ss = ss*(ss + 1d0)
   if(.not. (mixed_spin .or. crazywfn)) then
-   write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+   write(fid2,'(A,F8.3,A)') 'mc.fix_spin_(ss=', ss, ')'
   end if
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
@@ -306,7 +303,6 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  write(fid2,'(A)') "copyfile('"//TRIM(gvb_fch)//"','"//TRIM(cmofch)//"')"
  write(fid2,'(A)') 'noon = np.zeros(nif)'
  write(fid2,'(A)') "py2fch('"//TRIM(cmofch)//"',nbf,nif,mo,'a',noon,False,False)"
- ! Note: mc.mo_occ only exists for PySCF >= 1.7.4
 
  write(fid2,'(/,A)') '# perform multi-root CASCI'
  write(fid2,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
@@ -336,9 +332,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  end if
 
  if(.not. dmrgscf) then
-  call prt_hard_or_crazy_casci_pyscf(fid2,nacta-nactb,hardwfn,crazywfn,.false.)
+  call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
   if(.not. (mixed_spin .or. crazywfn)) then
-   write(fid2,'(A,F7.3,A)') 'mc.fix_spin_(ss=', ss, ')'
+   write(fid2,'(A,F8.3,A)') 'mc.fix_spin_(ss=', ss, ')'
   end if
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
@@ -470,11 +466,11 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  write(fid1,'(A,I0)') ' nel ', nacte
  write(fid1,'(A,I0)') ' norb ', nacto
  if(mixed_spin) then
-  write(fid1,'(A,I0,A1,I0)') ' mult ',mult,',',mult+2
+  write(fid1,'(2(A,I0))') ' mult ',mult,',',mult+2
   if(MOD(nstate,2) == 0) then
-   write(fid1,'(A,I0,A1,I0)') ' nroots ',nstate/2+1,',',nstate/2
+   write(fid1,'(2(A,I0))') ' nroots ',nstate/2+1,',',nstate/2
   else
-   write(fid1,'(A,I0,A1,I0)') ' nroots ',(nstate+1)/2,',',(nstate+1)/2
+   write(fid1,'(2(A,I0))') ' nroots ',(nstate+1)/2,',',(nstate+1)/2
   end if
  else
   write(fid1,'(A,I0)') ' mult ', mult
@@ -778,7 +774,7 @@ end subroutine read_sa_cas_e_from_orca_out
 ! read SA-CASSCF energies from OpenMolcas output
 subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_ssquare)
  implicit none
- integer :: i, j, fid
+ integer :: i, j, k, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -814,9 +810,10 @@ subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_ssquare)
  i = 0
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(4:12) == 'SPIN MULT') then
-   read(buf(40:),*) j
-   s = 0.5d0*DBLE(j-1)
+  if(buf(3:11)=='SPIN MULT' .or. buf(4:12)=='SPIN MULT') then
+   j = INDEX(buf, ':')
+   read(buf(j+1:),*) k
+   s = 0.5d0*DBLE(k-1)
    ci_ssquare(i) = s*(s+1d0)
    i = i + 1
    if(i == nstate+1) exit

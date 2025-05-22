@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc6 (2025-Apr-26)'
+ write(6,'(A)') '           Version: 1.2.7rc7 (2025-May-22)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -93,7 +93,7 @@ end subroutine read_sr_program_path
 
 ! Parse keywords of single reference calculations
 subroutine parse_sr_keyword()
- use mr_keyword, only: basname, check_readfch, lower
+ use mr_keyword, only: basname, check_readfch, lower_outside_sq
  implicit none
  integer :: i, j, k, ifail, fid
  character(len=24) :: method0 = ' '
@@ -226,8 +226,7 @@ subroutine parse_sr_keyword()
 
  read(fid,'(A)') buf ! skip a blank line
  read(fid,'(A)') buf ! Title Card, the 1st line of keywords
- call lower(buf)
- ! This lower is not from string_manipulate.f90, but from module mr_keyword
+ call lower_outside_sq(buf)
 
  if(buf(1:6) /= 'mokit{') then
   write(6,'(/,A)') error_warn//"'mokit{' not detected in file "//TRIM(gjfname)
@@ -254,7 +253,7 @@ subroutine parse_sr_keyword()
    read(fid,'(A)',iostat=ifail) buf
    if(ifail /= 0) exit
 
-   call lower(buf)
+   call lower_outside_sq(buf)
    i = LEN_TRIM(buf)
    if(INDEX(buf,'}') > 0) i = i - 1
    longbuf(k:k+i-1) = buf(1:i)
@@ -411,12 +410,10 @@ subroutine check_sr_kywd_compatible()
   end if
  end if
 
- if(customized_core) then
-  if(core_wish < 0) then
-   write(6,'(/,A,I0)') error_warn//'invalid core_wish=', core_wish
-   write(6,'(A)') 'The number of frozen core orbitals must be non-negative.'
-   stop
-  end if
+ if(customized_core .and. core_wish<0) then
+  write(6,'(/,A,I0)') error_warn//'invalid core_wish=', core_wish
+  write(6,'(A)') 'The number of frozen core orbitals must be non-negative.'
+  stop
  end if
 
  if(ccd .and. TRIM(cc_prog)=='openmolcas') then
@@ -626,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc6 :: MOKIT, release date: 2025-Apr-26'
+  write(6,'(A)') 'AutoSR 1.2.7rc7 :: MOKIT, release date: 2025-May-22'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -694,7 +691,6 @@ subroutine autosr(fname)
  call calc_ncore(hf_fch, chem_core, ecp_core) ! get number of core orbitals
  call do_mp2()   ! (DLPNO-, RI-)MP2
  call do_cc()    ! (DLPNO-)CCSD, CCSD(T), etc
- call do_cis()   ! CIS(D), ROCISD, XCIS, etc
  call do_adc()   ! ADC(2), ADC(3)
  call do_eomcc() ! EOM-CCSD, EOM-SF-CCSD
 
@@ -702,31 +698,34 @@ subroutine autosr(fname)
  write(6,'(/,A)') 'Normal termination of AutoSR at '//TRIM(data_string)
 end subroutine autosr
 
-! print frozen core information
+! Print frozen core information. The variable chem_core will be updated.
 subroutine prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
  implicit none
+ integer :: k
  integer, intent(inout) :: chem_core
  integer, intent(in) :: ecp_core, core_wish
  logical, intent(in) :: customized_core
  logical :: fc
 
- if(customized_core) then
-  if(chem_core /= core_wish) then
-   write(6,'(A)') REPEAT('-',79)
-   write(6,'(A)') 'Warning: you are changing the default number of frozen core &
-                  &orbtials.'
-   write(6,'(2(A,I0),A)') 'Recommended FC=', chem_core, ', your request=', &
-                          core_wish, '.'
-   write(6,'(A)') 'Setting FC as your request. You should know what you are cal&
-                  &culating.'
-   write(6,'(A)') REPEAT('-',79)
-   chem_core = core_wish
-  end if
+ chem_core = MAX(0, chem_core-ecp_core)
+
+ if(customized_core .and. chem_core/=core_wish) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning: you are changing the default number of frozen core &
+                 &orbtials.'
+  write(6,'(2(A,I0),A)') 'Recommended FC=',k,', your request=',core_wish,'.'
+  write(6,'(A)') 'Setting FC as your request. You should know what you are cal&
+                 &culating.'
+  write(6,'(A)') REPEAT('-',79)
+  chem_core = core_wish
  end if
 
- fc = .true.
- if(chem_core == 0) fc = .false.
- write(6,'(A,L1,2(A,I0))') 'Frozen_core = ',fc,', chem_core=', chem_core, &
+ if(chem_core == 0) then
+  fc = .false.
+ else
+  fc = .true.
+ end if
+ write(6,'(A,L1,2(A,I0))') 'Frozen_core=',fc,', Nfrozen=', chem_core, &
                            ', ecp_core=', ecp_core
 end subroutine prt_fc_info
 
@@ -1180,18 +1179,6 @@ subroutine do_cc()
  write(6,'(A)') 'Leave subroutine do_cc at '//TRIM(data_string)
 end subroutine do_cc
 
-subroutine do_cis()
- use sr_keyword, only: cis
- implicit none
- character(len=24) :: data_string = ' '
-
- if(.not. cis) return
- write(6,'(//,A)') 'Enter subroutine do_cis...'
-
- call fdate(data_string)
- write(6,'(A)') 'Leave subroutine do_cis at '//TRIM(data_string)
-end subroutine do_cis
-
 ! call various programs to perform IP-/EE-/EA- ADC(2)/(3)
 subroutine do_adc()
  use sr_keyword, only: nproc, hf_fch, bgchg, chgname, adc_n, ip, ea, nstate, &
@@ -1431,13 +1418,15 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
   chem_core, eom, nstate, gen_no, relaxed_dm, force
  implicit none
  integer :: i, fid
+ character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: excited
 
- i = INDEX(gjfname, '.gjf', back=.true.)
- open(newunit=fid,file=TRIM(gjfname),status='replace')
+ call find_specified_suffix(gjfname, '.gjf', i)
+ chkname = gjfname(1:i-1)//'.chk'
 
- write(fid,'(A)') '%chk='//gjfname(1:i-1)//'.chk'
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
  write(fid,'(A)',advance='no') '#p '
@@ -1468,7 +1457,7 @@ subroutine prt_posthf_gau_inp(gjfname, excited)
   write(fid,'(A)',advance='no') ' int=nobasistransform'
  end if
 
- write(fid,'(A,I0,A)',advance='no') ' window=(', chem_core+1 ,',0)'
+ write(fid,'(A,I0,A)',advance='no') ' window(',chem_core+1,',0)'
  if(force) write(fid,'(A)',advance='no') ' force'
 
  if(gen_no) then
@@ -1500,12 +1489,22 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(1:6) == '%coord') exit
  end do ! for while
 
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine prt_posthf_orca_inp: no '%coord' is fou&
+                   &nd in file"
+  write(6,'(A)') TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
  write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
- i = FLOOR(0.8d0*DBLE(mem*1000)/DBLE(nproc))
+ i = FLOOR(0.9d0*DBLE(mem*1000)/DBLE(nproc))
  write(fid1,'(A,I0)') '%maxcore ', i ! MB
 
  if(mo_rhf) then
@@ -1534,7 +1533,6 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  end if
 
  if(F12) write(fid1,'(A)',advance='no') ' '//TRIM(F12_cabs)
- if(chem_core == 0) write(fid1,'(A)',advance='no') ' NoFrozenCore'
  if(force) write(fid1,'(A)',advance='no') ' EnGrad'
 
  if(DLPNO) then
@@ -1605,6 +1603,10 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   write(fid1,'(A)') 'end'
  end if
 
+ write(fid1,'(A)') '%method'
+ write(fid1,'(A,I0)') ' FrozenCore -', 2*chem_core
+ write(fid1,'(A)') 'end'
+
  if(.not. mp2) then
   write(fid1,'(A)') '%mdci'
   write(fid1,'(A)') ' MaxIter 300'
@@ -1658,7 +1660,7 @@ subroutine prt_posthf_molpro_inp(inpname)
 
  if((.not.mo_rhf) .and. mp2 .and. gen_no) then
   write(6,'(/,A)') 'ERROR in subroutine prt_posthf_molpro_inp: UMP2 NOs are not&
-                  & supported in'
+                   & supported in'
   write(6,'(A)') 'Molpro. Please change another MP2_prog.'
   stop
  end if
@@ -1725,7 +1727,7 @@ subroutine prt_posthf_molpro_inp(inpname)
  end if
 
  if(.not. mp2) write(fid,'(A)',advance='no') ',thrden=1d-7'
- write(fid,'(A,I0,A)',advance='no') ';core,',chem_core
+ write(fid,'(A,I0)',advance='no') ';core,', chem_core
  if(ccd) write(fid,'(A)',advance='no') ';NoSING'
  if(gen_no) then
   if(.not. relaxed_dm) write(fid,'(A)',advance='no') ';expec,norelax'
@@ -1749,8 +1751,8 @@ end subroutine prt_posthf_molpro_inp
 
 subroutine prt_posthf_pyscf_inp(pyname, excited)
  use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, &
-  hf_fch, force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, RI, RIJK_bas, &
-  RIC_bas, ip, ea, nstate
+  force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, RI, RIJK_bas, RIC_bas, &
+  ip, ea, nstate
  implicit none
  integer :: i, k, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
@@ -1986,7 +1988,8 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  end if
 
  if(gen_no) then
-  write(fid1,'(/,A)') "copyfile('"//TRIM(hf_fch)//"', '"//TRIM(no_fch)//"')"
+  write(fid1,'(/,A)') "no_fch = '"//TRIM(no_fch)//"'"
+  write(fid1,'(A)') 'copyfile(hf_fch, no_fch)'
   if(RI .and. mp2) then ! DF-MP2
    if(relaxed_dm) then
     write(fid1,'(A)') 'dm1 = mc.make_rdm1_relaxed(ao_repr=True)'
@@ -2003,9 +2006,14 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
     write(fid1,'(A)') 'dm1 = mc.make_rdm1(ao_repr=True)'
    end if
   end if
-  write(fid1,'(A)') "write_pyscf_dm_into_fch('"//TRIM(no_fch)//"', nbf, dm1, 1,&
-                    & True)"
-  write(fid1,'(A)') "gen_no_using_density_in_fch('"//TRIM(no_fch)//"', 1)"
+  if(mo_rhf) then
+   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, nbf, dm1, 1, True)'
+  else
+   write(fid1,'(A)') 'dm = dm1[0] + dm1[1]'
+   write(fid1,'(A)') "os.system('fch_u2r '+no_fch+' '+no_fch)"
+   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, nbf, dm, 1, True)'
+  end if
+  write(fid1,'(A)') 'gen_no_using_density_in_fch(no_fch, 1)'
  end if
 
  close(fid1)
@@ -2055,7 +2063,7 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- close(fid, status='delete')
+ close(fid,status='delete')
  write(fid1,'(A,I0)') 'set num_frozen_docc ', chem_core
  if(gen_no .and. (.not.relaxed_dm)) write(fid1,'(A)') 'set opdm_relax False'
 
@@ -2590,7 +2598,7 @@ subroutine prt_adc_orca_inp(inpname)
  end do ! for while
 
  write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
- i = FLOOR(0.8d0*DBLE(mem*1000)/DBLE(nproc))
+ i = FLOOR(0.9d0*DBLE(mem*1000)/DBLE(nproc))
  write(fid1,'(A,I0)') '%maxcore ', i ! MB
 
  if(mo_rhf) then
@@ -2626,7 +2634,10 @@ subroutine prt_adc_orca_inp(inpname)
   write(fid1,'(A)',advance='no') ' ADC2'
  end if
 
- if(chem_core == 0) write(fid1,'(A)',advance='no') ' NoFrozenCore'
+ write(fid1,'(A)') '%method'
+ write(fid1,'(A,I0)') ' FrozenCore -', 2*chem_core
+ write(fid1,'(A)') 'end'
+
  if(force) then
   write(fid1,'(A)') ' EnGrad'
  else
@@ -3646,7 +3657,7 @@ subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
  character(len=240), intent(in) :: outname
  logical, intent(in) :: ccd, ccsd, ccsd_t
 
- ref_e = 0d0; tot_e = 0d0
+ ref_e = 0d0; tot_e = 0d0; key = ' '
  if(ccd) then
   key = key0(1)
  else if(ccsd) then
@@ -3656,7 +3667,6 @@ subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
  end if
 
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
  do while(.true.)
   BACKSPACE(fid,iostat=i)
   if(i /= 0) exit

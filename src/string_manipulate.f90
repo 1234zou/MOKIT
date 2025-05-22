@@ -502,46 +502,66 @@ function detect_ncol_in_buf(buf) result(ncol)
  ncol = ncol - 1
 end function detect_ncol_in_buf
 
-! modify the memory in a given .inp file
-subroutine modify_memory_in_gms_inp(inpname, mem, nproc)
+! Modify the value of a keyword in a section in a GAMESS .inp file. The value
+! must be integer type. For example, section='$TDDFT', key='NSTATE', ival=6
+subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
  implicit none
- integer :: i, fid1, fid2, RENAME
- integer, intent(in) :: mem, nproc
+ integer :: i, j, k, fid, fid1, RENAME
+ integer, intent(in) :: ival
+!f2py intent(in) :: ival
+ character(len=10) :: str
  character(len=240) :: buf, inpname1
+ character(len=10), intent(in) :: section, key
+!f2py intent(in) :: section, key
  character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
- open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
- open(newunit=fid2,file=TRIM(inpname1),status='replace')
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
  do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(INDEX(buf,'MWORDS') /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
+  read(buf,*) str
+  if(TRIM(str) == TRIM(section)) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine modify_memory_in_gms_inp: no 'MWORDS' fou&
-                 &nd in file "//TRIM(inpname)
-  close(fid1)
-  close(fid2,status='delete')
+  write(6,'(/,A)') "ERROR in subroutine modify_key_ival_in_gms_inp: no '"//&
+                   TRIM(section)//"' found"
+  write(6,'(A)') 'in file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
   stop
  end if
 
- write(fid2,'(A,I0,A)') ' $SYSTEM MWORDS=',FLOOR(DBLE(mem)*1d3/(8d0*DBLE(nproc))),' $END'
+ i = INDEX(buf, TRIM(key), back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine modify_key_ival_in_gms_inp: no '"//&
+                   TRIM(key)//"' found"
+  write(6,'(A)') 'in file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
 
- ! copy the remaining content
+ k = LEN_TRIM(key)
+ j = INDEX(buf(i+k+1:), ' ')
+ write(fid1,'(A,I0,A)') buf(1:i+k), ival, TRIM(buf(i+j+k:))
+
  do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
- end do
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
 
- close(fid1,status='delete')
- close(fid2)
+ close(fid,status='delete')
+ close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine modify_memory_in_gms_inp
+end subroutine modify_key_ival_in_gms_inp
 
 ! modify memory in a given PSI4 input file
 ! Note: input mem is in unit GB
@@ -1566,6 +1586,111 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
 
+! print PySCF FCI solver keywords
+subroutine prt_hard_or_crazy_casci_pyscf(nx, fid, nopen, hardwfn, crazywfn)
+ implicit none
+ integer, intent(in) :: nx, fid, nopen
+ real(kind=8) :: ss
+ character(len=7) :: buf1
+ character(len=14) :: buf2
+ logical, intent(in) :: hardwfn, crazywfn
+
+ if(nx > 0) then
+  write(buf1,'(A,I0,A)') '(',nx,'X,A)'
+  write(buf2,'(A,I0,A)') '(',nx,'X,A,F8.3,A)'
+ else
+  buf1 = '(A)'
+  buf2 = '(A,F8.3,A)'
+ end if
+
+ if(hardwfn) then
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.pspace_size = 1200'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.max_cycle = 400'
+ else if(crazywfn) then
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.level_shift = 0.2'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.pspace_size = 2400'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.max_space = 100'
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.max_cycle = 600'
+  ss = DBLE(nopen)*0.5d0
+  ss = ss*(ss+1d0)
+  write(unit=fid,fmt=TRIM(buf2)) 'mc.fix_spin_(ss=',ss,')'
+ else
+  write(unit=fid,fmt=TRIM(buf1)) 'mc.fcisolver.max_cycle = 200'
+ end if
+end subroutine prt_hard_or_crazy_casci_pyscf
+
+! print convergence remark of orbital localization
+subroutine prt_loc_conv_remark(niter, max_niter, subname)
+ implicit none
+ integer, intent(in) :: niter, max_niter
+ character(len=*), intent(in) :: subname
+
+ if(niter <= max_niter) then
+  write(6,'(A)') 'Orbital localization converged successfully.'
+ else
+  write(6,'(/,A)') 'ERROR in subroutine '//TRIM(subname)//': max_niter exceeded.'
+  write(6,'(A,I0)') 'max_niter=', max_niter
+  stop
+ end if
+end subroutine prt_loc_conv_remark
+
+! Find the number of on-top pair density functionals in the string otpdf via
+! locating ';' symbol.
+subroutine find_n_otpdf(otpdf, n_otpdf)
+ implicit none
+ integer :: i, k
+ integer, intent(out) :: n_otpdf
+ character(len=60), intent(in) :: otpdf
+
+ n_otpdf = 0
+ if(TRIM(otpdf) == 'NONE') return
+ if(INDEX(otpdf,':') > 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_n_otpdf: ':' symbol is not allowed&
+                   & in OtPDF="//TRIM(otpdf)
+  stop
+ end if
+
+ k = LEN_TRIM(otpdf)
+ if(otpdf(1:1)==';' .or. otpdf(k:k)==';') then
+  write(6,'(/,A)') 'ERROR in subroutine find_n_otpdf: invalid OtPDF='//TRIM(otpdf)
+  stop
+ end if
+
+ n_otpdf = 1
+ do i = 2, k-1, 1
+  if(otpdf(i:i) == ';') n_otpdf = n_otpdf + 1
+ end do ! for i
+end subroutine find_n_otpdf
+
+! read spin multiplicity from a specified GAMESS output file (.gms)
+subroutine read_mult_from_gms_gms(gmsname, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: mult
+!f2py intent(out) :: mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gmsname
+!f2py intent(in) :: gmsname
+
+ mult = 1
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:10) == 'SPIN MULT') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mult_from_gms_gms: 'SPIN MULT' not&
+                   & found in file "//TRIM(gmsname)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) mult
+end subroutine read_mult_from_gms_gms
+
 ! read lattice vectors (3,3) from a specified .molden file
 subroutine read_lat_vec_from_molden(molden, lat_vec)
  implicit none
@@ -1633,16 +1758,17 @@ end subroutine read_lat_vec_from_xyz
 ! this file.
 subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
  implicit none
- integer :: i, fid
+ integer :: i, j, fid
  real(kind=8), intent(out) :: lat_vec(3,3)
 !f2py intent(out) :: lat_vec
  character(len=1) :: str1
+ character(len=3) :: str3
  character(len=5) :: str5
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 !f2py intent(in) :: inpname
 
- lat_vec = 0d0
+ lat_vec = 0d0; str3 = ' '; str5 = ' '
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
 
  do while(.true.)
@@ -1656,14 +1782,31 @@ subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_cp2k_inp: &CELL secti&
-                   &on not found in file "//TRIM(inpname)
+                   &on not found in"
+  write(6,'(A)') 'file '//TRIM(inpname)
   close(fid)
   stop
  end if
 
- do i = 1, 3
-  read(fid,*) str1, lat_vec(:,i)
- end do ! for i
+ read(fid,'(A)') buf
+ read(buf,*) str3
+ str3 = ADJUSTL(str3)
+
+ if(str3 == 'ABC') then
+  i = INDEX(buf, ']')
+  if(i == 0) then
+   j = INDEX(buf, 'ABC')
+   read(buf(j+3:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
+  else
+   read(buf(i+1:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
+  end if
+ else if(str3(1:1) == 'A') then
+  BACKSPACE(fid)
+  do i = 1, 3
+   read(fid,*) str1, lat_vec(:,i)
+  end do ! for i
+ end if
+
  close(fid)
 end subroutine read_lat_vec_from_cp2k_inp
 
@@ -1695,4 +1838,44 @@ subroutine read_lat_vec_from_file(fname, lat_vec)
   call read_lat_vec_from_cp2k_inp(fname, lat_vec)
  end if
 end subroutine read_lat_vec_from_file
+
+! find the number of tags/lines after [MO] and before MO coefficients
+subroutine find_ntag_before_mo_in_molden(molden, ntag)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: ntag
+!f2py intent(out) :: ntag
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+!f2py intent(in) :: molden
+
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4)=='[MO]' .or. buf(2:5)=='[MO]') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_ntag_before_mo_in_molden: '[MO]' n&
+                   &ot found in file"
+  write(6,'(A)') TRIM(molden)
+  close(fid)
+  stop
+ end if
+
+ do ntag = 1, 4
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6)=='Occup=' .or. buf(2:7)=='Occup=') exit
+ end do ! for ntag
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_ntag_before_mo_in_molden: 'Occup='&
+                   & not found in file"
+  write(6,'(A)') TRIM(molden)
+  stop
+ end if
+end subroutine find_ntag_before_mo_in_molden
 

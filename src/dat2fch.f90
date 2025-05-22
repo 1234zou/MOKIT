@@ -210,7 +210,7 @@ subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
   ! so we change nif to the number of NOs
   nif1 = idx2
   allocate(noon(nif))
-  call read_on_from_dat(datname, nif1, noon(1:nif1), noon_exist)
+  call read_on_from_gms_dat(datname, nif1, noon(1:nif1), noon_exist)
   if(.not. noon_exist) deallocate(noon)
 
   open(newunit=datid,file=TRIM(datname),status='old',position='rewind')

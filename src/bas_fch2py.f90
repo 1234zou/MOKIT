@@ -75,7 +75,7 @@ end program main
 subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
  use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  character(len=15) :: dftname
  character(len=240) :: inpname, inpname1, pyname
  character(len=240), intent(in) :: fchname

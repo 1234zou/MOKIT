@@ -206,7 +206,7 @@ subroutine bas_gms2py(inpname, cart, pbc, obj_only, rest)
     new_bastype = bastype//' '
    end if
    allocate(prim_gau(ncol,nline), source=0d0)
-   write(pyid,'(A2,4X,A2)') elem(k), new_bastype
+   write(pyid,'(A2,4X,A)') elem(k), TRIM(new_bastype)
 
    do i = 1, nline, 1
     read(inpid,*) j, prim_gau(1:ncol,i)

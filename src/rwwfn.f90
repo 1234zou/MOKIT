@@ -635,350 +635,6 @@ subroutine read_mo_from_mos(fname, nbf, nif, coeff)
  close(fid)
 end subroutine read_mo_from_mos
 
-! read Alpha/Beta eigenvalues in a given .fch(k) file
-! Note: the Alpha/Beta Orbital Energies in .fch(k) file can be either energy levels
-!       or NOONs, depending on the job type
-subroutine read_eigenvalues_from_fch(fchname, nif, ab, noon)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
-!f2py intent(in) :: nif
- real(kind=8), intent(out) :: noon(nif)
-!f2py intent(out) :: noon
-!f2py depend(nif) :: noon
- character(len=1), intent(in) :: ab
-!f2py intent(in) :: ab
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
- character(len=8) :: key
- character(len=8), parameter :: key1 = 'Alpha Or'
- character(len=7), parameter :: key2 = 'Beta Or'
-
- noon = 0d0
- key = key1
- if(ab/='a' .and. ab/='A') key = key2//'b'
-
- call open_file(fchname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == key) exit
- end do
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_eigenvalues_from_fch: no '"//key//&
-                   "' found in "
-  write(6,'(A)') 'file '//TRIM(fchname)//'.'
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, i
- if(i /= nif) then
-  write(6,'(/,A)') 'ERROR in subroutine read_eigenvalues_from_fch: i /= nif.'
-  write(6,'(A)') 'Inconsistency found between input nif and that in file '//TRIM(fchname)
-  stop
- end if
-
- read(fid,'(5(1X,ES15.8))') (noon(i),i=1,nif)
- close(fid)
-end subroutine read_eigenvalues_from_fch
-
-! read Alpha/Beta occupation numbers from a given .orb file of (Open)Molcas
-subroutine read_on_from_orb(orbname, nif, ab, on)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
- real(kind=8), intent(out) :: on(nif)
- character(len=1), intent(in) :: ab
- character(len=240) :: buf
- character(len=240), intent(in) :: orbname
- character(len=5) :: key
- character(len=4), parameter :: key1 = '#OCC'
- character(len=5), parameter :: key2 = '#UOCC'
-
- key = key1//' '
- if(ab/='a' .and. ab/='A') key = key2
-
- call open_file(orbname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(INDEX(buf,TRIM(key)) /= 0) exit
- end do
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_on_from_orb: no '"//TRIM(key)//&
-                  &"' found in"
-  write(6,'(A)') 'file '//TRIM(orbname)
-  stop
- end if
-
- on = 0d0
- read(fid,'(A)') buf
- read(fid,'(5(1X,ES21.14))') (on(i),i=1,nif)
-
- close(fid)
-end subroutine read_on_from_orb
-
-! read $OCCNO from a given GAMESS .dat file
-subroutine read_on_from_dat(datname, nmo, on, alive)
- implicit none
- integer :: i, k, nline, fid
- integer, intent(in) :: nmo
- real(kind=8), intent(out) :: on(nmo)
- character(len=240) :: buf
- character(len=240), intent(in) :: datname
- logical, intent(out) :: alive ! whether $OCCNO exists
-
- alive = .false.
- on = 0d0
-
- call open_file(datname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:7) == '$OCCNO') exit
- end do ! for while
-
- if(i /= 0) then
-  close(fid)
-  return
- end if
-
- alive = .true.
- nline = nmo/5
- if(nmo-5*nline > 0) nline = nline + 1
- do i = 1, nline, 1
-  k = min(5*i,nmo)
-  read(fid,*) on(5*i-4:k)
- end do ! for i
-
- close(fid)
-end subroutine read_on_from_dat
-
-! read occupation numbers from Molpro .xml file
-subroutine read_on_from_xml(xmlname, nmo, ab, on)
- implicit none
- integer :: i, j, k, nline, fid
- integer, intent(in) :: nmo
- real(kind=8), intent(out) :: on(nmo)
- character(len=240) :: buf
- character(len=1), intent(in) :: ab
- character(len=240), intent(in) :: xmlname
-
- on = 0d0
- nline = nmo/10
- if(nmo-nline*10 > 0) nline = nline + 1
-
- call open_file(xmlname, .true., fid)
-
- if(ab=='a' .or. ab=='A') then
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,"type=""ALPH")/=0 .or. INDEX(buf,"type=""CANO")/=0 .or. &
-      INDEX(buf,"type=""NATU")/=0) exit
-  end do ! for while
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH', 'CAN&
-                    &O' or 'NATU' is"
-   write(6,'(A)') 'found in file '//TRIM(xmlname)
-   close(fid)
-   stop
-  end if
-
- else ! UHF
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,"type=""BETA") /= 0) exit
-  end do ! for while
-  if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_on_from_xml: no type=""BETA&
-                  & found in file "//TRIM(xmlname)//'.'
-   close(fid)
-   stop
-  end if
- end if
-
- read(fid,'(A)') buf
-
- do i = 1, nmo, 1
-  !read(fid,'(A)',iostat=k) buf
-  !if(k /= 0) exit
-  !j = INDEX(buf, """")
-  !k = INDEX(buf(j+1:), """")
-  !read(buf(j+1:j+k-1),*) on(i)
-  do while(.true.)
-   read(fid,'(A)') buf
-   j = INDEX(buf, "occupation=""")
-   if(j > 0) then
-    k = INDEX(buf(j+12:), """")
-    read(buf(j+12:j+k+10),*) on(i)
-   end if
-   k = LEN_TRIM(buf)
-   if(buf(k:k) == '>') exit
-  end do ! for while
-
-  do j = 1, nline+1, 1
-   read(fid,'(A)',iostat=k) buf
-   if(k /= 0) exit
-  end do ! for j
- end do ! for i
-
- close(fid)
- if(k /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_on_from_xml: not all occupation nu&
-                   &mbers are found.'
-  write(6,'(A)') "Did you forget to add '{put,xml}' in Molpro input file?"
-  write(6,'(A)') 'Filname = '//TRIM(xmlname)
-  stop
- end if
-end subroutine read_on_from_xml
-
-! read Alpha/Beta occupation numbers from a given orbital file of BDF
-subroutine read_on_from_bdf_orb(orbname, nif, ab, on)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
- real(kind=8), intent(out) :: on(nif)
- character(len=1), intent(in) :: ab
- character(len=240) :: buf
- character(len=240), intent(in) :: orbname
-
- on = 0d0
- call open_file(orbname, .true., fid)
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:10) == 'OCCUPATION') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "Warning in subroutine read_on_from_bdf_orb: no 'OCCUPATION'&
-                 & found in file "//TRIM(orbname)//'.'
-  write(6,'(A)') 'Failed to read CAS NOONs. This does not affect the CASCI/CAS&
-                 &SCF energy. So continue.'
-  write(6,'(A)') 'To avoid this error, please use newer version of BDF.'
-  close(fid)
-  return
- end if
-
- read(fid,*) (on(i),i=1,nif)
-
- if(ab=='b' .or. ab=='B') then
-  read(fid,'(A)') buf
-  read(fid,*) (on(i),i=1,nif)
- end if
-
- close(fid)
-end subroutine read_on_from_bdf_orb
-
-! read Alpha/Beta eigenvalues (orbital energies) from a given orbital file of BDF
-subroutine read_ev_from_bdf_orb(orbname, nif, ab, ev)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
- real(kind=8), intent(out) :: ev(nif)
- character(len=1), intent(in) :: ab
- character(len=240) :: buf
- character(len=240), intent(in) :: orbname
-
- ev = 0d0
- open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:9) == 'ORBITAL E') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "Warning in subroutine read_ev_from_bdf_orb: no 'ORBITAL E'&
-                 & found in file "//TRIM(orbname)//'.'
-  write(6,'(A)') 'Failed to read orbital energies. Set all orbital energies&
-                 & to be zero. This does not affect'
-  write(6,'(A)') 'subsequent computations in AutoMR of MOKIT. So continue. If&
-                 & you know your subsequent computations'
-  write(6,'(A)') 'will explicitly use orbital energies in fch(k) file, &
-                 & please stop subsequent computations.'
-  close(fid)
-  return
- end if
-
- read(fid,*) (ev(i),i=1,nif)
-
- if(ab=='b' .or. ab=='B') read(fid,*) (ev(i),i=1,nif)
- close(fid)
-end subroutine read_ev_from_bdf_orb
-
-! read CAS NOONs from a DALTON.MOPUN format file
-subroutine read_on_from_dalton_mopun(orbname, nif, on)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
- character(len=240) :: buf
- character(len=240), intent(in) :: orbname
- real(kind=8), intent(out) :: on(nif)
-
- on = 0d0
- call open_file(orbname, .true., fid)
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == '**NATOCC') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_on_from_dalton_mopun: no '**NATOCC&
-                  &' found in file "//TRIM(orbname)//'.'
-  close(fid)
-  stop
- end if
-
- read(fid,*) on
- close(fid)
-end subroutine read_on_from_dalton_mopun
-
-! read CAS NOONs from a Dalton output file
-! Note: only occupation numbers of active orbitals are printed in the Dalton output
-subroutine read_on_from_dalton_out(outname, nacto, on)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nacto
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: on(nacto)
-
- on = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:19) == 'Occupancies of nat') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_on_from_dalton_out: 'Occupancies o&
-                   &f nat' not found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- do i = 1, 4
-  read(fid,'(A)') buf
- end do
-
- read(fid,*) on
- close(fid)
-end subroutine read_on_from_dalton_out
-
 ! read AO-basis 1-e integral matrix from a Gaussian output file
 ! stype: overlap, kinetic, potential, core
 subroutine read_int1e_from_gau_log(logname, itype, nbf, mat)
@@ -1619,7 +1275,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  expect = 0.5d0*DBLE(spin)
  expect = expect*(expect + 1d0)
 
- if(scf) then ! CASSCF/DMRG-CASSCF
+ if(scf) then ! (DMRG-)CASSCF
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
   do while(.true.)
    BACKSPACE(fid)
@@ -1635,7 +1291,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
    if(buf(1:3) == 'SSS') state_specific = .true.
   end do ! for while
 
- else ! CASCI/DMRG-CASCI
+ else ! (DMRG-)CASCI
 
   if(dmrg) then
    open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
@@ -1698,10 +1354,13 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2> de&
                  &viates too much'
-  write(6,'(A,F10.4,A,F16.4)') 'from the expectation value. Expectation=', &
-                               expect, ', S_square=', s_square
-  write(6,'(A)') 'If this is a ground state calculation, then something may be &
-                 &wrong.'
+  write(6,'(2(A,F11.5))') 'from the expectation value. Expectation=', expect, &
+                          ', S_square=', s_square
+  write(6,'(A)') 'If this is a ground state calculation, it is probably because&
+                 & this CASSCF is'
+  write(6,'(A)') 'converged to a wrong spin state. You may try to add the keywo&
+                 &rd CrazyWFN in'
+  write(6,'(A)') 'mokit{} in .gjf file.'
   write(6,'(A)') 'If this is an excited state calculation where the spin of the&
                  & target excited'
   write(6,'(A)') 'state is different from that of the ground state, you can ign&
@@ -1712,28 +1371,36 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  ! Note: in a CASSCF job, there is also a CASCI energy, read it.
  if(scf) then
   rewind(fid)
+
   do while(.true.)
    read(fid,'(A)') buf
    if(buf(1:9) == 'CASCI E =') exit
   end do ! for while
+
   close(fid)
   read(buf(10:),*) e(1)
-
   i = INDEX(buf, '=', back=.true.)
   read(buf(i+1:),*) s_square
 
   if( DABS(expect - s_square) > max_diff) then
    write(6,'(/,A)') REPEAT('-',79)
    write(6,'(A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th s&
-                  &tep in this CASSCF job,'
-   write(6,'(A)') 'i.e. the CASCI <S**2> deviates too much from the expectation&
-                  & value.'
-   write(6,'(2(A,F10.6))') 'Expectation=', expect, ', S_square=', s_square
+                  &tep in this CASSCF'
+   write(6,'(A)') 'job, i.e. the CASCI <S**2> deviates too much from the expect&
+                  &ation value.'
+   write(6,'(2(A,F11.5))') 'Expectation=', expect, ', S_square=', s_square
    write(6,'(A)') 'If this is a ground state calculation, it is probably becaus&
-                  &e Davidson iterative'
-   write(6,'(A)') 'diagonalization is unconverged. You may try to add keyword H&
-                  &ardWFN or CrazyWFN in'
-   write(6,'(A)') 'mokit{}. If this is an excited state calculation, you may ig&
+                  &e this CASCI is'
+   write(6,'(A)') 'unconverged, or converged to a wrong spin state. If this CAS&
+                  &CI energy is'
+   write(6,'(A)') 'useless to you, or if the following CASSCF happens to be con&
+                  &verged to the'
+   write(6,'(A)') 'desired spin, you can ignore this warning. Otherwise, you ma&
+                  &y try to add'
+   write(6,'(A)') 'the keyword CrazyWFN in mokit{} in .gjf file.'
+   write(6,'(A)') 'If this is an excited state calculation where the spin of th&
+                  &e target excited'
+   write(6,'(A)') 'state is different from that of the ground state, you can ig&
                   &nore this warning.'
    write(6,'(A)') REPEAT('-',79)
   end if
@@ -1903,7 +1570,7 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
  close(fid)
 end subroutine read_cas_energy_from_molcas_out
 
-! read CASCI/CASSCF energy from a given OpenMolcas/Molcas output file
+! read CASCI/CASSCF energy from a specified ORCA output file
 subroutine read_cas_energy_from_orca_out(outname, e, scf)
  implicit none
  integer :: i, fid
@@ -1915,9 +1582,10 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- call open_file(outname, .true., fid)
 
  if(scf) then ! CASSCF
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
@@ -1925,11 +1593,12 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') error_warn//"'   E(CAS)' not found in file "//TRIM(outname)
+   write(6,'(/,A)') error_warn//"'   E(CAS)' not found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
-  i = INDEX(buf,'=')
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) e(1)
 
   do while(.true.)
@@ -1939,27 +1608,32 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') error_warn//"'Final CASSCF energy' not found in file "//&
-                  TRIM(outname)
+   write(6,'(/,A)') error_warn//"'Final CASSCF energy' not found in"
+   write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
-  i = INDEX(buf,':')
+  i = INDEX(buf, ':')
   read(buf(i+1:),*) e(2)
 
  else ! CASCI
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
   do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(buf(1:9) == 'STATE   0') exit
+   if(buf(1:5) == 'STATE') exit
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') error_warn//"'STATE   0' not found in file "//TRIM(outname)
+   write(6,'(/,A)') error_warn//"'^STATE' not found in file "//TRIM(outname)
    close(fid)
    stop
   end if
-  i = INDEX(buf,'=')
+
+  i = INDEX(buf, '=')
   read(buf(i+1:),*) e(1)
  end if
 
@@ -2832,121 +2506,6 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
  close(fid)
 end subroutine read_mrci_energy_from_output
 
-! read MC-PDFT energy from a given PySCF/OpenMolcas/GAMESS output file
-subroutine read_mcpdft_e_from_output(prog, outname, ref_e, pdft_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: ref_e, pdft_e
- character(len=240) :: buf
- character(len=9) :: str(3)
- character(len=10), intent(in) :: prog
- character(len=240), intent(in) :: outname
-
- ref_e = 0d0; pdft_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- select case(TRIM(prog))
- case('pyscf')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:7) == 'CASCI E') exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'CASCI E&
-                    &' found in"
-   write(6,'(A)') 'file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  i = INDEX(buf,'=')
-  read(buf(i+1:),*) ref_e
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:9)=='MC-PDFT E' .or. buf(1:17)=='MC-PDFT state 0 E') exit
-  end do ! for while
-
-  i = INDEX(buf,'=')
-  read(buf(i+1:),*) pdft_e
-
- case('openmolcas')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,'MCSCF reference e') > 0) exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'MCSCF r&
-                    &eference e' found"
-   write(6,'(A)') 'in file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-  read(buf,*) str(1), str(2), str(3), ref_e
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,'Total MC-PDFT')>0 .or. INDEX(buf,'Total MCPDFT')>0) exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'Total M&
-                    &C-PDFT' or 'Total MCPDFT'"
-   write(6,'(A)') 'found in file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-  read(buf(60:),*) pdft_e
-
- case('gamess')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,'TOTAL MC-PDFT') > 0) exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'Total M&
-                    &C-PDFT' found in"
-   write(6,'(A)') 'file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  i = INDEX(buf, '=', back=.true.)
-  read(buf(i+1:),*) pdft_e
-
-  do while(.true.)
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(2:15) == 'STATE=   1   E') exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mcpdft_e_from_output: no 'STATE= &
-                    &  1   E' found in"
-   write(6,'(A)') 'file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  i = INDEX(buf, 'Y=', back=.true.)
-  read(buf(i+2:),*) ref_e
- end select
-
- close(fid)
-end subroutine read_mcpdft_e_from_output
-
 ! find npair0: the number of active pairs (|C2| > 0.1)
 ! (assuming that the pair coefficients haven been sorted)
 subroutine find_npair0_from_dat(datname, npair, npair0)
@@ -3424,7 +2983,7 @@ subroutine update_density_using_mo_in_fch(fchname)
  implicit none
  integer :: i, fid, nbf, nif, na, nb
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:), dm_a(:,:), &
-  dm_b(:,:), total_dm(:,:), spin_dm(:,:), occ(:)
+  dm_b(:,:), tot_dm(:,:), spin_dm(:,:), occ(:)
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
@@ -3446,7 +3005,7 @@ subroutine update_density_using_mo_in_fch(fchname)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(total_dm(nbf,nbf), source=0d0)
+ allocate(tot_dm(nbf,nbf), source=0d0)
  allocate(alpha_coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', alpha_coeff)
  call add_density_str_into_fch(fchname, 1)
@@ -3465,7 +3024,7 @@ subroutine update_density_using_mo_in_fch(fchname)
   call calc_dm_using_mo_and_on(nbf, nif, beta_coeff, occ, dm_b)
   deallocate(beta_coeff)
 
-  total_dm = dm_a + dm_b
+  tot_dm = dm_a + dm_b
   allocate(spin_dm(nbf,nbf), source=dm_a-dm_b)
   deallocate(dm_a, dm_b)
   call add_density_str_into_fch(fchname, 2)
@@ -3475,12 +3034,12 @@ subroutine update_density_using_mo_in_fch(fchname)
  else ! R(O)HF
   if(nb > 0) occ(1:nb) = 2d0
   if(na > nb) occ(nb+1:na) = 1d0
-  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, occ, total_dm)
+  call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, occ, tot_dm)
  end if
 
  deallocate(occ)
- call write_dm_into_fch(fchname, .true., nbf, total_dm)
- deallocate(total_dm)
+ call write_dm_into_fch(fchname, .true., nbf, tot_dm)
+ deallocate(tot_dm)
 end subroutine update_density_using_mo_in_fch
 
 ! update 'Total SCF Density' using natural orbitals and occupation numbers
@@ -3680,58 +3239,6 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
  close(fid)
  call symmetrize_dmat(nbf, S)
 end subroutine read_ao_ovlp_from_47
-
-! generate natural orbitals from provided density matrix and overlap matrix
-! This subroutine is originally copied from subroutine no in lo.f90
-subroutine gen_no_from_density_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
- implicit none
- integer :: i, j, lwork, liwork
- integer, intent(in) :: nbf, nif
-!f2py intent(in) :: nbf, nif
- integer, allocatable :: isuppz(:), iwork(:)
- real(kind=8), intent(in) :: P(nbf,nbf), ao_ovlp(nbf,nbf)
-!f2py intent(in) :: P, ao_ovlp
-!f2py depend(nbf) :: P, ao_ovlp
- real(kind=8), intent(out) :: noon(nif), new_coeff(nbf,nif)
-!f2py intent(out) :: noon, new_coeff
-!f2py depend(nif) :: noon
-!f2py depend(nbf,nif) :: new_coeff
- real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:)
- real(kind=8), allocatable :: e(:), U(:,:), work(:)
-
- noon = 0d0; new_coeff = 0d0 ! initialization
- allocate(S(nbf,nbf), source=ao_ovlp)
- allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
- call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
- call calc_sps(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
- deallocate(sqrt_S)
-
- lwork = -1; liwork = -1
- allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
-             isuppz, work, lwork, iwork, liwork, j)
- lwork = CEILING(work(1))
- liwork = iwork(1)
- deallocate(work, iwork)
- allocate(work(lwork), iwork(liwork))
- call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
-             isuppz, work, lwork, iwork, liwork, j)
- deallocate(isuppz, work, iwork, S)
- ! eigenvalues in array e are in ascending order
-
- forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
- deallocate(e)
-
- call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
-            nbf, 0d0, new_coeff, nbf)
- deallocate(n_sqrt_S, U)
-
- ! reverse the order of MOs
- allocate(U(nbf,nif))
- forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
- new_coeff = U
- deallocate(U)
-end subroutine gen_no_from_density_and_ao_ovlp
 
 ! 1) compute 1e expectation values of MOs in file mo_fch, using information from
 ! file no_fch (which usually includes NOs)

@@ -4,7 +4,7 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: fchname, inpname
  logical :: sph
 

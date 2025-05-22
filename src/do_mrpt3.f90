@@ -7,7 +7,7 @@ subroutine do_mrpt3()
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, &
   nuc_pt_e
  implicit none
- integer :: i, mem0, RENAME, system
+ integer :: i, mem0, SYSTEM, RENAME
  character(len=24) :: data_string
  character(len=240) :: pyname, mklname
  character(len=240) :: string, outname, inpname, inporb

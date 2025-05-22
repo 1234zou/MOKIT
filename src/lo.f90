@@ -5,9 +5,6 @@
 
 ! Note: before PySCF-1.6.4, its dumped .molden file is wrong when using Cartesian functions.
 
-! Please use subroutine gen_no_from_density_and_ao_ovlp in rwwfn.f90, which has
-! the same functionality as the subroutine no
-
 ! localize singly occupied orbitals in a .fch file
 subroutine localize_singly_occ_orb(fchname, pm_loc)
  implicit none
@@ -194,7 +191,7 @@ subroutine gen_no_from_nso(fchname)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
 
  allocate(noon(nif), mo(nbf,nif))
- call gen_no_from_density_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
+ call gen_no_from_dm_and_ao_ovlp(nbf, nif, dm, S, noon, mo)
  deallocate(dm, S)
 
  call write_mo_into_fch(no_fch, nbf, nif, 'a', mo)
@@ -256,7 +253,7 @@ subroutine gen_cf_orb(datname, ndb, nopen)
 !f2py intent(in) :: datname
 
  if(ndb<0 .or. nopen<0) then
-  write(6,'(A)') 'ERROR in subroutine gen_cf_orb: ndb<0 or nopen<0 found.'
+  write(6,'(/,A)') 'ERROR in subroutine gen_cf_orb: ndb<0 or nopen<0 found.'
   write(6,'(A)') 'Correct values should be assigned to these two parameters.'
   stop
  end if
@@ -425,15 +422,21 @@ end subroutine cholesky_mo2
 ! According to jxzou's tests, the locality of obtained LMOs are usually
 !  atomic > Cho2 > Cho, where Cho2 means Cholesky LMOs based on orthogonal AO
 !  basis.
-subroutine resemble_ao(nbf, nif, ao_ovlp, mo)
+subroutine resemble_ao(nbf, nmo, ao_ovlp, mo)
  implicit none
  integer :: i, k
- integer, intent(in) :: nbf, nif
+ integer, intent(in) :: nbf, nmo
  integer, allocatable :: idx(:)
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
- real(kind=8), intent(inout) :: mo(nbf,nif)
+ real(kind=8), intent(inout) :: mo(nbf,nmo)
  real(kind=8), allocatable :: orth_mo(:,:), u0(:,:), u1(:,:), u(:,:), vt(:,:), &
   uvt(:,:), norm(:), s(:), d(:)
+
+ if(nmo == 1) then
+  write(6,'(A)') 'Warning from subroutine resemble_ao: only 1 orbital. No need &
+                 &to change.'
+  return
+ end if
 
  allocate(orth_mo(nbf,nbf))
  call gen_ortho_mo(nbf, ao_ovlp, k, orth_mo)
@@ -448,8 +451,8 @@ subroutine resemble_ao(nbf, nif, ao_ovlp, mo)
 
  ! calculate the unitary matrix U in equation `mo = orth_mo*U_0`
  ! U_0 = (orth_mo^T)S(mo)
- allocate(u0(k,nif))
- call calc_CTSCp2(nbf, k, nif, orth_mo(:,1:k), ao_ovlp, mo, u0)
+ allocate(u0(k,nmo))
+ call calc_CTSCp2(nbf, k, nmo, orth_mo(:,1:k), ao_ovlp, mo, u0)
  deallocate(orth_mo)
 
  ! find the AOs which has largest overlap with input MOs
@@ -458,34 +461,34 @@ subroutine resemble_ao(nbf, nif, ao_ovlp, mo)
  allocate(idx(k))
  call sort_dp_array(k, norm, .false., idx)
  deallocate(norm)
- allocate(u1(nif,nif))
- forall(i = 1:nif) u1(i,:) = u0(idx(i),:)
+ allocate(u1(nmo,nmo))
+ forall(i = 1:nmo) u1(i,:) = u0(idx(i),:)
  deallocate(idx, u0)
 
  ! compute the rotation matrix of original MOs
- allocate(u(nif,nif), vt(nif,nif), s(nif))
- call do_svd(nif, nif, u1, u, vt, s)
+ allocate(u(nmo,nmo), vt(nmo,nmo), s(nmo))
+ call do_svd(nmo, nmo, u1, u, vt, s)
  deallocate(u1)
- allocate(d(nif))
- call calc_usut_diag_elem(nif, s, u, d)
+ allocate(d(nmo))
+ call calc_usut_diag_elem(nmo, s, u, d)
  deallocate(s)
- allocate(idx(nif))
- call sort_dp_array(nif, d, .false., idx)
+ allocate(idx(nmo))
+ call sort_dp_array(nmo, d, .false., idx)
  deallocate(d)
 
  ! U(V^T)
- allocate(uvt(nif,nif), source=0d0)
- call dgemm('N', 'N', nif, nif, nif, 1d0, u, nif, vt, nif, 0d0, uvt, nif)
+ allocate(uvt(nmo,nmo), source=0d0)
+ call dgemm('N', 'N', nmo, nmo, nmo, 1d0, u, nmo, vt, nmo, 0d0, uvt, nmo)
  deallocate(u, vt)
 
  ! MO*(V(U^T))
- allocate(u0(nbf,nif), source=0d0)
- call dgemm('N','T', nbf, nif, nif, 1d0, mo, nbf, uvt, nif, 0d0, u0, nbf)
+ allocate(u0(nbf,nmo), source=0d0)
+ call dgemm('N','T', nbf, nmo, nmo, 1d0, mo, nbf, uvt, nmo, 0d0, u0, nbf)
  deallocate(uvt)
 
  ! MOs in u0 are not necessarily in overlap descending order, sorting using
  ! idx is needed.
- forall(i = 1:nif) mo(:,i) = u0(:,idx(i))
+ forall(i = 1:nmo) mo(:,i) = u0(:,idx(i))
  deallocate(idx, u0)
 end subroutine resemble_ao
 
@@ -531,6 +534,12 @@ subroutine gen_loc_ini_guess(natom, nbf, nif, chosen, bfirst, ao_ovlp, mo, &
   return
  end if
 
+ if(nif == 1) then
+  write(6,'(A)') 'Warning from subroutine gen_loc_ini_guess: only 1 orbital. No&
+                 & need to change.'
+  return
+ end if
+
  write(6,'(A)') 'Not all atoms are chosen. Only orbitals centered on specified &
                 &atoms to be solved...'
  allocate(idx(nbf), source=0)
@@ -539,7 +548,7 @@ subroutine gen_loc_ini_guess(natom, nbf, nif, chosen, bfirst, ao_ovlp, mo, &
  do i = 1, natom, 1
   if(chosen(i)) then
    k = bfirst(i+1) - bfirst(i)
-   forall(j=1:k) idx(nbf1+j) = bfirst(i)+j-1
+   forall(j = 1:k) idx(nbf1+j) = bfirst(i)+j-1
    nbf1 = nbf1 + k
   end if
  end do ! for i
@@ -584,8 +593,8 @@ subroutine gen_loc_ini_guess(natom, nbf, nif, chosen, bfirst, ao_ovlp, mo, &
  deallocate(ao_ovlp1)
 
  ! Make new_mo(:,1:nif1) resembles proj_mo(:,1:nif1).
- ! new_mo(:,nif1+1:) are remaining orbitals with non-zero MO coefficients, but
- ! will probably be discarded in subsequent orbital localization.
+ ! new_mo(:,nif1+1:) are remaining orbitals with non-zero MO coefficients, and
+ ! will probably be unused in subsequent orbital localization.
  call orb_resemble_ref1(nbf, nif, mo, nbf1, nif1, proj_mo, ao_ovlp2, new_mo)
  deallocate(proj_mo, ao_ovlp2)
  write(6,'(A)') 'Done construction.'
@@ -685,56 +694,6 @@ subroutine combined_ao_cholesky(nbf, nif, ao_ovlp, mo)
  deallocate(orth_mo)
 end subroutine combined_ao_cholesky
 
-! Calculate/get the integer array bfirst, which stores the AO index range of
-! each atom.
-!subroutine get_bfirst_from_shl(cart, nshl, natom, shl2atm, ang, ibas, nbf, bfirst)
-! implicit none
-! integer :: i, j
-! integer, intent(in) :: nshl, natom
-!!f2py intent(in) :: nshl, natom
-! integer, intent(in) :: shl2atm(nshl), ang(nshl), ibas(nshl)
-!!f2py intent(in) :: shl2atm, ang, ibas
-!!f2py depend(nshl) :: shl2atm, ang, ibas
-! integer, intent(out) :: nbf, bfirst(natom+1)
-!!f2py intent(out) :: nbf, bfirst
-!!f2py depend(natom) :: bfirst
-! integer, allocatable :: ang1(:)
-! logical, intent(in) :: cart
-!!f2py intent(in) :: cart
-!
-! if(ANY(ang < 0)) then
-!  write(6,'(/,A)') 'ERROR in subroutine get_bfirst_from_shl: there exists some &
-!                   &ang(i)<0.'
-!  write(6,'(A,L1,A,I0)') 'cart=', cart, ', nshl=', nshl
-!  write(6,'(A)') 'ang='
-!  write(6,'(20I4)') ang
-!  stop
-! end if
-!
-! allocate(ang1(nshl))
-! if(cart) then
-!  forall(i = 1:nshl) ang1(i) = (ang(i)+1)*(ang(i)+2)/2
-! else
-!  forall(i = 1:nshl) ang1(i) = 2*ang(i) + 1
-! end if
-!
-! nbf = DOT_PRODUCT(ang1, ibas)
-! ! return nbf, so that one is able to check whether the number of basis functions
-! ! is equal to nbf here.
-! write(6,'(A,I0)') 'natom=', natom
-! bfirst = 0; bfirst(1) = 1
-!
-! do i = 1, nshl, 1
-!  j = shl2atm(i) + 2
-!  bfirst(j) = bfirst(j) + ang1(i)*ibas(i)
-! end do ! for i
-! deallocate(ang1)
-!
-! do i = 2, natom+1, 1
-!  bfirst(i) = bfirst(i) + bfirst(i-1)
-! end do ! for i
-!end subroutine get_bfirst_from_shl
-
 subroutine classify_lmo(nmo, natom, gross, conn)
  implicit none
  integer :: i, j, n, npair
@@ -803,7 +762,7 @@ subroutine berry(natom, nbf, nmo, bfirst, dis, mo, ao_zdip, dis_tol, conv_tol, &
  new_mo = mo; dis_thres = dis_tol; conv_thres = conv_tol
 
  if(nmo == 1) then
-  write(6,'(A)') 'Warning in subroutine berry: only 1 orbital. No rotation.'
+  write(6,'(A)') 'Warning from subroutine berry: only 1 orbital. No rotation.'
   return
  end if
 
@@ -816,13 +775,14 @@ subroutine berry(natom, nbf, nmo, bfirst, dis, mo, ao_zdip, dis_tol, conv_tol, &
  allocate(ijmap(2,npair))
  call get_triu_idx1(nmo, ijmap)
 
- !if(nmo < 10) then
-  !call serial2by2_cmplx(nbf, nmo, new_mo, mo_zdip)
+ if(nmo < 10) then
+  call serial2by2_cmplx(nbf, nmo, new_mo, mo_zdip)
+ else
  !else if(nmo < 500) then
   call serial22berry(natom, nbf, nmo, bfirst, dis, new_mo, mo_zdip)
  !else
  ! call para22berry(natom, nbf, nmo, bfirst, dis, new_mo, mo_zdip)
- !end if
+ end if
 
  ! job accomplished, no need to update the lower triangle part of mo_zdip
  deallocate(mo_zdip, ijmap)
@@ -855,7 +815,7 @@ subroutine boys(natom, nbf, nmo, bfirst, dis, mo, ao_dip, dis_tol, conv_tol, &
  new_mo = mo; dis_thres = dis_tol; conv_thres = conv_tol
 
  if(nmo == 1) then
-  write(6,'(A)') 'Warning in subroutine boys: only 1 orbital. No rotation.'
+  write(6,'(A)') 'Warning from subroutine boys: only 1 orbital. No rotation.'
   return
  end if
 
@@ -908,7 +868,7 @@ subroutine pm(natom, nbf, nmo, bfirst, dis, mo, ao_ovlp, popm, dis_tol, &
  new_mo = mo; dis_thres = dis_tol; conv_thres = conv_tol
 
  if(nmo == 1) then
-  write(6,'(A)') 'Warning in subroutine pm: only 1 orbital. No rotation.'
+  write(6,'(A)') 'Warning from subroutine pm: only 1 orbital. No rotation.'
   return
  end if
 
@@ -942,14 +902,13 @@ subroutine serial2by2_cmplx(nbf, nmo, coeff, mo_dipole)
  real(kind=8) :: rtmp, Aij, Bij, alpha, sin_4a, cos_a, sin_a, cc, ss, sin_2a, &
   cos_2a, tot_change, sum_change
  real(kind=8), intent(inout) :: coeff(nbf,nmo)
- real(kind=8), allocatable :: tmp_mo(:)
  real(kind=8), external :: cmplx_v3_square, cmplx_v3_dot_real
  complex(kind=8) :: vtmp(3,3), vdiff(3)
  complex(kind=8), allocatable :: dipole(:,:,:)
  complex(kind=8), intent(inout) :: mo_dipole(3,nmo,nmo)
 
  write(6,'(/,A)') 'Perform serial 2*2 rotation...'
- allocate(tmp_mo(nbf), dipole(3,nmo,2))
+ allocate(dipole(3,nmo,2))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
@@ -981,12 +940,7 @@ subroutine serial2by2_cmplx(nbf, nmo, coeff, mo_dipole)
    cos_a = DCOS(alpha); sin_a = DSIN(alpha)
 
    ! update two orbitals
-!dir$ ivdep
-   tmp_mo = coeff(:,i)
-!dir$ ivdep
-   coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
-!dir$ ivdep
-   coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+   call rotate_mo_ij(cos_a, sin_a, nbf, coeff(:,i), coeff(:,j))
 
    ! update corresponding dipole integrals, only indices in range to be updated
    cc = cos_a*cos_a
@@ -1017,16 +971,9 @@ subroutine serial2by2_cmplx(nbf, nmo, coeff, mo_dipole)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(tmp_mo, dipole)
+ deallocate(dipole)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine serial2by2_cmplx: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'serial2by2_cmplx')
 end subroutine serial2by2_cmplx
 
 ! perform serial 2-by-2 rotation on given MOs
@@ -1041,13 +988,12 @@ subroutine serial2by2(nbf, nmo, ncomp, coeff, mo_dipole)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dipole(ncomp,nmo,nmo)
  ! for Boys, ncomp = 3
  ! for PM,   ncomp = natom, mo_dipole is actually the population matrix
- real(kind=8), allocatable :: dipole(:,:,:), tmp_mo(:), vtmp(:,:), vdiff(:)
+ real(kind=8), allocatable :: dipole(:,:,:), vtmp(:,:), vdiff(:)
  ! dipole: for Boys, store updated dipole integrals matrix
  !         for PM,   store updated population matrix
- ! tmp_mo: store one MO
 
  write(6,'(/,A)') 'Perform serial 2*2 rotation...'
- allocate(dipole(ncomp,nmo,2), tmp_mo(nbf), vtmp(ncomp,3), vdiff(ncomp))
+ allocate(dipole(ncomp,nmo,2), vtmp(ncomp,3), vdiff(ncomp))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
@@ -1079,12 +1025,7 @@ subroutine serial2by2(nbf, nmo, ncomp, coeff, mo_dipole)
    cos_a = DCOS(alpha); sin_a = DSIN(alpha)
 
    ! update two orbitals
-!dir$ ivdep
-   tmp_mo = coeff(:,i)
-!dir$ ivdep
-   coeff(:,i) = cos_a*tmp_mo + sin_a*coeff(:,j)
-!dir$ ivdep
-   coeff(:,j) = cos_a*coeff(:,j) - sin_a*tmp_mo
+   call rotate_mo_ij(cos_a, sin_a, nbf, coeff(:,i), coeff(:,j))
 
    ! update corresponding dipole integrals, only indices in range to be updated
    cc = cos_a*cos_a
@@ -1115,16 +1056,9 @@ subroutine serial2by2(nbf, nmo, ncomp, coeff, mo_dipole)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(tmp_mo, vdiff, vtmp, dipole)
+ deallocate(vdiff, vtmp, dipole)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine serial2by2: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'serial2by2')
 end subroutine serial2by2
 
 ! perform serial Berry 2-by-2 Jacobi rotations on given MOs with distance considered
@@ -1143,7 +1077,8 @@ subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
  complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
 
  write(6,'(/,A)') 'Perform serial Berry 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
@@ -1159,16 +1094,9 @@ subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- write(6,'(A,F20.8)') 'tot_change=', tot_change
  deallocate(mo_center, mo_dis)
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine serial22berry: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ write(6,'(A,F20.8)') 'tot_change=', tot_change
+ call prt_loc_conv_remark(niter, max_niter, 'serial22berry')
 end subroutine serial22berry
 
 subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
@@ -1187,14 +1115,16 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
  complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
 
  if(nmo < 4) then
-  write(6,'(/,A)') 'ERROR in subroutine para22berry: nmo<4. Too few orbitals.'
-  write(6,'(A,I0)') 'nmo=', nmo
+  write(6,'(/,A)') 'ERROR in subroutine para22berry: nmo<4. Too few orbitals. T&
+                   &he subroutine'
+  write(6,'(A)') 'serial22berry is supposed to be called in this case.'
+  write(6,'(A,3I7)') 'natom, nbf, nmo=', natom, nbf, nmo
   stop
  end if
 
  write(6,'(/,A)') 'Perform parallel Berry 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
-
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  np = (nmo+1)/2
  nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
@@ -1217,14 +1147,7 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
 
  deallocate(mo_center, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine para22berry: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'para22berry')
 end subroutine para22berry
 
 ! perform serial Boys 2-by-2 Jacobi rotations on given MOs with distance considered
@@ -1242,7 +1165,8 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
  real(kind=8), allocatable :: mo_dis(:)
 
  write(6,'(/,A)') 'Perform serial Boys 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
@@ -1258,16 +1182,9 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- write(6,'(A,F20.8)') 'tot_change=', tot_change
  deallocate(mo_center, mo_dis)
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine serial22boys: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ write(6,'(A,F20.8)') 'tot_change=', tot_change
+ call prt_loc_conv_remark(niter, max_niter, 'serial22boys')
 end subroutine serial22boys
 
 ! perform parallel Foster-Boys 2-by-2 Jacobi rotation on given MOs
@@ -1286,14 +1203,16 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
  real(kind=8), allocatable :: mo_dis(:)
 
  if(nmo < 4) then
-  write(6,'(/,A)') 'ERROR in subroutine para22boys: nmo<4. Too few orbitals.'
-  write(6,'(A,I0)') 'nmo=', nmo
+  write(6,'(/,A)') 'ERROR in subroutine para22boys: nmo<4. Too few orbitals. Th&
+                   &e subroutine'
+  write(6,'(A)') 'serial22boys is supposed to be called in this case.'
+  write(6,'(A,3I7)') 'natom, nbf, nmo=', natom, nbf, nmo
   stop
  end if
 
  write(6,'(/,A)') 'Perform parallel Boys 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
-
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  np = (nmo+1)/2
  nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
@@ -1316,14 +1235,7 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
 
  deallocate(mo_center, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine para22boys: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'para22boys')
 end subroutine para22boys
 
 ! perform serial Pipek-Mezey 2-by-2 Jacobi rotation on given MOs with distance considered
@@ -1340,7 +1252,8 @@ subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
  real(kind=8), allocatable :: mo_dis(:)
 
  write(6,'(/,A)') 'Perform serial PM 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  ncenter = MIN(natom, max_ncenter)
  allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
@@ -1358,14 +1271,7 @@ subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
 
  deallocate(mo_center, mo_dis)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine serial22pm: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'serial22pm')
 end subroutine serial22pm
 
 ! perform parallel Pipek-Mezey 2-by-2 Jacobi rotation on given MOs
@@ -1383,15 +1289,16 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
  real(kind=8), allocatable :: mo_dis(:)
 
  if(nmo < 4) then
-  write(6,'(/,A)') 'ERROR in subroutine para22pm: nmo<4. Too small number of or&
-                   &bitals.'
-  write(6,'(A,I0)') 'nmo=', nmo
+  write(6,'(/,A)') 'ERROR in subroutine para22pm: nmo<4. Too few orbitals. The &
+                   &subroutine'
+  write(6,'(A)') 'serial22pm is supposed to be called in this case.'
+  write(6,'(A,3I7)') 'natom, nbf, nmo=', natom, nbf, nmo
   stop
  end if
 
  write(6,'(/,A)') 'Perform parallel PM 2*2 rotation...'
- write(6,'(A,F8.2)') 'dis_thres=', dis_thres
-
+ write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
+                                   conv_thres, ', nmo=', nmo
  np = (nmo+1)/2
  nsweep = 4*np - 2
  allocate(rrmap(2,np,nsweep))
@@ -1414,14 +1321,7 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
 
  deallocate(mo_center, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
-
- if(niter <= max_niter) then
-  write(6,'(A)') 'Orbital localization converged successfully.'
- else
-  write(6,'(/,A)') 'ERROR in subroutine para22pm: max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
-  stop
- end if
+ call prt_loc_conv_remark(niter, max_niter, 'para22pm')
 end subroutine para22pm
 
 ! get the value of the modified Boys function

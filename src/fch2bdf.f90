@@ -7,7 +7,7 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, k, system
+ integer :: i, k, SYSTEM
  character(len=3) :: str
  character(len=240) :: fchname, inpname
  logical :: prt_no

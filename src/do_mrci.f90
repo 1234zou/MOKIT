@@ -11,7 +11,7 @@ subroutine do_mrcisd()
  use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
   fch2inporb_wrap
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: e
  character(len=24) :: data_string
  character(len=240) :: string, cmofch, pyname, chkname, inpname, outname, mklname
@@ -719,7 +719,7 @@ end subroutine prt_mrci_gms_inp
 subroutine calc_davidson_corr_from_out(mrcisd_prog, outname, E_corr, davidson_e)
  use mol, only: ndb, nif, nacto
  implicit none
- integer :: i, j, k, n_pocc, nvir, fid1, fid2, system
+ integer :: i, j, k, n_pocc, nvir, fid1, fid2, SYSTEM
  integer, allocatable :: det_occ(:,:)
  ! occupation number of each det, 2/1/0/-1
  real(kind=8) :: c

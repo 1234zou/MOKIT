@@ -46,6 +46,7 @@ module mol
 
  real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
+ real(kind=8) :: uhf_ssquare=0d0 ! UHF <S^2>
  real(kind=8) :: gvb_e     = 0d0 ! GVB energy
  real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
@@ -62,8 +63,8 @@ module mol
  real(kind=8) :: mrcc_e    = 0d0 ! FIC-MRCC/MkMRCC/BWMRCC/BCCC energy
  real(kind=8) :: ptchg_e   = 0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e  = 0d0 ! nuclear-point_charge interaction energy
- real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates of this molecule
- real(kind=8), allocatable :: grad(:)       ! Cartesian gradient of this molecule, 3*natom
+ real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates
+ real(kind=8), allocatable :: grad(:)       ! Cartesian gradient, 3*natom
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
 
  real(kind=8), allocatable :: sa_cas_e(:) ! multi-root CASCI energies in SA-CASSCF
@@ -71,7 +72,7 @@ module mol
  ! size 0:nstate, the ground states is included as 0
  real(kind=8), allocatable :: fosc(:)     ! oscillator strengths, size nstate
 
- character(len=2), allocatable :: elem(:)   ! element symbols
+ character(len=2), allocatable :: elem(:) ! element symbols
 end module mol
 
 ! keywords information (default values are set)
@@ -92,10 +93,12 @@ module mr_keyword
  ! 5: NOs -> CASCI/CASSCF -> ...
  ! 7: UHF -> SUHF NO -> (associated rotation ->) CASCI/CASSCF -> ...
 
- integer :: eist = 0       ! the i-th strategy for excited state calculation
- ! 0: if RHF wfn is stable, use strategy 2; otherwise use strategy 1
- ! 1: RHF -> CIS NTO -> CASCI/CASSCF -> ...
- ! 2: UHF -> UCIS NTO -> CASCI/CASSCF -> ...
+ integer :: eist = 0   ! the i-th strategy for excited state calculations
+ ! 0: For singlet, if RHF wfn is stable, use strategy 1; otherwise use strategy 2.
+ !    For non-singlet, use strategy 3.
+ ! 1: RHF -> CIS SA-NTO/SA-NO -> CASCI/CASSCF -> ...
+ ! 2: UHF -> UNO MRSF-CIS SA-NO -> CASCI/CASSCF -> ...
+ ! 3: UHF -> UNO XCIS/RO-TDHF -> CASCI/CASSCF -> ...
 
  integer :: nskip_uno = 0  ! the number of pair of UNO to be skipped when
  ! performing orbital localization
@@ -103,7 +106,8 @@ module mr_keyword
  ! 2 for skipping HONO-1, HONO, LUNO, and LUNO+1
  ! This keyword is used to try to obtain biradical GVB-SCF solution
 
- integer :: CtrType = 0    ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
+ integer :: n_otpdf = 0 ! the number of on-top pair density functional
+ integer :: CtrType = 0 ! 1/2/3 for Uncontracted-/ic-/FIC- MRCI
  integer :: mrcc_type = 1
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
@@ -130,7 +134,7 @@ module mr_keyword
  character(len=4) :: GVB_conv = '5d-4'
  ! density matrix convergence criterion of GVB (1d-5 default in GAMESS)
  character(len=4) :: localm = 'pm'    ! localization method: boys/pm
- character(len=9) :: otpdf = 'tPBE'   ! on-top pair density functional
+ character(len=60) :: otpdf = 'tPBE'  ! on-top pair density functional
  character(len=240) :: gjfname = ' '  ! filename of the input .gjf file
  character(len=240) :: chgname = ' '  ! filename of the .chg file (background point charges)
  character(len=240) :: hf_fch = ' '   ! filename of the given .fch(k) file
@@ -216,7 +220,8 @@ module mr_keyword
  logical :: ss_opt = .false.      ! State-specific orbital optimization
  logical :: excited = .false.     ! whether to perform excited states calculations
  logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
- logical :: TDHF = .false.        ! True/False for CIS/TDHF
+ logical :: sa_nto = .false.      ! State-averaged CIS/TDHF NTOs
+ logical :: tdhf = .false.        ! True/False for TDHF/CIS
  logical :: sa_cas = .false.      ! State-Averaged CASSCF
  logical :: QD = .false.
  ! False: multi-root CASCI-based NEVPT2 or CASPT2
@@ -298,7 +303,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc6 (2025-Apr-26)'
+ write(6,'(A)') '           Version: 1.2.7rc7 (2025-May-22)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -586,8 +591,7 @@ end subroutine check_gms_path
 
   read(fid,'(A)') buf ! skip a blank line
   read(fid,'(A)') buf ! Title Card, the 1st line of keywords
-  call lower(buf)
-  ! This lower is not from string_manipulate.f90, but defined in this module
+  call lower_outside_sq(buf)
 
   if(buf(1:6) /= 'mokit{') then
    write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected i&
@@ -615,7 +619,7 @@ end subroutine check_gms_path
     read(fid,'(A)',iostat=ifail) buf
     if(ifail /= 0) exit
 
-    call lower(buf)
+    call lower_outside_sq(buf)
     i = LEN_TRIM(buf)
     if(index(buf,'}') > 0) i = i - 1
     longbuf(k:k+i-1) = buf(1:i)
@@ -638,9 +642,9 @@ end subroutine check_gms_path
   write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(6,'(A)') TRIM(longbuf)
   if(INDEX(longbuf,"""") > 0) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: double quote "" not all&
-                    &owed in mokit{}."
-   write(6,'(A)') 'Please use single quotes.'
+   write(6,'(/,A)') "ERROR in subroutine parse_keyword: double quotes "" are no&
+                    &t allowed in mokit{}."
+   write(6,'(A)') "Please use single quotes ''."
    stop
   end if
 
@@ -813,7 +817,7 @@ end subroutine check_gms_path
    case('fic')
     FIC = .true.
    case('otpdf')
-    otpdf = longbuf(j+1:i-1)
+    read(longbuf(j+1:i-1),*) otpdf
    case('on_thres')
     read(longbuf(j+1:i-1),*) on_thres
    case('uno_thres')
@@ -844,8 +848,10 @@ end subroutine check_gms_path
     read(longbuf(j+1:i-1),*) nstate ! SA-CASSCF (ground state not included)
     gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
     eist = 1
+   case('sa_nto')
+    sa_nto = .true.
    case('tdhf')
-    TDHF = .true.
+    tdhf = .true.
    case('qd')
     QD = .true.
    case('fcgvb')
@@ -913,7 +919,6 @@ end subroutine check_gms_path
   end select
 
   if(.not. mcpdft) otpdf = 'NONE'
-
   dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mrcisdt .or. &
               mcpdft .or. caspt3 .or. nevpt3)
   if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
@@ -948,7 +953,7 @@ subroutine prt_strategy()
  write(6,'(5(A,L1,3X))') 'BgCharge= ',   bgchg, 'Ana_Grad= ',  force,&
       'Pop     = ',    pop, 'NMR     = ',    nmr, 'ICSS    = ', ICSS
 
- write(6,'(5(A,L1,3X))') 'TDHF    = ',    TDHF, 'SA_CAS  = ',  sa_cas,&
+ write(6,'(5(A,L1,3X))') 'TDHF    = ',    tdhf, 'SA_CAS  = ',  sa_cas,&
       'Excited = ',excited, 'QD      = ',     QD, 'SOC     = ', SOC
 
  write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
@@ -1007,14 +1012,18 @@ subroutine check_kywd_compatible()
   write(6,'(/,A)') error_warn//'iroot must be non-negative.'
   write(6,'(A,I0)') 'Your input iroot=', iroot
   stop
- else if(iroot > 0) then ! State-Specific CASSCF
-  if(nstate > 0) then
+ end if
+
+ if(nstate > 0) then
+  if(iroot > 0) then
    write(6,'(/,A)') error_warn//'you can specify only one of Nstates and Root.'
    stop
   end if
   if(casci) then
-   write(6,'(/,A)') error_warn//'Root is expected to be used in CASSCF,'
-   write(6,'(A)') 'not in CASCI.'
+   write(6,'(/,A)') error_warn//'CASCI method cannot be combined with Nstates.'
+   write(6,'(A)') 'If you are interested in a CASCI excited state, e.g. S1, you&
+                  & can write'
+   write(6,'(A)') 'Root=1 in mokit{}, instead of writing Nstates.'
    stop
   end if
  end if
@@ -1176,21 +1185,27 @@ subroutine check_kywd_compatible()
   stop
  end if
 
- select case(dmrgci_prog)
- case('pyscf', 'openmolcas')
+ select case(TRIM(dmrgci_prog))
+ case('pyscf','openmolcas')
  case default
   write(6,'(/,A)') error_warn//'currently DMRG-CASCI is only supported by PySCF'
   write(6,'(A)') 'or OpenMolcas. Wrong DMRGCI_prog='//TRIM(dmrgci_prog)
   stop
  end select
 
- select case(dmrgscf_prog)
- case('pyscf', 'openmolcas')
+ select case(TRIM(dmrgscf_prog))
+ case('pyscf','openmolcas')
  case default
   write(6,'(/,A)') error_warn//'currently DMRG-CASSCF is only supported by PySCF'
   write(6,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
   stop
  end select
+
+ if(dmrgscf .and. (.not.dmrg_no)) then
+  write(6,'(/,A)') error_warn//'the noDMRGNO keyword can only be used for'
+  write(6,'(A)') 'DMRG-CASCI. But DMRG-CASSCF is detected.'
+  stop
+ end if
 
  alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
  if(alive(1)) then
@@ -1281,11 +1296,23 @@ subroutine check_kywd_compatible()
   stop
  end select
 
- if(mcpdft .and. TRIM(mcpdft_prog)=='gamess' .and. bgchg) then
-  write(6,'(/,A)') error_warn
-  write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
-  write(6,'(A)') 'You can use PySCF/OpenMolcas.'
-  stop
+ ! find the number of on-top pair density functionals specified
+ if(mcpdft) call find_n_otpdf(otpdf, n_otpdf)
+
+ if(mcpdft .and. TRIM(mcpdft_prog)=='gamess') then
+  if(bgchg) then
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'Currently MC-PDFT with point charges is incompatible with GAMESS.'
+   write(6,'(A)') 'You can use PySCF/OpenMolcas.'
+   stop
+  end if
+  if(n_otpdf > 1) then
+   write(6,'(/,A)') error_warn
+   write(6,'(A)') 'MC-PDFT with multiple on-top pair density functionals are no&
+                  &t supported for'
+   write(6,'(A)') 'MCPDFT_prog=GAMESS. You can use PySCF/OpenMolcas.'
+   stop
+  end if
  end if
 
  select case(TRIM(mcpdft_prog))
@@ -1549,131 +1576,142 @@ subroutine check_kywd_compatible()
  write(6,'(A)') REPEAT('-',79)
 end subroutine check_kywd_compatible
 
-! turn letters in buf into lower case, except those in symbol ''
-subroutine lower(buf)
+! turn characters in buf into lower case, except those in single quotes ''
+subroutine lower_outside_sq(buf)
  implicit none
- integer :: i, j, k, k1, k2
+ integer :: i, j, k
  character(len=240), intent(inout) :: buf
 
  k = LEN_TRIM(buf)
- k1 = INDEX(buf,"'")
- k2 = INDEX(buf,"'",back=.true.)
+ i = 1
 
- do i = 1, k, 1
-  if(i>k1 .and. i<k2) cycle
-
-  j = IACHAR(buf(i:i))
-  if(j>64 .and. j<91) buf(i:i) = ACHAR(j+32)
- end do ! for i
-end subroutine lower
-
- ! read background point charge(s) from .gjf file
- subroutine read_bgchg_from_gjf(no_coor)
-  use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
-  implicit none
-  integer :: i, fid, nblank, nblank0
-  character(len=240) :: buf
-  character(len=41), parameter :: error_warn='ERROR in subroutine read_bgchg_from_gjf: '
-  logical, intent(in) :: no_coor
-
-  nblank = 0
-  if(no_coor) then ! no Cartesian Coordinates
-   if(rigid_scan .or. relaxed_scan) then
-    nblank0 = 3
-   else
-    nblank0 = 2
+ do while(i <= k)
+  if(buf(i:i) == "'") then
+   j = INDEX(buf(i+1:),"'")
+   if(j == 0) then
+    write(6,'(/,A)') "ERROR in subroutine lower_outside_sq: single quotes '' do&
+                     &es occur pairwise."
+    write(6,'(A)') buf(1:k)
+    stop
    end if
-  else             ! there exists Cartesian Coordinates
-   if(rigid_scan .or. relaxed_scan) then
-    nblank0 = 4
-   else
-    nblank0 = 3
-   end if
+   i = i + j + 1
+  else
+   j = IACHAR(buf(i:i))
+   if(j>64 .and. j<91) buf(i:i) = ACHAR(j+32)
+   i = i + 1
   end if
+ end do ! for while
+end subroutine lower_outside_sq
 
-  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-   if(nblank == nblank0) exit
-  end do ! for while
+! read background point charge(s) from .gjf file
+subroutine read_bgchg_from_gjf(no_coor)
+ use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
+ implicit none
+ integer :: i, fid, nblank, nblank0
+ character(len=240) :: buf
+ character(len=41), parameter :: error_warn='ERROR in subroutine read_bgchg_from_gjf: '
+ logical, intent(in) :: no_coor
 
-  if(i /= 0) then
-   write(66,'(A)') error_warn//'wrong format of background point charges.'
-   close(fid)
-   stop
+ nblank = 0
+ if(no_coor) then ! no Cartesian Coordinates
+  if(rigid_scan .or. relaxed_scan) then
+   nblank0 = 3
+  else
+   nblank0 = 2
   end if
-
-  nbgchg = 0
-
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i/=0 .or. LEN_TRIM(buf)==0) exit
-   nbgchg = nbgchg + 1
-  end do ! for while
-
-  if(nbgchg == 0) then
-   write(6,'(A)') error_warn//'no background point charge(s) found'
-   write(6,'(A)') 'in file '//TRIM(gjfname)
-   close(fid)
-   stop
+ else             ! there exists Cartesian Coordinates
+  if(rigid_scan .or. relaxed_scan) then
+   nblank0 = 4
+  else
+   nblank0 = 3
   end if
+ end if
 
-  write(6,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
-  allocate(bgcharge(4,nbgchg), source=0d0)
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == nblank0) exit
+ end do ! for while
 
-  rewind(fid)   ! jump to the 1st line of the file
-  nblank = 0
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-   if(nblank == nblank0) exit
-  end do ! for while
-
-  do i = 1, nbgchg, 1
-   read(fid,*) bgcharge(1:4,i)
-  end do ! for i
+ if(i /= 0) then
+  write(66,'(A)') error_warn//'wrong format of background point charges.'
   close(fid)
+  stop
+ end if
 
-  call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
-  write(6,'(A,F18.8,A)') 'Self energy of the charges =', ptchg_e, ' a.u.'
+ nbgchg = 0
 
-  i = INDEX(gjfname, '.gjf', back=.true.)
-  chgname = gjfname(1:i-1)//'.chg'
-  call write_charge_into_chg(nbgchg, bgcharge, chgname)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i/=0 .or. LEN_TRIM(buf)==0) exit
+  nbgchg = nbgchg + 1
+ end do ! for while
 
-  call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
-  write(6,'(A,F18.8,A)') 'Nuclei-charges interaction =',nuc_pt_e,' a.u.'
-  write(6,'(A)') 'Note: these two energies are included in all electronic energ&
-                 &ies below.'
- end subroutine read_bgchg_from_gjf
+ if(nbgchg == 0) then
+  write(6,'(A)') error_warn//'no background point charge(s) found'
+  write(6,'(A)') 'in file '//TRIM(gjfname)
+  close(fid)
+  stop
+ end if
 
- ! check any readrhf/readuhf/readno in the given .gjf file
- function check_readfch(gjfname) result(has_readfch)
-  implicit none
-  integer :: fid
-  character(len=240) :: buf
-  character(len=240), intent(in) :: gjfname
-  logical :: has_readfch
- 
-  has_readfch = .false.
-  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- 
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(LEN_TRIM(buf) == 0) exit
-  end do ! for while
- 
+ write(6,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
+ allocate(bgcharge(4,nbgchg), source=0d0)
+
+ rewind(fid)   ! jump to the 1st line of the file
+ nblank = 0
+ do while(.true.)
   read(fid,'(A)') buf
-  close(fid)
- 
-  if(LEN_TRIM(buf) == 0) return
-  call lower(buf)
- 
-  if(index(buf,'readrhf')>0 .or. index(buf,'readuhf')>0 .or. &
-     index(buf,'readno')>0) has_readfch = .true.
- end function check_readfch
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == nblank0) exit
+ end do ! for while
+
+ do i = 1, nbgchg, 1
+  read(fid,*) bgcharge(1:4,i)
+ end do ! for i
+ close(fid)
+
+ call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
+ write(6,'(A,F18.8,A)') 'Self energy of the charges =', ptchg_e, ' a.u.'
+
+ i = INDEX(gjfname, '.gjf', back=.true.)
+ chgname = gjfname(1:i-1)//'.chg'
+ call write_charge_into_chg(nbgchg, bgcharge, chgname)
+
+ call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
+ write(6,'(A,F18.8,A)') 'Nuclei-charges interaction =',nuc_pt_e,' a.u.'
+ write(6,'(A)') 'Note: these two energies are included in all electronic energ&
+                &ies below.'
+end subroutine read_bgchg_from_gjf
+
+! check any readrhf/readuhf/readno in the given .gjf file
+function check_readfch(gjfname) result(has_readfch)
+ implicit none
+ integer :: fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ logical :: has_readfch
+
+ has_readfch = .false.
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+ end do ! for while
+
+ read(fid,'(A)') buf
+ close(fid)
+
+ if(LEN_TRIM(buf) == 0) return
+ call lower_outside_sq(buf)
+
+ if(index(buf,'readrhf')>0 .or. index(buf,'readuhf')>0 .or. &
+    index(buf,'readno')>0) then
+  has_readfch = .true.
+ end if
+end function check_readfch
 
 end module mr_keyword
 

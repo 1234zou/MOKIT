@@ -885,7 +885,7 @@ end subroutine gen_automr_gjf_and_submit
 subroutine read_cluster_e_from_out()
  use obf, only: fchname, n_tot, e_tot, cluster_e, icoeff
  implicit none
- integer :: i, k, nbf, nif, fid, system
+ integer :: i, k, nbf, nif, fid, SYSTEM
  real(kind=8), allocatable :: den0(:,:), den1(:,:)
  character(len=240) :: buf, proname, proname1, outname, fchname1, fchname2
  character(len=500) :: longbuf = ' '

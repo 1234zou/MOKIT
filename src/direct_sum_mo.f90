@@ -1,5 +1,7 @@
 ! Perform the direct sum of fragment MOs in a series of .fch files (fchname0),
 !  and write merged MOs into fchname.
+! TODO: support direct sum of GVB and CASSCF orbitals
+
 ! Note:
 !  1) the wave function type (wfn_type) of each .fch file must be provided since
 !     this subroutine allows extending R(O)HF->UHF automatically
@@ -308,7 +310,7 @@ subroutine direct_sum_frag_dm_in_fch(n, fname0, fname)
  end if
 
  allocate(occ(nif0), mo(nbf0,nif0))
- call gen_no_from_density_and_ao_ovlp(nbf0, nif0, dm0, ovlp, occ, mo)
+ call gen_no_from_dm_and_ao_ovlp(nbf0, nif0, dm0, ovlp, occ, mo)
  call write_eigenvalues_to_fch(fchname(n+1), nif0, 'a', occ, .true.)
  deallocate(dm0, ovlp, occ)
  ! There is no need to write the occupation numbers and total density into .fch,

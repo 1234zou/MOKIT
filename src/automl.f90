@@ -221,7 +221,7 @@ end subroutine submit_xtb_jobs_omp
 !  here and call subroutine submit_xtb_jobs_omp
 subroutine submit_xtb_job(proname, charge, mult, gfn, nproc, job_type, del_tmp)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  integer, intent(in) :: charge, mult, gfn, nproc, job_type
  ! gfn: -1/0/1/2 for GFN-FF/GFN0-xTB/GFN1-xTB/GFN2-xTB
  ! nproc: number of parallel processes
@@ -283,7 +283,7 @@ subroutine submit_xtb_job(proname, charge, mult, gfn, nproc, job_type, del_tmp)
  write(fid,'(3(A,I0),A)') ' -c ',charge,' -u ',mult-1,' >'//TRIM(outname)//" 2>&1"
  close(fid)
 
- i = system('/bin/bash '//TRIM(shname))
+ i = SYSTEM('/bin/bash '//TRIM(shname))
  if(i /= 0) then
   write(6,'(/,A)') 'Warning from subroutine submit_xtb_job: an xTB job failed.'
   write(6,'(A)') 'Filename='//TRIM(proname)

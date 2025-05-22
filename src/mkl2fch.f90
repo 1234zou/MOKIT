@@ -89,7 +89,7 @@ end program main
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
 subroutine mkl2fch(mklname, fchname, no_type, jrel)
  use fch_content
- use mkl_content, only: read_mo_from_mkl, read_on_from_mkl, read_ev_from_mkl
+ use mkl_content, only: read_mo_from_mkl
  implicit none
  integer :: k, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: no_type, jrel
@@ -217,9 +217,9 @@ end subroutine mkl2fch
 ! from scratch
 subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  use fch_content
- use mkl_content, only: check_uhf_in_mkl, read_mkl, read_on_from_mkl, nuc, &
-  charge0=>charge, mult0=>mult, natom0=>natom, ncontr0=>ncontr, nbf0=>nbf, &
-  nif0=>nif, shell_type0=>shell_type, shl2atm, alpha_coeff0=>alpha_coeff, &
+ use mkl_content, only: check_uhf_in_mkl, read_mkl, nuc, charge0=>charge, &
+  mult0=>mult, natom0=>natom, ncontr0=>ncontr, nbf0=>nbf, nif0=>nif, &
+  shell_type0=>shell_type, shl2atm, alpha_coeff0=>alpha_coeff, &
   beta_coeff0=>beta_coeff, elem0=>elem, coor0=>coor, all_pg, ev_a, ev_b
  implicit none
  integer :: i, k, ne, nfmark, ngmark, nhmark, nimark
@@ -348,7 +348,6 @@ end subroutine mkl2fch_direct
 
 ! check na, nb with those calculated from $OCC_ALPHA(and $OCC_BETA) in .mkl file
 subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
- use mkl_content, only: read_on_from_mkl
  implicit none
  integer :: i, ne1, na1, nb1
  integer, intent(in) :: nif

@@ -13,7 +13,8 @@ program main
  i = iargc()
  if(i /= 1) then
   write(6,'(/,A)') ' ERROR in subroutine fch2cfour: wrong command line argument!'
-  write(6,'(A,/)') ' Example: fch2cfour water.fch'
+  write(6,'(A)')   ' Example: fch2cfour water.fch'
+  write(6,'(A,/)') ' Note: fch2cfour can only be used for CFOUR >= v2.1'
   stop
  end if
 
@@ -274,7 +275,13 @@ subroutine prt_cfour_zmat(natom, elem, coor, charge, mult, irel, uhf, sph, ecp)
 
  if(ecp) then
   do i = 1, natom, 1
-   write(fid,'(A)') TRIM(elem(i))//':PVTZ'
+   if(LPSkip(i) == 0) then
+    str = elem(i)
+    if(str(2:2) /= ' ') call upper(str(2:2))
+    write(fid,'(A)') TRIM(str)//':ECP-10-MDF'
+   else
+    write(fid,'(A)') TRIM(elem(i))//':PVTZ'
+   end if
   end do ! for i
 
   write(fid,'(/)',advance='no')
@@ -486,7 +493,9 @@ function ang(c1, c2, c3)
 
  v1 = c1 - c2
  v2 = c3 - c2
- ang = 180d0*DACOS(DOT_PRODUCT(v1,v2)/(norm(v1)*norm(v2)))/PI
+ ang = DOT_PRODUCT(v1,v2)/(norm(v1)*norm(v2))
+ ang = MAX(-1d0, MIN(ang, 1d0)) ! deal with numerical error
+ ang = 180d0*DACOS(ang)/PI
 end function ang
 
 ! calculate the 4,6,2,5,3ctor (normalized to 1) of two vectors
@@ -511,8 +520,7 @@ function dih(c1, c2, c3, c4)
  call normal_vector(c3-c2, c1-c2, nv1)
  call normal_vector(c3-c2, c4-c2, nv2)
  dih = DOT_PRODUCT(nv1, nv2)
-
- dih = MIN(MAX(dih,-1d0),1d0) ! deal with numerical error
+ dih = MAX(-1d0, MIN(dih,1d0)) ! deal with numerical error
  dih = 180d0*DACOS(dih)/PI
  if(DOT_PRODUCT(c1-c2, nv2) < 0d0) dih = -dih
 end function dih

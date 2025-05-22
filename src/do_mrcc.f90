@@ -7,7 +7,7 @@ subroutine do_mrcc()
  use mol, only: nacte, nacto, nevpt2_e, mrcc_e
  use util_wrapper, only: mkl2gbw
  implicit none
- integer :: i, system, RENAME
+ integer :: i, SYSTEM, RENAME
  real(kind=8) :: ref_e, corr_e(2)
  character(len=12), parameter :: method(8) = ['FIC-MRCCSD  ','Mk-MRCCSD   ',&
   'Mk-MRCCSD(T)','BW-MRCCSD   ','BW-MRCCSD(T)','BCCC2b      ','BCCC3b      ',&
@@ -327,7 +327,7 @@ subroutine do_gvb_bccc()
  use mol, only: mult, ndb, npair, nopen, mrcc_e
  use mr_keyword, only: mem, nproc, mrcc_type, mrcc_prog, datname
  implicit none
- integer :: i, j, npair1, system, RENAME
+ integer :: i, j, npair1, SYSTEM, RENAME
  real(kind=8) :: ref_e, corr_e(2)
  real(kind=8), parameter :: e_H = -0.454397401648d0 ! ROHF/STO-2G
  character(len=24) :: data_string

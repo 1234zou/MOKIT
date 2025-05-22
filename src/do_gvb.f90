@@ -4,8 +4,8 @@
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
- use mr_keyword, only: gvb, gvb_prog, ist, hf_fch, mo_rhf, npair_wish, onlyXH,&
-  excludeXH, localm, LocDocc
+ use mr_keyword, only: gvb, gvb_prog, ist, eist, sa_cas, readrhf, readuhf, &
+  hf_fch, mo_rhf, npair_wish, onlyXH, excludeXH, localm, LocDocc
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
@@ -17,6 +17,10 @@ subroutine do_gvb()
  logical :: pm_loc
 
  if(.not. gvb) return
+ if(eist>0 .and. sa_cas .and. (readrhf .or. readuhf)) then
+  gvb = .false.
+  return
+ end if
  write(6,'(//,A)') 'Enter subroutine do_gvb...'
 
  select case(ist)
@@ -138,6 +142,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
+ character(len=10) :: section, key
  character(len=240) :: inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
  character(len=480) :: longbuf = ' '
@@ -175,7 +180,10 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   end if
  end if
 
- call modify_memory_in_gms_inp(inpname, mem, nproc)
+ ! FLOOR(DBLE(mem)*1d3/(8d0*DBLE(nproc)))
+ i = FLOOR(125d0*DBLE(mem)/DBLE(nproc))
+ section = '$SYSTEM'; key = 'MWORDS'
+ call modify_key_ival_in_gms_inp(inpname, section, key, i)
  call add_gvb_conv(inpname, GVB_conv)
  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
@@ -446,7 +454,7 @@ subroutine do_gvb_gau(proname, pair_fch)
  call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
 end subroutine do_gvb_gau
 
-! create Gaussian GVB input file
+! print/create a Gaussian GVB input file
 subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  implicit none
  integer :: i, fid
@@ -455,10 +463,10 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
 
- i = INDEX(gjfname, '.gjf', back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
  chkname = gjfname(1:i-1)//'.chk'
-
  open(newunit=fid,file=TRIM(gjfname),status='replace')
+
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc

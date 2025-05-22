@@ -39,7 +39,7 @@ end program main
 ! Step 2: call utility fch2mkl to generate ORCA .inp and .mkl file
 subroutine bdf2mkl(orbname, fchname, str)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=3), intent(in) :: str
  character(len=240), intent(in) :: orbname, fchname
 

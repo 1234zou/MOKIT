@@ -1,6 +1,6 @@
 ! written by jxzou at 20210705
 
-! generate natural orbitals(NO) using given density in .fch file
+! generate natural orbitals(NO) using density in the specified .fch(k) file
 subroutine gen_no_using_density_in_fch(fchname, itype)
  implicit none
  integer :: i, j, nbf, nif
@@ -49,14 +49,14 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  end select
 
  allocate(coeff_a(nbf,nif), noon_a(nif))
- call gen_no_from_density_and_ao_ovlp(nbf, nif, dm_a, S, noon_a, coeff_a)
+ call gen_no_from_dm_and_ao_ovlp(nbf, nif, dm_a, S, noon_a, coeff_a)
  call write_eigenvalues_to_fch(fchname, nif, 'a', noon_a, .true.)
  call write_mo_into_fch(fchname, nbf, nif, 'a', coeff_a)
  deallocate(dm_a, coeff_a, noon_a)
 
  if(itype == 0) then
   allocate(coeff_b(nbf,nif), noon_b(nif))
-  call gen_no_from_density_and_ao_ovlp(nbf, nif, dm_b, S, noon_b, coeff_b)
+  call gen_no_from_dm_and_ao_ovlp(nbf, nif, dm_b, S, noon_b, coeff_b)
   call write_eigenvalues_to_fch(fchname, nif, 'b', noon_b, .true.)
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff_b)
   deallocate(dm_b, coeff_b, noon_b)
@@ -64,6 +64,40 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
 
  deallocate(S)
 end subroutine gen_no_using_density_in_fch
+
+! The subroutine gen_no_using_density_in_fch above requires Gaussian, so it
+! will be deprecated in the future. Here the subroutine gen_no_using_dm_in_fch
+! requires PySCF.
+subroutine gen_no_using_dm_in_fch(fchname)
+ implicit none
+ integer :: i, k, fid
+ character(len=240) :: pyname, outname
+ character(len=240), intent(in) :: fchname
+
+ call find_specified_suffix(fchname, '.fch', i)
+ call get_a_random_int(k)
+ write(pyname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.py'
+ write(outname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.out'
+
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from pyscf import lib'
+ write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, gen_n&
+                  &o_from_dm_and_ao_ovlp'
+ write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
+ write(fid,'(/,A)') 'lib.num_threads(1)'
+ write(fid,'(A)') "fchname = '"//TRIM(fchname)//"'"
+ write(fid,'(A)') 'mol = load_mol_from_fch(fchname)'
+ write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
+ write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(fchname)'
+ write(fid,'(A)') 'dm = ?'
+ write(fid,'(A)') 'noon, mo = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm, S)'
+ write(fid,'(A)') "py2fch(fchname, nbf, nif, mo, 'a', noon, True, False)"
+ close(fid)
+
+ call submit_pyscf_job(pyname, .false.)
+ call delete_files(2, [pyname, outname])
+end subroutine gen_no_using_dm_in_fch
 
 ! get electronic dipole using specified density in a given .fch file
 ! Note: the nuclear dipole is calculated using subroutine get_nuc_dipole in
@@ -181,7 +215,7 @@ end subroutine get_ao_dipole_using_fch
 subroutine call_gaussian_gen47_from_fch(fchname, file47)
  use util_wrapper, only: unfchk
  implicit none
- integer :: i, k, fid, system
+ integer :: i, k, fid, SYSTEM
  character(len=10) :: str
  character(len=24) :: mem
  character(len=240), intent(in) :: fchname
@@ -514,7 +548,7 @@ end subroutine submit_gms_fzgvb_job
 ! submit a GAMESS job
 subroutine submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  integer, intent(in) :: nproc
  character(len=240) :: datname, gmsname, hs1, hs2, trj
  character(len=500) :: longbuf
@@ -554,7 +588,7 @@ end subroutine submit_gms_job
 ! submit a MOKIT automr job
 subroutine submit_automr_job(gjfname)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: buf, outname
  character(len=240), intent(in) :: gjfname
 
@@ -573,7 +607,7 @@ end subroutine submit_automr_job
 
 subroutine submit_gau_job(gau_path, gjfname, prt)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: logname
  character(len=240), intent(in) :: gau_path, gjfname
  logical, intent(in) :: prt
@@ -599,7 +633,7 @@ end subroutine submit_gau_job
 
 subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  character(len=240) :: outname, gesname, denf1, denf2, propf1, propf2
  character(len=480) :: buf
  character(len=240), intent(in) :: orca_path, inpname
@@ -631,7 +665,7 @@ end subroutine submit_orca_job
 ! need to distinguish between OpenMP version and MPI version of OpenMolcas
 subroutine submit_molcas_job(inpname, mem, nproc, omp)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  integer, intent(in) :: mem, nproc ! mem in GB
  character(len=240) :: shname, statname, gssorb, gss_h5, gss_molden, outname
  character(len=500) :: buf
@@ -712,7 +746,7 @@ end subroutine get_psi4_version
 
 subroutine submit_psi4_job(psi4_path, inpname, nproc)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  integer, intent(in) :: nproc
  character(len=240) :: outname
  character(len=480) :: buf
@@ -737,7 +771,7 @@ end subroutine submit_psi4_job
 
 subroutine submit_qchem_job(inpname, nproc)
  implicit none
- integer :: i, system
+ integer :: i, SYSTEM
  integer, intent(in) :: nproc
  character(len=240) :: scr_dir, outname
  character(len=500) :: buf
@@ -791,7 +825,7 @@ end subroutine submit_molpro_job
 ! submit a GVB-BCCI job
 subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  integer, intent(in) :: nproc, ci_order
  character(len=240) :: shname
  character(len=240), intent(in) :: inpname, outname
@@ -824,7 +858,7 @@ end subroutine submit_gvb_bcci_job
 ! submit a GVB-BCCC job
 subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
  implicit none
- integer :: i, fid, system
+ integer :: i, fid, SYSTEM
  integer, intent(in) :: mult, nproc, cc_order
  character(len=240) :: bccc_prog, shname
  character(len=240), intent(in) :: inpname, outname

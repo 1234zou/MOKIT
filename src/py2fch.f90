@@ -384,7 +384,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
  end do ! for while
 
  close(fid1)
- close(fid, status='delete')
+ close(fid,status='delete')
  i = RENAME(TRIM(fchname1),TRIM(fchname))
 end subroutine py2fch
 
@@ -405,8 +405,9 @@ subroutine read_nbf_from_fch(fchname, nbf)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_nbf_from_fch: no&
-               & 'Number of basis f' found in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_nbf_from_fch: no 'Number of basis f'&
+                 & found in file "
+  write(6,'(A)') TRIM(fchname)
   close(fid)
   stop
  end if
@@ -1094,7 +1095,7 @@ subroutine py2fch_cghf(fchname, nbf, nif, coeff, ev, gen_density)
  ! writing new fch file done
 
  close(fid1)
- close(fid, status='delete')
+ close(fid,status='delete')
  i = RENAME(TRIM(fchname1),TRIM(fchname))
 end subroutine py2fch_cghf
 

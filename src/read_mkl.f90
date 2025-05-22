@@ -725,116 +725,6 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  close(fid)
 end subroutine read_mo_from_mkl
 
-! read orbital energies from an ORCA .mkl file
-subroutine read_ev_from_mkl(mklname, nmo, ab, ev)
- implicit none
- integer :: i, k, rc, nline, fid
- integer, intent(in) :: nmo
- real(kind=8), intent(out) :: ev(nmo)
- character(len=1), intent(in) :: ab
- character(len=3) :: str = ' '
- character(len=8) :: key = ' '
- character(len=8), parameter :: key1 = '$COEFF_A'
- character(len=8), parameter :: key2 = '$COEFF_B'
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- ev = 0d0
- if(ab=='b' .or. ab=='B') then
-  key = key2
- else
-  key = key1
- end if
-
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == key) exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_ev_from_mkl: no '"//key//"' found &
-                   &in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- nline = nmo/5
- if(nmo-5*nline > 0) nline = nline + 1
- read(fid,'(A)') buf
-
- do i = 1, nline, 1
-  k = min(5*i,nmo)
-  read(unit=fid,fmt=*,iostat=rc) ev(5*i-4:k)
-  if(rc /= 0) exit
-  if(i == nline) exit
-
-  do while(.true.)
-   read(fid,'(A)',iostat=rc) buf
-   if(rc /= 0) exit
-   read(buf,*,iostat=rc) str
-   if(rc == 0) then
-   if(str=='a1g' .or. str=='A1g' .or. str=='A1G') exit
-   end if
-  end do ! for while
-
-  if(rc /= 0) exit
- end do ! for i
-
- close(fid)
- if(rc /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_ev_from_mkl: incomplete .mkl file.'
-  write(6,'(A)') 'Filename='//TRIM(mklname)
-  stop
- end if
-end subroutine read_ev_from_mkl
-
-! read occupation numbers from ORCA .mkl file
-subroutine read_on_from_mkl(mklname, nmo, ab, on)
- implicit none
- integer :: i, k, nline, fid
- integer, intent(in) :: nmo
- real(kind=8), intent(out) :: on(nmo)
- character(len=1), intent(in) :: ab
- character(len=6) :: key = ' '
- character(len=6), parameter :: key1 = '$OCC_A'
- character(len=6), parameter :: key2 = '$OCC_B'
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- on = 0d0
- if(ab=='b' .or. ab=='B') then
-  key = key2
- else
-  key = key1
- end if
-
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:6) == key) exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_on_from_mkl: no '"//key//"' found&
-                   & in file "//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- nline = nmo/5
- if(nmo-5*nline > 0) nline = nline + 1
-
- do i = 1, nline, 1
-  k = min(5*i,nmo)
-  read(fid,*) on(5*i-4:k)
- end do ! for i
-
- close(fid)
-end subroutine read_on_from_mkl
-
 ! delete a primitive exponent and its coefficient when the coefficient is 0
 subroutine del_zero_coeff_in_prim_gau(pg)
  implicit none
@@ -1240,7 +1130,21 @@ subroutine prt_cfour_genbas(ecp, mrcc)
   end if
 
   if(.not. cycle_atom) then
-   write(fid,'(A)') TRIM(elem(iatom))//':PVTZ'
+   str2 = elem(iatom)
+   if(mrcc) then ! MRCC
+    write(fid,'(A)') TRIM(str2)//':PVTZ'
+   else          ! CFOUR
+    if(str2(2:2) /= ' ') call upper(str2(2:2))
+    if(ecp) then
+     if(LPSkip(iatom) == 0) then
+      write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
+     else
+      write(fid,'(A)') TRIM(str2)//':PVTZ'
+     end if
+    else
+     write(fid,'(A)') TRIM(str2)//':PVTZ'
+    end if
+   end if
    write(fid,'(A)') c1
    write(fid,'(/,I3)') highest+1
    write(fid,'(9I5)') (i, i=0,highest)
@@ -1479,8 +1383,7 @@ end subroutine prt_mo_and_e_in_mkl
 ! The input file will be updated. If brokensym is .True., the beta HOMO LUMO
 ! will be interchanged to make a broken symmetry guess.
 subroutine mkl_r2u(mklname, brokensym)
- use mkl_content, only: read_nbf_and_nif_from_mkl, read_mo_from_mkl, &
-  read_ev_from_mkl, read_on_from_mkl
+ use mkl_content, only: read_nbf_and_nif_from_mkl, read_mo_from_mkl
  implicit none
  integer :: i, nbf, nif, ndb, fid
  real(kind=8), parameter :: thres = 1d-6

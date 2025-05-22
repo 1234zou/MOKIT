@@ -455,58 +455,6 @@ subroutine check_ecp_in_amo(amoname, ecp)
  read(buf(5:),*) ecp
 end subroutine check_ecp_in_amo
 
-! read Alpha/Beta orbital energies from a specified .amo file
-subroutine read_ev_from_amo(amoname, nif, ab, ev)
- implicit none
- integer :: i, fid
- integer, intent(in) :: nif
- real(kind=8), intent(out) :: ev(nif)
- character(len=1), intent(in) :: ab
- character(len=10) :: buf ! long buf is not needed here
- character(len=240), intent(in) :: amoname
-
- ev = 0d0
- open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
-
- select case(ab)
- case('a') ! Alpha MOs
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:3)=='En:' .or. buf(1:4)=='EnA:') exit
-  end do ! for while
- case('b') ! Beta MOs
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:4) == 'EnB:') exit
-  end do ! for while
- case default
-  write(6,'(/,A)') 'ERROR in subroutine read_ev_from_amo: MO type cannot be rec&
-                   &ognized. ab='//ab
-  close(fid)
-  stop
- end select
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_ev_from_amo: specified orbital eig&
-                   &envalue section'
-  write(6,'(A)') 'not found in file '//TRIM(amoname)
-  close(fid)
-  stop
- end if
-
- read(fid,*,iostat=i) ev
- close(fid)
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_ev_from_amo: failed to read orbita&
-                   &l eigenvalues.'
-  write(6,'(A)') 'This file seems problematic: '//TRIM(amoname)
-  stop
- end if
-end subroutine read_ev_from_amo
-
 ! read Alpha/Beta MOs from a specified .amo file
 subroutine read_mo_from_amo(amoname, nbf, nif, ab, mo)
  implicit none

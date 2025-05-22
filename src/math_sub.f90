@@ -24,6 +24,80 @@ function cmplx_v3_dot_real(z1, z2) result(s)
      REAL(z1(3))*REAL(z2(3)) + AIMAG(z1(3))*AIMAG(z2(3))
 end function cmplx_v3_dot_real
 
+! Rotate two MOs using cos(alpha) and sin(alpha).
+! The ifort directive "!dir$ ivdep" cannot be recognized by gfortran. So here we
+!  use OpenMP SIMD, which is universal for various Fortran compilers.
+subroutine rotate_mo_ij(cos_a, sin_a, nbf, mo_i, mo_j)
+ implicit none
+ integer :: k
+ integer, intent(in) :: nbf
+ real(kind=8), intent(in) :: cos_a, sin_a
+ real(kind=8), intent(inout) :: mo_i(nbf), mo_j(nbf)
+ real(kind=8), allocatable :: tmp_mo(:)
+
+ allocate(tmp_mo(nbf), source=mo_i)
+
+!$omp simd
+ do k = 1, nbf, 1
+  mo_i(k) = cos_a*tmp_mo(k) + sin_a*mo_j(k)
+ end do ! for k
+!$omp end simd
+
+!$omp simd
+ do k = 1, nbf, 1
+  mo_j(k) = cos_a*mo_j(k) - sin_a*tmp_mo(k)
+ end do ! for k
+!$omp end simd
+
+ deallocate(tmp_mo)
+end subroutine rotate_mo_ij
+
+! update gross(:,i,i), gross(:,j,j) and gross(:,j,i) involved in Jacobian 2*2
+! rotation
+subroutine update_gross_ii_jj_ji(cos_a, sin_a, natom, v, vdiff, gross_ii, &
+                                 gross_jj, gross_ji)
+ implicit none
+ integer :: k
+ integer, intent(in) :: natom
+ real(kind=8) :: cc, ss, cos_2a, sin_2a
+ real(kind=8), intent(in) :: cos_a, sin_a, v(natom,3), vdiff(natom)
+ real(kind=8), intent(inout) :: gross_ii(natom),gross_jj(natom),gross_ji(natom)
+
+ cc = cos_a*cos_a; ss = sin_a*sin_a
+ cos_2a = cc - ss; sin_2a = 2d0*sin_a*cos_a
+
+!$omp simd
+ do k = 1, natom, 1
+  gross_ii(k) = cc*v(k,1) + ss*v(k,3) + sin_2a*v(k,2)
+ end do ! for k
+!$omp end simd
+
+!$omp simd
+ do k = 1, natom, 1
+  gross_jj(k) = ss*v(k,1) + cc*v(k,3) - sin_2a*v(k,2)
+ end do ! for k
+!$omp end simd
+
+!$omp simd
+ do k = 1, natom, 1
+  gross_ji(k) = cos_2a*v(k,2) - 0.5d0*sin_2a*vdiff(k)
+ end do ! for k
+!$omp end simd
+end subroutine update_gross_ii_jj_ji
+
+! initialize RHF occupation matrix
+subroutine init_rhf_occ_mat(ndb, nif, n)
+ implicit none
+ integer :: i
+ integer, intent(in) :: ndb, nif
+ real(kind=8), intent(out) :: n(nif,nif)
+
+ n = 0d0
+ do i = 1, ndb, 1
+  n(i,i) = 2d0
+ end do ! for i
+end subroutine init_rhf_occ_mat
+
 ! Reduce a fraction, where
 ! the product of nume_deno(1,:) is the numerator,
 ! the product of nume_deno(2,:) is the denominator.
@@ -146,11 +220,12 @@ end subroutine combine_int_prod
 ! check whether (C_{n}^{p1})*(C_{n}^{p2}) > (C_{m}^{q1})*(C_{m}^{q2})
 function compare_cnp_cmq_prod(n, p1, p2, m, q1, q2) result(larger)
  implicit none
- integer :: k, k1, k2, p1_min, p2_min, q1_min, q2_min
+ integer :: i, k, k1, k2, p1_min, p2_min, q1_min, q2_min
  integer, intent(in) :: n, p1, p2, m, q1, q2
 !f2py intent(in) :: n, p1, p2, m, q1, q2
  integer, allocatable :: int_prod1(:),int_prod2(:), int_prod3(:),int_prod4(:), &
   nume_deno(:,:)
+ real(kind=8) :: res
  logical :: larger
 
  larger = .false.
@@ -182,10 +257,24 @@ function compare_cnp_cmq_prod(n, p1, p2, m, q1, q2) result(larger)
  deallocate(int_prod3, int_prod4)
 
  call reduce_frac(k, nume_deno, .false.)
- k1 = PRODUCT(nume_deno(1,:))
- k2 = PRODUCT(nume_deno(2,:))
+ ! PRODUCT(nume_deno(1,:)) is dangerous since it may exceed the range of
+ ! integer(kind=4). So double precision division one by one is used below.
+ res = 1d0
+ do i = 1, k, 1
+  k1 = nume_deno(1,i); k2 = nume_deno(2,i)
+  if(k1 == 1) then
+   if(k2 /= 1) res = res/DBLE(k2)
+  else
+   if(k2 == 1) then
+    res = res*DBLE(k1)
+   else
+    res = res*DBLE(k1)/DBLE(k2)
+   end if
+  end if
+ end do ! for i
+
  deallocate(nume_deno)
- if(k1 > k2) larger = .true.
+ if(res-1d0 > 1d-3) larger = .true.
 end function compare_cnp_cmq_prod
 
 ! compare which active space size is larger by active orbitals, electrons and
@@ -197,6 +286,12 @@ function compare_as_size(nacto1,nacte1,mult1, nacto2,nacte2,mult2) result(larger
 !f2py intent(in) :: nacto1,nacte1,mult1, nacto2,nacte2,mult2
  logical :: larger
  logical, external :: compare_cnp_cmq_prod
+
+ if(nacto1==nacte1 .and. nacto2==nacte2 .and. mult1==mult2 .and. &
+    nacto1>nacto2) then
+  larger = .true.
+  return
+ end if
 
  nopen1 = mult1 - 1
  nactb1 = (nacte1 - nopen1)/2
@@ -2030,7 +2125,7 @@ subroutine calc_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross)
 end subroutine calc_gross_pop
 
 ! Find the centers of each MO, using the population matrix. The population method
-! is determined when generating the pop array, so we do not need to know the
+!  is determined when generating the pop array, so we do not need to know the
 ! population method in this subroutine.
 ! Note: the maximum number of centers for each MO is 4.
 subroutine get_mo_center_from_pop(natom, nmo, pop, mo_center)
@@ -2185,6 +2280,116 @@ subroutine calc_dis_mat_from_coor_pbc(natom, cell, coor, dis)
 
  deallocate(coor1, map)
 end subroutine calc_dis_mat_from_coor_pbc
+
+! calculate (RHF-)CIS MO-based density matrix using excitation coefficients
+! nfc: the number of frozen core orbitals in CIS calculation
+! nocc: the number of doubly occupied orbitals involved in excitations
+! nvir: the number of virtual orbitals involved in excitations
+! Note: |C_ia|^2 = 1 is required for the input array exc.
+subroutine calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, dm)
+ implicit none
+ integer :: i, j, p, q, ndb, nmo
+ integer, intent(in) :: nfc, nocc, nvir
+ real(kind=8), intent(in) :: exc(nocc,nvir)
+ real(kind=8), intent(out) :: dm(nfc+nocc+nvir,nfc+nocc+nvir)
+
+ dm = 0d0; ndb = nfc + nocc; nmo = ndb + nvir
+
+ if(nfc > 0) then
+  forall(i = 1:nfc) dm(i,i) = 2d0
+ end if
+
+ do i = 1, nocc, 1 ! d_ii
+  j = nfc + i
+  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:),exc(i,:))
+ end do ! for i
+
+ do i = 1, nvir, 1 ! d_aa
+  j = ndb + i
+  dm(j,j) = DOT_PRODUCT(exc(:,i),exc(:,i))
+ end do ! for i
+
+ do i = 1, nocc-1, 1 ! d_ij
+  p = nfc + i
+  do j = i+1, nocc, 1
+   q = nfc + j
+   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(j,:))
+  end do ! for j
+ end do ! for i
+
+ do i = 1, nvir-1, 1 ! d_ab
+  p = ndb + i
+  do j = i+1, nvir, 1
+   q = ndb + j
+   dm(p,q) = DOT_PRODUCT(exc(:,i),exc(:,j))
+  end do ! for j
+ end do ! for i
+
+ ! RHF-CIS d_ia = 0, no need to calculate.
+ call symmetrize_dmat(nmo, dm)
+end subroutine calc_cis_mo_dm_using_exc
+
+! Calculte ROHF-based SF-CIS MO-based density matrix using excitation
+!  coefficients. For SF-CIS, nopen>=2 is required; while for MRSF-CIS,
+!  nopen must be 2.
+! According to my deduction, the formulae of one-electron density matrix of
+!  MRSF-CIS are the same to those of SF-CIS.
+subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
+ implicit none
+ integer :: i, j, p, q, nval, ndb, nmo
+ integer, intent(in) :: nfc, nopen, nocc, nvir
+ real(kind=8), intent(in) :: exc(nocc,nvir)
+ real(kind=8), intent(out) :: dm(nfc+nocc+nvir-nopen,nfc+nocc+nvir-nopen)
+
+ dm = 0d0; nval = nocc - nopen; ndb = nfc + nval; nmo = ndb + nvir
+
+ if(nfc > 0) then
+  forall(i = 1:nfc) dm(i,i) = 2d0
+ end if
+
+ do i = 1, nval, 1 ! d_ii, i <- {C}
+  j = nfc + i
+  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:),exc(i,:))
+ end do ! for i
+
+ do i = 1, nvir, 1 ! d_aa, a <- {O+V}
+  j = ndb + i
+  dm(j,j) = DOT_PRODUCT(exc(:,i),exc(:,i))
+  if(i <= nopen) then
+   dm(j,j) = dm(j,j) + 1d0 - DOT_PRODUCT(exc(nval+i,:),exc(nval+i,:))
+  end if
+ end do ! for i
+
+ do i = 1, nval-1, 1 ! d_ij, ij <- {C}
+  p = nfc + i
+  do j = i+1, nval, 1
+   q = nfc + j
+   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(j,:))
+  end do ! for j
+ end do ! for i
+
+ do i = 1, nvir-1, 1 ! d_ab, ab <- {O+V}
+  p = ndb + i
+  do j = i+1, nvir, 1
+   q = ndb + j
+   dm(p,q) = DOT_PRODUCT(exc(:,i),exc(:,j))
+   if(i<=nopen .and. j<=nopen) then
+    dm(p,q) = dm(p,q) - DOT_PRODUCT(exc(nval+i,:),exc(nval+j,:))
+   end if
+  end do ! for j
+ end do ! for i
+
+ do i = 1, nval, 1 ! d_is, i <- {C}, s <- {O}
+  p = nfc + i
+  do j = 1, nopen, 1
+   q = ndb + j
+   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(nval+j,:))
+  end do ! for j
+ end do ! for i
+
+ ! SF-CIS d_ia = 0 for i<-{C}, a<-{V}, no need to calculate.
+ call symmetrize_dmat(nmo, dm)
+end subroutine calc_sfcis_mo_dm_using_exc
 
 ! compute the unitary matrix U between two sets of MOs
 ! --------------------------------------------------
@@ -2390,6 +2595,57 @@ subroutine mv_dege_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
 
  deallocate(mo_i)
 end subroutine mv_dege_docc_below_bo
+
+! generate natural orbitals from provided density matrix and overlap matrix
+subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
+ implicit none
+ integer :: i, j, lwork, liwork
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ integer, allocatable :: isuppz(:), iwork(:)
+ real(kind=8), intent(in) :: P(nbf,nbf), ao_ovlp(nbf,nbf)
+!f2py intent(in) :: P, ao_ovlp
+!f2py depend(nbf) :: P, ao_ovlp
+ real(kind=8), intent(out) :: noon(nif), new_coeff(nbf,nif)
+!f2py intent(out) :: noon, new_coeff
+!f2py depend(nif) :: noon
+!f2py depend(nbf,nif) :: new_coeff
+ real(kind=8), allocatable :: S(:,:), sqrt_S(:,:), n_sqrt_S(:,:)
+ real(kind=8), allocatable :: e(:), U(:,:), work(:)
+
+ noon = 0d0; new_coeff = 0d0 ! initialization
+ allocate(S(nbf,nbf), source=ao_ovlp)
+ allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
+ call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
+ call calc_sps(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
+ deallocate(sqrt_S)
+
+ lwork = -1; liwork = -1
+ allocate(work(1), iwork(1), isuppz(2*nbf), e(nbf), U(nbf,nbf))
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
+             isuppz, work, lwork, iwork, liwork, j)
+ lwork = CEILING(work(1))
+ liwork = iwork(1)
+ deallocate(work, iwork)
+ allocate(work(lwork), iwork(liwork))
+ call dsyevr('V', 'A',  'L', nbf, S, nbf, 0d0, 0d0, 0, 0, 1d-8, i, e, U, nbf, &
+             isuppz, work, lwork, iwork, liwork, j)
+ deallocate(isuppz, work, iwork, S)
+ ! eigenvalues in array e are in ascending order
+
+ forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
+ deallocate(e)
+
+ call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
+            nbf, 0d0, new_coeff, nbf)
+ deallocate(n_sqrt_S, U)
+
+ ! reverse the order of MOs
+ allocate(U(nbf,nif))
+ forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
+ new_coeff = U
+ deallocate(U)
+end subroutine gen_no_from_dm_and_ao_ovlp
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none

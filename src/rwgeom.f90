@@ -1162,7 +1162,7 @@ subroutine write_EOu(EOu, e, natom, grad)
  real(kind=8), intent(in) :: e, grad(3*natom)
  character(len=720), intent(in) :: EOu
 
- open(newunit=fid,file=TRIM(EOu),status='replace',position='rewind')
+ open(newunit=fid,file=TRIM(EOu),status='replace')
  write(fid,'(4D20.12)') e, 0d0,0d0,0d0
  write(fid,'(3D20.12)') grad
  close(fid)
@@ -1923,7 +1923,7 @@ subroutine merge_bas_in_dalton_mol(molname)
  end do ! for while
 
  deallocate(elem, coor, nline)
- close(fid, status='delete')
+ close(fid,status='delete')
  write(fid1,'(A)',advance='no')
  close(fid1)
  i = RENAME(TRIM(new_mol), TRIM(molname))
