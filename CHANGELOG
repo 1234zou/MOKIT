@@ -1,4 +1,4 @@
-MOKIT 1.2.7 (May 22, 2025)
+MOKIT 1.2.7 (May 25, 2025)
 ------------------------
 Fixes
 * fix frozen core option bug when ECP/PP is used in autosr
@@ -37,6 +37,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* change mo_center in loc/pbc_loc() modules from dynamic arrays to derivative types
 * use CIS SA-NTO instead of SA-NO when SA_NTO is written in mokit{}
 * set RHF -> CIS -> SA-NO -> SA-CASSCF as default SA strategy for closed-shell singlet
 * improve DMRG-CASCI/CASSCF workflow when using PySCF+Block2

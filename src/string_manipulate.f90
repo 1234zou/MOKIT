@@ -1625,11 +1625,17 @@ subroutine prt_loc_conv_remark(niter, max_niter, subname)
  integer, intent(in) :: niter, max_niter
  character(len=*), intent(in) :: subname
 
+ ! The orbital localization modules are usually called by Python API. The
+ ! printing content from Fortran/Python sometimes is not sequential, so
+ ! flush(6) is added here to ensure Fortran prints all it has. Let's try
+ ! if there is any improvement.
  if(niter <= max_niter) then
   write(6,'(A)') 'Orbital localization converged successfully.'
+  flush(6)
  else
   write(6,'(/,A)') 'ERROR in subroutine '//TRIM(subname)//': max_niter exceeded.'
   write(6,'(A,I0)') 'max_niter=', max_niter
+  flush(6)
   stop
  end if
 end subroutine prt_loc_conv_remark

@@ -111,8 +111,8 @@ subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, n
  allocate(sv_occ(na))
  call svd_and_rotate(na, nb, nbf, occ_a, occ_b, mo_ovlp, sv_occ, .false.)
  deallocate(mo_ovlp)
- write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
- write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,na)
+ !write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
+ !write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,na)
  ! SVD done in occ space
 
  allocate(sv_occ0(na), source=sv_occ)

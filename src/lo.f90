@@ -1063,13 +1063,12 @@ end subroutine serial2by2
 
 ! perform serial Berry 2-by-2 Jacobi rotations on given MOs with distance considered
 subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
- use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
-  get_mo_center_by_scpa, atm_dis2mo_dis, find_eff_ijmap, serial22berry_kernel
+ use lo_info, only: npair, max_niter, dis_thres, conv_thres, mo_cen, &
+  find_eff_ijmap, serial22berry_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: mo(nbf,nmo)
@@ -1079,13 +1078,12 @@ subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
  write(6,'(/,A)') 'Perform serial Berry 2*2 rotation...'
  write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
                                    conv_thres, ', nmo=', nmo
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call find_eff_ijmap(nmo, mo_dis)
   call serial22berry_kernel(nbf, nmo, mo, mo_zdip, sum_change)
   tot_change = tot_change + sum_change
@@ -1094,20 +1092,18 @@ subroutine serial22berry(natom, nbf, nmo, bfirst, dis, mo, mo_zdip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis)
+ deallocate(mo_cen, mo_dis)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'serial22berry')
 end subroutine serial22berry
 
 subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
- use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
-  conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
-  screen_jacobi_idx_by_dis, para22berry_kernel
+ use lo_info, only: np, npair, nsweep, max_niter, dis_thres, conv_thres, &
+  mo_cen, rrmap, rot_idx, screen_jacobi_idx_by_dis, para22berry_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: coeff(nbf,nmo)
@@ -1130,13 +1126,12 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
  allocate(rrmap(2,np,nsweep))
  call init_ring_jacobi_idx(nmo, np, rrmap)
 
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_by_scpa(natom, nbf, nmo, bfirst, coeff, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22berry_kernel(nbf, nmo, coeff, mo_zdip, sum_change)
   tot_change = tot_change + sum_change
@@ -1145,20 +1140,19 @@ subroutine para22berry(natom, nbf, nmo, bfirst, dis, coeff, mo_zdip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis, rrmap, rot_idx)
+ deallocate(mo_cen, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'para22berry')
 end subroutine para22berry
 
 ! perform serial Boys 2-by-2 Jacobi rotations on given MOs with distance considered
 subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
- use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
-  get_mo_center_by_scpa, atm_dis2mo_dis, find_eff_ijmap, serial22boys_kernel
+ use lo_info, only: npair, max_niter, dis_thres, conv_thres, mo_cen, &
+  find_eff_ijmap, serial22boys_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: mo(nbf,nmo), mo_dip(3,nmo,nmo)
@@ -1167,13 +1161,12 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
  write(6,'(/,A)') 'Perform serial Boys 2*2 rotation...'
  write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
                                    conv_thres, ', nmo=', nmo
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call find_eff_ijmap(nmo, mo_dis)
   call serial22boys_kernel(nbf, nmo, mo, mo_dip, sum_change)
   tot_change = tot_change + sum_change
@@ -1182,21 +1175,19 @@ subroutine serial22boys(natom, nbf, nmo, bfirst, dis, mo, mo_dip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis)
+ deallocate(mo_cen, mo_dis)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'serial22boys')
 end subroutine serial22boys
 
 ! perform parallel Foster-Boys 2-by-2 Jacobi rotation on given MOs
 subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
- use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
-  conv_thres, rrmap, rot_idx, get_mo_center_by_scpa, atm_dis2mo_dis, &
-  screen_jacobi_idx_by_dis, para22boys_kernel
+ use lo_info, only: np, npair, nsweep, max_niter, dis_thres, conv_thres, &
+  mo_cen, rrmap, rot_idx, screen_jacobi_idx_by_dis, para22boys_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
  integer, intent(in) :: bfirst(natom+1)
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), mo_dip(3,nmo,nmo)
@@ -1218,13 +1209,12 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
  allocate(rrmap(2,np,nsweep))
  call init_ring_jacobi_idx(nmo, np, rrmap)
 
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, coeff, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_by_scpa(natom, nbf, nmo, bfirst, coeff, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22boys_kernel(nbf, nmo, coeff, mo_dip, sum_change)
   tot_change = tot_change + sum_change
@@ -1233,19 +1223,18 @@ subroutine para22boys(natom, nbf, nmo, bfirst, dis, coeff, mo_dip)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis, rrmap, rot_idx)
+ deallocate(mo_cen, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'para22boys')
 end subroutine para22boys
 
 ! perform serial Pipek-Mezey 2-by-2 Jacobi rotation on given MOs with distance considered
 subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
- use lo_info, only: npair, max_niter, max_ncenter, dis_thres, conv_thres, &
-  get_mo_center_from_gross, atm_dis2mo_dis, find_eff_ijmap, serial22pm_kernel
+ use lo_info, only: npair, max_niter, dis_thres, conv_thres, mo_cen, &
+  find_eff_ijmap, serial22pm_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
@@ -1254,13 +1243,12 @@ subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
  write(6,'(/,A)') 'Perform serial PM 2*2 rotation...'
  write(6,'(A,F8.2,A,ES9.2,A,I0)') 'dis_thres=', dis_thres, ', conv_thres=', &
                                    conv_thres, ', nmo=', nmo
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_from_gross(natom, nmo, gross, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call find_eff_ijmap(nmo, mo_dis)
   call serial22pm_kernel(nbf, nmo, natom, coeff, gross, sum_change)
   tot_change = tot_change + sum_change
@@ -1269,20 +1257,18 @@ subroutine serial22pm(natom, nbf, nmo, dis, coeff, gross)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis)
+ deallocate(mo_cen, mo_dis)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'serial22pm')
 end subroutine serial22pm
 
 ! perform parallel Pipek-Mezey 2-by-2 Jacobi rotation on given MOs
 subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
- use lo_info, only: np, npair, nsweep, max_niter, max_ncenter, dis_thres, &
-  conv_thres, rrmap, rot_idx, get_mo_center_from_gross, atm_dis2mo_dis, &
-  screen_jacobi_idx_by_dis, para22pm_kernel
+ use lo_info, only: np, npair, nsweep, max_niter, dis_thres, conv_thres, &
+  mo_cen, rrmap, rot_idx, screen_jacobi_idx_by_dis, para22pm_kernel
  implicit none
- integer :: ncenter, niter
+ integer :: niter
  integer, intent(in) :: natom, nbf, nmo
- integer, allocatable :: mo_center(:,:)
  real(kind=8) :: sum_change, tot_change
  real(kind=8), intent(in) :: dis(natom,natom)
  real(kind=8), intent(inout) :: coeff(nbf,nmo), gross(natom,nmo,nmo)
@@ -1304,13 +1290,12 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
  allocate(rrmap(2,np,nsweep))
  call init_ring_jacobi_idx(nmo, np, rrmap)
 
- ncenter = MIN(natom, max_ncenter)
- allocate(mo_center(0:ncenter,nmo), mo_dis(npair))
+ allocate(mo_cen(nmo), mo_dis(npair))
  tot_change = 0d0; niter = 0
 
  do while(niter <= max_niter)
-  call get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
-  call atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
+  call get_mo_center_from_gross(natom, nmo, gross, mo_cen)
+  call atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
   call screen_jacobi_idx_by_dis(nmo, mo_dis)
   call para22pm_kernel(nbf, nmo, natom, coeff, gross, sum_change)
   tot_change = tot_change + sum_change
@@ -1319,7 +1304,7 @@ subroutine para22pm(natom, nbf, nmo, dis, coeff, gross)
   if(sum_change < conv_thres) exit
  end do ! for while
 
- deallocate(mo_center, mo_dis, rrmap, rot_idx)
+ deallocate(mo_cen, mo_dis, rrmap, rot_idx)
  write(6,'(A,F20.8)') 'tot_change=', tot_change
  call prt_loc_conv_remark(niter, max_niter, 'para22pm')
 end subroutine para22pm

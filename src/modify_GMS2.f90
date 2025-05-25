@@ -88,6 +88,6 @@ subroutine upper(buf)
  do i = 1, LEN(buf), 1
   k = IACHAR(buf(i:i))
   if(k>=97 .and. k<=122) buf(i:i) = ACHAR(k-32)
- end do
+ end do ! for i
 end subroutine upper
 

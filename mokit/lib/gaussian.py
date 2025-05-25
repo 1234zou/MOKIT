@@ -235,7 +235,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
 
   t1 = time.perf_counter()
   elapsed_time = t1 - t0
-  print(f"Localization time(sec): {elapsed_time:.2f}")
+  print(f"Localization time(sec): {elapsed_time:.2f}", flush=True)
 
 
 def get_db_idx_from_molden(molden, on_thres=1e-6):
@@ -277,7 +277,6 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
   from mokit.lib.lo import gen_loc_ini_guess, berry, boys, pm, \
                            calc_dis_mat_from_coor_pbc
-  from mokit.lib.ortho import check_orthonormal
 
   t0 = time.perf_counter()
   if dis_tol < 0.1:
@@ -365,8 +364,9 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   if method == 'berry':
     # Note: ao_zdip is a (double) complex array with size (3,nmo,nmo)
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
-    for i in range(3):
-      ao_zdip[i,:,:] *= cell.a[i,i]
+    ao_zdip *= cell.a.diagonal()[:, None, None]
+    #for i in range(3):
+    #  ao_zdip[i,:,:] *= cell.a[i,i]
     lmo = berry(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], ao_zdip,
                 dis_tol, conv_tol)
   elif method == 'boys':
@@ -382,8 +382,9 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
 
   # print LMO centers into xyz
   if method == 'berry':
-    for i in range(3):
-      ao_zdip[i,:,:] /= cell.a[i,i]
+    #for i in range(3):
+    #  ao_zdip[i,:,:] /= cell.a[i,i]
+    ao_zdip /= cell.a.diagonal()[:, None, None]
   else:
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
   mo_zdip = np.einsum('ui,xuv,vi->xi', lmo, ao_zdip, lmo, optimize=True)
@@ -404,7 +405,6 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     pt.write_xyz(nmo1, elem, mo_center, wannier_xyz, cell.a)
 
   # update MOs and print them into .fch
-  check_orthonormal(nbf, nmo1, lmo, S)
   if mo_idx is None:
     mo[:,:nmo1] = lmo.copy()
     if nmo1 < nmo:
@@ -425,7 +425,7 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     os.remove(fchname)
   t1 = time.perf_counter()
   elapsed_time = t1 - t0
-  print(f"Localization time(sec): {elapsed_time:.1f}")
+  print(f"Localization time(sec): {elapsed_time:.1f}", flush=True)
 
 
 def uno(fchname):

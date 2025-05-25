@@ -826,7 +826,7 @@ subroutine gen_batch_script_mace_train(proname, restart)
    write(fid,'(A)') '#SBATCH --exclude=cu003'
   end if
   write(fid,'(A)') 'source ~/.bashrc'
-  write(fid,'(A)') 'conda activate mace-openmm'
+  write(fid,'(A)') 'source activate mace-openmm'
   write(fid,'(A)') 'cd '//TRIM(proname1)//'/'
   write(fid,'(A)') "mace_run_train --name='"//TRIM(proname1)//"' \"
   write(fid,'(A)') " --train_file='"//TRIM(xyzname)//"' \"
@@ -965,7 +965,7 @@ subroutine gen_batch_script_mace_md(proname, long_md)
    write(fid,'(A)') '#SBATCH --exclude=cu003'
   end if
   write(fid,'(A)') 'source ~/.bashrc # make (base) valid'
-  write(fid,'(A)') 'conda activate mace-openmm'
+  write(fid,'(A)') 'source activate mace-openmm'
   write(fid,'(A)') 'cd '//TRIM(proname1)//'/'
   write(fid,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
   write(fid,'(A)') '/bin/mv '//TRIM(traj_xyz)//' ../'
@@ -1074,7 +1074,7 @@ subroutine gen_batch_script_mace_eval(proname)
    write(fid,'(A)') '#SBATCH --exclude=cu003'
   end if
   write(fid,'(A)') 'source ~/.bashrc'
-  write(fid,'(A)') 'conda activate mace-openmm'
+  write(fid,'(A)') 'source activate mace-openmm'
   write(fid,'(A)') 'cd '//TRIM(proname1)//'/'
   write(fid,'(A)') "mace_eval_configs --configs='"//TRIM(xyzname)//"' \"
   write(fid,'(A)') " --model='"//TRIM(model)//"' \"

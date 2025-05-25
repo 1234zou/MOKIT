@@ -31,8 +31,12 @@ subroutine rotate_mo_ij(cos_a, sin_a, nbf, mo_i, mo_j)
  implicit none
  integer :: k
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  real(kind=8), intent(in) :: cos_a, sin_a
+!f2py intent(in) :: cos_a, sin_a
  real(kind=8), intent(inout) :: mo_i(nbf), mo_j(nbf)
+!f2py intent(in,out) :: mo_i, mo_j
+!f2py depend(nbf) :: mo_i, mo_j
  real(kind=8), allocatable :: tmp_mo(:)
 
  allocate(tmp_mo(nbf), source=mo_i)
@@ -59,9 +63,14 @@ subroutine update_gross_ii_jj_ji(cos_a, sin_a, natom, v, vdiff, gross_ii, &
  implicit none
  integer :: k
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8) :: cc, ss, cos_2a, sin_2a
  real(kind=8), intent(in) :: cos_a, sin_a, v(natom,3), vdiff(natom)
+!f2py intent(in) :: cos_a, sin_a, v, vdiff
+!f2py depend(natom) :: v, vdiff
  real(kind=8), intent(inout) :: gross_ii(natom),gross_jj(natom),gross_ji(natom)
+!f2py intent(in,out) :: gross_ii, gross_jj, gross_ji
+!f2py depend(natom) :: gross_ii, gross_jj, gross_ji
 
  cc = cos_a*cos_a; ss = sin_a*sin_a
  cos_2a = cc - ss; sin_2a = 2d0*sin_a*cos_a

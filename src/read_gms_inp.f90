@@ -51,8 +51,6 @@ module lo_info
  integer, parameter :: max_niter = 4999 ! maximum iterations
  ! When the rotation angle alpha fulfills |alpha|<=PI/4 and no (effect) rotation
  ! is missing in a sweep, only a few iterations are needed usually.
- integer, parameter :: max_ncenter = 17
- ! maximum allowed number of centers of an MO
  integer, allocatable :: ijmap(:,:), eff_ijmap(:,:), rrmap(:,:,:)
 
  real(kind=8), parameter :: QPI = DATAN(1d0)     ! PI/4
@@ -77,214 +75,15 @@ module lo_info
  end type rotation_index
  type(rotation_index), allocatable :: rot_idx(:) ! size nsweep
 
+ type :: mo_centers
+  integer :: nc   ! the number of centers
+  integer, allocatable :: idx(:)
+ end type mo_centers
+ type(mo_centers), allocatable :: mo_cen(:) ! size nmo
+
  logical :: DIIS = .true. ! .true./.false. for turning on/off DIIS
 
 contains
-
-! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
-subroutine get_mo_center_by_scpa(natom, nbf, nmo, ncenter, bfirst, mo, mo_center)
- implicit none
- integer :: i, j, k, m, i1, i2, ak(1)
- integer, intent(in) :: natom, nbf, nmo, ncenter
- integer, intent(in) :: bfirst(natom+1)
- integer, intent(out) :: mo_center(0:ncenter,nmo)
- real(kind=8) :: r, min_v, sum_r
- real(kind=8), intent(in) :: mo(nbf,nmo)
- real(kind=8), allocatable :: tmp_mo(:), gross(:)
-
- allocate(tmp_mo(nbf), gross(natom))
-
-!$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,ncenter,mo,bfirst,mo_center)
- do i = 1, nmo, 1
-  tmp_mo = mo(:,i)**2
-  tmp_mo = tmp_mo/SUM(tmp_mo)
-  do j = 1, natom, 1
-   i1 = bfirst(j); i2 = bfirst(j+1) - 1
-   gross(j) = SUM(tmp_mo(i1:i2))
-  end do ! for j
-
-  ! find the largest component on an atom of an MO
-  ak = MAXLOC(gross); k = ak(1); r = gross(k)
-  mo_center(0,i) = 1; mo_center(1,i) = k
-  ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
-
-  ak = MINLOC(gross); m = ak(1); min_v = gross(m)
-  gross(k) = min_v-0.5d0; m = 1; sum_r = r
-
-  ! find the 2nd largest component and so on
-  do j = 1, natom-1, 1
-   ak = MAXLOC(gross); k = ak(1); r = gross(k)
-   m = m + 1
-   !if(m > ncenter) then
-   ! write(6,'(/,A)') 'ERROR in subroutine get_mo_center_by_scpa: MOs are too d&
-   !                  &elocalized.'
-   ! write(6,'(A,4I7)') 'natom, nmo, i, ncenter=', natom, nmo, i, ncenter
-   ! stop
-   !end if
-   mo_center(m,i) = k
-   sum_r = sum_r + r
-   if(sum_r > pop_thres) exit
-   if(m == ncenter) exit
-   gross(k) = min_v - 0.5d0
-  end do ! for j
-
-  mo_center(0,i) = m
- end do ! for i
-!$omp end parallel do
-
- deallocate(tmp_mo, gross)
-end subroutine get_mo_center_by_scpa
-
-subroutine get_mo_center_from_diag_gross(natom, nmo, ncenter, gross, mo_center)
- implicit none
- integer :: i, j, k, m, ak(1)
- integer, intent(in) :: natom, nmo, ncenter
- integer, intent(out) :: mo_center(0:ncenter,nmo)
- real(kind=8) :: r, min_v, sum_r
- real(kind=8), intent(in) :: gross(natom,nmo)
- real(kind=8), allocatable :: pop(:)
-
- allocate(pop(natom))
-
-!$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,ncenter,gross,mo_center)
- do i = 1, nmo, 1
-  ! find the largest component on an atom of an MO
-  pop = gross(:,i)
-  ak = MAXLOC(pop); k = ak(1); r = pop(k)
-  mo_center(0,i) = 1; mo_center(1,i) = k
-  ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
-
-  ak = MINLOC(pop); m = ak(1); min_v = pop(m)
-  pop(k) = min_v-0.5d0; m = 1; sum_r = r
-
-  ! find the 2nd largest component (only `natom-1` atoms left) and so on
-  do j = 1, natom-1, 1
-   ak = MAXLOC(pop); k = ak(1); r = pop(k)
-   m = m + 1
-   if(m > ncenter) then
-    write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_diag_gross: MOs ar&
-                     &e too delocalized.'
-    write(6,'(A,3I7)') 'natom, nmo, ncenter=', natom, nmo, ncenter
-    stop
-   end if
-   mo_center(m,i) = k
-   sum_r = sum_r + r
-   if(sum_r > pop_thres) exit
-   pop(k) = min_v - 0.5d0
-  end do ! for j
-
-  mo_center(0,i) = m
- end do ! for i
-!$omp end parallel do
-
- deallocate(pop)
-end subroutine get_mo_center_from_diag_gross
-
-! This subroutine is the same as subroutine get_mo_center_from_diag_gross above,
-!  except that here gross is a 3D array, and only gross(:,i,i) will be used.
-subroutine get_mo_center_from_gross(natom, nmo, ncenter, gross, mo_center)
- implicit none
- integer :: i, j, k, m, ak(1)
- integer, intent(in) :: natom, nmo, ncenter
- integer, intent(out) :: mo_center(0:ncenter,nmo)
- real(kind=8) :: r, min_v, sum_r
- real(kind=8), intent(in) :: gross(natom,nmo,nmo)
- real(kind=8), allocatable :: pop(:)
-
- allocate(pop(natom))
-
-!$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(natom,nmo,ncenter,gross,mo_center)
- do i = 1, nmo, 1
-  ! find the largest component on an atom of an MO
-  pop = gross(:,i,i)
-  ak = MAXLOC(pop); k = ak(1); r = pop(k)
-  mo_center(0,i) = 1; mo_center(1,i) = k
-  ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
-
-  ak = MINLOC(pop); m = ak(1); min_v = pop(m)
-  pop(k) = min_v-0.5d0; m = 1; sum_r = r
-
-  ! find the 2nd largest component (only `natom-1` atoms left) and so on
-  do j = 1, natom-1, 1
-   ak = MAXLOC(pop); k = ak(1); r = pop(k)
-   m = m + 1
-   if(m > ncenter) then
-    write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_gross: MOs are to&
-                     &o delocalized.'
-    write(6,'(A,3I7)') 'natom, nmo, ncenter=', natom, nmo, ncenter
-    stop
-   end if
-   mo_center(m,i) = k
-   sum_r = sum_r + r
-   if(sum_r > pop_thres) exit
-   pop(k) = min_v - 0.5d0
-  end do ! for j
-
-  mo_center(0,i) = m
- end do ! for i
-!$omp end parallel do
-
- deallocate(pop)
-end subroutine get_mo_center_from_gross
-
-! find/get the distance matrix of MOs from the distance matrix of atoms
-subroutine atm_dis2mo_dis(natom, nmo, ncenter, dis, mo_center, mo_dis)
- implicit none
- integer :: i, j, k, m, n, k1, nc1, nc2
- integer, intent(in) :: natom, nmo, ncenter
- integer, intent(in) :: mo_center(0:ncenter,nmo)
- real(kind=8) :: r, min_dis
- real(kind=8), intent(in) :: dis(natom,natom)
- real(kind=8), intent(out) :: mo_dis(nmo*(nmo-1)/2)
-
- if(ANY(mo_center(0,:)==0)) then
-  write(6,'(/,A)') 'ERROR in subroutine atm_dis2mo_dis: some MO does not have i&
-                   &ts center.'
-  write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
-  write(6,'(A)') 'mo_center(0,:)='
-  write(6,'(12I7)') mo_center(0,:)
-  stop
- end if
-
-!$omp parallel do schedule(dynamic) default(private) &
-!$omp shared(npair,ijmap,mo_center,dis,mo_dis)
- do n = 1, npair, 1
-  i = ijmap(1,n); j = ijmap(2,n)
-  min_dis = dis(mo_center(1,i),mo_center(1,j))
-  nc1 = mo_center(0,i); nc2 = mo_center(0,j)
-
-  if(nc1>1 .and. nc2>1) then
-   do k = 1, nc1, 1
-    k1 = mo_center(k,i)
-    do m = 1, nc2, 1
-     r = dis(mo_center(m,j),k1)
-     if(r < min_dis) min_dis = r
-    end do ! for m
-   end do ! for k
-  else if(nc1==1 .and. nc2>1) then
-   k1 = mo_center(1,i)
-   do m = 1, nc2, 1
-    r = dis(mo_center(m,j),k1)
-    if(r < min_dis) min_dis = r
-   end do ! for m
-  else if(nc1>1 .and. nc2==1) then
-   k1 = mo_center(1,j)
-   do k = 1, nc1, 1
-    r = dis(mo_center(k,i),k1)
-    if(r < min_dis) min_dis = r
-   end do ! for k
-  end if
-
-  mo_dis(n) = min_dis
- end do ! for n
-!$omp end parallel do
-end subroutine atm_dis2mo_dis
 
 ! Find effective i-j map using the distance matrix of MOs, i.e. create/update
 ! the eff_ijmap array.
@@ -725,6 +524,192 @@ subroutine para22pm_kernel(nbf, nmo, natom, coeff, gross, change)
 end subroutine para22pm_kernel
 
 end module lo_info
+
+! Get/Find the center of each MO using SCPA(C-squared Population Analysis)
+subroutine get_mo_center_by_scpa(natom, nbf, nmo, bfirst, mo, mo_cen)
+ use lo_info, only: pop_thres, mo_centers
+ implicit none
+ integer :: i, j, k, m, i1, i2, ak(1)
+ integer, intent(in) :: natom, nbf, nmo
+ integer, intent(in) :: bfirst(natom+1)
+ real(kind=8) :: r, min_v, sum_r
+ real(kind=8), intent(in) :: mo(nbf,nmo)
+ real(kind=8), allocatable :: tmp_mo(:), pop(:), gross(:,:)
+ type(mo_centers), intent(out) :: mo_cen(nmo)
+
+ allocate(tmp_mo(nbf), pop(natom), gross(natom,nmo))
+
+!$omp parallel do schedule(static) default(private) &
+!$omp shared(natom,nmo,mo,bfirst,gross)
+ do i = 1, nmo, 1
+  tmp_mo = mo(:,i)**2
+  tmp_mo = tmp_mo/SUM(tmp_mo)
+  do j = 1, natom, 1
+   i1 = bfirst(j); i2 = bfirst(j+1) - 1
+   pop(j) = SUM(tmp_mo(i1:i2))
+  end do ! for j
+  gross(:,i) = pop
+ end do ! for i
+!$omp end parallel do
+ deallocate(tmp_mo)
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,bfirst,gross,mo_cen)
+ do i = 1, nmo, 1
+  ! find the largest component on an atom of an MO
+  pop = gross(:,i)
+  mo_cen(i)%nc = 1; m = 1
+  ak = MAXLOC(pop); k = ak(1); r = pop(k)
+
+  ! check the 2nd largest component
+  if(r < pop_thres) then
+   ak = MINLOC(pop); m = ak(1); min_v = pop(m)
+   pop(k) = min_v-0.5d0; m = 1; sum_r = r
+   do j = 1, natom-1, 1
+    m = m + 1; ak = MAXLOC(pop); k = ak(1)
+    r = pop(k); sum_r = sum_r + r
+    if(sum_r > pop_thres) exit
+    pop(k) = min_v - 0.5d0
+   end do ! for j
+  end if
+
+  mo_cen(i)%nc = m
+  if(allocated(mo_cen(i)%idx)) deallocate(mo_cen(i)%idx)
+  allocate(mo_cen(i)%idx(m))
+ end do ! for i
+!$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,bfirst,gross,mo_cen)
+ do i = 1, nmo, 1
+  ! find the largest component on an atom of an MO
+  pop = gross(:,i)
+  ak = MAXLOC(pop); k = ak(1)
+  r = pop(k); mo_cen(i)%idx(1) = k
+
+  ! check the 2nd largest component
+  if(r < pop_thres) then
+   ak = MINLOC(pop); m = ak(1); min_v = pop(m)
+   pop(k) = min_v-0.5d0; m = 1; sum_r = r
+   do j = 1, natom-1, 1
+    ak = MAXLOC(pop); k = ak(1); r = pop(k)
+    m = m + 1; mo_cen(i)%idx(m) = k
+    sum_r = sum_r + r
+    if(sum_r > pop_thres) exit
+    pop(k) = min_v - 0.5d0
+   end do ! for j
+  end if
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(pop, gross)
+end subroutine get_mo_center_by_scpa
+
+! This subroutine is the same as subroutine get_mo_center_from_diag_gross above,
+!  except that here gross is a 3D array, and only gross(:,i,i) will be used.
+subroutine get_mo_center_from_gross(natom, nmo, gross, mo_cen)
+ use lo_info, only: pop_thres, mo_centers
+ implicit none
+ integer :: i, j, k, m, ak(1)
+ integer, intent(in) :: natom, nmo
+ real(kind=8) :: r, min_v, sum_r
+ real(kind=8), intent(in) :: gross(natom,nmo,nmo)
+ real(kind=8), allocatable :: pop(:)
+ type(mo_centers), intent(out) :: mo_cen(nmo)
+
+ allocate(pop(natom))
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,gross,mo_cen)
+ do i = 1, nmo, 1
+  ! find the largest component on an atom of an MO
+  pop = gross(:,i,i)
+  mo_cen(i)%nc = 1; m = 1
+  ak = MAXLOC(pop); k = ak(1); r = pop(k)
+
+  ! check the 2nd largest component
+  if(r < pop_thres) then
+   ak = MINLOC(pop); m = ak(1); min_v = pop(m)
+   pop(k) = min_v-0.5d0; m = 1; sum_r = r
+   do j = 1, natom-1, 1
+    m = m + 1; ak = MAXLOC(pop); k = ak(1)
+    r = pop(k); sum_r = sum_r + r
+    if(sum_r > pop_thres) exit
+    pop(k) = min_v - 0.5d0
+   end do ! for j
+  end if
+
+  mo_cen(i)%nc = m
+  if(allocated(mo_cen(i)%idx)) deallocate(mo_cen(i)%idx)
+  allocate(mo_cen(i)%idx(m))
+ end do ! for i
+!$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(natom,nmo,gross,mo_cen)
+ do i = 1, nmo, 1
+  ! find the largest component on an atom of an MO
+  pop = gross(:,i,i)
+  ak = MAXLOC(pop); k = ak(1)
+  r = pop(k); mo_cen(i)%idx(1) = k
+
+  ! check the 2nd largest component
+  if(r < pop_thres) then
+   ak = MINLOC(pop); m = ak(1); min_v = pop(m)
+   pop(k) = min_v-0.5d0; m = 1; sum_r = r
+   do j = 1, natom-1, 1
+    ak = MAXLOC(pop); k = ak(1); r = pop(k)
+    m = m + 1; mo_cen(i)%idx(m) = k
+    sum_r = sum_r + r
+    if(sum_r > pop_thres) exit
+    pop(k) = min_v - 0.5d0
+   end do ! for j
+  end if
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(pop)
+end subroutine get_mo_center_from_gross
+
+! find/get the distance matrix of MOs from the distance matrix of atoms
+subroutine atm_dis2mo_dis(natom, nmo, npair, dis, mo_cen, mo_dis)
+ use lo_info, only: ijmap, mo_centers
+ implicit none
+ integer :: i, j, k, m, n, k1, nc1, nc2
+ integer, intent(in) :: natom, nmo, npair
+ real(kind=8) :: r, min_dis
+ real(kind=8), intent(in) :: dis(natom,natom)
+ real(kind=8), intent(out) :: mo_dis(npair)
+ type(mo_centers), intent(in) :: mo_cen(nmo)
+
+ if(ANY(mo_cen(:)%nc == 0)) then
+  write(6,'(/,A)') 'ERROR in subroutine atm_dis2mo_dis: some MO does not have i&
+                   &ts center.'
+  write(6,'(A,2I7)') 'natom, nmo=', natom, nmo
+  write(6,'(A)') 'mo_cen(:)%nc='
+  write(6,'(12I7)') mo_cen(:)%nc
+  stop
+ end if
+
+!$omp parallel do schedule(dynamic) default(private) &
+!$omp shared(npair,ijmap,mo_cen,dis,mo_dis)
+ do n = 1, npair, 1
+  i = ijmap(1,n); j = ijmap(2,n)
+  min_dis = dis(mo_cen(i)%idx(1), mo_cen(j)%idx(1))
+  nc1 = mo_cen(i)%nc; nc2 = mo_cen(j)%nc
+
+  do k = 1, nc1, 1
+   k1 = mo_cen(i)%idx(k)
+   do m = 1, nc2, 1
+    r = dis(mo_cen(j)%idx(m), k1)
+    if(r < min_dis) min_dis = r
+   end do ! for m
+  end do ! for k
+
+  mo_dis(n) = min_dis
+ end do ! for n
+!$omp end parallel do
+end subroutine atm_dis2mo_dis
 
 ! open a GAMESS .inp/.dat file and jump to the $DATA section
 subroutine goto_data_section_in_gms_inp(inpname, fid)

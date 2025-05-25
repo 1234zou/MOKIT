@@ -65,6 +65,10 @@ sed -i 's/200) T/500) T/g' inputa.src
 # For MP2 NOONs, not for GVB
 sed -i 's/9120 FORMAT(1X,10F7.4)/9120 FORMAT(5(1X,ES15.8))/' mp2.src
 
+# For (MR)SF-TDDFT, not for GVB
+sed -i 's/PARAMETER (THRESHOLD=5.0D-02)/PARAMETER (THRESHOLD=1D-4)/' sfdft.src
+sed -i "s/8891 FORMAT(7X,I4,1X/8891 FORMAT(6X,I5,1X/" sfdft.src
+
 ./modify_GMS2.exe
 echo 'Modification finished.'
 
@@ -87,6 +91,7 @@ done
 
 ./comp inputa
 ./comp mp2
+./comp sfdft
 echo 'Finish recompling.'
 
 echo 'Try to link all object files...'

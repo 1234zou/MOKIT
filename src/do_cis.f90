@@ -433,7 +433,7 @@ end subroutine do_rohf_using_uno
 subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  use mr_keyword, only: gms_path, gms_scr_path, check_gms_path
  implicit none
- integer :: i, mult, fid, fid1, SYSTEM, RENAME
+ integer :: i, k, mult, fid, fid1, SYSTEM, RENAME
  integer, intent(in) :: mem, nproc, nstate
  character(len=240) :: buf, tmpf, inpname, gmsname
  character(len=240), intent(in) :: rohf_fch
@@ -462,6 +462,27 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(tmpf),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf,'MAXIT=200') > 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine do_sf_cis_using_rohf: 'MAXIT=200' not &
+                    &found in file"
+   write(6,'(A)') TRIM(gmsname)
+   close(fid)
+   close(fid1,status='delete')
+  stop
+ end if
+
+ i = INDEX(buf, 'MAXIT=200')
+ k = LEN_TRIM(buf)
+ buf = buf(1:i-1)//'MAXIT=500'//buf(i+9:k)
+ write(fid1,'(A)') buf(1:k)
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -577,20 +598,24 @@ subroutine read_mrsf_e_from_gms_gms(gmsname, nstate, e, ssquare, fosc)
  open(newunit=fid,file=TRIM(gmsname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)') buf
+  if(buf(2:14) == 'SCF IS UNCONV')then
+   write(6,'(/,A)') 'ERROR in subroutine read_mrsf_e_from_gms_gms: ROHF SCF con&
+                    &vergence failure.'
+   write(6,'(A)') 'Please open and check file '//TRIM(gmsname)
+   close(fid)
+   stop
+  end if
+  if(buf(2:8) == 'ITER EX') then
+   write(6,'(/,A)') "ERROR in subroutine read_mrsf_e_from_gms_gms: '"//key//"'"
+   write(6,'(A)') 'not found in file '//TRIM(gmsname)
+   close(fid)
+   stop
+  end if
   if(buf(11:37) == key) exit
  end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrsf_e_from_gms_gms: '"//key//"'"
-  write(6,'(A)') 'is not found in file '//TRIM(gmsname)
-  close(fid)
-  stop
- end if
 
  do i = 1, 6   ! skip 6 lines
   read(fid,'(A)') buf
