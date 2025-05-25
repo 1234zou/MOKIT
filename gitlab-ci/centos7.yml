@@ -14,8 +14,8 @@
     #  -i.bak /etc/yum.repos.d/CentOS-*.repo
     - >
       sed -e "s|^mirrorlist=|#mirrorlist=|g" 
-      -e "s|^#baseurl=http://mirror.centos.org/centos/\$releasever|baseurl=https://vault.centos.org/7.9.2009|g" 
-      -e "s|^#baseurl=http://mirror.centos.org/\$contentdir/\$releasever|baseurl=https://vault.centos.org/7.9.2009|g" 
+      -e "s|^#baseurl=http://mirror.centos.org/centos/\$releasever|baseurl=https://vault.centos.org/7.6.1810|g" 
+      -e "s|^#baseurl=http://mirror.centos.org/\$contentdir/\$releasever|baseurl=https://vault.centos.org/7.6.1810|g" 
       -i.bak 
       /etc/yum.repos.d/CentOS-*.repo
     - yum makecache
@@ -28,7 +28,21 @@
     #  -e 's!http://mirrors!https://mirrors!g' 
     #  -i /etc/yum.repos.d/epel*.repo
     #- yum makecache
-    - yum install -y openblas-devel make gcc gcc-gfortran wget 
+    - yum install -y openblas-devel wget make
+    - yum install -y centos-release-scl scl-utils-build
+    - >
+      sed -e "s|^mirrorlist=|#mirrorlist=|g" 
+      -e "s|^# baseurl=http://mirror.centos.org/centos/7|baseurl=https://vault.centos.org/7.6.1810|g" 
+      -e "s|^#baseurl=http://mirror.centos.org/centos/7|baseurl=https://vault.centos.org/7.6.1810|g" 
+      -i.bak 
+      /etc/yum.repos.d/CentOS-SCLo*.repo
+    - cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+    - cat /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
+    - yum install -y devtoolset-4-gcc devtoolset-4-gcc-gfortran 
+    #- scl enable devtoolset-4 bash
+    - source /opt/rh/devtoolset-4/enable
+    #- which gcc
+    - gcc --version
     - wget -q --no-check-certificate https://repo.anaconda.com/miniconda/Miniconda3-${MCONDA_VER}-Linux-x86_64.sh
     - sh ./Miniconda3-${MCONDA_VER}-Linux-x86_64.sh -b
     - /root/miniconda3/bin/conda init bash
@@ -67,7 +81,7 @@
 
 
 centos7_conda_py38:
-  image: centos:7
+  image: centos:7.6.1810
   variables:
     TARGET: mokit-master_linux_centos7_conda_py38
     MCONDA_VER: py38_4.10.3
@@ -83,7 +97,7 @@ centos7_conda_py38:
       - ./$TARGET/
 
 centos7_conda_py39:
-  image: centos:7
+  image: centos:7.6.1810
   variables:
     TARGET: mokit-master_linux_centos7_conda_py39
     MCONDA_VER: py39_22.11.1-1

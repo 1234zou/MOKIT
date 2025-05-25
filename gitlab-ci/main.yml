@@ -6,6 +6,7 @@ variables:
     - newconda2
     - cf
     - distu-fix
+    - centos7-fix
   #only:
   #  changes:
   #    - "mokit/__init__.py"
