@@ -157,8 +157,9 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
   import time
-  from pyscf import gto
-  from mokit.lib.lo import gen_loc_ini_guess, boys, pm
+  #from pyscf import gto
+  #from mokit.lib.lo import gen_loc_ini_guess, boys, pm
+  from mokit.lib.auto import loc_ini_guess, loc_driver
   from mokit.lib.rwgeom import periodic_table as pt
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
 
@@ -184,30 +185,20 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   print('\nOrbital range:', idx)
 
   natom = mol.natm
-  dis = BOHR2ANG*gto.inter_distance(mol)
-  bfirst = np.ones(natom+1, dtype=np.int32)
-  bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1
-  S = mol.intor_symmetric('int1e_ovlp')
 
   # generate initial guess orbitals (which are unitary transformation of
   # original orbitals)
-  chosen = np.ones(natom, dtype=bool)
-  nmo1, lmo_ini = gen_loc_ini_guess(natom, nbf, nmo, chosen, bfirst, S, mo[:,idx])
+  nmo1, lmo_ini = loc_ini_guess(mol, mo[:,idx], nmo)
 
-  if method == 'pm':
-    lmo = pm(natom, nbf, nmo, bfirst, dis, lmo_ini, S, 'mulliken', dis_tol,
-             conv_tol)
-    if center_xyz is not None:
-      center, ao_dip = ao_dipole_int(mol)
-      center *= BOHR2ANG
-      ao_dip *= BOHR2ANG
-  elif method == 'boys':
+  if method == 'boys' or center_xyz is not None:
     center, ao_dip = ao_dipole_int(mol)
     center *= BOHR2ANG
     ao_dip *= BOHR2ANG
-    lmo = boys(natom, nbf, nmo, bfirst, dis, lmo_ini, ao_dip, dis_tol, conv_tol)
   else:
-    raise ValueError('Localization method cannot be recognized.')
+    ao_dip = None
+
+  lmo = loc_driver(mol, lmo_ini, nmo, method=method, ao_dip=ao_dip, dis_tol=dis_tol,
+                   conv_tol=conv_tol)
 
   if center_xyz is not None:   # print LMO centers into xyz
     mo_center = np.einsum('ui,xuv,vi->xi', lmo, ao_dip, lmo, optimize=True)
@@ -378,7 +369,7 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     lmo = pm(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], S, 'mulliken',
              dis_tol, conv_tol)
   else:
-    raise ValueError('Localization method cannot be recognized.')
+    raise ValueError(f'Localization method {method} cannot be recognized.')
 
   # print LMO centers into xyz
   if method == 'berry':
