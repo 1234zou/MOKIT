@@ -95,7 +95,7 @@ subroutine do_cis()
    stop
   end select
  else
-  ! perform MRSF-CIS calulations for an open-shell singlet species
+  ! perform MRSF-CIS calculations for an open-shell singlet species
   call find_specified_suffix(hf_fch, '.fch', i)
   uno_fch = hf_fch(1:i-1)//'_uno.fch'
   rohf_fch = hf_fch(1:i-1)//'_T_rohf.fch'

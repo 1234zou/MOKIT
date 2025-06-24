@@ -115,7 +115,7 @@ subroutine fch2wfn(fchname, read_no)
  write(fid,'(A,I15,A,I7,A,I9,A)') 'GAUSSIAN',nmo,' MOL ORBITALS',tot_nprim,&
                                  &' PRIMITIVES',natom,' NUCLEI'
 
- ! calculate effective nuclear chages (remember to minus ECP core, if any)
+ ! calculate effective nuclear charges (remember to minus ECP core, if any)
  allocate(eff_nuc_charge(natom), source=0)
  if(allocated(RNFroz)) then
   forall(i = 1:natom) eff_nuc_charge(i) = ielem(i) - NINT(RNFroz(i))
