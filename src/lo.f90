@@ -57,20 +57,21 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  end if
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from pyscf import gto'
+ !write(fid,'(A)') 'from pyscf import gto'
  write(fid,'(A)') 'from shutil import copyfile'
  write(fid,'(A)') 'from mokit.lib.gaussian import BOHR2ANG, load_mol_from_fch'
  write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
  write(fid,'(A)') ' read_eigenvalues_from_fch'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
- if(pm_loc) then
-  write(fid,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, pm'
- else
+ if(.not. pm_loc) then
+ ! write(fid,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, pm'
+ !else
   write(fid,'(A)') 'from mokit.lib.gaussian import ao_dipole_int'
-  write(fid,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, boys'
+ ! write(fid,'(A)') 'from mokit.lib.lo import gen_loc_ini_guess, boys'
  end if
- write(fid,'(A)') 'import numpy as np'
+ write(fid,'(A,/)') 'from mokit.lib.auto import loc_ini_guess, loc_driver'
+ !write(fid,'(A)') 'import numpy as np'
  write(fid,'(A)') 'import os'
 
  write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
@@ -80,22 +81,13 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
  write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'
  write(fid,'(A)') 'nmo = len(idx)'
- write(fid,'(A)') 'natom = mol.natm'
- write(fid,'(A)') 'dis = BOHR2ANG*gto.inter_distance(mol)'
- write(fid,'(A)') 'bfirst = np.ones(natom+1, dtype=np.int32)'
- write(fid,'(A)') 'bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1'
- write(fid,'(A)') "S = mol.intor_symmetric('int1e_ovlp')"
- write(fid,'(A)') 'chosen = np.ones(natom, dtype=bool)'
- write(fid,'(A)') 'nmo1, lmo_ini = gen_loc_ini_guess(natom,nbf,nmo,chosen,bfirs&
-                  &t,S,mo_coeff[:,idx])'
+ write(fid,'(A)') 'nmo1, lmo_ini = loc_ini_guess(mol, mo_coeff[:,idx], nmo)'
  if(pm_loc) then
-  write(fid,'(A)') "loc_orb = pm(natom,nbf,nmo,bfirst,dis,lmo_ini,S,'mulliken',&
-                   &17.0,1e-5)"
+  write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='pm')"
  else
   write(fid,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
   write(fid,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
-  write(fid,'(A)') 'loc_orb = boys(natom,nbf,nmo,bfirst,dis,lmo_ini,ao_dip,17.0&
-                   &,1e-5)'
+  write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='boys', ao_dip=None)"
  end if
 
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'

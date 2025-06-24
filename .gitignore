@@ -18,6 +18,11 @@ noarch/
 
 /test/*/*.fch*
 /test/*/*.chk
+/test/*/*hf.gjf
 /test/*/*.log
+/test/*/*out
+/test/*/*_proj_*
+/test/*/*CASSCF*
+/test/utilities/
 /test/bas_fch2py/
 /test/ist7/

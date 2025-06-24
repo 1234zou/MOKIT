@@ -1,0 +1,13 @@
+%mem=4GB
+%nprocshared=2
+#p CASSCF/cc-pVDZ
+
+mokit{}
+
+0 1
+O      -0.23497692    0.90193619   -0.068688
+H       1.26502308    0.90193619   -0.068688
+H      -0.73568721    2.31589843   -0.068688
+
+# The active space will be automatically determined, you do not need to specify that
+# To run this example, you need to install Gaussian, PySCF and GAMESS
