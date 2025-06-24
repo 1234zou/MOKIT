@@ -190,7 +190,7 @@ subroutine fch2qm4d(fchname, binary)
 
  deallocate(d_mark, f_mark)
 
- ! initilize occupation number arrays
+ ! initialize occupation number arrays
  if(uhf) then
   nif = nif/2
   allocate(alpha_occ(nif,nif), source=0d0)

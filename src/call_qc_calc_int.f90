@@ -623,7 +623,7 @@ subroutine submit_gau_job(gau_path, gjfname, prt)
  i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_gau_job: Gaussian job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gau_job: Gaussian job failed.'
   write(6,'(A)') 'Please open file '//TRIM(logname)//' and check.'
   stop
  end if
@@ -652,7 +652,7 @@ subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
 
  i = SYSTEM(TRIM(orca_path)//' '//TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_orca_job: ORCA job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_orca_job: ORCA job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
@@ -702,7 +702,7 @@ subroutine submit_molcas_job(inpname, mem, nproc, omp)
 
  i = SYSTEM('/bin/bash '//TRIM(shname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_molcas_job: OpenMolcas job fail&
+  write(6,'(/,A)') 'ERROR in subroutine submit_molcas_job: OpenMolcas job fail&
                    &ed. Please'
   write(6,'(A)') 'open file '//TRIM(outname)//' and check.'
   stop
@@ -760,7 +760,7 @@ subroutine submit_psi4_job(psi4_path, inpname, nproc)
 
  i = SYSTEM(TRIM(psi4_path)//' '//TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_psi4_job: PSI4 job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_psi4_job: PSI4 job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
@@ -787,7 +787,7 @@ subroutine submit_qchem_job(inpname, nproc)
 
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_qchem_job: QChem job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_qchem_job: QChem job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
@@ -913,7 +913,7 @@ subroutine submit_pyscf_job(pyname, prt)
  if(prt) write(6,'(A)') '$'//TRIM(buf)
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subrouitine submit_pyscf_job: PySCF job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_pyscf_job: PySCF job failed.'
   write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
   stop
  end if
