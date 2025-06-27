@@ -36,13 +36,11 @@ program main
    write(6,'(A)') "ERROR in subroutine fch_mo_copy: the 3rd argument must be '-aa'/'-ab'/'-ba'/'-bb'."
    stop
   end if
-
- else ! i == 4
+ else if(i == 4) then
   call getarg(3,str)
   read(str,*) idx1
   call getarg(4,str)
   read(str,*) idx2
-
   if(idx1<1 .or. idx2<1 .or. idx1>idx2) then
    write(6,'(A)') 'ERROR in subroutine fch_mo_copy: invalid indices idx1 and/or idx2.'
    write(6,'(2(A,I0))') 'idx1=', idx1, ', idx2=', idx2
@@ -66,13 +64,14 @@ subroutine fch_mo_copy(fchname1, fchname2, ab, idx1, idx2)
  call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
 
  if(nbf/=nbf2 .or. nif/=nif2) then
-  write(6,'(A)') 'ERROR in subroutine fch_mo_copy: nbf and/or nif not equal in two files.'
-  write(6,'(A)') 'File1: '//TRIM(fchname1)//', File2: '//TRIM(fchname2)
+  write(6,'(/,A)') 'ERROR in subroutine fch_mo_copy: nbf and/or nif are not equ&
+                   &al in two files:'
+  write(6,'(A)') TRIM(fchname1)
+  write(6,'(A)') TRIM(fchname2)
   stop
  end if
 
- allocate(coeff1(nbf,nif), source=0d0)
- allocate(coeff2(nbf,nif), source=0d0)
+ allocate(coeff1(nbf,nif), coeff2(nbf,nif))
  call read_mo_from_fch(fchname1, nbf, nif, ab(2:2), coeff1)
  call read_mo_from_fch(fchname2, nbf, nif, ab(3:3), coeff2)
 
@@ -81,8 +80,9 @@ subroutine fch_mo_copy(fchname1, fchname2, ab, idx1, idx2)
  else ! 0 < idx1 <= idx2
   coeff2(:,idx1:idx2) = coeff1(:,idx1:idx2)
  end if
+ deallocate(coeff1)
 
  call write_mo_into_fch(fchname2, nbf, nif, ab(3:3), coeff2)
- deallocate(coeff1, coeff2)
+ deallocate(coeff2)
 end subroutine fch_mo_copy
 

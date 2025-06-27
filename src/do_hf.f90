@@ -1383,8 +1383,8 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'mf' fou&
-                 &nd in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'mf' fo&
+                   &und in file "//TRIM(inpname)
   stop
  end if
 
@@ -1395,8 +1395,8 @@ subroutine read_hf_type_from_pyscf_inp(inpname, hf_type)
  else if(INDEX(buf,'HF') > 0) then
   hf_type = 3
  else 
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'HF' fou&
-                 &nd in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_pyscf_inp: no 'HF' fo&
+                   &und in file "//TRIM(inpname)
   close(fid)
   stop
  end if
@@ -1419,8 +1419,9 @@ subroutine read_hf_type_from_psi4_inp(inpname, hf_type)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'refe&
-                    &rence' found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'referen&
+                   &ce' found in file"
+  write(6,'(A)') TRIM(inpname)
   stop
  end if
 
@@ -1433,8 +1434,8 @@ subroutine read_hf_type_from_psi4_inp(inpname, hf_type)
  else if(INDEX(buf,'hf') > 0) then
   hf_type = 0
  else 
-  write(6,'(A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'hf'&
-                   & found in file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine read_hf_type_from_psi4_inp: no 'hf' fou&
+                   &nd in file "//TRIM(inpname)
   close(fid)
   stop
  end if

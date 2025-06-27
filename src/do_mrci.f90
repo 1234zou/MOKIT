@@ -5,7 +5,7 @@ subroutine do_mrcisd()
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, CIonly, eist, mrcisd,&
   mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
   gms_path, gms_scr_path, check_gms_path, molpro_path, psi4_path, dalton_mpi, &
-  bgchg, casci_prog, casscf_prog, chgname
+  bgchg, chgname
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
  use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
@@ -23,27 +23,6 @@ subroutine do_mrcisd()
  write(6,'(//,A)') 'Enter subroutine do_mrcisd...'
 
  call prt_mrci_orb_type(2, CIonly)
-
- if(.not. CIonly) then
-  if(TRIM(casscf_prog) == 'orca') then
-   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO coefficie&
-                  &nts in .mkl file are only 7-digits.'
-   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u. Such small e&
-                  &rror is usually not important.'
-   write(6,'(A)') 'If you care about the accuracy, please use another CASSCF so&
-                  &lver.'
-  end if
- else ! CIonly = .True.
-  if(TRIM(casci_prog) == 'orca') then
-   write(6,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO coefficien&
-                  &ts in .mkl file are only 7-digits.'
-   write(6,'(A)') 'This will affect the CI energy up to 10^-5 a.u. Such small e&
-                  &rror is usually not important.'
-   write(6,'(A)') 'If you care about the accuracy, please use another CASCI sol&
-                  &ver.'
-  end if
- end if
-
  write(6,'(A,2(I0,A))') 'Frozen_Core = F, MRCISD(', nacte, 'e,', nacto, &
                         'o) using program '//TRIM(mrcisd_prog)
 

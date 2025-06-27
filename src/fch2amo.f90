@@ -79,7 +79,7 @@ subroutine fch2amo(fchname)
   sph = .true.
  end if
 
-! Firstly, generate the input file (.in)
+! Firstly, generate the input file (.aip)
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)') '% npara 4'
  write(fid,'(A)') '% maxcore 1000'

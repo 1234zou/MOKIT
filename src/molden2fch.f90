@@ -190,18 +190,11 @@ subroutine molden2fch(molden, iprog, natorb)
  logical :: sph, has_sp, all_coeff
  logical, intent(in) :: natorb
 
- i = INDEX(molden, '.molden', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in program molden2fch: illegal filename. No '.molden'&
-                   & string found."
-  write(6,'(A)') 'Please rename it to xxx.molden.'
-  stop
- end if
-
  is_uhf = .false.; all_coeff = .true.
- call check_sph_in_molden(molden, sph)
-
+ call find_specified_suffix(molden, '.molden', i)
  fchname = molden(1:i-1)//'.fch'
+
+ call check_sph_in_molden(molden, sph)
  call read_natom_from_molden(molden, natom)
  allocate(ielem(natom), nfroz(natom), coor(3,natom))
  call read_nuc_and_coor_from_molden(molden, natom, ielem, nfroz, coor)
@@ -479,7 +472,8 @@ subroutine molden2fch(molden, iprog, natorb)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine molden2fch: iprog out of range!'
+  write(6,'(/,A)') 'ERROR in subroutine molden2fch: iprog out of range! Unsuppo&
+                   &rted program currently.'
   write(6,'(A,I0)') 'iprog=', iprog
   stop
  end select

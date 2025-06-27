@@ -454,25 +454,6 @@ subroutine dat2fch_permute_21h(nif,coeff)
  coeff = coeff2
 end subroutine dat2fch_permute_21h
 
-! get the integer value after the keyword flag
-subroutine get_int_after_flag(buf, flag, k)
- implicit none
- integer :: i
- integer, intent(out) :: k
- character(len=1), intent(in) :: flag
- character(len=240), intent(in) :: buf
-
- i = INDEX(buf, flag)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine get_int_after_flag: no keyword '"//flag&
-                  &//"' found in the string '"//TRIM(buf)//"'."
-  stop
- end if
-
- k = 0
- read(buf(i+1:),*) k
-end subroutine get_int_after_flag
-
 ! Generate a .fch file from a GAMESS .dat/.inp file. This requires the basis
 ! data and ECP/PP are well written in the .dat file.
 subroutine gen_fch_from_gms_inp(datname, fchname)

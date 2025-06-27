@@ -305,6 +305,31 @@ subroutine check_mokit_root()
  endif
 end subroutine check_mokit_root
 
+! check whether UHF is used in a specified CFOUR output file
+subroutine check_uhf_in_cfour_out(outname, uhf)
+ implicit none
+ integer :: i, k, fid
+ logical, intent(out) :: uhf
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ uhf = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(9:23) == 'SCF reference f') then
+   k = INDEX(buf, ':')
+   buf = ADJUSTL(buf(k+1:))
+   if(buf(1:3) == 'UHF') uhf = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine check_uhf_in_cfour_out
+
 ! export a real(kind=8) array into a plain .txt file
 subroutine export_rarray2txt(txtname, label, n, a)
  implicit none
@@ -549,7 +574,8 @@ subroutine write_grad_into_fch(fchname, natom, grad)
  character(len=240), intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='append')
- write(fid,'(A,4X,I8)') 'Cartesian Gradient                         R   N=',natom*3
+ write(fid,'(A,4X,I8)') 'Cartesian Gradient                         R   N=', &
+                         natom*3
  write(fid,'(5(1X,ES15.8))') grad
  close(fid)
 end subroutine write_grad_into_fch
@@ -649,6 +675,31 @@ subroutine modify_uno_out(uno_out, ndb, npair, nopen)
  close(fid)
 end subroutine modify_uno_out
 
+! find the target CASCI root in a specified PySCF CASCI output file
+subroutine read_target_root_from_pyscf_out(outname, target_root, found)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: target_root
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(out) :: found
+
+ found = .false.; target_root = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == 'target_root=') then
+   read(buf(13:),*) target_root
+   found = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine read_target_root_from_pyscf_out
+
 ! Note: the parameter mem must be provided in unit MB.
 subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
                            numfreq)
@@ -739,4 +790,114 @@ subroutine del_dm_in_fch(fchname, itype)
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine del_dm_in_fch
+
+! print ORCA CASPT2/NEVPT2 selected roots
+subroutine prt_orca_mrpt_sel_root(fid, iver, iroot, mult, xmult)
+ implicit none
+ integer :: i
+ integer, intent(in) :: fid, iver, iroot, mult, xmult
+ integer, allocatable :: int01(:)
+
+ if(iver > 5) then ! >= ORCA 6.0.0
+  if(xmult == mult) then
+   write(fid,'(A,I0)') '  SelectedRoots[0]=',iroot
+  else
+   write(fid,'(A,I0)') '  SelectedRoots[1]=',iroot-1
+  end if
+ else              ! <= ORCA 5.0.4
+  if(xmult == mult) then
+   allocate(int01(iroot+3), source=0)
+   int01(iroot+1) = 1
+   write(fid,'(A)',advance='no') '  SelectedRoots[0]='
+   do i = 1, iroot+2, 1
+    write(fid,'(I0,A)',advance='no') int01(i),','
+   end do ! for i
+   write(fid,'(I0)') int01(iroot+3)
+  else
+   allocate(int01(iroot+2), source=0)
+   int01(iroot) = 1
+   write(fid,'(A)') '  SelectedRoots[0]=0'
+   write(fid,'(A)',advance='no') '  SelectedRoots[1]='
+   do i = 1, iroot+1, 1
+    write(fid,'(I0,A)',advance='no') int01(i),','
+   end do ! for i
+   write(fid,'(I0)') int01(iroot+2)
+  end if
+  deallocate(int01)
+ end if
+end subroutine prt_orca_mrpt_sel_root
+
+! save the previous K matrix of Cayley transformation
+subroutine save_cayley_k_old(nmo, ndiis, k_old, binfile)
+ implicit none
+ integer :: i, j, nfile, fid, RENAME
+ integer, intent(in) :: nmo, ndiis
+ real(kind=8), intent(in) :: k_old(nmo,nmo)
+ character(len=240), intent(in) :: binfile(2*ndiis-1)
+ logical :: alive
+
+ nfile = 2*ndiis - 1
+ do i = nfile-1, ndiis+1, -1
+  inquire(file=TRIM(binfile(i)), exist=alive)
+  if(alive) j = RENAME(TRIM(binfile(i)), TRIM(binfile(i+1)))
+ end do ! for i
+
+ open(newunit=fid,file=TRIM(binfile(ndiis+1)),status='new',form='unformatted')
+ write(unit=fid) ((k_old(j,i),j=i+1,nmo,1),i=1,nmo-1,1)
+ close(fid)
+end subroutine save_cayley_k_old
+
+! save the difference of current and previous K matrices of Cayley transformation
+subroutine save_cayley_k_diff(nmo,ndiis,ijmap, binfile, k_old, cayley_k, k_diis)
+ implicit none
+ integer :: i, j, n, npair, nfile, fid, RENAME
+ integer, intent(in) :: nmo, ndiis
+ integer, intent(in) :: ijmap(2,nmo*(nmo-1)/2)
+ real(kind=8), intent(in) :: k_old(nmo,nmo), cayley_k(nmo,nmo)
+ real(kind=8), intent(inout) :: k_diis(ndiis+1,ndiis+1)
+ real(kind=8), allocatable :: k_diff(:), old_diff(:)
+ character(len=240), intent(in) :: binfile(2*ndiis-1)
+ logical :: alive
+
+ npair = nmo*(nmo-1)/2; nfile = 2*ndiis - 1
+
+ ! renaming files: N-5->N-6, N-4->N-5, N-3->N-4, N-2->N-3, N-1->N-2, N->N-1
+ do i = ndiis-1, 1, -1
+  inquire(file=TRIM(binfile(i)), exist=alive)
+  if(alive) j = RENAME(TRIM(binfile(i)), TRIM(binfile(i+1)))
+ end do ! for i
+
+ do i = 1, ndiis-1, 1
+  do j = 1, ndiis-1, 1
+   k_diis(j,i) = k_diis(j+1,i+1)
+  end do ! for j
+ end do ! for i
+
+ allocate(k_diff(npair))
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,n)
+ do n = 1, npair, 1
+  i = ijmap(1,n); j = ijmap(2,n)
+  k_diff(n) = cayley_k(j,i) - k_old(j,i)
+ end do ! for i
+!$omp end parallel do
+
+ do i = 1, ndiis-1, 1
+  inquire(file=TRIM(binfile(ndiis+1-i)),exist=alive)
+  if(.not. alive) cycle
+  allocate(old_diff(npair), source=0d0)
+  open(newunit=fid,file=TRIM(binfile(ndiis+1-i)),status='old',form='unformatted')
+  read(unit=fid) old_diff
+  close(fid)
+  k_diis(i,ndiis) = DOT_PRODUCT(k_diff, old_diff)
+  deallocate(old_diff)
+ end do ! for k
+
+ k_diis(ndiis,ndiis) = DOT_PRODUCT(k_diff, k_diff)
+ k_diis(ndiis,1:ndiis-1) = k_diis(1:ndiis-1,ndiis)
+
+ open(newunit=fid,file=TRIM(binfile(1)),status='new',form='unformatted')
+ write(unit=fid) k_diff
+ deallocate(k_diff)
+ close(fid)
+end subroutine save_cayley_k_diff
 

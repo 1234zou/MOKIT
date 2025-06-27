@@ -1754,11 +1754,9 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
      write(fid2,'(A)',advance='no') ' RSOLV=1.975 EPS=37.781'
     case('dmf','n,n-dimethylformamide')
      write(fid2,'(A)',advance='no') ' RSOLV=1.87 EPS=37.219'
+    case('benzonitrile')
+     write(fid2,'(A)',advance='no') ' RSOLV=2.03 EPS=25.592'
     end select
-    ! Previously 1.935/1.885 were used for n,n-dimethylacetamide/n,n-
-    ! dimethylformamide, respectively. The calculation files cannot be found,
-    ! so here we compute these solvent molecules using M062X/def2TZVP with
-    ! corresponding PCM implicit solvents.
    end if
    write(fid2,'(A,/,A)') ' $END',' $PCMCAV ALPHA(1)=1.1'
    j = natom/8
@@ -2010,10 +2008,11 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'C6H12'
  case('1,1,1-trichloroethane','1,1,2-trichloroethane','1,2,4-trimethylbenzene',&
       '1,2-dibromoethane','1,2-ethanediol','diethylether','isoquinoline', &
-      'n-octanol','quinoline','n,n-dimethylacetamide','dmf','n,n-dimethylformamide')
+      'n-octanol','quinoline','n,n-dimethylacetamide','n,n-dimethylformamide',&
+      'dmf','benzonitrile')
   solvent = 'INPUT'
- case('water','h2o','methanol','ch3oh','ethanol','hexane','dmso','thf', &
-      'benzene','c6h6','ch3no2','aniline','c6h5nh2','toluene','c6h5ch3')
+ case('water','h2o','methanol','ch3oh','ethanol','hexane','dmso','thf','c6h6',&
+      'benzene','ch3no2','aniline','c6h5nh2','toluene','c6h5ch3')
   solvent = TRIM(solvent_gau)
  case default
   write(6,'(A)') REPEAT('-',79)

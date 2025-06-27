@@ -69,11 +69,17 @@ subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
  implicit none
  integer :: i, j, k, nblank, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  character(len=6) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
  character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
  logical, intent(out) :: ghost(natom)
+!f2py intent(out) :: ghost
+!f2py depend(natom) :: ghost
 
  forall(i = 1:natom) elem(i) = '  '
  ghost = .false.
@@ -144,11 +150,11 @@ subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
  open(newunit=fid,file=TRIM(xyzname),status='replace')
  write(fid,'(I0)') natom
 
- if(present(lat_vec)) then
-  if(SUM(DABS(lat_vec)) < 1d-6) then
+ if(PRESENT(lat_vec)) then
+  if(SUM(DABS(lat_vec)) < 1d-5) then
    write(fid,'(/)',advance='no')
   else
-   write(fid,'(A,9F8.3,A)') "Lattice=""", lat_vec, """"
+   write(fid,'(A,9F9.4,A)') "Lattice=""", lat_vec, """"
   end if
  else
   write(fid,'(A)') 'produced by rwgeom of MOKIT'
@@ -157,7 +163,6 @@ subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
  do i = 1, natom, 1
   write(fid,'(A2,3(1X,F18.8))') elem(i), coor(1:3,i)
  end do ! for i
-
  close(fid)
 end subroutine write_xyz
 
@@ -168,10 +173,17 @@ subroutine write_coord(natom, elem, coor, fname, lat_vec)
  implicit none
  integer :: i, nd, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  real(kind=8), intent(in), optional :: lat_vec(3,3)
+!f2py intent(in), optional :: lat_vec
  character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
 
  open(newunit=fid,file=TRIM(fname),status='replace')
  write(fid,'(A)') '$coord'
@@ -180,7 +192,7 @@ subroutine write_coord(natom, elem, coor, fname, lat_vec)
   write(fid,'(3(1X,F18.8),3X,A2)') coor(:,i)/Bohr_const, elem(i)
  end do ! for i
 
- if(present(lat_vec)) then
+ if(PRESENT(lat_vec)) then
   nd = SIZE(lat_vec, 2)
   write(fid,'(A,I0)') '$periodic ', nd
   write(fid,'(A)') '$lattice bohr'
@@ -373,72 +385,6 @@ subroutine read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, 
  end if
 end subroutine read_elem_and_coor_from_gjf
 
-! Wrap/move atoms into the reference cell by proper translation. This subroutine
-! can only be applied to cubic cell currently.
-subroutine pbc_wrap_atoms(xyzname, a)
- use periodic_table, only: write_xyz
- implicit none
- integer :: i, j, k, natom
- real(kind=8) :: r
- real(kind=8), intent(in) :: a(3)
-!f2py intent(in) :: a
- real(kind=8), allocatable :: coor(:,:)
- character(len=2), allocatable :: elem(:)
- character(len=240) :: xyzname1
- character(len=240), intent(in) :: xyzname
-!f2py intent(in) :: xyzname
-
- if(ANY(a < 1d-4)) then
-  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms: wrong cell parameters.'
-  write(6,'(3F20.8)') a
-  stop
- end if
-
- call read_natom_from_xyz(xyzname, natom)
- allocate(elem(natom), coor(3,natom))
- call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
-
- if(ANY(elem == 'Tv')) then
-  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms: elements in .xyz file i&
-                   &nclude cell parameters.'
-  write(6,'(A)') "Symbol 'Tv' detected. xyzname="//TRIM(xyzname)
-  deallocate(elem, coor)
-  stop
- end if
-
- do i = 1, 3
-  coor(i,:) = coor(i,:)/a(i)
- end do ! for i
-
-!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,r)
- do k = 1, 3*natom, 1
-  i = k/3
-  if(k == i*3) then
-   j = 3
-  else
-   j = k - i*3
-   i = i + 1
-  end if
-  r = coor(j,i)
-  if(r < 0d0) then
-   r = r + CEILING(-r)
-  else if(r > 1d0) then
-   r = r - FLOOR(r)
-  end if
-  coor(j,i) = r
- end do ! for k
-!$omp end parallel do
-
- do i = 1, 3
-  coor(i,:) = coor(i,:)*a(i)
- end do ! for i
-
- call find_specified_suffix(xyzname, '.xyz', i)
- xyzname1 = xyzname(1:i-1)//'_new.xyz'
- call write_xyz(natom, elem, coor, xyzname1)
- deallocate(elem, coor)
-end subroutine pbc_wrap_atoms
-
 subroutine compare_dummy_atoms_in_xyz(xyzname1, xyzname2)
  implicit none
  integer :: natom
@@ -485,9 +431,9 @@ subroutine read_frag_guess_from_gjf(gjfname, natom, atom2frag, nfrag, frag_char_
  read(fid,*,iostat=k) charge, mult, ((frag_char_mult(j,i),j=1,2),i=1,nfrag)
  if(k /= 0) then
   write(6,'(A)') 'ERROR in subroutine read_frag_guess_from_gjf: failed to read&
-                & charges and spin'
+                 & charges and spin'
   write(6,'(A)') 'multiplicities of fragments. Please check syntax in file '//&
-                 TRIM(gjfname)
+                  TRIM(gjfname)
   close(fid)
   stop
  end if
@@ -1204,6 +1150,105 @@ subroutine split_pbc_xyz_into_gjf(xyzname)
  close(fid)
 end subroutine split_pbc_xyz_into_gjf
 
+! Wrap/move atoms into the reference cell by proper translation. This subroutine
+! can only be applied to alpha=beta=gamma=90(degree) cell currently.
+subroutine pbc_wrap_atoms(a, natom, coor)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8) :: r
+ real(kind=8), intent(in) :: a(3)
+!f2py intent(in) :: a
+ real(kind=8), intent(inout) :: coor(3,natom)
+!f2py intent(in,out) :: coor
+!f2py depend(natom) :: coor
+
+ if(ALL(coor>=0d0) .and. ALL(coor(1,:)<a(1)) .and. ALL(coor(2,:)<a(2)) .and. &
+    ALL(coor(3,:)<a(3))) then
+  return ! no need to wrap
+ end if
+
+ do i = 1, 3
+  coor(i,:) = coor(i,:)/a(i)
+ end do ! for i
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,r)
+ do k = 1, 3*natom, 1
+  i = k/3
+  if(k == i*3) then
+   j = 3
+  else
+   j = k - i*3
+   i = i + 1
+  end if
+  r = coor(j,i)
+  if(r < 0d0) then
+   r = r + DBLE(CEILING(-r))
+  else if(r > 1d0) then
+   r = r - DBLE(FLOOR(r))
+  end if
+  coor(j,i) = r
+ end do ! for k
+!$omp end parallel do
+
+ do i = 1, 3
+  coor(i,:) = coor(i,:)*a(i)
+ end do ! for i
+end subroutine pbc_wrap_atoms
+
+! Wrap/move atoms in a specified .xyz file into the reference cell by proper
+! translation. This subroutine can only be applied to alpha=beta=gamma=90(degree)
+! cell currently.
+subroutine pbc_wrap_atoms_in_xyz(xyzname, lat_vec)
+ use periodic_table, only: write_xyz
+ implicit none
+ integer :: i, natom
+ real(kind=8) :: a(3)
+ real(kind=8), intent(in) :: lat_vec(3,3)
+!f2py intent(in) :: lat_vec
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: xyzname1
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+ logical :: diagonal
+ logical, external :: check_diagonal_mat
+
+ diagonal = check_diagonal_mat(3, lat_vec)
+ if(diagonal) then
+  forall(i=1:3) a(i) = lat_vec(i,i)
+  if(ANY(a < 1d-3)) then
+   write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_xyz: wrong cell para&
+                    &meters.'
+   write(6,'(3F20.8)') a
+   stop
+  end if
+ else
+  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_xyz: currently only a&
+                   &lpha=beta=gamma=90'
+  write(6,'(A)') '(degree) type of cell is supported.'
+  stop
+ end if
+
+ call read_natom_from_xyz(xyzname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+ if(ANY(elem == 'Tv')) then
+  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_xyz: elements in file&
+                   & '//TRIM(xyzname)
+  write(6,'(A)') "include cell parameters. Symbol 'Tv' detected."
+  deallocate(elem, coor)
+  stop
+ end if
+
+ call pbc_wrap_atoms(a, natom, coor)
+ call find_specified_suffix(xyzname, '.xyz', i)
+ xyzname1 = xyzname(1:i-1)//'_wrap.xyz'
+ call write_xyz(natom, elem, coor, xyzname1, lat_vec)
+ deallocate(elem, coor)
+end subroutine pbc_wrap_atoms_in_xyz
+
 ! write/create a .gjf file
 subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  implicit none
@@ -1835,7 +1880,7 @@ subroutine xyz2gjf(xyzname)
  if(pbc) then
   call read_lat_vec_from_xyz(xyzname, lat_vec)
   allocate(elem(natom+3), coor(3,natom+3))
-  call read_elem_and_coor_from_xyz(xyzname, natom, elem(1:natom), coor(:,1:natom))
+  call read_elem_and_coor_from_xyz(xyzname,natom,elem(1:natom),coor(:,1:natom))
   elem(natom+1:natom+3) = 'Tv'
   coor(:,natom+1:natom+3) = lat_vec
   call write_gjf(gjfname, charge, mult, natom+3, elem, coor)

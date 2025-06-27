@@ -22,17 +22,16 @@ end program main
 
 subroutine find_mc_pair(gmsname)
  implicit none
- integer :: i, j, k, npair, tmp_pair(2)
- integer, parameter :: fid = 11
+ integer :: i, j, k, npair, fid, tmp_pair(2)
  integer, allocatable :: pair(:,:)
- real(kind=8) tmp_coeff(2), tmp_coeff1(2), tmp_coeff2(2)
+ real(kind=8) :: tmp_coeff(2), tmp_coeff1(2), tmp_coeff2(2)
  real(kind=8), parameter :: threshold = -1d-5
  real(kind=8), allocatable :: pair_coeff(:,:)
- character(len=240) buffer
+ character(len=240) :: buffer
  character(len=240), intent(in) :: gmsname
 
  buffer =  ' '
- open(unit=fid,file=TRIM(gmsname),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
 
  ! find the number of pairs
  do while(.true.)

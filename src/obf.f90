@@ -692,8 +692,6 @@ program main
   write(6,'(I2,A1,23I4)') icoeff(i),':',cluster(i)%occ_idx
  end do ! for i
 
- write(6,'(A)') 'Debug checkpoint. STOP'
- stop
  ! generate all .fch files with active orbitals permuted near HONO or LUNO
  call gen_permute_fch()
 

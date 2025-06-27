@@ -8,13 +8,14 @@ subroutine do_cis()
  use phys_cons, only: au2ev
  use mol, only: mult, nbf, nif, nopen, nacto, nacta, nactb, nacte, uhf_ssquare
  use mr_keyword, only: mem, nproc, ist, eist, excited, sa_nto, tdhf, readrhf, &
-  readuhf, nstate, dkh2_or_x2c, mixed_spin, casscf, hf_prog, cis_prog, gjfname,&
-  hf_fch, gau_path
+  readuhf, nstate, dkh2_or_x2c, mixed_spin, casscf, cis_prog, gjfname, hf_fch,&
+  gau_path
  use util_wrapper, only: unfchk, formchk, dat2fch_wrap
  implicit none
  integer :: i, na, nb, RENAME
  real(kind=8), parameter :: ssquare_thres = 0.5d0
  real(kind=8), allocatable :: cis_e(:), cis_ssquare(:), cis_fosc(:), ex_e(:)
+ character(len=10) :: tmp_hf_prog
  character(len=240) :: nto_fch, cisno_fch, cis_gjf, cis_chk, cis_fch, cis_log,&
   uno_fch, pyname, outname, rohf_fch, datname, gmsname
 
@@ -107,7 +108,9 @@ subroutine do_cis()
   cisno_fch = gjfname(1:i-1)//'_MRSFCIS_NO.fch'
   call prt_uno_pyscf_script(hf_fch)
   call submit_pyscf_job(pyname, .true.)
-  call do_rohf_using_uno(hf_prog, mem, nproc, dkh2_or_x2c, uno_fch)
+  ! Gaussian ROHF does not support stable/stable=opt, always use PySCF
+  tmp_hf_prog = 'pyscf'
+  call do_rohf_using_uno(tmp_hf_prog, mem, nproc, dkh2_or_x2c, uno_fch)
   call do_sf_cis_using_rohf(mem, nproc, nstate, .true., .false., rohf_fch)
   !call read_sf_e_from_gms_gms(gmsname, nstate, cis_e, cis_ssquare)
   call read_mrsf_e_from_gms_gms(gmsname, nstate, cis_e, cis_ssquare, cis_fosc)
@@ -433,7 +436,7 @@ end subroutine do_rohf_using_uno
 subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  use mr_keyword, only: gms_path, gms_scr_path, check_gms_path
  implicit none
- integer :: i, k, mult, fid, fid1, SYSTEM, RENAME
+ integer :: i, mult, fid, fid1, SYSTEM, RENAME
  integer, intent(in) :: mem, nproc, nstate
  character(len=240) :: buf, tmpf, inpname, gmsname
  character(len=240), intent(in) :: rohf_fch
@@ -464,27 +467,6 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  open(newunit=fid1,file=TRIM(tmpf),status='replace')
 
  do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(INDEX(buf,'MAXIT=200') > 0) exit
-  write(fid1,'(A)') TRIM(buf)
- end do ! for while
-
- if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine do_sf_cis_using_rohf: 'MAXIT=200' not &
-                    &found in file"
-   write(6,'(A)') TRIM(gmsname)
-   close(fid)
-   close(fid1,status='delete')
-  stop
- end if
-
- i = INDEX(buf, 'MAXIT=200')
- k = LEN_TRIM(buf)
- buf = buf(1:i-1)//'MAXIT=500'//buf(i+9:k)
- write(fid1,'(A)') buf(1:k)
-
- do while(.true.)
   read(fid,'(A)') buf
   if(buf(2:8) == '$SYSTEM') exit
   write(fid1,'(A)') TRIM(buf)
@@ -501,6 +483,7 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
 
  if(mrsf) then
   write(fid1,'(2(A,I0),A)') ' $TDDFT NSTATE=',nstate+3,' MULT=',mult,' $END'
+  ! NRAD and NLEB are not needed for MRSF-CIS
  else
   write(fid1,'(A,I0,A)') ' $CIS NSTATE=', nstate+3, ' $END'
  end if
@@ -667,7 +650,7 @@ subroutine get_active_space_for_sacas(fchname, sa_nto, nacto, nacta, nactb)
  integer :: i, nbf, nif, na, nb
  integer, intent(out) :: nacto, nacta, nactb
  real(kind=8), parameter :: nto_thres = 0.01d0
- real(kind=8), parameter :: no_thres = 0.02d0
+ real(kind=8), parameter :: no_thres = 0.01d0
  real(kind=8), allocatable :: ev(:)
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: sa_nto

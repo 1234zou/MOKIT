@@ -702,17 +702,17 @@ subroutine submit_molcas_job(inpname, mem, nproc, omp)
 
  i = SYSTEM('/bin/bash '//TRIM(shname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_molcas_job: OpenMolcas job fail&
-                   &ed. Please'
-  write(6,'(A)') 'open file '//TRIM(outname)//' and check.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_molcas_job: OpenMolcas job faile&
+                   &d. Please open'
+  write(6,'(A)') 'file '//TRIM(outname)//' and check.'
   stop
  end if
 
  call delete_files(5, [shname, statname, gssorb, gss_h5, gss_molden])
 end subroutine submit_molcas_job
 
-! some default settings are different among different versions of PSI4, so we
-! have to find its version
+! Some default settings are different among different versions of PSI4, so we
+! have to find its version.
 subroutine get_psi4_version(version)
  implicit none
  integer :: i, fid, SYSTEM
@@ -810,8 +810,9 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  xmlname = inpname(1:i-1)//'.xml'
  call delete_files(2, [outname, xmlname]) ! clean old files (if any)
 
- i = CEILING(DBLE(mem*125)/DBLE(nproc))
- write(buf,'(2(A,I0),A)') 'molpro -W ./ -t 1 -n ',nproc,' -m ',i,'m '//TRIM(inpname)
+ i = FLOOR(DBLE(mem*125)/DBLE(nproc))
+ write(buf,'(2(A,I0),A)') 'molpro -W ./ -t 1 -n ', nproc, ' -m ', i, &
+                          'm '//TRIM(inpname)
  write(6,'(A)') '$'//TRIM(buf)
 
  i = SYSTEM(TRIM(buf))
@@ -913,8 +914,9 @@ subroutine submit_pyscf_job(pyname, prt)
  if(prt) write(6,'(A)') '$'//TRIM(buf)
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_pyscf_job: PySCF job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_pyscf_job: PySCF job failed. Ple&
+                   &ase open'
+  write(6,'(A)') 'file '//TRIM(outname)//' and check.'
   stop
  end if
 end subroutine submit_pyscf_job

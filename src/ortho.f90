@@ -174,9 +174,12 @@ subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
 end subroutine orthonormalize_orb
 
 ! Generate orthonormalized atomic orbitals (OAO) from the given AO overlap
-! integral matrix. If there exists linear dependency in ao_ovlp, the output
-! nif will be smaller than nbf, and mo(:,1:nif) are orthonormalized MOs.
-subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
+! integral matrix. If there is no linear dependency in ao_ovlp, the problem is
+! simple. If there exists linear dependency, when
+!  pseudo_inv = .True., use Moore-Penrose pseudo-inverse matrix, nif=nbf;
+!  pseudo_inv = .False., discard linear dependent functions according to thresh,
+!                        nif < nbf.
+subroutine gen_ortho_mo(nbf, ao_ovlp, pseudo_inv, nif, mo)
  implicit none
  integer :: i, k
  integer, intent(in) :: nbf
@@ -184,6 +187,7 @@ subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
  integer, intent(out) :: nif
 !f2py intent(out) :: nif
  real(kind=8), parameter :: thresh = 1d-6 ! commonly used threshold
+ real(kind=8), parameter :: thresh2 = 1d-7
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf)
 !f2py intent(in) :: ao_ovlp
 !f2py depend(nbf) :: ao_ovlp
@@ -191,6 +195,8 @@ subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
 !f2py intent(out) :: mo
 !f2py depend(nbf) :: mo
  real(kind=8), allocatable :: diag(:,:), U(:,:), s(:)
+ logical, intent(in) :: pseudo_inv
+!f2py intent(in) :: pseudo_inv
 
  allocate(U(nbf,nbf), source=ao_ovlp)
  allocate(s(nbf))
@@ -198,16 +204,32 @@ subroutine gen_ortho_mo(nbf, ao_ovlp, nif, mo)
  ! s(1) <= s(2) <= s(3) <= ...
  nif = COUNT(s > thresh)
 
- if(nbf > nif) then ! linear dep
-  ! compute s^(-1/2), stored as diagonal elements
-  allocate(diag(nif,nif), source=0d0)
-  k = nbf - nif
-  forall(i = 1:nif) diag(i,i) = 1d0/DSQRT(s(k+i))
-  deallocate(s)
-  mo = 0d0
-  ! compute Us^(-1/2)
-  call dsymm('R','L',nbf,nif,1d0,diag,nif,U(:,k+1:nbf),nbf,0d0,mo(:,1:nif),nbf)
-  deallocate(diag, U)
+ if(nbf > nif) then       ! linear dep
+  if(pseudo_inv) then
+   write(6,'(A)') 'Remark from subroutine gen_ortho_mo: linear dependency detec&
+                  &ted in the input'
+   write(6,'(A)') "ao_ovlp. Use Moore-Penrose pseudo-inverse matrix (Don't worr&
+                  &y)."
+   do i = 1, nbf, 1
+    if(s(i) > thresh2) then
+     s(i) = 1d0/DSQRT(s(i))
+    else
+     s(i) = 0d0
+    end if
+   end do ! for i
+   call calc_usut(nbf, s, U, mo)
+   deallocate(s, U)
+   nif = nbf
+  else
+   allocate(diag(nif,nif), source=0d0)
+   k = nbf - nif
+   forall(i = 1:nif) diag(i,i) = 1d0/DSQRT(s(k+i))
+   deallocate(s)
+   mo = 0d0
+   ! compute Us^(-1/2)
+   call dsymm('R','L',nbf,nif,1d0,diag,nif,U(:,k+1:nbf),nbf,0d0,mo(:,1:nif),nbf)
+   deallocate(diag, U)
+  end if
  else if(nbf == nif) then ! no linear dep
   s = 1d0/DSQRT(s)
   call calc_usut(nbf, s, U, mo)

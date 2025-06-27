@@ -2,29 +2,19 @@
 
 ! Q-Chem .fch(k) -> Amesp (.aip, .amo)
 subroutine qchem2amesp(fchname, aipname)
+ use util_wrapper, only: fch2amo_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_aip, std_orb, orbname
+ integer :: i
+ character(len=240) :: std_fch
  character(len=240), intent(in) :: fchname, aipname
+!f2py intent(in) :: fchname, aipname
 
- i = INDEX(aipname, '.aip', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2amesp: aipname must include '.aip&
-                   &' as suffix!"
-  stop
- end if
- orbname = aipname(1:i-1)//'.amo'
-
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(aipname, '.aip', i)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
- std_aip = fchname(1:i-1)//'_std.aip'
- std_orb = fchname(1:i-1)//'_std.amo'
-
  call standardize_fch(fchname)
- i = SYSTEM('fch2amo '//TRIM(std_fch))
+ call fch2amo_wrap(std_fch, aipname)
  call delete_file(TRIM(std_fch))
- i = RENAME(TRIM(std_aip), TRIM(aipname))
- i = RENAME(TRIM(std_orb), TRIM(orbname))
 end subroutine qchem2amesp
 
 ! Q-Chem .fch(k) -> BDF (.inp, .scforb, .BAS)
@@ -33,16 +23,12 @@ subroutine qchem2bdf(fchname, inpname)
  integer :: i, SYSTEM, RENAME
  character(len=240) :: std_fch, std_inp, std_orb, orbname
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(inpname, '.inp', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2bdf: inpname must include '.inp'&
-                   & as suffix!"
-  stop
- end if
+ call find_specified_suffix(inpname, '.inp', i)
  orbname = inpname(1:i-1)//'.scforb'
 
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std_bdf.inp'
  std_orb = fchname(1:i-1)//'_std_bdf.scforb'
@@ -56,43 +42,38 @@ end subroutine qchem2bdf
 
 ! Q-Chem .fch(k) -> CFOUR (ZMAT, OLDMOS, GENBAS, ECPDATA)
 subroutine qchem2cfour(fchname)
+ use util_wrapper, only: fch2cfour_wrap
  implicit none
- integer :: i, SYSTEM
+ integer :: i
  character(len=240) :: std_fch
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
  call standardize_fch(fchname)
- i = SYSTEM('fch2cfour '//TRIM(std_fch))
+ call fch2cfour_wrap(std_fch)
  call delete_file(TRIM(std_fch))
 end subroutine qchem2cfour
 
 ! Q-Chem .fch(k) -> Dalton (.dal, .mol)
 subroutine qchem2dalton(fchname, dalname)
+ use util_wrapper, only: fch2dal_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_dal, std_mol, molname
+ integer :: i
+ character(len=240) :: std_fch, molname
  character(len=240), intent(in) :: fchname, dalname
+!f2py intent(in) :: fchname, dalname
 
- i = INDEX(dalname, '.dal', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2dalton: dalname must include '.d&
-                   &al' as suffix!"
-  stop
- end if
+ call find_specified_suffix(dalname, '.dal', i)
  molname = dalname(1:i-1)//'.mol'
 
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
- std_dal = fchname(1:i-1)//'_std.dal'
- std_mol = fchname(1:i-1)//'_std.mol'
 
  call standardize_fch(fchname)
- i = SYSTEM('fch2dal '//TRIM(std_fch))
+ call fch2dal_wrap(std_fch, dalname)
  call delete_file(TRIM(std_fch))
- i = RENAME(TRIM(std_dal), TRIM(dalname))
- i = RENAME(TRIM(std_mol), TRIM(molname))
 end subroutine qchem2dalton
 
 ! Q-Chem .fch(k) -> GAMESS (.inp)
@@ -102,8 +83,9 @@ subroutine qchem2gms(fchname, inpname)
  integer :: i, RENAME
  character(len=240) :: std_fch, std_inp
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std.inp'
  call standardize_fch(fchname)
@@ -119,17 +101,11 @@ subroutine qchem2molcas(fchname, inpname)
  integer :: i
  character(len=240) :: std_fch
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(inpname, '.input', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2molcas: inpname must include '.in&
-                   &p' as suffix!"
-  stop
- end if
-
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(inpname, '.input', i)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
-
  call standardize_fch(fchname)
  call fch2inporb_wrap(std_fch, .false., inpname)
  call delete_file(TRIM(std_fch))
@@ -137,79 +113,74 @@ end subroutine qchem2molcas
 
 ! Q-Chem .fch(k) -> Molpro (.com, .a, .b)
 subroutine qchem2molpro(fchname, inpname)
+ use util_wrapper, only: fch2com_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_inp
+ integer :: i
+ character(len=240) :: std_fch
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(inpname, '.com', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2molpro: inpname must include '.c&
-                   &om' as suffix!"
-  stop
- end if
-
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(inpname, '.com',i)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
- std_inp = fchname(1:i-1)//'_std.com'
-
  call standardize_fch(fchname)
- i = SYSTEM('fch2com '//TRIM(std_fch))
+ call fch2com_wrap(std_fch, inpname)
  call delete_file(TRIM(std_fch))
- i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2molpro
 
 ! Q-Chem .fch(k) -> PSI4 (.inp, .A, .B)
 subroutine qchem2psi(fchname, inpname)
+ use util_wrapper, only: fch2psi_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_inp
+ integer :: i
+ character(len=240) :: std_fch
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(inpname, '.inp', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2psi: inpname must include '.inp'&
-                   & as suffix!"
-  stop
- end if
-
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
- std_inp = fchname(1:i-1)//'_std_psi.inp'
-
  call standardize_fch(fchname)
- i = SYSTEM('fch2psi '//TRIM(std_fch))
+ call fch2psi_wrap(std_fch, inpname)
  call delete_file(TRIM(std_fch))
- i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2psi
+
+! Q-Chem .fch(k) -> PySCF (.py, .fch)
+subroutine qchem2pyscf(fchname, pyname)
+ use util_wrapper, only: bas_fch2py_wrap
+ implicit none
+ integer :: i
+ character(len=240) :: std_fch
+ character(len=240), intent(in) :: fchname, pyname
+!f2py intent(in) :: fchname, pyname
+
+ call find_specified_suffix(pyname, '.py', i)
+ call find_specified_suffix(fchname, '.', i)
+ std_fch = fchname(1:i-1)//'_std.fch'
+ call standardize_fch(fchname)
+ call bas_fch2py_wrap(std_fch, .false., pyname)
+end subroutine qchem2pyscf
 
 ! Q-Chem .fch(k) -> ORCA (.inp, .mkl, .gbw)
 subroutine qchem2orca(fchname, inpname)
- use util_wrapper, only: mkl2gbw
+ use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_inp, std_mkl, mklname, gbwname
+ integer :: i, RENAME
+ character(len=240) :: std_fch, std_inp, mklname, gbwname
  character(len=240), intent(in) :: fchname, inpname
+!f2py intent(in) :: fchname, inpname
 
- i = INDEX(inpname, '.inp', back=.true.)
- if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine qchem2orca: inpname must include '.inp'&
-                   & as suffix!"
-  stop
- end if
+ call find_specified_suffix(inpname, '.inp', i)
  mklname = inpname(1:i-1)//'.mkl'
  gbwname = inpname(1:i-1)//'.gbw'
-
- i = INDEX(fchname, '.', back=.true.)
+ call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std_o.inp'
- std_mkl = fchname(1:i-1)//'_std_o.mkl'
 
  call standardize_fch(fchname)
- i = SYSTEM('fch2mkl '//TRIM(std_fch))
+ call fch2mkl_wrap(std_fch, mklname)
  call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
- i = RENAME(TRIM(std_mkl), TRIM(mklname))
  call mkl2gbw(mklname, gbwname)
 end subroutine qchem2orca
 
@@ -220,10 +191,15 @@ subroutine standardize_fch(fchname)
  integer :: i, ne1, ne2
  character(len=240) :: new_fch
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical, external :: has_pople_sp
 
- new_fch = ' '
  i = INDEX(fchname, '.', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine standardize_fch: no '.' symbol found in&
+                   & filename "//TRIM(fchname)
+  stop
+ end if
  new_fch = fchname(1:i-1)//'_std.fch'
 
  call read_charge_and_mult_from_fch(fchname, charge, mult)
@@ -346,8 +322,9 @@ subroutine read_contr_coeff_sp_from_fch(fchname, nprim, contr_coeff_sp)
 
  if(i /= 0) then
   close(fid)
-  write(6,'(A)') "ERROR in subroutine read_contr_coeff_sp_from_fch: no 'P(S=P)&
-                 &' found in file "//TRIM(fchname)
+  write(6,'(/,A)') "ERROR in subroutine read_contr_coeff_sp_from_fch: no 'P(S=P&
+                   &)' found in file"
+  write(6,'(A)') TRIM(fchname)
   stop
  end if
 
@@ -504,11 +481,15 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  implicit none
  integer :: i, j, ncontr
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  integer, allocatable :: shltyp(:), shl2atm(:)
  integer, allocatable :: idx(:)
  real(kind=8), intent(in) :: dm(nbf,nbf) ! in Q-Chem basis convention
+!f2py intent(in) :: dm
+!f2py depend(nbf) :: dm
  real(kind=8), allocatable :: dm0(:,:)
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical :: sph ! spherical harmonic or Cartesian-type basis functions
 
  call check_sph_in_fch(fchname, sph)

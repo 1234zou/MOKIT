@@ -19,7 +19,8 @@ subroutine do_cas(scf)
  use mol, only: mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, &
   nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
-  fch2inp_wrap, dat2fch_wrap, mkl2fch_wrap, fch2inporb_wrap, orb2fch_wrap
+  fch2inp_wrap, dat2fch_wrap, gbw2molden, molden2fch_wrap, fch2inporb_wrap, &
+  orb2fch_wrap
  implicit none
  integer :: i, n_pocc, nvir, nfile, SYSTEM, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
@@ -40,7 +41,7 @@ subroutine do_cas(scf)
   if((.not. casci) .and. (.not.dmrgci)) return
  end if
  write(6,'(//,A)') 'Enter subroutine do_cas...'
-
+ 
  if(ist == 5) then
   write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
@@ -82,6 +83,7 @@ subroutine do_cas(scf)
     stop
    else ! 2*npair+nopen >= nacte_wish
     write(6,'(A)') 'OK, fulfilled.'
+    if(ist>0 .and. ist<4) ndb = ndb + npair - npair0
     ndb = ndb - (nacte_wish - nacte)/2
     nactb = (nacte_wish - nopen)/2
     nacta = nacte_wish - nactb
@@ -220,6 +222,9 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(inpname))
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another
   ! filename
+ case(4)
+  call find_specified_suffix(hf_fch, '.fch', i)
+  fchname = hf_fch(1:i-1)//'_proj_loc_pair.fch'
  case(5)
   fchname = hf_fch
  case(7) ! SUNO -> CASCI/CASSCF
@@ -241,6 +246,12 @@ subroutine do_cas(scf)
    proname = hf_fch(1:i-1)//'_uno2CASSCF'
   else
    proname = hf_fch(1:i-1)//'_uno2CASCI'
+  end if
+ case(4)
+  if(scf) then
+   proname = hf_fch(1:i-1)//'_proj_loc_pair2CASSCF'
+  else
+   proname = hf_fch(1:i-1)//'_proj_loc_pair2CASCI'
   end if
  case(5)
   if(scf) then
@@ -378,9 +389,19 @@ subroutine do_cas(scf)
    i = RENAME(TRIM(pyname),TRIM(orbname))
   end if
 
-  call gbw2mkl(orbname)
-  mklname = TRIM(proname)//'.mkl'
-  call mkl2fch_wrap(mklname, casnofch, 1)
+  ! The number of digits in ORCA-generated .mkl file is only 7. The MOs in ORCA-
+  ! generated .molden file are more accurate.
+  !call gbw2mkl(orbname)
+  !mklname = TRIM(proname)//'.mkl'
+  !call mkl2fch_wrap(mklname, casnofch, 1)
+  call gbw2molden(orbname)
+  call delete_file(TRIM(orbname))
+  mklname = TRIM(proname)//'.molden'
+  orbname = TRIM(proname)//'.fch'
+  call molden2fch_wrap(mklname, orbname, 'orca', .True.)
+  call copy_ev_and_mo_between_fch(orbname, casnofch, '-aa')
+  call delete_files(2, [mklname, orbname])
+  call update_density_using_no_and_on(casnofch)
 
  case('molpro')
   call check_exe_exist(molpro_path)
@@ -575,7 +596,10 @@ subroutine do_cas(scf)
   call gen_icss_cub(proname, nfile)
  end if
 
+ ! TODO: use a filename related to input .gjf/.fch. ss-cas.txt is a temporary
+ ! solution.
  if(.not. dyn_corr) call delete_file('ss-cas.txt')
+
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_cas at '//TRIM(data_string)
 end subroutine do_cas
@@ -876,8 +900,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
  use mol, only: nacte, nacto, mult
  use mr_keyword, only: mem, nproc, RI, RIJK_bas, hardwfn, crazywfn, iroot, xmult
  implicit none
- integer :: i, j, fid1, fid2, RENAME
- character(len=3), allocatable :: weight(:)
+ integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
@@ -902,10 +925,14 @@ subroutine prt_cas_orca_inp(inpname, scf)
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
- if(.not. scf) write(fid2,'(A)',advance='no') ' NoIter'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
- write(fid2,'(A)') ' VeryTightSCF'
+
+ if(scf) then
+  write(fid2,'(A)') ' VeryTightSCF'
+ else
+  write(fid2,'(A)') ' NoIter'
+ end if
 
  if(scf) then ! CASSCF
   write(fid2,'(A)') '%casscf'
@@ -913,32 +940,8 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A,I0)') ' norb ', nacto
   write(fid2,'(A)') ' maxiter 300'
   write(fid2,'(A)') ' ActOrbs NatOrbs'
-  if(iroot > 0) then ! SS-CASSCF
-   if(xmult == mult) then
-    j = 3
-    write(fid2,'(A,I0)') ' mult ', mult
-    write(fid2,'(A,I0)') ' nroots ', iroot+j
-    write(fid2,'(A)',advance='no') ' weights[0]='
-    allocate(weight(iroot+j))
-    weight = '0.0'
-    weight(iroot+1) = '1.0'
-   else
-    j = 2
-    write(fid2,'(2(A,I0))') ' mult ', mult, ',', xmult
-    write(fid2,'(A,I0)') ' nroots 1,', iroot+j
-    write(fid2,'(A)') ' weights[0]=0.0'
-    write(fid2,'(A)',advance='no') ' weights[1]='
-    allocate(weight(iroot+j))
-    weight = '0.0'
-    weight(iroot) = '1.0'
-   end if
-   write(buf,'(19A4)') (weight(i)//',',i=1,iroot+j)
-   deallocate(weight)
-   i = LEN_TRIM(buf)
-   buf(i:i) = ' '
-   write(fid2,'(A)') TRIM(buf)
-  end if
-  call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
+  if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
+  call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
  else ! CASCI
   write(fid2,'(A)') '%mrci'
   write(fid2,'(A)') ' tsel 0.0'
@@ -951,10 +954,14 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(fid2,'(A)') '  excitations none'
   write(fid2,'(2X,2(A,I0),A)') 'refs cas(',nacte,',',nacto,') end'
   write(fid2,'(A)') ' end'
-  if(iroot > 0) write(fid2,'(A)') ' Densities 5,0'
+  ! According to ORCA manual, `Densities 5,0` should be sufficient. But ORCA
+  ! program itself has bug on that, so `Densities 5,1` is used here. This
+  ! leads to some extra computational cost on 0 -> i transition densitry
+  ! calculation. We only need the excited state density <i|D|i>.
+  if(iroot > 0) write(fid2,'(A)') ' Densities 5,1'
   write(fid2,'(A)') ' doNatOrbs 2'
  end if
- ! Q: Why not use %casscf plus !NoIter for CASCI?
+ ! Q: Why not use %casscf plus `!NoIter` for CASCI, but use %mrci?
  ! A: The CASCI NOONs cannot be obtained in that way, so I have to use %mrci
 
  if(RI) write(fid2,'(A)') ' TrafoStep RI'
@@ -1682,26 +1689,6 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
  end if
 end subroutine prt_molcas_cas_para
 
-! print ORCA FCI solver keywords
-subroutine prt_hard_or_crazy_casci_orca(fid, hardwfn, crazywfn)
- implicit none
- integer, intent(in) :: fid
- logical, intent(in) :: hardwfn, crazywfn
-
- write(fid,'(A)') ' CI'
- if(hardwfn) then
-  write(fid,'(A)') '  MaxIter 400'
-  write(fid,'(A)') '  NGuessMat 1700'
- else if(crazywfn) then
-  write(fid,'(A)') '  MaxIter 600'
-  write(fid,'(A)') '  NGuessMat 2500'
- else
-  write(fid,'(A)') '  MaxIter 200'
-  write(fid,'(A)') '  NGuessMat 1000'
- end if
- write(fid,'(A)') ' end'
-end subroutine prt_hard_or_crazy_casci_orca
-
 ! print ground state CASSCF keywords into a PySCF .py file
 subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  use mol, only: nacto, nacta, nactb
@@ -1827,9 +1814,10 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   if(nacto==2 .and. nacte==2) then
    write(fid,'(2X,A)') 'nroots = 4'
   else
-   write(fid,'(2X,A)') 'nroots = j + 3'
+   write(fid,'(2X,A)') 'nroots = j + 4'
   end if
   write(fid,'(2X,A)') 'if j == 0:'
+  write(fid,'(4X,A)') 'ci0 = mc.ci[0].copy()'
   write(fid,'(4X,3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(',&
                                            nacta, ',', nactb, ')'
   if(RI) then
@@ -1855,9 +1843,18 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  !write(fid,'(2X,A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
  write(fid,'(2X,A)') 'mc.verbose = 5'
  write(fid,'(2X,A)') 'mc.max_cycle = 1' ! only 1 cycle
- write(fid,'(2X,A)') 'mc.kernel()'
+ if(dmrgscf) then
+  write(fid,'(2X,A)') 'mc.kernel()'
+ else
+  write(fid,'(2X,A)') 'if j == 0:'
+  write(fid,'(4X,A)') 'mc.kernel(ci0=ci0)'
+  write(fid,'(2X,A)') 'else:'
+  write(fid,'(4X,A)') 'mc.kernel()'
+ end if
  write(fid,'(2X,A)') 'mf.mo_coeff = mc.mo_coeff.copy()'
  write(fid,'(2X,A)') 'if mc.converged is True:'
+ write(fid,'(4X,A)') 'if j == 0:'
+ write(fid,'(6X,A)') 'ci0 = mc.ci.copy()'
  write(fid,'(4X,A)') 'break'
  ! assume the SS-CASSCF orbital optimization is accomplished, now run a multi
  !  -root CASCI calculation and generate NOs
@@ -1906,32 +1903,45 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  ! For CASSCF, its NOs are computed in this step.
  ! For DMRG-CASSCF, its NOs are not computed in this step.
  write(fid,'(A)') 'mc.verbose = 5'
- write(fid,'(A)') 'mc.kernel()'
- if(.not. dmrgscf) write(fid,'(A)') 'mc.analyze()'
+ if(dmrgscf) then
+  write(fid,'(A)') 'mc.kernel()'
+ else
+  write(fid,'(A)') 'if j == 0:'
+  write(fid,'(2X,A)') 'mc.kernel(ci0=ci0)'
+  write(fid,'(A)') 'else:'
+  write(fid,'(2X,A)') 'mc.kernel()'
+  write(fid,'(A)') 'mc.analyze()'
+ end if
 end subroutine prt_es_casscf_kywrd_py
 
 ! Print/write CASCI keywords. For DMRG-CASCI, please call subroutine
 ! prt_dmrg_casci_kywrd_py below.
 subroutine prt_casci_kywrd_py(fid, RIJK_bas1)
- use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, iroot, RI, hardwfn, crazywfn
+ use mol, only: mult, nacto, nacta, nactb
+ use mr_keyword, only: mem, xmult, iroot, RI, hardwfn, crazywfn
  implicit none
  integer, intent(in) :: fid
+ real(kind=8) :: ss
  character(len=21), intent(in) :: RIJK_bas1
 
  write(fid,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(', &
                                        nacta, ',', nactb, ')'
- if(RI) then
-  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
- else
-  write(fid,'(A)') ')'
- end if
-
+ if(RI) write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)
+ write(fid,'(A)') ')'
  write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
  write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
  call prt_hard_or_crazy_casci_pyscf(0, fid, nacta-nactb, hardwfn, crazywfn)
 
- if(iroot > 0) write(fid,'(A,I0,A)') 'mc = mc.state_specific_(',iroot,')'
+ if(iroot > 0) then
+  ! PySCF CASCI is based on Slater det, where the excited spin may not be the
+  ! desired value. For example, E(T1) is usually lower than E(S1). If `fix_spin_`
+  ! is not invoked here, it will easily converge to T1 when the user wants S1.
+  if(mult==xmult .and. (.not.crazywfn)) then
+   ss = 0.25d0*DBLE(xmult*xmult - 1)
+   write(fid,'(A,F0.3,A)') 'mc.fix_spin_(ss=',ss,')'
+  end if
+  write(fid,'(A,I0,A)') 'mc = mc.state_specific_(',iroot,')'
+ end if
  write(fid,'(A)') 'mc.natorb = True'
  write(fid,'(A)') 'mc.verbose = 5'
  write(fid,'(A)') 'mc.kernel()'

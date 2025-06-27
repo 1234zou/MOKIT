@@ -22,6 +22,28 @@ def ao_dipole_int(mol):
   return charge_center, ao_dip
 
 
+def wrap_atoms_in_cell(cell):
+  '''
+  Wrap atoms outside the cell back into the cell. The lattice sum and the required
+  memory in PySCF is less demanding when all atoms are inside the cell.
+  '''
+  from mokit.lib.rwgeom import pbc_wrap_atoms
+
+  lines = cell.atom.strip().split('\n')
+  atom_names = [line.split()[0] for line in lines]
+  coor_s = [line.split()[1:4] for line in lines]
+  coor = np.array(coor_s, dtype=float).T
+  natom = coor.shape[1]
+  coor = pbc_wrap_atoms(cell.a.diagonal(), natom, coor)
+  new_lines = []
+  for name, coord in zip(atom_names, coor.T):
+    x, y, z = coord
+    new_line = f"{name:<5} {x:.9f} {y:.9f} {z:.9f}"
+    new_lines.append(new_line)
+  cell.atom = '\n'.join(new_lines)
+  return coor, cell
+
+
 def load_mol_from_fch(fchname):
   '''
   Load the PySCF mol object from a specified Gaussian .fch(k) file
@@ -157,8 +179,6 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   >>> loc(fchname='benzene_rhf.fch',idx=range(6,21))
   '''
   import time
-  #from pyscf import gto
-  #from mokit.lib.lo import gen_loc_ini_guess, boys, pm
   from mokit.lib.auto import loc_ini_guess, loc_driver
   from mokit.lib.rwgeom import periodic_table as pt
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
@@ -185,7 +205,6 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   print('\nOrbital range:', idx)
 
   natom = mol.natm
-
   # generate initial guess orbitals (which are unitary transformation of
   # original orbitals)
   nmo1, lmo_ini = loc_ini_guess(mol, mo[:,idx], nmo)
@@ -244,7 +263,8 @@ def get_db_idx_from_molden(molden, on_thres=1e-6):
 
 def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
             mo_idx=None, proj_list=None, dis_tol=27.0, conv_tol=1e-5,
-            init_guess='atomic', save_lmo=False, old_fch=None):
+            init_guess='atomic', maxcyc=1499, DIIS=False, save_lmo=False,
+            old_fch=None):
   '''
   Perform orbital localization for a specified set of orbitals in a given
   CP2K .molden file. The method can be either 'berry' or 'pm'.
@@ -273,8 +293,8 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   if dis_tol < 0.1:
     raise ValueError('dis_tol must be a reasonable and positive float number')
 
-  if conv_tol > 0.1:
-    raise ValueError('conv_tol must be <= 0.1')
+  if conv_tol > 1.0:
+    raise ValueError('conv_tol must be <= 1.0')
   elif conv_tol < 1e-8:
     raise ValueError('conv_tol must be >= 1e-8')
 
@@ -300,13 +320,13 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
 
   cell = load_cell_from_fch(fchname)
   cell.a = lat_vec
+  coor, cell = wrap_atoms_in_cell(cell)
+  # wrap atoms outside the box back into the box, which can save memory and avoid
+  # linear dependency of ao_ovlp in PySCF
   cell.build(parse_arg=False)
+
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   na, nmo = read_na_and_nb_from_fch(fchname)
-
-  lines = cell.atom.strip().split('\n')
-  coor_s = [line.split()[1:4] for line in lines]
-  coor = np.transpose(np.array(coor_s, dtype=float))
   natom = cell.natm
   # Currently `gto.inter_distance` cannot be used here, since it calculates the
   # inter-atomic distances of an isolated molecule.
@@ -356,15 +376,8 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     # Note: ao_zdip is a (double) complex array with size (3,nmo,nmo)
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
     ao_zdip *= cell.a.diagonal()[:, None, None]
-    #for i in range(3):
-    #  ao_zdip[i,:,:] *= cell.a[i,i]
-    lmo = berry(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], ao_zdip,
-                dis_tol, conv_tol)
-  elif method == 'boys':
-    raise ValueError('Boys orbital localization not implemented yet.')
-    center, ao_dip = ao_dipole_int(cell)
-    lmo = boys(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], ao_dip, dis_tol,
-               conv_tol)
+    lmo = berry(natom, nbf, nmo1, maxcyc, DIIS, bfirst, dis, lmo_ini[:,:nmo1],
+                ao_zdip, dis_tol, conv_tol)
   elif method == 'pm':
     lmo = pm(natom, nbf, nmo1, bfirst, dis, lmo_ini[:,:nmo1], S, 'mulliken',
              dis_tol, conv_tol)
@@ -373,8 +386,6 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
 
   # print LMO centers into xyz
   if method == 'berry':
-    #for i in range(3):
-    #  ao_zdip[i,:,:] /= cell.a[i,i]
     ao_zdip /= cell.a.diagonal()[:, None, None]
   else:
     ao_zdip = ft_aopair(cell, Gv=cell.reciprocal_vectors())
@@ -628,7 +639,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   '''
   from pyscf import scf
   from mokit.lib.qchem import read_hf_type_from_fch
-  from mokit.lib.rwwfn import gen_no_from_density_and_ao_ovlp
+  from mokit.lib.rwwfn import gen_no_from_dm_and_ao_ovlp
   from mokit.lib.lo import get_nmo_from_ao_ovlp
   from mokit.lib.py2fch_direct import fchk
 
@@ -656,15 +667,15 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
 
   dm0 = mf.get_init_guess(mol, '1e')
   if ihf == 1:   # real RHF
-    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy, mf.mo_coeff = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm0, S)
   elif ihf == 2: # UHF
     dm0 = dm0[0] + dm0[1]
-    mo_e_a, alpha_mo = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mo_e_a, alpha_mo = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm0, S)
     mf.mo_energy = (mo_e_a, mo_e_a)
     mf.mo_coeff = (alpha_mo, alpha_mo)
   if ihf == 101: # real ROHF
     dm0 = dm0[0] + dm0[1]
-    mf.mo_energy, mf.mo_coeff = gen_no_from_density_and_ao_ovlp(nbf, nif, dm0, S)
+    mf.mo_energy, mf.mo_coeff = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm0, S)
   target_fch = fchname[0:fchname.rindex('.fch')]+'_proj.fch'
   fchk(mf, target_fch)
   make_orb_resemble(target_fch, fchname, nmo=nmo, align=False)

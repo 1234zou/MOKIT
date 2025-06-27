@@ -5,10 +5,15 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
  implicit none
  integer :: i
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8) :: e
  real(kind=8), intent(out) :: grad(3*natom)
+!f2py intent(out) :: grad
+!f2py depend(natom) :: grad
  character(len=10), intent(in) :: prog_name
+!f2py intent(in) :: prog_name
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
 
  select case(TRIM(prog_name))
  case('bdf')
@@ -599,9 +604,13 @@ subroutine read_cart_force_const_from_fch(fchname, natom, cfc)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), intent(out) :: cfc(3*natom,3*natom)
+!f2py intent(out) :: cfc
+!f2py depend(natom) :: cfc
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  cfc = 0d0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -637,10 +646,16 @@ subroutine write_orca_hess(natom, elem, ram, coor, cfc, hessname)
  implicit none
  integer :: i, j, k, m, n, nb, fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), allocatable :: coor_b(:,:)
  real(kind=8), intent(in) :: ram(natom), coor(3,natom), cfc(3*natom,3*natom)
+!f2py intent(in) :: ram, coor, cfc
+!f2py depend(natom) :: ram, coor, cfc
  character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
  character(len=240), intent(in) :: hessname
+!f2py intent(in) :: hessname
 
  k = 3*natom
  open(newunit=fid,file=TRIM(hessname),status='replace')
@@ -681,4 +696,84 @@ subroutine write_orca_hess(natom, elem, ram, coor, cfc, hessname)
  close(fid)
  deallocate(coor_b)
 end subroutine write_orca_hess
+
+! Find whether there is a $HESS section in a specified GAMESS .inp/.dat file, if
+! yes, delete the $HESS section.
+subroutine del_hess_in_gms_dat(datname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, datname1
+ character(len=240), intent(in) :: datname
+!f2py intent(in) :: datname
+ logical :: find_hess
+
+ find_hess = .false.
+ i = INDEX(datname, '.', back=.true.)
+ datname1 = datname(1:i-1)//'.t'
+
+ open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(buf(2:6) == '$HESS') then
+   find_hess = .true.
+   exit
+  end if
+  if(i /= 0) exit
+ end do ! for while
+
+ if(find_hess) then
+  rewind(fid)
+  open(newunit=fid1,file=TRIM(datname1),status='replace')
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:6) == '$HESS') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:5) == '$END') exit
+  end do ! for while
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  close(fid,status='delete')
+  close(fid1)
+  i = RENAME(TRIM(datname1), TRIM(datname))
+ else
+  close(fid)
+ end if
+end subroutine del_hess_in_gms_dat
+
+! Write/print Cartesian Force Constants into a specified GAMESS .inp/.dat file
+subroutine write_hess2gms_inp(n, cfc, inpname)
+ implicit none
+ integer :: i, j, k, nline, fid
+ integer, intent(in) :: n ! = 3*natom
+!f2py intent(in) :: n
+ real(kind=8), intent(in) :: cfc(n,n)
+!f2py intent(in) :: cfc
+!f2py depend(n) :: cfc
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ call del_hess_in_gms_dat(inpname)
+ nline = n/5
+ if(n > 5*nline) nline = nline + 1
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ write(fid,'(A)') ' $HESS'
+ write(fid,'(2(A,F19.10))') 'ENERGY IS ',0d0,' E(NUC) IS ',0d0
+
+ do i = 1, n, 1
+  k = MOD(i, 100)
+  do j = 1, nline-1, 1
+   write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), cfc(5*j-4:5*j,i)
+  end do ! for j
+  write(fid,'(I2,I3,5ES15.8)') k, MOD(j,1000), cfc(5*j-4:n,i)
+ end do ! for i
+
+ write(fid,'(A)') ' $END'
+ close(fid)
+end subroutine write_hess2gms_inp
 

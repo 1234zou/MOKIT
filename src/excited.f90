@@ -10,8 +10,10 @@ subroutine read_noa_nob_from_gau_log(logname, nfc, nif_ex, noa, nob)
  implicit none
  integer :: i, fid
  integer, intent(out) :: nfc, nif_ex, noa, nob
+!f2py intent(out) :: nfc, nif_ex, noa, nob
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
 
  open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
  do while(.true.)
@@ -51,9 +53,13 @@ subroutine check_noa_nob_in_logname(logname, alpha, nocc, nvir, nfc, nif_ex)
  implicit none
  integer :: noa, nob, nva, nvb
  integer, intent(in) :: nocc, nvir
+!f2py intent(in) :: nocc, nvir
  integer, intent(out) :: nfc, nif_ex
+!f2py intent(out) :: nfc, nif_ex
  logical, intent(in) :: alpha
+!f2py intent(in) :: alpha
  character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
 
  call read_noa_nob_from_gau_log(logname, nfc, nif_ex, noa, nob)
  nva = nif_ex - noa
@@ -86,14 +92,18 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  implicit none
  integer :: i, j, k, fid, nfc, nif_ex
  integer, intent(in) :: istate, nocc, nvir
+!f2py intent(in) :: istate, nocc, nvir
 ! nocc: number of alpha occupied orbitals involved in excitation
 ! nvir: number of beta occupied orbitals involved in excitation
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: exc(nocc,nvir)
+!f2py intent(out) :: exc
+!f2py depend(nocc,nvir) :: exc
  real(kind=8), parameter :: diff_thres = 0.01d0
  character(len=17) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
 
  exc = 0d0
  call check_noa_nob_in_logname(logname, .true., nocc, nvir, nfc, nif_ex)
@@ -243,13 +253,17 @@ subroutine read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: istate, nval, nocc, nvir
+!f2py intent(in) :: istate, nval, nocc, nvir
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: exc(nocc,nvir)
+!f2py intent(out) :: exc
+!f2py depend(nocc,nvir) :: exc
  real(kind=8), parameter :: diff_thres = 0.01d0
  character(len=2) :: str
  character(len=11) :: key
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
+!f2py intent(in) :: gmsname
 
  exc = 0d0
  write(key,'(A7,I4)') 'STATE #', istate+1
@@ -403,7 +417,6 @@ subroutine gen_sfcis_mo_dm_from_gms_gms(gmsname, mrsf, averaged, istate, nfc, &
  nopen = mult - 1
  nocc = nval + nopen
  nvir = nif - nfc - nval
-
  allocate(exc(nocc,nvir))
 
  if(averaged) then
@@ -417,7 +430,7 @@ subroutine gen_sfcis_mo_dm_from_gms_gms(gmsname, mrsf, averaged, istate, nfc, &
   mo_dm = 0d0
   allocate(mo_dm0(nif,nif))
   do i = 0, istate, 1
-   call read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
+   call read_sf_ex_coeff_from_gms_gms(gmsname, i, nval, nocc, nvir, exc)
    call calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, mo_dm0)
    mo_dm = mo_dm + mo_dm0
   end do ! for i
@@ -432,6 +445,69 @@ subroutine gen_sfcis_mo_dm_from_gms_gms(gmsname, mrsf, averaged, istate, nfc, &
  deallocate(exc)
 end subroutine gen_sfcis_mo_dm_from_gms_gms
 
+! Generate MRSF-CIS/TD State-averaged Mixed-spin MO-based density matrix using
+!  excitation coefficients from two GAMESS output files (.gms). The spin multi-
+!  plicity of the ROHF/ROKS reference must be 3.
+! GAMESS MRSF either calculate singlets or triplets at one time. So singlets/
+!  triplets excitation coefficients are stored/printed in two .gms files.
+! gmsname1/gmsname2: singlet/triplet states
+subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms(gmsname1, gmsname2, istate1, &
+                                              istate2, nfc, nval, nif, mo_dm)
+ implicit none
+ integer :: i, mult(2), nocc, nvir
+ integer, intent(in) :: istate1, istate2, nfc, nval, nif
+!f2py intent(in) :: istate1, istate2, nfc, nval, nif
+ real(kind=8), intent(out) :: mo_dm(nif,nif)
+!f2py intent(out) :: mo_dm
+!f2py depend(nif) :: mo_dm
+ real(kind=8), allocatable :: mo_dm0(:,:), exc(:,:)
+ character(len=240), intent(in) :: gmsname1, gmsname2
+!f2py intent(in) :: gmsname1, gmsname2
+
+ if(istate1<0 .or. istate2<0) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms: ist&
+                   &ate>=0 is required.'
+  write(6,'(A)') 'gmsname1='//TRIM(gmsname1)//', gmsname2='//TRIM(gmsname2)
+  write(6,'(A,2I8)') 'istate1, istate2=', istate1, istate2
+  stop
+ end if
+
+ call read_mult_from_gms_gms(gmsname1, mult(1))
+ call read_mult_from_gms_gms(gmsname2, mult(2))
+ if(ANY(mult /= 3)) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms: MRS&
+                   &F can only be'
+  write(6,'(A)') 'applied in the triplet case. Please check files:'
+  write(6,'(A)') 'gmsname1='//TRIM(gmsname1)//', gmsname2='//TRIM(gmsname2)
+  write(6,'(A,2I8)') 'mult=', mult
+  stop
+ end if
+
+ write(6,'(A)') 'State-averaged mixed-spin MRSF-CIS NO generated using'
+ write(6,'(A,I0,A)') 'states 0~',istate1, ' from file '//TRIM(gmsname1)
+ write(6,'(A,I0,A)') 'states 0~',istate2, ' from file '//TRIM(gmsname2)
+
+ nocc = nval + 2
+ nvir = nif - nfc - nval
+ mo_dm = 0d0
+ allocate(exc(nocc,nvir), mo_dm0(nif,nif))
+
+ do i = 0, istate1, 1
+  call read_sf_ex_coeff_from_gms_gms(gmsname1, i, nval, nocc, nvir, exc)
+  call calc_sfcis_mo_dm_using_exc(nfc, 2, nocc, nvir, exc, mo_dm0)
+  mo_dm = mo_dm + mo_dm0
+ end do ! for i
+
+ do i = 0, istate2, 1
+  call read_sf_ex_coeff_from_gms_gms(gmsname2, i, nval, nocc, nvir, exc)
+  call calc_sfcis_mo_dm_using_exc(nfc, 2, nocc, nvir, exc, mo_dm0)
+  mo_dm = mo_dm + mo_dm0
+ end do ! for i
+
+ deallocate(exc, mo_dm0)
+ mo_dm = mo_dm/DBLE(istate1+istate2+2)
+end subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms
+
 ! Generate CIS/TDHF AO-based density matrix using excitation coefficients from
 !  Gaussian .fch(k) and .log/.out files. The reference can only be RHF/RKS.
 ! Canonical MOs are included in the input fchname. Those MOs will be used and
@@ -445,10 +521,13 @@ subroutine gen_cis_ao_dm_from_fch_and_log(fchname, logname, istate, averaged)
  implicit none
  integer :: nbf, nif
  integer, intent(in) :: istate
+!f2py intent(in) :: istate
  real(kind=8), allocatable :: ao_dm(:,:)
  real(kind=8), allocatable :: mo(:,:), mo_t(:,:), mo_dm(:,:)
  character(len=240), intent(in) :: fchname, logname
+!f2py intent(in) :: fchname, logname
  logical, intent(in) :: averaged
+!f2py intent(in) :: averaged
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(mo(nbf,nif))
@@ -479,10 +558,13 @@ subroutine gen_sfcis_ao_dm_from_fch_and_gms(fchname, gmsname, istate, nfc, &
  implicit none
  integer :: nbf, nif
  integer, intent(in) :: istate, nfc, nval
+!f2py intent(in) :: istate, nfc, nval
  real(kind=8), allocatable :: ao_dm(:,:)
  real(kind=8), allocatable :: mo(:,:), mo_t(:,:), mo_dm(:,:)
  character(len=240), intent(in) :: fchname, gmsname
+!f2py intent(in) :: fchname, gmsname
  logical, intent(in) :: mrsf, averaged
+!f2py intent(in) :: mrsf, averaged
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(mo(nbf,nif))
@@ -502,6 +584,39 @@ subroutine gen_sfcis_ao_dm_from_fch_and_gms(fchname, gmsname, istate, nfc, &
  call write_dm_into_fch(fchname, .true., nbf, ao_dm)
  deallocate(ao_dm)
 end subroutine gen_sfcis_ao_dm_from_fch_and_gms
+
+! Generate MRSF-CIS/TD State-averaged Mixed-spin AO-based density matrix using
+!  excitation coefficients from Gaussian .fch(k) and two GAMESS .gms files. The
+!  reference can only be ROHF/ROKS.
+subroutine gen_sfcis_ave_ao_dm_from_fch_and_gms(fchname, gmsname1, gmsname2, &
+                                                istate1, istate2, nfc, nval)
+ implicit none
+ integer :: nbf, nif
+ integer, intent(in) :: istate1, istate2, nfc, nval
+!f2py intent(in) :: istate1, istate2, nfc, nval
+ real(kind=8), allocatable :: ao_dm(:,:)
+ real(kind=8), allocatable :: mo(:,:), mo_t(:,:), mo_dm(:,:)
+ character(len=240), intent(in) :: fchname, gmsname1, gmsname2
+!f2py intent(in) :: fchname, gmsname1, gmsname2
+
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(mo_t(nif,nbf), source=TRANSPOSE(mo))
+ deallocate(mo)
+
+ allocate(mo_dm(nif,nif))
+ call gen_mrsfcis_ave_mo_dm_from_gms_gms(gmsname1, gmsname2, istate1, istate2, &
+                                         nfc, nval, nif, mo_dm)
+
+ ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
+ allocate(ao_dm(nbf,nbf))
+ call calc_CTSC(nif, nbf, mo_t, mo_dm, ao_dm)
+ deallocate(mo_t, mo_dm)
+
+ call write_dm_into_fch(fchname, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+end subroutine gen_sfcis_ave_ao_dm_from_fch_and_gms
 
 ! Generate (State-averaged) NTO for restricted-type CIS/TDHF/TDDFT wave function.
 ! Canonical MOs are included in the input fchname, and those MOs will be replaced

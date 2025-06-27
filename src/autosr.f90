@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc7 (2025-May-25)'
+ write(6,'(A)') '           Version: 1.2.7rc8 (2025-Jun-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -623,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc7 :: MOKIT, release date: 2025-May-25'
+  write(6,'(A)') 'AutoSR 1.2.7rc8 :: MOKIT, release date: 2025-Jun-25'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -1125,7 +1125,10 @@ subroutine do_cc()
   inpname = 'ZMAT'
   call fch2cfour_wrap(hf_fch)
   call prt_posthf_cfour_inp()
-  call submit_cfour_job(nproc, outname, .false.)
+  ! CFOUR has various kinds of CC codes, and correctness at OMP/MPI is unknown.
+  ! Even CFOUR developers do not know exactly which combination would lead to
+  ! correct computational results. Use 1 process is slow but safe.
+  call submit_cfour_job(1, outname, .false.)
   call read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
  case('dalton')
   old_inp = hf_fch(1:i-1)//'_CC'
@@ -2031,8 +2034,10 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
+ logical :: psi4_18_higher
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
@@ -2081,11 +2086,15 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
  end if
  if(excited) write(fid1,'(A,I0)') 'set roots_per_irrep ', nstate
 
- if(ccsd_t .and. (.not.RI)) call get_psi4_version(psi4_ver)
+ psi4_18_higher = .false.
+ if(ccsd_t .and. (.not.RI)) then
+  call get_psi4_version(psi4_ver)
+  if(psi4_ver(1:3)=='1.8' .or. psi4_ver(1:3)=='1.9') psi4_18_higher=.true.
+ end if
 
  if(force) then
   ! PSI4 >=1.8, extra keywords are needed to calculate CCSD(T) analytical gradients
-  if(ccsd_t .and. (.not.RI) .and. psi4_ver(1:3)=='1.8') then
+  if(ccsd_t .and. (.not.RI) .and. psi4_18_higher) then
    write(fid1,'(A)') 'set qc_module ccenergy'
   end if
   write(fid1,'(A)',advance='no') "gradient('"
@@ -2094,7 +2103,7 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
    write(fid1,'(A)',advance='no') "properties('"
   else
    if(gen_no) then
-    if(ccsd_t .and. (.not.RI) .and. psi4_ver(1:3)=='1.8') then
+    if(ccsd_t .and. (.not.RI) .and. psi4_18_higher) then
      write(fid1,'(A)') 'set qc_module ccenergy'
     end if
     write(fid1,'(A)',advance='no') "grad, wfn = gradient('"
@@ -3647,64 +3656,102 @@ end subroutine read_cc_e_from_qchem_out
 subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
                                     tot_e)
  implicit none
- integer :: i, nocc, fid
+ integer :: i, k, nocc, fid
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: t1diag, ref_e, tot_e
- character(len=13) :: key
- character(len=13), parameter :: key0(3) = ['Total CCD ene','Total CCSD en','To&
-                                            &tal CCSD(T)']
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: ccd, ccsd, ccsd_t
+ logical :: uhf
 
- ref_e = 0d0; tot_e = 0d0; key = ' '
- if(ccd) then
-  key = key0(1)
- else if(ccsd) then
-  key = key0(2)
- else if(ccsd_t) then
-  key = key0(3)
- end if
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
  do while(.true.)
-  BACKSPACE(fid,iostat=i)
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(1:13) == key) exit
+  if(buf(13:18) == 'E(SCF)') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: key '"//key//"'"
-  write(6,'(A)') 'not found in file '//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: key 'E(SCF)' &
+                   &not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
+ call get_dpv_after_flag(buf, '=', .true., ref_e) ! HF energy
 
- i = INDEX(buf, ':')
- read(buf(i+1:),*) tot_e ! total electronic energy
-
- do i = 1, 5
-  BACKSPACE(fid)
- end do
-
- if(ccsd_t) then ! read (T) correlation energy
-  read(fid,'(A)') buf
-  i = INDEX(buf, ':')
-  read(buf(i+1:),*) rtmp
-  do i = 1, 8
-   BACKSPACE(fid)
-  end do
+ if(ccd) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:11) == 'Total CCD e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   end if
+   if(buf(2:15) == 'A miracle come') then
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,*) k, rtmp, tot_e
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: failed to lo&
+                    &cate CCD energy"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   stop
+  end if
+ else if(ccsd) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:12)=='Total CCSD e' .or. buf(3:14)=='Total CCSD e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: 'Total CCSD &
+                    &e' is not found"
+   write(6,'(A)') "in file "//TRIM(outname)
+   stop
+  end if
+ else if(ccsd_t) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:15) == 'Total CCSD(T) e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   else if(buf(3:13) == 'CCSD(T) ene') then
+    call get_dpv_after_flag(buf, 'y', .true., tot_e)
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: neither 'Tot&
+                    &al CCSD(T) e' nor"
+   write(6,'(A)') "'CCSD(T) ene' is found in file "//TRIM(outname)
+   stop
+  end if
  end if
 
- read(fid,*) i, ref_e ! read CCD/CCSD correlation energy
- close(fid)
- if(ccsd_t) ref_e = ref_e + rtmp
- ref_e = tot_e - ref_e
+ call check_uhf_in_cfour_out(outname, uhf)
+ if(uhf .and. (ccsd .or. ccsd_t)) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'T1 diagnostic is currently not supported for UHF-based CC usi&
+                 &ng CFOUR. T1_diag'
+  write(6,'(A)') 'will be set to 0 below.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
 
- if(.not. ccd) then
+ if(.not. (uhf .or. ccd)) then
   call read_nocc_from_cfour_out(outname, nocc)
   call read_t1diag_from_cfour_t1(nocc, t1diag)
  end if

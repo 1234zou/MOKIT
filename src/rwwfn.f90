@@ -230,7 +230,7 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
- call open_file(fchname, .true., fid)
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -754,7 +754,7 @@ end subroutine read_ovlp_from_molcas_out
 ! write/print eigenvalues/occupation numbers into a .fch(k) file
 subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, fid, fid1, RENAME
  integer, intent(in) :: nif
 !f2py intent(in) :: nif
  real(kind=8), intent(in) :: on(nif)
@@ -774,48 +774,48 @@ subroutine write_eigenvalues_to_fch(fchname, nif, ab, on, replace)
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//'b'
 
- call open_file(fchname, .true., fid1)
- i = INDEX(fchname,'.fch',back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  fchname1 = fchname(1:i-1)//'_D.fch'
- open(newunit=fid2,file=TRIM(fchname1),status='replace')
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
+  write(fid1,'(A)') TRIM(buf)
   if(buf(1:8) == key) exit
- end do
+ end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine write_eigenvalues_to_fch: no '"//&
-                  key//"' found in file "//TRIM(fchname)
-  close(fid1)
-  close(fid2,status='delete')
+  write(6,'(/,A)') "ERROR in subroutine write_eigenvalues_to_fch: no '"//&
+                    key//"' found in file "//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
   stop
  end if
 
- write(fid2,'(5(1X,ES15.8))') (on(i),i=1,nif)
+ write(fid1,'(5(1X,ES15.8))') (on(i),i=1,nif)
 
  ! skip the Alpha/Beta Orbital Energies in fname1
  do while(.true.)
-  read(fid1,'(A)') buf
-  if(INDEX(buf,'=') /= 0) exit
+  read(fid,'(A)') buf
+  if(INDEX(buf,'=') > 0) exit
  end do
- BACKSPACE(fid1)
+ BACKSPACE(fid)
 
  ! copy remaining content in file fname1
  do while(.true.)
-  read(fid1,'(A)',iostat=i) buf
+  read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
+  write(fid1,'(A)') TRIM(buf)
  end do
- close(fid2)
+ close(fid1)
 
  if(replace) then
-  close(fid1,status='delete')
+  close(fid,status='delete')
   i = RENAME(TRIM(fchname1), TRIM(fchname))
  else
-  close(fid1)
+  close(fid)
  end if
 end subroutine write_eigenvalues_to_fch
 
@@ -932,9 +932,10 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
 
  key = key1
  if(ab/='a' .and. ab/='A') key = key2//' '
- fchname1 = TRIM(fchname)//'.t'
 
- call open_file(fchname, .true., fid1)
+ call find_specified_suffix(fchname, '.fch', i)
+ fchname1 = fchname(1:i-1)//'.t'
+ open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(fchname1),status='replace')
 
  do while(.true.)
@@ -942,7 +943,7 @@ subroutine write_mo_into_fch(fchname, nbf, nif, ab, mo)
   if(i /= 0) exit
   write(fid2,'(A)') TRIM(buf)
   if(buf(1:8) == key) exit
- end do
+ end do ! for while
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine write_mo_into_fch: no '"//key//"' found&
@@ -1059,18 +1060,17 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  open(newunit=fid,file=TRIM(unofile),status='old',position='rewind')
 
  read(fid,'(A)') buf
- i = INDEX(buf,'=')
- read(buf(i+1:),*) nbf
+ call get_int_after_flag(buf, '=', .true., nbf)
 
  read(fid,'(A)') buf
- i = INDEX(buf,'=')
- read(buf(i+1:),*) nif
+ call get_int_after_flag(buf, '=', .true., nif)
 
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf < nif) then
   write(6,'(/,A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
   write(6,'(A)') 'This is impossible. Please check why.'
+  close(fid)
   stop
  end if
 
@@ -1078,8 +1078,10 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  open(newunit=fid,file=TRIM(unofile),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:3) == 'ndb') exit
@@ -1091,9 +1093,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
   close(fid)
   stop
  end if
-
- i = INDEX(buf,'=')
- read(buf(i+1:),*) ndb
+ call get_int_after_flag(buf, '=', .true., ndb)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1218,24 +1218,26 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- call open_file(outname, .false., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(13:22)=='EIGENVALUE' .or. buf(20:29)=='EIGENVALUE' .or. &
      buf(23:32)=='Eigenvalue') exit
  end do ! for while
 
+ close(fid)
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gaulog: no&
-                 & 'EIGENVALUE' or 'Eigenvalue'"
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gaulog: no 'EIGENV&
+                   &ALUE' or 'Eigenvalue'"
   write(6,'(A)') 'found in file '//TRIM(outname)
-  close(fid)
   stop
  end if
- close(fid)
 
  i = INDEX(buf,'lue')
  if(i == 0) i = INDEX(buf,'LUE')
@@ -1247,13 +1249,13 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
  end if
 
  if(scf) then ! read CASCI energy
-  call open_file(outname, .true., fid)
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
   do while(.true.)
    read(fid,'(A)') buf
    if(buf(2:8) == 'ITN=  1') exit
   end do ! for while
   close(fid)
-  i = INDEX(buf,'E=')
+  i = INDEX(buf, 'E=')
   read(buf(i+2:),*) e(1)
  end if
 end subroutine read_cas_energy_from_gaulog
@@ -1263,23 +1265,28 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: spin ! na - nb
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8) :: s_square = 0d0, expect = 0d0
+ real(kind=8) :: s_square, expect
  real(kind=8), intent(out) :: e(2)
  real(kind=8), parameter :: max_diff = 1d-3
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ character(len=48), parameter :: err_str = 'ERROR in subroutine read_cas_energy&
+                                           &_from_pyout: '
  logical, intent(in) :: scf, dmrg
- logical :: state_specific = .false.
+ logical :: state_specific
 
- e = 0d0; i = 0; j = 0; k = 0
+ e = 0d0; i = 0; j = 0; k = 0; state_specific = .false.
+ s_square = 0d0; expect = 0d0
  expect = 0.5d0*DBLE(spin)
  expect = expect*(expect + 1d0)
 
  if(scf) then ! (DMRG-)CASSCF
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
   do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
+   BACKSPACE(fid,iostat=k)
+   if(k /= 0) exit
+   BACKSPACE(fid,iostat=k)
+   if(k /= 0) exit
    read(fid,'(A)',iostat=k) buf
    if(k /= 0) exit
    if(buf(1:23) == '1-step CASSCF converged') then
@@ -1298,8 +1305,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   else
    open(newunit=fid,file=TRIM(outname),status='old',position='append')
    do while(.true.)
-    BACKSPACE(fid)
-    BACKSPACE(fid)
+    BACKSPACE(fid,iostat=k)
+    if(k /= 0) exit
+    BACKSPACE(fid,iostat=k)
+    if(k /= 0) exit
     read(fid,'(A)',iostat=k) buf
     if(k /= 0) exit
     if(buf(1:15) == 'CASCI converged') then
@@ -1313,14 +1322,13 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end if
 
  if(k /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_out: problematic f&
-                   &ile '//TRIM(outname)//'.'
+  write(6,'(/,A)') TRIM(err_str)//'the file'
+  write(6,'(A)') TRIM(outname)//' seems problematic.'
   close(fid)
   stop
  else ! k = 0
   if(j/=0 .and. (.not.state_specific)) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_out: CASCI or CAS&
-                    &SCF not converged.'
+   write(6,'(/,A)') TRIM(err_str)//'CASCI or CASSCF not converged.'
    close(fid)
    stop
   end if
@@ -1334,8 +1342,8 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_out: 'CASCI E' not&
-                   & found in "//TRIM(outname)
+  write(6,'(/,A)') TRIM(err_str)//"'CASCI E' keyword not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1347,8 +1355,16 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   read(buf(i+1:),*) e(1)
  end if
 
- i = INDEX(buf, '=', back=.true.)
- read(buf(i+1:),*) s_square
+ i = INDEX(buf, 'S^2 =', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') TRIM(err_str)//"'S^2 =' not found in the desired line."
+  write(6,'(A)') "buf='"//TRIM(buf)//"'"
+  write(6,'(A)') "Probably your PySCF version is so old that 'S^2 =' is not pri&
+                 &nted."
+  close(fid)
+  stop
+ end if
+ read(buf(i+5:),*) s_square
 
  if(DABS(expect - s_square) > max_diff) then
   write(6,'(/,A)') REPEAT('-',79)
@@ -1879,59 +1895,67 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
  implicit none
  integer :: i, k, fid
  integer, intent(in) :: troot ! 0 for the ground state, >0 for excited state
- character(len=7), parameter :: str1 = 'CASCI E'
- character(len=15) :: str2 = ' '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
 
  ref_e = 0d0; corr_e = 0d0
- call open_file(outname, .false., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:13) == 'Nevpt2 Energy') exit
+  if(buf(1:8) == 'Nevpt2 E') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
-  write(6,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_pyscf_out: no 'Ne&
+                   &vpt2 E' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) corr_e
+ call get_dpv_after_flag(buf, '=', .true., corr_e)
 
  if(troot == 0) then
-  str2 = str1
-  k = 7
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:7) == 'CASCI E') exit
+  end do ! for while
  else
-  write(str2,'(A,1X,I0)') 'CASCI state', troot
-  k = LEN_TRIM(str2)
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:11) == 'CASCI state') then
+    read(buf(12:),*) k
+    if(k == troot) exit
+   end if
+  end do ! for while
  end if
 
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:k) == TRIM(str2)) exit
- end do ! for while
-
+ close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out:'
-  write(6,'(A)') 'No CASCI energy found in file '//TRIM(outname)
-  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out: no CAS&
+                   &CI energy'
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  write(6,'(A,I0)') 'troot=', troot
   stop
  end if
- close(fid)
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) ref_e
+ call get_dpv_after_flag(buf, '=', .true., ref_e)
 end subroutine read_mrpt_energy_from_pyscf_out
 
 ! read CASTP2 energy from OpenMolcas output file
@@ -2095,46 +2119,35 @@ subroutine read_mrpt_energy_from_molpro_out(outname, itype, ref_e, corr_e)
 end subroutine read_mrpt_energy_from_molpro_out
 
 ! read NEVPT2/CASPT2 energy from a ORCA .out file
-subroutine read_mrpt_energy_from_orca_out(outname, itype, ref_e, corr_e)
+subroutine read_mrpt_energy_from_orca_out(outname, ref_e, corr_e)
  implicit none
  integer :: i, fid
- integer, intent(in) :: itype ! 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8), intent(out) :: ref_e, corr_e
 
- ref_e = 0d0
- corr_e = 0d0
- call open_file(outname, .true., fid)
+ ref_e = 0d0; corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
- select case(itype)
- case(1,2,3)
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(INDEX(buf,'Total Energy C') /=0) exit
-  end do ! for while
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(4:20) == 'Total Energy Corr') exit
+ end do ! for while
 
-  if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no&
-                  & 'Total Energy (' found in file "//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) corr_e
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) ref_e
- case default
-  write(6,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_orca_out:&
-                    & invalid itype=', itype
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_orca_out: no 'Tot&
+                   &al Energy Corr'"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
   stop
- end select
+ end if
 
+ call get_dpv_after_flag(buf, '=', .true., corr_e)
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
  close(fid)
+ call get_dpv_after_flag(buf, '=', .true., ref_e)
 end subroutine read_mrpt_energy_from_orca_out
 
 ! read MRMP2 energy from GAMESS output file (.gms)
@@ -2807,13 +2820,18 @@ subroutine write_dm_into_fch(fchname, total, nbf, dm)
  implicit none
  integer :: i, j, k, fid, fid1, RENAME
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  real(kind=8), intent(in) :: dm(nbf,nbf)
+!f2py intent(in) :: dm
+!f2py depend(nbf) :: dm
  character(len=11) :: key
  character(len=11), parameter :: key1 = 'Total SCF D'
  character(len=11), parameter :: key2 = 'Spin SCF De'
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical, intent(in) :: total
+!f2py intent(in) :: total
 
  key = key1
  if(.not. total) key = key2
@@ -3145,6 +3163,36 @@ subroutine check_if_uhf_equal_rhf(fchname, eq)
  deallocate(alpha_coeff, beta_coeff, diff)
 end subroutine check_if_uhf_equal_rhf
 
+subroutine copy_ev_and_mo_between_fch(fchname1, fchname2, ab)
+ implicit none
+ integer :: nbf, nif, nbf2, nif2
+ real(kind=8), allocatable :: ev(:), mo(:,:)
+ character(len=3), intent(in) :: ab
+ character(len=240), intent(in) :: fchname1, fchname2
+
+ call read_nbf_and_nif_from_fch(fchname1, nbf, nif)
+ call read_nbf_and_nif_from_fch(fchname2, nbf2, nif2)
+
+ if(nbf/=nbf2 .or. nif/=nif2) then
+  write(6,'(/,A)') 'ERROR in subroutine copy_ev_and_mo_between_fch: inconsisten&
+                   &t nbf and/or nif'
+  write(6,'(A)') 'in two files:'
+  write(6,'(A)') TRIM(fchname1)
+  write(6,'(A)') TRIM(fchname2)
+  stop
+ end if
+
+ allocate(ev(nif))
+ call read_eigenvalues_from_fch(fchname1, nif, ab(2:2), ev)
+ call write_eigenvalues_to_fch(fchname2, nif, ab(3:3), ev, .true.)
+ deallocate(ev)
+
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname1, nbf, nif, ab(2:2), mo)
+ call write_mo_into_fch(fchname2, nbf, nif, ab(3:3), mo)
+ deallocate(mo)
+end subroutine copy_ev_and_mo_between_fch
+
 ! copy alpha(and beta) orbital energies, alpha(and beta) MOs, Total SCF Density,
 ! and Spin SCF Density from a .fch(k) file into another one
 subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
@@ -3158,8 +3206,9 @@ subroutine copy_orb_and_den_in_fch(fchname1, fchname2, deleted)
  logical, intent(in) :: deleted
 !f2py intent(in) :: deleted
 
- call open_file(fchname1, .true., fid)
  uhf = .false.
+ open(newunit=fid,file=TRIM(fchname1),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -3219,7 +3268,7 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
 !f2py intent(in) :: file47
 
  S = 0d0
- call open_file(file47, .true., fid)
+ open(newunit=fid,file=TRIM(file47),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -3593,6 +3642,7 @@ subroutine fch_r2u(fchname, brokensym)
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo_a)
  call read_na_and_nb_from_fch(fchname, na, nb)
 
+ write(6,'(A,L1)') 'brokensym=', brokensym
  if(brokensym) then
   allocate(rtmp(nbf), source=mo_a(:,nb))
   mo_a(:,nb) = mo_a(:,nb+1)

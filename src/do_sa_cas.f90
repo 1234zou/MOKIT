@@ -16,7 +16,7 @@ subroutine do_sa_cas()
  character(len=24) :: data_string = ' '
  character(len=240) :: inpname, outname
  logical, external :: compare_as_size
- logical :: alive1, alive2, beyond_cas
+ logical :: alive1, alive2, beyond_cas, nevpt2_btw
 
  if(.not. excited) return
 
@@ -76,12 +76,22 @@ subroutine do_sa_cas()
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
                           'o) using program '//TRIM(cas_prog)
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ nevpt2_btw = (TRIM(cas_prog) == TRIM(nevpt2_prog))
+ if(nevpt2 .and. (.not.nevpt2_btw)) then
+  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: please set CASSCF_prog and N&
+                   &EVPT2_prog to be'
+  write(6,'(A)') 'the same program. NEVPT2 based on SA-CASSCF currently does no&
+                &t support the case'
+  write(6,'(A)') 'CASSCF_prog /= NEVPT2_prog.'
+  stop
+ end if
+ call find_specified_suffix(hf_fch, '.fch', i)
+
  select case(TRIM(cas_prog))
  case('pyscf')
   inpname = hf_fch(1:i-1)//'_SA-CAS.py'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
-  call prt_sacas_script_into_py(inpname, hf_fch)
+  call prt_sacas_script_into_py(inpname, hf_fch, nevpt2_btw)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_pyscf_job(inpname, .true.)
  case('gaussian')
@@ -91,7 +101,7 @@ subroutine do_sa_cas()
  case('orca')
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
   outname = hf_fch(1:i-1)//'_SA-CAS.out'
-  call prt_sacas_orca_inp(inpname, hf_fch)
+  call prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
  case('gamess')
   inpname = hf_fch(1:i-1)//'_SA-CAS.inp'
@@ -132,21 +142,13 @@ subroutine do_sa_cas()
                sa_cas_e(i), ' a.u. <S**2> =', ci_ssquare(i), e_ev(i), fosc(i)
  end do ! for i
 
- if(nevpt2) then
-  if(TRIM(nevpt2_prog) /= TRIM(cas_prog)) then
-   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: currently only NEVPT2_prog=&
-                    &CASSCF_prog is allowed.'
-   write(6,'(A)') 'But NEVPT2_prog='//TRIM(nevpt2_prog)//' and CASSCF_prog='//&
-                   TRIM(cas_prog)
-   stop
-  end if
-
+ if(nevpt2 .and. nevpt2_btw) then
   allocate(nevpt2_e(0:nstate))
   select case(TRIM(nevpt2_prog))
   case('pyscf')
-   call read_multiroot_nevpt2_from_pyscf(outname, dmrgscf, nstate, nevpt2_e)
+   call read_multiroot_nevpt2_from_pyscf_out(outname, dmrgscf, nstate, nevpt2_e)
   case('orca')
-   call read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
+   call read_multiroot_nevpt2_from_orca_out(outname, nstate, nevpt2_e)
   case default
    write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: NEVPT2_prog cannot be recog&
                     &nized.'
@@ -168,7 +170,7 @@ subroutine do_sa_cas()
 end subroutine do_sa_cas
 
 ! print (DMRG-)SA-CASSCF script into a given .py file
-subroutine prt_sacas_script_into_py(pyname, gvb_fch)
+subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
  use mol, only: nacto, nacte, nacta, nactb
  use mr_keyword, only: mem, nproc, casscf, dmrgscf, maxM, block_mpi, hardwfn, &
   crazywfn, RI, RIJK_bas, hf_fch, mixed_spin, nstate, nevpt2
@@ -180,6 +182,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
  character(len=240), intent(in) :: pyname, gvb_fch
+ logical, intent(in) :: nevpt2_btw ! whether to perform NEVPT2 by the way
 
  if(mixed_spin) then
   ! set as the lowest spin in order to obtain different spins in SA-CASSCF
@@ -191,8 +194,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  end if
  call bas_fch2py_wrap(gvb_fch, .false., pyname)
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- pyname1 = TRIM(pyname)//'.t'
 
+ call find_specified_suffix(pyname, '.py', i)
+ pyname1 = pyname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
 
@@ -203,13 +207,13 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
  end do ! for while
 
  if(dmrgscf) then
-  if(nevpt2) then
+  if(nevpt2 .and. nevpt2_btw) then
    write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, dmrgscf, mrpt, lib'
   else
    write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, dmrgscf, lib'
   end if
  else
-  if(nevpt2) then
+  if(nevpt2 .and. nevpt2_btw) then
    write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, mrpt, lib'
   else
    write(fid2,'(A)') 'from pyscf import gto, scf, mcscf, lib'
@@ -379,7 +383,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch)
   write(fid2,'(A)') "  print('|0> -> |%d>'%(i),', fosc =',fosc)"
  end if
 
- if(nevpt2) then
+ if(nevpt2 .and. nevpt2_btw) then
   if(dmrgscf) then
    write(fid2,'(/,A)') '# State-specific DMRG-NEVPT2 based on multi-root DMRG-C&
                        &ASCI'
@@ -432,7 +436,7 @@ subroutine prt_sacas_gjf(gjfname, hf_fch)
 end subroutine prt_sacas_gjf
 
 ! print SA-CASSCF input file of ORCA
-subroutine prt_sacas_orca_inp(inpname, hf_fch)
+subroutine prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  use mol, only: nacto, nacte, mult
  use mr_keyword, only: mem, nproc, nevpt2, QD, FIC, DLPNO, F12, RI, RIJK_bas, &
@@ -441,22 +445,23 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  integer :: i, fid, fid1
  character(len=240) :: buf, mklname, gbwname, inpname1
  character(len=240), intent(in) :: inpname, hf_fch
+ logical, intent(in) :: nevpt2_btw
 
  call fch2mkl_wrap(hf_fch)
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
  inpname1 = hf_fch(1:i-1)//'_o.inp'
  mklname = hf_fch(1:i-1)//'_o.mkl'
 
- i = INDEX(inpname, '.inp', back=.true.)
+ call find_specified_suffix(inpname, '.inp', i)
  gbwname = inpname(1:i-1)//'.gbw'
  call mkl2gbw(mklname, gbwname)
- call delete_file(mklname)
+ call delete_file(TRIM(mklname))
 
  open(newunit=fid,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname),status='replace')
 
  write(fid1,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid1,'(A,I0)') '%maxcore ', CEILING(1000d0*DBLE(mem)/DBLE(nproc))
+ write(fid1,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
  write(fid1,'(A)',advance='no') '! CASSCF'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid1,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
@@ -478,9 +483,9 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  end if
  write(fid1,'(A)') ' maxiter 200'
  if(RI) write(fid1,'(A)') ' TrafoStep RI'
- call prt_hard_or_crazy_casci_orca(fid1, hardwfn, crazywfn)
+ call prt_hard_or_crazy_casci_orca(1, fid1, hardwfn, crazywfn)
 
- if(nevpt2) then
+ if(nevpt2 .and. nevpt2_btw) then
   if(FIC) then
    if(DLPNO) then
     write(fid1,'(A)') ' PTMethod DLPNO_NEVPT2'
@@ -499,22 +504,11 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch)
  end if
 
  write(fid1,'(A)') 'end'
- if(nevpt2) then
+ if(nevpt2 .and. nevpt2_btw) then
   write(fid1,'(A)') '%method'
   write(fid1,'(A)') ' FrozenCore FC_NONE'
   write(fid1,'(A)') 'end'
  end if
-
- !write(fid1,'(A)') '%mrci'
- !write(fid1,'(A)') ' tsel 0.0'
- !write(fid1,'(A)') ' tpre 0.0'
- !write(fid1,'(A)') ' Etol 1e-7'
- !write(fid1,'(A)') ' Rtol 1e-7'
- !write(fid1,'(A)') ' MaxIter 100'
- !write(fid1,'(A)') ' densities 0,1'
- !write(fid1,'(3(A,I0),A)') ' NewBlock 1 * nroots ',nstate+1,' excitations none &
- !                          &refs cas(',nacte,',',nacto,') end end'
- !write(fid1,'(A)') 'end'
 
  do i = 1, 3   ! skip 3 lines
   read(fid,'(A)') buf
@@ -824,15 +818,17 @@ subroutine read_sa_cas_e_from_molcas_out(outname, nstate, sa_cas_e, ci_ssquare)
 end subroutine read_sa_cas_e_from_molcas_out
 
 ! read multi-root CASCI-based NEVPT2 energies from a PySCF out file
-subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
+subroutine read_multiroot_nevpt2_from_pyscf_out(outname, dmrg, nstate, nevpt2_e)
  use phys_cons, only: au2ev
  implicit none
- integer :: i, j, fid
+ integer :: i, j, k, fid
  integer, intent(in) :: nstate
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
  real(kind=8), allocatable :: casci_e(:)
  real(kind=8), intent(out) :: nevpt2_e(0:nstate)
+ character(len=58), parameter :: err_str = 'ERROR in subroutine read_multiroot_&
+                                           &nevpt2_from_pyscf_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
  logical :: no_conv
  logical, intent(in) :: dmrg
 
@@ -851,8 +847,7 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_pyscf: no '&
-                    &CASCI state ' found"
+   write(6,'(/,A)') err_str//"no 'CASCI state ' found"
    write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
@@ -874,8 +869,7 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_pyscf: no '&
-                    &CASCI conv' found in"
+   write(6,'(/,A)') err_str//"no 'CASCI conv' found in"
    write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
@@ -883,8 +877,8 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
 
   if(no_conv) then
    write(6,'(A)') REPEAT('-',79)
-   write(6,'(A)') 'Warning in subroutine read_multiroot_nevpt2_from_pyscf: CASC&
-                  &I not converged.'
+   write(6,'(A)') 'Warning in subroutine read_multiroot_nevpt2_from_pyscf_out: &
+                  &CASCI not converged.'
    write(6,'(A)') 'You should be cautious about the CASCI and NEVPT2 energies. &
                   &You are recommended'
    write(6,'(A)') 'to open file '//TRIM(outname)//' and check.'
@@ -902,7 +896,8 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
  i = 0
  do while(.true.)
   if(i == nstate+1) exit
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=k) buf
+  if(k /= 0) exit
   if(buf(1:8) == 'Nevpt2 E') then
    j = INDEX(buf,'=')
    read(buf(j+1:),*) nevpt2_e(i)
@@ -911,15 +906,21 @@ subroutine read_multiroot_nevpt2_from_pyscf(outname, dmrg, nstate, nevpt2_e)
  end do ! for while
 
  close(fid)
- nevpt2_e = casci_e + nevpt2_e
+ if(k /= 0) then
+  write(6,'(/,A)') err_str//"some required 'Nevpt2 E'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  stop
+ end if
+
+ nevpt2_e = nevpt2_e + casci_e
  deallocate(casci_e)
-end subroutine read_multiroot_nevpt2_from_pyscf
+end subroutine read_multiroot_nevpt2_from_pyscf_out
 
 ! read multi-root CASCI-based NEVPT2 energies from an ORCA out file
-subroutine read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
+subroutine read_multiroot_nevpt2_from_orca_out(outname, nstate, nevpt2_e)
  use phys_cons, only: au2ev
  implicit none
- integer :: i, j, k, fid
+ integer :: i, j, fid
  integer, intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -932,16 +933,21 @@ subroutine read_multiroot_nevpt2_from_orca(outname, nstate, nevpt2_e)
  do while(.true.)
   read(fid,'(A)',iostat=j) buf
   if(j /= 0) exit
-  if(index(buf,'Total Energy (') > 0) then
-   k = INDEX(buf, '=')
-   read(buf(k+1:),*) nevpt2_e(i)
+  if(INDEX(buf,'Total Energy (') > 0) then
+   call get_dpv_after_flag(buf, '=', .true., nevpt2_e(i))
    i = i + 1
    if(i == nstate+1) exit
   end if
  end do ! for while
 
  close(fid)
-end subroutine read_multiroot_nevpt2_from_orca
+ if(j /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_multiroot_nevpt2_from_orca_out: so&
+                   &me required 'Total Energy ('"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  stop
+ end if
+end subroutine read_multiroot_nevpt2_from_orca_out
 
 ! read oscillator strengths from various output file
 subroutine read_fosc_from_output(cas_prog, outname, nstate, fosc)

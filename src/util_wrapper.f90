@@ -528,6 +528,41 @@ subroutine fch2cfour_wrap(fchname)
  if(i /= 0) call prt_call_util_error('fch2cfour', fchname)
 end subroutine fch2cfour_wrap
 
+subroutine fch2amo_wrap(fchname, aipname)
+ implicit none
+ integer :: i, SYSTEM, RENAME
+ character(len=240) :: aipname0, amoname0, amoname
+ character(len=240), intent(in) :: fchname
+ character(len=240), intent(in), optional :: aipname
+
+ call find_specified_suffix(fchname, '.', i)
+ aipname0 = fchname(1:i-1)//'.aip'
+ amoname0 = fchname(1:i-1)//'.amo'
+
+ if(PRESENT(aipname)) then
+  call find_specified_suffix(aipname, '.aip', i)
+  amoname = aipname(1:i-1)//'.amo'
+ end if
+
+ i = SYSTEM('fch2amo '//TRIM(fchname))
+ if(i /= 0) call prt_call_util_error('fch2amo', fchname)
+
+ if(PRESENT(aipname)) then
+  if(TRIM(aipname) /= TRIM(aipname0)) then
+   i = RENAME(TRIM(aipname0), TRIM(aipname))
+   i = RENAME(TRIM(amoname0), TRIM(amoname))
+  end if
+ end if
+
+ i = SYSTEM('a2m '//TRIM(amoname))
+ if(i /= 0) then
+  write(6,'(/,A)') 'Warning from fch2amo_wrap: failed to call the utility a2m. &
+                   &You need to convert'
+  write(6,'(A)') '.amo to .mo by yourself, since Amesp reads MOs from the .mo f&
+                 &ile.'
+ end if
+end subroutine fch2amo_wrap
+
 subroutine dat2fch_wrap(datname, fchname)
  implicit none
  integer :: i, SYSTEM
@@ -593,7 +628,7 @@ end subroutine gbw2molden
 subroutine molden2fch_wrap(molden, fchname, prog, natorb)
  implicit none
  integer :: i, SYSTEM, RENAME
- character(len=7), intent(in) :: prog ! lower case
+ character(len=*), intent(in) :: prog ! lower case
  character(len=240) :: fchname0
  character(len=240), intent(in) :: molden, fchname
  character(len=500) :: buf
@@ -612,7 +647,7 @@ subroutine molden2fch_wrap(molden, fchname, prog, natorb)
 #endif
  if(i /= 0) call prt_call_util_error('molden2fch', molden)
 
- if(TRIM(fchname0) /= TRIM(fchname)) then
+ if(TRIM(fchname) /= TRIM(fchname0)) then
   i = RENAME(TRIM(fchname0), TRIM(fchname))
  end if
 end subroutine molden2fch_wrap

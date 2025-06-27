@@ -685,7 +685,7 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  else if (ab=='b' .or. ab=='B') then
   key = key2
  else
-  write(6,'(A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
+  write(6,'(/,A)') 'ERROR in subroutine read_mo_from_mkl: invalid ab.'
   write(6,'(A)') 'ab = '//ab
   stop
  end if
@@ -698,8 +698,9 @@ subroutine read_mo_from_mkl(mklname, nbf, nif, ab, mo)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)&
-                    //"' found in file "//TRIM(mklname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_mo_from_mkl: no '"//TRIM(key)//&
+                   "' found in file "//TRIM(mklname)
+  close(fid)
   stop
  end if
 

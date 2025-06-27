@@ -1260,8 +1260,7 @@ subroutine find_specified_suffix(fname, suffix, i)
  character(len=*), intent(in) :: suffix
  character(len=240), intent(in) :: fname
 
- i = INDEX(fname, suffix, back=.true.)
-
+ i = INDEX(TRIM(fname), suffix, back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine find_specified_suffix: suffix '"//&
                    suffix//"' not found"
@@ -1586,6 +1585,41 @@ subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  basis = buf(j+1:j+i-1)
 end subroutine read_method_and_basis_from_buf
 
+! Print ORCA SS-CASSCF or multi-root CASCI weights related keywords. ORCA does
+! not support state-specific CAS natively, and it suggests that using SA-CASSCF
+! weights to achieve that.
+subroutine prt_orca_ss_cas_weight(fid, mult, xmult, iroot)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: fid, mult, xmult, iroot
+ character(len=3), allocatable :: weight(:)
+ character(len=240) :: buf
+
+ if(xmult == mult) then
+  j = 3
+  write(fid,'(A,I0)') ' mult ', mult
+  write(fid,'(A,I0)') ' nroots ', iroot+j
+  write(fid,'(A)',advance='no') ' weights[0]='
+  allocate(weight(iroot+j))
+  weight = '0.0'
+  weight(iroot+1) = '1.0'
+ else
+  j = 2
+  write(fid,'(2(A,I0))') ' mult ', mult, ',', xmult
+  write(fid,'(A,I0)') ' nroots 1,', iroot+j
+  write(fid,'(A)') ' weights[0]=0.0'
+  write(fid,'(A)',advance='no') ' weights[1]='
+  allocate(weight(iroot+j))
+  weight = '0.0'
+  weight(iroot) = '1.0'
+ end if
+
+ write(buf,'(19A4)') (weight(i)//',',i=1,iroot+j)
+ deallocate(weight)
+ i = LEN_TRIM(buf)
+ write(fid,'(A)') buf(1:i-1)
+end subroutine prt_orca_ss_cas_weight
+
 ! print PySCF FCI solver keywords
 subroutine prt_hard_or_crazy_casci_pyscf(nx, fid, nopen, hardwfn, crazywfn)
  implicit none
@@ -1619,6 +1653,41 @@ subroutine prt_hard_or_crazy_casci_pyscf(nx, fid, nopen, hardwfn, crazywfn)
  end if
 end subroutine prt_hard_or_crazy_casci_pyscf
 
+! print ORCA FCI solver keywords
+subroutine prt_hard_or_crazy_casci_orca(nx, fid, hardwfn, crazywfn)
+ implicit none
+ integer, intent(in) :: nx, fid
+ character(len=6) :: buf1, buf2
+ logical, intent(in) :: hardwfn, crazywfn
+
+ select case(nx)
+ case(0)
+  buf1 = '(A)'
+  buf2 = '(1X,A)'
+ case(1,2,3,4,5,6,7,8,9)
+  write(buf1,'(A,I0,A)') '(',nx,'X,A)'
+  write(buf2,'(A,I0,A)') '(',nx+1,'X,A)'
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine prt_hard_or_crazy_casci_orca: invali&
+                      &d nx=', nx
+  write(6,'(A)') 'Allowed values are 0~9.'
+  stop
+ end select
+
+ write(unit=fid,fmt=TRIM(buf1)) 'CI'
+ if(hardwfn) then
+  write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 400'
+  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 1700'
+ else if(crazywfn) then
+  write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 600'
+  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 2500'
+ else
+  write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 200'
+  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 1000'
+ end if
+ write(unit=fid,fmt=TRIM(buf1)) 'end'
+end subroutine prt_hard_or_crazy_casci_orca
+
 ! print convergence remark of orbital localization
 subroutine prt_loc_conv_remark(niter, max_niter, subname)
  implicit none
@@ -1627,16 +1696,15 @@ subroutine prt_loc_conv_remark(niter, max_niter, subname)
 
  ! The orbital localization modules are usually called by Python API. The
  ! printing content from Fortran/Python sometimes is not sequential, so
- ! flush(6) is added here to ensure Fortran prints all it has. Let's try
- ! if there is any improvement.
+ ! flush(6) is added here to ensure Fortran prints all it has.
  if(niter <= max_niter) then
   write(6,'(A)') 'Orbital localization converged successfully.'
   flush(6)
  else
-  write(6,'(/,A)') 'ERROR in subroutine '//TRIM(subname)//': max_niter exceeded.'
-  write(6,'(A,I0)') 'max_niter=', max_niter
+  write(6,'(/,A)') 'Warning from subroutine '//TRIM(subname)//': max_niter exce&
+                   &eded. Final'
+  write(6,'(A,I0)') 'orbitals will be saved. max_niter=', max_niter
   flush(6)
-  stop
  end if
 end subroutine prt_loc_conv_remark
 
@@ -1696,6 +1764,66 @@ subroutine read_mult_from_gms_gms(gmsname, mult)
  i = INDEX(buf, '=')
  read(buf(i+1:),*) mult
 end subroutine read_mult_from_gms_gms
+
+! get the integer value after the keyword flag
+subroutine get_int_after_flag(buf, flag, first, k)
+ implicit none
+ integer :: i
+ integer, intent(out) :: k
+!f2py intent(out) :: k
+ character(len=1), intent(in) :: flag
+!f2py intent(in) :: flag
+ character(len=240), intent(in) :: buf
+!f2py intent(in) :: buf
+ logical, intent(in) :: first
+!f2py intent(in) :: first
+
+ k = 0
+ if(first) then
+  i = INDEX(buf, flag)
+ else
+  i = INDEX(buf, flag, back=.true.)
+ end if
+
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine get_int_after_flag: no keyword '"//&
+                   flag//"' found in"
+  write(6,'(A)') "the string '"//TRIM(buf)//"'."
+  stop
+ end if
+
+ read(buf(i+1:),*) k
+end subroutine get_int_after_flag
+
+! get the double precision value after the keyword flag
+subroutine get_dpv_after_flag(buf, flag, first, r)
+ implicit none
+ integer :: i
+ real(kind=8), intent(out) :: r
+!f2py intent(out) :: r
+ character(len=1), intent(in) :: flag
+!f2py intent(in) :: flag
+ character(len=240), intent(in) :: buf
+!f2py intent(in) :: buf
+ logical, intent(in) :: first
+!f2py intent(in) :: first
+
+ r = 0d0
+ if(first) then
+  i = INDEX(buf, flag)
+ else
+  i = INDEX(buf, flag, back=.true.)
+ end if
+
+ if(i == 0) then
+  write(6,'(/,A)') "ERROR in subroutine get_dpv_after_flag: no keyword '"//&
+                   flag//"' found in"
+  write(6,'(A)') "the string '"//TRIM(buf)//"'."
+  stop
+ end if
+
+ read(buf(i+1:),*) r
+end subroutine get_dpv_after_flag
 
 ! read lattice vectors (3,3) from a specified .molden file
 subroutine read_lat_vec_from_molden(molden, lat_vec)

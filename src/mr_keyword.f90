@@ -236,6 +236,7 @@ module mr_keyword
  character(len=10) :: dmrgscf_prog = 'pyscf'
  character(len=10) :: caspt2_prog  = 'openmolcas'
  character(len=10) :: nevpt2_prog  = 'pyscf'
+ character(len=10) :: nevpt3_prog  = 'orca' ! ORCA/BDF
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mrcisdt_prog = 'openmolcas' ! uncontracted MRCISDT
@@ -303,7 +304,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc7 (2025-May-25)'
+ write(6,'(A)') '           Version: 1.2.7rc8 (2025-Jun-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1272,11 +1273,11 @@ subroutine check_kywd_compatible()
   stop
  end if
 
- if(CIonly .and. (.not.caspt2) .and. (.not.nevpt2) .and. (.not.mrcisd) .and. &
-    (.not. mcpdft) .and. (.not.caspt3) .and. (.not.mrcc)) then
+ if(CIonly .and. (.not.dyn_corr)) then
   write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
-  write(6,'(A)') 'CASPT2/CASPT3/NEVPT2/MRCISD/MC-PDFT/MRCC computations. But&
-                 & none of them is specified.'
+  write(6,'(A)') 'MC-PDFT/CASPT2/CASPT3/NEVPT2/NEVPT3/MRCISD/MRCC computations.&
+                 & But none of'
+  write(6,'(A)') 'them is specified.'
   stop
  end if
 
@@ -1529,12 +1530,8 @@ subroutine check_kywd_compatible()
    write(6,'(/,A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
    write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
    stop
-  else if(X2C .and. TRIM(nevpt2_prog)=='orca') then
-   write(6,'(/,A)') error_warn//'NEVPT2 with X2C is not supported by ORCA.'
-   write(6,'(A)') 'You can use NEVPT2_prog=Molpro, OpenMolcas, ORCA or BDF.'
-   stop
   end if
-  if(TRIM(nevpt2_prog)=='bdf' .and. bgchg) then
+  if(bgchg .and. TRIM(nevpt2_prog)=='bdf') then
    write(6,'(/,A)') error_warn//'NEVPT2 with BDF program is incompatible with'
    write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or &
                   &ORCA.'

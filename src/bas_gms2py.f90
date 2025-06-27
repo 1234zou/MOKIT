@@ -56,7 +56,6 @@ program main
    end select
   end do ! for j
  end if
- !write(*,*) cart, json
 
  call bas_gms2py(fname, cart, pbc, obj_only, rest)
 end program main

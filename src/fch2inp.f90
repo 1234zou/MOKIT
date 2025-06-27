@@ -180,7 +180,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
                    &upposed to be based'
   write(6,'(A)') 'on a high-spin ROHF/UHF reference, with spin multiplicity >=3&
                  &. But the spin'
-  write(6,'(A)') 'multiplicity in your .fch file is: ', mult
+  write(6,'(A,I0)') 'multiplicity in your .fch file is: ', mult
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
@@ -542,9 +542,9 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(A)') ' $END'
  else
   if(irel==0 .or. irel==2 .or. irel==4) then
-   write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. $END'
+   write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. FDIFF=.F. $END'
   else
-   write(fid,'(A)') ' $SCF DIRSCF=.T. $END'
+   write(fid,'(A)') ' $SCF DIRSCF=.T. FDIFF=.F. $END'
   end if
  end if
 
@@ -554,9 +554,9 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   write(fid,'(A)') ' $CIS NSTATE=5 $END'
  case(2,4)
   write(fid,'(A)') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590 $END'
-  write(fid,'(A)') ' $TDDFT NSTATE=5 $END'
+  write(fid,'(A)') ' $TDDFT NSTATE=5 NRAD=99 NLEB=590 $END'
  case(3)
-  write(fid,'(A)') ' $TDDFT NSTATE=5 $END'
+  write(fid,'(A)') ' $TDDFT NSTATE=5 NRAD=99 NLEB=590 $END'
  end select
 
  write(fid,'(A)') ' $DATA'

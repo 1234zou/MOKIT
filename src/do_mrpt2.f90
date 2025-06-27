@@ -3,10 +3,10 @@
 
 subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, dmrg_no, CIonly, caspt2,&
-  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, casscf_prog, casci_prog, &
-  nevpt2_prog, caspt2_prog, bgchg, chgname, mem, nproc, gms_path, gms_scr_path,&
-  check_gms_path, molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, &
-  gau_path, FIC, eist, target_root, caspt2_force
+  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt2_prog, caspt2_prog, &
+  bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path, molcas_omp,&
+  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, eist, target_root,&
+  caspt2_force
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
   davidson_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
@@ -55,18 +55,6 @@ subroutine do_mrpt2()
  end if
 
  if(.not. CIonly) then
-  if(TRIM(casscf_prog) == 'orca') then
-   write(6,'(A)') REPEAT('-',79)
-   write(6,'(A)') 'Warning: ORCA is used as the CASSCF solver, the NO coefficie&
-                  &nts in .mkl file are'
-   write(6,'(A)') 'only 7 digits. This will affect the PT2 energy up to 10^-5 a&
-                  &.u. Such small error'
-   write(6,'(A)') 'is usually not important. If you care about the accuracy, pl&
-                  &ease use another'
-   write(6,'(A)') 'CASSCF solver.'
-   write(6,'(A)') REPEAT('-',79)
-  end if
-
   if(casscf) then
    if(caspt2) then
     string = 'CASPT2 based on CASSCF orbitals.'
@@ -88,17 +76,6 @@ subroutine do_mrpt2()
   end if
 
  else ! CIonly = .True.
-  if(TRIM(casci_prog) == 'orca') then
-   write(6,'(A)') REPEAT('-',79)
-   write(6,'(A)') 'Warning: ORCA is used as the CASCI solver, the NO coefficien&
-                  &ts in .mkl file are'
-   write(6,'(A)') 'only 7-digits. This will affect the PT2 energy up to 10^-5 a&
-                  &.u. Such small error'
-   write(6,'(A)') 'is usually not important. If you care about the accuracy, pl&
-                  &ease use another CASCI solver.'
-   write(6,'(A)') REPEAT('-',79)
-  end if
-
   if(casci) then
    if(caspt2) then
     string = 'CASPT2 based on CASCI orbitals.'
@@ -118,8 +95,10 @@ subroutine do_mrpt2()
   end if
   write(6,'(A)') REPEAT('-',79)
   write(6,'(A)') 'Warning: the CASSCF orbital optimization is strongly recommen&
-                 &ded to be'
-  write(6,'(A)') 'performed before PT2, unless it is too time-consuming.'
+                 &ded to be per-'
+  write(6,'(A)') 'formed before PT2, unless the provided orbitals are already o&
+                 &ptimized, or'
+  write(6,'(A)') 'orbital optimization is too time-consuming to be conducted.'
   write(6,'(A)') REPEAT('-',79)
  end if
 
@@ -138,11 +117,11 @@ subroutine do_mrpt2()
      cmofch = casnofch(1:i)//'CMO.fch'
      casnofch = cmofch
     end if
-    ! if DMRG NOs not calculated previously, casnofch is set to 'xxx_CMO.fch'
-    ! in subroutine do_cas
-    i = INDEX(casnofch, '_CMO', back=.true.)
+    ! If DMRG NOs are not calculated previously, casnofch is set to 'xxx_CMO.fch'
+    ! in subroutine do_cas.
+    call find_specified_suffix(casnofch, '_CMO', i)
    else                         ! CASCI/CASSCF
-    i = INDEX(casnofch, '_NO', back=.true.)
+    call find_specified_suffix(casnofch, '_NO', i)
    end if
    pyname = casnofch(1:i)//'NEVPT2.py'
    outname = casnofch(1:i)//'NEVPT2.out'
@@ -330,7 +309,7 @@ subroutine do_mrpt2()
 
   call prt_mrpt_bdf_inp(inpname, 1)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  i = INDEX(inpname, '.inp', back=.true.)
+  call find_specified_suffix(inpname, '.inp', i)
   string = inpname(1:i-1)
   i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
  end if
@@ -338,6 +317,8 @@ subroutine do_mrpt2()
  if(nevpt2) then      ! read NEVPT2 energy
   select case(TRIM(nevpt2_prog))
   case('pyscf')
+   call read_target_root_from_pyscf_out(outname, i, alive(1))
+   if(alive(1)) target_root = i
    call read_mrpt_energy_from_pyscf_out(outname, target_root, ref_e, corr_e)
    ref_e = ref_e + ptchg_e
   case('molpro')
@@ -355,11 +336,7 @@ subroutine do_mrpt2()
    end if
    ref_e = ref_e + ptchg_e
   case('orca')
-   if(FIC) then
-    call read_mrpt_energy_from_orca_out(outname, 2, ref_e, corr_e)
-   else
-    call read_mrpt_energy_from_orca_out(outname, 1, ref_e, corr_e)
-   end if
+   call read_mrpt_energy_from_orca_out(outname, ref_e, corr_e)
   case('bdf')
    call read_mrpt_energy_from_bdf_out(outname, 2, ref_e, corr_e, davidson_e)
    ! here the parameter davidson_e is useless
@@ -374,7 +351,7 @@ subroutine do_mrpt2()
    call read_mrpt_energy_from_molpro_out(outname, 3, ref_e, corr_e)
    ref_e = ref_e + ptchg_e
   case('orca')
-   call read_mrpt_energy_from_orca_out(outname, 3, ref_e, corr_e)
+   call read_mrpt_energy_from_orca_out(outname, ref_e, corr_e)
   end select
  else if(mrmp2) then  ! read MRMP2 energy
   call read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
@@ -588,47 +565,40 @@ end subroutine prt_mrpt_bdf_inp
 
 ! print NEVPT2 keywords in to a given ORCA .inp file
 subroutine prt_nevpt2_orca_inp(inpname)
- use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, X2C, CIonly, RI, RIJK_bas, RIC_bas, F12, &
-  F12_cabs, FIC, DLPNO, hardwfn, crazywfn
+ use mol, only: mult, nacte, nacto
+ use mr_keyword, only: mem, nproc, orca_path, xmult, iroot, RI, RIJK_bas, RIC_bas,&
+  F12, F12_cabs, FIC, DLPNO, hardwfn, crazywfn
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, iver, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
+ logical :: pt_setting
 
- i =  LEN_TRIM(inpname)
- inpname1 = inpname(1:i-4)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
- if(CIonly) write(fid2,'(A)',advance='no') ' noiter'
  if(RI) then
   write(fid2,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
  end if
  if(DLPNO) write(fid2,'(A)',advance='no') ' TightPNO'
  if(F12) write(fid2,'(A)',advance='no') ' '//TRIM(F12_cabs)
- write(fid2,'(A)') ' TightSCF'
-
- if(X2C) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_nevpt2_orca_inp: NEVPT2 with X2C is&
-                   & not supported in'
-  write(6,'(A)') 'ORCA currently. You can specify NEVPT2_prog=Molpro/OpenMolcas&
-                 &.'
-  stop
- end if
+ write(fid2,'(A)') ' NoIter'
 
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
- write(fid2,'(A,I0)') ' maxiter 1'
- call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
+ !write(fid2,'(A,I0)') ' maxiter 1'
+ if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
+ call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
 
  if(FIC) then
   if(DLPNO) then
@@ -639,11 +609,19 @@ subroutine prt_nevpt2_orca_inp(inpname)
  else
   write(fid2,'(A)') ' PTMethod SC_NEVPT2'
  end if
- if(F12) then
+
+ pt_setting = .false.
+ if(F12 .or. iroot>0) pt_setting = .true.
+ if(pt_setting) then
   write(fid2,'(A)') ' PTSettings'
-  write(fid2,'(A)') '  F12 true'
+  if(F12) write(fid2,'(A)') '  F12 true'
+  if(iroot > 0) then
+   call find_orca_ver(orca_path, iver)
+   call prt_orca_mrpt_sel_root(fid2, iver, iroot, mult, xmult)
+  end if
   write(fid2,'(A)') ' end'
  end if
+
  write(fid2,'(A)') 'end'
  write(fid2,'(A)') '%method'
  write(fid2,'(A)') ' FrozenCore FC_NONE'
@@ -662,45 +640,37 @@ end subroutine prt_nevpt2_orca_inp
 
 ! print CASPT2 keywords in to a given ORCA .inp file
 subroutine prt_caspt2_orca_inp(inpname)
- use mol, only: nacte, nacto
- use mr_keyword, only: mem, nproc, caspt2k, X2C, CIonly, RI, RIJK_bas, &
+ use mol, only: mult, nacte, nacto
+ use mr_keyword, only: mem, nproc, orca_path, xmult, iroot, caspt2k, RI, RIJK_bas,&
   RIC_bas, hardwfn, crazywfn
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, iver, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
- if(CIonly) write(fid2,'(A)',advance='no') ' noiter'
  if(RI) then
   write(fid2,'(A)',advance='no') ' RIJK '//TRIM(RIJK_bas)//' '//TRIM(RIC_bas)
  end if
- write(fid2,'(A)') ' TightSCF'
-
- if(X2C) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_nevpt2_orca_inp: CASPT2 with X2C is&
-                   & not supported in ORCA.'
-  write(6,'(A)') 'You can specify CASPT2_prog=Molpro or OpenMolcas.'
-  close(fid2,status='delete')
-  close(fid1)
-  stop
- end if
+ write(fid2,'(A)') ' NoIter'
 
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
- write(fid2,'(A,I0)') ' maxiter 1'
- call prt_hard_or_crazy_casci_orca(fid2, hardwfn, crazywfn)
+ !write(fid2,'(A,I0)') ' maxiter 1'
+ if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
+ call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
 
  if(caspt2k) then
   write(fid2,'(A)') ' PTMethod FIC_CASPT2K'
@@ -717,6 +687,10 @@ subroutine prt_caspt2_orca_inp(inpname)
   !  the calculated CASCI ref weight is close to 0.8, so 2e-2 is used here.
  else
   write(fid2,'(A)') '  CASPT2_IPEAshift 0.25'
+ end if
+ if(iroot > 0) then
+  call find_orca_ver(orca_path, iver)
+  call prt_orca_mrpt_sel_root(fid2, iver, iroot, mult, xmult)
  end if
  write(fid2,'(A)') '  MaxIter 200'
  write(fid2,'(A)') ' end'
@@ -738,18 +712,20 @@ end subroutine prt_caspt2_orca_inp
 
 ! print NEVPT2 script into a given .py file
 subroutine prt_nevpt2_script_into_py(pyname)
- use mol, only: nacto, nacta, nactb
- use mr_keyword, only: mem, nproc, casci, casscf, maxM, RI, RIJK_bas, hardwfn,&
-  crazywfn, iroot, target_root, block_mpi
+ use mol, only: mult, nacto, nacta, nactb
+ use mr_keyword, only: mem, nproc, casci, casscf, maxM, RI, RIJK_bas, hardwfn, &
+  crazywfn, xmult, iroot, target_root, block_mpi
  implicit none
  integer :: i, nroots, fid1, fid2, RENAME
+ real(kind=8) :: xss
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1
  character(len=240), intent(in) :: pyname
+ logical :: alive
 
  if(RI) call auxbas_convert(RIJK_bas, RIJK_bas1, 1)
- pyname1 = TRIM(pyname)//'.t'
-
+ call find_specified_suffix(pyname, '.py', i)
+ pyname1 = pyname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(pyname1),status='replace')
 
@@ -824,9 +800,16 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A,I0,A)') 'mc.fcisolver.memory = ', i, ' # GB'
  end if
 
- if(iroot > 0) then ! NEVPT2 based on SS-CASSCF
-  call read_ss_root_from_txt(nroots, target_root)
-  write(fid2,'(A,I0)') 'mc.fcisolver.nroots = ', nroots
+ ! TODO: use .gjf/.fch related filename. 'ss-cas.txt' is a temporary solution.
+ inquire(file='ss-cas.txt',exist=alive)
+ if(iroot > 0) then
+  if(alive) then
+   call read_ss_root_from_txt(nroots, target_root)
+  else
+   nroots = iroot + 4
+  end if
+  write(fid2,'(A,I0)') 'nroots = ', nroots
+  write(fid2,'(A)') 'mc.fcisolver.nroots = nroots'
  end if
 
  if(casci .or. casscf) then
@@ -835,16 +818,36 @@ subroutine prt_nevpt2_script_into_py(pyname)
  write(fid2,'(A)') 'mc.verbose = 5'
  write(fid2,'(A)') 'mc.kernel()'
 
- if(casci .or. casscf) then
+ if(casci .or. casscf) then ! CASCI based NEVPT2
+  if(iroot > 0) then ! find target_root
+   if(alive) then
+    write(fid2,'(A,I0)') 'target_root = ', target_root
+   else
+    if(xmult == mult) then
+     write(fid2,'(A)') 'iroot = -1'
+    else
+     write(fid2,'(A)') 'iroot = 0'
+    end if
+    write(fid2,'(A)') 'for i in range(nroots):'
+    write(fid2,'(2X,A)') 'ss = mc.fcisolver.spin_square(mc.ci[i], mc.ncas, mc.nelecas)'
+    xss = 0.25d0*DBLE(xmult*xmult - 1)
+    write(fid2,'(2X,A,F0.3,A)') 'if abs(ss[0] - ',xss,') < 1e-4:'
+    write(fid2,'(4X,A)') 'iroot = iroot + 1'
+    write(fid2,'(2X,A,I0,A)') 'if iroot == ',iroot,':'
+    write(fid2,'(4X,A)') 'break'
+    write(fid2,'(A)') 'target_root = i'
+    write(fid2,'(A)') "print('target_root= %d' % i)"
+   end if
+  end if
   write(fid2,'(/,A)',advance='no') 'mrpt.NEVPT(mc'
-  if(iroot > 0) write(fid2,'(A,I0)',advance='no') ', root=', target_root
+  if(iroot > 0) write(fid2,'(A,I0)',advance='no') ', root=target_root'
   write(fid2,'(A)') ').kernel()'
- else
+ else                       ! DMRG-CASCI based NEVPT2
   call prt_dmrg_nevpt2_setting(fid2)
  end if
 
  close(fid2)
- i = RENAME(pyname1, pyname)
+ i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine prt_nevpt2_script_into_py
 
 ! print PySCF DMRG-NEVPT2 settings
@@ -857,7 +860,7 @@ subroutine prt_dmrg_nevpt2_setting(fid)
 
  ! The number of MPI processors should be less than or equal to ndb+nvir. This
  ! is required by dmrgscf/pyscf/dmrgscf/nevpt_mpi.py.
- real_nproc = min(nif-nacto, nproc)
+ real_nproc = MIN(nif-nacto, nproc)
 
  ! MPI/OpenMP hybrid can be used if the number of MPI processors is small
  nthread = 1
@@ -1073,6 +1076,7 @@ subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
 
  ref_e = 0d0; corr_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1080,8 +1084,9 @@ subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no '&
-                      &EIGENVALUE' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EIGE&
+                   &NVALUE' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
  end if
  read(buf(23:),*) ref_e
@@ -1094,8 +1099,9 @@ subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no '&
-                      &EUMP2 =' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EUMP&
+                   &2 =' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
  end if
 
  read(buf(35:),*) corr_e
@@ -1105,7 +1111,7 @@ end subroutine read_mrpt_energy_from_gau_log
 ! read nroots and target_root from a plain text file
 subroutine read_ss_root_from_txt(nroots, target_root)
  implicit none
- integer :: i, fid
+ integer :: fid
  integer, intent(out) :: nroots, target_root
  character(len=50) :: buf
  character(len=10), parameter :: txtname = 'ss-cas.txt'
@@ -1114,13 +1120,10 @@ subroutine read_ss_root_from_txt(nroots, target_root)
  open(newunit=fid,file=txtname,status='old',position='rewind')
 
  read(fid,'(A)') buf
- i = INDEX(buf, '=')
- read(buf(i+1:),*) nroots
+ call get_int_after_flag(buf, '=', .true., nroots)
 
  read(fid,'(A)') buf
- i = INDEX(buf, '=')
- read(buf(i+1:),*) target_root
-
  close(fid)
+ call get_int_after_flag(buf, '=', .true., target_root)
 end subroutine read_ss_root_from_txt
 

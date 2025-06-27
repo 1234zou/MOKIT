@@ -1,7 +1,7 @@
 ! written by jxzou at 20220214: move math library wrappers into this file
 
-! This is a function to replace zdotc(3,z,1,z,1). zdotc leads to segmentation
-! fault during running if compiled using f2py+gfortran+OpenBLAS.
+! This is a function to replace zdotc(3,z,1,z,1). zdotc is unsupported when
+! using f2py+gfortran+OpenBLAS.
 function cmplx_v3_square(z) result(s)
  implicit none
  real(kind=8) :: s
@@ -12,8 +12,8 @@ function cmplx_v3_square(z) result(s)
      REAL(z(3))*REAL(z(3)) + AIMAG(z(3))*AIMAG(z(3))
 end function cmplx_v3_square
 
-! This is a function to replace REAL(zdotc(3,y,1,z,1)). zdotc leads to
-! segmentation fault during running if compiled using f2py+gfortran+OpenBLAS.
+! This is a function to replace REAL(zdotc(3,y,1,z,1)). zdotc is unsupported
+! when using f2py+gfortran+OpenBLAS.
 function cmplx_v3_dot_real(z1, z2) result(s)
  implicit none
  real(kind=8) :: s
@@ -94,7 +94,26 @@ subroutine update_gross_ii_jj_ji(cos_a, sin_a, natom, v, vdiff, gross_ii, &
 !$omp end simd
 end subroutine update_gross_ii_jj_ji
 
-! initialize RHF occupation matrix
+subroutine init_identity_mat(n, a)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(out) :: a(n,n)
+
+ if(n == 1) then
+  a(1,1) = 1d0
+  return
+ end if
+ a = 0d0
+
+!$omp simd
+ do i = 1, n, 1
+  a(i,i) = 1d0
+ end do ! for n
+!$omp end simd
+end subroutine init_identity_mat
+
+! initialize an RHF occupation matrix
 subroutine init_rhf_occ_mat(ndb, nif, n)
  implicit none
  integer :: i
@@ -102,9 +121,11 @@ subroutine init_rhf_occ_mat(ndb, nif, n)
  real(kind=8), intent(out) :: n(nif,nif)
 
  n = 0d0
+!$omp simd
  do i = 1, ndb, 1
   n(i,i) = 2d0
  end do ! for i
+!$omp end simd
 end subroutine init_rhf_occ_mat
 
 ! Reduce a fraction, where
@@ -466,7 +487,7 @@ end subroutine check_symm_cmplx
 ! get upper triangle index pairs (j>=i), similar to numpy.triu_indices
 subroutine get_triu_idx(n, map)
  implicit none
- integer :: i, j
+ integer :: i, j, k
  integer, intent(in) :: n
 !f2py intent(in) :: n
  integer, intent(out) :: map(2,n*(n+1)/2)
@@ -479,13 +500,14 @@ subroutine get_triu_idx(n, map)
   stop
  end if
 
- if(n < 300) then
+ if(n < 100) then
   forall(i=1:n, j=1:n, j>=i) map(:,(2*n-i)*(i-1)/2+j) = [i,j]
  else
-!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k)
   do i = 1, n, 1
+   k = (2*n-i)*(i-1)/2
    do j = i, n, 1
-    map(:,(2*n-i)*(i-1)/2+j) = [i,j]
+    map(:,k+j) = [i,j]
    end do ! for j
   end do ! for i
 !$omp end parallel do
@@ -495,7 +517,7 @@ end subroutine get_triu_idx
 ! get upper triangle index pairs (j>i), similar to numpy.triu_indices
 subroutine get_triu_idx1(n, map)
  implicit none
- integer :: i, j
+ integer :: i, j, k
  integer, intent(in) :: n
 !f2py intent(in) :: n
  integer, intent(out) :: map(2,n*(n-1)/2)
@@ -508,13 +530,14 @@ subroutine get_triu_idx1(n, map)
   stop
  end if
 
- if(n < 300) then
+ if(n < 100) then
   forall(i=1:n-1, j=1:n, j>i) map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
  else
-!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k)
   do i = 1, n-1, 1
+   k = (2*n-i)*(i-1)/2 - i
    do j = i+1, n, 1
-    map(:,(2*n-i)*(i-1)/2+j-i) = [i,j]
+    map(:,k+j) = [i,j]
    end do ! for j
   end do ! for i
 !$omp end parallel do
@@ -1041,6 +1064,22 @@ subroutine solve_multi_lin_eqs(a1, a2, a, a3, b, x)
  deallocate(b_copy)
 end subroutine solve_multi_lin_eqs
 
+! Cayley transformation K = (I-U)(I+U)^(-1), U = (I-K)(I+K)^(-1)
+! For example, solve K using systems of linear equations (I+U)K = I-U. This
+!  subroutine can be used for either K->U or U->K.
+subroutine cayley_trans(n, u, k)
+ implicit none
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: u(n,n)
+ real(kind=8), intent(out) :: k(n,n)
+ real(kind=8), allocatable :: one(:,:)
+
+ allocate(one(n,n))
+ call init_identity_mat(n, one)
+ call solve_multi_lin_eqs(n, n, one+u, n, one-u, k)
+ deallocate(one)
+end subroutine cayley_trans
+
 ! perform SVD on a matrix
 subroutine do_svd(m, n, a, u, vt, s)
  implicit none
@@ -1117,6 +1156,38 @@ subroutine symmetrize_dmat(n, a)
  end do ! for i
 !$omp end parallel do
 end subroutine symmetrize_dmat
+
+! symmetrize a double precision complex matrix
+subroutine symmetrize_zmat(n, a)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ complex(kind=8), intent(inout) :: a(n,n)
+
+ if(n == 1) return
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, n, 1
+  do j = 1, i-1, 1
+   a(i,j) = a(j,i)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+end subroutine symmetrize_zmat
+
+! symmetrize the double precision complex matrices mo_zdip(i,:,:)
+subroutine symmetrize_mo_zdip(nmo, mo_zdip)
+ implicit none
+ integer, intent(in) :: nmo
+!f2py intent(in) :: nmo
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
+!f2py intent(in,out) :: mo_zdip
+!f2py depend(nmo) :: mo_zdip
+
+ call symmetrize_zmat(nmo, mo_zdip(1,:,:))
+ call symmetrize_zmat(nmo, mo_zdip(2,:,:))
+ call symmetrize_zmat(nmo, mo_zdip(3,:,:))
+end subroutine symmetrize_mo_zdip
 
 ! calculate C(C^T)
 subroutine calc_cct(nbf, nif, occ_mo, cct)
@@ -1309,10 +1380,9 @@ subroutine calc_ct_zs_c(nbf, nif, c, s, ctsc)
  complex(kind=8), allocatable :: zc(:,:), sc(:,:)
 
  ctsc = zero
- ! transform real matrix C to complex matrix
- allocate(zc(nbf,nif), sc(nbf,nif))
- zc = CMPLX(c, 0d0)
- sc = zero
+ ! Transform real matrix C to complex matrix. kind=8 is necessary in CMPLX()
+ allocate(zc(nbf,nif), source=CMPLX(c, kind=8))
+ allocate(sc(nbf,nif), source=zero)
  call zsymm('L', 'L', nbf, nif, one, s, nbf, zc, nbf, zero, sc, nbf)
  call zgemm('T', 'N', nif, nif, nbf, one, zc, nbf, sc, nbf, zero, ctsc, nif)
  deallocate(sc, zc)
@@ -1331,26 +1401,26 @@ subroutine update_up_tri_ij_dip(nmo, i, j, cos_a, sin_a, mo_dip)
  !$omp parallel sections private(k,tmp_dip)
  !$omp section
  do k = 1, i-1, 1
-  tmp_dip = mo_dip(:,i,k)
-  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
-  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
- end do ! for k
- !$omp section
- do k = i+1, j-1, 1
-  tmp_dip = mo_dip(:,k,i)
-  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
-  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
- end do ! for k
- !$omp section
- do k = j+1, nmo, 1
   tmp_dip = mo_dip(:,k,i)
   mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
   mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
  end do ! for k
+ !$omp section
+ do k = i+1, j-1, 1
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
+  mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = j+1, nmo, 1
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
+ end do ! for k
  !$omp end parallel sections
 end subroutine update_up_tri_ij_dip
 
-! Update upper triangular part of i,j columns of a complex dipole integral matrix.
+! Update lower triangular part of i,j columns of a complex dipole integral matrix.
 ! Note: i<j is required.
 subroutine update_up_tri_ij_zdip(nmo, i, j, cos_a, sin_a, mo_dip)
  implicit none
@@ -1363,21 +1433,21 @@ subroutine update_up_tri_ij_zdip(nmo, i, j, cos_a, sin_a, mo_dip)
  !$omp parallel sections private(k,tmp_dip)
  !$omp section
  do k = 1, i-1, 1
-  tmp_dip = mo_dip(:,i,k)
-  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
-  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
- end do ! for k
- !$omp section
- do k = i+1, j-1, 1
-  tmp_dip = mo_dip(:,k,i)
-  mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
-  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
- end do ! for k
- !$omp section
- do k = j+1, nmo, 1
   tmp_dip = mo_dip(:,k,i)
   mo_dip(:,k,i) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
   mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = i+1, j-1, 1
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,k,j)
+  mo_dip(:,k,j) = cos_a*mo_dip(:,k,j) - sin_a*tmp_dip
+ end do ! for k
+ !$omp section
+ do k = j+1, nmo, 1
+  tmp_dip = mo_dip(:,i,k)
+  mo_dip(:,i,k) = cos_a*tmp_dip + sin_a*mo_dip(:,j,k)
+  mo_dip(:,j,k) = cos_a*mo_dip(:,j,k) - sin_a*tmp_dip
  end do ! for k
  !$omp end parallel sections
 end subroutine update_up_tri_ij_zdip
@@ -1397,21 +1467,21 @@ subroutine update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
 !$omp parallel sections private(k,tmp_g)
 !$omp section
  do k = 1, i-1, 1
-  tmp_g = gross(:,i,k)
-  gross(:,i,k) = cos_a*tmp_g + sin_a*gross(:,j,k)
-  gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
- end do ! for k
-!$omp section
- do k = i+1, j-1, 1
-  tmp_g = gross(:,k,i)
-  gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,j,k)
-  gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
- end do ! for k
-!$omp section
- do k = j+1, nmo, 1
   tmp_g = gross(:,k,i)
   gross(:,k,i) = cos_a*tmp_g + sin_a*gross(:,k,j)
   gross(:,k,j) = cos_a*gross(:,k,j) - sin_a*tmp_g
+ end do ! for k
+!$omp section
+ do k = i+1, j-1, 1
+  tmp_g = gross(:,i,k)
+  gross(:,i,k) = cos_a*tmp_g + sin_a*gross(:,k,j)
+  gross(:,k,j) = cos_a*gross(:,k,j) - sin_a*tmp_g
+ end do ! for k
+!$omp section
+ do k = j+1, nmo, 1
+  tmp_g = gross(:,i,k)
+  gross(:,i,k) = cos_a*tmp_g + sin_a*gross(:,j,k)
+  gross(:,j,k) = cos_a*gross(:,j,k) - sin_a*tmp_g
  end do ! for k
 !$omp end parallel sections
 
@@ -1419,14 +1489,14 @@ subroutine update_up_tri_ij_gross(natom, nmo, i, j, cos_a, sin_a, gross)
 end subroutine update_up_tri_ij_gross
 
 ! transform AO dipole integrals into MO dipole integrals
-subroutine ao2mo_dip(nbf, nmo, ao_dip, mo, mo_dip)
+subroutine ao2mo_dip(nbf, nmo, mo, ao_dip, mo_dip)
  implicit none
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
- real(kind=8), intent(in) :: ao_dip(3,nbf,nbf), mo(nbf,nmo)
-!f2py intent(in) :: ao_dip, mo
-!f2py depend(nbf) :: ao_dip
+ real(kind=8), intent(in) :: mo(nbf,nmo), ao_dip(3,nbf,nbf)
+!f2py intent(in) :: mo, ao_dip
 !f2py depend(nbf,nmo) :: mo
+!f2py depend(nbf) :: ao_dip
  real(kind=8), intent(out) :: mo_dip(3,nmo,nmo)
 !f2py intent(out) :: mo_dip
 !f2py depend(nmo) :: mo_dip
@@ -1457,6 +1527,72 @@ subroutine ao2mo_zdip(nbf, nmo, mo, ao_dip, mo_dip)
  call calc_ct_zs_c(nbf, nmo, mo, ao_dip(2,:,:), mo_dip(2,:,:))
  call calc_ct_zs_c(nbf, nmo, mo, ao_dip(3,:,:), mo_dip(3,:,:))
 end subroutine ao2mo_zdip
+
+! TODO: change to mo_dip(nmo,nmo,3)
+subroutine update_mo_zdip_by_u(nmo, u, mo_zdip)
+ implicit none
+ integer, intent(in) :: nmo
+!f2py intent(in) :: nmo
+ real(kind=8), intent(in) :: u(nmo,nmo)
+!f2py intent(in) :: u
+!f2py depend(nmo) :: u
+ complex(kind=8), intent(inout) :: mo_zdip(3,nmo,nmo)
+!f2py intent(in,out) :: mo_zdip
+!f2py depend(nmo) :: mo_zdip
+ complex(kind=8), allocatable :: r(:,:)
+
+ allocate(r(nmo,nmo))
+ call calc_ct_zs_c(nmo, nmo, u, mo_zdip(1,:,:), r)
+ mo_zdip(1,:,:) = r
+ call calc_ct_zs_c(nmo, nmo, u, mo_zdip(2,:,:), r)
+ mo_zdip(2,:,:) = r
+ call calc_ct_zs_c(nmo, nmo, u, mo_zdip(3,:,:), r)
+ mo_zdip(3,:,:) = r
+ deallocate(r)
+end subroutine update_mo_zdip_by_u
+
+! get the value of the Boys function sum_i <phi_i|r|phi_i>^2
+subroutine get_fboys(nmo, mo_dip, fboys)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nmo
+!f2py intent(in) :: nmo
+ real(kind=8), intent(in) :: mo_dip(3,nmo,nmo)
+!f2py intent(in) :: mo_dip
+!f2py depend(nmo) :: mo_dip
+ real(kind=8), intent(out) :: fboys
+!f2py intent(out) :: fboys
+
+ fboys = 0d0
+!$omp parallel do schedule(static) default(private) shared(nmo,mo_dip) &
+!$omp reduction(+:fboys)
+ do i = 1, nmo, 1
+  fboys = fboys + DOT_PRODUCT(mo_dip(:,i,i), mo_dip(:,i,i))
+ end do ! for i
+!$omp end parallel do
+end subroutine get_fboys
+
+! get the value of the Berry function sum_i <phi_i|r|phi_i>^2
+subroutine get_fberry(nmo, mo_zdip, fberry)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nmo
+!f2py intent(in) :: nmo
+ complex(kind=8), intent(in) :: mo_zdip(3,nmo,nmo)
+!f2py intent(in) :: mo_zdip
+!f2py depend(nmo) :: mo_zdip
+ real(kind=8), intent(out) :: fberry
+!f2py intent(out) :: fberry
+ real(kind=8), external :: cmplx_v3_square
+
+ fberry = 0d0
+!$omp parallel do schedule(static) default(private) shared(nmo,mo_zdip) &
+!$omp reduction(+:fberry)
+ do i = 1, nmo, 1
+  fberry = fberry + cmplx_v3_square(mo_zdip(:,i,i))
+ end do ! for i
+!$omp end parallel do
+end subroutine get_fberry
 
 ! calculate (C^T)S(C'), S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf, C': nbf*nif
@@ -1763,7 +1899,7 @@ subroutine get_a_random_int(i)
  call SYSTEM_CLOCK(count=clock)
  seed = clock
 #else
- open(unit=fid,file=fname,access='stream',form='unformatted',status='old',&
+ open(newunit=fid,file=fname,access='stream',form='unformatted',status='old',&
       iostat=ierr)
  if(ierr == 0) then
   read(fid) seed
@@ -2290,6 +2426,38 @@ subroutine calc_dis_mat_from_coor_pbc(natom, cell, coor, dis)
  deallocate(coor1, map)
 end subroutine calc_dis_mat_from_coor_pbc
 
+! check whether the input matrix is a diagonal matrix
+function check_diagonal_mat(n, a) result(diagonal)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n
+ real(kind=8) :: r1, r2, s, maxv
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), parameter :: thres = 1d-5
+ real(kind=8), allocatable :: abs_a(:,:)
+ logical :: diagonal
+
+ if(n == 1) then
+  diagonal = .true.
+  return
+ end if
+
+ allocate(abs_a(n,n), source=DABS(a))
+ diagonal = .false.; s = 0d0; maxv = abs_a(2,1)
+
+ do i = 1, n-1, 1
+  do j = i+1, n, 1
+   r1 = abs_a(j,i); r2 = abs_a(i,j)
+   s = s + r1 + r2
+   if(r1 > maxv) maxv = r1
+   if(r2 > maxv) maxv = r2
+  end do ! for j
+ end do ! or i
+
+ deallocate(abs_a)
+ if(maxv<thres .and. s/DBLE(n*(n-1))<thres) diagonal = .true.
+end function check_diagonal_mat
+
 ! calculate (RHF-)CIS MO-based density matrix using excitation coefficients
 ! nfc: the number of frozen core orbitals in CIS calculation
 ! nocc: the number of doubly occupied orbitals involved in excitations
@@ -2534,11 +2702,10 @@ subroutine detect_zero_mo(nbf, nif, mo, nzero)
  integer :: i
  integer, intent(in) :: nbf, nif
  integer, intent(out) :: nzero
- real(kind=8), parameter :: thres = 1d-8
+ real(kind=8), parameter :: thres = 1d-7
  real(kind=8), intent(in) :: mo(nbf,nif)
 
  nzero = 0
-
  do i = nif, 1, -1
   if(SUM(DABS(mo(:,i))) < thres) then
    nzero = nzero + 1
@@ -2655,6 +2822,71 @@ subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
  new_coeff = U
  deallocate(U)
 end subroutine gen_no_from_dm_and_ao_ovlp
+
+! solve the system of linear equations of Cayley K matrix via Ax=b
+subroutine solve_cayley_k_diis(nmo,ndiis,ijmap,binfile, k_diis, k_old, cayley_k)
+ implicit none
+ integer :: i, j, k, n, npair, nfile, fid
+ integer, intent(in) :: nmo, ndiis
+ integer, intent(in) :: ijmap(2,nmo*(nmo-1)/2)
+ real(kind=8), intent(in) :: k_diis(ndiis+1,ndiis+1)
+ real(kind=8), intent(inout) :: k_old(nmo,nmo), cayley_k(nmo,nmo)
+ real(kind=8) :: r1, r2
+ real(kind=8), allocatable :: x(:), bv(:), older(:)
+ ! b has been used by B, so use bv instead
+ character(len=240), intent(in) :: binfile(2*ndiis-1)
+
+ npair = nmo*(nmo-1)/2; nfile = 2*ndiis - 1
+ allocate(bv(ndiis+1), source=0d0)
+ bv(ndiis+1) = 1d0
+ allocate(x(ndiis+1))
+ call solve_lin_eqs(ndiis+1, ndiis+1, k_diis, bv, x)
+ deallocate(bv)
+
+ k_old = cayley_k ! remember to update k_old
+ cayley_k = x(ndiis)*cayley_k
+ allocate(older(npair))
+
+ do k = ndiis+1, nfile, 1
+  open(newunit=fid,file=TRIM(binfile(k)),status='old',form='unformatted')
+  read(unit=fid) older
+  close(fid)
+  r1 = x(nfile+1-k)
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,n,r2)
+  do n = 1, npair, 1
+   i = ijmap(1,n); j = ijmap(2,n)
+   r2 = cayley_k(j,i) + r1*older(n)
+   cayley_k(j,i) = r2; cayley_k(i,j) = -r2 ! anti-symm
+  end do ! for n
+!$omp end parallel do
+ end do ! for k
+
+ deallocate(older)
+end subroutine solve_cayley_k_diis
+
+subroutine get_mo_and_u_from_cayley_k_diis(nbf, nmo, ndiis, ijmap, binfile, &
+                                       k_diis, u, mo, k_old, cayley_k, u_tmp)
+ implicit none
+ integer, intent(in) :: nbf, nmo, ndiis
+ integer, intent(in) :: ijmap(2,nmo*(nmo-1)/2)
+ real(kind=8), intent(in) :: k_diis(ndiis+1,ndiis+1)
+ real(kind=8), intent(inout) :: u(nmo,nmo), mo(nbf,nmo), k_old(nmo,nmo), &
+  cayley_k(nmo,nmo)
+ real(kind=8), intent(out) :: u_tmp(nmo,nmo)
+ real(kind=8), allocatable :: u_bak(:,:), mo_bak(:,:)
+ character(len=240), intent(in) :: binfile(2*ndiis-1)
+
+ call solve_cayley_k_diis(nmo, ndiis, ijmap, binfile, k_diis, k_old, cayley_k)
+ allocate(u_bak(nmo,nmo), source=u)
+ call cayley_trans(nmo, cayley_k, u)
+ u_tmp = 0d0
+ call dgemm('T','N', nmo, nmo, nmo, 1d0, u_bak, nmo, u, nmo, 0d0, u_tmp, nmo)
+ deallocate(u_bak)
+ allocate(mo_bak(nbf,nmo), source=mo)
+ mo = 0d0
+ call dgemm('N','N', nbf, nmo, nmo, 1d0, mo_bak, nbf, u_tmp, nmo, 0d0, mo, nbf)
+ deallocate(mo_bak)
+end subroutine get_mo_and_u_from_cayley_k_diis
 
 !subroutine merge_two_sets_of_t1(nocc1,nvir1,t1_1, nocc2,nvir2,t1_2, t1)
 ! implicit none
