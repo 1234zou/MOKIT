@@ -45,7 +45,7 @@ Pre-built `Windows OS` executables for a few utilities are provided in [Releases
 ### Option 1: Install from conda (for Linux only)
 This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
 ```
-conda create -n mokit-py39 python=3.9 # 3.8~3.11 are available
+conda create -n mokit-py39 python=3.9 # 3.9~3.11 are available
 conda activate mokit-py39
 conda install mokit -c mokit
 ```
