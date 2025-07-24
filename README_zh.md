@@ -46,7 +46,7 @@ or
 
 这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。
 ```
-conda create -n mokit-py39 python=3.9 # 3.8~3.11 are available
+conda create -n mokit-py39 python=3.9 # 3.9~3.11 are available
 conda activate mokit-py39
 conda install mokit -c mokit
 ```

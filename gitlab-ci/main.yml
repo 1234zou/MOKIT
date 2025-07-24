@@ -44,7 +44,7 @@ variables:
 #      - ./$TARGET/
 
 lint:
-  image: python:3.8-buster
+  image: python:3.9-bullseye
   except:
     - cf
   script:

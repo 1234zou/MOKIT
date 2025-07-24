@@ -5,7 +5,7 @@
     #- apt-get update -qy
     - conda init bash
     - source ~/.bashrc
-    - conda create -n mokit-build python=3.8
+    - conda create -n mokit-build python=3.9
     - conda activate mokit-build
     - conda install anaconda-client conda-build=24.9 setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
@@ -36,7 +36,7 @@ conda_build:
       - "conda/conda*/meta.yaml"
   script:
     #- conda build --output-folder ./output conda/conda37
-    - conda build --output-folder ./output conda/conda38p
+    #- conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - conda build --output-folder ./output conda/conda310p
     - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing 
@@ -54,7 +54,7 @@ conda_build_test:
       - "conda/conda*/meta.yaml"
   script:
     #- conda build --output-folder ./output conda/conda37
-    - conda build --output-folder ./output conda/conda38p
+    #- conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - conda build --output-folder ./output conda/conda310p
     - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing --label test
