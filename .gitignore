@@ -20,7 +20,13 @@ noarch/
 /test/*/*.chk
 /test/*/*hf.gjf
 /test/*/*.log
+/test/*/*.gms
+/test/*/*.dat
+/test/*/*.inp
+/test/*/*.txt
+/test/*/*.py
 /test/*/*out
+/test/*/*pyscflog
 /test/*/*_proj_*
 /test/*/*CASSCF*
 /test/utilities/

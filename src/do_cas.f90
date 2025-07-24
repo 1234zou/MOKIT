@@ -664,6 +664,11 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  end do ! for while
 
  write(fid2,'(A,I0,A)') 'mf.max_memory = ', mem*1000, ' # MB'
+ if(RI) then
+  write(fid2,'(A)') "mf = mf.density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
+ end if
+ ! With mf.with_df being built here, we can avoid the later DFCASSCF(mf) objects
+ ! recalculate df eri.
  write(fid2,'(A)') 'mf.kernel()'
 
  do while(.true.)
@@ -1699,12 +1704,10 @@ subroutine prt_gs_casscf_kywrd_py(fid, RIJK_bas1)
  character(len=21), intent(in) :: RIJK_bas1
 
  if(casscf) then ! CASSCF
-  write(fid,'(3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(', &
-                                        nacta, ',', nactb, ')'
+  write(fid,'(3(A,I0),A)') 'mc = mcscf.CASSCF(mf,', nacto, ',(', &
+                                        nacta, ',', nactb, '))'
   if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
+   write(fid,'(A)') "mc = mc.density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   end if
   write(fid,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid,'(A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
@@ -1737,7 +1740,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  use mr_keyword, only: mem, nproc, dmrgscf, block_mpi, maxM, RI, hardwfn, crazywfn,&
   iroot, xmult
  implicit none
- integer :: k
+ integer :: k, iroot_init
  integer, intent(in) :: fid
  integer, parameter :: max_cyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
@@ -1761,15 +1764,15 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  else
   write(fid,'(A,I0)') 'nroots = ', iroot+3 ! initial nroots
  end if
+ write(fid,'(A,I0)') 'target_root = ', iroot
 
+ write(fid,'(A)') 'from mokit.lib.auto import find_root_by_ss'
  write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
  write(fid,'(2X,A)') "print('ITER=',i)"
- write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
-                                          nacta, ',', nactb, ')'
+ write(fid,'(2X,3(A,I0),A)') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+                                          nacta, ',', nactb, '))'
  if(RI) then
-  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
- else
-  write(fid,'(A)') ')'
+  write(fid,'(2X,A)') "mc = mc.density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
  end if
 
  if(dmrgscf) then
@@ -1801,16 +1804,12 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   call prt_block_mem(2, fid, mem, nproc, block_mpi)
  else
   if(xmult == mult) then
-   write(fid,'(2X,A)') 'iroot = -1'
+   iroot_init = -1
   else
-   write(fid,'(2X,A)') 'iroot = 0'
+   iroot_init = 0
   end if
-  write(fid,'(2X,A)') 'for j in range(nroots):'
-  write(fid,'(4X,A)') 'ss = mc.fcisolver.spin_square(mc.ci[j], mc.ncas, mc.nelecas)'
-  write(fid,'(4X,A,F0.3,A)') 'if abs(ss[0] - ',xss,') < 1e-4:'
-  write(fid,'(6X,A)') 'iroot = iroot + 1'
-  write(fid,'(4X,A,I0,A)') 'if iroot == ',iroot,':'
-  write(fid,'(6X,A)') 'break'
+  write(fid,'(2X,A,F0.3,A,I0,A)') 'j = find_root_by_ss(mc, nroots, target_root, ',&
+                              xss, ', ', iroot_init, ')'
   if(nacto==2 .and. nacte==2) then
    write(fid,'(2X,A)') 'nroots = 4'
   else
@@ -1818,22 +1817,16 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
   end if
   write(fid,'(2X,A)') 'if j == 0:'
   write(fid,'(4X,A)') 'ci0 = mc.ci[0].copy()'
-  write(fid,'(4X,3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(',&
-                                           nacta, ',', nactb, ')'
-  if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
-  end if
+  write(fid,'(4X,3(A,I0),A)') 'mc = mcscf.CASSCF(mf,', nacto, ',(',&
+                                           nacta, ',', nactb, '))'
   write(fid,'(2X,A)') 'else:'
   write(fid,'(4X,3(A,I0),A)',advance='no') 'mc = mcscf.CASSCF(mf,', nacto, ',(',&
                                            nacta, ',', nactb, ')'
-  write(fid,'(A,I0)',advance='no') ').state_specific_(j'
+  write(fid,'(A,I0)') ').state_specific_(j)'
   if(RI) then
-   write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
-  else
-   write(fid,'(A)') ')'
+   write(fid,'(2X,A)') "mc = mc.density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
   end if
+
   write(fid,'(2X,A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid,'(2X,A,I0,A)') 'mc.fcisolver.max_memory = ', mem*300, ' # MB'
   call prt_hard_or_crazy_casci_pyscf(2, fid, nacta-nactb, hardwfn, crazywfn)
@@ -1867,21 +1860,14 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  write(fid,'(A)') 'f.close()'
 
  write(fid,'(/,A)') 'if j == 0:'
- write(fid,'(2X,3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
-                                          nacta, ',', nactb, ')'
- if(RI) then
-  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
- else
-  write(fid,'(A)') ')'
- end if
+ write(fid,'(2X,3(A,I0),A)') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
+                                          nacta, ',', nactb, '))'
  write(fid,'(A)') 'else:'
  write(fid,'(2X3(A,I0),A)',advance='no') 'mc = mcscf.CASCI(mf,', nacto, ',(',&
                                          nacta, ',', nactb, ')'
- write(fid,'(A,I0)',advance='no') ').state_specific_(j'
+ write(fid,'(A,I0)') ').state_specific_(j)'
  if(RI) then
-  write(fid,'(A)') ").density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
- else
-  write(fid,'(A)') ')'
+  write(fid,'(A)') "mc = mc.density_fit(auxbasis='"//TRIM(RIJK_bas1)//"')"
  end if
 
  if(dmrgscf) then

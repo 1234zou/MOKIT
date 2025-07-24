@@ -1,0 +1,15 @@
+%mem=4GB
+%nprocshared=4
+#p CASSCF(6,6)/cc-pVDZ
+
+mokit{RI}
+
+0 1
+N   0.0   0.0   0.0
+N   0.0   0.0   1.1
+
+# The size of automatically determined active space sometimes is not what you
+# want. In this example if you do not write (6,6), the active space will be
+# determined as (4,4). If you want CAS(6,6), you can tell AutoMR the size.
+#
+# To run this example, you need to install Gaussian, PySCF and GAMESS

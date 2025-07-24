@@ -59,3 +59,17 @@ def loc_driver(mol, lmo_ini, nval, method='pm', ao_dip=None, dis_tol=17.0, conv_
     else:
         raise ValueError(f'Localization method {method} cannot be recognized.')
     return occ_lmo
+
+def find_root_by_ss(mc, nroots, target_root, target_ss, iroot_init=-1):
+    '''
+    target_root: the target root index of certain spin, 1 for S1, 1 for T1
+    iroot_init: set -1 for same spin excitation, 0 for different spin
+    '''
+    iroot = iroot_init
+    for j in range(nroots):
+        ss = mc.fcisolver.spin_square(mc.ci[j], mc.ncas, mc.nelecas)
+        if abs(ss[0] - target_ss) < 1e-4:
+            iroot = iroot + 1
+        if iroot == target_root:
+            return j
+    raise ValueError(f'Cannot find root with target ss {target_ss} in {nroots} roots')
