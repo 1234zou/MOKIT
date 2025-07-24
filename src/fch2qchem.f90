@@ -24,7 +24,7 @@ program main
   write(6,'(A)')  ' Example 1 (HF/DFT)   : fch2qchem h2o.fch'
   write(6,'(A)')  ' Example 2 (GVB)      : fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
   write(6,'(A)')  ' Example 3 (SF-CIS)   : fch2qchem high_spin.fch -sfcis'
-  write(6,'(A)')  ' Example 4 (SF-SF-CIS): fch2qchem high_spin.fch -sasfcis'
+  write(6,'(A)')  ' Example 4 (SA-SF-CIS): fch2qchem high_spin.fch -sasfcis'
   write(6,'(A)')  ' Example 5 (SF-TDDFT) : fch2qchem high_spin.fch -sf'
   write(6,'(A,/)')' Example 6 (SA-SF-DFT): fch2qchem high_spin.fch -sasf'
   stop

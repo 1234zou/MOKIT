@@ -1361,6 +1361,28 @@ subroutine calc_CTSC(nbf, nif, C, S, CTSC)
  deallocate(SC)
 end subroutine calc_CTSC
 
+! calculate Cn(C^T), n must be real symmetric since dsymm is called
+! C: nbf*nmo, n: nmo*nmo
+subroutine calc_cnct(nbf, nmo, c, n, cnct)
+ implicit none
+ integer, intent(in) :: nbf, nmo
+!f2py intent(in) :: nbf, nmo
+ real(kind=8), intent(in) :: c(nbf,nmo), n(nmo,nmo)
+!f2py intent(in) :: c, n
+!f2py depend(nbf,nmo) :: c
+!f2py depend(nmo) :: n
+ real(kind=8), intent(out) :: cnct(nbf,nbf)
+!f2py intent(out) :: cnct
+!f2py depend(nbf) :: cnct
+ real(kind=8), allocatable :: cn(:,:)
+
+ cnct = 0d0
+ allocate(cn(nbf,nmo), source=0d0)
+ call dsymm('R', 'L', nbf, nmo, 1d0, n, nmo, c, nbf, 0d0, cn, nbf)
+ call dgemm('N', 'T', nbf, nbf, nmo, 1d0, cn, nbf, c, nbf, 0d0, cnct, nbf)
+ deallocate(cn)
+end subroutine calc_cnct
+
 ! Calculate (C^T)SC, where C is (double precision) real and S is (double)
 ! complex symmetric.
 subroutine calc_ct_zs_c(nbf, nif, c, s, ctsc)
@@ -2457,116 +2479,6 @@ function check_diagonal_mat(n, a) result(diagonal)
  deallocate(abs_a)
  if(maxv<thres .and. s/DBLE(n*(n-1))<thres) diagonal = .true.
 end function check_diagonal_mat
-
-! calculate (RHF-)CIS MO-based density matrix using excitation coefficients
-! nfc: the number of frozen core orbitals in CIS calculation
-! nocc: the number of doubly occupied orbitals involved in excitations
-! nvir: the number of virtual orbitals involved in excitations
-! Note: |C_ia|^2 = 1 is required for the input array exc.
-subroutine calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, dm)
- implicit none
- integer :: i, j, p, q, ndb, nmo
- integer, intent(in) :: nfc, nocc, nvir
- real(kind=8), intent(in) :: exc(nocc,nvir)
- real(kind=8), intent(out) :: dm(nfc+nocc+nvir,nfc+nocc+nvir)
-
- dm = 0d0; ndb = nfc + nocc; nmo = ndb + nvir
-
- if(nfc > 0) then
-  forall(i = 1:nfc) dm(i,i) = 2d0
- end if
-
- do i = 1, nocc, 1 ! d_ii
-  j = nfc + i
-  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:),exc(i,:))
- end do ! for i
-
- do i = 1, nvir, 1 ! d_aa
-  j = ndb + i
-  dm(j,j) = DOT_PRODUCT(exc(:,i),exc(:,i))
- end do ! for i
-
- do i = 1, nocc-1, 1 ! d_ij
-  p = nfc + i
-  do j = i+1, nocc, 1
-   q = nfc + j
-   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(j,:))
-  end do ! for j
- end do ! for i
-
- do i = 1, nvir-1, 1 ! d_ab
-  p = ndb + i
-  do j = i+1, nvir, 1
-   q = ndb + j
-   dm(p,q) = DOT_PRODUCT(exc(:,i),exc(:,j))
-  end do ! for j
- end do ! for i
-
- ! RHF-CIS d_ia = 0, no need to calculate.
- call symmetrize_dmat(nmo, dm)
-end subroutine calc_cis_mo_dm_using_exc
-
-! Calculte ROHF-based SF-CIS MO-based density matrix using excitation
-!  coefficients. For SF-CIS, nopen>=2 is required; while for MRSF-CIS,
-!  nopen must be 2.
-! According to my deduction, the formulae of one-electron density matrix of
-!  MRSF-CIS are the same to those of SF-CIS.
-subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
- implicit none
- integer :: i, j, p, q, nval, ndb, nmo
- integer, intent(in) :: nfc, nopen, nocc, nvir
- real(kind=8), intent(in) :: exc(nocc,nvir)
- real(kind=8), intent(out) :: dm(nfc+nocc+nvir-nopen,nfc+nocc+nvir-nopen)
-
- dm = 0d0; nval = nocc - nopen; ndb = nfc + nval; nmo = ndb + nvir
-
- if(nfc > 0) then
-  forall(i = 1:nfc) dm(i,i) = 2d0
- end if
-
- do i = 1, nval, 1 ! d_ii, i <- {C}
-  j = nfc + i
-  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:),exc(i,:))
- end do ! for i
-
- do i = 1, nvir, 1 ! d_aa, a <- {O+V}
-  j = ndb + i
-  dm(j,j) = DOT_PRODUCT(exc(:,i),exc(:,i))
-  if(i <= nopen) then
-   dm(j,j) = dm(j,j) + 1d0 - DOT_PRODUCT(exc(nval+i,:),exc(nval+i,:))
-  end if
- end do ! for i
-
- do i = 1, nval-1, 1 ! d_ij, ij <- {C}
-  p = nfc + i
-  do j = i+1, nval, 1
-   q = nfc + j
-   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(j,:))
-  end do ! for j
- end do ! for i
-
- do i = 1, nvir-1, 1 ! d_ab, ab <- {O+V}
-  p = ndb + i
-  do j = i+1, nvir, 1
-   q = ndb + j
-   dm(p,q) = DOT_PRODUCT(exc(:,i),exc(:,j))
-   if(i<=nopen .and. j<=nopen) then
-    dm(p,q) = dm(p,q) - DOT_PRODUCT(exc(nval+i,:),exc(nval+j,:))
-   end if
-  end do ! for j
- end do ! for i
-
- do i = 1, nval, 1 ! d_is, i <- {C}, s <- {O}
-  p = nfc + i
-  do j = 1, nopen, 1
-   q = ndb + j
-   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(nval+j,:))
-  end do ! for j
- end do ! for i
-
- ! SF-CIS d_ia = 0 for i<-{C}, a<-{V}, no need to calculate.
- call symmetrize_dmat(nmo, dm)
-end subroutine calc_sfcis_mo_dm_using_exc
 
 ! compute the unitary matrix U between two sets of MOs
 ! --------------------------------------------------

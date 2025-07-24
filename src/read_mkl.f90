@@ -501,9 +501,6 @@ subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
   stop
  end if
 
- BACKSPACE(fid)
- read(fid,'(A)') buf
-
  do while(.true.)
   if(INDEX(buf(1:5),'$END') > 0) exit
   nif = nif + detect_ncol_in_buf(buf)
@@ -1265,15 +1262,12 @@ subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
   i_mark(ncontr)
  real(kind=8), intent(inout) :: coeff(nbf,nif)
 
-!$omp parallel do schedule(dynamic) default(shared) private(i,k)
  do i = 1, nfmark, 1
   k = f_mark(i)
   coeff(k+5,:) = -coeff(k+5,:)
   coeff(k+6,:) = -coeff(k+6,:)
  end do ! for i
-!$omp end parallel do
 
-!$omp parallel do schedule(dynamic) default(shared) private(i,k)
  do i = 1, ngmark, 1
   k = g_mark(i)
   coeff(k+5,:) = -coeff(k+5,:)
@@ -1281,9 +1275,7 @@ subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
   coeff(k+7,:) = -coeff(k+7,:)
   coeff(k+8,:) = -coeff(k+8,:)
  end do ! for i
-!$omp end parallel do
 
-!$omp parallel do schedule(dynamic) default(shared) private(i,k)
  do i = 1, nhmark, 1
   k = h_mark(i)
   coeff(k+5,:) = -coeff(k+5,:)
@@ -1291,9 +1283,7 @@ subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
   coeff(k+7,:) = -coeff(k+7,:)
   coeff(k+8,:) = -coeff(k+8,:)
  end do ! for i
-!$omp end parallel do
 
-!$omp parallel do schedule(dynamic) default(shared) private(i,k)
  do i = 1, nimark, 1
   k = i_mark(i)
   coeff(k+5,:) = -coeff(k+5,:)
@@ -1301,7 +1291,6 @@ subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
   coeff(k+7,:) = -coeff(k+7,:)
   coeff(k+8,:) = -coeff(k+8,:)
  end do ! for i
-!$omp end parallel do
 end subroutine update_mo_using_bas_mark
 
 ! find nprim from type all_pg

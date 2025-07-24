@@ -43,4 +43,33 @@ def get_Fii_native(mf, mo, mo_occ):
     fock_ao = mf_r.get_fock(dm=dm1)
     Fii = np.einsum('mi,mn,ni->i', mo, fock_ao, mo, optimize=True)
     return Fii
- 
+
+def average_nmr_shielding(nmr_out, atom_list, program='gaussian', paramagnetic=False,
+                          start_from_one=False):
+    '''
+    find (p)NMR isotropic shieldings of target atoms in the given output file and
+    calculate the average value
+    '''
+    from mokit.lib.rwwfn import average_nmr_shield_in_gau_log, \
+     average_nmr_shield_in_orca_out, average_pnmr_shield_in_orca_pnmr_out
+
+    natom = len(atom_list)
+    if start_from_one is False:
+        new_list = [i + 1 for i in atom_list]
+    else:
+        new_list = atom_list
+
+    if program == 'gaussian':
+        if paramagnetic is True:
+            raise ValueError('pNMR calculation is not supported in Gaussian.')
+        else:
+            ave_val = average_nmr_shield_in_gau_log(nmr_out, natom, new_list)
+    elif program == 'orca':
+        if paramagnetic is True:
+            ave_val = average_pnmr_shield_in_orca_pnmr_out(nmr_out, natom, new_list)
+        else:
+            ave_val = average_nmr_shield_in_orca_out(nmr_out, natom, new_list)
+    else:
+        raise ValueError('program not supported.')
+    return ave_val
+

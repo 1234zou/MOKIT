@@ -1,4 +1,4 @@
-MOKIT 1.2.7 (Jun 25, 2025)
+MOKIT 1.2.7 (Jul 24, 2025)
 ------------------------
 Fixes
 * fix ndb when the user specifies an active space different from default
@@ -41,6 +41,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* add M052X and B972 (and dispersion correction) parameters in fch2mkl
 * wrap atoms outside box back into box to save memory during PBC MLWF generation
 * replace mkl2fch by molden2fch for ORCA CASCI/CASSCF NO conversion in do_cas.f90
 * improve CASPT2/NEVPT2 settings based on excited state CASCI or SS-CASSCF

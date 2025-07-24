@@ -82,7 +82,7 @@ subroutine do_cis()
    if(sa_nto) then
     i = RENAME(TRIM(cis_fch), TRIM(nto_fch))
     hf_fch = nto_fch ! update hf_fch
-    call gen_nto(cis_log, hf_fch, nstate, .true.)
+    call gen_cis_nto(cis_log, hf_fch, nstate, .true.)
    else
     i = RENAME(TRIM(cis_fch), TRIM(cisno_fch))
     hf_fch = cisno_fch ! update hf_fch
@@ -650,7 +650,7 @@ subroutine get_active_space_for_sacas(fchname, sa_nto, nacto, nacta, nactb)
  integer :: i, nbf, nif, na, nb
  integer, intent(out) :: nacto, nacta, nactb
  real(kind=8), parameter :: nto_thres = 0.01d0
- real(kind=8), parameter :: no_thres = 0.01d0
+ real(kind=8), parameter :: no_thres = 0.02d0
  real(kind=8), allocatable :: ev(:)
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: sa_nto

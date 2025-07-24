@@ -92,7 +92,8 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
 
  ! read Alpha MO or Beta MO
  allocate(coeff(ncoeff), source=0d0)
- read(fchid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
+ !read(fchid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
+ read(fchid,*) coeff
 
  ! For complex GHF, the MO coefficients of Gaussian are in the order
  !  (C_ar, C_ai, C_br, C_bi)X1 + ()X2 + ... which can be seen in the log file
@@ -126,7 +127,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
    stop
   end select
  else         ! real R(O)HF, UHF
-  coeff2 = RESHAPE(coeff,(/nbf,nif/))
+  coeff2 = RESHAPE(coeff, [nbf,nif])
  end if
 
  deallocate(coeff)

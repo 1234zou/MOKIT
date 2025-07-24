@@ -1019,7 +1019,7 @@ subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  call read_elem_and_coor_from_file(fname2, natom, elem2, coor2)
 
  relabel = .false.
- if(present(reorder)) relabel = reorder
+ if(PRESENT(reorder)) relabel = reorder
 
  if(relabel) then ! reordering atomic labels requested
   call rmsd_reorder(natom, elem1, elem2, coor1, coor2)

@@ -101,10 +101,10 @@ subroutine fch2mkl(fchname, itype, dftname)
  character(len=30), intent(in) :: dftname
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp, composite, hse06, d3zero, d3bj
+ logical :: uhf, ecp, composite, hse06, m052x, b972, d3zero, d3bj
 
- ecp = .false.; composite = .false.; hse06 = .false.
- d3zero = .false.; d3bj = .false.
+ ecp = .false.; composite = .false.; hse06 = .false.; m052x = .false.
+ b972 = .false.; d3zero = .false.; d3bj = .false.
 
  if(itype == 2) then
   dftname1 = ADJUSTL(dftname)
@@ -112,10 +112,12 @@ subroutine fch2mkl(fchname, itype, dftname)
   i = LEN_TRIM(dftname1)
   if(i > 3) then ! B97-3c, r2SCAN-3c, HF-3c, etc.
    if(dftname1(i-2:i) == '-3C') composite = .true.
+   if(dftname1(1:4) == 'B972') b972 = .true.
   end if
   if(i > 4) then
    if(dftname1(i-3:i) == 'D3BJ') d3bj = .true.
    if(dftname1(1:5) == 'HSE06') hse06 = .true.
+   if(dftname1(1:5) == 'M052X') m052x = .true.
   end if
   if(i > 6) then
    if(dftname1(i-5:i) == 'D3ZERO') d3zero = .true.
@@ -291,9 +293,19 @@ subroutine fch2mkl(fchname, itype, dftname)
   case(1)
    write(fid2,'(A)',advance='no') ' BHANDHLYP'
   case(2)
-   if(hse06) then
+   if(hse06 .or. b972) then
     if(d3bj) then
      write(fid2,'(A)',advance='no') ' D3BJ'
+    else if(d3zero) then
+     write(fid2,'(A)',advance='no') ' D3ZERO'
+    end if
+   else if(m052x) then
+    if(d3bj) then
+     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: M052X cannot be combined wi&
+                      &th D3BJ.'
+     close(fid1)
+     close(fid2)
+     stop
     else if(d3zero) then
      write(fid2,'(A)',advance='no') ' D3ZERO'
     end if
@@ -317,20 +329,46 @@ subroutine fch2mkl(fchname, itype, dftname)
    write(fid2,'(A)') ' def2/J RIJCOSX defgrid3 TightSCF noTRAH'
   end if
 
-  if(hse06) then
+  if(hse06 .or. m052x .or. b972) then
    write(fid2,'(A)') '%method'
    write(fid2,'(A)') ' method dft'
-   write(fid2,'(A)') ' functional hyb_gga_xc_hse06'
-   if(d3bj) then
-    write(fid2,'(A)') ' D3S6 1.0'
-    write(fid2,'(A)') ' D3A1 0.383'
-    write(fid2,'(A)') ' D3S8 2.31'
-    write(fid2,'(A)') ' D3A2 5.685'
-   else if(d3zero) then
-    write(fid2,'(A)') ' D3S6 1.0'
-    write(fid2,'(A)') ' D3RS6 1.129'
-    write(fid2,'(A)') ' D3S8 0.109'
-    write(fid2,'(A)') ' D3alpha6 14'
+   if(hse06) then
+    write(fid2,'(A)') ' functional hyb_gga_xc_hse06'
+    if(d3bj) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3A1 0.383'
+     write(fid2,'(A)') ' D3S8 2.31'
+     write(fid2,'(A)') ' D3A2 5.685'
+    else if(d3zero) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3RS6 1.129'
+     write(fid2,'(A)') ' D3S8 0.109'
+     write(fid2,'(A)') ' D3alpha6 14'
+    end if
+   end if
+   if(m052x) then
+    write(fid2,'(A)') ' exchange hyb_mgga_x_m05_2x'
+    write(fid2,'(A)') ' correlation mgga_c_m05_2x'
+    if(d3zero) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3RS6 1.417'
+     write(fid2,'(A)') ' D3S8 0.0'
+     write(fid2,'(A)') ' D3alpha6 14'
+    end if
+   end if
+   if(b972) then
+    write(fid2,'(A)') ' functional hyb_gga_xc_b97_2'
+    if(d3bj) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3A1 0.0'
+     write(fid2,'(A)') ' D3S8 0.9448'
+     write(fid2,'(A)') ' D3A2 5.4603'
+    else if(d3zero) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3RS6 1.7066'
+     write(fid2,'(A)') ' D3S8 2.4661'
+     write(fid2,'(A)') ' D3alpha6 14'
+    end if
    end if
    write(fid2,'(A)') 'end'
   end if

@@ -36,15 +36,15 @@ subroutine gen_no_using_density_in_fch(fchname, itype)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
  select case(itype)
  case(0)
-  call get_ne_from_PS(nbf, dm_a, S, ne1)
-  call get_ne_from_PS(nbf, dm_b, S, ne2)
+  call trace_dm_ao_ovlp(nbf, dm_a, S, ne1)
+  call trace_dm_ao_ovlp(nbf, dm_b, S, ne2)
   call check_two_real8_eq(na, ne1, 1d-5)
   call check_two_real8_eq(nb, ne2, 1d-5)
  case(1,3,5,7,9)
-  call get_ne_from_PS(nbf, dm_a, S, ne1)
+  call trace_dm_ao_ovlp(nbf, dm_a, S, ne1)
   call check_two_real8_eq(na+nb, ne1, 1d-5)
  case default ! 2,4,6,8,10
-  call get_ne_from_PS(nbf, dm_a, S, ne1)
+  call trace_dm_ao_ovlp(nbf, dm_a, S, ne1)
   call check_two_real8_eq(na-nb, ne1, 1d-5)
  end select
 
@@ -458,21 +458,23 @@ subroutine get_psi4_path(psi4_path)
  call get_exe_path('psi4', psi4_path)
 end subroutine get_psi4_path
 
-! compute the number of electrons by tracing the product of density matrix and
-! AO-basis overlap
-subroutine get_ne_from_PS(nbf, P, S, ne)
+! compute the number of electrons by tracing the matrix product of density
+! matrix and AO overlap
+subroutine trace_dm_ao_ovlp(nbf, dm, ao_ovlp, ne)
  implicit none
  integer :: i
  integer, intent(in) :: nbf
- real(kind=8), allocatable :: ne0(:)
- real(kind=8), intent(in) :: P(nbf,nbf), S(nbf,nbf)
+ real(kind=8), intent(in) :: dm(nbf,nbf), ao_ovlp(nbf,nbf)
  real(kind=8), intent(out) :: ne
 
- allocate(ne0(nbf))
- forall(i = 1:nbf) ne0(i) = DOT_PRODUCT(P(:,i),S(:,i))
- ne = SUM(ne0)
- deallocate(ne0)
-end subroutine get_ne_from_PS
+ ne = 0d0
+!$omp parallel do schedule(dynamic) default(private) shared(nbf,dm,ao_ovlp) &
+!$omp reduction(+:ne)
+ do i = 1, nbf, 1
+  ne = ne + DOT_PRODUCT(dm(:,i), ao_ovlp(:,i))
+ end do ! for i
+!$omp end parallel do
+end subroutine trace_dm_ao_ovlp
 
 ! calculate the total number of electrons using total density in a .fch file
 subroutine get_ne_from_fch(fchname)
@@ -486,7 +488,7 @@ subroutine get_ne_from_fch(fchname)
  allocate(den(nbf,nbf), S(nbf,nbf))
  call read_dm_from_fch(fchname, 1, nbf, den)
  call get_ao_ovlp_using_fch(fchname, nbf, S)
- call get_ne_from_PS(nbf, den, S, ne)
+ call trace_dm_ao_ovlp(nbf, den, S, ne)
  deallocate(den, S)
  write(6,'(A,F11.4)') 'ne = ', ne
 end subroutine get_ne_from_fch
