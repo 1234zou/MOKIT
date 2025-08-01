@@ -45,10 +45,10 @@ conda_build_test:
   extends: .setup_conda
   only:
     refs:
-      - newconda2
       - openmp
       - conda-omp2
       - ci-update-2025
+      - conda-fix-dep
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
