@@ -8,9 +8,9 @@ LIB = ../mokit/lib
 
 # --- gfortran + OpenBLAS ---
 F90 = gfortran
-FFLAGS = -O2 -cpp -fPIC -fopenmp -L../lib 
+FFLAGS = -O2 -cpp -fPIC -fopenmp -fno-tree-vectorize -fno-math-errno -L../lib 
 MKL_FLAGS = -lopenblas
 F2PY = f2py
-F2_FLAGS = --f90flags="-cpp -fopenmp" -lgomp
+F2_FLAGS = --f90flags="-cpp -fopenmp -fno-tree-vectorize -fno-math-errno" -lgomp
 
 include Makefile.main

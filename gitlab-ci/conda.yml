@@ -49,6 +49,7 @@ conda_build_test:
       - conda-omp2
       - ci-update-2025
       - conda-fix-dep
+      - conda-fix-glibc
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
@@ -82,6 +83,7 @@ conda_build_cf_test:
     refs:
       - cf-debug
       - ci-update-2025
+      - conda-fix-glibc
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
