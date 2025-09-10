@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 2
+  number: 5
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
@@ -24,6 +24,7 @@ requirements:
     - numpy {{ numpy }}
     - {{ compiler('fortran') }}
     - libgfortran5
+    - sysroot_linux-64 2.17
   run:
     - python {{ python }}
     - blas * *mkl*
