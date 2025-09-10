@@ -78,17 +78,14 @@ subroutine do_cis()
     cis_e(i),' a.u. (',ex_e(i),' eV), f=',cis_fosc(i),', <S**2>=',cis_ssquare(i)
    end do ! for i
    call formchk(cis_chk, cis_fch)
-   call delete_file(cis_chk)
    if(sa_nto) then
-    i = RENAME(TRIM(cis_fch), TRIM(nto_fch))
+    call gen_cis_ge_nto_from_fch_and_log(cis_fch, cis_log, nstate, .true.)
     hf_fch = nto_fch ! update hf_fch
-    call gen_cis_nto(cis_log, hf_fch, nstate, .true.)
    else
-    i = RENAME(TRIM(cis_fch), TRIM(cisno_fch))
+    call gen_cis_no_from_fch_and_log(cis_fch, cis_log, nstate, .true.)
     hf_fch = cisno_fch ! update hf_fch
-    call gen_cis_ao_dm_from_fch_and_log(hf_fch, cis_log, nstate, .true.)
-    call gen_no_using_density_in_fch(hf_fch, 1)
    end if
+   call delete_files(2, [cis_chk, cis_fch])
   case default
    write(6,'(/,A)') 'ERROR in subroutine do_cis: currently only CIS_prog=Gaussi&
                     &an is supported'
@@ -100,6 +97,7 @@ subroutine do_cis()
   call find_specified_suffix(hf_fch, '.fch', i)
   uno_fch = hf_fch(1:i-1)//'_uno.fch'
   rohf_fch = hf_fch(1:i-1)//'_T_rohf.fch'
+  cis_fch = hf_fch(1:i-1)//'_T_rohf_NO.fch' ! temporarily use
   datname = hf_fch(1:i-1)//'_T_rohf.dat'
   gmsname = hf_fch(1:i-1)//'_T_rohf.gms'
   pyname = hf_fch(1:i-1)//'.py'
@@ -126,10 +124,10 @@ subroutine do_cis()
   ! The GAMESS ROHF MOs should be used.
   call dat2fch_wrap(datname, cisno_fch)
   call delete_files(3, [datname, pyname, outname])
+  call gen_sfcis_no_from_fch_and_gms(rohf_fch, gmsname, nstate, 0, nb-1, &
+                                     .true., .true.)
+  i = RENAME(TRIM(cis_fch), TRIM(cisno_fch))
   hf_fch = cisno_fch ! update hf_fch
-  call gen_sfcis_ao_dm_from_fch_and_gms(hf_fch, gmsname, nstate, 0, nb-1, &
-                                        .true., .true.)
-  call gen_no_using_density_in_fch(hf_fch, 1)
  end if
 
  deallocate(cis_e, cis_ssquare, cis_fosc, ex_e)
@@ -434,7 +432,7 @@ end subroutine do_rohf_using_uno
 ! nstate: the number of excited states. E.g. S0/S1/S2 means nstate=2.
 ! SF-/MRSF-CIS will compute nstate+3 roots.
 subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
- use mr_keyword, only: gms_path, gms_scr_path, check_gms_path
+ use mr_keyword, only: check_gms_path, gms_path, gms_scr_path, gms_dat_path
  implicit none
  integer :: i, mult, fid, fid1, SYSTEM, RENAME
  integer, intent(in) :: mem, nproc, nstate
@@ -499,7 +497,7 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  i = RENAME(TRIM(tmpf), TRIM(inpname))
 
  call check_gms_path()
- call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+ call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 end subroutine do_sf_cis_using_rohf
 
 ! Read electronic energies of SF methods from a specified GAMESS .gms file.

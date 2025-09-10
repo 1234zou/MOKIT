@@ -563,6 +563,15 @@ subroutine fch2amo_wrap(fchname, aipname)
  end if
 end subroutine fch2amo_wrap
 
+subroutine fch2mrcc_wrap(fchname)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=240), intent(in) :: fchname
+
+ i = SYSTEM('fch2mrcc '//TRIM(fchname))
+ if(i /= 0) call prt_call_util_error('fch2mrcc', fchname)
+end subroutine fch2mrcc_wrap
+
 subroutine dat2fch_wrap(datname, fchname)
  implicit none
  integer :: i, SYSTEM

@@ -1,5 +1,8 @@
 ! written by jxzou at 20210128: subroutines involving excited states wave function
-! Currently only CIS/TDHF/TDDFT can be analyzed
+! TODO: implement NTO using non-orthogonal orbitals, e.g.
+!       singlet RHF/RKS -> triplet ROHF/ROKS/UHF/UKS
+! TODO: implement Dyson orbitals using non-orthogonal orbitals, e.g.
+!       N-e singlet RHF/RKS -> 'N-1'-e doublet ROHF/ROKS/UHF/UKS
 
 subroutine calc_fosc_using_mo_tdm_ao_dip(nbf, nmo, delta_e, mo, mo_tdm, ao_dip,&
                                          fosc)
@@ -25,7 +28,7 @@ subroutine calc_fosc_using_mo_tdm_ao_dip(nbf, nmo, delta_e, mo, mo_tdm, ao_dip,&
  fosc = 2d0*DOT_PRODUCT(td, td)*delta_e/3d0
 end subroutine calc_fosc_using_mo_tdm_ao_dip
 
-! calculate (RHF-)CIS MO-based density matrix using excitation coefficients
+! calculate RHF-CIS MO-based density matrix using excitation coefficients
 ! nfc: the number of frozen core orbitals in CIS calculation
 ! nocc: the number of doubly occupied orbitals involved in excitations
 ! nvir: the number of virtual orbitals involved in excitations
@@ -91,6 +94,53 @@ subroutine calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, dm)
  call symmetrize_dmat(nmo, dm)
 end subroutine calc_cis_mo_dm_using_exc
 
+! Calculte RHF-CIS MO-based transition density matrix between two CIS excited
+! states with the same spin (both singlet or both triplet).
+! Note: the RHF->CIS (ground state -> singlet excited state) transition density
+!       matrix is simply DSQRT(2d0)*C_ia, thus no subroutine is needed.
+subroutine calc_cis_mo_tdm_using_exc(ndb, nvir, exc, tdm_occ, tdm_vir)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: ndb, nvir
+!f2py intent(in) :: ndb, nvir
+ real(kind=8), intent(in) :: exc(ndb,nvir,2)
+!f2py intent(in) :: exc
+!f2py depend(ndb,nvir) :: exc
+ real(kind=8), intent(out) :: tdm_occ(ndb,ndb), tdm_vir(nvir,nvir)
+!f2py intent(out) :: tdm_occ, tdm_vir
+!f2py depend(ndb) :: tdm_occ
+!f2py depend(nvir) :: tdm_vir
+
+ tdm_occ = 0d0; tdm_vir = 0d0
+
+ do i = 1, ndb, 1 ! d_ii, i <- {C}
+  tdm_occ(i,i) = -DOT_PRODUCT(exc(i,:,1), exc(i,:,2))
+ end do ! for i
+
+ do i = 1, ndb-1, 1 ! d_ij, ij <- {C}
+  do j = i+1, ndb, 1
+   tdm_occ(i,j) = -DOT_PRODUCT(exc(i,:,2), exc(j,:,1))
+   tdm_occ(j,i) = -DOT_PRODUCT(exc(j,:,2), exc(i,:,1))
+  end do ! for j
+ end do ! for i
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nvir, 1 ! d_aa, a <- {V}
+  j = ndb + i
+  tdm_vir(j,j) = DOT_PRODUCT(exc(:,i,1), exc(:,i,2))
+ end do ! for i
+!$omp end parallel do
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nvir-1, 1 ! d_ab, ab <- {V}
+  do j = i+1, nvir, 1
+   tdm_vir(i,j) = DOT_PRODUCT(exc(:,i,1), exc(:,j,2))
+   tdm_vir(j,i) = DOT_PRODUCT(exc(:,j,1), exc(:,i,2))
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+end subroutine calc_cis_mo_tdm_using_exc
+
 ! Calculte ROHF-based SF-CIS MO-based density matrix using excitation
 !  coefficients. nopen>=2 is required.
 subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
@@ -104,20 +154,22 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
 
  dm = 0d0; nval = nocc - nopen; ndb = nfc + nval; nmo = ndb + nvir
  if(nfc > 0) then
-  forall(i = 1:nfc) dm(i,i) = 2d0
+  do i = 1, nfc, 1
+   dm(i,i) = 2d0
+  end do ! for i
  end if
 
  do i = 1, nval, 1 ! d_ii, i <- {C}
   j = nfc + i
-  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:),exc(i,:))
+  dm(j,j) = 2d0 - DOT_PRODUCT(exc(i,:), exc(i,:))
  end do ! for i
 
 !$omp parallel do schedule(dynamic) default(shared) private(i,j)
  do i = 1, nvir, 1 ! d_aa, a <- {O+V}
   j = ndb + i
-  dm(j,j) = DOT_PRODUCT(exc(:,i),exc(:,i))
+  dm(j,j) = DOT_PRODUCT(exc(:,i), exc(:,i))
   if(i <= nopen) then
-   dm(j,j) = dm(j,j) + 1d0 - DOT_PRODUCT(exc(nval+i,:),exc(nval+i,:))
+   dm(j,j) = dm(j,j) + 1d0 - DOT_PRODUCT(exc(nval+i,:), exc(nval+i,:))
   end if
  end do ! for i
 !$omp end parallel do
@@ -139,7 +191,7 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
   p = nfc + i
   do j = i+1, nval, 1
    q = nfc + j
-   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(j,:))
+   dm(p,q) = -DOT_PRODUCT(exc(i,:), exc(j,:))
   end do ! for j
  end do ! for i
 
@@ -148,9 +200,9 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
   p = ndb + i
   do j = i+1, nvir, 1
    q = ndb + j
-   dm(p,q) = DOT_PRODUCT(exc(:,i),exc(:,j))
+   dm(p,q) = DOT_PRODUCT(exc(:,i), exc(:,j))
    if(i<=nopen .and. j<=nopen) then
-    dm(p,q) = dm(p,q) - DOT_PRODUCT(exc(nval+i,:),exc(nval+j,:))
+    dm(p,q) = dm(p,q) - DOT_PRODUCT(exc(nval+i,:), exc(nval+j,:))
    end if
   end do ! for j
  end do ! for i
@@ -160,7 +212,7 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
   p = nfc + i
   do j = 1, nopen, 1
    q = ndb + j
-   dm(p,q) = -DOT_PRODUCT(exc(i,:),exc(nval+j,:))
+   dm(p,q) = -DOT_PRODUCT(exc(i,:), exc(nval+j,:))
   end do ! for j
  end do ! for i
 
@@ -168,11 +220,43 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
  call symmetrize_dmat(nmo, dm)
 end subroutine calc_sfcis_mo_dm_using_exc
 
+! Calculte ROHF-based SF-CIS <S^2> expectation value using excitation
+!  coefficients. nopen>=2 is required.
+subroutine calc_sfcis_ssquare_using_exc(nopen, nocc, nvir, exc, ssquare)
+ implicit none
+ integer :: a, b
+ integer, intent(in) :: nopen, nocc, nvir
+!f2py intent(in) :: nopen, nocc, nvir
+ real(kind=8) :: rtmp
+ real(kind=8), intent(in) :: exc(nocc,nvir)
+!f2py intent(in) :: exc
+!f2py depend(nocc,nvir) :: exc
+ real(kind=8), intent(out) :: ssquare
+!f2py intent(out) :: ssquare
+
+ if(nopen < 2) then
+  write(6,'(/,A)') 'ERROR in subroutine calc_sfcis_ssquare_using_exc: nopen>=2 &
+                   &is required.'
+  write(6,'(A,I0)') 'But got nopen=', nopen
+  stop
+ end if
+ write(6,'(A,3I5)') 'nopen, nocc, nvir=', nopen, nocc, nvir
+ ssquare = DBLE(nopen)
+
+ do a = 1, nopen, 1
+  ssquare = ssquare - DOT_PRODUCT(exc(:,a), exc(:,a))
+  rtmp = exc(nocc-nopen+a,a)
+  do b = 1, nopen, 1
+   ssquare = ssquare + rtmp*exc(nocc-nopen+b,b)
+  end do ! for b
+ end do ! for a
+end subroutine calc_sfcis_ssquare_using_exc
+
 ! Calculte ROHF-based SF-CIS MO-based transition density matrix using excitation
 !  coefficients. nopen>=2 is required.
 subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
  implicit none
- integer :: i, j, p, q, ndb, nmo
+ integer :: i, j, p, q, ndb
  integer, intent(in) :: nopen, nocc, nvir
 !f2py intent(in) :: nopen, nocc, nvir
  real(kind=8) :: r
@@ -183,34 +267,34 @@ subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
 !f2py intent(out) :: tdm
 !f2py depend(nocc,nvir,nopen) :: tdm
 
- tdm = 0d0; ndb = nocc - nopen; nmo = ndb + nvir; r = 0d0
+ tdm = 0d0; ndb = nocc - nopen; r = 0d0
 
 !$omp parallel do schedule(dynamic) default(shared) private(i) reduction(+:r)
  do i = 1, nvir, 1
-  r = r + DOT_PRODUCT(exc(:,i,1),exc(:,i,2))
+  r = r + DOT_PRODUCT(exc(:,i,1), exc(:,i,2))
  end do ! for i
 !$omp end parallel do
  r = r*2d0
 
  do i = 1, ndb, 1 ! d_ii, i <- {C}
-  tdm(i,i) = r - DOT_PRODUCT(exc(i,:,1),exc(i,:,2))
+  tdm(i,i) = r - DOT_PRODUCT(exc(i,:,1), exc(i,:,2))
  end do ! for i
  r = 0.5d0*r
 
 !$omp parallel do schedule(dynamic) default(shared) private(i,j)
  do i = 1, nvir, 1 ! d_aa, a <- {O+V}
   j = ndb + i
-  tdm(j,j) = DOT_PRODUCT(exc(:,i,1),exc(:,i,2))
+  tdm(j,j) = DOT_PRODUCT(exc(:,i,1), exc(:,i,2))
   if(i <= nopen) then
-   tdm(j,j) = tdm(j,j) + r - DOT_PRODUCT(exc(j,:,1),exc(j,:,2))
+   tdm(j,j) = tdm(j,j) + r - DOT_PRODUCT(exc(j,:,1), exc(j,:,2))
   end if
  end do ! for i
 !$omp end parallel do
 
  do i = 1, ndb-1, 1 ! d_ij, ij <- {C}
   do j = i+1, ndb, 1
-   tdm(i,j) = -DOT_PRODUCT(exc(i,:,2),exc(j,:,1))
-   tdm(j,i) = -DOT_PRODUCT(exc(j,:,2),exc(i,:,1))
+   tdm(i,j) = -DOT_PRODUCT(exc(i,:,2), exc(j,:,1))
+   tdm(j,i) = -DOT_PRODUCT(exc(j,:,2), exc(i,:,1))
   end do ! for j
  end do ! for i
 
@@ -219,11 +303,11 @@ subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
   p = ndb + i
   do j = i+1, nvir, 1
    q = ndb + j
-   tdm(p,q) = DOT_PRODUCT(exc(:,i,1),exc(:,j,2))
-   tdm(q,p) = DOT_PRODUCT(exc(:,j,1),exc(:,i,2))
+   tdm(p,q) = DOT_PRODUCT(exc(:,i,1), exc(:,j,2))
+   tdm(q,p) = DOT_PRODUCT(exc(:,j,1), exc(:,i,2))
    if(i<=nopen .and. j<=nopen) then
-    tdm(p,q) = tdm(p,q) - DOT_PRODUCT(exc(p,:,2),exc(q,:,1))
-    tdm(q,p) = tdm(q,p) - DOT_PRODUCT(exc(q,:,2),exc(p,:,1))
+    tdm(p,q) = tdm(p,q) - DOT_PRODUCT(exc(p,:,2), exc(q,:,1))
+    tdm(q,p) = tdm(q,p) - DOT_PRODUCT(exc(q,:,2), exc(p,:,1))
    end if
   end do ! for j
  end do ! for i
@@ -232,8 +316,8 @@ subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
  do i = 1, ndb, 1 ! d_is, i <- {C}, s <- {O}
   do j = 1, nopen, 1
    p = ndb + j
-   tdm(i,p) = -DOT_PRODUCT(exc(i,:,2),exc(p,:,1))
-   tdm(p,i) = -DOT_PRODUCT(exc(p,:,2),exc(i,:,1))
+   tdm(i,p) = -DOT_PRODUCT(exc(i,:,2), exc(p,:,1))
+   tdm(p,i) = -DOT_PRODUCT(exc(p,:,2), exc(i,:,1))
   end do ! for j
  end do ! for i
 
@@ -417,9 +501,12 @@ subroutine check_noa_nob_in_logname(logname, alpha, nocc, nvir, nfc, nif_ex)
 end subroutine check_noa_nob_in_logname
 
 ! Read CIS/TDHF/TDDFT excitation coefficients (also called amplitudes) from a
-!  specified Gaussian output file.
-! This subroutine is only used for RHF-based CIS/TDHF/TDDFT. For UHF-based ones,
-!  please use read_ex_coeff_from_gau_log2 below.
+!  specified Gaussian output file. This subroutine is only used for RHF-based
+!  CIS/TDHF/TDDFT. For UHF-based ones, please use read_ex_coeff_from_gau_log2
+!  below.
+! Note: the sum of square of elements in exc is 0.5. There are two explanations
+!  for this number: 1) these are only Alpha CI coefficients; 2) these are scaled
+!  by sqrt(2) for an unknown reason by Gaussian developers.
 subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  implicit none
  integer :: i, j, k, fid, nfc, nif_ex
@@ -486,6 +573,7 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
   rtmp = rtmp + DOT_PRODUCT(exc(:,i), exc(:,i))
  end do ! for i
 
+ ! check the difference with 0.5
  if(DABS(rtmp - 0.5d0) > diff_thres) then
   write(6,'(/,A)') 'ERROR in subroutine read_ex_coeff_from_gau_log: the sum of &
                    &|C_ia|^2 differs'
@@ -525,7 +613,7 @@ subroutine read_ex_coeff_from_gau_log2(logname, istate, nocc_a, nvir_a, nocc_b,&
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_ex_coeff_from_gau_log2: no'"//&
-                   str//"' found in file "//TRIM(logname)
+                    str//"' found in file "//TRIM(logname)
   close(fid)
   stop
  end if
@@ -539,8 +627,8 @@ subroutine read_ex_coeff_from_gau_log2(logname, istate, nocc_a, nvir_a, nocc_b,&
   if(i == 0) then
    close(fid)
    write(6,'(A)') "ERROR in subroutine read_ex_coeff_from_gau_log2: no '->'&
-                 & or '<-' symbol found"
-   write(6,'(A)') 'in file '//TRIM(logname)
+                  & or '<-' symbol"
+   write(6,'(A)') 'found in file '//TRIM(logname)
    stop
   end if
 
@@ -888,67 +976,65 @@ subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms(gmsname1, gmsname2, istate1, &
  mo_dm = mo_dm/DBLE(istate1+istate2+2)
 end subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms
 
-! Generate CIS/TDHF AO-based density matrix using excitation coefficients from
-!  Gaussian .fch(k) and .log/.out files. The reference can only be RHF/RKS.
-! Canonical MOs are included in the input fchname. Those MOs will be used and
-!  will not be changed. 'Total SCF D' section will be updated using ao_dm.
-! Note:
-! 1) Iop(9/40=4) is recommended when generating the log/out file.
-! 2) the calculation of CIS/TDHF AO-based dm requires both MO coefficients
-!  and excitation coefficients. For CIS/TDHF MO-based dm, see subroutine
-!  gen_cis_mo_dm_from_gau_log above.
-subroutine gen_cis_ao_dm_from_fch_and_log(fchname, logname, istate, averaged)
+! Generate RHF/RKS-based CIS/TD (state-averaged) NOs using Gaussian
+!  .fch(k) and .log files. Canonical MOs must be included in fchname. (SA-)NOs
+!  and correponding density will be saved into xxx_NO.fch.
+! Note: Iop(9/40=4) is recommended when generating the log/out file.
+subroutine gen_cis_no_from_fch_and_log(fchname, logname, istate, averaged)
  implicit none
- integer :: nbf, nif
+ integer :: i, nbf, nif
  integer, intent(in) :: istate
 !f2py intent(in) :: istate
  real(kind=8), allocatable :: ao_dm(:,:)
  real(kind=8), allocatable :: mo(:,:), mo_dm(:,:)
+ character(len=240) :: no_fch
  character(len=240), intent(in) :: fchname, logname
 !f2py intent(in) :: fchname, logname
  logical, intent(in) :: averaged
 !f2py intent(in) :: averaged
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(mo(nbf,nif))
- call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
-
  allocate(mo_dm(nif,nif))
  call gen_cis_mo_dm_from_gau_log(logname, istate, averaged, nif, mo_dm)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
 
  ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
  allocate(ao_dm(nbf,nbf))
  call calc_cnct(nbf, nif, mo, mo_dm, ao_dm)
  deallocate(mo, mo_dm)
 
- call write_dm_into_fch(fchname, .true., nbf, ao_dm)
- deallocate(ao_dm)
-end subroutine gen_cis_ao_dm_from_fch_and_log
+ call find_specified_suffix(fchname, '.fch', i)
+ no_fch = fchname(1:i-1)//'_NO.fch'
+ call copy_file(fchname, no_fch, .false.)
 
-! Generate SF-/MRSF- CIS/TD AO-based density matrix using excitation coefficients
-!  from Gaussian .fch(k) and GAMESS .gms files. The reference can only be ROHF/ROKS.
-! Canonical ROHF MOs are included in the input fchname. Those MOs will be used
-!  and will not be changed. 'Total SCF D' section will be updated using ao_dm.
-! We cannot read nfc and nval from fch and gms files, so these two variables are
-!  provided as input.
-subroutine gen_sfcis_ao_dm_from_fch_and_gms(fchname, gmsname, istate, nfc, &
-                                            nval, mrsf, averaged)
+ call write_dm_into_fch(no_fch, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+ call gen_no_using_dm_in_fch(no_fch, 1)
+end subroutine gen_cis_no_from_fch_and_log
+
+! Generate ROHF/ROKS-based SF-/MRSF- CIS/TD (state-averaged) NOs using Gaussian
+! .fch(k) and GAMESS .gms files. Canonical MOs must be included in fchname.
+! (SA-)NOs and correponding density will be saved into xxx_NO.fch. We cannot
+! read nfc and nval from .fch and .gms, so these two variables are provided as
+! input.
+subroutine gen_sfcis_no_from_fch_and_gms(fchname, gmsname, istate, nfc, nval, &
+                                         mrsf, averaged)
  implicit none
- integer :: nbf, nif
+ integer :: i, nbf, nif
  integer, intent(in) :: istate, nfc, nval
 !f2py intent(in) :: istate, nfc, nval
  real(kind=8), allocatable :: ao_dm(:,:)
  real(kind=8), allocatable :: mo(:,:), mo_dm(:,:)
+ character(len=240) :: no_fch
  character(len=240), intent(in) :: fchname, gmsname
 !f2py intent(in) :: fchname, gmsname
  logical, intent(in) :: mrsf, averaged
 !f2py intent(in) :: mrsf, averaged
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(mo(nbf,nif))
- call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
-
  allocate(mo_dm(nif,nif))
+
  if(mrsf) then
   call gen_mrsfcis_mo_dm_from_gms_gms(gmsname, averaged, istate, nfc, nval, &
                                       nif, mo_dm)
@@ -957,228 +1043,233 @@ subroutine gen_sfcis_ao_dm_from_fch_and_gms(fchname, gmsname, istate, nfc, &
                                     mo_dm)
  end if
 
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+
  ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
  allocate(ao_dm(nbf,nbf))
  call calc_cnct(nbf, nif, mo, mo_dm, ao_dm)
  deallocate(mo, mo_dm)
 
- call write_dm_into_fch(fchname, .true., nbf, ao_dm)
- deallocate(ao_dm)
-end subroutine gen_sfcis_ao_dm_from_fch_and_gms
+ call find_specified_suffix(fchname, '.fch', i)
+ no_fch = fchname(1:i-1)//'_NO.fch'
+ call copy_file(fchname, no_fch, .false.)
 
-! Generate MRSF-CIS/TD State-averaged Mixed-spin AO-based density matrix using
-!  excitation coefficients from Gaussian .fch(k) and two GAMESS .gms files. The
-!  reference can only be ROHF/ROKS.
-subroutine gen_mrsfcis_ave_ao_dm_from_fch_and_gms(fchname, gmsname1, gmsname2, &
-                                                  istate1, istate2, nfc, nval)
+ call write_dm_into_fch(no_fch, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+ call gen_no_using_dm_in_fch(no_fch, 1)
+end subroutine gen_sfcis_no_from_fch_and_gms
+
+! Generate ROHF/ROKS-based MRSF-CIS/TD state-averaged mixed-spin NOs using
+!  Gaussian .fch(k) and two GAMESS .gms files. For two states with the same
+!  spin, please use subroutine gen_sfcis_no_from_fch_and_gms above.
+subroutine gen_mrsfcis_sa_no_from_fch_and_gms(fchname, gmsname1, gmsname2, &
+                                              istate1, istate2, nfc, nval)
  implicit none
- integer :: nbf, nif
+ integer :: i, nbf, nif
  integer, intent(in) :: istate1, istate2, nfc, nval
 !f2py intent(in) :: istate1, istate2, nfc, nval
  real(kind=8), allocatable :: ao_dm(:,:)
  real(kind=8), allocatable :: mo(:,:), mo_dm(:,:)
+ character(len=240) :: no_fch
  character(len=240), intent(in) :: fchname, gmsname1, gmsname2
 !f2py intent(in) :: fchname, gmsname1, gmsname2
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(mo(nbf,nif))
- call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
-
  allocate(mo_dm(nif,nif))
  call gen_mrsfcis_ave_mo_dm_from_gms_gms(gmsname1, gmsname2, istate1, istate2, &
                                          nfc, nval, nif, mo_dm)
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
 
  ! P = Cn(C^T), where n is mo_dm below and usually not diagonal.
  allocate(ao_dm(nbf,nbf))
  call calc_cnct(nbf, nif, mo, mo_dm, ao_dm)
  deallocate(mo, mo_dm)
 
- call write_dm_into_fch(fchname, .true., nbf, ao_dm)
- deallocate(ao_dm)
-end subroutine gen_mrsfcis_ave_ao_dm_from_fch_and_gms
+ call find_specified_suffix(fchname, '.fch', i)
+ no_fch = fchname(1:i-1)//'_NO.fch'
+ call copy_file(fchname, no_fch, .false.)
 
-! Generate (State-averaged) NTO for restricted-type CIS/TDHF/TDDFT wave function.
-! Canonical MOs are included in the input fchname, and those MOs will be replaced
-!  by NTOs.
-! T*(T^) = U(n_occ)U^ -> occupied NTOs
-! (T^)*T = V(n_vir)V^ -> unoccupied NTOs
-subroutine gen_cis_nto(logname, fchname, istate, averaged)
+ call write_dm_into_fch(no_fch, .true., nbf, ao_dm)
+ deallocate(ao_dm)
+ call gen_no_using_dm_in_fch(no_fch, 1)
+end subroutine gen_mrsfcis_sa_no_from_fch_and_gms
+
+! Generate ground state -> singlet excited state (state-averaged) NTO for RHF/
+!  RKS- CIS/TDHF/TDDFT wave function. Canonical MOs must be kept in fchname. NTOs
+!  will be punched into file xxx_NTO.fch
+! Note: For averaged=.True., logname must include the 1~`istate`-th singlet exc-
+!  ited state results. For averaged=.False., logname must include the `istate`-th
+!  singlet excited state result. Do not use this subroutine for S0->Tn, since
+!  that transition density is exactly zero for RHF-CIS.
+! T*(T^) = U(n_occ)(U^T) -> occupied NTOs
+! (T^)*T = V(n_vir)(V^T) -> unoccupied NTOs
+subroutine gen_cis_ge_nto_from_fch_and_log(fchname, logname, istate, averaged)
  implicit none
  integer :: i, nfc, nif_ex, nocc, nob, nvir, ndb, nbf, nif
  integer, intent(in) :: istate
- real(kind=8), allocatable :: exc0(:,:)
- real(kind=8), allocatable :: exc(:,:), ttd(:,:), ev(:), ev2(:)
- real(kind=8), allocatable :: mo(:,:), occ_mo(:,:), vir_mo(:,:)
- character(len=240), intent(in) :: logname, fchname
+!f2py inteny(in) :: istate
+ real(kind=8), allocatable :: exc(:,:), exc0(:,:), ev(:), mo(:,:), occ_mo(:,:),&
+  vir_mo(:,:), u(:,:), vt(:,:), s(:)
+ character(len=240) :: nto_fch
+ character(len=240), intent(in) :: fchname, logname
+!f2py inteny(in) :: fchname, logname
  ! logname: it includes CIS excitation coefficients in .log file
  ! fchname: it includes canonical MOs in .fch file
  logical, intent(in) :: averaged
+!f2py inteny(in) :: averaged
  ! True: State-Averaged NTO; False: NTO of the ground state -> an excited state
 
  call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
  ndb = nfc + nocc
  nvir = nif_ex - nocc
- allocate(exc(nocc,nvir), source=0d0)
+ allocate(exc(nocc,nvir))
 
  if(averaged) then
   write(6,'(A,I0,A)') 'State-averaged NTO generated using ', istate, &
                       ' excited states.'
+  exc = 0d0
   allocate(exc0(nocc,nvir))
+  ! The RHF->CIS (ground state -> singlet excited state) transition density
+  ! matrix is simply DSQRT(2d0)*C_ia for spatial orbital basis (or C_ia for
+  ! spin orbital basis), so the averaged transition density matrix can be
+  ! calculated by simply summing different exc0.
   do i = 1, istate, 1
    call read_ex_coeff_from_gau_log(logname, i, nocc, nvir, exc0)
    exc = exc + exc0
   end do ! for i
   deallocate(exc0)
-  exc = DSQRT(2d0)*exc/DSQRT(DBLE(istate)) ! sum of square of exc is 0.5
+  exc = DSQRT(2d0)*exc/DSQRT(DBLE(istate))
  else ! ground state -> an excited state
   call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
-  exc = DSQRT(2d0)*exc  ! sum of square of exc is 0.5, so multiply root2
+  exc = DSQRT(2d0)*exc ! ! sum of square of exc(:,:) is 0.5, so multiply sqrt(2)
  end if
 
- allocate(ttd(nocc,nocc), source=0d0) ! T*(T^dagger)
- call dgemm('N','T',nocc,nocc,nvir,1d0,exc,nocc,exc,nocc,0d0,ttd,nocc)
+ ! The alpha/beta spin NTOs have identical MO coefficients and singular values.
+ ! Only one set of them is calculated. In such a set of spin NTOs, the sum of
+ ! square of singular values is 1. If you consider the spatial orbital basis,
+ ! the sum would be 2. Nowadays people usually use spin NTOs when they talk about
+ ! NTOs. So we do not multiply exc by sqrt(2) below.
+ allocate(u(nocc,nocc), vt(nvir,nvir), s(nocc))
+ call do_svd(nocc, nvir, exc, u, vt, s)
+ deallocate(exc)
+ do i = 1, nocc, 1
+  s(i) = s(i)*s(i)
+ end do ! for i
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(ev(nif), source=0d0)
- call diag_get_e_and_vec(nocc, ttd, ev(nfc+1:ndb)) ! occupied NTO eigenvalues
+ allocate(vir_mo(nocc,nocc))
+
+ do i = 1, nocc, 1
+  ev(nfc+i) = s(nocc-i+1)
+  ev(ndb+i) = s(i)
+  vir_mo(:,i) = u(:,nocc-i+1)
+ end do ! for i
+
+ deallocate(s)
+ u = vir_mo
+ deallocate(vir_mo)
 
  allocate(mo(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
  allocate(occ_mo(nbf,nocc), source=0d0)
  ! C'_occ = (C_occ)U
- call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, ttd, nocc, &
+ call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, u, nocc, &
             0d0, occ_mo, nbf)
  mo(:,nfc+1:ndb) = occ_mo
- deallocate(occ_mo, ttd)
+ deallocate(occ_mo, u)
 
- allocate(ttd(nvir,nvir), source=0d0) ! (T^dagger)*T
- call dgemm('T','N',nvir,nvir,nocc,1d0,exc,nocc,exc,nocc,0d0,ttd,nvir)
-
- ! unoccupied NTO eigenvalues
- call diag_get_e_and_vec(nvir, ttd, ev(ndb+1:ndb+nvir))
- deallocate(exc)
  allocate(vir_mo(nbf,nvir), source=0d0)
- ! C'_vir = (C_vir)U
- call dgemm('N', 'N', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, ttd, &
+ ! C'_vir = (C_vir)V
+ call dgemm('N', 'T', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, vt, &
             nvir, 0d0, vir_mo, nbf)
  mo(:,ndb+1:ndb+nvir) = vir_mo
- deallocate(ttd)
+ deallocate(vir_mo, vt)
 
- ! reverse the eigenvalues and virtual NTOs
- allocate(ev2(nvir))
- do i = ndb+1, ndb+nvir, 1
-  ev2(i-ndb) = ev(2*ndb+nvir-i+1)
-  vir_mo(:,i-ndb) = mo(:,2*ndb+nvir-i+1)
- end do ! for i
+ call find_specified_suffix(fchname, '.fch', i)
+ nto_fch = fchname(1:i-1)//'_NTO.fch'
+ call copy_file(fchname, nto_fch, .false.)
 
- ev(ndb+1:ndb+nvir) = ev2
- mo(:,ndb+1:ndb+nvir) = vir_mo
- deallocate(ev2, vir_mo)
+ call write_mo_into_fch(nto_fch, nbf, nif, 'a', mo)
+ deallocate(mo)
+ call write_eigenvalues_to_fch(nto_fch, nif, 'a', ev, .true.)
+ deallocate(ev)
+end subroutine gen_cis_ge_nto_from_fch_and_log
 
- call write_mo_into_fch(fchname, nbf, nif, 'a', mo)
- call write_eigenvalues_to_fch(fchname, nif, 'a', ev, .true.)
-end subroutine gen_cis_nto
-
-! generate AO-basis Transition Density Matrix from CI coefficients in Gaussian
-! .log file
-! ground state -> i-th excited state (e.g. istate=1 for S1 state)
-subroutine gen_ao_tdm(logname, nbf, nif, mo, istate, tdm)
+subroutine gen_cis_ee_nto_from_fch_and_log(fchname, logname, istate1, istate2)
  implicit none
- integer :: nfc, nif_ex, nob, nocc, nvir
- integer, intent(in) :: nbf, nif, istate
- real(kind=8), intent(in) :: mo(nbf,nif)
- real(kind=8), intent(out) :: tdm(nbf,nbf)
- real(kind=8), allocatable :: exc(:,:)
- character(len=240), intent(in) :: logname
+ integer :: i, nfc, nif_ex, nocc, nob, nvir, ndb, nbf, nif
+ integer, intent(in) :: istate1, istate2
+!f2py intent(in) :: istate1, istate2
+ real(kind=8), allocatable :: exc(:,:,:), tdm_occ(:,:), tdm_vir(:,:), ev(:), &
+  u(:,:), vt(:,:), s(:), mo(:,:), occ_mo(:,:), vir_mo(:,:)
+ character(len=240) :: nto_fch
+ character(len=240), intent(in) :: fchname, logname
+!f2py intent(in) :: fchname, logname
 
  call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
+ ndb = nfc + nocc
  nvir = nif_ex - nocc
- allocate(exc(nocc,nvir))
- call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
- call mo2ao_tdm(nbf, nif, mo, nocc, nvir, exc, .true., tdm)
+ allocate(exc(nocc,nvir,2))
+ call read_ex_coeff_from_gau_log(logname, istate1, nocc, nvir, exc(:,:,1))
+ call read_ex_coeff_from_gau_log(logname, istate2, nocc, nvir, exc(:,:,2))
+ !exc = DSQRT(2d0)*exc  ! sum of square of exc(:,:,i) is 0.5, so multiply sqrt(2)
+
+ allocate(tdm_occ(nocc,nocc), tdm_vir(nvir,nvir))
+ call calc_cis_mo_tdm_using_exc(nocc, nvir, exc, tdm_occ, tdm_vir)
  deallocate(exc)
-end subroutine gen_ao_tdm
 
-! generate AO-basis Transition Density Matrix from CI coefficients in Gaussian
-! .log file
-! ground state -> i-th excited state (e.g. istate=1 for S1 state)
-subroutine gen_ao_tdm2(logname, nbf, nif, mo, istate, tdm)
- implicit none
- integer :: nfc, nif_ex, nocc_a, nocc_b, nvir_a, nvir_b
- integer, intent(in) :: nbf, nif, istate
- real(kind=8), intent(in) :: mo(nbf,nif,2)
- real(kind=8), intent(out) :: tdm(nbf,nbf,2)
- real(kind=8), allocatable :: exc_a(:,:), exc_b(:,:)
- character(len=240), intent(in) :: logname
+ allocate(u(nocc,nocc), vt(nocc,nocc), s(nocc))
+ call do_svd(nocc, nocc, tdm_occ, u, vt, s)
+ deallocate(tdm_occ, vt)
+ do i = 1, nocc, 1
+  s(i) = s(i)*s(i)
+ end do ! for i
 
- call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc_a, nocc_b)
- nvir_a = nif_ex - nocc_a
- nvir_b = nif_ex - nocc_b
- allocate(exc_a(nocc_a,nvir_a), exc_b(nocc_b,nvir_b))
- call read_ex_coeff_from_gau_log2(logname, istate, nocc_a, nvir_a, nocc_b, &
-                                  nvir_b, exc_a, exc_b)
- call mo2ao_tdm(nbf,nif, mo(:,:,1), nocc_a,nvir_a, exc_a, .false., tdm(:,:,1))
- call mo2ao_tdm(nbf,nif, mo(:,:,2), nocc_b,nvir_b, exc_b, .false., tdm(:,:,2))
- deallocate(exc_a, exc_b)
-end subroutine gen_ao_tdm2
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ allocate(ev(nif), source=0d0)
+ allocate(vir_mo(nocc,nocc))
 
-subroutine mo2ao_tdm(nbf, nif, mo, nae, nav, exc, total, tdm)
- implicit none
- integer, intent(in) :: nbf, nif, nae, nav
- real(kind=8) :: rtmp
- real(kind=8), intent(in) :: mo(nbf,nif), exc(nae,nav)
- real(kind=8), intent(out) :: tdm(nbf,nbf)
- real(kind=8), allocatable :: mo_ci(:,:)
- logical, intent(in) :: total
+ do i = 1, nocc, 1
+  ev(nfc+i) = s(nocc-i+1)
+  ev(ndb+i) = s(i)
+  vir_mo(:,i) = u(:,nocc-i+1)
+ end do ! for i
 
- tdm = 0d0
- allocate(mo_ci(nbf,nav), source=0d0)
- call dgemm('N','N',nbf,nav,nae,1d0,mo(:,1:nae),nbf,exc,nae,0d0,mo_ci,nbf)
+ deallocate(s)
+ u = vir_mo
+ deallocate(vir_mo)
 
- ! alpha + beta, or only one of alpha/beta
- rtmp = 1d0
- if(total) rtmp = 2d0
- call dgemm('N','T',nbf,nbf,nav,rtmp,mo_ci,nbf,mo(:,nae+1:nif),nbf,0d0,tdm,nbf)
- deallocate(mo_ci)
-end subroutine mo2ao_tdm
+ allocate(mo(nbf,nif))
+ call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+ allocate(occ_mo(nbf,nocc), source=0d0)
+ ! C'_occ = (C_occ)U
+ call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, u, nocc, &
+            0d0, occ_mo, nbf)
+ mo(:,nfc+1:ndb) = occ_mo
+ deallocate(occ_mo, u)
 
-! Compute and average the first n states of AO-based transition density matrices
-subroutine average_cis_tdm(fchname, logname, n, nbf, nif, tdm)
- implicit none
- integer :: i
- integer, intent(in) :: n, nbf, nif
- real(kind=8), intent(out) :: tdm(nbf,nbf)
- real(kind=8), allocatable :: mo1(:,:), tdm1(:,:)
- real(kind=8), allocatable :: mo2(:,:,:), tdm2(:,:,:)
- character(len=240), intent(in) :: fchname, logname
- logical :: uhf
+ allocate(u(nvir,nvir), vt(nvir,nvir), s(nvir))
+ call do_svd(nvir, nvir, tdm_vir, u, vt, s)
+ deallocate(tdm_vir, u, s)
+ allocate(vir_mo(nbf,nvir), source=0d0)
+ ! C'_vir = (C_vir)V
+ call dgemm('N', 'T', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, vt, &
+            nvir, 0d0, vir_mo, nbf)
+ mo(:,ndb+1:ndb+nvir) = vir_mo
+ deallocate(vir_mo, vt)
 
- tdm = 0d0
- call check_uhf_in_fch(fchname, uhf)
+ call find_specified_suffix(fchname, '.fch', i)
+ nto_fch = fchname(1:i-1)//'_NTO.fch'
+ call copy_file(fchname, nto_fch, .false.)
 
- if(uhf) then
-  allocate(mo2(nbf,nif,2))
-  call read_mo_from_fch(fchname, nbf, nif, 'a', mo2(:,:,1))
-  call read_mo_from_fch(fchname, nbf, nif, 'b', mo2(:,:,2))
-  allocate(tdm2(nbf,nbf,2), source=0d0)
-  do i = 1, n, 1
-   call gen_ao_tdm2(logname, nbf, nif, mo2, i, tdm2)
-   tdm = tdm + tdm2(:,:,1) + tdm2(:,:,2)
-  end do ! for i
-  deallocate(mo2, tdm2)
- else
-  allocate(mo1(nbf,nif))
-  call read_mo_from_fch(fchname, nbf, nif, 'a', mo1)
-  allocate(tdm1(nbf,nbf))
-  do i = 1, n, 1
-   call gen_ao_tdm(logname, nbf, nif, mo1, i, tdm1)
-   tdm = tdm + tdm1
-  end do ! for i
-  deallocate(mo1, tdm1)
- end if
-
- tdm = tdm/DBLE(n) ! averaged transition density
-end subroutine average_cis_tdm
+ call write_mo_into_fch(nto_fch, nbf, nif, 'a', mo)
+ deallocate(mo)
+ call write_eigenvalues_to_fch(nto_fch, nif, 'a', ev, .true.)
+ deallocate(ev)
+end subroutine gen_cis_ee_nto_from_fch_and_log
 
 subroutine del_a_or_b(str)
  implicit none

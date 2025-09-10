@@ -54,6 +54,7 @@ module mol
  real(kind=8) :: caspt3_e  = 0d0 ! CASPT3 energy
  real(kind=8) :: nevpt2_e  = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
  real(kind=8) :: nevpt3_e  = 0d0 ! CASSCF-NEVPT3 energy
+ real(kind=8) :: nevpt4_e  = 0d0 ! CASSCF-NEVPT4(SD) energy
  real(kind=8) :: mrmp2_e   = 0d0 ! MRMP2 energy
  real(kind=8) :: ovbmp2_e  = 0d0 ! OVB-MP2 energy
  real(kind=8) :: sdspt2_e  = 0d0 ! SDSPT2 energy
@@ -184,6 +185,7 @@ module mr_keyword
  logical :: caspt3  = .false.
  logical :: nevpt2  = .false.
  logical :: nevpt3  = .false.
+ logical :: nevpt4  = .false.
  logical :: mrmp2   = .false.
  logical :: ovbmp2  = .false.
  logical :: sdspt2  = .false.
@@ -234,9 +236,8 @@ module mr_keyword
  character(len=10) :: casscf_prog  = 'pyscf'
  character(len=10) :: dmrgci_prog  = 'pyscf'
  character(len=10) :: dmrgscf_prog = 'pyscf'
- character(len=10) :: caspt2_prog  = 'openmolcas'
- character(len=10) :: nevpt2_prog  = 'pyscf'
- character(len=10) :: nevpt3_prog  = 'orca' ! ORCA/BDF
+ character(len=10) :: caspt_prog   = 'openmolcas' ! CASPT2/CASPT3
+ character(len=10) :: nevpt_prog   = 'pyscf'      ! NEVPT2/NEVPT3/NEVPT4(SD)
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mrcisdt_prog = 'openmolcas' ! uncontracted MRCISDT
@@ -248,6 +249,7 @@ module mr_keyword
  character(len=240) :: gau_path = ' '
  character(len=240) :: gms_path = ' '
  character(len=240) :: gms_scr_path = ' '
+ character(len=240) :: gms_dat_path = ' '
  character(len=240) :: molcas_path = ' '
  character(len=240) :: molpro_path = ' '
  character(len=240) :: orca_path = ' '
@@ -304,7 +306,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc9 (2025-Jul-24)'
+ write(6,'(A)') '           Version: 1.2.7rc10 (2025-Sep-10)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -346,36 +348,53 @@ subroutine check_gms_path()
  implicit none
  integer :: i, fid
  character(len=240) :: buf
- logical :: alive
 
- inquire(file=TRIM(gms_path),exist=alive)
- if(.not. alive) then
-  write(6,'(/,A)') 'ERROR in subroutine check_gms_path: rungms does not exist.'
-  write(6,'(A)') 'gms_path='//TRIM(gms_path)
-  stop
- end if
-
+ call require_file_exist(gms_path)
  open(newunit=fid,file=TRIM(gms_path),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(1:7) == 'set SCR') exit
  end do ! for while
- close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine check_gms_path: 'set SCR' not found in &
+                   &file "//TRIM(gms_path)
+  close(fid)
+  stop
+ end if
 
  i = INDEX(buf, '=')
  if(i > 0) then
   gms_scr_path = buf(i+1:)
+  read(fid,'(A)') buf
+  close(fid)
+
+  if(buf(1:11) == 'set USERSCR') then
+   i = INDEX(buf, '=')
+   gms_dat_path = buf(i+1:)
+  else
+   write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path&
+                    & '"//TRIM(buf)//"'"
+   stop
+  end if
  else
   write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path&
                    & '"//TRIM(buf)//"'"
+  close(fid)
   stop
  end if
 
  i = INDEX(gms_scr_path, '#')
  if(i > 0) gms_scr_path = gms_scr_path(1:i-1)
+ i = INDEX(gms_dat_path, '#')
+ if(i > 0) gms_dat_path = gms_dat_path(1:i-1)
+
  call replace_env_in_path(gms_scr_path)
+ call replace_env_in_path(gms_dat_path)
  write(6,'(A)') 'gms_scr_path = '//TRIM(gms_scr_path)
+ write(6,'(A)') 'gms_dat_path = '//TRIM(gms_dat_path)
 end subroutine check_gms_path
 
  subroutine parse_keyword()
@@ -384,6 +403,7 @@ end subroutine check_gms_path
   character(len=24) :: method0 = ' '
   character(len=240) :: buf = ' '
   character(len=1000) :: longbuf = ' '
+  character(len=35), parameter :: error_warn='ERROR in subroutine parse_keyword: '
   logical :: alive(2), alive1(5)
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
@@ -391,8 +411,7 @@ end subroutine check_gms_path
 
   i = INDEX(buf,'/')
   if(i == 0) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: no '/' symbol detected &
-                    &in keyword line."
+   write(6,'(/,A)') error_warn//"no '/' symbol detected in keyword line."
    write(6,'(A)') "The method and basis set must be specified via '/' symbol, e&
                   &.g. CASSCF/cc-pVDZ."
    close(fid)
@@ -400,8 +419,7 @@ end subroutine check_gms_path
   end if
 
   if(DBLE(mem) < DBLE(nproc)*0.8d0) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: please specify larger m&
-                    &emory. Multi-'
+   write(6,'(/,A)') error_warn//'please specify larger memory. Multi-'
    write(6,'(A)') 'reference calculations usually requires large memory.'
    stop
   end if
@@ -409,8 +427,8 @@ end subroutine check_gms_path
 
   j = INDEX(buf(1:i-1),' ', back=.true.)
   if(j == 0) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: syntax error detected in'
-   write(6,'(A)') "the current line '"//TRIM(buf)//"'"
+   write(6,'(/,A)') error_warn//'syntax error detected in the'
+   write(6,'(A)') "current line '"//TRIM(buf)//"'"
    stop
   end if
   method0 = buf(j+1:i-1)
@@ -418,8 +436,7 @@ end subroutine check_gms_path
   i = INDEX(method0, '('); j = INDEX(method0, ','); k = INDEX(method0, ')')
   alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
   if(.not. (alive(1) .or. alive(2)) ) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: incomplete method speci&
-                    &fied.'
+   write(6,'(/,A)') error_warn//'incomplete method specified.'
    write(6,'(A)') 'method = '//TRIM(method0)
    stop
   end if
@@ -428,36 +445,32 @@ end subroutine check_gms_path
    method = method0(1:i-1)
 
    select case(TRIM(method))
-   case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
-        'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
-        'casci','dmrgci','ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)', &
-        'bwmrccsd', 'bwmrccsd(t)')
+   case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt2',&
+        'caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd','casscf', &
+        'dmrgscf','casci','dmrgci','ficmrccsd','fic-mrccsd','mkmrccsd', &
+        'bwmrccsd')
     read(method0(i+1:j-1),*) nacte_wish
     read(method0(j+1:k-1),*) nacto_wish
     if(nacte_wish<1 .or. nacto_wish<1) then
-     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: wrong number of activ&
-                      &e electrons/orbitals'
+     write(6,'(/,A)') error_warn//'wrong number of active electrons/orbitals'
      write(6,'(2(A,I0))') 'specified. nacte/nacto=',nacte_wish,'/',nacto_wish
      stop
     end if
    case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
     if(j /= 0) then
-     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: GVB active space shou&
-                      &ld be specified like'
-     write(6,'(A)') 'GVB(3), where 3 is the number of pairs. Did you specify (6&
-                    &,6) like CAS?'
+     write(6,'(/,A)') error_warn//'GVB active space should be specified'
+     write(6,'(A)') 'like GVB(3), where 3 is the number of pairs. Did you speci&
+                    &fy (6,6) like CAS?'
      stop
     end if
     read(method0(i+1:k-1),*) npair_wish
     if(npair_wish < 0) then
-     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: wrong number of pairs&
-                      & specified.'
+     write(6,'(/,A)') error_warn//'wrong number of pairs specified.'
      write(6,'(A,I0)') 'npair_wish=', npair_wish
      stop
     end if
    case default
-    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: unsupported method '//&
-                     TRIM(method)
+    write(6,'(/,A)') error_warn//'unsupported method '//TRIM(method)
     stop
    end select
   else ! i = 0
@@ -465,20 +478,19 @@ end subroutine check_gms_path
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt3',&
-       'caspt2','caspt2k','caspt2-k','nevpt3','nevpt2','casscf','dmrgscf', &
-       'casci','dmrgci','gvb','ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)',&
-       'bwmrccsd','bwmrccsd(t)','bccc2b','bccc3b')
+  case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt2',&
+       'caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd','casscf', &
+       'dmrgscf','casci','dmrgci','gvb','ficmrccsd','fic-mrccsd','mkmrccsd',  &
+       'bwmrccsd','bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: specified method '"//&
-                     TRIM(method)//"' not supported."
-   write(6,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, &
-                    &DMRGSCF, NEVPT2,'
-   write(6,'(A)') 'NEVPT3, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MRCISD, &
-                  &MRCISDT, MCPDFT,'
-   write(6,'(A)') 'FICMRCCSD, MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T), &
-                  &BCCC2b, BCCC3b.'
+   write(6,'(/,A)') error_warn//"specified method '"//TRIM(method)//"'"
+   write(6,'(A)') 'is not supported.'
+   write(6,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, DMRG&
+                    &SCF, NEVPT2,'
+   write(6,'(A)') 'NEVPT3, NEVPT4SD, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MR&
+                  &CISD, MRCISDT,'
+   write(6,'(A)') 'MCPDFT, FICMRCCSD, MkMRCCSD, BWMRCCSD, BCCC2b, BCCC3b.'
    stop
   end select
 
@@ -499,13 +511,15 @@ end subroutine check_gms_path
    caspt2 = .true.; casscf = .true.
   case('caspt2k','caspt2-k')
    caspt2 = .true.; casscf = .true.
-   caspt2k = .true.; caspt2_prog = 'orca'
+   caspt2k = .true.; caspt_prog = 'orca'
   case('caspt3')
    caspt3 = .true.; casscf = .true.
   case('nevpt2')
    nevpt2 = .true.; casscf = .true.
   case('nevpt3')
    nevpt3 = .true.; casscf = .true.
+  case('nevpt4sd')
+   nevpt4 = .true.; casscf = .true.; nevpt_prog = 'orca'
   case('casscf')
    casscf = .true.
   case('dmrgscf')
@@ -515,19 +529,19 @@ end subroutine check_gms_path
   case('dmrgci')
    dmrgci = .true.
   ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
-  case('ficmrccsd','fic-mrccsd','mkmrccsd','mkmrccsd(t)','bwmrccsd','bwmrcccsd(t)')
+  case('ficmrccsd','fic-mrccsd','mkmrccsd','bwmrccsd')
    mrcc = .true.; casscf = .true.
    select case(TRIM(method))
    case('ficmrccsd','fic-mrccsd')
     mrcc_type = 1
    case('mkmrccsd')
     mrcc_type = 2
-   case('mkmrccsd(t)')
-    mrcc_type = 3; mrcc_prog = 'nwchem'
    case('bwmrccsd')
     mrcc_type = 4
-   case('bwmrccsd(t)')
-    mrcc_type = 5; mrcc_prog = 'nwchem'
+   !case('mkmrccsd(t)')
+   ! mrcc_type = 3; mrcc_prog = 'nwchem'
+   !case('bwmrccsd(t)')
+   ! mrcc_type = 5; mrcc_prog = 'nwchem'
    end select
   case('bccc2b')
    mrcc = .true.; mrcc_type = 6
@@ -544,8 +558,7 @@ end subroutine check_gms_path
   write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
 
   if(basis(1:5) == 'def2-') then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'def2-' prefix detected&
-                    & in given basis set."
+   write(6,'(/,A)') error_warn//"'def2-' prefix detected in input file."
    write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not de&
                   &f2-TZVP.'
    stop
@@ -570,8 +583,7 @@ end subroutine check_gms_path
 
   i = INDEX(buf, 'guess=')
   if(i > 0) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'guess=' syntax not sup&
-                    &ported in automr."
+   write(6,'(/,A)') error_warn//"'guess=' syntax not supported in automr."
    write(6,'(A)') "You can use 'guess()' syntax instead."
    stop
   end if
@@ -581,8 +593,7 @@ end subroutine check_gms_path
    frag_guess = .true.
    j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
    if(j*k == 0)then
-    write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'guess(fragment=N)' sy&
-                     &ntax is wrong in"
+    write(6,'(/,A)') error_warn//"'guess(fragment=N)' syntax is wrong in"
     write(6,'(A)') 'file '//TRIM(gjfname)
     close(fid)
     stop
@@ -595,8 +606,7 @@ end subroutine check_gms_path
   call lower_outside_sq(buf)
 
   if(buf(1:6) /= 'mokit{') then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'mokit{' not detected i&
-                    &n file "//TRIM(gjfname)
+   write(6,'(/,A)') error_warn//"'mokit{' not detected in file "//TRIM(gjfname)
    write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position of t&
                   &he Title Card line."
    stop
@@ -630,7 +640,7 @@ end subroutine check_gms_path
    end do ! for while
 
    if(ifail /= 0) then
-    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: end-of-file detected.'
+    write(6,'(/,A)') error_warn//'end-of-file detected.'
     write(6,'(A)') 'The provided .gjf file may be incomplete.'
     close(fid)
     stop
@@ -643,8 +653,7 @@ end subroutine check_gms_path
   write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
   write(6,'(A)') TRIM(longbuf)
   if(INDEX(longbuf,"""") > 0) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: double quotes "" are no&
-                    &t allowed in mokit{}."
+   write(6,'(/,A)') error_warn//"double quotes "" are not allowed in mokit{}."
    write(6,'(A)') "Please use single quotes ''."
    stop
   end if
@@ -652,65 +661,59 @@ end subroutine check_gms_path
   alive1(1:3) = [(INDEX(longbuf,'hf_prog')>0), (INDEX(longbuf,'readuhf')>0), &
                  (INDEX(longbuf,'readno')>0)]
   if(alive1(1) .and. (alive1(2) .or. alive1(3))) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: 'HF_prog' is useless wh&
-                    &en 'readuhf'"
+   write(6,'(/,A)') error_warn//"'HF_prog' is useless when 'readuhf'"
    write(6,'(A)') "or 'readno' is specified."
    stop
   end if
 
-  alive1(1:5) = [(INDEX(longbuf,'caspt2_prog')/=0), (INDEX(longbuf,'nevpt2_prog')/=0),&
-                 (INDEX(longbuf,'mrcisd_prog')/=0), (INDEX(longbuf,'mrmp2_prog')/=0), &
-                 (INDEX(longbuf,'mcpdft_prog')/=0)]
+  alive1(1:5)=[(INDEX(longbuf,'caspt_prog')>0),(INDEX(longbuf,'nevpt_prog')>0),&
+               (INDEX(longbuf,'mrcisd_prog')>0),(INDEX(longbuf,'mrmp2_prog')>0),&
+               (INDEX(longbuf,'mcpdft_prog')>0)]
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: more than one keyword o&
-                    &f 'caspt2_prog',"
-   write(6,'(A)') "'nevpt2_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' ar&
-                  &e detected. Only one"
-   write(6,'(A)') "can be specified in a job."
+   write(6,'(/,A)') error_warn//"more than one keyword of 'caspt_prog',"
+   write(6,'(A)') "'nevpt_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are&
+                  & detected. Only"
+   write(6,'(A)') 'one can be specified in a job.'
    stop
   end if
 
-  alive1(1:4)= [(INDEX(longbuf,'casci_prog')/=0),(INDEX(longbuf,'casscf_prog')/=0),&
-                (INDEX(longbuf,'dmrgci_prog')/=0),(INDEX(longbuf,'dmrgscf_prog')/=0)]
+  alive1(1:4)=[(INDEX(longbuf,'casci_prog')>0),(INDEX(longbuf,'casscf_prog')>0),&
+               (INDEX(longbuf,'dmrgci_prog')>0),(INDEX(longbuf,'dmrgscf_prog')>0)]
   if(alive1(1) .and. alive1(2)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both CASCI_prog and CAS&
-                   &SCF_prog are detected.'
+   write(6,'(/,A)') error_warn//'both CASCI_prog and CASSCF_prog are detected.'
    write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
   if(alive1(3) .and. alive1(4)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: both DMRGCI_prog and DM&
-                    &RGSCF_prog are detected.'
-   write(6,'(A)') 'Only one can be specified in a job.'
+   write(6,'(/,A)') error_warn//'both DMRGCI_prog and DMRGSCF_prog are'
+   write(6,'(A)') 'detected. Only one can be specified in a job.'
    stop
   end if
 
   if(casscf .and. (alive1(1).or.alive1(3))) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASSCF activated, but y&
-                    &ou specify the'
+   write(6,'(/,A)') error_warn//'CASSCF activated, but you specify the'
    write(6,'(A)') 'CASCI_prog or DMRGCI_prog. You should specify CASSCF_prog or&
                   & DMRGSCF_prog.'
    stop
   end if
 
   if(casci .and. (alive1(2).or.alive1(4))) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: CASCI activated, but yo&
-                    &u specify the'
+   write(6,'(/,A)') error_warn//'CASCI activated, but you specify the'
    write(6,'(A)') 'CASSCF_prog or DMRGSCF_prog. You should specify CASCI_prog o&
                   &r DMRGCI_prog.'
    stop
   end if
 
   if(dmrgscf .and. alive1(3)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASSCF activated, &
-                    &but you specify the DMRGCI_prog.'
+   write(6,'(/,A)') error_warn//'DMRG-CASSCF activated, but you specify the DMR&
+                   &GCI_prog.'
    stop
   end if
 
   if(dmrgci .and. alive1(4)) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: DMRG-CASCI activated, b&
-                    &ut you specify the DMRGSCF_prog.'
+   write(6,'(/,A)') error_warn//'DMRG-CASCI activated, but you specify the DMRG&
+                   &SCF_prog.'
    stop
   end if
 
@@ -772,11 +775,26 @@ end subroutine check_gms_path
     dmrgci_prog = longbuf(j+1:i-1)
    case('dmrgscf_prog')
     dmrgscf_prog = longbuf(j+1:i-1)
-   case('caspt2_prog')
-    caspt2_prog = longbuf(j+1:i-1)
+   case('caspt_prog')
+    caspt_prog = longbuf(j+1:i-1)
    case('nevpt2_prog')
-    nevpt2_prog = longbuf(j+1:i-1)
-    if(TRIM(nevpt2_prog) == 'bdf') FIC = .true.
+    if(.not. nevpt2) then
+     write(6,'(/,A)') error_warn//'NEVPT2_prog is specified, but NEVPT2'
+     write(6,'(A)') 'method is not specified. If you do not want to perform NEV&
+                    &PT2 calculation,'
+     write(6,'(A)') 'please do not specify NEVPT2_prog. If you want to perform &
+                    &NEVPT3 or NEV-'
+     write(6,'(A)') "PT4(SD) calculation, you can either specify NEVPT_prog='OR&
+                    &CA' or not specify"
+     write(6,'(A)') 'NEVPT_prog (since ORCA is the default program in this case&
+                    &).'
+     stop
+    end if
+    nevpt_prog = longbuf(j+1:i-1)
+    if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
+   case('nevpt_prog')
+    nevpt_prog = longbuf(j+1:i-1)
+    if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
    case('mrmp2_prog')
     mrmp2_prog = longbuf(j+1:i-1)
    case('mrcisd_prog')
@@ -865,6 +883,12 @@ end subroutine check_gms_path
     dmrg_no = .false.
    case('locdocc')
     LocDocc = .true.
+   case('nevpt3_prog')
+    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: NEVPT3_prog cannot be &
+                     &used since MOKIT'
+    write(6,'(A)') '1.2.7rc10. Please use NEVPT_prog instead. For example, moki&
+                   &t{NEVPT_prog=ORCA}.'
+    stop
    case default
     write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
                     //"' not recognized in {}."
@@ -887,7 +911,7 @@ end subroutine check_gms_path
   if(readrhf .or. readuhf .or. readno) then
    if(frag_guess) then
     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: frag_guess can only be&
-                    & used when none'
+                     & used when none'
     write(6,'(A)') 'of readrhf/readuhf/readno is used.'
     stop
    end if
@@ -921,7 +945,7 @@ end subroutine check_gms_path
 
   if(.not. mcpdft) otpdf = 'NONE'
   dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. mrcisd .or. mrcisdt .or. &
-              mcpdft .or. caspt3 .or. nevpt3)
+              mcpdft .or. caspt3 .or. nevpt3 .or. nevpt4)
   if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
   call prt_strategy()
  end subroutine parse_keyword
@@ -1128,19 +1152,19 @@ subroutine check_kywd_compatible()
    stop
   end if
   if(nevpt2) then
-   if(nevpt2_prog /= 'orca') then
+   if(TRIM(nevpt_prog) /= 'orca') then
     write(6,'(/,A)') error_warn//'NEVPT2-F12 is only supported with ORCA.'
-    write(6,'(A)') 'But currently NEVPT2_prog='//TRIM(nevpt2_prog)
+    write(6,'(A)') 'But currently NEVPT_prog='//TRIM(nevpt_prog)
     stop
    end if
    if(.not. FIC) then
     write(6,'(/,A)') error_warn//'SC-NEVPT2-F12 is not supported in ORCA.'
-    write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add&
-                    & keyword FIC in mokit{}.'
+    write(6,'(A)') 'Only FIC-NEVPT2-F12 is supported. You need to add keyword F&
+                   &IC in mokit{}.'
     stop
    end if
   end if
-  if(mrcisd .and. mrcisd_prog/='molpro') then
+  if(mrcisd .and. TRIM(mrcisd_prog)/='molpro') then
    write(6,'(/,A)') error_warn//'MRCISD-F12 is only supported with Molpro.'
    write(6,'(A)') 'But currently MRCISD_prog='//TRIM(mrcisd_prog)
    stop
@@ -1275,16 +1299,16 @@ subroutine check_kywd_compatible()
 
  if(CIonly .and. (.not.dyn_corr)) then
   write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
-  write(6,'(A)') 'MC-PDFT/CASPT2/CASPT3/NEVPT2/NEVPT3/MRCISD/MRCC computations.&
-                 & But none of'
-  write(6,'(A)') 'them is specified.'
+  write(6,'(A)') 'MC-PDFT/CASPT2/CASPT3/NEVPT2/NEVPT3/NEVPT4SD/MRCISD/MRCC comp&
+                 &utations. But'
+  write(6,'(A)') 'none of them is specified.'
   stop
  end if
 
- if(CIonly .and. TRIM(nevpt2_prog)=='bdf') then
+ if(CIonly .and. TRIM(nevpt_prog)=='bdf') then
   write(6,'(/,A)') error_warn//'currently CASCI-NEVPT2 is not supported in BDF &
                   &program.'
-  write(6,'(A)') 'You may use NEVPT2_prog=PySCF, Molpro, ORCA or OpenMolcas.'
+  write(6,'(A)') 'You may use NEVPT_prog=PySCF, Molpro, ORCA or OpenMolcas.'
   stop
  end if
 
@@ -1375,7 +1399,7 @@ subroutine check_kywd_compatible()
  if(mrcisd) then
   select case(CtrType)
   case(1) ! uncontracted MRCISD
-   if(mrcisd_prog == 'molpro') then
+   if(TRIM(mrcisd_prog) == 'molpro') then
     write(6,'(/,A)') error_warn
     write(6,'(A)') 'Currently (uc-)MRCISD cannot be done with Molpro.'
     stop
@@ -1466,25 +1490,25 @@ subroutine check_kywd_compatible()
   stop
  end if
 
- select case(TRIM(caspt2_prog))
+ select case(TRIM(caspt_prog))
  case('openmolcas', 'molpro','orca')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'Supported CASPT2_prog=OpenMolcas/Molpro/ORCA.'
-  write(6,'(A)') 'User specified CASPT2 program cannot be identified: '//TRIM(caspt2_prog)
+  write(6,'(A)') 'Supported CASPT_prog=OpenMolcas/Molpro/ORCA.'
+  write(6,'(A)') 'User specified CASPT program cannot be identified: '//TRIM(caspt_prog)
   stop
  end select
 
- select case(TRIM(nevpt2_prog))
+ select case(TRIM(nevpt_prog))
  case('pyscf','molpro','openmolcas','orca','bdf')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'Supported NEVPT2_prog=PySCF/OpenMolcas/Molpro/ORCA/BDF.'
-  write(6,'(A)') 'User specified NEVPT2 program cannot be identified: '//TRIM(nevpt2_prog)
+  write(6,'(A)') 'Supported NEVPT_prog=PySCF/ORCA/Molpro/OpenMolcas/BDF.'
+  write(6,'(A)') 'User specified NEVPT program cannot be identified: '//TRIM(nevpt_prog)
   stop
  end select
 
- if(mrmp2_prog /= 'gamess') then
+ if(TRIM(mrmp2_prog) /= 'gamess') then
   write(6,'(/,A)') error_warn
   write(6,'(A)') 'Only MRMP2_prog=GAMESS is supported.'
   write(6,'(A)') 'User specified MRMP2 program cannot be identified: '//TRIM(mrmp2_prog)
@@ -1526,27 +1550,37 @@ subroutine check_kywd_compatible()
  end if
 
  if(nevpt2) then
-  if(DKH2 .and. (TRIM(nevpt2_prog)=='pyscf' .or. TRIM(nevpt2_prog)=='bdf')) then
+  if(DKH2 .and. (TRIM(nevpt_prog)=='pyscf' .or. TRIM(nevpt_prog)=='bdf')) then
    write(6,'(/,A)') error_warn//'NEVPT2 with DKH2 is not supported by PySCF or BDF.'
-   write(6,'(A)') 'You can use NEVPT2_prog=Molpro or ORCA.'
+   write(6,'(A)') 'You can use NEVPT_prog=Molpro or ORCA.'
    stop
   end if
-  if(bgchg .and. TRIM(nevpt2_prog)=='bdf') then
+  if(bgchg .and. TRIM(nevpt_prog)=='bdf') then
    write(6,'(/,A)') error_warn//'NEVPT2 with BDF program is incompatible with'
-   write(6,'(A)') 'background point charges. You can use NEVPT2_prog=Molpro or &
-                  &ORCA.'
+   write(6,'(A)') 'background point charges. You can use NEVPT_prog=ORCA or Mol&
+                  &pro.'
    stop
   end if
-  if(FIC .and. TRIM(nevpt2_prog)=='pyscf') then
+  if(FIC .and. TRIM(nevpt_prog)=='pyscf') then
    write(6,'(/,A)') error_warn//'FIC-NEVPT2 is not supported by PySCF.'
-   write(6,'(A)') 'You can use NEVPT2_prog=Molpro,BDF,ORCA,OpenMolcas.'
+   write(6,'(A)') 'You can use NEVPT_prog=ORCA/OpenMolcas/Molpro/BDF.'
    stop
   end if
  end if
 
- if((sdspt2.or.nevpt3) .and. bgchg) then
-  write(6,'(/,A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompati-'
-  write(6,'(A)') 'ble with background point charges.'
+ if(nevpt3) then
+  select case(TRIM(nevpt_prog))
+  case('bdf','orca')
+  case default
+   write(6,'(/,A)') error_warn//'NEVPT3 is only supported in ORCA/BDF.'
+   write(6,'(A)') 'Invalid NEVPT_prog='//TRIM(nevpt_prog)
+   stop
+  end select
+ end if
+
+ if(bgchg .and. (sdspt2 .or. (nevpt3 .and. TRIM(nevpt_prog)=='bdf'))) then
+  write(6,'(/,A)') error_warn//'SDSPT2 or NEVPT3 with BDF program is incompa-'
+  write(6,'(A)') 'tible with background point charges.'
   stop
  end if
 

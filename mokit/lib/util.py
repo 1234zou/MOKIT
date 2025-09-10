@@ -19,7 +19,7 @@ def get_idx_from_noon(suno_out, noon, nbf, nif, nopen, thres=ON_criteria):
     return idx
 
 def get_npair_and_ovidx(idx, nskip_uno=0):
-    npair = np.int64((idx[1]-idx[0]-idx[2])/2)
+    npair = np.int32((idx[1]-idx[0]-idx[2])/2)
     if (npair < 0):
         raise ValueError('npair<0. Impossible.')
     else:

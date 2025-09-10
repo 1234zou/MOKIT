@@ -12,10 +12,10 @@ end module icss_param
 subroutine do_cas(scf)
  use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, dmrg_no, &
   ist, hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
-  casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, gms_path, molcas_omp, &
-  molcas_path, orca_path, gms_scr_path, molpro_path, bdf_path, psi4_path, &
-  dalton_mpi, bgchg, chgname, casscf_force, check_gms_path, prt_strategy, RI, &
-  nmr, ICSS, on_thres, iroot, xmult, dyn_corr
+  casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, molcas_omp, molcas_path, &
+  orca_path, molpro_path, bdf_path, psi4_path, check_gms_path, gms_path, &
+  gms_scr_path, gms_dat_path, dalton_mpi, bgchg, chgname, casscf_force, &
+  prt_strategy, RI, nmr, ICSS, on_thres, iroot, xmult, dyn_corr
  use mol, only: mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, &
   nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
@@ -302,7 +302,7 @@ subroutine do_cas(scf)
   call prt_cas_gms_inp(inpname, ndb, scf)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   if(casscf_force) call add_force_key2gms_inp(inpname)
-  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
   ! make a copy of the .fch file to save NOs
   select case(ist)

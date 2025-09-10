@@ -646,6 +646,7 @@ subroutine diag_get_e_and_vec(n, a, w)
   write(6,'(2(A,I0))') 'lwork=', lwork, ', liwork=', liwork
   stop
  end if
+
  allocate(work(lwork), iwork(liwork))
  call dsyevd('V', 'U', n, a, n, w, work, lwork, iwork, liwork, i)
 
@@ -707,19 +708,22 @@ subroutine reverse_e_and_vec(n, u, w)
  real(kind=8), allocatable :: y(:,:), z(:)
 
  allocate(z(n), source=w)
+
 !$omp parallel do schedule(dynamic) default(shared) private(i)
  do i = 1, n, 1
   w(i) = z(n-i+1)
  end do ! for i
 !$omp end parallel do
- deallocate(z)
 
+ deallocate(z)
  allocate(y(n,n), source=u)
+
 !$omp parallel do schedule(dynamic) default(shared) private(i)
  do i = 1, n, 1
   u(:,i) = y(:,n-i+1)
  end do ! for i
 !$omp end parallel do
+
  deallocate(y)
 end subroutine reverse_e_and_vec
 
@@ -818,7 +822,7 @@ subroutine calc_coor_diff_mat(n, coor1, coor2, mat)
 
  n2 = n*n
 
- !$omp parallel do schedule(static) default(shared) private(i,j,k,m,v)
+!$omp parallel do schedule(static) default(shared) private(i,j,k,m,v)
  do k = 1, n2, 1
   m = k/n
   if(k == n*m) then
@@ -830,7 +834,7 @@ subroutine calc_coor_diff_mat(n, coor1, coor2, mat)
   v = coor1(:,j) - coor2(:,i)
   mat(j,i) = DSQRT(DOT_PRODUCT(v,v))
  end do ! for k
- !$omp end parallel do
+!$omp end parallel do
 end subroutine calc_coor_diff_mat
 
 ! solve the A^1/2 and A^(-1/2) for a real symmetric matrix A
@@ -1232,12 +1236,12 @@ subroutine normalize_mos(nbf, nif, ao_ovlp, mo)
  allocate(sc(nbf,nif), source=0d0)
  call dsymm('L', 'L', nbf, nif, 1d0, ao_ovlp, nbf, mo, nbf, 0d0, sc, nbf)
 
- !$omp parallel do schedule(static) default(private) shared(nbf,nif,mo,sc)
+!$omp parallel do schedule(static) default(private) shared(nbf,nif,mo,sc)
  do i = 1, nif, 1
   norm = ddot(nbf, mo(:,i), 1, sc(:,i), 1)
   mo(:,i) = mo(:,i)/DSQRT(norm)
  end do ! for i
- !$omp end parallel do
+!$omp end parallel do
 
  deallocate(sc)
 end subroutine normalize_mos
@@ -1886,8 +1890,6 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
 !f2py depend(nbf) :: dm
  real(kind=8), allocatable :: r(:)
 
- ! There is no need to initialize values in dm since each element in this
- ! array will be assigned a value below.
  allocate(r(nif))
 
 !$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,noon,mo,dm)
@@ -2169,12 +2171,21 @@ subroutine calc_diag_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross
  implicit none
  integer :: i, j, i1, i2, i3
  integer, intent(in) :: natom, nbf, nif
+!f2py intent(in) :: natom, nbf, nif
  integer, intent(in) ::  bfirst(natom+1)
+!f2py intent(in) :: bfirst
+!f2py depend(natom) :: bfirst
  real(kind=8) :: ddot
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo(nbf,nif)
+!f2py intent(in) :: ao_ovlp, mo
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nif) :: mo
  real(kind=8), intent(out) :: gross(natom,nif)
+!f2py intent(out) :: gross
+!f2py depend(natom,nif) :: gross
  real(kind=8), allocatable :: rootS(:,:), SC(:,:)
- character(len=*), intent(in) :: popm
+ character(len=8), intent(in) :: popm
+!f2py intent(in) :: popm
 
  select case(TRIM(popm))
  case('mulliken')
@@ -2228,13 +2239,22 @@ subroutine calc_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross)
  implicit none
  integer :: i, j, k, m, i1, i2, i3, np
  integer, intent(in) :: natom, nbf, nif
+!f2py intent(in) :: natom, nbf, nif
  integer, intent(in) ::  bfirst(natom+1)
+!f2py intent(in) :: bfirst
+!f2py depend(natom) :: bfirst
  integer, allocatable :: map(:,:)
  real(kind=8) :: ddot
  real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo(nbf,nif)
+!f2py intent(in) :: ao_ovlp, mo
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nif) :: mo
  real(kind=8), intent(out) :: gross(natom,nif,nif)
+!f2py intent(out) :: gross
+!f2py depend(natom,nif) :: gross
  real(kind=8), allocatable :: rootS(:,:), SC(:,:)
- character(len=*), intent(in) :: popm
+ character(len=8), intent(in) :: popm
+!f2py intent(in) :: popm
 
  np = nif*(nif+1)/2
  allocate(map(2,np))
@@ -2293,48 +2313,61 @@ end subroutine calc_gross_pop
 
 ! Find the centers of each MO, using the population matrix. The population method
 !  is determined when generating the pop array, so we do not need to know the
-! population method in this subroutine.
-! Note: the maximum number of centers for each MO is 4.
+!  population method in this subroutine.
+! Note: the maximum number of centers for each MO is 4. For arbitrary number of
+!  MO centers, please use subroutine get_mo_center_from_gross in read_gms_inp.f90
 subroutine get_mo_center_from_pop(natom, nmo, pop, mo_center)
  implicit none
  integer :: i, j, k, m, ak(1)
  integer, intent(in) :: natom, nmo
+!f2py intent(in) :: natom, nmo
  integer, intent(out) :: mo_center(0:4,nmo)
- real(kind=8) :: r
- real(kind=8), parameter :: diff = 0.15d0, pop_thres = 0.7d0
+!f2py intent(out) :: mo_center
+!f2py depend(nmo) :: mo_center
+ real(kind=8) :: r, min_v, sum_r
+ real(kind=8), parameter :: pop_thres = 0.7d0
  ! diff: difference between the largest and the 2nd largest component
  real(kind=8), intent(in) :: pop(natom,nmo)
+!f2py intent(in) :: pop
+!f2py depend(natom,nmo) :: pop
+ real(kind=8), allocatable :: tmp_pop(:)
 
  mo_center = 0
+ allocate(tmp_pop(natom))
 
 !$omp parallel do schedule(dynamic) default(private) &
 !$omp shared(natom,nmo,pop,mo_center)
  do i = 1, nmo, 1
   ! the largest component on an atom of an orbital
-  ak = MAXLOC(pop(:,i)); k = ak(1); r = pop(k,i)
+  tmp_pop = pop(:,i)
+  ak = MAXLOC(tmp_pop); k = ak(1); r = tmp_pop(k)
   mo_center(0,i) = 1; mo_center(1,i) = k; m = 1
   ! if this is lone pair, no need to check the 2nd largest component
-  if(r > pop_thres) cycle
 
   ! find the 2nd largest component and so on
-  do j = 1, natom, 1
-   if(j == k) cycle
-   if(r - pop(j,i) < diff) then
-    m = m + 1
+  if(r < pop_thres) then
+   ak = MINLOC(tmp_pop); m = ak(1); min_v = tmp_pop(m)
+   tmp_pop(k) = min_v-0.5d0; m = 1; sum_r = r
+   do j = 1, natom-1, 1
+    ak = MAXLOC(tmp_pop); k = ak(1); r = tmp_pop(k)
+    m = m + 1; mo_center(m,i) = k
+    sum_r = sum_r + r
+    if(sum_r > pop_thres) exit
+    tmp_pop(k) = min_v - 0.5d0
     if(m > 4) then
-     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_pop: ncenter>4. M&
-                      &Os are too'
+     write(6,'(/,A)') 'ERROR in subroutine get_mo_center_from_pop: ncenter>4. &
+                      &MOs are too'
      write(6,'(A,2I7)') 'delocalized. natom, nmo=', natom, nmo
      stop
     end if
-    mo_center(m,i) = j
-   end if
-  end do ! for j
+   end do ! for j
+  end if
 
   mo_center(0,i) = m
  end do ! for i
 !$omp end parallel do
 
+ deallocate(tmp_pop)
 end subroutine get_mo_center_from_pop
 
 ! calculate the distance matrix from a set of coordinates
@@ -2702,6 +2735,7 @@ subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
  real(kind=8), allocatable :: e(:), U(:,:), work(:)
 
  noon = 0d0; new_coeff = 0d0 ! initialization
+
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
@@ -2721,7 +2755,9 @@ subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
  deallocate(isuppz, work, iwork, S)
  ! eigenvalues in array e are in ascending order
 
- forall(i = 1:nif, e(nbf-i+1)>0d0) noon(i) = e(nbf-i+1)
+ do i = 1, nif, 1
+  noon(i) = e(nbf-i+1)
+ end do ! for i
  deallocate(e)
 
  call dgemm('N', 'N', nbf, nif, nbf, 1d0, n_sqrt_S, nbf, U(:,nbf-nif+1:nbf), &
@@ -2730,7 +2766,10 @@ subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
 
  ! reverse the order of MOs
  allocate(U(nbf,nif))
- forall(i = 1:nif) U(:,i) = new_coeff(:,nif-i+1)
+ do i = 1, nif, 1
+  U(:,i) = new_coeff(:,nif-i+1)
+ end do ! for i
+
  new_coeff = U
  deallocate(U)
 end subroutine gen_no_from_dm_and_ao_ovlp

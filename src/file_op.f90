@@ -566,12 +566,51 @@ subroutine read_mult_from_orca_inp(inpname, mult)
  end select
 end subroutine read_mult_from_orca_inp
 
+! write MO coefficients into a specified binary file
+subroutine write_mo2bin(binfile, nbf, nif, mo)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: mo(nbf,nif)
+!f2py intent(in) :: mo
+!f2py depend(nbf,nif) :: mo
+ character(len=240), intent(in) :: binfile
+!f2py intent(in) :: binfile
+
+ open(newunit=fid,file=TRIM(binfile),status='replace',form='unformatted')
+ write(unit=fid) mo
+ close(fid)
+end subroutine write_mo2bin
+
+! read MO coefficients from a specified binary file
+subroutine read_mo_from_bin(binfile, nbf, nif, mo)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(out) :: mo(nbf,nif)
+!f2py intent(out) :: mo
+!f2py depend(nbf,nif) :: mo
+ character(len=240), intent(in) :: binfile
+!f2py intent(in) :: binfile
+
+ mo = 0d0
+ open(newunit=fid,file=TRIM(binfile),status='old',form='unformatted')
+ read(unit=fid) mo
+ close(fid)
+end subroutine read_mo_from_bin
+
 subroutine write_grad_into_fch(fchname, natom, grad)
  implicit none
  integer :: fid
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  real(kind=8), intent(in) :: grad(3*natom)
+!f2py intent(in) :: grad
+!f2py depend(natom) :: grad
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='append')
  write(fid,'(A,4X,I8)') 'Cartesian Gradient                         R   N=', &
@@ -869,7 +908,7 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  real(kind=8), allocatable :: pnmr_shielding(:)
  character(len=2) :: elem
  character(len=11) :: iatom_elem
- character(len=*), intent(in) :: pnmr_out
+ character(len=240), intent(in) :: pnmr_out
 !f2py intent(in) :: pnmr_out
  character(len=240) :: buf
  logical, allocatable :: found(:) ! size natom
@@ -913,6 +952,7 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
    found(i) = .true.
    pnmr_shielding(i) = iso_shield
   end if
+  if(ALL(found .eqv. .true.)) exit
   read(fid,'(A)') buf
   read(fid,'(A)') buf
   if(buf(1:5) == '-----') exit
@@ -940,11 +980,11 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  deallocate(pnmr_shielding)
 end subroutine average_pnmr_shield_in_orca_pnmr_out
 
-! find pNMR isotropic shieldings of target atoms in ORCA pNMR output, and
+! find NMR isotropic shieldings of target atoms in ORCA NMR output, and
 ! calculate the average value
 subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
  implicit none
- integer :: i, fid
+ integer :: i, iatom, fid
  integer, intent(in) :: natom
 !f2py intent(in) :: natom
  integer, intent(in) :: atom_list(natom)
@@ -952,8 +992,10 @@ subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
 !f2py depend(natom) :: atom_list
  real(kind=8), intent(out) :: ave_val
 !f2py intent(out) :: ave_val
+ real(kind=8) :: iso_shield
  real(kind=8), allocatable :: nmr_shielding(:)
- character(len=*), intent(in) :: outname
+ character(len=2) :: elem
+ character(len=240), intent(in) :: outname
 !f2py intent(in) :: outname
  character(len=240) :: buf
  logical, allocatable :: found(:) ! size natom
@@ -966,20 +1008,37 @@ subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:13) == 'SCF GIAO Mag') exit
+  if(buf(1:22) == 'CHEMICAL SHIELDING SUM') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine average_nmr_shield_in_orca_out: 'SCF GIA&
-                   &O Mag' not"
-  write(6,'(A)') 'located in file '//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine average_nmr_shield_in_orca_out: 'CHEMIC&
+                   &AL SHIELDING SUM'"
+  write(6,'(A)') 'not located in file '//TRIM(outname)
   close(fid)
   stop
  end if
 
  allocate(found(natom), nmr_shielding(natom))
  found = .false.; nmr_shielding = 0d0
- ! TODO: not finished
+ do i = 1, 5
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  read(buf,*) iatom, elem, iso_shield
+  iatom = iatom + 1
+  do i = 1, natom, 1
+   if(atom_list(i) == iatom) exit
+  end do ! for i
+  if(i < natom+1) then
+   found(i) = .true.
+   nmr_shielding(i) = iso_shield
+  end if
+  if(ALL(found .eqv. .true.)) exit
+ end do ! for while
 
  close(fid)
  if(ANY(found .eqv. .false.)) then
@@ -1016,7 +1075,7 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
  real(kind=8), intent(out) :: ave_val
 !f2py intent(out) :: ave_val
  real(kind=8), allocatable :: nmr_shielding(:)
- character(len=*), intent(in) :: logname
+ character(len=240), intent(in) :: logname
 !f2py intent(in) :: logname
  character(len=240) :: buf
  logical, allocatable :: found(:) ! size natom
@@ -1055,6 +1114,7 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
    j = INDEX(buf, '=')
    read(buf(j+1:),*) nmr_shielding(i)
   end if
+  if(ALL(found .eqv. .true.)) exit
   do i = 1, 4
    read(fid,'(A)') buf
   end do ! for i

@@ -6,7 +6,7 @@ module sr_keyword
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
   nstate, readrhf, readuhf, hardwfn, crazywfn, mo_rhf, hf_prog, hfonly, hf_fch,&
   skiphf, chgname, gau_path, molcas_path, orca_path, psi4_path, dalton_path, &
-  gms_path, gms_scr_path, nmr, check_gms_path, molcas_omp, dalton_mpi
+  check_gms_path, gms_path, gms_scr_path, gms_dat_path, nmr, molcas_omp, dalton_mpi
  use mol, only: chem_core, ecp_core, ptchg_e, nuc_pt_e, lin_dep
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc9 (2025-Jul-24)'
+ write(6,'(A)') '           Version: 1.2.7rc10 (2025-Sep-10)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -553,20 +553,20 @@ subroutine check_sr_kywd_compatible()
    write(6,'(/,A)') error_warn//'UHF-based ADC is not yet implemented in ORCA.'
    stop
   end if
-  if((.not.ip) .and. (.not.ea) .and. TRIM(adc_prog)=='pyscf') then
-   write(6,'(/,A)') error_warn//'EE-ADC is not yet implemented in PySCF.'
-   write(6,'(A)') 'You can use ADC_prog=ORCA.'
-   stop
-  end if
  end if
 
  if(ip .or. ea) then
-  select case(eom_prog)
-  case('gaussian', 'psi4')
+  select case(TRIM(eom_prog))
+  case('gaussian','psi4')
    write(6,'(/,A)') error_warn//'IP-/EA-EOM-CCSD is not supported'
    write(6,'(A)') 'in Gaussian/PSI4. Please use another EOM_prog.'
    stop
   end select
+  if(TRIM(adc_prog) == 'psi4') then
+   write(6,'(/,A)') error_warn//'IP-/EA-ADC is not supported in'
+   write(6,'(A)') 'PSI4. Please use ADC_prog=PySCF/ORCA.'
+   stop
+  end if
  end if
 
  if(RI) call determine_auxbas(basis, RIJK_bas, .true., RIC_bas, F12, F12_cabs)
@@ -623,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc9 :: MOKIT, release date: 2025-Jul-24'
+  write(6,'(A)') 'AutoSR 1.2.7rc10 :: MOKIT, release date: 2025-Sep-10'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -642,12 +642,14 @@ program main
   write(6,'(A)')   '  EOM-EA-CCSD, CC2, CC3, ADC(2), ADC(3), CIS(D), ROCIS, XCI&
                    &S, SF-XCIS, SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
-  write(6,'(A)')   '  HF_prog=Gaussian/PySCF/ORCA/PSI4'
-  write(6,'(A)')   ' MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem/CFOUR'
-  write(6,'(A)')   '  CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dalton/QChem'
-  write(6,'(A)')   ' CIS_prog=Molpro/ORCA/Gaussian/QChem'
-  write(6,'(A)')   ' ADC_prog=ORCA/PSI4/PySCF'
-  write(6,'(A,/)') ' EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
+  write(6,'(A)')   '   HF_prog=Gaussian/PySCF/ORCA/PSI4'
+  write(6,'(A)')   '  MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem/C&
+                   &FOUR'
+  write(6,'(A)')   '   CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dal&
+                   &ton/QChem'
+  write(6,'(A)')   '  CIS_prog=Molpro/ORCA/Gaussian/QChem'
+  write(6,'(A)')   '  ADC_prog=ORCA/PSI4/PySCF'
+  write(6,'(A,/)') '  EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
   call check_mokit_root()
@@ -658,13 +660,13 @@ program main
  i = INDEX(fname, '.gjf', back=.true.)
  j = INDEX(fname, '.fch', back=.true.)
  if(i>0 .and. j>0) then
-  write(6,'(/,A)') "ERROR in subroutine autosr: both '.gjf' and '.fch' keys&
-                   & detected in filename "//TRIM(fname)//'.'
-  write(6,'(A)') "Better to use a filename only with suffix '.gjf'."
+  write(6,'(/,A)') "ERROR in subroutine autosr: both '.gjf' and '.fch' keys det&
+                   &ected in filename "//TRIM(fname)
+  write(6,'(A)') "Better to use a filename only with suffix '.gjf'"
   stop
  else if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine autosr: '.gjf' key not found in&
-                   & filename "//TRIM(fname)
+  write(6,'(/,A)') "ERROR in subroutine autosr: '.gjf' key not found in filenam&
+                   &e "//TRIM(fname)
   stop
  end if
 
@@ -732,8 +734,9 @@ end subroutine prt_fc_info
 subroutine do_mp2()
  use sr_keyword, only: mem, nproc, hf_fch, mo_rhf, bgchg, chgname, ref_e, &
   corr_e, ptchg_e, mp2_e, mp2, mp2_prog, chem_core, ecp_core, customized_core, &
-  core_wish, gau_path, psi4_path, gms_path, gms_scr_path, check_gms_path, orca_path,&
-  dalton_mpi, gen_no, no_fch, relaxed_dm, force, molcas_omp, RI
+  core_wish, gau_path, psi4_path, check_gms_path, gms_path, gms_scr_path, &
+  gms_dat_path, orca_path, dalton_mpi, gen_no, no_fch, relaxed_dm, force, &
+  molcas_omp, RI
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
   fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap, &
   fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
@@ -819,7 +822,7 @@ subroutine do_mp2()
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gms_inp(inpname, .false.)
-  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
   call read_mp2_e_from_gms_out(outname, ref_e, mp2_e)
   if(gen_no) then
    call copy_file(hf_fch, no_fch, .false.)
@@ -954,8 +957,9 @@ subroutine do_cc()
  use sr_keyword, only: mem, nproc, qcisd, qcisd_t, ccd, ccsd, ccsd_t, cc_enabled,&
   bgchg, hf_fch, chgname, cc_prog, method, ccd_e, ccsd_e, ccsd_t_e, ref_e, &
   corr_e, ptchg_e, nuc_pt_e, t1diag, chem_core, ecp_core, customized_core, &
-  core_wish, RI, gau_path, orca_path, psi4_path, dalton_mpi, gms_path, gms_scr_path,&
-  check_gms_path, gen_no, relaxed_dm, no_fch, force, molcas_omp
+  core_wish, RI, gau_path, orca_path, psi4_path, dalton_mpi, check_gms_path, &
+  gms_path, gms_scr_path, gms_dat_path, gen_no, relaxed_dm, no_fch, force, &
+  molcas_omp
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
   bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap, fch2cfour_wrap, &
   fch2dal_wrap, fch2inporb_wrap
@@ -1052,7 +1056,7 @@ subroutine do_cc()
   call prt_posthf_gms_inp(inpname, .false.)
   i = nproc
   if(ccd) i = 1 ! CCD in GAMESS is serial
-  call submit_gms_job(gms_path, gms_scr_path, inpname, i)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, i)
   call read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
  case('orca')
   inpname = hf_fch(1:i-1)//'_CC.inp'
@@ -1199,6 +1203,15 @@ subroutine do_adc()
 
  if(adc_n == 0) return
  write(6,'(//,A)') 'Enter subroutine do_adc...'
+ if(ip) then
+  write(6,'(A)',advance='no') 'IP-'
+ else if(ea) then
+  write(6,'(A)',advance='no') 'EA-'
+ else
+  write(6,'(A)',advance='no') 'EE-'
+ end if
+ write(6,'(A,I0,A)') 'ADC(',adc_n,') using program '//TRIM(adc_prog)
+
  call prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
  i = INDEX(hf_fch, '.fch', back=.true.)
 
@@ -1220,6 +1233,12 @@ subroutine do_adc()
   call prt_adc_pyscf_inp(inpname)
   call submit_pyscf_job(inpname, .true.)
   call read_adc_e_from_pyscf_out(outname, nstate, ex_elec_e)
+  if(.not. (ip.or.ea)) then
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'EE-ADC oscillator strength in PySCF is not implemented yet. &
+                  &Set to 0.0 below.'
+   write(6,'(A)') REPEAT('-',79)
+  end if
  case('orca') ! IP-/EE-/EA-ADC
   inpname = hf_fch(1:i-1)//'_ADC.inp'
   old_inp = hf_fch(1:i-1)//'_o.inp'
@@ -1285,7 +1304,7 @@ end subroutine do_adc
 ! call various programs to perform IP-/EE-/EA- EOM-CCSD
 subroutine do_eomcc()
  use sr_keyword, only: nproc, eom, ip, ea, eom_prog, hf_fch, bgchg, chgname, &
-  nstate, gau_path, orca_path, gms_path, gms_scr_path, check_gms_path, &
+  nstate, gau_path, orca_path, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
   psi4_path, ex_elec_e
  use mol, only: ci_ssquare, fosc
  use util_wrapper, only: bas_fch2py_wrap, unfchk, fch2inp_wrap, fch2mkl_wrap, &
@@ -1332,8 +1351,8 @@ subroutine do_eomcc()
   i = RENAME(TRIM(old_inp), TRIM(inpname))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_gms_inp(inpname, .true.)
-  call submit_gms_job(gms_path, gms_scr_path, inpname, 1)
-  call read_eomcc_e_from_gms_out(outname, ip, ea, nstate, ex_elec_e, ci_ssquare, &
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, 1)
+  call read_eomcc_e_from_gms_out(outname, ip, ea, nstate, ex_elec_e, ci_ssquare,&
                                  fosc)
  case('orca')
   inpname = hf_fch(1:i-1)//'_EOMCC.inp'
@@ -1814,7 +1833,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  if(gen_no) then
   write(fid1,'(A)') 'from shutil import copyfile'
   write(fid1,'(A)') 'from mokit.lib.py2fch import write_pyscf_dm_into_fch'
-  write(fid1,'(A)') 'from mokit.lib.lo import gen_no_using_density_in_fch'
+  write(fid1,'(A)') 'from mokit.lib.lo import gen_no_using_dm_in_fch'
   if(ccsd_t) then
    write(fid1,'(A)') 'from pyscf.cc import ccsd_t_lambda_slow as ccsd_t_lambda'
    write(fid1,'(A)') 'from pyscf.cc import ccsd_t_rdm_slow as ccsd_t_rdm'
@@ -2010,13 +2029,13 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
    end if
   end if
   if(mo_rhf) then
-   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, nbf, dm1, 1, True)'
+   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, 1, nbf, dm1, True)'
   else
    write(fid1,'(A)') 'dm = dm1[0] + dm1[1]'
    write(fid1,'(A)') "os.system('fch_u2r '+no_fch+' '+no_fch)"
-   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, nbf, dm, 1, True)'
+   write(fid1,'(A)') 'write_pyscf_dm_into_fch(no_fch, 1, nbf, dm, True)'
   end if
-  write(fid1,'(A)') 'gen_no_using_density_in_fch(no_fch, 1)'
+  write(fid1,'(A)') 'gen_no_using_dm_in_fch(no_fch, 1)'
  end if
 
  close(fid1)
@@ -2483,10 +2502,10 @@ subroutine prt_posthf_molcas_inp(inpname)
  close(fid)
 end subroutine prt_posthf_molcas_inp
 
-! Print PySCF ADC input
+! Print PySCF ADC input. Note: EE-ADC is supported since PySCF 2.10.0
 subroutine prt_adc_pyscf_inp(pyname)
- use sr_keyword, only: mem, nproc, RI, RIJK_bas, adc_n, ip, nstate, chem_core, &
-  force
+ use sr_keyword, only: mem, nproc, RI, RIJK_bas, adc_n, ip, ea, nstate, &
+  chem_core, force
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1
@@ -2568,8 +2587,10 @@ subroutine prt_adc_pyscf_inp(pyname)
  if(adc_n == 3) write(fid1,'(A)') "mc.method = 'adc(3)'"
  if(ip) then
   write(fid1,'(A)') "mc.method_type = 'ip'"
- else
+ else if(ea) then
   write(fid1,'(A)') "mc.method_type = 'ea'"
+ else
+  write(fid1,'(A)') "mc.method_type = 'ee'"
  end if
  write(fid1,'(A,I0,A)') 'mc.kernel(nroots=',nstate,')'
 
@@ -2643,15 +2664,14 @@ subroutine prt_adc_orca_inp(inpname)
   write(fid1,'(A)',advance='no') ' ADC2'
  end if
 
- write(fid1,'(A)') '%method'
- write(fid1,'(A,I0)') ' FrozenCore -', 2*chem_core
- write(fid1,'(A)') 'end'
-
  if(force) then
   write(fid1,'(A)') ' EnGrad'
  else
   write(fid1,'(/)',advance='no')
  end if
+ write(fid1,'(A)') '%method'
+ write(fid1,'(A,I0)') ' FrozenCore -', 2*chem_core
+ write(fid1,'(A)') 'end'
 
  write(fid1,'(A)') '%scf'
  write(fid1,'(A)') ' Thresh 1e-12'
@@ -4080,6 +4100,7 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
  integer, intent(in) :: nstate
  real(kind=8) :: scf_e
  real(kind=8), intent(out) :: e(0:nstate)
+ character(len=6) :: str6
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -4090,21 +4111,23 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
   read(fid,'(A)') buf
   if(buf(1:13) == 'converged SCF') exit
  end do ! for while
+
  i = INDEX(buf, '=')
  read(buf(i+1:),*) scf_e ! HF energy
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:6)=='E_corr' .or. buf(1:6)=='MP2 co') exit
+  str6 = buf(1:6)
+  if(str6=='E_corr' .or. str6=='MP2 co' .or. str6=='MP3 co') exit
  end do ! for while
 
  i = INDEX(buf, '=')
- read(buf(i+1:),*) e(0) ! MP2 correlation energy
+ read(buf(i+1:),*) e(0) ! MP2/MP3 correlation energy
  e(0) = e(0) + scf_e
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(13:29) == 'ADC calculation s') exit
+  if(buf(9:25)=='ADC calculation s' .or. buf(13:29)=='ADC calculation s') exit
  end do ! for while
  read(fid,'(A)') buf
 
@@ -4112,9 +4135,9 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
   read(fid,'(A)') buf
   j = INDEX(buf, '=')
   read(buf(j+1:),*) e(i)
+  e(i) = e(i) + e(0)
  end do ! for i
 
- forall(i = 1:nstate) e(i) = e(i) + e(0)
  close(fid)
 end subroutine read_adc_e_from_pyscf_out
 
@@ -4709,7 +4732,7 @@ subroutine copy_dm_and_gen_no(no_fch, hf_fch, itype)
  implicit none
  integer :: i, RENAME
  integer, intent(in) :: itype
- ! itype in subroutine read_density_from_fch, e.g.
+ ! itype in subroutine read_dm_from_fch, e.g.
  ! 5/6/7/8: 'Total MP2 D'/'Spin MP2 De'/'Total CC De'/'Spin CC Den'
  character(len=240) :: no_fch1, nso_fch
  character(len=240), intent(in) :: no_fch, hf_fch
@@ -4735,13 +4758,13 @@ subroutine copy_dm_and_gen_no(no_fch, hf_fch, itype)
  call copy_file(hf_fch, no_fch1, .false.)
  if(uhf) call fch_u2r_wrap(no_fch1, no_fch1)
  call copy_dm_between_fch(no_fch, no_fch1, itype, .true.)
- call gen_no_using_density_in_fch(no_fch1, 1)
+ call gen_no_using_dm_in_fch(no_fch1, 1)
 
  ! generate natural spin orbitals (NSOs) using alpha/beta density, respectively
  if(uhf) then
   call copy_dm_between_fch(no_fch, nso_fch, itype, .true.)
   call copy_dm_between_fch(no_fch, nso_fch, itype+1, .false.)
-  call gen_no_using_density_in_fch(nso_fch, 0)
+  call gen_no_using_dm_in_fch(nso_fch, 0)
  end if
 
  i = RENAME(TRIM(no_fch1), TRIM(no_fch))

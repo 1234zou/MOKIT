@@ -24,7 +24,7 @@ module population
  ! the shortest distances of two atomic centers
  logical :: cart
 
- type :: mo_cluster       ! an MO cluster
+ type :: mo_cluster    ! an MO cluster
   integer :: nocc = 0  ! number of occupied MOs
   integer :: nvir = 0  ! number of virtual MOs
   integer, allocatable :: occ_idx(:) ! indices of occupied MOs, size nocc
@@ -50,11 +50,15 @@ subroutine init_shltyp_shl2atm_bfirst(fchname)
 end subroutine init_shltyp_shl2atm_bfirst
 
 ! find centers of each MOs from a specified .fch(k) file
-subroutine get_mo_center_from_fch(fchname, ibegin, iend)
+subroutine get_mo_center_from_fch(fchname, ibegin, iend, popm)
  implicit none
  integer :: k
  integer, intent(in) :: ibegin, iend
+ real(kind=8), allocatable :: pop(:,:)
+ character(len=8), optional :: popm
  character(len=240), intent(in) :: fchname
+
+ if(.not. PRESENT(popm)) popm = 'lowdin'
 
  ! get integer array bfirst (natom would be initialized in this subroutine)
  call init_shltyp_shl2atm_bfirst(fchname)
@@ -73,8 +77,12 @@ subroutine get_mo_center_from_fch(fchname, ibegin, iend)
  ! mo_center(0,i) is the number of centers of the i-th MO
 
  k = iend - ibegin + 1
- call get_mo_center_from_ovlp_and_mo(natom, nbf, k, bfirst, ao_ovlp, &
-                                     mo(:,ibegin:iend), mo_center)
+ allocate(pop(natom,k))
+ call calc_diag_gross_pop(natom, nbf, k, bfirst, ao_ovlp, mo(:,ibegin:iend), &
+                          popm, pop)
+ call get_mo_center_from_pop(natom, k, pop, mo_center)
+
+ deallocate(pop)
  ! arrays mo and ao_ovlp are not deallocated here, since they may be re-used by
  ! other subroutines in this file
 end subroutine get_mo_center_from_fch
@@ -146,67 +154,6 @@ end subroutine get_mo_dis_from_fch
 
 end module population
 
-! get MO centers using given AO overlap and MOs
-subroutine get_mo_center_from_ovlp_and_mo(natom, nbf, nif, bfirst, ovlp, mo, &
-                                          mo_center)
- implicit none
- integer :: i, j, k, m
- integer, intent(in) :: natom, nbf, nif
- integer, intent(in) :: bfirst(natom+1)
- integer, intent(out) :: mo_center(0:4,nif)
- real(kind=8) :: ddot
- real(kind=8), intent(in) :: ovlp(nbf,nbf), mo(nbf,nif)
- real(kind=8), allocatable :: rtmp(:), pop(:,:)
-
- allocate(rtmp(nbf), pop(natom,nif))
-
- ! calculate Mulliken population
- ! TODO: maybe change to Lowdin population
- ! TODO: use common subroutines from math_sub.f90
- do i = 1, nif, 1
-  do j = 1, natom, 1
-   k = bfirst(j); m = bfirst(j+1)-1
-   rtmp = 0d0
-   call dgemv('N', nbf, m-k+1, 1d0,ovlp(:,k:m),nbf, mo(k:m,i),1, 0d0,rtmp,1)
-   pop(j,i) = ddot(nbf, mo(:,i), 1, rtmp, 1)
-  end do ! for j
- end do ! for i
-
- deallocate(rtmp)
- call get_mo_center_from_pop(natom, nif, pop, mo_center)
- deallocate(pop)
-end subroutine get_mo_center_from_ovlp_and_mo
-
-!! remove a normalized MO from a set of orthonormalized MOs, and return the
-!! remaining MOs
-!subroutine remove_mo_via_svd(nbf, ovlp, mo, left_mo)
-! implicit none
-! integer, intent(in) :: nbf
-! real(kind=8), intent(in) :: ovlp(nbf,nbf), mo(nbf)
-! real(kind=8), intent(out) :: left_mo(nbf,nbf-1)
-! real(kind=8), allocatable :: ortho_mo(:,:), new_mo(:,:), tmp_mo(:,:), &
-!  mo_ovlp(:,:), u(:,:), vt(:,:), s(:)
-!
-! left_mo = 0d0
-! allocate(ortho_mo(nbf,nbf))
-! call sym_ortho(nbf, ovlp, ortho_mo)
-! allocate(tmp_mo(nbf,1))
-! tmp_mo(:,1) = mo
-! allocate(mo_ovlp(nbf,1))
-! call calc_CTSCp2(nbf, nbf, 1, ortho_mo, ovlp, tmp_mo, mo_ovlp)
-! deallocate(tmp_mo)
-!
-! allocate(u(nbf,nbf), vt(1,1), s(nbf))
-! call do_svd(nbf, 1, mo_ovlp, u, vt, s)
-! deallocate(mo_ovlp, vt, s)
-!
-! allocate(new_mo(nbf,nbf), source=0d0)
-! call dgemm('N','N',nbf,nbf,nbf,1d0,ortho_mo,nbf,u,nbf,0d0,new_mo,nbf)
-! deallocate(ortho_mo, u)
-! left_mo = new_mo(:,2:nbf)
-! deallocate(new_mo)
-!end subroutine remove_mo_via_svd
-
 ! delete irrelevant truncated PAOs
 subroutine del_irrel_tr_pao(tr_nbf, nbf, s_v, s_d, cpao, tr_cpao, nleft)
  implicit none
@@ -239,8 +186,8 @@ subroutine del_irrel_tr_pao(tr_nbf, nbf, s_v, s_d, cpao, tr_cpao, nleft)
  end if
 
  allocate(new_mo(tr_nbf,nleft))
-
  k = 0
+
  do i = 1, tr_nbf, 1
   if(del(i)) cycle
   k = k + 1
@@ -279,12 +226,6 @@ subroutine svd_get_one_mo(nbf, nif, ao_ovlp, mo_k, mo)
  deallocate(new_mo)
 end subroutine svd_get_one_mo
 
-! construct antibonding orbitals for a set of bonding orbitals
-! Note:
-! 1) mo(:,i3:nif) will be updated, where mo(:,i3:i3+i2-i1) are generated anti-
-!  bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
-! 2) all MOs are still orthonormalized.
-!TODO: remove Gaussian dependence and use PySCF instead
 subroutine find_antibonding_orb(fchname, i1, i2, i3)
  use population, only: nbf, nif, bfirst, mo, ao_ovlp, mo_center, &
   get_mo_center_from_fch
@@ -437,6 +378,146 @@ subroutine find_antibonding_orb(fchname, i1, i2, i3)
  call write_mo_into_fch(new_fch, nbf, nif, 'a', mo)
 end subroutine find_antibonding_orb
 
+! construct antibonding orbitals for a set of bonding orbitals
+! Note:
+! 1) mo(:,i3:nif) will be updated, where mo(:,i3:i3+i2-i1) are generated anti-
+!  bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
+! 2) all MOs are still orthonormalized.
+subroutine find_antibonding_orbitals(i1, i2, i3, natom, nbf, nif, bfirst, &
+                                     mo_center, ao_ovlp, ao_dip, mo)
+ implicit none
+ integer :: i, j, k, k1, k2, m, p, tr_nbf, ncenter, nzero
+ integer, intent(in) :: i1, i2, i3, natom, nbf, nif
+!f2py intent(in) :: i1, i2, i3, natom, nbf, nif
+ integer, intent(in) :: bfirst(natom+1)
+!f2py intent(in) :: bfirst
+!f2py depend(natom) :: bfirst
+ real(kind=8), intent(in) :: mo_center(0:4,i1:i2), ao_ovlp(nbf,nbf), &
+  ao_dip(3,nbf,nbf)
+!f2py intent(in) :: mo_center, ao_ovlp, ao_dip
+!f2py depend(i1,i2) :: mo_center
+!f2py depend(nbf) :: ao_ovlp, ao_dip
+ integer, allocatable :: chosen(:)
+ real(kind=8), allocatable :: dip(:,:,:), mo_dip(:,:,:), pao(:,:), cpao(:,:), &
+  tr_cpao(:,:), tr_ocpao(:,:), s_d(:,:), s_v(:,:), svc(:,:), svc1(:)
+ real(kind=8), intent(inout) :: mo(nbf,nif)
+!f2py intent(in,out) :: mo
+!f2py depend(nbf,nif) :: mo
+
+ do i = i2, i1, -1
+  ! construct PAOs using remaining virtual MOs
+  k = i3 + i2 - i - 1
+  allocate(pao(nbf,nbf))
+  call get_normalized_pao(nbf, k, ao_ovlp, mo(:,1:k), pao)
+
+  ! get the number of PAOs located at the centers of the i-th MO
+  tr_nbf = 0
+  ncenter = mo_center(0,i)
+  do j = 1, ncenter, 1
+   k = mo_center(j,i)
+   tr_nbf = tr_nbf + bfirst(k+1) - bfirst(k)
+  end do ! for j
+
+  allocate(cpao(nbf,tr_nbf), s_v(tr_nbf,nbf), chosen(tr_nbf))
+  tr_nbf = 0
+
+  ! select PAOs which are located at the centers of the i-th MO
+  do j = 1, ncenter, 1
+   k = mo_center(j,i); k1 = bfirst(k); k2 = bfirst(k+1)
+   m = k2 - k1
+   cpao(:,tr_nbf+1:tr_nbf+m) = pao(:,k1:k2-1)
+   s_v(tr_nbf+1:tr_nbf+m,:) = ao_ovlp(k1:k2-1,:)
+   forall(p = 1:m) chosen(tr_nbf+p) = k1 + p - 1
+   tr_nbf = tr_nbf + m
+  end do ! for j
+  deallocate(pao)
+
+  ! AO overlap integral matrix within the truncated basis range
+  ! AO dipole integral matrices within the truncated basis range
+  allocate(s_d(tr_nbf,tr_nbf), dip(3,tr_nbf,tr_nbf))
+!$omp parallel do schedule(dynamic) default(shared) private(j,k)
+  do j = 1, tr_nbf, 1
+   do k = 1, tr_nbf, 1
+    s_d(k,j) = ao_ovlp(chosen(k),chosen(j))
+    dip(:,k,j) = ao_dip(:,chosen(k),chosen(j))
+   end do ! for k
+  end do ! for j
+!$omp end parallel do
+
+  ! calculate (S_v)C
+  allocate(svc(tr_nbf,tr_nbf), source=0d0)
+  call dgemm('N','N',tr_nbf,tr_nbf,nbf,1d0,s_v,tr_nbf,cpao,nbf,0d0,svc,tr_nbf)
+
+  ! perform Boughton-Pulay projection to truncate the basis range of PAOs
+  allocate(tr_cpao(tr_nbf,tr_nbf))
+  call solve_multi_lin_eqs(tr_nbf, tr_nbf, s_d, tr_nbf, svc, tr_cpao)
+  deallocate(svc)
+
+  ! Delete irrelevant truncated PAOs. There are several PAOs whose truncation
+  ! residues > 0.08, which is possible since not all PAOs can be truncated into
+  ! this small basis range. Deleting them is necessary for cases e.g. two
+  ! monomers which are far away from each other.
+  call del_irrel_tr_pao(tr_nbf, nbf, s_v, s_d, cpao, tr_cpao, k)
+  deallocate(cpao)
+
+  ! Perform canonical orthogonalization on truncated PAOs.
+  ! Q: Why not simply perform canonical orthogonalization on selected original
+  !    PAOs, but on truncated PAOs?
+  ! A: Canonical orthogonalization makes MOs extremely delocalized among its
+  !    basis range. The basis range of the selected original PAOs are the whole
+  !    molecule. So we need to firstly truncate selected PAOs to shrink their
+  !    basis range. Then the canonical-orthogonalized PAOs are only delocalized
+  !    on centers of the i-th MO (around 2 atoms usually).
+  allocate(tr_ocpao(tr_nbf,0:k))
+  call orthonormalize_orb(.false., .true., tr_nbf, k, s_d, tr_cpao(:,1:k), &
+                          tr_ocpao(:,1:k))
+  deallocate(tr_cpao)
+  call detect_zero_mo(tr_nbf, k, tr_ocpao(:,1:k), nzero)
+  k = k - nzero + 1
+
+  ! perform Boughton-Pulay projection to truncate the i-th MO
+  allocate(svc1(tr_nbf), source=0d0)
+  call dgemv('N', tr_nbf, nbf, 1d0, s_v, tr_nbf, mo(:,i), 1, 0d0, svc1, 1)
+  deallocate(s_v)
+  call solve_lin_eqs(tr_nbf, tr_nbf, s_d, svc1, tr_ocpao(:,0))
+  deallocate(svc1)
+  call normalize_mo(tr_nbf, s_d, tr_ocpao(:,0))
+  deallocate(s_d)
+  ! tr_ocpao(:,0) is non-orthogonal to tr_ocpao(:,1:k), although the orthogonality
+  ! is not required here
+
+  ! calculate MO dipole integral matrices within this basis range
+  allocate(mo_dip(3,k,k))
+  do j = 1, 3
+   call calc_CTSC(tr_nbf, k, tr_ocpao(:,0:k-1), dip(j,:,:), mo_dip(j,:,:))
+  end do ! for j
+  deallocate(dip)
+
+  ! find the antibonding orbital via 2*2 orbital rotations
+  allocate(tr_cpao(tr_nbf,k))
+  call assoc_loc2(tr_nbf, k, 0,1, 1,k, tr_ocpao(:,0:k-1), mo_dip, tr_cpao)
+  deallocate(tr_ocpao, mo_dip)
+
+  ! map this antibonding orbital back to the basis range of the whole molecule
+  allocate(svc1(nbf), source=0d0)
+  forall(j = 1:tr_nbf) svc1(chosen(j)) = tr_cpao(j,2)
+  deallocate(chosen, tr_cpao)
+  call normalize_mo(nbf, ao_ovlp, svc1)
+
+  ! This antibonding orbital is not orthogonal to mo(:,1:i3+i2-i-1). We can get
+  !  an eligible virtual MO which resembles this antibonding orbital via SVD
+  !  between remaining virtual MOs and this (only one) antibonding orbital.
+  ! Note: if this step is not done within the loop, but firstly collect all
+  !  antibonding orbitals and try to get orthogonal ones out of the loop. It
+  !  would be not easy to obtain orthogonal antibonding orbitals via simple
+  !  SVD, and more steps are needed.
+  k = i3 + i2 - i
+  m = nif - k + 1
+  call svd_get_one_mo(nbf, m, ao_ovlp, svc1, mo(:,k:nif))
+  deallocate(svc1)
+ end do ! for i
+end subroutine find_antibonding_orbitals
+
 ! calculate GVB bond orders using information in _s.fch and _s.dat files
 subroutine get_gvb_bond_order_from_fch(fchname)
  use population, only: mo_center, get_mo_center_from_fch
@@ -464,7 +545,7 @@ subroutine get_gvb_bond_order_from_fch(fchname)
  call read_na_and_nb_from_fch(fchname, na, nb)
  nopen = na - nb
  ibegin = nb - npair + 1
- ! Mulliken populations are performed for bonding orbitals only
+ ! Lowdin populations are performed for bonding orbitals only
  call get_mo_center_from_fch(fchname, ibegin, nb)
 
  do i = ibegin, nb, 1

@@ -4,8 +4,8 @@
 ! do MC-PDFT, valid for CASCI/CASSCF based MC-PDFT, and DMRG-PDFT
 subroutine do_mcpdft()
  use mr_keyword, only: mem, nproc, casci, dmrgci, dmrgscf, mcpdft, mcpdft_prog,&
-  casnofch, molcas_omp, molcas_path, gms_path, bgchg, chgname, check_gms_path, &
-  gms_scr_path, n_otpdf, otpdf, mcpdft_force, eist
+  casnofch, molcas_omp, molcas_path, bgchg, chgname, check_gms_path, gms_path, &
+  gms_scr_path, gms_dat_path, n_otpdf, otpdf, mcpdft_force, eist
  use mol, only: nacte, nacto, ptchg_e, mcpdft_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap, fch2inporb_wrap
  implicit none
@@ -109,7 +109,7 @@ subroutine do_mcpdft()
   call prt_mcpdft_gms_inp(inpname, split_otpdf(1))
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
-  call submit_gms_job(gms_path, gms_scr_path, inpname, 1)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, 1)
   call read_mcpdft_e_from_gms_gms(outname, ref_e, otpdf_e(1))
 
  case default

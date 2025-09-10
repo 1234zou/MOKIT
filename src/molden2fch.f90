@@ -126,7 +126,7 @@ program main
   end do ! for j
   write(6,'(/,A)') " If you are transferring NOs, you can append a '-no' argume&
                    &nt, e.g."
-  write(6,'(A,/)') '            molden2fch a.molden -orca -no'
+  write(6,'(A,/)') '       molden2fch a.molden -orca -no'
   stop
  end if
 

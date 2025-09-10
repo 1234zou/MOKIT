@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc9 :: MOKIT, release date: 2025-Jul-24'
+  write(6,'(A)') 'AutoMR 1.2.7rc10 :: MOKIT, release date: 2025-Sep-10'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -36,18 +36,18 @@ program main
   write(6,'(A)')   '  -v, -V, --version: Print the version number of automr and exit.'
   write(6,'(A)')   '  -t, --testprog: Print the path of programs detected by automr and exit.'
   write(6,'(/,A)') 'Methods(#p ...):'
-  write(6,'(A)')   '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3,&
-                   & CASPT2, CASPT2-K,'
-  write(6,'(A)')   '  CASPT3, MRMP2, OVBMP2, SDSPT2, MRCISD, MRCISDT, MCPDFT,&
-                   & FICMRCCSD,'
-  write(6,'(A)')   '  MkMRCCSD, MkMRCCSD(T), BWMRCCSD, BWMRCCSD(T), BCCC2b, BCCC3b'
+  write(6,'(A)')   '  GVB, CASCI, CASSCF, DMRGCI, DMRGSCF, NEVPT2, NEVPT3, NEVP&
+                   &T4SD, CASPT2,'
+  write(6,'(A)')   '  CASPT2K, CASPT3, MRMP2, OVBMP2, SDSPT2, MRCISD, MRCISDT, &
+                   &MCPDFT,'
+  write(6,'(A)')   '  FICMRCCSD, MkMRCCSD, BWMRCCSD, BCCC2b, BCCC3b'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
   write(6,'(A)')   '      HF_prog=Gaussian/PySCF/ORCA/PSI4'
   write(6,'(A)')   '     GVB_prog=GAMESS/Gaussian/QChem'
   write(6,'(A)')   '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
   write(6,'(A)')   '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
-  write(6,'(A)')   '  NEVPT2_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
-  write(6,'(A)')   '  CASPT2_prog=OpenMolcas/Molpro/ORCA'
+  write(6,'(A)')   '   NEVPT_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
+  write(6,'(A)')   '   CASPT_prog=OpenMolcas/Molpro/ORCA'
   write(6,'(A)')   '  MCPDFT_prog=OpenMolcas/PySCF/GAMESS'
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC-MRCISD'
@@ -100,6 +100,7 @@ subroutine automr(fname)
  call do_cas(.true.)  ! CASSCF/DMRG-CASSCF, including SS-CASSCF
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
  call do_mrpt3()      ! CASPT3/NEVPT3
+ call do_mrpt4()      ! FIC-NEVPT4(SD)
  call do_mrcisd()     ! uncontracted/ic-/FIC- MRCISD
  call do_mrcisdt()    ! uncontracted MRCISDT
  call do_mcpdft()     ! MC-PDFT
@@ -384,12 +385,11 @@ subroutine prt_auto_pair_script_into_py(pyname)
   if(npair_wish > 0) then
    write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, mv&
                      &_dege_docc_below_bo'
-   write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
-   write(fid2,'(A)') 'from os import rename'
+   write(fid2,'(A)') 'from mokit.lib.gaussian import find_antibonding_orb'
   end if
 
   if(TRIM(localm) == 'boys') then
-   write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
+   write(fid2,'(A)') 'from mokit.lib.gaussian import get_ao_dip, BOHR2ANG'
   end if
   ! dipole_integral is always needed in this file
   write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
@@ -421,7 +421,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
   case('pm')   ! Pipek-Mezey orbital localization
    write(fid2,'(A)') "occ_lmo = loc_driver(mol, lmo_ini, nval, method='pm')"
   case('boys') ! Foster-Boys orbital localization
-   write(fid2,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
+   write(fid2,'(A)') 'center, ao_dip = get_ao_dip(mol)'
    write(fid2,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
    write(fid2,'(A)') "occ_lmo = loc_driver(mol, lmo_ini, nval, method='boys', a&
                      &o_dip=ao_dip)"
@@ -467,12 +467,9 @@ subroutine prt_auto_pair_script_into_py(pyname)
    write(fid2,'(A)') '  # find corresponding antibonding orbitals'
    write(fid2,'(A)') '  nadd = npair_wish - npair'
    write(fid2,'(A)') '  i1 = ncore + nval - npair_wish + 1'
-   write(fid2,'(A)') '  find_antibonding_orb(loc_fch, i1, nb, na+1)'
-   write(fid2,'(A)') "  a_fch = '"//TRIM(a_fch)//"'"
-   write(fid2,'(A)') '  rename(a_fch, loc_fch)'
+   write(fid2,'(A)') '  mo = find_antibonding_orb(mol, mo, i1, nb, na+1, True)'
+   write(fid2,'(A)') "  py2fch(loc_fch, nbf, nif, mo, 'a', ev, False, False)"
    write(fid2,'(A)') '  npair = npair_wish'
-   ! Here find_antibonding_orb depends on Gaussian. This dependency needs to be
-   ! removed in the future.
   end if
   close(fid2)
   i = RENAME(TRIM(pyname1), TRIM(pyname))
@@ -613,7 +610,7 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  end if
 
  if(TRIM(localm) == 'boys') then
-  write(fid2,'(A)') 'from mokit.lib.gaussian import ao_dipole_int, BOHR2ANG'
+  write(fid2,'(A)') 'from mokit.lib.gaussian import get_ao_dip, BOHR2ANG'
  end if
  write(fid2,'(A)') 'from mokit.lib.auto_pair import pair_by_tdm'
  write(fid2,'(A)') 'from mokit.lib.assoc_rot import assoc_rot'
@@ -623,7 +620,7 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  if(npair_wish > 0) then
   write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, &
                      &sort_mo_by_ev, modify_uno_out'
-  write(fid2,'(A)') 'from mokit.lib.wfn_analysis import find_antibonding_orb'
+  write(fid2,'(A)') 'from mokit.lib.gaussian import find_antibonding_orb'
  end if
  write(fid2,'(A)') 'from mokit.lib.util import get_npair_and_ovidx, get_Fii, &
                     &get_Fii_native'
@@ -663,7 +660,7 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
  case('pm')   ! Pipek-Mezey orbital localization
   write(fid1,'(2X,A)') "occ_lmo = loc_driver(mol, lmo_ini, npair1, method='pm')"
  case('boys') ! Foster-Boys orbital localization
-  write(fid1,'(2X,A)') 'center, ao_dip = ao_dipole_int(mol)'
+  write(fid1,'(2X,A)') 'center, ao_dip = get_ao_dip(mol)'
   write(fid1,'(2X,A)') 'ao_dip = ao_dip*BOHR2ANG'
   write(fid1,'(2X,A)') "occ_lmo = loc_driver(mol, lmo_ini, npair1, method='boys&
                        &', ao_dip=ao_dip)"
@@ -727,9 +724,9 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
   write(fid1,'(A)') '  # find corresponding antibonding orbitals'
   write(fid1,'(A)') '  nadd = npair_wish - npair'
   write(fid1,'(A)') '  i1 = ncore - nadd + 1'
-  write(fid1,'(A)') '  find_antibonding_orb(assoc_fch, i1, ncore, na+npair+1)'
-  write(fid1,'(A)') "  a_fch = '"//TRIM(a_fch)//"'"
-  write(fid1,'(A)') '  os.rename(a_fch, assoc_fch)'
+  write(fid1,'(A)') '  mo = find_antibonding_orb(mol, mf.mo_coeff[0], i1, ncore&
+                    &, na+npair+1, True, S)'
+  write(fid1,'(A)') "  py2fch(assoc_fch, nbf, nif, mo, 'a', noon, False, False)"
   write(fid1,'(A)') '  npair = npair_wish'
   if(suno) then
    write(fid1,'(A)') "  suno_out = '"//TRIM(suno_out)//"'"

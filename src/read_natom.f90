@@ -4,7 +4,9 @@ subroutine read_natom_from_file(fname, natom)
  implicit none
  integer :: i
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
 
  call require_file_exist(fname)
  i = LEN_TRIM(fname)
@@ -37,7 +39,9 @@ end subroutine read_natom_from_file
 subroutine read_natom_from_gjf_pbc(gjfname, natom)
  implicit none
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
 
  call read_natom_from_gjf(gjfname, natom)
  natom = natom - 3
@@ -48,8 +52,10 @@ subroutine read_natom_from_gjf(gjfname, natom)
  implicit none
  integer :: i, fid, nblank
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
 
  nblank = 0
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
@@ -163,7 +169,9 @@ subroutine read_natom_from_xyz(xyzname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
 
  natom = 0
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
@@ -183,8 +191,10 @@ subroutine read_natom_from_pdb(pdbname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=13) :: buf
  character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
 
  natom = 0
  open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
@@ -220,8 +230,10 @@ subroutine read_natom_from_molcas_out(outname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
 
  natom = 0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
@@ -259,8 +271,10 @@ subroutine read_natom_from_molpro_out(outname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
 
  natom = 0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
@@ -297,8 +311,10 @@ subroutine read_natom_from_engrad(fname, natom)
  implicit none
  integer :: fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
 
  natom = 0
  open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
@@ -323,8 +339,10 @@ subroutine read_natom_from_gms(gmsfile, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsfile
+!f2py intent(in) :: gmsfile
 
  buf = ' '
  natom = 0
@@ -353,9 +371,11 @@ subroutine read_natom_from_gms_inp(inpname, natom)
  implicit none
  integer :: i, fid, nline
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=1) :: str
  character(len=240):: buf
  character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
 
  natom = 0
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -411,8 +431,10 @@ subroutine read_natom_from_mkl(mklname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
 
  natom = 0
  open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
@@ -450,7 +472,9 @@ subroutine read_natom_from_EIn(EIn, natom)
  implicit none
  integer :: fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240), intent(in) :: EIn
+!f2py intent(in) :: EIn
 
  open(newunit=fid,file=TRIM(EIn),status='old',position='rewind')
  read(fid,*) natom
@@ -462,8 +486,10 @@ subroutine read_natom_from_amo(amoname, natom)
  implicit none
  integer :: i, fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: amoname
+!f2py intent(in) :: amoname
 
  natom = 0
  open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
@@ -497,8 +523,10 @@ subroutine read_natom_from_molden(molden, natom)
  implicit none
  integer :: fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: molden
+!f2py intent(in) :: molden
 
  open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
@@ -521,8 +549,10 @@ subroutine read_natom_from_gau_log(outname, natom)
  implicit none
  integer :: fid
  integer, intent(out) :: natom
+!f2py intent(out) :: natom
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
 
  natom = 0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
@@ -535,6 +565,36 @@ subroutine read_natom_from_gau_log(outname, natom)
  close(fid)
  read(buf(9:),*) natom
 end subroutine read_natom_from_gau_log
+
+subroutine read_natom_from_orca_prop_txt(txtname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+!f2py intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: txtname
+!f2py intent(in) :: txtname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(txtname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(5:10) == 'NAtoms') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_natom_from_orca_prop_txt: 'NAtoms'&
+                   & not found in"
+  write(6,'(A)') 'file '//TRIM(txtname)
+  stop
+ end if
+
+ i = INDEX(buf, ']')
+ read(buf(i+1:),*) natom
+end subroutine read_natom_from_orca_prop_txt
 
 ! Read AtomTypes from a Dalton .mol file. For the fch2dal/mkl2dal generated .mol
 ! file, this number is equal to No. atoms.
@@ -623,8 +683,10 @@ subroutine read_charge_and_mult_from_gjf(gjfname, charge, mult)
  implicit none
  integer :: i, nblank, fid
  integer, intent(out) :: charge, mult
+!f2py intent(out) :: charge, mult
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
 
  charge = 0; mult = 1
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')

@@ -10,19 +10,19 @@ from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
 BOHR2ANG = 0.52917721092e0
 
 
-def ao_dipole_int(mol):
-  # mol can be either molecule or cell object
+def get_ao_dip(mol):
+  # mol can only be molecule object. Although it can also be cell object in
+  # principle, the calculated dipole integrals in this case seem useless. For
+  # PBC orbital localization, what we need is complex ao_dip from ft_aopair
+  # (see pbc_loc() below) and this function will not be called.
   numerator = np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
   charge_center = (numerator / mol.atom_charges().sum())
   with mol.with_common_origin(charge_center):
-    if getattr(mol, 'pbc_intor', None):
-      ao_dip = mol.pbc_intor('int1e_r', comp=3, hermi=1)
-    else:
-      ao_dip = mol.intor_symmetric('int1e_r', comp=3)
+    ao_dip = mol.intor_symmetric('int1e_r', comp=3)
   return charge_center, ao_dip
 
 
-def wrap_atoms_in_cell(cell):
+def wrap_atoms_into_cell(cell):
   '''
   Wrap atoms outside the cell back into the cell. The lattice sum and the required
   memory in PySCF is less demanding when all atoms are inside the cell.
@@ -66,7 +66,22 @@ def load_mol_from_fch(fchname):
     null = run.read()
   os.remove(tmp_fch)
 
-  importlib.invalidate_caches() # important
+  # Some machine/environment might not recognize that tmp_py is now in the
+  # current directory since it is generated just now. Update `sys.path` such
+  # that tmp_py can be found in the current directory.
+  importlib.invalidate_caches()
+
+  # There is a special case that the target Python script is not in the current
+  # directory and it is called via an absolute path, e.g.
+  #   `python ~/software/ris/main.py -f mol.fch`
+  # `sys.path` does not include the path of mol.fch in such case, so the error
+  # "ModuleNotFoundError: No module named 'gauxxx'" will probably occur. To
+  # solve this problem, we can add the directory of tmp_py into `sys.path`.
+  cur_dir = os.path.dirname(os.path.abspath(tmp_py))
+  if not os.path.samefile(sys.path[0], cur_dir):
+    sys.path.insert(0, cur_dir)
+
+  # now we can import
   molpy = importlib.import_module(proname)
   os.remove(tmp_py)
   find_and_del_pyc(proname, sys.version)
@@ -210,7 +225,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   nmo1, lmo_ini = loc_ini_guess(mol, mo[:,idx], nmo)
 
   if method == 'boys' or center_xyz is not None:
-    center, ao_dip = ao_dipole_int(mol)
+    center, ao_dip = get_ao_dip(mol)
     center *= BOHR2ANG
     ao_dip *= BOHR2ANG
   else:
@@ -320,7 +335,7 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
 
   cell = load_cell_from_fch(fchname)
   cell.a = lat_vec
-  coor, cell = wrap_atoms_in_cell(cell)
+  coor, cell = wrap_atoms_into_cell(cell)
   # wrap atoms outside the box back into the box, which can save memory and avoid
   # linear dependency of ao_ovlp in PySCF
   cell.build(parse_arg=False)
@@ -707,6 +722,127 @@ def export_mo_e2txt(fchname):
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   ev = read_eigenvalues_from_fch(fchname, nif, 'a')
   export_rarray2txt(txtname, 'MO Eigenvalues', nif, ev)
+
+
+def nio(n_fch, n_1_fch):
+  '''
+  Generate natural ionization orbitals for N -> N-1 electronic states. The input
+  .fch(k) files MUST include appropriate densities in `Total SCF Density`
+  section. For example, N for RKS, N-1 for UKS; both N/N-1 calculated by CASSCF
+  using automr of MOKIT.
+  This module can also be used for EA(electron affinity) process, where `n_fch`/
+  n_1_fch stand for N+1/N electronic states, respectively. But remember that a
+  basis set with diffuse functions may be required for the N+1 species.
+  '''
+  from mokit.lib.lo import get_ao_ovlp_using_fch, gen_no_from_dm_and_ao_ovlp
+  from mokit.lib.rwwfn import read_dm_from_fch, write_mo_into_fch, \
+   write_dm_into_fch, write_eigenvalues_to_fch
+  from mokit.lib.excited import check_uhf_in_fch
+
+  nbf, nif = read_nbf_and_nif_from_fch(n_fch)
+  nbf1, nif1 = read_nbf_and_nif_from_fch(n_1_fch)
+  if nbf != nbf1:
+    raise ValueError('The number of basis functions are not equal in two .fch(k) files!')
+
+  ao_ovlp = get_ao_ovlp_using_fch(n_fch, nbf)
+  dm_n = read_dm_from_fch(n_fch, 1, nbf)
+  dm_n_1 = read_dm_from_fch(n_1_fch, 1, nbf)
+  dm_n -= dm_n_1 # difference of N/N-1 density matrices
+  noon, no_coeff = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm_n, ao_ovlp)
+
+  nio_fch = n_fch[0:n_fch.rindex('.fch')]+'_nio.fch'
+  uhf = check_uhf_in_fch(n_fch)
+  if uhf == 0: # not UHF type
+    shutil.copyfile(n_fch, nio_fch)
+  else:        # UHF type
+    os.system('fch_u2r '+n_fch)
+    r_fch = n_fch[0:n_fch.rindex('.fch')]+'_r.fch'
+    os.rename(r_fch, nio_fch)
+
+  write_mo_into_fch(nio_fch, nbf, nif, 'a', no_coeff)
+  write_dm_into_fch(nio_fch, True, nbf, dm_n)
+  write_eigenvalues_to_fch(nio_fch, nif, 'a', noon, True)
+
+
+def find_antibonding_orb(mol, mo, i1=0, i2=0, i3=0, start_from_one=False,
+                         ao_ovlp=None, popm='lowdin'):
+  '''
+  Construct antibonding orbitals for a set of bonding orbitals.
+  mol: PySCF molecule object
+  mo: molecular orbital coefficients
+  k1, k2, k3: orbital indices
+  start_from_one: whether the given orbital indices starts from 1 (Fortran
+   convention). start_from_one=False means starting from 0 (Python convention).
+  ao_ovlp: AO overlap integral matrix. If `None` is given, it will be calculated
+   using mol.intor_symmetric('int1e_ovlp') below, otherwise it will be directly
+   used.
+  popm: population method, 'mulliken' or 'lowdin'
+  Note:
+  1) mo(:,i3:nif) will be updated, where mo(:,i3:i3+i2-i1) are generated anti-
+   bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
+  2) all MOs are still orthonormalized after calling this function.
+  '''
+  from mokit.lib.ortho import check_orthonormal
+  from mokit.lib.lo import calc_diag_gross_pop, get_mo_center_from_pop
+  from mokit.lib.wfn_analysis import find_antibonding_orbitals
+
+  if start_from_one is True:
+    k1 = i1
+    k2 = i2
+    k3 = i3
+  else:
+    k1 = i1+1
+    k2 = i2+1
+    k3 = i3+1
+  npair = k2 - k1 + 1
+  nbf = mo.shape[0]
+  nif = mo.shape[1]
+
+  if k2<k1 or k3<=k2 or nif<k3+npair-1:
+    print('i1= %d, i2= %d, i3= %d' %(i1, i2, i3))
+    raise ValueError('Wrong orbital indices.')
+
+  natom = mol.natm
+  bfirst = np.ones(natom+1, dtype=np.int32)
+  bfirst[1:] = mol.aoslice_by_atom()[:,3] + 1
+
+  if ao_ovlp is None:
+    S = mol.intor_symmetric('int1e_ovlp')
+  else:
+    S = ao_ovlp
+  check_orthonormal(nbf, nif, mo, S)
+  pop = calc_diag_gross_pop(natom, nbf, npair, bfirst, S, mo[:,k1-1:k2], popm)
+  mo_center = get_mo_center_from_pop(natom, npair, pop)
+  center, ao_dip = get_ao_dip(mol)
+  mo = find_antibonding_orbitals(k1, k2, k3, natom, nbf, nif, bfirst, mo_center,
+                                 S, ao_dip, mo)
+  check_orthonormal(nbf, nif, mo, S)
+  return mo
+
+
+def find_antibonding_orb_in_fch(fchname, i1, i2, i3, start_from_one=False, popm='lowdin'):
+  '''
+  Construct antibonding orbitals for a set of bonding orbitals. The original MOs
+  are stored in fchname.
+  i1, i2, i3: orbital indices
+  start_from_one: whether the given orbital indices starts from 1 (Fortran
+   convention). start_from_one=False means starting from 0 (Python convention).
+  popm: population method, 'mulliken' or 'lowdin'
+  Note:
+  1) mo(:,i3:nif) will be updated, where mo(:,i3:i3+i2-i1) are generated anti-
+   bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
+  2) all MOs are still orthonormalized after calling this function.
+  '''
+  from mokit.lib.rwwfn import read_eigenvalues_from_fch
+
+  mol = load_mol_from_fch(fchname)
+  nbf, nif = read_nbf_and_nif_from_fch(fchname)
+  mo = fch2py(fchname, nbf, nif, 'a')
+  new_mo = find_antibonding_orb(mol, mo, i1, i2, i3, start_from_one, None, popm)
+  new_fch = fchname[0:fchname.rindex('.fch')]+'_a.fch'
+  shutil.copyfile(fchname, new_fch)
+  ev = read_eigenvalues_from_fch(fchname, nif, 'a')
+  py2fch(new_fch, nbf, nif, new_mo, 'a', ev, False, False)
 
 
 def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):

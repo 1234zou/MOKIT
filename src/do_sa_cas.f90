@@ -5,7 +5,7 @@ subroutine do_sa_cas()
  use mol, only: mult, nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, sa_cas_e,&
   ci_ssquare, fosc
  use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
-  dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt2_prog, chgname, excited, &
+  dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt_prog, chgname, excited, &
   nstate, nevpt2, on_thres, orca_path, molcas_omp
  use phys_cons, only: au2ev
  implicit none
@@ -76,13 +76,13 @@ subroutine do_sa_cas()
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
                           'o) using program '//TRIM(cas_prog)
 
- nevpt2_btw = (TRIM(cas_prog) == TRIM(nevpt2_prog))
+ nevpt2_btw = (TRIM(cas_prog) == TRIM(nevpt_prog))
  if(nevpt2 .and. (.not.nevpt2_btw)) then
   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: please set CASSCF_prog and N&
                    &EVPT2_prog to be'
   write(6,'(A)') 'the same program. NEVPT2 based on SA-CASSCF currently does no&
                 &t support the case'
-  write(6,'(A)') 'CASSCF_prog /= NEVPT2_prog.'
+  write(6,'(A)') 'CASSCF_prog /= NEVPT_prog.'
   stop
  end if
  call find_specified_suffix(hf_fch, '.fch', i)
@@ -144,15 +144,15 @@ subroutine do_sa_cas()
 
  if(nevpt2 .and. nevpt2_btw) then
   allocate(nevpt2_e(0:nstate))
-  select case(TRIM(nevpt2_prog))
+  select case(TRIM(nevpt_prog))
   case('pyscf')
    call read_multiroot_nevpt2_from_pyscf_out(outname, dmrgscf, nstate, nevpt2_e)
   case('orca')
    call read_multiroot_nevpt2_from_orca_out(outname, nstate, nevpt2_e)
   case default
-   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: NEVPT2_prog cannot be recog&
+   write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: NEVPT_prog cannot be recog&
                     &nized.'
-   write(6,'(A)') 'NEVPT2_prog='//TRIM(nevpt2_prog)
+   write(6,'(A)') 'NEVPT_prog='//TRIM(nevpt_prog)
    stop
   end select
 

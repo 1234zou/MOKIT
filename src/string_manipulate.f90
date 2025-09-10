@@ -1311,8 +1311,10 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  implicit none
  integer :: i, fid
  integer, intent(out) :: ncontr
+!f2py intent(out) :: ncont
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  ncontr = 0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -1324,10 +1326,11 @@ subroutine read_ncontr_from_fch(fchname, ncontr)
  end do
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing&
-                 & 'Number of contract' section in file "//TRIM(fchname)
+  write(6,'(A)') "ERROR in subroutine read_ncontr_from_fch: missing 'Number of &
+                 &contract' section"
+  write(6,'(A)') 'in file '//TRIM(fchname)
   close(fid)
-  return
+  stop
  end if
 
  BACKSPACE(fid)
@@ -1340,9 +1343,13 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
  implicit none
  integer :: i, fid
  integer, intent(in) :: k
+!f2py intent(in) :: k
  integer, intent(out) :: shltyp(k), shl2atm(k)
+!f2py intent(out) :: shltyp, shl2atm
+!f2py depend(k) :: shltyp, shl2atm
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
@@ -1358,10 +1365,10 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
                    &ng 'Shell types'"
   write(6,'(A)') 'section in file '//TRIM(fchname)
   close(fid)
-  return
+  stop
  end if
 
- shltyp = 0
+ shltyp = 0; shl2atm = 0
  read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
  ! read Shell types done
 
@@ -1377,10 +1384,9 @@ subroutine read_shltyp_and_shl2atm_from_fch(fchname, k, shltyp, shl2atm)
                    &ng 'Shell to atom map'"
   write(6,'(A)') "section in file "//TRIM(fchname)
   close(fid)
-  return
+  stop
  end if
 
- shl2atm = 0
  read(fid,'(6(6X,I6))') (shl2atm(i),i=1,k)
  close(fid)
 end subroutine read_shltyp_and_shl2atm_from_fch
@@ -1679,10 +1685,10 @@ subroutine prt_hard_or_crazy_casci_orca(nx, fid, hardwfn, crazywfn)
  write(unit=fid,fmt=TRIM(buf1)) 'CI'
  if(hardwfn) then
   write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 400'
-  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 1700'
+  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 2000'
  else if(crazywfn) then
   write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 600'
-  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 2500'
+  write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 4000'
  else
   write(unit=fid,fmt=TRIM(buf2)) 'MaxIter 200'
   write(unit=fid,fmt=TRIM(buf2)) 'NGuessMat 1000'

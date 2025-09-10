@@ -135,8 +135,8 @@ end subroutine do_gvb
 
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
 subroutine do_gvb_gms(proname, pair_fch, name_determined)
- use mr_keyword, only: ist, mem, nproc, gms_path, gms_scr_path, mo_rhf, &
-  datname, bgchg, chgname, cart, check_gms_path, GVB_conv, fcgvb
+ use mr_keyword, only: ist, mem, nproc, check_gms_path, gms_path, gms_scr_path,&
+  gms_dat_path, datname, mo_rhf, bgchg, chgname, cart, GVB_conv, fcgvb
  use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
@@ -198,7 +198,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  end if
 
  ! perform GVB
- call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+ call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from th&
                                     &e original GVB:'

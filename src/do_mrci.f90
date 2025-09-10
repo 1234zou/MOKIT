@@ -4,8 +4,8 @@
 subroutine do_mrcisd()
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, CIonly, eist, mrcisd,&
   mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
-  gms_path, gms_scr_path, check_gms_path, molpro_path, psi4_path, dalton_mpi, &
-  bgchg, chgname
+  check_gms_path, gms_path, gms_scr_path, gms_dat_path, molpro_path, psi4_path,&
+  dalton_mpi, bgchg, chgname
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
  use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
@@ -162,7 +162,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(2, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_mrcisd: invalid program='//&
@@ -884,8 +884,8 @@ end subroutine prt_mrci_orb_type
 ! do uncontacted MRCISDT using one of Gaussian/OpenMolcas/Dalton
 subroutine do_mrcisdt()
  use mr_keyword, only: mem, nproc, eist, dmrgci, dmrgscf, mrcisdt, mrcisdt_prog,&
-  molcas_omp, molcas_path, gau_path, psi4_path, dalton_mpi, gms_path, gms_scr_path,&
-  check_gms_path, casnofch, chgname, CIonly, bgchg, CtrType
+  molcas_omp, molcas_path, gau_path, psi4_path, dalton_mpi, check_gms_path, &
+  gms_path, gms_scr_path, gms_dat_path, casnofch, chgname, CIonly, bgchg, CtrType
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
  use util_wrapper, only: unfchk, fch2inp_wrap, fch2inporb_wrap
@@ -974,7 +974,7 @@ subroutine do_mrcisdt()
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(3, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_mrcisdt: invalid program='//&

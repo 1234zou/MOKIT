@@ -8,5 +8,5 @@ mokit{ist=1,readuhf='N2_cc-pVTZ_4.0_uhf.fchk'}
 # just write it in the Route Section (#p ...).
 
 # To run this example, GAMESS and PySCF need to be installed.
-# You can, of course , use another NEVPT2 program by specifying NEVPT2_prog=Molpro.
-# To find all valid NEVPT2_prog, please run 'automr -h' in Shell.
+# You can, of course , use another NEVPT2 program by specifying NEVPT_prog=Molpro.
+# To find all valid NEVPT_prog, please run 'automr -h' in Shell.

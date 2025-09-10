@@ -3,10 +3,10 @@
 
 subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, dmrg_no, CIonly, caspt2,&
-  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt2_prog, caspt2_prog, &
-  bgchg, chgname, mem, nproc, gms_path, gms_scr_path, check_gms_path, molcas_omp,&
-  molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, eist, target_root,&
-  caspt2_force
+  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt_prog, caspt_prog, &
+  bgchg, chgname, mem, nproc, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
+  molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
+  eist, target_root, caspt2_force
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
   davidson_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
@@ -38,18 +38,18 @@ subroutine do_mrpt2()
    stop
   end if
   if(nevpt2) then
-   select case(TRIM(nevpt2_prog))
+   select case(TRIM(nevpt_prog))
    case('molpro', 'orca')
     write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-NEVPT2 is only support&
                      &ed with PySCF or OpenMolcas.'
-    write(6,'(A)') 'But you specify NEVPT2_prog='//TRIM(nevpt2_prog)
+    write(6,'(A)') 'But you specify NEVPT_prog='//TRIM(nevpt_prog)
     stop
    end select
   end if
-  if(caspt2 .and. TRIM(caspt2_prog)/='openmolcas') then
+  if(caspt2 .and. TRIM(caspt_prog)/='openmolcas') then
    write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: DMRG-CASPT2 is only supporte&
                     &d with OpenMolcas.'
-   write(6,'(A)') 'But you specify CASPT2_prog='//TRIM(caspt2_prog)
+   write(6,'(A)') 'But you specify CASPT_prog='//TRIM(caspt_prog)
    stop
   end if
  end if
@@ -107,8 +107,8 @@ subroutine do_mrpt2()
 
  if(nevpt2) then
   write(6,'(A,2(I0,A))') 'NEVPT2(',nacte,'e,',nacto,'o) using program '//&
-                         TRIM(nevpt2_prog)
-  select case(TRIM(nevpt2_prog))
+                         TRIM(nevpt_prog)
+  select case(TRIM(nevpt_prog))
   case('pyscf')
    ! For DMRG-NEVPT2, use CMOs rather than NOs
    if(dmrgci .or. dmrgscf) then ! DMRG-CASCI/CASSCF
@@ -203,8 +203,8 @@ subroutine do_mrpt2()
 
  else if(caspt2) then ! CASPT2
   write(6,'(A,2(I0,A))') 'CASPT2(',nacte,'e,',nacto,'o) using program '//&
-                         TRIM(caspt2_prog)
-  select case(TRIM(caspt2_prog))
+                         TRIM(caspt_prog)
+  select case(TRIM(caspt_prog))
   case('openmolcas')
    call check_exe_exist(molcas_path)
    ! For DMRG-CASPT2, use CMOs rather than NOs
@@ -278,7 +278,7 @@ subroutine do_mrpt2()
   i = RENAME(pyname, inpname)
   call prt_mrmp2_gms_inp(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  call submit_gms_job(gms_path, gms_scr_path, inpname, nproc)
+  call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
   write(6,'(A,2(I0,A))') 'OVB-MP2(',nacte,'e,',nacto,'o) using program Gaussian'
@@ -315,7 +315,7 @@ subroutine do_mrpt2()
  end if
 
  if(nevpt2) then      ! read NEVPT2 energy
-  select case(TRIM(nevpt2_prog))
+  select case(TRIM(nevpt_prog))
   case('pyscf')
    call read_target_root_from_pyscf_out(outname, i, alive(1))
    if(alive(1)) target_root = i
@@ -343,7 +343,7 @@ subroutine do_mrpt2()
    ref_e = ref_e + ptchg_e + nuc_pt_e
   end select
  else if(caspt2) then ! read CASPT2 energy
-  select case(TRIM(caspt2_prog))
+  select case(TRIM(caspt_prog))
   case('openmolcas')
    call read_mrpt_energy_from_molcas_out(outname, 3, ref_e, corr_e)
    ref_e = ref_e + ptchg_e
@@ -406,14 +406,14 @@ subroutine do_mrpt2()
  if(caspt2_force) then
   allocate(grad(3*natom))
 
-  select case(TRIM(caspt2_prog))
+  select case(TRIM(caspt_prog))
   case('molpro')
    call read_grad_from_molpro_out(outname, 'RSPT2', natom, grad)
   case('openmolcas')
    call read_grad_from_molcas_out(outname, natom, grad)
   case default
-   write(6,'(A)') 'ERROR in subroutine do_mrpt2: program cannot be identified.'
-   write(6,'(A)') 'CASPT2_prog='//TRIM(caspt2_prog)
+   write(6,'(/,A)') 'ERROR in subroutine do_mrpt2: program cannot be identified.'
+   write(6,'(A)') 'CASPT_prog='//TRIM(caspt_prog)
    stop
   end select
 
@@ -594,27 +594,27 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A)') ' NoIter'
 
  write(fid2,'(A)') '%casscf'
- write(fid2,'(A,I0)') ' nel ', nacte
- write(fid2,'(A,I0)') ' norb ', nacto
- !write(fid2,'(A,I0)') ' maxiter 1'
+ write(fid2,'(1X,A,I0)') 'nel ', nacte
+ write(fid2,'(1X,A,I0)') 'norb ', nacto
+ !write(fid2,'(1X,A,I0)') 'maxiter 1'
  if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
  call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
 
  if(FIC) then
   if(DLPNO) then
-   write(fid2,'(A)') ' PTMethod DLPNO_NEVPT2'
+   write(fid2,'(1X,A)') 'PTMethod DLPNO_NEVPT2'
   else
-   write(fid2,'(A)') ' PTMethod FIC_NEVPT2'
+   write(fid2,'(1X,A)') 'PTMethod FIC_NEVPT2'
   end if
  else
-  write(fid2,'(A)') ' PTMethod SC_NEVPT2'
+  write(fid2,'(1X,A)') 'PTMethod SC_NEVPT2'
  end if
 
  pt_setting = .false.
  if(F12 .or. iroot>0) pt_setting = .true.
  if(pt_setting) then
-  write(fid2,'(A)') ' PTSettings'
-  if(F12) write(fid2,'(A)') '  F12 true'
+  write(fid2,'(1X,A)') 'PTSettings'
+  if(F12) write(fid2,'(2X,A)') 'F12 true'
   if(iroot > 0) then
    call find_orca_ver(orca_path, iver)
    call prt_orca_mrpt_sel_root(fid2, iver, iroot, mult, xmult)
@@ -964,23 +964,23 @@ subroutine prt_caspt2_molcas_inp(inpname)
  ! currently MPI is not supported for the CASPT2 gradient in OpenMolcas-v23.02
 
  write(fid2,'(/,A)') "&CASPT2"
- if(dmrgscf) write(fid2,'(A)') ' CheMPS2'
- if(.not. caspt2_force) write(fid2,'(A)') ' IPEA= 0.25'
+ if(dmrgscf) write(fid2,'(1X,A)') 'CheMPS2'
+ if(.not. caspt2_force) write(fid2,'(1X,A)') 'IPEA= 0.25'
  ! OpenMolcas has an environment variable $MOLCAS_NEW_DEFAULTS, which will
  !  affect the default value of IPEA shift. So here we specify it explicitly.
- write(fid2,'(A)') ' Frozen= 0'
+ write(fid2,'(1X,A)') 'Frozen= 0'
  write(fid2,'(A,/,A)') ' MaxIter',' 500'
 
  if(caspt2_force) then
-  write(fid2,'(A)') ' GRDT'
-  write(fid2,'(A)') ' IPEA= 0.0'
+  write(fid2,'(1X,A)') 'GRDT'
+  write(fid2,'(1X,A)') 'IPEA= 0.0'
   write(fid2,'(/,A,/)') "&ALASKA"
  else
   write(fid2,'(/)',advance='no')
  end if
 
  close(fid2)
- i = RENAME(inpname1, inpname)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_caspt2_molcas_inp
 
 ! print MRMP2 keywords into GAMESS .inp file

@@ -10,7 +10,9 @@ subroutine localize_singly_occ_orb(fchname, pm_loc)
  implicit none
  integer :: na, nb
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical, intent(in) :: pm_loc
+!f2py intent(in) :: pm_loc
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  if(na < nb) then
@@ -41,9 +43,12 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  implicit none
  integer :: i, fid
  integer, intent(in) :: i1, i2 ! Fortran convention
+!f2py intent(in) :: i1, i2
  character(len=240) :: lmofch, pyname, outname
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  logical, intent(in) :: pm_loc
+!f2py intent(in) :: pm_loc
 
  call find_specified_suffix(fchname, '.fch', i)
  lmofch = fchname(1:i-1)//'_LMO.fch'
@@ -64,7 +69,7 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
  if(.not. pm_loc) then
-  write(fid,'(A)') 'from mokit.lib.gaussian import ao_dipole_int'
+  write(fid,'(A)') 'from mokit.lib.gaussian import get_ao_dip'
  end if
  write(fid,'(A,/)') 'from mokit.lib.auto import loc_ini_guess, loc_driver'
  write(fid,'(A)') 'import os'
@@ -80,7 +85,7 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  if(pm_loc) then
   write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='pm')"
  else
-  write(fid,'(A)') 'center, ao_dip = ao_dipole_int(mol)'
+  write(fid,'(A)') 'center, ao_dip = get_ao_dip(mol)'
   write(fid,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
   write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='boys', ao_d&
                    &ip=None)"
@@ -879,7 +884,7 @@ subroutine pm(natom, nbf, nmo, bfirst, dis, mo, ao_ovlp, popm, dis_tol, &
 !f2py intent(out) :: new_mo
 !f2py depend(nbf,nmo) :: new_mo
  real(kind=8), allocatable :: gross(:,:,:) ! size (natom,nmo,nmo)
- character(len=*), intent(in) :: popm ! 'mulliken'/'lowdin'
+ character(len=8), intent(in) :: popm ! 'mulliken'/'lowdin'
 !f2py intent(in) :: popm
 
  write(6,'(/,A)') 'PM orbital localization begins: using '//TRIM(popm)//&

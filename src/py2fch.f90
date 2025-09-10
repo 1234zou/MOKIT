@@ -183,20 +183,20 @@ end subroutine rest2fch
 
 ! read the MOs in .fch(k) file and adjust its d,f,g etc. functions order
 !  of PySCF to that of Gaussian
-subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
+subroutine py2fch(fchname, nbf, nif, coeff, ab, ev, natorb, gen_density)
  implicit none
- integer :: i, j, k, na, nb, ncoeff, fid, fid1, RENAME
+ integer :: i, j, na, nb, ncoeff, fid, fid1, RENAME
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  integer, allocatable :: idx(:)
- real(kind=8), intent(in) :: coeff2(nbf,nif)
-!f2py intent(in) :: coeff2
-!f2py depend(nbf,nif) :: coeff2
+ real(kind=8), intent(in) :: coeff(nbf,nif)
+!f2py intent(in) :: coeff
+!f2py depend(nbf,nif) :: coeff
  real(kind=8), intent(in) :: ev(nif)
 !f2py intent(in) :: ev
 !f2py depend(nif) :: ev
 ! ev will be printed into the Alpha/Beta Orbital Energies section
- real(kind=8), allocatable :: coeff(:), den(:,:), norm(:), coeff3(:,:)
+ real(kind=8), allocatable :: new_coeff(:,:), dm(:,:), norm(:)
  character(len=1), intent(in) :: ab
 !f2py intent(in) :: ab
  character(len=8) :: key0, key
@@ -301,14 +301,21 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
   stop
  end if
 
- allocate(den(nbf,nif), source=coeff2)
- allocate(coeff3(nbf,nif), source=0d0)
- forall(i=1:nbf, j=1:nif) coeff3(i,j) = den(idx(i),j)*norm(i)
- deallocate(den, norm, idx)
- allocate(coeff(ncoeff))
- coeff = RESHAPE(coeff3,(/ncoeff/))
- write(fid1,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
- deallocate(coeff)
+ allocate(new_coeff(nbf,nif))
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nif, 1
+  do j = 1, nbf, 1
+   new_coeff(j,i) = coeff(idx(j),i)*norm(j)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+ !forall(i=1:nbf, j=1:nif) coeff3(i,j) = den(idx(i),j)*norm(i)
+
+ deallocate(norm, idx)
+ ! use the array `norm` to store reshaped MO coefficients temporarily
+ allocate(norm(ncoeff), source=RESHAPE(new_coeff,(/ncoeff/)))
+ write(fid1,'(5(1X,ES15.8))') norm
+ deallocate(norm)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -318,7 +325,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine py2fch: please add a zero 'Total SCF D'&
-                  & section into"
+                   & section into"
   write(6,'(A)') 'file '//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
@@ -344,6 +351,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
    stop
   end if
 
+  ! use the array `norm` to store occupation numbers temporarily
   if(natorb) then ! some kind of natural orbitals
    allocate(norm(nif), source=ev)
   else            ! not natural orbitals
@@ -361,10 +369,10 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
 
   ! There is no need to initialize den currently, since each element of den will
   ! be assigned a value in subroutine calc_dm_using_mo_and_on().
-  allocate(den(nbf,nbf))
-  call calc_dm_using_mo_and_on(nbf, nif, coeff3, norm, den)
-  write(fid1,'(5(1X,ES15.8))') ((den(k,i),k=1,i),i=1,nbf)
-  deallocate(den, norm)
+  allocate(dm(nbf,nbf))
+  call calc_dm_using_mo_and_on(nbf, nif, new_coeff, norm, dm)
+  write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
+  deallocate(dm, norm)
 
   do while(.true.) ! skip density in the original .fch(k) file
    read(fid,'(A)',iostat=i) buf
@@ -376,7 +384,7 @@ subroutine py2fch(fchname, nbf, nif, coeff2, ab, ev, natorb, gen_density)
   end do ! for while
  end if
 
- deallocate(coeff3)
+ deallocate(new_coeff)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -422,15 +430,20 @@ subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
  implicit none
  integer :: k
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  integer, intent(out) :: idx(nbf)
+!f2py intent(out) :: idx
+!f2py depend(nbf) :: idx
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  real(kind=8), intent(out) :: norm(nbf)
+!f2py intent(out) :: norm
+!f2py depend(nbf) :: norm
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  call read_ncontr_from_fch(fchname, k)
  allocate(shell_type(k), shell_to_atom_map(k))
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell_to_atom_map)
-
  call get_permute_idx_from_shell(k, shell_type, shell_to_atom_map, nbf, idx, norm)
  deallocate(shell_type, shell_to_atom_map)
 end subroutine get_permute_idx_from_fch
@@ -439,11 +452,11 @@ end subroutine get_permute_idx_from_fch
 subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, nbf0, idx, norm)
  implicit none
  integer :: i, k, nbf
+ ! mark the index where d, f, g, h functions begin
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark
  integer, intent(in) :: ncontr, nbf0
  integer, intent(out) :: idx(nbf0)
- integer :: n6dmark,n10fmark,n15gmark,n21hmark
- integer :: n5dmark,n7fmark, n9gmark, n11hmark
- ! mark the index where d, f, g, h functions begin
  integer, intent(in) :: shell_type0(ncontr), shell_to_atom_map0(ncontr)
  integer, allocatable :: shell_type(:), shell_to_atom_map(:)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -523,14 +536,14 @@ subroutine get_permute_idx_from_shell(ncontr, shell_type0, shell_to_atom_map0, n
    h_mark(n21hmark) = nbf + 1
    nbf = nbf + 21
   case default
-   write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell:&
-                 & shell_type(i) out of range!'
+   write(6,'(/,A)') 'ERROR in subroutine get_permute_idx_from_shell: shell_type&
+                    &(i) out of range!'
    write(6,'(3(A,I0))') 'k=', k, ', i=', i, ', shell_type(i)=', shell_type(i)
    stop
   end select
  end do ! for i
- deallocate(shell_type)
 
+ deallocate(shell_type)
  if(nbf /= nbf0) then
   write(6,'(A)') 'ERROR in subroutine get_permute_idx_from_shell: nbf /= nbf0.'
   write(6,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
@@ -867,17 +880,148 @@ subroutine py2fch_permute_21h(idx, norm)
  end forall
 end subroutine py2fch_permute_21h
 
+! convert AO overlap integral matrix from PySCF convention to Gaussian convention
+subroutine ovlp_pyscf2gau(fchname, nbf, pyscf_ovlp, gau_ovlp)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:)
+ real(kind=8), intent(in) :: pyscf_ovlp(nbf,nbf)
+!f2py intent(in) :: pyscf_ovlp
+!f2py depend(nbf) :: pyscf_ovlp
+ real(kind=8), intent(out) :: gau_ovlp(nbf,nbf)
+!f2py intent(out) :: gau_ovlp
+!f2py depend(nbf) :: gau_ovlp
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ allocate(idx(nbf), norm(nbf))
+ call get_permute_idx_from_fch(fchname, nbf, idx, norm)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nbf, 1
+  do j = 1, i, 1
+   gau_ovlp(j,i) = pyscf_ovlp(idx(j),idx(i))/(norm(j)*norm(i))
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(norm, idx)
+ call symmetrize_dmat(nbf, gau_ovlp)
+end subroutine ovlp_pyscf2gau
+
+! convert AO dipole integral matrix from PySCF convention to Gaussian convention
+subroutine dip_pyscf2gau(fchname, nbf, pyscf_dip, gau_dip)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:)
+ real(kind=8), intent(in) :: pyscf_dip(3,nbf,nbf)
+!f2py intent(in) :: pyscf_dip
+!f2py depend(nbf) :: pyscf_dip
+ real(kind=8), intent(out) :: gau_dip(3,nbf,nbf)
+!f2py intent(out) :: gau_dip
+!f2py depend(nbf) :: gau_dip
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ allocate(idx(nbf), norm(nbf))
+ call get_permute_idx_from_fch(fchname, nbf, idx, norm)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nbf, 1
+  do j = 1, i, 1
+   gau_dip(:,j,i) = pyscf_dip(:,idx(j),idx(i))/(norm(j)*norm(i))
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(norm, idx)
+ call symmetrize_dmat(nbf, gau_dip(1,:,:))
+ call symmetrize_dmat(nbf, gau_dip(2,:,:))
+ call symmetrize_dmat(nbf, gau_dip(3,:,:))
+end subroutine dip_pyscf2gau
+
+! convert AO density matrix from PySCF convention to Gaussian convention
+subroutine dm_pyscf2gau(fchname, nbf, pyscf_dm, gau_dm)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:)
+ real(kind=8), intent(in) :: pyscf_dm(nbf,nbf)
+!f2py intent(in) :: pyscf_dm
+!f2py depend(nbf) :: pyscf_dm
+ real(kind=8), intent(out) :: gau_dm(nbf,nbf)
+!f2py intent(out) :: gau_dm
+!f2py depend(nbf) :: gau_dm
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ allocate(idx(nbf), norm(nbf))
+ call get_permute_idx_from_fch(fchname, nbf, idx, norm)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j)
+ do i = 1, nbf, 1
+  do j = 1, i, 1
+   gau_dm(j,i) = pyscf_dm(idx(j),idx(i))*norm(j)*norm(i)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(norm, idx)
+ call symmetrize_dmat(nbf, gau_dm)
+end subroutine dm_pyscf2gau
+
+! convert AO density matrix from Gaussian convention to PySCF convention
+subroutine dm_gau2pyscf(fchname, nbf, gau_dm, pyscf_dm)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ integer, allocatable :: idx(:)
+ real(kind=8), allocatable :: norm(:)
+ real(kind=8), intent(in) :: gau_dm(nbf,nbf)
+!f2py intent(in) :: gau_dm
+!f2py depend(nbf) :: gau_dm
+ real(kind=8), intent(out) :: pyscf_dm(nbf,nbf)
+!f2py intent(out) :: pyscf_dm
+!f2py depend(nbf) :: pyscf_dm
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ allocate(idx(nbf), norm(nbf))
+ call get_permute_idx_from_fch(fchname, nbf, idx, norm)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,m)
+ do i = 1, nbf, 1
+  k = idx(i)
+  do j = 1, i, 1
+   m = idx(j)
+   pyscf_dm(m,k) = gau_dm(j,i)/(norm(j)*norm(i))
+   if(k /= m) pyscf_dm(k,m) = pyscf_dm(m,k)
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ deallocate(norm, idx)
+end subroutine dm_gau2pyscf
+
 ! write density (in PySCF format) into a given Gaussian .fch(k) file
-subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
+subroutine write_pyscf_dm_into_fch(fchname, itype, nbf, dm, force)
  implicit none
  integer :: i, j, fid, fid1, nline, ncoeff, RENAME
- integer, intent(in) :: nbf, itype
-!f2py intent(in) :: nbf, itype
- integer, allocatable :: idx(:)
- real(kind=8) :: dm(nbf,nbf)
-!f2py intent(in,copy) :: dm
+ integer, intent(in) :: itype, nbf
+!f2py intent(in) :: itype, nbf
+ real(kind=8), intent(in) :: dm(nbf,nbf)
+!f2py intent(in) :: dm
 !f2py depend(nbf) :: dm
- real(kind=8), allocatable :: norm(:), den(:,:)
+ real(kind=8), allocatable :: den(:,:)
  character(len=23), parameter :: key(10) = ['Total SCF Density      ',&
   'Spin SCF Density       ','Total CI Density       ','Spin CI Density        ',&
   'Total MP2 Density      ','Spin MP2 Density       ','Total CC Density       ',&
@@ -888,7 +1032,7 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
- logical :: force
+ logical, intent(in) :: force
 !f2py intent(in) :: force
 
  if(itype<1 .or. itype>10) then
@@ -909,22 +1053,19 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 
  call read_nbf_from_fch(fchname, i)
  if(i /= nbf) then
-  write(6,'(A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsistent nbf&
-                 & in fchname and input dm.'
+  write(6,'(/,A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsistent n&
+                   &bf.'
   write(6,'(2(A,I0))') 'i=', i, ', nbf=', nbf
-  write(6,'(A)') 'Related file: '//TRIM(fchname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
  ! first we need to adjust the order of basis functions in density matrix
- allocate(idx(nbf), norm(nbf))
- call get_permute_idx_from_fch(fchname, nbf, idx, norm)
- allocate(den(nbf,nbf), source=dm)
- forall(i=1:nbf,j=1:nbf) dm(i,j) = den(idx(i),idx(j))*norm(i)*norm(j)
- deallocate(den, norm, idx)
+ allocate(den(nbf,nbf))
+ call dm_pyscf2gau(fchname, nbf, dm, den)
 
  ! then we can write this density matrix into the given .fch(k) file
- i = INDEX(fchname, '.fch', back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  fchname1 = fchname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(fchname1),status='replace')
@@ -957,7 +1098,8 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
 
  ncoeff = nbf*(nbf+1)/2
  write(fid1,'(A,20X,A,2X,I10)') key0, 'R   N=', ncoeff
- write(fid1,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
+ write(fid1,'(5(1X,ES15.8))') ((den(j,i),j=1,i),i=1,nbf)
+ deallocate(den)
 
  if(key1 == key0) then ! skip density in the original .fch file
   nline = ncoeff/5
@@ -971,7 +1113,7 @@ subroutine write_pyscf_dm_into_fch(fchname, nbf, dm, itype, force)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   write(fid1,'(A)') TRIM(buf)
- end do
+ end do ! for while
 
  close(fid,status='delete')
  close(fid1)

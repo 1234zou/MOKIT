@@ -128,6 +128,22 @@ subroutine qchem2molpro(fchname, inpname)
  call delete_file(TRIM(std_fch))
 end subroutine qchem2molpro
 
+! Q-Chem .fch(k) -> MRCC (MINP, GENBAS, MOCOEF)
+subroutine qchem2mrcc(fchname)
+ use util_wrapper, only: fch2mrcc_wrap
+ implicit none
+ integer :: i
+ character(len=240) :: std_fch
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call find_specified_suffix(fchname, '.', i)
+ std_fch = fchname(1:i-1)//'_std.fch'
+ call standardize_fch(fchname)
+ call fch2mrcc_wrap(std_fch)
+ call delete_file(TRIM(std_fch))
+end subroutine qchem2mrcc
+
 ! Q-Chem .fch(k) -> PSI4 (.inp, .A, .B)
 subroutine qchem2psi(fchname, inpname)
  use util_wrapper, only: fch2psi_wrap

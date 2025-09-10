@@ -938,6 +938,6 @@ subroutine read_cluster_e_from_out()
 
  call write_dm_into_fch(fchname2, .true., nbf, den0)
  deallocate(den0)
- call gen_no_using_density_in_fch(fchname2, 1) 
+ call gen_no_using_dm_in_fch(fchname2, 1) 
 end subroutine read_cluster_e_from_out
 

@@ -876,7 +876,7 @@ subroutine frag_guess_wfn(gjfname)
   !                        frags(nfrag0+1:2*nfrag0)%pos, frags(nfrag)%fname)
   !k = 1
   !if(frags(nfrag)%wfn_type == 3) k = 0
-  !call gen_no_using_density_in_fch(fchname, k)
+  !call gen_no_using_dm_in_fch(fchname, k)
   !call unfchk(fchname, chkname)
   !call modify_guess_only_in_gjf(frags(nfrag)%fname)
   frags(i)%noiter = .false.
@@ -904,7 +904,7 @@ subroutine frag_guess_wfn(gjfname)
   call sum_frag_dm_in_fch(2, frags(1:2)%fname, frags(1:2)%pos, frags(3)%fname)
   k = 1
   if(frags(3)%wfn_type == 3) k = 0
-  call gen_no_using_density_in_fch(fchname, k)
+  call gen_no_using_dm_in_fch(fchname, k)
   call unfchk(fchname, chkname)
   frags(3)%noiter = .false.
   call modify_guess_only_in_gjf(frags(3)%fname)

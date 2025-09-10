@@ -2808,8 +2808,6 @@ subroutine read_dm_from_fch(fchname, itype, nbf, dm)
 
  read(fid,'(5(1X,ES15.8))') ((dm(j,i),j=1,i),i=1,nbf)
  close(fid)
-
- ! symmetrize the density matrix
  call symmetrize_dmat(nbf, dm)
 end subroutine read_dm_from_fch
 

@@ -1,6 +1,7 @@
-MOKIT 1.2.7 (Jul 24, 2025)
+MOKIT 1.2.7rc10 (Sep 10, 2025)
 ------------------------
 Fixes
+* make sys.path include the current directory when Python script is in a different directory
 * fix ndb when the user specifies an active space different from default
 * fix the bug of reading GAMESS (MR)SF-CIS/TD excitation coefficients
 * fix frozen core option bug when ECP/PP is used in autosr
@@ -16,7 +17,7 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
-* add FIC-NEVPT3 interface to ORCA
+* add FIC-NEVPT3/FIC-NEVPT4(SD) interface to ORCA
 * add qchem2pyscf in qchem.f90
 * add ROHF -> MRSF-CIS -> SA-NO -> SA-CASSCF as default SA strategy for open-shell singlet
 * add CASCI excited state interface to ORCA
@@ -35,12 +36,13 @@ Features
 * fast orbital localization using OpenMP parallel for large molecules
 * add keywords ICSS_r and ICSS_intv in mokit{}
 * add non-iterative basis set projection
-* add ADC(2)/ADC(3) interface to PSI4
+* add EE-ADC(2)/ADC(3) interface to PSI4
 * add IP-/EE-/EA-ADC(2) interface to ORCA
-* add IP-/EA-ADC(2), IP-/EA-ADC(3) interface to PySCF
+* add IP-/EE-/EA-ADC(2), IP-/EE-/EA-ADC(3) interface to PySCF
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* add gms_dat_path in mr_keyword.f90, now gms_scr_path/gms_dat_path can be different
 * add M052X and B972 (and dispersion correction) parameters in fch2mkl
 * wrap atoms outside box back into box to save memory during PBC MLWF generation
 * replace mkl2fch by molden2fch for ORCA CASCI/CASSCF NO conversion in do_cas.f90
@@ -65,6 +67,9 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* CASPT2_prog/NEVPT2_prog can still be used as alias when CASPT2/NEVPT2 specified
+* change CASPT2_prog/NEVPT2_prog/NEVPT3_prog to CASPT_prog/NEVPT_prog
+* add find_antibonding_orb() and find_antibonding_orb_in_fch() in lib/gaussian.py
 * remove some basis reordering subroutines which have identical functionalities to others
 * replace calc_dis_mat_from_coor by BOHR2ANG*gto.inter_distance for isolated molecules
 * merge subroutines sym_ortho and can_ortho into gen_ortho_mo
