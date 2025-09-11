@@ -1,6 +1,7 @@
-MOKIT 1.2.7rc10 (Sep 10, 2025)
+MOKIT 1.2.7rc10 (Sep 11, 2025)
 ------------------------
 Fixes
+* consider sys.path[0]='' when simply starting python from the current terminal
 * make sys.path include the current directory when Python script is in a different directory
 * fix ndb when the user specifies an active space different from default
 * fix the bug of reading GAMESS (MR)SF-CIS/TD excitation coefficients

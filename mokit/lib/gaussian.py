@@ -78,8 +78,13 @@ def load_mol_from_fch(fchname):
   # "ModuleNotFoundError: No module named 'gauxxx'" will probably occur. To
   # solve this problem, we can add the directory of tmp_py into `sys.path`.
   cur_dir = os.path.dirname(os.path.abspath(tmp_py))
-  if not os.path.samefile(sys.path[0], cur_dir):
+  if sys.path[0]=='' or not os.path.samefile(sys.path[0], cur_dir):
     sys.path.insert(0, cur_dir)
+  # When the user simply starts Python from the current terminal like
+  #  >>> python
+  #  >>> from mokit.lib.gaussian import uno
+  # sys.path[0] is empty '' in such case, and it cannot be used in os.path.samefile,
+  # so two conditions are needed above.
 
   # now we can import
   molpy = importlib.import_module(proname)
