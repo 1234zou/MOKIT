@@ -1053,7 +1053,7 @@ subroutine gen_sfcis_no_from_fch_and_gms(fchname, gmsname, istate, nfc, nval, &
 
  call find_specified_suffix(fchname, '.fch', i)
  no_fch = fchname(1:i-1)//'_NO.fch'
- call copy_file(fchname, no_fch, .false.)
+ call sys_copy_file(TRIM(fchname), TRIM(no_fch), .false.)
 
  call write_dm_into_fch(no_fch, .true., nbf, ao_dm)
  deallocate(ao_dm)
@@ -1280,43 +1280,6 @@ subroutine del_a_or_b(str)
  i = LEN_TRIM(str)
  if(str(i:i)=='A' .or. str(i:i)=='B') str(i:i) = ' '
 end subroutine del_a_or_b
-
-! check whether UHF-type MOs are hold in a given .fch(k) file
-subroutine check_uhf_in_fch(fchname, uhf)
- implicit none
- integer :: i, fid
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
- logical, intent(out) :: uhf
-!f2py intent(out) :: uhf
-
- uhf = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i < 0) exit ! end-of-file
-  if(i > 0) then
-   write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file&
-                    & '//TRIM(fchname)
-   close(fid)
-   stop
-  end if
-
-  if(buf(1:7) == 'Beta MO') then
-   uhf = .true.
-   exit
-  end if
-
-  select case(buf(1:11))
-  case('Orthonormal','Total SCF D','Mulliken Ch')
-   exit
-  end select
- end do ! for while
-
- close(fid)
-end subroutine check_uhf_in_fch
 
 ! calculate the AO-based transition density matrix and oscillator strength,
 ! generate particle and hole NTOs, respectively

@@ -84,11 +84,9 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
 subroutine fch2inporb(fchname, prt_no, sph)
- use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, j, k, m, length, orbid
- integer :: nalpha, nbeta, nbf, nif
- integer :: nbf0, nbf1
+ integer :: i, j, k, m, length, icart, orbid
+ integer :: nalpha, nbeta, nbf, nif, nbf0, nbf1
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
  integer :: n5dmark,n7fmark, n9gmark, n11hmark
  integer(kind=4) :: getpid, hostnm
@@ -104,7 +102,9 @@ subroutine fch2inporb(fchname, prt_no, sph)
  logical, intent(in) :: prt_no
  logical, intent(out) :: sph
 
- sph = .true. ! default value
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
 
  call read_na_and_nb_from_fch(fchname, nalpha, nbeta)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -133,20 +133,6 @@ subroutine fch2inporb(fchname, prt_no, sph)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
-
- ! check if any spherical functions
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: mixed spherical harmonic/Ca&
-                   &rtesian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
  ! 1) split the 'L' into 'S' and 'P', this is to ensure that D comes after L functions

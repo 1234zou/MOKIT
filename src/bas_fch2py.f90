@@ -307,6 +307,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc,
   end if
   write(fid1,'(A)') TRIM(str4)//')'
   write(fid1,'(A)') "mf.xc = '"//TRIM(dftname1)//"'"
+  !write(fid1,'(A)') 'mf.grids.radi_method = dft.radi.mura_knowles'
   write(fid1,'(A)') 'mf.grids.atom_grid = (99,590)' ! ultrafine
  end if
 

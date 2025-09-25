@@ -529,8 +529,7 @@ end subroutine rotate_atoms_wfn
 ! Assuming the input file is a.fch, the output file would be a_r.fch
 subroutine rotate_atoms_wfn2(fchname, natom, coor, new_fch)
  use fch_content, only: nbf, nif, is_uhf, ncontr, shell_type, alpha_coeff, &
-  beta_coeff, tot_dm, spin_dm, check_uhf_in_fch, read_fch, coor0=>coor, &
-  free_arrays_in_fch_content
+  beta_coeff, tot_dm, spin_dm, read_fch, coor0=>coor, free_arrays_in_fch_content
  use bas_rot, only: get_invA, get_rot_mat_5d, get_rot_mat_6d, get_rot_mat_7f, &
   get_rot_mat_10f, get_rot_mat_9g, get_rot_mat_15g, get_rot_mat_11h, &
   get_rot_mat_21h
@@ -1382,7 +1381,7 @@ end subroutine mirror_c2c
 ! 11H: H+2, H-2, H+4, H-4
 subroutine mirror_wfn(fchname)
  use fch_content, only: nbf, nif, ncontr, alpha_coeff, beta_coeff, shell_type, &
-  is_uhf, coor, tot_dm, spin_dm, check_uhf_in_fch, read_fch, free_arrays_in_fch_content
+  is_uhf, coor, tot_dm, spin_dm, read_fch, free_arrays_in_fch_content
  implicit none
  integer :: i, j, k, nif1
  integer, parameter :: a1(3) = [1,4,5]

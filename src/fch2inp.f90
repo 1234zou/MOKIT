@@ -113,7 +113,7 @@ end program main
 subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, fid
+ integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, icart, fid
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
@@ -139,6 +139,10 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  inpname = fchname(1:i-1)//'.inp'
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
+
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
 
  call find_irel_in_fch(fchname, irel)
  select case(irel)
@@ -226,20 +230,6 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  ! arrays eigen_e_a and eigen_e_b are useless for GAMESS inp file
  deallocate(eigen_e_a)
  if(allocated(eigen_e_b)) deallocate(eigen_e_b)
-
- ! check if any spherical harmonic functions
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: mixed spherical harmonic/Carte&
-                   &sian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its &
-                 &default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
 
  if(sph) then
   nbf1 = nbf + COUNT(shell_type==-2) + 3*COUNT(shell_type==-3) + &

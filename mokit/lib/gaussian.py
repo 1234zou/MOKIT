@@ -10,16 +10,23 @@ from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch
 BOHR2ANG = 0.52917721092e0
 
 
-def get_ao_dip(mol):
-  # mol can only be molecule object. Although it can also be cell object in
-  # principle, the calculated dipole integrals in this case seem useless. For
+def get_ao_dip(mol, fix_center=False):
+  # mol can only be a PySCF molecule object. Although it can also be cell object
+  # in principle, the calculated dipole integrals in this case seem useless. For
   # PBC orbital localization, what we need is complex ao_dip from ft_aopair
   # (see pbc_loc() below) and this function will not be called.
-  numerator = np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
-  charge_center = (numerator / mol.atom_charges().sum())
-  with mol.with_common_origin(charge_center):
+  if (fix_center):
     ao_dip = mol.intor_symmetric('int1e_r', comp=3)
+    charge_center = np.zeros(3)
+  else:
+    numerator = np.einsum('z,zx->x', mol.atom_charges(), mol.atom_coords())
+    charge_center = (numerator / mol.atom_charges().sum())
+    with mol.with_common_origin(charge_center):
+      ao_dip = mol.intor_symmetric('int1e_r', comp=3)
+
   return charge_center, ao_dip
+  # charge_center is actually the translation vector, sometimes the user needs
+  # this vector (e.g. translate coordinates of MO centers)
 
 
 def wrap_atoms_into_cell(cell):
@@ -56,7 +63,7 @@ def load_mol_from_fch(fchname):
   >>> mf.kernel()
   '''
   import sys, importlib
-  from mokit.lib.qchem import find_and_del_pyc
+  from mokit.lib.rwwfn import find_and_del_pyc
 
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
@@ -133,7 +140,7 @@ def load_cell_from_fch(fchname):
   >>> mf.kernel()
   '''
   import sys, importlib
-  from mokit.lib.qchem import find_and_del_pyc
+  from mokit.lib.rwwfn import find_and_del_pyc
 
   proname = 'gau'+str(random.randint(1,10000))
   tmp_fch = proname+'.fch'
@@ -529,10 +536,11 @@ def lin_comb_two_mo(fchname, orb1, orb2):
 
 def get_dipole(fchname, itype=1):
   '''
-  Calculate the dipole moment using density in .fch(k) file
-  itype=1/3/5/7 for Total SCF/CI/MP2/CC Density. Default: itype=1
+  Calculate the electronic dipole moment (including nuclear charges' contribution)
+  using density in .fch(k) file. itype=1/3/5/7 for Total SCF/CI/MP2/CC Density.
+  Default: itype=1
   '''
-  from mokit.lib.lo import get_e_dipole_using_density_in_fch
+  from mokit.lib.lo import get_e_dip_using_dm_in_fch
   from mokit.lib.rwgeom import read_natom_from_fch, read_elem_and_coor_from_fch, \
                                get_nuc_dipole
   # calculate nuclear dipole
@@ -542,7 +550,7 @@ def get_dipole(fchname, itype=1):
   print('\n Dipole moment from nuclear charges (a.u.):', n_dip)
 
   # call Gaussian to calculate dipole integrals and the electronic dipole
-  e_dip = get_e_dipole_using_density_in_fch(fchname, itype)
+  e_dip = get_e_dip_using_dm_in_fch(fchname, itype)
   print(' Dipole moment from electrons (a.u.):', e_dip)
 
   # total electric dipole moment
@@ -659,8 +667,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
   '''
   from pyscf import scf
   from mokit.lib.qchem import read_hf_type_from_fch
-  from mokit.lib.rwwfn import gen_no_from_dm_and_ao_ovlp
-  from mokit.lib.lo import get_nmo_from_ao_ovlp
+  from mokit.lib.rwwfn import gen_no_from_dm_and_ao_ovlp, get_nmo_from_ao_ovlp
   from mokit.lib.py2fch_direct import fchk
 
   mol = load_mol_from_fch(fchname)
@@ -707,12 +714,12 @@ def mo_svd_in_fch(fchname1, fchname2, idx1=None, idx2=None):
   idx1/idx2: the 1st/last index of the MO, starts from 0
   '''
   from mokit.lib.wfn_analysis import mo_svd_in2fch
-  from mokit.lib.rwwfn import read_nif_from_fch
+  from mokit.lib.rwwfn import read_nbf_and_nif_from_fch
 
   if idx1 is None:
     idx1 = 0
   if idx2 is None:
-    idx2 = read_nif_from_fch(fchname1)
+    nbf, idx2 = read_nbf_and_nif_from_fch(fchname1)
   print('idx1= %d, idx2= %d' %(idx1, idx2) )
   mo_svd_in2fch(fchname1, fchname2, idx1+1, idx2)
 
@@ -739,10 +746,9 @@ def nio(n_fch, n_1_fch):
   n_1_fch stand for N+1/N electronic states, respectively. But remember that a
   basis set with diffuse functions may be required for the N+1 species.
   '''
-  from mokit.lib.lo import get_ao_ovlp_using_fch, gen_no_from_dm_and_ao_ovlp
-  from mokit.lib.rwwfn import read_dm_from_fch, write_mo_into_fch, \
-   write_dm_into_fch, write_eigenvalues_to_fch
-  from mokit.lib.excited import check_uhf_in_fch
+  from mokit.lib.lo import get_ao_ovlp_using_fch
+  from mokit.lib.rwwfn import read_dm_from_fch, gen_no_from_dm_and_ao_ovlp, \
+   check_uhf_in_fch, write_mo_into_fch, write_dm_into_fch, write_eigenvalues_to_fch
 
   nbf, nif = read_nbf_and_nif_from_fch(n_fch)
   nbf1, nif1 = read_nbf_and_nif_from_fch(n_1_fch)
@@ -788,7 +794,7 @@ def find_antibonding_orb(mol, mo, i1=0, i2=0, i3=0, start_from_one=False,
   2) all MOs are still orthonormalized after calling this function.
   '''
   from mokit.lib.ortho import check_orthonormal
-  from mokit.lib.lo import calc_diag_gross_pop, get_mo_center_from_pop
+  from mokit.lib.rwwfn import calc_diag_gross_pop, get_mo_center_from_pop
   from mokit.lib.wfn_analysis import find_antibonding_orbitals
 
   if start_from_one is True:
@@ -818,7 +824,7 @@ def find_antibonding_orb(mol, mo, i1=0, i2=0, i3=0, start_from_one=False,
   check_orthonormal(nbf, nif, mo, S)
   pop = calc_diag_gross_pop(natom, nbf, npair, bfirst, S, mo[:,k1-1:k2], popm)
   mo_center = get_mo_center_from_pop(natom, npair, pop)
-  center, ao_dip = get_ao_dip(mol)
+  center, ao_dip = get_ao_dip(mol, fix_center=True)
   mo = find_antibonding_orbitals(k1, k2, k3, natom, nbf, nif, bfirst, mo_center,
                                  S, ao_dip, mo)
   check_orthonormal(nbf, nif, mo, S)

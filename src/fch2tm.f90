@@ -30,7 +30,7 @@ end program main
 subroutine fch2tm(fchname)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nif1, length, fid
+ integer :: i, j, k, m, n, n1, n2, nif1, length, icart, fid
  integer :: n5dmark, n7fmark, n9gmark, n11hmark
  integer :: n6dmark, n10fmark, n15gmark, n21hmark
  integer, allocatable :: idx(:), ia1(:), ia2(:)
@@ -41,7 +41,9 @@ subroutine fch2tm(fchname)
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp, sph, has_sp
 
- uhf = .false.; ecp = .false.; has_sp = .false.
+ uhf = .false.; ecp = .false.; has_sp = .false.; sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
  call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf) ! read content in .fch(k) file
@@ -58,24 +60,6 @@ subroutine fch2tm(fchname)
  end if
  deallocate(alpha_coeff)
 
- ! check whether spherical harmonic/Cartesian-type functions are used
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2tm: mixed spherical harmonic/Cartesia&
-                 &n functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its &
-                 &default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian inpu&
-                 &t file."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
-  write(6,'(/,A)') 'ERROR in subroutine fch2tm: Cartesian-type (6D,10F) functio&
-                   &ns not supported yet.'
-  write(6,'(A)') 'Please use spherical harmonic (5D,7F) functions.'
-  stop
- else
-  sph = .true.
- end if
  if(ANY(shell_type == -1)) has_sp = .true.
  if(LenNCZ > 0) ecp = .true.
 

@@ -570,30 +570,31 @@ subroutine read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge,&
  forall(i=1:natom) elem(i) = nuc2elem(nuc(i))
 end subroutine read_elem_and_coor_from_fch
 
-! calculate the nuclear dipole moment from
+! calculate the nuclear dipole moment
 subroutine get_nuc_dipole(natom, nuc, coor, n_dipole)
  use phys_cons, only: Bohr_const
  implicit none
  integer :: i
  integer, intent(in) :: natom
+!f2py intent(in) :: natom
  integer, intent(in) :: nuc(natom)
+!f2py intent(in) :: nuc
+!f2py depend(natom) :: nuc
  real(kind=8), allocatable :: rnuc(:)
  real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
  real(kind=8), intent(out) :: n_dipole(3) ! x,y,z 3-components
-!f2py intent(in) :: natom, nuc, coor
-!f2py depend(natom) :: nuc, coor
 !f2py intent(out) :: n_dipole
 
- allocate(rnuc(natom))
- forall(i = 1:natom) rnuc(i) = DBLE(nuc(i))
+ allocate(rnuc(natom), source=DBLE(nuc))
 
  do i = 1, 3
   n_dipole(i) = DOT_PRODUCT(rnuc, coor(i,:))
  end do ! for i
- deallocate(rnuc)
 
- ! input coor are in Angstrom, convert n_dipole into a.u.
- n_dipole = n_dipole/Bohr_const
+ deallocate(rnuc)
+ n_dipole = n_dipole/Bohr_const ! Angstrom -> Bohr
 end subroutine get_nuc_dipole
 
 ! read Cartesian xyz coordinates from a .xyz file

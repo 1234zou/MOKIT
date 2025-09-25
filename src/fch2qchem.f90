@@ -98,7 +98,7 @@ end program main
 subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nif1, fid, purecart(4), SYSTEM
+ integer :: i, j, k, m, n, n1, n2, nif1, icart, fid, purecart(4), SYSTEM
  integer, intent(in) :: npair
  integer, allocatable :: idx(:)
  character(len=1) :: str = ' '
@@ -124,6 +124,9 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  inpname = fchname(1:i-1)//'.in'
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
 
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
 
@@ -156,22 +159,6 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  if(ANY(shell_type == 4)) purecart(2) = 2 ! 15G
  if(ANY(shell_type == 5)) purecart(1) = 2 ! 21H
  if(LenNCZ > 0) ecp = .true.
-
- ! check if any spherical functions
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine fch2qchem: mixed spherical harmonic/Carte&
-                 &sian functions'
-  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
-                 &sian. Its default'
-  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' (recommended) or &
-                 &'6D 10F' keywords"
-  write(6,'(A)') 'in Gaussian input file.'
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
 
 ! Firstly, generate the input file (.in)
  open(newunit=fid,file=TRIM(inpname),status='replace')

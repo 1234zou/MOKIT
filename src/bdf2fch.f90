@@ -56,7 +56,6 @@ end program main
 ! read the MOs in orbital file of BDF and adjust its p,d,f,g,h functions
 !  order to that of Gaussian
 subroutine bdf2fch(orbname, fchname, new_fch, prt_no)
- use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1

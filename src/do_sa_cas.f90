@@ -269,9 +269,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
   write(fid2,'(A,I0,A)') 'mc.max_memory = ', mem*700, ' # MB'
   write(fid2,'(A,I0,A)') 'mc.fcisolver.max_memory = ',mem*300,' # MB'
  else ! DMRG-SA-CASSCF
-  write(fid2,'(3(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta1, &
-                            ',', nactb1, '))'
-  write(fid2,'(A,I0)') 'mc.fcisolver.maxM = ', maxM
+  write(fid2,'(4(A,I0),A)') 'mc = dmrgscf.DMRGSCF(mf,', nacto, ',(', nacta1, &
+                            ',', nactb1, '), maxM=', maxM, ')'
   call prt_block_mem(0, fid2, mem, nproc, block_mpi)
  end if
 
@@ -287,9 +286,7 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
  write(fid2,'(A)') 'mc.conv_tol = 1e-9'
  write(fid2,'(A)') 'mc.max_cycle = 300'
 
- if(dmrgscf) then
-  !write(fid2,'(A,F8.5)') 'mc.conv_tol_grad =', conv_tol_grad
- else
+ if(.not. dmrgscf) then
   call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
   ss = DBLE(nacta - nactb)*0.5d0
   ss = ss*(ss + 1d0)

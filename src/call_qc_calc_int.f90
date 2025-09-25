@@ -73,30 +73,55 @@ end subroutine gen_no_using_dm_in_fch
 ! This subroutine requires PySCF installed.
 subroutine get_gau_ao_ovlp_from_pyscf(fchname, nbf, ao_ovlp)
  implicit none
- integer :: i, k, fid
+ integer :: i, k, fid, fid1, SYSTEM
  integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
  real(kind=8), intent(out) :: ao_ovlp(nbf,nbf)
 !f2py intent(out) :: ao_ovlp
 !f2py depend(nbf) :: ao_ovlp
- character(len=240) :: pyname, outname, binfile
+ character(len=240) :: buf, new_fch, pyname, pyname1, outname, binfile
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
  call get_a_random_int(k)
  call find_specified_suffix(fchname, '.fch', i)
+ write(new_fch,'(A,I0,A)') fchname(1:i-1)//'_',k+1,'.fch'
+ write(pyname1,'(A,I0,A)') fchname(1:i-1)//'_',k+1,'.py'
  write(pyname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.py'
  write(outname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.out'
  write(binfile,'(A,I0,A)') fchname(1:i-1)//'_',k,'.bin'
 
- open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from pyscf import lib'
- write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
- write(fid,'(A)') 'from mokit.lib.py2fch import ovlp_pyscf2gau'
- write(fid,'(A)') 'from mokit.lib.rwwfn import write_mo2bin'
+ call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ i = SYSTEM('bas_fch2py '//TRIM(new_fch)//' -obj')
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_gau_ao_ovlp_from_pyscf: failed to c&
+                   &all utility bas_fch2py.'
+   write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+ call delete_file(new_fch)
 
- write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
+ open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid,'(A)') 'from mokit.lib.py2fch import ovlp_pyscf2gau'
+ write(fid,'(A,/)') 'from mokit.lib.rwwfn import write_mo2bin'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid,'(A)') TRIM(buf)
+ end do ! for while
+ close(fid1,status='delete')
+
+ write(fid,'(A)') "fchname = '"//TRIM(fchname)//"'"
  write(fid,'(A)') "binfile = '"//TRIM(binfile)//"'"
- write(fid,'(A)') 'mol = load_mol_from_fch(fchname)'
  write(fid,'(A)') "pyscf_S = mol.intor_symmetric('int1e_ovlp')"
  write(fid,'(A)') 'nbf = pyscf_S.shape[0]'
  write(fid,'(A)') 'gau_S = ovlp_pyscf2gau(fchname, nbf, pyscf_S)'
@@ -110,37 +135,112 @@ subroutine get_gau_ao_ovlp_from_pyscf(fchname, nbf, ao_ovlp)
  call delete_files(3, [pyname, outname, binfile])
 end subroutine get_gau_ao_ovlp_from_pyscf
 
-! get electronic dipole using specified density in a given .fch file
-! Note: the nuclear dipole is calculated using subroutine get_nuc_dipole in
-!       rwgeom.f90
-subroutine get_e_dipole_using_density_in_fch(fchname, itype, dipole)
+! Get AO dipole integral matrices (in Gaussian convention) from PySCF.
+! This subroutine requires PySCF installed.
+subroutine get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
+ implicit none
+ integer :: i, k, fid, fid1, SYSTEM
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ real(kind=8), intent(out) :: ao_dip(nbf,nbf,3)
+!f2py intent(out) :: ao_dip
+!f2py depend(nbf) :: ao_dip
+ character(len=240) :: buf, new_fch, pyname, pyname1, outname, binfile(3)
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call get_a_random_int(k)
+ call find_specified_suffix(fchname, '.fch', i)
+ write(new_fch,'(A,I0,A)') fchname(1:i-1)//'_',k+1,'.fch'
+ write(pyname1,'(A,I0,A)') fchname(1:i-1)//'_',k+1,'.py'
+ write(pyname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.py'
+ write(outname,'(A,I0,A)') fchname(1:i-1)//'_',k,'.out'
+ write(binfile(1),'(A,I0,A)') fchname(1:i-1)//'_x',k,'.bin'
+ write(binfile(2),'(A,I0,A)') fchname(1:i-1)//'_y',k,'.bin'
+ write(binfile(3),'(A,I0,A)') fchname(1:i-1)//'_z',k,'.bin'
+
+ call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ i = SYSTEM('bas_fch2py '//TRIM(new_fch)//' -obj')
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine get_gau_ao_dip_from_pyscf: failed to ca&
+                   &ll utility bas_fch2py.'
+   write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+ call delete_file(new_fch)
+
+ open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
+ open(newunit=fid,file=TRIM(pyname),status='replace')
+
+ do while(.true.)
+  read(fid1,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+  write(fid,'(A)') TRIM(buf)
+ end do ! for while
+
+ write(fid,'(A)') 'from mokit.lib.gaussian import get_ao_dip'
+ write(fid,'(A)') 'from mokit.lib.py2fch import ovlp_pyscf2gau'
+ write(fid,'(A,/)') 'from mokit.lib.rwwfn import write_mo2bin'
+
+ do while(.true.)
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1,status='delete')
+ write(fid,'(A)') "fchname = '"//TRIM(fchname)//"'"
+ write(fid,'(A)') "binfile = ['"//TRIM(binfile(1))//"','"//TRIM(binfile(2))//&
+                  "','"//TRIM(binfile(3))//"']"
+ write(fid,'(A)') 'center, pyscf_ao_dip = get_ao_dip(mol, fix_center=True)'
+ write(fid,'(A)') 'nbf = pyscf_ao_dip[0].shape[0]'
+ write(fid,'(A)') 'for i in range(3):'
+ write(fid,'(A)') '  tmp_dip = ovlp_pyscf2gau(fchname, nbf, pyscf_ao_dip[i])'
+ write(fid,'(A)') '  write_mo2bin(binfile[i], nbf, nbf, tmp_dip)'
+ close(fid)
+
+ call submit_pyscf_job(pyname, .false.)
+ call delete_files(2, [pyname, outname])
+
+ ! this subroutine can be used for reading any 2D double precision array from a
+ ! binary file which is generated by write_mo2bin()
+ call read_mo_from_bin(binfile(1), nbf, nbf, ao_dip(:,:,1))
+ call read_mo_from_bin(binfile(2), nbf, nbf, ao_dip(:,:,2))
+ call read_mo_from_bin(binfile(3), nbf, nbf, ao_dip(:,:,3))
+ call delete_files(3, binfile)
+end subroutine get_gau_ao_dip_from_pyscf
+
+! get the electronic dipole using specified density in a given .fch(k) file
+! Note:
+! 1) The dipole moment originated from nuclear charges is not calculated here,
+!    but calculated using subroutine get_nuc_dipole in rwgeom.f90
+! 2) The dipole moment originated from electrons vary with the origin of the
+!    molecule, and the dipole moment originated from nuclear charges also vary
+!    with the origin. But for a neutral molecule, the sum of them is invariant
+!    to the origin.
+! 3) Here the electronic dipole is calculated with the molecule fixed (see sub-
+!    routine get_gau_ao_dip_from_pyscf). So when we call the subroutine get_nu-
+!    c_dipole, we must keep positions of nuclear charges fixed.
+subroutine get_e_dip_using_dm_in_fch(fchname, itype, e_dip)
  implicit none
  integer :: nbf, nif
  integer, intent(in) :: itype
 !f2py intent(in) :: itype
  ! itype has values [1,10] in subroutine read_density_from_fch
-! real(kind=8) :: n_dipole(3)
- real(kind=8), intent(out) :: dipole(3)
-!f2py intent(out) :: dipole
- real(kind=8), allocatable :: dm(:,:), D(:,:,:)
+ real(kind=8), intent(out) :: e_dip(3)
+!f2py intent(out) :: e_dip
+ real(kind=8), allocatable :: dm(:,:), ao_dip(:,:,:)
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
-
- ! read desired AO-basis density matrix
  allocate(dm(nbf,nbf))
  call read_dm_from_fch(fchname, itype, nbf, dm)
-
- ! generate and read AO-basis dipole integrals
- allocate(D(nbf,nbf,3))
- call get_ao_dipole_using_fch(fchname, nbf, D)
-
- ! calculate electronic dipole moment
- call get_e_dipole_from_PD(nbf, dm, D, dipole)
-
- deallocate(dm, D)
-end subroutine get_e_dipole_using_density_in_fch
+ allocate(ao_dip(nbf,nbf,3))
+ call get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
+ call get_e_dip_from_dm_and_ao_dip(nbf, dm, ao_dip, e_dip)
+ deallocate(dm, ao_dip)
+end subroutine get_e_dip_using_dm_in_fch
 
 ! Read orthonormal basis (also called orthonormal atomic orbitals, OAO) from a
 ! given .fch(k) file.
@@ -186,7 +286,7 @@ end subroutine read_orthonormal_basis_from_fch
 ! convention.
 subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
  implicit none
- integer :: nif
+ integer :: nbf0, nif
  integer, intent(in) :: nbf
 !f2py intent(in) :: nbf
  real(kind=8), intent(out) :: ovlp(nbf,nbf)
@@ -197,9 +297,16 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
 !f2py intent(in) :: fchname
  logical :: success
 
- call read_nif_from_fch(fchname, nif)
+ call read_nbf_and_nif_from_fch(fchname, nbf0, nif)
+ if(nbf0 /= nbf) then
+  write(6,'(/,A)') 'ERROR in subroutine get_ao_ovlp_using_fch: nbf0/=nbf. Incon&
+                  &sistency found'
+  write(6,'(A)') 'between input and file '//TRIM(fchname)
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
+  stop
+ end if
 
- if(nif == nbf) then ! no linear dependence
+ if(nif == nbf) then ! no basis set linear dependence
   allocate(mo(nbf,nbf))
   call read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
   if(success) call solve_ovlp_from_cct(nbf, mo, ovlp)
@@ -208,26 +315,8 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
 
  if(nif<nbf .or. (nif==nbf .and. (.not.success))) then
   call get_gau_ao_ovlp_from_pyscf(fchname, nbf, ovlp)
-  !call call_gaussian_gen47_from_fch(fchname, file47)
-  !call read_ao_ovlp_from_47(file47, nbf, ovlp)
-  !call delete_file(TRIM(file47))
  end if
 end subroutine get_ao_ovlp_using_fch
-
-! call Gaussian to compute AO-basis dipole integrals using the given .fch file
-subroutine get_ao_dipole_using_fch(fchname, nbf, ao_dip)
- use phys_cons, only: Bohr_const
- implicit none
- integer, intent(in) :: nbf
- real(kind=8), intent(out) :: ao_dip(nbf,nbf,3)
- character(len=240), intent(in) :: fchname
- character(len=240) :: file47
-
- call call_gaussian_gen47_from_fch(fchname, file47)
- call read_ao_dipole_from_47(file47, nbf, ao_dip)
- call delete_file(file47)
- ao_dip = ao_dip/Bohr_const ! Angstrom -> Bohr
-end subroutine get_ao_dipole_using_fch
 
 ! call Gaussian program to generate .47 file from a given .fch(k) file
 subroutine call_gaussian_gen47_from_fch(fchname, file47)
@@ -271,8 +360,8 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
  write(fid,'(A)') '%nprocshared=1'
  write(fid,'(A)') '%mem='//TRIM(mem)
  write(fid,'(A)') '%chk='//TRIM(chkname)
- write(fid,'(A)') '# chkbasis nosymm int=nobasistransform guess(read,only)&
-                 & geom=allcheck pop(nboread)'
+ write(fid,'(A)') '# chkbasis nosymm int=nobasistransform guess(read,only) geom&
+                  &=allcheck pop(nboread)'
  write(fid,'(/,A)') '$NBO'
  write(fid,'(A)')   ' NOBOND'
  write(fid,'(A)')   ' SKIPBO'
@@ -284,25 +373,31 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
  call get_gau_path(gau_path)
  i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine call_gaussian_gen47_from_fch: Gaussian&
-                  & job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine call_gaussian_gen47_from_fch: Gaussian &
+                   &job failed.'
   write(6,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
   stop
  end if
 
- call delete_files(3, [chkname, gjfname, logname])
+ !call delete_files(3, [chkname, gjfname, logname])
+ stop
 end subroutine call_gaussian_gen47_from_fch
 
 ! read AO-basis dipole integrals from a given .47 file
-subroutine read_ao_dipole_from_47(file47, nbf, D)
+subroutine read_ao_dip_from_47(file47, nbf, ao_dip)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: nbf
- real(kind=8), intent(out) :: D(nbf,nbf,3)
+!f2py intent(in) :: nbf
+ real(kind=8), intent(out) :: ao_dip(nbf,nbf,3)
+!f2py intent(out) :: ao_dip
+!f2py depend(nbf) :: ao_dip
+ real(kind=8), allocatable :: rtmp(:,:)
  character(len=240) :: buf
  character(len=240), intent(in) :: file47
+!f2py intent(in) :: file47
 
- D = 0d0
+ ao_dip = 0d0
  open(newunit=fid,file=TRIM(file47),status='old',position='rewind')
 
  do while(.true.)
@@ -313,39 +408,21 @@ subroutine read_ao_dipole_from_47(file47, nbf, D)
 
  if(i /= 0) then
   close(fid)
-  write(6,'(/,A)') "ERROR in subroutine read_ao_dipole_from_47: no '$DIPOLE'&
-                  & found in file "//TRIM(file47)
+  write(6,'(/,A)') "ERROR in subroutine read_ao_dip_from_47: no '$DIPOLE' fo&
+                   &und in file "//TRIM(file47)
   stop
  end if
+ allocate(rtmp(nbf,nbf))
 
  do i = 1, 3
-  read(fid,'(2X,5E15.7)') ((D(k,j,i),k=1,j),j=1,nbf)
+  read(fid,*) ((rtmp(k,j),k=1,j),j=1,nbf)
+  call symmetrize_dmat(nbf, rtmp)
+  ao_dip(:,:,i) = rtmp
  end do ! for i
+
+ deallocate(rtmp)
  close(fid)
-
- ! remember to symmetrize the dipole integral matrix
- forall(i=1:3, j=1:nbf-1, k=1:nbf, j<k) D(k,j,i) = D(j,k,i)
-end subroutine read_ao_dipole_from_47
-
-! calculate the electronic dipole moment from AO-basis density matrix and
-! dipole integrals
-subroutine get_e_dipole_from_PD(nbf, P, D, e_dipole)
- implicit none
- integer :: i, j
- integer, intent(in) :: nbf
- real(kind=8), intent(in) :: P(nbf,nbf), D(nbf,nbf,3)
- real(kind=8), intent(out) :: e_dipole(3) ! x,y,z 3-components
- real(kind=8), allocatable :: r(:)
-
- allocate(r(nbf))
-
- do i = 1, 3
-  forall(j = 1:nbf) r(j) = DOT_PRODUCT(P(:,j), D(:,j,i))
-  e_dipole(i) = -SUM(r)
- end do ! for i
-
- deallocate(r)
-end subroutine get_e_dipole_from_PD
+end subroutine read_ao_dip_from_47
 
 ! read the path of the Gaussian binary executable file 
 subroutine get_gau_path(gau_path)

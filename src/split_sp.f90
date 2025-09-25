@@ -875,6 +875,7 @@ subroutine fch2tm_permute_6d(idx, norm)
  end forall
 end subroutine fch2tm_permute_6d
 
+! TODO: it seems that this subroutine can be deleted.
 subroutine fch2tm_permute_10f(idx, norm)
  implicit none
  integer :: i, idx0(10)
@@ -1010,4 +1011,75 @@ subroutine fch2mrcc_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
   call fch2mrcc_permute_21h(norm(j:j+20))
  end do ! for i
 end subroutine fch2mrcc_permute_cart
+
+subroutine fch2com_permute_10f_new(idx)
+ implicit none
+ integer :: i, idx0(10)
+ integer, parameter :: order(10) = [1,2,3,5,6,4,9,7,8,10]
+ integer, intent(inout) :: idx(10)
+! From: the order of Cartesian f functions in Gaussian
+! To: the order of Cartesian f functions in Molpro/OpenQP
+! 1   2   3   4   5   6   7   8   9   10
+! XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
+! xxx,yyy,zzz,xxy,xxz,xyy,yyz,xzz,yzz,xyz
+
+ idx0 = idx
+ do i = 1, 10
+  idx(i) = idx0(order(i))
+ end do ! for i
+end subroutine fch2com_permute_10f_new
+
+subroutine fch2com_permute_15g_new(idx)
+ implicit none
+ integer :: i, idx0(15)
+ integer, parameter :: order(15) = [15,5,1,14,13,9,4,6,2,12,10,3,11,8,7]
+ integer, intent(inout) :: idx(15)
+! From: the order of Cartesian g functions in Gaussian
+! To: the order of Cartesian g functions in Molpro/OpenQP
+! 1    2    3    4    5    6    7    8    9    10   11   12   13   14   15
+! ZZZZ,YZZZ,YYZZ,YYYZ,YYYY,XZZZ,XYZZ,XYYZ,XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
+! xxxx,yyyy,zzzz,xxxy,xxxz,xyyy,yyyz,xzzz,yzzz,xxyy,xxzz,yyzz,xxyz,xyyz,xyzz
+
+ idx0 = idx
+ do i = 1, 15
+  idx(i) = idx0(order(i))
+ end do ! for i
+end subroutine fch2com_permute_15g_new
+
+subroutine fch2openqp_permute_21h(idx)
+ implicit none
+ integer :: i, idx0(21)
+ integer, parameter :: order(21) = [21,6,1,20,19,11,5,7,2,18,16,15,4,12,3,17,&
+                                    10,8,14,13,9]
+ integer, intent(inout) :: idx(21)
+
+ idx0 = idx
+ do i = 1, 21
+  idx(i) = idx0(order(i))
+ end do ! for i
+end subroutine fch2openqp_permute_21h
+
+subroutine fch2openqp_permute_cart(n10fmark, n15gmark, n21hmark, k, f_mark, &
+                                   g_mark, h_mark, nbf, idx)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: n10fmark, n15gmark, n21hmark, k, nbf
+ integer, intent(in) :: f_mark(k), g_mark(k), h_mark(k)
+ integer, intent(inout) :: idx(nbf)
+
+ do i = 1, n10fmark, 1
+  j = f_mark(i)
+  call fch2com_permute_10f_new(idx(j:j+9))
+ end do ! for i
+
+ do i = 1, n15gmark, 1
+  j = g_mark(i)
+  call fch2com_permute_15g_new(idx(j:j+14))
+ end do ! for i
+
+ do i = 1, n21hmark, 1
+  j = h_mark(i)
+  call fch2openqp_permute_21h(idx(j:j+20))
+ end do ! for i
+end subroutine fch2openqp_permute_cart
 

@@ -75,8 +75,8 @@ end program main
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of QM4D
 subroutine fch2qm4d(fchname, binary)
- use fch_content, only: check_uhf_in_fch, read_fch, nif, nbf, ncontr, shell_type,&
-  natom, coor, elem, na, nb, alpha_coeff, beta_coeff
+ use fch_content, only: read_fch, nif, nbf, ncontr, shell_type, natom, coor, &
+  elem, na, nb, alpha_coeff, beta_coeff
  use periodic_table, only: write_xyz
  implicit none
  integer :: i, j, k, fid

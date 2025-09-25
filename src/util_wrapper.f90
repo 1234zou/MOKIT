@@ -580,7 +580,7 @@ subroutine dat2fch_wrap(datname, fchname)
  character(len=240), intent(in), optional :: fchname
  character(len=500) :: buf
 
- if(present(fchname)) then
+ if(PRESENT(fchname)) then
   fchname0 = fchname
  else
   call find_specified_suffix(datname, '.dat', i)
@@ -602,6 +602,54 @@ subroutine dat2fch_wrap(datname, fchname)
   stop
  end if
 end subroutine dat2fch_wrap
+
+subroutine fch2openqp_wrap(fchname, sf_type, inpname)
+ implicit none
+ integer :: i, SYSTEM
+ integer, intent(in) :: sf_type
+ character(len=240) :: new_fch, old_inp
+ character(len=240), intent(in) :: fchname
+ character(len=240), optional :: inpname
+ character(len=270) :: buf
+ logical :: change_name
+
+ call find_specified_suffix(fchname, '.fch', i)
+ old_inp = fchname(1:i-1)//'.inp'
+
+ change_name = .false.
+ if(PRESENT(inpname)) then
+  if(TRIM(inpname) /= TRIM(old_inp)) change_name = .true.
+ end if
+
+ if(change_name) then
+  call find_specified_suffix(inpname, '.inp', i)
+  new_fch = inpname(1:i-1)//'.fch'
+  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+ else
+  new_fch = fchname
+ end if
+
+ buf = 'fch2openqp '//TRIM(new_fch)
+
+ select case(sf_type)
+ case(1) ! SF-CIS
+  buf = TRIM(buf)//' -sfcis'
+ case(2) ! SF-TDDFT
+  buf = TRIM(buf)//' -sf'
+ case(3) ! MRSF-CIS
+  buf = TRIM(buf)//' -mrsfcis'
+ case(4) ! MRSF-TDDFT
+  buf = TRIM(buf)//' -mrsf'
+ end select
+
+#ifdef _WIN32
+ i = SYSTEM(TRIM(buf)//' > NUL')
+#else
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
+#endif
+
+ if(change_name) call delete_file(TRIM(new_fch))
+end subroutine fch2openqp_wrap
 
 ! call `orca_2mkl` to convert .gbw -> .molden
 subroutine gbw2molden(gbwname, molden)
@@ -660,6 +708,32 @@ subroutine molden2fch_wrap(molden, fchname, prog, natorb)
   i = RENAME(TRIM(fchname0), TRIM(fchname))
  end if
 end subroutine molden2fch_wrap
+
+subroutine fch_sph2cart_wrap(sph_fch, cart_fch)
+ implicit none
+ integer :: i, SYSTEM
+ character(len=240) :: def_fch
+ character(len=240), intent(in) :: sph_fch
+ character(len=240), optional :: cart_fch
+ character(len=500) :: buf
+
+ call find_specified_suffix(sph_fch, '.fch', i)
+ def_fch = sph_fch(1:i-1)//'_c.fch'
+ buf = 'fch_sph2cart '//TRIM(sph_fch)
+
+ if(PRESENT(cart_fch)) then
+  if(TRIM(def_fch) /= TRIM(cart_fch)) then
+   buf = TRIM(buf)//' '//TRIM(cart_fch)
+  end if
+ end if
+
+#ifdef _WIN32
+ i = SYSTEM(TRIM(buf)//' > NUL')
+#else
+ i = SYSTEM(TRIM(buf)//' > /dev/null')
+#endif
+ if(i /= 0) call prt_call_util_error('fch_sph2cart', sph_fch)
+end subroutine fch_sph2cart_wrap
 
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)

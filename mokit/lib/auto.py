@@ -4,7 +4,12 @@ automr utilities
 '''
 
 from mokit.lib.gaussian import loc, load_mol_from_fch
-from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_na_and_nb_from_fch, orb_resemble_ref1, get_occ_from_na_nb
+from mokit.lib.rwwfn import (
+    read_nbf_and_nif_from_fch,
+    read_na_and_nb_from_fch,
+    orb_resemble_ref1,
+    get_occ_from_na_nb
+)
 from pyscf import gto
 from mokit.lib.fch2py import fch2py
 from mokit.lib.lo import gen_loc_ini_guess, pm, boys

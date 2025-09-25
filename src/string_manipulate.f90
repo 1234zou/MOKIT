@@ -1210,18 +1210,23 @@ end subroutine add_force_key2gms_inp
 ! add the force keyword into an ORCA input file
 subroutine add_force_key2orca_inp(inpname)
  implicit none
- integer :: i, j, fid, fid1, RENAME
+ integer :: i, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
+
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
  do i = 1, 5
   read(fid,'(A)') buf
-  j = INDEX(buf,'TightSCF')
-  if(j > 0) buf = buf(1:j+7)//' EnGrad'//TRIM(buf(j+8:))
+  if(buf(1:1)=='!' .and. INDEX(buf,'EnGrad')==0) then
+   buf = TRIM(buf)//' EnGrad'
+   write(fid1,'(A)') TRIM(buf)
+   exit
+  end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for i
 

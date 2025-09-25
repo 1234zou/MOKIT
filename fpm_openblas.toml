@@ -192,6 +192,12 @@ main = "fch2mrcc.f90"
 link = "openblas"
 
 [[executable]]
+name = "fch2openqp"
+source-dir = "src"
+main = "fch2openqp.f90"
+link = "openblas"
+
+[[executable]]
 name = "fch2psi"
 source-dir = "src"
 main = "fch2psi.f90"
@@ -212,6 +218,11 @@ link = "openblas"
 name = "fch2tm"
 source-dir = "src"
 main = "fch2tm.f90"
+
+[[executable]]
+name = "fch_sph2cart"
+source-dir = "src"
+main = "fch_sph2cart.f90"
 
 [[executable]]
 name = "fch_u2r"
@@ -309,6 +320,12 @@ link = "openblas"
 name = "mkl2mrcc"
 source-dir = "src"
 main = "mkl2mrcc.f90"
+link = "openblas"
+
+[[executable]]
+name = "mkl2openqp"
+source-dir = "src"
+main = "mkl2openqp.f90"
 link = "openblas"
 
 [[executable]]

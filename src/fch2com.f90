@@ -5,7 +5,7 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, SYSTEM
+ integer :: i, icart, SYSTEM
  character(len=4) :: str
  character(len=240) :: fchname, inpname
  character(len=300) :: buf
@@ -47,8 +47,11 @@ program main
 
  call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
 
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
+
  write(buf,'(A)') 'bas_gms2molpro '//TRIM(inpname)
- call check_sph_in_fch(fchname, sph)
  if(sph) buf = TRIM(buf)//' -sph'
  if(m15) buf = TRIM(buf)//' -m15'
 
@@ -57,13 +60,13 @@ program main
   write(6,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility bas_gms&
                    &2molpro.'
   write(6,'(A)')   'Two possible reasons:'
-  write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
+  write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be problematic.'
   write(6,'(A,/)') '(2) You forgot to compile the utility bas_gms2molpro.'
   stop
  end if
 
  call delete_file(inpname)
- call fch2com(fchname)
+ call fch2com(fchname, sph)
 end program main
 
 ! nbf: the number of basis functions
@@ -71,8 +74,7 @@ end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g, etc. functions order
 !  of Gaussian to that of Molcas
-subroutine fch2com(fchname)
- use fch_content, only: check_uhf_in_fch
+subroutine fch2com(fchname, sph)
  implicit none
  integer :: i, j, k, length, orbid
  integer :: nalpha, nbeta, nbf, nif, nbf0
@@ -84,7 +86,8 @@ subroutine fch2com(fchname)
  character(len=240) :: fileA, fileB
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:)
- logical :: uhf, sph
+ logical :: uhf
+ logical, intent(in) :: sph
 
  call read_na_and_nb_from_fch(fchname, nalpha, nbeta)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
@@ -106,20 +109,6 @@ subroutine fch2com(fchname)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
-
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2com: mixed spherical harmonic/Carte&
-                   &sian functions'
-  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
-                 &sian. Its default'
-  write(6,'(A)') "setting is 6D 7F. You need to add '5D 7F' or '6D 10F' keyword&
-                 &s in Gaussian."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
  ! 1) split the 'L' into 'S' and 'P', this is to ensure that D comes after L functions
@@ -231,6 +220,7 @@ subroutine fch2com_permute_7f(nif,coeff)
  deallocate(coeff2)
 end subroutine fch2com_permute_7f
 
+! this subroutine will be replaced by fch2com_permute_10f_new in split_sp.f90
 subroutine fch2com_permute_10f(nif,coeff)
  implicit none
  integer :: i

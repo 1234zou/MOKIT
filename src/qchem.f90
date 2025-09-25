@@ -408,7 +408,7 @@ end subroutine calc_ne_from_fch
 
 ! read the type of HF from a .fch file
 subroutine read_hf_type_from_fch(fchname, hf_type)
- use fch_content, only: check_ghf_in_fch, check_uhf_in_fch
+ use fch_content, only: check_ghf_in_fch
  implicit none
  integer :: fid, na, nb
  integer, intent(out) :: hf_type
@@ -495,7 +495,7 @@ end subroutine read_dm_from_qchem54
 ! write Q-Chem AO-based density matrix to a specified Gaussian .fch(k) file
 subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  implicit none
- integer :: i, j, ncontr
+ integer :: i, j, ncontr, icart
  integer, intent(in) :: nbf
 !f2py intent(in) :: nbf
  integer, allocatable :: shltyp(:), shl2atm(:)
@@ -508,7 +508,10 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
 !f2py intent(in) :: fchname
  logical :: sph ! spherical harmonic or Cartesian-type basis functions
 
- call check_sph_in_fch(fchname, sph)
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
+
  call read_ncontr_from_fch(fchname, ncontr)
  allocate(shltyp(ncontr), shl2atm(ncontr))
  call read_shltyp_and_shl2atm_from_fch(fchname, ncontr, shltyp, shl2atm)
@@ -521,7 +524,11 @@ subroutine write_qchem_dm_into_fch(fchname, nbf, dm)
  ! the array idx contains Gaussian -> Qchem conversion relationship, here we
  ! need the inverse relationship
  allocate(dm0(nbf,nbf))
- forall(i=1:nbf, j=1:nbf) dm0(idx(j),idx(i)) = dm(j,i)
+ do i = 1, nbf, 1
+  do j = 1, nbf, 1
+   dm0(idx(j),idx(i)) = dm(j,i)
+  end do ! for j
+ end do ! for i
  deallocate(idx)
 
  call write_dm_into_fch(fchname, .true., nbf, dm0)

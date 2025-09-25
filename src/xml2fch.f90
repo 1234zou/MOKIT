@@ -45,7 +45,6 @@ end program main
 ! read the MOs in orbital file of Molpro and adjust its d,f,g,h functions
 !  order to that of Gaussian
 subroutine xml2fch(xmlname, fchname, prt_no)
- use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, k, length, na, nb, nbf, nif, nbf0
  integer :: n6dmark, n10fmark, n15gmark, n21hmark

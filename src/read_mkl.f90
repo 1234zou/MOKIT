@@ -456,63 +456,6 @@ subroutine merge_s_and_p_into_sp()
  end if
 end subroutine merge_s_and_p_into_sp
 
-! find nbf and nif from a given ORCA .mkl file
-subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nbf, nif
- integer, external :: detect_ncol_in_buf
- real(kind=8) :: rtmp
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-
- nbf = 0; nif = 0
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == '$COEFF_A') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: incomplete f&
-                   &ile.'
-  write(6,'(A)') 'Filename='//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- nif = detect_ncol_in_buf(buf)
- read(fid,'(A)') buf
-
- do while(.true.)
-  read(fid,*,iostat=i) rtmp
-  if(i /= 0) exit
-  nbf = nbf + 1
- end do ! for while
-
- if(nbf == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis f&
-                   &unction.'
-  write(6,'(A)') 'There must be something wrong in file '//TRIM(mklname)//'.'
-  close(fid)
-  stop
- end if
-
- do while(.true.)
-  if(INDEX(buf(1:5),'$END') > 0) exit
-  nif = nif + detect_ncol_in_buf(buf)
-  do i = 1, nbf+1, 1
-   read(fid,'(A)') buf
-  end do ! for i
-  read(fid,'(A)') buf
- end do ! for while
-
- close(fid)
-end subroutine read_nbf_and_nif_from_mkl
-
 ! find the array size of shell_type from a given .mkl file
 subroutine read_ncontr_from_mkl(mklname, ncontr)
  implicit none
@@ -1050,15 +993,254 @@ subroutine clear_bas4atom
  end do ! for i
 end subroutine clear_bas4atom
 
+subroutine init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell,&
+  shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, highest)
+ implicit none
+ integer :: i, j, k
+ integer, intent(in) :: ncontr, nprim
+ integer, intent(in) :: shell_type(ncontr), prim_per_shell(ncontr), &
+  shell2atom_map(ncontr)
+ real(kind=8), intent(in) :: prim_exp(nprim), contr_coeff(nprim), &
+  contr_coeff_sp(nprim)
+ integer, intent(inout) :: iatom, i1, i2
+ integer, intent(out) :: highest
+
+ ncol = 0; nline = 0
+
+ do i = i1, ncontr, 1
+  if(shell2atom_map(i) == iatom+1) exit
+  j = shell_type(i); k = prim_per_shell(i)
+
+  if(j == -1) then ! L or SP
+   ncol(0:1) = ncol(0:1) + 1
+   nline(0:1) = nline(0:1) + k
+   call enlarge_bas4atom_sp(k, prim_exp(i2:i2+k-1), contr_coeff(i2:i2+k-1), &
+                                                 contr_coeff_sp(i2:i2+k-1))
+  else ! j /= -1
+   if(j < 0) j = -j ! -2,-3,... -> 2,3,...
+   ncol(j) = ncol(j) + 1
+   if(i == i1) then
+    nline(j) = k
+    allocate(bas4atom(j)%prim_exp(k), source=prim_exp(i2:i2+k-1))
+    allocate(bas4atom(j)%coeff(1,k),source=0d0)
+    bas4atom(j)%coeff(1,:) = contr_coeff(i2:i2+k-1)
+   else ! i > i1
+    if(k /= prim_per_shell(i-1)) then
+     nline(j) = nline(j) + k
+     call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
+    else ! k = prim_per_shell(i-1)
+     if( ANY( DABS(prim_exp(i2:i2+k-1)-prim_exp(i2-k:i2-1)) >1d-5 ) ) then
+      nline(j) = nline(j) + k
+      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
+     else ! identical primitive exponents
+      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.false.)
+     end if
+    end if
+   end if
+  end if
+
+  i2 = i2 + k
+ end do ! for i
+
+ ! One cannot use `highest = shell_type(i-1)` here, since it would lead to wrong
+ ! result if diffuse functions are used, e.g. maug-cc-pVTZ. The shell_type(i-1)
+ ! is not necessary the one which has the highest angular momentum.
+ highest = MAXVAL(IABS(shell_type(i1:i-1)))
+ i1 = i   ! remember to update i1
+ if(highest > 7) then
+  write(6,'(/,A)') 'ERROR in subroutine init_bas4atom_for_an_atom: angular mom&
+                   &entum too high!'
+  stop
+ end if
+end subroutine init_bas4atom_for_an_atom
+
 end module basis_data
 
+! find nbf and nif from a given ORCA .mkl file
+subroutine read_nbf_and_nif_from_mkl(mklname, nbf, nif)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nbf, nif
+!f2py intent(out) :: nbf, nif
+ integer, external :: detect_ncol_in_buf
+ real(kind=8) :: rtmp
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
+
+ nbf = 0; nif = 0
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == '$COEFF_A') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_mkl: '$COEFF_A' n&
+                   &ot found in file"
+  write(6,'(A)') TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ nif = detect_ncol_in_buf(buf)
+ read(fid,'(A)') buf
+
+ do while(.true.)
+  read(fid,*,iostat=i) rtmp
+  if(i /= 0) exit
+  nbf = nbf + 1
+ end do ! for while
+
+ if(nbf == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_mkl: zero basis f&
+                   &unction.'
+  write(6,'(A)') 'There is something wrong in file '//TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ do while(.true.)
+  if(INDEX(buf(1:5),'$END') > 0) exit
+  nif = nif + detect_ncol_in_buf(buf)
+  do i = 1, nbf+1, 1
+   read(fid,'(A)') buf
+  end do ! for i
+  read(fid,'(A)') buf
+ end do ! for while
+
+ close(fid)
+end subroutine read_nbf_and_nif_from_mkl
+
+! Print/create .json basis set file. This format is one of supported formats at
+! Basis Set Exchange (https://www.basissetexchange.org). To use this subroutine,
+! usually one has to call read_fch() firstly such that all needed arrays are
+! allocated.
+subroutine prt_bas_json(bas_json)
+ use fch_content
+ use basis_data
+ implicit none
+ integer :: i, j, k, nl, nc, i1, i2, iatom, ilast, highest, fid
+ character(len=240), intent(in) :: bas_json
+ logical :: cycle_atom
+
+ if(LEN_TRIM(bas_json) == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_bas_json: input filename bas_json i&
+                   &s empty.'
+  stop
+ end if
+
+ if(natom == 1) then
+  ilast = 1
+ else
+  do ilast = natom, 2, -1
+   if(ALL(elem(1:ilast-1) /= elem(ilast))) exit
+  end do ! for ilast
+ end if
+
+ open(newunit=fid,file=TRIM(bas_json),status='replace')
+ write(fid,'(A)') '{'
+ write(fid,'(4X,A)') '"molssi_bse_schema": {'
+ write(fid,'(8X,A)') '"schema_type": "complete",'
+ write(fid,'(8X,A)') '"schema_version": "0.1"'
+ write(fid,'(4X,A)') '},'
+ write(fid,'(4X,A)') '"revision_description": "",'
+ write(fid,'(4X,A)') '"revision_date": "",'
+ write(fid,'(4X,A)') '"elements": {'
+ iatom = 1; i1 = 1; i2 = 1 ! initialization
+
+ do while(.true.)
+  call init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell, &
+   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, &
+   highest)
+
+  cycle_atom = .false.
+  if(iatom > 1) then
+   if(ANY(elem(1:iatom-1) == elem(iatom))) cycle_atom = .true.
+  end if
+
+  if(.not. cycle_atom) then
+   write(fid,'(8X,A,I0,A)') '"',ielem(iatom),'": {'
+   write(fid,'(12X,A)') '"electron_shells": ['
+
+   do i = 0, highest, 1
+    write(fid,'(16X,A)') '{'
+    write(fid,'(20X,A)') '"function_type": "gto",'
+    write(fid,'(20X,A)') '"region": "",'
+    write(fid,'(20X,A,/,21X,I4,/,20X,A)') '"angular_momentum": [',i,'],'
+    nl = nline(i); nc = ncol(i)
+
+    write(fid,'(20X,A)') '"exponents": ['
+    do j = 1, nl-1, 1
+     write(fid,'(24X,A,ES15.8,A)') '"',bas4atom(i)%prim_exp(j),'",'
+    end do ! for j
+    write(fid,'(24X,A,ES15.8,A)') '"',bas4atom(i)%prim_exp(nl),'"'
+    write(fid,'(20X,A)') '],' ! exponents
+
+    write(fid,'(20X,A)') '"coefficients": ['
+    do j = 1, nc, 1
+     write(fid,'(24X,A)') '['
+     do k = 1, nl-1, 1
+      write(fid,'(28X,A,ES15.8,A)') '"',bas4atom(i)%coeff(j,k),'",'
+     end do ! for k
+     write(fid,'(28X,A,ES15.8,A)') '"',bas4atom(i)%coeff(j,nl),'"'
+     if(j < nc) then
+      write(fid,'(24X,A)') '],'
+     else
+      write(fid,'(24X,A)') ']'
+     end if
+    end do ! for j
+    write(fid,'(20X,A)') ']' ! coefficients
+
+    if(i < highest) then
+     write(fid,'(16X,A)') '},'
+    else
+     write(fid,'(16X,A)') '}'
+    end if
+   end do ! for i
+
+   write(fid,'(12X,A)') ']' ! electron_shells
+   if(iatom == ilast) then
+    write(fid,'(8X,A)') '}' ! ielem(iatom)
+   else
+    write(fid,'(8X,A)') '},' ! ielem(iatom)
+   end if
+  end if
+
+  call clear_bas4atom()
+  if(iatom == natom) exit
+  iatom = iatom + 1
+ end do ! for while
+
+ write(fid,'(4X,A)') '},' ! "elements": {
+ write(fid,'(4X,A)') '"version": "1",'
+ write(fid,'(4X,A)') '"function_types": ['
+ write(fid,'(8X,A)') '"gto",'
+ write(fid,'(8X,A)') '"gto_cartesian"'
+ write(fid,'(4X,A)') '],'
+ write(fid,'(4X,A)') '"names": ['
+ write(fid,'(8X,A)') '"custom"'
+ write(fid,'(4X,A)') '],'
+ write(fid,'(4X,A)') '"tags": [],'
+ write(fid,'(4X,A)') '"family": "",'
+ write(fid,'(4X,A)') '"description": "custom basis set data generated by fch2op&
+                     &enqp of MOKIT",'
+ write(fid,'(4X,A)') '"role": "orbital",'
+ write(fid,'(4X,A)') '"auxiliaries": {},'
+ write(fid,'(4X,A)') '"name": "custom"'
+ write(fid,'(A)') '}'
+ close(fid)
+end subroutine prt_bas_json
 
 ! print basis set and ECP(if any) data into GENBAS and ECPDATA
 subroutine prt_cfour_genbas(ecp, mrcc)
  use fch_content
  use basis_data
  implicit none
- integer :: i, j, k, n, n1, n2, i1, i2, highest, iatom, fid
+ integer :: i, j, n, n1, n2, i1, i2, highest, iatom, fid
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
@@ -1073,54 +1255,9 @@ subroutine prt_cfour_genbas(ecp, mrcc)
  iatom = 1; i1 = 1; i2 = 1 ! initialization
 
  do while(.true.)
-  ncol = 0; nline = 0
-
-  do i = i1, ncontr, 1
-   if(shell2atom_map(i) == iatom+1) exit
-   j = shell_type(i); k = prim_per_shell(i)
-
-   if(j == -1) then ! L or SP
-    ncol(0:1) = ncol(0:1) + 1
-    nline(0:1) = nline(0:1) + k
-    call enlarge_bas4atom_sp(k, prim_exp(i2:i2+k-1), contr_coeff(i2:i2+k-1), &
-                                                  contr_coeff_sp(i2:i2+k-1))
-   else ! j /= -1
-    if(j < 0) j = -j ! -2,-3,... -> 2,3,...
-    ncol(j) = ncol(j) + 1
-    if(i == i1) then
-     nline(j) = k
-     allocate(bas4atom(j)%prim_exp(k), source=prim_exp(i2:i2+k-1))
-     allocate(bas4atom(j)%coeff(1,k),source=0d0)
-     bas4atom(j)%coeff(1,:) = contr_coeff(i2:i2+k-1)
-    else ! i > i1
-     if(k /= prim_per_shell(i-1)) then
-      nline(j) = nline(j) + k
-      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
-     else ! k = prim_per_shell(i-1)
-      if( ANY( DABS(prim_exp(i2:i2+k-1)-prim_exp(i2-k:i2-1)) >1d-5 ) ) then
-       nline(j) = nline(j) + k
-       call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
-      else ! identical primitive exponents
-       call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.false.)
-      end if
-     end if
-    end if
-   end if
-
-   i2 = i2 + k
-  end do ! for i
-
-  ! One cannot use `highest = shell_type(i-1)` here, since it would lead to wrong
-  ! result if diffuse functions are used, e.g. maug-cc-pVTZ. The shell_type(i-1)
-  ! is not necessary the one which has the highest angular momentum.
-  highest = MAXVAL(IABS(shell_type(i1:i-1)))
-  i1 = i   ! remember to update i1
-  if(highest > 7) then
-   write(6,'(/,A)') 'ERROR in subroutine prt_cfour_genbas: angular momentum too&
-                    & high. Not supported!'
-   close(fid)
-   stop
-  end if
+  call init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell, &
+   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, &
+   highest)
 
   cycle_atom = .false.
   if(iatom > 1) then
@@ -1369,11 +1506,43 @@ subroutine prt_mo_and_e_in_mkl(fid, nbf, nif, mo, ev)
  end do ! for while
 end subroutine prt_mo_and_e_in_mkl
 
+! read the total charge and the spin mltiplicity from a given .mkl file
+subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+!f2py intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
+
+ charge = 0; mult = 1
+ call require_file_exist(mklname)
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == '$CHAR_M') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no '$CHA&
+                   &R_M' found in"
+  write(6,'(A)') 'file '//TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) charge, mult
+ close(fid)
+end subroutine read_charge_and_mult_from_mkl
+
 ! Convert an RHF .mkl file into a UHF one by copying alpha MOs to beta MOs.
 ! The input file will be updated. If brokensym is .True., the beta HOMO LUMO
 ! will be interchanged to make a broken symmetry guess.
 subroutine mkl_r2u(mklname, brokensym)
- use mkl_content, only: read_nbf_and_nif_from_mkl, read_mo_from_mkl
+ use mkl_content, only: read_mo_from_mkl
  implicit none
  integer :: i, nbf, nif, ndb, fid
  real(kind=8), parameter :: thres = 1d-6

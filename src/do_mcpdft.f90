@@ -187,6 +187,7 @@ subroutine split_str_otpdf(otpdf, n_otpdf, split_otpdf)
 end subroutine split_str_otpdf
 
 ! print MC-PDFT or DMRG-PDFT keywords into PySCF .py file
+! TODO: DMRG-PDFT using PySCF+Block2
 subroutine prt_mcpdft_script_into_py(inpname, n_otpdf, split_otpdf)
  use mol, only: nacto, nacta, nactb
  use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, mcpdft_force
@@ -196,9 +197,13 @@ subroutine prt_mcpdft_script_into_py(inpname, n_otpdf, split_otpdf)
  character(len=10), intent(in) :: split_otpdf(n_otpdf)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
+ character(len=10), allocatable :: new_otpdf(:)
  logical :: dmrg
 
  dmrg = (dmrgci .or. dmrgscf)
+ allocate(new_otpdf(n_otpdf), source=split_otpdf)
+ call detect_and_update_otpdf_pyscf(n_otpdf, new_otpdf)
+
  call find_specified_suffix(inpname, '.py', i)
  inpname1 = inpname(1:i-1)//'.t'
 
@@ -242,7 +247,7 @@ subroutine prt_mcpdft_script_into_py(inpname, n_otpdf, split_otpdf)
  end do ! for while
  close(fid,status='delete')
 
- write(fid1,'(3(A,I0),A)') "mc = mcpdft.CASCI(mf,'"//TRIM(split_otpdf(1))//&
+ write(fid1,'(3(A,I0),A)') "mc = mcpdft.CASCI(mf,'"//TRIM(new_otpdf(1))//&
                            "',",nacto,',(',nacta,',',nactb,'))'
  write(fid1,'(A)') 'mc.grids.atom_grid = (99,590) # ultrafine'
  write(fid1,'(A,I0,A)') 'mc.max_memory = ',mem*1000,' # MB'
@@ -250,13 +255,34 @@ subroutine prt_mcpdft_script_into_py(inpname, n_otpdf, split_otpdf)
  write(fid1,'(A)') 'mc.kernel()'
 
  do i = 2, n_otpdf, 1
-  write(fid1,'(A)') "mc.compute_pdft_energy_(otxc='"//TRIM(split_otpdf(i))//"')"
+  write(fid1,'(A)') "mc.compute_pdft_energy_(otxc='"//TRIM(new_otpdf(i))//"')"
  end do ! for i
 
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
  if(mcpdft_force) call add_force_key2py_script(mem, inpname, .false.)
 end subroutine prt_mcpdft_script_into_py
+
+! print the parameter file (.txt) for MC23/MC25 functionals
+subroutine gen_otpdf_mc_para_txt(txtname, mc23)
+ implicit none
+ integer :: fid
+ character(len=*), intent(in) :: txtname
+ logical, intent(in) :: mc23
+
+ open(newunit=fid,file=TRIM(txtname),status='replace')
+ if(mc23) then
+  write(fid,'(A,/,A)') '2', '18 27'
+  write(fid,'(A)') '3.352197 0.6332929 -0.9469553 0.2030835 2.503819 0.8085354 -3&
+   &.619144 -0.5572321 -4.506606 0.9614774 6.977048 -1.309337 -2.426371 -0.0078&
+   &9654 0.0136451 -1.714252e-06 -4.698672e-05 0.0'
+  write(fid,'(A)') '0.06 0.0031 0.00515088 0.00304966 2.427648 3.707473 -7.943377&
+   & -2.521466 2.658691 2.932276 -0.8832841 -1.895247 -2.899644 -0.506857 -2.71&
+   &2838 0.09416102 -3.485860e-03 -5.811240e-04 6.668814e-04 0.0 0.2669169 -0.0&
+   &7563289 0.07036292 3.493904e-04 6.360837e-04 0.0 1e-10'
+ end if
+ close(fid)
+end subroutine gen_otpdf_mc_para_txt
 
 ! print MC-PDFT or DMRG-PDFT keywords into OpenMolcas .input file
 subroutine prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
@@ -265,19 +291,23 @@ subroutine prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
  integer :: i, fid1, fid2, RENAME
  integer, intent(in) :: n_otpdf
  character(len=6) :: key
+ character(len=10) :: str10
  character(len=10), intent(in) :: split_otpdf(n_otpdf)
  character(len=10), allocatable :: new_otpdf(:)
- character(len=240) :: buf, inpname1
+ character(len=13), parameter :: txtname = 'MC_params.txt'
+ character(len=240) :: buf, proname, inpname1
  character(len=240), intent(in) :: inpname
+ character(len=480) :: dirname
  logical :: dmrg
 
  allocate(new_otpdf(n_otpdf), source=split_otpdf)
- call detect_and_update_otpdf(n_otpdf, new_otpdf, key)
+ call detect_and_update_otpdf_molcas(n_otpdf, new_otpdf, key)
 
  if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
  dmrg = (dmrgci .or. dmrgscf)
 
  call find_specified_suffix(inpname, '.input', i)
+ proname = inpname(1:i-1)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
@@ -312,6 +342,21 @@ subroutine prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
  do i = 1, n_otpdf, 1
   write(fid2,'(/,A)') "&MCPDFT"
   write(fid2,'(A)') TRIM(key)//TRIM(new_otpdf(i))
+  str10 = split_otpdf(i)
+  call lower(str10)
+  if(TRIM(str10) == 'mc23') then
+   write(fid2,'(A)') 'LAMB= 0.2952'
+   write(fid2,'(A)') 'EXPM= '//txtname
+   call gen_otpdf_mc_para_txt(txtname, .true.)
+   call getenv('MOLCAS_WORKDIR', dirname)
+#ifdef _WIN32
+   dirname = TRIM(dirname)//'\'//TRIM(proname)
+#else
+   dirname = TRIM(dirname)//'/'//TRIM(proname)
+#endif
+   call create_dir(dirname)
+   call move_file(txtname, dirname)
+  end if
   if(i==1 .and. mcpdft_force) then
    write(fid2,'(A)') 'Grad'
    write(fid2,'(/,A)') '&ALASKA'
@@ -391,10 +436,29 @@ subroutine prt_mcpdft_gms_inp(inpname, otpdf)
  if(mcpdft_force) call add_force_key2gms_inp(inpname)
 end subroutine prt_mcpdft_gms_inp
 
+subroutine detect_and_update_otpdf_pyscf(n_otpdf, split_otpdf)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n_otpdf
+ character(len=10) :: str
+ character(len=10), intent(inout) :: split_otpdf(n_otpdf)
+
+ do i = 1, n_otpdf, 1
+  str = TRIM(split_otpdf(i))
+  call lower(str)
+  select case(TRIM(str))
+  case('tlsda')
+   split_otpdf(i) = 'tLDA,VWN3'
+  case('ftlsda')
+   split_otpdf(i) = 'ftLDA,VWN3'
+  end select
+ end do ! for i
+end subroutine detect_and_update_otpdf_pyscf
+
 ! detect the OpenMolcas version and update otpdf if needed
 ! OpenMolcas-v22.xx: T:PBE, FT:PBE
 ! OpenMolcas-v21.xx: tPBE, ftPBE
-subroutine detect_and_update_otpdf(n_otpdf, split_otpdf, key)
+subroutine detect_and_update_otpdf_molcas(n_otpdf, split_otpdf, key)
  implicit none
  integer :: i, j, k, iv, fid, SYSTEM
  integer, intent(in) :: n_otpdf
@@ -416,6 +480,7 @@ subroutine detect_and_update_otpdf(n_otpdf, split_otpdf, key)
  close(fid,status='delete')
  if(i /= 0) return
  ! if something like 'version: v22.06' not found, just return
+
  buf = ADJUSTL(buf)
  i = INDEX(buf, 'v')
  j = INDEX(buf, '.')
@@ -429,8 +494,8 @@ subroutine detect_and_update_otpdf(n_otpdf, split_otpdf, key)
   do i = 1, n_otpdf, 1
    str = split_otpdf(i)
    if(LEN_TRIM(str)==0 .or. TRIM(str)=='NONE') then
-    write(6,'(/,A)') 'ERROR in subroutine detect_and_update_otpdf: invalid OtPD&
-                     &F='//TRIM(str)
+    write(6,'(/,A)') 'ERROR in subroutine detect_and_update_otpdf_molcas: inval&
+                     &id OtPDF='//TRIM(str)
     write(6,'(A)') 'Something must be wrong.'
     stop
    end if
@@ -440,14 +505,16 @@ subroutine detect_and_update_otpdf(n_otpdf, split_otpdf, key)
     split_otpdf(i) = 'T:'//TRIM(split_otpdf(i)(2:))
    else if(str(1:2) == 'ft') then
     split_otpdf(i) = 'FT:'//TRIM(split_otpdf(i)(3:))
+   else if(TRIM(str) == 'mc23') then
+    split_otpdf(i) = 'T:M06L'
    else
-    write(6,'(/,A)') 'ERROR in subroutine detect_and_update_otpdf: wrong OtPDF=&
-                     &'//TRIM(str)
+    write(6,'(/,A)') 'ERROR in subroutine detect_and_update_otpdf_molcas: wrong&
+                     & OtPDF='//TRIM(str)
     stop
    end if
   end do ! for i
  end if
-end subroutine detect_and_update_otpdf
+end subroutine detect_and_update_otpdf_molcas
 
 ! read MC-PDFT energy from a given PySCF/OpenMolcas/GAMESS output file
 subroutine read_mcpdft_e_from_pyscf_out(outname, n_otpdf, ref_e, pdft_e)

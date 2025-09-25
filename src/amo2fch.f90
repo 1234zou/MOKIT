@@ -3,7 +3,6 @@
 !  use the same basis set.
 
 program main
- use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, itype ! itype=0/1/2 for R(O)HF/UHF/Some kind of NOs
  character(len=3) :: str3

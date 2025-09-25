@@ -17,7 +17,6 @@
 !  extra keyword needed.
 
 program main
- use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, j, npair, nopen, idx2, itype
  ! itype=0/1/2/3 for R(O)HF/UHF/GVB/Some kind of NOs

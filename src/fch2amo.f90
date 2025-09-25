@@ -37,7 +37,7 @@ end program main
 subroutine fch2amo(fchname)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, p, q, nelmtyp, length, fid
+ integer :: i, j, k, m, n, n1, n2, p, q, nelmtyp, length, icart, fid
  integer, parameter :: shltyp2nbas(-5:5) = [21,15,10,6,4,1,3,6,10,15,21]
  integer, allocatable :: frozen_e(:) ! size natom, frozen core electrons
  integer, allocatable :: natmbas(:) ! the number of basis functions of each atom
@@ -61,23 +61,14 @@ subroutine fch2amo(fchname)
  call check_nosymm_in_fch(fchname)
  call find_irel_in_fch(fchname, irel)
 
- uhf = .false.; sph = .false.; has_sp = .false.; ecp = .false.
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
+
+ uhf = .false.; has_sp = .false.; ecp = .false.
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf)
  if(LenNCZ > 0) ecp = .true.
-
- ! check if any spherical functions
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2amo: mixed spherical harmonic/Carte&
-                   &sian functions'
-  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
-                 &sian. Its default'
-  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
-                 &rds in Gaussian."
-  stop
- else if( ANY(shell_type < -1) ) then
-  sph = .true.
- end if
 
 ! Firstly, generate the input file (.aip)
  open(newunit=fid,file=TRIM(inpname),status='replace')

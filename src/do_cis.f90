@@ -96,20 +96,28 @@ subroutine do_cis()
   ! perform MRSF-CIS calculations for an open-shell singlet species
   call find_specified_suffix(hf_fch, '.fch', i)
   uno_fch = hf_fch(1:i-1)//'_uno.fch'
+  cis_fch = hf_fch(1:i-1)//'_t.fch'    ! temporarily use
+  nto_fch = hf_fch(1:i-1)//'_t_NO.fch' ! temporarily use
   rohf_fch = hf_fch(1:i-1)//'_T_rohf.fch'
-  cis_fch = hf_fch(1:i-1)//'_T_rohf_NO.fch' ! temporarily use
   datname = hf_fch(1:i-1)//'_T_rohf.dat'
   gmsname = hf_fch(1:i-1)//'_T_rohf.gms'
   pyname = hf_fch(1:i-1)//'.py'
   outname = hf_fch(1:i-1)//'.out'
   call find_specified_suffix(gjfname, '.gjf', i)
   cisno_fch = gjfname(1:i-1)//'_MRSFCIS_NO.fch'
+
+  ! generate UNOs for singlet UHF
   call prt_uno_pyscf_script(hf_fch)
   call submit_pyscf_job(pyname, .true.)
-  ! Gaussian ROHF does not support stable/stable=opt, always use PySCF
+
+  ! Perform a triplet ROHF calculation using singlet UNOs. Gaussian ROHF does
+  ! not support stable/stable=opt, always use PySCF.
   tmp_hf_prog = 'pyscf'
   call do_rohf_using_uno(tmp_hf_prog, mem, nproc, dkh2_or_x2c, uno_fch)
+
+  ! Perform MRSF-CIS based on the triplet ROHF
   call do_sf_cis_using_rohf(mem, nproc, nstate, .true., .false., rohf_fch)
+
   !call read_sf_e_from_gms_gms(gmsname, nstate, cis_e, cis_ssquare)
   call read_mrsf_e_from_gms_gms(gmsname, nstate, cis_e, cis_ssquare, cis_fosc)
   ex_e = (cis_e(1:nstate) - cis_e(0))*au2ev
@@ -120,13 +128,15 @@ subroutine do_cis()
    write(6,'(A,I4,A,F14.6,A,F6.2,A,F6.4,A,F8.3)') 'Excited State', i, ': E=',&
    cis_e(i),' a.u. (',ex_e(i),' eV), f=',cis_fosc(i),', <S**2>=',cis_ssquare(i)
   end do ! for i
-  call copy_file(uno_fch, cisno_fch, .false.)
-  ! The GAMESS ROHF MOs should be used.
-  call dat2fch_wrap(datname, cisno_fch)
+
+  ! The GAMESS triplet ROHF MOs should be used to generate MRSF SA-NOs
+  call sys_copy_file(TRIM(uno_fch), TRIM(cis_fch), .false.)
+  call dat2fch_wrap(datname, cis_fch)
   call delete_files(3, [datname, pyname, outname])
-  call gen_sfcis_no_from_fch_and_gms(rohf_fch, gmsname, nstate, 0, nb-1, &
+  call gen_sfcis_no_from_fch_and_gms(cis_fch, gmsname, nstate, 0, nb-1, &
                                      .true., .true.)
-  i = RENAME(TRIM(cis_fch), TRIM(cisno_fch))
+  call delete_file(TRIM(cis_fch))
+  i = RENAME(TRIM(nto_fch), TRIM(cisno_fch))
   hf_fch = cisno_fch ! update hf_fch
  end if
 
@@ -439,7 +449,7 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  character(len=240) :: buf, tmpf, inpname, gmsname
  character(len=240), intent(in) :: rohf_fch
  logical, intent(in) :: mrsf, triplet
- ! triplet is only valid in the MRSF case
+ ! currently only the triplet is allowed for MRSF
 
  mult = 1
  if(mrsf) then
@@ -480,10 +490,10 @@ subroutine do_sf_cis_using_rohf(mem, nproc, nstate, mrsf, triplet, rohf_fch)
  end do ! for while
 
  if(mrsf) then
-  write(fid1,'(2(A,I0),A)') ' $TDDFT NSTATE=',nstate+3,' MULT=',mult,' $END'
-  ! NRAD and NLEB are not needed for MRSF-CIS
+  write(fid1,'(2(A,I0),A)') ' $TDDFT NSTATE=',nstate+4,' MULT=',mult,' $END'
+  ! MRSF-CIS is used here, so NRAD and NLEB are not needed
  else
-  write(fid1,'(A,I0,A)') ' $CIS NSTATE=', nstate+3, ' $END'
+  write(fid1,'(A,I0,A)') ' $CIS NSTATE=', nstate+4, ' $END'
  end if
 
  do while(.true.)

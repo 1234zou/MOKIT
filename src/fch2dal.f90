@@ -4,7 +4,7 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, SYSTEM
+ integer :: i, icart, SYSTEM
  character(len=240) :: fchname, inpname
  logical :: sph
 
@@ -34,11 +34,13 @@ program main
 
  call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
 
- call check_sph_in_fch(fchname, sph)
- if(sph) then
-  i = SYSTEM('bas_gms2dal '//TRIM(inpname)//' -sph')
- else
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) then
+  sph = .false.
   i = SYSTEM('bas_gms2dal '//TRIM(inpname))
+ else
+  sph = .true.
+  i = SYSTEM('bas_gms2dal '//TRIM(inpname)//' -sph')
  end if
 
  if(i /= 0) then
@@ -52,13 +54,12 @@ program main
  end if
 
  call delete_file(inpname)
- call fch2dal(fchname)
+ call fch2dal(fchname, sph)
 end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
 !  to that of Dalton
-subroutine fch2dal(fchname)
- use fch_content, only: check_uhf_in_fch
+subroutine fch2dal(fchname, sph)
  implicit none
  integer :: i, j, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark,n10fmark,n15gmark,n21hmark
@@ -70,7 +71,8 @@ subroutine fch2dal(fchname)
  character(len=24) :: data_string
  character(len=240) :: buf, dalfile, dalfile1
  character(len=240), intent(in) :: fchname
- logical :: uhf, sph
+ logical, intent(in) :: sph
+ logical :: uhf
 
  buf = ' '
  call check_uhf_in_fch(fchname, uhf)
@@ -89,20 +91,6 @@ subroutine fch2dal(fchname)
  allocate(shell_type(2*k), source=0)
  allocate(shell2atom_map(2*k), source=0)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
-
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2dal: mixed spherical harmonic/Carte&
-                   &sian functions'
-  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
-                 &sian. Its default'
-  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
-                 &rds in Gaussian."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
 
 ! first we adjust the basis functions in each MO according to the Shell to atom map
 ! this is to ensure that D comes after L functions
@@ -129,7 +117,7 @@ subroutine fch2dal(fchname)
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, idx)
   forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
- else ! Cartesian-type basis
+ else         ! Cartesian-type basis
   allocate(norm(nbf), source=1d0)
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
                                   n21hmark, d_mark, f_mark, g_mark, h_mark)

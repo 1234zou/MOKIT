@@ -160,42 +160,6 @@ subroutine read_ne_from_fch(fchname, ne)
  read(buf(50:),*) ne
 end subroutine read_ne_from_fch
 
-! check whether UHF-type MOs are hold in a given .fch(k) file
-subroutine check_uhf_in_fch(fchname, uhf)
- implicit none
- integer :: i, fid
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
- logical, intent(out) :: uhf
-
- uhf = .false.
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i < 0) then
-   exit ! end-of-file
-  else if(i > 0) then
-   write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file &
-                   &'//TRIM(fchname)
-   close(fid)
-   stop
-  end if
-
-  if(buf(1:7) == 'Beta MO') then
-   uhf = .true.
-   exit
-  end if
-
-  select case(buf(1:11))
-  case('Orthonormal','Total SCF D','Mulliken Ch')
-   exit
-  end select
- end do ! for while
-
- close(fid)
-end subroutine check_uhf_in_fch
-
 ! check whether GHF-type MOs are hold in a given .fch(k) file
 subroutine check_ghf_in_fch(fchname, ghf)
  implicit none
@@ -520,18 +484,18 @@ subroutine read_fch(fchname, uhf)
   if(buf(1:8) == 'Alpha MO') exit
  end do
  allocate(coeff(ncoeff), source=0d0)
- read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
- allocate(alpha_coeff(nbf,nif), source=0d0)
- alpha_coeff = RESHAPE(coeff,(/nbf,nif/))
+ !read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
+ read(fid,*) coeff
+ allocate(alpha_coeff(nbf,nif), source=RESHAPE(coeff,[nbf,nif]))
  deallocate(coeff)
 
  ! if '-uhf' specified, read Beta MO
  if(uhf) then
   allocate(coeff(ncoeff), source=0d0)
   read(fid,'(A)') buf   ! skip the Beta MO line
-  read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
-  allocate(beta_coeff(nbf,nif), source=0d0)
-  beta_coeff = RESHAPE(coeff,(/nbf,nif/))
+  !read(fid,'(5(1X,ES15.8))') (coeff(i),i=1,ncoeff)
+  read(fid,*) coeff
+  allocate(beta_coeff(nbf,nif), source=RESHAPE(coeff,[nbf,nif]))
   deallocate(coeff)
  end if
 
@@ -635,6 +599,7 @@ subroutine free_arrays_in_fch_content()
  if(allocated(spin_dm)) deallocate(spin_dm)
  if(allocated(mull_char)) deallocate(mull_char)
 end subroutine free_arrays_in_fch_content
+
 end module fch_content
 
 ! expansion coefficients matrices of spherical harmonic -> Cartesian functions
@@ -952,42 +917,42 @@ end subroutine check_nosymm_in_fch
 
 ! expand MO coefficients from spherical harmonic type functions into Cartesian
 ! type functions
-subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, coeff0, coeff1)
+subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, sph_coeff, cart_coeff)
  use r_5D_2_6D, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, nbf
  integer, intent(in) :: ncontr, nbf0, nbf1, nmo
  integer, intent(inout) :: shltyp(ncontr)
- real(kind=8), intent(in) :: coeff0(nbf0,nmo)
- real(kind=8), intent(out) :: coeff1(nbf1,nmo)
+ real(kind=8), intent(in) :: sph_coeff(nbf0,nmo)
+ real(kind=8), intent(out) :: cart_coeff(nbf1,nmo)
 
- nbf = 0; j = 0; coeff1 = 0d0
+ nbf = 0; j = 0; cart_coeff = 0d0
 
  do i = 1, ncontr, 1
   select case(shltyp(i))
   case( 0) ! S
-   coeff1(nbf+1,:) = coeff0(j+1,:)
+   cart_coeff(nbf+1,:) = sph_coeff(j+1,:)
    nbf = nbf + 1; j= j + 1
   case( 1) ! P
-   coeff1(nbf+1:nbf+3,:) = coeff0(j+1:j+3,:)
+   cart_coeff(nbf+1:nbf+3,:) = sph_coeff(j+1:j+3,:)
    nbf = nbf + 3; j = j + 3
   case(-1) ! L, SP
-   coeff1(nbf+1:nbf+4,:) = coeff0(j+1:j+4,:)
+   cart_coeff(nbf+1:nbf+4,:) = sph_coeff(j+1:j+4,:)
    nbf = nbf + 4; j = j + 4
   case(-2) ! 5D
-   coeff1(nbf+1:nbf+6,:) = MATMUL(rd, coeff0(j+1:j+5,:))
+   cart_coeff(nbf+1:nbf+6,:) = MATMUL(rd, sph_coeff(j+1:j+5,:))
    nbf = nbf + 6; j = j + 5
    shltyp(i) = 2
   case(-3) ! 7F
-   coeff1(nbf+1:nbf+10,:) = MATMUL(rf, coeff0(j+1:j+7,:))
+   cart_coeff(nbf+1:nbf+10,:) = MATMUL(rf, sph_coeff(j+1:j+7,:))
    nbf = nbf + 10; j = j + 7
    shltyp(i) = 3
   case(-4) ! 9G
-   coeff1(nbf+1:nbf+15,:) = MATMUL(rg, coeff0(j+1:j+9,:))
+   cart_coeff(nbf+1:nbf+15,:) = MATMUL(rg, sph_coeff(j+1:j+9,:))
    nbf = nbf + 15; j = j + 9
    shltyp(i) = 4
   case(-5) ! 11H
-   coeff1(nbf+1:nbf+21,:) = MATMUL(rh, coeff0(j+1:j+11,:))
+   cart_coeff(nbf+1:nbf+21,:) = MATMUL(rh, sph_coeff(j+1:j+11,:))
    nbf = nbf + 21; j = j + 11
    shltyp(i) = 5
   case default

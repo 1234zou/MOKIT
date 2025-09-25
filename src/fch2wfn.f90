@@ -44,7 +44,7 @@ end program main
 subroutine fch2wfn(fchname, read_no)
  use fch_content
  implicit none
- integer :: h, i, j, k, m, n, p, q, nmo, nbf1, tot_nprim, fid
+ integer :: h, i, j, k, m, n, p, q, nmo, nbf1, tot_nprim, icart, fid
  integer, parameter :: shltyp2nprim(-5:5) = [21,15,10,6,4,1,3,6,10,15,21]
 ! wfn file only uses Cartesian-type basis set, so spherical harmonic functions
 ! need to be expanded to Cartesian ones
@@ -70,11 +70,16 @@ subroutine fch2wfn(fchname, read_no)
  ! Note that mo0, mo1 and mo2 contains only (partially) occupied orbitals
  character(len=240) :: wfnname
  character(len=240), intent(in) :: fchname
- logical :: uhf, sph
  logical, intent(in) :: read_no
+ logical :: uhf, sph
 
  call find_specified_suffix(fchname, '.fch', i)
  wfnname = fchname(1:i-1)//'.wfn'
+
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
+
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf)         ! read content in .fch(k) file
 
@@ -190,18 +195,7 @@ subroutine fch2wfn(fchname, read_no)
 
  ! transform MO coefficients from spherical harmonic type into Cartesian type,
  ! if needed
- if(ANY(shell_type > 1)) then ! Cartesian-type basis functions
-  sph = .false.
-  nbf1 = nbf
-  allocate(mo1(nbf1,nmo))
-  if(read_no) then
-   mo1 = alpha_coeff
-  else ! R(O)HF, UHF
-   mo1(:,1:na) = alpha_coeff(:,1:na)
-   if(uhf) mo1(:,na+1:na+nb) = beta_coeff(:,1:nb)
-  end if
- else ! spherical harmonic type basis functions
-  sph = .true.
+ if(ANY(shell_type < -1)) then ! spherical harmonic type basis functions
   allocate(mo0(nbf,nmo))
   if(read_no) then
    mo0 = alpha_coeff
@@ -215,6 +209,15 @@ subroutine fch2wfn(fchname, read_no)
   allocate(mo1(nbf1,nmo))
   call mo_sph2cart(ncontr, shell_type, nbf, nbf1, nmo, mo0, mo1)
   deallocate(mo0)
+ else                          ! Cartesian-type basis functions
+  nbf1 = nbf
+  allocate(mo1(nbf1,nmo))
+  if(read_no) then
+   mo1 = alpha_coeff
+  else ! R(O)HF, UHF
+   mo1(:,1:na) = alpha_coeff(:,1:na)
+   if(uhf) mo1(:,na+1:na+nb) = beta_coeff(:,1:nb)
+  end if
  end if
 
  deallocate(alpha_coeff)

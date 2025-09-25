@@ -66,9 +66,8 @@ end program main
 ! transfer MOs from Gaussian to Psi4
 subroutine fch2psi(fchname, dftname)
  use util_wrapper, only: fch2inp_wrap
- use fch_content, only: check_uhf_in_fch
  implicit none
- integer :: i, nbf0, nbf, nif, ncontr
+ integer :: i, nbf0, nbf, nif, ncontr, icart
  integer :: n3pmark, n6dmark, n10fmark, n15gmark, n21hmark
  integer, allocatable :: shell_type(:), shl2atm(:)
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
@@ -82,19 +81,17 @@ subroutine fch2psi(fchname, dftname)
  call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf)
  call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
- call check_sph_in_fch(fchname, sph)
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
 
- i = INDEX(fchname,'.fch', back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  gms_inp = fchname(1:i-1)//'.inp'
  inpname = fchname(1:i-1)//'_psi.inp'
  fileA = fchname(1:i-1)//'.A'
  fileB = fchname(1:i-1)//'.B'
 
- if(sph) then
-  call bas_gms2psi(gms_inp, dftname, .true.)
- else
-  call bas_gms2psi(gms_inp, dftname, .false.)
- end if
+ call bas_gms2psi(gms_inp, dftname, sph)
  call delete_file(gms_inp)
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)

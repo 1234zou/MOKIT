@@ -32,7 +32,7 @@ end program main
 subroutine fch2mrcc(fchname)
  use fch_content
  implicit none
- integer :: i, j, k, m, length, nif1
+ integer :: i, j, k, m, length, icart, nif1
  integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark, n6dmark, n10fmark, &
   n15gmark, n21hmark
  integer, allocatable :: idx(:), p_mark(:), d_mark(:), f_mark(:), g_mark(:), &
@@ -43,6 +43,11 @@ subroutine fch2mrcc(fchname)
 
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
+
+ sph = .true.
+ call find_icart_in_fch(fchname, .false., icart)
+ if(icart == 2) sph = .false.
+
  call find_irel_in_fch(fchname, irel)
  if(irel /= -1) then
   write(6,'(/,A)') REPEAT('-',79)
@@ -54,25 +59,10 @@ subroutine fch2mrcc(fchname)
   write(6,'(A)') REPEAT('-',79)
  end if
 
- uhf = .false.; ecp = .false.
+ uhf = .false.; ecp = .false.; lin_dep = .false.
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
  call read_fch(fchname, uhf)
  if(LenNCZ > 0) ecp = .true.
-
- ! check whether pure spherical harmonic, pure Cartesian or mixed functions
- if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2mrcc: mixed spherical harmonic/Cart&
-                   &esian functions'
-  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
-                 &sian. Its default'
-  write(6,'(A)') "setting is (6D,7F). You need to add '5D 7F' or '6D 10F' keywo&
-                 &rds in Gaussian."
-  stop
- else if( ANY(shell_type>1) ) then
-  sph = .false.
- else
-  sph = .true.
- end if
  if(nbf > nif) lin_dep = .true.
 
  ! generate the file MINP

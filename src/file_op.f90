@@ -58,7 +58,7 @@ subroutine delete_files(n, fname)
  character(len=240), intent(in) :: fname(n)
 
  do i = 1, n, 1
-  call delete_file(fname(i))
+  call delete_file(TRIM(fname(i)))
  end do ! for i
 end subroutine delete_files
 
@@ -220,14 +220,14 @@ subroutine create_dir(dirname)
  character(len=*), intent(in) :: dirname
 
 #ifdef _WIN32
- i = SYSTEM('CD '//dirname)
+ i = SYSTEM('CD '//TRIM(dirname))
  if(i == 0) then
   i = SYSTEM('CD ..')
  else
-  i = SYSTEM('MD '//dirname)
+  i = SYSTEM('MD '//TRIM(dirname))
  end if
 #else
- i = SYSTEM('mkdir -p '//dirname)
+ i = SYSTEM('mkdir -p '//TRIM(dirname))
 #endif
 end subroutine create_dir
 
@@ -305,13 +305,114 @@ subroutine check_mokit_root()
  endif
 end subroutine check_mokit_root
 
+! check whether UHF-type MOs are hold in a given .fch(k) file
+subroutine check_uhf_in_fch(fchname, uhf)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical, intent(out) :: uhf
+!f2py intent(out) :: uhf
+
+ uhf = .false.
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i < 0) then
+   exit ! end-of-file
+  else if(i > 0) then
+   write(6,'(/,A)') 'ERROR in subroutine check_uhf_in_fch: failed to read file &
+                   &'//TRIM(fchname)
+   close(fid)
+   stop
+  end if
+
+  if(buf(1:7) == 'Beta MO') then
+   uhf = .true.
+   exit
+  end if
+
+  select case(buf(1:11))
+  case('Orthonormal','Total SCF D','Mulliken Ch')
+   exit
+  end select
+ end do ! for while
+
+ close(fid)
+end subroutine check_uhf_in_fch
+
+! Check whether pure Cartesian or spherical harmonic type basis functions are
+!  used in a specified .fch(k) file.
+! icart=-1: mixed Cartesian and spherical harmonic
+! icart= 0: only S/P/L angular momenta, can be viewed as either pure Cartesian
+!           or spherical harmonic
+! icart= 1: spherical harmonic includes any of 5D, 7F, 9G, ...
+! icart= 2: pure Cartesian includes any of 6D, 10F, 15G, ...
+subroutine find_icart_in_fch(fchname, allow_mixed, icart)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(out) :: icart
+!f2py intent(out) :: icart
+ integer, allocatable :: shltyp(:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical, intent(in) :: allow_mixed
+!f2py intent(in) :: allow_mixed
+
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:11) == 'Shell types') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_icart_in_fch: missing 'Shell types&
+                   &' in file"
+  write(6,'(A)') TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=', back=.true.)
+ read(buf(i+1:),*) k
+ allocate(shltyp(k), source=0)
+ read(fid,*) shltyp
+ close(fid)
+
+ if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
+  icart = -1
+  if(.not. allow_mixed) then
+   write(6,'(/,A)') 'ERROR in subroutine find_icart_in_fch: mixed Cartesian and&
+                    & spherical harmonic'
+   write(6,'(A)') '(like 6D 7F) is found. Only spherical hamonic (5D 7F) or pur&
+                  &e Cartesian (6D 10F)'
+   write(6,'(A)') 'is allowed.'
+   stop
+  end if
+ else if(ALL(shltyp>-2) .and. ALL(shltyp<2)) then
+  icart = 0
+ else if(ALL(shltyp<2) .and. ANY(shltyp<-1)) then
+  icart = 1
+ else if(ALL(shltyp>-2) .and. ANY(shltyp>1)) then
+  icart = 2
+ end if
+
+ deallocate(shltyp)
+end subroutine find_icart_in_fch
+
 ! check whether UHF is used in a specified CFOUR output file
 subroutine check_uhf_in_cfour_out(outname, uhf)
  implicit none
  integer :: i, k, fid
- logical, intent(out) :: uhf
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+ logical, intent(out) :: uhf
+!f2py intent(out) :: uhf
 
  uhf = .false.
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
@@ -451,34 +552,51 @@ subroutine simplify_fch(fchname)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine simplify_fch
 
-! read the number of MOs from a Gaussian .fch(k) file
-subroutine read_nif_from_fch(fchname, nif)
+! read nbf and nif from .fch(k) file
+subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
  implicit none
  integer :: i, fid
- integer, intent(out) :: nif
-!f2py intent(out) :: nif
+ integer, intent(out) :: nbf, nif
+!f2py intent(out) :: nbf, nif
  character(len=240) :: buf
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
- nif = 0
+ nbf = 0; nif = 0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:13) == 'Number of ind') exit
+  if(buf(1:17) == 'Number of basis f') exit
  end do ! for while
 
- close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_nif_from_fch: no 'Number of ind' f&
-                   &ound in file "//TRIM(fchname)
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of b&
+                   &asis f' not found in"
+  write(6,'(A)') 'file '//TRIM(fchname)
   stop
  end if
+ read(buf(52:),*) nbf
 
- read(buf(45:),*) nif
-end subroutine read_nif_from_fch
+ ! In case that this is a Q-Chem .fch file, let's assume that nif is not just
+ ! below nbf
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of &
+                    &indepen' not found in"
+   write(6,'(A)') 'file '//TRIM(fchname)
+   stop
+  end if
+  if(buf(1:17) == 'Number of indepen') exit
+ end do ! for while
+
+ read(buf(52:),*) nif
+ close(fid)
+end subroutine read_nbf_and_nif_from_fch
 
 ! read spin multipliticity from a given .fch(k) file
 subroutine read_mult_from_fch(fchname, mult)
@@ -624,8 +742,10 @@ subroutine read_sym_mat_size_from_npy(npyname, n)
  implicit none
  integer :: i, fid
  integer, intent(out) :: n
+!f2py intent(out) :: n
  character(len=128) :: str
  character(len=240), intent(in) :: npyname
+!f2py intent(in) :: npyname
 
  n = 0; str = ' '
  open(newunit=fid,file=TRIM(npyname),status='old',form='unformatted',&
@@ -642,9 +762,13 @@ subroutine read_sym_mat_from_npy(npyname, n, a)
  implicit none
  integer :: i, fid
  integer, intent(in) :: n
+!f2py intent(in) :: n
  real(kind=8), intent(out) :: a(n,n)
+!f2py intent(out) :: a
+!f2py depend(n) :: a
  character(len=128) :: str
  character(len=240), intent(in) :: npyname
+!f2py intent(in) :: npyname
 
  str = ' '
  open(newunit=fid,file=TRIM(npyname),status='old',form='unformatted',&
@@ -801,13 +925,10 @@ subroutine del_dm_in_fch(fchname, itype)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
 
- if(i /= 0) then
+ if(i /= 0) then ! the target density does not exist, simply return
   close(fid)
   close(fid1,status='delete')
-  write(6,'(/,A)') 'ERROR in subroutine del_dm_in_fch: specified dm type not fo&
-                   &und in file'
-  write(6,'(A)') TRIM(fchname)
-  stop
+  return
  end if
 
  read(buf(50:),*) ncoeff

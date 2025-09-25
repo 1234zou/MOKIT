@@ -155,38 +155,6 @@ subroutine modify_charge_and_mult_in_fch(fchname, charge, mult)
  end if
 end subroutine modify_charge_and_mult_in_fch
 
-! read the total charge and the spin mltiplicity from a given .mkl file
-subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
- implicit none
- integer :: i, fid
- integer, intent(out) :: charge, mult
-!f2py intent(out) :: charge, mult
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-!f2py intent(in) :: mklname
-
- charge = 0; mult = 1
- call require_file_exist(mklname)
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:7) == '$CHAR_M') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no '$CHA&
-                   &R_M' found in"
-  write(6,'(A)') 'file '//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- read(fid,*) charge, mult
- close(fid)
-end subroutine read_charge_and_mult_from_mkl
-
 ! read nalpha and nbeta from .fch(k) file
 subroutine read_na_and_nb_from_fch(fchname, na, nb)
  implicit none
@@ -220,50 +188,6 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  close(fid)
 end subroutine read_na_and_nb_from_fch
 
-! read nbf and nif from .fch(k) file
-subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nbf, nif
-!f2py intent(out) :: nbf, nif
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:17) == 'Number of basis f') exit
- end do ! for while
-
- if(i /= 0) then
-  close(fid)
-  write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of b&
-                   &asis f' not found in"
-  write(6,'(A)') 'file '//TRIM(fchname)
-  stop
- end if
- read(buf(52:),*) nbf
-
- ! In case that this is a Q-Chem .fch file, let's assume nif is not just below
- ! nbf
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) then
-   close(fid)
-   write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_fch: 'Number of &
-                    &indepen' not found in"
-   write(6,'(A)') 'file '//TRIM(fchname)
-   stop
-  end if
-  if(buf(1:17) == 'Number of indepen') exit
- end do ! for while
-
- read(buf(52:),*) nif
- close(fid)
-end subroutine read_nbf_and_nif_from_fch
-
 ! read nbf and nif from .Orb file of MOLCAS/OpenMOLCAS
 subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  implicit none
@@ -272,7 +196,7 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
 
- call open_file(orbname, .true., fid)
+ open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:5) == '#INFO') exit
@@ -473,14 +397,14 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  character(len=1), intent(in) :: ab
  character(len=240), intent(in) :: xmlname
 
- call open_file(xmlname, .true., fid)
+ open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
 
  if(ab=='a' .or. ab=='A') then
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,"type=""ALPH")/=0 .or. INDEX(buf,"type=""CANO")/=0 .or. &
-      INDEX(buf,"type=""NATU")/=0) exit
+   if(INDEX(buf,'type="ALPH')>0 .or. INDEX(buf,'type="CANO')>0 .or. &
+      INDEX(buf,'type="NATU')>0) exit
   end do ! for while
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH', 'CAN&
@@ -495,11 +419,11 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,"type=""BETA") /= 0) exit
+   if(INDEX(buf,'type="BETA') > 0) exit
   end do ! for while
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_mo_from_xml: no type=""BETA&
-                  & found in file "//TRIM(xmlname)//'.'
+   write(6,'(/,A)') 'ERROR in subroutine read_mo_from_xml: no type="BETA found &
+                    &in file '//TRIM(xmlname)
    close(fid)
    stop
   end if
@@ -1165,7 +1089,7 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
 end subroutine read_gvb_energy_from_gms
 
 ! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
-subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg,&
+subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, &
                                        ptchg_e, nuc_pt_e)
  implicit none
  integer, intent(in) :: spin
@@ -1448,8 +1372,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
-                  & 'THE DENSITIES ARE STATE' found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no 'THE D&
+                    &ENSITIES ARE STATE'"
+   write(6,'(A)') 'found in file '//TRIM(outname)
    stop
   end if
 
@@ -1460,9 +1385,10 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this&
-                  & CASSCF job, the 0-th step, i.e., the CASCI'
-   write(6,'(A)') '<S**2> deviates too much from the expectation value.'
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this C&
+                    &ASSCF job, the 0-th'
+   write(6,'(A)') 'step, i.e., the CASCI <S**2> deviates too much from the expe&
+                  &ctation value.'
    write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
    stop
   end if
@@ -1477,9 +1403,10 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+2:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF&
-                  & <S**2> deviates too much from the expectation value.'
-   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF <S&
+                    &**2> deviates too'
+   write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
+                           expect, ', s_square=', s_square
    stop
   end if
 
@@ -1491,8 +1418,9 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no&
-                  & 'DENSITY MATRIX' found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no 'DENSI&
+                    &TY MATRIX' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    stop
   end if
  
@@ -1500,9 +1428,10 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI&
-                  & <S**2> deviates too much from the expectation value.'
-   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI <S*&
+                    &*2> deviates too'
+   write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
+                           expect, ', s_square=', s_square
    stop
   end if
 
@@ -1591,8 +1520,8 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: e(2)
- character(len=51), parameter :: error_warn = &
-  'ERROR in subroutine read_cas_energy_from_orca_out: '
+ character(len=51), parameter :: error_warn = 'ERROR in subroutine read_cas_ene&
+                                              &rgy_from_orca_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
@@ -1679,8 +1608,8 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
 
  if(i /= 0) then
   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: 'ITER.&
-                   & M' not found in"
-  write(6,'(A)') 'file '//TRIM(outname)
+                   & M' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   write(6,'(A)') 'Error termination of the Molpro CASCI job.'
   close(fid)
   stop
@@ -1706,8 +1635,8 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
   end do ! for while
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: '!MCS&
-                    &CF S' not found in"
-   write(6,'(A)') 'file '//TRIM(outname)
+                    &CF S' not found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    write(6,'(A)') 'Error termination of the Molpro CASSCF job.'
    close(fid)
    stop
@@ -1740,8 +1669,9 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
-                  & 'mcscf_eneci' not found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_bdf_out: 'mcscf_e&
+                    &neci' not found"
+   write(6,'(A)') 'in file '//TRIM(outname)
    write(6,'(A)') 'Error termination of the BDF CASSCF job.'
    close(fid)
    stop
@@ -1756,8 +1686,9 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_bdf_out:&
-                 & 'CHECKDATA:MCSCF:M' not found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_bdf_out: 'CHECKDAT&
+                   &A:MCSCF:M' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
   write(6,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
   close(fid)
   stop
@@ -1783,7 +1714,8 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1795,8 +1727,9 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
-                 &Iter' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no 'Iter&
+                   &' found in file"
+  write(6,'(A)') TRIM(outname)
   close(fid)
   stop
  end if
@@ -1828,8 +1761,9 @@ subroutine read_cas_energy_from_psi4_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no '&
-                 &MCSCF Final E' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_psi4_out: no 'MCSC&
+                   &F Final E' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1850,7 +1784,8 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1858,9 +1793,9 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
-                 &@ Final CI energies' found in"
-  write(6,'(A)') 'file '//TRIM(outname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '@ &
+                   &Final CI energies' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1878,9 +1813,9 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no '&
-                 &@    Final MCSCF en' found in"
-  write(6,'(A)') 'file '//TRIM(outname)//'.'
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_dalton_out: no &
+                   &'@    Final MCSCF en' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1949,8 +1884,8 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
  close(fid)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_pyscf_out: no CAS&
-                   &CI energy'
-  write(6,'(A)') 'found in file '//TRIM(outname)
+                   &CI energy found'
+  write(6,'(A)') 'in file '//TRIM(outname)
   write(6,'(A,I0)') 'troot=', troot
   stop
  end if
@@ -1971,8 +1906,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  ref_e = 0d0
  corr_e = 0d0
  if(itype<1 .or. itype>3) then
-  write(6,'(A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:&
-                    & invalid itype=', itype
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: in&
+                      &valid itype=', itype
   write(6,'(A)') 'Allowed values are 1/2/3 for SC-NEVPT2/FIC-NEVPT2/CASPT2.'
   stop
  end if
@@ -1987,8 +1922,9 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
 
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
+   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: No r&
+                    &eference energy'
+   write(6,'(A)') 'found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2005,8 +1941,9 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(6,'(A)') "No 'state number:   1' found in file "//TRIM(outname)
+   write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_molcas_out: No &
+                    &'state number:   1'"
+   write(6,'(A)') 'found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2018,8 +1955,9 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for j
 
   if(i/=0 .or. j==16) then
-   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(6,'(A)') 'No NEVPT2 energy found in file '//TRIM(outname)
+   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: No N&
+                    &EVPT2 energy found'
+   write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2038,8 +1976,9 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-   write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
+   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: No r&
+                    &eference energy'
+   write(6,'(A)') 'found in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -2056,8 +1995,8 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   corr_e = corr_e - ref_e
 
  case default
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out:'
-  write(6,'(A,I0)') 'Invalid itype=', itype
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: in&
+                      &valid itype=', itype
   stop
  end select
 
@@ -2169,8 +2108,9 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
-  write(6,'(A)') 'No reference energy found in file '//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out: no refer&
+                   &ence energy found'
+  write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2185,8 +2125,9 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out:'
-  write(6,'(A)') 'No MRMP2 energy found in file '//TRIM(outname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out: no MRMP2&
+                   & energy found in'
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2211,8 +2152,9 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  corr_e = 0d0
  dav_e = 0d0
  if(.not. (itype==1 .or. itype==2)) then
-  write(6,'(A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currently&
-                 & only reading SDSPT2/NEVPT2 energy is supported.'
+  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currentl&
+                   &y only reading SDSPT2/'
+  write(6,'(A)') 'NEVPT2 energy is supported.'
   stop
  end if
 
@@ -2224,8 +2166,9 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out:&
-                 & 'Print final' not found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: 'Print f&
+                   &inal' not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   write(6,'(A)') 'Error termination of the BDF CASSCF in SDSPT2/NEVPT2 job.'
   close(fid)
   stop
@@ -2256,8 +2199,9 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  close(fid)
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no&
-                 & 'TARGET_XIANCI' found in file "//TRIM(outname)
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no 'TARG&
+                   &ET_XIANCI' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
   stop
  end if
 
@@ -2648,113 +2592,41 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
 end subroutine read_no_info_from_fch
 
 ! check whether pure Cartesian functions
-subroutine check_cart_in_fch(fchname, cart)
+subroutine check_cart_compatibility_in_fch(fchname, cart)
  implicit none
- integer :: i, k, fid
- integer, allocatable :: shltyp(:)
- character(len=240) :: buf
+ integer :: icart
  character(len=240), intent(in) :: fchname
- character(len=38), parameter :: error_warn='ERROR in subroutine check_cart_in_fch:'
+!f2py intent(in) :: fchname
  logical, intent(in) :: cart
+!f2py intent(in) :: cart
 
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == 'Shell types') exit
- end do ! for while
+ call find_icart_in_fch(fchname, .false., icart)
 
- if(i /= 0) then
-  write(6,'(/,A)') error_warn//" missing 'Shell types'"
-  write(6,'(A)') 'in file '//TRIM(fchname)
-  close(fid)
-  stop
- end if
-
- i = INDEX(buf, '=', back=.true.)
- read(buf(i+1:),*) k
- allocate(shltyp(k), source=0)
- read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- close(fid)
-
- if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions detected.'
-  write(6,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') 'AutoMR can deal only pure spherical harmonic or pure Cartesian&
-                 & functions.'
+ if(cart .and. icart==1) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cart_compatibility_in_fch: Cartes&
+                   &ian functions are'
+  write(6,'(A)') 'requested by the user. But you provided a .fch(k) file which &
+                 &uses spherical harmonic'
+  write(6,'(A)') "functions. Two possible solutions: 1) delete the keyword 'Car&
+                 &t' in MOKIT{}"
+  write(6,'(A)') '2) provide another .fch file which uses pure Cartesian functi&
+                 &ons.'
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if
 
- if(ANY(shltyp<-1) .and. cart) then
-  write(6,'(/,A)') error_warn//' Cartesian functions required. But you provided'
-  write(6,'(A)') 'a .fch file which uses spherical harmonic functions. Two&
-                 & possible solutions:'
-  write(6,'(A)') "1) delete keyword 'Cart' in MOKIT{} ; 2) provide another .fch&
-                 & file which uses"
-  write(6,'(A)') 'pure Cartesian functions. fchname='//TRIM(fchname)
-  stop
- end if
-
- if(ANY(shltyp>1) .and. (.not.cart)) then
-  write(6,'(/,A)') error_warn//' spherical harmonic functions default. But you'
-  write(6,'(A)') 'provided a .fch file which has Cartesian functions. Two&
-                 & possible solutions:'
-  write(6,'(A)') "1) add keyword 'Cart' in MOKIT{}; 2) provide another .fch fil&
-                 &e which uses pure"
-  write(6,'(A)') 'spherical harmonic functions. fchname='//TRIM(fchname)
-  stop
- end if
-
- deallocate(shltyp)
-end subroutine check_cart_in_fch
-
-! return whether pure Cartesian or spherical harmonic
-subroutine check_sph_in_fch(fchname, sph)
- implicit none
- integer :: i, k, fid
- integer, allocatable :: shltyp(:)
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
- character(len=37), parameter :: error_warn='ERROR in subroutine check_sph_in_fch:'
- logical, intent(out) :: sph
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:11) == 'Shell types') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') error_warn//" missing 'Shell types'"
-  write(6,'(A)') 'in file '//TRIM(fchname)
-  close(fid)
-  stop
- end if
-
- i = INDEX(buf, '=', back=.true.)
- read(buf(i+1:),*) k
- allocate(shltyp(k), source=0)
- read(fid,'(6(6X,I6))') (shltyp(i),i=1,k)
- ! read Shell types done
- close(fid)
-
- if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  write(6,'(/,A)') error_warn//' mixed spherical harmonic/Cartesian functions &
-                  &detected.'
-  write(6,'(A)') 'You probably used the 6-31G(d) basis set in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') 'Only pure Cartesian or spherical harmonic is allowed'
+ if((.not.cart) .and. icart==2) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cart_compatibility_in_fch: spheri&
+                   &cal harmonic functions'
+  write(6,'(A)') 'are set as default. But you provided a .fch(k) file which has&
+                 & Cartesian functions.'
+  write(6,'(A)') "Two possible solutions: 1) add the keyword 'Cart' in MOKIT{};&
+                 & 2) provide another .fch"
+  write(6,'(A)') 'file which uses pure spherical harmonic functions.'
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
- else if(ANY(shltyp>1)) then
-  sph = .false.
- else
-  sph = .true.
  end if
-end subroutine check_sph_in_fch
+end subroutine check_cart_compatibility_in_fch
 
 ! read various AO density matrix from a .fch(k) file
 subroutine read_dm_from_fch(fchname, itype, nbf, dm)
@@ -3434,7 +3306,7 @@ end subroutine sort_no_by_noon
 ! include orbital energies (or Fock expectation values) in 'Alpha Or'.
 subroutine get_core_valence_sep_idx(fchname, idx)
  implicit none
- integer :: nif, na, nb
+ integer :: nbf, nif, na, nb
  integer, intent(out) :: idx
 !f2py intent(out) :: idx
  real(kind=8), parameter :: thres = 0.3d0
@@ -3442,7 +3314,7 @@ subroutine get_core_valence_sep_idx(fchname, idx)
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
- call read_nif_from_fch(fchname, nif)
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(ev(nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', ev)
  call read_na_and_nb_from_fch(fchname, na, nb)

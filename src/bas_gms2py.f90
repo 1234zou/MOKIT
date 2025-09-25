@@ -129,7 +129,7 @@ subroutine bas_gms2py(inpname, cart, pbc, obj_only, rest)
 
  open(newunit=pyid,file=TRIM(pyname),status='replace')
  if(obj_only) then
-  write(pyid,'(A)') 'from pyscf import gto, lib'
+  write(pyid,'(A)') 'from pyscf import gto'
  else
   if(pbc) then
    write(pyid,'(A)') 'from pyscf import gto, lib'

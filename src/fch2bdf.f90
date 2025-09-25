@@ -63,7 +63,7 @@ end program main
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order
 !  of Gaussian to that of BDF
 subroutine fch2bdf(fchname, prt_no)
- use fch_content, only: Bohr_const, check_uhf_in_fch
+ use fch_content, only: Bohr_const
  implicit none
  integer :: i, j, k, m, length, natom, orbid
  integer :: na, nb, nif, nbf, nbf0, nbf1, mult

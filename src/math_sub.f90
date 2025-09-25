@@ -1620,6 +1620,66 @@ subroutine get_fberry(nmo, mo_zdip, fberry)
 !$omp end parallel do
 end subroutine get_fberry
 
+! calculate the electronic dipole moment from AO-basis density matrix and
+! dipole integrals
+subroutine get_e_dip_from_dm_and_ao_dip(nbf, dm, ao_dip, e_dipole)
+ implicit none
+ integer :: i, j
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ real(kind=8) :: rtmp
+ real(kind=8), intent(in) :: dm(nbf,nbf), ao_dip(nbf,nbf,3)
+!f2py intent(in) :: dm, ao_dip
+!f2py depend(nbf) :: dm, ao_dip
+ real(kind=8), intent(out) :: e_dipole(3) ! x,y,z 3-components
+!f2py intent(out) :: e_dipole
+
+ do i = 1, 3
+  rtmp = 0d0
+!$omp parallel do schedule(dynamic) default(private) shared(i,nbf,dm,ao_dip) &
+!$omp reduction(+:rtmp)
+  do j = 1, nbf, 1
+   rtmp = rtmp + DOT_PRODUCT(dm(:,j), ao_dip(:,j,i))
+  end do ! for j
+!$omp end parallel do
+  e_dipole(i) = -rtmp
+ end do ! for i
+end subroutine get_e_dip_from_dm_and_ao_dip
+
+! Calculate the atomic electronic dipole moment from AO basis indices, AO-basis
+! density matrix and dipole integrals. It can be viewed as partitioning the ele-
+! ctronic dipole moment to each atom. The sum of "atomic dipole moment" is equal
+! to the total electronic dipole moment.
+! Note: the dipole moment originated from nuclear charges is not considered here.
+!subroutine get_atomic_e_dip_from_dm_and_ao_dip(natom, nbf, bfirst, dm, ao_dip, &
+!                                               e_dip)
+! implicit none
+! integer :: i, j
+! integer, intent(in) :: natom, nbf
+!!f2py intent(in) :: natom, nbf
+! integer, intent(in) :: bfirst(natom+1)
+!!f2py intent(in) :: bfirst
+!!f2py depend(natom) :: bfirst
+! real(kind=8) :: rtmp
+! real(kind=8), intent(in) :: dm(nbf,nbf), ao_dip(nbf,nbf,3)
+!!f2py intent(in) :: dm, ao_dip
+!!f2py depend(nbf) :: dm, ao_dip
+! real(kind=8), intent(out) :: e_dip(3,natom)
+!!f2py intent(out) :: e_dip
+!!f2py depend(natom) :: e_dip
+!
+! do i = 1, 3
+!  rtmp = 0d0
+!!$omp parallel do schedule(dynamic) default(private) shared(i,nbf,dm,ao_dip) &
+!!$omp reduction(+:rtmp)
+!  do j = 1, nbf, 1
+!   rtmp = rtmp + DOT_PRODUCT(dm(:,j), ao_dip(:,j,i))
+!  end do ! for j
+!!$omp end parallel do
+!  e_dip(i) = -rtmp
+! end do ! for i
+!end subroutine get_atomic_e_dip_from_dm_and_ao_dip
+
 ! calculate (C^T)S(C'), S must be real symmetric since dsymm is called
 ! C: nbf*nif  S: nbf*nbf, C': nbf*nif
 subroutine calc_CTSCp(nbf, nif, C, S, Cp, CTSCp)
@@ -2325,7 +2385,7 @@ subroutine get_mo_center_from_pop(natom, nmo, pop, mo_center)
 !f2py intent(out) :: mo_center
 !f2py depend(nmo) :: mo_center
  real(kind=8) :: r, min_v, sum_r
- real(kind=8), parameter :: pop_thres = 0.7d0
+ real(kind=8), parameter :: pop_thres = 0.75d0
  ! diff: difference between the largest and the 2nd largest component
  real(kind=8), intent(in) :: pop(natom,nmo)
 !f2py intent(in) :: pop

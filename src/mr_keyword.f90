@@ -200,6 +200,7 @@ module mr_keyword
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
  logical :: force = .false.       ! whether this is a force calculation
+ logical :: casci_force = .false. ! whether to calculate CASCI force
  logical :: casscf_force = .false.! whether to calculate CASSCF force
  logical :: caspt2_force = .false.! whether to calculate CASPT2 force
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
@@ -306,7 +307,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc10 (2025-Sep-10)'
+ write(6,'(A)') '           Version: 1.2.7rc11 (2025-Sep-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1018,7 +1019,7 @@ subroutine check_kywd_compatible()
    write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
    stop
   end if
-  call check_cart_in_fch(hf_fch, cart)
+  call check_cart_compatibility_in_fch(hf_fch, cart)
  end if
 
  if(on_thres<0d0 .or. on_thres>1d0) then
@@ -1525,6 +1526,7 @@ subroutine check_kywd_compatible()
  end select
 
  if(force) then
+  if(casci .and. (.not.dyn_corr)) casci_force = .true.
   if(casscf .and. (.not.dyn_corr)) casscf_force = .true.
   if(caspt2) caspt2_force = .true.
   if(nevpt2) nevpt2_force = .true.
@@ -1533,6 +1535,10 @@ subroutine check_kywd_compatible()
    write(6,'(/,A)') error_warn
    write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Pleas&
                   &e use another CASSCF_prog.'
+   stop
+  end if
+  if(sa_cas) then
+   write(6,'(/,A)') error_warn//'Force is incompatible with Nstates.'
    stop
   end if
  end if
@@ -1681,7 +1687,7 @@ subroutine read_bgchg_from_gjf(no_coor)
  end do ! for while
 
  if(nbgchg == 0) then
-  write(6,'(A)') error_warn//'no background point charge(s) found'
+  write(6,'(/,A)') error_warn//'no background point charge(s) found'
   write(6,'(A)') 'in file '//TRIM(gjfname)
   close(fid)
   stop

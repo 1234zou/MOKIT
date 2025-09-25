@@ -1,6 +1,8 @@
-MOKIT 1.2.7rc10 (Sep 11, 2025)
+MOKIT 1.2.7rc11 (Sep 25, 2025)
 ------------------------
 Fixes
+* fix mult=3 bug (in MRSF SA-NO .fch) introduced in commit c3c4a778
+* fix maxM specification bug for DMRG-CASSCF interface to PySCF+Block2
 * consider sys.path[0]='' when simply starting python from the current terminal
 * make sys.path include the current directory when Python script is in a different directory
 * fix ndb when the user specifies an active space different from default
@@ -18,6 +20,7 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* add utilities fch_sph2cart, fch2openqp and mkl2openqp
 * add FIC-NEVPT3/FIC-NEVPT4(SD) interface to ORCA
 * add qchem2pyscf in qchem.f90
 * add ROHF -> MRSF-CIS -> SA-NO -> SA-CASSCF as default SA strategy for open-shell singlet
@@ -68,6 +71,9 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* merge subroutines check_sph_in_fch and check_cart_in_fch into find_icart_in_fch
+* move subroutine read_nbf_and_nif_from_fch from read_fch.f90 to file_op.f90
+* remove subroutines read_nbf_from_fch and read_nif_from_fch
 * CASPT2_prog/NEVPT2_prog can still be used as alias when CASPT2/NEVPT2 specified
 * change CASPT2_prog/NEVPT2_prog/NEVPT3_prog to CASPT_prog/NEVPT_prog
 * add find_antibonding_orb() and find_antibonding_orb_in_fch() in lib/gaussian.py

@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc10 (2025-Sep-10)'
+ write(6,'(A)') '           Version: 1.2.7rc11 (2025-Sep-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -623,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc10 :: MOKIT, release date: 2025-Sep-10'
+  write(6,'(A)') 'AutoSR 1.2.7rc11 :: MOKIT, release date: 2025-Sep-25'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -4684,7 +4684,6 @@ end subroutine dump_gms_no_dat2fch
 subroutine dump_orca_no_gbw2fch(no_gbw, fchname)
  use mkl_content, only: check_uhf_in_mkl
  use util_wrapper, only: mkl2fch_wrap, fch_u2r_wrap
- use fch_content, only: check_uhf_in_fch
  implicit none
  integer :: i, SYSTEM, RENAME
  character(len=240) :: mklname, tmp_out, no_fch, nso_fch, nso_no
@@ -4727,7 +4726,6 @@ end subroutine dump_orca_no_gbw2fch
 ! copy specified density from no_fch to a copy of hf_fch, and generate NOs in
 ! the copied file
 subroutine copy_dm_and_gen_no(no_fch, hf_fch, itype)
- use fch_content, only: check_uhf_in_fch
  use util_wrapper, only: fch_u2r_wrap
  implicit none
  integer :: i, RENAME

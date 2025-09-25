@@ -396,35 +396,6 @@ subroutine py2fch(fchname, nbf, nif, coeff, ab, ev, natorb, gen_density)
  i = RENAME(TRIM(fchname1),TRIM(fchname))
 end subroutine py2fch
 
-! read nbf from .fch(k) file
-subroutine read_nbf_from_fch(fchname, nbf)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nbf
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-
- nbf = 0
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:17) == 'Number of basis f') exit
- end do
-
- if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine read_nbf_from_fch: no 'Number of basis f'&
-                 & found in file "
-  write(6,'(A)') TRIM(fchname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, nbf
- close(fid)
-end subroutine read_nbf_from_fch
-
 ! get permutation index list from a given .fch(k) file
 subroutine get_permute_idx_from_fch(fchname, nbf, idx, norm)
  implicit none
@@ -1015,7 +986,7 @@ end subroutine dm_gau2pyscf
 ! write density (in PySCF format) into a given Gaussian .fch(k) file
 subroutine write_pyscf_dm_into_fch(fchname, itype, nbf, dm, force)
  implicit none
- integer :: i, j, fid, fid1, nline, ncoeff, RENAME
+ integer :: i, j, nbf0, nif, fid, fid1, nline, ncoeff, RENAME
  integer, intent(in) :: itype, nbf
 !f2py intent(in) :: itype, nbf
  real(kind=8), intent(in) :: dm(nbf,nbf)
@@ -1051,11 +1022,11 @@ subroutine write_pyscf_dm_into_fch(fchname, itype, nbf, dm, force)
 !  when force = .True. , key0 will be added into .fch file;
 !  when force = .False., signal errors immediately.
 
- call read_nbf_from_fch(fchname, i)
- if(i /= nbf) then
+ call read_nbf_and_nif_from_fch(fchname, nbf0, nif)
+ if(nbf0 /= nbf) then
   write(6,'(/,A)') 'ERROR in subroutine write_pyscf_dm_into_fch: inconsistent n&
                    &bf.'
-  write(6,'(2(A,I0))') 'i=', i, ', nbf=', nbf
+  write(6,'(2(A,I0))') 'nbf=', nbf, ', nbf0=', nbf0
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end if

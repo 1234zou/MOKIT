@@ -46,7 +46,7 @@ program main
   ! MP2 NOs case
   gau_order = .true.
   idx1 = 1
-  call read_nif_from_fch(fchname, idx2)
+  call read_nbf_and_nif_from_fch(fchname, i, idx2)
  case default
   call getarg(3, buf)
   read(buf,*) idx1
@@ -145,7 +145,7 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
   end select
  end if
 
- call read_nif_from_fch(fchname, nif)
+ call read_nbf_and_nif_from_fch(fchname, i, nif)
 
  fchname1 = TRIM(fchname)//'.t'
  open(newunit=fid1,file=TRIM(fchname),status='old',position='rewind')

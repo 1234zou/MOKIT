@@ -55,10 +55,15 @@ subroutine get_mo_center_from_fch(fchname, ibegin, iend, popm)
  integer :: k
  integer, intent(in) :: ibegin, iend
  real(kind=8), allocatable :: pop(:,:)
+ character(len=8) :: pop_meth
  character(len=8), optional :: popm
  character(len=240), intent(in) :: fchname
 
- if(.not. PRESENT(popm)) popm = 'lowdin'
+ if(PRESENT(popm)) then
+  pop_meth = popm
+ else
+  pop_meth = 'lowdin'
+ end if
 
  ! get integer array bfirst (natom would be initialized in this subroutine)
  call init_shltyp_shl2atm_bfirst(fchname)
@@ -79,7 +84,7 @@ subroutine get_mo_center_from_fch(fchname, ibegin, iend, popm)
  k = iend - ibegin + 1
  allocate(pop(natom,k))
  call calc_diag_gross_pop(natom, nbf, k, bfirst, ao_ovlp, mo(:,ibegin:iend), &
-                          popm, pop)
+                          pop_meth, pop)
  call get_mo_center_from_pop(natom, k, pop, mo_center)
 
  deallocate(pop)
@@ -258,7 +263,7 @@ subroutine find_antibonding_orb(fchname, i1, i2, i3)
 
  ! get AO dipole integral matrix
  allocate(ao_dip(nbf,nbf,3))
- call get_ao_dipole_using_fch(fchname, nbf, ao_dip)
+ call get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
  call check_orthonormal(nbf, nif, mo, ao_ovlp)
 
  do i = i2, i1, -1
