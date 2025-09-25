@@ -129,8 +129,8 @@ OBJ_chk2py = split_sp.o chk2py.f90
 OBJ_fch2py = split_sp.f90 fch2py.f90
 OBJ_py2fch = file_op.o string_manipulate.o math_sub.o split_sp.o read_fch.o \
              py2fch.f90
-OBJ_pyuno = math_sub.f90 pyuno.f90
-OBJ_qchem = file_op.f90 math_sub.f90 rwwfn.f90 util_wrapper.f90 read_ev_on.o \
+OBJ_pyuno = math_sub.o pyuno.f90
+OBJ_qchem = file_op.o math_sub.o rwwfn.o util_wrapper.f90 read_ev_on.o \
             rwgeom.f90 qchem.f90 string_manipulate.o read_natom.o read_grad.o \
             split_sp.o read_fch.o
 OBJ_ortho = math_sub.o ortho.f90
@@ -141,13 +141,13 @@ OBJ_wfn_analysis = file_op.o string_manipulate.o math_sub.o read_natom.o read_gr
                    read_ev_on.o read_fch.o rwgeom.o read_gms_inp.o util_wrapper.o \
                    rwwfn.o assoc_rot.o call_qc_calc_int.o ortho.o wfn_analysis.f90
 OBJ_lo = file_op.o string_manipulate.o read_ev_on.o read_gms_inp.o ortho.o \
-         math_sub.f90 util_wrapper.f90 rwwfn.f90 call_qc_calc_int.f90 lo.f90
-OBJ_mo_svd = ortho.o math_sub.f90 mo_svd.f90
+         math_sub.o util_wrapper.f90 rwwfn.o call_qc_calc_int.f90 lo.f90
+OBJ_mo_svd = ortho.o math_sub.o mo_svd.f90
 OBJ_rwgeom = file_op.o string_manipulate.o math_sub.o read_fch.o read_natom.f90 \
              read_grad.f90 rwgeom.f90
 OBJ_rwwfn = file_op.f90 string_manipulate.f90 math_sub.f90 read_ev_on.f90 rwwfn.f90
 OBJ_excited = file_op.o string_manipulate.o ortho.o read_ev_on.o read_gms_inp.o \
-              util_wrapper.f90 rwwfn.f90 math_sub.f90 lo.f90 call_qc_calc_int.f90 \
+              util_wrapper.f90 rwwfn.o math_sub.o lo.f90 call_qc_calc_int.f90 \
               excited.f90
 
 .PHONY: exe pymodules all clean pyclean distclean addH2singlet add_bgcharge_to_inp \
