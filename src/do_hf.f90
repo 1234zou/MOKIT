@@ -523,7 +523,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  open(newunit=fid,file=TRIM(pyname),status='replace')
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
- write(fid,'(A)') 'from mokit.lib.lo import get_nmo_from_ao_ovlp'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import get_nmo_from_ao_ovlp'
  if(uhf) then
   write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
