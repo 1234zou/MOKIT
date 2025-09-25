@@ -228,11 +228,11 @@ subroutine prt_openqp_inp(proname, dftname, natom, charge, mult, sf_type, uhf, &
  bas_json = TRIM(proname)//'_bas.json'
  call lower(bas_json) ! lower case is needed for this file
 
+ dft = .false.
  if(LEN_TRIM(dftname) > 0) then
   dft = .true.
   dftname1 = dftname
  end if
-
  if(sf_type==2 .or. sf_type==4) then
   dft = .true.
   dftname1 = 'bhhlyp'
