@@ -3,6 +3,9 @@
 ! called 5D to 6D, but note that higher angular momenta like F,G,H are also
 ! converted.
 
+!TODO: support ECP/PP
+!TODO: expand AO overlap integrals from sph -> cart, instead of calculating
+
 program main
  use util_wrapper, only: formchk
  implicit none
@@ -45,8 +48,9 @@ end program main
 subroutine fch_sph2cart(fchname)
  use fch_content
  implicit none
- integer :: i, nbf1, nif1, icart
- real(kind=8), allocatable :: ev(:), sph_coeff(:,:), cart_coeff(:,:)
+ integer :: i, nif0, nbf1, nif1, icart
+ real(kind=8), allocatable :: ev(:), sph_coeff(:,:), cart_coeff(:,:), &
+  cart_ovlp(:,:), old_mo(:,:), new_mo(:,:)
  character(len=240) :: cart_fch
  character(len=240), intent(in) :: fchname
  logical :: uhf
@@ -97,6 +101,10 @@ subroutine fch_sph2cart(fchname)
          & 6*COUNT(shell_type==-4) + 10*COUNT(shell_type==-5) + &
            15*COUNT(shell_type==-6)
  ! [6D,10F,15G,21H,28I] - [5D,7F,9G,11H,13I] = [1,3,6,10,15]
+
+! allocate(sph_ovlp(nbf,nbf), cart_ovlp(nbf1,nbf1))
+! call get_gau_ao_ovlp_from_pyscf(fchname, nbf, sph_ovlp)
+! call ovlp_sph2cart(ncontr, shell_type, nbf, nbf1, sph_ovlp, cart_ovlp)
  allocate(cart_coeff(nbf1,nif1))
  call mo_sph2cart(ncontr, shell_type, nbf, nbf1, nif1, sph_coeff, cart_coeff)
  deallocate(sph_coeff)
@@ -144,8 +152,33 @@ subroutine fch_sph2cart(fchname)
   shell_type = -shell_type
  end where
 
- nbf = nbf1; nif = nbf1
+ nbf = nbf1; nif0 = nif; nif = nbf1
  call write_fch(cart_fch)
+
+ allocate(cart_ovlp(nbf1,nbf1))
+ call get_gau_ao_ovlp_from_pyscf(cart_fch, nbf1, cart_ovlp)
+ call get_nmo_from_ao_ovlp(nbf1, cart_ovlp, i)
+ if(i < nbf1) then
+  write(6,'(/,A)') 'ERROR in subroutine fch_sph2cart: basis set linear dependen&
+                   &cy detected'
+  write(6,'(A)') 'for current pure Cartesian basis. Not supported yet.'
+  stop
+ end if
+
+ allocate(new_mo(nbf1,nbf1))
+ call construct_vir(nbf1, nbf1, nif0+1, alpha_coeff, cart_ovlp, new_mo)
+
+ if(uhf) then
+  call write_mo_into_fch(cart_fch, nbf1, nbf1, 'a', new_mo)
+  call construct_vir(nbf1, nbf1, nif0+1, beta_coeff, cart_ovlp, new_mo)
+  deallocate(cart_ovlp)
+  call write_mo_into_fch(cart_fch, nbf1, nbf1, 'b', new_mo)
+ else
+  deallocate(cart_ovlp)
+  call write_mo_into_fch(cart_fch, nbf1, nbf1, 'a', new_mo)
+ end if
+
+ deallocate(new_mo)
  call free_arrays_in_fch_content()
 end subroutine fch_sph2cart
 

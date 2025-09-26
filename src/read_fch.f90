@@ -603,21 +603,21 @@ end subroutine free_arrays_in_fch_content
 end module fch_content
 
 ! expansion coefficients matrices of spherical harmonic -> Cartesian functions
-module r_5D_2_6D
+module parameter_sph2cart
  implicit none
- real(kind=8), parameter :: r1 = 0.5d0, r2 = 0.5d0*DSQRT(3d0), r3 = 1.5d0/DSQRT(5d0)
- real(kind=8), parameter :: r4 = DSQRT(0.375d0), r5 = DSQRT(3d0/40d0), r6 = DSQRT(1.2d0)
- real(kind=8), parameter :: r7 = DSQRT(0.625d0), r8 = 3d0/DSQRT(8d0), r9 = DSQRT(27d0/35d0)
- real(kind=8), parameter :: r10= 3d0/8d0, r11 = 0.25d0*r9, r12 = DSQRT(10d0/7d0)
- real(kind=8), parameter :: r13= DSQRT(9d0/56d0), r14 = DSQRT(45d0/56d0), r15 = DSQRT(27d0/28d0)
- real(kind=8), parameter :: r16= 0.25*DSQRT(5d0), r17 = DSQRT(9d0/7d0), r18 = DSQRT(5d0/28d0)
- real(kind=8), parameter :: r19= 0.125d0*DSQRT(35d0), r20 = 0.75d0*DSQRT(3d0), r21 = 2d0*r16
- real(kind=8), parameter :: r22= DSQRT(25d0/21d0), r23 = 0.625d0, r24 = DSQRT(15d0/112d0)
- real(kind=8), parameter :: r25= DSQRT(5d0/3d0), r26 = DSQRT(9d0/28d0), r27 = 0.125d0*r25
- real(kind=8), parameter :: r28= DSQRT(45d0/28d0), r29= DSQRT(5d0/112d0), r30 = 0.125d0*DSQRT(15d0)
- real(kind=8), parameter :: r31= DSQRT(35d0/48d0), r32 = DSQRT(5d0/12d0), r33 = DSQRT(1.5d0)
- real(kind=8), parameter :: r34= DSQRT(35d0/128d0), r35 = DSQRT(5d0/6d0), r36 = 0.25d0*r35
- real(kind=8), parameter :: r37= DSQRT(175d0/128d0), r38 = 1.25d0*r33, r39 = DSQRT(63d0/128d0)
+ real(kind=8), parameter :: r1 =0.5d0, r2=0.5d0*DSQRT(3d0), r3=1.5d0/DSQRT(5d0)
+ real(kind=8), parameter :: r4 =DSQRT(0.375d0), r5=DSQRT(3d0/40d0), r6=DSQRT(1.2d0)
+ real(kind=8), parameter :: r7 =DSQRT(0.625d0), r8=3d0/DSQRT(8d0), r9=DSQRT(27d0/35d0)
+ real(kind=8), parameter :: r10=3d0/8d0, r11=0.25d0*r9, r12=DSQRT(10d0/7d0)
+ real(kind=8), parameter :: r13=DSQRT(9d0/56d0), r14=DSQRT(45d0/56d0), r15=DSQRT(27d0/28d0)
+ real(kind=8), parameter :: r16=0.25*DSQRT(5d0), r17=DSQRT(9d0/7d0), r18=DSQRT(5d0/28d0)
+ real(kind=8), parameter :: r19=0.125d0*DSQRT(35d0), r20=0.75d0*DSQRT(3d0), r21=2d0*r16
+ real(kind=8), parameter :: r22=DSQRT(25d0/21d0), r23=0.625d0, r24=DSQRT(15d0/112d0)
+ real(kind=8), parameter :: r25=DSQRT(5d0/3d0), r26=DSQRT(9d0/28d0), r27=0.125d0*r25
+ real(kind=8), parameter :: r28=DSQRT(45d0/28d0), r29=DSQRT(5d0/112d0), r30=0.125d0*DSQRT(15d0)
+ real(kind=8), parameter :: r31=DSQRT(35d0/48d0), r32=DSQRT(5d0/12d0), r33=DSQRT(1.5d0)
+ real(kind=8), parameter :: r34=DSQRT(35d0/128d0), r35=DSQRT(5d0/6d0), r36=0.25d0*r35
+ real(kind=8), parameter :: r37=DSQRT(175d0/128d0), r38=1.25d0*r33, r39=DSQRT(63d0/128d0)
 
 ! The transformation table (rd,rf,rg,rh) is originally copied from http://sobereva.com/97
  real(kind=8), parameter :: rd(6,5) = RESHAPE([-r1, -r1, 1d0, 0d0, 0d0, 0d0,&
@@ -642,19 +642,19 @@ module r_5D_2_6D
                       0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r20, 0d0, 0d0, r19,&
                       0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, r21, 0d0],[15,9])
  real(kind=8), parameter :: &
-rh(21,11) = RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22, 0d0, r24, 0d0, 0d0, 0d0, 0d0, r23, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r26, 0d0, r27, 0d0, 0d0, 0d0, 0d0,-r28, 0d0, r29, 0d0, 0d0, r30,&
-                     0d0, r25, 0d0,-r28, 0d0, r30, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r26, 0d0, r29, 0d0, 0d0, 0d0, 0d0, r27, 0d0,&
-                     0d0, 0d0,-r21, 0d0, r31, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r31, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r32, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r32, 0d0, 0d0, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r33, 0d0, r34, 0d0, 0d0, 0d0, 0d0, r35, 0d0, r36, 0d0, 0d0,-r34,&
-                     0d0, 0d0, 0d0,-r35, 0d0, r34, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r33, 0d0,-r36, 0d0, 0d0, 0d0, 0d0,-r34, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r20, 0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r37, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, r39,&
-                     0d0, 0d0, 0d0, 0d0, 0d0, r39, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, 0d0, 0d0, r37, 0d0],&
-                    [21,11])
-end module r_5D_2_6D
+rh(21,11)=RESHAPE([1d0, 0d0,-r22, 0d0, r23, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r22, 0d0, r24, 0d0, 0d0, 0d0, 0d0, r23, 0d0, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r26, 0d0, r27, 0d0, 0d0, 0d0, 0d0,-r28, 0d0, r29, 0d0, 0d0, r30,&
+                   0d0, r25, 0d0,-r28, 0d0, r30, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r26, 0d0, r29, 0d0, 0d0, 0d0, 0d0, r27, 0d0,&
+                   0d0, 0d0,-r21, 0d0, r31, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r31, 0d0, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r25, 0d0,-r32, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r32, 0d0, 0d0, 0d0, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r33, 0d0, r34, 0d0, 0d0, 0d0, 0d0, r35, 0d0, r36, 0d0, 0d0,-r34,&
+                   0d0, 0d0, 0d0,-r35, 0d0, r34, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r33, 0d0,-r36, 0d0, 0d0, 0d0, 0d0,-r34, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r20, 0d0, 0d0, 0d0, 0d0, r19, 0d0, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r21, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r21, 0d0, 0d0, 0d0, 0d0,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, r37, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, r39,&
+                   0d0, 0d0, 0d0, 0d0, 0d0, r39, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0, 0d0,-r38, 0d0, 0d0, 0d0, 0d0, r37, 0d0],&
+                  [21,11])
+end module parameter_sph2cart
 
 ! check whether there exists DKH/X2C keywords in a specified .fch(k) file
 subroutine find_irel_in_fch(fchname, irel)
@@ -915,24 +915,97 @@ subroutine check_nosymm_in_fch(fchname)
  end if
 end subroutine check_nosymm_in_fch
 
-! expand MO coefficients from spherical harmonic type functions into Cartesian
-! type functions
+!! expand the AO overlap integral matrix from spherical harmonic functions to
+!! pure Cartesian functions
+!subroutine ovlp_sph2cart(ncontr, shltyp, nbf0, nbf1, sph_ovlp, cart_ovlp)
+! use parameter_sph2cart, only: rd, rf, rg, rh
+! implicit none
+! integer :: i, j, k, m, nbf
+! integer, intent(in) :: ncontr, nbf0, nbf1
+! integer, intent(in) :: shltyp(ncontr)
+! real(kind=8), parameter :: r1=10d0/7d0, r2=243d0/140d0, r3=9d0/7d0, &
+!  r4=5d0/3d0, r5=205d0/84d0, r6=51d0/28d0
+! real(kind=8), parameter :: norm_g(2:14) = [r1,r2,r1,1d0,r1,r3,r3,r1,r2,r3,r2,r1,r1]
+! real(kind=8), parameter :: norm_h(2:20) = [r4,r5,r5,r4,1d0,r4,r4,r6,r4,r4,r5,&
+!  r6,r6,r5,r5,r4,r5,r4,r4]
+! real(kind=8), intent(in) :: sph_ovlp(nbf0,nbf0)
+! real(kind=8), intent(out) :: cart_ovlp(nbf1,nbf1)
+! real(kind=8), allocatable :: rdt(:,:), rft(:,:), rgt(:,:), rht(:,:)
+!
+! allocate(rdt(5,6), source=TRANSPOSE(rd))
+! allocate(rft(7,10), source=TRANSPOSE(rf))
+! rft(:,4:9) = rft(:,4:9)/DSQRT(1.2d0)
+!
+! allocate(rgt(9,15), source=TRANSPOSE(rg))
+! do i = 2, 14
+!  rgt(:,i) = rgt(:,i)/DSQRT(norm_g(i))
+! end do ! for i
+!
+! allocate(rht(11,21), source=TRANSPOSE(rh))
+! do i = 2, 20
+!  rht(:,i) = rht(:,i)/DSQRT(norm_h(i))
+! end do ! for i
+!
+! nbf = 0; j = 0; cart_ovlp = 0d0
+!
+! do i = 1, ncontr, 1
+!  k = nbf + 1; m = j + 1
+!
+!  select case(shltyp(i))
+!  case( 0) ! S
+!   cart_ovlp(k,k) = sph_ovlp(m,m)
+!   nbf = nbf + 1; j = j + 1
+!  case( 1) ! P
+!   cart_ovlp(k:k+2,k:k+2) = sph_ovlp(m:m+2,m:m+2)
+!   nbf = nbf + 3; j = j + 3
+!  case(-1) ! L, SP
+!   cart_ovlp(k:k+3,k:k+3) = sph_ovlp(m:m+3,m:m+3)
+!   nbf = nbf + 4; j = j + 4
+!  case(-2) ! 5D
+!   call calc_CTSC(5, 6, rdt, sph_ovlp(m:m+4,m:m+4), cart_ovlp(k:k+5,k:k+5))
+!   nbf = nbf + 6; j = j + 5
+!  case(-3) ! 7F
+!   call calc_CTSC(7, 10, rft, sph_ovlp(m:m+6,m:m+6), cart_ovlp(k:k+9,k:k+9))
+!   nbf = nbf + 10; j = j + 7
+!  case(-4) ! 9G
+!   call calc_CTSC(9, 15, rgt, sph_ovlp(m:m+8,m:m+8), cart_ovlp(k:k+14,k:k+14))
+!   nbf = nbf + 15; j = j + 9
+!  case(-5) ! 11H
+!   call calc_CTSC(11,21,rht, sph_ovlp(m:m+10,m:m+10), cart_ovlp(k:k+20,k:k+20))
+!   nbf = nbf + 21; j = j + 11
+!  case default
+!   write(6,'(/,A)') 'ERROR in subroutine ovlp_sph2cart: shltyp(i) out of range!'
+!   write(6,'(A,3I6)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
+!   stop
+!  end select
+! end do ! for i
+!
+! deallocate(rdt, rft, rgt, rht)
+! if(nbf/=nbf1 .or. j/=nbf0) then
+!  write(6,'(/,A)') 'ERROR in subroutine ovlp_sph2cart: nbf/=nbf1 or j/=nbf0.'
+!  write(6,'(A,4I6)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
+!  stop
+! end if
+!end subroutine ovlp_sph2cart
+
+! expand MO coefficients from spherical harmonic functions to pure Cartesian
+! functions
 subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, sph_coeff, cart_coeff)
- use r_5D_2_6D, only: rd, rf, rg, rh
+ use parameter_sph2cart, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, nbf
  integer, intent(in) :: ncontr, nbf0, nbf1, nmo
  integer, intent(inout) :: shltyp(ncontr)
  real(kind=8), intent(in) :: sph_coeff(nbf0,nmo)
  real(kind=8), intent(out) :: cart_coeff(nbf1,nmo)
-
+ 
  nbf = 0; j = 0; cart_coeff = 0d0
 
  do i = 1, ncontr, 1
   select case(shltyp(i))
   case( 0) ! S
    cart_coeff(nbf+1,:) = sph_coeff(j+1,:)
-   nbf = nbf + 1; j= j + 1
+   nbf = nbf + 1; j = j + 1
   case( 1) ! P
    cart_coeff(nbf+1:nbf+3,:) = sph_coeff(j+1:j+3,:)
    nbf = nbf + 3; j = j + 3
@@ -957,14 +1030,14 @@ subroutine mo_sph2cart(ncontr, shltyp, nbf0, nbf1, nmo, sph_coeff, cart_coeff)
    shltyp(i) = 5
   case default
    write(6,'(/,A)') 'ERROR in subroutine mo_sph2cart: shltyp(i) out of range!'
-   write(6,'(A,3I5)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
+   write(6,'(A,3I6)') 'i, ncontr, shltyp(i)=', i, ncontr, shltyp(i)
    stop
   end select
  end do ! for i
 
  if(nbf/=nbf1 .or. j/=nbf0) then
   write(6,'(/,A)') 'ERROR in subroutine mo_sph2cart: nbf/=nbf1 or j/=nbf0.'
-  write(6,'(A,4I5)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
+  write(6,'(A,4I6)') 'j, nbf, nbf0, nbf1=', j, nbf, nbf0, nbf1
   stop
  end if
 end subroutine mo_sph2cart

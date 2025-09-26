@@ -29,12 +29,12 @@ program main
  select case(i)
  case(1,2,4,6)
  case default
-  write(6,'(/,A)') ' ERROR in subroutine dat2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF/CAS): dat2fch a.dat'
-  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF/CAS): dat2fch a.dat a.fch'
-  write(6,'(A)')   ' Example 3 (for GVB)           : dat2fch a.dat a.fch -gvb 4'
-  write(6,'(A)')   ' Example 4 (for ROGVB)         : dat2fch a.dat a.fch -gvb 4 -open 2'
-  write(6,'(A,/)') ' Example 5 (for CAS NOs)       : dat2fch a.dat a.fch -no 10'
+  write(6,'(/,A)')' ERROR in subroutine dat2fch: wrong command line arguments!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): dat2fch a.dat'
+  write(6,'(A)')  ' Example 2 (R(O)HF/UHF/CAS): dat2fch a.dat a.fch'
+  write(6,'(A)')  ' Example 3 (GVB)           : dat2fch a.dat a.fch -gvb 4'
+  write(6,'(A)')  ' Example 4 (ROGVB)         : dat2fch a.dat a.fch -gvb 4 -open 2'
+  write(6,'(A,/)')' Example 5 (CAS NOs)       : dat2fch a.dat a.fch -no 10'
   stop
  end select
 
@@ -107,7 +107,7 @@ end program main
 
 ! transform MOs in .dat file into .fchk file
 subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
- use r_5D_2_6D, only: rd, rf, rg, rh
+ use parameter_sph2cart, only: rd, rf, rg, rh
  implicit none
  integer :: i, j, k, datid, nline, nleft
  integer :: nbf, nif, na, nb

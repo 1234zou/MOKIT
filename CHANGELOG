@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc11 (Sep 25, 2025)
+MOKIT 1.2.7rc11 (Sep 26, 2025)
 ------------------------
 Fixes
 * fix mult=3 bug (in MRSF SA-NO .fch) introduced in commit c3c4a778
@@ -46,6 +46,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* use construct_vir to construct extra virtual MOs in fch_sph2cart
 * add gms_dat_path in mr_keyword.f90, now gms_scr_path/gms_dat_path can be different
 * add M052X and B972 (and dispersion correction) parameters in fch2mkl
 * wrap atoms outside box back into box to save memory during PBC MLWF generation

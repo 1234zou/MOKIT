@@ -2165,8 +2165,11 @@ subroutine construct_vir(nbf, nif, idx, coeff, ovlp, new_mo)
  allocate(x(nif,nif))
  call calc_CTSC(nbf, nif, new_mo, ovlp, x)
 
- forall(i = 1:nif) x(i,i) = x(i,i) - 1d0
+ do i = 1, nif, 1
+  x(i,i) = x(i,i) - 1d0
+ end do ! for i
  x = DABS(x)
+
  write(6,'(/,A)') 'The orthonormality of MOs after PAO construction:'
  write(6,'(A,F16.10)') 'maxv=', MAXVAL(x)
  write(6,'(A,F16.10)') 'abs_mean=', SUM(x)/DBLE(nif*nif)

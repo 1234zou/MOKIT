@@ -222,6 +222,7 @@ main = "fch2tm.f90"
 name = "fch_sph2cart"
 source-dir = "src"
 main = "fch_sph2cart.f90"
+link = "mkl_rt"
 
 [[executable]]
 name = "fch_u2r"
