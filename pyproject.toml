@@ -19,7 +19,8 @@ name             = 'mokit'
 authors = [
           { name = 'Jingxiang Zou', email = 'njumath@sina.cn'},]
 description      = 'MOKIT: Molecular Orbital KIT'
-license = {text  = 'Apache License 2.0'}
+license          = 'Apache-2.0'
+license_file     = 'LICENSE'
 keywords         = ['quantum-chemistry', 'computational-chemistry']
 version          = "1.2.7rc11"
 #dynamic          = ["version"]

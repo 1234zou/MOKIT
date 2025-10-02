@@ -905,7 +905,7 @@ end subroutine check_gms_path
   dkh2_or_x2c = (DKH2 .or. X2C)
   if(nstate > 999) then
    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: too large nstates.'
-   write(6,'(A)') 'The paramter Nstates must be <=999.'
+   write(6,'(A)') 'The parameter Nstates must be <=999.'
    stop
   end if
 

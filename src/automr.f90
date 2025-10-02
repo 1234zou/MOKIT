@@ -193,7 +193,7 @@ subroutine get_paired_LMO()
 
   if(ist==1 .or. ist==2) then
    call bas_fch2py_wrap(hf_fch, .false., pyname)
-   ! Note: there is no SCF calculation in pyname, so whether there is backgroud
+   ! Note: there is no SCF calculation in pyname, so whether there is background
    ! point charges does not matter.
    call prt_uno_script_into_py(pyname)
    if(ist == 1) call prt_assoc_rot_script_into_py(pyname, .false.)

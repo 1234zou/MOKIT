@@ -1215,7 +1215,7 @@ subroutine find_e_f_diff(proname, nframe)
  nframe = ncalc   ! update nframe
 
  call del_unreasonable_geom_in_xyz(xyzname, nframe)
- write(6,'(A)') 'After exluding unreasonable geometries,'
+ write(6,'(A)') 'After excluding unreasonable geometries,'
  write(6,'(A,I0)') 'No. frames to do ab initio calculations: ', nframe
 end subroutine find_e_f_diff
 
