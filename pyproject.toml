@@ -13,6 +13,7 @@ classifiers = [
 'Programming Language :: Python :: 3',
 'Topic :: Software Development',
 'Topic :: Scientific/Engineering',
+'Topic :: Scientific/Engineering :: Chemistry',
 'Operating System :: POSIX',
 ]
 name             = 'mokit'
@@ -32,9 +33,11 @@ requires-python  = ">=3.8"
 #]
 
 [project.urls]
-Homepage         = 'http://gitlab.com/jxzou/mokit'
-Repository       = 'http://gitlab.com/jxzou/mokit'
-Documentation    = "http://jeanwsr.gitlab.io/mokit-doc-mdbook"
+Homepage         = 'https://gitlab.com/jxzou/mokit'
+Repository       = 'https://gitlab.com/jxzou/mokit'
+Documentation    = "https://jeanwsr.gitlab.io/mokit-doc-mdbook"
+Issues           = 'https://gitlab.com/jxzou/mokit/-/issues'
+Changelog        = 'https://gitlab.com/jxzou/mokit/-/blob/master/CHANGELOG'
 #PLATFORMS        = ['Linux']
 
 #[tool.setuptools.packages.find]
