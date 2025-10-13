@@ -17,7 +17,7 @@ build:
 requirements:
   build:
     - python {{ python }}
-    - setuptools <=73
+    #- setuptools <=73
     - make
     - blas * *mkl*
     - mkl {{ mkl }}

@@ -1,6 +1,6 @@
 ! written by jxzou at 20250922: a wrapper of mkl2fch and fch2openqp for ORCA ->
 ! OpenQP
-! Note: use with caution since .mkl file does not have ECP/PP infomation
+! Note: use with caution since .mkl file does not have ECP/PP information
 
 program mkl2openqp
  use util_wrapper, only: mkl2fch_wrap, fch_sph2cart_wrap, fch2openqp_wrap

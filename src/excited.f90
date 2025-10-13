@@ -94,7 +94,7 @@ subroutine calc_cis_mo_dm_using_exc(nfc, nocc, nvir, exc, dm)
  call symmetrize_dmat(nmo, dm)
 end subroutine calc_cis_mo_dm_using_exc
 
-! Calculte RHF-CIS MO-based transition density matrix between two CIS excited
+! Calculate RHF-CIS MO-based transition density matrix between two CIS excited
 ! states with the same spin (both singlet or both triplet).
 ! Note: the RHF->CIS (ground state -> singlet excited state) transition density
 !       matrix is simply DSQRT(2d0)*C_ia, thus no subroutine is needed.
@@ -141,7 +141,7 @@ subroutine calc_cis_mo_tdm_using_exc(ndb, nvir, exc, tdm_occ, tdm_vir)
 !$omp end parallel do
 end subroutine calc_cis_mo_tdm_using_exc
 
-! Calculte ROHF-based SF-CIS MO-based density matrix using excitation
+! Calculate ROHF-based SF-CIS MO-based density matrix using excitation
 !  coefficients. nopen>=2 is required.
 subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
  implicit none
@@ -220,7 +220,7 @@ subroutine calc_sfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
  call symmetrize_dmat(nmo, dm)
 end subroutine calc_sfcis_mo_dm_using_exc
 
-! Calculte ROHF-based SF-CIS <S^2> expectation value using excitation
+! Calculate ROHF-based SF-CIS <S^2> expectation value using excitation
 !  coefficients. nopen>=2 is required.
 subroutine calc_sfcis_ssquare_using_exc(nopen, nocc, nvir, exc, ssquare)
  implicit none
@@ -252,7 +252,7 @@ subroutine calc_sfcis_ssquare_using_exc(nopen, nocc, nvir, exc, ssquare)
  end do ! for a
 end subroutine calc_sfcis_ssquare_using_exc
 
-! Calculte ROHF-based SF-CIS MO-based transition density matrix using excitation
+! Calculate ROHF-based SF-CIS MO-based transition density matrix using excitation
 !  coefficients. nopen>=2 is required.
 subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
  implicit none
@@ -324,7 +324,7 @@ subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
  ! SF-CIS tdm_ia = 0 for i<-{C}, a<-{V}, no need to calculate.
 end subroutine calc_sfcis_mo_tdm_using_exc
 
-! Calculte ROHF-based MRSF-CIS MO-based density matrix using excitation
+! Calculate ROHF-based MRSF-CIS MO-based density matrix using excitation
 !  coefficients. nopen=2 is required since MRSF supports only the triplet
 !  reference currently.
 subroutine calc_mrsfcis_mo_dm_using_exc(nfc, nopen, nocc, nvir, exc, dm)
@@ -978,7 +978,7 @@ end subroutine gen_mrsfcis_ave_mo_dm_from_gms_gms
 
 ! Generate RHF/RKS-based CIS/TD (state-averaged) NOs using Gaussian
 !  .fch(k) and .log files. Canonical MOs must be included in fchname. (SA-)NOs
-!  and correponding density will be saved into xxx_NO.fch.
+!  and corresponding density will be saved into xxx_NO.fch.
 ! Note: Iop(9/40=4) is recommended when generating the log/out file.
 subroutine gen_cis_no_from_fch_and_log(fchname, logname, istate, averaged)
  implicit none
@@ -1015,7 +1015,7 @@ end subroutine gen_cis_no_from_fch_and_log
 
 ! Generate ROHF/ROKS-based SF-/MRSF- CIS/TD (state-averaged) NOs using Gaussian
 ! .fch(k) and GAMESS .gms files. Canonical MOs must be included in fchname.
-! (SA-)NOs and correponding density will be saved into xxx_NO.fch. We cannot
+! (SA-)NOs and corresponding density will be saved into xxx_NO.fch. We cannot
 ! read nfc and nval from .fch and .gms, so these two variables are provided as
 ! input.
 subroutine gen_sfcis_no_from_fch_and_gms(fchname, gmsname, istate, nfc, nval, &
