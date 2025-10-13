@@ -185,9 +185,18 @@ subroutine del_irrel_tr_pao(tr_nbf, nbf, s_v, s_d, cpao, tr_cpao, nleft)
  deallocate(mo_i)
  k = COUNT(del .eqv. .true.)
  nleft = tr_nbf - k
+
  if(k == 0) then
   deallocate(del)
   return
+ else if(k == tr_nbf) then
+  write(6,'(/,A)') 'ERROR in subroutine del_irrel_tr_pao: all truncated PAOs ar&
+                   &e irrelevant.'
+  write(6,'(A)') 'Maybe because the basis set is too small such that virtual sp&
+                 &ace is of poor'
+  write(6,'(A)') 'quality. You can use a larger basis set like 6-31G(d,p) or cc&
+                 &-pVDZ.'
+  stop
  end if
 
  allocate(new_mo(tr_nbf,nleft))

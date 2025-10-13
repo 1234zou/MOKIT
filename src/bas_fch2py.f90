@@ -313,6 +313,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc,
 
  write(fid1,'(A)') 'mf.verbose = 4'
  write(fid1,'(A)') 'mf.max_cycle = 128'
+ write(fid1,'(A)') 'mf.max_memory = 4000 # MB'
  if(rest) write(fid1,'(A)') "mf.chkfile = '"//TRIM(pchkname)//"'"
  write(fid1,'(A)') 'mf.kernel(dm0=dm)'
 

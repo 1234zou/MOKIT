@@ -1,6 +1,7 @@
-MOKIT 1.2.7rc11 (Sep 26, 2025)
+MOKIT 1.2.7rc12 (Oct 12, 2025)
 ------------------------
 Fixes
+* update ILSW(1) value in subroutine fch_r2u
 * fix mult=3 bug (in MRSF SA-NO .fch) introduced in commit c3c4a778
 * fix maxM specification bug for DMRG-CASSCF interface to PySCF+Block2
 * consider sys.path[0]='' when simply starting python from the current terminal
@@ -20,6 +21,10 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* support the usage of ma-def2 series in .gjf (e.g. CASSCF/ma-def2SVP)
+* add ma-def2 series basis set files into mokit/lib/basis/
+* add a keyword `NewMult` for changing spin multiplicity when ist=5
+* add module py2openqp in lib/py2openqp.py
 * add utilities fch_sph2cart, fch2openqp and mkl2openqp
 * add FIC-NEVPT3/FIC-NEVPT4(SD) interface to ORCA
 * add qchem2pyscf in qchem.f90
@@ -72,6 +77,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* remove '-' symbol after 'def2' in all DKH-def2, ma-def2, ma-DKH-def2 series of basis sets
 * merge subroutines check_sph_in_fch and check_cart_in_fch into find_icart_in_fch
 * move subroutine read_nbf_and_nif_from_fch from read_fch.f90 to file_op.f90
 * remove subroutines read_nbf_from_fch and read_nif_from_fch

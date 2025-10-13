@@ -18,9 +18,10 @@ subroutine do_cas(scf)
   casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, molcas_omp, molcas_path, &
   orca_path, molpro_path, bdf_path, psi4_path, check_gms_path, gms_path, &
   gms_scr_path, gms_dat_path, dalton_mpi, bgchg, chgname, casci_force, &
-  casscf_force, prt_strategy, RI, nmr, ICSS, on_thres, iroot, xmult, dyn_corr
- use mol, only: mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, casscf_e, &
-  nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
+  casscf_force, prt_strategy, RI, nmr, ICSS, on_thres, iroot, xmult, new_mult,&
+  dyn_corr
+ use mol, only: charge, mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, &
+  casscf_e, nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
   fch2inp_wrap, dat2fch_wrap, fch2mkl_wrap, gbw2molden, molden2fch_wrap, &
   fch2inporb_wrap, orb2fch_wrap
@@ -46,13 +47,42 @@ subroutine do_cas(scf)
 
  write(6,'(//,A)') 'Enter subroutine do_cas...'
  cas_force = (casci_force .or. casscf_force)
- 
+
  if(ist == 5) then
+  ! if the user wants to perform (SA-)CASSCF calculations using a new spin
+  ! multiplicity, we copy a new .fch file and update mult as well as hf_fch
+  if(new_mult>0 .and. new_mult/=mult) then
+   if(MOD(IABS(new_mult-mult),2) /= 0) then
+    write(6,'(/,A)') 'ERROR in subroutine do_cas: inconsistency found between mu&
+                     &lt and NewMult.'
+    write(6,'(2(A,I0))') 'mult=', mult, ', NewMult=', new_mult
+    stop
+   end if
+   write(6,'(A)') REPEAT('-', 79)
+   write(6,'(A)') 'Remark: a new spin multiplicity is specified by the user. Up&
+                  &dating...'
+   call find_specified_suffix(hf_fch, '.fch', i)
+   fchname = hf_fch(1:i-1)//'_M.fch'
+   call sys_copy_file(TRIM(hf_fch), TRIM(fchname), .false.)
+   call modify_charge_and_mult_in_fch(fchname, charge, new_mult)
+   mult = new_mult
+   hf_fch = fchname
+   write(6,'(A)') 'Done. New filenames will be augmented with `_M`.'
+   write(6,'(A)') REPEAT('-', 79)
+  end if
+
   write(6,'(A)') 'Radical index for input NOs:'
   call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
   ! read nbf, nif, nopen, nacto, ... variables from NO .fch(k) file
   call read_no_info_from_fch(hf_fch, on_thres, nbf, nif, ndb, nopen, nacta, &
                              nactb, nacto, nacte)
+ else ! ist /= 5
+  if(new_mult > 0) then
+   write(6,'(/,A)') 'ERROR in subroutine do_cas: NewMult is supposed to be used&
+                    & along with ist=5.'
+   write(6,'(A,I0)') 'But current ist=', ist
+   stop
+  end if
  end if
 
  ! check whether the user has specified the active space size
@@ -122,6 +152,14 @@ subroutine do_cas(scf)
  end if
  write(6,'(A)',advance='no') TRIM(data_string)
  write(6,'(A,2(I0,A))') '(',nacte,'e,',nacto,'o) using program '//TRIM(cas_prog)
+
+ if(new_mult>1 .and. nacto<new_mult-1) then
+  write(6,'(/,A,I0)') 'ERROR in subroutine do_cas: the active space is too small s&
+                      &uch that NewMult=', new_mult
+  write(6,'(A)') 'is impossible. Please consider enlarge the active space.'
+  write(6,'(2(A,I0))') 'nacte=', nacte, ', nacto=', nacto
+  stop
+ end if
 
  if(nacte==0 .and. nacto==0) then
   write(6,'(/,A)') REPEAT('-', 79)
@@ -238,7 +276,8 @@ subroutine do_cas(scf)
  end select
 
  proname = ' '
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
+
  select case(ist)
  case(1,3,6)
   if(scf) then
@@ -1063,8 +1102,8 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in&
-                  & file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in &
+                   & file "//TRIM(inpname)
   close(fid)
   stop
  end if

@@ -316,6 +316,7 @@ subroutine molden2fch(molden, iprog, natorb)
   write(6,'(/,A)') 'ERROR in program molden2fch: not implemented yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
+  deallocate(f_mark, g_mark, h_mark, i_mark)
   stop
  case(2) ! CFOUR
   nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &

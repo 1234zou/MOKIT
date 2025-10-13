@@ -113,12 +113,13 @@ module mr_keyword
  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
  integer :: maxM = 1000    ! bond-dimension in DMRG computation
  integer :: scan_nstep = 0 ! number of steps to scan
- integer :: nstate = 0 ! number of excited states in SA-CASSCF
+ integer :: nstate = 0     ! number of excited states in SA-CASSCF
  ! ground state not included, so nstate=0 means only ground state
- integer :: iroot = 0 ! the state you are interested in SS-CASSCF
+ integer :: iroot = 0      ! the state you are interested in SS-CASSCF
  ! 0/1 for ground state/the 1st excited state. Related variable: ss_opt
  integer :: target_root = 0 ! the real i-th number of the interested state
- integer :: xmult = 1 ! spin multiplicity of the target excited state
+ integer :: xmult = 1       ! spin multiplicity of the target excited state
+ integer :: new_mult = 0    ! new spin multiplicity for ist=5
 
  real(kind=8) :: uno_thres = 1d-5 ! threshold for UNO occupation number
  ! uno_thres is used for ist = 1,2
@@ -151,17 +152,17 @@ module mr_keyword
  ! (1) the computed RHF wfn is stable; (2) readrhf = .True.; (3) readno = .True.
  ! the rhf/uhf variable/flag will be used in utilities like fch2inp
 
- logical :: cart     = .false.    ! Cartesian/spherical harmonic functions
- logical :: DKH2     = .false.    ! scalar relativistic Douglas-Kroll-Hess 2nd order correction
- logical :: X2C      = .false.    ! scalar relativistic eXact-Two-Component correction
- logical :: dkh2_or_x2c = .false. ! (DKH2 .or. X2C)
- logical :: bgchg    = .false.    ! wthether there is back ground charge(s)
- logical :: readrhf  = .false.    ! read RHF MOs from a given .fch(k)
- logical :: readuhf  = .false.    ! read UHF MOs from a given .fch(k)
- logical :: readno   = .false.    ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
- logical :: skiphf   = .false.    ! (readrhf .or. readuhf .or. readno)
- logical :: hardwfn  = .false.    ! whether difficult wavefunction cases
- logical :: crazywfn = .false.    ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
+ logical :: dkh2_or_x2c = .false.! (DKH2 .or. X2C)
+ logical :: cart     = .false. ! Cartesian/spherical harmonic functions
+ logical :: DKH2     = .false. ! scalar relativistic Douglas-Kroll-Hess 2nd order correction
+ logical :: X2C      = .false. ! scalar relativistic eXact-Two-Component correction
+ logical :: bgchg    = .false. ! wthether there is back ground charge(s)
+ logical :: readrhf  = .false. ! read RHF MOs from a given .fch(k)
+ logical :: readuhf  = .false. ! read UHF MOs from a given .fch(k)
+ logical :: readno   = .false. ! read NOs from a given .fch(k), useful for MP2 and CCSD NOs
+ logical :: skiphf   = .false. ! (readrhf .or. readuhf .or. readno)
+ logical :: hardwfn  = .false. ! whether difficult wavefunction cases
+ logical :: crazywfn = .false. ! whether crazywfn wavefunction cases (e.g. Cr2 at 5 Anstrom)
  ! If hardwfn is .True., AutoMR will add additional keywords to ensure convergence
  ! or correct spin. SCF/CASSCF/CASCI will sometimes (rare cases for CASCI) stuck
  ! in a saddle point/local minimum. If crazywfn is .True., AutoMR will add more
@@ -307,7 +308,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc11 (2025-Sep-26)'
+ write(6,'(A)') '           Version: 1.2.7rc12 (2025-Oct-12)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -816,6 +817,12 @@ end subroutine check_gms_path
     ss_opt = .true. ! State-specific orbital optimization
    case('xmult')
     read(longbuf(j+1:i-1),*) xmult
+   case('newmult')
+    read(longbuf(j+1:i-1),*) new_mult
+    if(new_mult < 1) then
+     write(6,'(/,A)') error_warn//'NewMult must be >=1'
+     stop
+    end if
    case('force')
     force = .true.
    case('charge')
@@ -848,8 +855,7 @@ end subroutine check_gms_path
     read(longbuf(j+1:i-1),*) icss_intv
    case('npair') ! numbers of pairs for non-GVB calculations
     if(npair_wish > -1) then
-     write(6,'(/,A)') 'ERROR in subroutine parse_keyword: npair is specified by&
-                      &more than once.'
+     write(6,'(/,A)') error_warn//'npair is specified by more than once.'
      write(6,'(A)') 'Please check your input file.'
      stop
     end if
@@ -885,14 +891,12 @@ end subroutine check_gms_path
    case('locdocc')
     LocDocc = .true.
    case('nevpt3_prog')
-    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: NEVPT3_prog cannot be &
-                     &used since MOKIT'
+    write(6,'(/,A)') error_warn//'NEVPT3_prog cannot be used since MOKIT'
     write(6,'(A)') '1.2.7rc10. Please use NEVPT_prog instead. For example, moki&
                    &t{NEVPT_prog=ORCA}.'
     stop
    case default
-    write(6,'(/,A)') "ERROR in subroutine parse_keyword: keyword '"//longbuf(1:j-1)&
-                    //"' not recognized in {}."
+    write(6,'(/,A)') error_warn//"keyword '"//longbuf(1:j-1)//"' not recognized."
     stop
    end select
 
@@ -904,15 +908,14 @@ end subroutine check_gms_path
 
   dkh2_or_x2c = (DKH2 .or. X2C)
   if(nstate > 999) then
-   write(6,'(/,A)') 'ERROR in subroutine parse_keyword: too large nstates.'
+   write(6,'(/,A)') error_warn//'too large nstates.'
    write(6,'(A)') 'The parameter Nstates must be <=999.'
    stop
   end if
 
   if(readrhf .or. readuhf .or. readno) then
    if(frag_guess) then
-    write(6,'(/,A)') 'ERROR in subroutine parse_keyword: frag_guess can only be&
-                     & used when none'
+    write(6,'(/,A)') error_warn//'frag_guess can only be used when none'
     write(6,'(A)') 'of readrhf/readuhf/readno is used.'
     stop
    end if
@@ -937,8 +940,7 @@ end subroutine check_gms_path
   case(7) ! SUHF
    suhf = .true.; gvb = .false.
   case default
-   write(6,'(/,A)') "ERROR in subroutine parse_keyword: the parameter 'ist' is &
-                    & out of range."
+   write(6,'(/,A)') error_warn//"the parameter 'ist' is out of range."
    write(6,'(A)') 'Only 1~7 are allowed. See MOKIT manual $4.4.4 for details of&
                   & ist.'
    stop
@@ -986,12 +988,14 @@ subroutine prt_strategy()
       rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
       'GVB_conv= '//TRIM(GVB_conv)
 
+ write(6,'(2(A,I2,3X))') 'XMult   =', xmult, 'NewMult =', new_mult
+
  write(6,'(A,I2,3X,2(A,I1,3X),A,I5,3X,A,L1)') 'Skip_UNO=', nskip_uno, &
       'CtrType = ', CtrType, 'MRCC_type=',mrcc_type, 'MaxM =', maxM,&
       'excludeXH=', excludeXH
 
  write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
-      on_thres, 'OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
+      on_thres, ' OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
 
  write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
       TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
@@ -1014,12 +1018,17 @@ subroutine check_kywd_compatible()
 
  if(readrhf .or. readuhf .or. readno) then
   if(ist == 6) then
-   write(6,'(/,A)') 'ERROR in subroutine check_kywd_compatible: ist=6 is not &
-                    &compatible with any'
+   write(6,'(/,A)') error_warn//'ist=6 is not compatible with any'
    write(6,'(A)') 'keyword of readrhf/readuhf/readno.'
    stop
   end if
   call check_cart_compatibility_in_fch(hf_fch, cart)
+ end if
+
+ if(ist/=5 .and. new_mult>0) then
+  write(6,'(/,A)') error_warn//'NewMult is supposed to be used'
+  write(6,'(A,I0)') 'along with ist=5. But current ist=', ist
+  stop
  end if
 
  if(on_thres<0d0 .or. on_thres>1d0) then
@@ -1046,10 +1055,10 @@ subroutine check_kywd_compatible()
    stop
   end if
   if(casci) then
-   write(6,'(/,A)') error_warn//'CASCI method cannot be combined with Nstates.'
-   write(6,'(A)') 'If you are interested in a CASCI excited state, e.g. S1, you&
-                  & can write'
-   write(6,'(A)') 'Root=1 in mokit{}, instead of writing Nstates.'
+   write(6,'(/,A)') error_warn//'CASCI method cannot be combined with'
+   write(6,'(A)') 'Nstates. If you are interested in a CASCI excited state, e.g&
+                  &. S1, you can'
+   write(6,'(A)') 'write Root=1 in mokit{}, instead of writing Nstates.'
    stop
   end if
  end if

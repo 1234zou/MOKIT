@@ -959,7 +959,7 @@ subroutine add_mokit_path_to_genbas(basname)
  character(len=240), external :: get_mokit_root
  character(len=240), intent(in) :: basname
  character(len=480) :: buf = ' '
- logical :: alive(7)
+ logical :: alive(9)
 
  sbuf = ' '
  !mokit_root = ' '
@@ -977,8 +977,8 @@ subroutine add_mokit_path_to_genbas(basname)
   
   call upper(sbuf)
   alive = [(sbuf(1:3)=='X2C'), (sbuf(1:6)=='PCSSEG'), (sbuf(1:5)=='ANO-R'), &
-           (sbuf(1:8)=='DKH-DEF2'), (sbuf(9:11)=='X2C'), (sbuf=='MA-DKH-DEF2'),&
-           (sbuf(8:11)=='-F12')]
+    (sbuf(1:7)=='MA-DEF2'), (sbuf(1:7)=='DEF2ECP'), (sbuf(1:8)=='DKH-DEF2'),&
+    (sbuf=='MA-DKH-DEF2'), (sbuf(9:11)=='X2C'), (sbuf(8:11)=='-F12')]
   if(ANY(alive .eqv. .true.)) then
    buf = '@'//TRIM(mokit_root)//'/mokit/basis/'//TRIM(buf)//'/N'
   end if
@@ -990,14 +990,16 @@ subroutine add_mokit_path_to_genbas(basname)
  i = RENAME(TRIM(basname1), TRIM(basname))
 end subroutine add_mokit_path_to_genbas
 
-subroutine create_basfile(basfile, basis)
+subroutine create_basfile(basfile, basis, def2_ecp)
  implicit none
  integer :: fid
  character(len=240), intent(in) :: basfile
  character(len=*), intent(in) :: basis
+ logical, intent(in) :: def2_ecp
 
  open(newunit=fid,file=TRIM(basfile),status='replace')
  write(fid,'(A)') TRIM(basis)
+ if(def2_ecp) write(fid,'(A)') 'def2ECP'
  write(fid,'(/)')
  close(fid)
  call add_mokit_path_to_genbas(basfile)

@@ -252,8 +252,8 @@ subroutine calc_sfcis_ssquare_using_exc(nopen, nocc, nvir, exc, ssquare)
  end do ! for a
 end subroutine calc_sfcis_ssquare_using_exc
 
-! Calculate ROHF-based SF-CIS MO-based transition density matrix using excitation
-!  coefficients. nopen>=2 is required.
+! Calculate ROHF-based SF-CIS MO-based transition density matrix using
+!  excitation coefficients. nopen>=2 is required.
 subroutine calc_sfcis_mo_tdm_using_exc(nopen, nocc, nvir, exc, tdm)
  implicit none
  integer :: i, j, p, q, ndb

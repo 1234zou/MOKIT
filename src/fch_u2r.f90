@@ -97,7 +97,7 @@ subroutine fch_u2r(fchname, newfch)
   end if
  end if
 
- ! Step 4: set the 1st value of ILSW as 0
+ ! Step 4: set the 1st element of the integer array ILSW as 0
  do while(.true.)
   read(fchid,'(A)') buf
   write(fchid1,'(A)') TRIM(buf)

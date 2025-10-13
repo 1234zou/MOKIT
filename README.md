@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Sep 26, 2025
+Oct 12, 2025
 
 Dependencies
 ------------
@@ -43,8 +43,7 @@ You can choose one of the four options shown below to install MOKIT on Linux or 
 Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
 ### Option 1: Install from conda (for Linux only)
-This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment.
-You can create the environment and install in one go
+This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go
 ```
 conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11 are available
 conda activate mokit-py39
@@ -56,7 +55,7 @@ conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-You need to keep the environment `mokit-py39` activated when using MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
+You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
@@ -164,22 +163,31 @@ in Shell. The `automr` program will successively perform HF, GVB, and CASSCF com
 See [Quick Start at documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) and [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html) for more information.
 See [examples/](examples/) for more examples.
 
-QC Packages can be called
+
+MOKIT is able to transform MOs among these QC Packages
 ----------
-* [Gaussian](http://gaussian.com)
-* [PySCF](https://github.com/pyscf/pyscf)
-* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
-* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
-* [Molpro](https://www.molpro.net)
-* [ORCA](https://orcaforum.kofo.mpg.de)
+* [Amesp](https://amesp.xyz)
 * [BDF](http://182.92.69.169:7226/Introduction)
-* [PSI4](https://github.com/psi4/psi4)
+* [CFOUR](https://cfour.uni-mainz.de/cfour/index.php?n=Main.HomePage)
+* [CP2K](https://github.com/cp2k/cp2k)
 * [Dalton](https://gitlab.com/dalton/dalton)
+* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
+* [Gaussian](http://gaussian.com)
+* [Molpro](https://www.molpro.net)
+* [MRCC](https://mrcc.hu/index.php)
+* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
+* [OpenQP](https://github.com/Open-Quantum-Platform/openqp)
+* [ORCA](https://orcaforum.kofo.mpg.de)
+* [PSI4](https://github.com/psi4/psi4)
+* [PySCF](https://github.com/pyscf/pyscf)
 * [Q-Chem](https://www.q-chem.com)
+* [Turbomole](https://www.turbomole.org)
+
 
 Some Tips
 ---------
 * To avoid unnecessary errors, you must specify keywords `nosymm int=nobasistransform` in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
+
 
 Bug Report
 ----------
@@ -188,6 +196,7 @@ Bug Report
 
 * You can also contact the developer jxzou via E-mail njumath[at]sina.cn, with
   related files (gjf, fch, out, etc) attached.
+
 
 TODO
 ----
@@ -205,7 +214,7 @@ Citation
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算），但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * Click [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html) to see published papers which cited MOKIT.
 

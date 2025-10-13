@@ -196,15 +196,43 @@ subroutine process_basis_set(iprog, basis, basis1, dkh2_or_x2c, natom, nuc, &
  if(i > 0) basis(i:i+2) = 'all'
  i = INDEX(basis, '(D,P)')
  if(i > 0) basis(i:i+4) = '(d,p)'
+ i = INDEX(basis, '(-F)')
+ if(i > 0) basis(i:i+3) = '(-f)'
 
  select case(TRIM(basis))
- case('DKH-def2-SV(P)','DKH-def2-SVP','DKH-def2-TZVP','DKH-def2-TZVP(-f)', &
-      'DKH-def2-TZVPP','DKH-def2-QZVPP','ma-DKH-def2-SV(P)','ma-DKH-def2-SVP',&
-      'ma-DKH-def2-TZVP','ma-DKH-def2-TZVP(-f)','ma-DKH-def2-TZVPP', &
-      'ma-DKH-def2-QZVPP')
+ case('ma-def2SV(P)','ma-def2SVP','ma-def2TZVP(-f)','ma-def2TZVP', &
+      'ma-def2TZVPP','ma-def2QZVP','ma-def2QZVPP')
+  if(iprog == 3) then
+   create = .false.
+   i = INDEX(basis, 'def2')
+   basis1 = basis(1:i+3)//'-'//TRIM(basis(i+4:))
+  else
+   create = .true.
+   if( ANY(nuc>36) ) then
+    basis1 = 'genecp'
+   else
+    basis1 = 'gen'
+   end if
+  end if
+
+  do i = 1, natom, 1
+   if(nuc(i) > 86) then
+    write(6,'(/,A)') 'ERROR in subroutine process_basis_set: basis sets ma-def2&
+                     & series have'
+    write(6,'(A)') "no definition on element '"//TRIM(elem(i))//"'."
+    stop
+   end if
+  end do ! for i
+
+ case('DKH-def2SV(P)','DKH-def2SVP','DKH-def2TZVP','DKH-def2TZVP(-f)', &
+      'DKH-def2TZVPP','DKH-def2QZVPP','ma-DKH-def2SV(P)','ma-DKH-def2SVP', &
+      'ma-DKH-def2TZVP','ma-DKH-def2TZVP(-f)','ma-DKH-def2TZVPP', &
+      'ma-DKH-def2QZVPP')
   rel = .true.
   if(iprog == 3) then
-   basis1 = basis; create = .false.
+   create = .false.
+   i = INDEX(basis, 'def2')
+   basis1 = basis(1:i+3)//'-'//TRIM(basis(i+4:))
   else
    basis1 = 'gen'; create = .true.
   end if
@@ -349,7 +377,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: uhf, noiter
- logical :: create
+ logical :: create, def2_ecp
 
  if(frag_guess .and. (.not.uhf)) then
   write(6,'(/,A)') 'ERROR in subroutine gen_hf_gjf: both frag_guess and RHF are&
@@ -359,6 +387,8 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  end if
 
  call process_basis_set(1, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ def2_ecp = .false.
+ if(basis(1:6)=='ma-def' .and. ANY(nuc>36)) def2_ecp = .true.
 
  i = INDEX(gjfname, '.gjf', back=.true.)
  chkname = gjfname(1:i-1)//'.chk'
@@ -442,7 +472,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  if(create) then
   i = INDEX(origin_gjf, '.gjf')
   basname = origin_gjf(1:i-1)//'.bas'
-  call create_basfile(basname, TRIM(basis))
+  call create_basfile(basname, TRIM(basis), def2_ecp)
  end if
 
  if(create .or. ((.not.create) .and. basis(1:3)=='gen')) then
@@ -515,7 +545,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  call process_basis_set(2, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
  call find_specified_suffix(gjfname, '.gjf', i)
  basname = gjfname(1:i-1)//'.bas'
- if(create) call create_basfile(basname, TRIM(basis))
+ if(create) call create_basfile(basname, TRIM(basis), .false.)
 
  call find_specified_suffix(pyname, '.py', i)
  fchname = pyname(1:i-1)//'.fch'

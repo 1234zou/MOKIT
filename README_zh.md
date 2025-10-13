@@ -26,7 +26,7 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2025年9月26号
+2025年10月12号
 
 依赖
 ----------
@@ -44,8 +44,7 @@ or
 
 ### 方式1：conda 联网安装（适用于Linux）
 
-这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。
-创建环境和安装可以一步到位
+这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位
 ```
 conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11 are available
 conda activate mokit-py39
@@ -57,7 +56,7 @@ conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-使用MOKIT时仍需保持`mokit-py39`环境处于激活状态。若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，请尝试方式3。
+使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式2：homebrew 联网安装（仅针对MacOS）
 * 前提
@@ -163,22 +162,31 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 更多信息请见 [程序文档 Quick Start](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) 及 [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html)。
 更多例子请见[examples](examples/)。
 
-支持调用的量子化学程序
+
+MOKIT支持在这些量子化学程序间传轨道
 ----------
-* [Gaussian](http://gaussian.com)
-* [PySCF](https://github.com/pyscf/pyscf)
-* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
-* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
-* [Molpro](https://www.molpro.net)
-* [ORCA](https://orcaforum.kofo.mpg.de)
+* [Amesp](https://amesp.xyz)
 * [BDF](http://182.92.69.169:7226/Introduction)
-* [PSI4](https://github.com/psi4/psi4)
+* [CFOUR](https://cfour.uni-mainz.de/cfour/index.php?n=Main.HomePage)
+* [CP2K](https://github.com/cp2k/cp2k)
 * [Dalton](https://gitlab.com/dalton/dalton)
+* [GAMESS](https://www.msg.chem.iastate.edu/gamess/index.html)
+* [Gaussian](http://gaussian.com)
+* [Molpro](https://www.molpro.net)
+* [MRCC](https://mrcc.hu/index.php)
+* [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
+* [OpenQP](https://github.com/Open-Quantum-Platform/openqp)
+* [ORCA](https://orcaforum.kofo.mpg.de)
+* [PSI4](https://github.com/psi4/psi4)
+* [PySCF](https://github.com/pyscf/pyscf)
 * [Q-Chem](https://www.q-chem.com)
+* [Turbomole](https://www.turbomole.org)
+
 
 温馨提示
 ----------
 * 若您想提供.fch(k)文件给`automr`程序读入，请在计算前在Gaussian的输入文件中加上关键词`nosymm int=nobasistransform`，以避免后续产生不必要的、不可预见的错误。
+
 
 汇报Bug
 ----------
@@ -188,11 +196,13 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
 * 还可加入MOKIT用户交流QQ群，群号：470745084
 
+
 下一步计划
 ----------
 * 支持NWCHEM, BAGEL, COLUMBUS等软件间传轨道
 
 * 开发和实现稳健的多参考激发态自动计算策略
+
 
 如何引用
 ----------
@@ -204,7 +214,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* 若您在您的研究中使用了MOKIT的任何一个子程序或模块，请在正文参考文献中恰当引用MOKIT，仅在补充材料中引用MOKIT是不够的。EndNote引用文件请见[此处](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads)。更详细的引用说明和示例请见[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算），但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* 若您在您的研究中使用了MOKIT的任何一个子程序或模块，请在正文参考文献中恰当引用MOKIT，仅在补充材料中引用MOKIT是不够的。EndNote引用文件请见[此处](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads)。更详细的引用说明和示例请见[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * 点击[这里](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html)可以浏览引用MOKIT的已发表文章。
 

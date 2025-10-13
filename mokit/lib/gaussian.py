@@ -513,24 +513,31 @@ def permute_orb(fchname, orb1, orb2):
   write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
 
 
-def lin_comb_two_mo(fchname, orb1, orb2):
+def lin_comb_two_mo(fchname, orb1, orb2, start_from_one=False):
   '''
   Perform root2/2 (mo1+mo2) and root2/2 (mo1-mo2) unitary transformation for two
    specified MOs in a Gaussian .fch file.
   When the sigma and pi orbitals of a multiple bond are mixed (banana bond), this
    can be used to make them separated.
-  Note: orb1/orb2 are in Python convention (starts from 0)
+  Note: orb1/orb2 are in Python convention (starts from 0) by default. If you
+   want to starts from 1, please set start_from_one=True.
   '''
   import math
   from mokit.lib.rwwfn import read_mo_from_fch, write_mo_into_fch
 
+  if start_from_one is True:
+    k1 = orb1-1
+    k2 = orb2-1
+  else:
+    k1 = orb1
+    k2 = orb2
   nbf, nif = read_nbf_and_nif_from_fch(fchname)
   mo = read_mo_from_fch(fchname, nbf, nif, 'a')
-  mo1 = mo[:,orb1].copy()
-  mo2 = mo[:,orb2].copy()
+  mo1 = mo[:,k1].copy()
+  mo2 = mo[:,k2].copy()
   cons = 0.5*math.sqrt(2.0)
-  mo[:,orb1] = cons*(mo1 + mo2)
-  mo[:,orb2] = cons*(mo1 - mo2)
+  mo[:,k1] = cons*(mo1 + mo2)
+  mo[:,k2] = cons*(mo1 - mo2)
   write_mo_into_fch(fchname, nbf, nif, 'a', mo)
 
 

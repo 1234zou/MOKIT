@@ -858,6 +858,7 @@ subroutine mat_dsqrt(n, a, calc_n_sqrt_a, sqrt_a, n_sqrt_a)
  ! U: copy of a; eigenvectors from diagonalizing a
  ! e: eigenvalues
  logical, intent(in) :: calc_n_sqrt_a ! whether to calculate A^(-1/2)
+!f2py intent(in) :: calc_n_sqrt_a
 
  allocate(U(n,n), source=a)
  allocate(e(n))

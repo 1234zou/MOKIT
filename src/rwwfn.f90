@@ -3188,7 +3188,7 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  call read_na_and_nb_from_fch(mo_fch, na, nb)
  nopen = na - nb; ndb = nb
 
- i = INDEX(mo_fch, '.fch', back=.true.)
+ call find_specified_suffix(mo_fch, '.fch', i)
  dname = mo_fch(1:i-1)//'_D.txt'
  call require_file_exist(dname)
  call delete_file(TRIM(dname))
@@ -3545,7 +3545,25 @@ subroutine fch_r2u(fchname, brokensym)
    end if
   end if
  end if
+ write(fid1,'(A)') TRIM(buf)
 
+ ! set the 1st element of the integer array ILSW as 1
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)',iostat=i) TRIM(buf)
+  if(i /= 0) exit
+  if(buf(1:4) == 'ILSW') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine fch_r2u: 'ILSW' not found in file "//&
+                   TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+ read(fid,'(A)') buf
+ buf(12:12) = '1'
  write(fid1,'(A)') TRIM(buf)
 
  i = 0
@@ -3578,10 +3596,10 @@ subroutine fch_r2u(fchname, brokensym)
   BACKSPACE(fid)
   BACKSPACE(fid)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: invalid case.'
+  write(6,'(/,A,I0)') 'ERROR in subroutine fch_r2u: invalid case i=', i
   write(6,'(A)') 'fchname='//TRIM(fchname)
   close(fid)
-  close(fid1)
+  close(fid1,status='delete')
   stop
  end select
 

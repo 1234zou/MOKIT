@@ -8,6 +8,7 @@ from mokit.lib.py2gms import py2gms
 from mokit.lib.py2molcas import py2molcas
 from mokit.lib.py2molpro import py2molpro
 from mokit.lib.py2mrcc import py2mrcc
+from mokit.lib.py2openqp import py2openqp
 from mokit.lib.py2orca import py2orca
 from mokit.lib.py2psi import py2psi
 from mokit.lib.py2qchem import py2qchem

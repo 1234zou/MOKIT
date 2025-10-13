@@ -1,5 +1,6 @@
 ! written by jxzou at 20250916: transfer MOs from Gaussian to OpenQP
 ! TODO: ghost atoms case
+! TODO: ECP/PP support
 ! Limitation: not support different basis set for atoms of the same element
 
 program main

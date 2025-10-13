@@ -69,14 +69,14 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  fname = datname(1:i-1)//'_s.dat'
 
  if(nocc+nopen+2*npair > nif) then
-  write(6,'(A)') 'ERROR in subroutine gvb_sort_pairs: (nocc+nopen+2*npair)>nif!'
+  write(6,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: (nocc+nopen+2*npair)>nif!'
   write(6,'(A,4I5)') 'nocc, nopen, npair, nif=', nocc, nopen, npair, nif
   stop
  end if
 
  if(npair == 0) then
-  write(6,'(A)') 'Warning in subroutine gvb_sort_pairs: npair=0. High spin&
-                   & ROHF wfn assumed.'
+  write(6,'(/,A)') 'Warning in subroutine gvb_sort_pairs: npair=0. High spin RO&
+                   &HF wfn assumed.'
   call copy_file(datname, fname, .false.)
   return
  end if
@@ -86,11 +86,11 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
  do while(.true.)
   read(datid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(index(buf,'CICOEF(') /= 0) exit
+  if(INDEX(buf,'CICOEF(') > 0) exit
  end do
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine gvb_sort_pairs: no 'CICOEF(' found!"
-  write(6,'(A)') 'The input file '//TRIM(datname)//' is not complete!'
+  write(6,'(/,A)') "ERROR in subroutine gvb_sort_pairs: no 'CICOEF(' found!"
+  write(6,'(A)') 'File '//TRIM(datname)//' is problematic!'
   close(datid)
   stop
  end if
@@ -114,8 +114,8 @@ subroutine gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
   if(buf(2:5) == '$VEC') exit
  end do
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine gvb_sort_pairs: no '$VEC' found in&
-                  & file "//TRIM(datname)//'!'
+  write(6,'(/,A)') "ERROR in subroutine gvb_sort_pairs: no '$VEC' found in file "&
+                   //TRIM(datname)
   close(datid)
   stop
  end if
