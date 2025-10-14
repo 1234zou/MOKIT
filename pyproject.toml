@@ -1,6 +1,6 @@
 # Copyright 2020-2025 The MOKIT Developers. All Rights Reserved.
 [build-system]
-requires = ["setuptools>=64.0", "setuptools-scm"]
+requires = ["setuptools>=61.0", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -21,7 +21,6 @@ authors = [
           { name = 'Jingxiang Zou', email = 'njumath@sina.cn'},]
 description      = 'MOKIT: Molecular Orbital KIT'
 license = { text = "Apache-2.0" }
-license-files    = ['LICENSE']
 keywords         = ['quantum-chemistry', 'computational-chemistry']
 version          = "1.2.7rc12"
 #dynamic          = ["version"]
