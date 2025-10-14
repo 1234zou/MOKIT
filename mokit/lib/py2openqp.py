@@ -13,13 +13,13 @@ def py2openqp(mf, inpname, sfcis=False, sf=False, mrsfcis=False, mrsf=False):
         cart_fch = fchname[0:fchname.rindex('.fch')]+'_c.fch'
         rename(cart_fch, fchname)
 
-    if sfcis is True:
+    if sfcis:
         system('fch2openqp '+fchname+' -sfcis')
-    elif sf is True:
+    elif sf:
         system('fch2openqp '+fchname+' -sf')
-    elif mrsfcis is True:
+    elif mrsfcis:
         system('fch2openqp '+fchname+' -mrsfcis')
-    elif mrsf is True:
+    elif mrsf:
         system('fch2openqp '+fchname+' -mrsf')
     else:
         system('fch2openqp '+fchname)

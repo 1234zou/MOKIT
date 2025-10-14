@@ -60,12 +60,12 @@ def average_nmr_shielding(nmr_out, atom_list, program='gaussian', paramagnetic=F
         new_list = atom_list
 
     if program == 'gaussian':
-        if paramagnetic is True:
+        if paramagnetic:
             raise ValueError('pNMR calculation is not supported in Gaussian.')
         else:
             ave_val = average_nmr_shield_in_gau_log(nmr_out, natom, new_list)
     elif program == 'orca':
-        if paramagnetic is True:
+        if paramagnetic:
             ave_val = average_pnmr_shield_in_orca_pnmr_out(nmr_out, natom, new_list)
         else:
             ave_val = average_nmr_shield_in_orca_out(nmr_out, natom, new_list)

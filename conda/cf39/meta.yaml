@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 12
+  number: 13
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
@@ -35,7 +35,7 @@ requirements:
 
 about:
   home:            "{{ urls['Homepage'] }}"
-  license:         "{{ proj['license'] }}" 
+  license:         "Apache-2.0"
   summary:         "{{ proj['description'] }}"
   description:     "MOKIT offers various utilities and modules to transfer MOs among various quantum chemistry software packages.\nBesides, the automr program in MOKIT can set up and run common multi-reference calculations in a black-box way."
   dev_url:         "{{ urls['Repository'] }}"

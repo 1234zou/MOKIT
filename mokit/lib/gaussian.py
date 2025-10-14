@@ -219,7 +219,7 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
   elif conv_tol < 1e-8:
     raise ValueError('conv_tol must be >= 1e-8')
 
-  if alpha is True:
+  if alpha:
     spin = 'a'
   else:
     spin = 'b'
