@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc12 (Oct 14, 2025)
+MOKIT 1.2.7rc12 (Oct 20, 2025)
 ------------------------
 Fixes
 * update ILSW(1) value in subroutine fch_r2u
@@ -51,6 +51,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* add support for ghost atoms in fch2mrcc
 * use construct_vir to construct extra virtual MOs in fch_sph2cart
 * add gms_dat_path in mr_keyword.f90, now gms_scr_path/gms_dat_path can be different
 * add M052X and B972 (and dispersion correction) parameters in fch2mkl
