@@ -254,9 +254,9 @@ subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
   do i = 1, natom, 1
    if(ielem(i) == 0) write(fid,'(I0,1X)',advance='no') i
   end do ! for i
+  deallocate(ielem)
  end if
 
- deallocate(ielem)
  write(fid,'(/,A)') 'pointcharges'
  write(fid,'(A)') '0'
  close(fid)
