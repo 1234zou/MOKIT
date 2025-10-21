@@ -308,7 +308,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc12 (2025-Oct-14)'
+ write(6,'(A)') '           Version: 1.2.7rc12 (2025-Oct-20)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -350,6 +350,11 @@ subroutine check_gms_path()
  implicit none
  integer :: i, fid
  character(len=240) :: buf
+
+ if(TRIM(gms_path) == 'NOT FOUND') then
+  write(6,'(/,A)') 'ERROR in subroutine check_gms_path: gms_path is NOT FOUND'
+  stop
+ end if
 
  call require_file_exist(gms_path)
  open(newunit=fid,file=TRIM(gms_path),status='old',position='rewind')

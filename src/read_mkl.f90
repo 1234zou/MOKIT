@@ -886,6 +886,7 @@ end module mkl_content
 module basis_data ! to store basis set data for an atom
  implicit none
  integer :: ncol(0:7), nline(0:7)
+ character(len=2) :: ghost_elem = '  '
 
  type :: one_momentum
   real(kind=8), allocatable :: prim_exp(:) ! size nline(i)
@@ -1267,7 +1268,11 @@ subroutine prt_cfour_genbas(ecp, mrcc)
   if(.not. cycle_atom) then
    str2 = elem(iatom)
    if(mrcc) then ! MRCC
-    write(fid,'(A)') TRIM(str2)//':PVTZ'
+    if(str2 == 'Bq') then
+     write(fid,'(A)') TRIM(ghost_elem)//':PVTZ'
+    else
+     write(fid,'(A)') TRIM(str2)//':PVTZ'
+    end if
    else          ! CFOUR
     if(str2(2:2) /= ' ') call upper(str2(2:2))
     if(ecp) then
