@@ -151,7 +151,6 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  ! False: create inpname, gmsname, datname according to proname
 
  call check_gms_path()
- stop
 
  if(name_determined) then
   inpname = proname
