@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Oct 20, 2025
+Nov 4, 2025
 
 Dependencies
 ------------
@@ -167,7 +167,7 @@ See [examples/](examples/) for more examples.
 MOKIT is able to transform MOs among these QC Packages
 ----------
 * [Amesp](https://amesp.xyz)
-* [BDF](http://182.92.69.169:7226/Introduction)
+* [BDF](https://bdf-manual.readthedocs.io/en/latest/index.html)
 * [CFOUR](https://cfour.uni-mainz.de/cfour/index.php?n=Main.HomePage)
 * [CP2K](https://github.com/cp2k/cp2k)
 * [Dalton](https://gitlab.com/dalton/dalton)
@@ -175,6 +175,7 @@ MOKIT is able to transform MOs among these QC Packages
 * [Gaussian](http://gaussian.com)
 * [Molpro](https://www.molpro.net)
 * [MRCC](https://mrcc.hu/index.php)
+* [NWChem](https://github.com/nwchemgit/nwchem)
 * [OpenMolcas](https://gitlab.com/Molcas/OpenMolcas)
 * [OpenQP](https://github.com/Open-Quantum-Platform/openqp)
 * [ORCA](https://orcaforum.kofo.mpg.de)
@@ -186,21 +187,19 @@ MOKIT is able to transform MOs among these QC Packages
 
 Some Tips
 ---------
-* To avoid unnecessary errors, you must specify keywords `nosymm int=nobasistransform` in Gaussian .gjf file, if you want to provide a .fch(k) file to `automr`.
+* To avoid unnecessary errors, it is strongly recommended to specify keywords `nosymm int=nobasistransform` in Gaussian input file (.gjf), if you want to provide a .fch(k) file to `automr`.
 
 
 Bug Report
 ----------
-* If you find any bug frequently occurs or have any suggestions, you can open an
-  issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
+* If you find any bug frequently occurs or have any suggestions, you can open an issue on the [Issues](https://gitlab.com/jxzou/mokit/-/issues) page.
 
-* You can also contact the developer jxzou via E-mail njumath[at]sina.cn, with
-  related files (gjf, fch, out, etc) attached.
+* You can also contact the developer jxzou via E-mail njumath[at]sina.cn, with related files (gjf, fch, out, etc) attached.
 
 
 TODO
 ----
-* MOs transferring among NWCHEM, BAGEL, COLUMBUS, etc.
+* MOs transferring among BAGEL, COLUMBUS, etc.
 
 * Develop/Implement robust black-box strategies of excited state calculations
 
@@ -214,7 +213,7 @@ Citation
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * Click [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html) to see published papers which cited MOKIT.
 

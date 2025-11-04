@@ -117,7 +117,7 @@ program main
   '-orca  ','-psi4  ','-pyscf ','-tm    ']
  character(len=14) :: str14
  character(len=240) :: molden
- logical :: alive, natorb
+ logical :: natorb
 
  narg = iargc()
  if(narg<2 .or. narg>3) then
@@ -136,15 +136,9 @@ program main
   stop
  end if
 
- str3 = ' '; str7 = ' '; natorb = .false.; molden = ' '
+ natorb = .false.; str3 = ' '; str7 = ' '; molden = ' '
  call getarg(1, molden)
- inquire(file=TRIM(molden),exist=alive)
- if(.not. alive) then
-  write(6,'(/,A)') 'ERROR in program molden2fch: input molden file does not exi&
-                   &st!'
-  write(6,'(A)') 'Filename='//TRIM(molden)
-  stop
- end if
+ call require_file_exist(molden)
 
  call getarg(2, str14)
  str14 = ADJUSTL(str14)
@@ -163,13 +157,14 @@ program main
  end if
 
  if(iprog == 0) then ! try to detect the QC program, `-no` not supported
-  call find_iprog_for_molden(molden, iprog)
   if(narg > 2) then
    write(6,'(/,A)') 'ERROR in program molden2fch: currently no more argument is&
                     & accepted after'
    write(6,'(A)') '--QbicsMolstar'
    stop
   end if
+  call find_iprog_for_molden(molden, iprog)
+  write(6,'(A)') 'Automatically detected as '//TRIM(sprog((iprog)))
  else                ! QC program already specified, detect the third argument
   if(narg == 3) then
    call getarg(3, str3)
@@ -185,15 +180,264 @@ program main
  call molden2fch(molden, iprog, natorb)
 end program main
 
+! check spherical harmonic or Cartesian functions are used in a .molden file
+subroutine check_sph_in_molden(molden, sph)
+ implicit none
+ integer :: fid
+ character(len=5) :: buf ! no need to be a long string
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: sph
+
+ sph = .false.
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(INDEX(buf(1:5),'[5D')>0 .or. INDEX(buf(1:5),'[5d')>0) then
+   sph = .true.
+   exit
+  end if
+  if(INDEX(buf(1:5),'[6D')>0 .or. INDEX(buf(1:5),'[6d')>0) exit
+  if(INDEX(buf(1:5),'[MO]') > 0) exit
+ end do ! for while
+
+ close(fid)
+end subroutine check_sph_in_molden
+
+! Check whether '[Atoms] (AU)', '[5D]', '[9G]' appears in a specified .molden
+! file, which can be used to detect whether this is a PSI4-generated .molden
+subroutine check_5d9g_in_molden(molden, found)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: found ! whether [5D][9G] is found
+ logical :: found1, found2
+
+ found1 = .false.; found2 = .false.; found = .false.
+ open(newunit=fid,file=TRIM(molden),status='old')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   return
+  end if
+  if(buf(1:12) == '[Atoms] (AU)') then
+   found1 = .true.
+   exit
+  end if
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   return
+  end if
+  if(buf(1:4) == '[5D]') then
+   read(fid,'(A)') buf
+   if(buf(1:4) == '[9G]') found2 = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+ found = (found1 .and. found2)
+end subroutine check_5d9g_in_molden
+
+! Check whether '[ATOMS] AU', '[5D]', '[7F]', '[9G]' appears in a specified
+! .molden file, which can be used to detect whether this is a MRCC-generated
+! .molden
+subroutine check_5d7f9g_in_molden(molden, found)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: found ! whether [5D][7F][9G] is found
+ logical :: found1, found2, found3, alive
+
+ found1 = .false.; found2 = .false.; found3 = .false.; found = .false.
+ inquire(file=TRIM(molden),opened=alive,number=fid)
+ if(alive) close(unit=fid)
+ open(newunit=fid,file=TRIM(molden),status='old')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   return
+  end if
+  if(buf(1:10) == '[ATOMS] AU') then
+   found1 = .true.
+   exit
+  end if
+ end do ! for while
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) then
+   close(fid)
+   return
+  end if
+  if(buf(1:4) == '[5D]') then
+   read(fid,'(A)') buf
+   if(buf(1:4) == '[7F]') found2 = .true.
+   read(fid,'(A)') buf
+   if(buf(1:4) == '[9G]') found3 = .true.
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+ found = (found1 .and. found2 .and. found3)
+end subroutine check_5d7f9g_in_molden
+
+! read the 1st element symbol from a specified .molden file
+subroutine read_first_elem_from_molden(molden, elem)
+ implicit none
+ integer :: i, fid
+ character(len=2), intent(out) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+
+ elem = '  '
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf(1:8),'[Atoms]')>0 .or. buf(1:7)=='[ATOMS]') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_first_elem_from_molden: no [ATOMS]&
+                   & found in file'
+  write(6,'(A)') TRIM(molden)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) elem
+ close(fid)
+end subroutine read_first_elem_from_molden
+
+subroutine check_3spacing_in_molden(molden, three_spacing)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molden
+ logical, intent(out) :: three_spacing
+
+ three_spacing = .false.
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf(1:8),'[Atoms]')>0 .or. buf(1:7)=='[ATOMS]') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine check_3spacing_in_molden: no [ATOMS] fo&
+                   &und in file'
+  write(6,'(A)') TRIM(molden)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ close(fid)
+ if(buf(1:3) == '   ') three_spacing = .true.
+end subroutine check_3spacing_in_molden
+
 ! Try to detect the molden file is generated by which QC program
 subroutine find_iprog_for_molden(molden, iprog)
  implicit none
  integer :: i, fid
  integer, intent(out) :: iprog
+ character(len=2) :: str2
+ character(len=240) :: buf
  character(len=240), intent(in) :: molden
+ logical :: found, alive
 
- iprog = 0
+ iprog = 0; found = .false.
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4)=='[MO]' .or. buf(2:5)=='[MO]') exit
+
+  select case(buf(1:9))
+  case('[ATOMS] A') ! CFOUR or MRCC
+   call check_5d7f9g_in_molden(molden, alive)
+   if(alive) then
+    iprog = 8 ! MRCC
+   else
+    iprog = 2 ! CFOUR
+   end if
+   found = .true.; exit
+  case(' [Atoms] ') ! CP2K
+   iprog = 3; found = .true.; exit
+  case('*** Dalto') ! Dalton
+   iprog = 4; found = .true.; exit
+  case('[N_Atoms]') ! OpenMolcas
+   iprog = 6; found = .true.; exit
+  case('[Molpro v') ! Molpro
+   iprog = 7; found = .true.; exit
+  end select
+ 
+  if(.not. found) then
+   if(buf(25:33) == 'orca_2mkl') then ! ORCA
+    iprog = 10; found = .true.; exit
+   else if(buf(1:13) == 'made by pyscf') then ! PySCF
+    iprog = 12; found = .true.; exit
+   else if(buf(1:19) == 'generated by fch2tm') then ! Turbomole
+    iprog = 13; found = .true.; exit
+   end if
+  end if
+ end do ! for while
+
+ inquire(file=TRIM(molden),opened=alive,number=fid)
+ if(alive) close(unit=fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine find_iprog_for_molden: molden file is p&
+                   &roblematic!'
+  write(6,'(A)') 'molden='//TRIM(molden)
+  stop
+ end if
+
+ if(found) return
+ call check_5d9g_in_molden(molden, found)
+ if(found) then ! PSI4
+  iprog = 11
+  return
+ end if
+
+ ! search the final line of .molden
+ open(newunit=fid,file=TRIM(molden),status='old',position='append')
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+ close(fid)
+ if(buf(1:34) == '[End of Molden output from Dalton]') then
+  iprog = 4; found = .true.
+ end if
+ if(found) return
+
+ ! Turbomole has lower case element symbols, so check the 1st element
+ call read_first_elem_from_molden(molden, str2)
+ i = IACHAR(str2(1:1))
+ if(i>96 .and. i<123) then
+  iprog = 13; found = .true.
+ end if
+ if(found) return
+
+ call check_3spacing_in_molden(molden, alive)
+ if(alive) then
+  iprog = 9; found = .true.
+ end if
 end subroutine find_iprog_for_molden
 
 subroutine molden2fch(molden, iprog, natorb)
@@ -218,7 +462,7 @@ subroutine molden2fch(molden, iprog, natorb)
  logical, intent(in) :: natorb
 
  select case(iprog)
- case(1,5,8,9,11)
+ case(1,5)
   write(6,'(/,A)') 'ERROR in subroutine molden2fch: program not supported yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
@@ -240,6 +484,9 @@ subroutine molden2fch(molden, iprog, natorb)
  allocate(shell_type(ncontr), shell2atom_map(ncontr))
  call read_shltyp_and_shl2atm_from_molden(molden, ncontr, shell_type, &
                                           shell2atom_map)
+ if((.not.sph) .and. iprog/=2 .and. iprog/=7 .and. iprog/=13) then
+  where(shell_type < 0) shell_type = -shell_type
+ end if
  natom1 = natom
  ncontr1 = ncontr
  allocate(shell_type1(ncontr), source=shell_type)
@@ -340,22 +587,17 @@ subroutine molden2fch(molden, iprog, natorb)
   nmo_b = k ! remember to update nmo_b
  end if
 
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
  select case(iprog)
- case(1,5,8,9,11)
+ case(1,5)
   write(6,'(/,A)') 'ERROR in program molden2fch: not implemented yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
-  deallocate(f_mark, g_mark, h_mark, i_mark)
   stop
  case(2) ! CFOUR
   nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
          6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
-  allocate(d_mark(ncontr))
   allocate(shell_type1(ncontr), source=shell_type)
   forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
-  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
-                                  nhmark, d_mark, f_mark, g_mark, h_mark)
   allocate(tmp_coeff(nbf1,nif1), source=0d0)
   nbf = 0; j = 0
   do i = 1, ncontr, 1
@@ -378,9 +620,6 @@ subroutine molden2fch(molden, iprog, natorb)
    case(4) ! 15G -> 9G
     call solve_multi_lin_eqs(15,9,rg1,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
     nbf = nbf + 9; j = j + 15
-   !case(5) ! 21G -> 11G
-   ! call solve_multi_lin_eqs(21,11,rh1,nif1,coeff(j+1:j+21,:),tmp_coeff(nbf+1:nbf+11,:))
-   ! nbf = nbf + 11; j = j + 21
    case default
     write(6,'(/,A)') 'ERROR in subroutine molden2fch: the CFOUR-type molden fil&
                      &e is problematic'
@@ -389,7 +628,7 @@ subroutine molden2fch(molden, iprog, natorb)
     stop
    end select
   end do ! for i
-  deallocate(d_mark, shell_type1, coeff)
+  deallocate(shell_type1, coeff)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case(3) ! CP2K, nothing to do
@@ -413,11 +652,8 @@ subroutine molden2fch(molden, iprog, natorb)
  case(7) ! Molpro
   nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
          6*COUNT(shell_type==-4) - 10*COUNT(shell_type==-5)
-  allocate(d_mark(ncontr))
   allocate(shell_type1(ncontr), source=shell_type)
   forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
-  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
-                                  nhmark, d_mark, f_mark, g_mark, h_mark)
   allocate(tmp_coeff(nbf1,nif1), source=0d0)
   nbf = 0; j = 0
   do i = 1, ncontr, 1
@@ -447,15 +683,37 @@ subroutine molden2fch(molden, iprog, natorb)
     stop
    end select
   end do ! for i
-  deallocate(d_mark, shell_type1, coeff)
+  deallocate(shell_type1, coeff)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
+ case(8) ! MRCC, nothing to do
+ case(9) ! NWChem
+  if(ANY(shell_type<-4) .or. ANY(shell_type>4)) then
+   write(6,'(/,A)') 'ERROR in subroutine molden2fch: NWChem cannot generate .mo&
+                    &olden file for'
+   write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
+   stop
+  end if
+  ! nothing to do for spherical harmonic
+  if(.not. sph) then ! pure Cartesian
+   allocate(g_mark(ncontr))
+   call read_gmark_from_shltyp_cart(ncontr, shell_type, ngmark, g_mark)
+   if(ngmark > 0) then
+    call update_mo_using_gmark_nwc(nbf, nif1, ngmark, g_mark(1:ngmark), coeff)
+   end if
+   deallocate(g_mark)
+  end if
  case(10) ! ORCA
   ! find F+3, G+3, H+3, I+3 functions, multiply them by -1
-  call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                 nimark, f_mark, g_mark, h_mark, i_mark)
-  call update_mo_using_bas_mark(nbf, nif1, nfmark, ngmark, nhmark, nimark, &
-                                ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
+  allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+           i_mark(ncontr))
+  call read_mark_from_shltyp_sph(ncontr, shell_type, ndmark, nfmark, ngmark, &
+                       nhmark, nimark, d_mark, f_mark, g_mark, h_mark, i_mark)
+  deallocate(d_mark)
+  call update_mo_using_mark_orca(nbf, nif1, nfmark, ngmark, nhmark, nimark, &
+                               ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
+  deallocate(f_mark, g_mark, h_mark, i_mark)
+ case(11) ! PSI4, nothing to do
  case(12) ! PySCF, nothing to do
   if(ANY(shell_type < -4)) then
    write(6,'(/,A)') 'ERROR in subroutine molden2fch: PySCF cannot generate .mol&
@@ -472,11 +730,8 @@ subroutine molden2fch(molden, iprog, natorb)
   ! [6D,10F,15G] - [5D,7F,9G] = [1,3,6]
   nbf1 = nbf - COUNT(shell_type==-2) - 3*COUNT(shell_type==-3) - &
          6*COUNT(shell_type==-4)
-  allocate(d_mark(ncontr))
   allocate(shell_type1(ncontr), source=shell_type)
   forall(i = 1:ncontr, shell_type1(i)<-1) shell_type1(i) = -shell_type1(i)
-  call read_mark_from_shltyp_cart(ncontr, shell_type1, ndmark, nfmark, ngmark, &
-                                  nhmark, d_mark, f_mark, g_mark, h_mark)
   allocate(tmp_coeff(nbf1,nif1), source=0d0)
   nbf = 0; j = 0
   do i = 1, ncontr, 1
@@ -506,7 +761,8 @@ subroutine molden2fch(molden, iprog, natorb)
     stop
    end select
   end do ! for i
-  deallocate(d_mark, shell_type1, coeff)
+
+  deallocate(shell_type1, coeff)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case default
@@ -516,7 +772,6 @@ subroutine molden2fch(molden, iprog, natorb)
   stop
  end select
 
- deallocate(f_mark, g_mark, h_mark, i_mark)
  allocate(alpha_coeff(nbf,nif), source=coeff(:,1:nif))
  if(is_uhf) then
   allocate(beta_coeff(nbf,nif), source=0d0)
@@ -1126,30 +1381,6 @@ subroutine align_mo(nbf, nif1, coeff, nbf1, tmp_coeff)
   if(SUM(DABS(r1)) > SUM(DABS(r2))) tmp_coeff(:,i) = -tmp_coeff(:,i)
  end do ! for i
 end subroutine align_mo
-
-! check spherical harmonic or Cartesian functions are used in a .molden file
-subroutine check_sph_in_molden(molden, sph)
- implicit none
- integer :: fid
- character(len=5) :: buf ! no need to be a long string
- character(len=240), intent(in) :: molden
- logical, intent(out) :: sph
-
- sph = .true.
- open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(INDEX(buf(1:5),'[5D') > 0) exit
-  if(INDEX(buf(1:5),'[6D') > 0) then
-   sph = .false.
-   exit
-  end if
-  if(INDEX(buf(1:5),'[MO]') > 0) exit
- end do ! for while
-
- close(fid)
-end subroutine check_sph_in_molden
 
 ! find the number of normal modes in a given .molden file
 subroutine read_nmode_from_molden(molden, nmode)

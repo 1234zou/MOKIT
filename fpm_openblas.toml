@@ -169,12 +169,6 @@ main = "fch2dal.f90"
 link = "openblas"
 
 [[executable]]
-name = "fch2mkl"
-source-dir = "src"
-main = "fch2mkl.f90"
-link = "openblas"
-
-[[executable]]
 name = "fch2inp"
 source-dir = "src"
 main = "fch2inp.f90"
@@ -186,9 +180,21 @@ main = "fch2inporb.f90"
 link = "openblas"
 
 [[executable]]
+name = "fch2mkl"
+source-dir = "src"
+main = "fch2mkl.f90"
+link = "openblas"
+
+[[executable]]
 name = "fch2mrcc"
 source-dir = "src"
 main = "fch2mrcc.f90"
+link = "openblas"
+
+[[executable]]
+name = "fch2nwc"
+source-dir = "src"
+main = "fch2nwc.f90"
 link = "openblas"
 
 [[executable]]

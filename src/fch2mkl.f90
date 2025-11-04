@@ -78,12 +78,12 @@ end program main
 subroutine fch2mkl(fchname, itype, dftname)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, am, nfmark, ngmark, nhmark, nimark
- integer :: fid1, fid2 ! file id of .mkl/.inp file
+ integer :: i, j, k, m, n, n1, n2, am, fid1, fid2
+ integer :: ndmark, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: itype
  integer, parameter :: ndh = 32
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
@@ -187,11 +187,13 @@ subroutine fch2mkl(fchname, itype, dftname)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
- call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                nimark, f_mark, g_mark, h_mark, i_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
-                               f_mark, g_mark, h_mark, i_mark, coeff)
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+          i_mark(ncontr))
+ call read_mark_from_shltyp_sph(ncontr, shell_type, ndmark, nfmark, ngmark, &
+                      nhmark, nimark, d_mark, f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark)
+ call update_mo_using_mark_orca(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                                f_mark, g_mark, h_mark, i_mark, coeff)
  deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(uhf) then ! UHF
@@ -423,6 +425,11 @@ subroutine fch2mkl(fchname, itype, dftname)
  ! ORCA default is `sthresh 1e-7`
  if(nif < nbf) write(fid2,'(A)') ' sthresh 1e-6'
  write(fid2,'(A)') 'end'
+
+ do i = 1, natom, 1
+  if(elem(i) == 'Bq') elem(i) = 'X '
+ end do ! for i
+
  if(composite) then ! composite method
   write(fid2,'(A,I0,1X,I0)') '* xyz ', charge, mult
   do i = 1, natom, 1
@@ -561,7 +568,7 @@ subroutine fch2mkl(fchname, itype, dftname)
   if(nopen == 0) then
    forall(i = 1:na) eigen_e_a(i) = 2d0
   else ! nopen > 0
-   forall(i = 1:nb)    eigen_e_a(i) = 2d0
+   forall(i = 1:nb) eigen_e_a(i) = 2d0
    forall(i = nb+1:na) eigen_e_a(i) = 1d0
   end if
  end if

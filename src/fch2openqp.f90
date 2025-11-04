@@ -59,8 +59,9 @@ subroutine fch2openqp(fchname, sf_type)
  use fch_content
  implicit none
  integer :: i, j, k, length, nif1, hf_type, icart
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer, allocatable :: idx(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer, allocatable :: idx(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:), &
+  i_mark(:)
  integer, intent(in) :: sf_type
  character(len=30) :: dftname
  character(len=240) :: proname, bas_json, cart_fch
@@ -182,11 +183,10 @@ subroutine fch2openqp(fchname, sf_type)
 
  ! record the indices of f, g and h functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
-
- call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                 n21hmark, d_mark, f_mark, g_mark, h_mark)
- deallocate(d_mark)
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
+ call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                   n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark, i_mark)
  ! adjust the order of 10f/15g/21h functions
  call fch2openqp_permute_cart(n10fmark, n15gmark, n21hmark, k, f_mark, g_mark, &
                               h_mark, nbf, idx)

@@ -113,7 +113,7 @@ end program main
 subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  use fch_content
  implicit none
- integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, icart, fid
+ integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, ni, icart, fid
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
@@ -121,9 +121,8 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  !                                             MRSF-CIS/MRSF-TDDFT/GVB
  integer, intent(in) :: itype, npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- ! mark the index where d, f, g, h functions begin
- integer, allocatable :: order(:)
+ integer, allocatable :: order(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:), &
+  i_mark(:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
@@ -365,10 +364,11 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  if(allocated(beta_coeff)) deallocate(beta_coeff)
 
  ! record the indices of Cartesian f, g and h functions
- allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
- call read_mark_from_shltyp_cart(ncontr, shell_type, nd, nf, ng, nh, d_mark, &
-                                 f_mark, g_mark, h_mark)
- deallocate(d_mark, shell_type)
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+          i_mark(ncontr))
+ call read_mark_from_shltyp_cart(ncontr, shell_type, nd, nf, ng, nh, ni, &
+                                 d_mark, f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark, i_mark, shell_type)
  ! done recording
 
  ! adjust the order of Cartesian f, g, h functions

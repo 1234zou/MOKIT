@@ -32,10 +32,10 @@ subroutine fch2mrcc(fchname)
  use fch_content
  implicit none
  integer :: i, j, k, m, length, icart, nif1
- integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark, n6dmark, n10fmark, &
-  n15gmark, n21hmark
+ integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark, n13imark, n6dmark, &
+  n10fmark, n15gmark, n21hmark, n28imark
  integer, allocatable :: idx(:), p_mark(:), d_mark(:), f_mark(:), g_mark(:), &
-  h_mark(:)
+  h_mark(:), i_mark(:)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp, lin_dep
@@ -112,18 +112,19 @@ subroutine fch2mrcc(fchname)
 
  ! record the indices of d, f, g and h functions
  k = length  ! update k
- allocate(p_mark(k), d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(p_mark(k), d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
 
  ! adjust the order of 3p functions
- call read3pmark_from_shltyp(k, shell_type, n3pmark, p_mark)
+ call read_3pmark_from_shltyp(k, shell_type, n3pmark, p_mark)
  do i = 1, n3pmark, 1
   j = p_mark(i)
   m = idx(j+2); idx(j+2) = idx(j); idx(j) = m
  end do ! for i
+ deallocate(p_mark)
 
  if(sph) then
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 5d/7f/9g/11h functions
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, idx)
@@ -136,8 +137,8 @@ subroutine fch2mrcc(fchname)
   deallocate(coeff2)
  else
   allocate(norm(nbf), source=1d0)
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 6d/10f/15g/21h functions
   call fch2mrcc_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
                              f_mark, g_mark, h_mark, nbf, idx, norm)
@@ -150,7 +151,7 @@ subroutine fch2mrcc(fchname)
   deallocate(coeff2, norm)
  end if
 
- deallocate(shell_type, p_mark, d_mark, f_mark, g_mark, h_mark, idx)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, i_mark, idx)
 
  ! create/print MRCC orbital file MOCOEF
  if(uhf) then

@@ -15,11 +15,11 @@ program modify_GMS2
  character(len=6) :: str6
  character(len=30) :: fname1, fname2
  character(len=200) :: buf
- character(len=10) :: filelist(nfile)
+ character(len=6), parameter :: filelist(nfile) = ['comp  ','cphf  ','cprohf',&
+  'fmoh2c','fmohss','grd1  ','grd2a ','gvb   ','guess ','hess  ','hss1c ', &
+  'hss2a ','hss2b ','hss2c ','locpol','mexing','parley','prppop','qmfm  ', &
+  'scflib','statpt','vector','vvos  ']
  logical :: alive
- data filelist /'comp','cphf','cprohf','fmoh2c','fmohss','grd1','grd2a','gvb',&
-  'guess','hess','hss1c','hss2a','hss2b','hss2c','locpol','mexing','parley',&
-  'prppop','qmfm','scflib','statpt','vector','vvos'/
 
  fname1 = ' '; fname2 = ' '; buf = ' '; str6 = ' '
 

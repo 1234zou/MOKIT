@@ -136,8 +136,8 @@ end subroutine do_gvb
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
 subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, check_gms_path, gms_path, gms_scr_path,&
-  gms_dat_path, datname, mo_rhf, bgchg, chgname, cart, GVB_conv, fcgvb
- use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
+  gms_dat_path, datname, mo_rhf, bgchg, chgname, GVB_conv, fcgvb
+ use mol, only: ndb, nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
@@ -206,13 +206,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
- if(cart) then ! Cartesian functions
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
- else          ! spherical harmonic functions
-  call read_cart_nbf_from_dat(datname, i)
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
- end if
-
+ write(longbuf,'(A,3(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),ndb,nopen,npair
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility gvb_&
@@ -353,9 +348,8 @@ end subroutine do_gvb_qchem
 
 ! perform GVB computation (only in Strategy 1,3) using Gaussian
 subroutine do_gvb_gau(proname, pair_fch)
- use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, cart,&
-  datname
- use mol, only: nbf, nif, ndb, nopen, npair, npair0, gvb_e
+ use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, datname
+ use mol, only: ndb, nopen, npair, npair0, gvb_e
  use util_wrapper, only: unfchk, formchk, fch2inp_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
@@ -406,19 +400,14 @@ subroutine do_gvb_gau(proname, pair_fch)
  deallocate(coeff)
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
- if(cart) then ! Cartesian functions
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),nbf,nif,ndb,nopen,npair
- else          ! spherical harmonic functions
-  call read_cart_nbf_from_dat(datname, i)
-  write(longbuf,'(A,5(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),i,nif,ndb,nopen,npair
- end if
+ write(longbuf,'(A,3(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),ndb,nopen,npair
  write(6,'(A)') '$'//TRIM(longbuf)
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                  & gvb_sort_pairs.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  write(6,'(A)') 'If neither, there is some unexpected error.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility gvb_&
+                   &sort_pairs. Did'
+  write(6,'(A)') 'you delete it or forget to compile it? If neither, there is s&
+                 &ome unexpected error.'
   stop
  end if
 

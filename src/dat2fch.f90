@@ -114,9 +114,9 @@ subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
  ! nbf: the number of basis functions
  ! nif: the number of independent functions, i.e. the number of MOs
  ! na/nb: the number of alpha/beta electrons
- integer :: nbf1, nif1, ncontr, nd, nf, ng, nh
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
- ! mark the index where f,g,h functions begin
+ integer :: nbf1, nif1, ncontr, nd, nf, ng, nh, ni
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
+ ! mark the index where f,g,h,i functions begin
  integer, intent(in) :: itype, npair, nopen, idx2
  integer, allocatable :: order(:), shltyp(:), shl2atm(:)
  real(kind=8), allocatable :: alpha_coeff(:,:), beta_coeff(:,:)
@@ -172,10 +172,12 @@ subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
   nbf1 = nbf
  end if
 
- call read_cart_nbf_from_dat(datname, i)
+ call read_cart_nbf_nif_from_dat(datname, .true., i, j)
  if(i /= nbf1) then
   write(6,'(/,A)') 'ERROR in subroutine dat2fch: inconsistent nbf between .fch &
                    &and .dat file.'
+  write(6,'(A)') 'datname='//TRIM(datname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
   write(6,'(2(A,I0))') 'i=', i, ', nbf1=', nbf1
   stop
  end if
@@ -287,10 +289,11 @@ subroutine dat2fch(datname, fchname, itype, npair, nopen, idx2)
   end do ! for i
  end if
 
- allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
- call read_mark_from_shltyp_cart(ncontr, shl2atm, nd, nf, ng, nh, d_mark, &
-                                 f_mark, g_mark, h_mark)
- deallocate(d_mark, shl2atm)
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+         i_mark(ncontr))
+ call read_mark_from_shltyp_cart(ncontr, shl2atm, nd, nf, ng, nh, ni, d_mark, &
+                                 f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark, i_mark, shl2atm)
 
  ! adjust the order of Cartesian f, g, h functions
  do i = 1, nf, 1
@@ -539,7 +542,7 @@ subroutine gen_fch_from_gms_inp(datname, fchname)
  deallocate(all_pg, shell_type1, shl2atm1)
 
  ! read the number of basis functions under Cartesian-type basis functions
- call read_cart_nbf_nif_from_dat(datname, nbf1, nif)
+ call read_cart_nbf_nif_from_dat(datname, .false., nbf1, nif)
  if(is_uhf) then
   if(MOD(nif,2) /= 0) then
    write(6,'(/,A)') 'ERROR in subroutine gen_fch_from_gms_inp: nif is not even!'

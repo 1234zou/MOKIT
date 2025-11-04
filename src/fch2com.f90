@@ -78,11 +78,11 @@ subroutine fch2com(fchname, sph)
  implicit none
  integer :: i, j, k, length, orbid
  integer :: nalpha, nbeta, nbf, nif, nbf0
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  character(len=240) :: fileA, fileB
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:)
@@ -122,12 +122,12 @@ subroutine fch2com(fchname, sph)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
 
  ! adjust the order of d, f, etc. functions
  if(sph) then ! spherical harmonic
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   do i = 1, n5dmark, 1
    call fch2com_permute_5d(nif,coeff(d_mark(i):d_mark(i)+4,:))
   end do
@@ -141,8 +141,8 @@ subroutine fch2com(fchname, sph)
    call fch2com_permute_11h(nif,coeff(h_mark(i):h_mark(i)+10,:))
   end do
  else ! Cartesian-type basis
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   do i = 1, n10fmark, 1
    call fch2com_permute_10f(nif,coeff(f_mark(i):f_mark(i)+9,:))
   end do
@@ -155,7 +155,7 @@ subroutine fch2com(fchname, sph)
  end if
 ! adjustment finished
 
- deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, i_mark)
 
 ! print MOs into a plain text file
  fileA = fchname

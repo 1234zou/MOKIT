@@ -344,6 +344,44 @@ subroutine check_uhf_in_fch(fchname, uhf)
 end subroutine check_uhf_in_fch
 
 ! Check whether pure Cartesian or spherical harmonic type basis functions are
+!  used the integer array shell_type.
+! icart=-1: mixed Cartesian and spherical harmonic
+! icart= 0: only S/P/L angular momenta, can be viewed as either pure Cartesian
+!           or spherical harmonic
+! icart= 1: spherical harmonic includes any of 5D, 7F, 9G, ...
+! icart= 2: pure Cartesian includes any of 6D, 10F, 15G, ...
+subroutine find_icart_from_shell_type(allow_mixed, ncontr, shltyp, icart)
+ implicit none
+ integer, intent(in) :: ncontr
+!f2py intent(in) :: ncontr
+ integer, intent(in) :: shltyp(ncontr)
+!f2py intent(in) :: shltyp
+!f2py depend(ncontr) :: shltyp
+ integer, intent(out) :: icart
+!f2py intent(out) :: icart
+ logical, intent(in) :: allow_mixed
+!f2py intent(in) :: allow_mixed
+
+ if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
+  icart = -1
+  if(.not. allow_mixed) then
+   write(6,'(/,A)') 'ERROR in subroutine find_icart_from_shell_type: mixed Cart&
+                    &esian and sph-'
+   write(6,'(A)') 'erical harmonic (like 6D 7F) is found. Only spherical hamoni&
+                  &c (5D 7F) or pure'
+   write(6,'(A)') 'Cartesian (6D 10F) is allowed.'
+   stop
+  end if
+ else if(ALL(shltyp>-2) .and. ALL(shltyp<2)) then
+  icart = 0
+ else if(ALL(shltyp<2) .and. ANY(shltyp<-1)) then
+  icart = 1
+ else if(ALL(shltyp>-2) .and. ANY(shltyp>1)) then
+  icart = 2
+ end if
+end subroutine find_icart_from_shell_type
+
+! Check whether pure Cartesian or spherical harmonic type basis functions are
 !  used in a specified .fch(k) file.
 ! icart=-1: mixed Cartesian and spherical harmonic
 ! icart= 0: only S/P/L angular momenta, can be viewed as either pure Cartesian
@@ -363,6 +401,7 @@ subroutine find_icart_in_fch(fchname, allow_mixed, icart)
 !f2py intent(in) :: allow_mixed
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -370,37 +409,28 @@ subroutine find_icart_in_fch(fchname, allow_mixed, icart)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine find_icart_in_fch: missing 'Shell types&
-                   &' in file"
+  write(6,'(/,A)') 'ERROR in subroutine find_icart_in_fch: missing "Shell types&
+                   &" in file'
   write(6,'(A)') TRIM(fchname)
   close(fid)
   stop
  end if
 
  i = INDEX(buf, '=', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine find_icart_in_fch: missing "=" in this &
+                   &line'
+  write(6,'(A)') TRIM(buf)
+  close(fid)
+  stop
+ end if
+
  read(buf(i+1:),*) k
  allocate(shltyp(k), source=0)
  read(fid,*) shltyp
  close(fid)
 
- if(ANY(shltyp<-1) .and. ANY(shltyp>1)) then
-  icart = -1
-  if(.not. allow_mixed) then
-   write(6,'(/,A)') 'ERROR in subroutine find_icart_in_fch: mixed Cartesian and&
-                    & spherical harmonic'
-   write(6,'(A)') '(like 6D 7F) is found. Only spherical hamonic (5D 7F) or pur&
-                  &e Cartesian (6D 10F)'
-   write(6,'(A)') 'is allowed.'
-   stop
-  end if
- else if(ALL(shltyp>-2) .and. ALL(shltyp<2)) then
-  icart = 0
- else if(ALL(shltyp<2) .and. ANY(shltyp<-1)) then
-  icart = 1
- else if(ALL(shltyp>-2) .and. ANY(shltyp>1)) then
-  icart = 2
- end if
-
+ call find_icart_from_shell_type(allow_mixed, k, shltyp, icart)
  deallocate(shltyp)
 end subroutine find_icart_in_fch
 

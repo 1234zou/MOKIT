@@ -36,9 +36,10 @@ subroutine fch2cfour(fchname)
  use fch_content
  implicit none
  integer :: i, j, k, m, length, nbf0, nbf1, nif1, icart
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer, allocatable :: idx(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer, allocatable :: idx(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:), &
+  i_mark(:)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp
@@ -104,23 +105,23 @@ subroutine fch2cfour(fchname)
 
  ! record the indices of d, f, g and h functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
 
  if(sph) then
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 5d, 7f, etc. functions
   call fch2cfour_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                              f_mark, g_mark, h_mark, nbf, idx, norm)
  else
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 6d, 10f, etc. functions
   call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, &
                            d_mark, f_mark, g_mark, h_mark, nbf, idx, norm)
  end if
 
- deallocate(d_mark, f_mark, g_mark, h_mark)
+ deallocate(d_mark, f_mark, g_mark, h_mark, i_mark)
 
 ! move the 2nd, 3rd, ... Zeta basis functions forward
  i = 0

@@ -91,9 +91,9 @@ subroutine mkl2fch(mklname, fchname, no_type, jrel)
  use fch_content
  use mkl_content, only: read_mo_from_mkl
  implicit none
- integer :: k, nfmark, ngmark, nhmark, nimark
+ integer :: k, ndmark, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: no_type, jrel
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
  character(len=240), intent(in) :: mklname, fchname
 
@@ -141,11 +141,13 @@ subroutine mkl2fch(mklname, fchname, no_type, jrel)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
- call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                nimark, f_mark, g_mark, h_mark, i_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
-                               f_mark, g_mark, h_mark, i_mark, coeff)
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+          i_mark(ncontr))
+ call read_mark_from_shltyp_sph(ncontr, shell_type, ndmark, nfmark, ngmark, &
+                      nhmark, nimark, d_mark, f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark)
+ call update_mo_using_mark_orca(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                                f_mark, g_mark, h_mark, i_mark, coeff)
  deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(is_uhf) then ! UHF
@@ -222,9 +224,9 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
   shell_type0=>shell_type, shl2atm, alpha_coeff0=>alpha_coeff, &
   beta_coeff0=>beta_coeff, elem0=>elem, coor0=>coor, all_pg, ev_a, ev_b
  implicit none
- integer :: i, k, ne, nfmark, ngmark, nhmark, nimark
+ integer :: i, k, ne, ndmark, nfmark, ngmark, nhmark, nimark
  integer, intent(in) :: no_type, jrel
- integer, allocatable :: f_mark(:), g_mark(:), h_mark(:), i_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=240), intent(in) :: mklname, fchname
  logical :: has_sp
@@ -278,11 +280,13 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  end if
 
  ! find F+3, G+3 and H+3 functions, multiply them by -1
- allocate(f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), i_mark(ncontr))
- call read_bas_mark_from_shltyp(ncontr, shell_type, nfmark, ngmark, nhmark, &
-                                nimark, f_mark, g_mark, h_mark, i_mark)
- call update_mo_using_bas_mark(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
-                               f_mark, g_mark, h_mark, i_mark, coeff)
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+          i_mark(ncontr))
+ call read_mark_from_shltyp_sph(ncontr, shell_type, ndmark, nfmark, ngmark, &
+                      nhmark, nimark, d_mark, f_mark, g_mark, h_mark, i_mark)
+ deallocate(d_mark)
+ call update_mo_using_mark_orca(nbf, k, nfmark, ngmark, nhmark, nimark, ncontr,&
+                                f_mark, g_mark, h_mark, i_mark, coeff)
  deallocate(f_mark, g_mark, h_mark, i_mark)
 
  if(is_uhf) then ! UHF

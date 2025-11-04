@@ -255,7 +255,7 @@ subroutine gen_cf_orb(datname, ndb, nopen)
  ! No matter spherical harmonic/Cartesian-type basis you use, the MOs in
  ! GAMESS .inp/.dat file are in Cartesian-type. So this subroutine reads
  ! Cartesian-type nbf
- call read_cart_nbf_nif_from_dat(datname, nbf, nif)
+ call read_cart_nbf_nif_from_dat(datname, .false., nbf, nif)
 
  allocate(coeff(nbf,nif))
  call read_mo_from_dat(datname, nbf, nif, coeff)

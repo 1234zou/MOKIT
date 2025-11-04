@@ -908,7 +908,7 @@ subroutine enlarge_bas4atom(j, k, prim_exp, contr_coeff, enlarge_exp)
 
  p = ncol(j); q = nline(j)
 
- if(enlarge_exp)then
+ if(enlarge_exp) then
   if(allocated(bas4atom(j)%prim_exp)) then
    allocate(r1(q-k), source=bas4atom(j)%prim_exp)
    deallocate(bas4atom(j)%prim_exp)
@@ -933,11 +933,15 @@ subroutine enlarge_bas4atom(j, k, prim_exp, contr_coeff, enlarge_exp)
   end if
 
  else
-  allocate(r2(p-1,q), source=bas4atom(j)%coeff)
-  deallocate(bas4atom(j)%coeff)
-  allocate(bas4atom(j)%coeff(p,q), source=0d0)
-  bas4atom(j)%coeff(1:p-1,:) = r2
-  deallocate(r2)
+  if(p == 1) then
+   allocate(bas4atom(j)%coeff(1,q))
+  else
+   allocate(r2(p-1,q), source=bas4atom(j)%coeff)
+   deallocate(bas4atom(j)%coeff)
+   allocate(bas4atom(j)%coeff(p,q), source=0d0)
+   bas4atom(j)%coeff(1:p-1,:) = r2
+   deallocate(r2)
+  end if
   bas4atom(j)%coeff(p,:) = contr_coeff
  end if
 end subroutine enlarge_bas4atom
@@ -1001,6 +1005,7 @@ subroutine init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell,&
  integer, intent(in) :: ncontr, nprim
  integer, intent(in) :: shell_type(ncontr), prim_per_shell(ncontr), &
   shell2atom_map(ncontr)
+ real(kind=8) :: rtmp
  real(kind=8), intent(in) :: prim_exp(nprim), contr_coeff(nprim), &
   contr_coeff_sp(nprim)
  integer, intent(inout) :: iatom, i1, i2
@@ -1030,11 +1035,13 @@ subroutine init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell,&
      nline(j) = nline(j) + k
      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
     else ! k = prim_per_shell(i-1)
-     if( ANY( DABS(prim_exp(i2:i2+k-1)-prim_exp(i2-k:i2-1)) >1d-5 ) ) then
+     rtmp = SUM(DABS(prim_exp(i2:i2+k-1) - prim_exp(i2-k:i2-1)))
+     if(j==IABS(shell_type(i-1)) .and. rtmp<1d-4) then
+      ! same angular momentum and identical primitive exponents
+      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.false.)
+     else
       nline(j) = nline(j) + k
       call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.true.)
-     else ! identical primitive exponents
-      call enlarge_bas4atom(j,k,prim_exp(i2:i2+k-1),contr_coeff(i2:i2+k-1),.false.)
      end if
     end if
    end if
@@ -1050,7 +1057,8 @@ subroutine init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell,&
  i1 = i   ! remember to update i1
  if(highest > 7) then
   write(6,'(/,A)') 'ERROR in subroutine init_bas4atom_for_an_atom: angular mom&
-                   &entum too high!'
+                   &entum too high.'
+  write(6,'(A)') 'Not supported so far.'
   stop
  end if
 end subroutine init_bas4atom_for_an_atom
@@ -1349,54 +1357,10 @@ subroutine prt_cfour_genbas(ecp, mrcc)
  deallocate(KFirst, KLast, Lmax, LPSkip, NLP, RNFroz, CLP, CLP2, ZLP, elem)
 end subroutine prt_cfour_genbas
 
-! get/find basis function marks from the integer array shell_type
-subroutine read_bas_mark_from_shltyp(ncontr,shell_type, nfmark, ngmark, nhmark,&
-                                     nimark, f_mark, g_mark, h_mark, i_mark)
- implicit none
- integer :: i, k
- integer, intent(in) :: ncontr
- integer, intent(in) :: shell_type(ncontr)
- integer, intent(out) :: nfmark, ngmark, nhmark, nimark, f_mark(ncontr), &
-  g_mark(ncontr), h_mark(ncontr), i_mark(ncontr)
-
- nfmark = 0; ngmark = 0; nhmark = 0; nimark = 0
- f_mark = 0; g_mark = 0; h_mark = 0; i_mark = 0
- k = 0
-
- do i = 1, ncontr, 1
-  select case(shell_type(i))
-  case(0) ! S
-   k = k + 1
-  case(1) ! P
-   k = k + 3
-  case(-1) ! L
-   k = k + 4
-  case(-2) ! D
-   k = k + 5
-  case(-3) ! F
-   nfmark = nfmark + 1
-   f_mark(nfmark) = k + 1
-   k = k + 7
-  case(-4) ! G
-   ngmark = ngmark + 1
-   g_mark(ngmark) = k + 1
-   k = k + 9
-  case(-5) ! H
-   nhmark = nhmark + 1
-   h_mark(nhmark) = k + 1
-   k = k + 11
-  case(-6) ! I
-   nimark = nimark + 1
-   i_mark(nimark) = k + 1
-   k = k + 13
-  end select
- end do ! for i
-end subroutine read_bas_mark_from_shltyp
-
-! Update MO coefficients using basis function marks since some MO coefficients
-! in ORCA are negative to those in Gaussian
-subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
-                                ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
+! Update MO coefficients using basis function index marks since some MO
+! coefficients in ORCA are negative to those in Gaussian
+subroutine update_mo_using_mark_orca(nbf, nif, nfmark, ngmark, nhmark, nimark, &
+                                  ncontr, f_mark, g_mark, h_mark, i_mark, coeff)
  implicit none
  integer :: i, k
  integer, intent(in) :: nbf, nif, nfmark, ngmark, nhmark, nimark, ncontr
@@ -1406,34 +1370,24 @@ subroutine update_mo_using_bas_mark(nbf, nif, nfmark, ngmark, nhmark, nimark, &
 
  do i = 1, nfmark, 1
   k = f_mark(i)
-  coeff(k+5,:) = -coeff(k+5,:)
-  coeff(k+6,:) = -coeff(k+6,:)
+  coeff(k+5:k+6,:) = -coeff(k+5:k+6,:)
  end do ! for i
 
  do i = 1, ngmark, 1
   k = g_mark(i)
-  coeff(k+5,:) = -coeff(k+5,:)
-  coeff(k+6,:) = -coeff(k+6,:)
-  coeff(k+7,:) = -coeff(k+7,:)
-  coeff(k+8,:) = -coeff(k+8,:)
+  coeff(k+5:k+8,:) = -coeff(k+5:k+8,:)
  end do ! for i
 
  do i = 1, nhmark, 1
   k = h_mark(i)
-  coeff(k+5,:) = -coeff(k+5,:)
-  coeff(k+6,:) = -coeff(k+6,:)
-  coeff(k+7,:) = -coeff(k+7,:)
-  coeff(k+8,:) = -coeff(k+8,:)
+  coeff(k+5:k+8,:) = -coeff(k+5:k+8,:)
  end do ! for i
 
  do i = 1, nimark, 1
   k = i_mark(i)
-  coeff(k+5,:) = -coeff(k+5,:)
-  coeff(k+6,:) = -coeff(k+6,:)
-  coeff(k+7,:) = -coeff(k+7,:)
-  coeff(k+8,:) = -coeff(k+8,:)
+  coeff(k+5:k+8,:) = -coeff(k+5:k+8,:)
  end do ! for i
-end subroutine update_mo_using_bas_mark
+end subroutine update_mo_using_mark_orca
 
 ! find nprim from type all_pg
 subroutine find_nprim_from_all_pg(ncontr, prim_per_shell, nprim, has_sp)

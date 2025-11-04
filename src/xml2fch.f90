@@ -47,12 +47,11 @@ end program main
 subroutine xml2fch(xmlname, fchname, prt_no)
  implicit none
  integer :: i, j, k, length, na, nb, nbf, nif, nbf0
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
  integer, allocatable :: shell_type(:), shell2atom_map(:)
- integer, allocatable :: idx(:), idx2(:)
- ! mark the index where d, f, g, h functions begin
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: idx(:), idx2(:), d_mark(:), f_mark(:), g_mark(:), &
+  h_mark(:), i_mark(:)
  character(len=240), intent(in) :: xmlname, fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:)
  logical :: uhf, sph
@@ -118,7 +117,7 @@ subroutine xml2fch(xmlname, fchname, prt_no)
  ! adjust the order of d, f, etc. functions
  if(sph) then ! spherical harmonic
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   do i = 1, n5dmark, 1
    call xml2fch_permute_5d(idx(d_mark(i):d_mark(i)+4))
   end do
@@ -132,8 +131,8 @@ subroutine xml2fch(xmlname, fchname, prt_no)
    call xml2fch_permute_11h(idx(h_mark(i):h_mark(i)+10))
   end do
  else  ! Cartesian-type basis
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   do i = 1, n10fmark, 1
    call xml2fch_permute_10f(idx(f_mark(i):f_mark(i)+9))
   end do
@@ -146,7 +145,7 @@ subroutine xml2fch(xmlname, fchname, prt_no)
  end if
 ! adjustment finished
 
- deallocate(shell_type, d_mark, f_mark, g_mark, h_mark)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, i_mark)
 
  nbf = nbf0
  allocate(idx2(nbf), coeff2(nbf,nif))

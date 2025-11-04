@@ -31,10 +31,10 @@ subroutine fch2tm(fchname)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, length, icart, fid
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
  integer, allocatable :: idx(:), ia1(:), ia2(:)
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: norm(:), coeff0(:,:), coeff(:,:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(0:6) = ['s','p','d','f','g','h','i']
@@ -216,23 +216,23 @@ subroutine fch2tm(fchname)
  ! 3) adjust the basis functions in each MO according to the type of basis
  !    functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
  allocate(norm(nbf), source=1d0)
  allocate(coeff0(nbf,nif1), source=coeff)
  if(sph) then
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   call fch2tm_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                           f_mark, g_mark, h_mark, nbf, idx, norm)
  else
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   call fch2tm_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
                            f_mark, g_mark, h_mark, nbf, idx, norm)
  end if
+ deallocate(d_mark, f_mark, g_mark, h_mark, i_mark)
  forall(i=1:nif1, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
- deallocate(norm)
- deallocate(d_mark, f_mark, g_mark, h_mark, coeff0, idx)
+ deallocate(norm, coeff0, idx)
  ! adjustment finished
 
  if(uhf) then

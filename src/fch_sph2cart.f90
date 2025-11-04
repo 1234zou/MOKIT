@@ -50,7 +50,7 @@ subroutine fch_sph2cart(fchname)
  implicit none
  integer :: i, nif0, nbf1, nif1, icart
  real(kind=8), allocatable :: ev(:), sph_coeff(:,:), cart_coeff(:,:), &
-  cart_ovlp(:,:), old_mo(:,:), new_mo(:,:)
+  cart_ovlp(:,:), new_mo(:,:)
  character(len=240) :: cart_fch
  character(len=240), intent(in) :: fchname
  logical :: uhf
@@ -80,6 +80,14 @@ subroutine fch_sph2cart(fchname)
  write(6,'(A)') 'Spherical harmonic functions detected. Now convert to pure Car&
                 &tesian functions...'
  write(6,'(A)') REPEAT('-',79)
+#ifdef _WIN32
+ write(6,'(/,A)') 'ERROR in subroutine fch_sph2cart: this utility cannot be use&
+                  &d on Windows'
+ write(6,'(A)') 'since it needs to call PySCF (and PySCF cannot be used on Wind&
+                &ows currently).'
+ write(6,'(A)') 'Please use it on Linux/MacOS.'
+ stop
+#endif
 
  call check_uhf_in_fch(fchname, uhf)
  call read_fch(fchname, uhf)

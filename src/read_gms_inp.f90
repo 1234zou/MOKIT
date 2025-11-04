@@ -916,68 +916,6 @@ subroutine read_nbf_and_nif_from_gms_inp(inpname, nbf, nif)
  close(fid)
 end subroutine read_nbf_and_nif_from_gms_inp
 
-! read Cartesian-type nbf and nif from GAMESS .inp/.dat file
-subroutine read_cart_nbf_nif_from_dat(datname, nbf, nif)
- implicit none
- integer :: i, j, k, fid
- integer, intent(out) :: nbf, nif
- character(len=240) :: buf
- character(len=240), intent(in) :: datname
-
- nbf = 0; nif = 0
- open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(2:5) == '$VEC') exit
-  end if
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$VEC' f&
-                   &ound in file "//TRIM(datname)
-  close(fid)
-  stop
- end if
-
- j = 0
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:2) /= ' 1') exit
-  j = j + 1
- end do ! for while
-
- k = j ! backup
-
- BACKSPACE(fid)
- BACKSPACE(fid)
- read(fid,'(A)') buf
- nbf = (j-1)*5 + (LEN_TRIM(buf)-5)/15
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(2:5) == '$END') exit
-  end if
-  j = j + 1
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cart_nbf_nif_from_dat: no '$END' c&
-                   &orresponds to '$VEC'"
-  write(6,'(A)') 'in file '//TRIM(datname)
-  stop
- end if
-
- nif = j/k
-end subroutine read_cart_nbf_nif_from_dat
-
 ! read na, nb, nif and nbf from a given GAMESS .inp file
 ! Note: when spherical harmonic functions are used, the nbf here will <=
 !  the number of basis functions in $VEC (where MOs are always expanded
@@ -1858,11 +1796,11 @@ subroutine read_irel_from_gms_inp(inpname, irel)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_irel_from_gms_inp: no $CONTRL sect&
-                   &ion found in'
-  write(6,'(A)') 'file '//TRIM(inpname)
+  write(6,'(/,A)') 'Warning from subroutine read_irel_from_gms_inp: no $CONTRL &
+                   &secton found'
+  write(6,'(A)') 'in file '//TRIM(inpname)//'. Treating as non-relativistic.'
   close(fid)
-  stop
+  return
  end if
 
  i = INDEX(buf, '$END')

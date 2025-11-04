@@ -2781,16 +2781,17 @@ subroutine mv_dege_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
  deallocate(mo_i)
 end subroutine mv_dege_docc_below_bo
 
-! generate natural orbitals from provided density matrix and overlap matrix
-subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
+! generate natural orbitals from provided AO-basis density matrix and overlap
+! matrix
+subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, dm, ao_ovlp, noon, new_coeff)
  implicit none
  integer :: i, j, lwork, liwork
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
  integer, allocatable :: isuppz(:), iwork(:)
- real(kind=8), intent(in) :: P(nbf,nbf), ao_ovlp(nbf,nbf)
-!f2py intent(in) :: P, ao_ovlp
-!f2py depend(nbf) :: P, ao_ovlp
+ real(kind=8), intent(in) :: dm(nbf,nbf), ao_ovlp(nbf,nbf)
+!f2py intent(in) :: dm, ao_ovlp
+!f2py depend(nbf) :: dm, ao_ovlp
  real(kind=8), intent(out) :: noon(nif), new_coeff(nbf,nif)
 !f2py intent(out) :: noon, new_coeff
 !f2py depend(nif) :: noon
@@ -2803,7 +2804,7 @@ subroutine gen_no_from_dm_and_ao_ovlp(nbf, nif, P, ao_ovlp, noon, new_coeff)
  allocate(S(nbf,nbf), source=ao_ovlp)
  allocate(sqrt_S(nbf,nbf), n_sqrt_S(nbf,nbf))
  call mat_dsqrt(nbf, S, .true., sqrt_S, n_sqrt_S) ! solve S^1/2 and S^-1/2
- call calc_sps(nbf, P, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
+ call calc_sps(nbf, dm, sqrt_S, S) ! use S to store (S^1/2)P(S^1/2)
  deallocate(sqrt_S)
 
  lwork = -1; liwork = -1

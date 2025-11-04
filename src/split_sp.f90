@@ -554,7 +554,7 @@ end subroutine zeta_mv_forwd_idx
 
 ! read the location indices of 3p from the array shell_type
 ! Note: can be used for spherical harmonic type or Cartesian type basis
-subroutine read3pmark_from_shltyp(ncontr, shltyp, np, p_mark)
+subroutine read_3pmark_from_shltyp(ncontr, shltyp, np, p_mark)
  implicit none
  integer :: i, k, nbf
  integer, intent(in) :: ncontr
@@ -563,8 +563,8 @@ subroutine read3pmark_from_shltyp(ncontr, shltyp, np, p_mark)
  integer, parameter :: nbas_per_ang(-6:6) = [13,11,9,7,5,4,1,3,6,10,15,21,28]
 
  if(ANY(shltyp == -1)) then
-  write(6,'(/,A)') 'ERROR in subroutine read3pmark_from_shltyp: there exists so&
-                   &me element -1 in'
+  write(6,'(/,A)') 'ERROR in subroutine read_3pmark_from_shltyp: there exists s&
+                   &ome element -1 in'
   write(6,'(A)') 'the array shltyp. The subroutine split_L_func is supposed to &
                  &be called before'
   write(6,'(A)') 'calling this subroutine. shltyp='
@@ -582,22 +582,76 @@ subroutine read3pmark_from_shltyp(ncontr, shltyp, np, p_mark)
   end if
   nbf = nbf + nbas_per_ang(k)
  end do ! for i
-end subroutine read3pmark_from_shltyp
+end subroutine read_3pmark_from_shltyp
 
-! read the position marks of 5D, 7F, etc from array shell_type
-! Note: only used for spherical harmonic type basis
-subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
-                                     f_mark, g_mark, h_mark)
+! read index marks of 15G from array shell_type
+! Note: only used for Cartesian type basis
+subroutine read_gmark_from_shltyp_cart(ncontr, shltyp, ng, g_mark)
  implicit none
  integer :: i, k, nbf
  integer, intent(in) :: ncontr
  integer, intent(in) :: shltyp(ncontr)
- integer, intent(out) :: nd, nf, ng, nh, d_mark(ncontr), f_mark(ncontr), &
-  g_mark(ncontr), h_mark(ncontr)
+ integer, intent(out) :: ng, g_mark(ncontr)
  integer, parameter :: nbas_per_ang(-6:6) = [13,11,9,7,5,4,1,3,6,10,15,21,28]
 
- nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0
- d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0
+ nbf = 0; ng = 0; g_mark = 0
+
+ do i = 1, ncontr, 1
+  k = shltyp(i)
+  select case(k)
+  case(-1,0,1,2,3,5,6)
+  case(4) ! 15G
+   ng = ng + 1
+   g_mark(ng) = nbf + 1
+  case default
+   write(6,'(/,A)') 'ERROR in subroutine read_gmark_from_shltyp_cart:'
+   write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
+   stop
+  end select
+  nbf = nbf + nbas_per_ang(k)
+ end do ! for i
+end subroutine read_gmark_from_shltyp_cart
+
+subroutine update_mo_using_gmark_nwc(nbf, nif, ngmark, g_mark, coeff)
+ implicit none
+ integer :: i, j, k, m
+ integer, intent(in) :: nbf, nif, ngmark
+ integer, intent(in) :: g_mark(ngmark)
+ integer, parameter :: idx(15) = [3,9,12,7,2,8,15,14,6,11,13,10,5,4,1]
+ real(kind=8), intent(inout) :: coeff(nbf,nif)
+ real(kind=8), allocatable :: tmp_coeff(:,:)
+
+ allocate(tmp_coeff(nbf,nif), source=coeff)
+
+!$omp parallel do schedule(dynamic) default(shared) private(i,j,k,m)
+ do i = 1, nif, 1
+  do j = 1, ngmark, 1
+   m = g_mark(j) - 1
+   do k = 1, 15
+    tmp_coeff(m+k,i) = coeff(m+idx(k),i)
+   end do ! for k
+  end do ! for j
+ end do ! for i
+!$omp end parallel do
+
+ coeff = tmp_coeff
+ deallocate(tmp_coeff)
+end subroutine update_mo_using_gmark_nwc
+
+! read index marks of 5D, 7F, etc from array shell_type
+! Note: only used for spherical harmonic type basis
+subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, ni, d_mark,&
+                                     f_mark, g_mark, h_mark, i_mark)
+ implicit none
+ integer :: i, k, nbf
+ integer, intent(in) :: ncontr
+ integer, intent(in) :: shltyp(ncontr)
+ integer, intent(out) :: nd, nf, ng, nh, ni, d_mark(ncontr), f_mark(ncontr), &
+  g_mark(ncontr), h_mark(ncontr), i_mark(ncontr)
+ integer, parameter :: nbas_per_ang(-6:6) = [13,11,9,7,5,4,1,3,6,10,15,21,28]
+
+ nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0; ni = 0
+ d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0; i_mark = 0
 !     Spherical      |     Cartesian
 ! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
 !  I  H  G  F  D  L  S  P  D  F  G  H  I
@@ -605,7 +659,7 @@ subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
  do i = 1, ncontr, 1
   k = shltyp(i)
   select case(k)
-  case(-1,0,1)
+  case(-1,0,1) ! L/S/P
   case(-2) ! 5D
    nd = nd + 1
    d_mark(nd) = nbf + 1
@@ -618,6 +672,9 @@ subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
   case(-5) ! 11H
    nh = nh + 1
    h_mark(nh) = nbf + 1
+  case(-6) ! 13I
+   ni = ni + 1
+   i_mark(ni) = nbf + 1
   case default
    write(6,'(/,A)') 'ERROR in subroutine read_mark_from_shltyp_sph:'
    write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
@@ -627,23 +684,20 @@ subroutine read_mark_from_shltyp_sph(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
  end do ! for i
 end subroutine read_mark_from_shltyp_sph
 
-! read the position marks of 6D, 10F, etc from array shell_type
+! read index marks of 6D, 10F, etc from array shell_type
 ! Note: only used for Cartesian type basis
-subroutine read_mark_from_shltyp_cart(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
-                                      f_mark, g_mark, h_mark)
+subroutine read_mark_from_shltyp_cart(ncontr, shltyp, nd, nf, ng, nh, ni, &
+                                    d_mark, f_mark, g_mark, h_mark, i_mark)
  implicit none
  integer :: i, k, nbf
  integer, intent(in) :: ncontr
  integer, intent(in) :: shltyp(ncontr)
- integer, intent(out) :: nd, nf, ng, nh, d_mark(ncontr), f_mark(ncontr), &
-  g_mark(ncontr), h_mark(ncontr)
+ integer, intent(out) :: nd, nf, ng, nh, ni, d_mark(ncontr), f_mark(ncontr), &
+  g_mark(ncontr), h_mark(ncontr), i_mark(ncontr)
  integer, parameter :: nbas_per_ang(-6:6) = [13,11,9,7,5,4,1,3,6,10,15,21,28]
 
- nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0
- d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0
-!     Spherical      |     Cartesian
-! -6,-5,-4,-3,-2,-1, 0, 1, 2, 3, 4, 5, 6
-!  I  H  G  F  D  L  S  P  D  F  G  H  I
+ nbf = 0; nd = 0; nf = 0; ng = 0; nh = 0; ni = 0
+ d_mark = 0; f_mark = 0; g_mark = 0; h_mark = 0; i_mark = 0
 
  do i = 1, ncontr, 1
   k = shltyp(i)
@@ -661,6 +715,9 @@ subroutine read_mark_from_shltyp_cart(ncontr, shltyp, nd, nf, ng, nh, d_mark, &
   case(5) ! 21H
    nh = nh + 1
    h_mark(nh) = nbf + 1
+  case(6) ! 28I
+   ni = ni + 1
+   i_mark(ni) = nbf + 1
   case default
    write(6,'(/,A)') 'ERROR in subroutine read_mark_from_shltyp_cart:'
    write(6,'(A,I0)') 'Invalid shltyp(i)=', shltyp(i)
@@ -673,33 +730,33 @@ end subroutine read_mark_from_shltyp_cart
 ! get Gaussian -> Q-Chem permutation indices
 subroutine get_fch2qchem_permute_idx(sph, ncontr, shell_type, nbf, idx)
  implicit none
- integer :: i
- integer :: n5dmark, n7fmark, n9gmark, n11hmark
- integer :: n6dmark, n10fmark, n15gmark, n21hmark
+ integer :: i, n5dmark, n7fmark, n9gmark, n11hmark, n13imark, n6dmark, &
+  n10fmark, n15gmark, n21hmark, n28imark
  integer, intent(in) :: ncontr, nbf
  integer, intent(in) :: shell_type(ncontr)
  integer, intent(out) :: idx(nbf)
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  logical, intent(in) :: sph
 
- allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr))
+ allocate(d_mark(ncontr), f_mark(ncontr), g_mark(ncontr), h_mark(ncontr), &
+          i_mark(ncontr))
  forall(i = 1:nbf) idx(i) = i
 
  if(sph) then
-  call read_mark_from_shltyp_sph(ncontr, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_sph(ncontr, shell_type, n5dmark, n7fmark, n9gmark,&
+                     n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 5d, 7f functions, etc
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, ncontr, &
                               d_mark, f_mark, g_mark, h_mark, nbf, idx)
  else
-  call read_mark_from_shltyp_cart(ncontr, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(ncontr, shell_type, n6dmark, n10fmark, &
+     n15gmark, n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   ! adjust the order of 6d, 10f functions, etc
   call fch2qchem_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, ncontr, &
                               d_mark, f_mark, g_mark, h_mark, nbf, idx)
  end if
 
- deallocate(d_mark, f_mark, g_mark, h_mark)
+ deallocate(d_mark, f_mark, g_mark, h_mark, i_mark)
 end subroutine get_fch2qchem_permute_idx
 
 subroutine fch2qchem_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
@@ -1082,4 +1139,16 @@ subroutine fch2openqp_permute_cart(n10fmark, n15gmark, n21hmark, k, f_mark, &
   call fch2openqp_permute_21h(idx(j:j+20))
  end do ! for i
 end subroutine fch2openqp_permute_cart
+
+!subroutine dat2fch_permute_15g(idx)
+! implicit none
+! integer :: i, idx0(15)
+! integer, parameter :: order(15) = [3,9,12,7,2,8,15,14,6,11,13,10,5,4,1]
+! integer, intent(inout) :: idx(15)
+!
+! idx0 = idx
+! do i = 1, 15
+!  idx(i) = idx0(order(i))
+! end do ! for i
+!end subroutine dat2fch_permute_15g
 

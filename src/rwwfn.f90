@@ -209,50 +209,6 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  close(fid)
 end subroutine read_nbf_and_nif_from_orb
 
-! read nbf from a GAMESS .dat file
-subroutine read_cart_nbf_from_dat(datname, nbf)
- implicit none
- integer :: i, j, fid
- integer, intent(out) :: nbf
- character(len=240) :: buf
- character(len=240), intent(in) :: datname
-
- nbf = 0
- open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:2) == '$') then
-   call upper(buf(3:5))
-   if(buf(2:5) == '$VEC') exit
-  end if
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_nbf_from_dat: no '$VEC' found in f&
-                   &ile "//TRIM(datname)
-  close(fid)
-  stop
- end if
-
- j = 0
- do while(.true.)
-  read(fid,'(A)') buf
-  read(buf(1:2),*) i
-  if(i == 2) exit
-  j = j + 1
- end do ! for while
-
- nbf = (j-1)*5
- BACKSPACE(fid)
- BACKSPACE(fid)
- read(fid,'(A)') buf
- close(fid)
-
- nbf = nbf + LEN_TRIM(buf(6:))/15
-end subroutine read_cart_nbf_from_dat
-
 ! read Alpha/Beta MOs from a given .fch(k) file
 subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
  implicit none

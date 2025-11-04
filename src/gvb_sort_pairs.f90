@@ -2,50 +2,48 @@
 !                               of the 1st natural orbital in each pair
 ! updated by jxzou at 20200811: take the 1 pair case into consideration
 
-! Note: the input file must be in GAMESS format, i.e., .dat or .inp
-
+! Note: the input file must be in GAMESS format (.dat/.inp)
 program main
  implicit none
- integer :: i
- integer :: nbf, nif, nocc, nopen, npair
+ integer :: i, nbf, nif, nocc, nopen, npair
  character(len=10) :: buf
  character(len=240) :: datname
 
- nocc = 0; nopen = 0; npair = 0
- buf = ' '
- datname = ' '
+ nocc = 0; nopen = 0; npair = 0; buf = ' '; datname = ' '
+ write(6,'(/,A)') REPEAT('-',79)
+ write(6,'(A)') 'Warning: since MOKIT 1.2.7rc13, gvb_sort_pairs does not requir&
+                &e the user to'
+ write(6,'(A)') 'provide nbf and nif. For experienced users who directly use th&
+                &e utility'
+ write(6,'(A)') 'gvb_sort_pairs, please update your usage. For common users who&
+                & does not use it'
+ write(6,'(A)') 'directly, please ignore this warning.'
+ write(6,'(A)') REPEAT('-',79)
+
  i = iargc()
- if(i /= 6) then
+ if(i /= 4) then
   write(6,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: wrong command line arguments!'
-  write(6,'(A)')   'Format : gvb_sort_pairs a.dat nbf nif nocc nopen npair'
-  write(6,'(A,/)') 'Example: gvb_sort_pairs a.dat 548 548 40 1 71'
+  write(6,'(A)')   'Syntax : gvb_sort_pairs a.dat nocc nopen npair'
+  write(6,'(A,/)') 'Example: gvb_sort_pairs a.dat 40 1 71'
   stop
  end if
 
  call getarg(1, datname)
  call require_file_exist(datname)
-
  call getarg(2, buf)
- read(buf,*) nbf
- call getarg(3, buf)
- read(buf,*) nif
- call getarg(4, buf)
  read(buf,*) nocc
- call getarg(5, buf)
+ call getarg(3, buf)
  read(buf,*) nopen
- call getarg(6, buf)
+ call getarg(4, buf)
  read(buf,*) npair
 
- if(nif > nbf) then
-  write(6,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: nif>nbf. Impossible!'
-  stop
- end if
  if(npair < 0) then
   write(6,'(/,A)') 'ERROR in subroutine gvb_sort_pairs: npair<0. Not allowed!'
   write(6,'(A,I0)') 'npair=', npair
   stop
  end if
 
+ call read_cart_nbf_nif_from_dat(datname, .false., nbf, nif)
  call gvb_sort_pairs(datname, nbf, nif, nocc, nopen, npair)
 end program main
 

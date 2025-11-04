@@ -62,11 +62,11 @@ end program main
 subroutine fch2dal(fchname, sph)
  implicit none
  integer :: i, j, k, length, fid, fid1, nbf, nif, RENAME
- integer :: n6dmark,n10fmark,n15gmark,n21hmark
- integer :: n5dmark,n7fmark, n9gmark, n11hmark
+ integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
  integer, allocatable :: shell_type(:), shell2atom_map(:), idx(:)
- ! mark the index where d, f, g, h functions begin
- integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:)
+ ! mark the index where d,f,g,h,i functions begin
+ integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:), norm(:)
  character(len=24) :: data_string
  character(len=240) :: buf, dalfile, dalfile1
@@ -105,7 +105,7 @@ subroutine fch2dal(fchname, sph)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
 
  ! adjust the order of d, f, etc. functions (share subroutines with fch2inporb)
  allocate(idx(nbf))
@@ -113,20 +113,20 @@ subroutine fch2dal(fchname, sph)
  allocate(coeff0(nbf,nif), source=coeff)
  if(sph) then ! spherical harmonic
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
-                                 n11hmark, d_mark, f_mark, g_mark, h_mark)
+                 n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   call fch2inporb_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                               f_mark, g_mark, h_mark, nbf, idx)
   forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
  else         ! Cartesian-type basis
   allocate(norm(nbf), source=1d0)
-  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark,&
-                                  n21hmark, d_mark, f_mark, g_mark, h_mark)
+  call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
+                    n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   call fch2inporb_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark, &
                                f_mark, g_mark, h_mark, nbf, idx, norm)
   forall(i=1:nif, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
   deallocate(norm)
  end if
- deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, coeff0, idx)
+ deallocate(shell_type, d_mark, f_mark, g_mark, h_mark, i_mark, coeff0, idx)
 ! adjustment finished
 
  i = INDEX(fchname, '.fch', back=.true.)

@@ -1057,6 +1057,7 @@ subroutine gen_sfcis_no_from_fch_and_gms(fchname, gmsname, istate, nfc, nval, &
 
  call write_dm_into_fch(no_fch, .true., nbf, ao_dm)
  deallocate(ao_dm)
+ ! TODO: this can be simplified to simply diagonalizing mo_dm
  call gen_no_using_dm_in_fch(no_fch, 1)
 end subroutine gen_sfcis_no_from_fch_and_gms
 
