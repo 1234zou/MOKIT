@@ -5,7 +5,7 @@
     #- apt-get update -qy
     - conda init bash
     - source ~/.bashrc
-    - conda create -n mokit-build python=3.9
+    - conda create -n mokit-build python=3.9 libgcc-ng=11
     - conda activate mokit-build
     - conda install anaconda-client conda-build=24.9 setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
@@ -50,6 +50,7 @@ conda_build_test:
       - ci-update-2025
       - conda-fix-dep
       - conda-fix-glibc
+      - conda-fix-gcc
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
