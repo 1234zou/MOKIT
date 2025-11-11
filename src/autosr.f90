@@ -57,7 +57,7 @@ subroutine read_sr_program_path()
 
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
- write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
+ write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
  write(6,'(A)') '           Version: 1.2.7rc14 (2025-Nov-11)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 

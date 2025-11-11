@@ -3,7 +3,7 @@
 *&emsp;&emsp;[GitLab仓库](https://gitlab.com/jxzou/MOKIT)*
 *&emsp;&emsp;[GitHub镜像](https://github.com/1234zou/MOKIT)*
 *&emsp;&emsp;[NJU-Git镜像](https://git.nju.edu.cn/jxzou/mokit)*
-*&emsp;&emsp;[在线文档](https://jeanwsr.gitlab.io/mokit-doc-mdbook/)*
+*&emsp;&emsp;[在线文档](https://doc.mokit.xyz/)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外，MOKIT中的`automr`程序可以进行多参考（态）方法的自动化、黑箱式计算。
@@ -35,11 +35,11 @@ or
 2. `frag_guess_wfn`: Gaussian
 3. 绝大多数传轨道的小程序没有依赖，除了`py2gau`, `py2orca`, `py2molpro`这些Python模块需要在安装有PySCF时才能正常使用
 
-注意官方GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。因此请阅读[手册 4.4.10部分](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog)使用提供的脚本自动修改GAMESS代码。
+注意官方GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。因此请阅读[手册 4.4.10部分](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog)使用提供的脚本自动修改GAMESS代码。
 
 安装
 ----------
-在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，或其他二进制小程序，如`fch2mkl`，还有更简洁的安装方式，见[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn)。
+在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，或其他二进制小程序，如`fch2mkl`，还有更简洁的安装方式，见[此处](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn)。
 开发者还提供`Windows系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
 
 ### 方式1：conda 联网安装（适用于Linux）
@@ -56,11 +56,11 @@ conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，请尝试方式3。
+使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，请尝试方式3。
 
 ### 方式2：homebrew 联网安装（仅针对MacOS）
 * 前提
-    - 需要安装[homebrew](https://brew.sh)，更多帮助[见此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only)。
+    - 需要安装[homebrew](https://brew.sh)，更多帮助[见此处](https://doc.mokit.xyz/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only)。
     - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy，如下
     
 ```
@@ -85,10 +85,10 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 
 ### 方式3：使用预编译版
 
-`Linux`预编译版本可从[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)下载。
+`Linux`预编译版本可从[此处](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries)下载。
 
 * 前提: 需要有Python3环境和NumPy
-* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)。
+* 如不清楚如何选择预编译版本或解决预编译版本的依赖问题，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries)。
 * 下载预编译版后, 您需要在`~/.bashrc`文件中设定下述环境变量（假设MOKIT放在`$HOME/software/mokit`）：
 
 ```bash
@@ -102,7 +102,7 @@ export GMS=$HOME/software/gamess/rungms
 修改后需退出重登，以使环境变量生效。
 
 ### 方式4：从源码编译
-下载MOKIT最新源代码可参阅[此处](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html)。
+下载MOKIT最新源代码可参阅[此处](https://doc.mokit.xyz/chap2-3.html)。
 
 * 前提（编译器和库要求）
     - Fortran编译器: `ifort`(>=2017) 或 `gfortran`(>=4.8.5)
@@ -135,7 +135,7 @@ GAMESS可执行文件的路径请按照您机器上的实际情况修改。
  Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
  Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 ```
-您可在此[网页](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-5.html)上搜索需要的小程序及阅读相应文档.
+您可在此[网页](https://doc.mokit.xyz/chap4-5.html)上搜索需要的小程序及阅读相应文档.
 
 * 对于mokit/lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的[readme.txt](examples/utilities/readme.txt)
 
@@ -159,7 +159,7 @@ automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ```
 
 命令，`automr`程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。
-更多信息请见 [程序文档 Quick Start](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) 及 [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html)。
+更多信息请见 [程序文档 Quick Start](https://doc.mokit.xyz/chap3_quick.html) 及 [User Guide](https://doc.mokit.xyz/chap4_guide.html)。
 更多例子请见[examples](examples/)。
 
 
@@ -216,7 +216,7 @@ MOKIT支持在这些量子化学程序间传轨道
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* 若您在您的研究中使用了MOKIT的任何一个子程序或模块，请在正文参考文献中恰当引用MOKIT，仅在补充材料中引用MOKIT是不够的。EndNote引用文件请见[此处](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads)。更详细的引用说明和示例请见[手册](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html)，您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* 若您在您的研究中使用了MOKIT的任何一个子程序或模块，请在正文参考文献中恰当引用MOKIT，仅在补充材料中引用MOKIT是不够的。EndNote引用文件请见[此处](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads)。更详细的引用说明和示例请见[手册](https://doc.mokit.xyz/chap1-2.html)，您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
-* 点击[这里](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html)可以浏览引用MOKIT的已发表文章。
+* 点击[这里](https://doc.mokit.xyz/citing.html)可以浏览引用MOKIT的已发表文章。
 
