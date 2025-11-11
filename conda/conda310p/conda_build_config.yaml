@@ -5,3 +5,7 @@ numpy:
   - 2.2
 mkl:
   - 2023
+c_stdlib_version:
+  - "2.17" 
+fortran_compiler_version:
+  - 11
