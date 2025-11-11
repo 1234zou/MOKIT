@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 11
+  number: 16
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
