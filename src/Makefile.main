@@ -214,7 +214,7 @@ help:
 	echo "is desired, try one of these" ;\
 	echo "   make [target] -f Makefile.gnu_openblas" ;\
 	echo "   make [target] -f Makefile.gnu_mkl" ;\
-	echo " read https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html#235-compiler-notes for more info." ;\
+	echo " read https://doc.mokit.xyz/chap2-3.html#235-compiler-notes for more info." ;\
 	echo
 
 add_bgcharge_to_inp: $(OBJ_add_bgcharge_to_inp)

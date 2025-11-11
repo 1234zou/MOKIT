@@ -3,7 +3,7 @@
 *&emsp;&emsp;[GitLab repo](https://gitlab.com/jxzou/MOKIT)*
 *&emsp;&emsp;[GitHub mirror](https://github.com/1234zou/MOKIT)*
 *&emsp;&emsp;[NJU-Git mirror](https://git.nju.edu.cn/jxzou/mokit)*
-*&emsp;&emsp;[Documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook/)*
+*&emsp;&emsp;[Documentation](https://doc.mokit.xyz/)*
 
 # Molecular Orbital KIT (MOKIT)
 MOKIT offers various utilities and modules to transfer MOs among various quantum chemistry software packages. Besides, the `automr` program in MOKIT can set up and run common multi-reference calculations in a black-box way.
@@ -35,11 +35,11 @@ Dependencies on quantum chemistry packages are different for each executable or 
 2. `frag_guess_wfn`: Gaussian
 3. Most of the utilities do not depend on quantum chemistry packages except that the modules `py2gau`, `py2orca`, `py2molpro`, etc, work with PySCF installed.
 
-Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-4.html#4410-gvb_prog).
+Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in [manual](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog).
 
 Installation
 ------------
-You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or other binary utilities, like `fch2mkl`, see [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or other binary utilities, like `fch2mkl`, see [here](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
 Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
 ### Option 1: Install from conda (for Linux only)
@@ -55,11 +55,11 @@ conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
+You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
-    - You need to install [homebrew](https://brew.sh) on your mac. See [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only) for more tips.
+    - You need to install [homebrew](https://brew.sh) on your mac. See [here](https://doc.mokit.xyz/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only) for more tips.
     - You need to install conda via brew and install numpy in base env. via pip, as follows
 
 ```
@@ -84,11 +84,11 @@ export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 
 ### Option 3: Use Pre-compiled MOKIT
 
-Pre-built `Linux` executables can be downloaded [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries).
+Pre-built `Linux` executables can be downloaded [here](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries).
 
 * Prerequisites: Python3 environment and NumPy.
 
-* A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-2.html#222-pre-built-linux-executables-and-libraries)
+* A detailed guide for choosing the version of pre-built artifacts and resolving dependencies can be found [here](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries)
 
 * After downloading the pre-built artifacts, you need to set the following environment variables (assuming MOKIT is put in `$HOME/software/mokit`) in your `~/.bashrc`:
 
@@ -103,7 +103,7 @@ The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there.
 Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 ### Option 4: Build from Source
-The link to latest version of MOKIT source code can be found [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap2-3.html).
+The link to latest version of MOKIT source code can be found [here](https://doc.mokit.xyz/chap2-3.html).
 
 * Prerequisites
     - Fortran compiler: `ifort`(>=2017) or `gfortran`(>=4.8.5)
@@ -137,7 +137,7 @@ Quick Start
  Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
  Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
 ```
-You can search a utility and read their documentations [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4-5.html).
+You can search a utility and read their documentations [here](https://doc.mokit.xyz/chap4-5.html).
 
 * For usages of modules in mokit/lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
 
@@ -160,7 +160,7 @@ Run
 automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
 ```
 in Shell. The `automr` program will successively perform HF, GVB, and CASSCF computations. The active space will be automatically determined as (4,4) during computations. 
-See [Quick Start at documentation](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap3_quick.html) and [User Guide](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap4_guide.html) for more information.
+See [Quick Start at documentation](https://doc.mokit.xyz/chap3_quick.html) and [User Guide](https://doc.mokit.xyz/chap4_guide.html) for more information.
 See [examples/](examples/) for more examples.
 
 
@@ -214,7 +214,7 @@ Citation
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://doc.mokit.xyz/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
-* Click [here](https://jeanwsr.gitlab.io/mokit-doc-mdbook/citing.html) to see published papers which cited MOKIT.
+* Click [here](https://doc.mokit.xyz/citing.html) to see published papers which cited MOKIT.
 
