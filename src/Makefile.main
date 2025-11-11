@@ -33,7 +33,6 @@ OBJ_bas_gms2py = file_op.o string_manipulate.o math_sub.o read_gms_inp.o read_na
                  bas_gms2py.o
 OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o read_ev_on.o rwwfn.o \
               read_fch.o split_sp.o bdf2fch.o
-OBJ_bdf2mkl = file_op.o bdf2mkl.o
 OBJ_chk2gbw = file_op.o string_manipulate.o util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o read_ev_on.o rwwfn.o \
               split_sp.o dal2fch.o
@@ -164,7 +163,7 @@ OBJ_excited = file_op.o string_manipulate.o ortho.o read_ev_on.o read_gms_inp.o 
 .PHONY: exe pymodules all clean pyclean distclean addH2singlet add_bgcharge_to_inp \
         align_orbitals automl automr autosr amo2fch bas_fch2py bas_gau2molcas \
         bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py \
-        bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo \
+        bdf2fch chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo \
         fch2bdf fch2cfour fch2com fch2dal fch2inp fch2inporb fch2mkl fch2mrcc \
         fch2nwc fch2openqp fch2psi fch2qchem fch2qm4d fch2tm fch_sph2cart fch_u2r \
         fch_mo_copy fch2wfn frag_guess_wfn frag_qc find_mc_pair inp2gjf \
@@ -271,12 +270,6 @@ bas_gms2py: $(OBJ_bas_gms2py)
 
 bdf2fch: $(OBJ_bdf2fch)
 	$(F90) $(OBJ_bdf2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bdf2fch
-
-bdf2mkl: $(OBJ_bdf2mkl)
-	$(F90) $(OBJ_bdf2mkl) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bdf2mkl
-	@echo ;\
-	echo "bdf2mkl requires utilities bdf2fch and fch2mkl, please also compile them" ;\
-	echo
 
 chk2gbw: $(OBJ_chk2gbw)
 	$(F90) $(OBJ_chk2gbw) $(FFLAGS) -o $(BIN)/chk2gbw
@@ -521,9 +514,9 @@ get_mokit_loc:
 
 exe: add_bgcharge_to_inp addH2singlet automr autosr amo2fch bas_fch2py bas_gau2molcas \
      bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch \
-     bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo fch2bdf \
-     fch2cfour fch2com fch2dal fch2inp fch2inporb fch2mkl fch2mrcc fch2nwc \
-     fch2openqp fch2psi fch2qchem fch2qm4d fch2tm fch_sph2cart fch_u2r fch_mo_copy \
+     chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo fch2bdf fch2cfour \
+     fch2com fch2dal fch2inp fch2inporb fch2mkl fch2mrcc fch2nwc fch2openqp \
+     fch2psi fch2qchem fch2qm4d fch2tm fch_sph2cart fch_u2r fch_mo_copy \
      fch2wfn frag_guess_wfn find_mc_pair gau_external geom_opt gvb_correct_pairs \
      gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal \
      mkl2fch mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2mrcc mkl2openqp mkl2py \
@@ -534,8 +527,8 @@ pymodules: auto_pair chk2py fch2py py2fch pyuno qchem ortho assoc_rot \
 
 all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair amo2fch bas_fch2py \
      bas_gau2molcas bas_gms2bdf bas_gms2dal bas_gms2molcas bas_gms2molpro \
-     bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch dat2fch extract_noon2fch fch247 \
-     fch2amo fch2bdf fch2cfour fch2com fch2dal fch2inp fch2inporb fch2mkl fch2mrcc \
+     bas_gms2py bdf2fch chk2gbw dal2fch dat2fch extract_noon2fch fch247 fch2amo \
+     fch2bdf fch2cfour fch2com fch2dal fch2inp fch2inporb fch2mkl fch2mrcc \
      fch2nwc fch2openqp fch2psi fch2qchem fch2qm4d fch2tm fch_sph2cart fch_u2r \
      fch_mo_copy fch2wfn frag_guess_wfn chk2py fch2py find_mc_pair gau_external \
      geom_opt gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf \

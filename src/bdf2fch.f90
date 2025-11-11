@@ -13,13 +13,13 @@ program main
 
  i = iargc()
  if(i<2 .or. i>4) then
-  write(6,'(/,A)') ' ERROR in subroutine bdf2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF/UHF): bdf2fch a.scforb a.fch'
-  write(6,'(A)')   ' Example 2 (for R(O)HF/UHF): bdf2fch a.scforb a.fch a_new.fch'
-  write(6,'(A)')   ' Example 3 (for CAS)       : bdf2fch a.casorb a.fch'
-  write(6,'(A)')   ' Example 4 (for CAS)       : bdf2fch a.casorb a.fch a_new.fch'
-  write(6,'(A)')   ' Example 5 (for CAS NO)    : bdf2fch a.casorb a.fch -no'
-  write(6,'(A,/)') ' Example 6 (for CAS NO)    : bdf2fch a.casorb a.fch a_new.fch -no'
+  write(6,'(/,A)') ' ERROR in program bdf2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF): bdf2fch a.scforb a.fch'
+  write(6,'(A)')   ' Example 2 (R(O)HF/UHF): bdf2fch a.scforb a.fch a_new.fch'
+  write(6,'(A)')   ' Example 3 (CAS)       : bdf2fch a.casorb a.fch'
+  write(6,'(A)')   ' Example 4 (CAS)       : bdf2fch a.casorb a.fch a_new.fch'
+  write(6,'(A)')   ' Example 5 (CAS NO)    : bdf2fch a.casorb a.fch -no'
+  write(6,'(A,/)') ' Example 6 (CAS NO)    : bdf2fch a.casorb a.fch a_new.fch -no'
   stop
  end if
 

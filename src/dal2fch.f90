@@ -10,7 +10,7 @@ program main
 
  i = iargc()
  if(i<2 .or. i>3) then
-  write(6,'(/,A)') ' ERROR in subroutine dal2fch: wrong command line arguments!'
+  write(6,'(/,A)') ' ERROR in program dal2fch: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF, CAS): dal2fch DALTON.MOPUN a.fch'
   write(6,'(A,/)') ' Example 2 (CAS NO)     : dal2fch DALTON.MOPUN a.fch -no'
   stop

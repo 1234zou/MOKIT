@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://jeanwsr.gitlab.io/mokit-doc-mdbook'
- write(6,'(A)') '           Version: 1.2.7rc13 (2025-Nov-4)'
+ write(6,'(A)') '           Version: 1.2.7rc14 (2025-Nov-11)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -623,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc13 :: MOKIT, release date: 2025-Nov-4'
+  write(6,'(A)') 'AutoSR 1.2.7rc14 :: MOKIT, release date: 2025-Nov-11'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -1493,9 +1493,9 @@ end subroutine prt_posthf_gau_inp
 
 ! add CC keywords into a ORCA input file
 subroutine prt_posthf_orca_inp(inpname, excited)
- use sr_keyword, only: mem, nproc, RI, DLPNO, F12, RIJK_bas, RIC_bas, F12_cabs,&
-  mo_rhf, lin_dep, mp2, qcisd, qcisd_t, ccd, ccsd, ccsd_t, iterative_t, ccsdt, &
-  gen_no, relaxed_dm, ip, ea, nstate, chem_core, force
+ use sr_keyword, only: mem, nproc, DKH2, X2C, RI, DLPNO, F12, RIJK_bas, RIC_bas,&
+  F12_cabs, mo_rhf, lin_dep, mp2, qcisd, qcisd_t, ccd, ccsd, ccsd_t, iterative_t,&
+  ccsdt, gen_no, relaxed_dm, ip, ea, nstate, chem_core, force
  use mol, only: mult
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -1545,8 +1545,14 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   if(RIJK_bas(1:i) == 'autoaux') then
    write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 AutoAux'
   else if(RIJK_bas(i-2:i) == '/JK') then
-   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//RIJK_bas(1:i-1)//' '//&
-                                  TRIM(RIC_bas)
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//TRIM(RIC_bas)
+   if(DKH2) then
+    write(fid1,'(A)',advance='no') ' SARC/J'
+   else if(X2C) then
+    write(fid1,'(A)',advance='no') ' x2c/J'
+   else
+    write(fid1,'(A)',advance='no') ' def2/J'
+   end if
   else
    std_def2j = .false.
   end if

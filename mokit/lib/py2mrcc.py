@@ -8,7 +8,7 @@ def py2mrcc(mf):
     from os import system, remove
     from random import randint
     fchname = str(randint(1,100000))+'.fch'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
     system('fch2mrcc '+fchname)
     remove(fchname)
 

@@ -8,7 +8,7 @@ def py2cfour(mf):
     from os import system, remove
     from random import randint
     fchname = str(randint(1,10000))+'.fch'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
     system('fch2cfour '+fchname)
     remove(fchname)
 

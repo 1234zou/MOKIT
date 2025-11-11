@@ -11,8 +11,8 @@ program main
  integer :: i, npair
  character(len=8) :: str
  character(len=240) :: fchname
- character(len=61), parameter :: error_warn = ' ERROR in subroutine fch2qchem:&
-                                              & wrong command line arguments!'
+ character(len=58), parameter :: error_warn = ' ERROR in program fch2qchem: wro&
+                                              &ng command line arguments!'
  logical :: sfcis, sasfcis, sftd, sasf
 
  str = ' '; fchname = ' '; npair = 0

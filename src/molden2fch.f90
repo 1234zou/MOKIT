@@ -121,7 +121,7 @@ program main
 
  narg = iargc()
  if(narg<2 .or. narg>3) then
-  write(6,'(/,A)') ' ERROR in subroutine molden2fch: wrong command line arguments!'
+  write(6,'(/,A)') ' ERROR in program molden2fch: wrong command line arguments!'
   write(6,'(A)') ' Example  1: molden2fch a.molden -bagel'
   write(6,'(A)') ' Example  2: molden2fch a.molden -cfour (only for CFOUR v2.1)'
   do i = 3, n, 1

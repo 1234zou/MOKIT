@@ -12,7 +12,7 @@ program main
 
  i = iargc()
  if(.not. (i==1 .or. i==2)) then
-  write(6,'(/,A)')' ERROR in subroutine fch2openqp: wrong command line argument!'
+  write(6,'(/,A)')' ERROR in program fch2openqp: wrong command line argument!'
   write(6,'(A)')  ' Example 1 (R(O)HF, UHF): fch2openqp h2o.fch'
   write(6,'(A)')  ' Example 2 (SF-CIS)     : fch2openqp O2_rohf.fch -sfcis'
   write(6,'(A)')  ' Example 3 (SF-TDDFT)   : fch2openqp O2_roks.fch -sf'

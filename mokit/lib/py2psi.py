@@ -7,7 +7,7 @@ def py2psi(mf, inpname):
     fchname = proname+'.fch'
     inpname1 = proname+'_psi.inp'
     inpname2 = proname+'.inp'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
     system('fch2psi '+fchname)
     remove(fchname)
     rename(inpname1, inpname2)

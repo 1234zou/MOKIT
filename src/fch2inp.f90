@@ -39,7 +39,7 @@ program main
  select case(i)
  case(1,2,3,5)
  case default
-  write(6,'(/,A)') ' ERROR in subroutine fch2inp: wrong command line arguments!'
+  write(6,'(/,A)') ' ERROR in program fch2inp: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
   write(6,'(A)')   ' Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis'
   write(6,'(A)')   ' Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
@@ -253,7 +253,9 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
 
  ! for ghost atoms (0 charge, has basis function), make ielem(i) negative,
  ! which can be recognized by GAMESS
- forall(i=1:natom, iatom_type(i)==1000) ielem(i) = -ielem(i)
+ do i = 1, natom, 1
+  if(iatom_type(i) == 1000) ielem(i) = -ielem(i)
+ end do ! for i
 
  ! print basis sets into the .inp file
  write(fid,'(A2,2X,I3,A1,3(1X,F18.8))') elem(1), ielem(1), '.', coor(1:3,1)
@@ -287,6 +289,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  if(k < natom) then
   write(6,'(/,A)') 'ERROR in subroutine fch2inp: shell2atom_map(ncontr)<natom.'
   write(6,'(A)') 'Internal inconsistency. Stop and check.'
+  write(6,'(2(A,I0))') 'k=', k, ', natom=', natom
   close(fid)
   stop
  end if

@@ -32,10 +32,10 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,1X,A)') 'ERROR in subroutine fch2qm4d: wrong command line arguments!'
-  write(6,'(1X,A)') 'Example 1 (for HF/DFT): fch2qm4d a.fch'
-  write(6,'(1X,A)') 'Example 2 (for HF/DFT): fch2qm4d a.fch -xml'
-  write(6,'(1X,A,/)') 'Example 3 (for HF/DFT): fch2qm4d a.fch -bin'
+  write(6,'(/,1X,A)') 'ERROR in program fch2qm4d: wrong command line arguments!'
+  write(6,'(1X,A)')   'Example 1 (HF/DFT): fch2qm4d a.fch'
+  write(6,'(1X,A)')   'Example 2 (HF/DFT): fch2qm4d a.fch -xml'
+  write(6,'(1X,A,/)') 'Example 3 (HF/DFT): fch2qm4d a.fch -bin'
   stop
  end if
 

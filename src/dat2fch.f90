@@ -29,7 +29,7 @@ program main
  select case(i)
  case(1,2,4,6)
  case default
-  write(6,'(/,A)')' ERROR in subroutine dat2fch: wrong command line arguments!'
+  write(6,'(/,A)')' ERROR in program dat2fch: wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): dat2fch a.dat'
   write(6,'(A)')  ' Example 2 (R(O)HF/UHF/CAS): dat2fch a.dat a.fch'
   write(6,'(A)')  ' Example 3 (GVB)           : dat2fch a.dat a.fch -gvb 4'

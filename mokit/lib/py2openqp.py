@@ -5,7 +5,7 @@ def py2openqp(mf, inpname, sfcis=False, sf=False, mrsfcis=False, mrsf=False):
     from os import system, rename, remove
 
     fchname = inpname[0:inpname.rindex('.inp')]+'.fch'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
 
     if mf.mol.cart is False:
         system('fch_sph2cart '+fchname)

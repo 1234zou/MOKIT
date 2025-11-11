@@ -13,7 +13,7 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2com: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program fch2com: wrong command line argument!'
   write(6,'(A)') ' Example 1 (R(O)HF/GVB/CAS)  : fch2com h2o.fch'
   write(6,'(A,/)') ' Example 2 (only Molpro 2015): fch2com h2o.fch -m15'
   stop

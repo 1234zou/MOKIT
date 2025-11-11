@@ -515,13 +515,17 @@ subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
  implicit none
  integer :: i, j, k, fid
  integer, intent(in) :: natom
- real(kind=8), intent(out) :: e, force(3,natom), stress(3,3) ! a.u.
- !                      Hartree, Hartree/Bohr  , GPa
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: e, force(3,natom), stress(3,3)
+!f2py intent(out) :: e, force, stress
+!f2py depend(natom) :: force
+ !                        Hartree, Hartree/Bohr, GPa
  character(len=1) :: str1
  character(len=2) :: elem
  character(len=7) :: str7
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
  logical :: old_cp2k
 
  e = 0d0; force = 0d0; stress = 0d0

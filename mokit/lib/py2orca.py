@@ -15,7 +15,7 @@ def py2orca(mf, inpname):
     mklname1 = proname+'_o.mkl'
     inpname2 = proname+'.inp'
     mklname2 = proname+'.mkl'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
     system('fch2mkl '+fchname)
     remove(fchname)
     rename(inpname1, inpname2)

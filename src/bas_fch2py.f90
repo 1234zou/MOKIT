@@ -18,12 +18,12 @@ program main
  i = iargc()
  if(i<1 .or. i>4) then
   write(6,'(/,A)') ' ERROR in program bas_fch2py: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1  (R(O)HF, UHF): bas_fch2py a.fch'
-  write(6,'(A)')   ' Example 2          (DFT): bas_fch2py a.fch -dft'
-  write(6,'(A)')   ' Example 3         (REST): bas_fch2py a.fch -dft -rest'
-  write(6,'(A)')   ' Example 4       (PBC-HF): bas_fch2py a.fch -pbc'
-  write(6,'(A)')   ' Example 5      (PBC-DFT): bas_fch2py a.fch -pbc -dft'
-  write(6,'(A)')   ' Example 6  (object only): bas_fch2py a.fch -obj'
+  write(6,'(A)')   ' Example 1 (R(O)HF, UHF) : bas_fch2py a.fch'
+  write(6,'(A)')   ' Example 2 (DFT)         : bas_fch2py a.fch -dft'
+  write(6,'(A)')   ' Example 3 (REST)        : bas_fch2py a.fch -dft -rest'
+  write(6,'(A)')   ' Example 4 (PBC-HF)      : bas_fch2py a.fch -pbc'
+  write(6,'(A)')   ' Example 5 (PBC-DFT)     : bas_fch2py a.fch -pbc -dft'
+  write(6,'(A)')   ' Example 6 (object only) : bas_fch2py a.fch -obj'
   write(6,'(A,/)') ' Example 7 (PBC obj only): bas_fch2py a.fch -pbc -obj'
   stop
  end if

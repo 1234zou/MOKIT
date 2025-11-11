@@ -310,11 +310,10 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
   '''
   import time
   from pyscf.pbc.df.ft_ao import ft_aopair
-  from mokit.lib.rwwfn import read_lat_vec_from_file
+  from mokit.lib.rwwfn import read_lat_vec_from_file, calc_dis_mat_from_coor_pbc
   from mokit.lib.rwgeom import periodic_table as pt
   from mokit.lib.rwgeom import read_elem_and_coor_from_fch
-  from mokit.lib.lo import gen_loc_ini_guess, berry, boys, pm, \
-                           calc_dis_mat_from_coor_pbc
+  from mokit.lib.lo import gen_loc_ini_guess, berry, boys, pm
 
   t0 = time.perf_counter()
   if dis_tol < 0.1:

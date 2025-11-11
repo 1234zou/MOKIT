@@ -10,9 +10,9 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2wfn: wrong command line arguments!'
-  write(6,'(A)')   'Example 1 (HF/DFT): fch2wfn a.fch'
-  write(6,'(A,/)') 'Example 2 (NOs)   : fch2wfn a.fch -no'
+  write(6,'(/,A)') ' ERROR in program fch2wfn: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (HF/DFT): fch2wfn a.fch'
+  write(6,'(A,/)') ' Example 2 (NOs)   : fch2wfn a.fch -no'
   stop
  end if
 

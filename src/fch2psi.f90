@@ -27,9 +27,9 @@ program main
 
  i = iargc()
  if(.not. (i==1 .or. i==3)) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2psi: wrong command line arguments!'
-  write(6,'(A)')   ' Example (R(O)HF/UHF/CAS): fch2psi a.fch'
-  write(6,'(A,/)') " Example            (DFT): fch2psi a.fch -dft 'wB97M-D3BJ'"
+  write(6,'(/,A)') ' ERROR in program fch2psi: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2psi a.fch'
+  write(6,'(A,/)') " Example 2 (DFT)           : fch2psi a.fch -dft 'wB97M-D3BJ'"
   stop
  end if
 

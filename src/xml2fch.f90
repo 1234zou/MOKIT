@@ -12,9 +12,9 @@ program main
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(6,'(/,A)') ' ERROR in subroutine xml2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for R(O)HF, UHF): xml2fch a.xml a.fch'
-  write(6,'(A,/)') ' Example 2 (for CAS NO)     : xml2fch a.xml a.fch -no'
+  write(6,'(/,A)') ' ERROR in program xml2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF): xml2fch a.xml a.fch'
+  write(6,'(A,/)') ' Example 2 (CAS NO)    : xml2fch a.xml a.fch -no'
   stop
  end if
 

@@ -9,7 +9,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2mrcc: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program fch2mrcc: wrong command line argument!'
   write(6,'(A,/)') ' Example: fch2mrcc water.fch'
   stop
  end if

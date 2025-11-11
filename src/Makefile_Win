@@ -32,7 +32,6 @@ OBJ_bas_gms2py = file_op.obj string_manipulate.obj math_sub.obj read_gms_inp.obj
                  read_natom.obj bas_gms2py.obj
 OBJ_bdf2fch = file_op.obj string_manipulate.obj math_sub.obj read_ev_on.obj \
               rwwfn.obj read_fch.obj split_sp.obj bdf2fch.obj
-OBJ_bdf2mkl = file_op.obj bdf2mkl.obj
 OBJ_chk2gbw = file_op.obj string_manipulate.obj util_wrapper.obj chk2gbw.obj
 OBJ_dal2fch = file_op.obj string_manipulate.obj math_sub.obj read_ev_on.obj \
               rwwfn.obj split_sp.obj dal2fch.obj
@@ -132,8 +131,8 @@ OBJ_solve_ON_matrix = file_op.obj string_manipulate.obj math_sub.obj read_ev_on.
                       rwwfn.obj solve_ON_matrix.obj
 
 .PHONY: clean distclean addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf \
-        bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl \
-        chk2gbw dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com \
+        bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch chk2gbw \
+        dal2fch dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com \
         fch2dal fch2inp fch2inporb fch2mkl fch2mrcc fch2nwc fch2openqp fch2psi \
         fch2qchem fch2qm4d fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn \
         gvb_correct_pairs gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour \
@@ -199,9 +198,6 @@ bas_gms2py: $(OBJ_bas_gms2py)
 
 bdf2fch: $(OBJ_bdf2fch)
 	$(F90) $(OBJ_bdf2fch) $(FFLAGS) $(LFLAGS) -o $(BIN)\bdf2fch
-
-bdf2mkl: $(OBJ_bdf2mkl)
-	$(F90) $(OBJ_bdf2mkl) $(FFLAGS) $(LFLAGS) -o $(BIN)\bdf2mkl
 
 chk2gbw: $(OBJ_chk2gbw)
 	$(F90) $(OBJ_chk2gbw) $(FFLAGS) $(LFLAGS) -o $(BIN)\chk2gbw
@@ -338,10 +334,10 @@ solve_ON_matrix: $(OBJ_solve_ON_matrix)
 	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) $(LFLAGS) -o $(BIN)\solve_ON_matrix
 
 all: addH2singlet amo2fch bas_fch2py bas_gau2molcas bas_gms2bdf bas_gms2dal \
-     bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch bdf2mkl chk2gbw dal2fch \
-     dat2fch extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl \
-     fch2inp fch2inporb fch2mrcc fch2nwc fch2openqp fch2psi fch2qchem fch2qm4d \
-     fch2tm fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_exclude_XH gvb_sort_pairs \
+     bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch chk2gbw dal2fch dat2fch \
+     extract_noon2fch fch2amo fch2bdf fch2cfour fch2com fch2dal fch2mkl fch2inp \
+     fch2inporb fch2mrcc fch2nwc fch2openqp fch2psi fch2qchem fch2qm4d fch2tm \
+     fch_u2r fch_mo_copy fch2wfn frag_guess_wfn gvb_exclude_XH gvb_sort_pairs \
      mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch mkl2inp mkl2inporb mkl2gjf \
      mkl2mrcc mkl2psi mkl2py mkl2qchem molden2fch orb2fch xml2fch solve_ON_matrix
 

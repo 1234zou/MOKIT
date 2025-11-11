@@ -237,8 +237,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility&
-                  & extract_noon2fch.'
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility extr&
+                   &act_noon2fch.'
   write(6,'(A)') 'Did you delete it or forget to compile it?'
   stop
  end if

@@ -14,9 +14,9 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2bdf: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF, UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
-  write(6,'(A,/)') ' Example 2 (CAS NO)     : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
+  write(6,'(/,A)') ' ERROR in program fch2bdf: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
+  write(6,'(A,/)') ' Example 2 (CAS NO)    : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
   stop
  end if
 

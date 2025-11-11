@@ -12,12 +12,12 @@ program main
 
  i = iargc()
  if(.not. (i==2 .or. i==3)) then
-  write(6,'(/,A)') ' ERROR in subroutine orb2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (for RHF)   : orb2fch a.ScfOrb a.fch'
-  write(6,'(A)')   ' Example 2 (for UHF)   : orb2fch a.UhfOrb a.fch'
-  write(6,'(A)')   ' Example 3 (for CAS)   : orb2fch a.RasOrb a.fch'
-  write(6,'(A)')   ' Example 4 (for UNO)   : orb2fch a.UnaOrb a.fch -no'
-  write(6,'(A,/)') ' Example 5 (for CAS NO): orb2fch a.RasOrb.1 a.fch -no'
+  write(6,'(/,A)') ' ERROR in program orb2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (RHF)   : orb2fch a.ScfOrb a.fch'
+  write(6,'(A)')   ' Example 2 (UHF)   : orb2fch a.UhfOrb a.fch'
+  write(6,'(A)')   ' Example 3 (CAS)   : orb2fch a.RasOrb a.fch'
+  write(6,'(A)')   ' Example 4 (UNO)   : orb2fch a.UnaOrb a.fch -no'
+  write(6,'(A,/)') ' Example 5 (CAS NO): orb2fch a.RasOrb.1 a.fch -no'
   stop
  end if
 

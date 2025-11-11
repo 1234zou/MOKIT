@@ -10,7 +10,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2dal: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program fch2dal: wrong command line argument!'
   write(6,'(A,/)') ' Example (R(O)HF, CAS): fch2dal a.fch'
   stop
  end if

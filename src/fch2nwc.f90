@@ -8,7 +8,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)')' ERROR in subroutine fch2nwc: wrong command line arguments!'
+  write(6,'(/,A)')' ERROR in program fch2nwc: wrong command line arguments!'
   write(6,'(A,/)')' Example: fch2nwc h2o.fch'
   stop
  end if

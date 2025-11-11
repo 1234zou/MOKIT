@@ -111,12 +111,6 @@ main = "bdf2fch.f90"
 link = "mkl_rt"
 
 [[executable]]
-name = "bdf2mkl"
-source-dir = "src"
-main = "bdf2mkl.f90"
-link = "mkl_rt"
-
-[[executable]]
 name = "chk2gbw"
 source-dir = "src"
 main = "chk2gbw.f90"

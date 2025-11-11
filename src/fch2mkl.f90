@@ -30,13 +30,13 @@ program main
 
  i = iargc()
  if(i<1 .or. i>3) then
-  write(6,'(/,A)')' ERROR in subroutine fch2mkl: wrong command line arguments!'
+  write(6,'(/,A)')' ERROR in program fch2mkl: wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
-  write(6,'(A)')  ' Example 2 (SF-TDDFT      ): fch2mkl O2_T.fch -sf'
-  write(6,'(A)')  " Example 3 (R(O)KS/UKS    ): fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
+  write(6,'(A)')  ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
+  write(6,'(A)')  " Example 3 (R(O)KS/UKS)    : fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
   write(6,'(A)')  "                             fch2mkl h2o.fch -dft 'HSE06 D3zero'"
   write(6,'(A)')  "                             fch2mkl h2o.fch -dft 'wB97M-V'"
-  write(6,'(A)')  " Example 4 (DLPNO-DH      ): fch2mkl h2o.fch -dft 'DLPNO-B2PLYP D3BJ'"
+  write(6,'(A)')  " Example 4 (DLPNO-DH)      : fch2mkl h2o.fch -dft 'DLPNO-B2PLYP D3BJ'"
   write(6,'(A,/)')"                             fch2mkl h2o.fch -dft 'DLPNO-wB97X-2 D3'"
   stop
  end if

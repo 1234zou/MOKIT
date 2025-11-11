@@ -6,7 +6,7 @@ def py2bdf(mf, inpname, write_no=None):
     proname = inpname[0:inpname.rindex('.inp')]
     fchname = proname+'.fch'
     inpname1 = proname+'_bdf.inp'
-    fchk(mf, fchname)
+    fchk(mf, fchname, overwrite_mol=True)
     if (write_no is None) or (write_no is False):
         orbname = proname+'.scforb'
         orbname1 = proname+'_bdf.scforb'

@@ -19,14 +19,14 @@ program main
 
  narg = iargc()
  if(narg<1 .or. narg>4) then
-  write(6,'(/,A)') ' ERROR in subroutine mkl2fch: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1     (R(O)HF, UHF, CAS): mkl2fch a.mkl'
-  write(6,'(A)')   ' Example 2     (R(O)HF, UHF, CAS): mkl2fch a.mkl b.fch'
-  write(6,'(A)')   ' Example 3          (UNO, CAS NO): mkl2fch a.mkl -no'
-  write(6,'(A)')   ' Example 4 (UHF, UMP2, UCCSD NSO): mkl2fch a.mkl -nso'
-  write(6,'(A)')   ' Example 5     (add DKH2 keyword): mkl2fch a.mkl -dkh2'
-  write(6,'(A)')   ' Example 6    (add sfX2C keyword): mkl2fch a.mkl -sfx2c'
-  write(6,'(A,/)') ' Example 7          (combination): mkl2fch a.mkl -no -sfx2c'
+  write(6,'(/,A)') ' ERROR in program mkl2fch: wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS)    : mkl2fch a.mkl'
+  write(6,'(A)')   ' Example 2 (R(O)HF/UHF/CAS)    : mkl2fch a.mkl b.fch'
+  write(6,'(A)')   ' Example 3 (UNO, CAS NO)       : mkl2fch a.mkl -no'
+  write(6,'(A)')   ' Example 4 (UHF/UMP2/UCCSD NSO): mkl2fch a.mkl -nso'
+  write(6,'(A)')   ' Example 5 (add DKH2 keyword)  : mkl2fch a.mkl -dkh2'
+  write(6,'(A)')   ' Example 6 (add sfX2C keyword) : mkl2fch a.mkl -sfx2c'
+  write(6,'(A,/)') ' Example 7 (combination)       : mkl2fch a.mkl -no -sfx2c'
   stop
  end if
 

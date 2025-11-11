@@ -37,7 +37,9 @@ module pg
  end type ecp4atom
 
  type(ecp4atom), allocatable :: all_ecp(:) ! size natom
+
  logical :: ecp_exist = .false.
+ logical, allocatable :: ghost(:) ! size natom
 end module pg
 
 ! Shared variables and arrays for serial and parallel Jacobi 2-by-2 rotations.
@@ -1196,9 +1198,9 @@ subroutine get_highest_am()
  end if
 end subroutine get_highest_am
 
-! print primitive gaussians
-subroutine prt_prim_gau(iatom, fid)
- use pg, only: prim_gau, nuc, highest, all_ecp, elem, ecp_exist
+! print primitive gaussians into an OpenMolcas .input file
+subroutine prt_prim_gau2molcas_inp(iatom, fid)
+ use pg, only: prim_gau, nuc, highest, all_ecp, elem, ecp_exist, ghost
  implicit none
  integer :: i, j, k, m, n, nline, ncol
  integer, intent(in) :: iatom, fid
@@ -1206,10 +1208,15 @@ subroutine prt_prim_gau(iatom, fid)
  character(len=1), parameter :: am(0:6) = ['S','P','D','F','G','H','I']
 
  call get_highest_am()
- if(ecp_exist) then
-  write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom)-all_ecp(iatom)%core_e,'.',highest
+
+ if(ghost(iatom)) then
+  write(fid,'(5X,A2,3X,I1)') '0.', highest
  else
-  write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom), '.', highest
+  if(ecp_exist) then
+   write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom)-all_ecp(iatom)%core_e,'.',highest
+  else
+   write(fid,'(5X,I0,A1,3X,I1)') nuc(iatom), '.', highest
+  end if
  end if
 
  do i = 1, 7, 1
@@ -1250,7 +1257,7 @@ subroutine prt_prim_gau(iatom, fid)
   end do ! for i
   write(fid,'(A1,/,A,/,A)') '*', 'Spectral', 'End of Spectral'
  end if
-end subroutine prt_prim_gau
+end subroutine prt_prim_gau2molcas_inp
 
 ! update the number of times each atom occurred
 subroutine update_ntimes(iatom)

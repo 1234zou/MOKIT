@@ -9,9 +9,9 @@ program mkl2qchem
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A)') 'ERROR in program mkl2qchem: wrong command line argument!'
-  write(6,'(A)')   'Example 1: mkl2qchem a.mkl'
-  write(6,'(A,/)') 'Example 2: mkl2qchem a.mkl b.in'
+  write(6,'(/,A)') ' ERROR in program mkl2qchem: wrong command line argument!'
+  write(6,'(A)')   ' Example 1: mkl2qchem a.mkl'
+  write(6,'(A,/)') ' Example 2: mkl2qchem a.mkl b.in'
   stop
  end if
 

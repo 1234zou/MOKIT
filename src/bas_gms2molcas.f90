@@ -50,7 +50,8 @@ end program main
 
 ! Transform the basis sets in GAMESS format to those in (Open)Molcas format
 subroutine bas_gms2molcas(fort7, spherical)
- use pg, only: natom, nuc, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist
+ use pg, only: natom, nuc, ntimes, elem, coor, prim_gau, all_ecp, ecp_exist, &
+  ghost
  implicit none
  integer :: i, na, nb, nline, rc, rel, charge, mult, isph, fid1, fid2
  character(len=240), intent(in) :: fort7
@@ -60,7 +61,6 @@ subroutine bas_gms2molcas(fort7, spherical)
  character(len=21) :: str1, str2
  logical, intent(in) :: spherical
  logical :: uhf, ghf, X2C
- logical, allocatable :: ghost(:)
 
  buf = ' '; input = ' ' ! initialization
 
@@ -70,8 +70,18 @@ subroutine bas_gms2molcas(fort7, spherical)
  call read_natom_from_gms_inp(fort7, natom)
  allocate(nuc(natom), elem(natom), coor(3,natom), ntimes(natom), ghost(natom))
  call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
- deallocate(ghost)
  ! nuc cannot be deallocated here since subroutine prt_prim_gau will use it
+
+ ! deal with ghost atoms
+ do i = 1, natom, 1
+  if(ghost(i)) then
+   elem(i) = 'X '
+  else
+   if(elem(i) == 'Bq') then
+    ghost(i) = .true.; elem(i) = 'X '
+   end if
+  end if
+ end do ! for i
 
  call calc_ntimes(natom, elem, ntimes)
  call read_charge_mult_isph_from_gms_inp(fort7, charge, mult, isph, uhf, ghf, &
@@ -113,8 +123,8 @@ subroutine bas_gms2molcas(fort7, spherical)
   call gen_contracted_string(prim_gau(:)%nline,prim_gau(:)%ncol,str1,str2)
   write(fid2,'(A)') TRIM(str1)//'.'//TRIM(str2)//'.   / inline'
 
-  ! print basis sets and ECP/PP (if any) of this atom in Molcas format
-  call prt_prim_gau(i, fid2)
+  ! print basis sets and ECP/PP (if any) of this atom into .input file
+  call prt_prim_gau2molcas_inp(i, fid2)
   write(fid2,'(A,I0,3(2X,F15.8),A)') TRIM(elem(i)), ntimes(i), &
                                      coor(1:3,i),'   Angstrom'
   if(.not. spherical) write(fid2,'(A)') 'Cartesian all'
@@ -126,7 +136,7 @@ subroutine bas_gms2molcas(fort7, spherical)
 
  close(fid1)
  ! now nuc can be deallocated
- deallocate(nuc, elem, ntimes, coor, all_ecp)
+ deallocate(nuc, elem, ntimes, coor, all_ecp, ghost)
 
  if(rc /= 0) then
   write(6,'(/,A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA' ha&

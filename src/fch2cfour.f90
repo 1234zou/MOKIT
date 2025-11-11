@@ -12,7 +12,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine fch2cfour: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program fch2cfour: wrong command line argument!'
   write(6,'(A)')   ' Example: fch2cfour water.fch'
   write(6,'(A,/)') ' Note: fch2cfour can only be used for CFOUR >= v2.1'
   stop
