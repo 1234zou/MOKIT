@@ -208,3 +208,40 @@ subroutine read_mult_from_gms_gms(gmsname, mult)
  i = INDEX(buf, '=')
  read(buf(i+1:),*) mult
 end subroutine read_mult_from_gms_gms
+
+! check whether pure Cartesian functions
+subroutine check_cart_compatibility_in_fch(fchname, cart)
+ implicit none
+ integer :: icart
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical, intent(in) :: cart
+!f2py intent(in) :: cart
+
+ call find_icart_in_fch(fchname, .false., icart)
+
+ if(cart .and. icart==1) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cart_compatibility_in_fch: Cartes&
+                   &ian functions are'
+  write(6,'(A)') 'requested by the user. But you provided a .fch(k) file which &
+                 &uses spherical harmonic'
+  write(6,'(A)') "functions. Two possible solutions: 1) delete the keyword 'Car&
+                 &t' in MOKIT{}"
+  write(6,'(A)') '2) provide another .fch file which uses pure Cartesian functi&
+                 &ons.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if((.not.cart) .and. icart==2) then
+  write(6,'(/,A)') 'ERROR in subroutine check_cart_compatibility_in_fch: spheri&
+                   &cal harmonic functions'
+  write(6,'(A)') 'are set as default. But you provided a .fch(k) file which has&
+                 & Cartesian functions.'
+  write(6,'(A)') "Two possible solutions: 1) add the keyword 'Cart' in MOKIT{};&
+                 & 2) provide another .fch"
+  write(6,'(A)') 'file which uses pure spherical harmonic functions.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+end subroutine check_cart_compatibility_in_fch

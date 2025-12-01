@@ -1,5 +1,29 @@
 ! read output files (.out/.log, etc.) to extract information other than geom, wfn
-! also contains 'write' subroutines although not much
+! also contains 'write' subroutines if some
+
+! whether the Davidson Q CORRECTION can be found in a GAMESS output file
+function has_davidson_q(outname) result(alive)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: alive
+
+ alive = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:18) == 'CALC. OF DAVIDSON') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) return
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) alive
+end function has_davidson_q
 
 ! find the target CASCI root in a specified PySCF CASCI output file
 subroutine read_target_root_from_pyscf_out(outname, target_root, found)

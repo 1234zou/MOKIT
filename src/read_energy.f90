@@ -1163,3 +1163,232 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  if(itype == 1) dav_e = dav_e - corr_e
  corr_e = corr_e - ref_e
 end subroutine read_mrpt_energy_from_bdf_out
+
+! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
+! Molpro output file
+subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
+                                        nuc_pt_e, davidson_e, e)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: CtrType
+ real(kind=8) :: casci_e, ref_weight
+ real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
+ real(kind=8), intent(out) :: davidson_e, e
+ character(len=10), intent(in) :: mrcisd_prog
+ character(len=240), intent(in) :: outname
+ character(len=240) :: buf
+ logical, external :: has_davidson_q
+
+ davidson_e = 0d0; e = 0d0; ref_weight = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ select case(TRIM(mrcisd_prog))
+ case('pyscf')
+  if(CtrType == 3) then ! DMRG-FIC-MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:7) == 'E(MRCI)') exit
+   end do ! for while
+   i = INDEX(buf, 'DC =', back=.true.)
+   read(buf(i+4:),*) davidson_e
+   read(fid,'(A)') buf
+   i = INDEX(buf, '=')
+   read(buf(i+1:),*) e
+  else
+   write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid &
+                    &CtrType.'
+   write(6,'(A,I0)') 'Current CtrType=', CtrType
+   close(fid)
+   stop
+  end if
+  e = e + ptchg_e
+ case('openmolcas')
+  if(CtrType == 1) then ! uncontracted MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:29) == '::    RASSCF root number  1 T') exit
+   end do ! for while
+   i = INDEX(buf,':',back=.true.)
+   read(buf(i+1:),*) e
+  else if(CtrType == 2) then ! ic-MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(23:31) == 'CI ENERGY') exit
+   end do ! for while
+   i = INDEX(buf,':',back=.true.)
+   read(buf(i+1:),*) e
+   read(fid,'(A)') buf
+   i = INDEX(buf,':',back=.true.)
+   read(buf(i+1:),*)  davidson_e
+  end if
+  e = e + ptchg_e
+
+ case('orca')
+  if(CtrType == 1) then ! uncontracted MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(20:27) == 'E(MR-CI)') exit
+   end do ! for while
+   read(fid,'(A)') buf
+   read(fid,'(A)') buf
+   read(buf(13:),*) e
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(14:26) == 'residual conv') exit
+   end do ! for while
+   read(fid,'(A)') buf
+   read(buf(67:),*) ref_weight
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:17) == 'Computing the ref') exit
+   end do ! for while
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   read(buf(22:),*) casci_e
+   davidson_e = (1d0 - ref_weight)*(e - casci_e)
+  else if(CtrType == 3) then ! FIC-MRCISD
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:5) == 'ETOT ') exit
+   end do ! for while
+   i = INDEX(buf,'...',back=.true.)
+   read(buf(i+3:),*) e
+   read(fid,'(A)') buf
+   read(fid,'(A)') buf
+   i = INDEX(buf,'...',back=.true.)
+   read(buf(i+3:),*) davidson_e
+  end if
+
+ case('gaussian') ! uncontracted MRCISD
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   !               Davidson                           Lanczos
+   if(buf(17:32)=='Final Eigenvalue' .or. buf(20:29)=='EIGENVALUE') exit
+  end do ! for while
+  i = INDEX(buf,'lue',back=.true.)
+  if(i == 0) i = INDEX(buf,'LUE',back=.true.)
+  read(buf(i+3:),*) e
+
+ case('molpro')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(INDEX(buf(2:10),'!Total e') > 0) exit
+  end do ! for while
+
+  read(buf(17:),*) e
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) read(fid,'(A)') buf
+  i = INDEX(buf,':')
+  read(buf(i+1:),*) davidson_e
+  davidson_e = davidson_e - e
+  e = e + ptchg_e
+
+ case('psi4')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(5:19) == 'Total CI energy') exit
+
+   if(buf(11:23) == 'Psi4: An Open') then
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
+    write(6,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
+    close(fid)
+    stop
+   end if
+  end do ! for while
+
+  i = INDEX(buf,'=')
+  read(buf(i+1:),*) e
+  e = e + ptchg_e + nuc_pt_e
+
+ case('dalton')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:19) == '@ Final CI energies') exit
+
+   if(buf(22:32) == 'Dalton - An') then
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
+    write(6,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
+    close(fid)
+    stop
+   end if
+  end do ! for while
+
+  read(fid,'(A)') buf
+  read(buf(7:),*) e
+  e = e + ptchg_e
+
+ case('gamess')
+  close(fid)
+
+  if(has_davidson_q(outname)) then
+   call open_file(outname, .false., fid)
+   do while(.true.)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,'(A)') buf
+    if(buf(1:13) == ' E(MR-CISD) =') exit
+   end do ! for while
+
+   read(buf(14:),*) e
+   read(fid,'(A)') buf
+   read(fid,'(A)') buf
+   read(buf(14:),*) ref_weight
+
+   do while(.true.)
+    read(fid,'(A)') buf
+    if(buf(2:7) == 'E(REF)') exit
+   end do ! for while
+   i = INDEX(buf, '=')
+   read(buf(i+1:),*) casci_e
+
+   ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
+   ! correction
+   davidson_e = (1d0 - ref_weight)*(e - casci_e)
+
+  else ! no 'CALC. OF DAVIDSON', i.e. no Davidson Q
+
+   call open_file(outname, .true., fid)
+   do while(.true.)
+    read(fid,'(A)')  buf
+    if(buf(2:14) == 'CI EIGENSTATE') exit
+   end do ! for while
+
+   close(fid)
+   i = INDEX(buf, '=')
+   read(buf(i+1:),*) e
+  end if
+
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid m&
+                   &rcisd_prog='//TRIM(mrcisd_prog)
+  close(fid)
+  stop
+ end select
+
+ close(fid)
+end subroutine read_mrci_energy_from_output
