@@ -1,29 +1,205 @@
-! read output files (.out/.log, etc.) to extract information other than geom, wfn
+! read input/output files (.out/.log, etc.) to extract information other than geom, wfn, basic
 ! also contains 'write' subroutines if some
 
-! whether the Davidson Q CORRECTION can be found in a GAMESS output file
-function has_davidson_q(outname) result(alive)
+! check whether UHF is used in a specified CFOUR output file
+subroutine check_uhf_in_cfour_out(outname, uhf)
  implicit none
- integer :: i, fid
+ integer :: i, k, fid
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- logical :: alive
+!f2py intent(in) :: outname
+ logical, intent(out) :: uhf
+!f2py intent(out) :: uhf
 
- alive = .false.
+ uhf = .false.
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:18) == 'CALC. OF DAVIDSON') exit
+  if(buf(9:23) == 'SCF reference f') then
+   k = INDEX(buf, ':')
+   buf = ADJUSTL(buf(k+1:))
+   if(buf(1:3) == 'UHF') uhf = .true.
+   exit
+  end if
  end do ! for while
 
  close(fid)
- if(i /= 0) return
+end subroutine check_uhf_in_cfour_out
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) alive
-end function has_davidson_q
+subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
+ implicit none
+ integer :: i, fid, idx(3), nvir
+ integer, intent(out) :: nbf, nif, ndb, npair, nopen
+ character(len=240), intent(in) :: unofile
+ character(len=240) :: buf
+ logical, intent(out) :: lin_dep
+
+ buf = ' '; lin_dep = .false.
+ open(newunit=fid,file=TRIM(unofile),status='old',position='rewind')
+
+ read(fid,'(A)') buf
+ call get_int_after_flag(buf, '=', .true., nbf)
+
+ read(fid,'(A)') buf
+ call get_int_after_flag(buf, '=', .true., nif)
+
+ if(nbf > nif) then
+  lin_dep = .true.
+ else if(nbf < nif) then
+  write(6,'(/,A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif.'
+  write(6,'(A)') 'This is impossible. Please check why.'
+  close(fid)
+  stop
+ end if
+
+ close(fid)
+ open(newunit=fid,file=TRIM(unofile),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == 'ndb') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
+  write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
+  close(fid)
+  stop
+ end if
+ call get_int_after_flag(buf, '=', .true., ndb)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:3) == 'idx') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
+  write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
+  close(fid)
+  stop
+ end if
+
+ idx = 0
+ i = INDEX(buf,'=')
+ read(buf(i+1:),*) idx(1:3)
+ close(fid,status='delete')
+
+ npair = (idx(2) - idx(1) - idx(3))/2
+ nvir = nif - ndb - 2*npair - idx(3)
+ nopen = idx(3)
+ write(6,'(6(A,I0))') 'nbf=', nbf, ', nif=', nif, ', doubly_occ=', idx(1)-1, &
+                      ', npair=', npair, ', nopen=', idx(3), ', nvir=', nvir
+end subroutine read_npair_from_uno_out
+
+! find npair0: the number of active pairs (|C2| > 0.1)
+! (assuming that the pair coefficients haven been sorted)
+subroutine find_npair0_from_dat(datname, npair, npair0)
+ implicit none
+ integer :: i, k, datid
+ integer, intent(in) :: npair
+!f2py intent(in) :: npair
+ integer, intent(out) :: npair0
+!f2py intent(out) :: npair0
+ real(kind=8) :: rtmp
+ real(kind=8), allocatable :: pair_coeff(:,:)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: datname
+!f2py intent(in) :: datname
+
+ if(npair == 0) then
+  npair0 = 0
+  write(6,'(/,A)') 'Warning in subroutine find_npair0_from_dat: npair=npair0=0.'
+  return
+ end if
+
+ call open_file(datname, .true., datid)
+ ! find pair coefficients
+ do while(.true.)
+  read(datid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf,'CICOEF(') /= 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_npair0_from_dat: 'CICOEF(' keyword&
+                   & not found in"
+  write(6,'(A)') 'file '//TRIM(datname)
+  close(datid)
+  stop
+ end if
+
+ ! read pair coefficients
+ BACKSPACE(datid)
+ allocate(pair_coeff(2,npair), source=0d0)
+ do i = 1, npair, 1
+  read(datid,'(A)') buf
+  k = INDEX(buf,'=')
+  read(buf(k+1:),*) pair_coeff(1,i)
+  k = INDEX(buf,',')
+  read(buf(k+1:),*) pair_coeff(2,i)
+ end do ! for i
+ ! pair coefficients read done
+
+ close(datid)
+ npair0 = COUNT(pair_coeff(2,:) <= -0.1d0)
+
+ do i = 1, npair, 1
+  rtmp = pair_coeff(2,i) + 0.1d0
+  if(rtmp>0d0 .and. rtmp<2.6d-3) then
+   write(6,'(/,A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine find_npair0_from_dat: some occupatio&
+                  &n number is very'
+   write(6,'(A)') 'close to ON_thres. You may consider enlarge the active space&
+                  & size slightly in'
+   write(6,'(A,I0)') 'later CAS calculation. Check No. pair: ', i
+   write(6,'(A)') REPEAT('-',79)
+  end if
+ end do ! for i
+
+ deallocate(pair_coeff)
+end subroutine find_npair0_from_dat
+
+! read ncore, nopen and npair from a GAMESS .gms file
+subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: ncore, nopen, npair
+!f2py intent(out) :: ncore, nopen, npair
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gmsname
+!f2py intent(in) :: gmsname
+
+ ncore = 0; nopen = 0; npair = 0; buf = ' '
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)', iostat=i) buf
+  if(i /= 0) exit
+  if(buf(34:41) == 'NCO    =') exit
+ end do
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_npair_from_gms: no 'NCO    =' foun&
+                   &d in file "//TRIM(gmsname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(42:),*) ncore
+ read(fid,'(A)') buf
+ read(buf(19:),*) npair
+ read(buf(42:),*) nopen
+ close(fid)
+end subroutine read_npair_from_gms
 
 ! find the target CASCI root in a specified PySCF CASCI output file
 subroutine read_target_root_from_pyscf_out(outname, target_root, found)

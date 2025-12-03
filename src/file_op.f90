@@ -434,33 +434,6 @@ subroutine find_icart_in_fch(fchname, allow_mixed, icart)
  deallocate(shltyp)
 end subroutine find_icart_in_fch
 
-! check whether UHF is used in a specified CFOUR output file
-subroutine check_uhf_in_cfour_out(outname, uhf)
- implicit none
- integer :: i, k, fid
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-!f2py intent(in) :: outname
- logical, intent(out) :: uhf
-!f2py intent(out) :: uhf
-
- uhf = .false.
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(9:23) == 'SCF reference f') then
-   k = INDEX(buf, ':')
-   buf = ADJUSTL(buf(k+1:))
-   if(buf(1:3) == 'UHF') uhf = .true.
-   exit
-  end if
- end do ! for while
-
- close(fid)
-end subroutine check_uhf_in_cfour_out
-
 ! export a real(kind=8) array into a plain .txt file
 subroutine export_rarray2txt(txtname, label, n, a)
  implicit none

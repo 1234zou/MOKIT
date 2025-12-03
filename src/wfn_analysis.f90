@@ -1161,39 +1161,6 @@ subroutine prt_unpaired_e(nif, noon, upe)
  write(6,'(A)') REPEAT('-',61)
 end subroutine prt_unpaired_e
 
-! read ncore, nopen and npair from a GAMESS .gms file
-subroutine read_npair_from_gms(gmsname, ncore, nopen, npair)
- implicit none
- integer :: i, fid
- integer, intent(out) :: ncore, nopen, npair
-!f2py intent(out) :: ncore, nopen, npair
- character(len=240) :: buf
- character(len=240), intent(in) :: gmsname
-!f2py intent(in) :: gmsname
-
- ncore = 0; nopen = 0; npair = 0; buf = ' '
- open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)', iostat=i) buf
-  if(i /= 0) exit
-  if(buf(34:41) == 'NCO    =') exit
- end do
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_npair_from_gms: no 'NCO    =' foun&
-                   &d in file "//TRIM(gmsname)
-  close(fid)
-  stop
- end if
-
- read(buf(42:),*) ncore
- read(fid,'(A)') buf
- read(buf(19:),*) npair
- read(buf(42:),*) nopen
- close(fid)
-end subroutine read_npair_from_gms
-
 ! read CI coefficients from a GAMESS .gms file
 ! Note: if there exist multiple sets of CI coefficients in the file,
 !       only the last set will be read
