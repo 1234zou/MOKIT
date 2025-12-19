@@ -62,17 +62,14 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  end if
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
+ write(fid,'(A)') 'from os import rename'
  write(fid,'(A)') 'from shutil import copyfile'
- write(fid,'(A)') 'from mokit.lib.gaussian import BOHR2ANG, load_mol_from_fch'
- write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, \'
- write(fid,'(A)') ' read_eigenvalues_from_fch'
+ write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch, &
+                  &loc_driver'
+ write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read_&
+                  &eigenvalues_from_fch'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
- if(.not. pm_loc) then
-  write(fid,'(A)') 'from mokit.lib.gaussian import get_ao_dip'
- end if
- write(fid,'(A,/)') 'from mokit.lib.auto import loc_ini_guess, loc_driver'
- write(fid,'(A)') 'import os'
 
  write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
  write(fid,'(A)') "lmofch = '"//TRIM(lmofch)//"'"
@@ -80,22 +77,20 @@ subroutine localize_orb(fchname, i1, i2, pm_loc)
  write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(fchname)'
  write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
  write(fid,'(2(A,I0),A)') 'idx = range(',i1-1,',',i2,')'
- write(fid,'(A)') 'nmo = len(idx)'
- write(fid,'(A)') 'nmo1, lmo_ini = loc_ini_guess(mol, mo_coeff[:,idx], nmo)'
+
+ write(fid,'(A)',advance='no') "loc_orb = loc_driver(mol, mo_coeff[:,idx], method='"
  if(pm_loc) then
-  write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='pm')"
+  write(fid,'(A)',advance='no') 'pm'
  else
-  write(fid,'(A)') 'center, ao_dip = get_ao_dip(mol)'
-  write(fid,'(A)') 'ao_dip = ao_dip*BOHR2ANG'
-  write(fid,'(A)') "loc_orb = loc_driver(mol, lmo_ini, nmo, method='boys', ao_d&
-                   &ip=None)"
+  write(fid,'(A)',advance='no') 'boys'
  end if
+ write(fid,'(A)') "')"
 
  write(fid,'(A)') 'mo_coeff[:,idx] = loc_orb.copy()'
  write(fid,'(A)') "noon = read_eigenvalues_from_fch(fchname, nif, 'a')"
  write(fid,'(A)') 'copyfile(fchname, lmofch)'
- write(fid,'(A)') "py2fch(lmofch,nbf,nif,mo_coeff,'a',noon,False,False)"
- write(fid,'(A)') 'os.rename(lmofch, fchname)'
+ write(fid,'(A)') "py2fch(lmofch, nbf, nif, mo_coeff, 'a', noon, False, False)"
+ write(fid,'(A)') 'rename(lmofch, fchname)'
  close(fid)
 
  call submit_pyscf_job(pyname, .true.)

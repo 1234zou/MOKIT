@@ -153,7 +153,7 @@ subroutine direct_sum_frag_fock_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn
  ! initialize F = Hcore
 
  logname = 'DMC_trimer_rhf_hcore.log'
-! call read_hcore_from_gaulog(logname, nbf, fock_a)
+! call read_hcore_from_gau_log(logname, nbf, fock_a)
 
  k1 = 0; k2 = 0; k3 = 0
 
@@ -399,7 +399,7 @@ subroutine sum_frag_dm_in_fch(n, fname0, pos, fname)
  deallocate(fchname, dm, dm1, has_spin_density)
 end subroutine sum_frag_dm_in_fch
 
-subroutine read_hcore_from_gaulog(logname, nbf, hcore)
+subroutine read_hcore_from_gau_log(logname, nbf, hcore)
  implicit none
  integer :: i, j, k, m, nbatch, fid
  integer, intent(in) :: nbf
@@ -427,7 +427,7 @@ subroutine read_hcore_from_gaulog(logname, nbf, hcore)
 
  close(fid)
  forall(i=1:nbf, j=1:nbf, j>i) hcore(i,j) = hcore(j,i)
-end subroutine read_hcore_from_gaulog
+end subroutine read_hcore_from_gau_log
 
 ! convert multiple .gjf filenames into corresponding .fch filenames
 subroutine fnames_gjf2fch(n, fname)

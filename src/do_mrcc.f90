@@ -198,130 +198,6 @@ subroutine prt_mrcc_orca_inp(inpname1)
  i = RENAME(TRIM(inpname2), TRIM(inpname1))
 end subroutine prt_mrcc_orca_inp
 
-subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
-                                        corr_e)
- implicit none
- integer :: i, fid
- integer, intent(in) :: mrcc_type ! 1/2/3 for FIC-/Mk-/BW-MRCCSD
- ! 4/5 for Mk-/BW-MRCCSD(T), 6~8 for GVB-BCCC2b/3b/4b
- real(kind=8) :: rtmp
- real(kind=8), intent(out) :: ref_e, corr_e(2)
- character(len=240) :: buf
- character(len=10), intent(in) :: mrcc_prog
- character(len=240), intent(in) :: outname
-
- ref_e = 0d0; corr_e = 0d0
- ! corr_e(1): FIC-NEVPT2 energy
- ! corr_e(2): FIC-/Mk-/BW- MRCCSD energy
-
- select case(mrcc_prog)
- case('orca')
-  open(newunit=fid,file=TRIM(outname),status='old',position='append')
-  do while(.true.)
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   read(fid,'(A)') buf
-   if(buf(1:17) == ' Summary of multi') exit
-  end do ! for while
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: ' Summary&
-                   & of multi' not found"
-   write(6,'(A)') 'in file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  read(fid,*) i,i,rtmp,rtmp,ref_e,corr_e(2)
-
-  do while(.true.)
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   BACKSPACE(fid,iostat=i)
-   if(i /= 0) exit
-   read(fid,'(A)') buf
-   if(buf(1:5) == 'MULT=') exit
-  end do ! for while
-  close(fid)
-
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: 'MULT='&
-                   & not found in file "//TRIM(outname)
-   stop
-  end if
-
-  i = INDEX(buf,'EC=')
-  read(buf(i+3:),*) corr_e(1)
-
- case('gvb_bcci2b','gvb_bccc2b','gvb_bccc3b')
-  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:5) == 'GVB e') exit
-  end do ! for while
-
-  close(fid)
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: no &
-                   &'GVB e' found in"
-   write(6,'(A)') 'file '//TRIM(outname)
-   stop
-  end if
-
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) ref_e
-
-  ! find if any 'ERROR: amplitude iterations fail'
-  open(newunit=fid,file=TRIM(outname),status='old',position='append')
-  do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(1:32) == 'ERROR: amplitude iterations fail') then
-    close(fid)
-    write(6,'(A)') 'ERROR in subroutine read_mrcc_energy_from_output: amplitud&
-                   &e iterations not converge.'
-    stop
-   end if
-   if(buf(1:3) == 'ITN') exit
-  end do ! for while
-
-  close(fid)
-  open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
-  do while(.true.)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(index(buf,'=') > 0) exit
-  end do ! for while
-
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) corr_e(1) ! GVB-BCCCnb correlation energy
-
-  read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) corr_e(2) ! GVB-BCCCnb total energy
-  close(fid)
-
- !case('nwchem')
- case default
-  write(6,'(/,A)') 'ERROR in subroutine read_mrcc_energy_from_output: invalid&
-                  & mrcc_prog='//TRIM(mrcc_prog)
-  stop
- end select
-end subroutine read_mrcc_energy_from_output
-
 ! perform GVB-BCCC2b/3b calculations
 subroutine do_gvb_bccc()
  use mol, only: mult, ndb, npair, nopen, mrcc_e
@@ -345,8 +221,8 @@ subroutine do_gvb_bccc()
   write(6,'(A)',advance='no') '3'
   mrcc_prog = 'gvb_bccc3b'
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine do_gvb_bccc: invalid mrcc_type=',&
-                     mrcc_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine do_gvb_bccc: invalid mrcc_type=',&
+                       mrcc_type
   stop
  end select
 

@@ -215,6 +215,12 @@ main = "fch2qm4d.f90"
 link = "openblas"
 
 [[executable]]
+name = "fch2rest"
+source-dir = "src"
+main = "fch2rest.f90"
+link = "openblas"
+
+[[executable]]
 name = "fch2tm"
 source-dir = "src"
 main = "fch2tm.f90"

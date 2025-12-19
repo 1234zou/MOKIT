@@ -506,6 +506,7 @@ subroutine bas_gms2psi(inpname, dftname, sph)
 
  write(fid2,'(/,A)') 'set {'
  write(fid2,'(A)') ' scf_type pk'
+ write(fid2,'(A)') ' guess core'
  write(fid2,'(A)') ' s_tolerance 1e-6'
  write(fid2,'(A)') ' e_convergence 1e5'
  write(fid2,'(A)') ' d_convergence 1e5'

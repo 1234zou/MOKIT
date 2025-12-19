@@ -62,7 +62,7 @@ program gau_external
  inquire(file=TRIM(bakfile),exist=alive)
  if(alive) then ! update MO coefficients (and coordinates if necessary)
   call gbw2mkl(gbwname)
-  call sys_copy_file(fchname, new_fch, .false.)
+  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
   call mkl2fch_wrap(mklname, new_fch)
   call write_grad_into_fch(new_fch, natom, grad)
   if(update_coor) call replace_coor_in_fch_by_engrad(gradname, new_fch)

@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Nov 11, 2025
+Dec 19, 2025
 
 Dependencies
 ------------
@@ -55,7 +55,7 @@ conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. If you want to install MOKIT with conda-forge channel, please read [here](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try option 3.
+If you want to install MOKIT with conda-forge channel, please read [here](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try Option 3 below. You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. See [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群).
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
@@ -183,6 +183,7 @@ MOKIT is able to transform MOs among these QC Packages
 * [PySCF](https://github.com/pyscf/pyscf)
 * [Q-Chem](https://www.q-chem.com)
 * [QM4D](https://www.qm4d.org)
+* [REST](https://gitee.com/restgroup)
 * [Turbomole](https://www.turbomole.org)
 
 

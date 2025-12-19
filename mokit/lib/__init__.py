@@ -12,6 +12,7 @@ from mokit.lib.py2openqp import py2openqp
 from mokit.lib.py2orca import py2orca
 from mokit.lib.py2psi import py2psi
 from mokit.lib.py2qchem import py2qchem
+from mokit.lib.py2rest import py2rest
 from mokit.lib.qchem import *
 
 # misc

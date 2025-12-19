@@ -8,7 +8,7 @@ subroutine do_cis()
  use phys_cons, only: au2ev
  use mol, only: mult, nbf, nif, nopen, nacto, nacta, nactb, nacte, uhf_ssquare
  use mr_keyword, only: mem, nproc, ist, eist, excited, sa_nto, tdhf, readrhf, &
-  readuhf, nstate, dkh2_or_x2c, mixed_spin, casscf, cis_prog, gjfname, hf_fch,&
+  readuhf, nstate, dkh2_or_x2c, MixedSpin, casscf, cis_prog, gjfname, hf_fch,&
   gau_path
  use util_wrapper, only: unfchk, formchk, dat2fch_wrap
  implicit none
@@ -63,7 +63,7 @@ subroutine do_cis()
    nto_fch = gjfname(1:i-1)//'_CIS_NTO.fch'
    cisno_fch = gjfname(1:i-1)//'_CIS_NO.fch'
    hf_fch = gjfname(1:i-1)//'_rhf.fch'
-   call prt_cis_gjf(cis_gjf, mem, nproc, nstate, dkh2_or_x2c,mixed_spin,tdhf)
+   call prt_cis_gjf(cis_gjf, mem, nproc, nstate, dkh2_or_x2c, MixedSpin, tdhf)
    call unfchk(hf_fch, cis_chk)
    call submit_gau_job(gau_path, cis_gjf, .true.)
    call read_cis_e_from_gau_log(cis_log, nstate, cis_e, cis_ssquare, cis_fosc)

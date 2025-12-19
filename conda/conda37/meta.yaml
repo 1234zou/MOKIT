@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 6
+  number: 1
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
@@ -31,6 +31,7 @@ requirements:
     - blas * *mkl*
     - mkl {{ mkl }}
     - numpy {{ numpy }}
+    - libgcc-ng 11
     - libgfortran5 11
 
 about:

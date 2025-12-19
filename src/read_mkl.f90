@@ -246,7 +246,7 @@ subroutine un_normalized_all_pg()
   do j = 1, nc, 1
    nline = all_pg(i)%prim_gau(j)%nline
    if(nline == 1) then
-    all_pg(i)%prim_gau(j)%coeff(1,2) = 1d0
+    all_pg(i)%prim_gau(j)%coeff(1,2)=DSIGN(1d0,all_pg(i)%prim_gau(j)%coeff(1,2))
     cycle
    end if
 
@@ -998,17 +998,17 @@ subroutine clear_bas4atom
  end do ! for i
 end subroutine clear_bas4atom
 
-subroutine init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell,&
-  shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, highest)
+subroutine init_bas4atom_for_an_atom(iatom, ncontr, nprim, shell_type, prim_per_shell,&
+  shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, i1, i2, highest)
  implicit none
  integer :: i, j, k
- integer, intent(in) :: ncontr, nprim
+ integer, intent(in) :: iatom, ncontr, nprim
  integer, intent(in) :: shell_type(ncontr), prim_per_shell(ncontr), &
   shell2atom_map(ncontr)
  real(kind=8) :: rtmp
  real(kind=8), intent(in) :: prim_exp(nprim), contr_coeff(nprim), &
   contr_coeff_sp(nprim)
- integer, intent(inout) :: iatom, i1, i2
+ integer, intent(inout) :: i1, i2
  integer, intent(out) :: highest
 
  ncol = 0; nline = 0
@@ -1127,7 +1127,7 @@ end subroutine read_nbf_and_nif_from_mkl
 ! Print/create .json basis set file. This format is one of supported formats at
 ! Basis Set Exchange (https://www.basissetexchange.org). To use this subroutine,
 ! usually one has to call read_fch() firstly such that all needed arrays are
-! allocated.
+! allocated in memory.
 subroutine prt_bas_json(bas_json)
  use fch_content
  use basis_data
@@ -1162,9 +1162,8 @@ subroutine prt_bas_json(bas_json)
  iatom = 1; i1 = 1; i2 = 1 ! initialization
 
  do while(.true.)
-  call init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell, &
-   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, &
-   highest)
+  call init_bas4atom_for_an_atom(iatom, ncontr, nprim, shell_type, prim_per_shell,&
+   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, i1, i2, highest)
 
   cycle_atom = .false.
   if(iatom > 1) then
@@ -1244,6 +1243,161 @@ subroutine prt_bas_json(bas_json)
  close(fid)
 end subroutine prt_bas_json
 
+! Generate .json basis set files for each element. This subroutine is (originally)
+! designed for the REST quantum chemistry program. Currently REST puts all .json
+! files in a directory 'basename'-basis/. And there is one .json file for one
+! kind of element (which implies that all atoms of one element must share one
+! basis set). To use this subroutine, one needs to call read_fch() firstly such
+! that all needed arrays are allocated in memory.
+subroutine gen_rest_bas_dir(dirname)
+ use fch_content
+ use basis_data
+ implicit none
+ integer :: i, j, k, m, n1, n2, nl, nc, i1, i2, iatom, highest, fid
+ character(len=16) :: str16
+ character(len=255) :: bas_json
+ character(len=240), intent(in) :: dirname
+ logical :: cycle_atom
+ logical, allocatable :: ecp(:) ! size natom
+
+ if(LEN_TRIM(dirname) == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine gen_rest_bas_json: input dirname is empty.'
+  stop
+ end if
+ call create_dir(TRIM(dirname))
+
+ allocate(ecp(natom), source=.false.)
+ if(LenNCZ > 0) then
+  where(LPSkip == 0) ecp = .true.
+ end if
+
+ iatom = 1; i1 = 1; i2 = 1 ! initialization
+
+ do while(.true.)
+  call init_bas4atom_for_an_atom(iatom, ncontr, nprim, shell_type, prim_per_shell,&
+   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, i1, i2, highest)
+
+  cycle_atom = .false.
+  if(iatom > 1) then
+   if(ANY(elem(1:iatom-1) == elem(iatom))) cycle_atom = .true.
+  end if
+
+  if(.not. cycle_atom) then
+   bas_json = TRIM(dirname)//'/'//TRIM(elem(iatom))//'.json'
+   open(newunit=fid,file=TRIM(bas_json),status='replace')
+   write(fid,'(A)') '{'
+   write(fid,'(4X,A)') '"molssi_bse_schema": {'
+   write(fid,'(8X,A)') '"schema_type": "minimal",'
+   write(fid,'(8X,A)') '"schema_version": "0.1"'
+   write(fid,'(4X,A)') '},'
+   write(fid,'(4X,A)') '"elements": {'
+   write(fid,'(8X,A,I0,A)') '"',ielem(iatom),'": {'
+   write(fid,'(12X,A)') '"electron_shells": ['
+
+   do i = 0, highest, 1
+    write(fid,'(16X,A)') '{'
+    write(fid,'(20X,A)') '"function_type": "gto",'
+    write(fid,'(20X,A)') '"region": "",'
+    write(fid,'(20X,A,/,21X,I4,/,20X,A)') '"angular_momentum": [',i,'],'
+    nl = nline(i); nc = ncol(i)
+
+    write(fid,'(20X,A)') '"exponents": ['
+    do j = 1, nl-1, 1
+     call dp2str16(bas4atom(i)%prim_exp(j), str16, m)
+     write(fid,'(24X,A)') '"'//str16(1:m)//'",'
+    end do ! for j
+    call dp2str16(bas4atom(i)%prim_exp(nl), str16, m)
+    write(fid,'(24X,A)') '"'//str16(1:m)//'"'
+    write(fid,'(20X,A)') '],' ! exponents
+
+    write(fid,'(20X,A)') '"coefficients": ['
+    do j = 1, nc, 1
+     write(fid,'(24X,A)') '['
+     do k = 1, nl-1, 1
+      call dp2str16(bas4atom(i)%coeff(j,k), str16, m)
+      write(fid,'(28X,A)') '"'//str16(1:m)//'",'
+     end do ! for k
+     call dp2str16(bas4atom(i)%coeff(j,nl), str16, m)
+     write(fid,'(28X,A)') '"'//str16(1:m)//'"'
+     if(j < nc) then
+      write(fid,'(24X,A)') '],'
+     else
+      write(fid,'(24X,A)') ']'
+     end if
+    end do ! for j
+    write(fid,'(20X,A)') ']' ! coefficients
+
+    if(i < highest) then
+     write(fid,'(16X,A)') '},'
+    else
+     write(fid,'(16X,A)') '}'
+    end if
+   end do ! for i
+
+   if(ecp(iatom)) then
+    write(fid,'(12X,A)') '],'
+    write(fid,'(12X,A,I0,A)') '"ecp_electrons": ',NINT(RNFroz(iatom)),','
+    write(fid,'(12X,A)') '"ecp_potentials": ['
+    k = LMax(iatom); nl = COUNT(KFirst(iatom,:) > 0)
+
+    do i = 1, nl, 1
+     n1 = KFirst(iatom,i); n2 = KLast(iatom,i)
+     write(fid,'(16X,A,/,20X,A)') '{', '"angular_momentum": ['
+     if(i == 1) then
+      write(fid,'(24X,I0)') k
+     else
+      write(fid,'(24X,I0)') i-2
+     end if
+     write(fid,'(20X,A,/,20X,A)') '],', '"ecp_type": "scalar_ecp",'
+     write(fid,'(20X,A)') '"r_exponents": ['
+     do j = n1, n2-1, 1
+      write(fid,'(24X,I2,A)') NLP(j),','
+     end do ! for n
+     write(fid,'(24X,I2)') NLP(n2)
+     write(fid,'(20X,A,/,20X,A)') '],', '"gaussian_exponents": [' 
+     do j = n1, n2-1, 1
+      call dp2str16(ZLP(j), str16, m)
+      write(fid,'(24X,A)') '"'//str16(1:m)//'",'
+     end do ! for n
+     call dp2str16(ZLP(n2), str16, m)
+     write(fid,'(24X,A)') '"'//str16(1:m)//'"'
+     write(fid,'(20X,A,/,20X,A,/,24X,A)') '],','"coefficients": [','['
+     do j = n1, n2-1, 1
+      call dp2str16(CLP(j), str16, m)
+      write(fid,'(28X,A)') '"'//str16(1:m)//'",'
+     end do ! for n
+     call dp2str16(CLP(n2), str16, m)
+     write(fid,'(28X,A)') '"'//str16(1:m)//'"'
+     write(fid,'(24X,A,/,20X,A)') ']', ']'
+     if(i < nl) then
+      write(fid,'(16X,A)') '},'
+     else
+      write(fid,'(16X,A)') '}'
+     end if
+    end do ! for i
+   end if
+
+   write(fid,'(12X,A,/,8X,A,/,4X,A,/,4X,A)') ']','}','},','"function_types": ['
+   if(ecp(iatom)) then
+    write(fid,'(8X,A,/,8X,A)') '"gto",', '"scalar_ecp"'
+   else
+    write(fid,'(8X,A)') '"gto"'
+   end if
+   write(fid,'(4X,A,/,4X,A)') '],', '"name": "custom",'
+   write(fid,'(4X,A)') '"description": "custom basis set data generated by fch2&
+                       &rest of MOKIT"'
+   write(fid,'(A)') '}'
+   close(fid)
+  end if
+
+  call clear_bas4atom()
+  if(iatom == natom) exit
+  iatom = iatom + 1
+ end do ! for while
+
+ deallocate(ecp)
+end subroutine gen_rest_bas_dir
+
 ! print basis set and ECP(if any) data into GENBAS and ECPDATA
 subroutine prt_cfour_genbas(ecp, mrcc)
  use fch_content
@@ -1264,9 +1418,8 @@ subroutine prt_cfour_genbas(ecp, mrcc)
  iatom = 1; i1 = 1; i2 = 1 ! initialization
 
  do while(.true.)
-  call init_bas4atom_for_an_atom(ncontr, nprim, shell_type, prim_per_shell, &
-   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, iatom, i1, i2, &
-   highest)
+  call init_bas4atom_for_an_atom(iatom, ncontr, nprim, shell_type, prim_per_shell,&
+   shell2atom_map, prim_exp, contr_coeff, contr_coeff_sp, i1, i2, highest)
 
   cycle_atom = .false.
   if(iatom > 1) then

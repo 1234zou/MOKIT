@@ -1,6 +1,9 @@
-MOKIT 1.2.7rc14 (Nov 11, 2025)
+MOKIT 1.2.7rc15 (Dec 19, 2025)
 ------------------------
 Fixes
+* fix the case Xmult/=Mult in auto SA-CASSCF calculation
+* fix spin multiplicity specification in ORCA %mrci
+* fix i_mark allocation missing in orb2fch and xml2fch (introduced in commit 0ec2d7c5)
 * update ILSW(1) value in subroutine fch_r2u
 * fix mult=3 bug (in MRSF SA-NO .fch) introduced in commit c3c4a778
 * fix maxM specification bug for DMRG-CASSCF interface to PySCF+Block2
@@ -21,7 +24,8 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
-* add utility fch2nwc (still developing)
+* add module py2rest in lib/py2rest.py
+* add utilities fch2rest and fch2nwc (still developing)
 * support of MRCC/PSI4/PySCF/NWChem molden in molden2fch
 * support the usage of ma-def2 series in .gjf (e.g. CASSCF/ma-def2SVP)
 * add ma-def2 series basis set files into mokit/lib/basis/
@@ -53,6 +57,10 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* remove `bse` dependency in bas_fch2py and fch2rest
+* support negative contraction coefficients for a CGTO with a single primitive Gaussian
+* simplify subroutine prt_orb_resemble_py_script by using load_mol_from_fch
+* improve subroutine fch_r2u to allow mixing multiple pairs of spin orbitals
 * auto-detect nbf and nif in utility gvb_sort_pairs (no need to provide)
 * add support for ghost atoms in fch2mrcc and fch2inporb
 * use construct_vir to construct extra virtual MOs in fch_sph2cart
@@ -81,6 +89,8 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* add rw_misc.f90 and move some subroutines into it
+* add keyword LocPair to allow orbital localization on specified pairs
 * remove '-' symbol after 'def2' in all DKH-def2, ma-def2, ma-DKH-def2 series of basis sets
 * merge subroutines check_sph_in_fch and check_cart_in_fch into find_icart_in_fch
 * move subroutine read_nbf_and_nif_from_fch from read_fch.f90 to file_op.f90

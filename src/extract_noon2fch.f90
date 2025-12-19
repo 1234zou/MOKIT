@@ -2,7 +2,7 @@
 !  from (1) .out file of PySCF or (2) .dat file of GAMESS, and write into a given .fch file
 
 ! updated by jxzou at 20200517: fix the bug(nmo=6*N) in subroutine read_noon_from_pyout
-! updated by jxzou at 20201212: modify read_noon_from_gmsgms to read more digits of NOONs
+! updated by jxzou at 20201212: modify read_noon_from_gms_gms to read more digits of NOONs
 
 ! Note: [idx1,idx2] contains the singly occupied MOs and GVB pairs, npair=(idx2-idx1+1-nopen)/2
 
@@ -119,9 +119,9 @@ subroutine extract_noon2fch(outname, fchname, idx1, idx2, nopen, gau_order)
   call read_noon_from_dat(outname, nmo, noon, nopen, gau_order) ! GVB NOONs
  else if(INDEX(outname,'.gms',back=.true.) > 0) then
   if(gau_order) then ! MP2 NOONs
-   call read_mp2_on_from_gmsgms(outname, nmo, noon)
+   call read_mp2_on_from_gms_gms(outname, nmo, noon)
   else               ! CASCI/CASSCF NOONs
-   call read_noon_from_gmsgms(outname, idx1, nmo, noon)
+   call read_noon_from_gms_gms(outname, idx1, nmo, noon)
   end if
  else
   call identify_itype_of_out(outname, itype)
@@ -258,7 +258,7 @@ end subroutine read_noon_from_dat
 
 ! read CASSCF NOONs from .gms file of GAMESS
 ! Note: CASCI NOONs are recorded in .dat file and no need to be handled here
-subroutine read_noon_from_gmsgms(gmsname, idx1, nmo, noon)
+subroutine read_noon_from_gms_gms(gmsname, idx1, nmo, noon)
  implicit none
  integer :: i, j, k, fid, n, nmo1
  integer, intent(in) :: idx1, nmo
@@ -275,8 +275,8 @@ subroutine read_noon_from_gmsgms(gmsname, idx1, nmo, noon)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_noon_from_gmsgms: no 'ATOMIC M' fo&
-                   &und in file "//TRIM(gmsname)
+  write(6,'(/,A)') "ERROR in subroutine read_noon_from_gms_gms: no 'ATOMIC M' f&
+                   &ound in file "//TRIM(gmsname)
   stop
  end if
 
@@ -303,10 +303,10 @@ subroutine read_noon_from_gmsgms(gmsname, idx1, nmo, noon)
 
  close(fid)
  noon = on(idx1:)
-end subroutine read_noon_from_gmsgms
+end subroutine read_noon_from_gms_gms
 
 ! read MP2 NOONs from a GAMESS .gms file
-subroutine read_mp2_on_from_gmsgms(gmsname, nif, noon)
+subroutine read_mp2_on_from_gms_gms(gmsname, nif, noon)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nif
@@ -327,15 +327,15 @@ subroutine read_mp2_on_from_gmsgms(gmsname, nif, noon)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mp2_on_from_gmsgms: no 'MP2 NAT' f&
-                   &ound in file "//TRIM(gmsname)
+  write(6,'(/,A)') "ERROR in subroutine read_mp2_on_from_gms_gms: no 'MP2 NAT' &
+                   &found in file "//TRIM(gmsname)
   close(fid)
   stop
  end if
 
  read(fid,'(5(1X,ES15.8))') noon
  close(fid)
-end subroutine read_mp2_on_from_gmsgms
+end subroutine read_mp2_on_from_gms_gms
 
 ! read NOONs from .out file of PySCF
 subroutine read_noon_from_pyout(outname, nmo, noon)

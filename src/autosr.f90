@@ -58,7 +58,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc14 (2025-Nov-11)'
+ write(6,'(A)') '           Version: 1.2.7rc15 (2025-Dec-19)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -347,6 +347,11 @@ subroutine parse_sr_keyword()
    gen_no = .true.
   case('relaxed_dm')
    relaxed_dm = .true.
+   write(6,'(/,A)') 'Warning: the keyword Relaxed_DM will be deprecated in the &
+                    &near future.'
+   write(6,'(A)') 'Please use RelaxedDM instead.'
+  case('relaxeddm')
+   relaxed_dm = .true.
   case default
    write(6,'(/,A)') error_warn//"keyword '"//longbuf(1:j-1)//&
                     "' not recognized in {}."
@@ -430,16 +435,11 @@ subroutine check_sr_kywd_compatible()
    write(6,'(A)') 'are supposed to choose only one of force/unrelaxed density.'
    stop
   end if
-  if(cc_enabled .and. relaxed_dm .and. TRIM(cc_prog)=='orca') then
-   write(6,'(/,A)') error_warn//'CC relaxed density are'
-   write(6,'(A)') 'not supported when CC_prog=ORCA.'
-   stop
-  end if
   if(ccsd_t) then
    select case(TRIM(cc_prog))
-   case('orca','gaussian','qchem')
+   case('gaussian','qchem')
     write(6,'(/,A)') error_warn//'CCSD(T) density is not'
-    write(6,'(A)') 'supported by Gaussian/ORCA/Q-Chem. You may try CC_prog=Molp&
+    write(6,'(A)') 'supported by Gaussian/Q-Chem. You may try CC_prog=ORCA/Molp&
                    &ro/PSI4.'
     stop
    end select
@@ -623,7 +623,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc14 :: MOKIT, release date: 2025-Nov-11'
+  write(6,'(A)') 'AutoSR 1.2.7rc15 :: MOKIT, release date: 2025-Dec-19'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -970,7 +970,7 @@ subroutine do_cc()
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
  character(len=240) :: chkname, old_inp, inpname, molname, mklname, outname, &
-  gradname, no_chk, qcscratch
+  gbwname, gradname, no_chk, qcscratch
  logical :: qci
 
  if(.not. cc_enabled) return
@@ -1062,6 +1062,7 @@ subroutine do_cc()
   inpname = hf_fch(1:i-1)//'_CC.inp'
   old_inp = hf_fch(1:i-1)//'_o.inp'
   mklname = hf_fch(1:i-1)//'_CC.mkl'
+  gbwname = hf_fch(1:i-1)//'_CC.gbw'
   no_chk = hf_fch(1:i-1)//'_CC.mdci.nat'
   gradname = hf_fch(1:i-1)//'_CC.engrad'
   call fch2mkl_wrap(hf_fch, mklname)
@@ -1073,7 +1074,13 @@ subroutine do_cc()
   call prt_posthf_orca_inp(inpname, .false.)
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_posthf_e_from_orca_out(outname, (.not.ccd), qci, t1diag, ref_e, e)
-  if(gen_no) call dump_orca_no_gbw2fch(no_chk, hf_fch)
+  ! TODO: CCSD(T) unrelaxed density from the MDCI module seems wrong. Maybe we
+  ! need to switch to the AUTOCI module for all CC calculations.
+  ! TODO: support CCSDT
+  if(gen_no) then
+   if(ccsd_t .and. relaxed_dm) call fake_mdci_nat_using_gbw(gbwname, 5)
+   call dump_orca_no_gbw2fch(no_chk, hf_fch)
+  end if
  case('molpro')
   inpname = hf_fch(1:i-1)//'_CC.com'
   mklname = hf_fch(1:i-1)//'_CC.xml'
@@ -1635,8 +1642,24 @@ subroutine prt_posthf_orca_inp(inpname, excited)
  write(fid1,'(A,I0)') ' FrozenCore -', 2*chem_core
  write(fid1,'(A)') 'end'
 
- if(.not. mp2) then
-  write(fid1,'(A)') '%mdci'
+ if(mp2) then
+  if(gen_no) then
+   write(fid1,'(A)') '%mp2'
+   if(relaxed_dm) then
+    write(fid1,'(A)') ' density relaxed'
+   else
+    write(fid1,'(A)') ' density unrelaxed'
+   end if
+   write(fid1,'(A)') ' NatOrbs True'
+   write(fid1,'(A)') 'end'
+  end if
+ else ! not MP2, i.e. CCSD, CCSD(T), etc
+  if((.not.excited) .and. ccsd_t .and. gen_no .and. relaxed_dm) then
+   write(fid1,'(A)') '%autoci'
+   write(fid1,'(A)') ' CItype CCSD(T)'
+  else
+   write(fid1,'(A)') '%mdci'
+  end if
   write(fid1,'(A)') ' MaxIter 300'
   if(excited) then
    write(fid1,'(A,I0)') ' nroots ',nstate
@@ -1645,21 +1668,14 @@ subroutine prt_posthf_orca_inp(inpname, excited)
     write(fid1,'(A)') ' DoTDM True'
    end if
   end if
-  if(gen_no .and. (ccd .or. ccsd)) then
-   write(fid1,'(A)') ' density unrelaxed'
+  if(gen_no) then
+   if(relaxed_dm) then
+    write(fid1,'(A)') ' density relaxed'
+   else
+    write(fid1,'(A)') ' density unrelaxed'
+   end if
    write(fid1,'(A)') ' NatOrbs True'
   end if
-  write(fid1,'(A)') 'end'
- end if
-
- if(gen_no .and. mp2) then
-  write(fid1,'(A)') '%mp2'
-  if(relaxed_dm) then
-   write(fid1,'(A)') ' density relaxed'
-  else
-   write(fid1,'(A)') ' density unrelaxed'
-  end if
-  write(fid1,'(A)') ' NatOrbs True'
   write(fid1,'(A)') 'end'
  end if
 
@@ -2063,6 +2079,7 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
 
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
+
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 

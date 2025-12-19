@@ -17,14 +17,17 @@
 ! After '-gvb [npair]' is specified, you can also append '-open [nopen0]' if your system
 !  is truly open shell, i.e., doublet, triplet and so on.
 
-! The order of Cartesian functions in Gaussian can be acquired by adding keyword
-! 'pop=reg' in .gjf file. In GAMESS output files(.out, .gms), the order of Cartesian
-! functions is printed without extra keyword needed.
+! When ISPHER=1 used in GAMESS, the resulting electronic energy is the same as
+! '5D 7F' in Gaussian, but the MO coefficients in .dat file are expanded on Car-
+! tesian functions. So, if a '5D 7F' .fch(k) file is provided, this subroutine
+! will expand the MO coefficients from spherical harmonic functions to Cartesian
+! functions.
 
-! When ISPHER=1 used in GAMESS, the resulting electronic energy is the same as '5D 7F'
-! in Gaussian, but the MO coefficients in .dat file are expanded on Cartesian functions.
-! So, if a '5D 7F' .fch(k) file is provided, this subroutine will expand the MO coefficients
-! from spherical harmonic functions to Cartesian functions.
+! Warning: GAMESS does not support negative contraction coefficients for a CGTO
+! which contains only one primitive Gaussian function. Even if -1.0 is provided
+! in the .inp file, it will be automatically set to 1.0. For example, ORCA built
+! -in basis set DKH-def2-TZVP for N has a negative contraction coefficient on the
+! 5-th S basis function.
 
 program main
  use util_wrapper, only: formchk
@@ -223,6 +226,32 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
 
  if(ghf) then
   if(ANY(DABS(CLP2) > 1d-4)) so_ecp = .true. ! SOHF/SODFT
+ end if
+
+ if(itype1==5 .and. nopen0/=nopen) then
+  k = nopen0 - nopen
+  if(MOD(IABS(k),2) /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine fch2inp: odd number of singly occupied&
+                    & orbitals is changed!'
+   write(6,'(A)') 'When you change the number of singly occupied orbitals, only&
+                  & an even number is'
+   write(6,'(A)') 'allowed, e.g. from 0 to 2/4/... (from singlet to triplet/qui&
+                  &ntuplet/...). If you'
+   write(6,'(A)') 'want to change an odd number of singly occupied orbitals (e.&
+                  &g. from singlet to'
+   write(6,'(A)') 'doublet), you need to firstly use the Python API to modify t&
+                  &he charge and spin'
+   write(6,'(A)') 'multiplicity in .fch, for example'
+   write(6,'(A)') '```'
+   write(6,'(A)') 'from mokit.lib.rwwfn import modify_charge_and_mult_in_fch'
+   write(6,'(A)') "modify_charge_and_mult_in_fch(fchname='h2o.fch',charge=1,mult=2)"
+   write(6,'(A)') '```'
+   write(6,'(A)') 'then use the `fch2inp` utility.'
+   stop
+  end if
+  na = na + k/2
+  nb = nb - k/2
+  mult = mult + k
  end if
 
  ncore = na - npair - nopen0
@@ -520,8 +549,16 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    if(nopen > 1) then
     allocate(ideg(nopen-1))
     ideg = ',1'
-    write(fid,'(10A2)',advance='no') ideg
+    write(fid,'(15A2)',advance='no') ideg
     deallocate(ideg)
+    if(nopen > 16) then
+     write(fid,'(/,A)') 'ERROR in subroutine creat_gamess_inp_head: nopen>16 ca&
+                        &nnot be dealt'
+     write(fid,'(A)') 'with currently. Please contact MOKIT developers to updat&
+                      &e code.'
+     close(fid)
+     stop
+    end if
    end if
   end if
   if(mult < 4) then
@@ -529,7 +566,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    if(DIIS) write(fid,'(A)',advance='no') ' DIIS=.T. SOSCF=.F.'
   else ! mult >=4, i.e. >=3 singly occpuied orb
    write(fid,'(A)') ' DIRSCF=.T. COUPLE=.T.'
-   if(DIIS) write(fid,'(A)') '  DIIS=.T. SOSCF=.F.'
+   if(DIIS) write(fid,'(2X,A)') 'DIIS=.T. SOSCF=.F.'
    call prt_gvb_couple_coeff(fid, ncore, nopen)
   end if
   write(fid,'(A)') ' $END'

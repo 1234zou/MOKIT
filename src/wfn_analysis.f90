@@ -388,7 +388,7 @@ subroutine find_antibonding_orb(fchname, i1, i2, i3)
  call check_orthonormal(nbf, nif, mo, ao_ovlp)
  deallocate(ao_ovlp)
 
- call sys_copy_file(fchname, new_fch, .false.)
+ call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
  call write_mo_into_fch(new_fch, nbf, nif, 'a', mo)
 end subroutine find_antibonding_orb
 
@@ -398,7 +398,7 @@ end subroutine find_antibonding_orb
 !  bonding orbitals, and mo(:,i3+i2-i1+1:nif) are remaining virtual orbitals.
 ! 2) all MOs are still orthonormalized.
 subroutine find_antibonding_orbitals(i1, i2, i3, natom, nbf, nif, bfirst, &
-                                     mo_center, ao_ovlp, ao_dip, mo)
+                                    mo_center, ao_ovlp, ao_dip, old_mo, mo)
  implicit none
  integer :: i, j, k, k1, k2, m, p, tr_nbf, ncenter, nzero
  integer, intent(in) :: i1, i2, i3, natom, nbf, nif
@@ -414,9 +414,14 @@ subroutine find_antibonding_orbitals(i1, i2, i3, natom, nbf, nif, bfirst, &
  integer, allocatable :: chosen(:)
  real(kind=8), allocatable :: dip(:,:,:), mo_dip(:,:,:), pao(:,:), cpao(:,:), &
   tr_cpao(:,:), tr_ocpao(:,:), s_d(:,:), s_v(:,:), svc(:,:), svc1(:)
- real(kind=8), intent(inout) :: mo(nbf,nif)
-!f2py intent(in,out) :: mo
+ real(kind=8), intent(in) :: old_mo(nbf,nif)
+!f2py intent(in) :: old_mo
+!f2py depend(nbf,nif) :: old_mo
+ real(kind=8), intent(out) :: mo(nbf,nif)
+!f2py intent(out) :: mo
 !f2py depend(nbf,nif) :: mo
+
+ mo = old_mo
 
  do i = i2, i1, -1
   ! construct PAOs using remaining virtual MOs
@@ -980,7 +985,7 @@ end subroutine solve_mo_from_gross_pop
 ! orbital occupation numbers.
 subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  implicit none
- integer :: i, j, k, ne, nbf, nif, mult, fid
+ integer :: i, j, k, ne, nbf, nif, charge, mult, fid
  integer, intent(in) :: wfn_type ! 1/2/3 for UNO/GVB/CASSCF NOs
 !f2py intent(in) :: wfn_type
  character(len=240) :: buf, fchname1
@@ -999,7 +1004,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon(:,1))
 
  write(6,'(A)') REPEAT('-',23)//' Radical index '//REPEAT('-',23)
- call read_mult_from_fch(fchname, mult)
+ call read_charge_and_mult_from_fch(fchname, charge, mult)
 
  if(mult == 1) then
   open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -1105,7 +1110,7 @@ subroutine calc_unpaired_from_gms_out(outname, unpaired_e)
 !f2py intent(out) :: unpaired_e
  real(kind=8), allocatable :: pair_coeff(:,:), noon(:,:)
 
- call read_npair_from_gms(outname, ncore, nopen, npair)
+ call read_npair_from_gms_gms(outname, ncore, nopen, npair)
  allocate(pair_coeff(2,npair))
  call read_ci_coeff_from_gms(outname, npair, pair_coeff)
  
@@ -1310,6 +1315,119 @@ end subroutine read_ci_coeff_from_gms
 !
 ! deallocate(gross)
 !end subroutine lowdin_pop_of_dm
+
+! Read element symbols and partial (atomic) charges from a specified Gaussian
+! output file.
+! ctype: charge type, 1/2 for Mulliken/Lowdin partial (atomic) charges
+subroutine read_elem_and_partial_charge_from_gau_log(logname, ctype, natom, &
+                                                     elem, charge)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: ctype, natom
+!f2py intent(in) :: ctype, natom
+ real(kind=8), intent(out) :: charge(natom)
+!f2py intent(out) :: charge
+!f2py depend(natom) :: charge
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
+ logical :: alive(2)
+
+ charge = 0d0; elem = '  '
+ ! In case that this is a geometry optimization file which includes multiple
+ ! sets of Mulliken charges, let's start the search from the end of the file.
+ open(newunit=fid,file=TRIM(logname),status='old',position='append')
+
+ select case(ctype)
+ case(1)
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   alive = [(buf(2:37) == 'Mulliken charges and spin densities:'), &
+            (buf(2:18) == 'Mulliken charges:')]
+   if(alive(1) .or. alive(2)) exit
+  end do ! for while
+ case(2)
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(2:23) == 'Lowdin Atomic Charges:') exit
+  end do ! for while
+ case default
+  write(6,'(/,A)') 'ERROR in read_partial_charge_from_gau_log: ctype is out of &
+                   &range!'
+  write(6,'(A,I0)') 'ctype=', ctype
+  close(fid)
+  stop
+ end select
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in read_partial_charge_from_gau_log: target charge no&
+                   &t found in file'
+  write(6,'(A)') TRIM(logname)
+  write(6,'(A,I0)') 'ctype=', ctype
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ do i = 1, natom, 1
+  read(fid,*) k, elem(i), charge(i)
+ end do ! for i
+ close(fid)
+end subroutine read_elem_and_partial_charge_from_gau_log
+
+subroutine find_idx_of_max_min_charge_for_given_elem(natom, elem, charge, elem0,&
+                                                     idx)
+ implicit none
+ integer :: i
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ integer, intent(out) :: idx(2)
+!f2py intent(out) :: idx
+ real(kind=8) :: min_c, max_c
+ real(kind=8), intent(in) :: charge(natom)
+!f2py intent(in) :: charge
+!f2py depend(natom) :: charge
+ character(len=2) :: elem1
+ character(len=2), intent(in) :: elem(natom), elem0
+!f2py intent(in) :: elem, elem0
+!f2py depend(natom) :: elem
+
+ idx = 0
+ if(elem0(1:1)/=' ' .and. elem0(2:2)==' ') elem1 = elem0(1:1)//' '
+
+ if(.not. ANY(elem == elem1)) then
+  write(6,'(/,A)') 'Warning from subroutine find_idx_of_max_min_charge_for_give&
+                   &n_elem: the given'
+  write(6,'(A)') 'element does not appear in the array elem. elem0='//elem1
+  return
+ end if
+
+ min_c = MAXVAL(charge); max_c = MINVAL(charge)
+
+ do i = 1, natom, 1
+  if(elem(i) == elem1) then
+   if(charge(i) > max_c) then
+    idx(1) = i
+    max_c = charge(i)
+   end if
+   if(charge(i) < min_c) then
+    idx(2) = i
+    min_c = charge(i)
+   end if
+  end if
+ end do ! for i
+end subroutine find_idx_of_max_min_charge_for_given_elem
 
 ! perform SVD on MOs in two .fch(k) files
 subroutine mo_svd_in2fch(fchname1, fchname2, idx1, idx2)

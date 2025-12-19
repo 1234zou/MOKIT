@@ -669,3 +669,166 @@ subroutine read_nmo_from_molden(molden, nmo_a, nmo_b)
  end if
 end subroutine read_nmo_from_molden
 
+! Read a square 2D array from an ORCA .json file. For example,
+! key = 'S-Matrix' for AO overlap integral matrix
+! key = 'autocipre' for AO density matrix
+subroutine read_square_array_from_orca_json(json, key, n, a)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: n
+!f2py intent(in) :: n
+ real(kind=8), intent(out) :: a(n,n)
+!f2py depend(n) :: a
+!f2py intent(out) :: a
+ character(len=240) :: buf
+ character(len=240), intent(in) :: json
+!f2py intent(in) :: json
+ character(len=*), intent(in) :: key
+!f2py intent(in) :: key
+
+ a = 0d0
+ open(newunit=fid,file=TRIM(json),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  k = LEN_TRIM(buf)
+  if(INDEX(buf(1:k), ':') > 0) then
+   if(INDEX(buf(1:k),TRIM(key)) > 0) exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_ao_dm_from_orca_json: "'//&
+                    TRIM(key)//'" not found in'
+  write(6,'(A)') 'file '//TRIM(json)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, n, 1
+  read(fid,'(A)') buf
+  read(fid,*) a(:,i)
+  read(fid,'(A)') buf
+ end do ! for i
+
+ close(fid)
+end subroutine read_square_array_from_orca_json
+
+! read MO coefficients and occupation numbers from an ORCA .json file
+subroutine read_mo_and_on_from_orca_json(json, nbf, nif, mo, occ)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(out) :: mo(nbf,nif), occ(nif)
+!f2py depend(nbf,nif) :: mo
+!f2py depend(nif) :: occ
+!f2py intent(out) :: mo, occ
+ character(len=240) :: buf
+ character(len=240), intent(in) :: json
+!f2py intent(in) :: json
+
+ mo = 0d0; occ = 0d0
+ open(newunit=fid,file=TRIM(json),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(8:10) == 'MOs') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mo_from_orca_json: 'MOs' not found&
+                   & in file "//TRIM(json)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, nif, 1
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(fid,*) mo(:,i)
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  k = INDEX(buf, ':')
+  read(buf(k+1:),*) occ(i)
+  do k = 1, 4
+   read(fid,'(A)') buf
+  end do ! for k
+ end do ! for i
+
+ close(fid)
+end subroutine read_mo_and_on_from_orca_json
+
+! Write MO coefficients and occupation numbers into an ORCA .json file. This
+! subroutine requires that the "MOs" section already exists in .json, and MO
+! coefficients as well as occupation numbers will be updated/replaced.
+subroutine write_mo_and_on_into_json(json, nbf, nif, mo, occ)
+ implicit none
+ integer :: i, j, fid, fid1, RENAME
+ integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
+ real(kind=8), intent(in) :: mo(nbf,nif), occ(nif)
+!f2py depend(nbf,nif) :: mo
+!f2py depend(nif) :: occ
+!f2py intent(in) :: mo, occ
+ character(len=240) :: buf, new_json
+ character(len=240), intent(in) :: json
+!f2py intent(in) :: json
+
+ call find_specified_suffix(json, '.json', i)
+ new_json = json(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(json),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(new_json),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(8:10) == 'MOs') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine write_mo_and_on_into_json: 'MOs' not fo&
+                   &und in file "//TRIM(json)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ do i = 1, nif, 1
+  write(fid1,'(8X,A)') '{'
+  write(fid1,'(10X,A)') '"MOCoefficients": ['
+  do j = 1, nbf-1, 1
+   write(fid1,'(12X,ES19.12,A)') mo(j,i), ','
+  end do ! for j
+  write(fid1,'(12X,ES19.12)') mo(nbf,i)
+  write(fid1,'(10X,A)') '],'
+  write(fid1,'(10X,A,F12.8,A)') '"Occupancy": ',occ(i),','
+  write(fid1,'(10X,A)') '"OrbitalEnergy": 0.0,'
+  write(fid1,'(10X,A)') '"OrbitalSymLabel": "A",'
+  write(fid1,'(10X,A)') '"OrbitalSymmetry": 0'
+  if(i < nif) then
+   write(fid1,'(8X,A)') '},'
+  else
+   write(fid1,'(8X,A)') '}'
+  end if
+ end do ! for i
+
+ j = (8+nbf)*nif
+ do i = 1, j, 1
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+ i = RENAME(TRIM(new_json), TRIM(json))
+end subroutine write_mo_and_on_into_json
+

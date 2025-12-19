@@ -237,21 +237,41 @@ subroutine remove_dir(dirname)
  integer :: i, SYSTEM
  character(len=*), intent(in) :: dirname
 
+ i = LEN_TRIM(dirname)
+ if(i == 0) then
+  write(6,'(/,A)') 'ERROR in subroutine remove_dir: the given directory name is&
+                   & empty!'
+  stop
+ end if
+ if((dirname(1:1)=='*' .or. dirname(1:1)=='~' .or. dirname(1:1)=='/') .and. &
+    (i==1)) then
+  write(6,'(/,A)') 'ERROR in subroutine remove_dir: wrong directory name: '//&
+                   TRIM(dirname)
+  stop
+ end if
+
 #ifdef _WIN32
  i = SYSTEM('rd '//dirname)
 #else
  ! in case that important directories are deleted, check the dirname firstly
- i = LEN_TRIM(dirname)
- if(i == 1) then
-  write(6,'(A)') 'ERROR in subroutine remove_dir: wrong directory name: '//&
-                  TRIM(dirname)
-  stop
+ if(i == 2) then
+  if(dirname(1:2) == '~/') then
+   write(6,'(/,A)') "ERROR in subroutine remove_dir: dangerous directory name '~/'"
+   stop
+  end if
+ end if
+
+ if(i == 3) then
+  if(dirname(1:3) == '~/*') then
+   write(6,'(/,A)') "ERROR in subroutine remove_dir: dangerous directory name '~/*'"
+   stop
+  end if
  end if
 
  if(i > 3) then
   select case(dirname(1:4))
   case('/usr','/bin','/lib','/etc')
-   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+   write(6,'(/,A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
                    //TRIM(dirname)
    stop
   case default
@@ -260,7 +280,7 @@ subroutine remove_dir(dirname)
 
  if(i > 4) then
   if(dirname(1:5) == '/sbin') then
-   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+   write(6,'(/,A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
                    //TRIM(dirname)
    stop
   end if
@@ -268,7 +288,7 @@ subroutine remove_dir(dirname)
 
  if(i > 5) then
   if(dirname(1:6) == '/lib64') then
-   write(6,'(A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
+   write(6,'(/,A)') 'ERROR in subroutine remove_dir: dangerous directory name: '&
                    //TRIM(dirname)
    stop
   end if
@@ -601,6 +621,67 @@ subroutine read_nbf_and_nif_from_fch(fchname, nbf, nif)
  close(fid)
 end subroutine read_nbf_and_nif_from_fch
 
+! read nbf and nif from an ORCA .json file
+subroutine read_nbf_and_nif_from_orca_json(json, nbf, nif)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(out) :: nbf, nif
+!f2py intent(out) :: nbf, nif
+ character(len=240) :: buf
+ character(len=240), intent(in) :: json
+!f2py intent(in) :: json
+
+ nbf = 0; nif = 0
+ open(newunit=fid,file=TRIM(json),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(8:10) == 'MOs') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nbf_and_nif_from_orca_json: 'MOs' &
+                   &not found in file"
+  write(6,'(A)') TRIM(json)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ if(buf(12:25) /= 'MOCoefficients') then
+  write(6,'(/,A)') 'ERROR in subroutine read_nbf_and_nif_from_orca_json: "MOCoe&
+                   &fficients" is'
+  write(6,'(A)') 'not in the expected position.'
+  close(fid)
+  stop
+ end if
+ nif = 1
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(11:12) == '],') exit
+  nbf = nbf + 1
+ end do ! for while
+ k = nbf + 7
+
+ do i = 1, 5
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  buf = ADJUSTL(buf)
+  if(TRIM(buf) /= '{') exit
+  do i = 1, k, 1
+   read(fid,'(A)') buf
+  end do ! for i
+  nif = nif + 1
+ end do ! for while
+
+ close(fid)
+end subroutine read_nbf_and_nif_from_orca_json
 
 ! write MO coefficients into a specified binary file
 subroutine write_mo2bin(binfile, nbf, nif, mo)
@@ -756,7 +837,6 @@ subroutine modify_uno_out(uno_out, ndb, npair, nopen)
  close(fid)
 end subroutine modify_uno_out
 
-
 ! Note: the parameter mem must be provided in unit MB.
 subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
                            numfreq)
@@ -905,7 +985,6 @@ subroutine split_iatom_elem(iatom_elem, iatom, elem)
  read(iatom_elem(1:i-1),*) iatom
  read(iatom_elem(i:k),*) elem
 end subroutine split_iatom_elem
-
 
 ! save the previous K matrix of Cayley transformation
 subroutine save_cayley_k_old(nmo, ndiis, k_old, binfile)

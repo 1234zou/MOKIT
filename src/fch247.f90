@@ -1,4 +1,5 @@
 ! written by jxzou at 20220220: generate .47 file from Gaussian .fch(k) file
+! TODO: support fort.33 for EzReson
 
 program main
  use util_wrapper, only: formchk

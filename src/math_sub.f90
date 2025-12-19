@@ -2731,7 +2731,7 @@ end subroutine detect_zero_mo
 !  routines later.
 ! nb: the number of beta electrons
 ! npair: the number of bonding orbitals already exists
-subroutine mv_dege_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
+subroutine mv_degen_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
  implicit none
  integer :: i, j, k, ndocc
  integer, intent(in) :: nbf, nb, npair
@@ -2779,7 +2779,7 @@ subroutine mv_dege_docc_below_bo(nbf, nb, npair, ev, mo, new_ev, new_mo)
  end do ! for i
 
  deallocate(mo_i)
-end subroutine mv_dege_docc_below_bo
+end subroutine mv_degen_docc_below_bo
 
 ! generate natural orbitals from provided AO-basis density matrix and overlap
 ! matrix

@@ -13,26 +13,24 @@ program main
  integer :: i, j
  character(len=5) :: buf
  character(len=240) :: fchname
- logical :: prt_dft, pbc, obj_only, rest
+ logical :: prt_dft, pbc, obj_only
 
  i = iargc()
- if(i<1 .or. i>4) then
+ if(i<1 .or. i>3) then
   write(6,'(/,A)') ' ERROR in program bas_fch2py: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF, UHF) : bas_fch2py a.fch'
   write(6,'(A)')   ' Example 2 (DFT)         : bas_fch2py a.fch -dft'
-  write(6,'(A)')   ' Example 3 (REST)        : bas_fch2py a.fch -dft -rest'
-  write(6,'(A)')   ' Example 4 (PBC-HF)      : bas_fch2py a.fch -pbc'
-  write(6,'(A)')   ' Example 5 (PBC-DFT)     : bas_fch2py a.fch -pbc -dft'
-  write(6,'(A)')   ' Example 6 (object only) : bas_fch2py a.fch -obj'
-  write(6,'(A,/)') ' Example 7 (PBC obj only): bas_fch2py a.fch -pbc -obj'
+  write(6,'(A)')   ' Example 3 (PBC-HF)      : bas_fch2py a.fch -pbc'
+  write(6,'(A)')   ' Example 4 (PBC-DFT)     : bas_fch2py a.fch -pbc -dft'
+  write(6,'(A)')   ' Example 5 (object only) : bas_fch2py a.fch -obj'
+  write(6,'(A,/)') ' Example 6 (PBC obj only): bas_fch2py a.fch -pbc -obj'
   stop
  end if
 
  fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
-
- prt_dft=.false.; pbc=.false.; obj_only=.false.; rest=.false.
+ buf = ' '; prt_dft = .false.; pbc = .false.; obj_only = .false.
 
  if(i > 1) then
   do j = 2, i, 1
@@ -46,18 +44,24 @@ program main
    case('-obj')
     obj_only = .true.
    case('-rest')
-    rest = .true.
+    write(6,'(/,A)') 'ERROR in program bas_fch2py: `-rest` is no longer support&
+                     &ed in bas_fch2py.'
+    write(6,'(A)') 'If you want to run `bas_fch2py h2o.fch -dft -rest`, you can&
+                   & use `fch2rest` instead.'
+    write(6,'(A)') 'For example:'
+    write(6,'(A,/)') "  fch2rest h2o.fch -dft 'B3LYP D3BJ'"
+    stop
    case default
-    write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: wrong command line arguments!'
-    write(6,'(A)') "The arguments can only be -dft/-pbc/-obj/-rest"
+    write(6,'(/,A)') 'ERROR in program bas_fch2py: wrong command line arguments!'
+    write(6,'(A)') "The arguments can only be -dft/-pbc/-obj"
     stop
    end select
   end do ! for j
  end if
 
- if(obj_only .and. (prt_dft .or. rest)) then
-  write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: -obj is incompatible with -&
-                   &dft/-rest.'
+ if(obj_only .and. prt_dft) then
+  write(6,'(/,A)') 'ERROR in program bas_fch2py: `-obj` is incompatible with `-&
+                   &dft`.'
   stop
  end if
 
@@ -68,20 +72,20 @@ program main
   fchname = fchname(1:i-3)//'fch'
  end if
 
- call bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
+ call bas_fch2py(fchname, prt_dft, pbc, obj_only)
 end program main
 
 ! generate PySCF format basis set (.py file) from Gaussian .fch(k) file
-subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
+subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
  use util_wrapper, only: fch2inp_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, k, nbf, nif, SYSTEM, RENAME
  character(len=15) :: dftname
  character(len=240) :: inpname, inpname1, pyname
  character(len=240), intent(in) :: fchname
  character(len=300) :: command
- logical :: alive, cart, is_hf, rotype, untype
- logical, intent(in) :: prt_dft, pbc, obj_only, rest
+ logical :: alive, cart, is_hf, rotype, untype, lin_dep
+ logical, intent(in) :: prt_dft, pbc, obj_only
 
  call find_specified_suffix(fchname, '.fch', i)
 
@@ -92,12 +96,17 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
  end if
 
  inpname = fchname(1:i-1)//'.inp'
- inpname1 = fchname(1:i-1)//'.t'
+ call get_a_random_int(k)
+ write(inpname1,'(A,I0)') fchname(1:i-1)//'.', k
  pyname = fchname(1:i-1)//'.py'
 
  ! if inpname already exists, rename it
  inquire(file=TRIM(inpname),exist=alive)
  if(alive) i = RENAME(TRIM(inpname), TRIM(inpname1))
+
+ lin_dep = .false.
+ call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+ if(nbf > nif) lin_dep = .true.
 
  call determine_sph_or_cart(fchname, cart) 
  call fch2inp_wrap(fchname, .false., 0, 0, .true., .false.)
@@ -106,13 +115,14 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
  if(.not. cart) command = TRIM(command)//' -sph'
  if(pbc) command = TRIM(command)//' -pbc'
  if(obj_only) command = TRIM(command)//' -obj'
- if(rest) command = TRIM(command)//' -rest'
 
  i = SYSTEM(TRIM(command))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine bas_fch2py: failed to call utility bas_&
-                   &gms2py.'
-  write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
+                   &gms2py. Did'
+  write(6,'(A)') 'you forget to compile the utility bas_gms2py? If not, the fil&
+                 &e '//TRIM(fchname)
+  write(6,'(A)') 'may be problematic.'
   stop
  end if
 
@@ -126,89 +136,10 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only, rest)
 
  if(prt_dft) then
   call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
-  call prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc, rest)
- else
-  if(rest) then
-   !call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
-   ! let HF scf run
-   ! rotype and untype do not matter in this case
-   dftname = ' '
-   call prt_dft_key2pyscf_script(dftname, .true., .false., .false., pyname, &
-                                 pbc, rest)
-  end if
+  call prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, pbc, &
+                                pyname)
  end if
 end subroutine bas_fch2py
-
-! find the DFT name in a Gaussian .fch file
-subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
- implicit none
- integer :: i, j, fid
- character(len=240) :: buf
- character(len=480) :: longbuf
- character(len=240), intent(in) :: fchname
- character(len=15), intent(out) :: dftname
- logical, intent(out) :: is_hf, rotype, untype
-
- is_hf = .false.; rotype = .false.; untype = .false.; dftname = ' '
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:5) == 'Route') then
-   read(fid,'(A)') buf
-   ! in case that the Route Section is long and be divided into 2 lines, let's
-   ! read one more line
-   read(fid,'(A)') longbuf
-   if(longbuf(1:6) == 'Charge') then
-    longbuf = buf
-   else
-    longbuf = TRIM(buf)//TRIM(longbuf)
-   end if
-   j = INDEX(longbuf,'/')
-   i = INDEX(longbuf(1:j-1), ' ', back=.true.)
-   dftname = longbuf(i+1:j-1)
-   exit
-  end if
- end do ! for while
-
- close(fid)
- if(LEN_TRIM(dftname) == 0) then
-  write(6,'(A)') REPEAT('-',79)
-  write(6,'(A)') 'Warning from subroutine find_dftname_in_fch: DFT name is not &
-                 &found in file'
-  write(6,'(A)') TRIM(fchname)
-  write(6,'(A)') 'Possible reason: you are using a fch file generated by old ve&
-                 &rsion of Gaussian,'
-  write(6,'(A)') 'e.g. g03, g09. The density functional will be set to PBEPBE.'
-  write(6,'(A)') REPEAT('-',79)
-  dftname = 'pbepbe'
- end if
-
- call lower(dftname)
- if(dftname(1:2) == 'ro') then
-  rotype = .true.
-  dftname = dftname(3:)
- else if(dftname(1:1) == 'u') then
-  untype = .true.
-  dftname = dftname(2:)
- else if(dftname(1:1) == 'r') then
-  dftname = dftname(2:)
- end if
-
- if(TRIM(dftname) == 'hf') is_hf = .true.
-
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- close(fid)
-
- if(buf(11:11) == 'U') then
-  untype = .true.
- else if(buf(11:12) =='RO') then
-  rotype = .true.
- end if
-end subroutine find_dftname_in_fch
 
 ! delete the key 'scf' from buf
 !subroutine del_scf_in_buf(buf, deleted)
@@ -236,8 +167,8 @@ end subroutine find_dftname_in_fch
 !end subroutine del_scf_in_buf
 
 ! print DFT keywords into a PySCF .py script
-subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc,&
-                                    rest)
+subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, &
+                                    pbc, pyname)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=4) :: str4
@@ -245,7 +176,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc,
  character(len=240) :: buf, pyname1, pchkname
  character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: pyname
- logical, intent(in) :: is_hf, rotype, untype, pbc, rest
+ logical, intent(in) :: is_hf, rotype, untype, lin_dep, pbc
  logical :: printed
 
  str4 = 'mol'
@@ -309,12 +240,15 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, pyname, pbc,
   write(fid1,'(A)') "mf.xc = '"//TRIM(dftname1)//"'"
   !write(fid1,'(A)') 'mf.grids.radi_method = dft.radi.mura_knowles'
   write(fid1,'(A)') 'mf.grids.atom_grid = (99,590)' ! ultrafine
+  if(lin_dep) then
+   write(fid1,'(A)') 'mf = scf.remove_linear_dep_(old_mf, threshold=1e-6, linde&
+                     &p=1e-6)'
+  end if
  end if
 
  write(fid1,'(A)') 'mf.verbose = 4'
  write(fid1,'(A)') 'mf.max_cycle = 128'
  write(fid1,'(A)') 'mf.max_memory = 4000 # MB'
- if(rest) write(fid1,'(A)') "mf.chkfile = '"//TRIM(pchkname)//"'"
  write(fid1,'(A)') 'mf.kernel(dm0=dm)'
 
  close(fid1)

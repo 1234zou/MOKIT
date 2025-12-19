@@ -116,7 +116,7 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
 ! then we adjust the basis functions in each MO according to the type of basis functions
  k = length  ! update k
- allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k))
+ allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
 
  ! adjust the order of d, f, etc. functions
  if(sph) then ! spherical harmonic

@@ -717,7 +717,7 @@ subroutine read_sf_ex_coeff_from_gms_gms(gmsname, istate, nval, nocc, nvir, exc)
  close(fid)
  rtmp = 0d0
  do i = 1, nvir, 1
-  rtmp = rtmp + DOT_PRODUCT(exc(:,i),exc(:,i))
+  rtmp = rtmp + DOT_PRODUCT(exc(:,i), exc(:,i))
  end do ! for i
 
  if(DABS(rtmp - 1d0) > diff_thres) then

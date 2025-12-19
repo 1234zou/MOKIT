@@ -31,7 +31,7 @@ program main
  call align_orbitals(fname1, fname2, idx1, idx2)
 end program main
 
-subroutine align_orbitals(fname1,fname2, idx1, idx2)
+subroutine align_orbitals(fname1, fname2, idx1, idx2)
  implicit none
  integer :: i, j, k, m, tmp_idx(1)
  integer :: nbf, nif, ncoeff

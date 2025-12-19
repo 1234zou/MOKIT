@@ -1437,14 +1437,16 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
   write(fid2,'(A)') TRIM(buf)
   if(buf(1:1) == '}') exit
  end do ! for while
- close(fid1, status='delete')
 
+ close(fid1, status='delete')
  write(fid2,'(/,A)') 'dimer = psi4.get_active_molecule()'
  write(fid2,'(/,A)') 'set {'
  write(fid2,'(A)') ' scf_type df' ! pk is slow and disk-consuming
+ write(fid2,'(A)') ' guess core'
  write(fid2,'(A)') ' s_tolerance 1e-6'
  write(fid2,'(A)') ' e_convergence 1e5'
  write(fid2,'(A)') ' d_convergence 1e5'
+
  i = frags(3)%wfn_type
  select case(i)
  case(1)
@@ -1454,15 +1456,18 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  case(3)
   write(fid2,'(A)') ' reference uhf'
  case default
-  write(6,'(A)') 'ERROR in subroutine copy_and_modify_psi4_sapt_file: wfn_ty&
-                 &pe out of range.'
+  write(6,'(/,A)') 'ERROR in subroutine copy_and_modify_psi4_sapt_file: wfn_typ&
+                   &e out of range.'
   write(6,'(A,I0)') 'wfn_type=', i
+  close(fid2)
   stop
  end select
+
  write(fid2,'(A)') '}'
  write(fid2,'(A)') 'df_basis_sapt {'
  if(basis(1:4) == 'def2') basis = 'def2-'//TRIM(basis(5:))
  write(fid2,'(A)') ' assign '//TRIM(basis)//'-ri'
+
  if(TRIM(basis) == 'jun-cc-pvdz') then
   natom = frags(3)%natom
   do i = 1, natom, 1

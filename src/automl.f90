@@ -137,7 +137,7 @@ subroutine run_multi_gfn_ff_md(proname0, charge, mult, nproc0)
 !$omp critical
   write(proname,'(A,I0)') TRIM(proname0)//'_', i
   coord = TRIM(proname)//'.coord'
-  call sys_copy_file(coord0, coord, .false.)
+  call sys_copy_file(TRIM(coord0), TRIM(coord), .false.)
 !$omp end critical
   inpname = TRIM(proname)//'.inp'
   trjname = TRIM(proname)//'.xtb.trj'

@@ -14,8 +14,8 @@ program main
  i = iargc()
  if(i<1 .or. i>3) then
   write(6,'(/,A)') ' Example 1: bas_gms2molpro h2o.inp'
-  write(6,'(A)') ' Example 2: bas_gms2molpro h2o.inp -sph'
-  write(6,'(A)') ' Example 3: bas_gms2molpro h2o.inp -m15'
+  write(6,'(A)')   ' Example 2: bas_gms2molpro h2o.inp -sph'
+  write(6,'(A)')   ' Example 3: bas_gms2molpro h2o.inp -m15'
   write(6,'(A,/)') ' Example 4: bas_gms2molpro h2o.inp -sph -m15'
   stop
  end if
@@ -68,7 +68,7 @@ subroutine bas_gms2molpro(fort7, sph, m15)
  i = INDEX(fort7, '.', back=.true.)
  if(i == 0) then
   write(6,'(/,A)') "ERROR in subroutine bas_gms2molpro: no '.' character found &
-                   &in filename "//TRIM(fort7)
+                   &in file "//TRIM(fort7)
   stop
  end if
 

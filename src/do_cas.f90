@@ -32,12 +32,13 @@ subroutine do_cas(scf)
  real(kind=8), allocatable :: noon(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
+ character(len=28), parameter :: error_warn = 'ERROR in subroutine do_cas: '
  character(len=240) :: fchname, pyname, inpname, outname, proname, mklname, &
   orbname, xmlname, gradname
  character(len=500) :: buf
  logical, intent(in) :: scf
  logical, external :: compare_as_size
- logical :: alive1, alive2, cas_force, beyond_cas
+ logical :: cas_force, uhf, alive1, alive2, beyond_cas
 
  if(scf) then
   if((.not. casscf) .and. (.not.dmrgscf)) return
@@ -49,12 +50,20 @@ subroutine do_cas(scf)
  cas_force = (casci_force .or. casscf_force)
 
  if(ist == 5) then
+  call check_uhf_in_fch(hf_fch, uhf)
+  if(uhf) then
+   write(6,'(/,A)') error_warn//'R(O)HF-type .fch(k) file is expected when'
+   write(6,'(A)') 'using the `readno` keyword. But you provide a UHF-type file.&
+                  & Please check'
+   write(6,'(A)') TRIM(hf_fch)
+   stop
+  end if
+
   ! if the user wants to perform (SA-)CASSCF calculations using a new spin
   ! multiplicity, we copy a new .fch file and update mult as well as hf_fch
   if(new_mult>0 .and. new_mult/=mult) then
    if(MOD(IABS(new_mult-mult),2) /= 0) then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: inconsistency found between mu&
-                     &lt and NewMult.'
+    write(6,'(/,A)') error_warn//'inconsistency found between mult and NewMult.'
     write(6,'(2(A,I0))') 'mult=', mult, ', NewMult=', new_mult
     stop
    end if
@@ -78,8 +87,7 @@ subroutine do_cas(scf)
                              nactb, nacto, nacte)
  else ! ist /= 5
   if(new_mult > 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: NewMult is supposed to be used&
-                    & along with ist=5.'
+   write(6,'(/,A)') error_warn//'NewMult is supposed to be used along with ist=5.'
    write(6,'(A,I0)') 'But current ist=', ist
    stop
   end if
@@ -97,7 +105,7 @@ subroutine do_cas(scf)
   ! check the odevity of nacte_wish, in case that the user requires nonsense
   ! number of active electrons
   if(MOD(nacte_wish-nopen,2) /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: wrong active space specified.'
+   write(6,'(/,A)') error_warn//'wrong active space specified.'
    write(6,'(3(A,I0),A)') 'Nopen=',nopen,'. Incompatible with CAS(',nacte_wish,&
                           'e,',nacto_wish,'o)'
    stop
@@ -112,8 +120,7 @@ subroutine do_cas(scf)
    write(6,'(A)') 'OK, fulfilled.'
   else ! ist /= 5
    if(2*npair+nopen < nacte_wish) then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: too large space specified. Ca&
-                     &nnot be fulfilled.'
+    write(6,'(/,A)') error_warn//'too large space specified. Cannot be fulfilled.'
     write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen,', nacte_wish=',nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
@@ -154,8 +161,8 @@ subroutine do_cas(scf)
  write(6,'(A,2(I0,A))') '(',nacte,'e,',nacto,'o) using program '//TRIM(cas_prog)
 
  if(new_mult>1 .and. nacto<new_mult-1) then
-  write(6,'(/,A,I0)') 'ERROR in subroutine do_cas: the active space is too small s&
-                      &uch that NewMult=', new_mult
+  write(6,'(/,A,I0)') error_warn//'the active space is too small such that NewM&
+                     &ult=', new_mult
   write(6,'(A)') 'is impossible. Please consider enlarge the active space.'
   write(6,'(2(A,I0))') 'nacte=', nacte, ', nacto=', nacto
   stop
@@ -189,8 +196,8 @@ subroutine do_cas(scf)
   beyond_cas = compare_as_size(nacto,nacte,mult, 15,15,2)
   if(beyond_cas) then
    if(nmr) then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG invoked, but DMRG-GIAO is&
-                     & not supported currently.'
+    write(6,'(/,A)') error_warn//'DMRG invoked, but DMRG-GIAO is not supported &
+                    &currently.'
     stop
    end if
    casscf = .false.
@@ -199,8 +206,8 @@ subroutine do_cas(scf)
    write(6,'(A)') 'Remark: CASSCF is switched to DMRG-CASSCF due to active spac&
                   &e larger than (15,15).'
    if(TRIM(casscf_prog) /= 'pyscf') then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGSCF required. But CASSCF_&
-                     &prog='//TRIM(casscf_prog)//'.'
+    write(6,'(/,A)') error_warn//'DMRGSCF required. But CASSCF_prog='//&
+                     TRIM(casscf_prog)//'.'
     stop
    end if
   end if
@@ -213,8 +220,8 @@ subroutine do_cas(scf)
    write(6,'(A)') 'Remark: CASCI is switched to DMRG-CASCI due to active space &
                   &larger than (16,16).'
    if(TRIM(casci_prog) /= 'pyscf') then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRGCI required. But CASCI_pr&
-                     &og='//TRIM(casci_prog)//'.'
+    write(6,'(/,A)') error_warn//'DMRGCI required. But CASCI_prog='//&
+                     TRIM(casci_prog)//'.'
     stop
    end if
   end if
@@ -226,14 +233,13 @@ subroutine do_cas(scf)
  end if
 
  if(ist<1 .or. ist>7) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: invalid ist.'
-  write(6,'(A,I0)') 'Allowed values are 1~7. But got ist=', ist
+  write(6,'(/,A,I0)') error_warn//'invalid ist=', ist
+  write(6,'(A)') 'Allowed values are 1~7.'
   stop
  end if
 
  if((dmrgci .or. dmrgscf) .and. TRIM(cas_prog)/='pyscf') then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: DMRG-CASCI/CASSCF calculation i&
-                   &s only supported'
+  write(6,'(/,A)') error_warn//'DMRG-CASCI/CASSCF calculation is only supported'
   write(6,'(A)') 'by PySCF+Block currently, which means that CASCI_prog or CASS&
                  &CF_prog is supposed'
   write(6,'(A)') 'to be PySCF. Bot got '//TRIM(cas_prog)
@@ -247,8 +253,7 @@ subroutine do_cas(scf)
  ! set to .True. before coming into this subroutine. So we need to check again
  ! values of dmrgscf and dmrg_no.
  if(dmrgscf .and. (.not.dmrg_no)) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: the noDMRGNO keyword can only b&
-                   &e used for'
+  write(6,'(/,A)') error_warn//'the noDMRGNO keyword can only be used for'
   write(6,'(A)') 'DMRG-CASCI. But DMRG-CASSCF is detected.'
   stop
  end if
@@ -371,8 +376,7 @@ subroutine do_cas(scf)
    write(6,'(A)') '$'//TRIM(buf)
    i = SYSTEM(TRIM(buf))
    if(i /= 0) then
-    write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call extract_noon2f&
-                     &ch.'
+    write(6,'(/,A)') error_warn//'failed to call extract_noon2fch.'
    end if
   end if
 
@@ -382,7 +386,7 @@ subroutine do_cas(scf)
   write(6,'(A)') '$'//TRIM(buf)
   i = SYSTEM(TRIM(buf)//' >/dev/null')
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dat2fch.'
+   write(6,'(/,A)') error_warn//'failed to call utility dat2fch.'
    write(6,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
    stop
   end if
@@ -486,7 +490,7 @@ subroutine do_cas(scf)
   write(6,'(A)') '$$BDF '//TRIM(proname)
   i = SYSTEM(TRIM(bdf_path)//' '//TRIM(proname))
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: BDF CASCI/CASSCF job failed.'
+   write(6,'(/,A)') error_warn//'BDF CASCI/CASSCF job failed.'
    stop
   end if
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
@@ -510,8 +514,7 @@ subroutine do_cas(scf)
                              TRIM(casnofch), ndb+1, n_pocc
   i = SYSTEM(TRIM(buf))
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility extract&
-                    &_noon2fch.'
+   write(6,'(/,A)') error_warn//'failed to call utility extract_noon2fch.'
    stop
   end if
 
@@ -543,7 +546,7 @@ subroutine do_cas(scf)
   ! when force=.T., NOONs are not in DALTON.MOPUN, so we only transfer NOs here
   i = SYSTEM(TRIM(buf))
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: failed to call utility dal2fch.'
+   write(6,'(/,A)') error_warn//'failed to call utility dal2fch.'
    write(6,'(A)') 'Please open files DALTON.MOPUN and '//TRIM(casnofch)//&
                  &' and check.'
    stop
@@ -559,8 +562,7 @@ subroutine do_cas(scf)
   call delete_file('DALTON.MOPUN')
 
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: allowed programs are Gaussian,&
-                   & GAMESS, PySCF,'
+  write(6,'(/,A)') error_warn//'allowed programs are Gaussian, GAMESS, PySCF,'
   write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got CAS_&
                  &prog='//TRIM(cas_prog)
   stop
@@ -583,12 +585,12 @@ subroutine do_cas(scf)
  end if
 
  ! read energy, check convergence and check spin
- call read_cas_energy_from_output(cas_prog, outname, e, scf, nacta-nactb, &
-                                  (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e)
+ call read_cas_energy_from_output(cas_prog, outname, nacta-nactb, scf, &
+                              (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e, e)
 
  if(gvb .and. 2*npair+nopen==nacto .and. iroot==0 .and. e(1)-gvb_e>2D-6) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: active space of GVB and CAS are&
-                   & equal, but CASCI/CASSCF'
+  write(6,'(/,A)') error_warn//'active space of GVB and CAS are equal, but CASC&
+                  &I/CASSCF'
   write(6,'(A)') 'energy is higher than that of GVB. This is probably due to:&
                  & (1) CASCI stucks in a higher'
   write(6,'(A)') 'energy local minimum or not pure spin state; (2) GVB MOs are&
@@ -630,7 +632,7 @@ subroutine do_cas(scf)
 
  if(ICSS) then
   if(dalton_mpi) then
-   write(6,'(/,A)') 'ERROR in subroutine do_cas: internal inconsistency.'
+   write(6,'(/,A)') error_warn//'internal inconsistency.'
    write(6,'(A)') 'dalton_mpi = .T.'
    stop
   end if
@@ -1779,7 +1781,6 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  integer, intent(in) :: fid
  integer, parameter :: max_cyc = 250
  real(kind=8) :: spin, xss ! xss: spin square of the target excited state
- !real(kind=8), parameter :: conv_tol_grad = 3d-3
  character(len=21), intent(in) :: RIJK_bas1
 
  spin = 0.5d0*DBLE(xmult-1)
@@ -1801,7 +1802,7 @@ subroutine prt_es_casscf_kywrd_py(fid, RIJK_bas1)
  end if
  write(fid,'(A,I0)') 'target_root = ', iroot
 
- write(fid,'(A)') 'from mokit.lib.auto import find_root_by_ss'
+ write(fid,'(A)') 'from mokit.lib.util import find_root_by_ss'
  write(fid,'(A,I0,A)') 'for i in range(', max_cyc ,'):'
  write(fid,'(2X,A)') "print('ITER=',i)"
  write(fid,'(2X,3(A,I0),A)') 'mc = mcscf.CASCI(mf,', nacto, ',(',&

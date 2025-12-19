@@ -22,41 +22,59 @@ module ao2mo_arrays
  logical, allocatable :: small(:,:), small_dm(:,:)
 end module ao2mo_arrays
 
-! This subroutine/program will first compute the U matrix between two sets of MO
-! (coeff1 and lo_coeff1), then apply U onto coeff2 and the result is stored in
-! new_coeff2
-subroutine assoc_rot(nbf, nmo, coeff1, lo_coeff1, coeff2, new_coeff2)
+! This subroutine/program will first compute the U matrix between two sets of
+! MOs (mo1 and lmo1), then apply U onto mo2 and the result is stored in lmo2
+subroutine assoc_rot(nbf, nmo, ao_ovlp, mo1, lmo1, mo2, lmo2)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nmo
 !f2py intent(in) :: nbf, nmo
- integer, allocatable :: ipiv(:)
- real(kind=8) :: coeff1(nbf,nmo), lo_coeff1(nbf,nmo), coeff2(nbf,nmo)
-!f2py intent(in,copy) :: coeff1, lo_coeff1
-!f2py intent(in) :: coeff2
-!f2py depend(nbf,nmo) :: coeff1, lo_coeff1, coeff2
- real(kind=8), intent(out) :: new_coeff2(nbf,nmo)
-!f2py intent(out) :: new_coeff2
-!f2py depend(nbf,nmo) :: new_coeff2
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo1(nbf,nmo), lmo1(nbf,nmo), &
+  mo2(nbf,nmo)
+!f2py intent(in) :: ao_ovlp, mo1, lmo1, mo2
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nmo) :: mo1, lmo1, mo2
+ real(kind=8), intent(out) :: lmo2(nbf,nmo)
+!f2py intent(out) :: lmo2
+!f2py depend(nbf,nmo) :: lmo2
+ real(kind=8), allocatable :: u(:,:), u1(:,:), tmp_mo(:,:)
 
- ! find the unitary (orthogonal) matrix between coeff1 and lo_coeff1,
- !  where coeff1*U = lo_coeff1
- allocate(ipiv(min(nbf,nmo)), source=0)
- call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
- call dgetrs('N', nmo, nmo, coeff1, nbf, ipiv, lo_coeff1, nbf, i)
- deallocate(ipiv)
+ if(nmo == 1) then
+  lmo2(:,1) = mo2(:,1)
+  return
+ end if
 
- ! reverse the coeff2
- forall(i = 1:nmo) coeff1(:,i) = coeff2(:,nmo-i+1)
- coeff2 = coeff1
- ! rotate the coeff2
- new_coeff2 = 0d0
- call dgemm('N', 'N', nbf, nmo, nmo, 1d0, coeff2, nbf, lo_coeff1, nbf, 0d0, &
-            new_coeff2, nbf)
- ! reverse the coeff2 again
- forall(i = 1:nmo) coeff1(:,i) = new_coeff2(:,nmo-i+1)
+ ! There are two ways to find the unitary matrix between mo1 and lmo1,
+ ! (1) solve systems of linear equations mo1*U = lmo1
+ ! (2) matrix product U = (mo1^T)S(lmo1)
+ ! In principle, (2) might be numerically more stable than (1). And matrix
+ ! product is supposed to be easier to compute. But (2) requires the input of
+ ! AO overlap integral matrix.
 
- new_coeff2 = coeff1
+ !allocate(ipiv(min(nbf,nmo)), source=0)
+ !call dgetrf(nbf, nmo, coeff1, nbf, ipiv, i)
+ !call dgetrs('N', nmo, nmo, coeff1, nbf, ipiv, lo_coeff1, nbf, i)
+ !deallocate(ipiv)
+ allocate(u(nmo,nmo))
+ call calc_CTSCp(nbf, nmo, mo1, ao_ovlp, lmo1, u)
+
+ ! reverse u
+ allocate(u1(nmo,nmo))
+ do i = 1, nmo, 1
+  u1(i,:) = u(nmo-i+1,:)
+ end do ! for i
+ deallocate(u)
+
+ allocate(tmp_mo(nbf,nmo), source=0d0)
+ call dgemm('N', 'N', nbf, nmo, nmo, 1d0, mo2, nbf, u1, nmo, 0d0, tmp_mo, nbf)
+ deallocate(u1)
+
+ ! reverse tmp_mo
+ do i = 1, nmo, 1
+  lmo2(:,i) = tmp_mo(:,nmo-i+1)
+ end do ! for i
+
+ deallocate(tmp_mo)
 end subroutine assoc_rot
 
 ! written by jxzou at 20181012

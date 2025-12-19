@@ -145,7 +145,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  character(len=10) :: section, key
  character(len=240) :: inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
- character(len=480) :: longbuf = ' '
+ character(len=500) :: longbuf = ' '
  logical, intent(in) :: name_determined
  ! True: using the provided proname as inpname
  ! False: create inpname, gmsname, datname according to proname
@@ -202,7 +202,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
 
  if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from th&
                                     &e original GVB:'
- call read_gvb_energy_from_gms(gmsname, gvb_e)
+ call read_gvb_energy_from_output('gamess    ', gmsname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
@@ -218,12 +218,13 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  end if
 
  ! generate corresponding .fch file from _s.dat file
- i = INDEX(datname, '.dat')
+ i = INDEX(datname, '.dat', back=.true.)
  inpname = datname(1:i-1)//'_s.fch'
  datname = datname(1:i-1)//'_s.dat'
  call copy_file(pair_fch, inpname, .false.)
  write(longbuf,'(2(A,I0),A)') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//&
                               ' -gvb ', npair, ' -open ', nopen, ' >/dev/null'
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility dat2&
@@ -235,6 +236,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  ! extract NOONs from the above .dat file and print them into .fch file
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
+ write(6,'(A)') '$'//TRIM(longbuf)
  i = SYSTEM(TRIM(longbuf))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility extr&
@@ -330,7 +332,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  call determine_npair0_from_pair_coeff(npair, coeff, npair0)
  deallocate(coeff)
 
- call read_gvb_e_from_qchem_out(outname, gvb_e)
+ call read_gvb_energy_from_output('qchem     ', outname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  call calc_unpaired_from_fch(fchname, 2, .false., unpaired_e)
@@ -385,7 +387,7 @@ subroutine do_gvb_gau(proname, pair_fch)
   stop
  end if
 
- call read_gvb_e_from_gau_log(logname, gvb_e)
+ call read_gvb_energy_from_output('gaussian  ', logname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  call formchk(chkname, fchname)
@@ -468,58 +470,6 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  close(fid)
  deallocate(pair)
 end subroutine prt_gvb_gau_inp
-
-! read GVB energy from a Q-Chem output file
-subroutine read_gvb_e_from_qchem_out(outname, gvb_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: gvb_e
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- gvb_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:13) == 'GVB Converge') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_qchem_out: no 'GVB Con&
-                   &verge' found in file "//TRIM(outname)
-  stop
- end if
-
- read(buf(16:),*) i, gvb_e
-end subroutine read_gvb_e_from_qchem_out
-
-! read GVB energy from a Gaussian output file
-subroutine read_gvb_e_from_gau_log(logname, gvb_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: gvb_e
- character(len=240) :: buf
- character(len=240), intent(in) :: logname
-
- gvb_e = 0d0
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(8:19) == 'TOTAL ENERGY') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_gvb_e_from_gau_log: no 'TOTAL&
-                     & ENERGY' found in file "//TRIM(logname)
-  stop
- end if
-
- read(buf(34:),*) gvb_e
-end subroutine read_gvb_e_from_gau_log
 
 subroutine read_pair_coeff_from_qchem_out(outname, npair, coeff)
  implicit none

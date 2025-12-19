@@ -1066,48 +1066,6 @@ subroutine prt_ovbmp2_gau_inp(gjfname)
  close(fid)
 end subroutine prt_ovbmp2_gau_inp
 
-! read CASSCF OVB-MP2 energy from a Gaussian output file
-subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: ref_e, corr_e
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- ref_e = 0d0; corr_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(13:22) == 'EIGENVALUE') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EIGE&
-                   &NVALUE' found in"
-  write(6,'(A)') 'file '//TRIM(outname)
-  close(fid)
- end if
- read(buf(23:),*) ref_e
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(28:34) == 'EUMP2 =') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EUMP&
-                   &2 =' found in"
-  write(6,'(A)') 'file '//TRIM(outname)
- end if
-
- read(buf(35:),*) corr_e
- corr_e = corr_e - ref_e
-end subroutine read_mrpt_energy_from_gau_log
-
 ! read nroots and target_root from a plain text file
 subroutine read_ss_root_from_txt(nroots, target_root)
  implicit none

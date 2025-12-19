@@ -621,8 +621,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  write(fid,'(A)') 'nif = get_nmo_from_ao_ovlp(nbf, S)'
  write(fid,'(A)') 'if(nif < nbf):'
  write(fid,'(A)') '  mf2 = mf.copy()'
- write(fid,'(A)') '  mf = scf.remove_linear_dep_(mf2, threshold=1.1e-6, lindep=&
-                  &1.1e-6)'
+ write(fid,'(A)') '  mf = scf.remove_linear_dep_(mf2, threshold=1e-6, lindep=1e-6)'
 
  if(uhf .and. mult==1) then
   ! For singlet UHF, construct broken symm initial guess

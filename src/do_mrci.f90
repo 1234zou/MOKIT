@@ -407,8 +407,8 @@ end subroutine prt_mrci_molcas_inp
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
  use mol, only: nacto, nacte, mult
- use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, hardwfn, crazywfn, &
-  orca_path
+ use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, iroot, xmult, hardwfn, &
+  crazywfn, orca_path
  implicit none
  integer :: i, iver, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
@@ -422,8 +422,14 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
  write(fid2,'(A)') '! NoIter'
+ write(fid2,'(A)') '%casscf'
+ write(fid2,'(A,I0)') ' nel ', nacte
+ write(fid2,'(A,I0)') ' norb ', nacto
+ if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
+ call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
+ write(fid2,'(A)') 'end'
 
  if(DKH2) then
   write(fid2,'(A)') '%rel'
@@ -439,8 +445,8 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  if(CtrType == 1) then ! uncontracted MRCISD
   write(fid2,'(A)') '%mrci'
   write(fid2,'(A)') ' CItype MRCI'
-  write(fid2,'(2(A,I0),A)') ' NewBlock 1 * nroots 1 refs cas(',nacte,',',nacto,&
-                            ') end end'
+  write(fid2,'(3(A,I0),A)') ' NewBlock ',mult,' * nroots 1 refs cas(',nacte,&
+                            ',',nacto,') end end'
   write(fid2,'(A)') ' tsel 0.0'
   write(fid2,'(A)') ' tpre 0.0'
   write(fid2,'(A)') ' Etol 1e-7'
@@ -481,12 +487,22 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  write(fid2,'(A)') '%method'
  write(fid2,'(A)') ' FrozenCore FC_NONE'
  write(fid2,'(A)') 'end'
- write(fid2,'(A)') '%coords'
 
  do while(.true.)
-  read(fid1,'(A)') buf
-  if(buf(1:6) == '%coord') exit
+  read(fid1,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4)=='%scf' .or. buf(1:6)=='%coord') exit
  end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine prt_mrcisd_orca_inp: neither '%scf' nor&
+                   & '%coord' is"
+  write(6,'(A)') 'located in file '//TRIM(inpname1)
+  close(fid1)
+  close(fid2,status='delete')
+  stop
+ end if
+ write(fid2,'(A)') TRIM(buf)
 
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
@@ -559,7 +575,7 @@ subroutine prt_mrci_psi4_inp(order, inpname)
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(index(buf,'d_convergence') > 0) exit
+  if(INDEX(buf,'d_convergence') > 0) exit
 
   if(buf(1:6) == 'memory') then
    write(6,'(/,A)') 'ERROR in subroutine prt_mrcisd_psi4_inp: incomplete file '&

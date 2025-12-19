@@ -1039,7 +1039,7 @@ subroutine read_prim_gau(stype, nline, fid)
  implicit none
  integer :: i, j, k, itmp, ncol, ncol1, nline0, nline1
  integer, intent(in) :: nline, fid
- real(kind=8), parameter :: zero = 1d-6
+ real(kind=8), parameter :: zero = 1d-5
  real(kind=8) :: exp0, rtmp, rtmp1
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1), intent(in) :: stype
@@ -1063,7 +1063,7 @@ subroutine read_prim_gau(stype, nline, fid)
    ! further two sub-subcases: whether sharing the same exponents
    share = .false. ! initialization
    if(DABS(coeff(1,1)-exp0) < zero) then
-    nline1 = max(nline0,nline)
+    nline1 = MAX(nline0, nline)
     share = .true.
    end if
    if((.not.share) .and. nline==1 .and. DABS(coeff(nline0,1)-exp0)<zero) then
@@ -1082,7 +1082,7 @@ subroutine read_prim_gau(stype, nline, fid)
 
    do i = 1, nline, 1
     read(fid,*) itmp, exp0, rtmp
-    if(nline == 1) rtmp = 1d0
+    if(nline == 1) rtmp = DSIGN(1d0, rtmp)
     if(share) then
      if(i > nline0) then
       prim_gau(k)%coeff(i,1) = exp0
@@ -1116,7 +1116,7 @@ subroutine read_prim_gau(stype, nline, fid)
    allocate(prim_gau(k)%coeff(nline,2), source=0d0)
    do i = 1, nline, 1
     read(fid,*) itmp, prim_gau(k)%coeff(i,1), rtmp
-    if(nline == 1) rtmp = 1d0
+    if(nline == 1) rtmp = DSIGN(1d0, rtmp)
     prim_gau(k)%coeff(i,2) = rtmp
    end do ! for i
   end if
@@ -1165,7 +1165,8 @@ subroutine read_prim_gau(stype, nline, fid)
   do i = 1, nline, 1
    read(fid,*) itmp, exp0, rtmp, rtmp1
    if(nline == 1) then
-    rtmp = 1d0; rtmp1 = 1d0
+    rtmp = DSIGN(1d0, rtmp)
+    rtmp1 = DSIGN(1d0, rtmp1)
    end if
    prim_gau(1)%coeff(nline0+i,1) = exp0
    prim_gau(1)%coeff(nline0+i,ncol) = rtmp
@@ -1173,7 +1174,6 @@ subroutine read_prim_gau(stype, nline, fid)
    prim_gau(2)%coeff(nline1+i,ncol1) = rtmp1
   end do ! for i
  end if
-
 end subroutine read_prim_gau
 
 ! determine the highest angular momentum quantum number

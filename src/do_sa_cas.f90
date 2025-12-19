@@ -4,9 +4,9 @@
 subroutine do_sa_cas()
  use mol, only: mult, nif, nbf, ndb, nopen, nacta, nactb, nacto, nacte, sa_cas_e,&
   ci_ssquare, fosc
- use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, hf_fch, casscf,&
-  dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt_prog, chgname, excited, &
-  nstate, nevpt2, on_thres, orca_path, molcas_omp
+ use mr_keyword, only: mem, nproc, ist, nacto_wish, nacte_wish, given_xmult, &
+  xmult, hf_fch, casscf, dmrgscf, bgchg, casscf_prog, dmrgscf_prog, nevpt_prog, &
+  chgname, excited, nstate, nevpt2, on_thres, orca_path, molcas_omp
  use phys_cons, only: au2ev
  implicit none
  integer :: i, SYSTEM
@@ -71,6 +71,13 @@ subroutine do_sa_cas()
   dmrgscf = .false.
   data_string = 'SA-CASSCF'
   cas_prog = casscf_prog
+ end if
+
+ if(given_xmult .and. xmult<mult) then
+  write(6,'(/,A)') 'ERROR in subroutine do_sa_cas: Xmult>=Mult is required. But&
+                   & got'
+  write(6,'(2(A,I0))') 'Mult=', mult, ', Xmult=', xmult
+  stop
  end if
 
  write(6,'(/,2(A,I0),A)') TRIM(data_string)//'(', nacte, 'e,', nacto,&
@@ -172,19 +179,18 @@ end subroutine do_sa_cas
 ! print (DMRG-)SA-CASSCF script into a given .py file
 subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
  use mol, only: nacto, nacte, nacta, nactb
- use mr_keyword, only: mem, nproc, casscf, dmrgscf, maxM, block_mpi, hardwfn, &
-  crazywfn, RI, RIJK_bas, hf_fch, mixed_spin, nstate, nevpt2
+ use mr_keyword, only: mem, nproc, casscf, dmrgscf, xmult, given_xmult, maxM, &
+  block_mpi, hardwfn, crazywfn, RI, RIJK_bas, hf_fch, MixedSpin, nstate, nevpt2
  use util_wrapper, only: bas_fch2py_wrap
  implicit none
  integer :: i, nacta1, nactb1, fid1, fid2, RENAME
  real(kind=8) :: ss ! spin square S(S+1)
- !real(kind=8), parameter :: conv_tol_grad = 3d-3
  character(len=21) :: RIJK_bas1
  character(len=240) :: buf, pyname1, cmofch
  character(len=240), intent(in) :: pyname, gvb_fch
  logical, intent(in) :: nevpt2_btw ! whether to perform NEVPT2 by the way
 
- if(mixed_spin) then
+ if(MixedSpin) then
   ! set as the lowest spin in order to obtain different spins in SA-CASSCF
   nactb1 = nacte/2
   nacta1 = nacte - nactb1
@@ -288,15 +294,20 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
 
  if(.not. dmrgscf) then
   call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
-  ss = DBLE(nacta - nactb)*0.5d0
-  ss = ss*(ss + 1d0)
-  if(.not. (mixed_spin .or. crazywfn)) then
+  if(given_xmult) then
+   ss = 0.25d0*DBLE(xmult*xmult-1)
+  else
+   ss = DBLE(nacta - nactb)*0.5d0
+   ss = ss*(ss + 1d0)
+  end if
+  if(.not. (MixedSpin .or. crazywfn)) then
    write(fid2,'(A,F8.3,A)') 'mc.fix_spin_(ss=', ss, ')'
   end if
  end if
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel()'
  write(fid2,'(A)') 'mo = mc.mo_coeff.copy() # backup'
+ write(fid2,'(A,I0,A)') 'ci0 = mc.ci[0:',nstate+1,'].copy() # backup'
 
  i = INDEX(hf_fch, '.fch', back=.true.)
  cmofch = hf_fch(1:i-1)//'_SA-CAS.fch'
@@ -332,14 +343,8 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
   write(fid2,'(I0)') nstate+1
  end if
 
- if(.not. dmrgscf) then
-  call prt_hard_or_crazy_casci_pyscf(0, fid2, nacta-nactb, hardwfn, crazywfn)
-  if(.not. (mixed_spin .or. crazywfn)) then
-   write(fid2,'(A,F8.3,A)') 'mc.fix_spin_(ss=', ss, ')'
-  end if
- end if
  write(fid2,'(A)') 'mc.verbose = 4'
- write(fid2,'(A)') 'mc.kernel(mo)'
+ write(fid2,'(A)') 'mc.kernel(mo_coeff=mo,ci0=ci0)'
  write(fid2,'(A)') 'mc.analyze()'
 
  ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
@@ -400,7 +405,7 @@ end subroutine prt_sacas_script_into_py
 ! print SA-CASSCF input file of Gaussian
 subroutine prt_sacas_gjf(gjfname, hf_fch)
  use mol, only: nacto, nacte
- use mr_keyword, only: mem, nproc, mixed_spin, nstate
+ use mr_keyword, only: mem, nproc, MixedSpin, nstate
  use util_wrapper, only: unfchk
  implicit none
  integer :: i, fid
@@ -417,7 +422,7 @@ subroutine prt_sacas_gjf(gjfname, hf_fch)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
  write(fid,'(2(A,I0))') '#p CASSCF(',nacte,',',nacto
- if(mixed_spin) write(fid,'(A)',advance='no') ',SlaterDet'
+ if(MixedSpin) write(fid,'(A)',advance='no') ',SlaterDet'
  write(fid,'(A)') ',StateAverage) chkbasis nosymm int=nobasistransform'
  write(fid,'(A,/)') 'scf(maxcycle=500) guess=read geom=allcheck'
 
@@ -437,7 +442,7 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  use mol, only: nacto, nacte, mult
  use mr_keyword, only: mem, nproc, nevpt2, QD, FIC, DLPNO, F12, RI, RIJK_bas, &
-  mixed_spin, nstate, hardwfn, crazywfn
+  MixedSpin, nstate, hardwfn, crazywfn
  implicit none
  integer :: i, fid, fid1
  character(len=240) :: buf, mklname, gbwname, inpname1
@@ -467,7 +472,7 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
  write(fid1,'(A)') '%casscf'
  write(fid1,'(A,I0)') ' nel ', nacte
  write(fid1,'(A,I0)') ' norb ', nacto
- if(mixed_spin) then
+ if(MixedSpin) then
   write(fid1,'(2(A,I0))') ' mult ',mult,',',mult+2
   if(MOD(nstate,2) == 0) then
    write(fid1,'(2(A,I0))') ' nroots ',nstate/2+1,',',nstate/2
@@ -526,7 +531,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  use util_wrapper, only: fch2inp_wrap
  use mol, only: ndb, nacto, nacte, charge, mult
  use mr_keyword, only: mem, nproc, hardwfn, crazywfn, dkh2_or_x2c, cart, &
-  mixed_spin, nstate
+  MixedSpin, nstate
  implicit none
  integer :: i, fid1, fid2, RENAME
  real(kind=8), allocatable :: weight(:)
@@ -557,7 +562,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  write(fid2,'(A)',advance='no') ' $DET'
  write(fid2,'(3(A,I0),A)',advance='no') ' NCORE=',ndb,' NELS=',nacte,' NACT=',&
                                         nacto,' ITERMX=500'
- if(mixed_spin) write(fid2,'(A)',advance='no') ' PURES=.FALSE.'
+ if(MixedSpin) write(fid2,'(A)',advance='no') ' PURES=.FALSE.'
  write(fid2,'(A)',advance='no') ' NSTATE='
  if(hardwfn) then
   write(fid2,'(I0)') nstate+6
@@ -696,7 +701,7 @@ subroutine read_sa_cas_e_from_orca_out(outname, nstate, sa_cas_e, ci_ssquare)
  if(i /= 0) then
   close(fid)
   write(6,'(/,A)') "ERROR in subroutine read_sa_cas_e_from_orca_out: no 'CAS-SC&
-                  &F STATES FOR BLOCK'"
+                   &F STATES FOR BLOCK'"
   write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
@@ -919,9 +924,13 @@ subroutine read_multiroot_nevpt2_from_orca_out(outname, nstate, nevpt2_e)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nstate
+!f2py intent(in) :: nstate
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
  real(kind=8), intent(out) :: nevpt2_e(0:nstate)
+!f2py intent(out) :: nevpt2_e
+!f2py depend(nstate) :: nevpt2_e
 
  nevpt2_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')

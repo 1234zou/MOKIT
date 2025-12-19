@@ -45,39 +45,6 @@ subroutine modify_irohf_in_fch(fchname, k)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
 end subroutine modify_irohf_in_fch
 
-! read the total charge and the spin mltiplicity from a given .fch(k) file
-subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
- implicit none
- integer :: i, fid
- integer, intent(out) :: charge, mult
-!fp2y intent(out) :: charge, mult
- character(len=240) :: buf
- character(len=240), intent(in) :: fchname
-!f2py intent(in) :: fchname
-
- charge = 0; mult = 1
- open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:6) == 'Charge') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_fch: no 'Char&
-                   &ge' found in"
-  write(6,'(A)') 'file '//TRIM(fchname)
-  close(fid)
-  stop
- end if
-
- BACKSPACE(fid)
- read(fid,'(A49,2X,I10)') buf, charge
- read(fid,'(A49,2X,I10)') buf, mult
- close(fid)
-end subroutine read_charge_and_mult_from_fch
-
 ! modify the charge and spin multiplicity in a specified .fch(k) file
 subroutine modify_charge_and_mult_in_fch(fchname, charge, mult)
  implicit none
@@ -187,7 +154,6 @@ subroutine read_na_and_nb_from_fch(fchname, na, nb)
  read(fid,'(A49,2X,I10)') buf, nb
  close(fid)
 end subroutine read_na_and_nb_from_fch
-
 
 ! read Alpha/Beta MOs from a given .fch(k) file
 subroutine read_mo_from_fch(fchname, nbf, nif, ab, mo)
@@ -908,7 +874,6 @@ subroutine determine_sph_or_cart(fchname, cart)
  deallocate(shltyp)
 end subroutine determine_sph_or_cart
 
-
 ! read variables nbf, nif, ndb, etc from a .fch(k) file containing NOs and NOONs
 subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,&
                                  nactb, nacto, nacte)
@@ -968,7 +933,6 @@ subroutine read_no_info_from_fch(fchname, on_thres, nbf, nif, ndb, nopen, nacta,
  ndb = na - nacta
  nacte = nacta + nactb
 end subroutine read_no_info_from_fch
-
 
 ! read various AO density matrix from a .fch(k) file
 subroutine read_dm_from_fch(fchname, itype, nbf, dm)
@@ -1520,8 +1484,8 @@ subroutine get_1e_exp_and_sort_pair(mo_fch, no_fch, npair)
  i = SYSTEM('solve_ON_matrix '//TRIM(mo_fch)//' '//TRIM(no_fch))
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine get_1e_exp_and_sort_pair: failed to cal&
-                   &l utility solve_ON_matrix.'
-  write(6,'(A)') 'Did you forget to compile this utility?'
+                   &l utility'
+  write(6,'(A)') 'solve_ON_matrix. Did you forget to compile this utility?'
   write(6,'(A)') 'mo_fch='//TRIM(mo_fch)
   write(6,'(A)') 'no_fch='//TRIM(no_fch)
   stop
@@ -1833,36 +1797,66 @@ subroutine reorder2dbabasv(fchname)
  deallocate(new_ev)
 end subroutine reorder2dbabasv
 
-! Convert an R(O)HF-type .fch(k) file into a UHF-type one. If
-! brokensym=.True., beta HOMO-LUMO will be interchanged.
-subroutine fch_r2u(fchname, brokensym)
+! Convert an R(O)HF-type .fch(k) file into a UHF-type one. If ibrosym > 0,
+! alpha/beta spatial symmetry will be broken via mixing ibrosym pair of spin
+! orbitals.
+subroutine fch_r2u(fchname, ibrosym)
  implicit none
- integer :: i, j, k, nbf, nif, ncoeff, na, nb, nline, fid, fid1
- real(kind=8), allocatable :: e_a(:), rtmp(:), mo_a(:,:)
+ integer :: i, j, k, nbf, nif, ncoeff, na, nb, nline, ibrok, fid, fid1
+ integer, intent(in) :: ibrosym
+!f2py intent(in) :: ibrosym
+ real(kind=8), parameter :: fac = 0.5d0*DSQRT(2d0)
+ real(kind=8), allocatable :: e_a(:), tmp_mo(:,:), mo_a(:,:), mo_b(:,:)
  character(len=240) :: buf, uhf_fch
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
- logical, intent(in) :: brokensym
-!f2py intent(in) :: brokensym
 
  call find_specified_suffix(fchname, '.fch', i)
  uhf_fch = fchname(1:i-1)//'_u.fch'
+
+ call read_na_and_nb_from_fch(fchname, na, nb)
+ if(ibrosym > nb) then
+  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: input ibrosym is nonsense.'
+  write(6,'(2(A,I0))') 'ibrosym=', ibrosym, ', nb=', nb
+  stop
+ end if
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(e_a(nif), mo_a(nbf,nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', e_a)
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo_a)
- call read_na_and_nb_from_fch(fchname, na, nb)
+ write(6,'(A,I0)') 'ibrosym=', ibrosym
 
- write(6,'(A,L1)') 'brokensym=', brokensym
- if(brokensym) then
-  allocate(rtmp(nbf), source=mo_a(:,nb))
-  mo_a(:,nb) = mo_a(:,nb+1)
-  mo_a(:,nb+1) = rtmp
-  rtmp(1) = e_a(nb)
-  e_a(nb) = e_a(nb+1)
-  e_a(nb+1) = rtmp(1)
-  deallocate(rtmp)
+ if(ibrosym > 0) then
+  i = MINVAL([na, nb, nif-na, nif-nb])
+  if(ibrosym > i) then
+   write(6,'(/,A)') 'Remark from subroutine fch_r2u: ibrosym is larger than max&
+                    &imum pair for mixing'
+   write(6,'(A,I0)') 'spin orbitals. Automatically adjust ibrosym to ', i
+   ibrok = i
+  else
+   ibrok = ibrosym
+  end if
+  allocate(mo_b(nbf,nif), source=mo_a)
+  j = ibrok; k = 2*j
+  allocate(tmp_mo(nbf,k))
+
+  do i = 1, k, 1
+   tmp_mo(:,i) = mo_a(:,na+i-j)
+  end do ! for i
+  do i = 1, j, 1
+   mo_a(:,na-j+i) = fac*(tmp_mo(:,i) + tmp_mo(:,k-i+1))
+   mo_a(:,na+i) = fac*(tmp_mo(:,j-i+1) - tmp_mo(:,k+i-j))
+  end do ! for i
+
+  do i = 1, k, 1
+   tmp_mo(:,i) = mo_b(:,nb+i-j)
+  end do ! for i
+  do i = 1, j, 1
+   mo_b(:,nb-j+i) = fac*(tmp_mo(:,i) - tmp_mo(:,k-i+1))
+   mo_b(:,nb+i) = fac*(tmp_mo(:,j-i+1) + tmp_mo(:,k+i-j))
+  end do ! for i
+  deallocate(tmp_mo)
  end if
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -1965,24 +1959,39 @@ subroutine fch_r2u(fchname, brokensym)
  deallocate(e_a)
 
  ! find Alpha MO coefficients
- do while(.true.)
-  read(fid,'(A)') buf
-  write(fid1,'(A)') TRIM(buf)
-  if(buf(1:7) == 'Alpha M') exit
- end do ! for while
+ read(fid,'(A)') buf
+ write(fid1,'(A)') TRIM(buf)
+ if(buf(1:7) /= 'Alpha M') then
+  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: "Alpha M" is not found at the &
+                   &expected position.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
 
  ncoeff = nbf*nif
  nline = ncoeff/5
  if(ncoeff > nline*5) nline = nline + 1
 
- do i = 1, nline, 1
-  read(fid,'(A)') buf
-  write(fid1,'(A)') TRIM(buf)
- end do ! for i
-
- write(fid1,'(A,23X,A,I12)') 'Beta MO coefficients','R   N=', ncoeff
- write(fid1,'(5(1X,ES15.8))') mo_a
- deallocate(mo_a)
+ if(ibrok > 0) then
+  write(fid1,'(5(1X,ES15.8))') mo_a
+  deallocate(mo_a)
+  write(fid1,'(A,23X,A,I12)') 'Beta MO coefficients','R   N=', ncoeff
+  write(fid1,'(5(1X,ES15.8))') mo_b
+  deallocate(mo_b)
+  do i = 1, nline, 1 ! skip Alpha MO coefficients
+   read(fid,'(A)') buf
+  end do ! for i
+ else
+  do i = 1, nline, 1 ! simply copy Alpha MO coefficients
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for i
+  write(fid1,'(A,23X,A,I12)') 'Beta MO coefficients','R   N=', ncoeff
+  write(fid1,'(5(1X,ES15.8))') mo_a
+  deallocate(mo_a)
+ end if
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf

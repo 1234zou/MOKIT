@@ -73,7 +73,7 @@ subroutine fch_sph2cart(fchname)
                   //TRIM(cart_fch)//' ...'
   end if
   write(6,'(A)') REPEAT('-',79)
-  call sys_copy_file(fchname, cart_fch, .false.)
+  call sys_copy_file(TRIM(fchname), TRIM(cart_fch), .false.)
   return
  end if
 

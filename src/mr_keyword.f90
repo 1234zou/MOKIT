@@ -218,12 +218,18 @@ module mr_keyword
  logical :: soc = .false.         ! whether to calculate spin-orbit coupling (SOC)
  logical :: excludeXH = .false.   ! whether to exclude inactive X-H bonds from GVB
  logical :: onlyXH = .false.      ! whether to keep only X-H bonds in GVB
- logical :: LocDocc = .false.     ! whether to localize GVB doubly occupied orb
+ logical :: LocPair = .false.
+ ! This variable is used during constructing GVB initial guess orbitals.
+ ! True: perform orbital localization only on specified pairs
+ ! False: perform orbital localization on default chosen pairs
+ logical :: LocDocc = .false.
+ ! whether to localize GVB doubly occ. orb. when GVB calc. is accomplished
  logical :: rigid_scan = .false.  ! rigid/unrelaxed PES scan
  logical :: relaxed_scan = .false.! relaxed PES scan
+ logical :: given_xmult = .false. ! whether Xmult is specified by the user
  logical :: ss_opt = .false.      ! State-specific orbital optimization
  logical :: excited = .false.     ! whether to perform excited states calculations
- logical :: mixed_spin = .false.  ! allow multiple spin in SA-CASSCF, e.g. S0/T1
+ logical :: MixedSpin = .false.   ! allow multiple spin in SA-CASSCF, e.g. S0/T1
  logical :: sa_nto = .false.      ! State-averaged CIS/TDHF NTOs
  logical :: tdhf = .false.        ! True/False for TDHF/CIS
  logical :: sa_cas = .false.      ! State-Averaged CASSCF
@@ -308,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc14 (2025-Nov-11)'
+ write(6,'(A)') '           Version: 1.2.7rc15 (2025-Dec-19)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -584,7 +590,7 @@ end subroutine check_gms_path
    end do ! for while
   end if
 
-  if(npair_wish >= 0) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
+  if(npair_wish>-1) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
@@ -822,6 +828,11 @@ end subroutine check_gms_path
     ss_opt = .true. ! State-specific orbital optimization
    case('xmult')
     read(longbuf(j+1:i-1),*) xmult
+    given_xmult = .true.
+    if(xmult < 1) then
+     write(6,'(/,A)') error_warn//'XMult must be >=1'
+     stop
+    end if
    case('newmult')
     read(longbuf(j+1:i-1),*) new_mult
     if(new_mult < 1) then
@@ -860,8 +871,8 @@ end subroutine check_gms_path
     read(longbuf(j+1:i-1),*) icss_intv
    case('npair') ! numbers of pairs for non-GVB calculations
     if(npair_wish > -1) then
-     write(6,'(/,A)') error_warn//'npair is specified by more than once.'
-     write(6,'(A)') 'Please check your input file.'
+     write(6,'(/,A)') error_warn//'it seems that npair is specified by'
+     write(6,'(A)') 'more than once. Please check your input file.'
      stop
     end if
     read(longbuf(j+1:i-1),*) npair_wish
@@ -873,8 +884,8 @@ end subroutine check_gms_path
     excludeXH = .true.
    case('onlyxh')
     excludeXH = .true.; onlyXH = .true.
-   case('mixed_spin')
-    mixed_spin = .true.
+   case('mixedspin')
+    MixedSpin = .true.
    case('nstates')
     read(longbuf(j+1:i-1),*) nstate ! SA-CASSCF (ground state not included)
     gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
@@ -893,6 +904,8 @@ end subroutine check_gms_path
     HFonly = .true.
    case('nodmrgno')
     dmrg_no = .false.
+   case('locpair')
+    LocPair = .true.
    case('locdocc')
     LocDocc = .true.
    case('nevpt3_prog')
@@ -989,21 +1002,20 @@ subroutine prt_strategy()
  write(6,'(5(A,L1,3X))') 'TDHF    = ',    tdhf, 'SA_CAS  = ',  sa_cas,&
       'Excited = ',excited, 'QD      = ',     QD, 'SOC     = ', SOC
 
- write(6,'(A,L1,2X,3(A,L1,3X),A)') 'Mixed_Spin=',Mixed_Spin, 'RigidScan=',&
-      rigid_scan, 'RelaxScan=',relaxed_scan, 'Inherit = ',inherit, &
-      'GVB_conv= '//TRIM(GVB_conv)
+ write(6,'(5(A,L1,3X))') 'Inherit = ', inherit, 'LocPair = ', LocPair,&
+      'LocDocc = ',LocDocc, 'MixedSpin=',MixedSpin, 'RigidScan=',rigid_scan
 
- write(6,'(2(A,I2,3X))') 'XMult   =', xmult, 'NewMult =', new_mult
+ write(6,'(2(A,L1,3X),2(A,I2,3X),A)') 'RelaxScan=',relaxed_scan,'excludeXH=',&
+  excludeXH,'XMult   =',xmult,'NewMult =',new_mult,'GVB_conv= '//TRIM(GVB_conv)
 
- write(6,'(A,I2,3X,2(A,I1,3X),A,I5,3X,A,L1)') 'Skip_UNO=', nskip_uno, &
-      'CtrType = ', CtrType, 'MRCC_type=',mrcc_type, 'MaxM =', maxM,&
-      'excludeXH=', excludeXH
+ write(6,'(A,I2,3X,2(A,I1,3X),A,I0)') 'Skip_UNO=', nskip_uno, 'CtrType = ', &
+      CtrType, 'MRCC_type=',mrcc_type, 'MaxM = ', maxM
 
  write(6,'(A,F7.5,1X,A,F7.5)') 'LocalM  = '//TRIM(localm)//'  ON_thres= ',&
       on_thres, ' OtPDF='//TRIM(otpdf)//'  UNO_thres= ', uno_thres
 
  write(6,'(A)',advance='no') 'RIJK_bas='//TRIM(RIJK_bas)//' RIC_bas='//&
-      TRIM(RIC_bas)//'  F12_cabs='//TRIM(F12_cabs)//' HF_fch='
+      TRIM(RIC_bas)//' F12_cabs='//TRIM(F12_cabs)//' HF_fch='
 
  if(skiphf) then
   write(6,'(A)') TRIM(hf_fch)
@@ -1017,7 +1029,7 @@ subroutine check_kywd_compatible()
  integer :: i
  logical :: alive(3)
  character(len=10) :: cas_prog
- character(len=43), parameter :: error_warn = 'ERROR in subroutine check_kywd_compatible: '
+ character(len=43), parameter :: error_warn='ERROR in subroutine check_kywd_compatible: '
 
  write(6,'(/,A)') 'Check if the keywords are compatible with each other...'
 
@@ -2245,7 +2257,7 @@ subroutine check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
  i = INDEX(hf_fch, '.fchk', back=.true.)
  if(i /= 0) then
   buf = hf_fch(1:i-1)//'.fch'
-  call sys_copy_file(hf_fch, buf, .false.)
+  call sys_copy_file(TRIM(hf_fch), TRIM(buf), .false.)
   hf_fch = buf
  end if
 

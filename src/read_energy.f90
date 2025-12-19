@@ -1,22 +1,26 @@
+! read some kind of energy from a specified file
+
 ! read GVB electronic energy from a given GAMESS .gms file
-subroutine read_gvb_energy_from_gms(gmsname, e)
+subroutine read_gvb_energy_from_gms_gms(gmsname, gvb_e)
  implicit none
  integer :: i, j, fid
- real(kind=8), intent(out) :: e
+ real(kind=8), intent(out) :: gvb_e
  character(len=240) :: buf
  character(len=240), intent(in) :: gmsname
 
- e = 0d0
- call open_file(gmsname, .true., fid)
+ gvb_e = 0d0
+ open(newunit=fid,file=TRIM(gmsname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
   if(buf(2:10) == 'FINAL GVB') exit
  end do
 
+ close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: no GVB energ&
-                   &y found in'
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms_gms: no GVB en&
+                   &ergy found in'
   write(6,'(A)') 'file '//TRIM(gmsname)
   write(6,'(/,A)') 'You can open this file and check whether the SCF oscillates.'
   write(6,'(A)') 'If yes, reducing the number of processors and re-run may do&
@@ -25,70 +29,104 @@ subroutine read_gvb_energy_from_gms(gmsname, e)
                  & could not be found'."
   write(6,'(A)') 'In the latter case, you should read Section 4.4.10 in MOKIT&
                  & manual.'
-  close(fid)
   stop
  end if
- close(fid)
 
- i = INDEX(buf,'IS'); j = INDEX(buf,'AFTER')
- read(buf(i+2:j-1),*) e
+ i = INDEX(buf, 'IS')
+ j = INDEX(buf, 'AFTER')
+ read(buf(i+2:j-1),*) gvb_e
 
- if(DABS(e) < 1d-5) then
-  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms: it seems tha&
-                   &t GVB computation does not'
-  write(6,'(A)') 'converge. You can try to reduce the number of processors and&
-                 & re-run.'
+ if(DABS(gvb_e) < 1d-5) then
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_gms_gms: it seems &
+                   &that GVB'
+  write(6,'(A)') 'computation is not converged. gmsname='//TRIM(gmsname)
   stop
  end if
-end subroutine read_gvb_energy_from_gms
+end subroutine read_gvb_energy_from_gms_gms
 
-! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
-subroutine read_cas_energy_from_output(cas_prog, outname, e, scf, spin, dmrg, &
-                                       ptchg_e, nuc_pt_e)
+! read GVB energy from a Gaussian output file
+subroutine read_gvb_energy_from_gau_log(logname, gvb_e)
  implicit none
- integer, intent(in) :: spin
- real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
- real(kind=8), intent(out) :: e(2)
- character(len=10), intent(in) :: cas_prog
- character(len=240), intent(in) :: outname
- logical, intent(in) :: scf, dmrg
+ integer :: i, fid
+ real(kind=8), intent(out) :: gvb_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: logname
 
- select case(TRIM(cas_prog))
- case('gaussian')
-  call read_cas_energy_from_gaulog(outname, e, scf)
+ gvb_e = 0d0
+ open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(8:19) == 'TOTAL ENERGY') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_gvb_energy_from_gau_log: no 'TOTAL&
+                   & ENERGY' found"
+  write(6,'(A)') 'in file '//TRIM(logname)
+  stop
+ end if
+
+ read(buf(34:),*) gvb_e
+end subroutine read_gvb_energy_from_gau_log
+
+! read GVB energy from a Q-Chem output file
+subroutine read_gvb_energy_from_qchem_out(outname, gvb_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: gvb_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ gvb_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'GVB Converge') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_gvb_energy_from_qchem_out: no 'GVB&
+                   & Converge' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ read(buf(16:),*) i, gvb_e
+end subroutine read_gvb_energy_from_qchem_out
+
+! read GVB energy from a GAMESS/Gaussian/Q-Chem output file
+subroutine read_gvb_energy_from_output(gvb_prog, outname, gvb_e)
+ implicit none
+ real(kind=8), intent(out) :: gvb_e
+!f2py intent(out) :: gvb_e
+ character(len=10), intent(in) :: gvb_prog
+!f2py intent(in) :: gvb_prog
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+
+ select case(TRIM(gvb_prog))
  case('gamess')
-  call read_cas_energy_from_gmsgms(outname, e, scf, spin)
-  e(1) = e(1) + ptchg_e + nuc_pt_e
- case('pyscf')
-  call read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
-  e = e + ptchg_e
- case('openmolcas')
-  call read_cas_energy_from_molcas_out(outname, e, scf)
-  e = e + ptchg_e
- case('orca')
-  call read_cas_energy_from_orca_out(outname, e, scf)
- case('molpro')
-  call read_cas_energy_from_molpro_out(outname, e, scf)
-  e = e + ptchg_e
- case('bdf')
-  call read_cas_energy_from_bdf_out(outname, e, scf)
-  e = e + ptchg_e + nuc_pt_e
- case('psi4')
-  call read_cas_energy_from_psi4_out(outname, e, scf)
-  e = e + ptchg_e + nuc_pt_e
- case('dalton')
-  call read_cas_energy_from_dalton_out(outname, e, scf)
-  e = e + ptchg_e
+  call read_gvb_energy_from_gms_gms(outname, gvb_e)
+ case('gaussian')
+  call read_gvb_energy_from_gau_log(outname, gvb_e)
+ case('qchem')
+  call read_gvb_energy_from_qchem_out(outname, gvb_e)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog c&
-                   &annot be identified.'
-  write(6,'(A)') 'CAS_prog='//TRIM(cas_prog)
+  write(6,'(/,A)') 'ERROR in subroutine read_gvb_energy_from_output: gvb_prog c&
+                   &annot be recognized.'
+  write(6,'(A)') 'GVB_prog='//TRIM(gvb_prog)
   stop
  end select
-end subroutine read_cas_energy_from_output
+end subroutine read_gvb_energy_from_output
 
 ! read CASCI/CASSCF energy from a Gaussian .log file
-subroutine read_cas_energy_from_gaulog(outname, e, scf)
+subroutine read_cas_energy_from_gau_log(outname, e, scf)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: e(2)
@@ -111,14 +149,14 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gaulog: no 'EIGENV&
-                   &ALUE' or 'Eigenvalue'"
+  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gau_log: no 'EIGEN&
+                   &VALUE' or 'Eigenvalue'"
   write(6,'(A)') 'found in file '//TRIM(outname)
   stop
  end if
 
- i = INDEX(buf,'lue')
- if(i == 0) i = INDEX(buf,'LUE')
+ i = INDEX(buf, 'lue')
+ if(i == 0) i = INDEX(buf, 'LUE')
 
  if(scf) then
   read(buf(i+3:),*) e(2) ! CASSCF
@@ -136,7 +174,7 @@ subroutine read_cas_energy_from_gaulog(outname, e, scf)
   i = INDEX(buf, 'E=')
   read(buf(i+2:),*) e(1)
  end if
-end subroutine read_cas_energy_from_gaulog
+end subroutine read_cas_energy_from_gau_log
 
 ! read CASCI/CASSCF energy from a PySCF output file
 subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
@@ -304,7 +342,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
 end subroutine read_cas_energy_from_pyout
 
 ! read CASCI/CASSCF energy from the GAMESS output file
-subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
+subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
  implicit none
  integer :: i, fid
  integer, intent(in) :: spin
@@ -316,7 +354,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
 
  expect = DBLE(spin)/2d0
  expect = expect*(expect + 1d0)
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  if(scf) then  ! CASSCF job
   do while(.true.)
@@ -326,9 +364,10 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no 'THE D&
-                    &ENSITIES ARE STATE'"
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gms_gms: no 'THE &
+                    &DENSITIES ARE STATE'"
    write(6,'(A)') 'found in file '//TRIM(outname)
+   close(fid)
    stop
   end if
 
@@ -339,8 +378,8 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: in this C&
-                    &ASSCF job, the 0-th'
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: in this &
+                    &CASSCF job, the 0-th'
    write(6,'(A)') 'step, i.e., the CASCI <S**2> deviates too much from the expe&
                   &ctation value.'
    write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
@@ -357,8 +396,8 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+2:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASSCF <S&
-                    &**2> deviates too'
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: CASSCF <&
+                    &S**2> deviates too'
    write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
                            expect, ', s_square=', s_square
    stop
@@ -372,8 +411,8 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gmsgms: no 'DENSI&
-                    &TY MATRIX' found"
+   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gms_gms: no 'DENS&
+                    &ITY MATRIX' found"
    write(6,'(A)') 'in file '//TRIM(outname)
    stop
   end if
@@ -382,8 +421,8 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
   read(buf(i+1:),*) s_square
   s_square = s_square*(s_square+1d0)
   if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gmsgms: CASCI <S*&
-                    &*2> deviates too'
+   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: CASCI <S&
+                    &**2> deviates too'
    write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
                            expect, ', s_square=', s_square
    stop
@@ -396,7 +435,7 @@ subroutine read_cas_energy_from_gmsgms(outname, e, scf, spin)
  end if
 
  close(fid)
-end subroutine read_cas_energy_from_gmsgms
+end subroutine read_cas_energy_from_gms_gms
 
 ! read CASCI/CASSCF energy from a given OpenMolcas/Molcas output file
 subroutine read_cas_energy_from_molcas_out(outname, e, scf)
@@ -410,8 +449,8 @@ subroutine read_cas_energy_from_molcas_out(outname, e, scf)
                                               &ergy_from_molcas_out: '
  logical, intent(in) :: scf
 
- call open_file(outname, .true., fid)
  e = 0d0; add = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -613,7 +652,7 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
  logical, intent(in) :: scf
 
  e = 0d0
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  if(scf) then
   do while(.true.)
@@ -779,6 +818,99 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  close(fid)
 end subroutine read_cas_energy_from_dalton_out
 
+! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
+subroutine read_cas_energy_from_output(cas_prog, outname, spin, scf, dmrg, &
+                                       ptchg_e, nuc_pt_e, e)
+ implicit none
+ integer, intent(in) :: spin
+!f2py intent(in) :: spin
+ real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
+!f2py intent(in) :: ptchg_e, nuc_pt_e
+ real(kind=8), intent(out) :: e(2)
+!f2py intent(out) :: e
+ character(len=10), intent(in) :: cas_prog
+!f2py intent(in) :: cas_prog
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+ logical, intent(in) :: scf, dmrg
+!f2py intent(in) :: scf, dmrg
+
+ select case(TRIM(cas_prog))
+ case('gaussian')
+  call read_cas_energy_from_gau_log(outname, e, scf)
+ case('gamess')
+  call read_cas_energy_from_gms_gms(outname, e, scf, spin)
+  e(1) = e(1) + ptchg_e + nuc_pt_e
+ case('pyscf')
+  call read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
+  e = e + ptchg_e
+ case('openmolcas')
+  call read_cas_energy_from_molcas_out(outname, e, scf)
+  e = e + ptchg_e
+ case('orca')
+  call read_cas_energy_from_orca_out(outname, e, scf)
+ case('molpro')
+  call read_cas_energy_from_molpro_out(outname, e, scf)
+  e = e + ptchg_e
+ case('bdf')
+  call read_cas_energy_from_bdf_out(outname, e, scf)
+  e = e + ptchg_e + nuc_pt_e
+ case('psi4')
+  call read_cas_energy_from_psi4_out(outname, e, scf)
+  e = e + ptchg_e + nuc_pt_e
+ case('dalton')
+  call read_cas_energy_from_dalton_out(outname, e, scf)
+  e = e + ptchg_e
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog c&
+                   &annot be identified.'
+  write(6,'(A)') 'CAS_prog='//TRIM(cas_prog)
+  stop
+ end select
+end subroutine read_cas_energy_from_output
+
+! read CASSCF OVB-MP2 energy from a Gaussian output file
+subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, corr_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(13:22) == 'EIGENVALUE') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EIGE&
+                   &NVALUE' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+ end if
+ read(buf(23:),*) ref_e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(28:34) == 'EUMP2 =') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_gau_log: no 'EUMP&
+                   &2 =' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+ end if
+
+ read(buf(35:),*) corr_e
+ corr_e = corr_e - ref_e
+end subroutine read_mrpt_energy_from_gau_log
+
 ! read NEVPT2 energy from PySCF output file
 subroutine read_mrpt_energy_from_pyscf_out(outname, troot, ref_e, corr_e)
  implicit none
@@ -857,8 +989,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
  real(kind=8) :: rtmp
  real(kind=8), intent(out) :: ref_e, corr_e
 
- ref_e = 0d0
- corr_e = 0d0
+ ref_e = 0d0; corr_e = 0d0
  if(itype<1 .or. itype>3) then
   write(6,'(/,A,I0)') 'ERROR in subroutine read_mrpt_energy_from_molcas_out: in&
                       &valid itype=', itype
@@ -866,7 +997,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
   stop
  end if
 
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  select case(itype)
  case(1,2) ! NEVPT2
   do while(.true.)
@@ -1051,9 +1182,8 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- ref_e = 0d0
- corr_e = 0d0
- call open_file(outname, .true., fid)
+ ref_e = 0d0; corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1102,9 +1232,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  real(kind=8), intent(out) :: ref_e, corr_e, dav_e
  ! dav_e: Davidson correction energy for size-inconsistency error
 
- ref_e = 0d0
- corr_e = 0d0
- dav_e = 0d0
+ ref_e = 0d0; corr_e = 0d0; dav_e = 0d0
  if(.not. (itype==1 .or. itype==2)) then
   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currentl&
                    &y only reading SDSPT2/'
@@ -1112,7 +1240,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
   stop
  end if
 
- call open_file(outname, .true., fid)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1163,6 +1291,180 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  if(itype == 1) dav_e = dav_e - corr_e
  corr_e = corr_e - ref_e
 end subroutine read_mrpt_energy_from_bdf_out
+
+! read CASPT3 electronic energy from Molpro .out file
+subroutine read_caspt3_energy_from_molpro_out(outname, ref_e, corr2_e, corr3_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: ref_e, corr2_e, corr3_e
+ character(len=19), parameter :: key(6) = ['!MCSCF STATE  1.1 E', &
+ '!MCSCF STATE 1.1 En', '!RSPT2 STATE  1.1 E', '!RSPT2 STATE 1.1 En', &
+ '!RSPT3 STATE  1.1 E', '!RSPT3 STATE 1.1 En']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; corr2_e = 0d0; corr3_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:20)==key(1) .or. buf(2:20)==key(2)) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASSCF energy not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf,'ergy')
+ read(buf(i+4:),*) ref_e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:20)==key(3) .or. buf(2:20)==key(4)) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASPT2 energy not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf,'ergy')
+ read(buf(i+4:),*) corr2_e
+ corr2_e = corr2_e - ref_e
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:20)==key(5) .or. buf(2:20)==key(6)) exit
+ end do ! for while
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_caspt3_energy_from_molpro_out:'
+  write(6,'(A)') 'CASPT3 energy not found in file '//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf,'ergy')
+ read(buf(i+4:),*) corr3_e
+ corr3_e = corr3_e - ref_e
+end subroutine read_caspt3_energy_from_molpro_out
+
+! read NEVPT3 electronic energy from BDF .out file
+subroutine read_nevpt3_energy_from_bdf_out(outname, ref_e, corr2_e, corr3_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: ref_e, corr2_e, corr3_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ ref_e = 0d0; corr2_e = 0d0; corr3_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:6) == 'NROOT') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_mrpt_nevpt3_from_bdf_out: no 'NROO&
+                   &T' found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) i, ref_e, corr2_e, rtmp, corr3_e
+ close(fid)
+ corr2_e = corr2_e - ref_e
+ corr3_e = corr3_e - ref_e
+end subroutine read_nevpt3_energy_from_bdf_out
+
+! read FIC-NEVPT3/FIC-NEVPT4(SD) electronic energy from ORCA output file
+subroutine read_nevpt34_e_from_orca_out(outname, pt4, ref_e, corr_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: ref_e, corr_e(3)
+ real(kind=8), parameter :: thres = 1d-5
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: pt4
+
+ ref_e = 0d0; corr_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:5) == 'E(0)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nevpt34_e_from_orca_out: no 'E(0)'&
+                   & found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+ call get_dpv_after_flag(buf, '=', .true., ref_e) ! E(0)
+
+ read(fid,'(A)') buf
+ call get_dpv_after_flag(buf, '=', .true., rtmp) ! E(1)
+ if(DABS(rtmp) > thres) then
+  write(6,'(/,A)') 'ERROR in subroutine read_nevpt34_e_from_orca_out: E(1) is n&
+                   &ot zero.'
+  write(6,'(A)') 'Unexpected case.'
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ call get_dpv_after_flag(buf, '=', .true., corr_e(1)) ! E(2)
+
+ read(fid,'(A)') buf
+ close(fid)
+ call get_dpv_after_flag(buf, '=', .true., corr_e(2)) ! E(3)
+ corr_e(2) = corr_e(2) + corr_e(1)
+
+ if(pt4) then
+  call get_dpv_after_flag(buf, '=', .true., corr_e(3)) ! E(3)
+  corr_e(3) = corr_e(3) + corr_e(2)
+ end if
+end subroutine read_nevpt34_e_from_orca_out
+
+! whether the Davidson Q CORRECTION can be found in a GAMESS output file
+function has_davidson_q(outname) result(alive)
+ implicit none
+ integer :: i, fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: alive
+
+ alive = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:18) == 'CALC. OF DAVIDSON') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) return
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) alive
+end function has_davidson_q
 
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
@@ -1346,7 +1648,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
   close(fid)
 
   if(has_davidson_q(outname)) then
-   call open_file(outname, .false., fid)
+   open(newunit=fid,file=TRIM(outname),status='old',position='append')
    do while(.true.)
     BACKSPACE(fid)
     BACKSPACE(fid)
@@ -1372,7 +1674,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
 
   else ! no 'CALC. OF DAVIDSON', i.e. no Davidson Q
 
-   call open_file(outname, .true., fid)
+   open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
    do while(.true.)
     read(fid,'(A)')  buf
     if(buf(2:14) == 'CI EIGENSTATE') exit
@@ -1393,26 +1695,127 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
  close(fid)
 end subroutine read_mrci_energy_from_output
 
-! whether the Davidson Q CORRECTION can be found in a GAMESS output file
-function has_davidson_q(outname) result(alive)
+subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
+                                        corr_e)
  implicit none
  integer :: i, fid
+ integer, intent(in) :: mrcc_type ! 1/2/3 for FIC-/Mk-/BW-MRCCSD
+ ! 4/5 for Mk-/BW-MRCCSD(T), 6~8 for GVB-BCCC2b/3b/4b
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: ref_e, corr_e(2)
  character(len=240) :: buf
+ character(len=10), intent(in) :: mrcc_prog
  character(len=240), intent(in) :: outname
- logical :: alive
 
- alive = .false.
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ ref_e = 0d0; corr_e = 0d0
+ ! corr_e(1): FIC-NEVPT2 energy
+ ! corr_e(2): FIC-/Mk-/BW- MRCCSD energy
 
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:18) == 'CALC. OF DAVIDSON') exit
- end do ! for while
+ select case(TRIM(mrcc_prog))
+ case('orca')
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(1:17) == ' Summary of multi') exit
+  end do ! for while
 
- close(fid)
- if(i /= 0) return
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: ' Summary&
+                   & of multi' not found"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) alive
-end function has_davidson_q
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(fid,*) i,i,rtmp,rtmp,ref_e,corr_e(2)
+
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(1:5) == 'MULT=') exit
+  end do ! for while
+  close(fid)
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: 'MULT='&
+                   & not found in file "//TRIM(outname)
+   stop
+  end if
+
+  i = INDEX(buf,'EC=')
+  read(buf(i+3:),*) corr_e(1)
+
+ case('gvb_bcci2b','gvb_bccc2b','gvb_bccc3b')
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:5) == 'GVB e') exit
+  end do ! for while
+
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_mrcc_energy_from_output: no &
+                   &'GVB e' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
+   stop
+  end if
+
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) ref_e
+
+  ! find if any 'ERROR: amplitude iterations fail'
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:32) == 'ERROR: amplitude iterations fail') then
+    close(fid)
+    write(6,'(A)') 'ERROR in subroutine read_mrcc_energy_from_output: amplitud&
+                   &e iterations not converge.'
+    stop
+   end if
+   if(buf(1:3) == 'ITN') exit
+  end do ! for while
+
+  close(fid)
+  open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(index(buf,'=') > 0) exit
+  end do ! for while
+
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) corr_e(1) ! GVB-BCCCnb correlation energy
+
+  read(fid,'(A)') buf
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) corr_e(2) ! GVB-BCCCnb total energy
+  close(fid)
+
+ !case('nwchem')
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine read_mrcc_energy_from_output: invalid m&
+                   &rcc_prog='//TRIM(mrcc_prog)
+  stop
+ end select
+end subroutine read_mrcc_energy_from_output
+

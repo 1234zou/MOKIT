@@ -26,7 +26,7 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2025年11月11号
+2025年12月19号
 
 依赖
 ----------
@@ -46,17 +46,17 @@ or
 
 这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位
 ```
-conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11 are available
+conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11均可
 conda activate mokit-py39
 ```
 或分步完成
 ```
-conda create -n mokit-py39 python=3.9 # 3.9-3.11 are available
+conda create -n mokit-py39 python=3.9 # 3.9-3.11均可
 conda activate mokit-py39
 conda install mokit -c mokit
 ```
 
-使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，请尝试方式3。
+若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，可尝试下方的方式3。使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。
 
 ### 方式2：homebrew 联网安装（仅针对MacOS）
 * 前提
@@ -182,6 +182,7 @@ MOKIT支持在这些量子化学程序间传轨道
 * [PySCF](https://github.com/pyscf/pyscf)
 * [Q-Chem](https://www.q-chem.com)
 * [QM4D](https://www.qm4d.org)
+* [REST](https://gitee.com/restgroup)
 * [Turbomole](https://www.turbomole.org)
 
 

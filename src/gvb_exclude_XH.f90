@@ -57,7 +57,7 @@ subroutine gvb_exclude_XH(datname, gmsname, onlyxh)
  logical, intent(in) :: onlyxh
 
  ! get ncore, nopen and npair
- call read_npair_from_gms(gmsname, ncore, nopen, npair)
+ call read_npair_from_gms_gms(gmsname, ncore, nopen, npair)
 
  ! get nbf and nif
  call read_nbf_and_nif_from_gms(gmsname, nbf, nif)
