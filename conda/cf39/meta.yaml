@@ -11,27 +11,29 @@ source:
   path: ../..
 
 build:
-  number: 11
+  number: 14
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
   build:
     - make
     - {{ compiler('fortran') }}
-    - python {{ python }}
+    - python 
     #- setuptools <=73
-    - numpy {{ numpy }}
-    #- blas=*=*openblas
-    - openblas {{ openblas }} 
+    - numpy 
+    - openblas 
     - libgfortran5
     - libgomp
     - sysroot_linux-64 2.17
-  run:
-    - python {{ python }}
-    - openblas {{ openblas }}
-    - numpy {{ numpy }}
+  host:
+    - python 
+    - openblas 
+    - numpy 
     - libgfortran5
     - libgomp
+  run:
+    - python 
+    - numpy 
 
 about:
   home:            "{{ urls['Homepage'] }}"

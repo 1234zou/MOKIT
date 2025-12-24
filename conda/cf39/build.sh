@@ -5,4 +5,4 @@ make all -f Makefile.gnu_openblas_conda
 cd ..
 pip install -v --prefix=$PREFIX .
 #mkdir conda_build
-mv bin $PREFIX
+mv bin/* $PREFIX/bin
