@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 2
+  number: 6
   string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
@@ -34,8 +34,10 @@ requirements:
     - libgcc-ng 11
     - libgfortran5 11
   run:
-    - python 
-    - numpy 
+    - python {{ python }} 
+    - numpy {{ numpy }} 
+    - blas * *mkl*
+    - mkl {{ mkl }}
 
 about:
   home:            "{{ urls['Homepage'] }}"
