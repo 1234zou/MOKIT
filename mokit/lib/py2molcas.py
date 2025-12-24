@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to (Open)Molcas
+# Transfer MOs from PySCF -> (Open)Molcas
 
 def py2molcas(mf, inpname):
     from mokit.lib.py2fch_direct import fchk

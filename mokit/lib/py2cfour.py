@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to CFOUR
+# Transfer MOs from PySCF -> CFOUR
 
 def py2cfour(mf):
     '''

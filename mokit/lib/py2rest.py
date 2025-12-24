@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to REST
+# Transfer MOs from PySCF -> REST
 
 def py2rest(mf, inpname, xc=None):
     from mokit.lib.py2fch_direct import fchk

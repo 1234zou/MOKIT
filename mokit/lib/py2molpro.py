@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to Molpro
+# Transfer MOs from PySCF -> Molpro
 
 def py2molpro(mf, inpname):
     from mokit.lib.py2fch_direct import fchk

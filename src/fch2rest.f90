@@ -200,10 +200,8 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: inpname
  character(len=240) :: basename
- !character(len=480) :: basis_set_pool
  logical, intent(in) :: sph, uhf, ghost(natom)
  
- !call find_rest_basis_set_pool(basis_set_pool)
  call find_specified_suffix(inpname, '.in', i)
  basename = inpname(1:i-1)
 
@@ -212,14 +210,8 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  write(fid,'(2X,A)') 'print_level = 2'
  write(fid,'(2X,A)') 'num_threads = 4'
  write(fid,'(2X,A)') 'basis_path = "./'//TRIM(basename)//'-basis"'
- ! This is actually def2-universal-JKFIT
  write(fid,'(2X,A)') 'auxbas_path = "def2-SV(P)-JKFIT"'
- !k = LEN_TRIM(basis_set_pool)
- !if(k == 0) then
- ! write(fid,'(2X,A)') 'auxbas_path = "def2-SV(P)-JKFIT"'
- !else
- ! write(fid,'(2X,A)') 'auxbas_path = "'//basis_set_pool(1:k)//'/def2-SV(P)-JKFIT"'
- !end if
+ write(fid,'(2X,A)') '#auxbas_path = "def2-universal-JKFIT"'
  write(fid,'(2X,A)') 'chkfile = "'//TRIM(basename)//'.pchk"'
  write(fid,'(2X,A,I0)') 'charge = ', charge
  write(fid,'(2X,A,I0)') 'spin = ', mult

@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to MRCC
+# Transfer MOs from PySCF -> MRCC
 
 def py2mrcc(mf):
     '''

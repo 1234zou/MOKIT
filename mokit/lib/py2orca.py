@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to ORCA
+# Transfer MOs from PySCF -> ORCA
 # Note: the Bohr constant is different between PySCF/MOKIT v.s. ORCA, so the
 # difference of the nuclear repulsion energy may be as large as 1e-5 ~ 1e-6 a.u.
 # which is usually larger than the difference of electronic energies. If you

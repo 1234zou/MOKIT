@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to BDF
+# Transfer MOs from PySCF -> BDF
 
 def py2bdf(mf, inpname, write_no=None):
     from mokit.lib.py2fch_direct import fchk

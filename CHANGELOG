@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc15 (Dec 19, 2025)
+MOKIT 1.2.7rc15 (Dec 24, 2025)
 ------------------------
 Fixes
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
@@ -24,6 +24,7 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* add function gen_nto_and_export_fch in lib/gaussian.py
 * add module py2rest in lib/py2rest.py
 * add utilities fch2rest and fch2nwc (still developing)
 * support of MRCC/PSI4/PySCF/NWChem molden in molden2fch

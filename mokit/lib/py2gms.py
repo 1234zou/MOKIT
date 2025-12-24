@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to GAMESS
+# Transfer MOs from PySCF -> GAMESS
 
 def py2gms(mf, inpname, npair=None, nopen=None, sf=False, mrsf=False):
     from mokit.lib.py2fch_direct import fchk

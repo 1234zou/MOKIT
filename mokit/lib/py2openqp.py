@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to OpenQP
+# Transfer MOs from PySCF -> OpenQP
 
 def py2openqp(mf, inpname, sfcis=False, sf=False, mrsfcis=False, mrsf=False):
     from mokit.lib.py2fch_direct import fchk

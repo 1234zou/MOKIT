@@ -780,3 +780,27 @@ def nio(n_fch, n_1_fch):
     write_dm_into_fch(nio_fch, True, nbf, dm_n)
     write_eigenvalues_to_fch(nio_fch, nif, 'a', noon, True)
 
+
+def gen_nto_and_export_fch(my_tda, state_id, fchname):
+    '''
+    Generate CIS/TDA S0->Sn/Tn NTOs from PySCF mf object and CIS/TDA excitation
+    coefficients, then export them into a new .fch(k) file. state_id=0 means the
+    1st excited state.
+    TODO: support TDDFT where Y is not zero.
+    '''
+    from mokit.lib.excited import gen_cis_ge_nto_using_exc
+    from mokit.lib.py2fch_direct import fchk
+
+    nbf = my_tda._scf.mo_coeff.shape[0]
+    nif = my_tda._scf.mo_coeff.shape[1]
+    nocc = my_tda.xy[state_id][0].shape[0]
+    nvir = my_tda.xy[state_id][0].shape[1]
+    if my_tda.frozen is None:
+        nfc = 0
+    else:
+        nfc = my_tda.frozen
+    mf = my_tda._scf.copy()
+    mf.mo_energy, mf.mo_coeff = gen_cis_ge_nto_using_exc(nbf, nif, nfc, nocc,
+               nvir, my_tda._scf.mo_coeff, np.sqrt(2)*my_tda.xy[state_id][0])
+    fchk(mf, fchname)
+

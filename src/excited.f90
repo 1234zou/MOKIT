@@ -1097,22 +1097,90 @@ subroutine gen_mrsfcis_sa_no_from_fch_and_gms(fchname, gmsname1, gmsname2, &
  call gen_no_using_dm_in_fch(no_fch, 1)
 end subroutine gen_mrsfcis_sa_no_from_fch_and_gms
 
+! Generate ground state -> singlet excited state NTOs for RHF/RKS-based CIS/TD
+! wave function. Note that the given `exc` must be normalized to 1. The return
+! arrays are NTO eigenvalues and NTO coefficients.
+! If the given `exc` has been averaged for several electronic states, the return
+! `nto` will be state-averaged NTOs. The number of independent MOs (nif) is cla-
+! ssified into 4 categories: nif = nfc + nocc + nvir + nfv, where
+!  nfc : the number of frozen core MOs
+!  nocc: the number of doubly occupied MOs involved in CIS/TD
+!  nvir: the number of virtual MOs involved in CIS/TD
+!  nfv : the number of frozen virtual MOs
+! So, nocc+nvir is usually < nif, because there are frozen core orbitals in CIS/
+!  TD calculations, and sometimes even frozen virtual MOs.
+subroutine gen_cis_ge_nto_using_exc(nbf, nif, nfc, nocc, nvir, mo, exc, ev, nto)
+ implicit none
+ integer :: i, k1, k2, ndb, nfv
+ integer, intent(in) :: nbf, nif, nfc, nocc, nvir
+!f2py intent(in) :: nbf, nif, nfc, nocc, nvir
+ real(kind=8), intent(in) :: mo(nbf,nif), exc(nocc,nvir)
+!f2py intent(in) :: mo, exc
+!f2py depend(nbf,nif) :: mo
+!f2py depend(nocc,nvir) :: exc
+ real(kind=8), intent(out) :: ev(nif), nto(nbf,nif)
+!f2py intent(out) :: ev, nto
+!f2py depend(nif) :: ev
+!f2py depend(nbf,nif) :: nto
+ real(kind=8), allocatable :: u(:,:), vt(:,:), s(:), rtmp(:,:)
+
+ ndb = nfc + nocc; k2 = ndb + nvir; nfv = nif - k2
+ ev = 0d0; nto = 0d0
+
+ ! frozen core MOs and frozen virtual MOs are unchanged for NTO generation
+ if(nfc > 0) nto(:,1:nfc) = mo(:,1:nfc)
+ if(nfv > 0) nto(:,k2+1:nif) = mo(:,k2+1:nif)
+
+ ! The alpha/beta spin NTOs have identical MO coefficients and singular values.
+ ! Only one set of them is calculated. In such a set of spin NTOs, the sum of
+ ! square of singular values is 1. If you consider the spatial orbital basis,
+ ! the sum would be 2. Nowadays people usually use spin NTOs when they talk about
+ ! NTOs. So we do not multiply exc by sqrt(2) below.
+ allocate(u(nocc,nocc), vt(nvir,nvir), s(nocc))
+ call do_svd(nocc, nvir, exc, u, vt, s)
+ do i = 1, nocc, 1
+  s(i) = s(i)*s(i)
+ end do ! for i
+
+ allocate(rtmp(nocc,nocc))
+ do i = 1, nocc, 1
+  ev(nfc+i) = s(nocc-i+1)
+  ev(ndb+i) = s(i)
+  rtmp(:,i) = u(:,nocc-i+1)
+ end do ! for i
+
+ deallocate(s)
+ u = rtmp
+ deallocate(rtmp)
+
+ k1 = nfc + 1
+ ! C'_occ = (C_occ)U
+ call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,k1:ndb), nbf, u, nocc, 0d0, &
+            nto(:,k1:ndb), nbf)
+ deallocate(u)
+
+ k1 = ndb + 1
+ ! C'_vir = (C_vir)V
+ call dgemm('N', 'T', nbf, nvir, nvir, 1d0, mo(:,k1:k2), nbf, vt, nvir, 0d0, &
+            nto(:,k1:k2), nbf)
+ deallocate(vt)
+end subroutine gen_cis_ge_nto_using_exc
+
 ! Generate ground state -> singlet excited state (state-averaged) NTO for RHF/
-!  RKS- CIS/TDHF/TDDFT wave function. Canonical MOs must be kept in fchname. NTOs
-!  will be punched into file xxx_NTO.fch
-! Note: For averaged=.True., logname must include the 1~`istate`-th singlet exc-
-!  ited state results. For averaged=.False., logname must include the `istate`-th
+!  RKS-based CIS/TDHF/TDDFT wave function. Canonical MOs must be kept in fchname.
+!  NTOs will be punched into file xxx_NTO.fch
+! Note: For averaged=.True., logname must include the 1~istate-th singlet excited
+!  state results. For averaged=.False., logname must include the istate-th
 !  singlet excited state result. Do not use this subroutine for S0->Tn, since
 !  that transition density is exactly zero for RHF-CIS.
 ! T*(T^) = U(n_occ)(U^T) -> occupied NTOs
 ! (T^)*T = V(n_vir)(V^T) -> unoccupied NTOs
 subroutine gen_cis_ge_nto_from_fch_and_log(fchname, logname, istate, averaged)
  implicit none
- integer :: i, nfc, nif_ex, nocc, nob, nvir, ndb, nbf, nif
+ integer :: i, nfc, nif_ex, nocc, nob, nvir, nbf, nif
  integer, intent(in) :: istate
 !f2py inteny(in) :: istate
- real(kind=8), allocatable :: exc(:,:), exc0(:,:), ev(:), mo(:,:), occ_mo(:,:),&
-  vir_mo(:,:), u(:,:), vt(:,:), s(:)
+ real(kind=8), allocatable :: exc(:,:), exc0(:,:), ev(:), mo(:,:), nto(:,:)
  character(len=240) :: nto_fch
  character(len=240), intent(in) :: fchname, logname
 !f2py inteny(in) :: fchname, logname
@@ -1123,7 +1191,6 @@ subroutine gen_cis_ge_nto_from_fch_and_log(fchname, logname, istate, averaged)
  ! True: State-Averaged NTO; False: NTO of the ground state -> an excited state
 
  call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
- ndb = nfc + nocc
  nvir = nif_ex - nocc
  allocate(exc(nocc,nvir))
 
@@ -1144,60 +1211,118 @@ subroutine gen_cis_ge_nto_from_fch_and_log(fchname, logname, istate, averaged)
   exc = DSQRT(2d0)*exc/DSQRT(DBLE(istate))
  else ! ground state -> an excited state
   call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
-  exc = DSQRT(2d0)*exc ! ! sum of square of exc(:,:) is 0.5, so multiply sqrt(2)
+  exc = DSQRT(2d0)*exc ! sum of square of exc(:,:) is 0.5, so multiply sqrt(2)
  end if
 
- ! The alpha/beta spin NTOs have identical MO coefficients and singular values.
- ! Only one set of them is calculated. In such a set of spin NTOs, the sum of
- ! square of singular values is 1. If you consider the spatial orbital basis,
- ! the sum would be 2. Nowadays people usually use spin NTOs when they talk about
- ! NTOs. So we do not multiply exc by sqrt(2) below.
- allocate(u(nocc,nocc), vt(nvir,nvir), s(nocc))
- call do_svd(nocc, nvir, exc, u, vt, s)
- deallocate(exc)
- do i = 1, nocc, 1
-  s(i) = s(i)*s(i)
- end do ! for i
-
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
- allocate(ev(nif), source=0d0)
- allocate(vir_mo(nocc,nocc))
-
- do i = 1, nocc, 1
-  ev(nfc+i) = s(nocc-i+1)
-  ev(ndb+i) = s(i)
-  vir_mo(:,i) = u(:,nocc-i+1)
- end do ! for i
-
- deallocate(s)
- u = vir_mo
- deallocate(vir_mo)
-
  allocate(mo(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
- allocate(occ_mo(nbf,nocc), source=0d0)
- ! C'_occ = (C_occ)U
- call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, u, nocc, &
-            0d0, occ_mo, nbf)
- mo(:,nfc+1:ndb) = occ_mo
- deallocate(occ_mo, u)
-
- allocate(vir_mo(nbf,nvir), source=0d0)
- ! C'_vir = (C_vir)V
- call dgemm('N', 'T', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, vt, &
-            nvir, 0d0, vir_mo, nbf)
- mo(:,ndb+1:ndb+nvir) = vir_mo
- deallocate(vir_mo, vt)
+ allocate(ev(nif), nto(nbf,nif))
+ call gen_cis_ge_nto_using_exc(nbf, nif, nfc, nocc, nvir, mo, exc, ev, nto)
+ deallocate(exc, mo)
 
  call find_specified_suffix(fchname, '.fch', i)
  nto_fch = fchname(1:i-1)//'_NTO.fch'
  call copy_file(fchname, nto_fch, .false.)
 
- call write_mo_into_fch(nto_fch, nbf, nif, 'a', mo)
- deallocate(mo)
+ call write_mo_into_fch(nto_fch, nbf, nif, 'a', nto)
+ deallocate(nto)
  call write_eigenvalues_to_fch(nto_fch, nif, 'a', ev, .true.)
  deallocate(ev)
 end subroutine gen_cis_ge_nto_from_fch_and_log
+
+!subroutine gen_cis_ge_nto_from_fch_and_log(fchname, logname, istate, averaged)
+! implicit none
+! integer :: i, nfc, nif_ex, nocc, nob, nvir, ndb, nbf, nif
+! integer, intent(in) :: istate
+!!f2py inteny(in) :: istate
+! real(kind=8), allocatable :: exc(:,:), exc0(:,:), ev(:), mo(:,:), occ_mo(:,:),&
+!  vir_mo(:,:), u(:,:), vt(:,:), s(:)
+! character(len=240) :: nto_fch
+! character(len=240), intent(in) :: fchname, logname
+!!f2py inteny(in) :: fchname, logname
+! ! logname: it includes CIS excitation coefficients in .log file
+! ! fchname: it includes canonical MOs in .fch file
+! logical, intent(in) :: averaged
+!!f2py inteny(in) :: averaged
+! ! True: State-Averaged NTO; False: NTO of the ground state -> an excited state
+!
+! call read_noa_nob_from_gau_log(logname, nfc, nif_ex, nocc, nob)
+! ndb = nfc + nocc
+! nvir = nif_ex - nocc
+! allocate(exc(nocc,nvir))
+!
+! if(averaged) then
+!  write(6,'(A,I0,A)') 'State-averaged NTO generated using ', istate, &
+!                      ' excited states.'
+!  exc = 0d0
+!  allocate(exc0(nocc,nvir))
+!  ! The RHF->CIS (ground state -> singlet excited state) transition density
+!  ! matrix is simply DSQRT(2d0)*C_ia for spatial orbital basis (or C_ia for
+!  ! spin orbital basis), so the averaged transition density matrix can be
+!  ! calculated by simply summing different exc0.
+!  do i = 1, istate, 1
+!   call read_ex_coeff_from_gau_log(logname, i, nocc, nvir, exc0)
+!   exc = exc + exc0
+!  end do ! for i
+!  deallocate(exc0)
+!  exc = DSQRT(2d0)*exc/DSQRT(DBLE(istate))
+! else ! ground state -> an excited state
+!  call read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
+!  exc = DSQRT(2d0)*exc ! sum of square of exc(:,:) is 0.5, so multiply sqrt(2)
+! end if
+!
+! ! The alpha/beta spin NTOs have identical MO coefficients and singular values.
+! ! Only one set of them is calculated. In such a set of spin NTOs, the sum of
+! ! square of singular values is 1. If you consider the spatial orbital basis,
+! ! the sum would be 2. Nowadays people usually use spin NTOs when they talk about
+! ! NTOs. So we do not multiply exc by sqrt(2) below.
+! allocate(u(nocc,nocc), vt(nvir,nvir), s(nocc))
+! call do_svd(nocc, nvir, exc, u, vt, s)
+! deallocate(exc)
+! do i = 1, nocc, 1
+!  s(i) = s(i)*s(i)
+! end do ! for i
+!
+! call read_nbf_and_nif_from_fch(fchname, nbf, nif)
+! allocate(ev(nif), source=0d0)
+! allocate(vir_mo(nocc,nocc))
+!
+! do i = 1, nocc, 1
+!  ev(nfc+i) = s(nocc-i+1)
+!  ev(ndb+i) = s(i)
+!  vir_mo(:,i) = u(:,nocc-i+1)
+! end do ! for i
+!
+! deallocate(s)
+! u = vir_mo
+! deallocate(vir_mo)
+!
+! allocate(mo(nbf,nif))
+! call read_mo_from_fch(fchname, nbf, nif, 'a', mo)
+! allocate(occ_mo(nbf,nocc), source=0d0)
+! ! C'_occ = (C_occ)U
+! call dgemm('N', 'N', nbf, nocc, nocc, 1d0, mo(:,nfc+1:ndb), nbf, u, nocc, &
+!            0d0, occ_mo, nbf)
+! mo(:,nfc+1:ndb) = occ_mo
+! deallocate(occ_mo, u)
+!
+! allocate(vir_mo(nbf,nvir), source=0d0)
+! ! C'_vir = (C_vir)V
+! call dgemm('N', 'T', nbf, nvir, nvir, 1d0, mo(:,ndb+1:ndb+nvir), nbf, vt, &
+!            nvir, 0d0, vir_mo, nbf)
+! mo(:,ndb+1:ndb+nvir) = vir_mo
+! deallocate(vir_mo, vt)
+!
+! call find_specified_suffix(fchname, '.fch', i)
+! nto_fch = fchname(1:i-1)//'_NTO.fch'
+! call copy_file(fchname, nto_fch, .false.)
+!
+! call write_mo_into_fch(nto_fch, nbf, nif, 'a', mo)
+! deallocate(mo)
+! call write_eigenvalues_to_fch(nto_fch, nif, 'a', ev, .true.)
+! deallocate(ev)
+!end subroutine gen_cis_ge_nto_from_fch_and_log
 
 subroutine gen_cis_ee_nto_from_fch_and_log(fchname, logname, istate1, istate2)
  implicit none

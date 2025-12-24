@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to Dalton
+# Transfer MOs from PySCF -> Dalton
 
 def py2dalton(mf, inpname):
     from mokit.lib.py2fch_direct import fchk

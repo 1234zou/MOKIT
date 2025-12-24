@@ -1,4 +1,4 @@
-# Transfer MOs from PySCF to PSI4
+# Transfer MOs from PySCF -> PSI4
 
 def py2psi(mf, inpname):
     from mokit.lib.py2fch_direct import fchk
