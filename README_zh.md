@@ -42,21 +42,33 @@ or
 在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，或其他二进制小程序，如`fch2mkl`，还有更简洁的安装方式，见[此处](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn)。
 开发者还提供`Windows系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
 
-### 方式1：conda 联网安装（适用于Linux）
+### 方式1：conda 联网安装（适用于 Linux 或 MacOS）
 
-这是最简单的安装方法，但需要联网以自动下载依赖（例如Intel MKL）。强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位
+这是最简单的安装方法，但需要联网以自动下载依赖。
+对于 Linux x86-64 平台，我们提供了两个 channel：`mokit`（搭配 Anaconda defaults channel） 和 `mokit/label/cf` （搭配 conda-forge channel）。
+对于 MacOS arm64 平台，只有 `mokit/label/cf` channel。
+
+强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位，如
+
+**`mokit/label/cf` channel**
 ```
-conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11均可
-conda activate mokit-py39
+conda create -n mokit-py311 python=3.11 mokit -c mokit/label/cf -c conda-forge 
+# 3.9-3.11 are available for Linux x86-64, while only 3.11 is available for MacOS arm64
+conda activate mokit-py311
 ```
-或分步完成
+**`mokit` channel**
 ```
-conda create -n mokit-py39 python=3.9 # 3.9-3.11均可
-conda activate mokit-py39
+conda create -n mokit-py311 python=3.11 mokit -c mokit # 3.9-3.11 are available
+conda activate mokit-py311
+```
+也可以分步完成
+```
+conda create -n mokit-py311 python=3.11 # 3.9-3.11 are available
+conda activate mokit-py311
 conda install mokit -c mokit
 ```
 
-若您想通过conda-forge渠道安装MOKIT请阅读[此处](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel)。如果无法联网，但仍不想手动编译，可尝试下方的方式3。使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。
+关于 conda 安装的更多信息，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos)。如果无法联网，但仍不想手动编译，可尝试下方的方式3。使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。
 
 ### 方式2：homebrew 联网安装（仅针对MacOS）
 * 前提
@@ -70,10 +82,8 @@ conda activate base
 pip install numpy
 ```
 
-接着
-`brew install ansatzx/homebrew-mokit/mokit`
-
-或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`.
+接着`brew install ansatzx/homebrew-mokit/mokit`。
+或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`。
 
 最终按照caveats的提示, 在你的shell配置文件里添加如下环境变量
 ```zsh

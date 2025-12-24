@@ -42,20 +42,32 @@ Installation
 You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or other binary utilities, like `fch2mkl`, see [here](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
 Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
-### Option 1: Install from conda (for Linux only)
-This is the easiest way, but network is required to auto-download the requirements (like Intel MKL). And, creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go
+### Option 1: Install from conda (for Linux and MacOS)
+This is the easiest way, but network is required to auto-download the requirements.  
+For Linux x86-64 platform, we ship MOKIT at two channels, the `mokit` channel (used with anaconda defaults channel) and the `mokit/label/cf` channel (used with conda-forge). For MacOS arm64 platform, there's only `mokit/label/cf` channel. 
+
+Creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go like
+
+**for `mokit/label/cf` channel**
 ```
-conda create -n mokit-py39 python=3.9 mokit -c mokit # 3.9-3.11 are available
-conda activate mokit-py39
+conda create -n mokit-py311 python=3.11 mokit -c mokit/label/cf -c conda-forge 
+# 3.9-3.11 are available for Linux x86-64, while only 3.11 is available for MacOS arm64
+conda activate mokit-py311
 ```
-or step by step
+**for `mokit` channel**
 ```
-conda create -n mokit-py39 python=3.9 # 3.9-3.11 are available
-conda activate mokit-py39
+conda create -n mokit-py311 python=3.11 mokit -c mokit # 3.9-3.11 are available
+conda activate mokit-py311
+```
+
+You can also create and install in two steps
+```
+conda create -n mokit-py311 python=3.11 # 3.9-3.11 are available
+conda activate mokit-py311
 conda install mokit -c mokit
 ```
 
-If you want to install MOKIT with conda-forge channel, please read [here](https://doc.mokit.xyz/chap2-2.html#use-mokit-with-conda-forge-channel). If you have no access to network, but still don't want to compile MOKIT manually, you can try Option 3 below. You need to keep the environment `mokit-py39` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. See [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群).
+Read [here](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos) for more details of conda installation. If you have no access to network, but still don't want to compile MOKIT manually, you can try Option 3 below. You need to keep the environment `mokit-py311` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. See [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群).
 
 ### Option 2: Use homebrew-toolchains (for MacOS only)
 * Prerequisites: 
@@ -69,10 +81,7 @@ conda activate base
 pip install numpy
 ```
 
-Then 
-`brew install ansatzx/homebrew-mokit/mokit`
-
-Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
+Then `brew install ansatzx/homebrew-mokit/mokit`. Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
 
 Finally, follow caveats guides, add the following in your zsh(bash/fish etc.) profile.
 ```zsh

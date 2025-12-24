@@ -24,7 +24,7 @@ license = { text = "Apache-2.0" }
 keywords         = ['quantum-chemistry', 'computational-chemistry']
 version          = "1.2.7rc15"
 #dynamic          = ["version"]
-requires-python  = ">=3.8"
+requires-python  = ">=3.9"
 #dependencies     = [
 #        'numpy>=1.21',
 #        'mkl>=2022',
@@ -34,7 +34,7 @@ requires-python  = ">=3.8"
 [project.urls]
 Homepage         = 'https://gitlab.com/jxzou/mokit'
 Repository       = 'https://gitlab.com/jxzou/mokit'
-Documentation    = "https://jeanwsr.gitlab.io/mokit-doc-mdbook"
+Documentation    = "https://doc.mokit.xyz"
 Issues           = 'https://gitlab.com/jxzou/mokit/-/issues'
 Changelog        = 'https://gitlab.com/jxzou/mokit/-/blob/master/CHANGELOG'
 #PLATFORMS        = ['Linux']

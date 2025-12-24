@@ -1,5 +1,5 @@
 .setup_conda:
-  image: 
+  image:
     name: continuumio/miniconda3:latest
   before_script:
     #- apt-get update -qy
@@ -7,14 +7,14 @@
     - source ~/.bashrc
     - conda create -n mokit-build python=3.9 libgcc-ng=11
     - conda activate mokit-build
-    - conda install anaconda-client conda-build=24.9 setuptools_scm
+    - conda install anaconda-client conda-build setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
     #- ldconfig -p | grep libgfort
     #- ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
     #- ls /usr/lib/x86_64-linux-gnu/openblas-pthread/libopenblas* -l
 
 .setup_cf:
-  image: 
+  image:
     name: continuumio/miniconda3:latest
   before_script:
     #- apt-get update -qy
@@ -22,7 +22,7 @@
     - source ~/.bashrc
     - conda create -n mokit-build python=3.9
     - conda activate mokit-build
-    - conda install anaconda-client conda-build=24.9 setuptools_scm
+    - conda install anaconda-client conda-build setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
 conda_build:
@@ -39,18 +39,17 @@ conda_build:
     #- conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - conda build --output-folder ./output conda/conda310p
-    - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing 
+    - anaconda upload ./output/linux-64/mokit*.conda --skip-existing
 
 conda_build_test:
   extends: .setup_conda
   only:
     refs:
-      - openmp
-      - conda-omp2
       - ci-update-2025
       - conda-fix-dep
       - conda-fix-glibc
       - conda-fix-gcc
+      - conda-format
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
@@ -59,7 +58,7 @@ conda_build_test:
     #- conda build --output-folder ./output conda/conda38p
     - conda build --output-folder ./output conda/conda39p
     - conda build --output-folder ./output conda/conda310p
-    - anaconda upload ./output/linux-64/mokit*.bz2 --skip-existing --label test
+    - anaconda upload ./output/linux-64/mokit*.conda --skip-existing --label test
 
 conda_build_cf:
   extends: .setup_cf
@@ -74,9 +73,8 @@ conda_build_cf:
   script:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
     - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
-    # TODO: deal with new package format '.conda' in upcoming conda-build 25.1
     - cd output_cf/linux-64
-    - anaconda upload mokit*.bz2 --skip-existing --label cf
+    - anaconda upload mokit*.conda --skip-existing --label cf
 
 conda_build_cf_test:
   extends: .setup_cf
@@ -85,6 +83,7 @@ conda_build_cf_test:
       - cf-debug
       - ci-update-2025
       - conda-fix-glibc
+      - conda-format
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
@@ -92,8 +91,4 @@ conda_build_cf_test:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
     - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
-    - anaconda upload mokit*.bz2 --skip-existing --label testcf
-
-
-
-
+    - anaconda upload mokit*.conda --skip-existing --label testcf
