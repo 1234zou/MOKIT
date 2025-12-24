@@ -7,12 +7,13 @@ variables:
     - cf
     - distu-fix
     - centos7-fix
+    - py312-conda
   #only:
   #  changes:
   #    - "mokit/__init__.py"
   before_script:
     - apt-get update -qy
-    - apt-get install -qy libopenblas-dev make gcc gfortran  
+    - apt-get install -qy libopenblas-dev make gcc gfortran
     #- pip install numpy
     - ldconfig -p | grep libgfort
     - ls /usr/lib/x86_64-linux-gnu/libopenblas* -l
@@ -49,7 +50,7 @@ lint:
     - cf
   script:
     - pip install flake8
-    - flake8 --config .flake8 
+    - flake8 --config .flake8
 
 # py38_gcc8:
 #   image: python:3.8-buster

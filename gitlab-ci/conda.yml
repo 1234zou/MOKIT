@@ -20,9 +20,8 @@
     #- apt-get update -qy
     - conda init bash
     - source ~/.bashrc
-    - conda create -n mokit-build python=3.9
+    - conda create -n mokit-build python=3.9 anaconda-client conda-build setuptools_scm
     - conda activate mokit-build
-    - conda install anaconda-client conda-build setuptools_scm
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
 conda_build:
@@ -50,6 +49,7 @@ conda_build_test:
       - conda-fix-glibc
       - conda-fix-gcc
       - conda-format
+      - py312-conda
     changes:
       - "mokit/__init__.py"
       - "conda/conda*/meta.yaml"
@@ -71,8 +71,9 @@ conda_build_cf:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
   script:
+    - conda config --set channel_priority strict
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
-    - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
     - anaconda upload mokit*.conda --skip-existing --label cf
 
@@ -84,11 +85,13 @@ conda_build_cf_test:
       - ci-update-2025
       - conda-fix-glibc
       - conda-format
+      - py312-conda
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
   script:
+    - conda config --set channel_priority strict
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
-    - conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
     - anaconda upload mokit*.conda --skip-existing --label testcf

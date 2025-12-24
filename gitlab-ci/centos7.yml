@@ -3,14 +3,15 @@
     - conda
     - newconda2
     - distu-fix
+    - py312-conda
   #only:
   #  changes:
   #    - "mokit/__init__.py"
   before_script:
     # Switch to BFSU mirror for git.nju. No need to do that in GitLab.
     #- >
-    #  sed -e 's|^mirrorlist=|#mirrorlist=|g' 
-    #  -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g' 
+    #  sed -e 's|^mirrorlist=|#mirrorlist=|g'
+    #  -e 's|^#baseurl=http://mirror.centos.org|baseurl=https://mirrors.bfsu.edu.cn|g'
     #  -i.bak /etc/yum.repos.d/CentOS-*.repo
     - >
       sed -e "s|^mirrorlist=|#mirrorlist=|g" 
@@ -21,11 +22,11 @@
     - yum makecache
     - yum install -y epel-release
     #- >
-    #  sed -e 's!^metalink=!#metalink=!g' 
-    #  -e 's!^#baseurl=!baseurl=!g' 
-    #  -e 's!//download\.fedoraproject\.org/pub!//mirrors.bfsu.edu.cn!g' 
-    #  -e 's!//download\.example/pub!//mirrors.bfsu.edu.cn!g' 
-    #  -e 's!http://mirrors!https://mirrors!g' 
+    #  sed -e 's!^metalink=!#metalink=!g'
+    #  -e 's!^#baseurl=!baseurl=!g'
+    #  -e 's!//download\.fedoraproject\.org/pub!//mirrors.bfsu.edu.cn!g'
+    #  -e 's!//download\.example/pub!//mirrors.bfsu.edu.cn!g'
+    #  -e 's!http://mirrors!https://mirrors!g'
     #  -i /etc/yum.repos.d/epel*.repo
     #- yum makecache
     - yum install -y openblas-devel wget make
@@ -38,7 +39,7 @@
       /etc/yum.repos.d/CentOS-SCLo*.repo
     - cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
     - cat /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-    - yum install -y devtoolset-4-gcc devtoolset-4-gcc-gfortran 
+    - yum install -y devtoolset-4-gcc devtoolset-4-gcc-gfortran
     #- scl enable devtoolset-4 bash
     - source /opt/rh/devtoolset-4/enable
     #- which gcc
@@ -79,22 +80,21 @@
 #     paths:
 #       - ./$TARGET/
 
-
-centos7_conda_py38:
-  image: centos:7.6.1810
-  variables:
-    TARGET: mokit-master_linux_centos7_conda_py38
-    MCONDA_VER: py38_4.10.3
-  extends: .setup_system
-  script:
-    - conda install numpy=1.20
-    - cd src
-    - make all -f Makefile.gnu_openblas_ci
-    - cd ..
-  artifacts:
-    name: $TARGET
-    paths:
-      - ./$TARGET/
+# centos7_conda_py38:
+#   image: centos:7.6.1810
+#   variables:
+#     TARGET: mokit-master_linux_centos7_conda_py38
+#     MCONDA_VER: py38_4.10.3
+#   extends: .setup_system
+#   script:
+#     - conda install numpy=1.20
+#     - cd src
+#     - make all -f Makefile.gnu_openblas_ci
+#     - cd ..
+#   artifacts:
+#     name: $TARGET
+#     paths:
+#       - ./$TARGET/
 
 centos7_conda_py39:
   image: centos:7.6.1810
@@ -111,4 +111,3 @@ centos7_conda_py39:
     name: $TARGET
     paths:
       - ./$TARGET/
-

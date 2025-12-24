@@ -11,8 +11,8 @@ source:
   path: ../..
 
 build:
-  number: 12
-  string: "py{{ PY_VER }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
+  number: 19
+  string: "np{{ CONDA_NPY }}py{{ CONDA_PY }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
   build:
@@ -25,6 +25,8 @@ requirements:
     - libgfortran5
     - libgomp
     - sysroot_linux-64 2.17
+    - meson # [py>=312]
+    - ninja # [py>=312]
   host:
     - python 
     - openblas 
@@ -32,8 +34,9 @@ requirements:
     - libgfortran5
     - libgomp
   run:
-    - python 
-    - numpy 
+    - python
+    - numpy {{ numpy }}
+    - openblas {{ openblas }} 
 
 about:
   home:            "{{ urls['Homepage'] }}"
