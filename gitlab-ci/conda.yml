@@ -24,41 +24,41 @@
     - conda activate mokit-build
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
-conda_build:
-  extends: .setup_conda
-  only:
-    refs:
-      - master
-      - distu-fix
-    changes:
-      - "mokit/__init__.py"
-      - "conda/conda*/meta.yaml"
-  script:
-    #- conda build --output-folder ./output conda/conda37
-    #- conda build --output-folder ./output conda/conda38p
-    - conda build --output-folder ./output conda/conda39p
-    - conda build --output-folder ./output conda/conda310p
-    - anaconda upload ./output/linux-64/mokit*.conda --skip-existing
+# conda_build:
+#   extends: .setup_conda
+#   only:
+#     refs:
+#       - master
+#       - distu-fix
+#     changes:
+#       - "mokit/__init__.py"
+#       - "conda/conda*/meta.yaml"
+#   script:
+#     #- conda build --output-folder ./output conda/conda37
+#     #- conda build --output-folder ./output conda/conda38p
+#     - conda build --output-folder ./output conda/conda39p
+#     - conda build --output-folder ./output conda/conda310p
+#     - anaconda upload ./output/linux-64/mokit*.conda --skip-existing
 
-conda_build_test:
-  extends: .setup_conda
-  only:
-    refs:
-      - ci-update-2025
-      - conda-fix-dep
-      - conda-fix-glibc
-      - conda-fix-gcc
-      - conda-format
-      - py312-conda
-    changes:
-      - "mokit/__init__.py"
-      - "conda/conda*/meta.yaml"
-  script:
-    #- conda build --output-folder ./output conda/conda37
-    #- conda build --output-folder ./output conda/conda38p
-    - conda build --output-folder ./output conda/conda39p
-    - conda build --output-folder ./output conda/conda310p
-    - anaconda upload ./output/linux-64/mokit*.conda --skip-existing --label test
+# conda_build_test:
+#   extends: .setup_conda
+#   only:
+#     refs:
+#       - ci-update-2025
+#       - conda-fix-dep
+#       - conda-fix-glibc
+#       - conda-fix-gcc
+#       - conda-format
+#       - py312-conda
+#     changes:
+#       - "mokit/__init__.py"
+#       - "conda/conda*/meta.yaml"
+#   script:
+#     #- conda build --output-folder ./output conda/conda37
+#     #- conda build --output-folder ./output conda/conda38p
+#     - conda build --output-folder ./output conda/conda39p
+#     - conda build --output-folder ./output conda/conda310p
+#     - anaconda upload ./output/linux-64/mokit*.conda --skip-existing --label test
 
 conda_build_cf:
   extends: .setup_cf
@@ -75,7 +75,8 @@ conda_build_cf:
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
     #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
-    - anaconda upload mokit*.conda --skip-existing --label cf
+    - anaconda upload mokit*.conda --skip-existing
+    - anaconda label --copy main cf
 
 conda_build_cf_test:
   extends: .setup_cf
