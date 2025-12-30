@@ -5,7 +5,7 @@
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
  use mr_keyword, only: gvb, gvb_prog, ist, eist, sa_cas, readrhf, readuhf, &
-  hf_fch, mo_rhf, npair_wish, onlyXH, excludeXH, localm, LocDocc
+  hf_fch, mo_rhf, npair_wish, fcgvb, onlyXH, excludeXH, localm, LocDocc
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
   nacto, npair0
  use util_wrapper, only: gvb_exclude_XH_A_wrap
@@ -121,6 +121,7 @@ subroutine do_gvb()
   call get_npair_from_inpname(inpname, i)
   ndb = ndb + npair - i
   npair = i
+  if(fcgvb) call add_frz2gms_inp(inpname)
   call do_gvb_gms(inpname, sort_fch, .true.)
  end if
 
@@ -159,7 +160,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
   gmsname = inpname(1:i-1)//'.gms'
  else ! not determined
   if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false.)
+   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false., fcgvb, .true.)
    if(ist == 6) then
     write(inpname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.inp'
     write(gmsname,'(A,I0,A)') TRIM(proname)//'2gvb',npair,'.gms'
@@ -172,7 +173,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
     i = RENAME(TRIM(proname)//'_proj_loc_pair.inp', inpname)
    end if
   else ! paired LMOs obtained from associated rotation of UNOs
-   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false.)
+   call fch2inp_wrap(pair_fch, .true., npair, nopen, .false., fcgvb, .true.)
    write(inpname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.inp'
    write(gmsname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.gms'
    write(datname,'(A,I0,A)') TRIM(proname)//'_uno_asrot2gvb',npair,'.dat'
@@ -187,14 +188,8 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  call add_gvb_conv(inpname, GVB_conv)
  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
 
- ! perform GVB with all doubly occupied orbitals frozen
-! call add_frz2gms_inp(inpname)
-! call submit_gms_fzgvb_job(gms_path, gms_scr_path, inpname, nproc)
-
- ! modify the input file for GVB with all doubly occupied orbitals frozen
  if(fcgvb) then
   write(6,'(A)') 'Remark: FcGVB=.T. GVB with all doubly occupied orbitals frozen.'
-  call add_frz2gms_inp(inpname)
  end if
 
  ! perform GVB
@@ -324,7 +319,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
   stop
  end if
 
- call fch2inp_wrap(fchname, .true., npair, nopen, .false.)
+ call fch2inp_wrap(fchname, .true., npair, nopen, .false., .false., .false.)
  i = RENAME(TRIM(gms_inp), TRIM(datname))
  allocate(coeff(2,npair))
  call read_pair_coeff_from_qchem_out(outname, npair, coeff)
@@ -392,7 +387,7 @@ subroutine do_gvb_gau(proname, pair_fch)
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
- call fch2inp_wrap(fchname, .true., npair, nopen, .false.)
+ call fch2inp_wrap(fchname, .true., npair, nopen, .false., .false., .false.)
 
  i = RENAME(TRIM(inpname), TRIM(datname))
  allocate(coeff(2,npair))
@@ -658,8 +653,10 @@ subroutine add_gvb_conv(inpname, GVB_conv)
  character(len=4), intent(in) :: GVB_conv
  character(len=240), intent(in) :: inpname
 
+ ! if GAMESS GVB default convergence threshold is given, just return
  if(GVB_conv=='1d-5' .or. GVB_conv=='1D-5') return
- i =  index(inpname, '.inp', back=.true.)
+
+ call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -681,7 +678,7 @@ subroutine add_gvb_conv(inpname, GVB_conv)
  if(LEN_TRIM(buf) > 79) then
   i = INDEX(buf(1:79), ' ', back=.true.)
   write(fid1,'(A)') buf(1:i-1)
-  write(fid1,'(A)') ' '//TRIM(buf(i+1:))
+  write(fid1,'(2X,A)') TRIM(buf(i+1:))
  else
   write(fid1,'(A)') TRIM(buf)
  end if
@@ -705,7 +702,7 @@ subroutine add_frz2gms_inp(inpname)
  character(len=240), intent(in) :: inpname
 
  i = INDEX(inpname, '.inp', back=.true.)
- inpname1 = inpname(1:i-1)//'_f.inp'
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 

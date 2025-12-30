@@ -32,7 +32,7 @@ program main
  i = INDEX(fchname, '.fch', back=.true.)
  inpname = fchname(1:i-1)//'.inp'
 
- call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
 
  call find_icart_in_fch(fchname, .false., icart)
  if(icart == 2) then

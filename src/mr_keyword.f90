@@ -195,7 +195,7 @@ module mr_keyword
  logical :: mcpdft  = .false.
  logical :: mrcc    = .false.
  logical :: fcgvb   = .true.  ! GVB with all doubly occupied orbitals frozen
- logical :: c_fcgvb = .false. ! whether the user has changed defaultFcGVB
+ logical :: c_fcgvb = .false. ! whether the user has changed default FcGVB
  logical :: c_gvb_conv = .false. ! whether the user has changed default GVB_conv
  logical :: HFonly  = .false. ! stop after the HF calculations
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
@@ -314,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc15 (2025-Dec-24)'
+ write(6,'(A)') '           Version: 1.2.7rc16 (2025-Dec-29)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -790,6 +790,10 @@ end subroutine check_gms_path
     dmrgscf_prog = longbuf(j+1:i-1)
    case('caspt_prog')
     caspt_prog = longbuf(j+1:i-1)
+   case('caspt2_prog')
+    write(6,'(/,A)') error_warn//'`CASPT2_prog` is deprecated. Please use'
+    write(6,'(A)') '`CASPT_prog` instead.'
+    stop
    case('nevpt2_prog')
     if(.not. nevpt2) then
      write(6,'(/,A)') error_warn//'NEVPT2_prog is specified, but NEVPT2'
@@ -803,6 +807,8 @@ end subroutine check_gms_path
                     &).'
      stop
     end if
+    write(6,'(/,A)') 'Warning: `NEVPT2_prog` is deprecated. Please use `NEVPT_p&
+                     &rog` instead.'
     nevpt_prog = longbuf(j+1:i-1)
     if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
    case('nevpt_prog')

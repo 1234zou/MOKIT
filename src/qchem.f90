@@ -89,7 +89,7 @@ subroutine qchem2gms(fchname, inpname)
  std_fch = fchname(1:i-1)//'_std.fch'
  std_inp = fchname(1:i-1)//'_std.inp'
  call standardize_fch(fchname)
- call fch2inp_wrap(std_fch, .false., 0, 0, .false.)
+ call fch2inp_wrap(std_fch, .false., 0, 0, .false., .false., .false.)
  call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
 end subroutine qchem2gms

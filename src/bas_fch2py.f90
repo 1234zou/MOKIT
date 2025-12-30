@@ -109,7 +109,7 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
  if(nbf > nif) lin_dep = .true.
 
  call determine_sph_or_cart(fchname, cart) 
- call fch2inp_wrap(fchname, .false., 0, 0, .true., .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
 
  command = 'bas_gms2py '//TRIM(inpname)
  if(.not. cart) command = TRIM(command)//' -sph'

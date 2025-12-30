@@ -152,7 +152,7 @@ subroutine do_mrcisd()
 
  case('gamess')
   call check_gms_path()
-  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false., .false., .true.)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)
@@ -980,7 +980,7 @@ subroutine do_mrcisdt()
 
  case('gamess')
   call check_gms_path()
-  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false., .false., .true.)
   i = INDEX(casnofch, '.fch', back=.true.)
   string = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

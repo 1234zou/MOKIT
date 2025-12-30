@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc15 :: MOKIT, release date: 2025-Dec-24'
+  write(6,'(A)') 'AutoMR 1.2.7rc16 :: MOKIT, release date: 2025-Dec-29'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -821,10 +821,10 @@ subroutine do_minimal_basis_gvb()
 
  write(6,'(/)',advance='no')
  if(mult == 1) then
-  write(6,'(A,F18.8,1X,A)') 'GVB/STO-6G E(RHF) = ',e(1),'a.u., <S**2>=  0.000'
+  write(6,'(A,F18.8,1X,A)') 'STO-6G E(RHF) = ',e(1),'a.u., <S**2>=  0.000'
  end if
- write(6,'(A,F18.8,1X,A,F7.3)') 'GVB/STO-6G E(UHF) = ',e(2),'a.u., <S**2>=',uhf_s2
- write(6,'(A,F18.8,1X,A,F7.3)') 'GVB/STO-6G E(GVB) = ',e(3),'a.u., <S**2>=',gvb_mult
+ write(6,'(A,F18.8,1X,A,F7.3)') 'STO-6G E(UHF) = ',e(2),'a.u., <S**2>=',uhf_s2
+ write(6,'(A,F18.8,1X,A,F7.3)') 'STO-6G E(GVB) = ',e(3),'a.u., <S**2>=',gvb_mult
 
  call find_mb_gvb_nofch(proname, gvb_nofch)
 

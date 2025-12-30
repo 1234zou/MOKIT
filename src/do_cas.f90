@@ -343,7 +343,7 @@ subroutine do_cas(scf)
 
  case('gamess')
   call check_gms_path()
-  call fch2inp_wrap(fchname, .false., 0, 0, .false.)
+  call fch2inp_wrap(fchname, .false., 0, 0, .false., .false., .true.)
   i = INDEX(fchname, '.fch', back=.true.)
   outname = fchname(1:i-1)//'.inp'
   inpname = TRIM(proname)//'.inp'

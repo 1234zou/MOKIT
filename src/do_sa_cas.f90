@@ -538,7 +538,7 @@ subroutine prt_sacas_gms_inp(inpname, hf_fch)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname, hf_fch
 
- call fch2inp_wrap(hf_fch, .false., 0, 0, .false.)
+ call fch2inp_wrap(hf_fch, .false., 0, 0, .false., .false., .true.)
  i = INDEX(hf_fch, '.fch', back=.true.)
  inpname1 = hf_fch(1:i-1)//'.inp'
  i = RENAME(TRIM(inpname1), TRIM(inpname))

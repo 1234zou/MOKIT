@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc15 (Dec 24, 2025)
+MOKIT 1.2.7rc16 (Dec 29, 2025)
 ------------------------
 Fixes
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
@@ -90,6 +90,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* add the `-fc` option for fch2inp
 * add rw_misc.f90 and move some subroutines into it
 * add keyword LocPair to allow orbital localization on specified pairs
 * remove '-' symbol after 'def2' in all DKH-def2, ma-def2, ma-DKH-def2 series of basis sets

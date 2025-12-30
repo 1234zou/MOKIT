@@ -22,7 +22,7 @@ authors = [
 description      = 'MOKIT: Molecular Orbital KIT'
 license = { text = "Apache-2.0" }
 keywords         = ['quantum-chemistry', 'computational-chemistry']
-version          = "1.2.7rc15"
+version          = "1.2.7rc16"
 #dynamic          = ["version"]
 requires-python  = ">=3.9"
 #dependencies     = [

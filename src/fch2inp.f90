@@ -32,31 +32,31 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i, k, npair, nopen0, itype
+ integer :: narg, k, npair, nopen0, itype
  character(len=4) :: string
- character(len=8) :: arg2, arg3
+ character(len=8) :: arg2, arg4, arg6
+ character(len=26), parameter :: error_warn = 'ERROR in program fch2inp: '
  character(len=240) :: fchname
+ logical :: fc ! whether to print the $MOFRZ section for frozen core MOs
  logical :: no_vec ! whether to print the $VEC section
 
- i = iargc()
- select case(i)
- case(1,2,3,5)
- case default
-  write(6,'(/,A)') ' ERROR in program fch2inp: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
-  write(6,'(A)')   ' Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis'
-  write(6,'(A)')   ' Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
-  write(6,'(A)')   ' Example 4 (MRSF-CIS)      : fch2inp triplet.fch -mrsfcis'
-  write(6,'(A)')   ' Example 5 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
-  write(6,'(A)')   ' Example 6 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
-  write(6,'(A)')   ' Example 7 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -&
-                   &open [Nopen]'
-  write(6,'(A,/)') ' Example 8 (no $VEC)       : fch2inp h2o.fch -novec'
+ narg = iargc()
+ if(narg<1 .or. narg>6) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
+  write(6,'(A)')  ' Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis'
+  write(6,'(A)')  ' Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
+  write(6,'(A)')  ' Example 4 (MRSF-CIS)      : fch2inp triplet.fch -mrsfcis'
+  write(6,'(A)')  ' Example 5 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
+  write(6,'(A)')  ' Example 6 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
+  write(6,'(A)')  ' Example 7 (frozen core)   : fch2inp h2o.fch -gvb [Npair] -fc'
+  write(6,'(A)')  ' Example 8 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -open [Nopen]'
+  write(6,'(A)')  ' Example 9 (frozen core)   : fch2inp h2o.fch -gvb [Npair] -open [Nopen] -fc'
+  write(6,'(A,/)')' Example10 (no $VEC)       : fch2inp h2o.fch -novec'
   stop
- end select
+ end if
 
- npair = 0; nopen0 = 0; itype = 0; no_vec = .false.
- string = ' '; fchname = ' '
+ fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -67,7 +67,10 @@ program main
   fchname = fchname(1:k-3)//'fch'
  end if
 
- if(i > 1) then
+ npair = 0; nopen0 = 0; itype = 0; fc = .false.; no_vec = .false.
+ string = ' '; arg2 = ' '; arg4 = ' '; arg6 = ' '
+
+ if(narg > 1) then
   call getarg(2, arg2)
   select case(TRIM(arg2))
   case('-sfcis')
@@ -82,38 +85,62 @@ program main
    itype = 5
   case('-novec')
    no_vec = .true.
-   if(i > 2) then
-    write(6,'(/,A)') 'ERROR in subroutine fch2inp: -novec is incompatible with &
-                     &other arguments!'
+   if(narg > 2) then
+    write(6,'(/,A)') error_warn//'-novec is incompatible with other arguments!'
     stop
    end if
   case default
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp: the 2nd argument is wrong!'
+   write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
    write(6,'(A)') 'It can only be one of -gvb/-sf/-mrsf/-novec'
    stop
   end select
 
-  if(i > 2) then
+  if(narg > 2) then
+   if(TRIM(arg2) /= '-gvb') then
+    write(6,'(/,A)') error_warn//'when there are more than 2 arguments, the'
+    write(6,'(A)') '2nd argument can only be "-gvb". But got "'//arg2//'"'
+    stop
+   end if
    call getarg(3, string)
    read(string,*) npair
-   if(i == 5) then
-    call getarg(4, arg3)
-    if(arg3 /= '-open') then
-     write(6,'(/,A)') 'ERROR in subroutine fch2inp: the 4th argument is wrong!'
-     write(6,'(A)') "It can only be '-open'."
+
+   if(narg == 4) then ! fch2inp h2o.fch -gvb [Npair] -fc
+    call getarg(4, arg4)
+    if(TRIM(arg4) == '-fc') then
+     fc = .true.
+    else
+     write(6,'(/,A)') error_warn//'when there are only 4 arguments specified,'
+     write(6,'(A)') 'the 4th argument can only be "-fc". But got "'//arg4//'"'
+     stop
+    end if
+   else if(narg > 4) then
+    call getarg(4, arg4)
+    if(TRIM(arg4) /= '-open') then
+     write(6,'(/,A)') error_warn//'when there are more than 4 arguments specified,'
+     write(6,'(A)') 'the 4th argument can only be "-open". But got "'//arg4//'"'
      stop
     end if
     call getarg(5, string)
     read(string,*) nopen0
+    if(narg == 6) then
+     call getarg(6, arg6)
+     if(TRIM(arg6) == '-fc') then
+      fc = .true.
+     else
+      write(6,'(/,A)') error_warn//'when there are 6 arguments specified, the 6-th'
+      write(6,'(A)') 'argument can only be "-fc". But got "'//arg6//'"'
+      stop
+     end if
+    end if
    end if
   end if
  end if
 
- call fch2inp(fchname, no_vec, itype, npair, nopen0)
+ call fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
 end program main
 
 ! Generate GAMESS .inp file from Gaussian .fch(k) file.
-subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
+subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, ni, icart, fid
@@ -130,10 +157,11 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
+ character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2inp: '
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
  logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
- logical, intent(in) :: no_vec
+ logical, intent(in) :: no_vec, fc
 
  itype1 = itype; ecp = .false.; so_ecp = .false.; X2C = .false.; DIIS = .false.
 
@@ -163,7 +191,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
   write(6,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: irel out of range.'
+  write(6,'(/,A)') error_warn//'irel out of range.'
   write(6,'(A,I0)') 'irel=', irel
   stop
  end select
@@ -182,8 +210,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  call read_fch(fchname, uhf)         ! read content in .fch(k) file
 
  if((itype==1 .or. itype==2) .and. mult<3) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: SF-CIS/SF-TDDFT in GAMESS is s&
-                   &upposed to be based'
+  write(6,'(/,A)') error_warn//'SF-CIS/SF-TDDFT in GAMESS is supposed to be based'
   write(6,'(A)') 'on a high-spin ROHF/UHF reference, with spin multiplicity >=3&
                  &. But the spin'
   write(6,'(A,I0)') 'multiplicity in your .fch file is: ', mult
@@ -192,8 +219,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  end if
 
  if((itype==3 .or. itype==4) .and. mult/=3) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: MRSF-CIS/MRSF-TDDFT in GAMESS &
-                   &can only be based'
+  write(6,'(/,A)') error_warn//'MRSF-CIS/MRSF-TDDFT in GAMESS can only be based'
   write(6,'(A,I0)') 'on a triplet ROHF reference! The spin multiplicity in your&
                     & .fch(k) file is ', mult
   write(6,'(A)') 'fchname='//TRIM(fchname)
@@ -203,11 +229,11 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  if(uhf) then
   nif1 = 2*nif
   if(itype==3 .or. itype==4) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp: UHF and MRSF both activated.'
+   write(6,'(/,A)') error_warn//'UHF and MRSF both activated.'
    write(6,'(A)') 'Please use an ROHF .fch(k) file.'
    stop
   else if(itype == 5) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp: UHF and GVB both activated.'
+   write(6,'(/,A)') error_warn//'UHF and GVB both activated.'
    write(6,'(A)') 'Did you provide a wrong .fch(k) file, or specify wrong argum&
                   &ents?'
    write(6,'(A)') 'fchname='//TRIM(fchname)
@@ -231,8 +257,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
  if(itype1==5 .and. nopen0/=nopen) then
   k = nopen0 - nopen
   if(MOD(IABS(k),2) /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp: odd number of singly occupied&
-                    & orbitals is changed!'
+   write(6,'(/,A)') error_warn//'odd number of singly occupied orbitals is changed!'
    write(6,'(A)') 'When you change the number of singly occupied orbitals, only&
                   & an even number is'
    write(6,'(A)') 'allowed, e.g. from 0 to 2/4/... (from singlet to triplet/qui&
@@ -277,7 +302,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
 
  ! create the GAMESS .inp file and print the keywords information
  call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, &
-                           nbf, na, nb, itype1, irel, uhf, ecp, sph, X2C, DIIS)
+                       nbf, na, nb, itype1, irel, fc, uhf, ecp, sph, X2C, DIIS)
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! for ghost atoms (0 charge, has basis function), make ielem(i) negative,
@@ -316,7 +341,7 @@ subroutine fch2inp(fchname, no_vec, itype, npair, nopen0)
 
  k = shell2atom_map(ncontr)
  if(k < natom) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inp: shell2atom_map(ncontr)<natom.'
+  write(6,'(/,A)') error_warn//'shell2atom_map(ncontr)<natom.'
   write(6,'(A)') 'Internal inconsistency. Stop and check.'
   write(6,'(2(A,I0))') 'k=', k, ', natom=', natom
   close(fid)
@@ -467,14 +492,16 @@ end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
 subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-                      nif, nbf, na, nb, itype, irel, uhf, ecp, sph, X2C, DIIS)
+               nif, nbf, na, nb, itype, irel, fcgvb, uhf, ecp, sph, X2C, DIIS)
  implicit none
- integer :: fid
+ integer :: i, j, k, m, n, fid
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, na, nb, &
   itype, irel
  character(len=2), allocatable :: ideg(:)
+ character(len=43), parameter :: error_warn='ERROR in subroutine creat_gamess_i&
+                                            &np_head: '
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: uhf, ecp, sph, X2C, DIIS
+ logical, intent(in) :: fcgvb, uhf, ecp, sph, X2C, DIIS
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -497,9 +524,9 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  case(5) ! GVB
   write(fid,'(A)',advance='no') 'GVB'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine creat_gamess_inp_head: itype out of ran&
-                   &ge.'
-  write(fid,'(A,I0)') 'itype=', itype
+  write(6,'(/,A)') error_warn//'itype out of range.'
+  write(6,'(A,I0)') 'itype=', itype
+  close(fid)
   stop
  end select
 
@@ -552,8 +579,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
     write(fid,'(15A2)',advance='no') ideg
     deallocate(ideg)
     if(nopen > 16) then
-     write(fid,'(/,A)') 'ERROR in subroutine creat_gamess_inp_head: nopen>16 ca&
-                        &nnot be dealt'
+     write(fid,'(/,A)') error_warn//'nopen>16 cannot be dealt'
      write(fid,'(A)') 'with currently. Please contact MOKIT developers to updat&
                       &e code.'
      close(fid)
@@ -575,6 +601,37 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
    write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. FDIFF=.F. $END'
   else
    write(fid,'(A)') ' $SCF DIRSCF=.T. FDIFF=.F. $END'
+  end if
+ end if
+
+ ! freeze GVB doubly occupied MOs if the user requests that
+ if(itype==5 .and. ncore>0 .and. fcgvb) then
+  if(ncore <= 20) then        ! 0 < ncore <= 20
+   write(fid,'(A)',advance='no') ' $MOFRZ FRZ=.T. IFRZ(1)=1'
+   do i = 2, ncore, 1
+    write(fid,'(A,I0)',advance='no') ',', i
+   end do ! for i
+   write(fid,'(A)') ' $END'
+  else if(ncore <= 1000) then ! 20 < ncore <= 1000
+   write(fid,'(A)') ' $MOFRZ FRZ=.T.'
+   k = ncore/17
+   do i = 1, k, 1
+    m = (i-1)*17 + 1
+    write(fid,'(2X,2(A,I0))',advance='no') 'IFRZ(',m,')=',m
+    write(fid,'(16(A,I0))') (',',m+j,j=1,16)
+   end do ! for i
+   n = ncore - 17*k
+   if(n > 0) then
+    m = k*17 + 1
+    write(fid,'(2X,2(A,I0))',advance='no') 'IFRZ(',m,')=',m
+    write(fid,'(16(A,I0))') (',',m+j-1,j=2,n)
+   end if
+   write(fid,'(A)') ' $END'
+  else                        ! 1000 < ncore
+   write(6,'(/,A)') error_warn//'ncore>1000 is not supported by fch2inp currently.'
+   write(6,'(A,I0)') 'ncore=', ncore
+   close(fid)
+   stop
   end if
  end if
 

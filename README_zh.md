@@ -6,7 +6,7 @@
 *&emsp;&emsp;[在线文档](https://doc.mokit.xyz/)*
 
 # Molecular Orbital KIT (MOKIT)
-MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间传递分子轨道。除此之外，MOKIT中的`automr`程序可以进行多参考（态）方法的自动化、黑箱式计算。
+MOKIT提供各种小程序和模块，用以实现在常见量子化学软件间转化和传递分子轨道。除此之外，MOKIT中的`automr`程序可以进行多参考（态）量子化学方法的自动化、黑箱式计算。
 
 MOKIT中重要的小程序及其功能请见下图  
 ![MOKIT utilities with their functions](doc/orbital_transfer_CN.png)
@@ -24,9 +24,9 @@ or
 
 整个过程都是自动的。MOKIT在不同量化程序间传轨道时，考虑了基函数角动量的顺序问题（最高支持H角动量，相当于C原子用cc-pV5Z基组，Zn原子用cc-pVQZ基组），因此同一种理论方法（例如CASSCF）在不同量化程序中的电子能量可以很好地复现（误差通常小于10^-6 a.u.），且几乎1-2圈收敛。
 
-请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，无需人为干预。但用户仍需具备使用常见量子化学软件的基本技能（例如熟悉Gaussian软件的常规DFT计算）。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
+请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，减少人为干预。但用户仍需具备使用常见量子化学软件的基本技能，例如熟悉[Gaussian](https://gaussian.com)软件的常规DFT计算。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2025年12月24号
+2025年12月29号
 
 依赖
 ----------
@@ -35,65 +35,25 @@ or
 2. `frag_guess_wfn`: Gaussian
 3. 绝大多数传轨道的小程序没有依赖，除了`py2gau`, `py2orca`, `py2molpro`这些Python模块需要在安装有PySCF时才能正常使用
 
-注意官方GAMESS程序只能处理少于13对的GVB计算，但借助MOKIT现今可以实现上百对的GVB计算。因此请阅读[手册 4.4.10部分](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog)使用提供的脚本自动修改GAMESS代码。
+> 注意：`automr`不调用GAMESS可执行程序`gamess.00.x`，而是调用`gamess.01.x`。请阅读手册[4.4.10](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog)并使用提供的脚本一键修改和编译GAMESS。
 
 安装
 ----------
-在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`，或其他二进制小程序，如`fch2mkl`，还有更简洁的安装方式，见[此处](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn)。
-开发者还提供`Windows系统`下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
+在Linux或MacOS上，您可以从以下展示的4种安装方式中选择一种来安装MOKIT，这些安装方式可以让您使用MOKIT全部功能。若您仅想使用小程序`frag_guess_wfn`或其他某个小程序如`fch2mkl`，还有更简洁的安装方式，见[此处](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn)。
+开发者还提供`Windows`系统下预编译好的小程序，点击[下载](https://gitlab.com/jxzou/mokit/-/releases)。但请注意这些小程序的版本会滞后于master主分支代码，且无法在Windows上使用MOKIT的全部功能。
 
 ### 方式1：conda 联网安装（适用于 Linux 或 MacOS）
 
-这是最简单的安装方法，但需要联网以自动下载依赖。
-对于 Linux x86-64 平台，我们提供了两个 channel：`mokit`（搭配 Anaconda defaults channel） 和 `mokit/label/cf` （搭配 conda-forge channel）。
-对于 MacOS arm64 平台，只有 `mokit/label/cf` channel。
-
-强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位，如
-
-**`mokit/label/cf` channel**
+这是最简单的安装方法，但需要联网以自动下载依赖。强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位，如
 ```
-conda create -n mokit-py311 python=3.11 mokit -c mokit/label/cf -c conda-forge 
-# 3.9-3.11 are available for Linux x86-64, while only 3.11 is available for MacOS arm64
+conda create -n mokit-py311 python=3.11 mokit -c conda-forge 
 conda activate mokit-py311
 ```
-**`mokit` channel**
-```
-conda create -n mokit-py311 python=3.11 mokit -c mokit # 3.9-3.11 are available
-conda activate mokit-py311
-```
-也可以分步完成
-```
-conda create -n mokit-py311 python=3.11 # 3.9-3.11 are available
-conda activate mokit-py311
-conda install mokit -c mokit
-```
+对于Linux x86-64，您可以使用3.9-3.11任一Python版本；而对于MacOS arm64，目前只支持3.11。
 
-关于 conda 安装的更多信息，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos)。如果无法联网，但仍不想手动编译，可尝试下方的方式3。使用MOKIT时仍需保持`mokit-py39`环境处于激活状态，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。
+关于conda channel的信息、如何利用conda更新或卸载MOKIT，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos)。在使用MOKIT前请记得先激活`mokit-py311`环境，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。对于MacOS用户，也可以[使用homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only)安装MOKIT。若您的机器无法联网，但仍不想手动编译，可尝试下方的方式2。
 
-### 方式2：homebrew 联网安装（仅针对MacOS）
-* 前提
-    - 需要安装[homebrew](https://brew.sh)，更多帮助[见此处](https://doc.mokit.xyz/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only)。
-    - 需要通过brew安装miniconda，并在base环境中通过pip安装numpy，如下
-    
-```
-brew install --cask miniconda
-conda init bash #(or zsh ) 
-conda activate base
-pip install numpy
-```
-
-接着`brew install ansatzx/homebrew-mokit/mokit`。
-或者 `brew tap ansatzx/homebrew-mokit` 并且 `brew install mokit`。
-
-最终按照caveats的提示, 在你的shell配置文件里添加如下环境变量
-```zsh
-export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
-export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
-export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
-```
-
-### 方式3：使用预编译版
+### 方式2：使用预编译版
 
 `Linux`预编译版本可从[此处](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries)下载。
 
@@ -108,10 +68,9 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 export GMS=$HOME/software/gamess/rungms
 ```
-此处需要设置`LD_LIBRARY_PATH`是由于OpenBLAS动态库放在那里。GAMESS主程序路径`GMS`请按照您机器上的实际情况修改。
-修改后需退出重登，以使环境变量生效。
+此处需要设置`LD_LIBRARY_PATH`是由于OpenBLAS动态库放在那里。GAMESS主程序路径`GMS`请按照您机器上的实际情况修改。修改后需退出重登，以使环境变量生效。
 
-### 方式4：从源码编译
+### 方式3：从源码编译
 下载MOKIT最新源代码可参阅[此处](https://doc.mokit.xyz/chap2-3.html)。
 
 * 前提（编译器和库要求）
@@ -126,30 +85,31 @@ make all
 ```
 
 * 在执行`make all`之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`。例如，假定您MOKIT放在`$HOME/software/mokit`目录，您需要在`~/.bashrc`文件中设定以下环境变量:
-```
+```bash
 export MOKIT_ROOT=$HOME/software/mokit
 export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
-
-GAMESS可执行文件的路径请按照您机器上的实际情况修改。
-修改后需退出重登，以使环境变量生效。
+GAMESS可执行文件的路径请按照您机器上的实际情况修改。修改后需退出重登，以使环境变量生效。
 
 快速开始
 ----------
-* 每个小程序的使用十分简单，直接运行即可在屏幕上打印出使用说明。例如在Shell中运行小程序`fch2inp`，输出如下
+* 每个小程序的使用十分简单，直接运行即可在屏幕上打印出使用说明。例如运行小程序`fch2inp`，输出如下
 ```
- ERROR in subroutine fch2inp: wrong command line arguments!  
- Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
- Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
- Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+ ERROR in program fch2inp: wrong command line arguments!
+ Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch
+ Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis
+ Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf
+ Example 4 (MRSF-CIS)      : fch2inp triplet.fch -mrsfcis
+ Example 5 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf
+ Example 6 (GVB)           : fch2inp h2o.fch -gvb [Npair]
 ```
 您可在此[网页](https://doc.mokit.xyz/chap4-5.html)上搜索需要的小程序及阅读相应文档.
 
 * 对于mokit/lib/目录下Python动态库文件的使用方法，请阅读examples/utilities/目录下的[readme.txt](examples/utilities/readme.txt)
 
-* 自动做多参考计算的核心程序automr的输入文件采用的是Gaussian gjf文件的格式。例如，一个O-H键长为1.5 A的水分子输入文件`00-h2o_cc-pVDZ_1.5.gjf`示例如下
+* 自动做多参考计算的核心程序automr的输入文件采用的是Gaussian输入文件的格式（.gjf）。例如，一个O-H键长为1.5 A的水分子输入文件`00-h2o_cc-pVDZ_1.5.gjf`示例如下
 ```
 %mem=4GB
 %nprocshared=4
@@ -163,14 +123,12 @@ H       1.26502308    0.90193619   -0.068688
 H      -0.73568721    2.31589843   -0.068688
 ```
 
-只需在Shell中执行
+只需运行如下命令
 ```
-automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+automr 00-h2o_cc-pVDZ_1.5.gjf >00-h2o_cc-pVDZ_1.5.out 2>&1
 ```
 
-命令，`automr`程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。
-更多信息请见 [程序文档 Quick Start](https://doc.mokit.xyz/chap3_quick.html) 及 [User Guide](https://doc.mokit.xyz/chap4_guide.html)。
-更多例子请见[examples](examples/)。
+`automr`程序会相继执行HF，GVB和CASSCF等计算,自动确定活性空间为CAS(4,4)。更多信息请见 [程序文档 Quick Start](https://doc.mokit.xyz/chap3_quick.html)及[User Guide](https://doc.mokit.xyz/chap4_guide.html)。更多例子请见[examples](examples/)。
 
 
 MOKIT支持在这些量子化学程序间传轨道
@@ -207,7 +165,7 @@ MOKIT支持在这些量子化学程序间传轨道
 
 * 您也可以通过电子邮件njumath[at]sina.cn联系开发者jxzou。在邮件中请将您的相关文件（例如.gjf, .fch, .out文件等）打包、压缩并添加为附件发送。
 
-* 还可加入MOKIT用户交流QQ群，群号：470745084
+* 还可加入MOKIT用户交流QQ群（群号：470745084）
 
 
 下一步计划

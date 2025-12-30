@@ -44,8 +44,7 @@ program main
  inpname = fchname(1:i-1)//'.inp'
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
-
- call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
 
  sph = .true.
  call find_icart_in_fch(fchname, .false., icart)

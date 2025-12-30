@@ -97,7 +97,7 @@ subroutine do_mcpdft()
    stop
   end if
   call check_gms_path()
-  call fch2inp_wrap(casnofch, .false., 0, 0, .false.)
+  call fch2inp_wrap(casnofch, .false., 0, 0, .false., .false., .true.)
   call find_specified_suffix(casnofch, '.fch', i)
   fname(1) = casnofch(1:i-1)//'.inp'
   i = INDEX(casnofch, '_NO', back=.true.)

@@ -6,7 +6,7 @@
 *&emsp;&emsp;[Documentation](https://doc.mokit.xyz/)*
 
 # Molecular Orbital KIT (MOKIT)
-MOKIT offers various utilities and modules to transfer MOs among various quantum chemistry software packages. Besides, the `automr` program in MOKIT can set up and run common multi-reference calculations in a black-box way.
+MOKIT offers various utilities and modules to transform MOs among various quantum chemistry software packages. Besides, the `automr` program in MOKIT can set up and run multi-reference quantum chemistry calculations in a black-box way.
 
 A list of important utilities along with their functions are shown below  
 ![MOKIT utilities with their functions](doc/orbital_transfer.png)
@@ -24,9 +24,9 @@ or
 
 Negligible energy loss(usually<1e-6 a.u., for the same wave function method in two programs) are ensured during transferring MOs, since the basis order of angular momentum up to H(i.e. *l*=5) are considered.
 
-Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations (e.g. familiar with routine DFT calculations in Gaussian). You are encouraged to learn how to use Gaussian if you are a fresh hand.
+Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations, e.g. familiar with routine DFT calculations in [Gaussian](https://gaussian.com). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Dec 24, 2025
+Dec 29, 2025
 
 Dependencies
 ------------
@@ -35,63 +35,24 @@ Dependencies on quantum chemistry packages are different for each executable or 
 2. `frag_guess_wfn`: Gaussian
 3. Most of the utilities do not depend on quantum chemistry packages except that the modules `py2gau`, `py2orca`, `py2molpro`, etc, work with PySCF installed.
 
-Note that the original GAMESS code can only deal with GVB <=12 pairs. But nowadays we can do hundreds of pairs. To go beyond 12 pairs, please read Section 4.4.10 in [manual](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog).
+> Note: `automr` will not call the original GAMESS executable `gamess.00.x`, but call `gamess.01.x`. To generate it, please read Section [4.4.10](https://doc.mokit.xyz/chap4-4.html#4410-gvb_prog) in MOKIT manual and use the provided Shell script to automatically modify GAMESS code and re-compile.
 
 Installation
 ------------
-You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or other binary utilities, like `fch2mkl`, see [here](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
+You can choose one of the four options shown below to install MOKIT on Linux or MacOS, and they are for full functionalities. If you only want the utility `frag_guess_wfn` or some other utility like `fch2mkl`, see [here](https://doc.mokit.xyz/chap2-2.html#223-only-want-frag_guess_wfn) for an even easier way to install.
 Pre-built `Windows OS` executables for a few utilities are provided in [Releases](https://gitlab.com/jxzou/mokit/-/releases). But they are outdated compared with master branch, and there's no way to use full functionality on Windows.
 
 ### Option 1: Install from conda (for Linux and MacOS)
-This is the easiest way, but network is required to auto-download the requirements.  
-For Linux x86-64 platform, we ship MOKIT at two channels, the `mokit` channel (used with anaconda defaults channel) and the `mokit/label/cf` channel (used with conda-forge). For MacOS arm64 platform, there's only `mokit/label/cf` channel. 
-
-Creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go like
-
-**for `mokit/label/cf` channel**
+This is the easiest way, but network is required to auto-download the requirements. Creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go like
 ```
-conda create -n mokit-py311 python=3.11 mokit -c mokit/label/cf -c conda-forge 
-# 3.9-3.11 are available for Linux x86-64, while only 3.11 is available for MacOS arm64
+conda create -n mokit-py311 python=3.11 mokit -c conda-forge 
 conda activate mokit-py311
 ```
-**for `mokit` channel**
-```
-conda create -n mokit-py311 python=3.11 mokit -c mokit # 3.9-3.11 are available
-conda activate mokit-py311
-```
+For Linux x86-64, you can use any version of Python 3.9-3.11. But for MacOS arm64, only 3.11 is available.
 
-You can also create and install in two steps
-```
-conda create -n mokit-py311 python=3.11 # 3.9-3.11 are available
-conda activate mokit-py311
-conda install mokit -c mokit
-```
+For more details about conda channels and how to update/uninstall MOKIT using conda, please read [here](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos). You need to activate the environment `mokit-py311` before using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use it. Please read [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群). For MacOS users, you can also [use the homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only) to install MOKIT. If you have no access to network, but still don't want to compile the source code, you can try Option 2 below.
 
-Read [here](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos) for more details of conda installation. If you have no access to network, but still don't want to compile MOKIT manually, you can try Option 3 below. You need to keep the environment `mokit-py311` activated when using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use MOKIT. See [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群).
-
-### Option 2: Use homebrew-toolchains (for MacOS only)
-* Prerequisites: 
-    - You need to install [homebrew](https://brew.sh) on your mac. See [here](https://doc.mokit.xyz/chap2-2.html#optional-2-use-homebrew-toolchains-for-macos-only) for more tips.
-    - You need to install conda via brew and install numpy in base env. via pip, as follows
-
-```
-brew install --cask miniconda
-conda init bash # (or zsh) 
-conda activate base
-pip install numpy
-```
-
-Then `brew install ansatzx/homebrew-mokit/mokit`. Or `brew tap ansatzx/homebrew-mokit` and then `brew install mokit`.
-
-Finally, follow caveats guides, add the following in your zsh(bash/fish etc.) profile.
-```zsh
-export MOKIT_ROOT="$(brew --prefix)/Cellar/mokit/master"
-export PATH=$MOKIT_ROOT/bin:$PATH
-export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
-export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
-```
-
-### Option 3: Use Pre-compiled MOKIT
+### Option 2: Use Pre-compiled MOKIT
 
 Pre-built `Linux` executables can be downloaded [here](https://doc.mokit.xyz/chap2-2.html#222-pre-built-linux-executables-and-libraries).
 
@@ -108,10 +69,9 @@ export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export LD_LIBRARY_PATH=$MOKIT_ROOT/mokit/lib:$LD_LIBRARY_PATH
 export GMS=$HOME/software/gamess/rungms
 ```
-The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. 
-Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
+The `LD_LIBRARY_PATH` is needed since the OpenBLAS dynamic library is put there. Remember to modify the `GMS` path to suit your local environment. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
-### Option 4: Build from Source
+### Option 3: Build from Source
 The link to latest version of MOKIT source code can be found [here](https://doc.mokit.xyz/chap2-3.html).
 
 * Prerequisites
@@ -133,24 +93,25 @@ export PATH=$MOKIT_ROOT/bin:$PATH
 export PYTHONPATH=$MOKIT_ROOT:$PYTHONPATH
 export GMS=$HOME/software/gamess/rungms
 ```
-
-Remember to modify the `GMS` path to suit your local environment. 
-Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
+Remember to modify the `GMS` path to suit your local environment. Note that you need to exit the terminal and re-login, in order to activate newly written environment variables.
 
 Quick Start
 -----------
 * Each utility is self-explanatory. For example, run `fch2inp` in Shell, you will find
 ```
- ERROR in subroutine fch2inp: wrong command line arguments!  
- Example 1 (R(O)HF, UHF, CAS): fch2inp a.fch  
- Example 2 (GVB)             : fch2inp a.fch -gvb [npair]  
- Example 3 (ROGVB)           : fch2inp a.fch -gvb [npair] -open [nopen]
+ ERROR in program fch2inp: wrong command line arguments!
+ Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch
+ Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis
+ Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf
+ Example 4 (MRSF-CIS)      : fch2inp triplet.fch -mrsfcis
+ Example 5 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf
+ Example 6 (GVB)           : fch2inp h2o.fch -gvb [Npair]
 ```
 You can search a utility and read their documentations [here](https://doc.mokit.xyz/chap4-5.html).
 
 * For usages of modules in mokit/lib/, see [examples/utilities/readme.txt](examples/utilities/readme.txt)
 
-* The input syntax of the `automr` program is like Gaussian gjf. For example, the input file `00-h2o_cc-pVDZ_1.5.gjf` of the water molecule at d(O-H) = 1.5 A is shown below
+* The input syntax of the `automr` program is just Gaussian input file (.gjf). For example, the input file `00-h2o_cc-pVDZ_1.5.gjf` of the water molecule at d(O-H) = 1.5 A is shown below
 ```
 %mem=4GB
 %nprocshared=4
@@ -164,13 +125,12 @@ H       1.26502308    0.90193619   -0.068688
 H      -0.73568721    2.31589843   -0.068688
 ```
 
-Run
+Run the following commands
 ```
-automr 00-h2o_cc-pVDZ_1.5.gjf >& 00-h2o_cc-pVDZ_1.5.out
+automr 00-h2o_cc-pVDZ_1.5.gjf >00-h2o_cc-pVDZ_1.5.out 2>&1
 ```
-in Shell. The `automr` program will successively perform HF, GVB, and CASSCF computations. The active space will be automatically determined as (4,4) during computations. 
-See [Quick Start at documentation](https://doc.mokit.xyz/chap3_quick.html) and [User Guide](https://doc.mokit.xyz/chap4_guide.html) for more information.
-See [examples/](examples/) for more examples.
+
+The `automr` program will successively perform HF, GVB, and CASSCF computations. The active space will be automatically determined as (4,4) during computations. See [Quick Start at documentation](https://doc.mokit.xyz/chap3_quick.html) and [User Guide](https://doc.mokit.xyz/chap4_guide.html) for more information. See [examples/](examples/) for more examples.
 
 
 MOKIT is able to transform MOs among these QC Packages

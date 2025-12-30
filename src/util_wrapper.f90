@@ -228,54 +228,50 @@ subroutine fch2psi_wrap(fchname, inpname)
 end subroutine fch2psi_wrap
 
 ! wrapper of the utility fch2inp
-subroutine fch2inp_wrap(fchname, gvb, npair, nopen, no_vec, prt)
+subroutine fch2inp_wrap(fchname, gvb, npair, nopen, no_vec, fcgvb, prt)
  implicit none
- integer :: i, SYSTEM
  integer, intent(in) :: npair, nopen
+ character(len=34), parameter :: error_warn='ERROR in subroutine fch2inp_wrap: '
  character(len=260) :: buf
  character(len=240), intent(in) :: fchname
- logical :: alive
- logical, intent(in) :: gvb, no_vec
- logical, intent(in), optional :: prt
+ logical, intent(in) :: gvb, no_vec, fcgvb, prt
+
+ if((.not.gvb) .and. fcgvb) then
+  write(6,'(/,A)') error_warn//'fcgvb=.T. but gvb=.F., confict options.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
+ if(gvb .and. no_vec) then
+  write(6,'(/,A)') error_warn//'confict options.'
+  write(6,'(A)') 'Logical variables gvb and no_vec are both .True.'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
 
  buf = ' '
- if(gvb) then
+
+ if(gvb) then ! for GVB
   if(npair<0 .or. nopen<0) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp_wrap: gvb=.True. but npair<0 a&
-                    &nd/or nopen<0.'
+   write(6,'(/,A)') error_warn//'gvb=.T. but npair<0 and/or nopen<0.'
+   write(6,'(A)') 'fchname='//TRIM(fchname)
    write(6,'(2(A,I0))') 'npair = ', npair, ', nopen = ', nopen
    stop
   end if
-
   if(nopen == 0) then
    write(buf,'(A,I0)') 'fch2inp '//TRIM(fchname)//' -gvb ', npair
   else
    write(buf,'(2(A,I0))') 'fch2inp '//TRIM(fchname)//' -gvb ',npair,' -open ',nopen
   end if
- else ! for R(O)HF, UHF, CAS
+  if(fcgvb) buf = TRIM(buf)//' -fc'
+
+ else         ! for R(O)HF, UHF, CAS
   buf = 'fch2inp '//TRIM(fchname)
   if(no_vec) buf = TRIM(buf)//' -novec'
  end if
 
- alive = .true.
- if(present(prt)) then
-  if(.not. prt) alive = .false.
- end if
-
- if(alive) then
-  write(6,'(A)') '$'//TRIM(buf)
-  i = SYSTEM(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2inp_wrap: failed to call utility f&
-                    &ch2inp.'
-   write(6,'(A)') 'Filename = '//TRIM(fchname)
-   write(6,'(2(A,I0))') 'npair=', npair, ', nopen=', nopen
-   write(6,'(2(A,L1))') 'gvb=', gvb, ', no_vec=', no_vec
-   stop
-  end if
- else
-  call system_buf(TRIM(buf))
- end if
+ if(prt) write(6,'(A)') '$'//TRIM(buf)
+ call system_buf(TRIM(buf))
 end subroutine fch2inp_wrap
 
 subroutine mkl2fch_wrap(mklname, fchname, ino, irel)

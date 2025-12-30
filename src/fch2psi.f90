@@ -80,7 +80,7 @@ subroutine fch2psi(fchname, dftname)
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
  call check_uhf_in_fch(fchname, uhf)
- call fch2inp_wrap(fchname, .false., 0, 0, .false., .false.)
+ call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
  sph = .true.
  call find_icart_in_fch(fchname, .false., icart)
  if(icart == 2) sph = .false.
