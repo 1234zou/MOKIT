@@ -45,12 +45,12 @@ Pre-built `Windows OS` executables for a few utilities are provided in [Releases
 ### Option 1: Install from conda (for Linux and MacOS)
 This is the easiest way, but network is required to auto-download the requirements. Creating a new environment before installing is highly recommended, to avoid changing your base environment. You can create the environment and install in one go like
 ```
-conda create -n mokit-py311 python=3.11 mokit -c conda-forge 
+conda create -n mokit-py311 python=3.11 mokit -c mokit -c conda-forge
 conda activate mokit-py311
 ```
-For Linux x86-64, you can use any version of Python 3.9-3.11. But for MacOS arm64, only 3.11 is available.
+For Linux x86-64, you can use any version of Python 3.9-3.12. But for MacOS arm64, only 3.11 is available. MacOS users can also [use the homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only) to install MOKIT.
 
-For more details about conda channels and how to update/uninstall MOKIT using conda, please read [here](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos). You need to activate the environment `mokit-py311` before using MOKIT, and you can run `conda deactivate` to exit the environment if you do not use it. Please read [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群). For MacOS users, you can also [use the homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only) to install MOKIT. If you have no access to network, but still don't want to compile the source code, you can try Option 2 below.
+For more details about conda channels and how to update/uninstall MOKIT using conda, please read [here](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos). You need to activate the environment `mokit-py311` before using MOKIT, and you can run `conda deactivate` to exit the environment when you do not use it. Please read [more details](https://doc.mokit.xyz/chap2-4.html) to install and use MOKIT on a Cluster(集群). If you have no access to network, but still don't want to compile the source code, you can try Option 2 below.
 
 ### Option 2: Use Pre-compiled MOKIT
 

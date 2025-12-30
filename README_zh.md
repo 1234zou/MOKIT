@@ -46,12 +46,12 @@ or
 
 这是最简单的安装方法，但需要联网以自动下载依赖。强烈建议在安装前创建一个新环境，以免破坏 base 环境。创建环境和安装可以一步到位，如
 ```
-conda create -n mokit-py311 python=3.11 mokit -c conda-forge 
+conda create -n mokit-py311 python=3.11 mokit -c mokit -c conda-forge
 conda activate mokit-py311
 ```
-对于Linux x86-64，您可以使用3.9-3.11任一Python版本；而对于MacOS arm64，目前只支持3.11。
+对于Linux x86-64，您可以使用3.9-3.12任一Python版本；而对于MacOS arm64，目前只支持3.11。MacOS用户也可以[使用homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only)安装MOKIT。
 
-关于conda channel的信息、如何利用conda更新或卸载MOKIT，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos)。在使用MOKIT前请记得先激活`mokit-py311`环境，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。对于MacOS用户，也可以[使用homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only)安装MOKIT。若您的机器无法联网，但仍不想手动编译，可尝试下方的方式2。
+关于conda channel的信息、如何利用conda更新或卸载MOKIT，请阅读[此处](https://doc.mokit.xyz/chap2-2.html#option-1-install-from-conda-for-linux-and-macos)。在使用MOKIT前请记得先激活`mokit-py311`环境，不使用时可以运行`conda deactivate`退出虚拟环境。在集群上安装和使用MOKIT请阅读[更多细节](https://doc.mokit.xyz/chap2-4.html)。若您的机器无法联网，但仍不想手动编译，可尝试下方的方式2。
 
 ### 方式2：使用预编译版
 
