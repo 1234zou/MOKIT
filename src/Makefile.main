@@ -12,9 +12,9 @@ OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.
              do_pes_scan.o do_cis.o do_sa_cas.o do_suhf.o excited.o assoc_rot.o \
              ortho.o wfn_analysis.o lo.o automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
-             rw_misc.o read_fch.o read_mkl.o rwwfn.o read_natom.o read_grad.o \
-             rwgeom.o do_hf.o call_qc_calc_int.o read_gms_inp.o read_ev_on.o ortho.o \
-             lo.o split_sp.o qchem.o autosr.o
+             rw_misc.o read_fch.o read_mkl.o rwwfn.o read_natom.o read_energy.o \
+             read_grad.o rwgeom.o do_hf.o call_qc_calc_int.o read_gms_inp.o \
+             read_ev_on.o ortho.o lo.o split_sp.o qchem.o autosr.o
 OBJ_amo2fch = file_op.o string_manipulate.o math_sub.o rw_misc.o rwwfn.o read_fch.o \
               read_natom.o read_gms_inp.o read_ev_on.o read_mkl.o amo2fch.o
 OBJ_bas_fch2py = file_op.o string_manipulate.o util_wrapper.o math_sub.o rw_misc.o \
@@ -51,7 +51,7 @@ OBJ_fch2com = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2com.o
 OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2dal.o
-OBJ_fch2inp = file_op.o string_manipulate.o rw_misc.o read_fch.o util_wrapper.o \
+OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
               split_sp.o fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
                  rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2inporb.o

@@ -4,9 +4,10 @@
 module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
-  nstate, readrhf, readuhf, hardwfn, crazywfn, mo_rhf, hf_prog, hfonly, hf_fch,&
-  skiphf, chgname, gau_path, molcas_path, orca_path, psi4_path, dalton_path, &
-  check_gms_path, gms_path, gms_scr_path, gms_dat_path, nmr, molcas_omp, dalton_mpi
+  nstate, readrhf, readuhf, hardwfn, xmult, given_xmult, crazywfn, mo_rhf, &
+  hf_prog, hfonly, hf_fch, skiphf, chgname, gau_path, molcas_path, orca_path, &
+  psi4_path, dalton_path, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
+  nmr, molcas_omp, dalton_mpi
  use mol, only: chem_core, ecp_core, ptchg_e, nuc_pt_e, lin_dep
  implicit none
  integer :: core_wish = 0 ! the number of frozen core orbitals the user wishes
@@ -36,8 +37,10 @@ module sr_keyword
  logical :: qcisd_t = .false.
  logical :: cis = .false.
  logical :: eom = .false.
- logical :: ip = .false.   ! combined with ADC or EOM
- logical :: ea = .false.   ! combined with ADC or EOM
+ logical :: ip = .false.  ! combined with ADC or EOM
+ logical :: ea = .false.  ! combined with ADC or EOM
+ logical :: sos = .false. ! scaled opposite-spin
+ logical :: scs = .false. ! spin-component scaled
  logical :: iterative_t = .false. ! default DLPNO-CCSD(T0)
  logical :: gen_no = .false.      ! whether to generate NOs
  logical :: relaxed_dm = .false.  ! relaxed/unrelaxed density matrix
@@ -58,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc16 (2025-Dec-29)'
+ write(6,'(A)') '           Version: 1.2.7rc16 (2025-Dec-31)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -133,8 +136,8 @@ subroutine parse_sr_keyword()
   case('mp2','ri-mp2','qcisd','qcisd(t)','ccd','ccsd','ccsd(t)','ccsd(t)-f12',&
        'ccsd(t)-f12a','ccsd(t)-f12b','ccsdt','dlpno-ccsd','dlpno-ccsd(t)', &
        'dlpno-ccsd(t0)','dlpno-ccsd(t1)','adc(2)','ip-adc(2)','ea-adc(2)', &
-       'adc(3)','ip-adc(3)','ea-adc(3)','cc2','cc3','eomccsd','eom-ccsd',&
-       'eom-ip-ccsd','ip-eom-ccsd','eom-ea-ccsd','ea-eom-ccsd')
+       'adc(3)','ip-adc(3)','ea-adc(3)','sos-adc(2)','scs-adc(2)','cc2','cc3',&
+       'eomccsd','eom-ccsd','eom-ip-ccsd','ip-eom-ccsd','eom-ea-ccsd','ea-eom-ccsd')
   case default
    write(6,'(/,A)') error_warn//'unsupported method '//TRIM(method)
    close(fid)
@@ -170,12 +173,19 @@ subroutine parse_sr_keyword()
   qcisd = .true.
  case('qcisd(t)') ! QCISD(T)
   qcisd_t = .true.
- case('adc(2)','adc2')
+ case('adc2')
+  write(6,'(/,A)') error_warn//'please write ADC(2), not ADC2.'
+  stop
+ case('adc(2)')
   adc_n = 2
- case('ip-adc(2)','ip-adc2')
+ case('ip-adc(2)')
   adc_n = 2; ip = .true.
- case('ea-adc(2)','ea-adc2')
+ case('ea-adc(2)')
   adc_n = 2; ea = .true.
+ case('sos-adc(2)')
+  adc_n = 2; sos = .true.
+ case('scs-adc(2)')
+  adc_n = 2; scs = .true.
  case('adc(3)','adc3')
   adc_n = 3
  case('ip-adc(3)','ip-adc3')
@@ -329,6 +339,13 @@ subroutine parse_sr_keyword()
    read(longbuf(j+1:i-1),*) nstate
   case('charge')
    bgchg = .true.
+  case('xmult')
+   read(longbuf(j+1:i-1),*) xmult
+   given_xmult = .true.
+   if(xmult < 1) then
+    write(6,'(/,A)') error_warn//'XMult must be >=1'
+    stop
+   end if
   case('nori')
    noRI = .true.; RI = .false.
   case('rijk_bas')
@@ -623,7 +640,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc16 :: MOKIT, release date: 2025-Dec-29'
+  write(6,'(A)') 'AutoSR 1.2.7rc16 :: MOKIT, release date: 2025-Dec-31'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -648,7 +665,7 @@ program main
   write(6,'(A)')   '   CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dal&
                    &ton/QChem'
   write(6,'(A)')   '  CIS_prog=Molpro/ORCA/Gaussian/QChem'
-  write(6,'(A)')   '  ADC_prog=ORCA/PSI4/PySCF'
+  write(6,'(A)')   '  ADC_prog=ORCA/PSI4/PySCF/MRCC'
   write(6,'(A,/)') '  EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
@@ -1195,38 +1212,44 @@ end subroutine do_cc
 
 ! call various programs to perform IP-/EE-/EA- ADC(2)/(3)
 subroutine do_adc()
- use sr_keyword, only: nproc, hf_fch, bgchg, chgname, adc_n, ip, ea, nstate, &
-  adc_prog, orca_path, psi4_path, chem_core, ecp_core, customized_core, core_wish,&
-  ex_elec_e
+ use sr_keyword, only: mem, nproc, hf_fch, bgchg, chgname, adc_n, ip, ea, sos, &
+  scs, xmult, given_xmult, nstate, adc_prog, orca_path, psi4_path, chem_core, &
+  ecp_core, customized_core, core_wish, ex_elec_e
  use mol, only: mult, ci_ssquare, fosc
- use util_wrapper, only: bas_fch2py_wrap, fch2mkl_wrap, mkl2gbw, fch2psi_wrap
+ use util_wrapper, only: bas_fch2py_wrap, fch2mkl_wrap, mkl2gbw, fch2psi_wrap, &
+  fch2mrcc_wrap
  use phys_cons, only: au2ev
  implicit none
- integer :: i, RENAME, SYSTEM
+ integer :: i, job_type, RENAME, SYSTEM
  real(kind=8), allocatable :: e_ev(:)
  real(kind=8), external :: mult2ssquare
  character(len=24) :: data_string = ' '
  character(len=240) :: inpname, outname, old_inp, mklname
+ logical :: ee, x_triplet
 
  if(adc_n == 0) return
  write(6,'(//,A)') 'Enter subroutine do_adc...'
- if(ip) then
-  write(6,'(A)',advance='no') 'IP-'
- else if(ea) then
-  write(6,'(A)',advance='no') 'EA-'
- else
-  write(6,'(A)',advance='no') 'EE-'
- end if
- write(6,'(A,I0,A)') 'ADC(',adc_n,') using program '//TRIM(adc_prog)
+ job_type = 1
+ if(sos) job_type = 2
+ if(scs) job_type = 3
+ ee = .true.
+ if(ip .or. ea) ee = .false.
 
+ x_triplet = .false.
+ if(given_xmult .and. xmult==3) x_triplet = .true.
+
+ write(6,'(A,I0,A)') 'ADC(',adc_n,') using program '//TRIM(adc_prog)
+ write(6,'(6(A,L1),A,I0)') 'EE=',ee,', IP=',ip,', EA=',ea,', SOS=',sos,&
+              ', SCS=',scs,', Given_Xmult=',given_xmult,', Xmult=',xmult
  call prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
- i = INDEX(hf_fch, '.fch', back=.true.)
 
  if(nstate == 0) nstate = 3
  allocate(ex_elec_e(0:nstate), ci_ssquare(0:nstate), fosc(nstate))
  ex_elec_e = 0d0; ci_ssquare = 0d0; fosc = 0d0
  ci_ssquare(0) = mult2ssquare(mult)
  if(ip .or. ea) ci_ssquare(1:nstate) = 0.75d0
+ if(given_xmult) ci_ssquare(1:nstate) = mult2ssquare(xmult)
+ i = INDEX(hf_fch, '.fch', back=.true.)
 
  ! The ADCC program should be considered in the future since PySCF only has IP-
  ! ADC and EA-ADC, but no EE-ADC.
@@ -1268,6 +1291,13 @@ subroutine do_adc()
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_adc_e_from_psi4_out(outname, (adc_n==3), nstate, ex_elec_e, fosc)
+ case('mrcc') ! ADC(2), and SOS-/SCS- variants
+  inpname = 'MINP'
+  outname = hf_fch(1:i-1)//'_ADC.out'
+  call fch2mrcc_wrap(hf_fch, job_type)
+  call modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
+  call submit_mrcc_job(outname, nproc)
+  call read_adc_e_from_mrcc_out(outname, nstate, ex_elec_e, fosc)
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_adc: unsupported ADC_prog='//&
                    TRIM(adc_prog)
@@ -4116,221 +4146,6 @@ subroutine read_fosc_from_orca_out(outname, nstate, fosc)
  close(fid)
 end subroutine read_fosc_from_orca_out
 
-! read IP-/EA-ADC energies from a specified PySCF output file
-subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
- implicit none
- integer :: i, j, fid
- integer, intent(in) :: nstate
- real(kind=8) :: scf_e
- real(kind=8), intent(out) :: e(0:nstate)
- character(len=6) :: str6
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:13) == 'converged SCF') exit
- end do ! for while
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) scf_e ! HF energy
-
- do while(.true.)
-  read(fid,'(A)') buf
-  str6 = buf(1:6)
-  if(str6=='E_corr' .or. str6=='MP2 co' .or. str6=='MP3 co') exit
- end do ! for while
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) e(0) ! MP2/MP3 correlation energy
- e(0) = e(0) + scf_e
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(9:25)=='ADC calculation s' .or. buf(13:29)=='ADC calculation s') exit
- end do ! for while
- read(fid,'(A)') buf
-
- do i = 1, nstate, 1
-  read(fid,'(A)') buf
-  j = INDEX(buf, '=')
-  read(buf(j+1:),*) e(i)
-  e(i) = e(i) + e(0)
- end do ! for i
-
- close(fid)
-end subroutine read_adc_e_from_pyscf_out
-
-! read ADC (excitation) energies from a specified ORCA output file
-subroutine read_adc_e_from_orca_out(outname, ip_or_ea, nstate, e, fosc)
- implicit none
- integer :: i, j, fid
- integer, intent(in) :: nstate
- real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- logical, intent(in) :: ip_or_ea
-
- buf = ' '; e = 0d0; fosc = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:12) == 'Second-order') exit
- end do ! for while
-
- if(i /= 0) then
-  close(fid)
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_orca_out: 'Second-order&
-                   &' not found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  stop
- end if
-
- i = INDEX(buf, '...')
- read(buf(i+3:),*) e(0)
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:10) == 'ADC(2) RES') exit
- end do ! for while
-
- if(i /= 0) then
-  close(fid)
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_orca_out: 'ADC(2) RES' &
-                   &not found in"
-  write(6,'(A)') 'file '//TRIM(outname)
-  stop
- end if
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(1:6) == 'IROOT=') then
-   i = INDEX(buf, ':')
-   read(buf(7:i-1),*) j
-   read(buf(i+1:),*) e(j)
-   if(j == nstate) exit
-  end if
- end do ! for while
-
- close(fid)
- forall(i = 1:nstate) e(i) = e(i) + e(0)
- if(ip_or_ea) return
- call read_fosc_from_orca_out(outname, nstate, fosc)
-end subroutine read_adc_e_from_orca_out
-
-subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
- implicit none
- integer :: i, j, fid
- integer, intent(in) :: nstate
- real(kind=8) :: scf_e, corr_e2, corr_e3
- real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
- character(len=1) :: str1
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- logical, intent(in) :: adc3
-
- scf_e = 0d0; corr_e2 = 0d0; corr_e3 = 0d0
- e = 0d0; fosc = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- ! read SCF energy, only the 2nd 'Total Energy' is useful
- do i = 1, 2
-  do while(.true.)
-   read(fid,'(A)',iostat=j) buf
-   if(j /= 0) exit
-   if(buf(5:16) == 'Total Energy') exit
-  end do ! for while
-
-  if(j /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no SCF energ&
-                    &y found in'
-   write(6,'(A)') 'file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
-
-  j = INDEX(buf, '=')
-  read(buf(j+1:),*) scf_e
- end do ! for i
-
- ! read MPn correlation energy
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(5:25) == 'Energy correlation MP') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no correlatio&
-                   &n energy found'
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(buf(27:),*) corr_e2
- if(adc3) then
-  read(fid,'(A)') buf
-  read(buf(27:),*) corr_e3
- end if
- e(0) = scf_e + corr_e2 + corr_e3
-
- ! read ADC excitation energies
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(7:22) == 'Excited states s') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
-                   &tates s' found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- do i = 1, 6
-  read(fid,'(A)') buf
- end do ! for i
-
- do i = 1, nstate, 1
-  read(fid,*) str1, j, e(i)
- end do ! for i
- forall(i = 1:nstate) e(i) = e(i) + e(0)
-
- ! read oscillator strengths
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:18) == 'Excited state prop') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
-                   &tate prop' found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- do i = 1, nstate, 1
-  read(fid,'(A)') buf
-  read(fid,'(A)') buf
-  j = INDEX(buf, ')')
-  read(buf(j+1:),*) fosc(i)
-  read(fid,'(A)') buf
- end do ! for i
-
- close(fid)
-end subroutine read_adc_e_from_psi4_out
-
 subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, ssquare, fosc)
  implicit none
  integer :: i, j, fid
@@ -4968,4 +4783,50 @@ subroutine read_nocc_from_molcas_out(outname, nocc)
   read(buf(47:),*) nocc
  end if
 end subroutine read_nocc_from_molcas_out
+
+! modify memory and nstate in MRCC input file (MINP)
+! Note: `mem` must be provided in unit GB.
+subroutine modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem, nstate
+ character(len=20) :: new_inp
+ character(len=4), parameter :: input = 'MINP'
+ character(len=240) :: buf
+ logical, intent(in) :: x_triplet
+
+ call get_a_random_int(i)
+ write(new_inp,'(A,I0)') 'MINP_', i
+ open(newunit=fid,file=input,status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(new_inp),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'mem=') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ write(fid1,'(A,I0,A)') 'mem=', mem, 'GB'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:7) == 'nstate=') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(x_triplet) then
+  write(fid1,'(A,I0)') 'ntrip=', nstate
+ else
+  write(fid1,'(A,I0)') 'nstate=', nstate+1
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(new_inp), input)
+end subroutine modify_mem_and_nstate_in_mrcc_inp
 

@@ -10,7 +10,7 @@ F90 = gfortran
 FFLAGS = -O2 -cpp -fPIC -fopenmp -Wunused
 MKL_FLAGS = -L$(HOME)/software/openblas-0.3.29/lib64 -lopenblas
 F2PY = f2py
-F2_FLAGS = --f90flags="-cpp -fopenmp" -lgomp
+F2_FLAGS = --f90flags="-cpp -fopenmp" -I$(PWD) -lgomp
 
 # --- gfortran + OpenBLAS Linux static link ---
 #F90 = gfortran

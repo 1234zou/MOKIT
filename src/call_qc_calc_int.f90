@@ -1058,8 +1058,8 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
  i = SYSTEM('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: Linearized BCCC job&
-                & failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gvb_bccc_job: Linearized BCCC jo&
+                   &b failed.'
   write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
  end if
@@ -1166,6 +1166,38 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
  if(del_sout) call delete_file(TRIM(sout))
  if(.not. noarch) i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
 end subroutine submit_dalton_job
+
+subroutine submit_mrcc_job(outname, nproc)
+ implicit none
+ integer :: i, fid, SYSTEM
+ integer, intent(in) :: nproc
+ character(len=240) :: shname
+ character(len=240), intent(in) :: outname
+ character(len=500) :: buf
+
+ call find_specified_suffix(outname, '.out', i)
+ shname = outname(1:i-1)//'.sh'
+
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') 'export OMP_STACKSIZE=4G'
+ write(fid,'(A,I0)') 'export OMP_NUM_THREADS=',nproc
+ write(fid,'(A)') 'dmrcc'
+ close(fid)
+
+ buf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
+ write(6,'(A)') '$'//TRIM(buf)
+
+ i = SYSTEM(TRIM(buf))
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_mrcc_job: MRCC job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ else
+  call delete_file(TRIM(shname))
+  call delete_file('56')
+  call delete_file('DAO')
+ end if
+end subroutine submit_mrcc_job
 
 ! check/detect OpenMolcas is OpenMP version or MPI version
 subroutine check_molcas_is_omp(molcas_omp)

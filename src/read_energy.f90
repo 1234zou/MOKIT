@@ -1,5 +1,311 @@
 ! read some kind of energy from a specified file
 
+! read IP-/EA-ADC energies from a specified PySCF output file
+subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ real(kind=8) :: scf_e
+ real(kind=8), intent(out) :: e(0:nstate)
+ character(len=6) :: str6
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:13) == 'converged SCF') exit
+ end do ! for while
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) scf_e ! HF energy
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  str6 = buf(1:6)
+  if(str6=='E_corr' .or. str6=='MP2 co' .or. str6=='MP3 co') exit
+ end do ! for while
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) e(0) ! MP2/MP3 correlation energy
+ e(0) = e(0) + scf_e
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(9:25)=='ADC calculation s' .or. buf(13:29)=='ADC calculation s') exit
+ end do ! for while
+ read(fid,'(A)') buf
+
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  j = INDEX(buf, '=')
+  read(buf(j+1:),*) e(i)
+  e(i) = e(i) + e(0)
+ end do ! for i
+
+ close(fid)
+end subroutine read_adc_e_from_pyscf_out
+
+! read ADC (excitation) energies from a specified ORCA output file
+subroutine read_adc_e_from_orca_out(outname, ip_or_ea, nstate, e, fosc)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ip_or_ea
+
+ buf = ' '; e = 0d0; fosc = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == 'Second-order') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_orca_out: 'Second-order&
+                   &' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, '...')
+ read(buf(i+3:),*) e(0)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'ADC(2) RES') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_orca_out: 'ADC(2) RES' &
+                   &not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  stop
+ end if
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'IROOT=') then
+   i = INDEX(buf, ':')
+   read(buf(7:i-1),*) j
+   read(buf(i+1:),*) e(j)
+   if(j == nstate) exit
+  end if
+ end do ! for while
+
+ close(fid)
+ forall(i = 1:nstate) e(i) = e(i) + e(0)
+ if(ip_or_ea) return
+ call read_fosc_from_orca_out(outname, nstate, fosc)
+end subroutine read_adc_e_from_orca_out
+
+subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: nstate
+ real(kind=8) :: scf_e, corr_e2, corr_e3
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
+ character(len=1) :: str1
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: adc3
+
+ scf_e = 0d0; corr_e2 = 0d0; corr_e3 = 0d0
+ e = 0d0; fosc = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ ! read SCF energy, only the 2nd 'Total Energy' is useful
+ do i = 1, 2
+  do while(.true.)
+   read(fid,'(A)',iostat=j) buf
+   if(j /= 0) exit
+   if(buf(5:16) == 'Total Energy') exit
+  end do ! for while
+
+  if(j /= 0) then
+   write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no SCF energ&
+                    &y found in'
+   write(6,'(A)') 'file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  j = INDEX(buf, '=')
+  read(buf(j+1:),*) scf_e
+ end do ! for i
+
+ ! read MPn correlation energy
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(5:25) == 'Energy correlation MP') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no correlatio&
+                   &n energy found'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(27:),*) corr_e2
+ if(adc3) then
+  read(fid,'(A)') buf
+  read(buf(27:),*) corr_e3
+ end if
+ e(0) = scf_e + corr_e2 + corr_e3
+
+ ! read ADC excitation energies
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(7:22) == 'Excited states s') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
+                   &tates s' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 6
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do i = 1, nstate, 1
+  read(fid,*) str1, j, e(i)
+ end do ! for i
+ forall(i = 1:nstate) e(i) = e(i) + e(0)
+
+ ! read oscillator strengths
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:18) == 'Excited state prop') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
+                   &tate prop' found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  j = INDEX(buf, ')')
+  read(buf(j+1:),*) fosc(i)
+  read(fid,'(A)') buf
+ end do ! for i
+
+ close(fid)
+end subroutine read_adc_e_from_psi4_out
+
+subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: nstate
+ real(kind=8) :: rtmp(4)
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
+                                              &rom_mrcc_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: x_triplet
+
+ e = 0d0; fosc = 0d0; x_triplet = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:12) == 'Total MP2 e') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"Total MP2 e" not found in file'
+  write(6,'(A)') TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) e(0)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:27) == 'Final result of the ADC(2)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"Final result of the ADC(2)" not found'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ select case(buf(2:8))
+ case('Singlet')
+ case('Triplet')
+  x_triplet = .true.
+ case default
+  write(6,'(/,A)') error_warn//' unrecognized spin: '//buf(2:8)
+  stop
+ end select
+
+ do i = 1, 4 ! skip 4 lines
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do i = 1, nstate, 1
+  read(fid,*) j, e(i)
+  e(i) = e(i) + e(0)
+ end do ! for i
+
+ ! S0->Tn transition dipoles are 0, MRCC will not calculate
+ if(x_triplet) then
+  close(fid)
+  return
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(24:46) == 'dipole moment in length') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"dipole moment in length" not found'
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ do i = 1, nstate, 1
+  read(fid,*) j, k, rtmp(1), rtmp(2), rtmp(3), rtmp(4), fosc(i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_adc_e_from_mrcc_out
+
 ! read GVB electronic energy from a given GAMESS .gms file
 subroutine read_gvb_energy_from_gms_gms(gmsname, gvb_e)
  implicit none

@@ -10,6 +10,6 @@ F90 = ifort
 FFLAGS = -O2 -fpp -fPIC -qopenmp
 MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -lmkl_rt
 F2PY = f2py
-F2_FLAGS = --fcompiler=intelem --f90flags="-fpp" --opt="-O2 -qopenmp" -liomp5
+F2_FLAGS = --fcompiler=intelem --f90flags="-fpp" --opt="-O2 -qopenmp" -I$(PWD) -liomp5
 
 include Makefile.main

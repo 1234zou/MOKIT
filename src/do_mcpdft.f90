@@ -271,16 +271,27 @@ subroutine gen_otpdf_mc_para_txt(txtname, mc23)
  logical, intent(in) :: mc23
 
  open(newunit=fid,file=TRIM(txtname),status='replace')
- if(mc23) then
+
+ if(mc23) then ! MC23
   write(fid,'(A,/,A)') '2', '18 27'
-  write(fid,'(A)') '3.352197 0.6332929 -0.9469553 0.2030835 2.503819 0.8085354 -3&
-   &.619144 -0.5572321 -4.506606 0.9614774 6.977048 -1.309337 -2.426371 -0.0078&
-   &9654 0.0136451 -1.714252e-06 -4.698672e-05 0.0'
+  write(fid,'(A)') '3.352197 0.6332929 -0.9469553 0.2030835 2.503819 0.8085354 &
+   &-3.619144 -0.5572321 -4.506606 0.9614774 6.977048 -1.309337 -2.426371 -0.00&
+   &789654 0.0136451 -1.714252e-06 -4.698672e-05 0.0'
   write(fid,'(A)') '0.06 0.0031 0.00515088 0.00304966 2.427648 3.707473 -7.943377&
    & -2.521466 2.658691 2.932276 -0.8832841 -1.895247 -2.899644 -0.506857 -2.71&
    &2838 0.09416102 -3.485860e-03 -5.811240e-04 6.668814e-04 0.0 0.2669169 -0.0&
    &7563289 0.07036292 3.493904e-04 6.360837e-04 0.0 1e-10'
+ else          ! MC25
+  write(fid,'(A,/,A)') '2', '18 27'
+  write(fid,'(A)') '3.46503 0.5375447 -0.7191629 -0.9915646 2.229138 5.404209 -&
+   &4.004898 -5.98386 -2.086931 -0.8878196 4.888665 2.868958 -2.499939 -0.00985&
+   &2771 0.008596984 -1.220706e-05 -1.336275e-05 0.0'
+  write(fid,'(A)') '0.06 0.0031 0.00515088 0.00304966 1.489435 2.942442 -6.2973&
+   &3 -2.062505 1.634904 1.608843 -1.233955 -1.964674 -2.471985 -0.5392796 -1.5&
+   &09794 0.02794569 0.1061909 5.095118e-04 -2.927055e-03 0.0 0.9690385 -0.0454&
+   &6714 0.04151718 1.789189e-04 1.024388e-03 0.0 1e-10'
  end if
+
  close(fid)
 end subroutine gen_otpdf_mc_para_txt
 
@@ -328,7 +339,7 @@ subroutine prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
  end if
 
  write(fid2,'(A)') 'Grid input'
- write(fid2,'(A)') ' grid=ultrafine'
+ write(fid2,'(A)') ' grid= ultrafine'
  write(fid2,'(A)') 'End of grid input'
  if(DKH2) write(fid2,'(A)') 'Relativistic = R02O'
 
@@ -344,10 +355,16 @@ subroutine prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
   write(fid2,'(A)') TRIM(key)//TRIM(new_otpdf(i))
   str10 = split_otpdf(i)
   call lower(str10)
-  if(TRIM(str10) == 'mc23') then
-   write(fid2,'(A)') 'LAMB= 0.2952'
-   write(fid2,'(A)') 'EXPM= '//txtname
-   call gen_otpdf_mc_para_txt(txtname, .true.)
+  if(TRIM(str10)=='mc23' .or. TRIM(str10)=='mc25') then
+   if(TRIM(str10) == 'mc23') then
+    write(fid2,'(A)') 'LAMB= 0.2952'
+    write(fid2,'(A)') 'EXPM= '//txtname
+    call gen_otpdf_mc_para_txt(txtname, .true.)
+   else
+    write(fid2,'(A)') 'LAMB= 0.28'
+    write(fid2,'(A)') 'EXPM= '//txtname
+    call gen_otpdf_mc_para_txt(txtname, .false.)
+   end if
    call getenv('MOLCAS_WORKDIR', dirname)
 #ifdef _WIN32
    dirname = TRIM(dirname)//'\'//TRIM(proname)
@@ -505,7 +522,7 @@ subroutine detect_and_update_otpdf_molcas(n_otpdf, split_otpdf, key)
     split_otpdf(i) = 'T:'//TRIM(split_otpdf(i)(2:))
    else if(str(1:2) == 'ft') then
     split_otpdf(i) = 'FT:'//TRIM(split_otpdf(i)(3:))
-   else if(TRIM(str) == 'mc23') then
+   else if(TRIM(str)=='mc23' .or. TRIM(str)=='mc25') then
     split_otpdf(i) = 'T:M06L'
    else
     write(6,'(/,A)') 'ERROR in subroutine detect_and_update_otpdf_molcas: wrong&

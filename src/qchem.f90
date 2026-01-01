@@ -140,7 +140,7 @@ subroutine qchem2mrcc(fchname)
  call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
  call standardize_fch(fchname)
- call fch2mrcc_wrap(std_fch)
+ call fch2mrcc_wrap(std_fch, 0)
  call delete_file(TRIM(std_fch))
 end subroutine qchem2mrcc
 

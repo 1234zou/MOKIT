@@ -4,13 +4,20 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i
+ integer :: k, narg, job_type
+ character(len=8) :: str
  character(len=240) :: fchname
 
- i = iargc()
- if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in program fch2mrcc: wrong command line argument!'
-  write(6,'(A,/)') ' Example: fch2mrcc water.fch'
+ narg = iargc()
+ if(narg<1 .or. narg>2) then
+  write(6,'(/,A)')' ERROR in program fch2mrcc: wrong command line argument!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF): fch2mrcc water.fch'
+  write(6,'(A)')  ' Example 2 (ADC(2))    : fch2mrcc water.fch -adc2'
+  write(6,'(A)')  ' Example 3 (SOS-ADC(2)): fch2mrcc water.fch -sosadc2'
+  write(6,'(A)')  ' Example 4 (SCS-ADC(2)): fch2mrcc water.fch -scsadc2'
+  write(6,'(A)')  ' Example 5 (CC2)       : fch2mrcc water.fch -cc2'
+  write(6,'(A)')  ' Example 6 (SOS-CC2)   : fch2mrcc water.fch -soscc2'
+  write(6,'(A,/)')' Example 7 (SOS-CC2)   : fch2mrcc water.fch -scscc2'
   stop
  end if
 
@@ -19,16 +26,41 @@ program main
  call require_file_exist(fchname)
 
  ! if .chk file provided, convert into .fch file automatically
- i = LEN_TRIM(fchname)
- if(fchname(i-3:i) == '.chk') then
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
   call formchk(fchname)
-  fchname = fchname(1:i-3)//'fch'
+  fchname = fchname(1:k-3)//'fch'
  end if
 
- call fch2mrcc(fchname)
+ job_type = 0
+ if(narg == 2) then
+  call getarg(2, str)
+  select case(TRIM(str))
+  case('-adc2')
+   job_type = 1
+  case('-sosadc2')
+   job_type = 2
+  case('-scsadc2')
+   job_type = 3
+  case('-cc2')
+   job_type = 4
+  case('-soscc2')
+   job_type = 5
+  case('-scscc2')
+   job_type = 6
+  case default
+   write(6,'(/,A)') 'ERROR in program fch2mrcc: wrong command line argument!'
+   write(6,'(A)') 'The 2nd argument can only be one of -adc2/-sosadc2/-scsadc2/&
+                  &-cc2/-soscc2/'
+   write(6,'(A)') '-scscc2. But got '//TRIM(str)
+   stop
+  end select
+ end if
+
+ call fch2mrcc(fchname, job_type)
 end program main
 
-subroutine fch2mrcc(fchname)
+subroutine fch2mrcc(fchname, job_type)
  use fch_content
  implicit none
  integer :: i, j, k, m, length, icart, nif1
@@ -36,6 +68,7 @@ subroutine fch2mrcc(fchname)
   n10fmark, n15gmark, n21hmark, n28imark
  integer, allocatable :: idx(:), p_mark(:), d_mark(:), f_mark(:), g_mark(:), &
   h_mark(:), i_mark(:)
+ integer, intent(in) :: job_type ! 0/1/2/3 for HF/ADC(2)/SOS-ADC(2)/SCS-ADC(2)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp, lin_dep
@@ -64,9 +97,9 @@ subroutine fch2mrcc(fchname)
  if(LenNCZ > 0) ecp = .true.
  if(nbf > nif) lin_dep = .true.
 
- ! generate the file MINP
- call prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, coor, &
-                    LPSkip)
+ ! generate the input file MINP
+ call prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, elem,&
+                   coor, LPSkip)
  deallocate(coor)
 
  ! generate files GENBAS and ECPDATA(if needed)
@@ -163,14 +196,14 @@ subroutine fch2mrcc(fchname)
  deallocate(coeff)
 end subroutine fch2mrcc
 
-! print MRCC MINP file
-subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
-                         coor, LPSkip)
+! print MRCC input file (MINP)
+subroutine prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, &
+                        elem, coor, LPSkip)
  use fch_content, only: period_nelem, period_elem, elem2nuc, nuc2elem
  use basis_data, only: ghost_elem
  implicit none
  integer :: i, k, max_ielem, fid
- integer, intent(in) :: natom, charge, mult
+ integer, intent(in) :: job_type, natom, charge, mult
  integer, intent(in) :: LPSkip(natom)
  integer, allocatable :: ielem(:)
  real(kind=8), intent(in) :: coor(3,natom)
@@ -195,8 +228,8 @@ subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
   do i = 1, natom, 1
    if(ielem(i) == 0) new_elem(i) = ghost_elem
   end do ! for i
-  write(6,'(/,A)') "Remark from subroutine prt_mrcc_minp: ghost atoms detected.&
-                   & Using '"//ghost_elem//"' as"
+  write(6,'(/,A)') "Remark from subroutine prt_mrcc_inp: ghost atoms detected. &
+                   &Using '"//ghost_elem//"' as"
   write(6,'(A)') 'the ghost atom symbols. The case that all ghost atoms have th&
                  &e same basis set'
   write(6,'(A,/)') 'is supported. Please DO NOT use different basis sets for di&
@@ -213,14 +246,40 @@ subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
  write(fid,'(A,I0)') 'charge=', charge
  write(fid,'(A,I0)') 'mult=', mult
 
+ select case(job_type)
+ case(0) ! HF
+  write(fid,'(A)') 'calc=SCF'
+ case(1) ! ADC(2)
+  write(fid,'(A)') 'calc=ADC(2)'
+ case(2) ! SOS-ADC(2)
+  write(fid,'(A)') 'calc=SOS-ADC(2)'
+ case(3) ! SCS-ADC(2)
+  write(fid,'(A)') 'calc=SCS-ADC(2)'
+ case(4) ! CC2
+  write(fid,'(A)') 'calc=CC2'
+ case(5) ! SOS-CC2
+  write(fid,'(A)') 'calc=SOS-CC2'
+ case(6) ! SCS-CC2
+  write(fid,'(A)') 'calc=SCS-CC2'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine prt_mrcc_inp: job_type is out of range.'
+  write(6,'(A,I0)') 'Only 0~6 are allowed. But got job_type=', job_type
+  stop
+ end select
+
  if(uhf) then
-  write(fid,'(A)') 'calc=UHF'
+  write(fid,'(A)') 'scftype=UHF'
  else if(mult > 1) then
-  write(fid,'(A)') 'calc=ROHF'
+  write(fid,'(A)') 'scftype=ROHF'
  else
-  write(fid,'(A)') 'calc=RHF'
+  write(fid,'(A)') 'scftype=RHF'
  end if
+
  write(fid,'(A)') 'basis=PVTZ'
+ if(job_type>0 .and. job_type<7) then
+  write(fid,'(A)') 'dfbasis_scf=def2-QZVPP-RI-JK'
+  write(fid,'(A)') 'dfbasis_cor=def2-QZVPP-RI'
+ end if
 
  if(ecp) then ! ECP/PP
   write(fid,'(A)') 'ecp=special'
@@ -242,6 +301,8 @@ subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
  ! The molecule will still be re-oriented when symmetry is turned off. Using
  ! zero background point charge keeps it fixed.
  write(fid,'(A)') 'qmmm=Amber'
+ if(job_type>0 .and. job_type<4) write(fid,'(A)') 'nstate=3'
+
  write(fid,'(/,A)') 'geom=xyz'
  write(fid,'(I0,/)') natom
 
@@ -261,7 +322,7 @@ subroutine prt_mrcc_minp(natom, charge, mult, uhf, sph, ecp, lin_dep, elem, &
  write(fid,'(/,A)') 'pointcharges'
  write(fid,'(A)') '0'
  close(fid)
-end subroutine prt_mrcc_minp
+end subroutine prt_mrcc_inp
 
 ! read MRCC orbital file MOCOEF
 subroutine read_mrcc_mocoef(nbf, nif, coeff)

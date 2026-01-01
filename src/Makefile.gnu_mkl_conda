@@ -9,6 +9,6 @@ LIB = ../mokit/lib
 FFLAGS += -O2 -cpp -fPIC -fopenmp -fno-tree-vectorize -fno-math-errno
 MKL_FLAGS = -L$(BUILD_PREFIX)/lib -lmkl_rt
 F2PY = f2py
-F2_FLAGS = --f90flags="-cpp -fopenmp -fno-tree-vectorize -fno-math-errno" -lgomp
+F2_FLAGS = --f90flags="-cpp -fopenmp -fno-tree-vectorize -fno-math-errno" -I$(PWD) -lgomp
 
 include Makefile.main

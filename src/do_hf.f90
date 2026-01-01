@@ -15,7 +15,7 @@ subroutine do_hf(prt_mr_strategy)
  real(kind=8), parameter :: r_u_diff = 1d-4 ! a.u.
  character(len=24) :: data_string = ' '
  character(len=240) :: proname, rhf_inp, uhf_inp, hf_prog_path
- logical :: eq, noiter
+ logical :: equal, noiter
  logical, intent(in) :: prt_mr_strategy
 
  write(6,'(//,A)') 'Enter subroutine do_hf...'
@@ -40,8 +40,8 @@ subroutine do_hf(prt_mr_strategy)
 
   if(readuhf .and. mult==1) then
    write(6,'(A)') 'Check whether provided UHF wavefunction is equivalent to RHF...'
-   call check_if_uhf_equal_rhf(hf_fch, eq)
-   if(eq) then
+   call check_if_uhf_equal_rhf(hf_fch, equal)
+   if(equal) then
     write(6,'(A)') 'This is actually a RHF wave function. Alpha=Beta. Switching&
                    & to ist=3.'
     call fch_u2r_wrap(hf_fch)
@@ -128,13 +128,12 @@ subroutine do_hf(prt_mr_strategy)
 
   if(rhf_e - uhf_e > r_u_diff) then
    write(6,'(A)') 'UHF energy is lower, choose UHF wave function.'
-   ist = 1
-   mo_rhf = .false.
+   ist = 1; mo_rhf = .false.
    hf_fch = TRIM(proname)//'_uhf.fch'
   else
    write(6,'(A)') 'RHF/UHF energies are too close, choose RHF.'
-   ist = 3
-   vir_proj = .true.; mo_rhf = .true.; uno = .false.
+   ist = 3; mo_rhf = .true.
+   vir_proj = .true.; uno = .false.
    hf_fch = TRIM(proname)//'_rhf.fch'
   end if
 

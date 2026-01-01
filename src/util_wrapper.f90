@@ -600,12 +600,29 @@ subroutine fch2amo_wrap(fchname, aipname)
  end if
 end subroutine fch2amo_wrap
 
-subroutine fch2mrcc_wrap(fchname)
+subroutine fch2mrcc_wrap(fchname, job_type)
  implicit none
+ integer, intent(in) :: job_type
  character(len=240), intent(in) :: fchname
- character(len=249) :: buf
+ character(len=258) :: buf
 
  buf = 'fch2mrcc '//TRIM(fchname)
+
+ select case(job_type)
+ case(0)
+ case(1)
+  buf = TRIM(buf)//' -adc2'
+ case(2)
+  buf = TRIM(buf)//' -sosadc2'
+ case(3)
+  buf = TRIM(buf)//' -scsadc2'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine fch2mrcc_wrap: job_type is out of range!'
+  write(6,'(A,I0)') 'Only 0/1/2/3 are allowed. But got job_type=', job_type
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end select
+
  call system_buf(TRIM(buf))
 end subroutine fch2mrcc_wrap
 

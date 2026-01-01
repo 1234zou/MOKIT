@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc16 (Dec 29, 2025)
+MOKIT 1.2.7rc16 (Dec 31, 2025)
 ------------------------
 Fixes
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
@@ -24,6 +24,9 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* support EE-/SCS-/SOS-/ADC(2) interface in autosr to the MRCC program
+* support ADC(2) and CC2 command line arguments for fch2mrcc
+* support MC23 and MC25 on-top functionals for MC-PDFT interface to PySCF/OpenMolcas
 * add function gen_nto_and_export_fch in lib/gaussian.py
 * add module py2rest in lib/py2rest.py
 * add utilities fch2rest and fch2nwc (still developing)
@@ -58,6 +61,7 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* add `-I$(PWD)` into `F2_FLAGS` in all Makefile
 * remove `bse` dependency in bas_fch2py and fch2rest
 * support negative contraction coefficients for a CGTO with a single primitive Gaussian
 * simplify subroutine prt_orb_resemble_py_script by using load_mol_from_fch

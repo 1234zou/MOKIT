@@ -9,6 +9,6 @@ LIB = ../mokit/lib
 F90 = gfortran
 FFLAGS = -O2 -cpp -fPIC -fopenmp
 MKL_FLAGS = -L$(HOME)/software/openblas-0.3.29/lib64 -lopenblas
-F2_FLAGS = --f90flags="-cpp -fopenmp"
+F2_FLAGS = --f90flags="-cpp -fopenmp" -I$(PWD)
 
 include Makefile.main

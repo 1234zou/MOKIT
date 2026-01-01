@@ -8,6 +8,6 @@ F90 = ifx
 FFLAGS = -O2 -fpp -fPIC -qopenmp
 MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -lmkl_rt
 F2PY = F77=ifx F90=ifx CC=icx CXX=icpx f2py
-F2_FLAGS = --fcompiler=intelem --f90flags="-fpp" --opt="-O2 -qopenmp" -liomp5
+F2_FLAGS = --fcompiler=intelem --f90flags="-fpp" --opt="-O2 -qopenmp" -I$(PWD) -liomp5
 
 include Makefile.main
