@@ -301,7 +301,7 @@ subroutine prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, &
  ! The molecule will still be re-oriented when symmetry is turned off. Using
  ! zero background point charge keeps it fixed.
  write(fid,'(A)') 'qmmm=Amber'
- if(job_type>0 .and. job_type<4) write(fid,'(A)') 'nstate=3'
+ if(job_type>0 .and. job_type<4) write(fid,'(A)') 'nstate=4'
 
  write(fid,'(/,A)') 'geom=xyz'
  write(fid,'(I0,/)') natom

@@ -924,25 +924,41 @@ end subroutine del_hyphen_for_elem_in_basfile
 function get_mokit_root() result(mokit_root)
  implicit none
  integer :: i, fid
- character(len=240) :: home, mokit_root !, buf
+ character(len=240) :: home, mokit_root
+ character(len=249) :: mokitrc
+ logical :: alive
 
  mokit_root = ' '
  call getenv('MOKIT_ROOT', mokit_root)
 
- if (LEN_TRIM(mokit_root) < 1) then
+ if(LEN_TRIM(mokit_root) == 0) then
   call getenv('HOME', home)
-  open(newunit=fid,file=TRIM(home)//'/.mokitrc',status='old',position='rewind')
+  mokitrc = TRIM(home)//'/.mokitrc'
+
+  ! If MOKIT is installed by `conda`, when there are many jobs submitted simultaneously,
+  ! the file ~/.mokitrc might be opened and read simultaneously by more than 1 processes.
+  ! To avoid this problem, we check and wait for 1 second.
+  do i = 1, 999
+   inquire(file=TRIM(mokitrc),opened=alive)
+   if(alive) then
+    call sleep(1)
+   else
+    open(newunit=fid,file=TRIM(mokitrc),status='old',position='rewind')
+    exit
+   end if
+  end do ! for i
+
   read(fid,'(A)',iostat=i) mokit_root
   close(fid)
 
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: failed to read file ~/&
+   write(6,'(/,A)') 'ERROR in function get_mokit_root: failed to read file ~/&
                     &.mokitrc'
    stop
   end if
 
-  if(LEN_TRIM(mokit_root) < 1) then
-   write(6,'(/,A)') 'ERROR in subroutine get_mokit_root: invalid environment va&
+  if(LEN_TRIM(mokit_root) == 0) then
+   write(6,'(/,A)') 'ERROR in function get_mokit_root: invalid environment va&
                     &riable $MOKIT_ROOT.'
    stop
   end if

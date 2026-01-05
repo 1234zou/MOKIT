@@ -26,7 +26,7 @@ or
 
 请注意，尽管MOKIT程序的目标是使多参考计算实现自动化和黑箱式，减少人为干预。但用户仍需具备使用常见量子化学软件的基本技能，例如熟悉[Gaussian](https://gaussian.com)软件的常规DFT计算。若您是一名量化新手，强烈建议先学习并熟练使用Gaussian软件做常规计算，否则很可能难以正确理解MOKIT的输出内容，或做出错误解读。
 
-2025年12月29号
+2026年1月5号
 
 依赖
 ----------
@@ -82,6 +82,8 @@ export GMS=$HOME/software/gamess/rungms
 ```
 cd src
 make all
+cd ..
+pip install -e . --prefix=.
 ```
 
 * 在执行`make all`之后, 你需要设置三个环境变量`MOKIT_ROOT`, `PATH` 和 `PYTHONPATH`。例如，假定您MOKIT放在`$HOME/software/mokit`目录，您需要在`~/.bashrc`文件中设定以下环境变量:

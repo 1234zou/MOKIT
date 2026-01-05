@@ -162,6 +162,15 @@ def get_nbond_from_mol_and_lmo(mol, lmo, ao_ovlp=None, popm='lowdin'):
     return np.sum(mo_center[0,:] > 1)
 
 
+def find_antibonding_orb(mol, mo, i1=0, i2=0, i3=0, start_from_one=False,
+                         ao_ovlp=None, popm='lowdin'):
+    raise OSError('This function is moved to auto.py. Please use `from mokit.lib.auto import`')
+
+
+def find_antibonding_orb_in_fch(fchname, i1, i2, i3, start_from_one=False, popm='lowdin'):
+    raise OSError('This function is moved to auto.py. Please use `from mokit.lib.auto import`')
+
+
 def export_mo_e2txt(fchname):
     '''
     export the data of Alpha Orbital Energies in a .fch file into a plain text file

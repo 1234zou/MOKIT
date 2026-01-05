@@ -609,6 +609,7 @@ def gen_fcidump(fchname, nacto, nacte, mem=4000):
     # load the mol object from a given .fch(k) file
     mol = load_mol_from_fch(fchname)
 
+    # TODO: check whether this works when sfX2C1e is used in .fch
     if mol.spin == 0:
         mf = scf.RHF(mol)
     else:

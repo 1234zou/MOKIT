@@ -283,7 +283,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  datname = TRIM(buf)//'_s.dat'
  gms_inp = TRIM(buf)//'_s.inp'
 
- call fch2qchem_wrap(pair_fch, npair, inpname)
+ call fch2qchem_wrap(pair_fch, 1, npair, inpname)
  ! Note: nopen is determined automatically in fch2qchem
 
  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))

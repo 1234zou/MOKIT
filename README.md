@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations, e.g. familiar with routine DFT calculations in [Gaussian](https://gaussian.com). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Dec 29, 2025
+Jan 5, 2026
 
 Dependencies
 ------------
@@ -83,6 +83,8 @@ The link to latest version of MOKIT source code can be found [here](https://doc.
 ```
 cd src
 make all
+cd ..
+pip install -e . --prefix=.
 ```
 
 * After `make all`, you need to set environment variables `MOKIT_ROOT`, `PATH` and `PYTHONPATH`. E.g. if MOKIT is installed in `$HOME/software/mokit`, the following should be set in `~/.bashrc`:

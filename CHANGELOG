@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc16 (Dec 31, 2025)
+MOKIT 1.2.7rc16 (Jan 5, 2026)
 ------------------------
 Fixes
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
@@ -24,7 +24,10 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
-* support EE-/SCS-/SOS-/ADC(2) interface in autosr to the MRCC program
+* add entry-point for function uno and permute_orb
+* support EE-/SOS- ADC(2) interface in autosr to the Q-Chem program
+* support EE-/SCS-/SOS- ADC(2) interface in autosr to the MRCC program
+* support ADC(2) command line arguments for fch2qchem
 * support ADC(2) and CC2 command line arguments for fch2mrcc
 * support MC23 and MC25 on-top functionals for MC-PDFT interface to PySCF/OpenMolcas
 * add function gen_nto_and_export_fch in lib/gaussian.py
@@ -94,6 +97,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* mv functions find_antibonding_orb and find_antibonding_orb_in_fch from util.py to auto.py
 * add the `-fc` option for fch2inp
 * add rw_misc.f90 and move some subroutines into it
 * add keyword LocPair to allow orbital localization on specified pairs

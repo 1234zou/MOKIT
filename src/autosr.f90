@@ -4,7 +4,7 @@
 module sr_keyword
  use mr_keyword, only: gjfname, mem, nproc, method, basis, bgchg, cart, force, &
   DKH2, X2C, dkh2_or_x2c, RI, F12, DLPNO, RIJK_bas, RIC_bas, F12_cabs, localm, &
-  nstate, readrhf, readuhf, hardwfn, xmult, given_xmult, crazywfn, mo_rhf, &
+  nstate, readrhf, readuhf, hardwfn, given_xmult, xmult, crazywfn, mo_rhf, &
   hf_prog, hfonly, hf_fch, skiphf, chgname, gau_path, molcas_path, orca_path, &
   psi4_path, dalton_path, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
   nmr, molcas_omp, dalton_mpi
@@ -23,7 +23,7 @@ module sr_keyword
  real(kind=8), allocatable :: ex_elec_e(:)
  character(len=10) :: mp2_prog = 'orca'
  character(len=10) :: cc_prog = 'pyscf' ! PySCF has very fast CCSD and (T)
- character(len=10) :: adc_prog = 'orca'
+ character(len=10) :: adc_prog = 'mrcc' ! possibly the fastest ADC program
  character(len=10) :: eom_prog = 'pyscf'
  character(len=240) :: no_fch = ' ' ! filename which includes MP2/CC NOs
  logical :: noRI = .false.          ! turn on RI by default
@@ -61,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc16 (2025-Dec-31)'
+ write(6,'(A)') '           Version: 1.2.7rc16 (2026-Jan-5)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -640,7 +640,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc16 :: MOKIT, release date: 2025-Dec-31'
+  write(6,'(A)') 'AutoSR 1.2.7rc16 :: MOKIT, release date: 2026-Jan-5'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -665,7 +665,7 @@ program main
   write(6,'(A)')   '   CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dal&
                    &ton/QChem'
   write(6,'(A)')   '  CIS_prog=Molpro/ORCA/Gaussian/QChem'
-  write(6,'(A)')   '  ADC_prog=ORCA/PSI4/PySCF/MRCC'
+  write(6,'(A)')   '  ADC_prog=MRCC/QChem/ORCA/PSI4/PySCF'
   write(6,'(A,/)') '  EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
@@ -902,7 +902,7 @@ subroutine do_mp2()
  case('qchem')
   inpname = hf_fch(1:i-1)//'_MP2.in'
   old_inp = hf_fch(1:i-1)//'_MP2.0.FChk'
-  call fch2qchem_wrap(hf_fch, 0, inpname)
+  call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_qchem_job(inpname, nproc)
@@ -1132,7 +1132,7 @@ subroutine do_cc()
  case('qchem')
   inpname = hf_fch(1:i-1)//'_CC.in'
   old_inp = hf_fch(1:i-1)//'_CC.0.FChk'
-  call fch2qchem_wrap(hf_fch, 0, inpname)
+  call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call submit_qchem_job(inpname, nproc)
@@ -1217,7 +1217,7 @@ subroutine do_adc()
   ecp_core, customized_core, core_wish, ex_elec_e
  use mol, only: mult, ci_ssquare, fosc
  use util_wrapper, only: bas_fch2py_wrap, fch2mkl_wrap, mkl2gbw, fch2psi_wrap, &
-  fch2mrcc_wrap
+  fch2mrcc_wrap, fch2qchem_wrap
  use phys_cons, only: au2ev
  implicit none
  integer :: i, job_type, RENAME, SYSTEM
@@ -1229,9 +1229,9 @@ subroutine do_adc()
 
  if(adc_n == 0) return
  write(6,'(//,A)') 'Enter subroutine do_adc...'
- job_type = 1
- if(sos) job_type = 2
- if(scs) job_type = 3
+ job_type = 1         ! ADC(2)
+ if(sos) job_type = 2 ! SOS-ADC(2)
+ if(scs) job_type = 3 ! SCS-ADC(2)
  ee = .true.
  if(ip .or. ea) ee = .false.
 
@@ -1250,9 +1250,6 @@ subroutine do_adc()
  if(ip .or. ea) ci_ssquare(1:nstate) = 0.75d0
  if(given_xmult) ci_ssquare(1:nstate) = mult2ssquare(xmult)
  i = INDEX(hf_fch, '.fch', back=.true.)
-
- ! The ADCC program should be considered in the future since PySCF only has IP-
- ! ADC and EA-ADC, but no EE-ADC.
 
  select case(TRIM(adc_prog))
  case('pyscf') ! IP-/EA-ADC, no EE-ADC
@@ -1284,6 +1281,7 @@ subroutine do_adc()
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_adc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, fosc)
  case('psi4')
+  ! Note: ADC(3) requires fewer CPU cores and more memory
   inpname = hf_fch(1:i-1)//'_ADC.inp'
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2psi_wrap(hf_fch, inpname)
@@ -1298,6 +1296,13 @@ subroutine do_adc()
   call modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
   call submit_mrcc_job(outname, nproc)
   call read_adc_e_from_mrcc_out(outname, nstate, ex_elec_e, fosc)
+ case('qchem') ! ADC(2), SOS-ADC(2)
+  inpname = hf_fch(1:i-1)//'_ADC.in'
+  outname = hf_fch(1:i-1)//'_ADC.out'
+  call fch2qchem_wrap(hf_fch, job_type+5, 0, inpname)
+  call modify_mem_and_nstate_in_qchem_inp(inpname, mem, nstate, chem_core, x_triplet)
+  call submit_qchem_job(inpname, nproc)
+  call read_adc_e_from_qchem_out(outname, nstate, ex_elec_e, fosc)
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_adc: unsupported ADC_prog='//&
                    TRIM(adc_prog)
@@ -1418,7 +1423,7 @@ subroutine do_eomcc()
  case('qchem')
   inpname = hf_fch(1:i-1)//'_EOMCC.in'
   outname = hf_fch(1:i-1)//'_EOMCC.out'
-  call fch2qchem_wrap(hf_fch, 0, inpname)
+  call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   call prt_posthf_qchem_inp(inpname)
   stop
@@ -1826,7 +1831,7 @@ end subroutine prt_posthf_molpro_inp
 subroutine prt_posthf_pyscf_inp(pyname, excited)
  use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, &
   force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, RI, RIJK_bas, RIC_bas, &
-  ip, ea, nstate
+  ip, ea, nstate, given_xmult, xmult
  implicit none
  integer :: i, k, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
@@ -1834,6 +1839,10 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   t2b_npy, t2c_npy
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: excited
+ logical :: x_triplet
+
+ x_triplet = .false.
+ if(given_xmult .and. xmult==3) x_triplet = .true.
 
  i = INDEX(pyname, '.py', back=.true.)
  pyname1 = pyname(1:i-1)//'.t'
@@ -2057,7 +2066,11 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   else if(ea) then ! EA-EOM-CCSD
    write(fid1,'(/,A,I0,A)') 'mc.eaccsd(nroots=', nstate, ')'
   else             ! EE-EOM-CCSD
-   write(fid1,'(/,A,I0,A)') 'mc.eomee_ccsd_singlet(nroots=', nstate, ')'
+   if(x_triplet) then
+    write(fid1,'(/,A,I0,A)') 'mc.eomee_ccsd_triplet(nroots=', nstate, ')'
+   else
+    write(fid1,'(/,A,I0,A)') 'mc.eomee_ccsd_singlet(nroots=', nstate, ')'
+   end if
   end if
  end if
 
@@ -2097,7 +2110,8 @@ end subroutine prt_posthf_pyscf_inp
 
 subroutine prt_posthf_psi4_inp(inpname, excited)
  use sr_keyword, only: mem, mp2, ccd, ccsd, ccsd_t, cc_enabled, adc_n, chem_core,&
-  RI, RIJK_bas, RIC_bas, gen_no, relaxed_dm, force, no_fch, nstate
+  RI, RIJK_bas, RIC_bas, gen_no, relaxed_dm, force, no_fch, nstate, given_xmult, &
+  xmult
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=10) :: psi4_ver
@@ -2105,7 +2119,10 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
- logical :: psi4_18_higher
+ logical :: x_triplet, psi4_18_higher
+
+ x_triplet = .false.
+ if(given_xmult .and. xmult==3) x_triplet = .true.
 
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
@@ -2163,6 +2180,8 @@ subroutine prt_posthf_psi4_inp(inpname, excited)
   call get_psi4_version(psi4_ver)
   if(psi4_ver(1:3)=='1.8' .or. psi4_ver(1:3)=='1.9') psi4_18_higher=.true.
  end if
+
+ if(x_triplet) write(fid1,'(A)') 'set kind triplet'
 
  if(force) then
   ! PSI4 >=1.8, extra keywords are needed to calculate CCSD(T) analytical gradients
@@ -4148,7 +4167,7 @@ end subroutine read_fosc_from_orca_out
 
 subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, ssquare, fosc)
  implicit none
- integer :: i, j, fid
+ integer :: i, fid
  integer, intent(in) :: nstate
  real(kind=8), intent(out) :: e(0:nstate), ssquare(0:nstate), fosc(nstate)
  character(len=240) :: buf
@@ -4163,12 +4182,12 @@ subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, ssquare, fo
   read(fid,'(A)') buf
   if(buf(1:9) == 'E(CCSD) =') exit
  end do ! for while
-
  read(buf(10:),*) e(0)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
+  if(buf(31:48) == 'rccsd.EOMEETriplet') ssquare(1:nstate) = 2d0
   if(buf(1:15) == 'EOM-CCSD root 0') exit
  end do ! for while
 
@@ -4183,8 +4202,7 @@ subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, ssquare, fo
  BACKSPACE(fid)
  do i = 1, nstate, 1
   read(fid,'(A)') buf
-  j = INDEX(buf, '=')
-  read(buf(j+1:),*) e(i)
+  call get_dpv_after_flag(buf, '=', .true., e(i))
  end do ! for i
 
  close(fid)
@@ -4829,4 +4847,51 @@ subroutine modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
  close(fid1)
  i = RENAME(TRIM(new_inp), input)
 end subroutine modify_mem_and_nstate_in_mrcc_inp
+
+! modify memory and nstate in Q-Chem input file (.in)
+! Note: `mem` must be provided in unit GB.
+subroutine modify_mem_and_nstate_in_qchem_inp(inpname, mem, nstate, ncore, x_triplet)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem, nstate, ncore
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical, intent(in) :: x_triplet
+
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:9) == 'ee_states') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(x_triplet) then
+  write(fid1,'(A,I0)') 'ee_triplets = ', nstate
+ else
+  write(fid1,'(A,I0)') 'ee_states = ', nstate
+ end if
+ read(fid,'(A)') buf ! assuming it is n_frozen_core
+ write(fid1,'(A,I0)') 'n_frozen_core = ', ncore
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:9) == 'mem_total') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ write(fid1,'(A,I0)') 'mem_total ', mem*1000
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine modify_mem_and_nstate_in_qchem_inp
 

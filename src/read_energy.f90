@@ -3,7 +3,7 @@
 ! read IP-/EA-ADC energies from a specified PySCF output file
 subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
  implicit none
- integer :: i, j, fid
+ integer :: i, fid
  integer, intent(in) :: nstate
  real(kind=8) :: scf_e
  real(kind=8), intent(out) :: e(0:nstate)
@@ -18,18 +18,14 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
   read(fid,'(A)') buf
   if(buf(1:13) == 'converged SCF') exit
  end do ! for while
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) scf_e ! HF energy
+ call get_dpv_after_flag(buf, '=', .true., scf_e) ! HF energy
 
  do while(.true.)
   read(fid,'(A)') buf
   str6 = buf(1:6)
   if(str6=='E_corr' .or. str6=='MP2 co' .or. str6=='MP3 co') exit
  end do ! for while
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) e(0) ! MP2/MP3 correlation energy
+ call get_dpv_after_flag(buf, '=', .true., e(0)) ! MP2/MP3 correlation energy
  e(0) = e(0) + scf_e
 
  do while(.true.)
@@ -40,8 +36,7 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
 
  do i = 1, nstate, 1
   read(fid,'(A)') buf
-  j = INDEX(buf, '=')
-  read(buf(j+1:),*) e(i)
+  call get_dpv_after_flag(buf, '=', .true., e(i))
   e(i) = e(i) + e(0)
  end do ! for i
 
@@ -139,8 +134,7 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
    stop
   end if
 
-  j = INDEX(buf, '=')
-  read(buf(j+1:),*) scf_e
+  call get_dpv_after_flag(buf, '=', .true., scf_e)
  end do ! for i
 
  ! read MPn correlation energy
@@ -243,8 +237,7 @@ subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
   stop
  end if
 
- i = INDEX(buf, ':')
- read(buf(i+1:),*) e(0)
+ call get_dpv_after_flag(buf, ':', .true., e(0))
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -305,6 +298,78 @@ subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
 
  close(fid)
 end subroutine read_adc_e_from_mrcc_out
+
+subroutine read_adc_e_from_qchem_out(outname, nstate, e, fosc)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: nstate
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
+                                              &rom_qchem_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: determined, x_triplet
+
+ e = 0d0; fosc = 0d0; determined = .false.; x_triplet = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(3:15) == 'Total energy:') then
+   call get_dpv_after_flag(buf, ':', .true., e(0)) ! MP2/MP3
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"Total energy:" not found in file'
+  write(6,'(A)') TRIM(outname)
+  close(fid)
+  stop
+ end if
+ k = 1
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(3:15) == 'Excited state') then
+   if(.not. determined) then
+    j = INDEX(buf, '(')
+    select case(buf(j+1:j+7))
+    case('singlet')
+     determined = .true.
+    case('triplet')
+     determined = .true.
+     x_triplet = .true.
+    case default
+     write(6,'(/,A)') error_warn//' state spin cannot be recognized.'
+     write(6,'(A)') 'buf='//TRIM(buf)
+     stop
+    end select
+   end if
+   do j = 1, 4
+    read(fid,'(A)') buf
+   end do ! for j
+   call get_dpv_after_flag(buf, ':', .true., e(k))
+   if(.not. x_triplet) then
+    do j = 1, 3
+     read(fid,'(A)') buf
+    end do ! for j
+    call get_dpv_after_flag(buf, ':', .true., fosc(k))
+   end if
+   k = k + 1
+   if(k == nstate+1) exit
+  end if
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'not enough states are found in file'
+  write(6,'(A)') TRIM(outname)
+  stop
+ end if
+end subroutine read_adc_e_from_qchem_out
 
 ! read GVB electronic energy from a given GAMESS .gms file
 subroutine read_gvb_energy_from_gms_gms(gmsname, gvb_e)
@@ -570,11 +635,10 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
   stop
  end if
 
- i = INDEX(buf, '=')
  if(scf) then
-  read(buf(i+1:),*) e(2)
+  call get_dpv_after_flag(buf, '=', .true., e(2))
  else
-  read(buf(i+1:),*) e(1)
+  call get_dpv_after_flag(buf, '=', .true., e(1))
  end if
 
  i = INDEX(buf, 'S^2 =', back=.true.)
@@ -617,8 +681,7 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
 
   close(fid)
   read(buf(10:),*) e(1)
-  i = INDEX(buf, '=', back=.true.)
-  read(buf(i+1:),*) s_square
+  call get_dpv_after_flag(buf, '=', .false., s_square)
 
   if( DABS(expect - s_square) > max_diff) then
    write(6,'(/,A)') REPEAT('-',79)
@@ -842,8 +905,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
    close(fid)
    stop
   end if
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) e(1)
+  call get_dpv_after_flag(buf, '=', .true., e(1))
 
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
@@ -852,13 +914,12 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') error_warn//"'Final CASSCF energy' not found in"
+   write(6,'(/,A)') error_warn//'"Final CASSCF energy" not found in'
    write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
   end if
-  i = INDEX(buf, ':')
-  read(buf(i+1:),*) e(2)
+  call get_dpv_after_flag(buf, ':', .true., e(2))
 
  else ! CASCI
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
@@ -872,13 +933,12 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') error_warn//"'^STATE' not found in file "//TRIM(outname)
+   write(6,'(/,A)') error_warn//'"^STATE" not found in file '//TRIM(outname)
    close(fid)
    stop
   end if
 
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) e(1)
+  call get_dpv_after_flag(buf, '=', .true., e(1))
  end if
 
  close(fid)
@@ -1322,8 +1382,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
 
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) ref_e
+  call get_dpv_after_flag(buf, '=', .true., ref_e)
 
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
@@ -1381,8 +1440,7 @@ subroutine read_mrpt_energy_from_molcas_out(outname, itype, ref_e, corr_e)
    read(fid,'(A)') buf
   end do ! for i 
 
-  i = INDEX(buf, ':')
-  read(buf(i+1:),*) corr_e
+  call get_dpv_after_flag(buf, ':', .true., corr_e)
   corr_e = corr_e - ref_e
 
  case default
@@ -1505,8 +1563,7 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
   stop
  end if
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) ref_e
+ call get_dpv_after_flag(buf, '=', .true., ref_e)
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -1514,17 +1571,15 @@ subroutine read_mrpt_energy_from_gms_out(outname, ref_e, corr_e)
   if(buf(22:42) == '2ND ORDER ENERGY CORR') exit
  end do ! for while
 
+ close(fid)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_gms_out: no MRMP2&
                    & energy found in'
   write(6,'(A)') 'file '//TRIM(outname)
-  close(fid)
   stop
  end if
 
- i = INDEX(buf, '=')
- read(buf(i+1:),*) corr_e
- close(fid)
+ call get_dpv_after_flag(buf, '=', .true., corr_e)
 end subroutine read_mrpt_energy_from_gms_out
 
 ! read NEVPT2 energy from a BDF .out file
@@ -1565,8 +1620,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  do i = 1, 4
   read(fid,'(A)') buf
  end do ! for i
- i = INDEX(buf, '=')
- read(buf(i+1:),*) ref_e ! CASCI/CASSCF energy
+ call get_dpv_after_flag(buf, '=', .true.,  ref_e) ! CASCI/CASSCF energy
 
  if(itype == 1) then
   do while(.true.)
@@ -1802,8 +1856,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    i = INDEX(buf, 'DC =', back=.true.)
    read(buf(i+4:),*) davidson_e
    read(fid,'(A)') buf
-   i = INDEX(buf, '=')
-   read(buf(i+1:),*) e
+   call get_dpv_after_flag(buf, '=', .true., e)
   else
    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: invalid &
                     &CtrType.'
@@ -1971,7 +2024,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(2:7) == 'E(REF)') exit
    end do ! for while
-   i = INDEX(buf, '=')
+   call get_dpv_after_flag(buf, '=', .true., casci_e)
    read(buf(i+1:),*) casci_e
 
    ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
@@ -1987,8 +2040,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    end do ! for while
 
    close(fid)
-   i = INDEX(buf, '=')
-   read(buf(i+1:),*) e
+   call get_dpv_after_flag(buf, '=', .true., e)
   end if
 
  case default
@@ -2076,8 +2128,7 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
    stop
   end if
 
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) ref_e
+  call get_dpv_after_flag(buf, '=', .true., ref_e)
 
   ! find if any 'ERROR: amplitude iterations fail'
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
@@ -2109,12 +2160,12 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   BACKSPACE(fid)
   BACKSPACE(fid)
   read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) corr_e(1) ! GVB-BCCCnb correlation energy
+  ! GVB-BCCCnb correlation energy
+  call get_dpv_after_flag(buf, '=', .true., corr_e(1))
 
   read(fid,'(A)') buf
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) corr_e(2) ! GVB-BCCCnb total energy
+  ! GVB-BCCCnb total energy
+  call get_dpv_after_flag(buf, '=', .true., corr_e(2))
   close(fid)
 
  !case('nwchem')

@@ -8,36 +8,43 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i, npair
+ integer :: k, narg, job_type, npair
+ ! job_type = 0/1/2/3/4/5/6/7
+ ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
  character(len=8) :: str
  character(len=240) :: fchname
  character(len=58), parameter :: error_warn = ' ERROR in program fch2qchem: wro&
                                               &ng command line arguments!'
- logical :: sfcis, sasfcis, sftd, sasf
-
- str = ' '; fchname = ' '; npair = 0
- sfcis = .false.; sasfcis = .false.; sftd = .false.; sasf = .false.
-
- i = iargc()
- if(i<1 .or. i>3) then
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
   write(6,'(/,A)') error_warn
-  write(6,'(A)')  ' Example 1 (HF/DFT)   : fch2qchem h2o.fch'
-  write(6,'(A)')  ' Example 2 (GVB)      : fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
-  write(6,'(A)')  ' Example 3 (SF-CIS)   : fch2qchem high_spin.fch -sfcis'
-  write(6,'(A)')  ' Example 4 (SA-SF-CIS): fch2qchem high_spin.fch -sasfcis'
-  write(6,'(A)')  ' Example 5 (SF-TDDFT) : fch2qchem high_spin.fch -sf'
-  write(6,'(A,/)')' Example 6 (SA-SF-DFT): fch2qchem high_spin.fch -sasf'
+  write(6,'(A)')  ' Example 1 (HF/DFT)    : fch2qchem h2o.fch'
+  write(6,'(A)')  ' Example 2 (GVB)       : fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
+  write(6,'(A)')  ' Example 3 (SF-CIS)    : fch2qchem high_spin.fch -sfcis'
+  write(6,'(A)')  ' Example 4 (SA-SF-CIS) : fch2qchem high_spin.fch -sasfcis'
+  write(6,'(A)')  ' Example 5 (SF-TDDFT)  : fch2qchem high_spin.fch -sf'
+  write(6,'(A)')  ' Example 6 (SA-SF-DFT) : fch2qchem high_spin.fch -sasf'
+  write(6,'(A)')  ' Example 7 (ADC(2))    : fch2qchem high_spin.fch -adc2'
+  write(6,'(A,/)')' Example 8 (SOS-ADC(2)): fch2qchem high_spin.fch -sosadc2'
   stop
  end if
 
+ str = ' '; fchname = ' '; npair = 0; job_type = 0
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
- if(i > 1) then
+ ! if .chk file provided, convert into .fch file automatically
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:k-3)//'fch'
+ end if
+
+ if(narg > 1) then
   call getarg(2, str)
   select case(TRIM(str))
   case('-gvb')
-   if(i == 2) then
+   if(narg == 2) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') 'You forget to specify the number of GVB pairs.'
     stop
@@ -49,57 +56,68 @@ program main
     write(6,'(A)') 'The 3rd argument npair should be >=0.'
     stop
    end if
+   job_type = 1
   case('-sfcis')
-   if(i == 3) then
+   if(narg == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sfcis' is specified."
     stop
    end if
-   sfcis = .true.
+   job_type = 2
   case('-sasfcis')
-   if(i == 3) then
+   if(narg == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sasfcis' is specified."
     stop
    end if
-   sasfcis = .true.
+   job_type = 3
   case('-sf')
-   if(i == 3) then
+   if(narg == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sf' is specified."
     stop
    end if
-   sftd = .true.
+   job_type = 4
   case('-sasf')
-   if(i == 3) then
+   if(narg == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sasf' is specified."
     stop
    end if
-   sasf = .true.
+   job_type = 5
+  case('-adc2')
+   if(narg == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-adc2' is specified."
+    stop
+   end if
+   job_type = 6
+  case('-sosadc2')
+   if(narg == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-sosadc2' is specified."
+    stop
+   end if
+   job_type = 7
   case default
    write(6,'(/,A)') error_warn
-   write(6,'(A)') "The 2nd argument can only be one of '-gvb', '-sasfcis', '-sf&
-                  &cis', '-sf', '-sasf'."
+   write(6,'(A)') 'The 2nd argument can only be one of -gvb/-sasfcis/-sfcis/-sf&
+                  &/-sasf/-adc2/'
+   write(6,'(A)') '-sosadc2. But got '//TRIM(str)
    stop
   end select
  end if
 
- ! if .chk file provided, convert into .fch file automatically
- i = LEN_TRIM(fchname)
- if(fchname(i-3:i) == '.chk') then
-  call formchk(fchname)
-  fchname = fchname(1:i-3)//'fch'
- end if
-
- call fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
+ call fch2qchem(fchname, job_type, npair)
 end program main
 
-subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
+subroutine fch2qchem(fchname, job_type, npair)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, icart, fid, purecart(4), SYSTEM
- integer, intent(in) :: npair
+ integer, intent(in) :: job_type, npair
+ ! job_type = 0/1/2/3/4/5/6/7
+ ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
  integer, allocatable :: idx(:)
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
@@ -108,14 +126,12 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  character(len=240) :: proname, inpname, dirname
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
- logical :: spin_flip, uhf, sph, has_sp, ecp, so_ecp
- logical, intent(in) :: sfcis, sasfcis, sftd, sasf
+ logical :: uhf, sph, has_sp, ecp, so_ecp
 
- spin_flip = (sfcis .or. sasfcis .or. sftd .or. sasf)
- if(npair>0 .and. spin_flip) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: npair>0 is not allowed when &
-                   &any SF-type method'
-  write(6,'(A)') 'is activated. Please check your input arguments.'
+ if(npair>0 .and. job_type/=1) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: npair>0 is only allowed for &
+                   &a GVB job.'
+  write(6,'(A,I0)') 'job_type=1 is expected, but got ', job_type
   stop
  end if
 
@@ -131,13 +147,13 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
 
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- if((sasfcis .or. sasf) .and. uhf) then
+ if((job_type==3 .or. job_type==5) .and. uhf) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
                    &n ROHF/ROKS reference.'
   write(6,'(A)') 'It seems that you provide a UHF/UKS .fch(k) file.'
   stop
  end if
- if(sftd .and. (.not.uhf)) then
+ if(job_type==4 .and. (.not.uhf)) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-TDDFT must be based on a&
                    & UHF/UKS reference'
   write(6,'(A)') 'in Q-Chem. It seems that you provide an ROHF/ROKS .fch(k) file.'
@@ -145,7 +161,7 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  end if
 
  call read_fch(fchname, uhf)
- if(spin_flip .and. mult<3) then
+ if(job_type>1 .and. job_type<6 .and. mult<3) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-type methods must be base&
                    &d on a high-spin'
   write(6,'(A)') 'reference wave function, where the spin multiplicity should b&
@@ -175,7 +191,13 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
  write(fid,'(A,/)') '$end'
 
  write(fid,'(A)') '$rem'
- write(fid,'(A)') 'method hf'
+ if(job_type == 6) then
+  write(fid,'(A)') 'method adc(2)'
+ else if(job_type == 7) then
+  write(fid,'(A)') 'method sos-adc(2)'
+ else
+  write(fid,'(A)') 'method hf'
+ end if
  if(uhf) then ! UHF
   write(fid,'(A)') 'unrestricted true'
  else         ! R(O)HF
@@ -205,17 +227,23 @@ subroutine fch2qchem(fchname, npair, sfcis, sasfcis, sftd, sasf)
   !write(fid,'(A)') 'gvb_restart false'
  end if
 
- if(sfcis) then
+ if(job_type == 2) then
   write(fid,'(A)') 'correlation ci'
   write(fid,'(A)') 'eom_corr cis'
   write(fid,'(A)') 'ccman2 false'
   write(fid,'(A)') 'sf_states 5'
  end if
+ if(job_type==6 .or. job_type==7) then
+  write(fid,'(A)') 'aux_basis RIMP2-cc-pVTZ'
+  write(fid,'(A)') 'ee_states = 3'
+  write(fid,'(A)') 'n_frozen_core = fc'
+  write(fid,'(A)') 'adc_davidson_maxiter 120'
+ end if
 
- if(sftd .or. sasfcis .or. sasf) then
-  if(.not. sasfcis) write(fid,'(A)') 'exchange bhhlyp'
+ if(job_type>2 .and. job_type<6) then
+  if(job_type /= 3) write(fid,'(A)') 'exchange bhhlyp'
   write(fid,'(A)') 'cis_n_roots 5'
-  if(sftd) then
+  if(job_type == 4) then
    write(fid,'(A)') 'spin_flip true'
   else
    write(fid,'(A)') 'sasf_rpa true'

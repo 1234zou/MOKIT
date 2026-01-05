@@ -401,10 +401,11 @@ subroutine fch2dal_wrap(fchname, dalname)
 end subroutine fch2dal_wrap
 
 ! wrapper of utility fch2qchem
-subroutine fch2qchem_wrap(fchname, npair, inpname)
+subroutine fch2qchem_wrap(fchname, job_type, npair, inpname)
  implicit none
  integer :: i, RENAME
- integer, intent(in) :: npair
+ integer, intent(in) :: job_type, npair
+ character(len=36), parameter :: error_warn='ERROR in subroutine fch2qchem_wrap: '
  character(len=240) :: inpname0, dirname
  character(len=240), intent(in) :: fchname
  character(len=240), intent(in), optional :: inpname
@@ -412,7 +413,35 @@ subroutine fch2qchem_wrap(fchname, npair, inpname)
  character(len=480) :: scr_dir, scr_dir0
 
  buf = 'fch2qchem '//TRIM(fchname)
- if(npair > 0) write(buf,'(A,I0)') TRIM(buf)//' -gvb ', npair
+ if(npair > 0) then
+  if(job_type /= 1) then
+   write(6,'(/,A)') error_warn//'npair>0 is only allowed when job_type=1.'
+   write(6,'(2(A,I0))') 'job_type=', job_type, ', npair=', npair
+   stop
+  end if
+  write(buf,'(A,I0)') TRIM(buf)//' -gvb ', npair
+ end if
+
+ select case(job_type)
+ case(0,1) ! nothing to append
+ case(2) ! SF-CIS
+  buf = TRIM(buf)//' -sfcis'
+ case(3) ! SA-SF-CIS
+  buf = TRIM(buf)//' -sasfcis'
+ case(4) ! SF-TDDFT
+  buf = TRIM(buf)//' -sf'
+ case(5) ! SA-SF-DFT
+  buf = TRIM(buf)//' -sasf'
+ case(6) ! ADC(2)
+  buf = TRIM(buf)//' -adc2'
+ case(7) ! SOS-ADC(2)
+  buf = TRIM(buf)//' -sosadc2'
+ case default
+  write(6,'(/,A)') error_warn//'job_type is out of range!'
+  write(6,'(A,I0)') 'Only 0~7 are allowed. But got job_type=', job_type
+  stop
+ end select
+
  call system_buf(TRIM(buf))
 
  if(PRESENT(inpname)) then
@@ -609,16 +638,22 @@ subroutine fch2mrcc_wrap(fchname, job_type)
  buf = 'fch2mrcc '//TRIM(fchname)
 
  select case(job_type)
- case(0)
+ case(0) ! do nothing
  case(1)
   buf = TRIM(buf)//' -adc2'
  case(2)
   buf = TRIM(buf)//' -sosadc2'
  case(3)
   buf = TRIM(buf)//' -scsadc2'
+ case(4)
+  buf = TRIM(buf)//' -cc2'
+ case(5)
+  buf = TRIM(buf)//' -soscc2'
+ case(6)
+  buf = TRIM(buf)//' -scscc2'
  case default
   write(6,'(/,A)') 'ERROR in subroutine fch2mrcc_wrap: job_type is out of range!'
-  write(6,'(A,I0)') 'Only 0/1/2/3 are allowed. But got job_type=', job_type
+  write(6,'(A,I0)') 'Only 0~6 are allowed. But got job_type=', job_type
   write(6,'(A)') 'fchname='//TRIM(fchname)
   stop
  end select
