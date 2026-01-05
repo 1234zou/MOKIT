@@ -284,8 +284,8 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
  write(fid,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid,'(A)') 'from mokit.lib.util import get_nvir_from_fch, get_nbond_from&
-                  &_mol_and_lmo, \'
- write(fid,'(A)') '  proj_vir2virlmo, get_Fii, find_antibonding_orb'
+                  &_mol_and_lmo, proj_vir2virlmo, get_Fii'
+ write(fid,'(A)') 'from mokit.lib.auto import find_antibonding_orb'
  write(fid,'(A)') 'from shutil import copyfile'
  write(fid,'(A)') 'from mokit.lib.rwwfn import get_1e_exp_and_sort_pair as sort&
                   &_pair'
@@ -463,7 +463,7 @@ subroutine prt_auto_pair_script_into_py(pyname)
                     &rt_pair'
   write(fid2,'(A)') 'from mokit.lib.rwwfn import read_eigenvalues_from_fch, mv_&
                     &degen_docc_below_bo'
-  write(fid2,'(A)') 'from mokit.lib.util import find_antibonding_orb'
+  write(fid2,'(A)') 'from mokit.lib.auto import find_antibonding_orb'
   ! dipole_integral is always needed in this file
   write(fid2,'(A)') 'from pyscf.lo.boys import dipole_integral'
   write(fid2,'(A,/)') 'from mokit.lib.auto_pair import pair_by_tdm'

@@ -46,3 +46,7 @@ Changelog        = 'https://gitlab.com/jxzou/mokit/-/blob/master/CHANGELOG'
 #[tool.setuptools.dynamic]
 #version = { attr = "mokit.__version__"}
 #readme =  { file = "README.md"}
+
+[project.scripts]
+uno = "mokit.lib.cli:uno_cli"
+permute_orb = "mokit.lib.cli:permute_orb_cli"
