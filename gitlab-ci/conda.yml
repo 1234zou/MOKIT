@@ -87,6 +87,7 @@ conda_build_cf_test:
       - conda-fix-glibc
       - conda-format
       - py312-conda
+      - entrypo-conda
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
