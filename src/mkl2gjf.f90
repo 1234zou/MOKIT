@@ -1,6 +1,5 @@
 ! written by jxzou at 20210115: generate Gaussian .gjf from ORCA .mkl file
-! TODO: un-normalize the contracted coefficients of each basis function (this
-!       does affect the calculation)
+! TODO: check whether the number of digits is sufficient for exponents
 
 ! Note: this utility can only be applied to all-electron basis set, since the
 !  .mkl file does not contain ECP information

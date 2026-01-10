@@ -407,12 +407,24 @@ end subroutine prt_mrci_molcas_inp
 ! print MRCISD keywords into ORCA .inp file
 subroutine prt_mrcisd_orca_inp(inpname1)
  use mol, only: nacto, nacte, mult
- use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, iroot, xmult, hardwfn, &
-  crazywfn, orca_path
+ use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, iroot, given_xmult, xmult,&
+  hardwfn, crazywfn, orca_path
  implicit none
- integer :: i, iver, fid1, fid2, RENAME
+ integer :: i, iver, imult, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
+ logical :: need_casci
+
+ if(given_xmult) then
+  imult = xmult
+ else
+  imult = mult
+ end if
+
+ ! When there is only one determaninant in the reference wave function, uncontracted
+ ! MRCISD requires a CASCI calculation
+ need_casci = .false.
+ if(CtrType==1 .and. nacte==nacto .and. nacto==imult-1) need_casci = .true.
 
  call find_orca_ver(orca_path, iver)
  call find_specified_suffix(inpname1, '.inp', i)
@@ -424,12 +436,15 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
  write(fid2,'(A)') '! NoIter'
- write(fid2,'(A)') '%casscf'
- write(fid2,'(A,I0)') ' nel ', nacte
- write(fid2,'(A,I0)') ' norb ', nacto
- if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
- call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
- write(fid2,'(A)') 'end'
+
+ if(need_casci) then
+  write(fid2,'(A)') '%casscf'
+  write(fid2,'(A,I0)') ' nel ', nacte
+  write(fid2,'(A,I0)') ' norb ', nacto
+  if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
+  call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
+  write(fid2,'(A)') 'end'
+ end if
 
  if(DKH2) then
   write(fid2,'(A)') '%rel'
@@ -445,8 +460,8 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  if(CtrType == 1) then ! uncontracted MRCISD
   write(fid2,'(A)') '%mrci'
   write(fid2,'(A)') ' CItype MRCI'
-  write(fid2,'(3(A,I0),A)') ' NewBlock ',mult,' * nroots 1 refs cas(',nacte,&
-                            ',',nacto,') end end'
+  write(fid2,'(3(A,I0),A)') ' NewBlock ',imult,' * nroots 1 refs cas(',nacte, &
+                            ',', nacto,') end end'
   write(fid2,'(A)') ' tsel 0.0'
   write(fid2,'(A)') ' tpre 0.0'
   write(fid2,'(A)') ' Etol 1e-7'
@@ -470,7 +485,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
   end if
   write(fid2,'(A,I0)') ' nel ',  nacte
   write(fid2,'(A,I0)') ' norb ', nacto
-  write(fid2,'(A,I0)') ' mult ', mult
+  write(fid2,'(A,I0)') ' mult ', imult
   write(fid2,'(A)') ' nroots 1'
   write(fid2,'(A)') ' DavidsonOpt 1'
   ! NGuessMat can only be used in ORCA 6

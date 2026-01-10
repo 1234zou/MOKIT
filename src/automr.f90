@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc16 :: MOKIT, release date: 2026-Jan-5'
+  write(6,'(A)') 'AutoMR 1.2.7rc17 :: MOKIT, release date: 2026-Jan-10'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -342,6 +342,11 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid,'(A)') "    print(f'npair, npair_eff = {npair}, {npair_eff}')"
  write(fid,'(A)') "    raise ValueError('This case can hardly be seen. More check is needed.')"
  write(fid,'(A)') '  npair = npair_eff'
+ write(fid,'(A)') '  if nopen > 1: # localize singly occupied MOs'
+ write(fid,'(A)') '    sidx = range(nb,na)'
+ write(fid,'(A)') "    lmo = loc_driver(mol,new_mo[:,sidx],method='pm',lmo_ini=&
+                  &new_mo[:,sidx],ao_ovlp=S)"
+ write(fid,'(A)') '    new_mo[:,sidx] = lmo.copy()'
  write(fid,'(A)') '  # save the paired LMOs into .fch file'
  write(fid,'(A)') '  copyfile(hf_fch, loc_fch)'
  write(fid,'(A)') "  py2fch(loc_fch, nbf, nif, new_mo, 'a', mo_occ, False, False)"
@@ -370,6 +375,11 @@ subroutine prt_rhf_proj_script_into_py(pyname)
  write(fid,'(A)') '  # update ev[na:]'
  write(fid,'(A)') '  ev_vir = get_Fii(mo[:,na:], new_mo[:,na:], S, ev[na:])'
  write(fid,'(A)') '  ev[na:] = ev_vir.copy()'
+ write(fid,'(A)') '  if nopen > 1: # localize singly occupied MOs'
+ write(fid,'(A)') '    sidx = range(nb,na)'
+ write(fid,'(A)') "    lmo = loc_driver(mol,new_mo[:,sidx],method='pm',lmo_ini=&
+                  &new_mo[:,sidx],ao_ovlp=S)"
+ write(fid,'(A)') '    new_mo[:,sidx] = lmo.copy()'
  write(fid,'(A)') '  copyfile(hf_fch, loc_fch)'
  write(fid,'(A)') "  py2fch(loc_fch, nbf, nif, new_mo, 'a', ev, False, False)"
  !write(fid,'(A,/)') '  npair = npair_wish'
@@ -616,8 +626,13 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid1,'(A)') 'na, nb = read_na_and_nb_from_fch(hf_fch)'
  write(fid1,'(A,E12.5,A)') 'idx,noon,alpha_coeff = uno(uno_out,nbf,nif,na,nb,mf&
   &.mo_coeff[0],mf.mo_coeff[1],S,',uno_thres,')'
- write(fid1,'(A)') 'alpha_coeff = construct_vir(nbf,nif,idx[1],alpha_coeff,S)'
- write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, alpha_coeff)'
+ write(fid1,'(A)') 'new_mo = construct_vir(nbf,nif,idx[1],alpha_coeff,S)'
+ write(fid1,'(A)') 'if na-nb > 1: # localize singly occupied MOs'
+ write(fid1,'(A)') '  sidx = range(nb,na)'
+ write(fid1,'(A)') "  lmo = loc_driver(mol,new_mo[:,sidx],method='pm',lmo_ini=n&
+                   &ew_mo[:,sidx],ao_ovlp=S)"
+ write(fid1,'(A)') '  new_mo[:,sidx] = lmo.copy()'
+ write(fid1,'(A)') 'mf.mo_coeff = np.array((new_mo, new_mo))'
  write(fid1,'(A)') '# done transform'
 
  write(fid1,'(/,A)') '# save the UNO into .fch file'

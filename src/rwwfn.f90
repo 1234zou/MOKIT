@@ -1825,7 +1825,7 @@ subroutine fch_r2u(fchname, ibrosym)
  allocate(e_a(nif), mo_a(nbf,nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', e_a)
  call read_mo_from_fch(fchname, nbf, nif, 'a', mo_a)
- write(6,'(A,I0)') 'ibrosym=', ibrosym
+ !write(6,'(A,I0)') 'ibrosym=', ibrosym
 
  if(ibrosym > 0) then
   i = MINVAL([na, nb, nif-na, nif-nb])

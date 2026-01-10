@@ -194,7 +194,7 @@ def mo_fch2py(fchname):
     elif ihf == 2:         # real UHF
         mo_a = fch2py(fchname, nbf, nif, 'a')
         mo_b = fch2py(fchname, nbf, nif, 'b')
-        mo = (mo_a, mo_b)
+        mo = np.array((mo_a, mo_b))
     elif ihf == 7:         # complex GHF
         mo = fch2py_cghf(fchname, 2*nbf, 2*nif)
     else:
@@ -226,8 +226,11 @@ def loc_driver(mol, mo, method='pm', lmo_ini=None, ao_ovlp=None, ao_dip=None,
         nmo1, lmo_ini = gen_loc_ini_guess(natom, nbf, nmo, chosen, bfirst, S, mo)
 
     if method == 'pm':
-        if lmo_ini is not None:
-            S = mol.intor_symmetric('int1e_ovlp')
+        if S is None:
+            if ao_ovlp is None:
+                S = mol.intor_symmetric('int1e_ovlp')
+            else:
+                S = ao_ovlp
         lmo = pm(natom,nbf,nmo,bfirst,dis,lmo_ini,S,'mulliken',dis_tol,conv_tol)
     elif method == 'boys':
         if ao_dip is None:
@@ -511,14 +514,18 @@ def uno(fchname):
     os.rename(fchname0, fchname1)
     nbf, nif = read_nbf_and_nif_from_fch(fchname)
     na, nb = read_na_and_nb_from_fch(fchname)
-    alpha_mo = fch2py(fchname, nbf, nif, 'a')
-    beta_mo  = fch2py(fchname, nbf, nif, 'b')
+    mo_a = fch2py(fchname, nbf, nif, 'a')
+    mo_b = fch2py(fchname, nbf, nif, 'b')
     mol = load_mol_from_fch(fchname)
     S = mol.intor_symmetric('int1e_ovlp')
-    idx, noon, alpha_coeff = uhf_no(outname,nbf,nif,na,nb,alpha_mo,beta_mo,S,1e-5)
-    alpha_coeff = construct_vir(nbf, nif, idx[1], alpha_coeff, S)
+    idx, noon, alpha_coeff = uhf_no(outname,nbf,nif,na,nb,mo_a,mo_b,S,1e-5)
+    new_mo = construct_vir(nbf, nif, idx[1], alpha_coeff, S)
+    if na-nb > 1: # localize singly occupied MOs
+        idx = range(nb,na)
+        lmo = loc_driver(mol,new_mo[:,idx],method='pm',lmo_ini=new_mo[:,idx],ao_ovlp=S)
+        new_mo[:,idx] = lmo.copy()
     os.remove(outname)
-    py2fch(fchname1, nbf, nif, alpha_coeff, 'a', noon, True, True)
+    py2fch(fchname1, nbf, nif, new_mo, 'a', noon, True, True)
     print('UNOs exported to file '+fchname1)
 
 

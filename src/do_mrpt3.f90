@@ -167,8 +167,8 @@ subroutine prt_nevpt34_orca_inp(inpname, nevpt4)
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 
- read(fid1,'(A)') buf   ! skip nproc
- read(fid1,'(A)') buf   ! skip memory
+ read(fid1,'(A)') buf   ! assuming nproc and skip
+ read(fid1,'(A)') buf   ! assuming memory and skip
  write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
  write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
 

@@ -370,10 +370,12 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   frag_char_mult
  use mr_keyword, only: mem, nproc, basis, cart, dkh2_or_x2c, frag_guess, basname,&
   origin_gjf=>gjfname
+ use util_wrapper, only: unfchk
  implicit none
- integer :: i, fid
+ integer :: i, fid, RENAME
+ integer, parameter :: ibrosym = 1
  character(len=21) :: basis1
- character(len=240) :: chkname
+ character(len=240) :: chkname, fchname, rhf_fch, bs_fch
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: uhf, noiter
  logical :: create, def2_ecp
@@ -389,8 +391,19 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  def2_ecp = .false.
  if(basis(1:6)=='ma-def' .and. ANY(nuc>36)) def2_ecp = .true.
 
- i = INDEX(gjfname, '.gjf', back=.true.)
+ call find_specified_suffix(gjfname, '.gjf', i)
  chkname = gjfname(1:i-1)//'.chk'
+ fchname = gjfname(1:i-1)//'.fch'
+
+ if(uhf .and. mult==1) then
+  call find_specified_suffix(gjfname, '_uhf.gjf', i)
+  rhf_fch = gjfname(1:i-1)//'_rhf.fch'
+  bs_fch = gjfname(1:i-1)//'_rhf_u.fch'
+  call fch_r2u(rhf_fch, ibrosym)
+  i = RENAME(TRIM(bs_fch), TRIM(fchname))
+  call unfchk(fchname)
+  call delete_file(TRIM(fchname))
+ end if
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
  write(fid,'(A)') '%chk='//TRIM(chkname)
@@ -424,9 +437,9 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   if(.not. frag_guess) then
    if(mult == 1) then
     if(noiter) then
-     write(fid,'(A)',advance='no') ' guess(mix,only,save)'
+     write(fid,'(A)',advance='no') ' guess(read,only,save)'
     else
-     write(fid,'(A)',advance='no') ' guess=mix stable=opt'
+     write(fid,'(A)',advance='no') ' guess=read stable=opt'
     end if
    else ! mult /= 1
     if(noiter) then
@@ -437,10 +450,18 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
    end if
   end if
  else         ! RHF/ROHF
-  write(fid,'(A)',advance='no') ' R'
-  if(mult > 1) write(fid,'(A)',advance='no') 'O'
-  write(fid,'(A)',advance='no') 'HF/'//TRIM(basis1)
-  if(noiter) write(fid,'(A)',advance='no') ' guess(only,save)'
+  if(mult == 1) then
+   write(fid,'(A)',advance='no') ' RHF'
+  else
+   write(fid,'(A)',advance='no') ' ROHF'
+  end if
+  write(fid,'(A)',advance='no') '/'//TRIM(basis1)
+  if(noiter) then
+   write(fid,'(A)',advance='no') ' guess(only,save)'
+  else
+   ! For RHF, check RHF internal stability
+   if(mult == 1) write(fid,'(A)',advance='no') ' stable(rrhf,opt)'
+  end if
  end if
 
  if(cart) then
@@ -524,15 +545,16 @@ end subroutine gen_hf_gjf
 ! generate a PySCF RHF/UHF .py file
 subroutine gen_hf_pyscf_inp(pyname, uhf)
  use mol, only: charge, mult, natom, nuc, elem, coor
- use mr_keyword, only: mem, nproc, basis, cart, dkh2_or_x2c, frag_guess, basname,&
-  gjfname
+ use mr_keyword, only: mem, nproc, basis, cart, RI, dkh2_or_x2c, frag_guess, &
+  basname, gjfname
  implicit none
- integer :: i, fid
+ integer :: i, fid, RENAME
+ integer, parameter :: ibrosym = 1
  character(len=21) :: basis1
- character(len=240) :: fchname
+ character(len=240) :: rhf_fch, bs_fch, fchname
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: uhf
- logical :: create
+ logical :: create, os_singlet
 
  if(frag_guess) then
   write(6,'(/,A)') 'ERROR in subroutine gen_hf_pyscf_inp: frag_guess is current&
@@ -549,21 +571,36 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  call find_specified_suffix(pyname, '.py', i)
  fchname = pyname(1:i-1)//'.fch'
 
+ ! For open-shell singlet calculation, generate broken symmetry initial guess
+ ! by duplicating RHF MOs and do `guess=mix`
+ os_singlet = .false.
+ if(uhf .and. mult==1) then
+  os_singlet = .true.
+  call find_specified_suffix(pyname, '_uhf.py', i)
+  rhf_fch = pyname(1:i-1)//'_rhf.fch'
+  bs_fch = pyname(1:i-1)//'_rhf_u.fch'
+  call fch_r2u(rhf_fch, ibrosym)
+  i = RENAME(TRIM(bs_fch), TRIM(fchname))
+ end if
+
  open(newunit=fid,file=TRIM(pyname),status='replace')
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  write(fid,'(A)') 'from mokit.lib.rwwfn import get_nmo_from_ao_ovlp'
+
  if(uhf) then
-  write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
+  write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   if(mult == 1) then
-   write(fid,'(A)') 'from mokit.lib.rwwfn import gen_no_from_dm_and_ao_ovlp, \'
-   write(fid,'(A)') '                            calc_dm_using_mo_and_on'
-   write(fid,'(A)') 'from math import sqrt'
+   write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, rea&
+                    &d_na_and_nb_from_fch, get_occ_from_na_nb2'
+   write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
    write(fid,'(A)') 'import numpy as np'
   end if
  else
-  if(mult > 1) then
+  if(mult == 1) then
+   write(fid,'(A)') 'from mokit.lib.stability import rhf_stable_opt_internal'
+  else
    write(fid,'(A)') 'from mokit.lib.stability import rohf_stable_opt_internal'
   end if
  end if
@@ -611,6 +648,16 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  else
   write(fid,'(A)') '(mol)'
  end if
+
+ ! For sfX2C1e RIJK calculation, currently it seems that there is no x2c/JK
+ ! basis set published. The Coulomb fitting aux basis x2c/J from ORCA could be
+ ! used. But after testing on the ethanol molecule, I found that it is less
+ ! accurate than the result using even tempered gaussian functions. So we use
+ ! `.density_fit()` directly.
+ ! For non-relativistic calculations, more detailed controls for aux basis might
+ ! be considered in the future.
+ if(RI) write(fid,'(A)') 'mf = mf.density_fit()'
+
  write(fid,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
  write(fid,'(A)') 'mf.max_cycle = 128'
 
@@ -622,19 +669,17 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  write(fid,'(A)') '  mf2 = mf.copy()'
  write(fid,'(A)') '  mf = scf.remove_linear_dep_(mf2, threshold=1e-6, lindep=1e-6)'
 
- if(uhf .and. mult==1) then
-  ! For singlet UHF, construct broken symm initial guess
-  write(fid,'(A)') 'dm_a, dm_b = mf.get_init_guess()'
-  write(fid,'(A)') 'occ_a, mo_a = gen_no_from_dm_and_ao_ovlp(nbf, nif, dm_a, S)'
-  write(fid,'(A)') 'ndb = np.count_nonzero(occ_a > 0.5)'
-  write(fid,'(A)') 'occ_a[0:ndb] = 1.0'
-  write(fid,'(A)') 'occ_a[ndb:] = 0.0'
-  write(fid,'(A)') 'homo = mo_a[:,ndb-1].copy()'
-  write(fid,'(A)') 'lumo = mo_a[:,ndb].copy()'
-  write(fid,'(A)') 'mo_a[:,ndb-1] = lumo.copy()'
-  write(fid,'(A)') 'mo_a[:,ndb]   = homo.copy()'
-  write(fid,'(A)') 'dm_b = calc_dm_using_mo_and_on(nbf, nif, mo_a, occ_a)'
-  write(fid,'(A)') 'dm = (dm_a, dm_b)'
+ if(os_singlet) then
+  write(fid,'(/,A)') '# use broken symmetry initial guess generated from duplic&
+                     &ating RHF'
+  write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
+  write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(uhf_fch)'
+  write(fid,'(A)') "coeff_a = fch2py(uhf_fch, nbf, nif, 'a')"
+  write(fid,'(A)') "coeff_b = fch2py(uhf_fch, nbf, nif, 'b')"
+  write(fid,'(A)') 'mo_coeff = np.array((coeff_a, coeff_b))'
+  write(fid,'(A)') 'na, nb = read_na_and_nb_from_fch(uhf_fch)'
+  write(fid,'(A)') 'mo_occ = get_occ_from_na_nb2(nif, na, nb)'
+  write(fid,'(A)') 'dm = mf.make_rdm1(mo_coeff, mo_occ)'
   write(fid,'(A)') 'mf.kernel(dm0=dm)'
  else
   write(fid,'(A)') 'mf.kernel()'
@@ -643,28 +688,30 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  ! If normal SCF is unconverged, use the Newton method to continue
  write(fid,'(/,A)') 'if mf.converged is False:'
  write(fid,'(A)')   '  mf = mf.newton()'
- write(fid,'(A,/)') '  mf.kernel()'
+ write(fid,'(A)')   '  mf.kernel()'
 
- if(uhf) then       ! UHF
-  write(fid,'(A)') '# stable=opt'
+ if(uhf) then ! UHF
+  write(fid,'(/,A)') '# stable=opt'
   write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
-  write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
+  if(mult > 1) write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
   write(fid,'(A)') 'fchk(mf, uhf_fch)'
   write(fid,'(A)') 'update_density_using_mo_in_fch(uhf_fch)'
- else
-  if(mult > 1) then ! ROHF
-   write(fid,'(A)') '# stable=opt'
+ else         ! not UHF
+  if(mult == 1) then ! RHF
+   write(fid,'(/,A)') 'if mf.converged is False:'
+   write(fid,'(A)') "  raise OSError('PySCF R(O)HF job failed.')"
+   write(fid,'(/,A)') '# stable=opt'
+   write(fid,'(A)') 'mf = rhf_stable_opt_internal(mf)'
+   write(fid,'(/,A)') '# save R(O)HF MOs into .fch file'
+   write(fid,'(A)') "fchk(mf, '"//TRIM(fchname)//"', density=True)"
+  else               ! ROHF
+   write(fid,'(/,A)') '# stable=opt'
    write(fid,'(A)') 'mf = rohf_stable_opt_internal(mf)'
    write(fid,'(/,A)') '# save ROHF MOs into .fch file'
    write(fid,'(A)') "rohf_fch = '"//TRIM(fchname)//"'"
    write(fid,'(A)') 'fchk(mf, rohf_fch)'
    write(fid,'(A)') 'update_density_using_mo_in_fch(rohf_fch)'
-  else              ! RHF
-   write(fid,'(A)') 'if mf.converged is False:'
-   write(fid,'(A)') "  raise OSError('PySCF R(O)HF job failed.')"
-   write(fid,'(/,A)') '# save R(O)HF MOs into .fch file'
-   write(fid,'(A)') "fchk(mf, '"//TRIM(fchname)//"', density=True)"
   end if
  end if
 
@@ -869,7 +916,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
    if(DKH2) then
     call add_DKH2_into_fch(fchname)
    else if(X2C) then
-    call add_X2C_into_fch(fchname)
+    call add_x2c_into_fch(fchname)
    end if
   end if
 
@@ -881,7 +928,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
 
  call find_specified_suffix(hf_prog_path, '/', i)
  prog_name = TRIM(hf_prog_path(i+1:))
- if(X2C) call add_X2C_into_fch(fchname)
+ if(X2C) call add_x2c_into_fch(fchname)
 
  select case(prog_name)
  case('psi4')

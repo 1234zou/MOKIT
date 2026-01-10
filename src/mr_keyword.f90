@@ -314,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc16 (2026-Jan-5)'
+ write(6,'(A)') '           Version: 1.2.7rc17 (2026-Jan-10)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1151,9 +1151,9 @@ subroutine check_kywd_compatible()
  end if
 
  if(RI) then
-  if(DKH2 .or. X2C) then
-   write(6,'(/,A)') error_warn//'currently RI cannot be applied in DKH2/X2C co&
-                   &mputations.'
+  if(DKH2) then
+   write(6,'(/,A)') error_warn//'currently RI cannot be applied in DKH2 computa&
+                   &tions.'
    stop
   end if
 
@@ -2270,7 +2270,7 @@ subroutine check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
  if(DKH2) then
   call add_DKH2_into_fch(hf_fch)
  else if(X2C) then
-  call add_X2C_into_fch(hf_fch)
+  call add_x2c_into_fch(hf_fch)
  else
   call find_irel_in_fch(hf_fch, i)
   if(i == -3) then

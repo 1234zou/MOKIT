@@ -361,16 +361,17 @@ end subroutine add_DKH2_into_fch
 ! Note: Obviously, Gaussian cannot use X2C. This is just for other utilities to
 !  recognize the X2C keyword, so that other utilities can add related keywords
 !  when generating input files of other programs
-subroutine add_X2C_into_fch(fchname)
+subroutine add_x2c_into_fch(fchname)
  implicit none
  integer :: i, j, k, nline, nterm, fid, fid1, RENAME
  character(len=240) :: buf, fchname1
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
  character(len=1200) :: longbuf, longbuf1
  logical :: no_route
 
- buf = ' '; longbuf = ' '; nterm = 0
- i = INDEX(fchname, '.fch', back=.true.)
+ buf = ' '; longbuf = ' '; longbuf1 = ' '; nterm = 0
+ call find_specified_suffix(fchname, '.fch', i)
  fchname1 = fchname(1:i-1)//'.t'
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
@@ -394,7 +395,7 @@ subroutine add_X2C_into_fch(fchname)
   write(fid1,'(A)') '#p int(nobasistransform,X2C) nosymm'
  else
   if(i /= 0) then
-   write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch file.'
+   write(6,'(/,A)') 'ERROR in subroutine add_x2c_into_fch: incomplete .fch file.'
    write(6,'(A)') "Neither 'Route' nor 'Charge' is detected in file "//TRIM(fchname)
    close(fid)
    close(fid1,status='delete')
@@ -409,7 +410,7 @@ subroutine add_X2C_into_fch(fchname)
    end do ! for while
 
    if(i /= 0) then
-    write(6,'(A)') 'ERROR in subroutine add_X2C_into_fch: incomplete .fch file.'
+    write(6,'(/,A)') 'ERROR in subroutine add_x2c_into_fch: incomplete .fch file.'
     write(6,'(A)') "No 'Charge' is detected in file "//TRIM(fchname)
     close(fid)
     close(fid1,status='delete')
@@ -417,12 +418,15 @@ subroutine add_X2C_into_fch(fchname)
    else
     longbuf1 = longbuf
     call upper(longbuf1)
-    j = INDEX(longbuf1, 'DKH'); k = INDEX(longbuf1, 'NODKH')
-    if(j/=0 .and. k==0) then
-     longbuf(j:j+2) = 'X2C'
-    else
-     nterm = nterm + 1
-     longbuf = TRIM(longbuf)//' int=X2C'
+    if( INDEX(TRIM(longbuf1),'INT=X2C')==0 .and. &
+        INDEX(TRIM(longbuf1),'INT(NOBASISTRANSFORM,X2C)')==0 ) then
+     j = INDEX(longbuf1, 'DKH'); k = INDEX(longbuf1, 'NODKH')
+     if(j/=0 .and. k==0) then
+      longbuf(j:j+2) = 'X2C'
+     else
+      nterm = nterm + 1
+      longbuf = TRIM(longbuf)//' int=X2C'
+     end if
     end if
     write(fid1,'(A5,38X,A,I2)') 'Route','C   N=          ', nterm
     k = LEN_TRIM(longbuf)
@@ -447,7 +451,7 @@ subroutine add_X2C_into_fch(fchname)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(fchname1), TRIM(fchname))
-end subroutine add_X2C_into_fch
+end subroutine add_x2c_into_fch
 
 ! read the Route section from a specified .fch(k) file
 subroutine read_route_from_fch(fchname, route)
@@ -827,6 +831,7 @@ subroutine add_hyphen_for_elem_in_basfile(basname)
  character(len=7) :: str
  character(len=240) :: buf0, buf, basname1
  character(len=240), intent(in) :: basname
+!f2py intent(in) :: basname
 
  basname1 = TRIM(basname)//'.t'
  open(newunit=fid,file=TRIM(basname),status='old',position='rewind')
@@ -894,6 +899,7 @@ subroutine del_hyphen_for_elem_in_basfile(basname)
  integer :: i, fid, fid1, RENAME
  character(len=240) :: basname1
  character(len=240), intent(in) :: basname
+!f2py intent(in) :: basname
  character(len=300) :: buf
 
  basname1 = TRIM(basname)//'.t'

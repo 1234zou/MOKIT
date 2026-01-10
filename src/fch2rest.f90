@@ -8,7 +8,7 @@ program main
  implicit none
  integer :: i, k, disp_type ! 0/1/2/3 for none/D3/D3BJ/D4
  character(len=4) :: str4
- character(len=15) :: dftname
+ character(len=15) :: dftname, dftname1
  character(len=27), parameter :: error_warn = 'ERROR in prorgam fch2rest: '
  character(len=240) :: fchname
  logical :: is_hf, rotype, untype
@@ -95,6 +95,23 @@ program main
   call formchk(fchname)
   fchname = fchname(1:i-3)//'fch'
  end if
+
+ dftname1 = dftname
+ call upper(dftname1)
+ select case(TRIM(dftname1))
+ case('M052X')
+  dftname = 'M05-2X'
+ case('M062X')
+  dftname = 'M06-2X'
+ case('M06L')
+  dftname = 'M06-L'
+ case('MN15L')
+  dftname = 'MN15-L'
+ case('XDHPBE0')
+  dftname = 'xDH-PBE0'
+ case('RXDH7')
+  dftname = 'R-xDH7'
+ end select
 
  call fch2rest(fchname, dftname, disp_type)
 end program main

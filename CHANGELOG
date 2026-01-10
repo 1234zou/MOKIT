@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc16 (Jan 5, 2026)
+MOKIT 1.2.7rc16 (Jan 10, 2026)
 ------------------------
 Fixes
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
@@ -64,6 +64,9 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* always localize singly occupied MOs for `_loc_pair.fch` and `_asrot.fch` when nopen > 1
+* invoke the check of RHF internal stability and stable=opt for HF_prog=Gaussian/PySCF
+* use broken symmetry initial guess for singlet UHF by duplicating RHF MOs and do `guess=mix`
 * add `-I$(PWD)` into `F2_FLAGS` in all Makefile
 * remove `bse` dependency in bas_fch2py and fch2rest
 * support negative contraction coefficients for a CGTO with a single primitive Gaussian

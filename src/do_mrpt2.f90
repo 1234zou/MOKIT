@@ -596,7 +596,6 @@ subroutine prt_nevpt2_orca_inp(inpname)
  write(fid2,'(A)') '%casscf'
  write(fid2,'(1X,A,I0)') 'nel ', nacte
  write(fid2,'(1X,A,I0)') 'norb ', nacto
- !write(fid2,'(1X,A,I0)') 'maxiter 1'
  if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
  call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
 
@@ -668,7 +667,6 @@ subroutine prt_caspt2_orca_inp(inpname)
  write(fid2,'(A)') '%casscf'
  write(fid2,'(A,I0)') ' nel ', nacte
  write(fid2,'(A,I0)') ' norb ', nacto
- !write(fid2,'(A,I0)') ' maxiter 1'
  if(iroot > 0) call prt_orca_ss_cas_weight(fid2, mult, xmult, iroot)
  call prt_hard_or_crazy_casci_orca(1, fid2, hardwfn, crazywfn)
 

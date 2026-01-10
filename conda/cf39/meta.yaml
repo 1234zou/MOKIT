@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 4
+  number: 1
   string: "np{{ CONDA_NPY }}py{{ CONDA_PY }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:

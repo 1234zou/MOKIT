@@ -21,97 +21,149 @@ from pyscf.scf import hf
 from pyscf.soscf import newton_ah
 import numpy as np
 
+MAX_CYCLE = 200
+
+
 def _rotate_mo(mo_coeff, mo_occ, dx):
-  dr = hf.unpack_uniq_var(dx, mo_occ)
-  u = newton_ah.expmat(dr)
-  return np.dot(mo_coeff, u)
+    dr = hf.unpack_uniq_var(dx, mo_occ)
+    u = newton_ah.expmat(dr)
+    return np.dot(mo_coeff, u)
+
+
+def rhf_internal(mf, tol=1e-7, verbose=None):
+    log = lib.logger.new_logger(mf, verbose)
+    g, hop, hdiag = newton_ah.gen_g_hop_rhf(mf, mf.mo_coeff, mf.mo_occ,
+                                            with_symmetry=True)
+    hdiag *= 2
+    stable = True
+
+    def precond(dx, e, x0):
+        hdiagd = hdiag - e
+        hdiagd[abs(hdiagd)<1e-8] = 1e-8
+        return dx/hdiagd
+
+    def hessian_x(x):
+        return hop(x).real * 2
+
+    x0 = np.zeros_like(g)
+    x0[g!=0] = 1. / hdiag[g!=0]
+    e, v = lib.davidson(hessian_x, x0, precond, tol=tol, max_cycle=MAX_CYCLE, verbose=log)
+    if e < -1e-5:
+        log.note(f'{mf.__class__} wavefunction has an internal instability.')
+        mo = _rotate_mo(mf.mo_coeff, mf.mo_occ, v)
+        stable = False
+    else:
+        log.note(f'{mf.__class__} wavefunction is stable in the internal '
+                 'stability analysis')
+        mo = mf.mo_coeff
+    return mo, stable
+
 
 def rohf_internal(mf, tol=1e-7, verbose=None):
-  log = lib.logger.new_logger(mf, verbose)
-  g, hop, hdiag = newton_ah.gen_g_hop_rohf(mf, mf.mo_coeff, mf.mo_occ,
-                                           with_symmetry=True)
-  hdiag *= 2
-  stable = True
+    log = lib.logger.new_logger(mf, verbose)
+    g, hop, hdiag = newton_ah.gen_g_hop_rohf(mf, mf.mo_coeff, mf.mo_occ,
+                                             with_symmetry=True)
+    hdiag *= 2
+    stable = True
 
-  def precond(dx, e, x0):
-    hdiagd = hdiag - e
-    hdiagd[abs(hdiagd)<1e-8] = 1e-8
-    return dx/hdiagd
+    def precond(dx, e, x0):
+        hdiagd = hdiag - e
+        hdiagd[abs(hdiagd)<1e-8] = 1e-8
+        return dx/hdiagd
 
-  def hessian_x(x): # See comments in function rhf_internal
-    return hop(x).real * 2
+    def hessian_x(x): # See comments in function rhf_internal
+        return hop(x).real * 2
 
-  x0 = np.zeros_like(g)
-  x0[g!=0] = 1. / hdiag[g!=0]
-  e, v = lib.davidson(hessian_x, x0, precond, tol=tol, verbose=log)
-  if e < -1e-5:
-    log.note(f'{mf.__class__} wavefunction has an internal instability.')
-    mo = _rotate_mo(mf.mo_coeff, mf.mo_occ, v)
-    stable = False
-  else:
-    log.note(f'{mf.__class__} wavefunction is stable in the internal '
-             'stability analysis')
-    mo = mf.mo_coeff
-  return mo, stable
+    x0 = np.zeros_like(g)
+    x0[g!=0] = 1. / hdiag[g!=0]
+    e, v = lib.davidson(hessian_x, x0, precond, tol=tol, max_cycle=MAX_CYCLE, verbose=log)
+    if e < -1e-5:
+        log.note(f'{mf.__class__} wavefunction has an internal instability.')
+        mo = _rotate_mo(mf.mo_coeff, mf.mo_occ, v)
+        stable = False
+    else:
+        log.note(f'{mf.__class__} wavefunction is stable in the internal '
+                 'stability analysis')
+        mo = mf.mo_coeff
+    return mo, stable
+
 
 def uhf_internal(mf, tol=1e-7, verbose=None):
-  log = lib.logger.new_logger(mf, verbose)
-  g, hop, hdiag = newton_ah.gen_g_hop_uhf(mf, mf.mo_coeff, mf.mo_occ,
-                                          with_symmetry=True)
-  hdiag *= 2
-  stable = True
+    log = lib.logger.new_logger(mf, verbose)
+    g, hop, hdiag = newton_ah.gen_g_hop_uhf(mf, mf.mo_coeff, mf.mo_occ,
+                                            with_symmetry=True)
+    hdiag *= 2
+    stable = True
 
-  def precond(dx, e, x0):
-    hdiagd = hdiag - e
-    hdiagd[abs(hdiagd)<1e-8] = 1e-8
-    return dx/hdiagd
+    def precond(dx, e, x0):
+        hdiagd = hdiag - e
+        hdiagd[abs(hdiagd)<1e-8] = 1e-8
+        return dx/hdiagd
 
-  def hessian_x(x):
-    return hop(x).real * 2
+    def hessian_x(x):
+        return hop(x).real * 2
 
-  x0 = np.zeros_like(g)
-  x0[g!=0] = 1. / hdiag[g!=0]
-  e, v = lib.davidson(hessian_x, x0, precond, tol=tol, verbose=log)
-  if e < -1e-5:
-    log.note(f'{mf.__class__} wavefunction has an internal instability.')
-    nocca = np.count_nonzero(mf.mo_occ[0]> 0)
-    nvira = np.count_nonzero(mf.mo_occ[0]==0)
-    mo = (_rotate_mo(mf.mo_coeff[0], mf.mo_occ[0], v[:nocca*nvira]),
-          _rotate_mo(mf.mo_coeff[1], mf.mo_occ[1], v[nocca*nvira:]))
-    stable = False
-  else:
-    log.note(f'{mf.__class__} wavefunction is stable in the internal '
-             'stability analysis')
-    mo = mf.mo_coeff
-  return mo, stable
+    x0 = np.zeros_like(g)
+    x0[g!=0] = 1. / hdiag[g!=0]
+    e, v = lib.davidson(hessian_x, x0, precond, tol=tol, max_cycle=MAX_CYCLE, verbose=log)
+    if e < -1e-5:
+        log.note(f'{mf.__class__} wavefunction has an internal instability.')
+        nocca = np.count_nonzero(mf.mo_occ[0]> 0)
+        nvira = np.count_nonzero(mf.mo_occ[0]==0)
+        mo = (_rotate_mo(mf.mo_coeff[0], mf.mo_occ[0], v[:nocca*nvira]),
+              _rotate_mo(mf.mo_coeff[1], mf.mo_occ[1], v[nocca*nvira:]))
+        stable = False
+    else:
+        log.note(f'{mf.__class__} wavefunction is stable in the internal '
+                 'stability analysis')
+        mo = mf.mo_coeff
+    return mo, stable
+
+
+def rhf_stable_opt_internal(mf):
+    i = 0
+    while (i < 10):
+        i += 1
+        mo, stable = rhf_internal(mf, verbose=5)
+        if (stable):
+            break
+        else:
+            dm = mf.make_rdm1(mo, mf.mo_occ)
+            mf = mf.newton()
+            mf.kernel(dm0=dm)
+    if not stable:
+        raise OSError('PySCF RHF stable=opt failed after 10 attempts.')
+    return mf
+
 
 def rohf_stable_opt_internal(mf):
-  i = 0
-  while (i < 10):
-    i += 1
-    mo, stable = rohf_internal(mf, verbose=5)
-    if (stable):
-      break
-    else:
-      dm = mf.make_rdm1(mo, mf.mo_occ)
-      mf = mf.newton()
-      mf.kernel(dm0=dm)
-  if not stable:
-    raise OSError('PySCF ROHF stable=opt failed after 10 attempts.')
-  return mf
+    i = 0
+    while (i < 10):
+        i += 1
+        mo, stable = rohf_internal(mf, verbose=5)
+        if (stable):
+            break
+        else:
+            dm = mf.make_rdm1(mo, mf.mo_occ)
+            mf = mf.newton()
+            mf.kernel(dm0=dm)
+    if not stable:
+        raise OSError('PySCF ROHF stable=opt failed after 10 attempts.')
+    return mf
+
 
 def uhf_stable_opt_internal(mf):
-  i = 0
-  while (i < 10):
-    i += 1
-    mo, stable = uhf_internal(mf, verbose=5)
-    if (stable):
-      break
-    else:
-      dm = mf.make_rdm1(mo, mf.mo_occ)
-      mf = mf.newton()
-      mf.kernel(dm0=dm)
-  if not stable:
-    raise OSError('PySCF UHF stable=opt failed after 10 attempts.')
-  return mf
+    i = 0
+    while (i < 10):
+        i += 1
+        mo, stable = uhf_internal(mf, verbose=5)
+        if (stable):
+            break
+        else:
+            dm = mf.make_rdm1(mo, mf.mo_occ)
+            mf = mf.newton()
+            mf.kernel(dm0=dm)
+    if not stable:
+        raise OSError('PySCF UHF stable=opt failed after 10 attempts.')
+    return mf
 

@@ -2072,7 +2072,7 @@ subroutine solve_ovlp_from_cct(nbf, C, S)
  deallocate(cct)
 end subroutine solve_ovlp_from_cct
 
-! solve AO-based Fock matrix (F) from condition (C^T)FC=E
+! solve AO-based Fock matrix (F) from equation (C^T)FC=E
 subroutine solve_fock_from_ctfc(nbf, nif, C, E, F)
  implicit none
  integer :: i
