@@ -288,6 +288,7 @@ subroutine bas_gms2py(inpname, cart, pbc, obj_only)
                                                 so_coeff
      case default
       write(6,'(/,A,I0)') 'ERROR in subroutine bas_gms2py: invalid p=', p
+      write(6,'(2(A,I0))') 'nline=', nline, ', i=', i
       stop
      end select
     end do ! for i

@@ -171,10 +171,6 @@ subroutine prt_suhf_script_into_py(pyname)
 !  write(fid1,'(A)') 'mf.mo_coeff = (alpha_coeff, alpha_coeff)'
 !  write(fid1,'(A)') '# done transform'
 
- !write(fid1,'(A)') "os.system('fch_u2r "//TRIM(hf_fch)//' '//TRIM(uno_fch)//"')"
- !write(fid1,'(A)') 'sleep(1) # in some node, py2fch begins when fch_u2r unfinished'
- ! Thanks to the suggestion of Kalinite. The problem in the above two lines
- ! does not exist now.
  write(fid1,'(A)') "with os.popen('fch_u2r '+hf_fch+' '+suno_fch) as run:"
  write(fid1,'(A)') '  null = run.read()'
  write(fid1,'(A)') "py2fch(suno_fch,nbf,nif,suno,'a',sunoon,True,True)"

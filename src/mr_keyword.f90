@@ -314,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc17 (2026-Jan-10)'
+ write(6,'(A)') '           Version: 1.2.7rc18 (2026-Jan-29)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -890,6 +890,10 @@ end subroutine check_gms_path
     excludeXH = .true.
    case('onlyxh')
     excludeXH = .true.; onlyXH = .true.
+   case('mixed_spin')
+    write(6,'(/,A)') error_warn//'Mixed_Spin is deprecated. Please use MixedSpi&
+                    &n instead.'
+    stop
    case('mixedspin')
     MixedSpin = .true.
    case('nstates')
@@ -2224,8 +2228,8 @@ subroutine check_exe_exist(path)
 
  inquire(file=TRIM(path),exist=alive)
  if(.not. alive) then
-  write(6,'(A)') 'ERROR in subroutine check_exe_exist: the given binary file d&
-                 &oes not exist.'
+  write(6,'(/,A)') 'ERROR in subroutine check_exe_exist: the given binary file &
+                   &does not exist.'
   write(6,'(A)') 'path='//TRIM(path)
   stop
  end if

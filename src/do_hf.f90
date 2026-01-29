@@ -1,6 +1,108 @@
 ! written by jxzou at 20210305: move HF subroutines here
 ! updated by jxzou at 20210305: add interfaces with ORCA and PSI4 (for RI-JK HF)
 
+! For singlet UHF calculation, copy a given .gjf file (with `guess=read`) and
+! modify `guess=read` to `guess=mix`
+subroutine gen_uhf_default_guess_gjf(uhf_gjf)
+ use util_wrapper, only: unfchk
+ implicit none
+ integer :: i, k, fid, fid1
+ character(len=240) :: buf, uhf_gjf2, fchname, chkname2
+ character(len=240), intent(in) :: uhf_gjf
+
+ call find_specified_suffix(uhf_gjf, '.gjf', i)
+ fchname = uhf_gjf(1:i-1)//'.fch'
+ chkname2 = uhf_gjf(1:i-1)//'2.chk'
+ uhf_gjf2 = uhf_gjf(1:i-1)//'2.gjf'
+
+ open(newunit=fid,file=TRIM(uhf_gjf),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(uhf_gjf2),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == '%chk') buf = '%chk='//TRIM(chkname2)
+  k = INDEX(buf, 'guess=read')
+  if(k > 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') 'ERROR in subroutine gen_uhf_default_guess_gjf: `guess=read`&
+                   & not found in file'
+  write(6,'(A)') TRIM(uhf_gjf)
+  stop
+ end if
+
+ buf = buf(1:k-1)//'guess=mix'//TRIM(buf(k+10:))
+ write(fid1,'(A)') TRIM(buf)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == '%chk') buf = '%chk='//TRIM(chkname2)
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid)
+ close(fid1)
+ call unfchk(fchname, chkname2)
+end subroutine gen_uhf_default_guess_gjf
+
+! swap the filenames of two files
+subroutine swap_filenames(fname1, fname2)
+ implicit none
+ integer :: i, RENAME
+ characteR(len=250) :: fname
+ characteR(len=240), intent(in) :: fname1, fname2
+
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') fname1, i
+ i = RENAME(TRIM(fname1), TRIM(fname))
+ i = RENAME(TRIM(fname2), TRIM(fname1))
+ i = RENAME(TRIM(fname), TRIM(fname2))
+end subroutine swap_filenames
+
+! swap two sets of Gaussian files (.gjf, .log/.out, .chk, .fch)
+subroutine swap_gau_files_as_e(gjfname1, gjfname2, e1, e2, ssquare1, ssquare2)
+ implicit none
+ integer :: i
+ real(kind=8) :: r
+ real(kind=8), intent(inout) :: e1, e2, ssquare1, ssquare2
+ character(len=240) :: logname1, logname2, fchname1, fchname2, chkname1, &
+  chkname2
+ character(len=240), intent(inout) :: gjfname1, gjfname2
+ logical :: alive
+
+ call find_specified_suffix(gjfname1, '.gjf', i)
+ fchname1 = gjfname1(1:i-1)//'.fch'
+#ifdef _WIN32
+ logname1 = gjfname1(1:i-1)//'.out'
+#else
+ logname1 = gjfname1(1:i-1)//'.log'
+#endif
+
+ call find_specified_suffix(gjfname2, '.gjf', i)
+ fchname2 = gjfname2(1:i-1)//'.fch'
+#ifdef _WIN32
+ logname2 = gjfname2(1:i-1)//'.out'
+#else
+ logname2 = gjfname2(1:i-1)//'.log'
+#endif
+
+ r = e1; e1 = e2; e2 = r
+ r = ssquare1; ssquare1 = ssquare2; ssquare2 = r
+
+ call swap_filenames(gjfname1, gjfname2)
+ call swap_filenames(logname1, logname2)
+ inquire(file=TRIM(chkname1), exist=alive)
+ if(alive) call swap_filenames(chkname1, chkname2)
+ inquire(file=TRIM(fchname1), exist=alive)
+ if(alive) call swap_filenames(fchname1, fchname2)
+end subroutine swap_gau_files_as_e
+
 ! perform RHF/UHF computation using Gaussian/PySCF/PSI4/ORCA
 subroutine do_hf(prt_mr_strategy)
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
@@ -8,13 +110,14 @@ subroutine do_hf(prt_mr_strategy)
  use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
   ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
   prt_strategy, gau_path, orca_path, psi4_path, frag_guess
- use util_wrapper, only: fch_u2r_wrap
+ use util_wrapper, only: fch_u2r_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, SYSTEM
- real(kind=8) :: ssquare = 0d0
- real(kind=8), parameter :: r_u_diff = 1d-4 ! a.u.
+ integer :: i
+ real(kind=8) :: ssquare, uhf_e2
+ real(kind=8), parameter :: ru_diff = 1d-4 ! a.u.
+ real(kind=8), parameter :: uu_diff = 1d-5 ! a.u.
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, rhf_inp, uhf_inp, hf_prog_path
+ character(len=240) :: proname, rhf_inp, uhf_inp, uhf_inp2, hf_prog_path
  logical :: equal, noiter
  logical, intent(in) :: prt_mr_strategy
 
@@ -54,7 +157,7 @@ subroutine do_hf(prt_mr_strategy)
      call prt_strategy()
     end if
    else
-    write(6,'(A)') 'This seems a truly UHF wave function.'
+    write(6,'(A)') 'This seems to be a truly UHF wave function.'
    end if
   end if
 
@@ -62,7 +165,7 @@ subroutine do_hf(prt_mr_strategy)
   call fdate(data_string)
   write(6,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
   return
- end if
+ end if ! skiphf
 
  call read_natom_from_gjf(gjfname, natom)
  allocate(coor(3,natom), elem(natom), nuc(natom))
@@ -79,6 +182,7 @@ subroutine do_hf(prt_mr_strategy)
 
  rhf_inp = TRIM(proname)//'_rhf.gjf'
  uhf_inp = TRIM(proname)//'_uhf.gjf'
+ uhf_inp2 = TRIM(proname)//'_uhf2.gjf'
 
  ! For HF_prog=Gaussian/PySCF/ORCA, we simply perform HF calculations using them.
  ! For HF_prog=PSI4, we need Gaussian .fch file to generate PSI4 input file.
@@ -101,7 +205,7 @@ subroutine do_hf(prt_mr_strategy)
   uhf_inp = TRIM(proname)//'_uhf.inp'
  case default
   write(6,'(/,A)') 'ERROR in subroutine do_hf: invalid HF_prog='//TRIM(hf_prog)
-  write(6,'(A)') 'HF_prog can only be one of Gaussian/PySCF/PSI4/ORCA.'
+  write(6,'(A)') 'HF_prog can only be one of Gaussian/PySCF/ORCA/PSI4.'
   stop
  end select
 
@@ -116,18 +220,32 @@ subroutine do_hf(prt_mr_strategy)
 
  if(mult==1 .and. (.not.frag_guess) .and. (ist/=7)) then
   call gen_hf_inp(hf_prog, rhf_inp, .false., noiter)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(rhf_inp))
+  ! TODO: check whether add_bgcharge2inp_wrap used inside/outside do_scf_and_read_e
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, rhf_inp)
   call do_scf_and_read_e(gau_path, hf_prog_path, rhf_inp, .false., rhf_e, ssquare)
-  write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(RHF) = ',rhf_e,'a.u., <S**2>=',0.0
+  write(6,'(/,A,F18.8,1X,A)') 'E(RHF) = ', rhf_e, 'a.u., <S**2>=  0.000'
 
   call gen_hf_inp(hf_prog, uhf_inp, .true., noiter)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_inp))
-  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp, .false., uhf_e, ssquare)
-  write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
-  uhf_ssquare = ssquare
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp)
+  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp, .false., uhf_e, &
+                         uhf_ssquare)
+  write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',uhf_ssquare
 
-  if(rhf_e - uhf_e > r_u_diff) then
-   write(6,'(A)') 'UHF energy is lower, choose UHF wave function.'
+  i = LEN_TRIM(hf_prog_path)
+  if(hf_prog_path(i-2:i-2) == 'g') then
+   call gen_uhf_default_guess_gjf(uhf_inp)
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp2)
+   call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp2, .false., uhf_e2, &
+                          ssquare)
+   write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF2) = ',uhf_e2,'a.u., <S**2>=', ssquare
+   if(uhf_e - uhf_e2 > uu_diff) then
+    write(6,'(A)') 'E(UHF2) < E(UHF), now swap files of two UHF jobs...'
+    call swap_gau_files_as_e(uhf_inp, uhf_inp2, uhf_e, uhf_e2, uhf_ssquare, ssquare)
+   end if
+  end if
+
+  if(rhf_e - uhf_e > ru_diff) then
+   write(6,'(A)') 'E(UHF) < E(RHF), choose UHF wave function.'
    ist = 1; mo_rhf = .false.
    hf_fch = TRIM(proname)//'_uhf.fch'
   else
@@ -140,10 +258,10 @@ subroutine do_hf(prt_mr_strategy)
  else ! only perform UHF
 
   call gen_hf_inp(hf_prog, uhf_inp, .true., noiter)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(uhf_inp))
-  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp, .false., uhf_e, ssquare)
-  write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',ssquare
-  uhf_ssquare = ssquare
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp)
+  call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp, .false., uhf_e, &
+                         uhf_ssquare)
+  write(6,'(/,A,F18.8,1X,A,F7.3)') 'E(UHF) = ',uhf_e,'a.u., <S**2>=',uhf_ssquare
   if(ist /= 7) ist = 1
   mo_rhf = .false.
   hf_fch = TRIM(proname)//'_uhf.fch'
@@ -368,7 +486,7 @@ end subroutine gen_hf_inp
 subroutine gen_hf_gjf(gjfname, uhf, noiter)
  use mol, only: charge, mult, natom, nuc, elem, coor, nfrag, atom2frag, &
   frag_char_mult
- use mr_keyword, only: mem, nproc, basis, cart, dkh2_or_x2c, frag_guess, basname,&
+ use mr_keyword, only: mem, nproc, basis, cart, DKH2, frag_guess, basname, &
   origin_gjf=>gjfname
  use util_wrapper, only: unfchk
  implicit none
@@ -387,7 +505,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   stop
  end if
 
- call process_basis_set(1, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
+ call process_basis_set(1, basis, basis1, DKH2, natom, nuc, elem, create)
  def2_ecp = .false.
  if(basis(1:6)=='ma-def' .and. ANY(nuc>36)) def2_ecp = .true.
 
@@ -411,7 +529,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  write(fid,'(A,I0)') '%nprocshared=', nproc
  write(fid,'(A)',advance='no') '#p scf(xqc,maxcycle=512) nosymm int(nobasistran&
                                &sform'
- if(dkh2_or_x2c) write(fid,'(A)',advance='no') ',DKH2'
+ if(DKH2) write(fid,'(A)',advance='no') ',DKH2'
  write(fid,'(A)',advance='no') ')'
 
  if(frag_guess) then
@@ -433,15 +551,18 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  end if
 
  if(uhf) then ! UHF
-  write(fid,'(A)',advance='no') ' UHF/'//TRIM(basis1)
-  if(.not. frag_guess) then
+  if(frag_guess) then
+   write(fid,'(A)',advance='no') ' UHF/'//TRIM(basis1)
+  else
    if(mult == 1) then
+    write(fid,'(A)',advance='no') ' UHF chkbasis'
     if(noiter) then
      write(fid,'(A)',advance='no') ' guess(read,only,save)'
     else
-     write(fid,'(A)',advance='no') ' guess=read stable=opt'
+     write(fid,'(A)',advance='no') ' guess=read geom=allcheck stable=opt'
     end if
    else ! mult /= 1
+    write(fid,'(A)',advance='no') ' UHF/'//TRIM(basis1)
     if(noiter) then
      write(fid,'(A)',advance='no') ' guess(only,save)'
     else
@@ -464,42 +585,47 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   end if
  end if
 
- if(cart) then
-  write(fid,'(A)') ' 6D 10F'
- else
-  write(fid,'(A)') ' 5D 7F'
- end if
- write(fid,'(/,A,/)') 'HF file generated by AutoMR of MOKIT'
-
- if(frag_guess .and. uhf) then
-  write(fid,'(I0,1X,I0)',advance='no') charge, mult
-  do i = 1, nfrag-1, 1
-   write(fid,'(2(1X,I0))',advance='no') frag_char_mult(1,i), frag_char_mult(2,i)
-  end do ! for i
-  write(fid,'(2(1X,I0))') frag_char_mult(1,nfrag), frag_char_mult(2,nfrag)
-  do i = 1, natom, 1
-   write(fid,'(A,I0,A1,2X,3F15.8)') TRIM(elem(i))//'(fragment=', atom2frag(i), &
-                                    ')', coor(1:3,i)
-  end do ! for i
-  deallocate(atom2frag, frag_char_mult)
- else
-  write(fid,'(I0,1X,I0)') charge, mult
-  do i = 1, natom, 1
-   write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
-  end do ! for i
- end if
-
- if(create) then
-  i = INDEX(origin_gjf, '.gjf')
-  basname = origin_gjf(1:i-1)//'.bas'
-  call create_basfile(basname, TRIM(basis), def2_ecp)
- end if
-
- if(create .or. ((.not.create) .and. basis(1:3)=='gen')) then
+ if(uhf .and. mult==1) then
+  ! `chkbasis` and `geom=allcheck` will read everything needed
   write(fid,'(/)',advance='no')
-  close(fid)
-  call copy_gen_basis_bas2gjf(basname, gjfname)
-  open(newunit=fid,file=TRIM(gjfname),status='old',position='append')
+ else
+  if(cart) then
+   write(fid,'(A)') ' 6D 10F'
+  else
+   write(fid,'(A)') ' 5D 7F'
+  end if
+  write(fid,'(/,A,/)') 'HF file generated by AutoMR of MOKIT'
+
+  if(frag_guess .and. uhf) then
+   write(fid,'(I0,1X,I0)',advance='no') charge, mult
+   do i = 1, nfrag-1, 1
+    write(fid,'(2(1X,I0))',advance='no') frag_char_mult(1,i), frag_char_mult(2,i)
+   end do ! for i
+   write(fid,'(2(1X,I0))') frag_char_mult(1,nfrag), frag_char_mult(2,nfrag)
+   do i = 1, natom, 1
+    write(fid,'(A,I0,A1,2X,3F15.8)') TRIM(elem(i))//'(fragment=', atom2frag(i), &
+                                     ')', coor(1:3,i)
+   end do ! for i
+   deallocate(atom2frag, frag_char_mult)
+  else
+   write(fid,'(I0,1X,I0)') charge, mult
+   do i = 1, natom, 1
+    write(fid,'(A2,3X,3F15.8)') elem(i), coor(1:3,i)
+   end do ! for i
+  end if
+
+  if(create) then
+   i = INDEX(origin_gjf, '.gjf')
+   basname = origin_gjf(1:i-1)//'.bas'
+   call create_basfile(basname, TRIM(basis), def2_ecp)
+  end if
+
+  if(create .or. ((.not.create) .and. basis(1:3)=='gen')) then
+   write(fid,'(/)',advance='no')
+   close(fid)
+   call copy_gen_basis_bas2gjf(basname, gjfname)
+   open(newunit=fid,file=TRIM(gjfname),status='old',position='append')
+  end if
  end if
 
  ! If DKH Hamiltonian is used,
@@ -508,7 +634,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  ! GAMESS default      : point nuclei charge distribution
  ! I found that if iop(3/93=1) is used initially, SCF sometimes converges slowly,
  ! so I use a --Link1-- to add iop(3/93=1) later
- if(dkh2_or_x2c) then
+ if(DKH2) then
   if(.not. noiter) then
    write(fid,'(/,A)') '--Link1--'
    write(fid,'(A)') '%chk='//TRIM(chkname)
@@ -834,9 +960,9 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  use mr_keyword, only: nproc, bgchg, chgname, orca_path, psi4_path, DKH2, X2C
  use mol, only: ptchg_e
  use util_wrapper, only: formchk, bas_fch2py_wrap, fch2psi_wrap, fch2mkl_wrap,&
-  mkl2gbw, gbw2mkl, mkl2fch_wrap
+  mkl2gbw, gbw2mkl, mkl2fch_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, irel, hf_type, SYSTEM, RENAME
+ integer :: i, irel, hf_type, RENAME
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
  character(len=240) :: proname, chkname, fchname, outname, mklname, gbwname, &
@@ -900,9 +1026,9 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
 
  chkname = TRIM(proname)//'.chk'
 #ifdef _WIN32
- outname = TRIM(proname)//'.out' ! Gaussian output file under Windows
+ outname = TRIM(proname)//'.out' ! Gaussian output file on Windows
 #else
- outname = TRIM(proname)//'.log' ! Gaussian output file under Linux
+ outname = TRIM(proname)//'.log' ! Gaussian output file on Linux
 #endif
 
  call formchk(chkname)
@@ -930,12 +1056,12 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  prog_name = TRIM(hf_prog_path(i+1:))
  if(X2C) call add_x2c_into_fch(fchname)
 
- select case(prog_name)
+ select case(TRIM(prog_name))
  case('psi4')
   call fch2psi_wrap(fchname, inpname)
   call read_hf_type_from_psi4_inp(inpname, hf_type)
   call prt_hf_psi4_inp(inpname, hf_type)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_hf_e_and_ss_from_psi4_out(outname, hf_type, e, ssquare)
@@ -957,7 +1083,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
 
   call read_hf_type_from_orca_inp(inpname, hf_type)
   !call prt_hf_orca_inp(inpname, hf_type)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
@@ -1690,19 +1816,20 @@ end subroutine add_gen_bas2pyscf_inp
 ! find the version of ORCA
 subroutine find_orca_ver(orca_path, iver)
  implicit none
- integer :: i, fid, SYSTEM
+ integer :: i, fid
  integer, intent(out) :: iver ! 4/5/6
  character(len=20) :: txtname
  character(len=240) :: buf
  character(len=240), intent(in) :: orca_path
+ character(len=300) :: longbuf
 
  iver = 0 ! initialization
  call get_a_random_int(i)
  write(txtname,'(I0,A)') i, '.txt'
- i = SYSTEM(TRIM(orca_path)//' -v >'//TRIM(txtname)//" 2>&1")
+ longbuf = TRIM(orca_path)//' -v >'//TRIM(txtname)//' 2>&1'
+ call execute_command_line(TRIM(longbuf), exitstat=i)
 
  open(newunit=fid,file=TRIM(txtname),status='old',position='rewind')
-
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit

@@ -1,6 +1,4 @@
-! written by jxzou at 20180331
-! generate UHF natural orbtials (UNO) from UHF canonical orbitals
-
+! written by jxzou at 20180331: generate UHF natural orbtials (UNO) from UHF canonical orbitals
 ! updated by jxzou at 20180420: to support na > nb
 ! updated by jxzou at 20180520: modify the intent of array alpha_coeff from (inout) to (in,copy)
 ! updated by jxzou at 20180825: fix the bug when only 1 pair
@@ -8,6 +6,70 @@
 ! updated by jxzou at 20200426: add NOON output
 ! updated by jxzou at 20210518: add an intent(in) parameter ON_thres
 ! updated by jxzou at 20220711: change ON_thres to uno_thres
+
+subroutine check_unity(n, a, maxv, abs_mean)
+ implicit none
+ integer :: i
+ integer, intent(in) :: n
+ real(kind=8), intent(in) :: a(n,n)
+ real(kind=8), intent(out) :: maxv, abs_mean
+ real(kind=8), allocatable :: b(:,:)
+
+ allocate(b(n,n), source=a)
+ forall(i = 1:n) b(i,i) = b(i,i) - 1d0
+ b = DABS(b)
+ maxv = MAXVAL(b)
+ abs_mean = SUM(b)/DBLE(n*n)
+ deallocate(b)
+end subroutine check_unity
+
+subroutine svd_and_rotate(nbf, na, nb, ab_ovlp, mo_a, mo_b, sv, reverse)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nbf, na, nb
+ real(kind=8), intent(in) :: ab_ovlp(na,nb)
+ real(kind=8), intent(inout) :: mo_a(nbf,na), mo_b(nbf,nb)
+ real(kind=8), intent(out) :: sv(na)
+ real(kind=8), allocatable :: u(:,:), vt(:,:), u2(:,:), vt2(:,:),  new_mo(:,:),&
+  sv2(:)
+ logical, intent(in) :: reverse
+
+ ! perform SVD on alpha_beta_ovlp of occupied or virtual orbitals
+ allocate(u(na,na), vt(nb,nb))
+ call do_svd(na, nb, ab_ovlp, u, vt, sv)
+
+ ! rotate occupied or virtual orbitals
+ if(reverse) then
+  allocate(sv2(na))
+  do i = 1, na, 1
+   sv2(i) = sv(na-i+1)
+  end do ! for i
+  sv = sv2
+  deallocate(sv2)
+  allocate(u2(na,na))
+  do i = 1, na, 1
+   u2(:,i) = u(:,na-i+1)
+  end do ! for i
+  u = u2
+  deallocate(u2)
+  allocate(vt2(nb,nb))
+  do i = 1, nb, 1
+   vt2(i,:) = vt(nb-i+1,:)
+  end do ! for i
+  vt = vt2
+  deallocate(vt2)
+ end if
+
+ allocate(new_mo(nbf,na), source=0d0)
+ call dgemm('N', 'N', nbf, na, na, 1d0, mo_a, nbf, u, na, 0d0, new_mo, nbf)
+ mo_a = new_mo
+ deallocate(u, new_mo)
+
+ allocate(new_mo(nbf,nb), source=0d0)
+ call dgemm('N', 'T', nbf, nb, nb, 1d0, mo_b, nbf, vt, nb, 0d0, new_mo, nbf)
+ mo_b = new_mo
+ deallocate(vt, new_mo)
+end subroutine svd_and_rotate
 
 ! This subroutine is designed to be imported as a module in Python.
 subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, noon, &
@@ -109,7 +171,7 @@ subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, n
 
  ! do SVD on the alpha_beta_ovlp of occupied spatial orbitals
  allocate(sv_occ(na))
- call svd_and_rotate(na, nb, nbf, occ_a, occ_b, mo_ovlp, sv_occ, .false.)
+ call svd_and_rotate(nbf, na, nb, mo_ovlp, occ_a, occ_b, sv_occ, .false.)
  deallocate(mo_ovlp)
  !write(6,'(/,A)') 'Singular values from SVD of Alpha/Beta MOs:'
  !write(6,'(5(1X,ES15.8))') (sv_occ(i), i=1,na)
@@ -180,60 +242,96 @@ subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, n
  deallocate(sv_occ0)
 end subroutine uno
 
-subroutine svd_and_rotate(na, nb, nbf, c_alpha, c_beta, ab_ovlp, sv, reverse)
+subroutine ovlp_sv2c1_c2(d, c1, c2)
  implicit none
- integer :: i
- integer, intent(in) :: na, nb, nbf
- real(kind=8), intent(inout) :: c_alpha(nbf,na), c_beta(nbf,nb)
- real(kind=8), intent(in) :: ab_ovlp(na,nb)
- real(kind=8), intent(out) :: sv(na)
- real(kind=8) :: u(na,na), vt(nb,nb)
- real(kind=8), allocatable :: sv2(:), u2(:,:), vt2(:,:)
- logical, intent(in) :: reverse
+ real(kind=8) :: d1, r1, r2, r3, r4
+ real(kind=8), intent(in) :: d
+ real(kind=8), intent(out) :: c1, c2
 
- sv = 0d0; u = 0d0; vt = 0d0
+ d1 = MAX(-1d0, MIN(d, 1d0))
+ r1 = 1d0 + d1; r2 = 1d0 - d1
+ r3 = DSQRT(r1/r2); r4 = DSQRT(r2/r1)
+ c1 = r3 + r4
+ c2 = r3 - r4
+end subroutine ovlp_sv2c1_c2
 
- ! perform SVD on alpha_beta_ovlp of occupied or virtual orbitals
- call do_svd(na, nb, ab_ovlp, u, vt, sv)
+! Generate UNOs from UHF MOs, then swap the specified UNO pair (e.g. HONO/LUNO)
+! and back-transform to get new UHF MOs. Singly occ. MOs will not be swapped.
+! `swap(nb)=.True.` means swapping HONO and LUNO.
+! `swap(nb-1)=.True.` means swapping HONO-1 and LUNO+1.
+subroutine swap_pair_in_uno(na, nb, nbf, nif, swap, ao_ovlp, mo_a0, mo_b0, &
+                            mo_a, mo_b)
+ implicit none
+ integer :: i, nopen
+ integer, intent(in) :: na, nb, nbf, nif
+!f2py intent(in) :: na, nb, nbf, nif
+ real(kind=8) :: maxv, abs_mean, c1, c2
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), mo_a0(nbf,nif), mo_b0(nbf,nif)
+!f2py intent(in) :: ao_ovlp, mo_a0, mo_b0
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nif) :: mo_a0, mo_b0
+ real(kind=8), intent(out) :: mo_a(nbf,nif), mo_b(nbf,nif)
+!f2py intent(out) :: mo_a, mo_b
+!f2py depend(nbf,nif) :: mo_a, mo_b
+ real(kind=8), allocatable :: mo_ovlp(:,:), occ_a(:,:), occ_b(:,:), sv_occ(:)
+ logical, intent(in) :: swap(nb)
+!f2py intent(in) :: swap
+!f2py depend(nb) :: swap
 
- ! rotate occupied or virtual orbitals
- if(reverse) then
-  allocate(sv2(na))
-  forall(i = 1:na) sv2(i) = sv(na-i+1)
-  sv = sv2
-  deallocate(sv2)
-  allocate(u2(na,na), vt2(nb,nb))
-  forall(i = 1:na) u2(:,i) = u(:,na-i+1)
-  u = u2
-  forall(i = 1:nb) vt2(i,:) = vt(nb-i+1,:)
-  vt = vt2
-  deallocate(u2, vt2)
+ nopen = na - nb
+ if(nopen < 0) then
+  write(6,'(/,A)') 'ERROR in subroutine swap_pair_in_uno: na < nb.'
+  write(6,'(2(A,I0))') 'na=', na, ', nb=', nb
+  stop
  end if
 
- allocate(u2(nbf,na), source=0d0)
- allocate(vt2(nbf,nb), source=0d0)
- call dgemm('N', 'N', nbf, na, na, 1d0, c_alpha, nbf, u, na, 0d0, u2, nbf)
- call dgemm('N', 'T', nbf, nb, nb, 1d0, c_beta, nbf, vt, nb, 0d0, vt2, nbf)
+ ! check the orthonormality of initial Alpha and Beta MO, respectively
+ allocate(mo_ovlp(nif,nif))
+ call calc_CTSC(nbf, nif, mo_a0, ao_ovlp, mo_ovlp)
+ call check_unity(nif, mo_ovlp, maxv, abs_mean)
+ write(6,'(/,A)') 'The orthonormality of initial Alpha MO:'
+ write(6,'(A,F16.10)') 'maxv=', maxv
+ write(6,'(A,F16.10)') 'abs_mean=', abs_mean
 
- c_alpha = u2; c_beta = vt2
- deallocate(u2, vt2)
-end subroutine svd_and_rotate
+ call calc_CTSC(nbf, nif, mo_b0, ao_ovlp, mo_ovlp)
+ call check_unity(nif, mo_ovlp, maxv, abs_mean)
+ deallocate(mo_ovlp)
+ write(6,'(/,A)') 'The orthonormality of initial Beta MO:'
+ write(6,'(A,F16.10)') 'maxv=', maxv
+ write(6,'(A,F16.10)') 'abs_mean=', abs_mean
+ ! check orthonormality done
 
-subroutine check_unity(n, a, maxv, abs_mean)
- implicit none
- integer :: i
- integer, intent(in) :: n
- real(kind=8), intent(in) :: a(n,n)
- real(kind=8), intent(out) :: maxv, abs_mean
- real(kind=8), allocatable :: b(:,:)
+ allocate(occ_a(nbf,na), source=mo_a0(:,1:na))
+ allocate(occ_b(nbf,nb), source=mo_b0(:,1:nb))
+ allocate(mo_ovlp(na,nb))
+ call calc_CTSCp2(nbf, na, nb, occ_a, ao_ovlp, occ_b, mo_ovlp)
 
- allocate(b(n,n), source=a)
- forall(i = 1:n) b(i,i) = b(i,i) - 1d0
- b = DABS(b)
- maxv = MAXVAL(b)
- abs_mean = SUM(b)/DBLE(n*n)
- deallocate(b)
-end subroutine check_unity
+ allocate(sv_occ(na))
+ call svd_and_rotate(nbf, na, nb, mo_ovlp, occ_a, occ_b, sv_occ, .false.)
+ deallocate(mo_ovlp)
+ mo_a(:,1:na) = occ_a
+ mo_b(:,1:nb) = occ_b
+
+ do i = 1, nb, 1
+  if(swap(i)) then
+   call ovlp_sv2c1_c2(sv_occ(i), c1, c2)
+   mo_a(:,i) = 0.5d0*(c1*occ_a(:,i) - c2*occ_b(:,i))
+   mo_b(:,i) = 0.5d0*(c2*occ_a(:,i) - c1*occ_b(:,i))
+  end if
+ end do ! for i
+ deallocate(sv_occ, occ_a, occ_b)
+
+ ! Assuming mo_a(:,k) is updated in the above loop, mo_a(:,1:na) are orthonormal,
+ ! but mo_a(:,k) is not orthogonal to alpha virtual MOs mo_a(:,na+1:nif), so we
+ ! need to construct alpha virtual MOs. Similarly, mo_b(:,1:nb) are orthonormal,
+ ! but mo_b(:,k) is not orthogonal to beta virtual MOs mo_b(:,nb+1:nif), so we
+ ! need to construct beta virtual MOs.
+ allocate(occ_a(nbf,nif), source=mo_a)
+ call construct_vir(nbf, nif, na+1, occ_a, ao_ovlp, mo_a)
+ occ_a = mo_b
+ call construct_vir(nbf, nif, nb+1, occ_a, ao_ovlp, mo_b)
+ deallocate(occ_a)
+end subroutine swap_pair_in_uno
 
 ! Enlarge the active space by utilizing two sets of singular values:
 !  1) SVD of {doubly occupied space of mo1, active space of mo2}
@@ -271,7 +369,7 @@ subroutine enlarge_as_by_svd(idx, nbf, nif, mo1, mo2, ao_ovlp, new_mo)
  allocate(mo_ovlp(ndb1,nact2))
  call calc_CTSCp2(nbf, ndb1, nact2, mo3, ao_ovlp, mo4, mo_ovlp)
  allocate(sv(ndb1))
- call svd_and_rotate(ndb1, nact2, nbf, mo3, mo4, mo_ovlp, sv, .true.)
+ call svd_and_rotate(nbf, ndb1, nact2, mo_ovlp, mo3, mo4, sv, .true.)
  deallocate(mo_ovlp)
  write(6,'(A)') 'Singular values of docc1 v.s. act2:'
  write(6,'(5(1X,ES15.8))') sv
@@ -285,7 +383,7 @@ subroutine enlarge_as_by_svd(idx, nbf, nif, mo1, mo2, ao_ovlp, new_mo)
  allocate(mo_ovlp(nvir1,nact2))
  call calc_CTSCp2(nbf, nvir1, nact2, mo3, ao_ovlp, mo4, mo_ovlp)
  allocate(sv(nvir1))
- call svd_and_rotate(nvir1, nact2, nbf, mo3, mo4, mo_ovlp, sv, .false.)
+ call svd_and_rotate(nbf, nvir1, nact2, mo_ovlp, mo3, mo4, sv, .false.)
  write(6,'(/,A)') 'Singular values of vir1 v.s. act2:'
  write(6,'(5(1X,ES15.8))') sv
  deallocate(mo4, mo_ovlp)
@@ -297,23 +395,27 @@ end subroutine enlarge_as_by_svd
 
 ! calculated the SVD singular values of overlap of two sets of MOs
 ! Note: the input coeff1 and coeff2 must have the same dimension (nbf,nif)
-subroutine svd_of_two_mo(nbf, nif, coeff1, coeff2, S)
+subroutine svd_of_two_mo(nbf, nif, ao_ovlp, old_mo1, old_mo2, new_mo1, new_mo2)
  implicit none
  integer :: i
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- real(kind=8), intent(in) :: coeff1(nbf,nif), coeff2(nbf,nif), S(nbf,nbf)
-!f2py intent(in) :: coeff1, coeff2, S
-!f2py depend(nbf,nif) :: coeff1, coeff2
-!f2py depend(nbf) :: S
- real(kind=8), allocatable :: mo_ovlp(:,:), u(:,:), vt(:,:), ev(:)
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), old_mo1(nbf,nif), old_mo2(nbf,nif)
+!f2py intent(in) :: ao_ovlp, old_mo1, old_mo2
+!f2py depend(nbf,nif) :: old_mo1, old_mo2
+!f2py depend(nbf) :: ao_ovlp
+ real(kind=8), intent(out) :: new_mo1(nbf,nif), new_mo2(nbf,nif)
+!f2py intent(out) :: new_mo1, new_mo2
+!f2py depend(nbf,nif) :: new_mo1, new_mo2
+ real(kind=8), allocatable :: mo_ovlp(:,:), ev(:)
 
  allocate(mo_ovlp(nif,nif))
- call calc_CTSCp(nbf, nif, coeff1, S, coeff2, mo_ovlp)
-
- allocate(u(nif,nif), vt(nif,nif), ev(nif))
- call do_svd(nif, nif, mo_ovlp, u, vt, ev)
- deallocate(mo_ovlp, u, vt)
+ call calc_CTSCp(nbf, nif, old_mo1, ao_ovlp, old_mo2, mo_ovlp)
+ allocate(ev(nif))
+ new_mo1 = old_mo1
+ new_mo2 = old_mo2
+ call svd_and_rotate(nbf, nif, nif, mo_ovlp, new_mo1, new_mo2, ev, .False.)
+ deallocate(mo_ovlp)
 
  write(6,'(/,A)') 'SVD analysis of two sets of MOs:'
  write(6,'(A,ES15.8)') 'The smallest singular value:', MINVAL(ev)

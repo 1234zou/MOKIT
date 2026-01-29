@@ -1,6 +1,7 @@
-MOKIT 1.2.7rc16 (Jan 10, 2026)
+MOKIT 1.2.7rc18 (Jan 29, 2026)
 ------------------------
 Fixes
+* remove CI coefficients copy in DMRG-(SA-)CASSCF since mc.ci is usually empty in that case
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
 * fix spin multiplicity specification in ORCA %mrci
 * fix i_mark allocation missing in orb2fch and xml2fch (introduced in commit 0ec2d7c5)
@@ -100,6 +101,8 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* use one subroutine read_fosc_from_orca_out for ORCA 5/6 ADC(2)/EOM-CCSD/SA-CASSCF
+* remove a duplicated subroutine read_fosc_from_orca_out
 * mv functions find_antibonding_orb and find_antibonding_orb_in_fch from util.py to auto.py
 * add the `-fc` option for fch2inp
 * add rw_misc.f90 and move some subroutines into it

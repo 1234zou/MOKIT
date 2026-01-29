@@ -2,26 +2,43 @@
 
 module util_wrapper
  implicit none
- integer :: ibuf = 0
 contains
 
 subroutine system_buf(buf)
  implicit none
- integer :: i, SYSTEM
+ integer :: i, j
  character(len=*), intent(in) :: buf
 
 #ifdef _WIN32
- i = SYSTEM(TRIM(buf)//' > NUL')
+ call execute_command_line(TRIM(buf)//' > NUL', exitstat=i, cmdstat=j)
 #else
- i = SYSTEM(TRIM(buf)//' > /dev/null')
+ call execute_command_line(TRIM(buf)//' > /dev/null', exitstat=i, cmdstat=j)
 #endif
 
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine system_buf: failed to execute'
-  write(6,'(A)') "'"//TRIM(buf)//"'"
+ ! Currently there is no need to distinguish between i/=0 and j/=0
+ if(.not. (i==0 .and. j==0)) then
+  write(6,'(/,A)') 'ERROR in subroutine system_buf: failed to run'
+  write(6,'(A)') '`'//TRIM(buf)//'`'
   stop
  end if
 end subroutine system_buf
+
+! wrapper of the utility add_bgcharge_to_inp
+subroutine add_bgcharge2inp_wrap(chgname, inpname)
+ implicit none
+ integer :: i, j
+ character(len=240), intent(in) :: chgname, inpname
+ character(len=501) :: buf
+
+ buf = 'add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname)
+ call execute_command_line(TRIM(buf), exitstat=i, cmdstat=j)
+
+ if(.not. (i==0 .and. j==0)) then
+  write(6,'(/,A)') 'ERROR in subroutine add_bgcharge2inp_wrap: failed to run'
+  write(6,'(A)') '`'//TRIM(buf)//'`'
+  stop
+ end if
+end subroutine add_bgcharge2inp_wrap
 
 ! wrapper of the Gaussian utility formchk
 subroutine formchk(chkname, fchname)

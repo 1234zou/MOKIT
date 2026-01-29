@@ -58,8 +58,8 @@ subroutine inp2gjf_cp2k(inpname, gjfname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine inp2gjf_cp2k: failed to find '&COORD' in&
-                 & file "//TRIM(inpname)
+  write(6,'(/,A)') "ERROR in subroutine inp2gjf_cp2k: failed to find '&COORD' in&
+                   & file "//TRIM(inpname)
   close(fid1)
   stop
  end if

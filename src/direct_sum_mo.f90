@@ -88,10 +88,6 @@ subroutine direct_sum_frag_mo_in_fch(n, fchname0, wfn_type0, pos, fchname, wfn_t
  ! virtual MOs of fragments. But it did not work for linear dependence case,
  ! so I change it to construction of virtual MOs using PAO
 
- ! TODO: construct virtual MOs from fragments, do canonical orthonormalization
- !  if linear dependence occurs, do symmetric orthonormalization if there is no
- !  linear dependence
-
  allocate(ovlp(nbf,nbf), mo_a0(nbf,nif))
  call get_ao_ovlp_using_fch(fchname, nbf, ovlp)
  ! orthonormalize occupied MOs

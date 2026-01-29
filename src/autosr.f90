@@ -61,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc17 (2026-Jan-10)'
+ write(6,'(A)') '           Version: 1.2.7rc18 (2026-Jan-29)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -640,7 +640,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc17 :: MOKIT, release date: 2026-Jan-10'
+  write(6,'(A)') 'AutoSR 1.2.7rc18 :: MOKIT, release date: 2026-Jan-29'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -4109,61 +4109,6 @@ subroutine read_cc_e_from_molcas_out2(outname, ccsd_t, t1diag, ref_e, tot_e)
 
  close(fid)
 end subroutine read_cc_e_from_molcas_out2
-
-! read oscillator strengths from a specified ORCA output file
-subroutine read_fosc_from_orca_out(outname, nstate, fosc)
- implicit none
- integer :: i, j, fid
- integer, intent(in) :: nstate
- real(kind=8), intent(out) :: fosc(nstate)
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-
- fosc = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(10:24)=='ABSORPTION SPEC' .or. buf(22:36)=='ABSORPTION SPEC') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_eomcc_e_from_orca_out: failed to r&
-                   &ead fosc in'
-  write(6,'(A)') 'file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- i = INDEX(buf, 'fosc')
- select case(i)
- case(30) ! ORCA 5
-  j = 27
- case(52) ! ORCA 6
-  j = 50
- case default
-  write(6,'(/,A)') 'ERROR in subroutine read_eomcc_e_from_orca_out: ORCA output&
-                   & format cannot'
-  write(6,'(A)') 'be recognized. File='//TRIM(outname)
-  stop
- end select
- read(fid,'(A)') buf
- read(fid,'(A)') buf
-
- do i = 1, nstate, 1
-  read(fid,'(A)') buf
-  read(buf(j:),*) fosc(i)
- end do ! for i
-
- close(fid)
-end subroutine read_fosc_from_orca_out
 
 subroutine read_eomcc_e_from_pyscf_out(outname, ip_or_ea, nstate, e, ssquare, fosc)
  implicit none

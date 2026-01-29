@@ -165,6 +165,8 @@ OBJ_rwwfn = file_op.f90 string_manipulate.f90 math_sub.f90 read_ev_on.f90 rw_mis
 OBJ_excited = file_op.o string_manipulate.o rw_misc.o read_ev_on.o read_gms_inp.o \
               math_sub.o ortho.o rwwfn.o util_wrapper.o call_qc_calc_int.o lo.f90 \
               excited.f90
+OBJ_pbc_helper = file_op.o string_manipulate.o math_sub.o util_wrapper.o call_qc_calc_int.o \
+                 rw_misc.o read_energy.o read_ev_on.o rwwfn.o pbc_helper.o
 
 .PHONY: exe pymodules all clean pyclean distclean addH2singlet add_bgcharge_to_inp \
         align_orbitals automl automr autosr amo2fch bas_fch2py bas_gau2molcas \
@@ -518,6 +520,9 @@ rwwfn: $(OBJ_rwwfn)
 excited: $(OBJ_excited)
 	$(F2PY) -c $(OBJ_excited) -m excited $(F2_FLAGS) $(MKL_FLAGS)
 	@mv excited*.so $(LIB)/
+
+pbc_helper: $(OBJ_pbc_helper)
+	$(F90) $(OBJ_pbc_helper) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/pbc_helper
 
 get_mokit_loc:
 	cp get_mokit_loc.py $(BIN)/

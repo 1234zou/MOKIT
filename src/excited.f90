@@ -577,7 +577,8 @@ subroutine read_ex_coeff_from_gau_log(logname, istate, nocc, nvir, exc)
  if(DABS(rtmp - 0.5d0) > diff_thres) then
   write(6,'(/,A)') 'ERROR in subroutine read_ex_coeff_from_gau_log: the sum of &
                    &|C_ia|^2 differs'
-  write(6,'(A)') 'from 0.5. Did you forget to write IOP(9/40=4) in gjf?'
+  write(6,'(A)') 'from 0.5 too much. Did you forget to write IOP(9/40=4) in gjf?'
+  write(6,'(F12.6)') DABS(rtmp-0.5d0)
   stop
  end if
 end subroutine read_ex_coeff_from_gau_log

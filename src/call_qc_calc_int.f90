@@ -348,6 +348,44 @@ subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
  success = .true.
 end subroutine read_orthonormal_basis_from_fch
 
+subroutine check_pyscf_exist(found)
+ implicit none
+ integer :: i, fid
+ character(len=50) :: shname, outname
+ character(len=120) :: buf
+ logical, intent(out) :: found
+!f2py intent(out) :: found
+
+ found = .false.
+ call get_a_random_int(i)
+
+#ifdef _WIN32
+ write(shname,'(A,I0,A)') 'mokit_', i, '.bat'
+#else
+ write(shname,'(A,I0,A)') 'mokit_', i, '.sh'
+#endif
+
+ write(outname,'(A,I0,A)') 'mokit_', i, '.out'
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') 'python -c "import pyscf; print(''PySCF version:'', pyscf._&
+                  &_version__)"'
+ close(fid)
+
+ buf = TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
+#ifndef _WIN32
+ buf = 'bash '//TRIM(buf)
+#endif
+
+ call execute_command_line(TRIM(buf), exitstat=i)
+ call delete_file(TRIM(shname))
+
+ open(newunit=fid,file=TRIM(outname),status='old')
+ read(fid,'(A)') buf
+ close(fid,status='delete')
+
+ if(buf(1:14) == 'PySCF version:') found = .true.
+end subroutine check_pyscf_exist
+
 ! Compute AO-basis overlap integral matrix using the given .fch file. If there
 ! is 'Orthonormal basis' and no linear dependency, compute ovlp using the formula
 ! S=(C(C^T))^(-1). Otherwise call PySCF to compute S and transform it to Gaussian
@@ -361,6 +399,7 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
 !f2py intent(out) :: ovlp
 !f2py depend(nbf) :: ovlp
  real(kind=8), allocatable :: mo(:,:)
+ character(len=240) :: gau_path, file47
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
  logical :: success
@@ -382,7 +421,16 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
  end if
 
  if(nif<nbf .or. (nif==nbf .and. (.not.success))) then
-  call get_gau_ao_ovlp_from_pyscf(fchname, nbf, ovlp)
+  ! Call Gaussian/PySCF to calculate AO overlap matrix. If Gaussian is found,
+  ! using Gaussian; otherwise using PySCF.
+  call get_gau_path(gau_path)
+  if(TRIM(gau_path) == 'NOT FOUND') then ! call PySCF
+   call get_gau_ao_ovlp_from_pyscf(fchname, nbf, ovlp)
+  else                                   ! call Gaussian
+   call call_gaussian_gen47_from_fch(fchname, file47)
+   call read_ao_ovlp_from_47(file47, nbf, ovlp)
+   call delete_file(TRIM(file47))
+  end if
  end if
 end subroutine get_ao_ovlp_using_fch
 
@@ -447,8 +495,7 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
   stop
  end if
 
- !call delete_files(3, [chkname, gjfname, logname])
- stop
+ call delete_files(3, [chkname, gjfname, logname])
 end subroutine call_gaussian_gen47_from_fch
 
 ! read AO-basis dipole integrals from a given .47 file
@@ -998,8 +1045,8 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
  character(len=240), intent(in) :: inpname, outname
 
  if(ci_order /= 2) then
-  write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: only CI_order=2 is&
-                & allowed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gvb_bcci_job: only CI_order=2 is&
+                   & allowed.'
   write(6,'(A,I0)') 'Input CI_order=', ci_order
   stop
  end if
@@ -1015,8 +1062,8 @@ subroutine submit_gvb_bcci_job(nproc, ci_order, inpname, outname)
  i = SYSTEM('/bin/bash '//TRIM(shname))
  call delete_file(shname)
  if(i /= 0) then
-  write(6,'(A)') 'ERROR in subroutine submit_gvb_bcci_job: Linearized BCCC job&
-                & failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gvb_bcci_job: Linearized BCCC jo&
+                   &b failed.'
   write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
   stop
  end if
@@ -1040,8 +1087,8 @@ subroutine submit_gvb_bccc_job(mult, nproc, cc_order, inpname, outname)
  case(3)
   bccc_prog = 'gvb_bccc3b'
  case default
-  write(6,'(A)') 'ERROR in subroutine submit_gvb_bccc_job: only CC_order=2 or&
-                & 3 is allowed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_gvb_bccc_job: only CC_order=2 or&
+                   & 3 is allowed.'
   write(6,'(A,I0)') 'Input CC_order=', cc_order
   stop
  end select
@@ -1198,6 +1245,35 @@ subroutine submit_mrcc_job(outname, nproc)
   call delete_file('DAO')
  end if
 end subroutine submit_mrcc_job
+
+subroutine submit_cp2k_job(inpname, nproc)
+ implicit none
+ integer :: i, fid, SYSTEM
+ integer, intent(in) :: nproc
+ character(len=240) :: shname, outname
+ character(len=240), intent(in) :: inpname
+ character(len=500) :: longbuf
+
+ call find_specified_suffix(inpname, '.in', i)
+ shname = inpname(1:i-1)//'.sh'
+ outname = inpname(1:i-1)//'.out'
+
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') 'export OMP_NUM_THREADS=1'
+ write(fid,'(A,I0,A)') 'mpirun -np ', nproc, ' cp2k.popt '//TRIM(inpname)
+ close(fid)
+
+ longbuf = 'bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
+ i = SYSTEM(TRIM(longbuf))
+
+ if(i == 0) then
+  call delete_file(TRIM(shname))
+ else
+  write(6,'(/,A)') 'ERROR in subroutine submit_cp2k_job: CP2K job failed.'
+  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
+  stop
+ end if
+end subroutine submit_cp2k_job
 
 ! check/detect OpenMolcas is OpenMP version or MPI version
 subroutine check_molcas_is_omp(molcas_omp)

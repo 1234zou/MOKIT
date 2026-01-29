@@ -539,8 +539,8 @@ subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_force_from_cp2k_out: failed to loc&
-                   &ate 'ENERGY| Tota'"
+  write(6,'(/,A)') "ERROR in subroutine read_efs_from_cp2k_out: failed to locat&
+                   &e 'ENERGY| Tota'"
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -556,8 +556,8 @@ subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_force_from_cp2k_out: failed to loc&
-                   &ate 'ATOMIC FORCE'"
+  write(6,'(/,A)') "ERROR in subroutine read_efs_from_cp2k_out: failed to locat&
+                   &e 'ATOMIC FORCE'"
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -582,8 +582,8 @@ subroutine read_efs_from_cp2k_out(outname, natom, e, force, stress)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_force_from_cp2k_out: failed to loc&
-                   &ate stress tensor'
+  write(6,'(/,A)') 'ERROR in subroutine read_efs_from_cp2k_out: failed to locat&
+                   &e stress tensor'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop

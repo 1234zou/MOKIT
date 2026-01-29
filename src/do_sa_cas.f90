@@ -307,7 +307,9 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
  write(fid2,'(A)') 'mc.verbose = 4'
  write(fid2,'(A)') 'mc.kernel()'
  write(fid2,'(A)') 'mo = mc.mo_coeff.copy() # backup'
- write(fid2,'(A,I0,A)') 'ci0 = mc.ci[0:',nstate+1,'].copy() # backup'
+ if(.not. dmrgscf) then
+  write(fid2,'(A,I0,A)') 'ci0 = mc.ci[0:',nstate+1,'].copy() # backup'
+ end if
 
  i = INDEX(hf_fch, '.fch', back=.true.)
  cmofch = hf_fch(1:i-1)//'_SA-CAS.fch'
@@ -344,7 +346,11 @@ subroutine prt_sacas_script_into_py(pyname, gvb_fch, nevpt2_btw)
  end if
 
  write(fid2,'(A)') 'mc.verbose = 4'
- write(fid2,'(A)') 'mc.kernel(mo_coeff=mo,ci0=ci0)'
+ if(dmrgscf) then
+  write(fid2,'(A)') 'mc.kernel(mo_coeff=mo)'
+ else
+  write(fid2,'(A)') 'mc.kernel(mo_coeff=mo,ci0=ci0)'
+ end if
  write(fid2,'(A)') 'mc.analyze()'
 
  ! modified from pyscf-xxx/examples/mcscf/15-transition_dm.py
@@ -1012,56 +1018,6 @@ subroutine read_fosc_from_pyscf_out(outname, nstate, fosc)
 
  close(fid)
 end subroutine read_fosc_from_pyscf_out
-
-! read oscillator strengths from ORCA output file
-subroutine read_fosc_from_orca_out(outname, nstate, fosc)
- implicit none
- integer :: i, k, fid
- integer, intent(in) :: nstate
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: fosc(nstate)
- logical :: orca6
-
- orca6 = .false.; fosc = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(36:48) == 'O   R   C   A') then
-   i = -1
-   exit
-  end if
-  if(buf(1:8) == '  States') exit
-  if(buf(6:55) == 'Transition      Energy     Energy  Wavelength fosc') then
-   orca6 = .true.
-   exit
-  end if
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_orca_out: failed to read&
-                   & fosc in file '//TRIM(outname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf ! skip 2 lines
- read(fid,'(A)') buf
-
- k = 39
- if(orca6) k = 49
- do i = 1, nstate, 1
-  read(fid,'(A)') buf
-  read(buf(k:),*) fosc(i)
- end do ! for i
-
- close(fid)
-end subroutine read_fosc_from_orca_out
 
 ! read oscillator strengths from OpenMolcas output file
 subroutine read_fosc_from_molcas_out(outname, nstate, fosc)

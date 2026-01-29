@@ -43,6 +43,60 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
  close(fid)
 end subroutine read_adc_e_from_pyscf_out
 
+! Read oscillator strengths from a specified ORCA output file. This subroutine
+! can be used for ORCA 5/6 ADC(2), EOM-CCSD and SA-CASSCF calculations.
+subroutine read_fosc_from_orca_out(outname, nstate, fosc)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: nstate
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ real(kind=8), intent(out) :: fosc(nstate)
+ logical :: orca6
+
+ orca6 = .false.; fosc = 0d0; k = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(36:48) == 'O   R   C   A') then
+   i = -1
+   exit
+  end if
+  if(buf(10:28) == 'ABSORPTION SPECTRUM') then
+   k = 26; exit
+  end if
+  if(buf(33:51) == 'ABSORPTION SPECTRUM') then
+   k = 39; exit
+  end if
+  if(buf(22:40) == 'ABSORPTION SPECTRUM') then
+   orca6 = .true.; k = 49; exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_orca_out: failed to read&
+                   & fosc in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 4 ! skip 4 lines
+  read(fid,'(A)') buf
+ end do
+
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  read(buf(k:),*) fosc(i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_fosc_from_orca_out
+
 ! read ADC (excitation) energies from a specified ORCA output file
 subroutine read_adc_e_from_orca_out(outname, ip_or_ea, nstate, e, fosc)
  implicit none
@@ -2175,4 +2229,34 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   stop
  end select
 end subroutine read_mrcc_energy_from_output
+
+! read SCF electronic energy from a CP2K output file
+subroutine read_scf_e_from_cp2k_out(outname, scf_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: scf_e ! in Hartree
+!f2py intent(out) :: scf_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+
+ scf_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'ENERGY| Tota') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_scf_e_from_cp2k_out: failed to loc&
+                   &ate 'ENERGY| Tota'"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ call get_dpv_after_flag(buf, ']', .false., scf_e)
+end subroutine read_scf_e_from_cp2k_out
 
