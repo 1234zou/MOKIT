@@ -1,0 +1,43 @@
+SRC = ../../src
+TEST_DIR = mr_keyword_read_bgchg
+TESTS = test_read_bgchg_from_gjf
+BIN = bin
+
+OBJ_test_read_bgchg_from_gjf = test_utils.o file_op.o string_manipulate.o \
+                               mr_keyword.o read_fch.o rw_misc.o rwwfn.o \
+                               read_ev_on.o math_sub.o util_wrapper.o \
+                               call_qc_calc_int.o
+
+.PHONY: test runtest clean
+
+test: $(BIN) $(TESTS)
+
+runtest: test
+	@for t in $(TESTS); do \
+	  echo "Running $$t"; \
+	  $(BIN)/$$t; \
+	done
+
+test_read_bgchg_from_gjf: test_read_bgchg_from_gjf.o $(OBJ_test_read_bgchg_from_gjf)
+	$(F90) test_read_bgchg_from_gjf.o $(OBJ_test_read_bgchg_from_gjf) \
+	  $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
+$(BIN):
+	mkdir -p $(BIN)
+
+%.o: $(TEST_DIR)/%.f90
+	$(F90) -c $< -o $@ $(FFLAGS) -I$(SRC) -I.
+
+$(TESTS:%=%.o): test_utils.o
+
+test_utils.o: test_utils.f90
+	$(F90) -c $< -o $@ $(FFLAGS)
+
+%.o: $(SRC)/%.f90
+	$(F90) -c $< -o $@ $(FFLAGS)
+
+clean:
+	rm -f *.o *.mod $(TESTS)
+	rm -f $(TEST_DIR)/*.chg $(TEST_DIR)/*.o
+	rm -f $(TEST_DIR)/$(TESTS)
+	rm -f $(BIN)/*
