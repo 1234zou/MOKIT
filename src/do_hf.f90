@@ -108,8 +108,8 @@ subroutine do_hf(prt_mr_strategy)
  use mol, only: natom, atom2frag, nfrag, frag_char_mult, coor, elem, nuc, &
   charge, mult, rhf_e, uhf_e, uhf_ssquare
  use mr_keyword, only: hf_prog, readuhf, readrhf, skiphf, gau_path, hf_fch, &
-  ist, mo_rhf, bgchg, read_bgchg_from_gjf, gjfname, chgname, uno, vir_proj, &
-  prt_strategy, gau_path, orca_path, psi4_path, frag_guess
+  ist, mo_rhf, bgchg, gjfname, chgname, uno, vir_proj, prt_strategy, gau_path,&
+  orca_path, psi4_path, frag_guess
  use util_wrapper, only: fch_u2r_wrap, add_bgcharge2inp_wrap
  implicit none
  integer :: i
@@ -132,7 +132,7 @@ subroutine do_hf(prt_mr_strategy)
    call read_natom_from_gjf(gjfname, natom)
    allocate(coor(3,natom), elem(natom), nuc(natom))
    call read_elem_and_coor_from_gjf(gjfname, natom, elem, nuc, coor, charge, mult)
-   if(bgchg) call read_bgchg_from_gjf(.false.)
+   if(bgchg) call read_bgchg_from_gjf(gjfname, .false.)
    return
   else
    write(6,'(A)') 'Provided fch(k) file. Skip the RHF/UHF step...'
@@ -161,7 +161,7 @@ subroutine do_hf(prt_mr_strategy)
    end if
   end if
 
-  if(bgchg) call read_bgchg_from_gjf(.true.)
+  if(bgchg) call read_bgchg_from_gjf(gjfname, .true.)
   call fdate(data_string)
   write(6,'(A)') 'Leave subroutine do_hf at '//TRIM(data_string)
   return
@@ -178,7 +178,7 @@ subroutine do_hf(prt_mr_strategy)
  else
   call check_frag_guess_in_gjf(gjfname)
  end if
- if(bgchg) call read_bgchg_from_gjf(.false.)
+ if(bgchg) call read_bgchg_from_gjf(gjfname, .false.)
 
  rhf_inp = TRIM(proname)//'_rhf.gjf'
  uhf_inp = TRIM(proname)//'_uhf.gjf'
@@ -237,7 +237,7 @@ subroutine do_hf(prt_mr_strategy)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp2)
    call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp2, .false., uhf_e2, &
                           ssquare)
-   write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF2) = ',uhf_e2,'a.u., <S**2>=', ssquare
+   write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF2)= ', uhf_e2, 'a.u., <S**2>=', ssquare
    if(uhf_e - uhf_e2 > uu_diff) then
     write(6,'(A)') 'E(UHF2) < E(UHF), now swap files of two UHF jobs...'
     call swap_gau_files_as_e(uhf_inp, uhf_inp2, uhf_e, uhf_e2, uhf_ssquare, ssquare)

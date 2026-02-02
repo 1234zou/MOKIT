@@ -314,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc18 (2026-Jan-29)'
+ write(6,'(A)') '           Version: 1.2.7rc18 (2026-Feb-2)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -1180,7 +1180,7 @@ subroutine check_kywd_compatible()
  if(F12) then
   if(.not. RI) then
    write(6,'(/,A)') error_warn//'F12 must be combined with RI. But RI is set'
-   write(6,'(A)') 'to be False. Impossible.'
+   write(6,'(A)') 'to be False. Imcompatible.'
    stop
   end if
   if(.not. (nevpt2 .or. mrcisd)) then
@@ -1676,88 +1676,6 @@ subroutine lower_outside_sq(buf)
  end do ! for while
 end subroutine lower_outside_sq
 
-! read background point charge(s) from .gjf file
-subroutine read_bgchg_from_gjf(no_coor)
- use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
- implicit none
- integer :: i, fid, nblank, nblank0
- character(len=240) :: buf
- character(len=41), parameter :: error_warn='ERROR in subroutine read_bgchg_from_gjf: '
- logical, intent(in) :: no_coor
-
- nblank = 0
- if(no_coor) then ! no Cartesian Coordinates
-  if(rigid_scan .or. relaxed_scan) then
-   nblank0 = 3
-  else
-   nblank0 = 2
-  end if
- else             ! there exists Cartesian Coordinates
-  if(rigid_scan .or. relaxed_scan) then
-   nblank0 = 4
-  else
-   nblank0 = 3
-  end if
- end if
-
- open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-  if(nblank == nblank0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(66,'(A)') error_warn//'wrong format of background point charges.'
-  close(fid)
-  stop
- end if
-
- nbgchg = 0
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i/=0 .or. LEN_TRIM(buf)==0) exit
-  nbgchg = nbgchg + 1
- end do ! for while
-
- if(nbgchg == 0) then
-  write(6,'(/,A)') error_warn//'no background point charge(s) found'
-  write(6,'(A)') 'in file '//TRIM(gjfname)
-  close(fid)
-  stop
- end if
-
- write(6,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
- allocate(bgcharge(4,nbgchg), source=0d0)
-
- rewind(fid)   ! jump to the 1st line of the file
- nblank = 0
- do while(.true.)
-  read(fid,'(A)') buf
-  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-  if(nblank == nblank0) exit
- end do ! for while
-
- do i = 1, nbgchg, 1
-  read(fid,*) bgcharge(1:4,i)
- end do ! for i
- close(fid)
-
- call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
- write(6,'(A,F18.8,A)') 'Self energy of the charges =', ptchg_e, ' a.u.'
-
- i = INDEX(gjfname, '.gjf', back=.true.)
- chgname = gjfname(1:i-1)//'.chg'
- call write_charge_into_chg(nbgchg, bgcharge, chgname)
-
- call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
- write(6,'(A,F18.8,A)') 'Nuclei-charges interaction =',nuc_pt_e,' a.u.'
- write(6,'(A)') 'Note: these two energies are included in all electronic energ&
-                &ies below.'
-end subroutine read_bgchg_from_gjf
-
 ! check any readrhf/readuhf/readno in the given .gjf file
 function check_readfch(gjfname) result(has_readfch)
  implicit none
@@ -2142,10 +2060,8 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
 
  do i = 1, n-1, 1
  rtmp1 = charge(1:3,i)
-
   do j = i+1, n, 1
    rtmp2 = (rtmp1 - charge(1:3,j))/Bohr_const
-
    r(j,i) = DSQRT(DOT_PRODUCT(rtmp2, rtmp2))
 
    if(r(j,i) < zero2) then
@@ -2158,16 +2074,13 @@ subroutine calc_Coulomb_energy_of_charges(n, charge, e)
     write(6,'(2(A,I0))') 'There exists two point charges very close: i=',i,',j=',j
     write(6,'(A,F15.8)') 'r(j,i) = ', r(j,i)
    end if
-
   end do ! for j
  end do ! for i
 
  do i = 1, n-1, 1
   q1 = charge(4,i)
-
   do j = i+1, n, 1
    q2 = charge(4,j)
-
    e = e + q1*q2/r(j,i)
   end do ! for j
  end do ! for i
@@ -2180,8 +2093,12 @@ subroutine write_charge_into_chg(n, charge, chgname)
  implicit none
  integer :: i, fid
  integer, intent(in) :: n
+!f2py intent(in) :: n
  real(kind=8), intent(in) :: charge(4,n)
+!f2py intent(in) :: charge
+!f2py depend(n) :: charge
  character(len=240), intent(in) :: chgname
+!f2py intent(in) :: chgname
 
  open(newunit=fid,file=TRIM(chgname),status='replace')
  write(fid,'(I0)') n
@@ -2219,6 +2136,116 @@ subroutine calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
  end do ! for i
 
 end subroutine calc_nuc_pt_e
+
+! read background point charge(s) from .gjf file
+subroutine read_bgchg_from_gjf(gjfname, no_coor)
+ use mol, only: natom, nbgchg, bgcharge, ptchg_e, nuc_pt_e, nuc, coor
+ use mr_keyword, only: rigid_scan, relaxed_scan, chgname
+ implicit none
+ integer :: i, fid, nblank, nblank0
+ integer, external :: detect_ncol_in_buf
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+ character(len=41), parameter :: error_warn = 'ERROR in subroutine read_bgchg_f&
+                                              &rom_gjf: '
+ logical, intent(in) :: no_coor
+
+ nblank = 0
+ if(no_coor) then ! no Cartesian Coordinates
+  if(rigid_scan .or. relaxed_scan) then
+   nblank0 = 3
+  else
+   nblank0 = 2
+  end if
+ else             ! there exists Cartesian Coordinates
+  if(rigid_scan .or. relaxed_scan) then
+   nblank0 = 4
+  else
+   nblank0 = 3
+  end if
+ end if
+
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == nblank0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(A)') error_warn//'wrong format of background point charges.'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  close(fid)
+  stop
+ end if
+
+ nbgchg = 0
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i/=0 .or. LEN_TRIM(buf)==0) exit
+  nbgchg = nbgchg + 1
+ end do ! for while
+
+ if(nbgchg == 0) then
+  write(6,'(/,A)') error_warn//'no background point charge(s) found'
+  write(6,'(A)') 'in file '//TRIM(gjfname)
+  close(fid)
+  stop
+ end if
+
+ write(6,'(A,I0)') 'Background point charge specified: nbgchg = ', nbgchg
+ allocate(bgcharge(4,nbgchg), source=0d0)
+
+ rewind(fid)   ! jump to the 1st line of the file
+ nblank = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == nblank0) exit
+ end do ! for while
+
+ ! check sanity of the format of the 1st line point charges
+ read(fid,'(A)') buf
+ i = detect_ncol_in_buf(buf)
+ if(i == 4) then
+  read(buf,*) bgcharge(1:4,1)
+ else
+  write(6,'(/,A)') error_warn//'the format of point charges is problematic.'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  if(no_coor) then
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Note: when any one of readrhf/readuhf/readno is specified, y&
+                  &ou cannot write'
+   write(6,'(A)') 'charge, spin multiplicity or Cartesian coordinates in .gjf, &
+                  &since these info-'
+   write(6,'(A)') 'rmation will be directly taken from .fch file. And you need &
+                  &to write the'
+   write(6,'(A)') 'point charge data just below the Title Card line.'
+   write(6,'(A)') REPEAT('-',79)
+  end if
+  close(fid)
+  stop
+ end if
+
+ do i = 2, nbgchg, 1
+  read(fid,*) bgcharge(1:4,i)
+ end do ! for i
+ close(fid)
+
+ call calc_Coulomb_energy_of_charges(nbgchg, bgcharge, ptchg_e)
+ write(6,'(A,F18.8,A)') 'Self energy of the charges =', ptchg_e, ' a.u.'
+
+ i = INDEX(gjfname, '.gjf', back=.true.)
+ chgname = gjfname(1:i-1)//'.chg'
+ call write_charge_into_chg(nbgchg, bgcharge, chgname)
+
+ call calc_nuc_pt_e(nbgchg, bgcharge, natom, nuc, coor, nuc_pt_e)
+ write(6,'(A,F18.8,A)') 'Nuclei-charges interaction =',nuc_pt_e,' a.u.'
+ write(6,'(A)') 'Note: these two energies are included in all electronic energ&
+                &ies below.'
+end subroutine read_bgchg_from_gjf
 
 ! check whether a given binary file exists
 subroutine check_exe_exist(path)

@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc18 :: MOKIT, release date: 2026-Jan-29'
+  write(6,'(A)') 'AutoMR 1.2.7rc18 :: MOKIT, release date: 2026-Feb-2'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -590,7 +590,7 @@ subroutine prt_uno_script_into_py(pyname)
  write(fid2,'(A)') 'import os'
  write(fid2,'(A)') 'from mokit.lib.py2fch import py2fch'
  write(fid2,'(A)') 'from mokit.lib.uno import uno'
- write(fid2,'(A)') 'from mokit.lib.gaussian import mo_fch2py'
+ write(fid2,'(A)') 'from mokit.lib.gaussian import mo_fch2py, loc_driver'
  write(fid2,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, read&
                    &_na_and_nb_from_fch, \'
  write(fid2,'(A)') '  construct_vir'
@@ -678,7 +678,6 @@ subroutine prt_assoc_rot_script_into_py(pyname, suno)
   stop
  end if
 
- write(fid2,'(A)') 'from mokit.lib.gaussian import loc_driver'
  write(fid2,'(A)') 'from mokit.lib.auto_pair import pair_by_tdm'
  write(fid2,'(A)') 'from mokit.lib.assoc_rot import assoc_rot'
  write(fid2,'(A)') 'from mokit.lib.mo_svd import proj_occ_get_act_vir'

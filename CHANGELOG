@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc18 (Jan 29, 2026)
+MOKIT 1.2.7rc18 (Feb 2, 2026)
 ------------------------
 Fixes
 * remove CI coefficients copy in DMRG-(SA-)CASSCF since mc.ci is usually empty in that case
