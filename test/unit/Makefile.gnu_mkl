@@ -1,0 +1,15 @@
+# written by jxzou at 20200322
+# updated by jxzou at 20200515: delete 'install', add $(BIN)
+# updated by jxzou at 20221008: delete F2_MKL_FLAGS
+
+BIN = ../bin
+LIB = ../mokit/lib
+
+# --- gfortran + Intel MKL ---
+F90 = gfortran
+FFLAGS = -O2 -cpp -fPIC -fopenmp
+MKL_FLAGS = -L$(CONDA_PREFIX)/lib -lmkl_rt
+F2PY = f2py
+F2_FLAGS = --f90flags="-cpp -fopenmp" -I$(PWD) -lgomp
+
+include Makefile.main

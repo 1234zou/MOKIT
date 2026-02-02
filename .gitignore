@@ -1,9 +1,9 @@
 __pycache__/
 /mokit/lib/*.so
 /bin/*
-/src/*.o
-/src/*.mod
-/src/*.make
+*.o
+*.mod
+*.make
 /src/html/
 /src/latex/
 /src/Doxyfile*
@@ -21,8 +21,8 @@ noarch/
 *.html
 tmp*
 
-/test/*/*.fch*
-/test/*/*.chk
+/test/**/*.fch*
+/test/**/*.chk
 /test/*/*hf.gjf
 /test/*/*.log
 /test/*/*.gms
@@ -34,6 +34,9 @@ tmp*
 /test/*/*pyscflog
 /test/*/*_proj_*
 /test/*/*CASSCF*
+/test/**/*.chg
+/test/unit/bin/
 /test/utilities/
 /test/bas_fch2py/
 /test/ist7/
+/test/bgchg/

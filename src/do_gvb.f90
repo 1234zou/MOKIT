@@ -57,6 +57,8 @@ subroutine do_gvb()
    stop
   end if
  end if
+ 
+ write(6, '(A,I0,A)') 'GVB(',npair,') using program '//TRIM(gvb_prog)
 
  if(mo_rhf) then
   if(ist == 6) then
