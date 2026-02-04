@@ -1,43 +1,77 @@
 SRC = ../../src
-TEST_DIR = mr_keyword_read_bgchg
-TESTS = test_read_bgchg_from_gjf
+VPATH = mr_keyword_read_bgchg:mr_keyword_check_kywd
+TEST_DIRS = mr_keyword_read_bgchg mr_keyword_check_kywd
+TESTS = test_read_bgchg_from_gjf \
+        test_check_kywd_compatible_pass1 \
+        test_check_kywd_compatible_pass2 \
+        test_check_kywd_compatible_pass3 \
+        test_check_kywd_compatible_xfail \
+        test_check_kywd_compatible_quote_xfail
 BIN = bin
 
 OBJ_test_read_bgchg_from_gjf = test_utils.o file_op.o string_manipulate.o \
                                mr_keyword.o read_fch.o rw_misc.o rwwfn.o \
                                read_ev_on.o math_sub.o util_wrapper.o \
                                call_qc_calc_int.o
+OBJ_check_kywd_common = test_utils.o file_op.o string_manipulate.o mr_keyword.o read_fch.o \
+                        rw_misc.o rwwfn.o read_ev_on.o math_sub.o \
+                        util_wrapper.o call_qc_calc_int.o
 
 .PHONY: test runtest clean
 
 test: $(BIN) $(TESTS)
 
 runtest: test
-	@for t in $(TESTS); do \
-	  echo "Running $$t"; \
-	  $(BIN)/$$t; \
-	done
+	bash run_tests.sh $(BIN)
 
 test_read_bgchg_from_gjf: test_read_bgchg_from_gjf.o $(OBJ_test_read_bgchg_from_gjf)
 	$(F90) test_read_bgchg_from_gjf.o $(OBJ_test_read_bgchg_from_gjf) \
 	  $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
 
+test_check_kywd_compatible_xfail: test_check_kywd_compatible_xfail.o \
+	$(OBJ_check_kywd_common)
+	$(F90) test_check_kywd_compatible_xfail.o \
+	  $(OBJ_check_kywd_common) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
+test_check_kywd_compatible_pass1: test_check_kywd_compatible_pass1.o \
+	$(OBJ_check_kywd_common)
+	$(F90) test_check_kywd_compatible_pass1.o \
+	  $(OBJ_check_kywd_common) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
+test_check_kywd_compatible_pass2: test_check_kywd_compatible_pass2.o \
+	$(OBJ_check_kywd_common)
+	$(F90) test_check_kywd_compatible_pass2.o \
+	  $(OBJ_check_kywd_common) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
+test_check_kywd_compatible_pass3: test_check_kywd_compatible_pass3.o \
+	$(OBJ_check_kywd_common)
+	$(F90) test_check_kywd_compatible_pass3.o \
+	  $(OBJ_check_kywd_common) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
+
+test_check_kywd_compatible_quote_xfail: \
+	test_check_kywd_compatible_quote_xfail.o $(OBJ_check_kywd_common)
+	$(F90) test_check_kywd_compatible_quote_xfail.o \
+	  $(OBJ_check_kywd_common) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/$@
+
 $(BIN):
 	mkdir -p $(BIN)
 
-%.o: $(TEST_DIR)/%.f90
+%.o: %.f90
 	$(F90) -c $< -o $@ $(FFLAGS) -I$(SRC) -I.
 
 $(TESTS:%=%.o): test_utils.o
 
-test_utils.o: test_utils.f90
-	$(F90) -c $< -o $@ $(FFLAGS)
+test_utils.o: test_utils.f90 mr_keyword.o
+	$(F90) -c $< -o $@ $(FFLAGS) -I$(SRC)
 
 %.o: $(SRC)/%.f90
 	$(F90) -c $< -o $@ $(FFLAGS)
 
 clean:
 	rm -f *.o *.mod $(TESTS)
-	rm -f $(TEST_DIR)/*.chg $(TEST_DIR)/*.o
-	rm -f $(TEST_DIR)/$(TESTS)
+	for d in $(TEST_DIRS); do \
+	  rm -f $$d/*.chg $$d/*.o; \
+	  rm -f $$d/$(TESTS); \
+	done
 	rm -f $(BIN)/*
