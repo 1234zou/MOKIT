@@ -78,6 +78,9 @@ py39_gcc10:
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
+    - cd test/unit
+    - make runtest -f Makefile.gnu_openblas_ci
+    - cd ../..
   artifacts:
     name: $TARGET
     paths:

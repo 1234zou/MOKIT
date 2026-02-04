@@ -1,11 +1,16 @@
 program test_read_bgchg_from_gjf
  use mol, only: natom, nuc, coor, nbgchg, bgcharge, ptchg_e, nuc_pt_e
- use mr_keyword, only: gjfname, chgname, rigid_scan, relaxed_scan, &
-  read_bgchg_from_gjf
+ use mr_keyword, only: chgname, rigid_scan, relaxed_scan
  use phys_cons, only: Bohr_const
  use test_utils, only: assert_int_equal, assert_real_equal, assert_real_close, &
-  assert_path_suffix, fail
+  assert_path_suffix, assert_string_equal, fail
  implicit none
+ interface
+  subroutine read_bgchg_from_gjf(gjfname, no_coor)
+   character(len=240), intent(in) :: gjfname
+   logical, intent(in) :: no_coor
+  end subroutine read_bgchg_from_gjf
+ end interface
  real(kind=8), parameter :: tol = 1d-10
  real(kind=8) :: expected_ptchg, expected_nuc_pt
  real(kind=8) :: r12, r1, r2
@@ -32,12 +37,15 @@ contains
 
  subroutine test_case_simple(fname)
   character(len=*), intent(in) :: fname
+  character(len=240) :: gjf
   call reset_state()
-  gjfname = fname
   rigid_scan = .false.
   relaxed_scan = .false.
 
-  call read_bgchg_from_gjf(.false.)
+  gjf = ' '
+  gjf = fname
+  call read_bgchg_from_gjf(gjf, .false.)
+  call assert_string_equal('chgname', TRIM(chgname), 'mr_keyword_read_bgchg/read_bgchg_from_gjf.chg')
 
   call assert_int_equal('nbgchg', nbgchg, 2)
   call assert_real_equal('bgcharge(1,1)', bgcharge(1,1), 0d0)
@@ -65,12 +73,15 @@ contains
 
  subroutine test_case_second(fname)
   character(len=*), intent(in) :: fname
+  character(len=240) :: gjf
   call reset_state()
-  gjfname = fname
   rigid_scan = .false.
   relaxed_scan = .false.
 
-  call read_bgchg_from_gjf(.false.)
+  gjf = ' '
+  gjf = fname
+  call read_bgchg_from_gjf(gjf, .false.)
+  call assert_string_equal('chgname', TRIM(chgname), 'mr_keyword_read_bgchg/read_bgchg_from_gjf2.chg')
 
   call assert_int_equal('nbgchg', nbgchg, 2)
   call assert_real_equal('bgcharge(1,1)', bgcharge(1,1), 0d0)
