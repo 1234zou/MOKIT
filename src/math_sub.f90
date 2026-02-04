@@ -1966,6 +1966,21 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
  call symmetrize_dmat(nbf, dm)
 end subroutine calc_dm_using_mo_and_on
 
+! calculate spin density matrix using MO coefficients and occupation numbers
+subroutine calc_spin_dm_using_mo_and_on(nbf, nif, occ_a, occ_b, mo_a, mo_b, spin_dm)
+ implicit none
+ integer, intent(in) :: nif, nbf
+ real(kind=8), allocatable :: dm_b(:,:)
+ real(kind=8), intent(in) :: occ_a(nif), occ_b(nif), mo_a(nbf,nif), mo_b(nbf,nif)
+ real(kind=8), intent(out) :: spin_dm(nbf,nbf)
+
+ allocate(dm_b(nbf,nbf))
+ call calc_dm_using_mo_and_on(nbf, nif, mo_b, occ_b, dm_b)
+ call calc_dm_using_mo_and_on(nbf, nif, mo_a, occ_a, spin_dm)
+ spin_dm = spin_dm - dm_b
+ deallocate(dm_b)
+end subroutine calc_spin_dm_using_mo_and_on
+
 ! get a random integer
 ! TODO: better random integer generator for Windows.
 subroutine get_a_random_int(i)

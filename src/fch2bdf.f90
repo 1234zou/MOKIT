@@ -4,82 +4,111 @@
 !  linear dependence usage
 ! updated by jxzou at 20210407: remove '-uhf' and add automatic determination
 
+! TODO: Remove subroutine bas_gms2bdf. Generating GAMESS .inp file is not an
+!  efficient way.
+
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, k, SYSTEM
- character(len=3) :: str
+ integer :: i, narg, itype
+ ! itype = -5/-4/-3/-2/-1/0/1 for
+ !    X-TDDFT/SOC-X-TDA/X-TDA/TD-DFT/DFT/HF/CAS
+ character(len=8) :: str8
+ character(len=26), parameter :: error_warn = 'ERROR in program fch2bdf: '
+ character(len=30) :: dftname
  character(len=240) :: fchname, inpname
- logical :: prt_no
 
- i = iargc()
- if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in program fch2bdf: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF/UHF): fch2bdf a.fch     (-> a_bdf.inp a.scforb)'
-  write(6,'(A,/)') ' Example 2 (CAS NO)    : fch2bdf a.fch -no (-> a_bdf.inp a.inporb)'
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/UHF): fch2bdf a.fch'
+  write(6,'(A)')   ' Example 2 (KS-DFT)    : fch2bdf a.fch -dft ''B3LYP'''
+  write(6,'(A)')   ' Example 3 (KS-DFT)    : fch2bdf a.fch -dft ''GB3LYP'''
+  write(6,'(A)')   ' Example 4 (BDF BHHLYP): fch2bdf a.fch -dft ''BHandHLYP'''
+  write(6,'(A)')   ' Example 5 (DFT-D3)    : fch2bdf a.fch -dft ''B3LYP D3zero'''
+  write(6,'(A)')   ' Example 6 (DFT-D3BJ)  : fch2bdf a.fch -dft ''B3LYP D3BJ'''
+  write(6,'(A)')   ' Example 7 (X-TDA)     : fch2bdf a.fch -xtda'
+  write(6,'(A)')   ' Example 8 (SOC-X-TDA) : fch2bdf a.fch -socxtda'
+  write(6,'(A)')   ' Example 9 (X-TDDFT)   : fch2bdf a.fch -xtddft'
+  write(6,'(A,/)') ' Example10 (CAS NO)    : fch2bdf a.fch -no'
   stop
  end if
 
- fchname = ' '; inpname = ' '
+ itype = 0; str8 = ' '; dftname = ' '; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
  ! if .chk file provided, convert into .fch file automatically
- k = LEN_TRIM(fchname)
- if(fchname(k-3:k) == '.chk') then
+ i = LEN_TRIM(fchname)
+ if(fchname(i-3:i) == '.chk') then
   call formchk(fchname)
-  fchname = fchname(1:k-3)//'fch'
+  fchname = fchname(1:i-3)//'fch'
  end if
 
- if(i == 2) then
-  call getarg(2, str)
-  if(str /= '-no') then
-   write(6,'(/,A)') 'ERROR in subroutine fch2bdf: wrong command line arguments!'
-   write(6,'(A)') "The 2nd argument can only be '-no'."
+ if(narg > 1) then
+  call getarg(2, str8)
+  select case(TRIM(str8))
+  case('-no')
+   itype = 1
+  case('-dft')
+   itype = -1
+   if(narg /= 3) then
+    write(6,'(/,A)') error_warn//'three command line arguments are required'
+    write(6,'(A)') 'when `-dft` is specified.'
+    stop
+   end if
+   call getarg(3, dftname)
+   if(INDEX(dftname,'-') > 0) then
+    write(6,'(/,A)') error_warn//'''-'' symbol is not allowed in dftname. For'
+    write(6,'(A)') 'example: Gaussian B3LYP-D3(BJ) should be specified as `-dft&
+                   & ''GB3LYP D3BJ''`'
+    stop
+   end if
+  case('-xtda','-socxtda','-xtddft')
+   if(narg /= 2) then
+    write(6,'(/,A)') error_warn//'no argument is accepted after'
+    write(6,'(A)') '-xtda/-socxtda/-xtddft'
+    stop
+   end if
+   dftname = 'BHHLYP'; itype = -3
+   if(TRIM(str8) == '-socxtda') itype = -4
+   if(TRIM(str8) == '-xtddft') itype = -5
+  case default
+   write(6,'(/,A)') error_warn//'the 2nd argument can only be `-no` or `-dft`.'
    stop
-  else ! str = '-no'
-   prt_no = .true.
-  end if
- else ! i = 1
-  prt_no = .false.
+  end select
  end if
 
- call fch2bdf(fchname, prt_no)
  call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
-
- i = INDEX(fchname, '.fch', back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  inpname = fchname(1:i-1)//'.inp'
- i = SYSTEM('bas_gms2bdf '//TRIM(inpname))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2bdf: failed to call utility bas_gms&
-                   &2bdf.'
-  write(6,'(A)') 'The file '//TRIM(fchname)//' may be incomplete.'
-  stop
- end if
-
+ call bas_gms2bdf(inpname, itype, dftname)
  call delete_file(inpname)
+
+ call fch2bdf(fchname, itype)
 end program main
 
 ! read the MOs in .fch(k) file and adjust its p,d,f,g, etc. functions order
 !  of Gaussian to that of BDF
-subroutine fch2bdf(fchname, prt_no)
+subroutine fch2bdf(fchname, itype)
  use fch_content, only: Bohr_const
  implicit none
  integer :: i, j, k, m, length, natom, orbid
  integer :: na, nb, nif, nbf, nbf0, nbf1, mult
  integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark
+ integer, intent(in) :: itype
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  ! mark the index where d, f, g, h functions begin
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  integer, allocatable :: nuc(:), ntimes(:)
  real(kind=8), allocatable :: coeff(:,:), occ_num(:), coor(:,:)
  character(len=2), allocatable :: elem(:)
- character(len=240) :: orbfile
+ character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2bdf: '
+ character(len=240) :: inpname, orbfile
  character(len=240), intent(in) :: fchname
- logical, intent(in) :: prt_no
  logical :: uhf
 
- orbfile = ' '
+ ! transform basis set data and MOs
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
  call read_ncontr_from_fch(fchname, k)
@@ -90,9 +119,8 @@ subroutine fch2bdf(fchname, prt_no)
 
  if( ANY(shell_type>1) ) then ! whether Cartesian/spherical harmonic
   deallocate(shell_type, shell2atom_map)
-  write(6,'(/,A)') 'ERROR in subroutine fch2bdf: Cartesian-type basis functions&
-                   & are not supported in BDF.'
-  write(6,'(A)') 'You can use spherical harmonic basis functions.'
+  write(6,'(/,A)') error_warn//'Cartesian-type basis functions are not supported'
+  write(6,'(A)') 'in BDF. You can use spherical harmonic basis functions.'
   stop
  end if
 
@@ -170,7 +198,7 @@ subroutine fch2bdf(fchname, prt_no)
    h_mark(n11hmark) = nbf + 1
    nbf = nbf + 11
   case default
-   write(6,'(A)') 'ERROR in subroutine fch2bdf: shell_type(i) out of range.'
+   write(6,'(/,A)') 'ERROR in subroutine fch2bdf: shell_type(i) out of range.'
    write(6,'(2(A,I0))') 'i=', i, ', k=', k
    stop
   end select
@@ -238,20 +266,21 @@ subroutine fch2bdf(fchname, prt_no)
  deallocate(shell_type, shell2atom_map)
 ! move done
 
-! print MOs into BDF .scforb or .inporb
+ ! print MOs into BDF .scforb/.inporb
  i = INDEX(fchname, '.fch', back=.true.)
- if(prt_no) then
+ inpname = fchname(1:i-1)//'_bdf.inp'
+ if(itype == 1) then
   orbfile = fchname(1:i-1)//'_bdf.inporb'
  else
   orbfile = fchname(1:i-1)//'_bdf.scforb'
  end if
 
  open(newunit=orbid,file=TRIM(orbfile),status='replace')
- write(orbid,'(A)') 'TITLE - transferred MOs'
+ write(orbid,'(A)') 'TITLE - transformed MOs'
 
  call read_charge_and_mult_from_fch(fchname, i, mult)
 
- if((mult==1 .and. (.not.uhf)) .or. prt_no) then
+ if((mult==1 .and. (.not.uhf)) .or. itype==1) then
   write(orbid,'(A)') '$MOCOEF  1'  ! RHF/CAS
  else
   write(orbid,'(A)') '$MOCOEF  2'  ! ROHF, UHF
@@ -268,7 +297,7 @@ subroutine fch2bdf(fchname, prt_no)
   do i = 1, nbf0, 1
    write(orbid,'(5(2X,E23.16))') (coeff(j,i+nbf0),j=1,nbf0)
   end do ! for i
- else if(mult/=1 .and. (.not.prt_no)) then ! ROHF
+ else if(mult/=1 .and. itype/=1) then ! ROHF
   write(orbid,'(A,I9,A)') 'SYM=  1 NORB=', nbf0, ' BETA'
   do i = 1, nbf0, 1
    write(orbid,'(5(2X,E23.16))') (coeff(j,i),j=1,nbf0)
@@ -281,12 +310,12 @@ subroutine fch2bdf(fchname, prt_no)
 
  if(uhf) then
   write(orbid,'(5(2X,E23.16))') (occ_num(i),i=nbf0+1,2*nbf0)
- else if(mult/=1 .and. (.not.prt_no)) then
+ else if(mult/=1 .and. itype/=1) then
   write(orbid,'(5(2X,E23.16))') (occ_num(i),i=1,nbf0)
  end if
 
  write(orbid,'(A)') 'OCCUPATION'
- if(prt_no) then
+ if(itype == 1) then
   write(orbid,'(10(1X,E11.5))') (occ_num(i),i=1,nbf0)
   write(orbid,'(A)') '$END'
   close(orbid)
@@ -330,8 +359,311 @@ subroutine fch2bdf(fchname, prt_no)
  write(orbid,'(A,2X,I7,1X,I7)') 'NOCC', na, nb
  write(orbid,'(A)') '$END'
  close(orbid)
-! print done
+ ! done print MOs
 end subroutine fch2bdf
+
+! print primitive gaussians
+subroutine prt_prim_gau_bdf(iatom, fid)
+ use pg, only: prim_gau, nuc, highest, all_ecp, elem, ntimes, ecp_exist
+ implicit none
+ integer :: i, j, k, m, n, nline, ncol
+ integer, intent(in) :: iatom, fid
+ integer, allocatable :: list(:)
+ character(len=1), parameter :: am(0:5) = ['s','p','d','f','g','h']
+
+ call get_highest_am()
+ write(fid,'(A)') '****'
+ write(fid,'(A,I0,3X,I0,3X,I1)') TRIM(elem(iatom)),ntimes(iatom),nuc(iatom),highest
+
+ do i = 1, 7, 1
+  if(.not. allocated(prim_gau(i)%coeff)) cycle
+  write(fid,'(A)',advance='no') prim_gau(i)%stype
+  nline = prim_gau(i)%nline
+  ncol = prim_gau(i)%ncol
+  write(fid,'(2(1X,I4))') nline, ncol-1
+  do j = 1, nline, 1
+   write(fid,'(3X,E16.9)') prim_gau(i)%coeff(j,1)
+  end do ! for j
+  do j = 1, nline, 1
+   write(fid,'(10(E16.9,3X))') (prim_gau(i)%coeff(j,k), k=2,ncol)
+  end do ! for j
+ end do ! for i
+
+ if(.not. ecp_exist) return
+
+ if(all_ecp(iatom)%ecp) then
+  write(fid,'(A)') 'ECP'
+  m = all_ecp(iatom)%highest
+  write(fid,'(A,2(I0,1X),I0)') TRIM(elem(iatom)),ntimes(iatom),all_ecp(iatom)%core_e,m
+  allocate(list(m+1))
+  list(1) = m
+  forall(i=2:m+1) list(i) = i-2
+  do i = 1, m+1, 1
+   n = all_ecp(iatom)%potential(i)%n
+   if(i == 1) then
+    write(fid,'(A,I0)') am(list(i))//' potential ', n
+   else ! i > 1
+    write(fid,'(A,I0)') am(list(i))//' potential ', n
+   end if
+
+   do j = 1, n, 1
+    write(fid,'(I0,2(1X,F16.8))') all_ecp(iatom)%potential(i)%col2(j), all_ecp(iatom)%potential(i)%col3(j), &
+                                  all_ecp(iatom)%potential(i)%col1(j)
+   end do ! for j
+  end do ! for i
+ end if
+end subroutine prt_prim_gau_bdf
+
+! Transform the basis sets in GAMESS format to those in BDF format
+subroutine bas_gms2bdf(fort7, itype, dftname)
+ use pg, only: natom, nuc, ntimes, coor, elem, all_ecp, ecp_exist
+ implicit none
+ integer :: i, k, nline, rc, rel, nbf, nif, fid1, fid2
+ integer :: charge, mult, isph
+ integer, intent(in) :: itype
+ character(len=7) :: str
+ character(len=240), intent(in) :: fort7
+ character(len=240) :: buf, input, basfile
+ ! input is the BDF input file
+ ! if you do not like the suffix .bdf, you can change it into .inp
+ character(len=1) :: stype
+ character(len=30) :: dftname1
+ character(len=30), intent(in) :: dftname
+ character(len=33), parameter :: error_str = 'ERROR in subroutine bas_gms2bdf: '
+ logical :: X2C, uhf, ghf, lin_dep, ks_dft, d3zero, d3bj
+ logical, allocatable :: ghost(:)
+
+ ! detect and parse dftname
+ ks_dft = .false.; d3zero = .false.; d3bj = .false.
+ dftname1 = ADJUSTL(dftname)
+ call upper(dftname1)
+ k = LEN_TRIM(dftname1)
+
+ if(k > 0) then
+  ks_dft = .true.
+  if(dftname1(1:5) == 'B3LYP') then
+   write(6,'(/,A)') 'Warning from subroutine fch2bdf: if you want to use Gaussi&
+                    &an B3LYP functional'
+   write(6,'(A)') 'in BDF, you need to specify `GB3LYP` (which uses VWN3). An e&
+                  &xample is:'
+   write(6,'(A)') ' fch2bdf h2o_rks.fch -dft ''GB3LYP D3BJ'''
+   write(6,'(/,A)') 'If you simply want to use BDF default B3LYP (which uses VW&
+                    &N5), you can ignore'
+   write(6,'(A)') 'this warning.'
+  end if
+  i = INDEX(dftname1(1:k), ' ', back=.true.)
+  if(i > 0) then
+   select case(TRIM(dftname1(i+1:k)))
+   case('D3')
+    write(6,'(/,A)') error_str//'D3 is not accepted in this utility. Please'
+    write(6,'(A)') 'specify D3zero or D3BJ.'
+    stop
+   case('D3ZERO')
+    d3zero = .true.
+   case('D3BJ')
+    d3bj = .true.
+   case default
+    write(6,'(/,A)') error_str//'dftname cannot be parsed correctly.'
+    write(6,'(A)') 'dftname='//TRIM(dftname)
+    stop
+   end select
+   dftname1(i+1:k) = ' '
+  end if
+  if(TRIM(dftname1) == 'BHANDHLYP') dftname1 = 'BHHLYP'
+ end if
+
+ buf = ' '; input = ' '; basfile = ' '
+ call read_nbf_and_nif_from_gms_inp(fort7, nbf, nif)
+ if(nbf > nif) then
+  lin_dep = .true.  ! linear dependent
+ else
+  lin_dep = .false. ! no linear dependence
+ end if
+
+ k = INDEX(fort7, '.', back=.true.)
+ input = fort7(1:k-1)//'_bdf.inp'
+ call read_natom_from_gms_inp(fort7, natom)
+ allocate(elem(natom), nuc(natom), coor(3,natom), ntimes(natom), ghost(natom))
+ call read_elem_nuc_coor_from_gms_inp(fort7, natom, elem, nuc, coor, ghost)
+ deallocate(ghost)
+ ! ram cannot be deallocated here since subroutine prt_prim_gau_bdf will use it
+
+ call calc_ntimes(natom, elem, ntimes)
+ call read_charge_mult_isph_from_gms_inp(fort7, charge, mult, isph, uhf, ghf, &
+                                         ecp_exist)
+ call read_all_ecp_from_gms_inp(fort7)
+
+ if(itype<-2 .and. mult<2) then
+  write(6,'(/,A)') error_str//'X-TD must be based on ROKS. But got'
+  write(6,'(A,I0)') 'mult=', mult
+  call delete_file(TRIM(fort7))
+  stop
+ end if
+
+ if(ecp_exist) then
+  basfile = 'ECP.'//fort7(1:k-1)//'.BAS'
+ else
+  basfile = fort7(1:k-1)//'.BAS'
+ end if
+ ! read ECP/PP done
+
+ call upper(basfile)
+ open(newunit=fid2,file=TRIM(input),status='replace')
+ write(fid2,'(A)') '$COMPASS'
+ write(fid2,'(A)') 'Title'
+ write(fid2,'(A)') 'generated by fch2bdf of MOKIT'
+ write(fid2,'(A)') 'Geometry'
+
+ call check_X2C_in_gms_inp(fort7, X2C)
+ call check_DKH_in_gms_inp(fort7, rel)
+
+ do i = 1, natom, 1
+  str = ' '
+  write(str,'(A,I0)') TRIM(elem(i)), ntimes(i)
+  write(fid2,'(A7,1X,3F18.8)') str, coor(1:3,i)
+ end do ! for i
+ deallocate(coor)
+
+ write(fid2,'(A)') 'End Geometry'
+ write(fid2,'(A)') 'Basis'
+ write(fid2,'(A)') TRIM(basfile)
+ write(fid2,'(A)') 'Nosymm'
+ write(fid2,'(A)') '$END'
+
+ write(fid2,'(/,A)') '$XUANYUAN'
+ if(rel>-1 .or. X2C) then
+  write(fid2,'(A)') 'Scalar'
+  if(rel>-1 .and. (.not.X2C)) then
+   write(6,'(/,A)') 'Warning in subroutine bas_gms2bdf: BDF program does not su&
+                    &pport DKH Hamiltonian.'
+   write(6,'(A)') "Spin-free X2C keyword 'Scalar' are written in $XUANYUAN inst&
+                  &ead."
+  end if
+ end if
+ if(itype == -4) write(fid2,'(A,/,1X,I0)') 'hsoc', 2
+ write(fid2,'(A)') '$END'
+
+ write(fid2,'(/,A)') '$SCF'
+ if(lin_dep) then
+  write(fid2,'(A)') 'CheckLin'
+  write(fid2,'(A)') 'TolLin'
+  write(fid2,'(A)') '1.D-6'
+ end if
+
+ if(ks_dft) then ! KS-DFT
+  if(uhf) then
+   write(fid2,'(A)') 'UKS'
+  else
+   if(mult == 1) then
+    write(fid2,'(A)') 'RKS'
+   else
+    write(fid2,'(A)') 'ROKS'
+   end if
+  end if
+  write(fid2,'(A)') 'DFT'
+  write(fid2,'(1X,A)') TRIM(dftname1)
+  if(d3zero) write(fid2,'(A)') 'D3zero'
+  if(d3bj) write(fid2,'(A)') 'D3' ! be careful
+  write(fid2,'(A,/,1X,A)') 'Grid', 'ultra fine'
+ else            ! HF
+  if(uhf) then
+   write(fid2,'(A)') 'UHF'
+  else
+   if(mult == 1) then
+    write(fid2,'(A)') 'RHF'
+   else
+    write(fid2,'(A)') 'ROHF'
+   end if
+  end if
+ end if
+
+ write(fid2,'(A,/,1X,I0)') 'Charge', charge
+ write(fid2,'(A,/,1X,I0)') 'Spin', mult
+ write(fid2,'(A,/,1X,A,/,A)') 'Guess','read','$END'
+
+ if(itype == -5) then ! X-TDDFT
+  write(fid2,'(/,A)') '$TDDFT'
+  write(fid2,'(A,/,1X,I0)') 'iroot', 4
+  write(fid2,'(A,/,1X,A)') 'Grid', 'ultra fine'
+  write(fid2,'(A)') '$END'
+ else if(itype==-3 .or. itype==-4) then ! (SOC-)X-TDA
+  write(fid2,'(/,A)') '$TDDFT'
+  write(fid2,'(A,/,1X,I0)') 'itda', 1
+  write(fid2,'(A,/,1X,I0)') 'iroot', 4
+  if(itype == -4) then
+   write(fid2,'(A,/,1X,I0)') 'istore', 1
+   write(fid2,'(A,/,1X,I0)') 'itrans', 1
+  end if
+  write(fid2,'(A,/,1X,A)') 'Grid', 'ultra fine'
+  write(fid2,'(A)') '$END'
+  write(fid2,'(/,A)') '$TDDFT'
+  write(fid2,'(A,/,1X,I0)') 'itda', 1
+  write(fid2,'(A,/,1X,I0)') 'isf', 1
+  ! Important: ALDA0 noncollinear XC kernel, affect excited states much
+  write(fid2,'(A,/,1X,I0)') 'ialda', 2
+  write(fid2,'(A,/,1X,I0)') 'iroot', 4
+  if(itype == -4) then
+   write(fid2,'(A,/,1X,I0)') 'istore', 2
+   write(fid2,'(A,/,1X,I0)') 'itrans', 1
+  end if
+  write(fid2,'(A,/,1X,A)') 'Grid', 'ultra fine'
+  write(fid2,'(A)') '$END'
+  ! so far, SOC calculation is supported using X-TDA, but not X-TDDFT
+  if(itype == -4) then
+   write(fid2,'(/,A)') '$TDDFT'
+   write(fid2,'(A,/,1X,I0)') 'isoc', 2
+   write(fid2,'(A,/,1X,I0)') 'nfiles', 2
+   write(fid2,'(A,/,1X,I0)') 'ifgs', 1
+   write(fid2,'(A,/,1X,I0)') 'imatsoc', -1
+   write(fid2,'(A,/,1X,I0)') 'imatrso', -2
+   write(fid2,'(A)') '$END'
+  end if
+ end if
+ close(fid2)
+
+ ! open the .inp/.dat file and find the $DATA section
+ call goto_data_section_in_gms_inp(fort7, fid1)
+ read(fid1,'(A)') buf
+ read(fid1,'(A)') buf
+
+ ! initialization: clear all primitive gaussians
+ call clear_prim_gau()
+ open(newunit=fid2,file=TRIM(basfile),status='replace')
+
+ ! read the element, relative atomic mass (ram) and coordinates
+ do i = 1, natom, 1
+  read(fid1,'(A)',iostat=rc) buf
+  ! 'buf' contains the element, ram and coordinates
+  if(rc /= 0) exit
+
+  ! deal with primitive gaussians
+  do while(.true.)
+   read(fid1,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+
+   read(buf,*) stype, nline
+   call read_prim_gau(stype, nline, fid1)
+  end do ! for while
+
+  ! print basis sets and ECP/PP (if any) of this atom in BDF format
+  call prt_prim_gau_bdf(i, fid2)
+
+  ! clear all primitive gaussians for next cycle
+  call clear_prim_gau()
+ end do ! for i
+
+ deallocate(nuc, ntimes, elem, all_ecp)
+ close(fid1)
+
+ if(rc /= 0) then
+  write(6,'(/,A)') error_str//'it seems the "$DATA" has no corresponding "$END".'
+  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
+  close(fid2,status='delete')
+  stop
+ end if
+
+ close(fid2)
+end subroutine bas_gms2bdf
 
 ! move the 2nd, 3rd, ... Zeta basis functions forward
 subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
@@ -346,8 +678,8 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  if(length == 1) return
 
  if(shell_type==0 .or. shell_type==-1) then
-  write(6,'(A)') 'ERROR in subroutine zeta_mv_forwd: this element of&
-                 & shell_type is 0 or -1. Impossible.'
+  write(6,'(/,A)') 'ERROR in subroutine zeta_mv_forwd: this element of shell_ty&
+                   &pe is 0 or -1.'
   write(6,'(2(A,I0))') 'shell_type=', shell_type, ', length=', length
   stop
  end if

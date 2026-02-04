@@ -1802,11 +1802,13 @@ end subroutine reorder2dbabasv
 ! orbitals.
 subroutine fch_r2u(fchname, ibrosym)
  implicit none
- integer :: i, j, k, nbf, nif, ncoeff, na, nb, nline, ibrok, fid, fid1
+ integer :: i, j, k, nbf, nif, ncoeff, na, nb, nline, len_dm, ibrok, fid, fid1
  integer, intent(in) :: ibrosym
 !f2py intent(in) :: ibrosym
  real(kind=8), parameter :: fac = 0.5d0*DSQRT(2d0)
- real(kind=8), allocatable :: e_a(:), tmp_mo(:,:), mo_a(:,:), mo_b(:,:)
+ real(kind=8), allocatable :: e_a(:), tmp_mo(:,:), occ_a(:), occ_b(:), &
+  mo_a(:,:), mo_b(:,:), spin_dm(:,:)
+ character(len=29), parameter :: error_str = 'ERROR in subroutine fch_r2u: '
  character(len=240) :: buf, uhf_fch
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
@@ -1816,7 +1818,7 @@ subroutine fch_r2u(fchname, ibrosym)
 
  call read_na_and_nb_from_fch(fchname, na, nb)
  if(ibrosym > nb) then
-  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: input ibrosym is nonsense.'
+  write(6,'(/,A)') error_str//'input ibrosym is nonsense.'
   write(6,'(2(A,I0))') 'ibrosym=', ibrosym, ', nb=', nb
   stop
  end if
@@ -1859,6 +1861,14 @@ subroutine fch_r2u(fchname, ibrosym)
   deallocate(tmp_mo)
  end if
 
+ allocate(occ_a(nif), source=0d0)
+ occ_a(1:na) = 1d0
+ allocate(occ_b(nif), source=0d0)
+ if(nb > 0) occ_a(1:nb) = 1d0
+ allocate(spin_dm(nbf,nbf))
+ call calc_spin_dm_using_mo_and_on(nbf, nif, occ_a, occ_b, mo_a, mo_b, spin_dm)
+ deallocate(occ_a, occ_b)
+
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(uhf_fch),status='replace')
  read(fid,'(A)') buf
@@ -1892,8 +1902,7 @@ subroutine fch_r2u(fchname, ibrosym)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch_r2u: 'ILSW' not found in file "//&
-                   TRIM(fchname)
+  write(6,'(/,A)') error_str//"'ILSW' not found in file "//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -1932,7 +1941,7 @@ subroutine fch_r2u(fchname, ibrosym)
   BACKSPACE(fid)
   BACKSPACE(fid)
  case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine fch_r2u: invalid case i=', i
+  write(6,'(/,A,I0)') error_str//'invalid case i=', i
   write(6,'(A)') 'fchname='//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
@@ -1962,8 +1971,7 @@ subroutine fch_r2u(fchname, ibrosym)
  read(fid,'(A)') buf
  write(fid1,'(A)') TRIM(buf)
  if(buf(1:7) /= 'Alpha M') then
-  write(6,'(/,A)') 'ERROR in subroutine fch_r2u: "Alpha M" is not found at the &
-                   &expected position.'
+  write(6,'(/,A)') error_str//'"Alpha M" is not found at the expected position.'
   write(6,'(A)') 'fchname='//TRIM(fchname)
   close(fid)
   close(fid1,status='delete')
@@ -1993,6 +2001,53 @@ subroutine fch_r2u(fchname, ibrosym)
   deallocate(mo_a)
  end if
 
+ ! For g09, `Spin SCF Density` section is required otherwise the Gaussian unfchk
+ ! utility will signal errors. So we try to add this section.
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)',iostat=i) TRIM(buf)
+  if(i /= 0) exit
+  if(buf(1:11) == 'Total SCF D') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_str//'"Total SCF D" not found in file '//TRIM(fchname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ len_dm = nbf*(nbf+1)/2
+ nline = len_dm/5
+ if(5*nline < len_dm) nline = nline + 1
+ ! skip "Total SCF D" section
+ do i = 1, nline, 1
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for i
+ read(fid,'(A)',iostat=k) buf
+
+ if(k == 0) then
+  if(buf(1:10) == 'Spin SCF D') then
+   write(fid1,'(A)') TRIM(buf)
+   write(fid1,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
+   do i = 1, nline, 1
+    read(fid,'(A)') buf
+   end do ! for i
+  else ! other strings like 'QEq coupling tensors'
+   write(fid1,'(A,I12)') 'Spin SCF Density                           R   N=',len_dm
+   write(fid1,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
+   write(fid1,'(A)') TRIM(buf)
+  end if
+ else ! assuming there is nothing after 'Total SCF D'
+  close(fid)
+  write(fid1,'(A,I12)') 'Spin SCF Density                           R   N=',len_dm
+  write(fid1,'(5(1X,ES15.8))') ((spin_dm(j,i),j=1,i),i=1,nbf)
+  close(fid1)
+  return
+ end if
+
+ ! copy remaining content
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit

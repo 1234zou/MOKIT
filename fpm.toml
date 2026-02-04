@@ -75,12 +75,6 @@ main = "bas_gau2molcas.f90"
 link = "mkl_rt"
 
 [[executable]]
-name = "bas_gms2bdf"
-source-dir = "src"
-main = "bas_gms2bdf.f90"
-link = "mkl_rt"
-
-[[executable]]
 name = "bas_gms2dal"
 source-dir = "src"
 main = "bas_gms2dal.f90"

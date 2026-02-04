@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc18 (Feb 2, 2026)
+MOKIT 1.2.7rc18 (Feb 4, 2026)
 ------------------------
 Fixes
 * remove CI coefficients copy in DMRG-(SA-)CASSCF since mc.ci is usually empty in that case
@@ -25,6 +25,7 @@ Fixes
 * fix fch2inp error introduced in 1.2.7rc1 when ECP and ghost atoms both exist
 * fix occasional bug ModuleNotFoundError in load_mol_from_fch
 Features
+* add flags -dft/-xtda/-socxtda/-xtddft for fch2bdf
 * add entry-point for function uno and permute_orb
 * support EE-/SOS- ADC(2) interface in autosr to the Q-Chem program
 * support EE-/SCS-/SOS- ADC(2) interface in autosr to the MRCC program
@@ -101,6 +102,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* move all subroutins in bas_gms2bdf.f90 into fch2bdf.f90
 * use one subroutine read_fosc_from_orca_out for ORCA 5/6 ADC(2)/EOM-CCSD/SA-CASSCF
 * remove a duplicated subroutine read_fosc_from_orca_out
 * mv functions find_antibonding_orb and find_antibonding_orb_in_fch from util.py to auto.py

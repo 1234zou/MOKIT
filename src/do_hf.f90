@@ -1,9 +1,9 @@
 ! written by jxzou at 20210305: move HF subroutines here
 ! updated by jxzou at 20210305: add interfaces with ORCA and PSI4 (for RI-JK HF)
 
-! For singlet UHF calculation, copy a given .gjf file (with `guess=read`) and
-! modify `guess=read` to `guess=mix`
-subroutine gen_uhf_default_guess_gjf(uhf_gjf)
+! For a broken-symmetry singlet UHF calculation, copy a given .gjf file (with
+! `guess=read`) and modify guess=read to guess=mix
+subroutine gen_bs_uhf_guess_gjf(uhf_gjf)
  use util_wrapper, only: unfchk
  implicit none
  integer :: i, k, fid, fid1
@@ -30,8 +30,8 @@ subroutine gen_uhf_default_guess_gjf(uhf_gjf)
  if(i /= 0) then
   close(fid)
   close(fid1,status='delete')
-  write(6,'(/,A)') 'ERROR in subroutine gen_uhf_default_guess_gjf: `guess=read`&
-                   & not found in file'
+  write(6,'(/,A)') 'ERROR in subroutine gen_bs_uhf_guess_gjf: `guess=read` not &
+                   &found in file'
   write(6,'(A)') TRIM(uhf_gjf)
   stop
  end if
@@ -49,7 +49,7 @@ subroutine gen_uhf_default_guess_gjf(uhf_gjf)
  close(fid)
  close(fid1)
  call unfchk(fchname, chkname2)
-end subroutine gen_uhf_default_guess_gjf
+end subroutine gen_bs_uhf_guess_gjf
 
 ! swap the filenames of two files
 subroutine swap_filenames(fname1, fname2)
@@ -233,7 +233,7 @@ subroutine do_hf(prt_mr_strategy)
 
   i = LEN_TRIM(hf_prog_path)
   if(hf_prog_path(i-2:i-2) == 'g') then
-   call gen_uhf_default_guess_gjf(uhf_inp)
+   call gen_bs_uhf_guess_gjf(uhf_inp)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp2)
    call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp2, .false., uhf_e2, &
                           ssquare)
@@ -826,18 +826,20 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  else         ! not UHF
   if(mult == 1) then ! RHF
    write(fid,'(/,A)') 'if mf.converged is False:'
-   write(fid,'(A)') "  raise OSError('PySCF R(O)HF job failed.')"
+   write(fid,'(A)') "  raise OSError('PySCF RHF job failed.')"
    write(fid,'(/,A)') '# stable=opt'
    write(fid,'(A)') 'mf = rhf_stable_opt_internal(mf)'
-   write(fid,'(/,A)') '# save R(O)HF MOs into .fch file'
-   write(fid,'(A)') "fchk(mf, '"//TRIM(fchname)//"', density=True)"
+   write(fid,'(/,A)') '# save RHF MOs into .fch file'
+   write(fid,'(A)') "rhf_fch = '"//TRIM(fchname)//"'"
+   write(fid,'(A)') 'fchk(mf, rhf_fch, density=True)'
   else               ! ROHF
+   write(fid,'(/,A)') 'if mf.converged is False:'
+   write(fid,'(A)') "  raise OSError('PySCF ROHF job failed.')"
    write(fid,'(/,A)') '# stable=opt'
    write(fid,'(A)') 'mf = rohf_stable_opt_internal(mf)'
    write(fid,'(/,A)') '# save ROHF MOs into .fch file'
    write(fid,'(A)') "rohf_fch = '"//TRIM(fchname)//"'"
-   write(fid,'(A)') 'fchk(mf, rohf_fch)'
-   write(fid,'(A)') 'update_density_using_mo_in_fch(rohf_fch)'
+   write(fid,'(A)') 'fchk(mf, rohf_fch, density=True)'
   end if
  end if
 

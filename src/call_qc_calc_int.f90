@@ -348,44 +348,6 @@ subroutine read_orthonormal_basis_from_fch(fchname, nbf, mo, success)
  success = .true.
 end subroutine read_orthonormal_basis_from_fch
 
-subroutine check_pyscf_exist(found)
- implicit none
- integer :: i, fid
- character(len=50) :: shname, outname
- character(len=120) :: buf
- logical, intent(out) :: found
-!f2py intent(out) :: found
-
- found = .false.
- call get_a_random_int(i)
-
-#ifdef _WIN32
- write(shname,'(A,I0,A)') 'mokit_', i, '.bat'
-#else
- write(shname,'(A,I0,A)') 'mokit_', i, '.sh'
-#endif
-
- write(outname,'(A,I0,A)') 'mokit_', i, '.out'
- open(newunit=fid,file=TRIM(shname),status='replace')
- write(fid,'(A)') 'python -c "import pyscf; print(''PySCF version:'', pyscf._&
-                  &_version__)"'
- close(fid)
-
- buf = TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
-#ifndef _WIN32
- buf = 'bash '//TRIM(buf)
-#endif
-
- call execute_command_line(TRIM(buf), exitstat=i)
- call delete_file(TRIM(shname))
-
- open(newunit=fid,file=TRIM(outname),status='old')
- read(fid,'(A)') buf
- close(fid,status='delete')
-
- if(buf(1:14) == 'PySCF version:') found = .true.
-end subroutine check_pyscf_exist
-
 ! Compute AO-basis overlap integral matrix using the given .fch file. If there
 ! is 'Orthonormal basis' and no linear dependency, compute ovlp using the formula
 ! S=(C(C^T))^(-1). Otherwise call PySCF to compute S and transform it to Gaussian

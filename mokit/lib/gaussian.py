@@ -529,23 +529,22 @@ def uno(fchname):
     print('UNOs exported to file '+fchname1)
 
 
-def permute_orb(fchname, orb1, orb2):
+def permute_orb(fchname, orb1, orb2, start_from_one=True):
     '''
-    Permute two orbitals in a given Gaussian .fch(k) file.
-    Note: orb1/orb2 are in Fortran convention (starts from 1)
+    Permute two orbitals in a given Gaussian .fch(k) file. By default, orb1/orb2
+    are in Fortran convention (starts from 1). If one wants to start from 0,
+    start_from_one=False is required.
     '''
-
     nbf, nif = read_nbf_and_nif_from_fch(fchname)
     mo = read_mo_from_fch(fchname, nbf, nif, 'a')
-    mo1 = mo[:,orb1-1].copy()
-    mo2 = mo[:,orb2-1].copy()
-    mo[:,orb1-1] = mo2.copy()
-    mo[:,orb2-1] = mo1.copy()
-
     ev = read_eigenvalues_from_fch(fchname, nif, 'a')
-    r = ev[orb1-1]
-    ev[orb1-1] = ev[orb2-1]
-    ev[orb2-1] = r
+
+    if start_from_one is True:
+        mo[:, [orb1-1,orb2-1]] = mo[:, [orb2-1,orb1-1]]
+        ev[orb1-1], ev[orb2-1] = ev[orb2-1], ev[orb1-1]
+    else:
+        mo[:, [orb1,orb2]] = mo[:, [orb2,orb1]]
+        ev[orb1], ev[orb2] = ev[orb2], ev[orb1]
 
     write_mo_into_fch(fchname, nbf, nif, 'a', mo)
     write_eigenvalues_to_fch(fchname, nif, 'a', ev, True)
@@ -553,12 +552,11 @@ def permute_orb(fchname, orb1, orb2):
 
 def lin_comb_two_mo(fchname, orb1, orb2, start_from_one=False):
     '''
-    Perform root2/2 (mo1+mo2) and root2/2 (mo1-mo2) unitary transformation for two
-     specified MOs in a Gaussian .fch file.
-    When the sigma and pi orbitals of a multiple bond are mixed (banana bond), this
-     can be used to make them separated.
-    Note: orb1/orb2 are in Python convention (starts from 0) by default. If you
-     want to starts from 1, please set start_from_one=True.
+    Perform root2/2 (mo1+mo2) and root2/2 (mo1-mo2) unitary transformation for
+    two specified MOs in a Gaussian .fch file. When the sigma and pi orbitals of
+    a multiple bond are mixed (banana bond), this can be used to make them
+    separated. By default, orb1/orb2 are in Python convention (starts from 0).
+    If one wants to start from 1, start_from_one=True is required.
     '''
     import math
 
