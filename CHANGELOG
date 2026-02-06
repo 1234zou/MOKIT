@@ -1,6 +1,7 @@
-MOKIT 1.2.7rc18 (Feb 4, 2026)
+MOKIT 1.2.7rc19 (Feb 6, 2026)
 ------------------------
 Fixes
+* fix fragment guess in a singlet UHF calculation (introduced in commit 7c8ae546)
 * remove CI coefficients copy in DMRG-(SA-)CASSCF since mc.ci is usually empty in that case
 * fix the case Xmult/=Mult in auto SA-CASSCF calculation
 * fix spin multiplicity specification in ORCA %mrci

@@ -84,7 +84,7 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
  character(len=240) :: inpname, inpname1, pyname
  character(len=240), intent(in) :: fchname
  character(len=300) :: command
- logical :: alive, cart, is_hf, rotype, untype, lin_dep
+ logical :: alive, cart, is_hf, rotype, untype, lin_dep, sfx2c
  logical, intent(in) :: prt_dft, pbc, obj_only
 
  call find_specified_suffix(fchname, '.fch', i)
@@ -125,6 +125,7 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
   write(6,'(A)') 'may be problematic.'
   stop
  end if
+ call check_X2C_in_gms_inp(inpname, sfx2c)
 
  if(alive) then
   i = RENAME(TRIM(inpname1), TRIM(inpname))
@@ -137,7 +138,7 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
  if(prt_dft) then
   call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
   call prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, pbc, &
-                                pyname)
+                                sfx2c, pyname)
  end if
 end subroutine bas_fch2py
 
@@ -168,7 +169,7 @@ end subroutine bas_fch2py
 
 ! print DFT keywords into a PySCF .py script
 subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, &
-                                    pbc, pyname)
+                                    pbc, sfx2c, pyname)
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=4) :: str4
@@ -176,7 +177,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, &
  character(len=240) :: buf, pyname1, pchkname
  character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: pyname
- logical, intent(in) :: is_hf, rotype, untype, lin_dep, pbc
+ logical, intent(in) :: is_hf, rotype, untype, lin_dep, pbc, sfx2c
  logical :: printed
 
  str4 = 'mol'
@@ -249,6 +250,7 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, &
  write(fid1,'(A)') 'mf.verbose = 4'
  write(fid1,'(A)') 'mf.max_cycle = 128'
  write(fid1,'(A)') 'mf.max_memory = 4000 # MB'
+ if(sfx2c) write(fid1,'(A)') 'mf = mf.x2c1e()'
  write(fid1,'(A)') 'mf.kernel(dm0=dm)'
 
  close(fid1)

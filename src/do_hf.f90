@@ -513,7 +513,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
  chkname = gjfname(1:i-1)//'.chk'
  fchname = gjfname(1:i-1)//'.fch'
 
- if(uhf .and. mult==1) then
+ if(uhf .and. mult==1 .and. (.not.frag_guess)) then
   call find_specified_suffix(gjfname, '_uhf.gjf', i)
   rhf_fch = gjfname(1:i-1)//'_rhf.fch'
   bs_fch = gjfname(1:i-1)//'_rhf_u.fch'
@@ -585,7 +585,7 @@ subroutine gen_hf_gjf(gjfname, uhf, noiter)
   end if
  end if
 
- if(uhf .and. mult==1) then
+ if(uhf .and. mult==1 .and. (.not.frag_guess)) then
   ! `chkbasis` and `geom=allcheck` will read everything needed
   write(fid,'(/)',advance='no')
  else

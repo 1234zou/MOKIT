@@ -430,7 +430,7 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
  character(len=30) :: dftname1
  character(len=30), intent(in) :: dftname
  character(len=33), parameter :: error_str = 'ERROR in subroutine bas_gms2bdf: '
- logical :: X2C, uhf, ghf, lin_dep, ks_dft, d3zero, d3bj
+ logical :: X2C, uhf, ghf, ks_dft, d3zero, d3bj
  logical, allocatable :: ghost(:)
 
  ! detect and parse dftname
@@ -474,11 +474,6 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
 
  buf = ' '; input = ' '; basfile = ' '
  call read_nbf_and_nif_from_gms_inp(fort7, nbf, nif)
- if(nbf > nif) then
-  lin_dep = .true.  ! linear dependent
- else
-  lin_dep = .false. ! no linear dependence
- end if
 
  k = INDEX(fort7, '.', back=.true.)
  input = fort7(1:k-1)//'_bdf.inp'
@@ -525,14 +520,15 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
  deallocate(coor)
 
  write(fid2,'(A)') 'End Geometry'
- write(fid2,'(A)') 'Basis'
- write(fid2,'(A)') TRIM(basfile)
+ write(fid2,'(A,/,A)') 'Basis', TRIM(basfile)
  write(fid2,'(A)') 'Nosymm'
  write(fid2,'(A)') '$END'
 
  write(fid2,'(/,A)') '$XUANYUAN'
  if(rel>-1 .or. X2C) then
-  write(fid2,'(A)') 'Scalar'
+  write(fid2,'(A)') '# for very old BDF, you may need to replace the following &
+                    &two lines by ''Scalar'''
+  write(fid2,'(A,/,1X,I0)') 'heff', 3
   if(rel>-1 .and. (.not.X2C)) then
    write(6,'(/,A)') 'Warning in subroutine bas_gms2bdf: BDF program does not su&
                     &pport DKH Hamiltonian.'
@@ -544,11 +540,6 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
  write(fid2,'(A)') '$END'
 
  write(fid2,'(/,A)') '$SCF'
- if(lin_dep) then
-  write(fid2,'(A)') 'CheckLin'
-  write(fid2,'(A)') 'TolLin'
-  write(fid2,'(A)') '1.D-6'
- end if
 
  if(ks_dft) then ! KS-DFT
   if(uhf) then
@@ -565,6 +556,7 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
   if(d3zero) write(fid2,'(A)') 'D3zero'
   if(d3bj) write(fid2,'(A)') 'D3' ! be careful
   write(fid2,'(A,/,1X,A)') 'Grid', 'ultra fine'
+  write(fid2,'(A,/,1X,A)') 'GridTol', '1e-8'
  else            ! HF
   if(uhf) then
    write(fid2,'(A)') 'UHF'
@@ -579,7 +571,16 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
 
  write(fid2,'(A,/,1X,I0)') 'Charge', charge
  write(fid2,'(A,/,1X,I0)') 'Spin', mult
- write(fid2,'(A,/,1X,A,/,A)') 'Guess','read','$END'
+ write(fid2,'(A,/,1X,A)') 'Guess','read'
+ ! By default, BDF uses 1d-5 for checking basis set linear dependency, which
+ ! is not equal to that of Gaussian/GAMESS. So let's always specify 1d-6.
+ write(fid2,'(2(A,/),1X,A)') 'CheckLin','TolLin','1d-6'
+ ! Other options which might be used in the future:
+ ! Vshift=x: equivalent to scf(vshift=1000*x) of Gaussian
+ ! NoDeltaP: turn off the incremental Fock technique, usually useless
+ ! NoGridSwitch: equivalent to `NoVarAcc` of Gaussian, which seems useless when
+ !               `ultra fine` is specified
+ write(fid2,'(A)') '$END'
 
  if(itype == -5) then ! X-TDDFT
   write(fid2,'(/,A)') '$TDDFT'

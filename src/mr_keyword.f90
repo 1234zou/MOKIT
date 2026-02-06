@@ -249,7 +249,7 @@ module mr_keyword
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mrcisdt_prog = 'openmolcas' ! uncontracted MRCISDT
- character(len=10) :: mcpdft_prog  = 'openmolcas'
+ character(len=10) :: mcpdft_prog  = 'pyscf' ! PySCF/OpenMolcas/GAMESS
  character(len=10) :: mrcc_prog    = 'orca'
  character(len=10) :: cis_prog     = 'gaussian'
 
@@ -314,7 +314,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc18 (2026-Feb-4)'
+ write(6,'(A)') '           Version: 1.2.7rc19 (2026-Feb-6)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
