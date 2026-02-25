@@ -2,6 +2,6 @@ include MANIFEST.in
 include README.md CHANGELOG
 recursive-include bin *
 include mokit/*.py 
-recursive-include mokit/lib *.py *.so
+recursive-include mokit/lib *.py *.so *.pyd *.dll
 recursive-include mokit/basis *
-
+recursive-exclude * *.pyc __pycache__
