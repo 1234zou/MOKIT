@@ -5,7 +5,7 @@ subroutine do_mrpt3()
   casnofch, bgchg, chgname, mem, nproc, molpro_path, orca_path, bdf_path, eist
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, caspt3_e, nevpt3_e, ptchg_e, &
   nuc_pt_e
- use util_wrapper, only: fch2mkl_wrap, mkl2gbw
+ use util_wrapper, only: add_bgcharge2inp_wrap, fch2mkl_wrap, mkl2gbw, fch2bdf_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  character(len=24) :: data_string
@@ -57,7 +57,7 @@ subroutine do_mrpt3()
   i = RENAME(TRIM(pyname), TRIM(inpname))
   i = RENAME(TRIM(string), TRIM(inporb))
   call prt_mrpt_molpro_inp(inpname, 3) ! 1/2/3 for NEVPT2/CASPT2/CASPT3
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_molpro_job(inpname, mem, nproc)
 
  else ! FIC-NEVPT3
@@ -77,15 +77,15 @@ subroutine do_mrpt3()
    i = RENAME(TRIM(inporb), TRIM(mklname))
    i = RENAME(TRIM(string), TRIM(inpname))
    call prt_nevpt34_orca_inp(inpname, .false.)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
    call submit_orca_job(orca_path, inpname, .true., .false., .false.)
 
   case('bdf')
-   call check_exe_exist(bdf_path)
-   i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+   call check_dir_exist(bdf_path)
+   call fch2bdf_wrap(casnofch, 1, REPEAT(' ',30), .false.)
    call find_specified_suffix(casnofch, '.fch', i)
    inporb = casnofch(1:i-1)//'_bdf.inporb'
    string = casnofch(1:i-1)//'_bdf.inp'
@@ -96,7 +96,7 @@ subroutine do_mrpt3()
    i = RENAME(TRIM(inporb), TRIM(mklname))
    i = RENAME(TRIM(string), TRIM(inpname))
    call prt_mrpt_bdf_inp(inpname, 3) ! 1/2/3 for SDSPT2/NEVPT2/NEVPT3
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    call find_specified_suffix(inpname, '.inp', i)
    string = inpname(1:i-1)
    i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
@@ -213,9 +213,9 @@ subroutine do_mrpt4()
   casnofch, bgchg, chgname, orca_path, eist
  use mol, only: nacte, nacto, nevpt2_e, nevpt3_e, nevpt4_e, ptchg_e, &
   nuc_pt_e
- use util_wrapper, only: fch2mkl_wrap, mkl2gbw
+ use util_wrapper, only: fch2mkl_wrap, add_bgcharge2inp_wrap, mkl2gbw
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  character(len=24) :: data_string
  character(len=240) :: string, outname, inpname, inporb, mklname
  real(kind=8) :: ref_e, corr_e(3)
@@ -256,7 +256,7 @@ subroutine do_mrpt4()
  i = RENAME(TRIM(inporb), TRIM(mklname))
  i = RENAME(TRIM(string), TRIM(inpname))
  call prt_nevpt34_orca_inp(inpname, .true.)
- if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+ if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
  ! if bgchg = .True., .inp and .mkl file will be updated
  call mkl2gbw(mklname)
  call delete_file(mklname)

@@ -522,6 +522,7 @@ subroutine bas_gms2bdf(fort7, itype, dftname)
  write(fid2,'(A)') 'End Geometry'
  write(fid2,'(A,/,A)') 'Basis', TRIM(basfile)
  write(fid2,'(A)') 'Nosymm'
+ if(itype == 1) write(fid2,'(A)') 'Saorb'
  write(fid2,'(A)') '$END'
 
  write(fid2,'(/,A)') '$XUANYUAN'

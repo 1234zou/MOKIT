@@ -206,7 +206,6 @@ module mr_keyword
  logical :: caspt2_force = .false.! whether to calculate CASPT2 force
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
  logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
- logical :: dmrg_no = .true.      ! whether to generate NO in a DMRG-CASCI job
  logical :: block_mpi = .false.   ! OpenMP or MPI calling the Block program
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
@@ -314,7 +313,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc19 (2026-Feb-6)'
+ write(6,'(A)') '           Version: 1.2.7rc20 (2026-Feb-27)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -337,7 +336,7 @@ subroutine read_program_path()
  call get_exe_path('dalton', dalton_path)
  if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
  call getenv('GMS', gms_path)
- call getenv('BDF', bdf_path)
+ call getenv('BDFHOME', bdf_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
  if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
@@ -891,8 +890,8 @@ end subroutine check_gms_path
    case('onlyxh')
     excludeXH = .true.; onlyXH = .true.
    case('mixed_spin')
-    write(6,'(/,A)') error_warn//'Mixed_Spin is deprecated. Please use MixedSpi&
-                    &n instead.'
+    write(6,'(/,A)') error_warn//'Mixed_Spin is deprecated. Please use'
+    write(6,'(A)') 'MixedSpin instead.'
     stop
    case('mixedspin')
     MixedSpin = .true.
@@ -913,7 +912,13 @@ end subroutine check_gms_path
    case('hfonly')
     HFonly = .true.
    case('nodmrgno')
-    dmrg_no = .false.
+    write(6,'(/,A)') error_warn//'noDMRGNO is deprecated. MOKIT now'
+    write(6,'(A)') 'utilizes a more efficient workflow which can obtain DMRG NO&
+                   &s (usually delocalized)'
+    write(6,'(A)') 'and obtain DMRG energy using input orbitals (usually locali&
+                   &zed). So there is'
+    write(6,'(A)') 'no need to specify noDMRGNO.'
+    stop
    case('locpair')
     LocPair = .true.
    case('locdocc')
@@ -1262,12 +1267,6 @@ subroutine check_kywd_compatible()
   write(6,'(A)') 'or OpenMolcas. Wrong DMRGSCF_prog='//TRIM(dmrgscf_prog)
   stop
  end select
-
- if(dmrgscf .and. (.not.dmrg_no)) then
-  write(6,'(/,A)') error_warn//'the noDMRGNO keyword can only be used for'
-  write(6,'(A)') 'DMRG-CASCI. But DMRG-CASSCF is detected.'
-  stop
- end if
 
  alive(1) = (.not.(casci .or. casscf .or. dmrgci .or. dmrgscf) .and. gvb)
  if(alive(1)) then
@@ -2246,21 +2245,6 @@ subroutine read_bgchg_from_gjf(gjfname, no_coor)
  write(6,'(A)') 'Note: these two energies are included in all electronic energ&
                 &ies below.'
 end subroutine read_bgchg_from_gjf
-
-! check whether a given binary file exists
-subroutine check_exe_exist(path)
- implicit none
- character(len=240), intent(in) :: path
- logical :: alive
-
- inquire(file=TRIM(path),exist=alive)
- if(.not. alive) then
-  write(6,'(/,A)') 'ERROR in subroutine check_exe_exist: the given binary file &
-                   &does not exist.'
-  write(6,'(A)') 'path='//TRIM(path)
-  stop
- end if
-end subroutine check_exe_exist
 
 ! set memory and nproc in the module mr_keyword
 subroutine set_mem_and_np_in_mr_keyword(mem_in, np_in)

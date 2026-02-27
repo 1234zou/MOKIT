@@ -31,14 +31,14 @@ OBJ_bas_gms2py = file_op.o string_manipulate.o math_sub.o read_gms_inp.o read_na
                  bas_gms2py.o
 OBJ_bdf2fch = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o read_fch.o split_sp.o bdf2fch.o
-OBJ_chk2gbw = file_op.o string_manipulate.o util_wrapper.o chk2gbw.o
+OBJ_chk2gbw = file_op.o string_manipulate.o math_sub.o util_wrapper.o chk2gbw.o
 OBJ_dal2fch = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o rwwfn.o \
               split_sp.o dal2fch.o
 OBJ_dat2fch = file_op.o string_manipulate.o math_sub.o read_natom.o read_gms_inp.o \
               rw_misc.o read_fch.o read_mkl.o read_ev_on.o rwwfn.o split_sp.o dat2fch.o
 OBJ_extract_noon2fch = file_op.o extract_noon2fch.o
-OBJ_fch2amo = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
-              fch2amo.o
+OBJ_fch2amo = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
+              split_sp.o fch2amo.o
 OBJ_fch2bdf = file_op.o string_manipulate.o math_sub.o util_wrapper.o rw_misc.o \
               read_fch.o read_ev_on.o read_natom.o rwwfn.o read_grad.o rwgeom.o \
               read_gms_inp.o split_sp.o fch2bdf.o
@@ -49,7 +49,7 @@ OBJ_fch2com = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2com.o
 OBJ_fch2dal = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2dal.o
-OBJ_fch2inp = file_op.o string_manipulate.o read_fch.o util_wrapper.o \
+OBJ_fch2inp = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
               split_sp.o fch2inp.o
 OBJ_fch2inporb = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
                  rwwfn.o util_wrapper.o read_fch.o split_sp.o fch2inporb.o
@@ -66,22 +66,23 @@ OBJ_fch2openqp = file_op.o string_manipulate.o math_sub.o read_ev_on.o util_wrap
                  fch2openqp.o
 OBJ_fch2psi = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
               rwwfn.o util_wrapper.o read_fch.o read_natom.o read_gms_inp.o fch2psi.o
-OBJ_fch2qchem = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
-                fch2qchem.o
+OBJ_fch2qchem = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
+                split_sp.o fch2qchem.o
 OBJ_fch2qm4d = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
                read_natom.o read_grad.o rwgeom.o fch2qm4d.o
 OBJ_fch2rest = file_op.o string_manipulate.o math_sub.o util_wrapper.o call_qc_calc_int.o \
                read_natom.o rw_misc.o read_gms_inp.o read_ev_on.o rwwfn.o read_fch.o \
                read_mkl.o fch2rest.o
-OBJ_fch2tm = file_op.o string_manipulate.o util_wrapper.o read_fch.o split_sp.o \
-             fch2tm.o
+OBJ_fch2tm = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
+             split_sp.o fch2tm.o
 OBJ_fch_sph2cart = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
                    rw_misc.o read_ev_on.o rwwfn.o call_qc_calc_int.o read_fch.o \
                    fch_sph2cart.o
 OBJ_fch_u2r = file_op.o string_manipulate.o fch_u2r.o
 OBJ_fch_mo_copy = file_op.o string_manipulate.o math_sub.o rw_misc.o read_ev_on.o \
                   rwwfn.o fch_mo_copy.o
-OBJ_fch2wfn = file_op.o string_manipulate.o read_fch.o util_wrapper.o fch2wfn.o
+OBJ_fch2wfn = file_op.o string_manipulate.o math_sub.o util_wrapper.o read_fch.o \
+              fch2wfn.o
 OBJ_fch247 = file_op.o string_manipulate.o read_fch.o math_sub.o util_wrapper.o \
              fch247.o
 OBJ_frag_guess_wfn = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
@@ -122,7 +123,7 @@ OBJ_mkl2openqp = file_op.o string_manipulate.o math_sub.o util_wrapper.o \
                  read_fch.o read_natom.o read_ev_on.o read_gms_inp.o read_mkl.o \
                  mkl2openqp.o
 OBJ_mkl2psi = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2psi.o
-OBJ_mkl2py = file_op.o string_manipulate.o util_wrapper.o mkl2py.o
+OBJ_mkl2py = file_op.o string_manipulate.o math_sub.o util_wrapper.o mkl2py.o
 OBJ_mkl2qchem = file_op.o string_manipulate.o util_wrapper.o math_sub.o mkl2qchem.o
 OBJ_molden2fch = file_op.o string_manipulate.o math_sub.o read_natom.o read_ev_on.o \
                  read_fch.o read_gms_inp.o read_mkl.o split_sp.o molden2fch.o
@@ -275,7 +276,7 @@ bdf2fch: $(OBJ_bdf2fch)
 	$(F90) $(OBJ_bdf2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/bdf2fch
 
 chk2gbw: $(OBJ_chk2gbw)
-	$(F90) $(OBJ_chk2gbw) $(FFLAGS) -o $(BIN)/chk2gbw
+	$(F90) $(OBJ_chk2gbw) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/chk2gbw
 
 dal2fch: $(OBJ_dal2fch)
 	$(F90) $(OBJ_dal2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/dal2fch
@@ -287,7 +288,7 @@ extract_noon2fch: $(OBJ_extract_noon2fch)
 	$(F90) $(OBJ_extract_noon2fch) $(FFLAGS) -o $(BIN)/extract_noon2fch
 
 fch2amo: $(OBJ_fch2amo)
-	$(F90) $(OBJ_fch2amo) $(FFLAGS) -o $(BIN)/fch2amo
+	$(F90) $(OBJ_fch2amo) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2amo
 
 fch2bdf: $(OBJ_fch2bdf)
 	$(F90) $(OBJ_fch2bdf) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2bdf
@@ -311,7 +312,7 @@ fch2dal: $(OBJ_fch2dal)
 	echo
 
 fch2inp: $(OBJ_fch2inp)
-	$(F90) $(OBJ_fch2inp) $(FFLAGS) -o $(BIN)/fch2inp
+	$(F90) $(OBJ_fch2inp) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2inp
 
 fch2inporb: $(OBJ_fch2inporb)
 	$(F90) $(OBJ_fch2inporb) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2inporb
@@ -338,7 +339,7 @@ fch2psi: $(OBJ_fch2psi)
 	echo
 
 fch2qchem: $(OBJ_fch2qchem)
-	$(F90) $(OBJ_fch2qchem) $(FFLAGS) -o $(BIN)/fch2qchem
+	$(F90) $(OBJ_fch2qchem) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2qchem
 
 fch2qm4d: $(OBJ_fch2qm4d)
 	$(F90) $(OBJ_fch2qm4d) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2qm4d
@@ -347,7 +348,7 @@ fch2rest: $(OBJ_fch2rest)
 	$(F90) $(OBJ_fch2rest) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2rest
 
 fch2tm: $(OBJ_fch2tm)
-	$(F90) $(OBJ_fch2tm) $(FFLAGS) -o $(BIN)/fch2tm
+	$(F90) $(OBJ_fch2tm) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2tm
 
 fch_sph2cart: $(OBJ_fch_sph2cart)
 	$(F90) $(OBJ_fch_sph2cart) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch_sph2cart
@@ -359,7 +360,7 @@ fch_mo_copy: $(OBJ_fch_mo_copy)
 	$(F90) $(OBJ_fch_mo_copy) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch_mo_copy
 
 fch2wfn: $(OBJ_fch2wfn)
-	$(F90) $(OBJ_fch2wfn) $(FFLAGS) -o $(BIN)/fch2wfn
+	$(F90) $(OBJ_fch2wfn) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch2wfn
 
 fch247: $(OBJ_fch247)
 	$(F90) $(OBJ_fch247) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch247
@@ -404,7 +405,7 @@ py2fch: $(OBJ_py2fch)
 	@mv py2fch*.so $(LIB)/
 
 rest2fch: $(OBJ_py2fch)
-	$(F90) -shared $(OBJ_py2fch) $(FFLAGS) $(MKL_FLAGS) -o librest2fch.so 
+	$(F90) -shared $(OBJ_py2fch) $(FFLAGS) $(MKL_FLAGS) -o librest2fch.so
 	@mv librest2fch.so $(LIB)/
 
 gvb_correct_pairs: $(OBJ_gvb_correct_pairs)
@@ -453,7 +454,7 @@ mkl2psi: $(OBJ_mkl2psi)
 	$(F90) $(OBJ_mkl2psi) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2psi
 
 mkl2py: $(OBJ_mkl2py)
-	$(F90) $(OBJ_mkl2py) $(FFLAGS) -o $(BIN)/mkl2py
+	$(F90) $(OBJ_mkl2py) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2py
 
 mkl2qchem: $(OBJ_mkl2qchem)
 	$(F90) $(OBJ_mkl2qchem) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/mkl2qchem

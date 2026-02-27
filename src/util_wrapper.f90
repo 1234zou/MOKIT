@@ -1,43 +1,65 @@
 ! written by jxzou at 20200809: wrappers of utilities
 
+! a wrapper of subroutine execute_command_line
+subroutine run_command(buf, append_null, prt_command)
+ implicit none
+ integer :: i, j
+ character(len=*), intent(in) :: buf
+ character(len=33), parameter :: error_warn='ERROR in subroutine run_command: '
+ character(len=520) :: buf1
+ logical, intent(in) :: append_null, prt_command
+
+ if(append_null) then
+#ifdef _WIN32
+  if(LEN_TRIM(buf) > 514) then
+   write(6,'(/,A)') error_warn//'the input command line is too long.'
+   write(6,'(A)') 'A string <= 514 characters is required.'
+   write(6,'(A)') 'buf="'//TRIM(buf)//'"'
+   stop
+  end if
+  buf1 = TRIM(buf)//' > NUL'
+#else
+  if(LEN_TRIM(buf) > 508) then
+   write(6,'(/,A)') error_warn//'the input command line is too long.'
+   write(6,'(A)') 'A string <= 508 characters is required.'
+   write(6,'(A)') 'buf="'//TRIM(buf)//'"'
+   stop
+  end if
+  buf1 = TRIM(buf)//' > /dev/null'
+#endif
+ else ! do not append /dev/null or NUL
+  if(LEN_TRIM(buf) > 520) then
+   write(6,'(/,A)') error_warn//'the input command line is too long.'
+   write(6,'(A)') 'A string <= 520 characters is required.'
+   write(6,'(A)') 'buf="'//TRIM(buf)//'"'
+   stop
+  end if
+  buf1 = buf
+ end if
+
+ if(prt_command) write(6,'(A)') '$'//TRIM(buf1)
+ call execute_command_line(TRIM(buf1), exitstat=i, cmdstat=j)
+
+ ! Currently there is no need to distinguish between i/=0 and j/=0
+ if(.not. (i==0 .and. j==0)) then
+  write(6,'(/,A)') error_warn//' failed to run command line'
+  write(6,'(A)') TRIM(buf)
+  stop
+ end if
+end subroutine run_command
+
 module util_wrapper
  implicit none
 contains
 
-subroutine system_buf(buf)
- implicit none
- integer :: i, j
- character(len=*), intent(in) :: buf
-
-#ifdef _WIN32
- call execute_command_line(TRIM(buf)//' > NUL', exitstat=i, cmdstat=j)
-#else
- call execute_command_line(TRIM(buf)//' > /dev/null', exitstat=i, cmdstat=j)
-#endif
-
- ! Currently there is no need to distinguish between i/=0 and j/=0
- if(.not. (i==0 .and. j==0)) then
-  write(6,'(/,A)') 'ERROR in subroutine system_buf: failed to run'
-  write(6,'(A)') '`'//TRIM(buf)//'`'
-  stop
- end if
-end subroutine system_buf
-
 ! wrapper of the utility add_bgcharge_to_inp
 subroutine add_bgcharge2inp_wrap(chgname, inpname)
  implicit none
- integer :: i, j
  character(len=240), intent(in) :: chgname, inpname
  character(len=501) :: buf
 
  buf = 'add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname)
- call execute_command_line(TRIM(buf), exitstat=i, cmdstat=j)
-
- if(.not. (i==0 .and. j==0)) then
-  write(6,'(/,A)') 'ERROR in subroutine add_bgcharge2inp_wrap: failed to run'
-  write(6,'(A)') '`'//TRIM(buf)//'`'
-  stop
- end if
+ call run_command(TRIM(buf), .false., .false.)
 end subroutine add_bgcharge2inp_wrap
 
 ! wrapper of the Gaussian utility formchk
@@ -45,9 +67,9 @@ subroutine formchk(chkname, fchname)
  implicit none
  integer :: i
  character(len=240) :: fchname0
- character(len=500) :: buf
  character(len=240), intent(in) :: chkname
  character(len=240), intent(in), optional :: fchname
+ character(len=489) :: buf
  logical :: alive
 
  inquire(file=TRIM(chkname), exist=alive)
@@ -65,7 +87,7 @@ subroutine formchk(chkname, fchname)
  end if
 
  buf = 'formchk '//TRIM(chkname)//' '//TRIM(fchname0)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine formchk
 
 ! wrapper of the Gaussian utility unfchk
@@ -73,9 +95,17 @@ subroutine unfchk(fchname, chkname)
  implicit none
  integer :: i
  character(len=240) :: chkname0
- character(len=500) :: buf
  character(len=240), intent(in) :: fchname
  character(len=240), intent(in), optional :: chkname
+ character(len=488) :: buf
+ logical :: alive
+
+ inquire(file=TRIM(fchname), exist=alive)
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine unfchk: file does not exist!'
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
 
  if(PRESENT(chkname)) then
   chkname0 = chkname
@@ -85,7 +115,7 @@ subroutine unfchk(fchname, chkname)
  end if
 
  buf = 'unfchk '//TRIM(fchname)//' '//TRIM(chkname0)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine unfchk
 
 ! wrapper of the ORCA utility orca_2mkl, only .gbw -> .mkl
@@ -107,7 +137,7 @@ subroutine gbw2mkl(gbwname, mklname)
  call find_specified_suffix(gbwname, '.gbw', i)
  mklname0 = gbwname(1:i-1)//'.mkl'
  buf = 'orca_2mkl '//gbwname(1:i-1)//' -mkl'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(mklname)) then
   if(TRIM(mklname) /= TRIM(mklname0)) then
@@ -167,7 +197,7 @@ subroutine gbw2json(gbwname, prt_ovlp, dm_type, jsonfile)
  close(fid)
 
  buf = 'orca_2json '//TRIM(gbwname)//' -json'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
  call delete_files(2, [json_conf, bibtex])
 
  if(PRESENT(jsonfile)) then
@@ -190,7 +220,7 @@ subroutine json2gbw(jsonfile, gbwname)
  old_gbw = jsonfile(1:i-1)//'.gbw'
  copy_gbw = jsonfile(1:i-1)//'_copy.gbw'
  buf = 'orca_2json '//TRIM(jsonfile)//' -gbw'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(gbwname)) then
   if(TRIM(gbwname) == TRIM(old_gbw)) then
@@ -214,7 +244,7 @@ subroutine mkl2gbw(mklname, gbwname)
  call find_specified_suffix(mklname, '.mkl', i)
  gbwname0 = mklname(1:i-1)//'.gbw'
  buf = 'orca_2mkl '//mklname(1:i-1)//' -gbw'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(gbwname)) then
   if(TRIM(gbwname0) /= TRIM(gbwname)) then
@@ -222,6 +252,53 @@ subroutine mkl2gbw(mklname, gbwname)
   end if
  end if
 end subroutine mkl2gbw
+
+subroutine fch2bdf_wrap(fchname, itype, dftname, prt)
+ implicit none
+ integer :: i, k
+ integer, intent(in) :: itype ! the same meaning in fch2bdf
+ ! itype = -5/-4/-3/-2/-1/0/1 for
+ !    X-TDDFT/SOC-X-TDA/X-TDA/TD-DFT/DFT/HF/CAS
+ character(len=30), intent(in) :: dftname
+ character(len=34), parameter :: error_warn='ERROR in subroutine fch2bdf_wrap: '
+ character(len=240), intent(in) :: fchname
+ character(len=300) :: buf
+ logical, intent(in) :: prt
+
+ buf = 'fch2bdf '//TRIM(fchname)
+ k = LEN_TRIM(buf)
+ 
+ select case(itype)
+ case(-5)
+  buf = buf(1:k)//' -xtddft'
+  k = k + 8
+ case(-4)
+  buf = buf(1:k)//' -socxtda'
+  k = k + 9
+ case(-3)
+  buf = buf(1:k)//' -xtda'
+  k = k + 6
+ case(-1)
+  i = LEN_TRIM(dftname)
+  if(i == 0) then
+   write(6,'(/,A)') error_warn//'itype=-1 but dftname is an empty string.'
+   write(6,'(A)') 'fchname='//TRIM(fchname)
+   stop
+  end if
+  buf = buf(1:k)//' -dft '''//TRIM(dftname)//''''
+  k = k + i + 8
+ case(0) ! do nothing
+ case(1)
+  buf = buf(1:k)//' -no'
+  k = k + 4
+ case default
+  write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end select
+
+ call run_command(buf(1:k), .false., prt)
+end subroutine fch2bdf_wrap
 
 ! wrapper of the utility fch2psi
 subroutine fch2psi_wrap(fchname, inpname)
@@ -233,7 +310,7 @@ subroutine fch2psi_wrap(fchname, inpname)
  character(len=248) :: buf
 
  buf = 'fch2psi '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(inpname)) then
   call find_specified_suffix(fchname, '.fch', i)
@@ -287,8 +364,7 @@ subroutine fch2inp_wrap(fchname, gvb, npair, nopen, no_vec, fcgvb, prt)
   if(no_vec) buf = TRIM(buf)//' -novec'
  end if
 
- if(prt) write(6,'(A)') '$'//TRIM(buf)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., prt)
 end subroutine fch2inp_wrap
 
 subroutine mkl2fch_wrap(mklname, fchname, ino, irel)
@@ -327,7 +403,7 @@ subroutine mkl2fch_wrap(mklname, fchname, ino, irel)
   end select
  end if
 
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine mkl2fch_wrap
 
 subroutine fch2mkl_wrap(fchname, mklname)
@@ -339,7 +415,7 @@ subroutine fch2mkl_wrap(fchname, mklname)
  character(len=248) :: buf
 
  buf = 'fch2mkl '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(mklname)) then
   call find_specified_suffix(fchname, '.fch', i)
@@ -384,7 +460,7 @@ subroutine fch_u2r_wrap(fchname, new_fch)
  character(len=248) :: buf
 
  buf = 'fch_u2r '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(new_fch)) then
   call find_specified_suffix(fchname, '.fch', i)
@@ -404,7 +480,7 @@ subroutine fch2dal_wrap(fchname, dalname)
  character(len=248) :: buf
 
  buf = 'fch2dal '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(dalname)) then
   call find_specified_suffix(dalname, '.dal', i)
@@ -459,7 +535,7 @@ subroutine fch2qchem_wrap(fchname, job_type, npair, inpname)
   stop
  end select
 
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(inpname)) then
   dirname = ' '
@@ -488,7 +564,7 @@ subroutine bas_fch2py_wrap(fchname, dft, pyname)
 
  buf = 'bas_fch2py '//TRIM(fchname)
  if(dft) buf = TRIM(buf)//' -dft'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(pyname)) then
   call find_specified_suffix(fchname, '.fch', i)
@@ -508,7 +584,7 @@ subroutine fch2com_wrap(fchname, inpname)
  character(len=248) :: buf
 
  buf = 'fch2com '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(inpname)) then
   call find_specified_suffix(fchname, '.fch', i)
@@ -530,7 +606,7 @@ subroutine fch2inporb_wrap(fchname, prt_no, inpname)
 
  buf = 'fch2inporb '//TRIM(fchname)
  if(prt_no) buf = TRIM(buf)//' -no'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(inpname)) then
   call find_specified_suffix(fchname, '.fch', k)
@@ -554,7 +630,7 @@ subroutine orb2fch_wrap(orbname, fchname, prt_no)
 
  buf = 'orb2fch '//TRIM(orbname)//' '//TRIM(fchname)
  if(prt_no) buf = TRIM(buf)//' -no'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine orb2fch_wrap
 
 ! modify the orbital filename in a (Open)Molcas .input file
@@ -607,7 +683,7 @@ subroutine fch2cfour_wrap(fchname)
  character(len=250) :: buf
 
  buf = 'fch2cfour '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine fch2cfour_wrap
 
 subroutine fch2amo_wrap(fchname, aipname)
@@ -628,7 +704,7 @@ subroutine fch2amo_wrap(fchname, aipname)
  end if
 
  buf = 'fch2amo '//TRIM(fchname)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(PRESENT(aipname)) then
   if(TRIM(aipname) /= TRIM(aipname0)) then
@@ -639,10 +715,14 @@ subroutine fch2amo_wrap(fchname, aipname)
 
  i = SYSTEM('a2m '//TRIM(amoname))
  if(i /= 0) then
-  write(6,'(/,A)') 'Warning from fch2amo_wrap: failed to call the utility a2m. &
-                   &You need to convert'
-  write(6,'(A)') '.amo to .mo by yourself, since Amesp reads MOs from the .mo f&
-                 &ile.'
+  write(6,'(/,A)') 'Warning from subroutine fch2amo_wrap: failed to call the Am&
+                   &esp utility a2m.'
+  write(6,'(A)') 'Maybe the Amesp environment variables are not set, or Amesp i&
+                 &s not installed.'
+  write(6,'(A)') 'Anyway, you need to convert xxx.amo to xxx.mo by yourself, si&
+                 &nce Amesp reads MOs'
+  write(6,'(A)') 'from xxx.mo'
+  write(6,'(A)') 'fch2amo will continue...'
  end if
 end subroutine fch2amo_wrap
 
@@ -675,7 +755,7 @@ subroutine fch2mrcc_wrap(fchname, job_type)
   stop
  end select
 
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine fch2mrcc_wrap
 
 subroutine dat2fch_wrap(datname, fchname)
@@ -694,8 +774,7 @@ subroutine dat2fch_wrap(datname, fchname)
  end if
 
  buf = 'dat2fch '//TRIM(datname)//' '//TRIM(fchname0)
- write(6,'(A)') '$'//TRIM(buf)
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .true.)
 end subroutine dat2fch_wrap
 
 subroutine fch2openqp_wrap(fchname, sf_type, inpname)
@@ -737,7 +816,7 @@ subroutine fch2openqp_wrap(fchname, sf_type, inpname)
   buf = TRIM(buf)//' -mrsf'
  end select
 
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
  if(change_name) call delete_file(TRIM(new_fch))
 end subroutine fch2openqp_wrap
 
@@ -758,7 +837,7 @@ subroutine gbw2molden(gbwname, molden)
  end if
 
  buf = 'orca_2mkl '//TRIM(gbwname)//' '//TRIM(molden0)//' -molden -anyorbs'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine gbw2molden
 
 ! wrapper for molden2fch
@@ -776,12 +855,28 @@ subroutine molden2fch_wrap(molden, fchname, prog, natorb)
 
  buf = 'molden2fch '//TRIM(molden)//' -'//TRIM(prog)
  if(natorb) buf = TRIM(buf)//' -no'
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 
  if(TRIM(fchname) /= TRIM(fchname0)) then
   i = RENAME(TRIM(fchname0), TRIM(fchname))
  end if
 end subroutine molden2fch_wrap
+
+subroutine xml2fch_wrap(xmlname, fchname, natorb)
+ implicit none
+ integer :: k
+ character(len=240), intent(in) :: xmlname, fchname
+ character(len=500) :: buf
+ logical, intent(in) :: natorb
+
+ buf = 'xml2fch '//TRIM(xmlname)//' '//TRIM(fchname)
+ k = LEN_TRIM(buf)
+ if(natorb) then
+  buf = buf(1:k)//' -no'
+  k = k + 4
+ end if
+ call run_command(buf(1:k), .false., .false.)
+end subroutine xml2fch_wrap
 
 subroutine fch_sph2cart_wrap(sph_fch, cart_fch)
  implicit none
@@ -801,32 +896,31 @@ subroutine fch_sph2cart_wrap(sph_fch, cart_fch)
   end if
  end if
 
- call system_buf(TRIM(buf))
+ call run_command(TRIM(buf), .true., .false.)
 end subroutine fch_sph2cart_wrap
 
 ! wrapper for subroutine gvb_exclude_XH_A
 subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
  implicit none
- integer :: i, fid, SYSTEM
- character(len=500) :: buf
- character(len=18), parameter :: txt = 'gvb_exclude_XH.txt'
+ integer :: i, fid
+ character(len=30) :: txtname
  character(len=240), intent(in) :: datname, gmsname
  character(len=240), intent(out) :: new_inp
+ character(len=520) :: buf
  logical, intent(in) :: reverted
 
- buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
- if(reverted) buf = TRIM(buf)//' r' ! reverted use of this utility
- write(6,'(/,A)') '$'//TRIM(buf)
- i = SYSTEM(TRIM(buf)//' >'//txt//" 2>&1")
+ call get_a_random_int(i)
+ write(txtname,'(A,I0,A)') 'gvb_exc_', i, '.txt'
 
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine gvb_exclude_XH_A_wrap: failed to call&
-                   & utility gvb_exclude_XH.'
-  write(6,'(A)') 'Did you delete it or forget to compiled it?'
-  stop
+ buf = 'gvb_exclude_XH '//TRIM(datname)//' '//TRIM(gmsname)
+ if(reverted) then
+  buf = TRIM(buf)//' r' ! reverted use of this utility
  end if
 
- open(newunit=fid,file=txt,status='old',position='rewind')
+ buf = TRIM(buf)//' >'//TRIM(txtname)//" 2>&1"
+ call run_command(TRIM(buf), .true., .true.)
+
+ open(newunit=fid,file=txtname,status='old',position='rewind')
  do i = 1, 3
   read(fid,'(A)') buf
   write(6,'(A)') TRIM(buf)

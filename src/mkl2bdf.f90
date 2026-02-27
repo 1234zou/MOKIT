@@ -1,9 +1,9 @@
 ! written by jxzou at 20230808: a wrapper of mkl2fch and fch2bdf for ORCA->BDF
 
 program mkl2bdf
- use util_wrapper, only: mkl2fch_wrap
+ use util_wrapper, only: mkl2fch_wrap, fch2bdf_wrap
  implicit none
- integer :: i, k, narg, irel, SYSTEM, RENAME
+ integer :: i, k, narg, irel, RENAME
  character(len=240), allocatable :: str_arg(:)
  character(len=240) :: mklname, fchname, inpname0, inpname, orbfile0, orbfile,&
   basfile0, basfile
@@ -57,15 +57,7 @@ program mkl2bdf
  write(fchname,'(A,I0,A)') mklname(1:i-1)//'_',k,'.fch'
 
  call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
-
- i = SYSTEM('fch2bdf '//TRIM(fchname))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in program mkl2bdf: failed to call utility fch2bdf.'
-  write(6,'(A)') 'mkl2bdf is a wrapper of mkl2fch and fch2bdf, so fch2bdf is re&
-                 &quired to be'
-  write(6,'(A)') 'called successfully.'
-  stop
- end if
+ call fch2bdf_wrap(fchname, 0, REPEAT(' ',30), .false.)
 
  call delete_file(fchname)
  call find_specified_suffix(fchname, '.fch', i)

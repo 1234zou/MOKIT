@@ -7,9 +7,10 @@ subroutine do_mcpdft()
   casnofch, molcas_omp, molcas_path, bgchg, chgname, check_gms_path, gms_path, &
   gms_scr_path, gms_dat_path, n_otpdf, otpdf, mcpdft_force, eist
  use mol, only: nacte, nacto, ptchg_e, mcpdft_e, natom, grad
- use util_wrapper, only: bas_fch2py_wrap, fch2inp_wrap, fch2inporb_wrap
+ use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, fch2inp_wrap, &
+  fch2inporb_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  real(kind=8) :: ref_e
  real(kind=8), allocatable :: otpdf_e(:)
  character(len=10), allocatable :: split_otpdf(:)
@@ -73,7 +74,7 @@ subroutine do_mcpdft()
   outname = casnofch(1:i)//'MCPDFT.out'
   call bas_fch2py_wrap(casnofch, .false., inpname)
   call prt_mcpdft_script_into_py(inpname, n_otpdf, split_otpdf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_pyscf_job(inpname, .true.)
   call read_mcpdft_e_from_pyscf_out(outname, n_otpdf, ref_e, otpdf_e)
 
@@ -84,7 +85,7 @@ subroutine do_mcpdft()
   outname = casnofch(1:i)//'MCPDFT.out'
   call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mcpdft_molcas_inp(inpname, n_otpdf, split_otpdf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
   call read_mcpdft_e_from_molcas_out(outname, n_otpdf, ref_e, otpdf_e)
 
@@ -93,7 +94,7 @@ subroutine do_mcpdft()
    write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: multiple on-top pair densit&
                     &y functional is'
    write(6,'(A)') 'not supported when MCPDFT_prog=GAMESS. You can use MCPDFT_pr&
-                  &og=PySCF or OpenMolcas.'
+                  &og=PySCF/OpenMolcas.'
    stop
   end if
   call check_gms_path()
@@ -107,13 +108,13 @@ subroutine do_mcpdft()
   i = RENAME(TRIM(fname(1)), TRIM(inpname))
 
   call prt_mcpdft_gms_inp(inpname, split_otpdf(1))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! MC-PDFT in GAMESS cannot run in parallel currently, use 1 core
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, 1)
   call read_mcpdft_e_from_gms_gms(outname, ref_e, otpdf_e(1))
 
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: wrong MCPDFT_prog='//&
+  write(6,'(/,A)') 'ERROR in subroutine do_mcpdft: invalid MCPDFT_prog='//&
                    TRIM(mcpdft_prog)
   stop
  end select

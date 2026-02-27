@@ -998,6 +998,40 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
  close(fid)
 end subroutine read_cas_energy_from_orca_out
 
+subroutine find_mcscf_e_in_molpro_out(outname, casscf_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: casscf_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: alive
+
+ casscf_e = 0d0
+ inquire(file=TRIM(outname),opened=alive)
+ if(alive) then
+  inquire(file=TRIM(outname),number=fid)
+ else
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:9) == '!MCSCF S') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine find_mcscf_e_in_molpro_out: "!MCSCF S" &
+                   &not found in'
+  write(6,'(A)') 'file '//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, 'Energy')
+ read(buf(i+6:),*) casscf_e
+end subroutine find_mcscf_e_in_molpro_out
+
 ! read CASCI/CASSCF energy from a given Molpro output file
 subroutine read_cas_energy_from_molpro_out(outname, e, scf)
  implicit none
@@ -1016,14 +1050,16 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
   select case(buf(2:8))
   case('ITER. M','ITER  M','ITE  MI')
    exit
+  case(' Iter  ') ! new output format in Molpro CASCI
+   call find_mcscf_e_in_molpro_out(outname, e(1))
+   return
   end select
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: 'ITER.&
-                   & M' not found"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  write(6,'(A)') 'Error termination of the Molpro CASCI job.'
+  write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_molpro_out: CASCI &
+                   &energy string not'
+  write(6,'(A)') 'located in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -1032,33 +1068,10 @@ subroutine read_cas_energy_from_molpro_out(outname, e, scf)
   read(fid,fmt=*,iostat=j) k,k,k,k, e(1) ! CASCI energy
   if(j == 0) exit
  end do ! for i
- !read(fid,'(A)') buf
- !read(fid,'(A)') buf
- !if(LEN_TRIM(buf) == 0) then ! Multipassing in transformation
- ! read(fid,'(A)') buf
- ! read(fid,'(A)') buf
- !end if
- !read(buf,*) k,k,k,k, e(1) ! CASCI energy
 
- if(scf) then
-  do while(.true.)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
-   if(buf(2:9) == '!MCSCF S') exit
-  end do ! for while
-  if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_molpro_out: '!MCS&
-                    &CF S' not found"
-   write(6,'(A)') 'in file '//TRIM(outname)
-   write(6,'(A)') 'Error termination of the Molpro CASSCF job.'
-   close(fid)
-   stop
-  end if
-  i = INDEX(buf, 'Energy')
-  read(buf(i+6:),*) e(2) ! CASSCF energy
- end if
-
- close(fid)
+ if(scf) call find_mcscf_e_in_molpro_out(outname, e(2))
+ ! The file `outname` will be closed in subroutine find_mcscf_e_in_molpro_out,
+ ! so there is no need to close it here.
 end subroutine read_cas_energy_from_molpro_out
 
 ! read CASCI/CASSCF energy from a given BDF output file
@@ -1085,7 +1098,6 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
    write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_bdf_out: 'mcscf_e&
                     &neci' not found"
    write(6,'(A)') 'in file '//TRIM(outname)
-   write(6,'(A)') 'Error termination of the BDF CASSCF job.'
    close(fid)
    stop
   end if
@@ -1102,7 +1114,6 @@ subroutine read_cas_energy_from_bdf_out(outname, e, scf)
   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_bdf_out: 'CHECKDAT&
                    &A:MCSCF:M' not"
   write(6,'(A)') 'found in file '//TRIM(outname)
-  write(6,'(A)') 'Error termination of the BDF CASCI/CASSCF job.'
   close(fid)
   stop
  end if
@@ -1641,6 +1652,8 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  implicit none
  integer :: i, fid
  integer, intent(in) :: itype   ! 1/2 for SDSPT2/FIC-NEVPT2
+ character(len=51), parameter :: error_warn = 'ERROR in subroutine read_mrpt_en&
+                                              &ergy_from_bdf_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  real(kind=8) :: rtmp(6)
@@ -1649,9 +1662,8 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
 
  ref_e = 0d0; corr_e = 0d0; dav_e = 0d0
  if(.not. (itype==1 .or. itype==2)) then
-  write(6,'(/,A)') 'ERROR in subroutine read_mrpt_energy_from_bdf_out: currentl&
-                   &y only reading SDSPT2/'
-  write(6,'(A)') 'NEVPT2 energy is supported.'
+  write(6,'(/,A)') error_warn//'currently only reading'
+  write(6,'(A)') 'SDSPT2/NEVPT2 energy is supported.'
   stop
  end if
 
@@ -1663,10 +1675,8 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: 'Print f&
-                   &inal' not found in"
+  write(6,'(/,A)') error_warn//'"Print final" not found in'
   write(6,'(A)') 'file '//TRIM(outname)
-  write(6,'(A)') 'Error termination of the BDF CASSCF in SDSPT2/NEVPT2 job.'
   close(fid)
   stop
  end if
@@ -1674,7 +1684,23 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  do i = 1, 4
   read(fid,'(A)') buf
  end do ! for i
- call get_dpv_after_flag(buf, '=', .true.,  ref_e) ! CASCI/CASSCF energy
+
+ if(INDEX(buf, '=') > 0) then
+  call get_dpv_after_flag(buf, '=', .true.,  ref_e) ! CASCI/CASSCF energy
+ else
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:12) == 'TARGET_MCSCF') exit
+  end do ! for while
+  if(i /= 0) then
+   write(6,'(/,A)') error_warn//'no "TARGET_MCSCF" found in'
+   write(6,'(A)') 'file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  read(buf(26:),*) ref_e
+ end if
 
  if(itype == 1) then
   do while(.true.)
@@ -1695,8 +1721,7 @@ subroutine read_mrpt_energy_from_bdf_out(outname, itype, ref_e, corr_e, dav_e)
  close(fid)
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mrpt_energy_from_bdf_out: no 'TARG&
-                   &ET_XIANCI' found in"
+  write(6,'(/,A)') error_warn//'no "TARGET_XIANCI" found in'
   write(6,'(A)') 'file '//TRIM(outname)
   stop
  end if

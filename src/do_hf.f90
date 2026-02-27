@@ -234,7 +234,6 @@ subroutine do_hf(prt_mr_strategy)
   i = LEN_TRIM(hf_prog_path)
   if(hf_prog_path(i-2:i-2) == 'g') then
    call gen_bs_uhf_guess_gjf(uhf_inp)
-   if(bgchg) call add_bgcharge2inp_wrap(chgname, uhf_inp2)
    call do_scf_and_read_e(gau_path, hf_prog_path, uhf_inp2, .false., uhf_e2, &
                           ssquare)
    write(6,'(A,F18.8,1X,A,F7.3)') 'E(UHF2)= ', uhf_e2, 'a.u., <S**2>=', ssquare
@@ -716,7 +715,6 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
 
  if(uhf) then
   write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
-  write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   if(mult == 1) then
    write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, rea&
                     &d_na_and_nb_from_fch, get_occ_from_na_nb2'
@@ -821,8 +819,7 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   if(mult > 1) write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
-  write(fid,'(A)') 'fchk(mf, uhf_fch)'
-  write(fid,'(A)') 'update_density_using_mo_in_fch(uhf_fch)'
+  write(fid,'(A)') 'fchk(mf, uhf_fch, density=True)'
  else         ! not UHF
   if(mult == 1) then ! RHF
    write(fid,'(/,A)') 'if mf.converged is False:'

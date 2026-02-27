@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc19 (Feb 6, 2026)
+MOKIT 1.2.7rc20 (Feb 27, 2026)
 ------------------------
 Fixes
 * fix fragment guess in a singlet UHF calculation (introduced in commit 7c8ae546)
@@ -67,6 +67,9 @@ Features
 * add QCISD/QCISD(T) interface to ORCA >=6.0.1 and Gaussian
 * add CCSD/CCSD(T)/CCSDT analytical gradient interface to ORCA >=6.0.1
 Improvement
+* automatically initialize mf.mo_energy for mean-field object in fchk()
+* add Molpro version detection (`-t` option no longer supported for Molpro >=2025)
+* add `MOM=.T.` for -sf/-mrsf/-sfcis/-mrsfcis in the utility fch2inp
 * always localize singly occupied MOs for `_loc_pair.fch` and `_asrot.fch` when nopen > 1
 * invoke the check of RHF internal stability and stable=opt for HF_prog=Gaussian/PySCF
 * use broken symmetry initial guess for singlet UHF by duplicating RHF MOs and do `guess=mix`
@@ -103,6 +106,7 @@ Improvement
 * support DLPNO double hybrid keywords for `-dft` in fch2mkl
 * support semi-empirical type .fch(k) in fch2amo and amo2fch
 Re-factor and removal
+* change the subroutine system_buf to run_command
 * move all subroutins in bas_gms2bdf.f90 into fch2bdf.f90
 * use one subroutine read_fosc_from_orca_out for ORCA 5/6 ADC(2)/EOM-CCSD/SA-CASSCF
 * remove a duplicated subroutine read_fosc_from_orca_out

@@ -299,6 +299,7 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
  character(len=1), intent(in) :: ab
  character(len=240), intent(in) :: xmlname
 
+ mo = 0d0
  open(newunit=fid,file=TRIM(xmlname),status='old',position='rewind')
 
  if(ab=='a' .or. ab=='A') then
@@ -306,11 +307,11 @@ subroutine read_mo_from_xml(xmlname, nbf, nif, ab, mo)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
    if(INDEX(buf,'type="ALPH')>0 .or. INDEX(buf,'type="CANO')>0 .or. &
-      INDEX(buf,'type="NATU')>0) exit
+      INDEX(buf,'type="NATU')>0 .or. buf(65:74)=='type="RAW"') exit
   end do ! for while
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH', 'CAN&
-                    &O' or 'NATU' is"
+   write(6,'(/,A)') "ERROR in subroutine read_mo_from_xml: none of 'ALPH'/'CANO&
+                    &'/'NATU' is"
    write(6,'(A)') 'found in file '//TRIM(xmlname)
    close(fid)
    stop
@@ -1574,9 +1575,11 @@ subroutine sort_no_by_noon(fchname, i1, i2)
  implicit none
  integer :: i, j, nbf, nif
  integer, intent(in) :: i1, i2 ! initial/final index of active orbitals
+!f2py intent(in) :: i1, i2
  real(kind=8) :: r1, r2
  real(kind=8), allocatable :: noon(:), coeff(:,:), rtmp(:)
  character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
 
  if(i1 == i2) return
  if(i1<1 .or. i2<1 .or. i1>i2) then
@@ -1587,11 +1590,12 @@ subroutine sort_no_by_noon(fchname, i1, i2)
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(noon(nif))
  call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
- allocate(coeff(nbf,nif), rtmp(nbf))
+ allocate(coeff(nbf,nif))
  call read_mo_from_fch(fchname, nbf, nif, 'a', coeff)
+ allocate(rtmp(nbf))
 
  do i = i1, i2-1, 1
-  r1 = noon(i); rtmp = coeff(:,i)
+  r1 = noon(i)
   do j = i+1, i2, 1
    r2 = noon(j)
    if(r2 > r1) then

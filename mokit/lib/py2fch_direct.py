@@ -168,22 +168,36 @@ def fchk_uno(mf, fchname, uno, unoon, density=False, overwrite_mol=False):
     py2fch(fchname, uno.shape[0], uno.shape[1], uno, 'a', unoon, True, density)
 
 def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=None):
+    from mokit.lib.rwwfn import update_density_using_mo_in_fch
+
     is_uhf = isinstance(mf, scf.uhf.UHF)
     if mo_coeff is None:
         mo = mf.mo_coeff
     else:
         mo = mo_coeff
+
     if (not os.path.isfile(fchname)) or overwrite_mol:
         irel = find_irel_from_mf(mf)
         mol2fch(mf.mol, fchname, is_uhf, mo, irel)
+        
     if isinstance(mf, scf.hf.SCF):
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
             raise NotImplementedError('GHF/DHF not supported in py2fch currently.')
         if not is_uhf: # ROHF is also RHF here
-            py2fch(fchname, mo.shape[0], mo.shape[1], mo, 'a', mf.mo_energy, False, density)
+            nbf, nif = mo.shape
+            if mf.mo_energy is None:
+                print('Warning: mf.mo_energy is None. Automatically set to zero.')
+                mf.mo_energy = np.zeros(nif)
+            py2fch(fchname, nbf, nif, mo, 'a', mf.mo_energy, False, density)
         else:
-            py2fch(fchname, mo[0].shape[0], mo[0].shape[1], mo[0], 'a', mf.mo_energy[0], False, density)
-            py2fch(fchname, mo[1].shape[0], mo[1].shape[1], mo[1], 'b', mf.mo_energy[1], False, density)
+            nbf, nif = mo[0].shape
+            if mf.mo_energy is None:
+                print('Warning: mf.mo_energy is None. Automatically set to zero.')
+                mf.mo_energy = np.zeros((2,nif))
+            py2fch(fchname, nbf, nif, mo[0], 'a', mf.mo_energy[0], False, False)
+            py2fch(fchname, nbf, nif, mo[1], 'b', mf.mo_energy[1], False, False)
+            if (density):
+                update_density_using_mo_in_fch(fchname)
     elif isinstance(mf, CASBase):
         if mf.mo_occ is None and mo_occ is None:
             if density is True:

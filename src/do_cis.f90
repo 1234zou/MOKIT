@@ -2,6 +2,8 @@
 ! TODO: comparisons between various initial guess orbitals for SA-CAS
 ! TODO: develop spin-adapted RO-CIS methods in MOKIT, and replace MRSF-CIS by
 !       spin-adapted RO-CIS methods of MOKIT.
+! TODO: modify 2 to 3 states in CIS
+! TODO: support specification of number of states for each spin mult
 
 ! perform CIS/TDHF
 subroutine do_cis()

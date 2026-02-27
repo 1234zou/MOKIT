@@ -15,7 +15,6 @@ module obf   ! orbital-based fragmentation
  real(kind=8), parameter :: dis_thres0 = 4d0 ! Angstrom
  real(kind=8), allocatable :: cluster_e(:) ! size n_tot
  character(len=240) :: fchname = ' '
- logical :: calc_no = .false. ! calculate density and NOs
  type(mo_cluster), allocatable :: cluster(:), cluster0(:), cluster1(:)
 
 contains
@@ -623,9 +622,8 @@ end module obf
 
 program main
  use population, only: get_mo_dis_from_fch
- use obf, only: calc_no, dis_thres0, n_tot, icoeff, cluster, fchname, &
-  gen_prim_cluster, gen_deri_cluster, merge_mo_cluster, add_paired_vir2cluster,&
-  gen_permute_fch
+ use obf, only: dis_thres0, n_tot, icoeff, cluster, fchname, gen_prim_cluster, &
+  gen_deri_cluster, merge_mo_cluster, add_paired_vir2cluster, gen_permute_fch
  implicit none
  integer :: i, ibegin, iend
  ! ibegin: the beginning index of active occupied MOs
@@ -696,7 +694,7 @@ program main
  call gen_permute_fch()
 
  ! generate all automr input files(.gjf) and submit one by one
- call gen_automr_gjf_and_submit(calc_no)
+ call gen_automr_gjf_and_submit()
  deallocate(cluster)
 
  call read_cluster_e_from_out()
@@ -845,13 +843,12 @@ end subroutine permute_mo_in_sub_cluster
 
 ! generate all automr input files(.gjf) and submit one by one
 ! TODO: if file 'hosts' exists, then run on multiple nodes.
-subroutine gen_automr_gjf_and_submit(calc_no)
+subroutine gen_automr_gjf_and_submit()
  use obf, only: fchname, n_tot, cluster
  implicit none
  integer :: i, ne, fid
  integer, parameter :: nproc = 24, mem = 170
  character(len=240) :: proname, gjfname, new_fch
- logical, intent(in) :: calc_no
 
  i = INDEX(fchname, '.fch', back=.true.)
  proname = fchname(1:i-1)
@@ -865,9 +862,7 @@ subroutine gen_automr_gjf_and_submit(calc_no)
   write(fid,'(A,I0,A)') '%mem=',mem,'GB'
   ne = cluster(i)%nocc
   write(fid,'(2(A,I0),A)') '#p CASCI(',ne,',',ne,')/cc-pVDZ'
-  write(fid,'(/,A)',advance='no') "mokit{ist=5,readno='"//TRIM(new_fch)//"'"
-  if(.not. calc_no) write(fid,'(A)',advance='no') ',noDMRGNO'
-  write(fid,'(A)') '}'
+  write(fid,'(/,A)') "mokit{ist=5,readno='"//TRIM(new_fch)//"'}"
   close(fid)
  end do ! for i
 
@@ -883,10 +878,10 @@ end subroutine gen_automr_gjf_and_submit
 subroutine read_cluster_e_from_out()
  use obf, only: fchname, n_tot, e_tot, cluster_e, icoeff
  implicit none
- integer :: i, k, nbf, nif, fid, SYSTEM
+ integer :: i, k, nbf, nif, fid
  real(kind=8), allocatable :: den0(:,:), den1(:,:)
  character(len=240) :: buf, proname, proname1, outname, fchname1, fchname2
- character(len=500) :: longbuf = ' '
+ character(len=500) :: longbuf
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(den0(nbf,nbf), source=0d0)
@@ -923,12 +918,7 @@ subroutine read_cluster_e_from_out()
 
   longbuf = 'tar -zcf '//TRIM(proname1)//'.tar.gz '//TRIM(proname1)//'.* '//&
             TRIM(proname1)//'_* --remove-files'
-  k = SYSTEM(longbuf)
-  if(k /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cluster_e_from_out: failed to cre&
-                    &ate package'
-   write(6,'(A)') TRIM(proname1)//'.tar.gz'
-  end if
+  call run_command(TRIM(longbuf), .false., .false.)
  end do ! for i
 
  deallocate(den1)

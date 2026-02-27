@@ -327,8 +327,8 @@ subroutine read_on_from_xml(xmlname, nmo, ab, on)
   do while(.true.)
    read(fid,'(A)',iostat=i) buf
    if(i /= 0) exit
-   if(INDEX(buf,"type=""ALPH")/=0 .or. INDEX(buf,"type=""CANO")/=0 .or. &
-      INDEX(buf,"type=""NATU")/=0) exit
+   if(INDEX(buf,"type=""ALPH")>0 .or. INDEX(buf,"type=""CANO")>0 .or. &
+      INDEX(buf,"type=""NATU")>0 .or. buf(65:74)=='type="RAW"') exit
   end do ! for while
   if(i /= 0) then
    write(6,'(/,A)') "ERROR in subroutine read_on_from_xml: none of 'ALPH', 'CAN&

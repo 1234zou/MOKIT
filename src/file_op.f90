@@ -1,5 +1,40 @@
 ! written by jxzou at 20210113: file operations
 
+! check whether a given binary file exists
+subroutine check_exe_exist(path)
+ implicit none
+ character(len=240), intent(in) :: path
+ logical :: alive
+
+ inquire(file=TRIM(path),exist=alive)
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine check_exe_exist: the given binary file &
+                   &does not exist.'
+  write(6,'(A)') 'path='//TRIM(path)
+  stop
+ end if
+end subroutine check_exe_exist
+
+! check whether a specified directory exists
+subroutine check_dir_exist(path)
+ implicit none
+ integer :: i
+ character(len=240), intent(in) :: path
+
+#ifdef _WIN32
+ call execute_command_line('cd /d '//TRIM(path)//' 2>NUL', exitstat=i)
+#else
+ call execute_command_line('test -d '//TRIM(path), exitstat=i)
+#endif
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine check_dir_exist: the specified director&
+                   &y does not exist.'
+  write(6,'(A)') 'path='//TRIM(path)
+  stop
+ end if
+end subroutine check_dir_exist
+
 subroutine require_file_exist(fname)
  implicit none
  character(len=240), intent(in) :: fname

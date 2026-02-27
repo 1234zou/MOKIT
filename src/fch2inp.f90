@@ -597,11 +597,19 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   end if
   write(fid,'(A)') ' $END'
  else
+  write(fid,'(A)',advance='no') ' $SCF DIRSCF=.T.'
   if(irel==0 .or. irel==2 .or. irel==4) then
-   write(fid,'(A)') ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. FDIFF=.F. $END'
-  else
-   write(fid,'(A)') ' $SCF DIRSCF=.T. FDIFF=.F. $END'
+   write(fid,'(A)',advance='no') ' DIIS=.T. SOSCF=.F.'
   end if
+  ! HDOMO: the highest doubly occupied MO
+  ! LSOMO: the lowest singly occupied MO
+  ! The ROHF/ROKS Fock operator is not unique. When transforming converged MOs
+  ! from other programs to GAMESS, E(LSOMO) < E(HDOMO) happens somtimes. In such
+  ! case GAMESS will exchange these two special MOs, and thus make SCF oscillated.
+  ! To avoid this case, `MOM=.T.` is added. If there is no orbital energy
+  ! inversion occurs, `MOM=.T.` will not take effect.
+  if(itype>0 .and. itype<5) write(fid,'(A)',advance='no') ' MOM=.T.'
+  write(fid,'(A)') ' FDIFF=.F. $END'
  end if
 
  ! freeze GVB doubly occupied MOs if the user requests that

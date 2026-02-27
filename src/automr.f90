@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc19 :: MOKIT, release date: 2026-Feb-6'
+  write(6,'(A)') 'AutoMR 1.2.7rc20 :: MOKIT, release date: 2026-Feb-27'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -46,7 +46,7 @@ program main
   write(6,'(A)')   '     GVB_prog=GAMESS/Gaussian/QChem'
   write(6,'(A)')   '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
   write(6,'(A)')   '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
-  write(6,'(A)')   '   NEVPT_prog=PySCF/OpenMolcas/ORCA/Molpro/BDF'
+  write(6,'(A)')   '   NEVPT_prog=PySCF/ORCA/Molpro/BDF/OpenMolcas'
   write(6,'(A)')   '   CASPT_prog=OpenMolcas/Molpro/ORCA'
   write(6,'(A)')   '  MCPDFT_prog=PySCF/OpenMolcas/GAMESS'
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
@@ -808,12 +808,13 @@ subroutine do_minimal_basis_gvb()
  use mr_keyword, only: nproc, ist, hf_prog, npair_wish, gjfname, localm, hf_fch,&
   mo_rhf, LocPair, nskip_uno, bgchg, inherit
  implicit none
- integer :: i, fid, SYSTEM
+ integer :: i, fid
  real(kind=8) :: e(3), uhf_s2 ! RHF/UHF/GVB energies and UHF spin mult
  real(kind=8) :: gvb_mult     ! GVB spin mult
  real(kind=8), allocatable :: noon(:)
  character(len=24) :: data_string
- character(len=240) :: buf, proname, mbgjf, gvb_nofch, mbout, pyname, uno_out
+ character(len=240) :: proname, mbgjf, gvb_nofch, mbout, pyname, uno_out
+ character(len=500) :: buf
 
  if(ist /= 6) return
  i = (mult - 1)/2
@@ -845,20 +846,11 @@ subroutine do_minimal_basis_gvb()
  ! compress these minimal basis set files
  buf = 'tar -zcf '//TRIM(proname)//'_minb.tar.gz '//TRIM(proname)//&
        '_mb* --remove-files'
- write(6,'(A)') '$'//TRIM(buf)
-
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_minimal_basis_gvb: failed to compres&
-                   &s minimal basis'
-  write(6,'(A)') 'related files.'
-  stop
- end if
+ call run_command(TRIM(buf), .false., .true.)
 
  ! decompress the gvb_nofch file
  buf = 'tar -zxf '//TRIM(proname)//'_minb.tar.gz '//TRIM(gvb_nofch)
- write(6,'(A)') '$'//TRIM(buf)
- i = SYSTEM(TRIM(buf))
+ call run_command(TRIM(buf), .false., .true.)
 
  write(6,'(A)') 'GVB/STO-6G finished. Rotate MOs at target basis to resemble GV&
                 &B/STO-6G orbitals...'
@@ -1343,7 +1335,6 @@ subroutine do_min_bas_hf_pyscf(proname)
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  if(mult > 1) then
-  write(fid,'(A)') 'from mokit.lib.rwwfn import update_density_using_mo_in_fch'
   write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
   write(fid,'(A)') 'from mokit.lib.gaussian import uno'
   write(fid,'(A)') 'import os'
@@ -1397,8 +1388,7 @@ subroutine do_min_bas_hf_pyscf(proname)
   write(fid,'(A)') 'if os.path.exists(uhf_fch):'
   write(fid,'(A)') '  os.remove(uhf_fch)'
   write(fid,'(A)') "r_fch = '"//TRIM(r_fch)//"'"
-  write(fid,'(A)') 'fchk(mf, uhf_fch)'
-  write(fid,'(A)') 'update_density_using_mo_in_fch(uhf_fch)'
+  write(fid,'(A)') 'fchk(mf, uhf_fch, density=True)'
   write(fid,'(A)') 'uno(uhf_fch)'
   write(fid,'(A)') 'os.rename(r_fch, uhf_fch)'
  else              ! RHF

@@ -2,15 +2,15 @@
 ! updated by jxzou at 20210224: add CASPT2 interface with ORCA
 
 subroutine do_mrpt2()
- use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, dmrg_no, CIonly, caspt2,&
-  caspt2k, nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt_prog, caspt_prog, &
-  bgchg, chgname, mem, nproc, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
+ use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
+  nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt_prog, caspt_prog, bgchg, &
+  chgname, mem, nproc, check_gms_path, gms_path, gms_scr_path, gms_dat_path, &
   molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
   eist, target_root, caspt2_force
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
   davidson_e, ptchg_e, nuc_pt_e, natom, grad
- use util_wrapper, only: bas_fch2py_wrap, mkl2gbw, fch2inp_wrap, unfchk, &
-  fch2inporb_wrap
+ use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, mkl2gbw, &
+  fch2bdf_wrap, fch2inp_wrap, unfchk, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  character(len=24) :: data_string
@@ -112,13 +112,9 @@ subroutine do_mrpt2()
   case('pyscf')
    ! For DMRG-NEVPT2, use CMOs rather than NOs
    if(dmrgci .or. dmrgscf) then ! DMRG-CASCI/CASSCF
-    if(dmrg_no) then ! DMRG NOs calculated previously
-     i = INDEX(casnofch, '_NO', back=.true.)
-     cmofch = casnofch(1:i)//'CMO.fch'
-     casnofch = cmofch
-    end if
-    ! If DMRG NOs are not calculated previously, casnofch is set to 'xxx_CMO.fch'
-    ! in subroutine do_cas.
+    i = INDEX(casnofch, '_NO', back=.true.)
+    cmofch = casnofch(1:i)//'CMO.fch'
+    casnofch = cmofch
     call find_specified_suffix(casnofch, '_CMO', i)
    else                         ! CASCI/CASSCF
     call find_specified_suffix(casnofch, '_NO', i)
@@ -127,7 +123,7 @@ subroutine do_mrpt2()
    outname = casnofch(1:i)//'NEVPT2.out'
    call bas_fch2py_wrap(casnofch, .false., pyname)
    call prt_nevpt2_script_into_py(pyname)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, pyname)
    call submit_pyscf_job(pyname, .true.)
 
   case('molpro')
@@ -147,7 +143,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inporb))
 
    call prt_mrpt_molpro_inp(inpname, 1)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    call submit_molpro_job(inpname, mem, nproc)
 
   case('openmolcas')
@@ -157,7 +153,7 @@ subroutine do_mrpt2()
    outname = casnofch(1:i)//'NEVPT2.out'
    call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_nevpt2_molcas_inp(inpname)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    call submit_molcas_job(inpname, mem, nproc, molcas_omp)
    i = 0 ! the value of i will be checked below
 
@@ -175,15 +171,15 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_nevpt2_orca_inp(inpname)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
    call submit_orca_job(orca_path, inpname, .true., .false., .false.)
 
   case('bdf')
-   call check_exe_exist(bdf_path)
-   i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+   call check_dir_exist(bdf_path)
+   call fch2bdf_wrap(casnofch, 1, REPEAT(' ',30), .false.)
    i = INDEX(casnofch, '.fch', back=.true.)
    inporb = casnofch(1:i-1)//'_bdf.inporb'
    string = casnofch(1:i-1)//'_bdf.inp'
@@ -195,10 +191,8 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_mrpt_bdf_inp(inpname, 2)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-   i = INDEX(inpname, '.inp', back=.true.)
-   string = inpname(1:i-1)
-   i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+   call submit_bdf_job(inpname, nproc)
   end select
 
  else if(caspt2) then ! CASPT2
@@ -218,7 +212,7 @@ subroutine do_mrpt2()
 
    call fch2inporb_wrap(casnofch, .true., inpname)
    call prt_caspt2_molcas_inp(inpname)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    call submit_molcas_job(inpname, mem, nproc, molcas_omp)
    i = 0 ! the value of i will be checked below
 
@@ -239,7 +233,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inporb))
 
    call prt_mrpt_molpro_inp(inpname, 2)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    call submit_molpro_job(inpname, mem, nproc)
 
   case('orca')
@@ -257,7 +251,7 @@ subroutine do_mrpt2()
    i = RENAME(TRIM(string), TRIM(inpname))
 
    call prt_caspt2_orca_inp(inpname)
-   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)
    call delete_file(mklname)
@@ -277,7 +271,7 @@ subroutine do_mrpt2()
   outname = casnofch(1:i-1)//'_MRMP2.gms'
   i = RENAME(pyname, inpname)
   call prt_mrmp2_gms_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  else if(ovbmp2) then ! OVB-MP2
@@ -289,14 +283,13 @@ subroutine do_mrpt2()
   outname = casnofch(1:i)//'OVBMP2.log'
   call unfchk(casnofch, mklname)
   call prt_ovbmp2_gau_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gau_job(gau_path, inpname, .true.)
 
  else ! CASSCF-SDSPT2
   write(6,'(A,2(I0,A))') 'SDSPT2(',nacte,'e,',nacto,'o) using program BDF'
-  call check_exe_exist(bdf_path)
-
-  i = SYSTEM('fch2bdf '//TRIM(casnofch)//' -no')
+  call check_dir_exist(bdf_path)
+  call fch2bdf_wrap(casnofch, 1, REPEAT(' ',30), .false.)
   i = INDEX(casnofch, '.fch', back=.true.)
   inporb = casnofch(1:i-1)//'_bdf.inporb'
   string = casnofch(1:i-1)//'_bdf.inp'
@@ -308,7 +301,7 @@ subroutine do_mrpt2()
   i = RENAME(TRIM(string), TRIM(inpname))
 
   call prt_mrpt_bdf_inp(inpname, 1)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call find_specified_suffix(inpname, '.inp', i)
   string = inpname(1:i-1)
   i = SYSTEM(TRIM(bdf_path)//' '//TRIM(string))

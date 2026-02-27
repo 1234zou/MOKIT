@@ -19,11 +19,12 @@ end subroutine qchem2amesp
 
 ! Q-Chem .fch(k) -> BDF (.inp, .scforb, .BAS)
 subroutine qchem2bdf(fchname, inpname)
+ use util_wrapper, only: fch2bdf_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
- character(len=240) :: std_fch, std_inp, std_orb, orbname
+ integer :: i, RENAME
  character(len=240), intent(in) :: fchname, inpname
 !f2py intent(in) :: fchname, inpname
+ character(len=250) :: std_fch, std_inp, std_orb, orbname
 
  call find_specified_suffix(inpname, '.inp', i)
  orbname = inpname(1:i-1)//'.scforb'
@@ -34,7 +35,8 @@ subroutine qchem2bdf(fchname, inpname)
  std_orb = fchname(1:i-1)//'_std_bdf.scforb'
 
  call standardize_fch(fchname)
- i = SYSTEM('fch2bdf '//TRIM(std_fch))
+ call fch2bdf_wrap('fch2bdf '//TRIM(std_fch), 0, REPEAT(' ',30), .false.)
+
  call delete_file(TRIM(std_fch))
  i = RENAME(TRIM(std_inp), TRIM(inpname))
  i = RENAME(TRIM(std_orb), TRIM(orbname))

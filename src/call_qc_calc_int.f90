@@ -141,7 +141,7 @@ end subroutine fake_mdci_nat_using_gbw
 ! This subroutine requires PySCF installed.
 subroutine get_gau_ao_ovlp_from_pyscf(fchname, nbf, ao_ovlp)
  implicit none
- integer :: i, k, fid, fid1, SYSTEM
+ integer :: i, k, fid, fid1
  integer, intent(in) :: nbf
 !f2py intent(in) :: nbf
  real(kind=8), intent(out) :: ao_ovlp(nbf,nbf)
@@ -150,6 +150,7 @@ subroutine get_gau_ao_ovlp_from_pyscf(fchname, nbf, ao_ovlp)
  character(len=240) :: buf, new_fch, pyname, pyname1, outname, binfile
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
+ character(len=256) :: longbuf
 
  call get_a_random_int(k)
  call find_specified_suffix(fchname, '.fch', i)
@@ -160,13 +161,8 @@ subroutine get_gau_ao_ovlp_from_pyscf(fchname, nbf, ao_ovlp)
  write(binfile,'(A,I0,A)') fchname(1:i-1)//'_',k,'.bin'
 
  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
- i = SYSTEM('bas_fch2py '//TRIM(new_fch)//' -obj')
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine get_gau_ao_ovlp_from_pyscf: failed to c&
-                   &all utility bas_fch2py.'
-   write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ longbuf = 'bas_fch2py '//TRIM(new_fch)//' -obj'
+ call run_command(TRIM(longbuf), .false., .false.)
  call delete_file(new_fch)
 
  open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
@@ -207,7 +203,7 @@ end subroutine get_gau_ao_ovlp_from_pyscf
 ! This subroutine requires PySCF installed.
 subroutine get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
  implicit none
- integer :: i, k, fid, fid1, SYSTEM
+ integer :: i, k, fid, fid1
  integer, intent(in) :: nbf
 !f2py intent(in) :: nbf
  real(kind=8), intent(out) :: ao_dip(nbf,nbf,3)
@@ -216,6 +212,7 @@ subroutine get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
  character(len=240) :: buf, new_fch, pyname, pyname1, outname, binfile(3)
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
+ character(len=256) :: longbuf
 
  call get_a_random_int(k)
  call find_specified_suffix(fchname, '.fch', i)
@@ -228,13 +225,8 @@ subroutine get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
  write(binfile(3),'(A,I0,A)') fchname(1:i-1)//'_z',k,'.bin'
 
  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
- i = SYSTEM('bas_fch2py '//TRIM(new_fch)//' -obj')
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine get_gau_ao_dip_from_pyscf: failed to ca&
-                   &ll utility bas_fch2py.'
-   write(6,'(A)') 'fchname='//TRIM(fchname)
-  stop
- end if
+ longbuf = 'bas_fch2py '//TRIM(new_fch)//' -obj'
+ call run_command(TRIM(longbuf), .false., .false.)
  call delete_file(new_fch)
 
  open(newunit=fid1,file=TRIM(pyname1),status='old',position='rewind')
@@ -400,12 +392,13 @@ end subroutine get_ao_ovlp_using_fch
 subroutine call_gaussian_gen47_from_fch(fchname, file47)
  use util_wrapper, only: unfchk
  implicit none
- integer :: i, k, fid, SYSTEM
+ integer :: i, k, fid
  character(len=10) :: str
  character(len=24) :: mem
  character(len=240), intent(in) :: fchname
  character(len=240), intent(out) :: file47
  character(len=240) :: gau_path, proname, chkname, gjfname, logname
+ character(len=481) :: buf
 
  call get_a_random_int(i)
  write(str,'(I0)') i
@@ -449,14 +442,8 @@ subroutine call_gaussian_gen47_from_fch(fchname, file47)
  call unfchk(fchname, chkname)
 
  call get_gau_path(gau_path)
- i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine call_gaussian_gen47_from_fch: Gaussian &
-                   &job failed.'
-  write(6,'(A)') 'You can open file '//TRIM(logname)//' and check why.'
-  stop
- end if
-
+ buf = TRIM(gau_path)//' '//TRIM(gjfname)
+ call run_command(TRIM(buf), .false., .false.)
  call delete_files(3, [chkname, gjfname, logname])
 end subroutine call_gaussian_gen47_from_fch
 
@@ -564,7 +551,7 @@ subroutine get_gau_path(gau_path)
  g(1) = TRIM(gau_path)//'/g03'
  g(2) = TRIM(gau_path)//'/g09'
  g(3) = TRIM(gau_path)//'/g16'
- ! maybe extended to g23 in 2023
+ ! maybe extended to g25 in 2026
 
  alive = .false.
  do i = 3, 1, -1
@@ -723,10 +710,10 @@ end subroutine submit_gms_fzgvb_job
 ! submit a GAMESS job
 subroutine submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
  implicit none
- integer :: i, SYSTEM
+ integer :: i
  integer, intent(in) :: nproc
  character(len=240) :: datname, gmsname, hs1, hs2, trj
- character(len=500) :: longbuf
+ character(len=750) :: longbuf
  character(len=240), intent(in) :: gms_path, gms_scr_path, gms_dat_path, inpname
 
  ! delete scratch files, if any
@@ -743,48 +730,78 @@ subroutine submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
  write(longbuf,'(A,I0,A)') TRIM(inpname)//' 01 ',nproc,' >'//TRIM(gmsname)//" 2>&1"
  write(6,'(A)') '$$GMS '//TRIM(longbuf)
 
- i = SYSTEM(TRIM(gms_path)//' '//TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_gms_job: GAMESS job failed.'
-  write(6,'(A)') 'You can open file '//TRIM(gmsname)//' and check why.'
-  stop
- end if
+ longbuf = TRIM(gms_path)//' '//TRIM(longbuf)
+ call run_command(TRIM(longbuf), .false., .false.)
 
  ! move the .dat file into current directory
- i = SYSTEM('mv '//TRIM(gms_dat_path)//'/'//TRIM(datname)//' .')
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_gms_job: fail to move file. Poss&
-                   &ibly wrong gms_dat_path.'
-  write(6,'(A)') 'gms_dat_path='//TRIM(gms_dat_path)
-  stop
- end if
+ longbuf = 'mv '//TRIM(gms_dat_path)//'/'//TRIM(datname)//' .'
+ call run_command(TRIM(longbuf), .false., .false.)
 end subroutine submit_gms_job
+
+subroutine submit_bdf_job(inpname, nproc)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nproc
+ character(len=240) :: outname, shname
+ character(len=240), intent(in) :: inpname
+ character(len=480) :: tmpdir
+
+ tmpdir = ' '
+ call getenv('BDF_TMPDIR', tmpdir)
+ if(LEN_TRIM(tmpdir) == 0) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning from subroutine submit_bdf_job: it seems that the env&
+                 &ironment variable'
+  write(6,'(A)') '$BDF_TMPDIR is not defined. It will be set to `/tmp` temporar&
+                 &ily in this job.'
+  write(6,'(A)') 'Anyway, the program will continue.'
+  write(6,'(A)') REPEAT('-',79)
+  tmpdir = '/tmp'
+ end if
+
+ call find_specified_suffix(inpname, '.inp', i)
+ outname = inpname(1:i-1)//'.out'
+ shname = inpname(1:i-1)//'.sh'
+#ifdef _WIN32
+ tmpdir = TRIM(tmpdir)//'\'//inpname(1:i-1)
+#else
+ tmpdir = TRIM(tmpdir)//'/'//inpname(1:i-1)
+#endif
+
+ ! TODO: support MPI version of BDF
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ write(fid,'(A)') '#OpenMP'
+ write(fid,'(A)') 'export OMP_STACKSIZE=8000M'
+ write(fid,'(A,I0)') 'export OMP_NUM_THREADS=', nproc
+ write(fid,'(A)') 'export BDF_TMPDIR='//TRIM(tmpdir)
+ write(fid,'(A)') '$BDFHOME/sbin/bdfdrv.py -tmpdir $BDF_TMPDIR -keeptmpdir -r '&
+                //TRIM(inpname)//' > '//TRIM(outname)
+ close(fid)
+
+ call run_command('/bin/bash '//TRIM(shname), .false., .true.)
+ call delete_file(TRIM(shname))
+end subroutine submit_bdf_job
 
 ! submit a MOKIT automr job
 subroutine submit_automr_job(gjfname)
  implicit none
- integer :: i, SYSTEM
- character(len=240) :: buf, outname
+ integer :: i
+ character(len=240) :: outname
  character(len=240), intent(in) :: gjfname
+ character(len=500) :: buf
 
  call find_specified_suffix(gjfname, '.gjf', i)
  outname = gjfname(1:i-1)//'.out'
  buf = 'automr '//TRIM(gjfname)//' >'//TRIM(outname)//" 2>&1"
- write(6,'(A)') '$'//TRIM(buf)
-
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_automr_job: automr job failed.'
-  write(6,'(A)') 'You can open file '//TRIM(outname)//' and check why.'
-  stop
- end if
+ call run_command(TRIM(buf), .false., .true.)
 end subroutine submit_automr_job
 
 subroutine submit_gau_job(gau_path, gjfname, prt)
  implicit none
- integer :: i, SYSTEM
+ integer :: i
  character(len=240) :: logname
  character(len=240), intent(in) :: gau_path, gjfname
+ character(len=481) :: buf
  logical, intent(in) :: prt
 
  call find_specified_suffix(gjfname, '.gjf', i)
@@ -794,15 +811,8 @@ subroutine submit_gau_job(gau_path, gjfname, prt)
  logname = gjfname(1:i-1)//'.log'
 #endif
 
- if(prt) write(6,'(A)') '$'//TRIM(gau_path)//' '//TRIM(gjfname)
- i = SYSTEM(TRIM(gau_path)//' '//TRIM(gjfname))
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_gau_job: Gaussian job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(logname)//' and check.'
-  stop
- end if
-
+ buf = TRIM(gau_path)//' '//TRIM(gjfname)
+ call run_command(TRIM(buf), .false., prt)
  call delete_file('fort.7')
 end subroutine submit_gau_job
 
@@ -921,24 +931,18 @@ end subroutine get_psi4_version
 
 subroutine submit_psi4_job(psi4_path, inpname, nproc)
  implicit none
- integer :: i, SYSTEM
+ integer :: i
  integer, intent(in) :: nproc
  character(len=240) :: outname
- character(len=480) :: buf
  character(len=240), intent(in) :: psi4_path, inpname
+ character(len=740) :: buf
 
  call find_specified_suffix(inpname, '.inp', i)
  outname = inpname(1:i-1)//'.out'
 
  write(buf,'(A,I0)') TRIM(inpname)//' '//TRIM(outname)//' -n ', nproc
- write(6,'(A)') '$'//TRIM(psi4_path)//' '//TRIM(buf)
-
- i = SYSTEM(TRIM(psi4_path)//' '//TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_psi4_job: PSI4 job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-  stop
- end if
+ buf = TRIM(psi4_path)//' '//TRIM(buf)
+ call run_command(TRIM(buf), .false., .true.)
 
  call delete_file('timer.dat')
  call delete_file('ijk.dat')
@@ -971,14 +975,49 @@ subroutine submit_qchem_job(inpname, nproc)
  call delete_file('pathtable')
 end subroutine submit_qchem_job
 
+! `-t` option is no longer supported since Molpro 2025, so check Molpro version
+! and add `-t` accordingly.
+subroutine get_molpro_version(version)
+ implicit none
+ integer :: i, fid
+ character(len=10), intent(out) :: version
+ character(len=25) :: fname
+ character(len=50) :: buf
+
+ version = ' '
+ call get_a_random_int(i)
+ write(fname,'(A,I0)') 'molpro.ver.', i
+ buf = 'molpro --version >'//TRIM(fname)//" 2>&1"
+ call run_command(TRIM(buf), .false., .false.)
+
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ read(fid,'(A)') version
+ close(fid,status='delete')
+end subroutine get_molpro_version
+
 subroutine submit_molpro_job(inpname, mem, nproc)
  implicit none
- integer :: i, SYSTEM
- integer, intent(in) :: mem ! total memory in GB
+ integer :: i, k
+ integer, intent(in) :: mem   ! total memory in GB
  integer, intent(in) :: nproc ! number of processors
- character(len=270) :: buf = ' '
+ character(len=10) :: version
  character(len=240) :: outname, xmlname
  character(len=240), intent(in) :: inpname
+ character(len=280) :: buf
+ logical :: add_t ! add `-t` option or not
+
+ call get_molpro_version(version)
+ i = INDEX(version, '.')
+ if(i < 2) then
+  write(6,'(/,A)') 'ERROR in subroutine submit_molpro_job: Molpro version strin&
+                   &g cannot be'
+  write(6,'(A)') 'parsed correctly. version='//TRIM(version)
+  stop
+ end if
+ read(version(1:i-1),*) k
+ add_t = .true.
+ if(k >= 2025) add_t = .false.
+ ! `-t` option is not supported since Molpro 2025
 
  call find_specified_suffix(inpname, '.com', i)
  outname = inpname(1:i-1)//'.out'
@@ -986,16 +1025,14 @@ subroutine submit_molpro_job(inpname, mem, nproc)
  call delete_files(2, [outname, xmlname]) ! clean old files (if any)
 
  i = FLOOR(DBLE(mem*125)/DBLE(nproc))
- write(buf,'(2(A,I0),A)') 'molpro -W ./ -t 1 -n ', nproc, ' -m ', i, &
-                          'm '//TRIM(inpname)
- write(6,'(A)') '$'//TRIM(buf)
-
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_molpro_job: Molpro job failed.'
-  write(6,'(A)') 'You can open the file '//TRIM(outname)//' and check why.'
-  stop
+ if(add_t) then
+  write(buf,'(2(A,I0))') 'molpro -W ./ -t 1 -n ', nproc, ' -m ', i
+ else
+  write(buf,'(2(A,I0))') 'molpro -W ./ -n ', nproc, ' -m ', i
  end if
+
+ buf = TRIM(buf)//'m '//TRIM(inpname)
+ call run_command(TRIM(buf), .false., .true.)
 end subroutine submit_molpro_job
 
 ! submit a GVB-BCCI job
@@ -1076,7 +1113,7 @@ end subroutine submit_gvb_bccc_job
 
 subroutine submit_pyscf_job(pyname, prt)
  implicit none
- integer :: i, SYSTEM
+ integer :: i
  character(len=240) :: outname
  character(len=240), intent(in) :: pyname
  character(len=500) :: buf
@@ -1084,17 +1121,8 @@ subroutine submit_pyscf_job(pyname, prt)
 
  call find_specified_suffix(pyname, '.py', i)
  outname = pyname(1:i-1)//'.out'
-
- write(buf,'(A)') 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
- if(prt) write(6,'(A)') '$'//TRIM(buf)
-
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_pyscf_job: PySCF job failed. Ple&
-                   &ase open'
-  write(6,'(A)') 'file '//TRIM(outname)//' and check.'
-  stop
- end if
+ buf = 'python '//TRIM(pyname)//' >'//TRIM(outname)//" 2>&1"
+ call run_command(TRIM(buf), .false., prt)
 end subroutine submit_pyscf_job
 
 ! Submit a CFOUR job. Note: the CFOUR input file is always ZMAT, so there is no
@@ -1167,13 +1195,18 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine do_cas: Dalton job failed.'
   write(6,'(A)') 'Please open files '//TRIM(proname)//'.out as well as '//&
-                 TRIM(sout)//' and check why.'
+                 TRIM(sout)
+  write(6,'(A)') 'and check why.'
   stop
  end if
 
  if(mpi) call delete_file(TRIM(shname))
  if(del_sout) call delete_file(TRIM(sout))
- if(.not. noarch) i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST')
+ 
+ if(.not. noarch) then
+  buf = 'tar -xpf '//TRIM(proname)//'.tar.gz SIRIUS.RST'
+  call run_command(TRIM(buf), .false., .false.)
+ end if
 end subroutine submit_dalton_job
 
 subroutine submit_mrcc_job(outname, nproc)

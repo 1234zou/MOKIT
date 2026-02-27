@@ -13,8 +13,8 @@ end module icss_param
 ! do CASCI(npair<=7) or DMRG-CASCI(npair>7) when scf=.False.
 ! do CASSCF(npair<=7) or DMRG-CASSCF(npair>7) when scf=.True.
 subroutine do_cas(scf)
- use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, dmrg_no, &
-  ist, hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
+ use mr_keyword, only: mem, nproc, casci, dmrgci, casscf, dmrgscf, ist, &
+  hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
   casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, molcas_omp, molcas_path, &
   orca_path, molpro_path, bdf_path, psi4_path, check_gms_path, gms_path, &
   gms_scr_path, gms_dat_path, dalton_mpi, bgchg, chgname, casci_force, &
@@ -24,7 +24,8 @@ subroutine do_cas(scf)
   casscf_e, nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
   fch2inp_wrap, dat2fch_wrap, fch2mkl_wrap, gbw2molden, molden2fch_wrap, &
-  fch2inporb_wrap, orb2fch_wrap
+  xml2fch_wrap, fch2bdf_wrap, fch2psi_wrap, fch2dal_wrap, fch2inporb_wrap, &
+  orb2fch_wrap, add_bgcharge2inp_wrap
  implicit none
  integer :: i, n_pocc, nvir, nfile, SYSTEM, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
@@ -246,18 +247,6 @@ subroutine do_cas(scf)
   stop
  end if
 
- ! If the user specify a active space larger than CASSCF(16,16) in gjf file,
- ! e.g. DMRGSCF(18,18), the logical variable dmrgscf is set to .True. before
- ! coming into this subroutine.
- ! But if the user specify the active space like CASSCF(18,18), dmrgscf is not
- ! set to .True. before coming into this subroutine. So we need to check again
- ! values of dmrgscf and dmrg_no.
- if(dmrgscf .and. (.not.dmrg_no)) then
-  write(6,'(/,A)') error_warn//'the noDMRGNO keyword can only be used for'
-  write(6,'(A)') 'DMRG-CASCI. But DMRG-CASSCF is detected.'
-  stop
- end if
-
  select case(ist)
  case(1,3,6)
   call find_specified_suffix(datname, '.dat', i)
@@ -323,7 +312,7 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.out'
   call bas_fch2py_wrap(fchname, .false., inpname)
   call prt_cas_pyscf_script(inpname, scf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   if(cas_force) call add_force_key2py_script(mem, inpname, .false.)
   call submit_pyscf_job(inpname, .true.)
 
@@ -334,7 +323,7 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.log'
   mklname = TRIM(proname)//'.chk'
   call prt_cas_gjf(inpname, nacto, nacte, scf, cas_force)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call unfchk(fchname, mklname)
   call submit_gau_job(gau_path, inpname, .true.)
   call formchk(mklname, casnofch)
@@ -350,7 +339,7 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(outname), TRIM(inpname))
   outname = TRIM(proname)//'.gms'
   call prt_cas_gms_inp(inpname, ndb, scf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   if(cas_force) call add_force_key2gms_inp(inpname)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
@@ -373,23 +362,13 @@ subroutine do_cas(scf)
    call dat2fch_wrap(datname, casnofch)
    write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                               TRIM(casnofch), ndb+1, n_pocc
-   write(6,'(A)') '$'//TRIM(buf)
-   i = SYSTEM(TRIM(buf))
-   if(i /= 0) then
-    write(6,'(/,A)') error_warn//'failed to call extract_noon2fch.'
-   end if
+   call run_command(TRIM(buf), .false., .true.)
   end if
 
   ! transfer NOs from .dat to .fch
   write(buf,'(A,I0)') 'dat2fch '//TRIM(datname)//' '//TRIM(casnofch)//' -no ', &
                       n_pocc
-  write(6,'(A)') '$'//TRIM(buf)
-  i = SYSTEM(TRIM(buf)//' >/dev/null')
-  if(i /= 0) then
-   write(6,'(/,A)') error_warn//'failed to call utility dat2fch.'
-   write(6,'(A)') 'Related files: '//TRIM(datname)//', '//TRIM(casnofch)//'.'
-   stop
-  end if
+  call run_command(TRIM(buf), .true., .true.)
 
  case('openmolcas')
   call check_exe_exist(molcas_path)
@@ -398,11 +377,14 @@ subroutine do_cas(scf)
   call fch2inporb_wrap(fchname, .false., inpname)
   write(orbname,'(A,I0)') TRIM(proname)//'.RasOrb.', iroot+1
   call prt_cas_molcas_inp(inpname, scf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-  if(cas_force) i = SYSTEM("echo '&ALASKA' >> "//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+  if(cas_force) then
+   buf = 'echo -e "&ALASKA\n" >> '//TRIM(inpname)
+   call run_command(TRIM(buf), .false., .false.)
+  end if
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
-  call copy_file(fchname, casnofch, .false.) !make a copy to save NOs
+  call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   call orb2fch_wrap(orbname, casnofch, .true.) ! transfer NOs from .dat to .fch
   ! OpenMolcas CASSCF NOs may not be in ascending order, sort them
   call sort_no_by_noon(casnofch, ndb+1, n_pocc)
@@ -419,7 +401,7 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(pyname), TRIM(inpname))
 
   call prt_cas_orca_inp(inpname, scf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
@@ -465,16 +447,15 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(orbname))
   call prt_cas_molpro_inp(inpname, scf, cas_force)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
   call submit_molpro_job(inpname, mem, nproc)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  i = SYSTEM('xml2fch '//TRIM(xmlname)//' '//TRIM(casnofch)//' -no')
+  call xml2fch_wrap(xmlname, casnofch, .true.)
 
  case('bdf')
-  call check_exe_exist(bdf_path)
-
-  i = SYSTEM('fch2bdf '//TRIM(fchname)//' -no')
+  call check_dir_exist(bdf_path)
+  call fch2bdf_wrap(fchname, 1, REPEAT(' ',30), .false.)
   i = INDEX(fchname, '.fch', back=.true.)
   mklname = fchname(1:i-1)//'_bdf.inp'
   pyname  = fchname(1:i-1)//'_bdf.inporb'
@@ -485,57 +466,36 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(mklname), TRIM(inpname))
   i = RENAME(TRIM(pyname), TRIM(xmlname))
   call prt_cas_bdf_inp(inpname, scf, cas_force)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-
-  write(6,'(A)') '$$BDF '//TRIM(proname)
-  i = SYSTEM(TRIM(bdf_path)//' '//TRIM(proname))
-  if(i /= 0) then
-   write(6,'(/,A)') error_warn//'BDF CASCI/CASSCF job failed.'
-   stop
-  end if
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+  call submit_bdf_job(inpname, nproc)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  i = SYSTEM('bdf2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no')
+  buf = 'bdf2fch '//TRIM(orbname)//' '//TRIM(casnofch)//' -no'
+  call run_command(TRIM(buf), .false., .true.)
 
  case('psi4')
-  i = SYSTEM('fch2psi '//TRIM(fchname))
-  i = INDEX(fchname, '.fch', back=.true.)
-  mklname = fchname(1:i-1)//'_psi.inp'
-  pyname  = fchname(1:i-1)//'_psi.A'
   inpname = TRIM(proname)//'.inp'
-  xmlname = TRIM(proname)//'.A'
   outname = TRIM(proname)//'.out'
-  i = RENAME(TRIM(mklname), TRIM(inpname))
-  i = RENAME(TRIM(pyname), TRIM(xmlname))
+  call fch2psi_wrap(fchname, inpname)
   call prt_cas_psi4_inp(inpname, scf)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
   call submit_psi4_job(psi4_path, inpname, nproc)
   write(buf,'(A,2(1X,I0))') 'extract_noon2fch '//TRIM(outname)//' '//&
                              TRIM(casnofch), ndb+1, n_pocc
-  i = SYSTEM(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') error_warn//'failed to call utility extract_noon2fch.'
-   stop
-  end if
+  call run_command(TRIM(buf), .false., .true.)
 
  case('dalton')
-  i = SYSTEM('fch2dal '//TRIM(fchname))
-  i = INDEX(fchname, '.fch', back=.true.)
-  mklname = fchname(1:i-1)//'.dal'
-  pyname  = fchname(1:i-1)//'.mol'
   inpname = TRIM(proname)//'.dal'
-  xmlname = TRIM(proname)//'.mol'
-  orbname = TRIM(proname)//'.MOPUN'
   outname = TRIM(proname)//'.out'
-  i = RENAME(TRIM(mklname), TRIM(inpname))
-  i = RENAME(TRIM(pyname), TRIM(xmlname))
+  call fch2dal_wrap(fchname, inpname)
   call prt_cas_dalton_inp(inpname, scf, cas_force)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
-                                                   ! sirius, noarch, del_sout
-  call submit_dalton_job(proname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+  call submit_dalton_job(proname, mem, nproc, dalton_mpi, .false., .false., &
+                         .false.)
 
   ! untar/unzip the compressed package to get DALTON.MOPUN
-  i = SYSTEM('tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN')
+  buf = 'tar -xpf '//TRIM(proname)//'.tar.gz DALTON.MOPUN'
+  call run_command(TRIM(buf), .false., .true.)
 
   ! make a copy to save NOs
   call copy_file(fchname, casnofch, .false.)
@@ -544,13 +504,7 @@ subroutine do_cas(scf)
   buf = 'dal2fch DALTON.MOPUN '//TRIM(casnofch)
   if(.not. cas_force) buf = TRIM(buf)//' -no'
   ! when force=.T., NOONs are not in DALTON.MOPUN, so we only transfer NOs here
-  i = SYSTEM(TRIM(buf))
-  if(i /= 0) then
-   write(6,'(/,A)') error_warn//'failed to call utility dal2fch.'
-   write(6,'(A)') 'Please open files DALTON.MOPUN and '//TRIM(casnofch)//&
-                 &' and check.'
-   stop
-  end if
+  call run_command(TRIM(buf), .false., .true.)
 
   ! Now transfer NOONs when force=.T.
   if(cas_force) then
@@ -604,10 +558,7 @@ subroutine do_cas(scf)
   casscf_e = e(2)
   write(6,'(A,F18.8,1X,A4)') 'E(CASSCF) = ', e(2), 'a.u.'
  end if
-
- if((dmrgci .and. dmrg_no) .or. (.not. dmrgci)) then
-  call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
- end if
+ call calc_unpaired_from_fch(casnofch, 3, .false., unpaired_e)
 
  if(cas_force) then
   allocate(grad(3*natom))
@@ -650,8 +601,8 @@ end subroutine do_cas
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_pyscf_script(pyname, scf)
- use mr_keyword, only: mem, nproc, xmult, dmrgci, dmrgscf, dmrg_no, block_mpi, &
-  RI, RIJK_bas, iroot, ss_opt, casnofch
+ use mr_keyword, only: mem, nproc, xmult, dmrgci, dmrgscf, block_mpi, RI, &
+  RIJK_bas, iroot, ss_opt, casnofch
  use mol, only: mult
  implicit none
  integer :: i, fid1, fid2, RENAME
@@ -722,9 +673,7 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  end do ! for while
  close(fid1,status='delete')
 
- ! For CASCI/CASSCF, always set `mc.natorb = True`.
- ! For DMRG-CASCI, set `mc.natorb = True` by default. If `noDMRGNO` is specified
- !  in the gjf file, `mc.natorb = True` will not be set.
+ ! For CASCI/CASSCF/DMRG-CASCI, always set `mc.natorb = True`.
  ! For DMRG-CASSCF, a two-step job is employed:
  !  1) use input MOs to perform DMRG-CASSCF, and save converged MOs;
  !  2) perform DMRG-CASCI to generate NOs.
@@ -739,7 +688,7 @@ subroutine prt_cas_pyscf_script(pyname, scf)
    call prt_gs_casscf_kywrd_py(fid2, RIJK_bas1) ! print ground state CASSCF keywords
   else
    call prt_es_casscf_kywrd_py(fid2, RIJK_bas1) ! print SS-CASSCF keywords
-   ! This is usually used to optimize orbitals of excited states. But it can
+   ! This is usually used to optimize orbitals of an excited state. But it can
    ! also be used to optimize orbitals of the ground state when ss_opt=.T.
    ! and iroot==0, which is useful when the ground state is degenerate with
    ! an excited state.
@@ -759,7 +708,6 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  if(dmrgci) then
   write(fid2,'(/,A)') '# backup original MOs to cmofch file'
   write(fid2,'(A)') 'copyfile(hf_fch, cmofch)'
-  if(.not. dmrg_no) casnofch = cmofch
  else if(dmrgscf) then
   write(fid2,'(/,A)') '# save converged MOs into .fch file'
   write(fid2,'(A)') 'copyfile(hf_fch, cmofch)'
@@ -768,13 +716,11 @@ subroutine prt_cas_pyscf_script(pyname, scf)
   call prt_dmrg_casci_kywrd_py(fid2, RIJK_bas1, .true.)
  end if
 
- if((.not.dmrg) .or. dmrgscf .or. (dmrgci .and. dmrg_no)) then
-  write(fid2,'(/,A)') '# save NOs into .fch file'
-  write(fid2,'(A)') "casnofch = '"//TRIM(casnofch)//"'"
-  write(fid2,'(A)') "copyfile(hf_fch, casnofch)"
-  write(fid2,'(A)') "py2fch(casnofch,nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True,True)"
-  ! Note: mc.mo_occ is only valid for PySCF >= 1.7.4
- end if
+ write(fid2,'(/,A)') '# save NOs into .fch file'
+ write(fid2,'(A)') "casnofch = '"//TRIM(casnofch)//"'"
+ write(fid2,'(A)') "copyfile(hf_fch, casnofch)"
+ write(fid2,'(A)') "py2fch(casnofch,nbf,nif,mc.mo_coeff,'a',mc.mo_occ,True,True)"
+ ! Note: mc.mo_occ is only valid for PySCF >= 1.7.4
 
  close(fid2)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
@@ -1092,11 +1038,13 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  use mol, only: nbf, nif, charge, mult, ndb, nacto, nacte
  implicit none
  integer :: i, fid
+ character(len=37), parameter :: error_warn='ERROR in subroutine prt_cas_bdf_inp: '
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf, force
 
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -1104,14 +1052,15 @@ subroutine prt_cas_bdf_inp(inpname, scf, force)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine prt_cas_bdf_inp: '$SCF' not found in &
-                   & file "//TRIM(inpname)
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_bdf_inp: no "$SCF" found in file'
+  write(6,'(A)') TRIM(inpname)
   close(fid)
   stop
  end if
 
  BACKSPACE(fid)
- write(fid,'(A)') '$MCSCF'
+ write(fid,'(A)') '$MCSCF' ! erase `$SCF`
+
  if(nbf > nif) then
   write(fid,'(A)') 'CheckLin'
   write(fid,'(A)') 'TolLin'
@@ -1169,11 +1118,11 @@ subroutine prt_cas_psi4_inp(inpname, scf)
  end if
 
  if(crazywfn) then
-  write(fid,'(A,I0)') ' ci_maxiter 500'
+  write(fid,'(A)') ' ci_maxiter 500'
   write(fid,'(A)') ' H0_guess_size 1500'
   write(fid,'(A)') ' H0_blocksize 1500'
  else if(hardwfn) then
-  write(fid,'(A,I0)') ' ci_maxiter 300'
+  write(fid,'(A)') ' ci_maxiter 300'
   write(fid,'(A)') ' H0_guess_size 1200'
   write(fid,'(A)') ' H0_blocksize 1200'
  else
@@ -1974,7 +1923,7 @@ end subroutine prt_casci_kywrd_py
 ! prt_casci_kywrd_py above.
 subroutine prt_dmrg_casci_kywrd_py(fid, RIJK_bas1, after_dmrgscf)
  use mol, only: mult, nacto, nacte, nacta, nactb
- use mr_keyword, only: mem, nproc, block_mpi, dmrg_no, iroot, RI, maxM
+ use mr_keyword, only: mem, nproc, block_mpi, iroot, RI, maxM
  implicit none
  integer, intent(in) :: fid
  character(len=21), intent(in) :: RIJK_bas1
@@ -2000,17 +1949,22 @@ subroutine prt_dmrg_casci_kywrd_py(fid, RIJK_bas1, after_dmrgscf)
 
  below_cas1010 = compare_as_size(10,10,1, nacto,nacte,mult)
  if(below_cas1010) then
- ! set very tight thresholds for small system
+  ! set very tight thresholds for small system
   write(fid,'(A)') "mc.fcisolver.block_extra_keyword = ['full_fci_space']"
  end if
 
+ write(fid,'(A)') 'mc.fcisolver.states_transform_ci_for_orbital_rotation = lamb&
+                  &da x, *args: x'
  if(iroot > 0) write(fid,'(A,I0,A)') 'mc = mc.state_specific_(',iroot,')'
- if(after_dmrgscf .or. ((.not.after_dmrgscf) .and. dmrg_no) ) then
-  write(fid,'(A)') 'mc.natorb = True'
- end if
+ write(fid,'(A)') 'mc.natorb = True'
  write(fid,'(A)') 'mc.verbose = 5'
  write(fid,'(A)') 'mc.kernel()'
- write(fid,'(A)') 'mc.analyze()'
+ if(after_dmrgscf) then
+  write(fid,'(A)') '# population analysis based on converged MOs, not NOs'
+ else
+  write(fid,'(A)') '# population analysis based on input MOs, not NOs'
+ end if
+ write(fid,'(A)') 'mc.analyze(mo_coeff=mf.mo_coeff)'
 end subroutine prt_dmrg_casci_kywrd_py
 
 ! print warnings if user-requested active orbitals/electrons are more than

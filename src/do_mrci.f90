@@ -2,14 +2,14 @@
 
 ! do uncontracted/ic-/FIC- MRCISD(+Q)
 subroutine do_mrcisd()
- use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, dmrg_no, CIonly, eist, mrcisd,&
+ use mr_keyword, only: mem, nproc, dmrgci, dmrgscf, CIonly, eist, mrcisd, &
   mrcisd_prog, CtrType, casnofch, molcas_omp, molcas_path, orca_path, gau_path,&
   check_gms_path, gms_path, gms_scr_path, gms_dat_path, molpro_path, psi4_path,&
   dalton_mpi, bgchg, chgname
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
- use util_wrapper, only: bas_fch2py_wrap, unfchk, mkl2gbw, fch2inp_wrap, &
-  fch2inporb_wrap
+ use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, unfchk, mkl2gbw,&
+  fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: e
@@ -36,13 +36,9 @@ subroutine do_mrcisd()
   end if
   ! For DMRG-NEVPT2, use CMOs rather than NOs
   if(dmrgci .or. dmrgscf) then ! DMRG-CASCI/CASSCF
-   if(dmrg_no) then ! DMRG NOs calculated previously
-    i = INDEX(casnofch, '_NO', back=.true.)
-    cmofch = casnofch(1:i)//'CMO.fch'
-    casnofch = cmofch
-   end if
-   ! if DMRG NOs not calculated previously, casnofch is set to 'xxx_CMO.fch'
-   ! in subroutine do_cas
+   i = INDEX(casnofch, '_NO', back=.true.)
+   cmofch = casnofch(1:i)//'CMO.fch'
+   casnofch = cmofch
    i = INDEX(casnofch, '_CMO', back=.true.)
   else                         ! CASCI/CASSCF
    i = INDEX(casnofch, '_NO', back=.true.)
@@ -51,7 +47,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.out'
   call bas_fch2py_wrap(casnofch, .false., pyname)
   call prt_mrci_script_into_py(pyname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(pyname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, pyname)
   call submit_pyscf_job(pyname, .true.)
 
  case('openmolcas')
@@ -61,7 +57,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.out'
   call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mrci_molcas_inp(2, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
  case('orca')
@@ -78,7 +74,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
   chkname = ' '
   call prt_mrcisd_orca_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(mklname)
@@ -92,7 +88,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.log'
   call unfchk(casnofch, chkname)
   call prt_mrcisd_gau_inp(2, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gau_job(gau_path, inpname, .true.)
 
  case('molpro')
@@ -143,7 +139,7 @@ subroutine do_mrcisd()
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
   call prt_mrci_dalton_inp(2, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD'
@@ -161,7 +157,7 @@ subroutine do_mrcisd()
   outname = casnofch(1:i)//'MRCISD.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(2, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  case default
@@ -919,7 +915,7 @@ subroutine do_mrcisdt()
   gms_path, gms_scr_path, gms_dat_path, casnofch, chgname, CIonly, bgchg, CtrType
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
- use util_wrapper, only: unfchk, fch2inp_wrap, fch2inporb_wrap
+ use util_wrapper, only: add_bgcharge2inp_wrap, unfchk, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: e
@@ -949,7 +945,7 @@ subroutine do_mrcisdt()
   outname = casnofch(1:i)//'MRCISDT.out'
   call fch2inporb_wrap(casnofch, .false., inpname)
   call prt_mrci_molcas_inp(3, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
  case('gaussian')
@@ -960,7 +956,7 @@ subroutine do_mrcisdt()
   outname = casnofch(1:i)//'MRCISDT.log'
   call unfchk(casnofch, chkname)
   call prt_mrcisd_gau_inp(3, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gau_job(gau_path, inpname, .true.)
 
  case('psi4')
@@ -987,7 +983,7 @@ subroutine do_mrcisdt()
   i = RENAME(TRIM(string), TRIM(inpname))
   i = RENAME(TRIM(chkname), TRIM(mklname))
   call prt_mrci_dalton_inp(3, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISDT'
   chkname = casnofch(1:i)//'MRCISDT.sout'
@@ -1004,7 +1000,7 @@ subroutine do_mrcisdt()
   outname = casnofch(1:i)//'MRCISDT.gms'
   i = RENAME(TRIM(string), TRIM(inpname))
   call prt_mrci_gms_inp(3, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
 
  case default

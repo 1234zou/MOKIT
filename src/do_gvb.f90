@@ -141,14 +141,14 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, check_gms_path, gms_path, gms_scr_path,&
   gms_dat_path, datname, mo_rhf, bgchg, chgname, GVB_conv, fcgvb
  use mol, only: ndb, nopen, npair, npair0, gvb_e
- use util_wrapper, only: fch2inp_wrap
+ use util_wrapper, only: fch2inp_wrap, add_bgcharge2inp_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
  character(len=10) :: section, key
  character(len=240) :: inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
- character(len=500) :: longbuf = ' '
+ character(len=520) :: longbuf = ' '
  logical, intent(in) :: name_determined
  ! True: using the provided proname as inpname
  ! False: create inpname, gmsname, datname according to proname
@@ -188,7 +188,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  section = '$SYSTEM'; key = 'MWORDS'
  call modify_key_ival_in_gms_inp(inpname, section, key, i)
  call add_gvb_conv(inpname, GVB_conv)
- if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+ if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
  if(fcgvb) then
   write(6,'(A)') 'Remark: FcGVB=.T. GVB with all doubly occupied orbitals frozen.'
@@ -219,28 +219,14 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  inpname = datname(1:i-1)//'_s.fch'
  datname = datname(1:i-1)//'_s.dat'
  call copy_file(pair_fch, inpname, .false.)
- write(longbuf,'(2(A,I0),A)') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//&
-                              ' -gvb ', npair, ' -open ', nopen, ' >/dev/null'
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility dat2&
-                   &fch.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
+ write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//&
+                            ' -gvb ', npair, ' -open ', nopen
+ call run_command(TRIM(longbuf), .true., .true.)
 
  ! extract NOONs from the above .dat file and print them into .fch file
- write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
-                     TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility extr&
-                   &act_noon2fch.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
+ write(longbuf,'(A,3(1X,I0),A)') 'extract_noon2fch '//TRIM(datname)//' '//&
+                    TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
+ call run_command(TRIM(longbuf), .false., .true.)
 
  ! update Total SCF Density in .fch(k) file
  call update_density_using_no_and_on(inpname)
@@ -258,7 +244,7 @@ end subroutine do_gvb_gms
 subroutine do_gvb_qchem(proname, pair_fch)
  use mr_keyword, only: mem, nproc, mo_rhf, bgchg, chgname, datname
  use mol, only: nopen, npair, npair0, gvb_e
- use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap
+ use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap, add_bgcharge2inp_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: unpaired_e
@@ -288,7 +274,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
  call fch2qchem_wrap(pair_fch, 1, npair, inpname)
  ! Note: nopen is determined automatically in fch2qchem
 
- if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+ if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
  call modify_memory_in_qchem_inp(inpname, mem)
  call submit_qchem_job(inpname, nproc)
  call delete_file(TRIM(fchname0)) ! O.K. even if fchname0 does not exist
@@ -349,9 +335,9 @@ end subroutine do_gvb_qchem
 subroutine do_gvb_gau(proname, pair_fch)
  use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, datname
  use mol, only: ndb, nopen, npair, npair0, gvb_e
- use util_wrapper, only: unfchk, formchk, fch2inp_wrap
+ use util_wrapper, only: unfchk, formchk, add_bgcharge2inp_wrap, fch2inp_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  real(kind=8) :: unpaired_e
  real(kind=8), allocatable :: coeff(:,:) ! GVB pair coeff
  character(len=240) :: buf, chkname, fchname, gjfname, logname, inpname
@@ -373,17 +359,9 @@ subroutine do_gvb_gau(proname, pair_fch)
  datname = TRIM(buf)//'.dat'
  call unfchk(pair_fch, chkname)
  call prt_gvb_gau_inp(gjfname, mem, nproc, npair)
- if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(gjfname))
+ if(bgchg) call add_bgcharge2inp_wrap(chgname, gjfname)
 
- buf = TRIM(gau_path)//' '//TRIM(gjfname)
- write(6,'(A)') '$'//TRIM(buf)
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: Gaussian GVB job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(logname)//' and check why.'
-  stop
- end if
-
+ call submit_gau_job(gau_path, gjfname, .true.)
  call read_gvb_energy_from_output('gaussian  ', logname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
@@ -400,15 +378,7 @@ subroutine do_gvb_gau(proname, pair_fch)
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  write(longbuf,'(A,3(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),ndb,nopen,npair
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility gvb_&
-                   &sort_pairs. Did'
-  write(6,'(A)') 'you delete it or forget to compile it? If neither, there is s&
-                 &ome unexpected error.'
-  stop
- end if
+ call run_command(TRIM(longbuf), .false., .true.)
 
  ! generate corresponding .fch file from _s.dat file
  i = INDEX(datname, '.dat')
@@ -417,27 +387,12 @@ subroutine do_gvb_gau(proname, pair_fch)
  call copy_file(fchname, inpname, .false.)
  write(longbuf,'(2(A,I0))') 'dat2fch '//TRIM(datname)//' '//TRIM(inpname)//' -gvb ',&
                              npair, ' -open ', nopen
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                  & dat2fch.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
+ call run_command(TRIM(longbuf), .true., .true.)
 
  ! extract NOONs from the above .dat file and print them into .fch file
  write(longbuf,'(A,3(1X,I0),A5)') 'extract_noon2fch '//TRIM(datname)//' '//&
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gau: failed to call utility&
-                   & extract_noon2fch.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  write(6,'(A)') 'If neither, there is some unexpected error.'
-  stop
- end if
+ call run_command(TRIM(longbuf), .false., .true.)
 
  call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
 end subroutine do_gvb_gau

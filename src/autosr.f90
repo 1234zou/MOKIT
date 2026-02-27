@@ -61,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc19 (2026-Feb-6)'
+ write(6,'(A)') '           Version: 1.2.7rc20 (2026-Feb-27)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -640,7 +640,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc19 :: MOKIT, release date: 2026-Feb-6'
+  write(6,'(A)') 'AutoSR 1.2.7rc20 :: MOKIT, release date: 2026-Feb-27'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -755,11 +755,11 @@ subroutine do_mp2()
   gms_dat_path, orca_path, dalton_mpi, gen_no, no_fch, relaxed_dm, force, &
   molcas_omp, RI
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, bas_fch2py_wrap,&
-  fch2com_wrap, fch2psi_wrap, fch2inp_wrap, fch_u2r_wrap, fch2qchem_wrap, &
-  fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
+  add_bgcharge2inp_wrap, fch2com_wrap, xml2fch_wrap, fch2psi_wrap, fch2inp_wrap,&
+  fch_u2r_wrap, fch2qchem_wrap, fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
  use mol, only: natom, grad
  implicit none
- integer :: i, RENAME, SYSTEM
+ integer :: i, RENAME
  real(kind=8) :: rtmp
  character(len=24) :: data_string = ' '
  character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname, &
@@ -805,7 +805,7 @@ subroutine do_mp2()
  case('pyscf')
   inpname = hf_fch(1:i-1)//'_MP2.py'
   call bas_fch2py_wrap(hf_fch, .false., inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_pyscf_inp(inpname, .false.)
   call submit_pyscf_job(inpname, .true.)
   call read_mp2_e_from_pyscf_out(outname, ref_e, mp2_e)
@@ -817,7 +817,7 @@ subroutine do_mp2()
   outname = hf_fch(1:i-1)//'_MP2.log'
   call unfchk(hf_fch, chkname)
   call prt_posthf_gau_inp(inpname, .false.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gau_job(gau_path, inpname, .true.)
   call read_mp2_e_from_gau_log(outname, ref_e, mp2_e)
   if(gen_no) then
@@ -837,7 +837,7 @@ subroutine do_mp2()
   call fch2inp_wrap(hf_fch, .false., 0, 0, .false., .false., .true.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_gms_inp(inpname, .false.)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, nproc)
   call read_mp2_e_from_gms_out(outname, ref_e, mp2_e)
@@ -854,7 +854,7 @@ subroutine do_mp2()
   no_chk = hf_fch(1:i-1)//'_MP2.mp2nat'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
@@ -866,7 +866,7 @@ subroutine do_mp2()
   inpname = hf_fch(1:i-1)//'_MP2.com'
   mklname = hf_fch(1:i-1)//'_MP2.xml'
   call fch2com_wrap(hf_fch, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_molpro_inp(inpname)
   call submit_molpro_job(inpname, mem, nproc)
   call read_mp2_e_from_molpro_out(outname, ref_e, mp2_e)
@@ -874,14 +874,14 @@ subroutine do_mp2()
   mp2_e = mp2_e + ptchg_e
   if(gen_no) then
    call copy_file(hf_fch, no_fch, .false.)
-   i = SYSTEM('xml2fch '//TRIM(mklname)//' '//TRIM(no_fch)//' -no')
+   call xml2fch_wrap(mklname, no_fch, .true.)
   end if
  case('psi4')
   inpname = hf_fch(1:i-1)//'_MP2.inp'
   old_inp = hf_fch(1:i-1)//'_MP2.log'
   call fch2psi_wrap(hf_fch, inpname)
   call prt_posthf_psi4_inp(inpname, .false.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_mp2_e_from_psi4_out(outname, ref_e, mp2_e)
   ref_e = ref_e + ptchg_e
@@ -904,7 +904,7 @@ subroutine do_mp2()
   old_inp = hf_fch(1:i-1)//'_MP2.0.FChk'
   call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_qchem_job(inpname, nproc)
   call read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
   if(force) then
@@ -931,7 +931,7 @@ subroutine do_mp2()
   molname = hf_fch(1:i-1)//'_MP2.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(molname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, molname)
   call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .true., .false., .false., .false.,&
                                      rtmp, ref_e, mp2_e)
@@ -939,7 +939,7 @@ subroutine do_mp2()
   inpname = hf_fch(1:i-1)//'_MP2.input'
   call fch2inporb_wrap(hf_fch, .false., inpname)
   call prt_posthf_molcas_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
   call read_mp2_e_from_molcas_out(outname, ref_e, mp2_e)
   ref_e = ref_e + ptchg_e
@@ -978,11 +978,11 @@ subroutine do_cc()
   gms_path, gms_scr_path, gms_dat_path, gen_no, relaxed_dm, no_fch, force, &
   molcas_omp
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
-  bas_fch2py_wrap, fch2psi_wrap, fch2inp_wrap, fch2qchem_wrap, fch2cfour_wrap, &
-  fch2dal_wrap, fch2inporb_wrap
+  xml2fch_wrap, bas_fch2py_wrap, add_bgcharge2inp_wrap, fch2psi_wrap, fch2inp_wrap,&
+  fch2qchem_wrap, fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap
  use mol, only: natom, grad
  implicit none
- integer :: i, RENAME, SYSTEM
+ integer :: i, RENAME
  real(kind=8) :: e = 0d0
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
@@ -1042,7 +1042,7 @@ subroutine do_cc()
  case('pyscf')
   inpname = hf_fch(1:i-1)//'_CC.py'
   call bas_fch2py_wrap(hf_fch, .false., inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_pyscf_inp(inpname, .false.)
   call submit_pyscf_job(inpname, .true.)
   call read_cc_e_from_pyscf_out(outname, t1diag, ref_e, e)
@@ -1054,7 +1054,7 @@ subroutine do_cc()
   outname = hf_fch(1:i-1)//'_CC.log'
   call unfchk(hf_fch, chkname)
   call prt_posthf_gau_inp(inpname, .false.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_gau_job(gau_path, inpname, .true.)
   call read_cc_e_from_gau_log(outname, t1diag, ref_e, e)
   if(gen_no) then
@@ -1069,7 +1069,7 @@ subroutine do_cc()
   call fch2inp_wrap(hf_fch, .false., 0, 0, .false., .false., .true.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_gms_inp(inpname, .false.)
   i = nproc
   if(ccd) i = 1 ! CCD in GAMESS is serial
@@ -1084,7 +1084,7 @@ subroutine do_cc()
   gradname = hf_fch(1:i-1)//'_CC.engrad'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
@@ -1102,7 +1102,7 @@ subroutine do_cc()
   inpname = hf_fch(1:i-1)//'_CC.com'
   mklname = hf_fch(1:i-1)//'_CC.xml'
   call fch2com_wrap(hf_fch, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_molpro_inp(inpname)
   call submit_molpro_job(inpname, mem, nproc)
   call read_cc_e_from_molpro_out(outname, (.not.ccd), t1diag, ref_e, e)
@@ -1110,7 +1110,7 @@ subroutine do_cc()
   e = e + ptchg_e
   if(gen_no) then
    call copy_file(hf_fch, no_fch, .false.)
-   i = SYSTEM('xml2fch '//TRIM(mklname)//' '//TRIM(no_fch)//' -no')
+   call xml2fch_wrap(mklname, no_fch, .true.)
    call update_density_using_no_and_on(no_fch)
   end if
  case('psi4')
@@ -1118,7 +1118,7 @@ subroutine do_cc()
   old_inp = hf_fch(1:i-1)//'_CC.log'
   call fch2psi_wrap(hf_fch, inpname)
   call prt_posthf_psi4_inp(inpname, .false.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_psi4_job(psi4_path, inpname, nproc)
   if(gen_no .and. ccsd_t) then
    call read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, e)
@@ -1134,7 +1134,7 @@ subroutine do_cc()
   old_inp = hf_fch(1:i-1)//'_CC.0.FChk'
   call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_qchem_job(inpname, nproc)
   call read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
   i = INDEX(hf_fch, '.fch', back=.true.)
@@ -1164,14 +1164,14 @@ subroutine do_cc()
   molname = hf_fch(1:i-1)//'_CC.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(molname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, molname)
   call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .false., ccd, ccsd, ccsd_t, t1diag,&
                                      ref_e, e)
  case('openmolcas')
   inpname = hf_fch(1:i-1)//'_CC.input'
   call fch2inporb_wrap(hf_fch, .false., inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_molcas_inp(inpname)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
   call read_cc_e_from_molcas_out(outname, ccsd_t, t1diag, ref_e, e)
@@ -1216,11 +1216,11 @@ subroutine do_adc()
   scs, xmult, given_xmult, nstate, adc_prog, orca_path, psi4_path, chem_core, &
   ecp_core, customized_core, core_wish, ex_elec_e
  use mol, only: mult, ci_ssquare, fosc
- use util_wrapper, only: bas_fch2py_wrap, fch2mkl_wrap, mkl2gbw, fch2psi_wrap, &
-  fch2mrcc_wrap, fch2qchem_wrap
+ use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, fch2mkl_wrap, &
+  mkl2gbw, fch2psi_wrap, fch2mrcc_wrap, fch2qchem_wrap
  use phys_cons, only: au2ev
  implicit none
- integer :: i, job_type, RENAME, SYSTEM
+ integer :: i, job_type, RENAME
  real(kind=8), allocatable :: e_ev(:)
  real(kind=8), external :: mult2ssquare
  character(len=24) :: data_string = ' '
@@ -1256,7 +1256,7 @@ subroutine do_adc()
   inpname = hf_fch(1:i-1)//'_ADC.py'
   outname = hf_fch(1:i-1)//'_ADC.out'
   call bas_fch2py_wrap(hf_fch, .false., inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_adc_pyscf_inp(inpname)
   call submit_pyscf_job(inpname, .true.)
   call read_adc_e_from_pyscf_out(outname, nstate, ex_elec_e)
@@ -1273,7 +1273,7 @@ subroutine do_adc()
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
@@ -1286,7 +1286,7 @@ subroutine do_adc()
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2psi_wrap(hf_fch, inpname)
   call prt_posthf_psi4_inp(inpname, .true.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_adc_e_from_psi4_out(outname, (adc_n==3), nstate, ex_elec_e, fosc)
  case('mrcc') ! ADC(2), and SOS-/SCS- variants
@@ -1349,11 +1349,11 @@ subroutine do_eomcc()
   nstate, gau_path, orca_path, check_gms_path, gms_path, gms_scr_path, gms_dat_path,&
   psi4_path, ex_elec_e
  use mol, only: ci_ssquare, fosc
- use util_wrapper, only: bas_fch2py_wrap, unfchk, fch2inp_wrap, fch2mkl_wrap, &
-  mkl2gbw, fch2psi_wrap, fch2qchem_wrap
+ use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, unfchk, &
+  fch2inp_wrap, fch2mkl_wrap, mkl2gbw, fch2psi_wrap, fch2qchem_wrap
  use phys_cons, only: au2ev
  implicit none
- integer :: i, RENAME, SYSTEM
+ integer :: i, RENAME
  real(kind=8), allocatable :: e_ev(:)
  character(len=24) :: data_string = ' '
  character(len=240) :: chkname, inpname, outname, old_inp, mklname
@@ -1370,7 +1370,7 @@ subroutine do_eomcc()
   inpname = hf_fch(1:i-1)//'_EOMCC.py'
   outname = hf_fch(1:i-1)//'_EOMCC.out'
   call bas_fch2py_wrap(hf_fch, .false., inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_pyscf_inp(inpname, .true.)
   call submit_pyscf_job(inpname, .true.)
   call read_eomcc_e_from_pyscf_out(outname, (ip .or. ea), nstate, ex_elec_e, &
@@ -1380,7 +1380,7 @@ subroutine do_eomcc()
   chkname = hf_fch(1:i-1)//'_EOMCC.chk'
   outname = hf_fch(1:i-1)//'_EOMCC.log'
   call unfchk(hf_fch, chkname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_gau_inp(inpname, .true.)
   call submit_gau_job(gau_path, inpname, .true.)
   call read_eomcc_e_from_gau_log(outname, nstate, ex_elec_e, ci_ssquare, fosc)
@@ -1391,7 +1391,7 @@ subroutine do_eomcc()
   call fch2inp_wrap(hf_fch, .false., 0, 0, .false., .false., .true.)
   old_inp = hf_fch(1:i-1)//'.inp'
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_gms_inp(inpname, .true.)
   call submit_gms_job(gms_path, gms_scr_path, gms_dat_path, inpname, 1)
   call read_eomcc_e_from_gms_out(outname, ip, ea, nstate, ex_elec_e, ci_ssquare,&
@@ -1403,7 +1403,7 @@ subroutine do_eomcc()
   outname = hf_fch(1:i-1)//'_EOMCC.out'
   call fch2mkl_wrap(hf_fch, mklname)
   i = RENAME(TRIM(old_inp), TRIM(inpname))
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
   call delete_file(TRIM(mklname))
@@ -1417,14 +1417,14 @@ subroutine do_eomcc()
   outname = hf_fch(1:i-1)//'_EOMCC.out'
   call fch2psi_wrap(hf_fch, inpname)
   call prt_posthf_psi4_inp(inpname, .true.)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_psi4_job(psi4_path, inpname, nproc)
   call read_eomcc_e_from_psi4_out(outname, nstate, ex_elec_e, ci_ssquare, fosc)
  case('qchem')
   inpname = hf_fch(1:i-1)//'_EOMCC.in'
   outname = hf_fch(1:i-1)//'_EOMCC.out'
   call fch2qchem_wrap(hf_fch, 0, 0, inpname)
-  if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_qchem_inp(inpname)
   stop
  case default

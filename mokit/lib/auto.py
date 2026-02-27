@@ -50,7 +50,7 @@ def find_antibonding_orb(mol, mo, i1=0, i2=0, i3=0, start_from_one=False,
     nif = mo.shape[1]
 
     if k2<k1 or k3<=k2 or nif<k3+npair-1:
-        print('i1= %d, i2= %d, i3= %d' %(i1, i2, i3))
+        print('i1= %d, i2= %d, i3= %d, nif= %d' %(i1, i2, i3, nif))
         raise ValueError('Wrong orbital indices.')
 
     natom = mol.natm
