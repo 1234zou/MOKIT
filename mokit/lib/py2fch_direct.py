@@ -224,3 +224,65 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
 # alias
 py2gau = fchk
 
+def pchk2fch(pchk, fchname=None, density=False):
+    '''
+    PySCF chk to fch
+    '''
+    from pyscf.lib.chkfile import load, load_mol
+    # from pyscf.scf.chkfile import load_scf
+    import h5py
+    
+    if fchname is None:
+        if '.pchk' in pchk:
+            fchname = pchk.replace('.pchk', '.fch')
+        elif '.chk' in pchk:
+            fchname = pchk.replace('.chk', '.fch')
+        else:
+            fchname = pchk + '.fch'
+        print(f"No fchname provided, name fch as {fchname}")
+    
+    mol= load_mol(pchk)
+    # check if this h5 has group scf
+    with h5py.File(pchk, 'r') as f:
+        if 'mcscf' in f:
+            pchk_type = 'mcscf'
+        elif 'scf' in f:
+            pchk_type = 'scf'
+        else:
+            raise ValueError('only mcscf or scf chkfile is supported')
+    
+    if pchk_type == 'mcscf':
+        data = load(pchk, 'mcscf')
+        ncas = data['ncas']
+        if 'nelecas' in data:
+            nelecas = data['nelecas']
+        else:
+            nelecas = ncas
+        # only for pyscf newer than 2026.03.18, 'nelecas' is stored
+        # if it's not stored, just fake one
+        mc = mcscf.CASSCF(mol, ncas, nelecas)
+        mc.mo_coeff = data['mo_coeff']
+        mc.mo_occ = data['mo_occ']
+        fchk(mc, fchname, density=density)
+    elif pchk_type == 'scf':
+        data = load(pchk, 'scf')
+        nao = mol.nao
+        mo = data['mo_coeff']
+        if mo.ndim == 3:
+            mf = mol.UHF()
+        elif mo.ndim == 2:
+            if mo.shape[0] == nao:
+                mf = mol.RHF()
+            elif mo.shape[0] == 2*nao:
+                # mf = mol.GHF()
+                raise NotImplementedError('GHF not supported in py2fch')
+            else:
+                raise ValueError(f'invalid mo_coeff shape: {mo.shape} with nao {nao}')
+        else:
+            raise ValueError('invalid mo_coeff shape')
+        mf.mo_coeff = mo
+        mf.mo_occ = data['mo_occ']
+        mf.mo_energy = data['mo_energy']
+        fchk(mf, fchname, density=density)
+    
+    

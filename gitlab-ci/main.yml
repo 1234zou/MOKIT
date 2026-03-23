@@ -78,9 +78,6 @@ py39_gcc10:
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
-    - cd test/unit
-    - make runtest -f Makefile.gnu_openblas_ci
-    - cd ../..
   artifacts:
     name: $TARGET
     paths:
@@ -97,6 +94,27 @@ py310_gcc10:
     - cd src
     - make all -f Makefile.gnu_openblas_ci
     - cd ..
+  artifacts:
+    name: $TARGET
+    paths:
+      - ./$TARGET/
+
+py311:
+  image: python:3.11
+  variables:
+    TARGET: mokit-master_linux_py311
+    OB_ROOT: /usr/lib/*/openblas-pthread
+  extends: .setup_lib
+  script:
+    - pip install numpy pyscf pytest
+    - cd src
+    - make all -f Makefile.gnu_openblas_ci
+    - cd ..
+    - pip install .
+    - cd test/unit
+    - make runtest -f Makefile.gnu_openblas_ci
+    - pytest .
+    - cd ../..
   artifacts:
     name: $TARGET
     paths:

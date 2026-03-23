@@ -12,13 +12,15 @@ Where to add tests
 
 Naming conventions
 
-- Normal tests: `test_<feature>_<case>.f90`
-- Expected-fail tests: `test_<feature>_<case>_xfail.f90`
+- Fortran tests: `test_<feature>_<case>.f90`
+- Expected-fail Fortran tests: `test_<feature>_<case>_xfail.f90`
+- Python tests: `test_<feature>.py`
 
 Runner behavior
 
 - `run_tests.sh` treats `*_xfail` binaries as expected failures.
-- Non-`*_xfail` tests must exit 0 to pass.
+- Non-`*_xfail` Fortran tests must exit 0 to pass.
+- Python tests are run with pytest.
 
 Test utilities
 
@@ -33,9 +35,16 @@ Makefile integration
 
 Running tests
 
+Fortran tests:
 ```
 cd test/unit
 make runtest
+```
+
+Python tests:
+```
+cd test/unit
+pytest test_*.py
 ```
 
 Toolchains
