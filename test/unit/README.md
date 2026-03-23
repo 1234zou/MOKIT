@@ -1,5 +1,7 @@
 # Unit Tests
 
+## Fortran Tests
+
 Build and run:
 
 ```
@@ -26,4 +28,15 @@ Choose a toolchain:
 make runtest -f Makefile.gnu_openblas
 make runtest -f Makefile.gnu_openblas_ci
 make runtest -f Makefile.gnu_mkl
+```
+
+## Python Tests
+
+Python tests can be run with pytest.
+
+Run all Python tests in the unit test directory:
+
+```
+cd test/unit
+pytest test_*.py
 ```

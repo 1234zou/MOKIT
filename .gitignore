@@ -29,7 +29,6 @@ tmp*
 /test/*/*.dat
 /test/*/*.inp
 /test/*/*.txt
-/test/*/*.py
 /test/*/*out
 /test/*/*pyscflog
 /test/*/*_proj_*

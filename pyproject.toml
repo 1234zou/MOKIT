@@ -50,3 +50,4 @@ Changelog        = 'https://gitlab.com/jxzou/mokit/-/blob/master/CHANGELOG'
 [project.scripts]
 uno = "mokit.lib.cli:uno_cli"
 permute_orb = "mokit.lib.cli:permute_orb_cli"
+pchk2fch = "mokit.lib.cli:pchk2fch_cli"
