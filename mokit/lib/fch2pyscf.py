@@ -30,7 +30,7 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
         mo_coeff = np.asarray(mo_coeff)
         mo_energy_a = read_eigenvalues_from_fch(fch_file, nif=nif, ab='a')
         mo_energy_b = read_eigenvalues_from_fch(fch_file, nif=nif, ab='b')
-        mo_energy =  np.asarray((mo_energy_a, mo_energy_b))
+        mo_energy = np.asarray((mo_energy_a, mo_energy_b))
     else:
         mo_energy = read_eigenvalues_from_fch(fch_file, nif=nif, ab='a')
 
@@ -40,13 +40,13 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
     if mo_coeff.ndim == 2:
         print('Restricted Kohn-Sham')
 
-        if(nbf > nif):
+        if (nbf > nif):
             if functional == 'hf':
                 old_mf = scf.RHF(mol)
             else:
                 old_mf = dft.RKS(mol)
             mf = scf.remove_linear_dep_(old_mf, threshold=1e-6, lindep=1e-6)
-        elif(nbf == nif):
+        elif (nbf == nif):
             if functional == 'hf':
                 mf = scf.RHF(mol)
             else:
@@ -58,13 +58,13 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
 
     elif mo_coeff.ndim == 3:
         print('Unrestricted Kohn-Sham')
-        if(nbf > nif):
+        if (nbf > nif):
             if functional == 'hf':
                 old_mf = scf.UHF(mol)
             else:
                 old_mf = dft.UKS(mol)
             mf = scf.remove_linear_dep_(old_mf, threshold=1e-6, lindep=1e-6)
-        elif(nbf == nif):
+        elif (nbf == nif):
             if functional == 'hf':
                 mf = scf.UHF(mol)
             else:

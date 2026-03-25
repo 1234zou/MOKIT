@@ -134,7 +134,7 @@ def load_mol_from_molden(molden, program=None):
     >>> mf = scf.RHF(mol).run()
     '''
     if program is None:
-       raise ValueError(f'program name must be specified.')
+       raise ValueError('program name must be specified.')
 
     with os.popen('molden2fch '+molden+' -'+program.lower()) as run:
         null = run.read()
