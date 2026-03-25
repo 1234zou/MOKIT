@@ -61,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc20 (2026-Feb-27)'
+ write(6,'(A)') '           Version: 1.2.7 (2026-Mar-24)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -640,7 +640,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7rc20 :: MOKIT, release date: 2026-Feb-27'
+  write(6,'(A)') 'AutoSR 1.2.7 :: MOKIT, release date: 2026-Mar-24'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -660,7 +660,7 @@ program main
                    &S, SF-XCIS, SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
   write(6,'(A)')   '   HF_prog=Gaussian/PySCF/ORCA/PSI4'
-  write(6,'(A)')   '  MP2_prog=Molpro/ORCA/Gaussian/GAMESS/PySCF/Dalton/QChem/C&
+  write(6,'(A)')   '  MP2_prog=ORCA/Molpro/Gaussian/GAMESS/PySCF/Dalton/QChem/C&
                    &FOUR'
   write(6,'(A)')   '   CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dal&
                    &ton/QChem'
@@ -1041,7 +1041,10 @@ subroutine do_cc()
  select case(TRIM(cc_prog))
  case('pyscf')
   inpname = hf_fch(1:i-1)//'_CC.py'
-  call bas_fch2py_wrap(hf_fch, .false., inpname)
+  mklname = hf_fch(1:i-1)//'_CC.fch' ! temporarily use
+  call sys_copy_file(TRIM(hf_fch), TRIM(mklname), .false.)
+  call bas_fch2py_wrap(mklname, .false.)
+  call delete_file(TRIM(mklname))
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_posthf_pyscf_inp(inpname, .false.)
   call submit_pyscf_job(inpname, .true.)
@@ -1830,8 +1833,8 @@ end subroutine prt_posthf_molpro_inp
 
 subroutine prt_posthf_pyscf_inp(pyname, excited)
  use sr_keyword, only: mem, nproc, mp2, cc_enabled, ccd, ccsd_t, chem_core, &
-  force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, RI, RIJK_bas, RIC_bas, &
-  ip, ea, nstate, given_xmult, xmult
+  force, gen_no, relaxed_dm, hardwfn, crazywfn, mo_rhf, hf_fch, RI, RIJK_bas, &
+  RIC_bas, ip, ea, nstate, given_xmult, xmult
  implicit none
  integer :: i, k, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
@@ -1936,9 +1939,13 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:3) == '#dm') exit
-  if(buf(1:13) == 'mf.max_memory') cycle
-  if(buf(1:9) == 'mf.kernel') then
+  if(buf(1:13) == 'mf.max_memory') then
    write(fid1,'(A,I0,A)') 'mf.max_memory = ',mem*1000,' # MB'
+   cycle
+  end if
+  if(buf(1:6) == 'hf_fch') then
+   write(fid1,'(A,I0,A)') "hf_fch = '"//TRIM(hf_fch)//"'"
+   cycle
   end if
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
@@ -2847,7 +2854,7 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
   if(i /= 0) exit
   read(fid,'(A)') buf
 
-  if(buf(1:8)=='E(MP2) =') then
+  if(buf(1:8)=='E(MP2) =' .or. buf(1:9)=='E(RMP2) =' .or. buf(1:9)=='E(UMP2) =') then
    icase = 1
    exit
   else if(buf(1:10)=='DF-MP2 cor') then
@@ -2866,14 +2873,11 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
 
  select case(icase)
  case(1) ! MP2
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) tot_e
-  i = INDEX(buf, '=', back=.true.)
-  read(buf(i+1:),*) ref_e ! here is MP2 correlation energy
+  call get_dpv_after_flag(buf, '=', .true., tot_e)
+  call get_dpv_after_flag(buf, '=', .false., ref_e) ! MP2 correlation energy
   ref_e = tot_e - ref_e
  case(2) ! DF-MP2
-  i = INDEX(buf, ':')
-  read(buf(i+1:),*) tot_e ! here is DF-MP2 correlation energy
+  call get_dpv_after_flag(buf, '=', .true., tot_e) ! DF-MP2 correlation energy
 
   do while(.true.)
    BACKSPACE(fid)
@@ -2881,8 +2885,8 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
    read(fid,'(A)') buf
    if(buf(1:15) == 'converged SCF e') exit
   end do ! for while
-  i = INDEX(buf, '=')
-  read(buf(i+1:),*) ref_e
+
+  call get_dpv_after_flag(buf, '=', .true., ref_e)
   tot_e = tot_e + ref_e
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_mp2_e_from_pyscf_out: icase out of&

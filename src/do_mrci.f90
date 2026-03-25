@@ -182,10 +182,10 @@ subroutine do_mrcisd()
                                    nuc_pt_e, davidson_e, e)
 
  mrcisd_e = e + davidson_e ! E(MRCISD+Q)
- if(CIonly) then   ! E(MRCISD) - (E(CASCI) or E(CASSCF))
-  e = e - casci_e
+ if(CIonly) then
+  e = e - casci_e  ! E(MRCISD) - E(CASCI)
  else
-  e = e - casscf_e
+  e = e - casscf_e ! E(MRCISD) - E(CASSCF)
  end if
 
  select case(TRIM(mrcisd_prog))
@@ -241,13 +241,15 @@ subroutine do_mrcisd()
  end select
 
  if(TRIM(mrcisd_prog) == 'gamess') then
-  write(6,'(/,A)') 'You may notice that the E(MRCISD+Q) above is slightly&
-                  & different with that in'
-  write(6,'(A)') '.gms file. This is because GAMESS uses renormalized Davidson&
-                 & size extensivity'
-  write(6,'(A)') 'correction. While MOKIT adopts the simple Davidson size exte&
-                 &nsivity correction'
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Remark: you may notice that the E(MRCISD+Q) above is slightly&
+                  & different with that'
+  write(6,'(A)') 'in .gms file. This is because GAMESS uses renormalized Davids&
+                 &on size extensivity'
+  write(6,'(A)') 'correction. While MOKIT adopts the simple Davidson size exten&
+                 &sivity correction'
   write(6,'(A)') 'E_corr*(1-c^2).'
+  write(6,'(A)') REPEAT('-',79)
  end if
 
  call fdate(data_string)

@@ -122,7 +122,7 @@ def load_mol_from_fch(fchname):
     return molpy.mol
 
 
-def load_mol_from_molden(molden, program):
+def load_mol_from_molden(molden, program=None):
     '''
     Load the PySCF mol object from a specified .molden file. Be careful that
     .molden file does not have any ECP/PP data.
@@ -133,6 +133,9 @@ def load_mol_from_molden(molden, program):
     >>> mol = load_mol_from_molden(molden='benzene.molden',program='orca')
     >>> mf = scf.RHF(mol).run()
     '''
+    if program is None:
+       raise ValueError(f'program name must be specified.')
+
     with os.popen('molden2fch '+molden+' -'+program.lower()) as run:
         null = run.read()
     fchname = molden[0:molden.rindex('.molden')]+'.fch'
@@ -730,7 +733,7 @@ def proj2target_basis(fchname, target_basis='cc-pVTZ', nmo=None, cart=False):
     nif = get_nmo_from_ao_ovlp(nbf, S)
     if nif < nbf:
         mf2 = mf.copy()
-        mf = scf.remove_linear_dep_(mf2, threshold=1.1e-6, lindep=1.1e-6)
+        mf = scf.remove_linear_dep_(mf2, threshold=1e-6, lindep=1e-6)
 
     dm0 = mf.get_init_guess(mol, '1e')
     if ihf == 1:   # real RHF

@@ -1243,7 +1243,7 @@ end subroutine submit_mrcc_job
 
 subroutine submit_cp2k_job(inpname, nproc)
  implicit none
- integer :: i, fid, SYSTEM
+ integer :: i, fid
  integer, intent(in) :: nproc
  character(len=240) :: shname, outname
  character(len=240), intent(in) :: inpname
@@ -1254,20 +1254,14 @@ subroutine submit_cp2k_job(inpname, nproc)
  outname = inpname(1:i-1)//'.out'
 
  open(newunit=fid,file=TRIM(shname),status='replace')
+ ! currently only MPI version is supported
  write(fid,'(A)') 'export OMP_NUM_THREADS=1'
  write(fid,'(A,I0,A)') 'mpirun -np ', nproc, ' cp2k.popt '//TRIM(inpname)
  close(fid)
 
- longbuf = 'bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
- i = SYSTEM(TRIM(longbuf))
-
- if(i == 0) then
-  call delete_file(TRIM(shname))
- else
-  write(6,'(/,A)') 'ERROR in subroutine submit_cp2k_job: CP2K job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-  stop
- end if
+ longbuf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
+ call run_command(TRIM(longbuf), .false., .false.)
+ call delete_file(TRIM(shname))
 end subroutine submit_cp2k_job
 
 ! check/detect OpenMolcas is OpenMP version or MPI version

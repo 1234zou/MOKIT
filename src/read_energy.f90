@@ -8,6 +8,7 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
  real(kind=8) :: scf_e
  real(kind=8), intent(out) :: e(0:nstate)
  character(len=6) :: str6
+ character(len=17), parameter :: adc_str = 'ADC calculation s'
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
@@ -30,9 +31,9 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(9:25)=='ADC calculation s' .or. buf(13:29)=='ADC calculation s') exit
+  if(buf(9:25)==adc_str .or. buf(13:29)==adc_str .or. buf(20:36)==adc_str) exit
  end do ! for while
- read(fid,'(A)') buf
+ read(fid,'(A)') buf ! skip 1 line
 
  do i = 1, nstate, 1
   read(fid,'(A)') buf
@@ -1905,6 +1906,92 @@ function has_davidson_q(outname) result(alive)
  read(buf(i+1:),*) alive
 end function has_davidson_q
 
+! read Davidson correction and MRCISD energy from ORCA output file
+subroutine read_mrcisd_e_from_orca_out(CtrType, outname, davidson_e, e)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: CtrType
+ real(kind=8) :: casci_e, ref_weight
+ real(kind=8), intent(out) :: davidson_e, e
+ character(len=240), intent(in) :: outname
+ character(len=240) :: buf
+ logical, external :: has_davidson_q
+
+ davidson_e = 0d0; e = 0d0; ref_weight = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ select case(CtrType)
+ case(1) ! uncontracted MRCISD
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(36:48) == 'O   R   C   A') then
+    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_e_from_orca_out: failed to &
+                     &read MRCISD'
+    write(6,'(A)') 'energy from file '//TRIM(outname)
+    close(fid)
+    stop
+   end if
+   if(buf(20:27) == 'E(MR-CI)') exit
+  end do ! for while
+
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(13:),*) e
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(14:26) == 'residual conv') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  call get_dpv_after_flag(buf, '=', .false., ref_weight)
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:17) == 'Computing the ref') exit
+  end do ! for while
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  read(buf(22:),*) casci_e
+  davidson_e = (1d0 - ref_weight)*(e - casci_e)
+
+ case(3) ! FIC-MRCISD
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(36:48) == 'O   R   C   A') then
+    write(6,'(/,A)') 'ERROR in subroutine read_mrcisd_e_from_orca_out: failed to &
+                     &read MRCISD'
+    write(6,'(A)') 'energy from file '//TRIM(outname)
+    close(fid)
+    stop
+   end if
+   if(buf(1:5) == 'ETOT ') exit
+  end do ! for while
+
+  i = INDEX(buf,'...', back=.true.)
+  read(buf(i+3:),*) e
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = INDEX(buf,'...', back=.true.)
+  read(buf(i+3:),*) davidson_e
+ case default
+  close(fid)
+  write(6,'(/,A,I0)') 'ERROR in subroutine read_mrcisd_e_from_orca_out: invalid&
+                      & CtrType=', CtrType
+  write(6,'(A)') 'outname='//TRIM(outname)
+  stop
+ end select
+
+ close(fid)
+end subroutine read_mrcisd_e_from_orca_out
+
 ! read Davidson correction and MRCISD energy from OpenMolcas, ORCA, Gaussian or
 ! Molpro output file
 subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
@@ -1944,6 +2031,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    stop
   end if
   e = e + ptchg_e
+
  case('openmolcas')
   if(CtrType == 1) then ! uncontracted MRCISD
    do while(.true.)
@@ -1952,8 +2040,7 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(1:29) == '::    RASSCF root number  1 T') exit
    end do ! for while
-   i = INDEX(buf,':',back=.true.)
-   read(buf(i+1:),*) e
+   call get_dpv_after_flag(buf, ':', .false., e)
   else if(CtrType == 2) then ! ic-MRCISD
    do while(.true.)
     BACKSPACE(fid)
@@ -1961,59 +2048,15 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     read(fid,'(A)') buf
     if(buf(23:31) == 'CI ENERGY') exit
    end do ! for while
-   i = INDEX(buf,':',back=.true.)
-   read(buf(i+1:),*) e
+   call get_dpv_after_flag(buf, ':', .false., e)
    read(fid,'(A)') buf
-   i = INDEX(buf,':',back=.true.)
-   read(buf(i+1:),*)  davidson_e
+   call get_dpv_after_flag(buf, ':', .false., davidson_e)
   end if
   e = e + ptchg_e
 
  case('orca')
-  if(CtrType == 1) then ! uncontracted MRCISD
-   do while(.true.)
-    BACKSPACE(fid)
-    BACKSPACE(fid)
-    read(fid,'(A)') buf
-    if(buf(20:27) == 'E(MR-CI)') exit
-   end do ! for while
-   read(fid,'(A)') buf
-   read(fid,'(A)') buf
-   read(buf(13:),*) e
-   do while(.true.)
-    BACKSPACE(fid)
-    BACKSPACE(fid)
-    read(fid,'(A)') buf
-    if(buf(14:26) == 'residual conv') exit
-   end do ! for while
-   read(fid,'(A)') buf
-   read(buf(67:),*) ref_weight
-   do while(.true.)
-    BACKSPACE(fid)
-    BACKSPACE(fid)
-    read(fid,'(A)') buf
-    if(buf(1:17) == 'Computing the ref') exit
-   end do ! for while
-   BACKSPACE(fid)
-   BACKSPACE(fid)
-   BACKSPACE(fid)
-   read(fid,'(A)') buf
-   read(buf(22:),*) casci_e
-   davidson_e = (1d0 - ref_weight)*(e - casci_e)
-  else if(CtrType == 3) then ! FIC-MRCISD
-   do while(.true.)
-    BACKSPACE(fid)
-    BACKSPACE(fid)
-    read(fid,'(A)') buf
-    if(buf(1:5) == 'ETOT ') exit
-   end do ! for while
-   i = INDEX(buf,'...',back=.true.)
-   read(buf(i+3:),*) e
-   read(fid,'(A)') buf
-   read(fid,'(A)') buf
-   i = INDEX(buf,'...',back=.true.)
-   read(buf(i+3:),*) davidson_e
-  end if
+  close(fid)
+  call read_mrcisd_e_from_orca_out(CtrType, outname, davidson_e, e)
 
  case('gaussian') ! uncontracted MRCISD
   do while(.true.)
@@ -2052,8 +2095,8 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    if(buf(5:19) == 'Total CI energy') exit
 
    if(buf(11:23) == 'Psi4: An Open') then
-    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
-    write(6,'(A)') "No 'Total CI energy' found in file "//TRIM(outname)
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: no'
+    write(6,'(A)') '"Total CI energy" found in file '//TRIM(outname)
     close(fid)
     stop
    end if
@@ -2071,8 +2114,8 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
    if(buf(1:19) == '@ Final CI energies') exit
 
    if(buf(22:32) == 'Dalton - An') then
-    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output:'
-    write(6,'(A)') "No '@ Final CI energies' found in file "//TRIM(outname)
+    write(6,'(/,A)') 'ERROR in subroutine read_mrci_energy_from_output: no'
+    write(6,'(A)') '"@ Final CI energies" found in file '//TRIM(outname)
     close(fid)
     stop
    end if
@@ -2104,7 +2147,6 @@ subroutine read_mrci_energy_from_output(CtrType, mrcisd_prog, outname, ptchg_e,&
     if(buf(2:7) == 'E(REF)') exit
    end do ! for while
    call get_dpv_after_flag(buf, '=', .true., casci_e)
-   read(buf(i+1:),*) casci_e
 
    ! GAMESS uses renormalized Davidson correction. Here we compute the Davidson
    ! correction

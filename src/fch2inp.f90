@@ -604,7 +604,7 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
   ! HDOMO: the highest doubly occupied MO
   ! LSOMO: the lowest singly occupied MO
   ! The ROHF/ROKS Fock operator is not unique. When transforming converged MOs
-  ! from other programs to GAMESS, E(LSOMO) < E(HDOMO) happens somtimes. In such
+  ! from other programs to GAMESS, E(LSOMO) < E(HDOMO) happens sometimes. In such
   ! case GAMESS will exchange these two special MOs, and thus make SCF oscillated.
   ! To avoid this case, `MOM=.T.` is added. If there is no orbital energy
   ! inversion occurs, `MOM=.T.` will not take effect.

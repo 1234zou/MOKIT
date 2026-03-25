@@ -243,8 +243,8 @@ module mr_keyword
  character(len=10) :: casscf_prog  = 'pyscf'
  character(len=10) :: dmrgci_prog  = 'pyscf'
  character(len=10) :: dmrgscf_prog = 'pyscf'
- character(len=10) :: caspt_prog   = 'openmolcas' ! CASPT2/CASPT3
- character(len=10) :: nevpt_prog   = 'pyscf'      ! NEVPT2/NEVPT3/NEVPT4(SD)
+ character(len=10) :: caspt_prog   = 'orca'  ! CASPT2/CASPT3
+ character(len=10) :: nevpt_prog   = 'pyscf' ! NEVPT2/NEVPT3/NEVPT4(SD)
  character(len=10) :: mrmp2_prog   = 'gamess'
  character(len=10) :: mrcisd_prog  = 'openmolcas'
  character(len=10) :: mrcisdt_prog = 'openmolcas' ! uncontracted MRCISDT
@@ -313,7 +313,7 @@ subroutine read_program_path()
  write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7rc20 (2026-Feb-27)'
+ write(6,'(A)') '           Version: 1.2.7 (2026-Mar-24)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '

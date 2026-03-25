@@ -1,4 +1,4 @@
-MOKIT 1.2.7rc20 (Feb 27, 2026)
+MOKIT 1.2.7 (Mar 24, 2026)
 ------------------------
 Fixes
 * fix fragment guess in a singlet UHF calculation (introduced in commit 7c8ae546)
@@ -82,7 +82,7 @@ Improvement
 * add support for ghost atoms in fch2mrcc and fch2inporb
 * use construct_vir to construct extra virtual MOs in fch_sph2cart
 * add gms_dat_path in mr_keyword.f90, now gms_scr_path/gms_dat_path can be different
-* add M052X and B972 (and dispersion correction) parameters in fch2mkl
+* add M052X, MN15, MN15L, HSE06 and B972 support after `-dft` of fch2mkl
 * wrap atoms outside box back into box to save memory during PBC MLWF generation
 * replace mkl2fch by molden2fch for ORCA CASCI/CASSCF NO conversion in do_cas.f90
 * improve CASPT2/NEVPT2 settings based on excited state CASCI or SS-CASSCF

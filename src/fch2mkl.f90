@@ -101,10 +101,12 @@ subroutine fch2mkl(fchname, itype, dftname)
  character(len=30), intent(in) :: dftname
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp, composite, hse06, m052x, b972, d3zero, d3bj
+ logical :: uhf, ecp, composite, custom_dft, hse06, m052x, b972, mn15, mn15l, &
+  d3zero, d3bj
 
- ecp = .false.; composite = .false.; hse06 = .false.; m052x = .false.
- b972 = .false.; d3zero = .false.; d3bj = .false.
+ ecp = .false.; composite = .false.; custom_dft = .false.; hse06 = .false.
+ m052x = .false.; b972 = .false.; mn15 = .false.; mn15l = .false.
+ d3zero = .false.; d3bj = .false.
 
  if(itype == 2) then
   dftname1 = ADJUSTL(dftname)
@@ -113,11 +115,15 @@ subroutine fch2mkl(fchname, itype, dftname)
   if(i > 3) then ! B97-3c, r2SCAN-3c, HF-3c, etc.
    if(dftname1(i-2:i) == '-3C') composite = .true.
    if(dftname1(1:4) == 'B972') b972 = .true.
+   if(dftname1(1:4) == 'MN15') mn15 = .true.
   end if
   if(i > 4) then
    if(dftname1(i-3:i) == 'D3BJ') d3bj = .true.
    if(dftname1(1:5) == 'HSE06') hse06 = .true.
    if(dftname1(1:5) == 'M052X') m052x = .true.
+   if(dftname1(1:5) == 'MN15L') then
+    mn15l = .true.; mn15 = .false.
+   end if
   end if
   if(i > 6) then
    if(dftname1(i-5:i) == 'D3ZERO') d3zero = .true.
@@ -311,9 +317,30 @@ subroutine fch2mkl(fchname, itype, dftname)
     else if(d3zero) then
      write(fid2,'(A)',advance='no') ' D3ZERO'
     end if
+   else if(mn15) then
+    if(d3zero) then
+     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: MN15 cannot be combined wi&
+                      &th D3zero.'
+     close(fid1)
+     close(fid2)
+     stop
+    else if(d3bj) then
+     write(fid2,'(A)',advance='no') ' D3BJ'
+    end if
+   else if(mn15l) then
+    if(d3bj) then
+     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: MN15L cannot be combined wi&
+                      &th D3BJ.'
+     close(fid1)
+     close(fid2)
+     stop
+    else if(d3zero) then
+     write(fid2,'(A)',advance='no') ' D3zero'
+    end if
    else
     write(fid2,'(A)',advance='no') ' '//TRIM(dftname)
    end if
+
    do i = 1, ndh, 1
     if(INDEX(TRIM(dftname1), TRIM(dhname(i))) > 0) then
      write(fid2,'(A)',advance='no') ' def2-TZVPP/C'
@@ -331,7 +358,8 @@ subroutine fch2mkl(fchname, itype, dftname)
    write(fid2,'(A)') ' def2/J RIJCOSX defgrid3 TightSCF noTRAH'
   end if
 
-  if(hse06 .or. m052x .or. b972) then
+  custom_dft = (hse06 .or. b972 .or. m052x .or. mn15 .or. mn15l)
+  if(custom_dft) then
    write(fid2,'(A)') '%method'
    write(fid2,'(A)') ' method dft'
    if(hse06) then
@@ -354,6 +382,26 @@ subroutine fch2mkl(fchname, itype, dftname)
     if(d3zero) then
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3RS6 1.417'
+     write(fid2,'(A)') ' D3S8 0.0'
+     write(fid2,'(A)') ' D3alpha6 14'
+    end if
+   end if
+   if(mn15) then
+    write(fid2,'(A)') ' exchange hyb_mgga_x_mn15'
+    write(fid2,'(A)') ' correlation mgga_c_mn15'
+    if(d3bj) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3A1 2.0971'
+     write(fid2,'(A)') ' D3S8 0.7862'
+     write(fid2,'(A)') ' D3A2 7.5923'
+    end if
+   end if
+   if(mn15l) then
+    write(fid2,'(A)') ' exchange mgga_x_mn15_l'
+    write(fid2,'(A)') ' correlation mgga_c_mn15_l'
+    if(d3zero) then
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3RS6 3.3388'
      write(fid2,'(A)') ' D3S8 0.0'
      write(fid2,'(A)') ' D3alpha6 14'
     end if

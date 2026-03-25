@@ -167,14 +167,37 @@ end subroutine copy_file
 ! Copy a file using system commands. If delete=.True., delete fname1.
 subroutine sys_copy_file(fname1, fname2, delete)
  implicit none
- integer :: i, SYSTEM
+ integer :: i, j, SYSTEM
  character(len=*), intent(in) :: fname1, fname2
+ character(len=35), parameter :: error_warn='ERROR in subroutine sys_copy_file: '
  logical, intent(in) :: delete
 
  if(LEN_TRIM(fname1) == 0) then
-  write(6,'(/,A)') 'ERROR in subroutine sys_copy_file: empty filename for fname1.'
+  write(6,'(/,A)') error_warn//'empty filename for fname1.'
   write(6,'(A)') 'For bug tracking: fname2='//TRIM(fname2)
   stop
+ end if
+
+ i = INDEX(fname1, '*'); j = INDEX(fname2, '*')
+ if(i>0 .or. j>0) then
+  write(6,'(/,A)') error_warn//'* symbol is not allowed.'
+  write(6,'(A)') 'fname1='//TRIM(fname1)
+  write(6,'(A)') 'fname2='//TRIM(fname2)
+  stop
+ end if
+
+ if(LEN_TRIM(fname1)==1 .and. fname1(1:1)=='~') then
+  write(6,'(/,A)') error_warn//'illegal filename or path.'
+  write(6,'(A)') 'fname1='//TRIM(fname1)
+  stop
+ end if
+
+ if(LEN_TRIM(fname1) == 2) then
+  if(fname1(1:2) == '~/') then
+   write(6,'(/,A)') error_warn//'illegal filename or path.'
+   write(6,'(A)') 'fname1='//TRIM(fname1)
+   stop
+  end if
  end if
 
 #ifdef _WIN32

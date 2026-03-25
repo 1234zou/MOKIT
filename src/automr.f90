@@ -26,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR 1.2.7rc20 :: MOKIT, release date: 2026-Feb-27'
+  write(6,'(A)') 'AutoMR 1.2.7 :: MOKIT, release date: 2026-Mar-24'
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'
@@ -47,7 +47,7 @@ program main
   write(6,'(A)')   '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
   write(6,'(A)')   '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/GAMESS/Gaussian/BDF/PSI4/Dalton'
   write(6,'(A)')   '   NEVPT_prog=PySCF/ORCA/Molpro/BDF/OpenMolcas'
-  write(6,'(A)')   '   CASPT_prog=OpenMolcas/Molpro/ORCA'
+  write(6,'(A)')   '   CASPT_prog=ORCA/Molpro/OpenMolcas'
   write(6,'(A)')   '  MCPDFT_prog=PySCF/OpenMolcas/GAMESS'
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC-MRCISD'

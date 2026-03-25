@@ -1817,11 +1817,12 @@ subroutine fch_r2u(fchname, ibrosym)
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
 
+ ibrok = 0
  call find_specified_suffix(fchname, '.fch', i)
  uhf_fch = fchname(1:i-1)//'_u.fch'
 
  call read_na_and_nb_from_fch(fchname, na, nb)
- if(ibrosym > nb) then
+ if(ibrosym<0 .or. ibrosym>nb) then
   write(6,'(/,A)') error_str//'input ibrosym is nonsense.'
   write(6,'(2(A,I0))') 'ibrosym=', ibrosym, ', nb=', nb
   stop
@@ -1868,9 +1869,13 @@ subroutine fch_r2u(fchname, ibrosym)
  allocate(occ_a(nif), source=0d0)
  occ_a(1:na) = 1d0
  allocate(occ_b(nif), source=0d0)
- if(nb > 0) occ_a(1:nb) = 1d0
+ if(nb > 0) occ_b(1:nb) = 1d0
  allocate(spin_dm(nbf,nbf))
- call calc_spin_dm_using_mo_and_on(nbf, nif, occ_a, occ_b, mo_a, mo_b, spin_dm)
+ if(ibrok == 0) then
+  call calc_spin_dm_using_mo_and_on(nbf, nif, occ_a, occ_b, mo_a, mo_a, spin_dm)
+ else
+  call calc_spin_dm_using_mo_and_on(nbf, nif, occ_a, occ_b, mo_a, mo_b, spin_dm)
+ end if
  deallocate(occ_a, occ_b)
 
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
