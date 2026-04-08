@@ -301,55 +301,6 @@ subroutine replace_env_in_path(path)
  path = TRIM(buf)
 end subroutine replace_env_in_path
 
-! read paths of various programs from environment variables
-subroutine read_program_path()
- implicit none
- integer :: i
- integer(kind=4) :: hostnm
- character(len=8) :: hostname
- character(len=24) :: data_string
- character(len=240), external :: get_mokit_root 
-
- write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
- write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
- write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7 (2026-Mar-24)'
- write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
-
- hostname = ' '
- data_string = ' '
- i = hostnm(hostname)
- call fdate(data_string)
- write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
-
- write(6,'(/,A)') 'Read program paths from environment variables:'
- !call getenv('MOKIT_ROOT', mokit_root)
- mokit_root = get_mokit_root()
- write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
-
- call get_gau_path(gau_path)
- call get_exe_path('pymolcas', molcas_path)
- call check_molcas_is_omp(molcas_omp)
- call get_exe_path('molpro', molpro_path)
- call get_exe_path('orca', orca_path)
- call get_psi4_path(psi4_path)
- call get_exe_path('dalton', dalton_path)
- if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
- call getenv('GMS', gms_path)
- call getenv('BDFHOME', bdf_path)
- if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
- if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
-
- write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
- write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
- write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
- write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
- write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
- write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
- write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
- write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
-end subroutine read_program_path
-
 ! check whether GAMESS path exists
 subroutine check_gms_path()
  implicit none
@@ -1704,6 +1655,58 @@ function check_readfch(gjfname) result(has_readfch)
 end function check_readfch
 
 end module mr_keyword
+
+! read paths of various programs from environment variables
+subroutine read_program_path()
+ use mokit_version_info, only: version, date
+ use mr_keyword, only: mokit_root, gau_path, molcas_path, molpro_path, &
+  orca_path, psi4_path, dalton_path, gms_path, bdf_path, molcas_omp, dalton_mpi
+ implicit none
+ integer :: i
+ integer(kind=4) :: hostnm
+ character(len=8) :: hostname
+ character(len=24) :: data_string
+ character(len=240), external :: get_mokit_root 
+
+ write(6,'(A)') '------ Output of AutoMR of MOKIT(Molecular Orbital Kit) ------'
+ write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
+ write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
+ write(6,'(A)') '           Version: '//version//' ('//date//')'
+ write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
+
+ hostname = ' '
+ data_string = ' '
+ i = hostnm(hostname)
+ call fdate(data_string)
+ write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
+
+ write(6,'(/,A)') 'Read program paths from environment variables:'
+ !call getenv('MOKIT_ROOT', mokit_root)
+ mokit_root = get_mokit_root()
+ write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
+
+ call get_gau_path(gau_path)
+ call get_exe_path('pymolcas', molcas_path)
+ call check_molcas_is_omp(molcas_omp)
+ call get_exe_path('molpro', molpro_path)
+ call get_exe_path('orca', orca_path)
+ call get_psi4_path(psi4_path)
+ call get_exe_path('dalton', dalton_path)
+ if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
+ call getenv('GMS', gms_path)
+ call getenv('BDFHOME', bdf_path)
+ if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
+ if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
+
+ write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
+ write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
+ write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
+ write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
+ write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
+ write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
+ write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
+ write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+end subroutine read_program_path
 
 ! read mem, nproc and Route Section from an opened .gjf file
 subroutine read_mem_nproc_route(fid, mem, nproc, buf)

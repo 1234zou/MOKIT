@@ -141,7 +141,7 @@ subroutine fch2tm(fchname)
   do i = 1, natom, 1
    if(LPSkip(i) /= 0) cycle
    write(fid,'(A,/,A)') TRIM(elem(i))//' ecp', '*'
-   write(fid,'(2(3X,A,I0))') 'ncore = ', NINT(RNFroz(i)), 'lmax = ', LMax(i)
+   write(fid,'(2(3X,A,I0))') 'ncore = ',IDNINT(RNFroz(i)), 'lmax = ',LMax(i)
    str = am_type(LMax(i))
    do j = 1, 10, 1
     n1 = KFirst(i,j); n2 = KLast(i,j)

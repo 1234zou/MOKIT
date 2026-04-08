@@ -61,7 +61,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.7 (2026-Mar-24)'
+ write(6,'(A)') '           Version: 1.2.8rc1 (2026-Mar-25)'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -623,24 +623,27 @@ end subroutine prt_sr_strategy
 end module sr_keyword
 
 program main
+ use mokit_version_info, only: version, date
  use sr_keyword, only: read_sr_program_path
  implicit none
- integer :: i, j
- character(len=240) :: fname = ' '
+ integer :: i
+ character(len=28), parameter :: error_warn = 'ERROR in subroutine autosr: '
+ character(len=240) :: fname
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine autosr: wrong command line argument!'
+  write(6,'(/,1X,A)') error_warn//'wrong command line argument!'
   write(6,'(A)')   " Example: autosr h2o.gjf >& h2o.out &"
   write(6,'(A,/)') ' See help: autosr -h'
   stop
  end if
 
+ fname = ' '
  call getarg(1, fname)
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR 1.2.7 :: MOKIT, release date: 2026-Mar-24'
+  write(6,'(A)') 'AutoSR '//version//' :: MOKIT, release date: '//date
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"
@@ -674,19 +677,7 @@ program main
   stop
  end select
 
- i = INDEX(fname, '.gjf', back=.true.)
- j = INDEX(fname, '.fch', back=.true.)
- if(i>0 .and. j>0) then
-  write(6,'(/,A)') "ERROR in subroutine autosr: both '.gjf' and '.fch' keys det&
-                   &ected in filename "//TRIM(fname)
-  write(6,'(A)') "Better to use a filename only with suffix '.gjf'"
-  stop
- else if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine autosr: '.gjf' key not found in filenam&
-                   &e "//TRIM(fname)
-  stop
- end if
-
+ call require_gjf_suffix(fname)
  call require_file_exist(fname)
  call autosr(fname)
 end program main
@@ -1893,6 +1884,9 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   end if
   if(ccsd_t) write(fid1,'(A)') 'from pyscf.cc import ccsd_t'
  end if
+ if(mo_rhf .and. (.not.mp2)) then
+  write(fid1,'(A)') 'from mokit.lib.util import get_t1_t2_from_stc_ri_ccsd'
+ end if
 
  if(gen_no) then
   write(fid1,'(A)') 'from shutil import copyfile'
@@ -1959,7 +1953,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
 
  if(mp2) then
   if(RI) then
-   write(fid1,'(/,A)') 'mc = DFMP2(mf)'
+   write(fid1,'(/,A,I0,A)') 'mc = DFMP2(mf, frozen=',chem_core,')'
    write(fid1,'(A)') 'mc.max_memory = mf.max_memory'
   else
    write(fid1,'(/,A)') 'mc = mp.MP2(mf)'
@@ -1980,7 +1974,7 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  end if
 
  write(fid1,'(A)') 'mc.verbose = 4'
- write(fid1,'(A,I0)') 'mc.frozen = ', chem_core
+ if(.not. (RI .and. MP2)) write(fid1,'(A,I0)') 'mc.frozen = ', chem_core
  if(RI .and. cc_enabled) then
   i = LEN_TRIM(RIC_bas)
   RIC_bas1 = RIC_bas(1:i-2)//'-ri'
@@ -1998,21 +1992,27 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
  if(mp2) then
   write(fid1,'(A)') 'mc.kernel()'
  else
-  write(fid1,'(/,A)') "alive1 = os.path.exists('"//TRIM(t1a_npy)//"')"
-  write(fid1,'(A)') "alive2 = os.path.exists('"//TRIM(t2a_npy)//"')"
+  write(fid1,'(/,A)') 'mo_npy = "'//TRIM(mo_npy)//'"'
+  write(fid1,'(A)') 't1a_npy = "'//TRIM(t1a_npy)//'"'
+  write(fid1,'(A)') 't2a_npy = "'//TRIM(t2a_npy)//'"'
+  write(fid1,'(A)') 'alive1 = os.path.exists(t1a_npy)'
+  write(fid1,'(A)') 'alive2 = os.path.exists(t2a_npy)'
   if(.not. mo_rhf) then
+   write(fid1,'(A)') 't1b_npy = "'//TRIM(t1b_npy)//'"'
+   write(fid1,'(A)') 't2b_npy = "'//TRIM(t2b_npy)//'"'
+   write(fid1,'(A)') 't2c_npy = "'//TRIM(t2c_npy)//'"'
    write(fid1,'(A)') 'nocc_a = np.count_nonzero(mf.mo_occ[0] > 0)'
    write(fid1,'(A)') 'nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)'
   end if
   write(fid1,'(A)') 'if alive1 and alive2:'
-  write(fid1,'(A)') "  print('Reading existing orbitals and amplitudes...')"
-  write(fid1,'(A)') "  old_mo = np.load('"//TRIM(mo_npy)//"')"
+  write(fid1,'(A)') '  print(''\nReading existing MOs and amplitudes from .npy ...'')'
+  write(fid1,'(A)') '  old_mo = np.load(mo_npy)'
   if(mo_rhf) then
    write(fid1,'(A)') '  nocc = np.count_nonzero(mf.mo_occ > 0)'
    write(fid1,'(A)') '  nvir = nif - nocc'
    write(fid1,'(A)') '  nocc = nocc - mc.frozen'
-   write(fid1,'(A)') "  t1 = np.load('"//TRIM(t1a_npy)//"')"
-   write(fid1,'(A)') "  t2 = np.load('"//TRIM(t2a_npy)//"')"
+   write(fid1,'(A)') '  t1 = np.load(t1a_npy)'
+   write(fid1,'(A)') '  t2 = np.load(t2a_npy)'
    write(fid1,'(A)') '  new_t1, new_t2 = update_amp_from_mo(nbf,nif,nocc,nvir,o&
                      &ld_mo,mc.mo_coeff,t1,t2)'
   else
@@ -2020,11 +2020,11 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
    write(fid1,'(A)') '  nvir_b = nif - nocc_b'
    write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
    write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
-   write(fid1,'(A)') "  t1a = np.load('"//TRIM(t1a_npy)//"')"
-   write(fid1,'(A)') "  t1b = np.load('"//TRIM(t1b_npy)//"')"
-   write(fid1,'(A)') "  t2a = np.load('"//TRIM(t2a_npy)//"')"
-   write(fid1,'(A)') "  t2b = np.load('"//TRIM(t2b_npy)//"')"
-   write(fid1,'(A)') "  t2c = np.load('"//TRIM(t2c_npy)//"')"
+   write(fid1,'(A)') '  t1a = np.load(t1a_npy)'
+   write(fid1,'(A)') '  t1b = np.load(t1b_npy)'
+   write(fid1,'(A)') '  t2a = np.load(t2a_npy)'
+   write(fid1,'(A)') '  t2b = np.load(t2b_npy)'
+   write(fid1,'(A)') '  t2c = np.load(t2c_npy)'
    write(fid1,'(A)') '  new_t1a, new_t2a = update_amp_from_mo(nbf,nif,nocc_a,nv&
                      &ir_a,old_mo[0],mc.mo_coeff[0],t1a,t2a)'
    write(fid1,'(A)') '  new_t1b, new_t2c = update_amp_from_mo(nbf,nif,nocc_b,nv&
@@ -2036,21 +2036,29 @@ subroutine prt_posthf_pyscf_inp(pyname, excited)
   end if
   write(fid1,'(A)') '  mc.kernel(t1=new_t1, t2=new_t2)'
   write(fid1,'(A)') 'else:'
-  write(fid1,'(A)') '  mc.kernel()'
+  if(mo_rhf .and. (.not.mp2)) then
+   write(fid1,'(A)') '  t1, t2, from_stc = get_t1_t2_from_stc_ri_ccsd(mf, nco&
+                     &re=mc.frozen)'
+   write(fid1,'(A)') '  if from_stc:'
+   write(fid1,'(A)') '    mc.diis_space = 4'
+   write(fid1,'(A)') '  mc.kernel(t1=t1, t2=t2)'
+  else
+   write(fid1,'(A)') '  mc.kernel()'
+  end if
   if(.not. mo_rhf) then
    write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
    write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
   end if
-  write(fid1,'(A)') "np.save('"//TRIM(mo_npy)//"', mc.mo_coeff)"
+  write(fid1,'(A)') 'np.save(mo_npy, mc.mo_coeff)'
   if(mo_rhf) then
-   write(fid1,'(A)') "np.save('"//TRIM(t1a_npy)//"', mc.t1)"
-   write(fid1,'(A)') "np.save('"//TRIM(t2a_npy)//"', mc.t2)"
+   write(fid1,'(A)') 'np.save(t1a_npy, mc.t1)'
+   write(fid1,'(A)') 'np.save(t2a_npy, mc.t2)'
   else
-   write(fid1,'(A)') "np.save('"//TRIM(t1a_npy)//"', mc.t1[0])"
-   write(fid1,'(A)') "np.save('"//TRIM(t1b_npy)//"', mc.t1[1])"
-   write(fid1,'(A)') "np.save('"//TRIM(t2a_npy)//"', mc.t2[0])"
-   write(fid1,'(A)') "np.save('"//TRIM(t2b_npy)//"', mc.t2[1])"
-   write(fid1,'(A)') "np.save('"//TRIM(t2c_npy)//"', mc.t2[2])"
+   write(fid1,'(A)') 'np.save(t1a_npy, mc.t1[0])'
+   write(fid1,'(A)') 'np.save(t1b_npy, mc.t1[1])'
+   write(fid1,'(A)') 'np.save(t2a_npy, mc.t2[0])'
+   write(fid1,'(A)') 'np.save(t2b_npy, mc.t2[1])'
+   write(fid1,'(A)') 'np.save(t2c_npy, mc.t2[2])'
   end if
  end if
 
@@ -2865,8 +2873,8 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_mp2_e_from_pyscf_out: MP2 energy k&
-                   &eywords not found'
-  write(6,'(A)') 'in file '//TRIM(outname)
+                   &eywords not'
+  write(6,'(A)') 'found in file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -2877,7 +2885,12 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
   call get_dpv_after_flag(buf, '=', .false., ref_e) ! MP2 correlation energy
   ref_e = tot_e - ref_e
  case(2) ! DF-MP2
-  call get_dpv_after_flag(buf, '=', .true., tot_e) ! DF-MP2 correlation energy
+  ! ! DF-MP2 correlation energy
+  if(INDEX(buf, '=') > 0) then
+   call get_dpv_after_flag(buf, '=', .true., tot_e)
+  else
+   call get_dpv_after_flag(buf, ':', .true., tot_e)
+  end if
 
   do while(.true.)
    BACKSPACE(fid)
@@ -2891,6 +2904,7 @@ subroutine read_mp2_e_from_pyscf_out(outname, ref_e, tot_e)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_mp2_e_from_pyscf_out: icase out of&
                    & range.'
+  write(6,'(A)') 'outname='//TRIM(outname)
   stop
  end select
 

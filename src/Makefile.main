@@ -1,4 +1,3 @@
-
 OBJ_add_bgcharge_to_inp = file_op.o string_manipulate.o math_sub.o read_gms_inp.o \
                           read_natom.o add_bgcharge_to_inp.o
 OBJ_addH2singlet = file_op.o string_manipulate.o read_fch.o math_sub.o addH2singlet.o

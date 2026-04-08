@@ -281,7 +281,7 @@ subroutine read_fch(fchname, uhf)
  if(has_rnuc) then
   allocate(rnuc(natom))
   read(fid,'(5(1X,ES15.8))') (rnuc(i),i=1,natom)
-  allocate(itmp(natom), source=NINT(rnuc))
+  allocate(itmp(natom), source=IDNINT(rnuc))
   ! if it is ab inito all-electron basis set, this array is useless
   if(SUM(IABS(itmp-ielem)) == 0) deallocate(rnuc)
   deallocate(itmp)
@@ -1315,12 +1315,12 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
   allocate(RNFroz(natom), source=0d0)
   read(fid,'(5(1X,ES15.8))') (RNFroz(i), i=1,natom)
   close(fid)
-  ecp_core = NINT(0.5d0*SUM(RNFroz)) ! half of core electrons
+  ecp_core = IDNINT(0.5d0*SUM(RNFroz)) ! half of core electrons
   ! Sometimes the user would use large-core ECP/PP, so here the larger one
   ! between core_orb(nuc(i)) and RNFroz(i) should be taken. And chem_core
   ! may be large than sum_i core_orb(nuc(i))
   do i = 1, natom, 1
-   chem_core = chem_core + MAX(core_orb(nuc(i)), NINT(0.5d0*RNFroz(i)))
+   chem_core = chem_core + MAX(core_orb(nuc(i)), IDNINT(0.5d0*RNFroz(i)))
   end do ! for i
   deallocate(RNFroz)
  else ! all-electron basis set

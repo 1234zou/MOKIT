@@ -304,7 +304,7 @@ subroutine fch2qchem(fchname, job_type, npair)
   do i = 1, natom, 1
    if(LPSkip(i) /= 0) cycle
    write(fid,'(A)') elem(i)//'     0'
-   write(fid,'(A,2X,I2,2X,I3)') TRIM(elem(i))//'-ECP', LMax(i), NINT(RNFroz(i))
+   write(fid,'(A,2X,I2,2X,I3)') TRIM(elem(i))//'-ECP',LMax(i),IDNINT(RNFroz(i))
    str = am_type1(LMax(i))
 
    do j = 1, 10, 1

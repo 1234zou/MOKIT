@@ -189,7 +189,7 @@ subroutine fch2amo(fchname)
 
  if(ecp) then
   allocate(frozen_e(natom))
-  forall(i = 1:natom) frozen_e(i) = NINT(RNFroz(i))
+  forall(i = 1:natom) frozen_e(i) = IDNINT(RNFroz(i))
   deallocate(RNFroz)
   write(fid,'(/,A)') '$ecp'
 
@@ -234,7 +234,7 @@ subroutine fch2amo(fchname)
   deallocate(frozen_e)
  else
   if(allocated(rnuc)) then
-   allocate(itmp(natom), source=NINT(rnuc))
+   allocate(itmp(natom), source=IDNINT(rnuc))
   else
    allocate(itmp(natom), source=ielem)
   end if

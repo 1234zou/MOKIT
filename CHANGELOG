@@ -1,3 +1,12 @@
+MOKIT 1.2.8rc1 (Apr 8, 2026)
+------------------------
+Fixes
+* fix DF-MP2 frozen core setting when MP2_prog=PySCF
+Improvement
+* using STC-RI-CCSD amplitudes as initial guess of (RI-)CCSD if STC-CC library installed
+Re-factor and removal
+* localize all valence occ. MOs and construct antibonding MOs when npair_wish>npair in the UHF case
+
 MOKIT 1.2.7 (Mar 24, 2026)
 ------------------------
 Fixes

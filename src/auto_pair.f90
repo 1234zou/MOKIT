@@ -7,6 +7,7 @@
 ! modified by jxzou at 20180611: cycle in pairing
 ! modified by jxzou at 20180705: implement cases where occpuied LMO < unoccpuied LMO
 ! modified by jxzou at 20250105: discard pairs which have small tdm values.
+! TODO: paired by tdm using MOs within d < 2.5 A
 
 ! sort pair indices by their transition dipole moments
 subroutine sort_pair_idx_by_tdm(ascending, npair, idx, tdm)

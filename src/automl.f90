@@ -861,7 +861,7 @@ subroutine gen_batch_script_mace_train(proname, restart)
    write(fid,'(A)') ' --device=cpu \'
   end if
   if(restart) write(fid,'(A)') ' --restart_latest \'
-  write(fid,'(A,I0,A)') ' --seed=', NINT(1000d0/DBLE(i)), ' \'
+  write(fid,'(A,I0,A)') ' --seed=', IDNINT(1000d0/DBLE(i)), ' \'
   write(fid,'(A)') ' >'//TRIM(outname)//" 2>&1"
 
   write(fid,'(/,A)') '/bin/mv '//TRIM(swa_model)//' '//TRIM(model)

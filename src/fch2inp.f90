@@ -29,6 +29,9 @@
 ! -in basis set DKH-def2-TZVP for N has a negative contraction coefficient on the
 ! 5-th S basis function.
 
+! Note: it seems that GAMESS does not support the large-core ECP/PP case where
+! the odd f electrons are included in pseudo potential.
+
 program main
  use util_wrapper, only: formchk
  implicit none
@@ -360,7 +363,7 @@ subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
     write(fid,'(I0,A9)') i, ' ECP-NONE'
     cycle
    else
-    write(fid,'(I0,A8,2X,I3,2X,I2)') i,'-ECP GEN', NINT(RNFroz(i)), LMax(i)
+    write(fid,'(I0,A8,2X,I3,2X,I2)') i,'-ECP GEN',IDNINT(RNFroz(i)),LMax(i)
     str = am_type1(LMax(i))
     do j = 1, 10, 1
      n1 = KFirst(i,j); n2 = KLast(i,j)

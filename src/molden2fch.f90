@@ -776,14 +776,14 @@ subroutine molden2fch(molden, iprog, natorb)
  if(is_uhf) then
   allocate(beta_coeff(nbf,nif), source=0d0)
   beta_coeff(:,1:nmo_b) = coeff(:,nif+1:nif+nmo_b)
-  na = NINT(SUM(occ_a))
-  nb = NINT(SUM(occ_b))
+  na = IDNINT(SUM(occ_a))
+  nb = IDNINT(SUM(occ_b))
   nopen = na - nb
   deallocate(occ_b)
  else
   call find_nopen_from_occ(nif, occ_a, nopen)
-  na = NINT((SUM(occ_a) + DBLE(nopen))*0.5d0)
-  nb = NINT((SUM(occ_a) - DBLE(nopen))*0.5d0)
+  na = IDNINT((SUM(occ_a) + DBLE(nopen))*0.5d0)
+  nb = IDNINT((SUM(occ_a) - DBLE(nopen))*0.5d0)
  end if
  deallocate(coeff, occ_a)
  ne = na + nb

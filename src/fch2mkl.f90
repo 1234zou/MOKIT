@@ -512,7 +512,7 @@ subroutine fch2mkl(fchname, itype, dftname)
      if(ecp) then   ! print ECP/PP data of last atom
       if(LPSkip(m-1) == 0) then
        write(fid2,'(2X,A)') 'NewECP'
-       write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(m-1))
+       write(fid2,'(3X,A,1X,I3)') 'N_core', IDNINT(RNFroz(m-1))
        write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(m-1))
        am = 0
        do j = 1, 10, 1
@@ -573,7 +573,7 @@ subroutine fch2mkl(fchname, itype, dftname)
   if(ecp) then   ! print ECP/PP data of the last atom
    if(LPSkip(natom) == 0) then
     write(fid2,'(2X,A)') 'NewECP'
-    write(fid2,'(3X,A,1X,I3)') 'N_core', NINT(RNFroz(natom))
+    write(fid2,'(3X,A,1X,I3)') 'N_core', IDNINT(RNFroz(natom))
     write(fid2,'(3X,A)') 'lmax '//am_type1(LMax(natom))
     am = 0
     do j = 1, 10, 1

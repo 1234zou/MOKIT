@@ -42,7 +42,7 @@ subroutine run_command(buf, append_null, prt_command)
 
  ! Currently there is no need to distinguish between i/=0 and j/=0
  if(.not. (i==0 .and. j==0)) then
-  write(6,'(/,A)') error_warn//' failed to run command line'
+  write(6,'(/,A)') error_warn//'failed to run command line'
   write(6,'(A)') TRIM(buf)
   stop
  end if

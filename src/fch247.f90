@@ -54,7 +54,7 @@ subroutine fch247(fchname)
  ! calculate effective nuclear charges (remember to minus ECP core, if any)
  allocate(eff_nuc_charge(natom), source=0)
  if(allocated(RNFroz)) then
-  forall(i = 1:natom) eff_nuc_charge(i) = ielem(i) - NINT(RNFroz(i))
+  forall(i = 1:natom) eff_nuc_charge(i) = ielem(i) - IDNINT(RNFroz(i))
  else
   forall(i = 1:natom) eff_nuc_charge(i) = ielem(i)
  end if

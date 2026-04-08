@@ -11,6 +11,12 @@ module phys_cons ! physics constants
  real(kind=8), parameter :: GPa2eVA3 = 6.241509074460764d-3
 end module phys_cons
 
+module mokit_version_info
+ implicit none
+ character(len=8), parameter :: version = '1.2.8rc1'
+ character(len=11), parameter :: date = '2026-Apr-8'
+end module mokit_version_info
+
 ! transform a string into upper case
 subroutine upper(buf)
  implicit none

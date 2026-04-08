@@ -873,7 +873,7 @@ subroutine read_elem_nuc_coor_from_gms_inp(inpname, natom, elem, nuc, coor, ghos
  close(fid)
 
  call standardize_elem(natom, elem)
- forall(i = 1:natom) nuc(i) = NINT(nuc1(i))
+ forall(i = 1:natom) nuc(i) = IDNINT(nuc1(i))
  deallocate(nuc1)
  if(bohrs) coor = coor*Bohr_const
 end subroutine read_elem_nuc_coor_from_gms_inp

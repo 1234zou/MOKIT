@@ -108,6 +108,33 @@ subroutine delete_files_in_path(path, n, fname)
  end do ! for i
 end subroutine delete_files_in_path
 
+subroutine require_gjf_suffix(gjfname)
+ implicit none
+ integer :: i, k
+ character(len=40), parameter :: error_warn='ERROR in subroutine require_gjf_suffix: '
+ character(len=240), intent(in) :: gjfname
+
+ k = LEN_TRIM(gjfname)
+ if(k == 0) then
+  write(6,'(/,A)') error_warn//'the given filename is empty.'
+  stop
+ end if
+
+ if(gjfname(k-3:k) == '.gjf') then
+  i = INDEX(gjfname(1:k), '.')
+  if(i < k-3) then
+   write(6,'(/,A)') error_warn//'more than one dot "." is found in'
+   write(6,'(A)') 'filename '//gjfname(1:k)
+   write(6,'(A)') 'Only one dot is allowed.'
+   stop
+  end if
+ else
+  write(6,'(/,A)') error_warn//'".gjf" suffix is required.'
+  write(6,'(A)') 'gjfname='//gjfname(1:k)
+  stop
+ end if
+end subroutine require_gjf_suffix
+
 subroutine delete_cfour_tmp_files(nproc)
  implicit none
  integer :: i
@@ -1043,6 +1070,125 @@ subroutine split_iatom_elem(iatom_elem, iatom, elem)
  read(iatom_elem(1:i-1),*) iatom
  read(iatom_elem(i:k),*) elem
 end subroutine split_iatom_elem
+
+! replace '.o' to '.obj' in a string `buf`
+subroutine replace_dot_o2obj_in_buf(buf)
+ implicit none
+ integer :: i, k
+ character(len=240), intent(inout) :: buf
+
+ k = LEN_TRIM(buf)
+ if(buf(k-1:k) == '.o') then
+  buf = buf(1:k)//'bj'
+  k = k + 2
+ end if
+
+ do while(.true.)
+  i = INDEX(buf, '.o ')
+  if(i == 0) exit
+  if(k > 238) then
+   write(6,'(/,A)') 'ERROR in subroutine replace_dot_o2obj_in_buf: the input st&
+                    &ring buf contains'
+   write(6,'(A)') 'too many ''.o''. The (len=240) is insufficient.'
+   stop
+  end if
+  buf = buf(1:i+1)//'bj '//buf(i+3:k)
+  k = k + 2
+ end do ! for while
+end subroutine replace_dot_o2obj_in_buf
+
+subroutine update_obj_content_in_makefile_win()
+ implicit none
+ integer :: i, j, k, fid1, fid2, fid3, RENAME
+ character(len=13), parameter :: makefile1 = 'Makefile.main'
+ character(len=12), parameter :: makefile2 = 'Makefile_Win'
+ character(len=13), parameter :: makefile3 = 'Makefile_Win2'
+ character(len=56), parameter :: error_str = 'ERROR in subroutine update_obj_co&
+                                             &ntent_in_makefile_win: '
+ character(len=240) :: buf, buf1
+ logical :: obj_end
+
+ open(newunit=fid2,file=makefile2,status='old',position='rewind')
+ open(newunit=fid3,file=makefile3,status='replace')
+
+ do while(.true.)
+  read(fid2,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'OBJ_') exit
+  write(fid3,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_str//'no ''OBJ_'' found in file'//makefile2
+  close(fid2)
+  close(fid3,status='delete')
+  stop
+ end if
+
+ BACKSPACE(fid2)
+ open(newunit=fid1,file=makefile1,status='old',position='rewind')
+
+ do while(.true.)
+  read(fid2,'(A)') buf
+  if(LEN_TRIM(buf) == 0) exit
+
+  if(buf(1:4) == 'OBJ_') then
+   k = INDEX(buf, '=')
+   if(k == 0) then
+    write(6,'(/,A)') error_str//'no ''='' symbol found in line'
+    write(6,'(A)') '"'//TRIM(buf)//'"'
+    close(fid1)
+    close(fid2)
+    close(fid3,status='delete')
+    stop
+   end if
+
+   obj_end = .false.
+   rewind(fid1)
+
+   do while(.true.)
+    read(fid1,'(A)',iostat=i) buf1
+    if(i /= 0) exit
+    if(buf1(1:k) == buf(1:k)) then
+     call replace_dot_o2obj_in_buf(buf1)
+     write(fid3,'(A)') TRIM(buf1)
+     do j = 1, 5
+      read(fid1,'(A)') buf1
+      if(LEN_TRIM(buf1)==0 .or. buf1(1:4)=='OBJ_') then
+       obj_end = .true.
+       exit
+      end if
+      call replace_dot_o2obj_in_buf(buf1)
+      write(fid3,'(A)') TRIM(buf1)
+     end do ! for j
+    end if
+    if(obj_end) exit
+   end do ! for while
+
+   if(i /= 0) then
+    write(6,'(/,A)') error_str//'string "'//buf1(1:k)//'"'
+    write(6,'(A)') 'not found in file '//makefile1
+    close(fid1)
+    close(fid2)
+    close(fid3,status='delete')
+    stop
+   end if
+  end if
+ end do ! for while
+
+ write(fid3,'(/)',advance='no')
+ ! copy remaining content
+ do while(.true.)
+  read(fid2,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid3,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1)
+ close(fid2,status='delete')
+ close(fid3)
+ i = RENAME(makefile3, makefile2)
+end subroutine update_obj_content_in_makefile_win
 
 ! save the previous K matrix of Cayley transformation
 subroutine save_cayley_k_old(nmo, ndiis, k_old, binfile)

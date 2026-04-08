@@ -285,7 +285,7 @@ program main
 
  hostname = ' '; data_string = ' '; gjfname = ' '
  call getarg(1, gjfname)
- call find_specified_suffix(gjfname, '.gjf', i)
+ call require_gjf_suffix(gjfname)
  call require_file_exist(gjfname)
  call get_gau_path(gau_path)
 
@@ -1056,6 +1056,8 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  implicit none
  integer :: i, k(3),fid
  character(len=11) :: method0, method1
+ character(len=44), parameter :: error_warn='ERROR in subroutine gen_gjf_from_t&
+                                            &ype_frag: '
  character(len=240), intent(in) :: basname
  type(frag), intent(in) :: frag0
  logical, intent(in) :: guess_read, stab_chk
@@ -1063,16 +1065,14 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  k = [INDEX(method,'o3lyp'),INDEX(method,'ohse2pbe'),INDEX(method,'ohse1pbe')]
 
  if(ANY(k > 0)) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: O3LYP, OHSE2PBE&
-                   &, and OHSE1PBE'
+  write(6,'(/,A)') error_warn//'O3LYP, OHSE2PBE, and OHSE1PBE'
   write(6,'(A)') 'functionals are not supported since these functional names ar&
                  &e confusing.'
   stop
  end if
 
  if(method(1:7)=='ccsd(t)' .and. frag0%wfn_type==2) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: ROCCSD(T) not &
-                    supported.'
+  write(6,'(/,A)') error_warn//'ROCCSD(T) not supported.'
   write(6,'(A)') 'You can use ROCCSD instead.'
   stop
  end if
@@ -1081,14 +1081,12 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  ! itten into the generated .inp file. So we call Gaussian to compute R(O)HF
  if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
   if(eda_type /= 2) then
-   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: MP2 or CC meth&
-                    &ods are only available'
+   write(6,'(/,A)') error_warn//'MP2 or CC methods are only available'
    write(6,'(A)') 'for LMO-EDA, but you are not using LMO-EDA.'
    stop
   end if
   if(frag0%wfn_type > 2) then
-   write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: only R(O)HF ba&
-                    &sed MP2 or CC methods'
+   write(6,'(/,A)') error_warn//'only R(O)HF based MP2 or CC methods'
    write(6,'(A)') 'are supported in LMO-EDA. It seems that you are trying to us&
                   &e UHF-based methds.'
    stop
@@ -1107,14 +1105,12 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
  case(3)
   method0 = 'U'//TRIM(method1)
  case default
-  write(6,'(A,I0)') 'ERROR in subroutine gen_gjf_from_type_frag: invalid&
-                    & wfn_type=', frag0%wfn_type
+  write(6,'(A,I0)') error_warn//'invalid wfn_type=', frag0%wfn_type
   stop
  end select
 
  if(eda_type==1 .and. TRIM(method0)/='Rhf') then
-  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: Morokuma-EDA&
-                   & can only be applied'
+  write(6,'(/,A)') error_warn//'Morokuma-EDA can only be applied'
   write(6,'(A)') 'to RHF. But found method='//TRIM(method0)
   stop
  end if
@@ -1150,8 +1146,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
   write(fid,'(A)',advance='no') ' scf(xqc,maxcycle=300,NoIncFock,NoVarAcc,conve&
                                 &r=7)'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine gen_gjf_from_type_frag: wfn_type out of&
-                   & range.'
+  write(6,'(/,A)') error_warn//'wfn_type out of range.'
   write(6,'(A,I0)') 'frag0%wfn_type=', frag0%wfn_type
   stop
  end select
@@ -1378,12 +1373,13 @@ subroutine gen_inp_of_frags()
   write(6,'(A)') 'GAMESS or XEDA like'
   if(wfn_type==2 .and. method(1:4)=='ccsd') then ! ROCCSD
    i = 1
+   write(6,'(/,A)') 'Note: LMO-EDA using ROCCSD can only be run with 1 CPU core.'
   else
    i = nproc
   end if
   write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A,I0,A)') 'xeda '//TRIM(inpname2)//' 00 ',i,' >'//TRIM(outname)&
-                      //" 2>&1 &"
+                      //' 2>&1'
  end if
  write(6,'(A)') REPEAT('-',79)
 
@@ -1561,13 +1557,15 @@ end subroutine copy_and_modify_psi4_sapt_file
 ! copy content of a provided .inp file and modify it to be EDA job
 subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  use frag_info, only: nfrag0, frags
- use theory_level, only: mem, nproc, method, eda_type, scrf, solvent, &
-  solvent_gau, disp_type
+ use theory_level, only: mem, nproc, method, wfn_type, eda_type, scrf, &
+  solvent, solvent_gau, disp_type
  implicit none
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
  real(kind=8), intent(in) :: radii(natom)
  character(len=9) :: dft_in_gms
+ character(len=50), parameter :: error_warn='ERROR in subroutine copy_and_modif&
+                                            &y_gms_eda_file: '
  character(len=240) :: buf1, buf2
  character(len=240), intent(in) :: inpname1, inpname2
 
@@ -1584,9 +1582,8 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
 
  i = INDEX(buf1, '$END')
  if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine gen_inp_of_frags: no '$END' found in th&
-                   &e 2nd line"
-  write(6,'(A)') 'of file '//TRIM(inpname1)
+  write(6,'(/,A)') error_warn//'no ''$END'' found in the 2nd line of'
+  write(6,'(A)') 'file '//TRIM(inpname1)
   close(fid1)
   close(fid2,status='delete')
   stop
@@ -1603,7 +1600,12 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  write(fid2,'(A)') ' $END'
 
  read(fid1,'(A)') buf1 ! this line should be $SYSTEM
- i = MAX(200, FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc))))
+ if(eda_type==2 .and. wfn_type==2 .and. method(1:4)=='ccsd') then
+  ! LMO-EDA using ROCCSD can only be run in serial
+  i = MAX(200, FLOOR(DBLE(mem)*0.95d0/8d0))
+ else
+  i = MAX(200, FLOOR(DBLE(mem)*0.95d0/(8d0*DBLE(nproc))))
+ end if
  write(fid2,'(A,I0)',advance='no') ' $SYSTEM MWORDS=',i
 
  if(method(1:3)=='mp2' .or. method(1:4)=='ccsd') then
@@ -1658,12 +1660,18 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   read(fid1,'(A)') buf1
   if(buf1(2:7) == '$GUESS') exit
   if(buf1(2:5) == '$SCF') then
-   if(eda_type == 1) then
-    ! direct SCF is not supported in Morokuma-EDA
+   select case(eda_type)
+   case(1) ! direct SCF is not supported in Morokuma-EDA
     buf1 = ' $SCF DIRSCF=.F. $END'
-   else
+   case(2) ! LMO-EDA
+    if(wfn_type == 2) then ! RO-type calculations
+     buf1 = ' $SCF DIRSCF=.T. DIIS=.T. SOSCF=.F. SHIFT=.T. RESET=.F. $END'
+    else
+     buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. RESET=.F. $END'
+    end if
+   case(3) ! GKS-EDA
     buf1 = ' $SCF DIRSCF=.T. DIIS=.F. SOSCF=.T. RESET=.F. $END'
-   end if
+   end select
   end if
   write(fid2,'(A)') TRIM(buf1)
  end do ! for while
@@ -1712,11 +1720,12 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
   else
    write(fid2,'(/,A)',advance='no') '  EDATYP=GKS'
   end if
-  write(fid2,'(A,/,A)') ' RDVECM=.T. $END',' $GUESS GUESS=HCORE $END'
+  write(fid2,'(A)') ' RDVECM=.T. $END'
+  if(method(1:4) == 'ccsd') write(fid2,'(A)') ' $CCINP MAXCC=100 $END'
+  write(fid2,'(A)') ' $GUESS GUESS=HCORE $END'
 
  case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine gen_inp_of_frags: invalid eda_type=',&
-                      eda_type
+  write(6,'(/,A,I0)') error_warn//'invalid eda_type=', eda_type
   close(fid1)
   close(fid2)
   stop
@@ -1730,7 +1739,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
    write(6,'(/,A)') 'Warning from subroutine gen_inp_of_frags: scrf=SMD detected.'
    write(6,'(A)') 'If you encounter SCF convergence problems later in GAMESS,&
                   & you can change'
-   write(6,'(A)') 'to scrf=PCM or remove scrf=SMD (i.e. gas phase computation).'
+   write(6,'(A)') 'to scrf=IEFPCM in .gjf and recompute.'
   else ! PCM
    if(TRIM(solvent) == 'INPUT') then
     select case(TRIM(solvent_gau))
@@ -1788,8 +1797,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  close(fid2)
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine copy_and_modify_gms_eda_file: no '$VEC'&
-                   & found in file"
+  write(6,'(/,A)') error_warn//'no ''$VEC'' found in file'
   write(6,'(A)') TRIM(inpname1)
   stop
  end if

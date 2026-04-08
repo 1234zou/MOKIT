@@ -442,6 +442,93 @@ subroutine sort_mo_by_ev(nbf, nmo, mo, ev, new_mo, new_ev)
  deallocate(tmp_mo)
 end subroutine sort_mo_by_ev
 
+! Sort a set of MOs (mo) by its overlap with ref_mo. ref_mo and mo share identical
+! AO basis set functions. The sorted MOs are stored in the array new_mo.
+subroutine sort_mo_by_mo_ovlp(nbf, nmo1, nmo2, reverse, ao_ovlp, ref_mo, mo, new_mo)
+ implicit none
+ integer :: i, j, k, m, int_a(1)
+ integer, intent(in) :: nbf, nmo1, nmo2
+!f2py intent(in) :: nbf, nmo1, nmo2
+ real(kind=8) :: min_val
+ real(kind=8), intent(in) :: ao_ovlp(nbf,nbf), ref_mo(nbf,nmo1), mo(nbf,nmo2)
+!f2py intent(in) :: ao_ovlp, ref_mo, mo
+!f2py depend(nbf) :: ao_ovlp
+!f2py depend(nbf,nmo1) :: ref_mo
+!f2py depend(nbf,nmo2) :: mo
+ real(kind=8), intent(out) :: new_mo(nbf,nmo2)
+!f2py intent(out) :: new_mo
+!f2py depend(nbf,nmo2) :: new_mo
+ real(kind=8), allocatable :: mo_ovlp(:,:)
+ logical, intent(in) :: reverse
+!f2py intent(in) :: reverse
+ logical, allocatable :: used(:)
+
+ if(nmo2 < nmo1) then
+  write(6,'(/,A)') 'ERROR in subroutine sort_mo_by_mo_ovlp: nmo2 >= nmo1 is req&
+                   &ured.'
+  write(6,'(2(A,I0))') 'nmo1=', nmo1, ', nmo2=', nmo2
+  stop
+ end if
+
+ allocate(mo_ovlp(nmo1,nmo2))
+ call calc_CTSCp2(nbf, nmo1, nmo2, ref_mo, ao_ovlp, mo, mo_ovlp)
+ allocate(used(nmo2), source=.false.)
+
+ if(reverse) then ! mo(:,nmo2-nmo1+1:nmo2) are determined by mo_ovlp
+  do i = 1, nmo1, 1
+   m = nmo1 - i + 1
+   min_val = MINVAL(mo_ovlp(m,:))
+   do j = 1, nmo2, 1
+    int_a = MAXLOC(mo_ovlp(m,:)); k = int_a(1)
+    if(used(k)) then
+     mo_ovlp(m,k) = min_val - 0.1d0
+    else
+     new_mo(:,nmo2-i+1) = mo(:,k)
+     used(k) = .true.
+     exit
+    end if
+   end do ! for j
+  end do ! for i
+
+  if(nmo2 > nmo1) then
+   j = nmo2 - nmo1 + 1
+   do i = nmo2, 1, -1
+    if(.not. used(i)) then
+     j = j - 1
+     new_mo(:,j) = mo(:,i)
+    end if
+   end do ! for i
+  end if
+
+ else             ! mo(:,1:nmo1) are determined by mo_ovlp
+  do i = 1, nmo1, 1
+   min_val = MINVAL(mo_ovlp(i,:))
+   do j = 1, nmo2, 1
+    int_a = MAXLOC(mo_ovlp(i,:)); k = int_a(1)
+    if(used(k)) then
+     mo_ovlp(i,k) = min_val - 0.1d0
+    else
+     new_mo(:,i) = mo(:,k)
+     used(k) = .true.
+     exit
+    end if
+   end do ! for j
+  end do ! for i
+
+  if(nmo2 > nmo1) then
+   j = nmo1
+   do i = 1, nmo2, 1
+    if(.not. used(i)) then
+     j = j + 1
+     new_mo(:,j) = mo(:,i)
+    end if
+   end do ! for i
+  end if
+ end if
+
+ deallocate(mo_ovlp, used)
+end subroutine sort_mo_by_mo_ovlp
+
 ! check whether a (double) complex matrix is hermitian
 subroutine check_hermitian(n, a)
  implicit none

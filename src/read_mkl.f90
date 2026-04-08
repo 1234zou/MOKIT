@@ -1336,7 +1336,7 @@ subroutine gen_rest_bas_dir(dirname)
 
    if(ecp(iatom)) then
     write(fid,'(12X,A)') '],'
-    write(fid,'(12X,A,I0,A)') '"ecp_electrons": ',NINT(RNFroz(iatom)),','
+    write(fid,'(12X,A,I0,A)') '"ecp_electrons": ',IDNINT(RNFroz(iatom)),','
     write(fid,'(12X,A)') '"ecp_potentials": ['
     k = LMax(iatom); nl = COUNT(KFirst(iatom,:) > 0)
 
@@ -1487,7 +1487,7 @@ subroutine prt_cfour_genbas(ecp, mrcc)
   if(str2(2:2) /= ' ') call upper(str2(2:2))
   write(fid,'(A)') TRIM(str2)//':ECP-10-MDF'
   write(fid,'(A,/,A)') c2, '*'
-  write(fid,'(4X,A,I3,4X,A,I2)') 'NCORE =', NINT(RNFroz(i)), 'LMAX =', LMax(i)
+  write(fid,'(4X,A,I3,4X,A,I2)') 'NCORE =',IDNINT(RNFroz(i)), 'LMAX =',LMax(i)
   str = am_type1(LMax(i))
 
   do j = 1, 10, 1
