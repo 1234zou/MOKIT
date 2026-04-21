@@ -20,16 +20,19 @@ def permute_orb_cli():
     parser.add_argument('filename', help='fch filename')
     parser.add_argument('orb1', type=int, help='index of the first orbital')
     parser.add_argument('orb2', type=int, help='index of the second orbital')
+    parser.add_argument('-b', '--base', type=int, choices=[0,1],
+                        help='where the given orbital indices starts from, 0 or 1. Default is 1', 
+                        default=1)
     args = parser.parse_args()
 
-    permute_orb(args.filename, args.orb1, args.orb2)
-
+    permute_orb(args.filename, args.orb1, args.orb2, start_from_one=bool(args.base))
 def pchk2fch_cli():
     parser = argparse.ArgumentParser(description=descriptions['pchk2fch'])
     parser.add_argument('pchk', help='PySCF chkfile name')
     parser.add_argument('fchname', nargs='?', 
         help='.fch filename. If not provided, it will be derived from the pchk filename.')
-    parser.add_argument('--density', action='store_true', help='save density matrix', default=False)
+    parser.add_argument('-d', '--density', action='store_true', 
+                        help='save density matrix', default=False)
     args = parser.parse_args()
 
     pchk2fch(args.pchk, fchname=args.fchname, density=args.density)
