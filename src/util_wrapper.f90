@@ -50,6 +50,9 @@ end subroutine run_command
 
 module util_wrapper
  implicit none
+ integer :: dummy_i
+ ! with this useless variable, Python APIs of subroutines within this module
+ ! will be compiled by f2py
 contains
 
 ! wrapper of the utility add_bgcharge_to_inp
@@ -622,15 +625,19 @@ subroutine fch2inporb_wrap(fchname, prt_no, inpname)
  end if
 end subroutine fch2inporb_wrap
 
-subroutine orb2fch_wrap(orbname, fchname, prt_no)
+subroutine orb2fch_wrap(orbname, fchname, prt_no, gp, npair)
  implicit none
+ integer, intent(in) :: npair
  character(len=500) :: buf
  character(len=240), intent(in) :: orbname, fchname
- logical, intent(in) :: prt_no
+ logical, intent(in) :: prt_no, gp
 
  buf = 'orb2fch '//TRIM(orbname)//' '//TRIM(fchname)
+ if(gp) then
+  write(buf,'(A,I0)') TRIM(buf)//' -gp ', npair
+ end if
  if(prt_no) buf = TRIM(buf)//' -no'
- call run_command(TRIM(buf), .true., .false.)
+ call run_command(TRIM(buf), .false., .true.)
 end subroutine orb2fch_wrap
 
 ! modify the orbital filename in a (Open)Molcas .input file
@@ -820,6 +827,23 @@ subroutine fch2openqp_wrap(fchname, sf_type, inpname)
  if(change_name) call delete_file(TRIM(new_fch))
 end subroutine fch2openqp_wrap
 
+! a wrapper of the utility fch2rest
+subroutine fch2rest_wrap(fchname, dft, func)
+ implicit none
+ character(len=15), intent(in) :: func
+ character(len=240), intent(in) :: fchname
+ character(len=270) :: buf
+ logical, intent(in) :: dft
+
+ buf = 'fch2rest '//TRIM(fchname)
+ if(dft) then
+  buf = TRIM(buf)//' -dft '//TRIM(func)
+ else
+  buf = TRIM(buf)//' -wft '//TRIM(func)
+ end if
+ call run_command(TRIM(buf), .false., .false.)
+end subroutine fch2rest_wrap
+
 ! call `orca_2mkl` to convert .gbw -> .molden
 subroutine gbw2molden(gbwname, molden)
  implicit none
@@ -829,6 +853,7 @@ subroutine gbw2molden(gbwname, molden)
  character(len=240), intent(in), optional :: molden
  character(len=511) :: buf
 
+ call require_file_exist(gbwname)
  call find_specified_suffix(gbwname, '.gbw', i)
  if(present(molden)) then
   molden0 = molden
@@ -839,6 +864,24 @@ subroutine gbw2molden(gbwname, molden)
  buf = 'orca_2mkl '//TRIM(gbwname)//' '//TRIM(molden0)//' -molden -anyorbs'
  call run_command(TRIM(buf), .true., .false.)
 end subroutine gbw2molden
+
+! a wrapper of gbw2molden, molden2fch, fch2rest
+subroutine gbw2rest(gbwname, dft, func)
+ implicit none
+ integer :: i
+ character(len=15), intent(in) :: func
+ character(len=240) :: molden, fchname
+ character(len=240), intent(in) :: gbwname
+ logical, intent(in) :: dft
+
+ call find_specified_suffix(gbwname, '.gbw', i)
+ molden = gbwname(1:i-1)//'.molden'
+ fchname = gbwname(1:i-1)//'.fch'
+ call gbw2molden(gbwname)
+ call molden2fch_wrap(molden, fchname, 'orca', .false.)
+ call fch2rest_wrap(fchname, dft, func)
+ call delete_files(2, [molden,fchname])
+end subroutine gbw2rest
 
 ! wrapper for molden2fch
 subroutine molden2fch_wrap(molden, fchname, prog, natorb)
@@ -917,17 +960,17 @@ subroutine gvb_exclude_XH_A_wrap(datname, gmsname, reverted, new_inp)
   buf = TRIM(buf)//' r' ! reverted use of this utility
  end if
 
- buf = TRIM(buf)//' >'//TRIM(txtname)//" 2>&1"
- call run_command(TRIM(buf), .true., .true.)
+ buf = TRIM(buf)//' >'//TRIM(txtname)
+ call run_command(TRIM(buf), .false., .true.)
 
- open(newunit=fid,file=txtname,status='old',position='rewind')
+ open(newunit=fid,file=TRIM(txtname),status='old',position='rewind')
  do i = 1, 3
   read(fid,'(A)') buf
   write(6,'(A)') TRIM(buf)
  end do ! for i
  close(fid,status='delete')
 
- i = INDEX(buf, ':')
+ call find_specified_suffix(buf, ':', i)
  read(buf(i+1:),*) new_inp
 end subroutine gvb_exclude_XH_A_wrap
 

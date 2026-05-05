@@ -1,10 +1,19 @@
-MOKIT 1.2.8rc1 (Apr 8, 2026)
+MOKIT 1.2.8rc2 (May 4, 2026)
 ------------------------
 Fixes
+* fix command line argument bug in subroutine gvb_exclude_XH_A_wrap (introduced in 1.2.7rc20)
 * fix DF-MP2 frozen core setting when MP2_prog=PySCF
+Features
+* add get_mf_from_gbw in mokit/lib/fch2pyscf.py
+* add load_mol_from_gbw in mokit/lib/gaussian.py
+* add subroutine gbw2rest in mokit/src/util_wrapper.f90
+* add spin-pure GP interface to OpenMolcas
 Improvement
+* automatically add frozen-core option in fch2rest when MP2/DH is used
+* add GVB analytical gradient interfaces for GVB_prog=Gamess/Gaussian/QChem
 * using STC-RI-CCSD amplitudes as initial guess of (RI-)CCSD if STC-CC library installed
 Re-factor and removal
+* move subroutine find_irel_in_fch from read_fch.f90 to string_manipulate.f90
 * localize all valence occ. MOs and construct antibonding MOs when npair_wish>npair in the UHF case
 
 MOKIT 1.2.7 (Mar 24, 2026)

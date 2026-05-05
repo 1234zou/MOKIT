@@ -13,8 +13,16 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=8), parameter :: version = '1.2.8rc1'
- character(len=11), parameter :: date = '2026-Apr-8'
+ character(len=8), parameter :: version = '1.2.8rc2'
+ character(len=11), parameter :: date = '2026-May-4'
+
+!contains
+!
+! subroutine c_sleep(seconds) bind(C, name="sleep")
+!  use iso_c_binding, only: c_int
+!  implicit none
+!  integer(c_int), value :: seconds
+! end subroutine c_sleep
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -522,9 +530,11 @@ subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
  integer, intent(in) :: ival
 !f2py intent(in) :: ival
  character(len=10) :: str
- character(len=240) :: buf, inpname1
  character(len=10), intent(in) :: section, key
 !f2py intent(in) :: section, key
+ character(len=48), parameter :: error_warn = 'ERROR in subroutine modify_key_i&
+                                              &val_in_gms_inp: '
+ character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 !f2py intent(in) :: inpname
 
@@ -532,6 +542,7 @@ subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ str = ' '
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -542,8 +553,7 @@ subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine modify_key_ival_in_gms_inp: no '"//&
-                   TRIM(section)//"' found"
+  write(6,'(/,A)') error_warn//'no "'//TRIM(section)//'" found'
   write(6,'(A)') 'in file '//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
@@ -552,8 +562,7 @@ subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
 
  i = INDEX(buf, TRIM(key), back=.true.)
  if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine modify_key_ival_in_gms_inp: no '"//&
-                   TRIM(key)//"' found"
+  write(6,'(/,A)') error_warn//'no "'//TRIM(key)//'" found'
   write(6,'(A)') 'in file '//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
@@ -574,6 +583,67 @@ subroutine modify_key_ival_in_gms_inp(inpname, section, key, ival)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine modify_key_ival_in_gms_inp
+
+! Modify the value of a keyword in a section in a GAMESS .inp file. The value
+! must be string/characters. For example, section='$CONTRL', key='RUNTYP',
+! sval='GRADIENT'
+subroutine modify_key_str_in_gms_inp(inpname, section, key, sval)
+ implicit none
+ integer :: i, j, k, fid, fid1, RENAME
+ character(len=10) :: str
+ character(len=10), intent(in) :: section, key, sval
+!f2py intent(in) :: section, key, sval
+ character(len=47), parameter :: error_warn = 'ERROR in subroutine modify_key_s&
+                                              &tr_in_gms_inp: '
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ str = ' '
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  read(buf,*) str
+  if(TRIM(str) == TRIM(section)) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'no "'//TRIM(section)//'" found'
+  write(6,'(A)') 'in file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ i = INDEX(buf, TRIM(key), back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') error_warn//'no "'//TRIM(key)//'" found'
+  write(6,'(A)') 'in file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ k = LEN_TRIM(key)
+ j = INDEX(buf(i+k+1:), ' ')
+ write(fid1,'(A)') buf(1:i+k)//TRIM(sval)//TRIM(buf(i+j+k:))
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine modify_key_str_in_gms_inp
 
 ! modify memory in a given PSI4 input file
 ! Note: input mem is in unit GB
@@ -936,6 +1006,7 @@ end subroutine del_hyphen_for_elem_in_basfile
 function get_mokit_root() result(mokit_root)
  implicit none
  integer :: i, fid
+ character(len=34), parameter :: error_warn='ERROR in function get_mokit_root: '
  character(len=240) :: home, mokit_root
  character(len=249) :: mokitrc
  logical :: alive
@@ -964,14 +1035,12 @@ function get_mokit_root() result(mokit_root)
   close(fid)
 
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in function get_mokit_root: failed to read file ~/&
-                    &.mokitrc'
+   write(6,'(/,A)') error_warn//'failed to read the file ~/.mokitrc'
    stop
   end if
 
   if(LEN_TRIM(mokit_root) == 0) then
-   write(6,'(/,A)') 'ERROR in function get_mokit_root: invalid environment va&
-                    &riable $MOKIT_ROOT.'
+   write(6,'(/,A)') error_warn//'invalid environment variable $MOKIT_ROOT.'
    stop
   end if
  end if
@@ -989,12 +1058,9 @@ subroutine add_mokit_path_to_genbas(basname)
  character(len=480) :: buf = ' '
  logical :: alive(9)
 
- sbuf = ' '
- !mokit_root = ' '
- !call getenv('MOKIT_ROOT', mokit_root)
  mokit_root = get_mokit_root()
+ sbuf = ' '
  basname1 = TRIM(basname)//'.t'
-
  open(newunit=fid,file=TRIM(basname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(basname1),status='replace')
 
@@ -2118,4 +2184,71 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
   rotype = .true.
  end if
 end subroutine find_dftname_in_fch
+
+! check whether there exists DKH/X2C keywords in a specified .fch(k) file
+subroutine find_irel_in_fch(fchname, irel)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: irel
+!f2py intent(out) :: irel
+! -3: X2C, i.e. sf-x2c1e | -2: RESC
+! -1: no relativity      |  0: DKH 0th-order
+!  2: DKH2               |  4: DKH4 with SO
+ character(len=61) :: buf
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ character(len=610) :: longbuf
+ logical :: alive(7)
+
+ irel = -1 ! default: no relativity
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:5)=='Route' .or. buf(1:6)=='Charge') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine find_irel_in_fch: neither 'Route' nor '&
+                   &Charge' is found"
+  write(6,'(A)') 'in file '//TRIM(fchname)
+  close(fid)
+  stop
+ end if
+
+ if(buf(1:6) == 'Charge') then ! no 'Route' found
+  close(fid)
+  return
+ end if
+
+ longbuf = ' '
+ do i = 1, 10
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'Charge') exit
+  longbuf = TRIM(longbuf)//TRIM(buf)
+ end do ! for i
+ close(fid)
+
+ call upper(longbuf)
+
+ alive = [(index(longbuf,'DKH0')>0), (index(longbuf,'DKHSO')>0), &
+          (index(longbuf,'DKH')>0 .and. index(longbuf,'NODKH')==0), &
+          (index(longbuf,'DKH2')>0), (index(longbuf,'DOUGLASKROLLHESS')>0), &
+          (index(longbuf,'RESC')>0), (index(longbuf,'X2C')>0)]
+
+ if(alive(1)) then      ! DKH0
+  irel = 0
+ else if(alive(2)) then ! DKH4, DKHSO
+  irel = 4
+ else if(alive(6)) then ! RESC
+  irel = -2
+ else if(alive(7)) then ! X2C
+  irel = -3
+ else if(alive(3) .or. alive(4) .or. alive(5)) then ! DKH2
+  irel = 2
+ else
+  irel = -1             ! no relativity
+ end if
+end subroutine find_irel_in_fch
 

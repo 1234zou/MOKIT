@@ -110,7 +110,7 @@ end subroutine delete_files_in_path
 
 subroutine require_gjf_suffix(gjfname)
  implicit none
- integer :: i, k
+ integer :: k
  character(len=40), parameter :: error_warn='ERROR in subroutine require_gjf_suffix: '
  character(len=240), intent(in) :: gjfname
 
@@ -120,17 +120,9 @@ subroutine require_gjf_suffix(gjfname)
   stop
  end if
 
- if(gjfname(k-3:k) == '.gjf') then
-  i = INDEX(gjfname(1:k), '.')
-  if(i < k-3) then
-   write(6,'(/,A)') error_warn//'more than one dot "." is found in'
-   write(6,'(A)') 'filename '//gjfname(1:k)
-   write(6,'(A)') 'Only one dot is allowed.'
-   stop
-  end if
- else
+ if(gjfname(k-3:k) /= '.gjf') then
   write(6,'(/,A)') error_warn//'".gjf" suffix is required.'
-  write(6,'(A)') 'gjfname='//gjfname(1:k)
+  write(6,'(A)') 'Input gjfname='//gjfname(1:k)
   stop
  end if
 end subroutine require_gjf_suffix
@@ -280,8 +272,8 @@ subroutine move_file(fname, dirname)
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine move_file: failed to move file to the s&
                    &pecified directory.'
-  write(6,'(A)') 'fname='//TRIM(fname)
-  write(6,'(A)') 'dirname='//TRIM(dirname)
+  write(6,'(A)') 'fname = "'//TRIM(fname)//'"'
+  write(6,'(A)') 'dirname = "'//TRIM(dirname)//'"'
   stop
  end if
 end subroutine move_file

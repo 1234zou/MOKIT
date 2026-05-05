@@ -385,7 +385,7 @@ subroutine do_cas(scf)
   call submit_molcas_job(inpname, mem, nproc, molcas_omp)
 
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
-  call orb2fch_wrap(orbname, casnofch, .true.) ! transfer NOs from .dat to .fch
+  call orb2fch_wrap(orbname, casnofch, .true., .false., 0)
   ! OpenMolcas CASSCF NOs may not be in ascending order, sort them
   call sort_no_by_noon(casnofch, ndb+1, n_pocc)
 
@@ -787,7 +787,8 @@ subroutine prt_cas_gms_inp(inpname, ncore, scf)
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: scf
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname1),status='replace')
 

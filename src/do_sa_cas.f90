@@ -1094,10 +1094,10 @@ subroutine copy_nto_from_orb2fch(hf_fch, nstate)
   call copy_file(hf_fch, hole_fch, .false.)
 
   call check_molcas_nto_file_exist(part_orb)
-  call orb2fch_wrap(part_orb, part_fch, .true.)
+  call orb2fch_wrap(part_orb, part_fch, .true., .false., 0)
 
   call check_molcas_nto_file_exist(hole_orb)
-  call orb2fch_wrap(hole_orb, hole_fch, .true.)
+  call orb2fch_wrap(hole_orb, hole_fch, .true., .false., 0)
 
   call delete_files(2, [part_orb, hole_orb])
  end do ! for i

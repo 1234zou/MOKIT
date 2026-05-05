@@ -5,47 +5,73 @@
 
 program main
  implicit none
- integer :: i
+ integer :: narg, npair
  character(len=3) :: str = ' '
+ character(len=26), parameter :: error_warn = 'ERROR in program orb2fch: '
  character(len=240) :: fchname, orbname
- logical :: prt_no
+ logical :: gp, prt_no
 
- i = iargc()
- if(.not. (i==2 .or. i==3)) then
-  write(6,'(/,A)') ' ERROR in program orb2fch: wrong command line arguments!'
+ narg = iargc()
+ if(narg<2 .or. narg>4) then
+  write(6,'(/,1X,A)')error_warn//'wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (RHF)   : orb2fch a.ScfOrb a.fch'
   write(6,'(A)')   ' Example 2 (UHF)   : orb2fch a.UhfOrb a.fch'
   write(6,'(A)')   ' Example 3 (CAS)   : orb2fch a.RasOrb a.fch'
   write(6,'(A)')   ' Example 4 (UNO)   : orb2fch a.UnaOrb a.fch -no'
-  write(6,'(A,/)') ' Example 5 (CAS NO): orb2fch a.RasOrb.1 a.fch -no'
+  write(6,'(A)')   ' Example 5 (CAS NO): orb2fch a.RasOrb.1 a.fch -no'
+  write(6,'(A,/)') ' Example 6 (GP NO) : orb2fch ben.RasOrb.1 ben.fch -gp 3'
   stop
  end if
 
- fchname = ' '; orbname = ' '
+ npair = 0; gp = .false.; prt_no = .false.; fchname = ' '; orbname = ' '
  call getarg(1, orbname)
  call require_file_exist(orbname)
 
  call getarg(2, fchname)
  call require_file_exist(fchname)
 
- prt_no = .false.
- if(i == 3) then
+ if(narg > 2) then
   call getarg(3, str)
-  if(str /= '-no') then
-   write(6,'(/,A)') "ERROR in subroutine orb2fch: the 3rd argument is wrong! O&
-                    &nly '-no' is accepted."
-   stop
-  else
+  select case(TRIM(str))
+  case('-no') ! copy natural orbital occupation numbers into .fch
    prt_no = .true.
-  end if
+   if(narg > 3) then
+    write(6,'(/,A)') error_warn//'no more argument is accepted when'
+    write(6,'(A)') '"-no" is specified.'
+    stop
+   end if
+  case('-gp') ! transform GP NOs from .xxxOrb to .fch
+   gp = .true.; prt_no = .true.
+   if(narg == 4) then
+    call getarg(4, str)
+    read(str,*) npair ! < 1000 pairs due to length of str
+    if(npair < 0) then
+     write(6,'(/,A)') error_warn//'npair>=0 is required!'
+     write(6,'(A,I0)') 'But got npair=', npair
+     stop
+    else if(npair == 0) then
+     gp = .false. ! degrade to a R(O)HF calculation
+    end if
+   else ! narg /= 4
+    write(6,'(/,A)') error_warn//'when "-gp" is specified, the number of'
+    write(6,'(A)') 'pairs must also be specified. For example,'
+    write(6,'(A)') ' orb2fch ben.RasOrb.1 ben.fch -gp 3'
+    write(6,'(A)') ' orb2fch xxx.RasOrb.1 xxx.fch -gp 0'
+    stop
+   end if
+  case default
+   write(6,'(/,A)') error_warn//'the 3rd argument is wrong! Currently'
+   write(6,'(A)') 'only "-no" or "-gp" is accepted. But got "'//str//'"'
+   stop
+  end select
  end if
 
- call orb2fch(orbname, fchname, prt_no)
+ call orb2fch(orbname, fchname, prt_no, gp, npair)
 end program main
 
 ! read the MOs in orbital file of OpenMolcas and adjust its d,f,g,h functions
 !  order to that of Gaussian
-subroutine orb2fch(orbname, fchname, prt_no)
+subroutine orb2fch(orbname, fchname, prt_no, gp, npair)
  implicit none
  integer :: i, j, k, m, length
  integer :: na, nb, nbf, nif, nbf0, nbf1
@@ -54,14 +80,33 @@ subroutine orb2fch(orbname, fchname, prt_no)
  integer, allocatable :: shell_type(:), shell2atom_map(:)
  integer, allocatable :: idx(:), idx2(:), d_mark(:), f_mark(:), g_mark(:), &
   h_mark(:), i_mark(:)
- character(len=240), intent(in) :: orbname, fchname
- ! orbname is one of .ScfOrb, .RasOrb, .RasOrb.1, .UnaOrb, .UhfOrb file of OpenMolcas
+ integer, intent(in) :: npair
+ real(kind=8) :: rtmp
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), occ_num(:), norm(:)
- logical :: uhf, sph
- logical, intent(in) :: prt_no
+ character(len=29), parameter :: error_warn = 'ERROR in subroutine orb2fch: '
+ character(len=240), intent(in) :: orbname, fchname
+ ! orbname is one of .ScfOrb/.RasOrb/.RasOrb.1/.UnaOrb/.UhfOrb file of OpenMolcas
+ logical :: uhf, sph, alter
+ logical, intent(in) :: prt_no, gp
 
  call check_uhf_in_fch(fchname, uhf)
+ if(uhf .and. gp) then
+  write(6,'(/,A)') error_warn//'UHF and GP are both activated.'
+  write(6,'(A)') 'This is not allowed since Unrestricted GP is not supported.'
+  write(6,'(A)') 'orbname='//TRIM(orbname)
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+ ! TODO: gp=.true. is not tested with mult > 1
+
  call read_na_and_nb_from_fch(fchname, na, nb)
+ if(gp .and. npair>nb) then
+  write(6,'(/,A)') error_warn//'the number of pairs is too large.'
+  write(6,'(2(A,I0))') 'nb=', nb, ', npair=', npair
+  write(6,'(A)') 'fchname='//TRIM(fchname)
+  stop
+ end if
+
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  nbf0 = nbf ! make a copy of nbf
 
@@ -90,11 +135,12 @@ subroutine orb2fch(orbname, fchname, prt_no)
 
  ! check if any spherical functions
  if(ANY(shell_type<-1) .and. ANY(shell_type>1)) then
-  write(6,'(/,A)') 'ERROR in subroutine orb2fch: mixed spherical harmonic/Carte&
-                   &sian functions detected.'
-  write(6,'(A)') 'You probably used a basis set like 6-31G(d) in Gaussian. Its&
-                 & default setting is (6D,7F).'
-  write(6,'(A)') "You need to add '5D 7F' or '6D 10F' keywords in Gaussian."
+  write(6,'(/,A)') error_warn//'mixed spherical harmonic/Cartesian functions'
+  write(6,'(A)') 'detected. You probably used a basis set like 6-31G(d) in Gaus&
+                 &sian. Its default'
+  write(6,'(A)') 'setting is (6D,7F). You need to add `5D 7F` (recommended) or &
+                 &`6D 10F` keywords'
+  write(6,'(A)') 'into gjf.'
   stop
  else if( ANY(shell_type>1) ) then
   sph = .false.
@@ -186,15 +232,57 @@ subroutine orb2fch(orbname, fchname, prt_no)
  nbf = nbf0
  allocate(idx2(nbf), coeff2(nbf,nif))
  forall(i = 1:nbf) idx2(idx(i)) = i
- forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)/norm(idx2(i))
- deallocate(idx, idx2, norm, coeff)
+ deallocate(idx)
+ if(sph) then
+  forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)
+ else
+  forall(i=1:nbf, j=1:nif) coeff2(i,j) = coeff(idx2(i),j)/norm(idx2(i))
+ end if
+ deallocate(idx2, norm, coeff)
 
-! print MOs into .fch(k) file
- if(uhf) then
+ ! Permute GP NOs and NOONs from GAMESS order to Gaussian order.
+ ! GAMESS order: bonding1, antibonding1, bonding2, antibonding2, ...
+ ! Gaussian order: bonding1, bonding2, antibonding2, antibonding1, ...
+ ! And make N(bonding1) > N(bonding2), N(antibonding1) < N(antibonding2)
+ if(gp .and. npair>0) then
+  k = 2*npair
+  allocate(idx(k))
+  do i = 1, npair, 1
+   idx(i) = 2*i - 1
+   idx(npair+i) = k - 2*i + 2
+  end do ! for i
+  m = nb - npair
+  allocate(norm(k))
+  do i = 1, k, 1
+   norm(i) = occ_num(m+idx(i))
+  end do ! for i
+  do while(.true.)
+   alter = .false.
+   do i = 1, npair-1, 1
+    if(norm(i) < norm(i+1)) then
+     rtmp=norm(i); norm(i)=norm(i+1); norm(i+1)=rtmp
+     rtmp=norm(k-i+1); norm(k-i+1)=norm(k-i); norm(k-i)=rtmp
+     j=idx(i); idx(i)=idx(i+1); idx(i+1)=j
+     j=idx(k-i+1); idx(k-i+1)=idx(k-i); idx(k-i)=j
+     alter = .true.
+    end if
+   end do ! for i
+   if(.not. alter) exit
+  end do ! for while
+  occ_num(m+1:m+k) = norm
+  deallocate(norm)
+  allocate(coeff(nbf,k), source=coeff2(:,m+1:m+k))
+  do i = 1, k, 1
+   coeff2(:,m+i) = coeff(:,idx(i))
+  end do ! for i
+  deallocate(coeff)
+ end if
+
+ if(uhf) then ! UHF-type
   nif = nif/2
   call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2(:,1:nif))
   call write_mo_into_fch(fchname, nbf, nif, 'b', coeff2(:,nif+1:2*nif))
- else
+ else         ! not UHF-type
   if(prt_no) then
    call write_eigenvalues_to_fch(fchname, nif, 'a', occ_num, .true.)
    call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
@@ -202,7 +290,6 @@ subroutine orb2fch(orbname, fchname, prt_no)
    call write_mo_into_fch(fchname, nbf, nif, 'a', coeff2)
   end if
  end if
-! print done
 
  deallocate(coeff2)
  if(allocated(occ_num)) deallocate(occ_num)

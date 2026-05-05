@@ -48,6 +48,7 @@ module mol
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
  real(kind=8) :: uhf_ssquare=0d0 ! UHF <S^2>
  real(kind=8) :: gvb_e     = 0d0 ! GVB energy
+ real(kind=8) :: gp_e      = 0d0 ! GP energy
  real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
  real(kind=8) :: caspt2_e  = 0d0 ! CASPT2/DMRG-CASPT2 energy
@@ -176,6 +177,7 @@ module mr_keyword
  ! whether to perform UHF using initial guess constructed from fragments
 
  logical :: gvb     = .false.
+ logical :: gp      = .false.
  logical :: suhf    = .false.
  logical :: casci   = .false.
  logical :: casscf  = .false.
@@ -201,11 +203,13 @@ module mr_keyword
  logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
  logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
  logical :: force = .false.       ! whether this is a force calculation
+ logical :: gvb_force = .false.   ! whether to calculate GVB force
+ logical :: gp_force = .false.    ! whether to calculate GP force
  logical :: casci_force = .false. ! whether to calculate CASCI force
  logical :: casscf_force = .false.! whether to calculate CASSCF force
+ logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: caspt2_force = .false.! whether to calculate CASPT2 force
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
- logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: block_mpi = .false.   ! OpenMP or MPI calling the Block program
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
@@ -238,6 +242,7 @@ module mr_keyword
 
  character(len=10) :: hf_prog      = 'gaussian'
  character(len=10) :: gvb_prog     = 'gamess'
+ character(len=10) :: gp_prog      = 'openmolcas'
  character(len=10) :: suhf_prog    = 'exscf'
  character(len=10) :: casci_prog   = 'pyscf'
  character(len=10) :: casscf_prog  = 'pyscf'
@@ -441,10 +446,10 @@ end subroutine check_gms_path
   end if
 
   select case(TRIM(method))
-  case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt2',&
-       'caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd','casscf', &
-       'dmrgscf','casci','dmrgci','gvb','ficmrccsd','fic-mrccsd','mkmrccsd',  &
-       'bwmrccsd','bccc2b','bccc3b')
+  case('gp','mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2', &
+       'caspt2','caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd', &
+       'casscf','dmrgscf','casci','dmrgci','gvb','ficmrccsd','fic-mrccsd', &
+       'mkmrccsd','bwmrccsd','bccc2b','bccc3b')
    uno = .true.; gvb = .true.
   case default
    write(6,'(/,A)') error_warn//"specified method '"//TRIM(method)//"'"
@@ -510,6 +515,8 @@ end subroutine check_gms_path
    mrcc = .true.; mrcc_type = 6
   case('bccc3b')
    mrcc = .true.; mrcc_type = 7
+  case('gp')
+   gp = .true.
   case('gvb')
   end select
 
@@ -1506,26 +1513,35 @@ subroutine check_kywd_compatible()
  case('orca','nwchem')
  case default
   write(6,'(A)') error_warn
-  write(6,'(A)') 'Currently the MRCC method is only supported by ORCA/NWChem. &
-                 & But got MRCC_prog='//TRIM(mrcc_prog)
+  write(6,'(A)') 'Currently the MRCC method is only supported by ORCA/NWChem. B&
+                 &ut got'
+  write(6,'(A)') 'MRCC_prog='//TRIM(mrcc_prog)
   stop
  end select
 
  if(force) then
-  if(casci .and. (.not.dyn_corr)) casci_force = .true.
-  if(casscf .and. (.not.dyn_corr)) casscf_force = .true.
-  if(caspt2) caspt2_force = .true.
-  if(nevpt2) nevpt2_force = .true.
-  if(mcpdft) mcpdft_force = .true.
-  if(TRIM(casscf_prog) == 'psi4') then
-   write(6,'(/,A)') error_warn
-   write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Pleas&
-                  &e use another CASSCF_prog.'
-   stop
-  end if
-  if(sa_cas) then
-   write(6,'(/,A)') error_warn//'Force is incompatible with Nstates.'
-   stop
+  if(dyn_corr) then
+   if(mcpdft) mcpdft_force = .true.
+   if(caspt2) caspt2_force = .true.
+   if(nevpt2) nevpt2_force = .true.
+  else ! no dynamic correlation calculation
+   if(casscf) then
+    casscf_force = .true.
+    if(TRIM(casscf_prog) == 'psi4') then
+     write(6,'(/,A)') error_warn
+     write(6,'(A)') 'CASSCF analytical gradients are not supported in PSI4. Pleas&
+                    &e use another CASSCF_prog.'
+     stop
+    end if
+    if(sa_cas) then
+     write(6,'(/,A)') error_warn//'Force is incompatible with Nstates currently.'
+     stop
+    end if
+   else ! casscf = .false.
+    if(gvb .and. (.not.gp) .and. (.not.casci)) gvb_force = .true.
+    if(gp) gp_force = .true.
+    if(casci) casci_force = .true.
+   end if
   end if
  end if
 
@@ -1681,7 +1697,6 @@ subroutine read_program_path()
  write(6,'(/,A)') 'HOST '//TRIM(hostname)//', '//TRIM(data_string)
 
  write(6,'(/,A)') 'Read program paths from environment variables:'
- !call getenv('MOKIT_ROOT', mokit_root)
  mokit_root = get_mokit_root()
  write(6,'(A)') 'MOKIT_ROOT  = '//TRIM(mokit_root)
 

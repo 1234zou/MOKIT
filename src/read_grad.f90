@@ -26,7 +26,7 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
   i = LEN_TRIM(outname)
   select case(outname(i-3:i))
   case('.dat')
-   call read_grad_from_dat(outname, natom, grad)
+   call read_grad_from_gms_dat(outname, natom, grad)
   case('.gms')
    call read_grad_from_gms_gms(outname, natom, grad)
   case default
@@ -46,7 +46,7 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
  case('pyscf')
   call read_grad_from_pyscf_out(outname, natom, grad)
  case('qchem')
-  call read_grad_from_qchem131(natom, grad, .true.)
+  call read_grad_from_qchem131(outname, natom, grad, .true.)
  case('openmolcas')
   call read_grad_from_molcas_out(outname, natom, grad)
  case default
@@ -99,9 +99,10 @@ subroutine read_grad_from_fch(fchname, natom, grad)
 
  grad = 0d0
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)') buf
-  if(buf(1:26) == 'Opt point       1 Gradient') exit
+  if(buf(1:18)=='Cartesian Gradient' .or. buf(1:26)=='Opt point       1 Gradient') exit
  end do ! for while
 
  read(fid,'(5(1X,ES15.8))') (grad(i),i=1,3*natom)
@@ -189,7 +190,7 @@ subroutine read_grad_from_gms_gms(outname, natom, grad)
 end subroutine read_grad_from_gms_gms
 
 ! read Cartesian gradient from a given GAMESS .dat file
-subroutine read_grad_from_dat(datname, natom, grad)
+subroutine read_grad_from_gms_dat(datname, natom, grad)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
@@ -215,7 +216,7 @@ subroutine read_grad_from_dat(datname, natom, grad)
  end do ! for i
 
  close(fid)
-end subroutine read_grad_from_dat
+end subroutine read_grad_from_gms_dat
 
 ! read Cartesian gradient from a given (Open)Molcas .out file
 subroutine read_grad_from_molcas_out(outname, natom, grad)
@@ -412,21 +413,27 @@ subroutine read_grad_from_psi4_out(outname, natom, grad)
  close(fid)
 end subroutine read_grad_from_psi4_out
 
-subroutine read_grad_from_qchem131(natom, grad, deleted)
+! read nuclear gradients from Q-Chem 131.0 binary file
+subroutine read_grad_from_qchem131(outname, natom, grad, deleted)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
  real(kind=8), intent(out) :: grad(3*natom)
+ character(len=240) :: file131
+ character(len=240), intent(in) :: outname
  logical, intent(in) :: deleted
 
+ call find_specified_suffix(outname, '.out', i)
+ file131 = outname(1:i-1)//'.131.0'
+
  grad = 0d0
- open(newunit=fid,file='131.0',status='old',access='stream')
+ open(newunit=fid,file=TRIM(file131),status='old',access='stream')
  read(fid,iostat=i) grad
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_grad_from_qchem_out: failed to rea&
-                   &d nuclear gradients'
-  write(6,'(A)') 'from file 131.0'
+                   &d nuclear'
+  write(6,'(A)') 'gradients from file '//TRIM(file131)
   close(fid)
   stop
  else ! read successfully

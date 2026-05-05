@@ -169,9 +169,10 @@ end subroutine fch2rest
 ! path of the auxiliary basis set, this subroutine is seldom used.
 subroutine find_rest_basis_set_pool(path)
  implicit none
- integer :: i, k, fid, SYSTEM
+ integer :: k, fid
  character(len=30) :: tmpfile
- character(len=240) :: buf, home, rest_home
+ character(len=240) :: home, rest_home
+ character(len=260) :: buf
  character(len=480), intent(out) :: path
 
  path = ' ' ! initialization
@@ -188,7 +189,8 @@ subroutine find_rest_basis_set_pool(path)
  ! Otherwise check the path from `which rest`
  call get_a_random_int(k)
  write(tmpfile,'(A,I0)') 'rest_bas.', k
- i = SYSTEM('which rest >'//TRIM(tmpfile)//' 2>&1')
+ buf = 'which rest >'//TRIM(tmpfile)//' 2>&1'
+ call run_command(TRIM(buf), .false., .false.)
 
  open(newunit=fid,file=TRIM(tmpfile),status='old',position='rewind')
  read(fid,'(A)') buf
@@ -214,11 +216,22 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  integer, intent(in) :: disp_type, charge, mult, natom
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=2), intent(in) :: elem(natom)
+ character(len=15) :: dftname1
  character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: inpname
  character(len=240) :: basename
+ logical :: mp_or_dh
  logical, intent(in) :: sph, uhf, ghost(natom)
- 
+
+ mp_or_dh = .false. ! not MP2 or Double-hybrid functional
+ dftname1 = dftname
+ call upper(dftname1)
+ select case(TRIM(dftname1))
+ case('MP2','XYGJOS','XYG3','XYG7','XDH-PBE0','SBGE2','ZRPS','SCSRPA','R-XDH7',&
+      'RPA@PBE','RPA@B3LYP')
+  mp_or_dh = .true.
+ end select
+
  call find_specified_suffix(inpname, '.in', i)
  basename = inpname(1:i-1)
 
@@ -238,6 +251,14 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  else
   write(fid,'(2X,A)') 'xc = "'//TRIM(dftname)//'"'
  end if
+
+ ! Note:
+ ! 1) By default, REST does not freeze any core orbitals in MP2/DH calculations.
+ ! 2) It seems that currently REST does not adopt the most commonly used frozen-
+ !  core option (i.e. directly sets the number of frozen core orbitals or has a
+ !  set of built-in frozen core settings). So here we set `21` which resembles
+ !  the number of frozen core orbitals in other quantum chemistry programs.
+ if(mp_or_dh) write(fid,'(2X,A)') 'frozen_core_postscf = 21'
 
  if(uhf) then
   write(fid,'(2X,A)') 'spin_polarization = true'

@@ -1,4 +1,4 @@
-! written by jxzou at 20260325: modern and advacned KS-DFT calculations
+! first written by jxzou at 20260325: modern and advanced DFT calculations
 
 program main
  use mokit_version_info, only: version, date

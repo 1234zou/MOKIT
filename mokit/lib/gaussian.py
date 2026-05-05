@@ -143,6 +143,30 @@ def load_mol_from_molden(molden, program=None):
     return mol
 
 
+def load_mol_from_gbw(gbwname):
+    '''
+    Load the PySCF mol object from a specified ORCA .gbw file. This function
+    will firstly call the utility `orca_2mkl` to convert .gbw -> .molden, then
+    call the function load_mol_from_molden(). Due to the limitation of MOLDEN
+    format, the generated .molden file does not contain any ECP/PP data. In the
+    future, we will use the ORCA .json file as an alternative solution, and
+    therefore solving the ECP/PP data problem.
+
+    Simple usage::
+    >>> from pyscf import scf
+    >>> from mokit.lib.gaussian import load_mol_from_gbw
+    >>> mol = load_mol_from_gbw(gbwname='benzene.gbw')
+    >>> mf = scf.RHF(mol).run()
+    '''
+    proname = gbwname[0:gbwname.rindex('.gbw')]
+    molden = proname+'.molden.input'
+    with os.popen('orca_2mkl '+proname+' -molden') as run:
+        null = run.read()
+    mol = load_mol_from_molden(molden, program='orca')
+    os.remove(molden)
+    return mol
+
+
 def load_cell_from_fch(fchname):
     '''
     Load the PySCF cell object from a specified Gaussian .fch(k) file. This file

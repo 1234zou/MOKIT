@@ -85,6 +85,7 @@ subroutine automr(fname)
  call do_minimal_basis_gvb() ! GVB/STO-6G, only valid for ist=6
  call get_paired_LMO()
  call do_gvb()        ! GVB
+ call do_gp()         ! (spin-pure) GP
  call do_cas(.false.) ! CASCI/DMRG-CASCI
  call do_cas(.true.)  ! CASSCF/DMRG-CASSCF, including SS-CASSCF
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2

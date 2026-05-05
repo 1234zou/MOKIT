@@ -26,7 +26,7 @@ Negligible energy loss(usually<1e-6 a.u., for the same wave function method in t
 
 Note that although MOKIT aims to make the multi-reference calculations black-box, the users are still required to have practical experiences of quantum chemistry computations, e.g. familiar with routine DFT calculations in [Gaussian](https://gaussian.com). You are encouraged to learn how to use Gaussian if you are a fresh hand.
 
-Apr 8, 2026
+May 4, 2026
 
 Dependencies
 ------------
@@ -47,6 +47,7 @@ This is the easiest way, but network is required to auto-download the requiremen
 ```
 conda create -n mokit-py311 python=3.11 mokit -c mokit -c conda-forge
 conda activate mokit-py311
+conda install pyscf -c conda-forge # you can install PySCF by the way
 ```
 For Linux x86-64, you can use any version of Python 3.9-3.12. But for MacOS arm64, only 3.11 is available. MacOS users can also [use the homebrew-toolchains](https://doc.mokit.xyz/chap2-2.html#option-2-use-homebrew-toolchains-for-macos-only) to install MOKIT.
 
@@ -186,7 +187,7 @@ Citation
 
    DOI: [10.1021/acs.jctc.8b00854](https://www.doi.org/10.1021/acs.jctc.8b00854); DOI: [10.1021/acs.jpca.0c05216](https://www.doi.org/10.1021/acs.jpca.0c05216).
 
-* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://doc.mokit.xyz/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒他/她在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
+* If you use MOKIT in your work, please cite MOKIT in the main body of your paper. Citing MOKIT only in Supporting Information of your paper is insufficient. EndNote citation files can be found [here](https://gitlab.com/jxzou/mokit/-/tree/master/doc?ref_type=heads). More details and examples of citation can be found in [manual](https://doc.mokit.xyz/chap1-2.html). 您的规范引用是对开发者的极大鼓励。您可以使用MOKIT为其他人做计算（包括代算）甚至是构建AI智能体，但务必提醒用户（或客户）在发表文章时恰当地引用MOKIT和计算中用到的量子化学软件。
 
 * Click [here](https://doc.mokit.xyz/citing.html) to see published papers which cited MOKIT.
 

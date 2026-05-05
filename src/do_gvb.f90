@@ -5,15 +5,16 @@
 ! perform GVB computation (only in Strategy 1,3) using GAMESS/QChem/Gaussian
 subroutine do_gvb()
  use mr_keyword, only: gvb, gvb_prog, ist, eist, sa_cas, readrhf, readuhf, &
-  hf_fch, mo_rhf, npair_wish, fcgvb, onlyXH, excludeXH, localm, LocDocc
+  hf_fch, datname, mo_rhf, npair_wish, fcgvb, onlyXH, excludeXH, localm, LocDocc,&
+  gvb_force
  use mol, only: nbf, nif, ndb, npair, nopen, lin_dep, nacta, nactb, nacte, &
-  nacto, npair0
+  nacto, npair0, natom, grad
  use util_wrapper, only: gvb_exclude_XH_A_wrap
  implicit none
  integer :: i, nvir
  character(len=24) :: data_string = ' '
- character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, datname,&
-                       gmsname, uno_out
+ character(len=240) :: proname, proname1, pair_fch, sort_fch, inpname, outname,&
+  old_dat, uno_out
  logical :: pm_loc
 
  if(.not. gvb) return
@@ -70,19 +71,6 @@ subroutine do_gvb()
   pair_fch = TRIM(proname)//'_uno_asrot.fch'
  end if
 
- select case(TRIM(gvb_prog))
- case('gamess')
-  call do_gvb_gms(proname, pair_fch, .false.)
- case('qchem')
-  call do_gvb_qchem(proname, pair_fch)
- case('gaussian')
-  call do_gvb_gau(proname, pair_fch)
- case default
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//TRIM(gvb_prog)
-  write(6,'(A)') 'Currently supported programs: GAMESS, QChem, Gaussian.'
-  stop
- end select
-
  if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
   if(ist == 6) then
    write(proname1,'(A,I0)') TRIM(proname)//'2gvb',npair
@@ -92,8 +80,29 @@ subroutine do_gvb()
  else ! paired LMOs obtained from associated rotation of UNOs
   write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
  end if
-
  sort_fch = TRIM(proname1)//'_s.fch'
+
+ select case(TRIM(gvb_prog))
+ case('gamess')
+  call do_gvb_gms(proname, pair_fch, .false.)
+  old_dat = TRIM(proname1)//'.dat'
+  outname = TRIM(proname1)//'.gms'
+ case('qchem')
+  call do_gvb_qchem(proname, pair_fch)
+  outname = TRIM(proname1)//'.out'
+ case('gaussian')
+  call do_gvb_gau(proname, pair_fch)
+#ifdef _WIN32
+  outname = TRIM(proname1)//'.out'
+#else
+  outname = TRIM(proname1)//'.log'
+#endif
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine do_gvb: invalid GVB_prog='//TRIM(gvb_prog)
+  write(6,'(A)') 'Currently supported programs: GAMESS, QChem, Gaussian.'
+  stop
+ end select
+
  select case(TRIM(localm))
  case('pm')
   pm_loc = .true.
@@ -117,20 +126,34 @@ subroutine do_gvb()
  ! exclude X-H bonds with little multi-reference characters from the GVB active
  ! space
  if(excludeXH) then
-  datname = TRIM(proname1)//'.dat'
-  gmsname = TRIM(proname1)//'.gms'
-  call gvb_exclude_XH_A_wrap(datname, gmsname, onlyXH, inpname)
+  call gvb_exclude_XH_A_wrap(old_dat, outname, onlyXH, inpname)
   call get_npair_from_inpname(inpname, i)
   ndb = ndb + npair - i
   npair = i
   if(fcgvb) call add_frz2gms_inp(inpname)
   call do_gvb_gms(inpname, sort_fch, .true.)
+  call find_specified_suffix(inpname, '.inp', i)
+  outname = inpname(1:i-1)//'.gms'
  end if
 
  ! determine the number of active orbitals/electrons in subsequent CAS/DMRG
  ! computations
  nacta = npair0 + nopen; nactb = npair0
  nacte = nacta + nactb ; nacto = nacte
+
+ if(gvb_force) then
+  allocate(grad(3*natom))
+  select case(TRIM(gvb_prog))
+  case('gamess')
+   call read_grad_from_output(gvb_prog, datname, natom, grad)
+  case('gaussian')
+   call read_grad_from_fch(sort_fch, natom, grad)
+   write(6,'(/,A)') 'Cartesian gradients (HARTREE/BOHR):'
+   write(6,'(5(1X,ES15.8))') grad
+  case('qchem')
+   call read_grad_from_output(gvb_prog, outname, natom, grad)
+  end select
+ end if
 
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_gvb at '//TRIM(data_string)
@@ -139,13 +162,13 @@ end subroutine do_gvb
 ! perform GVB computation (only in Strategy 1,3) using GAMESS
 subroutine do_gvb_gms(proname, pair_fch, name_determined)
  use mr_keyword, only: ist, mem, nproc, check_gms_path, gms_path, gms_scr_path,&
-  gms_dat_path, datname, mo_rhf, bgchg, chgname, GVB_conv, fcgvb
+  gms_dat_path, datname, mo_rhf, bgchg, chgname, GVB_conv, fcgvb, gvb_force
  use mol, only: ndb, nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2inp_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  real(kind=8) :: unpaired_e
- character(len=10) :: section, key
+ character(len=10) :: section, key, sval
  character(len=240) :: inpname, gmsname
  character(len=240), intent(in) :: proname, pair_fch
  character(len=520) :: longbuf = ' '
@@ -187,6 +210,10 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  i = FLOOR(125d0*DBLE(mem)/DBLE(nproc))
  section = '$SYSTEM'; key = 'MWORDS'
  call modify_key_ival_in_gms_inp(inpname, section, key, i)
+ if(gvb_force) then
+  section = '$CONTRL'; key = 'RUNTYP'; sval = 'GRADIENT'
+  call modify_key_str_in_gms_inp(inpname, section, key, sval)
+ end if
  call add_gvb_conv(inpname, GVB_conv)
  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
 
@@ -200,19 +227,10 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  if(name_determined) write(6,'(A)') 'After excluding inactive X-H pairs from th&
                                     &e original GVB:'
  call read_gvb_energy_from_output('gamess    ', gmsname, gvb_e)
- write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  ! sort the GVB pairs by CI coefficients of the 1st NOs
  write(longbuf,'(A,3(1X,I0))') 'gvb_sort_pairs '//TRIM(datname),ndb,nopen,npair
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_gms: failed to call utility gvb_&
-                   &sort_pairs.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  write(6,'(A)') 'Or maybe there is some unexpected error.'
-  stop
- end if
+ call run_command(TRIM(longbuf), .false., .true.)
 
  ! generate corresponding .fch file from _s.dat file
  i = INDEX(datname, '.dat', back=.true.)
@@ -231,6 +249,7 @@ subroutine do_gvb_gms(proname, pair_fch, name_determined)
  ! update Total SCF Density in .fch(k) file
  call update_density_using_no_and_on(inpname)
 
+ write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
  ! calculate odd/unpaired electron number
  call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
 
@@ -242,39 +261,50 @@ end subroutine do_gvb_gms
 ! TODO: change to variational PP. Current PP uses projection. The NO and NOONs
 ! of variational PP remain to be checked.
 subroutine do_gvb_qchem(proname, pair_fch)
- use mr_keyword, only: mem, nproc, mo_rhf, bgchg, chgname, datname
+ use mr_keyword, only: mem, nproc, mo_rhf, bgchg, dkh2_or_x2c, gvb_force, &
+  chgname, datname
  use mol, only: nopen, npair, npair0, gvb_e
  use util_wrapper, only: fch2qchem_wrap, fch2inp_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, RENAME
  real(kind=8) :: unpaired_e
  real(kind=8), allocatable :: coeff(:,:)
- character(len=240) :: buf, inpname, outname, fchname0, fchname1, fchname, &
-                       pre_fch, gms_inp
+ character(len=14), parameter :: job_type = 'force         '
+ character(len=34), parameter :: error_warn='ERROR in subroutine do_gvb_qchem: '
+ character(len=240) :: proname1, inpname, outname, fchname0, fchname1, fchname,&
+  pre_fch, gms_inp, gradname, qcscratch
  character(len=240), intent(in) :: proname, pair_fch
  character(len=500) :: longbuf
  logical :: alive
 
- if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
-  pre_fch = TRIM(proname)//'_proj_loc_pair.fch'
-  write(buf,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
- else ! paired LMOs obtained from associated rotation of UNOs
-  pre_fch = TRIM(proname)//'_uno_asrot.fch'
-  write(buf,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
+ if(dkh2_or_x2c) then
+  write(6,'(/,A)') error_warn//'DKH2 or X2C is not supported when GVB_prog=QChem.'
+  write(6,'(A)') 'You can try GVB_prog=Gamess/Gaussian.'
+  stop
  end if
 
- inpname = TRIM(buf)//'.in'
- outname = TRIM(buf)//'.out'
- fchname0= TRIM(buf)//'.0.FChk'
- fchname1= TRIM(buf)//'.FChk'
- fchname = TRIM(buf)//'_s.fch'
- datname = TRIM(buf)//'_s.dat'
- gms_inp = TRIM(buf)//'_s.inp'
+ if(mo_rhf) then ! paired LMOs obtained from RHF virtual projection
+  pre_fch = TRIM(proname)//'_proj_loc_pair.fch'
+  write(proname1,'(A,I0)') TRIM(proname)//'_proj_loc_pair2gvb',npair
+ else ! paired LMOs obtained from associated rotation of UNOs
+  pre_fch = TRIM(proname)//'_uno_asrot.fch'
+  write(proname1,'(A,I0)') TRIM(proname)//'_uno_asrot2gvb',npair
+ end if
+
+ inpname = TRIM(proname1)//'.in'
+ outname = TRIM(proname1)//'.out'
+ fchname0= TRIM(proname1)//'.0.FChk'
+ fchname1= TRIM(proname1)//'.FChk'
+ fchname = TRIM(proname1)//'_s.fch'
+ datname = TRIM(proname1)//'_s.dat'
+ gms_inp = TRIM(proname1)//'_s.inp'
+ gradname= TRIM(proname1)//'.131.0'
 
  call fch2qchem_wrap(pair_fch, 1, npair, inpname)
  ! Note: nopen is determined automatically in fch2qchem
 
  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+ if(gvb_force) call add_job_type2qchem_inp(inpname, job_type)
  call modify_memory_in_qchem_inp(inpname, mem)
  call submit_qchem_job(inpname, nproc)
  call delete_file(TRIM(fchname0)) ! O.K. even if fchname0 does not exist
@@ -284,10 +314,10 @@ subroutine do_gvb_qchem(proname, pair_fch)
  ! (thanks to bug report from Dr. Qi Ou)
  inquire(file=TRIM(fchname1),exist=alive)
  if(.not. alive) then
-  fchname1 = TRIM(buf)//'.fchk'
+  fchname1 = TRIM(proname1)//'.fchk'
   inquire(file=TRIM(fchname1),exist=alive)
   if(.not. alive) then
-   write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: fchname1 does not exist.'
+   write(6,'(/,A)') error_warn//'fchname1 does not exist.'
    write(6,'(A)') 'This may be a bug or unexpected version of Q-Chem.'
    write(6,'(A)') 'fchname1 = '//TRIM(fchname1)
    stop
@@ -298,14 +328,7 @@ subroutine do_gvb_qchem(proname, pair_fch)
 
  ! copy NOONs from output file into fch file
  longbuf = 'extract_noon2fch '//TRIM(outname)//' '//TRIM(fchname)
- write(6,'(A)') '$'//TRIM(longbuf)
- i = SYSTEM(TRIM(longbuf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_gvb_qchem: failed to call utility ex&
-                   &tract_noon2fch.'
-  write(6,'(A)') 'Did you delete it or forget to compile it?'
-  stop
- end if
+ call run_command(TRIM(longbuf), .false., .true.)
 
  call fch2inp_wrap(fchname, .true., npair, nopen, .false., .false., .false.)
  i = RENAME(TRIM(gms_inp), TRIM(datname))
@@ -317,8 +340,17 @@ subroutine do_gvb_qchem(proname, pair_fch)
 
  call read_gvb_energy_from_output('qchem     ', outname, gvb_e)
  write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
-
  call calc_unpaired_from_fch(fchname, 2, .false., unpaired_e)
+
+ if(gvb_force) then
+  call getenv('QCSCRATCH', qcscratch)
+#ifdef _WIN32
+  longbuf = TRIM(qcscratch)//'\'//TRIM(proname1)//'\131.0'
+#else
+  longbuf = TRIM(qcscratch)//'/'//TRIM(proname1)//'/131.0'
+#endif
+  call sys_copy_file(TRIM(longbuf), TRIM(gradname), .true.)
+ end if
 
  write(6,'(A)') REPEAT('-',79)
  write(6,'(A)') 'Remark: the GVB-PP in Q-Chem uses coupled-cluster-like formula&
@@ -333,7 +365,8 @@ end subroutine do_gvb_qchem
 
 ! perform GVB computation (only in Strategy 1,3) using Gaussian
 subroutine do_gvb_gau(proname, pair_fch)
- use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, chgname, datname
+ use mr_keyword, only: mem, nproc, gau_path, mo_rhf, bgchg, DKH2, chgname, datname,&
+  gvb_force
  use mol, only: ndb, nopen, npair, npair0, gvb_e
  use util_wrapper, only: unfchk, formchk, add_bgcharge2inp_wrap, fch2inp_wrap
  implicit none
@@ -358,12 +391,11 @@ subroutine do_gvb_gau(proname, pair_fch)
  inpname = TRIM(buf)//'.inp'
  datname = TRIM(buf)//'.dat'
  call unfchk(pair_fch, chkname)
- call prt_gvb_gau_inp(gjfname, mem, nproc, npair)
+ call prt_gvb_gau_inp(gjfname, mem, nproc, npair, DKH2, gvb_force)
  if(bgchg) call add_bgcharge2inp_wrap(chgname, gjfname)
 
  call submit_gau_job(gau_path, gjfname, .true.)
  call read_gvb_energy_from_output('gaussian  ', logname, gvb_e)
- write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
 
  call formchk(chkname, fchname)
  call delete_file(chkname)
@@ -394,17 +426,19 @@ subroutine do_gvb_gau(proname, pair_fch)
                      TRIM(inpname), ndb+1, ndb+nopen+2*npair, nopen, ' -gau'
  call run_command(TRIM(longbuf), .false., .true.)
 
+ write(6,'(/,A,F18.8,1X,A4)') 'E(GVB) = ', gvb_e, 'a.u.'
  call calc_unpaired_from_fch(inpname, 2, .false., unpaired_e)
 end subroutine do_gvb_gau
 
 ! print/create a Gaussian GVB input file
-subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
+subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair, dkh2, force)
  implicit none
  integer :: i, fid
  integer, intent(in) :: mem, nproc, npair
  character(len=2), allocatable :: pair(:)
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
+ logical, intent(in) :: dkh2, force
 
  call find_specified_suffix(gjfname, '.gjf', i)
  chkname = gjfname(1:i-1)//'.chk'
@@ -413,8 +447,16 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  write(fid,'(A)') '%chk='//TRIM(chkname)
  write(fid,'(A,I0,A)') '%mem=',mem,'GB'
  write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(A,I0,A,/)') '#p GVB(',npair,') chkbasis nosymm int=nobasistransfor&
-                         &m guess=read geom=allcheck scf(maxcycle=300)'
+ write(fid,'(A,I0,A)',advance='no') '#p GVB(',npair,') chkbasis nosymm'
+ if(dkh2) then
+  ! point nuclei is used here
+  write(fid,'(A)',advance='no') ' int(nobasistransform,DKH2) iop(3/93=1)'
+ else
+  write(fid,'(A)',advance='no') ' int=nobasistransform'
+ end if
+ if(force) write(fid,'(A)',advance='no') ' force'
+ write(fid,'(A,/)') ' scf(maxcycle=300,NoVarAcc) guess=read geom=allcheck'
+
  allocate(pair(npair))
  pair = ' 2'
  write(fid,'(30A2)') (pair(i),i=1,npair)
@@ -422,6 +464,88 @@ subroutine prt_gvb_gau_inp(gjfname, mem, nproc, npair)
  close(fid)
  deallocate(pair)
 end subroutine prt_gvb_gau_inp
+
+subroutine add_job_type2qchem_inp(inpname, job_type)
+ implicit none
+ integer :: i, k, fid, fid1, RENAME
+ character(len=4) :: str4
+ character(len=7) :: str7
+ character(len=14), intent(in) :: job_type
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+ logical :: found
+
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
+
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ found = .false.
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == '$BASIS') exit
+  k = LEN_TRIM(buf)
+  if(k > 7) then
+   buf = ADJUSTL(buf)
+   str7 = buf(1:7)
+   call upper(str7)
+   if(str7 == 'JOBTYPE') then
+    found = .true.; exit
+   end if
+  end if
+ end do ! for while
+
+ rewind(fid)
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ if(found) then
+  do while(.true.)
+   read(fid,'(A)') buf
+   k = LEN_TRIM(buf)
+   if(k > 7) then
+    buf = ADJUSTL(buf)
+    str7 = buf(1:7)
+    call upper(str7)
+    if(str7 == 'JOBTYPE') exit
+   end if
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  write(fid1,'(A)') 'jobtype '//TRIM(job_type)
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+ else ! jobtype not found
+  do while(.true.)
+   read(fid,'(A)') buf
+   write(fid1,'(A)') TRIM(buf)
+   k = LEN_TRIM(buf)
+   if(k > 3) then
+    buf = ADJUSTL(buf)
+    str4 = buf(1:4)
+    call upper(str4)
+    if(str4 == '$REM') exit
+   end if
+  end do ! for while
+
+  write(fid1,'(A)') 'jobtype '//TRIM(job_type)
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+ end if
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_job_type2qchem_inp
 
 subroutine read_pair_coeff_from_qchem_out(outname, npair, coeff)
  implicit none
@@ -522,6 +646,7 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
  datname1 = TRIM(datname)//'.t'
  open(newunit=fid,file=TRIM(datname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(datname1),status='replace')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -530,8 +655,9 @@ subroutine write_pair_coeff_into_gms_inp(datname, npair, coeff)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine write_pair_coeff_into_gms_inp: no&
-                     & '$SCF' found in file "//TRIM(datname)
+  write(6,'(/,A)') 'ERROR in subroutine write_pair_coeff_into_gms_inp: no "$SCF&
+                   &" found in file'
+  write(6,'(A)') TRIM(datname)
   close(fid)
   close(fid1,status='delete')
   stop
@@ -719,4 +845,144 @@ subroutine add_frz2gms_inp(inpname)
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine add_frz2gms_inp
+
+! print/write GP keywords into an OpenMolcas input file (.input)
+subroutine prt_gp_molcas_inp(inpname, charge, mult, npair, hardwfn, crazywfn, &
+                             gp_force)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: charge, mult, npair
+ character(len=240) :: buf, orbname
+ character(len=240), intent(in) :: inpname
+ logical :: found
+ logical, intent(in) :: hardwfn, crazywfn, gp_force
+
+ call find_specified_suffix(inpname, '.inp', i)
+ orbname = inpname(1:i-1)//'.INPORB'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='append')
+ found = .true.
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(1:7)=='&SEWARD' .or. buf(1:8)=='&GATEWAY') exit
+  if(buf(1:4) == '&SCF') then
+   found = .true.; exit
+  end if
+ end do ! for while
+
+ if(.not. found) then
+  write(6,'(/,A)') 'ERROR in subroutine prt_gp_molcas_inp: "&SCF" not found in &
+                   &file'
+  write(6,'(A)') TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid) ! in order to overwrite &SCF
+ write(fid,'(A)') "&RASSCF"
+ write(fid,'(A)') 'CIMX= 200'
+ write(fid,'(A)') 'Tight= 5d-8 5d-6'
+ if(crazywfn) then
+  write(fid,'(A)') 'SDav= 500'
+ else if(hardwfn) then
+  write(fid,'(A)') 'SDav= 300'
+ end if
+
+ write(fid,'(A,I0)') 'Spin= ', mult
+ write(fid,'(A,I0)') 'Charge= ', charge
+ write(fid,'(A,I0)') 'nActEl= ', 2*npair
+ write(fid,'(A)') 'FILEORB= '//TRIM(orbname)
+ !if(CIonly) write(fid,'(A)') 'CIonly'
+
+ write(fid,'(A)') 'GASSCF'
+ write(fid,'(I0)') npair
+ do i = 1, npair-1, 1
+  write(fid,'(A1,/,I0,1X,I0)') '2', 2*i, 2*i
+ end do ! for i
+
+ write(fid,'(A1,/,I0,1X,I0,/)') '2', 2*npair, 2*npair
+
+ if(gp_force) write(fid,'(A,/)') '&ALASKA'
+ close(fid)
+end subroutine prt_gp_molcas_inp
+
+! GP: spin-pure/spin-adapted generalized electron paring.
+! Spin-contaminated GP method is not considered here.
+! This subroutine intends to perform a GP computation using OpenMolcas. Currently
+!  we always use converged GVB MOs as the initial guess of GP. That is to say, a
+!  GVB calculation must be performed before using this subroutine.
+subroutine do_gp()
+ use mr_keyword, only: mem, nproc, bgchg, gp, gp_force, hardwfn, crazywfn, &
+  molcas_omp, gp_prog, molcas_path, chgname, datname
+ use mol, only: charge, mult, npair, gp_e, natom, grad
+ use util_wrapper, only: add_bgcharge2inp_wrap, dat2fch_wrap, fch2inporb_wrap, &
+  orb2fch_wrap
+ implicit none
+ integer :: k
+ real(kind=8) :: unpaired_e, e(2)
+ character(len=24) :: data_string
+ character(len=27), parameter :: error_warn='ERROR in subroutine do_gp: '
+ character(len=240) :: old_dat, sort_fch, proname, gp_fch, inpname, outname, orbname
+
+ if(.not. gp) return
+ write(6,'(//,A)') 'Enter subroutine do_gp...'
+ write(6,'(A,I0,A)') 'npair=',npair,', GVB datname= '//TRIM(datname)
+ if(mult /= 1) then
+  write(6,'(/,A)') error_warn//'GP interface for non-singlet is'
+  write(6,'(A)') 'not implemented yet.'
+  stop
+ end if
+
+ k = LEN_TRIM(datname)
+ if(datname(k-5:k) /= '_s.dat') then
+  write(6,'(/,A)') error_warn//'datname must ends with "_s.dat"'
+  stop
+ end if
+ write(6,'(A,I0,A)') 'GP(',npair,') using program '//TRIM(gp_prog)
+
+ sort_fch = datname(1:k-4)//'.fch'
+ old_dat = datname(1:k-6)//'.dat'
+ proname = datname(1:k-6)//'_GP'
+ gp_fch = datname(1:k-6)//'_GP.fch'
+ call require_file_exist(sort_fch)
+
+ select case(TRIM(gp_prog))
+ !case('own') ! not implemented yet
+ case('openmolcas')
+  call check_exe_exist(molcas_path)
+  call sys_copy_file(TRIM(sort_fch), TRIM(gp_fch), .false.)
+  call dat2fch_wrap(old_dat, gp_fch)
+  call fch2inporb_wrap(gp_fch, .false.)
+  inpname = TRIM(proname)//'.input'
+  outname = TRIM(proname)//'.out'
+  orbname = TRIM(proname)//'.RasOrb.1'
+  call prt_gp_molcas_inp(inpname, charge, mult, npair, hardwfn, crazywfn, gp_force)
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+  call submit_molcas_job(inpname, mem, nproc, molcas_omp)
+  ! transform GP NOs from xxx.RasOrb.1 to .fch
+  call orb2fch_wrap(orbname, gp_fch, .false., .true., npair)
+ case default
+  write(6,'(/,A)') error_warn//'invalid GP_prog='//TRIM(gp_prog)
+  write(6,'(A)') 'Currently only GP_prog=OpenMolcas is supported.'
+  stop
+ end select
+
+ call read_cas_energy_from_molcas_out(outname, e, .true.)
+ gp_e = e(2)
+ write(6,'(/,A,F18.8,1X,A4)') 'E(Initial GP) = ', e(1), 'a.u.'
+ write(6,'(A,F18.8,1X,A4)')   'E(GP)         = ', e(2), 'a.u.'
+ call calc_unpaired_from_fch(gp_fch, 2, .false., unpaired_e)
+
+ if(gp_force) then
+  allocate(grad(3*natom))
+  call read_grad_from_molcas_out(outname, natom, grad)
+  write(6,'(/,A)') 'Cartesian gradient (HARTREE/BOHR):'
+  write(6,'(5(1X,ES15.8))') (grad(k),k=1,3*natom)
+ end if
+
+ call fdate(data_string)
+ write(6,'(A)') 'Leave subroutine do_gp at '//TRIM(data_string)
+end subroutine do_gp
 

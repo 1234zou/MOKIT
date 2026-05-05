@@ -752,9 +752,11 @@ subroutine do_mp2()
  implicit none
  integer :: i, RENAME
  real(kind=8) :: rtmp
- character(len=24) :: data_string = ' '
- character(len=240) :: old_inp, inpname, chkname, mklname, outname, datname, &
-  molname, no_chk, qcscratch
+ character(len=24) :: data_string
+ character(len=28), parameter :: error_warn='ERROR in subroutine do_mp2: '
+ character(len=240) :: proname, old_inp, inpname, chkname, mklname, outname, &
+  datname, molname, no_chk, gradname, qcscratch
+ character(len=500) :: longbuf
 
  if(.not. mp2) return
  write(6,'(//,A)') 'Enter subroutine do_mp2...'
@@ -763,15 +765,13 @@ subroutine do_mp2()
 
  if(force .and. chem_core>0) then
   if(TRIM(mp2_prog) == 'pyscf') then
-   write(6,'(/,A)') 'ERROR in subroutine do_mp2: MP2 analytical gradients in Py&
-                    &SCF cannot be run'
+   write(6,'(/,A)') error_warn//'MP2 analytical gradients in PySCF cannot be run'
    write(6,'(A)') 'using frozen core. If you still want to use PySCF, you need &
-                  &to write FC=0 in mokit{}.'
+                  &to specify mokit{FC=0}.'
    stop
   end if
   if((.not.RI) .and. TRIM(mp2_prog)=='psi4') then
-   write(6,'(/,A)') 'ERROR in subroutine do_mp2: conventional MP2 analytical gr&
-                    &adients in PSI4'
+   write(6,'(/,A)') error_warn//'conventional MP2 analytical gradients in PSI4'
    write(6,'(A)') 'cannot be run using frozen core. If you still want to use PS&
                   &I4, you can either'
    write(6,'(A)') 'write FC=0 in mokit{}, or switch to RI-MP2.'
@@ -780,15 +780,15 @@ subroutine do_mp2()
  end if
 
  if(gen_no .and. (.not.mo_rhf) .and. (.not.relaxed_dm) .and. TRIM(MP2_prog)=='psi4') then
-  write(6,'(/,A)') 'ERROR in subroutine do_mp2: UMP2 unrelaxed density is not s&
-                   &upported in PSI4'
+  write(6,'(/,A)') error_warn//'UMP2 unrelaxed density is not supported in PSI4'
   write(6,'(A)') 'currently. You can either calculate the relaxed density, or c&
                  &hange another MP2_prog.'
   write(6,'(A)') 'For example, MP2_prog=ORCA.'
   stop
  end if
 
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
+ proname = hf_fch(1:i-1)//'_MP2'
  outname = hf_fch(1:i-1)//'_MP2.out'
  no_fch = hf_fch(1:i-1)//'_MP2_NO.fch'
 
@@ -893,16 +893,20 @@ subroutine do_mp2()
  case('qchem')
   inpname = hf_fch(1:i-1)//'_MP2.in'
   old_inp = hf_fch(1:i-1)//'_MP2.0.FChk'
+  gradname = hf_fch(1:i-1)//'_MP2.131.0'
   call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_qchem_job(inpname, nproc)
   call read_mp2_e_from_qchem_out(outname, ref_e, mp2_e)
   if(force) then
-   i = INDEX(hf_fch, '.fch', back=.true.)
-   datname = hf_fch(1:i-1)//'_MP2/131.0'
    call getenv('QCSCRATCH', qcscratch)
-   call sys_copy_file(TRIM(qcscratch)//'/'//TRIM(datname), '131.0', .false.)
+#ifdef _WIN32
+   longbuf = TRIM(qcscratch)//'\'//TRIM(proname)//'\131.0'
+#else
+   longbuf = TRIM(qcscratch)//'/'//TRIM(proname)//'/131.0'
+#endif
+   call sys_copy_file(TRIM(longbuf), TRIM(gradname), .true.)
   end if
   if(gen_no) then
    mklname = hf_fch(1:i-1)//'_MP2.FChk'
@@ -917,13 +921,12 @@ subroutine do_mp2()
   call submit_cfour_job(nproc, outname, .false.)
   call read_mp2_e_from_cfour_out(outname, ref_e, mp2_e)
  case('dalton')
-  old_inp = hf_fch(1:i-1)//'_MP2'
   inpname = hf_fch(1:i-1)//'_MP2.dal'
   molname = hf_fch(1:i-1)//'_MP2.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, molname)
-  call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
+  call submit_dalton_job(proname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .true., .false., .false., .false.,&
                                      rtmp, ref_e, mp2_e)
  case('openmolcas')
@@ -936,7 +939,7 @@ subroutine do_mp2()
   ref_e = ref_e + ptchg_e
   mp2_e = mp2_e + ptchg_e
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_mp2: invalid MP2_prog='//TRIM(mp2_prog)
+  write(6,'(/,A)') error_warn//'invalid MP2_prog='//TRIM(mp2_prog)
   stop
  end select
 
@@ -977,8 +980,9 @@ subroutine do_cc()
  real(kind=8) :: e = 0d0
  character(len=15) :: method0 = ' '
  character(len=24) :: data_string = ' '
- character(len=240) :: chkname, old_inp, inpname, molname, mklname, outname, &
-  gbwname, gradname, no_chk, qcscratch
+ character(len=240) :: proname, chkname, old_inp, inpname, molname, mklname, &
+  outname, gbwname, gradname, no_chk, qcscratch
+ character(len=500) :: longbuf
  logical :: qci
 
  if(.not. cc_enabled) return
@@ -1025,7 +1029,8 @@ subroutine do_cc()
 
  method0 = method
  call strip_ip_ea_eom(method0)
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
+ proname = hf_fch(1:i-1)//'_CC'
  outname = hf_fch(1:i-1)//'_CC.out'
  no_fch = hf_fch(1:i-1)//'_CC_NO.fch'
 
@@ -1126,16 +1131,20 @@ subroutine do_cc()
  case('qchem')
   inpname = hf_fch(1:i-1)//'_CC.in'
   old_inp = hf_fch(1:i-1)//'_CC.0.FChk'
+  gradname = hf_fch(1:i-1)//'_CC.131.0'
   call fch2qchem_wrap(hf_fch, 0, 0, inpname)
   call prt_posthf_qchem_inp(inpname)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call submit_qchem_job(inpname, nproc)
   call read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
-  i = INDEX(hf_fch, '.fch', back=.true.)
   if(force) then
-   mklname = hf_fch(1:i-1)//'_CC/131.0'
    call getenv('QCSCRATCH', qcscratch)
-   call sys_copy_file(TRIM(qcscratch)//'/'//TRIM(mklname), '131.0', .false.)
+#ifdef _WIN32
+   longbuf = TRIM(qcscratch)//'\'//TRIM(proname)//'\131.0'
+#else
+   longbuf = TRIM(qcscratch)//'/'//TRIM(proname)//'/131.0'
+#endif
+   call sys_copy_file(TRIM(longbuf), TRIM(gradname), .true.)
   end if
   if(gen_no) then
    mklname = hf_fch(1:i-1)//'_CC.FChk'
@@ -1153,13 +1162,12 @@ subroutine do_cc()
   call submit_cfour_job(1, outname, .false.)
   call read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
  case('dalton')
-  old_inp = hf_fch(1:i-1)//'_CC'
   inpname = hf_fch(1:i-1)//'_CC.dal'
   molname = hf_fch(1:i-1)//'_CC.mol'
   call fch2dal_wrap(hf_fch, inpname)
   call prt_posthf_dalton_inp(inpname)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, molname)
-  call submit_dalton_job(old_inp,mem,nproc,dalton_mpi,.false.,.false.,.false.)
+  call submit_dalton_job(proname,mem,nproc,dalton_mpi,.false.,.false.,.false.)
   call read_posthf_e_from_dalton_out(outname, .false., ccd, ccsd, ccsd_t, t1diag,&
                                      ref_e, e)
  case('openmolcas')
@@ -2355,7 +2363,8 @@ subroutine prt_posthf_qchem_inp(inpname)
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.in', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 

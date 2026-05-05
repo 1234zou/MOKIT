@@ -277,8 +277,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in subroutine frag_guess_wfn: wrong command line&
-                   & arguments!'
+  write(6,'(/,A)') ' ERROR in program frag_guess_wfn: wrong command line arguments!'
   write(6,'(A,/)') " Example: frag_guess_wfn dimer.gjf >dimer.out 2>&1 &"
   stop
  end if
@@ -391,6 +390,7 @@ subroutine frag_guess_wfn(gjfname)
  real(kind=8), allocatable :: coor(:,:), tmp_coor(:,:)
  character(len=2), allocatable :: elem(:)
  character(len=10) :: hf_prog ! only Gaussian/PySCF supported
+ character(len=36), parameter :: error_warn='ERROR in subroutine frag_guess_wfn: '
  character(len=240) :: buf, chkname, fchname, logname, basname
  character(len=240), intent(in) :: gjfname
  character(len=1200) :: longbuf
@@ -406,8 +406,7 @@ subroutine frag_guess_wfn(gjfname)
  case('pyscf')
   hf_prog_path = 'python'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: HF_prog not supported &
-                   &by frag_guess_wfn'
+  write(6,'(/,A)') error_warn//'HF_prog not supported by frag_guess_wfn'
   write(6,'(A)') 'currently. You input HF_prog='//TRIM(hf_prog)
   write(6,'(A)') 'Please use HF_prog=Gaussian or PySCF.'
   stop
@@ -424,8 +423,7 @@ subroutine frag_guess_wfn(gjfname)
 
  call read_disp_ver_from_gjf(gjfname, disp_type)
  if(eda_type==4 .and. disp_type>0) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: dispersion correction c&
-                   &annot be used in'
+  write(6,'(/,A)') error_warn//'dispersion correction cannot be used in'
   write(6,'(A)') 'SAPT. It may be supported in DFT-SAPT, but this method is not&
                  & supported by'
   write(6,'(A)') 'frag_guess_wfn currently.'
@@ -459,8 +457,7 @@ subroutine frag_guess_wfn(gjfname)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: failed to locate the Ro&
-                   &ute Section '#'"
+  write(6,'(/,A)') error_warn//'failed to locate the Route Section "#"'
   write(6,'(A)') 'in file '//TRIM(gjfname)
   close(fid)
   stop
@@ -476,7 +473,7 @@ subroutine frag_guess_wfn(gjfname)
  call lower(longbuf)
  call read_scrf_string_from_buf(longbuf, scrf)
  if(LEN_TRIM(scrf)>0 .and. eda_type==4) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: SCRF detected.'
+  write(6,'(/,A)') error_warn//'SCRF detected.'
   write(6,'(A)') 'Implicit solvent model is not supported in SAPT computations.'
   stop
  end if
@@ -498,24 +495,21 @@ subroutine frag_guess_wfn(gjfname)
   maxfrag = 499
  case(4) ! SAPT
   if(nfrag0 /= 2) then
-   write(6,'(/,A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid nfrag0=', &
-                       nfrag0
+   write(6,'(/,A,I0)') error_warn//'invalid nfrag0=', nfrag0
    write(6,'(A)') 'Only two fragments/monomers are allowed in SAPT.'
    stop
   end if
   nfrag = 3
   maxfrag = 3
  case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine frag_guess_wfn: invalid eda_type=',&
-                      eda_type
+  write(6,'(/,A,I0)') error_warn//'invalid eda_type=', eda_type
   write(6,'(A,I0)') 'Only 0,1,2,3,4 are allowed.'
   close(fid)
   stop
  end select
 
  if(nfrag0 > maxfrag) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: nfrag0 > maxfrag, too l&
-                   &arge!'
+  write(6,'(/,A)') error_warn//'nfrag0 > maxfrag, too large!'
   write(6,'(2(A,I0))') 'nfrag0=', nfrag0, ', maxfrag=', maxfrag
   close(fid)
   stop
@@ -531,8 +525,7 @@ subroutine frag_guess_wfn(gjfname)
 ! Strange thing: if the following 'if(' lines are uncommented, GKS-EDA will
 !  signal unknown errors
 ! if(TRIM(method) == 'pbe0') then
-!  write(6,'(/,A)') "ERROR in subroutine frag_guess_wfn: 'PBE0' string found in&
-!                   & gjf file."
+!  write(6,'(/,A)') error_warn//'"PBE0" string found in gjf file.'
 !  write(6,'(A)') "Be careful! The PBE0 functional in papers corresponds to the&
 !                 & keyword 'PBE1PBE' in Gaussian."
 !  write(6,'(A)') 'You should check what you want to calculate.'
@@ -559,8 +552,7 @@ subroutine frag_guess_wfn(gjfname)
 
  read(fid,*,iostat=i) cm
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: incomplete charges and&
-                   & spin multiplicities'
+  write(6,'(/,A)') error_warn//'incomplete charges and spin multiplicities'
   write(6,'(A)') 'detected in file '//TRIM(gjfname)
   close(fid)
   stop
@@ -569,8 +561,7 @@ subroutine frag_guess_wfn(gjfname)
  charge = cm(1); mult = cm(2)
 
  if(mult/=1 .and. eda_type==1) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only b&
-                   &e applied to RHF.'
+  write(6,'(/,A)') error_warn//'Morokuma-EDA can only be applied to RHF.'
   write(6,'(A)') 'But the total spin is not singlet.'
   close(fid)
   stop
@@ -581,8 +572,7 @@ subroutine frag_guess_wfn(gjfname)
   if(wfn_type == 0) then
    wfn_type = 1 ! RHF
   else if(wfn_type == 2) then
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: total spin is singlet.&
-                    & But you'
+   write(6,'(/,A)') error_warn//'total spin is singlet. But you'
    write(6,'(A)') 'specify ROHF/RODFT.'
    close(fid)
    stop
@@ -592,8 +582,7 @@ subroutine frag_guess_wfn(gjfname)
    wfn_type = 3 ! UHF
   else
    if(wfn_type == 1) then
-    write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: total spin is non-sin&
-                     &glet. But'
+    write(6,'(/,A)') error_warn//'total spin is non-singlet. But'
     write(6,'(A)') 'you specify RHF/RDFT.'
     stop
    end if
@@ -601,8 +590,7 @@ subroutine frag_guess_wfn(gjfname)
  end if
 
  if(eda_type==1 .and. wfn_type/=1) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: Morokuma-EDA can only b&
-                   &e applied to'
+  write(6,'(/,A)') error_warn//'Morokuma-EDA can only be applied to'
   write(6,'(A,I0)') 'RHF. But RHF-type wavefunction is not specified. wfn_type=',&
                     wfn_type
   close(fid)
@@ -623,8 +611,7 @@ subroutine frag_guess_wfn(gjfname)
 
  i = SUM(frags(1:nfrag0)%charge)
  if(i /= charge) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: sum of fragment charges&
-                   & is not equal'
+  write(6,'(/,A)') error_warn//'sum of fragment charges is not equal'
   write(6,'(2(A,I0))') 'to total charge. Total charge=', charge, &
                        ', sum(frag_charges)=', i
   write(6,'(A)') 'Wrong charges in file '//TRIM(gjfname)
@@ -634,8 +621,7 @@ subroutine frag_guess_wfn(gjfname)
  end if
 
  if(ANY(frags(:)%mult==0) .or. ANY(frags(:)%mult==-1)) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: nonsense chare or spin&
-                   & multiplicity'
+  write(6,'(/,A)') error_warn//'nonsense chare or spin multiplicity'
   write(6,'(A)') 'Please check your file '//TRIM(gjfname)
   deallocate(frags)
   close(fid)
@@ -643,8 +629,7 @@ subroutine frag_guess_wfn(gjfname)
  end if
 
  if(eda_type==4 .and. ANY(frags(:)%mult<-1)) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: negative spin multiplic&
-                   &ity detected.'
+  write(6,'(/,A)') error_warn//'negative spin multiplicity detected.'
   write(6,'(A)') 'Low-spin open-shell SAPT is not supported in PSI4 currently. &
                  &You can use the'
   write(6,'(A)') 'GKS-EDA method instead. If you still want to use PSI4, high-s&
@@ -676,8 +661,7 @@ subroutine frag_guess_wfn(gjfname)
  end do ! for i
 
  if(mult-1 /= j) then
-  write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: number of unpaired elec&
-                   &trons calculated from'
+  write(6,'(/,A)') error_warn//'number of unpaired electrons calculated from'
   write(6,'(A)') 'fragments spin multiplicities is not equal to that calculated&
                  & from the total spin'
   write(6,'(A)') 'multiplicity. Some spin multiplicity must be wrong.'
@@ -708,8 +692,7 @@ subroutine frag_guess_wfn(gjfname)
   k = INDEX(buf,'=')
   m = INDEX(buf,')')
   if(j*k*m == 0) then
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: wrong format in file '&
-                     //TRIM(gjfname)
+   write(6,'(/,A)') error_warn//'wrong format in file '//TRIM(gjfname)
    write(6,'(A)') 'Please read examples in Section 5.3.2 ~ 5.3.4 of MOKIT manua&
                   &l and learn how'
    write(6,'(A)') 'to write a valid input file.'
@@ -719,8 +702,7 @@ subroutine frag_guess_wfn(gjfname)
   read(buf(k+1:m-1),*) ifrag
 
   if((i==1 .and. eda_type/=0 .and. ifrag/=1) .or. ifrag<ifrag0) then
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: error definition of fr&
-                    &agment number.'
+   write(6,'(/,A)') error_warn//'error definition of fragment number.'
    write(6,'(A)') 'This task requires the definition of fragment number is mono&
                   &mer1, monomer2,'
    write(6,'(A)') 'monomer3, ...'
@@ -729,8 +711,7 @@ subroutine frag_guess_wfn(gjfname)
   end if
 
   if(ifrag > nfrag0) then
-   write(6,'(A)') 'ERROR in subroutine frag_guess_wfn: the number of fragments&
-                  & detected in Cartesian'
+   write(6,'(A)') error_warn//'the number of fragments detected in Cartesian'
    write(6,'(A)') 'coordinates is larger than that found in charges and spin m&
                   &ultiplicities.'
    write(6,'(2(A,I0))') 'ifrag = ', ifrag, ', nfrag0=', nfrag0
@@ -772,8 +753,7 @@ subroutine frag_guess_wfn(gjfname)
 
   if(wfn_type==1 .and. frags(ifrag)%wfn_type/=1) then
    close(fid)
-   write(6,'(/,A)') 'ERROR in subroutine frag_guess_wfn: conflicted type of wfn&
-                    & between the total'
+   write(6,'(/,A)') error_warn//'conflicted type of wfn between the total'
    write(6,'(A)') 'system and some fragment. Restricted closed shell wfn is spe&
                   &cified for the total'
    write(6,'(A)') 'system. But restricted open shell or unrestricted wfn is spe&
@@ -790,8 +770,7 @@ subroutine frag_guess_wfn(gjfname)
  do i = 1, nfrag0, 1
   iatom = frags(i)%natom
   if(iatom == 0) then
-   write(6,'(/,A,I0,A)') 'ERROR in subroutine frag_guess_wfn: the ',i,'-th&
-                         & fragment has 0 atom.'
+   write(6,'(/,A,I0,A)') error_warn//'the ',i,'-th fragment has 0 atom.'
    write(6,'(A)') 'Please check your specification of fragments in file '//&
                    TRIM(gjfname)
    stop
@@ -1358,9 +1337,9 @@ subroutine gen_inp_of_frags()
 
  deallocate(radii, frags)
  write(6,'(/,A)',advance='no') 'Done. Now you can submit file '//TRIM(inpname2)&
-                              //' to '
+                             //' to '
 
- i = INDEX(inpname2, '.inp',back=.true.)
+ i = INDEX(inpname2, '.inp', back=.true.)
 
  if(eda_type == 4) then ! SAPT in PSI4
   outname = inpname2(1:i-1)//'.out'
@@ -1462,7 +1441,12 @@ subroutine copy_and_modify_psi4_sapt_file(inpname1, inpname2)
  write(fid2,'(A)') '}'
  write(fid2,'(A)') 'df_basis_sapt {'
  if(basis(1:4) == 'def2') basis = 'def2-'//TRIM(basis(5:))
- write(fid2,'(A)') ' assign '//TRIM(basis)//'-ri'
+ if(TRIM(basis)=='gen' .or. TRIM(basis)=='genecp') then
+  ! user-defined basis set and ECP/PP, use def2-TZVPPD-RI for general purpose
+  write(fid2,'(A)') ' assign def2-TZVPPD-RI'
+ else
+  write(fid2,'(A)') ' assign '//TRIM(basis)//'-ri'
+ end if
 
  if(TRIM(basis) == 'jun-cc-pvdz') then
   natom = frags(3)%natom
