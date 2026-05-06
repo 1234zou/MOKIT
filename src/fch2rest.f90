@@ -153,6 +153,19 @@ subroutine fch2rest(fchname, dftname, disp_type)
  sph = .true.
  call find_icart_from_shell_type(.false., ncontr, shell_type, icart)
  if(icart == 2) sph = .false.
+ if(.not. sph) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2rest: Cartesian-type basis function&
+                   &s (6D 10F) are'
+  write(6,'(A)') 'not fully tested. It can be used in the near future. Currentl&
+                 &y you can write'
+  write(6,'(A)') '`5D 7F` in .gjf file, in order to use spherical harmonic type&
+                 & basis functions.'
+  !write(6,'(/,A)') 'Warning from subroutine fch2rest: Cartesian-type basis func&
+  !                 &tions (6D 10F)'
+  !write(6,'(A)') 'detected. You must REST >= , otherwise the REST result would &
+  !               &be incorrect.'
+  stop
+ end if
 
  call write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, natom,&
                               elem, coor, sph, uhf, ghost)

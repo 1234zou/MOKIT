@@ -14,15 +14,7 @@ end module phys_cons
 module mokit_version_info
  implicit none
  character(len=8), parameter :: version = '1.2.8rc2'
- character(len=11), parameter :: date = '2026-May-4'
-
-!contains
-!
-! subroutine c_sleep(seconds) bind(C, name="sleep")
-!  use iso_c_binding, only: c_int
-!  implicit none
-!  integer(c_int), value :: seconds
-! end subroutine c_sleep
+ character(len=11), parameter :: date = '2026-May-6'
 end module mokit_version_info
 
 ! transform a string into upper case

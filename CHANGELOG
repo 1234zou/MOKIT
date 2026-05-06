@@ -1,4 +1,4 @@
-MOKIT 1.2.8rc2 (May 4, 2026)
+MOKIT 1.2.8rc2 (May 6, 2026)
 ------------------------
 Fixes
 * fix command line argument bug in subroutine gvb_exclude_XH_A_wrap (introduced in 1.2.7rc20)
