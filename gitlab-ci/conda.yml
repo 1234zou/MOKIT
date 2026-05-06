@@ -15,12 +15,13 @@
 
 .setup_cf:
   image:
-    name: continuumio/miniconda3:latest
+    name: anaconda/miniconda:latest
   before_script:
     #- apt-get update -qy
     - conda init bash
     - source ~/.bashrc
-    - conda create -n mokit-build python=3.9 anaconda-client conda-build setuptools_scm
+    - conda install conda-build
+    - conda create -n mokit-build python=3.11 anaconda-client conda-build setuptools_scm -c conda-forge
     - conda activate mokit-build
     - export ANACONDA_API_TOKEN=${ANACONDA_TOKEN}
 
@@ -67,11 +68,14 @@ conda_build_cf:
       - cf
       - master
       - distu-fix
+      - ci-debug-2026
     changes:
       - "mokit/__init__.py"
       - "conda/cf*/meta.yaml"
   script:
     - conda config --set channel_priority strict
+    - conda info
+    - conda list
     - conda build --output-folder ./output_cf -c conda-forge conda/cf39
     #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
