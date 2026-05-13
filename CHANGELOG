@@ -1,9 +1,14 @@
-MOKIT 1.2.8rc2 (May 6, 2026)
+MOKIT 1.2.8rc3 (May 13, 2026)
 ------------------------
 Fixes
+* delete existing HF .fch files before HF calculations when HF_prog=PySCF/ORCA
+* fix Cartesian-type basis function (6D,10F,15G) support in fch2tm
 * fix command line argument bug in subroutine gvb_exclude_XH_A_wrap (introduced in 1.2.7rc20)
 * fix DF-MP2 frozen core setting when MP2_prog=PySCF
 Features
+* support EE-/SCS-/SOS- ADC(2) interface in autosr to the Turbomole program
+* support LR-CC2 command line arguments for fch2mrcc
+* support ADC(2) and LR-CC2 command line arguments for fch2tm
 * add get_mf_from_gbw in mokit/lib/fch2pyscf.py
 * add load_mol_from_gbw in mokit/lib/gaussian.py
 * add subroutine gbw2rest in mokit/src/util_wrapper.f90
@@ -13,6 +18,9 @@ Improvement
 * add GVB analytical gradient interfaces for GVB_prog=Gamess/Gaussian/QChem
 * using STC-RI-CCSD amplitudes as initial guess of (RI-)CCSD if STC-CC library installed
 Re-factor and removal
+* simplify mokit/lib/stability.py, merge xxx_stable_opt_internal to hf_stable_opt_internal
+* merge Makefile.intel and Makefile.intel_ifx (the latter is removed)
+* change RIJK to RIJCOSX when HF_prog=ORCA in automr/autosr
 * move subroutine find_irel_in_fch from read_fch.f90 to string_manipulate.f90
 * localize all valence occ. MOs and construct antibonding MOs when npair_wish>npair in the UHF case
 

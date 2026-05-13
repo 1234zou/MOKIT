@@ -5,23 +5,31 @@ program main
  use util_wrapper, only: formchk
  implicit none
  integer :: k, narg, job_type
- character(len=8) :: str
+ ! job_type= 0     HF (RHF/ROHF/UHF)
+ !         = 1/2/3 ADC(2)/SOS-ADC(2)/SCS-ADC(2)
+ !         = 4/5/6 CC2/SOS-CC2/SCS-CC2
+ !         = 7/8/9 LR-CC2/SOS-LR-CC2/SCS-LR-CC2
+ character(len=9) :: str9
+ character(len=27), parameter :: error_warn='ERROR in program fch2mrcc: '
  character(len=240) :: fchname
 
  narg = iargc()
  if(narg<1 .or. narg>2) then
-  write(6,'(/,A)')' ERROR in program fch2mrcc: wrong command line argument!'
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF): fch2mrcc water.fch'
   write(6,'(A)')  ' Example 2 (ADC(2))    : fch2mrcc water.fch -adc2'
   write(6,'(A)')  ' Example 3 (SOS-ADC(2)): fch2mrcc water.fch -sosadc2'
   write(6,'(A)')  ' Example 4 (SCS-ADC(2)): fch2mrcc water.fch -scsadc2'
   write(6,'(A)')  ' Example 5 (CC2)       : fch2mrcc water.fch -cc2'
   write(6,'(A)')  ' Example 6 (SOS-CC2)   : fch2mrcc water.fch -soscc2'
-  write(6,'(A,/)')' Example 7 (SOS-CC2)   : fch2mrcc water.fch -scscc2'
+  write(6,'(A)')  ' Example 7 (SCS-CC2)   : fch2mrcc water.fch -scscc2'
+  write(6,'(A)')  ' Example 8 (LR-CC2)    : fch2mrcc water.fch -lrcc2'
+  write(6,'(A)')  ' Example 9 (SOS-LR-CC2): fch2mrcc water.fch -soslrcc2'
+  write(6,'(A,/)')' Example10 (SCS-LR-CC2): fch2mrcc water.fch -scslrcc2'
   stop
  end if
 
- fchname = ' '
+ job_type = 0; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -32,10 +40,9 @@ program main
   fchname = fchname(1:k-3)//'fch'
  end if
 
- job_type = 0
  if(narg == 2) then
-  call getarg(2, str)
-  select case(TRIM(str))
+  call getarg(2, str9)
+  select case(TRIM(str9))
   case('-adc2')
    job_type = 1
   case('-sosadc2')
@@ -48,11 +55,14 @@ program main
    job_type = 5
   case('-scscc2')
    job_type = 6
+  case('-lrcc2')
+   job_type = 7
+  case('-soslrcc2')
+   job_type = 8
+  case('-scslrcc2')
+   job_type = 9
   case default
-   write(6,'(/,A)') 'ERROR in program fch2mrcc: wrong command line argument!'
-   write(6,'(A)') 'The 2nd argument can only be one of -adc2/-sosadc2/-scsadc2/&
-                  &-cc2/-soscc2/'
-   write(6,'(A)') '-scscc2. But got '//TRIM(str)
+   write(6,'(/,A)') error_warn//'invalid argument "'//TRIM(str9)//'"'
    stop
   end select
  end if
@@ -66,9 +76,9 @@ subroutine fch2mrcc(fchname, job_type)
  integer :: i, j, k, m, length, icart, nif1
  integer :: n3pmark, n5dmark, n7fmark, n9gmark, n11hmark, n13imark, n6dmark, &
   n10fmark, n15gmark, n21hmark, n28imark
+ integer, intent(in) :: job_type
  integer, allocatable :: idx(:), p_mark(:), d_mark(:), f_mark(:), g_mark(:), &
   h_mark(:), i_mark(:)
- integer, intent(in) :: job_type ! 0/1/2/3 for HF/ADC(2)/SOS-ADC(2)/SCS-ADC(2)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff(:,:), coeff2(:,:), norm(:)
  logical :: uhf, sph, ecp, lin_dep
@@ -255,15 +265,15 @@ subroutine prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, &
   write(fid,'(A)') 'calc=SOS-ADC(2)'
  case(3) ! SCS-ADC(2)
   write(fid,'(A)') 'calc=SCS-ADC(2)'
- case(4) ! CC2
+ case(4,7) ! CC2, LR-CC2
   write(fid,'(A)') 'calc=CC2'
- case(5) ! SOS-CC2
+ case(5,8) ! SOS-CC2, SOS-LR-CC2
   write(fid,'(A)') 'calc=SOS-CC2'
- case(6) ! SCS-CC2
+ case(6,9) ! SCS-CC2, SCS-LR-CC2
   write(fid,'(A)') 'calc=SCS-CC2'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine prt_mrcc_inp: job_type is out of range.'
-  write(6,'(A,I0)') 'Only 0~6 are allowed. But got job_type=', job_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine prt_mrcc_inp: invalid job_type=',job_type
+  write(6,'(A)') 'Only 0~9 are allowed.'
   stop
  end select
 
@@ -276,7 +286,7 @@ subroutine prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, &
  end if
 
  write(fid,'(A)') 'basis=PVTZ'
- if(job_type>0 .and. job_type<7) then
+ if(job_type>0 .and. job_type<10) then
   write(fid,'(A)') 'dfbasis_scf=def2-QZVPP-RI-JK'
   write(fid,'(A)') 'dfbasis_cor=def2-QZVPP-RI'
  end if
@@ -301,7 +311,11 @@ subroutine prt_mrcc_inp(job_type, natom, charge, mult, uhf, sph, ecp, lin_dep, &
  ! The molecule will still be re-oriented when symmetry is turned off. Using
  ! zero background point charge keeps it fixed.
  write(fid,'(A)') 'qmmm=Amber'
- if(job_type>0 .and. job_type<4) write(fid,'(A)') 'nstate=4'
+
+ select case(job_type)
+ case(1,2,3,7,8,9)
+  write(fid,'(A)') 'nstate=4' ! 1 ground state + 3 excited states
+ end select
 
  write(fid,'(/,A)') 'geom=xyz'
  write(fid,'(I0,/)') natom

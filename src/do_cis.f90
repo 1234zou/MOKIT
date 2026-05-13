@@ -344,7 +344,7 @@ subroutine prt_rohf_pyscf_script(mem, nproc, pyname)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
  write(fid1,'(A)') 'from mokit.lib.py2fch import py2fch'
- write(fid1,'(A,/)') 'from mokit.lib.stability import rohf_stable_opt_internal'
+ write(fid1,'(A,/)') 'from mokit.lib.stability import hf_stable_opt_internal'
 
  read(fid,'(A)') buf
  if(buf(1:15) == 'lib.num_threads') then
@@ -378,7 +378,7 @@ subroutine prt_rohf_pyscf_script(mem, nproc, pyname)
  write(fid1,'(A)') 'if mf.converged is False:'
  write(fid1,'(A)') '  mf = mf.newton()'
  write(fid1,'(A)') '  mf.kernel()'
- write(fid1,'(A)') 'mf = rohf_stable_opt_internal(mf)'
+ write(fid1,'(A)') 'mf = hf_stable_opt_internal(mf)'
  write(fid1,'(A)') "py2fch(hf_fch, nbf, nif, mf.mo_coeff, 'a', mf.mo_energy, Fa&
                    &lse, True)"
  close(fid1)

@@ -179,7 +179,7 @@ def fchk(mf, fchname, density=False, overwrite_mol=False, mo_coeff=None, mo_occ=
     if (not os.path.isfile(fchname)) or overwrite_mol:
         irel = find_irel_from_mf(mf)
         mol2fch(mf.mol, fchname, is_uhf, mo, irel)
-        
+
     if isinstance(mf, scf.hf.SCF):
         if isinstance(mf, (scf.ghf.GHF, scf.dhf.DHF)):
             raise NotImplementedError('GHF/DHF not supported in py2fch currently.')

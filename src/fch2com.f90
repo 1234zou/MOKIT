@@ -5,16 +5,17 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, icart, SYSTEM
+ integer :: i, icart
  character(len=4) :: str
+ character(len=26), parameter :: error_warn='ERROR in program fch2com: '
  character(len=240) :: fchname, inpname
  character(len=300) :: buf
  logical :: sph, m15
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in program fch2com: wrong command line argument!'
-  write(6,'(A)') ' Example 1 (R(O)HF/GVB/CAS)  : fch2com h2o.fch'
+  write(6,'(/,1X,A)')error_warn//'wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF/GVB/CAS)  : fch2com h2o.fch'
   write(6,'(A,/)') ' Example 2 (only Molpro 2015): fch2com h2o.fch -m15'
   stop
  end if
@@ -26,7 +27,7 @@ program main
  if(i == 2) then
   call getarg(2, str)
   if(str /= '-m15') then
-   write(6,'(/,A)') 'ERROR in subroutine fch2com: wrong command line argument!'
+   write(6,'(/,A)') error_warn//'wrong command line arguments!'
    write(6,'(A)') "The 2nd argument can only be '-m15'."
    stop
   end if
@@ -53,16 +54,7 @@ program main
  write(buf,'(A)') 'bas_gms2molpro '//TRIM(inpname)
  if(sph) buf = TRIM(buf)//' -sph'
  if(m15) buf = TRIM(buf)//' -m15'
-
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2com: failed to call utility bas_gms&
-                   &2molpro.'
-  write(6,'(A)')   'Two possible reasons:'
-  write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be problematic.'
-  write(6,'(A,/)') '(2) You forgot to compile the utility bas_gms2molpro.'
-  stop
- end if
+ call run_command(TRIM(buf), .false., .false.)
 
  call delete_file(inpname)
  call fch2com(fchname, sph)

@@ -712,21 +712,12 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  write(fid,'(A)') 'from mokit.lib.rwwfn import get_nmo_from_ao_ovlp'
-
- if(uhf) then
-  write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
-  if(mult == 1) then
-   write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, rea&
-                    &d_na_and_nb_from_fch, get_occ_from_na_nb2'
-   write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
-   write(fid,'(A)') 'import numpy as np'
-  end if
- else
-  if(mult == 1) then
-   write(fid,'(A)') 'from mokit.lib.stability import rhf_stable_opt_internal'
-  else
-   write(fid,'(A)') 'from mokit.lib.stability import rohf_stable_opt_internal'
-  end if
+ write(fid,'(A)') 'from mokit.lib.stability import hf_stable_opt_internal'
+ if(uhf .and. mult==1) then
+  write(fid,'(A)') 'from mokit.lib.rwwfn import read_nbf_and_nif_from_fch, rea&
+                   &d_na_and_nb_from_fch, get_occ_from_na_nb2'
+  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
+  write(fid,'(A)') 'import numpy as np'
  end if
  write(fid,'(/,A,I0,A)') 'lib.num_threads(', nproc, ')'
 
@@ -816,28 +807,30 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
 
  if(uhf) then ! UHF
   write(fid,'(/,A)') '# stable=opt'
-  write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
+  write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
-  if(mult > 1) write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
-  write(fid,'(A)') 'fchk(mf, uhf_fch, density=True)'
- else         ! not UHF
-  if(mult == 1) then ! RHF
-   write(fid,'(/,A)') 'if mf.converged is False:'
-   write(fid,'(A)') "  raise OSError('PySCF RHF job failed.')"
-   write(fid,'(/,A)') '# stable=opt'
-   write(fid,'(A)') 'mf = rhf_stable_opt_internal(mf)'
-   write(fid,'(/,A)') '# save RHF MOs into .fch file'
-   write(fid,'(A)') "rhf_fch = '"//TRIM(fchname)//"'"
-   write(fid,'(A)') 'fchk(mf, rhf_fch, density=True)'
-  else               ! ROHF
-   write(fid,'(/,A)') 'if mf.converged is False:'
-   write(fid,'(A)') "  raise OSError('PySCF ROHF job failed.')"
-   write(fid,'(/,A)') '# stable=opt'
-   write(fid,'(A)') 'mf = rohf_stable_opt_internal(mf)'
-   write(fid,'(/,A)') '# save ROHF MOs into .fch file'
-   write(fid,'(A)') "rohf_fch = '"//TRIM(fchname)//"'"
-   write(fid,'(A)') 'fchk(mf, rohf_fch, density=True)'
+  if(mult > 1) then
+   write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
+   write(fid,'(A)') 'try:'
+   write(fid,'(A)') '  import os'
+   write(fid,'(A)') '  os.remove(uhf_fch)'
+   write(fid,'(A)') 'except FileNotFoundError:'
+   write(fid,'(A)') '  pass'
   end if
+  write(fid,'(A)') 'fchk(mf, uhf_fch, density=True)'
+ else         ! R(O)HF
+  write(fid,'(/,A)') 'if mf.converged is False:'
+  write(fid,'(A)') '  raise OSError("PySCF R(O)HF job failed.")'
+  write(fid,'(/,A)') '# stable=opt'
+  write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
+  write(fid,'(/,A)') '# save R(O)HF MOs into .fch file'
+  write(fid,'(A)') "rhf_fch = '"//TRIM(fchname)//"'"
+  write(fid,'(A)') 'try:'
+  write(fid,'(A)') '  import os'
+  write(fid,'(A)') '  os.remove(rhf_fch)'
+  write(fid,'(A)') 'except FileNotFoundError:'
+  write(fid,'(A)') '  pass'
+  write(fid,'(A)') 'fchk(mf, rhf_fch, density=True)'
  end if
 
  close(fid)
@@ -852,20 +845,19 @@ subroutine gen_hf_orca_inp(inpname, uhf)
  implicit none
  integer :: i, fid
  character(len=21) :: basis1
+ character(len=37), parameter :: error_warn='ERROR in subroutine gen_hf_orca_inp: '
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: uhf
  logical :: create
 
  if(frag_guess) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: frag_guess is currentl&
-                   &y not supported'
+  write(6,'(/,A)') error_warn//'frag_guess is currently not supported'
   write(6,'(A)') 'when HF_prog=ORCA. Please use the default HF_prog=Gaussian.'
   stop
  end if
 
  if(cart) then
-  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: Cartesian-type basis f&
-                   &unctions (6D 10F)'
+  write(6,'(/,A)') error_warn//'Cartesian-type basis functions (6D 10F)'
   write(6,'(A)') 'are not supported in ORCA. Please use spherical harmonic type&
                  & basis functions.'
   stop
@@ -873,8 +865,7 @@ subroutine gen_hf_orca_inp(inpname, uhf)
 
  call process_basis_set(3, basis, basis1, dkh2_or_x2c, natom, nuc, elem, create)
  if(basis1(1:3) == 'gen') then
-  write(6,'(/,A)') 'ERROR in subroutine gen_hf_orca_inp: gen/genecp is not supp&
-                   &orted in this'
+  write(6,'(/,A)') error_warn//'gen/genecp is not supported in this'
   write(6,'(A)') 'functionality. Please use an ORCA built-in basis set.'
   stop
  end if
@@ -900,17 +891,15 @@ subroutine gen_hf_orca_inp(inpname, uhf)
   else if(X2C) then
    write(fid,'(A)',advance='no') ' RIJCOSX x2c/J defgrid3'
   else
-   select case(basis1(1:6))
-   case('cc-pVT','cc-pVQ','cc-pV5','aug-cc')
-    write(fid,'(A)',advance='no') ' RIJK '//TRIM(basis1)//'/JK'
-   case default
-    write(fid,'(A)',advance='no') ' RIJK def2/JK'
-   end select
+   ! RIJK-UHF wave function stability is not supported by ORCA, so we use
+   ! RIJCOSX instead. Here `def2/J` is used as the default RIJ auxiliary
+   ! basis set.
+   write(fid,'(A)',advance='no') ' RIJCOSX def2/J defgrid3'
   end if
  else
   write(fid,'(A)',advance='no') ' noRI'
  end if
- write(fid,'(A)') ' VeryTightSCF'
+ write(fid,'(A)') ' VeryTightSCF noTRAH'
 
  write(fid,'(A)') '%scf'
  write(fid,'(A)') ' Thresh 1e-12'
@@ -964,6 +953,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  integer :: i, irel, hf_type, RENAME
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
+ character(len=39), parameter :: error_warn = 'ERROR in subroutine do_scf_and_r&
+                                              &ead_e: '
  character(len=240) :: proname, chkname, fchname, outname, mklname, gbwname, &
   prpname1, prpname2, prpname3, inpname1, denf1, denf2
  character(len=240), intent(in) :: gau_path, hf_prog_path, inpname
@@ -976,13 +967,13 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  call find_specified_suffix(inpname, '.', i)
  proname = inpname(1:i-1)
  outname = inpname(1:i-1)//'.out'
- fchname  = TRIM(proname)//'.fch'
+ fchname = TRIM(proname)//'.fch'
  i = LEN_TRIM(hf_prog_path)
 
  if(hf_prog_path(1:6) == 'python') then
   if(noiter) then
-   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: internal inconsiste&
-                    &ncy.'
+   write(6,'(/,A)') error_warn//'internal inconsistency.'
+   write(6,'(A)') 'hf_prog_path(1:6)="python"'
    stop
   end if
   call read_hf_type_from_pyscf_inp(inpname, hf_type)
@@ -992,8 +983,8 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   return
  else if(hf_prog_path(i-3:i) == 'orca') then
   if(noiter) then
-   write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: internal inconsiste&
-                    &ncy.'
+   write(6,'(/,A)') error_warn//'internal inconsistency.'
+   write(6,'(A)') 'hf_prog_path(i-3:i)="orca"'
    stop
   end if
   mklname  = TRIM(proname)//'.mkl'
@@ -1013,6 +1004,10 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   irel = -1
   if(DKH2) irel = 2
   if(X2C) irel = -3
+  ! If the .fch file already exists, we need to delete it because it might
+  ! include a different charge or spin multiplicity. Then `mkl2fch` will
+  ! generate a .fch file from scratch.
+  call delete_file(TRIM(fchname))
   call mkl2fch_wrap(mklname=mklname,fchname=fchname,irel=irel)
   call update_density_using_mo_in_fch(fchname)
   call delete_files(7,[inpname,gbwname,prpname1,prpname2,prpname3,denf1,denf2])
@@ -1094,8 +1089,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   call delete_files(5, [inpname, mklname, gbwname, prpname1, prpname2])
 
  case default
-  write(6,'(/,A)') 'ERROR in subroutine do_scf_and_read_e: invalid prog_name='&
-                  //TRIM(prog_name)
+  write(6,'(/,A)') error_warn//'invalid prog_name='//TRIM(prog_name)
   stop
  end select
 end subroutine do_scf_and_read_e

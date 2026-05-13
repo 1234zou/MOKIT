@@ -9,7 +9,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in program fch247: wrong command line argument!'
+  write(6,'(/,A)') ' ERROR in program fch247: wrong command line arguments!'
   write(6,'(A,/)') ' Example: fch247 a.fch'
   stop
  end if

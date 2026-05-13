@@ -1347,7 +1347,7 @@ subroutine do_min_bas_hf_pyscf(proname)
  write(fid,'(A)') 'from pyscf import gto, scf, lib'
  write(fid,'(A)') 'from mokit.lib.py2fch_direct import fchk'
  if(mult > 1) then
-  write(fid,'(A)') 'from mokit.lib.stability import uhf_stable_opt_internal'
+  write(fid,'(A)') 'from mokit.lib.stability import hf_stable_opt_internal'
   write(fid,'(A)') 'from mokit.lib.gaussian import uno'
   write(fid,'(A)') 'import os'
  end if
@@ -1394,7 +1394,7 @@ subroutine do_min_bas_hf_pyscf(proname)
 
  if(mult > 1) then ! UHF
   write(fid,'(A)') '# stable=opt'
-  write(fid,'(A)') 'mf = uhf_stable_opt_internal(mf)'
+  write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
   write(fid,'(A)') 'if os.path.exists(uhf_fch):'

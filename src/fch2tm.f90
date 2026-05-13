@@ -3,16 +3,32 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i, k
+ integer :: k, narg, job_type
+ ! job_type= 0     HF (RHF/ROHF/UHF)
+ !         = 1/2/3 ADC(2)/SOS-ADC(2)/SCS-ADC(2)
+ !         = 4/5/6 CC2/SOS-CC2/SCS-CC2
+ !         = 7/8/9 LR-CC2/SOS-LR-CC2/SCS-LR-CC2
+ character(len=9) :: str9
+ character(len=25), parameter :: error_warn = 'ERROR in program fch2tm: '
  character(len=240) :: fchname
 
- i = iargc()
- if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in program fch2tm: wrong command line argument!'
-  write(6,'(A,/)') ' Example: fch2tm h2o.fch'
+ narg = iargc()
+ if(narg<1 .or. narg>2) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF): fch2tm h2o.fch'
+  write(6,'(A)')  ' Example 2 (ADC(2))    : fch2tm h2o.fch -adc2'
+  write(6,'(A)')  ' Example 3 (SOS-ADC(2)): fch2tm h2o.fch -sosadc2'
+  write(6,'(A)')  ' Example 4 (SCS-ADC(2)): fch2tm h2o.fch -scsadc2'
+  write(6,'(A)')  ' Example 5 (CC2)       : fch2tm h2o.fch -cc2'
+  write(6,'(A)')  ' Example 6 (SOS-CC2)   : fch2tm h2o.fch -soscc2'
+  write(6,'(A)')  ' Example 7 (SCS-CC2)   : fch2tm h2o.fch -scscc2'
+  write(6,'(A)')  ' Example 8 (LR-CC2)    : fch2tm h2o.fch -lrcc2'
+  write(6,'(A)')  ' Example 9 (SOS-LR-CC2): fch2tm h2o.fch -soslrcc2'
+  write(6,'(A,/)')' Example10 (SCS-LR-CC2): fch2tm h2o.fch -scslrcc2'
   stop
  end if
 
+ job_type = 0; fchname = ' '
  call getarg(1,fchname)
  call require_file_exist(fchname)
 
@@ -23,23 +39,52 @@ program main
   fchname = fchname(1:k-3)//'fch'
  end if
 
- call fch2tm(fchname)
+ if(narg == 2) then
+  call getarg(2, str9)
+  select case(TRIM(str9))
+  case('-adc2')
+   job_type = 1
+  case('-sosadc2')
+   job_type = 2
+  case('-scsadc2')
+   job_type = 3
+  case('-cc2')
+   job_type = 4
+  case('-soscc2')
+   job_type = 5
+  case('-scscc2')
+   job_type = 6
+  case('-lrcc2')
+   job_type = 7
+  case('-soslrcc2')
+   job_type = 8
+  case('-scslrcc2')
+   job_type = 9
+  case default
+   write(6,'(/,A)') error_warn//'invalid argument "'//TRIM(str9)//'"'
+   stop
+  end select
+ end if
+
+ call fch2tm(fchname, job_type)
 end program main
 
 ! generate Turbomole control file from a specified Gaussian .fch(k) file
-subroutine fch2tm(fchname)
+subroutine fch2tm(fchname, job_type)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, length, icart, fid
  integer :: n5dmark, n7fmark, n9gmark, n11hmark, n13imark
  integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
+ integer :: ncore, chem_core, ecp_core
+ integer, intent(in) :: job_type
  integer, allocatable :: idx(:), ia1(:), ia2(:)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: norm(:), coeff0(:,:), coeff(:,:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(0:6) = ['s','p','d','f','g','h','i']
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp, sph, has_sp
+ logical :: uhf, ecp, sph, has_sp, ecp_this_atom
 
  uhf = .false.; ecp = .false.; has_sp = .false.; sph = .true.
  call find_icart_in_fch(fchname, .false., icart)
@@ -80,17 +125,30 @@ subroutine fch2tm(fchname)
  write(fid,'(A)') '$atoms'
  do i = 1, natom, 1
   write(fid,'(A,2X,I0,5X,A)') TRIM(elem(i)), i, '\'
-  if(ecp) then ! ECP/PP
+  ecp_this_atom = .false.
+  if(ecp) then
    if(LPSkip(i) == 0) then
-    write(fid,'(A,5X,A)') '   basis ='//TRIM(elem(i))//' gen','\'
-    write(fid,'(A)') '   ecp   ='//TRIM(elem(i))//' ecp'
-   else
-    write(fid,'(A)') '   basis ='//TRIM(elem(i))//' gen'
+    ecp_this_atom = .true.
    end if
-  else         ! all-electron basis set
-   write(fid,'(A)') '   basis ='//TRIM(elem(i))//' gen'
+  end if
+  if(ecp_this_atom) then
+   write(fid,'(3X,A)') 'basis ='//TRIM(elem(i))//' gen     \'
+   if(job_type>0 .and. job_type<10) then
+    write(fid,'(3X,A)') 'jkbas ='//TRIM(elem(i))//' def2-QZVPP     \'
+    write(fid,'(3X,A)') 'cbas ='//TRIM(elem(i))//' def2-QZVPP     \'
+   end if
+   write(fid,'(3X,A)') 'ecp   ='//TRIM(elem(i))//' ecp'
+  else
+   if(job_type>0 .and. job_type<10) then
+    write(fid,'(3X,A)') 'basis ='//TRIM(elem(i))//' gen     \'
+    write(fid,'(3X,A)') 'jkbas ='//TRIM(elem(i))//' def2-QZVPP     \'
+    write(fid,'(3X,A)') 'cbas ='//TRIM(elem(i))//' def2-QZVPP'
+   else
+    write(fid,'(3X,A)') 'basis ='//TRIM(elem(i))//' gen'
+   end if
   end if
  end do ! for i
+
  write(fid,'(A,/,A)') '$basis', '*'
  write(fid,'(A,/,A)') TRIM(elem(1))//' gen', '*'
  k = 0
@@ -172,6 +230,7 @@ subroutine fch2tm(fchname)
  end if
  write(fid,'(A)') '$scfiterlimit 200'
  write(fid,'(A)') '$scfconv 8'
+ write(fid,'(A)') '$denconv 1d-6'
  write(fid,'(A)') '$scfdamp start=0.0 step=0.0 min=0.0'
  !write(fid,'(A)') '$scforbitalshift noautomatic'
  if(uhf) then ! UHF
@@ -189,6 +248,35 @@ subroutine fch2tm(fchname)
    write(fid,'(A)') '$roothaan         1'
    write(fid,'(A)') ' a=1  b=2'
   end if
+ end if
+ if(job_type>0 .and. job_type<10) then
+  call calc_ncore(fchname, chem_core, ecp_core)
+  ncore = MAX(0, chem_core-ecp_core)
+  write(fid,'(A)') '$rij'
+  write(fid,'(A)') '$rik'
+  write(fid,'(A)') '$ricore 100'
+  write(fid,'(A)') '$jkbas file=auxbasis'
+  write(fid,'(A)') '$cbas file=auxbasis'
+  write(fid,'(A)') '$ricc2'
+  select case(job_type)
+  case(1,2,3)
+   write(fid,'(2X,A)') 'adc(2)'
+  case(4,5,6,7,8,9)
+   write(fid,'(2X,A)') 'cc2'
+  end select
+  select case(job_type)
+  case(2,5,8)
+   write(fid,'(2X,A)') 'sos'
+  case(3,6,9)
+   write(fid,'(2X,A)') 'scs'
+  end select
+  !write(fid,'(2X,A)') 'conv=6'
+  write(fid,'(A,/,2X,A,I0,A)') '$freeze','implicit core=',ncore,' virt=0'
+  select case(job_type)
+  case(1,2,3,7,8,9)
+   write(fid,'(A,/,2X,A)') '$excitations','irrep=a nexc=3 npre=5'
+   write(fid,'(2X,A)') 'spectrum states=all operators=diplen'
+  end select
  end if
  write(fid,'(A)') '$end'
  close(fid)
@@ -217,22 +305,29 @@ subroutine fch2tm(fchname)
  !    functions
  k = length  ! update k
  allocate(d_mark(k), f_mark(k), g_mark(k), h_mark(k), i_mark(k))
- allocate(norm(nbf), source=1d0)
  allocate(coeff0(nbf,nif1), source=coeff)
  if(sph) then
+  allocate(norm(nbf), source=1d0)
   call read_mark_from_shltyp_sph(k, shell_type, n5dmark, n7fmark, n9gmark, &
                  n11hmark, n13imark, d_mark, f_mark, g_mark, h_mark, i_mark)
   call fch2tm_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
                           f_mark, g_mark, h_mark, nbf, idx, norm)
+  forall(i=1:nif1, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
+  deallocate(norm)
  else
   call read_mark_from_shltyp_cart(k, shell_type, n6dmark, n10fmark, n15gmark, &
                     n21hmark, n28imark, d_mark, f_mark, g_mark, h_mark, i_mark)
-  call fch2tm_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-                           f_mark, g_mark, h_mark, nbf, idx, norm)
+  call fch2tm_permute_cart(n6dmark, n10fmark, n21hmark, k, d_mark, f_mark, &
+                           h_mark, nbf, idx)
+  forall(i=1:nif1, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)
+ end if
+
+ deallocate(idx, coeff0)
+ if(.not. sph) then
+  call fch2tm_transform_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, nbf, &
+                             nif1, d_mark, f_mark, g_mark, h_mark, coeff)
  end if
  deallocate(d_mark, f_mark, g_mark, h_mark, i_mark)
- forall(i=1:nif1, j=1:nbf) coeff(j,i) = coeff0(idx(j),i)*norm(j)
- deallocate(norm, coeff0, idx)
  ! adjustment finished
 
  if(uhf) then

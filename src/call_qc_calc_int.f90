@@ -1211,7 +1211,7 @@ end subroutine submit_dalton_job
 
 subroutine submit_mrcc_job(outname, nproc)
  implicit none
- integer :: i, fid, SYSTEM
+ integer :: i, fid
  integer, intent(in) :: nproc
  character(len=240) :: shname
  character(len=240), intent(in) :: outname
@@ -1227,19 +1227,49 @@ subroutine submit_mrcc_job(outname, nproc)
  close(fid)
 
  buf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
- write(6,'(A)') '$'//TRIM(buf)
+ call run_command(TRIM(buf), .false., .true.)
 
- i = SYSTEM(TRIM(buf))
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine submit_mrcc_job: MRCC job failed.'
-  write(6,'(A)') 'Please open file '//TRIM(outname)//' and check.'
-  stop
- else
-  call delete_file(TRIM(shname))
-  call delete_file('56')
-  call delete_file('DAO')
- end if
+ call delete_file(TRIM(shname))
+ call delete_file('56')
+ call delete_file('DAO')
 end subroutine submit_mrcc_job
+
+! submit a Turbomole job
+subroutine submit_tm_job(outname, nproc, tm_mpi, rijk, ricc2)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nproc
+ character(len=240) :: shname
+ character(len=240), intent(in) :: outname
+ character(len=500) :: buf
+ logical, intent(in) :: tm_mpi, rijk, ricc2
+
+ call find_specified_suffix(outname, '.out', i)
+ shname = outname(1:i-1)//'.sh'
+
+ open(newunit=fid,file=TRIM(shname),status='replace')
+ if(tm_mpi) then
+  write(fid,'(A)') 'export PARA_ARCH=MPI'
+ else
+  write(fid,'(A)') 'export PARA_ARCH=SMP'
+ end if
+ write(fid,'(A,I0)') 'export PARNODES=', nproc
+
+ if(rijk) then
+  write(fid,'(A)') 'ridft'
+ else
+  write(fid,'(A)') 'dscf'
+ end if
+ if(ricc2) write(fid,'(A)') 'ricc2'
+ close(fid)
+
+ buf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
+ call run_command(TRIM(buf), .false., .true.)
+
+ call delete_file('statistics')
+ call delete_file('statistics.ricc2')
+ call delete_file(TRIM(shname))
+end subroutine submit_tm_job
 
 subroutine submit_cp2k_job(inpname, nproc)
  implicit none

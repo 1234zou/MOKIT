@@ -1,17 +1,24 @@
 # written by jxzou at 20200322
 # updated by jxzou at 20200515: delete 'install', add $(BIN)
 # updated by jxzou at 20221008: delete F2_MKL_FLAGS
+# updated by jxzou at 20260507: merge Makefile.intel and Makefile.intel_ifx
 
 BIN = ../bin
 LIB = ../mokit/lib
 
 # --- ifort + Intel MKL ----
-# CC=icc FC=ifort make all -f Makefile.intel
+# make all CC=icc FC=ifort F90=ifort F77=ifort
+#
+# --- ifx + Intel MKL ----
+# make all CC=icx FC=ifx F90=ifx F77=ifx
 
-F90 = ifort
+CC ?= icc
+FC ?= ifort
+F90 ?= ifort
+F77 ?= ifort
 FFLAGS = -O2 -fpp -fPIC -qopenmp
 MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -lmkl_rt
 F2PY = f2py
-F2_FLAGS = --fcompiler=intelem --f90flags="-fpp -O2 -qopenmp" -I$(PWD) -liomp5
+F2_FLAGS = --fcompiler=intelem --f90flags="-O2 -fpp -qopenmp" -I$(PWD) -liomp5
 
 include Makefile.main

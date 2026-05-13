@@ -733,11 +733,12 @@ subroutine fch2amo_wrap(fchname, aipname)
  end if
 end subroutine fch2amo_wrap
 
-subroutine fch2mrcc_wrap(fchname, job_type)
+subroutine fch2mrcc_wrap(fchname, job_type, prt)
  implicit none
  integer, intent(in) :: job_type
  character(len=240), intent(in) :: fchname
  character(len=258) :: buf
+ logical, intent(in) :: prt
 
  buf = 'fch2mrcc '//TRIM(fchname)
 
@@ -755,15 +756,60 @@ subroutine fch2mrcc_wrap(fchname, job_type)
   buf = TRIM(buf)//' -soscc2'
  case(6)
   buf = TRIM(buf)//' -scscc2'
+ case(7)
+  buf = TRIM(buf)//' -lrcc2'
+ case(8)
+  buf = TRIM(buf)//' -soslrcc2'
+ case(9)
+  buf = TRIM(buf)//' -scslrcc2'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine fch2mrcc_wrap: job_type is out of range!'
-  write(6,'(A,I0)') 'Only 0~6 are allowed. But got job_type=', job_type
-  write(6,'(A)') 'fchname='//TRIM(fchname)
+  write(6,'(/,A,I0)') 'ERROR in subroutine fch2mrcc_wrap: invalid job_type=', &
+                      job_type
+  write(6,'(A)') 'Only 0~9 are allowed. fchname='//TRIM(fchname)
   stop
  end select
 
- call run_command(TRIM(buf), .true., .false.)
+ call run_command(TRIM(buf), .false., prt)
 end subroutine fch2mrcc_wrap
+
+subroutine fch2tm_wrap(fchname, job_type, prt)
+ implicit none
+ integer, intent(in) :: job_type
+ character(len=240), intent(in) :: fchname
+ character(len=258) :: buf
+ logical, intent(in) :: prt
+
+ buf = 'fch2tm '//TRIM(fchname)
+
+ select case(job_type)
+ case(0) ! do nothing
+ case(1)
+  buf = TRIM(buf)//' -adc2'
+ case(2)
+  buf = TRIM(buf)//' -sosadc2'
+ case(3)
+  buf = TRIM(buf)//' -scsadc2'
+ case(4)
+  buf = TRIM(buf)//' -cc2'
+ case(5)
+  buf = TRIM(buf)//' -soscc2'
+ case(6)
+  buf = TRIM(buf)//' -scscc2'
+ case(7)
+  buf = TRIM(buf)//' -lrcc2'
+ case(8)
+  buf = TRIM(buf)//' -soslrcc2'
+ case(9)
+  buf = TRIM(buf)//' -scslrcc2'
+ case default
+  write(6,'(/,A,I0)') 'ERROR in subroutine fch2tm_wrap: invalid job_type=', &
+                      job_type
+  write(6,'(A)') 'Only 0~9 are allowed. fchname='//TRIM(fchname)
+  stop
+ end select
+
+ call run_command(TRIM(buf), .false., prt)
+end subroutine fch2tm_wrap
 
 subroutine dat2fch_wrap(datname, fchname)
  implicit none

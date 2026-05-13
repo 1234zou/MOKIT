@@ -50,6 +50,7 @@ module sr_keyword
 contains
 
 subroutine read_sr_program_path()
+ use mokit_version_info, only: version, date
  use mr_keyword, only: mokit_root, gau_path, molpro_path
  implicit none
  integer :: i
@@ -61,7 +62,7 @@ subroutine read_sr_program_path()
  write(6,'(A)') '------ Output of AutoSR of MOKIT(Molecular Orbital Kit) ------'
  write(6,'(A)') '       GitLab page: https://gitlab.com/jxzou/mokit'
  write(6,'(A)') '     Documentation: https://doc.mokit.xyz'
- write(6,'(A)') '           Version: 1.2.8rc1 (2026-Mar-25)'
+ write(6,'(A)') '           Version: '//TRIM(version)//' ('//TRIM(date)//')'
  write(6,'(A)') '       How to cite: see README.md or $MOKIT_ROOT/doc/'
 
  hostname = ' '
@@ -659,8 +660,9 @@ program main
                    & DLPNO-CCSD(T),'
   write(6,'(A)')   '  DLPNO-CCSD(T0), DLPNO-CCSD(T1), EOM-CCSD, EOM-SF-CCSD, EO&
                    &M-IP-CCSD, EOM-DIP-CCSD,'
-  write(6,'(A)')   '  EOM-EA-CCSD, CC2, CC3, ADC(2), ADC(3), CIS(D), ROCIS, XCI&
-                   &S, SF-XCIS, SA-SF-CIS'
+  write(6,'(A)')   '  EOM-EA-CCSD, CC2, CC3, ADC(2), SOS-ADC(2), SCS-ADC(2), AD&
+                   &C(3), CIS(D), ROCIS,'
+  write(6,'(A)')   '  XCIS, SF-XCIS, SA-SF-CIS'
   write(6,'(/,A)') 'Frequently used keywords in MOKIT{}:'
   write(6,'(A)')   '   HF_prog=Gaussian/PySCF/ORCA/PSI4'
   write(6,'(A)')   '  MP2_prog=ORCA/Molpro/Gaussian/GAMESS/PySCF/Dalton/QChem/C&
@@ -668,7 +670,7 @@ program main
   write(6,'(A)')   '   CC_prog=PySCF/Molpro/CFOUR/ORCA/PSI4/Gaussian/GAMESS/Dal&
                    &ton/QChem'
   write(6,'(A)')   '  CIS_prog=Molpro/ORCA/Gaussian/QChem'
-  write(6,'(A)')   '  ADC_prog=MRCC/QChem/ORCA/PSI4/PySCF'
+  write(6,'(A)')   '  ADC_prog=MRCC/Turbomole/QChem/ORCA/PSI4/PySCF'
   write(6,'(A,/)') '  EOM_prog=Molpro/CFOUR/ORCA/Gaussian/GAMESS/PySCF/QChem'
   stop
  case('-t','--testprog')
@@ -1219,7 +1221,7 @@ subroutine do_adc()
   ecp_core, customized_core, core_wish, ex_elec_e
  use mol, only: mult, ci_ssquare, fosc
  use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, fch2mkl_wrap, &
-  mkl2gbw, fch2psi_wrap, fch2mrcc_wrap, fch2qchem_wrap
+  mkl2gbw, fch2psi_wrap, fch2mrcc_wrap, fch2qchem_wrap, fch2tm_wrap
  use phys_cons, only: au2ev
  implicit none
  integer :: i, job_type, RENAME
@@ -1283,7 +1285,7 @@ subroutine do_adc()
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_adc_e_from_orca_out(outname, (ip .or. ea), nstate, ex_elec_e, fosc)
  case('psi4')
-  ! Note: ADC(3) requires fewer CPU cores and more memory
+  ! fewer CPU cores with larger memory is good for ADC(3)
   inpname = hf_fch(1:i-1)//'_ADC.inp'
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2psi_wrap(hf_fch, inpname)
@@ -1294,15 +1296,23 @@ subroutine do_adc()
  case('mrcc') ! ADC(2), and SOS-/SCS- variants
   inpname = 'MINP'
   outname = hf_fch(1:i-1)//'_ADC.out'
-  call fch2mrcc_wrap(hf_fch, job_type)
-  call modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
+  call fch2mrcc_wrap(hf_fch, job_type, .true.)
+  call modify_mem_ncore_nstate_in_mrcc_inp(mem, chem_core, nstate, x_triplet)
   call submit_mrcc_job(outname, nproc)
   call read_adc_e_from_mrcc_out(outname, nstate, ex_elec_e, fosc)
+ case('turbomole') ! ADC(2), and SOS-/SCS- variants
+  inpname = 'control'
+  outname = hf_fch(1:i-1)//'_ADC.out'
+  call fch2tm_wrap(hf_fch, job_type, .true.)
+  call modify_mem_ncore_nstate_in_tm_inp(mem, nproc, chem_core, nstate, x_triplet)
+  call submit_tm_job(outname, nproc, .false., .true., .true.)
+  call read_adc_e_from_tm_out(outname, nstate, ex_elec_e, fosc)
  case('qchem') ! ADC(2), SOS-ADC(2)
   inpname = hf_fch(1:i-1)//'_ADC.in'
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2qchem_wrap(hf_fch, job_type+5, 0, inpname)
-  call modify_mem_and_nstate_in_qchem_inp(inpname, mem, nstate, chem_core, x_triplet)
+  call modify_mem_ncore_nstate_in_qchem_inp(inpname, mem, chem_core, nstate, &
+                                            x_triplet)
   call submit_qchem_job(inpname, nproc)
   call read_adc_e_from_qchem_out(outname, nstate, ex_elec_e, fosc)
  case default
@@ -4777,12 +4787,19 @@ subroutine read_nocc_from_molcas_out(outname, nocc)
  end if
 end subroutine read_nocc_from_molcas_out
 
-! modify memory and nstate in MRCC input file (MINP)
+! modify memory, ncore and nstate in a specified MRCC input file (MINP)
 ! Note: `mem` must be provided in unit GB.
-subroutine modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
+! Warning: `Number of core electrons` in MRCC output is not the number of core
+!  electrons excluded in correlated calculations. One can find the valence
+!  occupied orbitals in the following strings
+! ```
+!  Number of integral batches:    1
+!  Occupied indices per batch:   10
+! ```
+subroutine modify_mem_ncore_nstate_in_mrcc_inp(mem, ncore, nstate, x_triplet)
  implicit none
  integer :: i, fid, fid1, RENAME
- integer, intent(in) :: mem, nstate
+ integer, intent(in) :: mem, ncore, nstate
  character(len=20) :: new_inp
  character(len=4), parameter :: input = 'MINP'
  character(len=240) :: buf
@@ -4811,6 +4828,7 @@ subroutine modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
  else
   write(fid1,'(A,I0)') 'nstate=', nstate+1
  end if
+ write(fid1,'(A,I0)') 'core=', ncore
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -4821,11 +4839,99 @@ subroutine modify_mem_and_nstate_in_mrcc_inp(mem, nstate, x_triplet)
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(new_inp), input)
-end subroutine modify_mem_and_nstate_in_mrcc_inp
+end subroutine modify_mem_ncore_nstate_in_mrcc_inp
 
-! modify memory and nstate in Q-Chem input file (.in)
+! modify memory, ncore, and nstate in a specified Turbomole input file (control)
 ! Note: `mem` must be provided in unit GB.
-subroutine modify_mem_and_nstate_in_qchem_inp(inpname, mem, nstate, ncore, x_triplet)
+subroutine modify_mem_ncore_nstate_in_tm_inp(mem, nproc, ncore, nstate, x_triplet)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem, nproc, ncore, nstate
+ character(len=7), parameter :: input = 'control'
+ character(len=20) :: new_inp
+ character(len=55), parameter :: error_warn = 'ERROR in subroutine modify_mem_n&
+                                              &core_nstate_in_tm_inp: '
+ character(len=240) :: buf
+ logical, intent(in) :: x_triplet
+
+ call get_a_random_int(i)
+ write(new_inp,'(A,I0)') 'control_', i
+ open(newunit=fid,file=input,status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(new_inp),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == '$maxcor') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') error_warn//'"$maxcor" not found in the file'
+  write(6,'(A)') '`control`.'
+  stop
+ end if
+
+ i = IDNINT(DBLE(mem*1000)/DBLE(nproc))
+ write(fid1,'(A,I0,A)') '$maxcor ', i,' MiB per_core'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:12) == '$freeze') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') error_warn//'"$freeze" not found in the'
+  write(6,'(A)') 'file `control`.'
+  stop
+ end if
+
+ write(fid1,'(A,/,2X,A,I0,A)') '$freeze','implicit core=',ncore,' virt=0'
+ read(fid,'(A)') buf ! skip one line
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:12) == '$excitations') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  close(fid1,status='delete')
+  write(6,'(/,A)') error_warn//'"$excitations" not found in the'
+  write(6,'(A)') 'file `control`.'
+  stop
+ end if
+
+ if(x_triplet) then
+  write(fid1,'(2X,2(A,I0))') 'irrep=a multiplicity=3 nexc=', nstate, ' npre=', &
+                             nstate+2
+ else
+  write(fid1,'(2X,2(A,I0))') 'irrep=a nexc=',nstate,' npre=',nstate+2
+ end if
+ read(fid,'(A)') buf ! skip one line
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(new_inp), input)
+end subroutine modify_mem_ncore_nstate_in_tm_inp
+
+! modify memory, ncore, and nstate in a specified Q-Chem input file (.in)
+! Note: `mem` must be provided in unit GB.
+subroutine modify_mem_ncore_nstate_in_qchem_inp(inpname, mem, ncore, nstate, x_triplet)
  implicit none
  integer :: i, fid, fid1, RENAME
  integer, intent(in) :: mem, nstate, ncore
@@ -4868,5 +4974,5 @@ subroutine modify_mem_and_nstate_in_qchem_inp(inpname, mem, nstate, ncore, x_tri
  close(fid,status='delete')
  close(fid1)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine modify_mem_and_nstate_in_qchem_inp
+end subroutine modify_mem_ncore_nstate_in_qchem_inp
 

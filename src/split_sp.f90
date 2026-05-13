@@ -42,6 +42,60 @@ module root_parameter
  real(kind=8), parameter :: root45  = DSQRT(45d0)    ! SQRT(45)
  real(kind=8), parameter :: root105 = DSQRT(105d0)   ! SQRT(105)
  real(kind=8), parameter :: root945 = DSQRT(945d0)   ! SQRT(945)
+
+ real(kind=8), parameter :: one_third = 1d0/3d0
+ real(kind=8), parameter :: two_third = 2d0/3d0
+ real(kind=8), parameter :: t_tf = 3d0/35d0
+ real(kind=8), parameter :: inv_s2 = 1d0/DSQRT(2d0)
+ real(kind=8), parameter :: inv_s3 = 1d0/DSQRT(3d0)
+ real(kind=8), parameter :: inv_s5 = 1d0/DSQRT(5d0)
+ real(kind=8), parameter :: inv_s7 = 1d0/DSQRT(7d0)
+ real(kind=8), parameter :: inv_s10 = 1d0/DSQRT(10d0)
+ real(kind=8), parameter :: inv_s14 = 1d0/DSQRT(14d0)
+ real(kind=8), parameter :: inv_s21 = 1d0/DSQRT(21d0)
+ real(kind=8), parameter :: inv_s30 = 1d0/DSQRT(30d0)
+ real(kind=8), parameter :: inv_s35 = 1d0/DSQRT(35d0)
+ real(kind=8), parameter :: inv_s105 = 1d0/DSQRT(105d0)
+ real(kind=8), parameter :: s5_third = DSQRT(5d0)/3d0
+ real(kind=8), parameter :: s6_tenth = DSQRT(6d0)/10d0
+ real(kind=8), parameter :: s21_fifth = DSQRT(21d0)/5d0
+ real(kind=8), parameter :: s3_7 = DSQRT(3d0/7d0)
+ real(kind=8), parameter :: s4_7 = 2d0/DSQRT(7d0)
+ real(kind=8), parameter :: s4_21 = 2d0/DSQRT(21d0)
+ real(kind=8), parameter :: s7_15 = DSQRT(7d0/15d0)
+ real(kind=8), parameter :: s8_15 = DSQRT(8d0/15d0)
+ real(kind=8), parameter :: s8_35 = DSQRT(8d0/35d0)
+ real(kind=8), parameter :: s9_70 = 3d0/DSQRT(70d0)
+ real(kind=8), parameter :: s16_105 = 4d0/DSQRT(105d0)
+ real(kind=8), parameter :: s27_35 = DSQRT(27d0/35d0)
+ real(kind=8), parameter :: s4_245 = 2d0/DSQRT(245d0)
+ real(kind=8), parameter :: s36_245 = 6d0/DSQRT(245d0)
+ real(kind=8), parameter :: s108_245 = DSQRT(108d0/245d0)
+ real(kind=8), parameter :: s144_245 = 12d0/DSQRT(245d0)
+
+ real(kind=8), parameter :: fch2tm_6d_mat(3,3) = RESHAPE([-one_third,inv_s3,&
+  s5_third,-one_third,-inv_s3,s5_third,two_third,0d0,s5_third], [3,3])
+ real(kind=8), parameter :: fch2tm_10f_mat1(3,3) = RESHAPE([0.4d0,0d0,s21_fifth,&
+  -inv_s5,inv_s3,s7_15,-inv_s5,-inv_s3,s7_15], [3,3])
+ real(kind=8), parameter :: fch2tm_10f_mat2(3,3) = RESHAPE([-s6_tenth,inv_s10,&
+  s21_fifth,-inv_s30,-inv_s2,s7_15,s8_15,0d0,s7_15], [3,3])
+ real(kind=8), parameter :: fch2tm_15g_mat(15,15) = RESHAPE([&
+  8d0/35d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,s144_245,0d0,0d0,0d0,0d0,0.6d0,&
+  0d0,0d0,s8_35,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,0d0,&
+  -s16_105,0d0,0d0,0d0,s4_21,0d0,0d0,0d0,0d0,inv_s21,0d0,0d0,0d0,-inv_s7,s7_15,&
+  0d0,0d0,-s9_70,0d0,0d0,0d0,inv_s10,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,0d0,&
+  t_tf,0d0,0d0,0d0,-s4_245,0d0,0d0,0d0,inv_s35,-s36_245,0d0,0d0,0d0,-s108_245,0.6d0,&
+  0d0,s8_35,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,0d0,0d0,&
+  0d0,0d0,0d0,s4_7,0d0,0d0,0d0,0d0,0d0,0d0,0d0,0d0,s3_7,0d0,0d0,&
+  0d0,-inv_s14,0d0,0d0,0d0,-inv_s2,0d0,0d0,0d0,0d0,s3_7,0d0,0d0,0d0,0d0,&
+  0d0,0d0,0d0,-inv_s35,0d0,0d0,0d0,-inv_s5,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,&
+  -s16_105,0d0,0d0,0d0,-s4_21,0d0,0d0,0d0,0d0,inv_s21,0d0,0d0,0d0,inv_s7,s7_15,&
+  0d0,0d0,-inv_s14,0d0,0d0,0d0,-inv_s2,0d0,0d0,0d0,0d0,s3_7,0d0,0d0,0d0,&
+  inv_s105,0d0,0d0,0d0,0d0,0d0,0d0,0d0,-inv_s3,-s4_21,0d0,0d0,0d0,0d0,s7_15,&
+  0d0,-s9_70,0d0,0d0,0d0,inv_s10,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,0d0,0d0,&
+  0d0,0d0,0d0,-inv_s35,0d0,0d0,0d0,inv_s5,0d0,0d0,0d0,0d0,s27_35,0d0,0d0,&
+  t_tf,0d0,0d0,0d0,s4_245,0d0,0d0,0d0,inv_s35,-s36_245,0d0,0d0,0d0,s108_245,0.6d0],&
+  [15,15])
 end module root_parameter
 
 ! split the 'L' into 'S' and 'P'
@@ -853,129 +907,135 @@ subroutine fch2tm_permute_sph(n5dmark, n7fmark, n9gmark, n11hmark, k, d_mark, &
 
  do i = 1, n5dmark, 1
   j = d_mark(i) + 3
-  m = idx(j)
-  idx(j) = idx(j+1)
-  idx(j+1) = m
+  m = idx(j); idx(j) = idx(j+1); idx(j+1) = m
  end do ! for i
 
  do i = 1, n7fmark, 1
   j = f_mark(i) + 3
-  m = idx(j)
-  idx(j) = idx(j+1)
-  idx(j+1) = m
+  m = idx(j); idx(j) = idx(j+1); idx(j+1) = m
   norm(j+3) = -norm(j+3)
  end do ! for i
 
  do i = 1, n9gmark, 1
   j = g_mark(i) + 3
-  m = idx(j)
-  idx(j) = idx(j+1)
-  idx(j+1) = m
+  m = idx(j); idx(j) = idx(j+1); idx(j+1) = m
   norm(j+1) = -norm(j+1)
   norm(j+3) = -norm(j+3)
-  m = idx(j+4)
-  idx(j+4) = idx(j+5)
-  idx(j+5) = m
+  m = idx(j+4); idx(j+4) = idx(j+5); idx(j+5) = m
  end do ! for i
 
  do i = 1, n11hmark, 1
   j = h_mark(i) + 3
-  m = idx(j)
-  idx(j) = idx(j+1)
-  idx(j+1) = m
-  m = idx(j+4)
-  idx(j+4) = idx(j+5)
-  idx(j+5) = m
+  m = idx(j); idx(j) = idx(j+1); idx(j+1) = m
+  m = idx(j+4); idx(j+4) = idx(j+5); idx(j+5) = m
  end do ! for i
 end subroutine fch2tm_permute_sph
 
-subroutine fch2tm_permute_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, d_mark,&
-                               f_mark, g_mark, h_mark, nbf, idx, norm)
+subroutine fch2tm_permute_cart(n6dmark, n10fmark, n21hmark, k, d_mark,&
+                               f_mark, h_mark, nbf, idx)
  implicit none
- integer :: i, j
- integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf
- integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer :: i, j, m
+ integer, intent(in) :: n6dmark, n10fmark, n21hmark, k, nbf
+ integer, intent(in) :: d_mark(k), f_mark(k), h_mark(k)
  integer, intent(inout) :: idx(nbf)
- real(kind=8), intent(inout) :: norm(nbf)
 
  do i = 1, n6dmark, 1
   j = d_mark(i)
-  call fch2tm_permute_6d(idx(j:j+5), norm(j:j+5))
- end do
+  call fch2tm_permute_6d(idx(j:j+5))
+ end do ! for i
+
  do i = 1, n10fmark, 1
   j = f_mark(i)
-  call fch2tm_permute_10f(idx(j:j+9), norm(j:j+9))
- end do
- do i = 1, n15gmark, 1
-  j = g_mark(i)
-  call fch2tm_permute_15g(idx(j:j+14), norm(j:j+14))
- end do
- do i = 1, n21hmark, 1
-  j = h_mark(i)
-  call fch2tm_permute_21h(idx(j:j+20), norm(j:j+20))
- end do
+  m = idx(j+3); idx(j+3) = idx(j+9); idx(j+9) = m
+  m = idx(j+9); idx(j+9) = idx(j+6); idx(j+6) = m
+ end do ! for i
+
+ if(n21hmark > 0) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2tm_permute_cart: Cartesian-type h f&
+                   &unctions are'
+  write(6,'(A)') 'not supported currently.'
+  stop
+ end if
 end subroutine fch2tm_permute_cart
 
-subroutine fch2tm_permute_6d(idx, norm)
+subroutine fch2tm_permute_6d(idx)
  implicit none
  integer :: i, idx0(6)
  integer, parameter :: order(6) = [1, 5, 6, 4, 2, 3]
  integer, intent(inout) :: idx(6)
- real(kind=8) :: norm0(6)
- real(kind=8), intent(inout) :: norm(6)
 
  idx0 = idx
- norm0 = norm
- forall(i = 1:6)
+ do i = 1, 6
   idx(i) = idx0(order(i))
-  norm(i) = norm0(order(i))
- end forall
+ end do ! for i
 end subroutine fch2tm_permute_6d
 
-! TODO: it seems that this subroutine can be deleted.
-subroutine fch2tm_permute_10f(idx, norm)
+! Permuting AO ordering is insufficient for Cartesian-type functions in Turbomole.
+! Some basis functions are linear combinations of pure 6D functions. So we also
+! need some matrix transformations.
+subroutine fch2tm_transform_cart(n6dmark, n10fmark, n15gmark, n21hmark, k, nbf,&
+                                 nif, d_mark, f_mark, g_mark, h_mark, mo)
+ use root_parameter, only: fch2tm_6d_mat, fch2tm_10f_mat1, fch2tm_10f_mat2, &
+  fch2tm_15g_mat
  implicit none
- integer :: i, idx0(10)
- integer, parameter :: order(10) = [1,2,3,4,5,6,7,8,9,10]
- integer, intent(inout) :: idx(10)
- real(kind=8) :: norm0(10)
- real(kind=8), intent(inout) :: norm(10)
+ integer :: i, j, m
+ integer, intent(in) :: n6dmark, n10fmark, n15gmark, n21hmark, k, nbf, nif
+ integer, intent(in) :: d_mark(k), f_mark(k), g_mark(k), h_mark(k)
+ integer, parameter :: idx_10f(10) = [1,5,8,4,2,6,9,3,7,10]
+ real(kind=8), intent(inout) :: mo(nbf,nif)
+ real(kind=8), allocatable :: tmp_mo1(:,:), tmp_mo2(:,:)
 
- idx0 = idx
- norm0 = norm
- forall(i = 1:10)
-  idx(i) = idx0(order(i))
-  norm(i) = norm0(order(i))
- end forall
-end subroutine fch2tm_permute_10f
+ allocate(tmp_mo1(3,nif), tmp_mo2(3,nif))
+ do i = 1, n6dmark, 1
+  j = d_mark(i)
+  tmp_mo1(1,:) = mo(j,:)
+  tmp_mo1(2:3,:) = mo(j+4:j+5,:)
+  tmp_mo2 = 0d0
+  call dgemm('N','N',3,nif,3,1d0,fch2tm_6d_mat,3,tmp_mo1,3,0d0,tmp_mo2,3)
+  mo(j,:) = tmp_mo2(1,:)
+  mo(j+4:j+5,:) = tmp_mo2(2:3,:)
+ end do ! for i
 
-subroutine fch2tm_permute_15g(idx, norm)
- implicit none
- integer :: i
- integer, intent(inout) :: idx(15)
- real(kind=8), intent(inout) :: norm(15)
+ deallocate(tmp_mo2)
+ allocate(tmp_mo2(10,nif))
 
- forall(i = 1:15) idx(i) = i
- norm = 1d0
- write(6,'(/,A)') 'ERROR in subroutine fch2tm_permute_15g: Cartesian-type g fun&
-                  &ctions not'
- write(6,'(A)') 'supported currently.'
- stop
-end subroutine fch2tm_permute_15g
+ do i = 1, n10fmark, 1
+  j = f_mark(i)
+  tmp_mo2 = 0d0
+  tmp_mo2(4,:) = mo(j+3,:)
 
-subroutine fch2tm_permute_21h(idx, norm)
- implicit none
- integer :: i
- integer, intent(inout) :: idx(21)
- real(kind=8), intent(inout) :: norm(21)
+  tmp_mo1(1,:) = mo(j+2,:)
+  tmp_mo1(2,:) = mo(j+5,:)
+  tmp_mo1(3,:) = mo(j+8,:)
+  call dgemm('N','N',3,nif,3,1d0,fch2tm_10f_mat1,3,tmp_mo1,3,0d0,tmp_mo2(1:3,:),3)
 
- forall(i = 1:21) idx(i) = i
- norm = 1d0
- write(6,'(/,A)') 'ERROR in subroutine fch2tm_permute_21h: Cartesian-type h fun&
-                  &ctions not'
- write(6,'(A)') 'supported currently.'
- stop
-end subroutine fch2tm_permute_21h
+  tmp_mo1(1,:) = mo(j,:)
+  tmp_mo1(2,:) = mo(j+6,:)
+  tmp_mo1(3,:) = mo(j+9,:)
+  call dgemm('N','N',3,nif,3,1d0,fch2tm_10f_mat2,3,tmp_mo1,3,0d0,tmp_mo2(5:7,:),3)
+
+  tmp_mo1(1,:) = mo(j+1,:)
+  tmp_mo1(2,:) = mo(j+4,:)
+  tmp_mo1(3,:) = mo(j+7,:)
+  call dgemm('N','N',3,nif,3,1d0,fch2tm_10f_mat2,3,tmp_mo1,3,0d0,tmp_mo2(8:10,:),3)
+
+  do m = 1, 10
+   mo(j+idx_10f(m)-1,:) = tmp_mo2(m,:)
+  end do ! for m
+ end do ! for i
+
+ deallocate(tmp_mo1, tmp_mo2)
+ allocate(tmp_mo1(15,nif), tmp_mo2(15,nif))
+
+ do i = 1, n15gmark, 1
+  j = g_mark(i)
+  tmp_mo2 = 0d0
+  call dgemm('N','N',15,nif,15,1d0,fch2tm_15g_mat,15,mo(j:j+14,:),15,0d0,tmp_mo2,15)
+  mo(j:j+14,:) = tmp_mo2
+ end do ! for i
+
+ deallocate(tmp_mo1, tmp_mo2)
+end subroutine fch2tm_transform_cart
 
 subroutine fch2mrcc_permute_6d(idx, norm)
  use root_parameter, only: root3

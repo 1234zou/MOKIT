@@ -8,7 +8,7 @@
 #    and modifies some content from pyscf/scf/stability.py to this file.
 # 2) The `stable=opt` functionality is moved from mokit/src/do_hf.f90 to this file.
 
-# This file is for temporarily usage, which may be removed in ~2 year (when most
+# This file is for temporarily usage, which may be removed in ~2 years (when most
 # people are used to new PySCF, say >= v2.7). Forcing all users to update to the
 # newest PySCF is not realistic currently.
 
@@ -17,7 +17,6 @@
 # MOKIT developers to delete this file.
 
 from pyscf import lib
-from pyscf.scf import hf
 from pyscf.soscf import newton_ah
 import numpy as np
 
@@ -25,15 +24,21 @@ MAX_CYCLE = 200
 
 
 def _rotate_mo(mo_coeff, mo_occ, dx):
+    from pyscf.scf import hf
     dr = hf.unpack_uniq_var(dx, mo_occ)
     u = newton_ah.expmat(dr)
     return np.dot(mo_coeff, u)
 
 
+# This function can be used for either RHF or ROHF
 def rhf_internal(mf, tol=1e-7, verbose=None):
     log = lib.logger.new_logger(mf, verbose)
-    g, hop, hdiag = newton_ah.gen_g_hop_rhf(mf, mf.mo_coeff, mf.mo_occ,
-                                            with_symmetry=True)
+    if mf.mol.spin == 0:
+        g, hop, hdiag = newton_ah.gen_g_hop_rhf(mf, mf.mo_coeff, mf.mo_occ,
+                                                with_symmetry=True)
+    else:
+        g, hop, hdiag = newton_ah.gen_g_hop_rohf(mf, mf.mo_coeff, mf.mo_occ,
+                                                 with_symmetry=True)
     hdiag *= 2
     stable = True
 
@@ -43,35 +48,6 @@ def rhf_internal(mf, tol=1e-7, verbose=None):
         return dx/hdiagd
 
     def hessian_x(x):
-        return hop(x).real * 2
-
-    x0 = np.zeros_like(g)
-    x0[g!=0] = 1. / hdiag[g!=0]
-    e, v = lib.davidson(hessian_x, x0, precond, tol=tol, max_cycle=MAX_CYCLE, verbose=log)
-    if e < -1e-5:
-        log.note(f'{mf.__class__} wavefunction has an internal instability.')
-        mo = _rotate_mo(mf.mo_coeff, mf.mo_occ, v)
-        stable = False
-    else:
-        log.note(f'{mf.__class__} wavefunction is stable in the internal '
-                 'stability analysis')
-        mo = mf.mo_coeff
-    return mo, stable
-
-
-def rohf_internal(mf, tol=1e-7, verbose=None):
-    log = lib.logger.new_logger(mf, verbose)
-    g, hop, hdiag = newton_ah.gen_g_hop_rohf(mf, mf.mo_coeff, mf.mo_occ,
-                                             with_symmetry=True)
-    hdiag *= 2
-    stable = True
-
-    def precond(dx, e, x0):
-        hdiagd = hdiag - e
-        hdiagd[abs(hdiagd)<1e-8] = 1e-8
-        return dx/hdiagd
-
-    def hessian_x(x): # See comments in function rhf_internal
         return hop(x).real * 2
 
     x0 = np.zeros_like(g)
@@ -120,11 +96,21 @@ def uhf_internal(mf, tol=1e-7, verbose=None):
     return mo, stable
 
 
-def rhf_stable_opt_internal(mf):
+def hf_stable_opt_internal(mf):
+    from pyscf import scf
+    rhf = isinstance(mf, scf.rhf.RHF) or isinstance(mf, scf.rohf.ROHF)
+    uhf = isinstance(mf, scf.uhf.UHF)
+
     i = 0
     while (i < 10):
         i += 1
-        mo, stable = rhf_internal(mf, verbose=5)
+        if rhf:
+            mo, stable = rhf_internal(mf, verbose=5)
+        elif uhf:
+            mo, stable = uhf_internal(mf, verbose=5)
+        else:
+            raise OSError('Only RHF/ROHF/UHF are supported currently.')
+
         if (stable):
             break
         else:
@@ -132,38 +118,11 @@ def rhf_stable_opt_internal(mf):
             mf = mf.newton()
             mf.kernel(dm0=dm)
     if not stable:
-        raise OSError('PySCF RHF stable=opt failed after 10 attempts.')
+        raise OSError('PySCF R(O)HF stable=opt failed after 10 attempts.')
     return mf
 
-
-def rohf_stable_opt_internal(mf):
-    i = 0
-    while (i < 10):
-        i += 1
-        mo, stable = rohf_internal(mf, verbose=5)
-        if (stable):
-            break
-        else:
-            dm = mf.make_rdm1(mo, mf.mo_occ)
-            mf = mf.newton()
-            mf.kernel(dm0=dm)
-    if not stable:
-        raise OSError('PySCF ROHF stable=opt failed after 10 attempts.')
-    return mf
-
-
-def uhf_stable_opt_internal(mf):
-    i = 0
-    while (i < 10):
-        i += 1
-        mo, stable = uhf_internal(mf, verbose=5)
-        if (stable):
-            break
-        else:
-            dm = mf.make_rdm1(mo, mf.mo_occ)
-            mf = mf.newton()
-            mf.kernel(dm0=dm)
-    if not stable:
-        raise OSError('PySCF UHF stable=opt failed after 10 attempts.')
-    return mf
+# alias
+rhf_stable_opt_internal = hf_stable_opt_internal
+rohf_stable_opt_internal = hf_stable_opt_internal
+uhf_stable_opt_internal = hf_stable_opt_internal
 

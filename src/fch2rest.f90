@@ -253,8 +253,8 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  write(fid,'(2X,A)') 'print_level = 2'
  write(fid,'(2X,A)') 'num_threads = 4'
  write(fid,'(2X,A)') 'basis_path = "./'//TRIM(basename)//'-basis"'
- write(fid,'(2X,A)') 'auxbas_path = "def2-SV(P)-JKFIT"'
- write(fid,'(2X,A)') '#auxbas_path = "def2-universal-JKFIT"'
+ write(fid,'(2X,A)') 'auxbas_path = "def2-universal-JKFIT"'
+ write(fid,'(2X,A)') '#auxbas_path = "def2-SV(P)-JKFIT"'
  write(fid,'(2X,A)') 'chkfile = "'//TRIM(basename)//'.pchk"'
  write(fid,'(2X,A,I0)') 'charge = ', charge
  write(fid,'(2X,A,I0)') 'spin = ', mult

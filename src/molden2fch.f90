@@ -1,6 +1,6 @@
 ! written by jxzou at 20240125: generate Gaussian .fch file (from scratch) using
 ! a given .molden file
-! TODO: extended to more formats of .molden files; support 6D 10F.
+! TODO: extended to more formats of .molden files
 
 ! The expansion matrices of spherical harmonic functions to Cartesian functions.
 ! The permutation matrices are included in these expansion matrices, so there
@@ -456,6 +456,7 @@ subroutine molden2fch(molden, iprog, natorb)
   r1(:), r2(:,:)
  real(kind=8), parameter :: e_thres = 1d-6
  character(len=3), parameter :: fname = 'mos'
+ character(len=32), parameter :: error_warn='ERROR in subroutine molden2fch: '
  character(len=240) :: fchname
  character(len=240), intent(in) :: molden
  logical :: sph, has_sp, all_coeff
@@ -463,7 +464,7 @@ subroutine molden2fch(molden, iprog, natorb)
 
  select case(iprog)
  case(1,5)
-  write(6,'(/,A)') 'ERROR in subroutine molden2fch: program not supported yet.'
+  write(6,'(/,A)') error_warn//'program not supported yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
   stop
@@ -522,9 +523,9 @@ subroutine molden2fch(molden, iprog, natorb)
  end select
 
  if(is_uhf .and. natorb) then
-  write(6,'(/,A)') 'ERROR in subroutine molden2fch: natural spin orbitals are n&
-                   &ot supported.'
-  write(6,'(A)') 'Spatial natural orbitals (from the total density) are supported.'
+  write(6,'(/,A)') error_warn//'natural spin orbitals are not supported.'
+  write(6,'(A)') 'Spatial natural orbitals (from the total density) are support&
+                 &ed.'
   stop
  end if
 
@@ -589,7 +590,7 @@ subroutine molden2fch(molden, iprog, natorb)
 
  select case(iprog)
  case(1,5)
-  write(6,'(/,A)') 'ERROR in program molden2fch: not implemented yet.'
+  write(6,'(/,A)') error_warn//'program not implemented yet.'
   write(6,'(A)') 'You can open an issue here (https://gitlab.com/jxzou/mokit/-/&
                  &issues).'
   stop
@@ -621,10 +622,8 @@ subroutine molden2fch(molden, iprog, natorb)
     call solve_multi_lin_eqs(15,9,rg1,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
     nbf = nbf + 9; j = j + 15
    case default
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: the CFOUR-type molden fil&
-                     &e is problematic'
-    write(6,'(A)') 'when there are basis functions >=h. This is probably a bug &
-                   &of CFOUR.'
+    write(6,'(/,A)') error_warn//'CFOUR-type molden file with angular momentum'
+    write(6,'(A)') '>= h is not supported currently. molden='//TRIM(molden)
     stop
    end select
   end do ! for i
@@ -644,8 +643,7 @@ subroutine molden2fch(molden, iprog, natorb)
   write(6,'(A)') REPEAT('-',79)
  case(6) ! (Open)Molcas, nothing to do
   if(ANY(shell_type < -4)) then
-   write(6,'(/,A)') 'ERROR in subroutine molden2fch: OpenMolcas cannot generate&
-                    & .molden file'
+   write(6,'(/,A)') error_warn//'OpenMolcas cannot generate .molden file'
    write(6,'(A)') 'for angular momentum >=h. This molden file is suspicious.'
    stop
   end if
@@ -677,8 +675,7 @@ subroutine molden2fch(molden, iprog, natorb)
     call solve_multi_lin_eqs(15,9,rg2,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
     nbf = nbf + 9; j = j + 15
    case default
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: Molpro cannot generate .m&
-                     &olden file for'
+    write(6,'(/,A)') error_warn//'Molpro cannot generate .molden file for'
     write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
     stop
    end select
@@ -689,8 +686,7 @@ subroutine molden2fch(molden, iprog, natorb)
  case(8) ! MRCC, nothing to do
  case(9) ! NWChem
   if(ANY(shell_type<-4) .or. ANY(shell_type>4)) then
-   write(6,'(/,A)') 'ERROR in subroutine molden2fch: NWChem cannot generate .mo&
-                    &olden file for'
+   write(6,'(/,A)') error_warn//'NWChem cannot generate .molden file for'
    write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
    stop
   end if
@@ -716,8 +712,7 @@ subroutine molden2fch(molden, iprog, natorb)
  case(11) ! PSI4, nothing to do
  case(12) ! PySCF, nothing to do
   if(ANY(shell_type < -4)) then
-   write(6,'(/,A)') 'ERROR in subroutine molden2fch: PySCF cannot generate .mol&
-                    &den file for'
+   write(6,'(/,A)') error_warn//'PySCF cannot generate .molden file for'
    write(6,'(A)') 'angular momentum >=h. This molden file is suspicious.'
    stop
   end if
@@ -755,8 +750,7 @@ subroutine molden2fch(molden, iprog, natorb)
     call solve_multi_lin_eqs(15,9,rg,nif1,coeff(j+1:j+15,:),tmp_coeff(nbf+1:nbf+9,:))
     nbf = nbf + 9; j = j + 15
    case default
-    write(6,'(/,A)') 'ERROR in subroutine molden2fch: tm2molden does not suppor&
-                     &t angular momentum'
+    write(6,'(/,A)') error_warn//'tm2molden does not support angular momentum'
     write(6,'(A)') '>=h. This molden file is suspicious.'
     stop
    end select
@@ -766,8 +760,7 @@ subroutine molden2fch(molden, iprog, natorb)
   allocate(coeff(nbf1,nif1), source=tmp_coeff)
   deallocate(tmp_coeff)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine molden2fch: iprog out of range! Unsuppo&
-                   &rted program currently.'
+  write(6,'(/,A)') error_warn//'iprog out of range! Unsupported program currently.'
   write(6,'(A,I0)') 'iprog=', iprog
   stop
  end select
@@ -808,6 +801,13 @@ subroutine molden2fch(molden, iprog, natorb)
  write(6,'(A)') 'plicity. It will be guessed according to the occupation number&
                 &s. If the guessed'
  write(6,'(A)') 'spin is wrong, you need to modify it in file '//TRIM(fchname)
+ write(6,'(A)') 'You can use the following Python API to provide correct charge&
+                & and spin multi-'
+ write(6,'(A)') 'plicity, i.e.'
+ write(6,'(A)') '```python'
+ write(6,'(A)') 'from mokit.lib.rwwfn import modify_charge_and_mult_in_fch'
+ write(6,'(A)') 'modify_charge_and_mult_in_fch(fchname, charge, mult)'
+ write(6,'(A)') '```'
  write(6,'(A)') REPEAT('-',79)
 
  ! check whether there is frequency data

@@ -431,20 +431,20 @@ subroutine read_mo_from_dalton_mopun(orbname, nbf, nif, coeff)
  end if
 end subroutine read_mo_from_dalton_mopun
 
-! read Alpha MOs from a Turbomole mos file
-subroutine read_mo_from_mos(fname, nbf, nif, coeff)
+! read Alpha MOs from a Turbomole `mos` file
+subroutine read_mo_from_mos(fname, nbf, nif, mo)
  implicit none
  integer :: i, fid
  integer, intent(in) :: nbf, nif
 !f2py intent(in) :: nbf, nif
- real(kind=8), intent(out) :: coeff(nbf,nif)
-!f2py intent(out) :: coeff
-!f2py depend(nbf,nif) :: coeff
+ real(kind=8), intent(out) :: mo(nbf,nif)
+!f2py intent(out) :: mo
+!f2py depend(nbf,nif) :: mo
  character(len=240) :: buf
  character(len=240), intent(in) :: fname
 !f2py intent(in) :: fname
 
- coeff = 0d0
+ mo = 0d0
  open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
  read(fid,'(A)') buf
 
@@ -455,8 +455,8 @@ subroutine read_mo_from_mos(fname, nbf, nif, coeff)
  BACKSPACE(fid)
 
  do i = 1, nif, 1
-  read(fid,'(A)') buf
-  read(fid,'(4D20.14)') coeff(:,i)
+  read(fid,'(A)') buf ! skip `eigenvalue=`
+  read(fid,'(4D20.14)') mo(:,i)
  end do ! for i
 
  close(fid)

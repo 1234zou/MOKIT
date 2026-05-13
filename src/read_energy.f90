@@ -80,9 +80,10 @@ subroutine read_fosc_from_orca_out(outname, nstate, fosc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_orca_out: failed to read&
-                   & fosc in file '//TRIM(outname)
   close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine read_fosc_from_orca_out: failed to read&
+                   & fosc in file'
+  write(6,'(A)') TRIM(outname)
   stop
  end if
 
@@ -165,6 +166,8 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
  real(kind=8) :: scf_e, corr_e2, corr_e3
  real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
  character(len=1) :: str1
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
+                                              &rom_psi4_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: adc3
@@ -182,9 +185,8 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
   end do ! for while
 
   if(j /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no SCF energ&
-                    &y found in'
-   write(6,'(A)') 'file '//TRIM(outname)
+   write(6,'(/,A)') error_warn//'no SCF energy found in file'
+   write(6,'(A)') TRIM(outname)
    close(fid)
    stop
   end if
@@ -200,9 +202,8 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_adc_e_from_psi4_out: no correlatio&
-                   &n energy found'
-  write(6,'(A)') 'in file '//TRIM(outname)
+  write(6,'(/,A)') error_warn//'no correlation energy found in'
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -222,9 +223,8 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
-                   &tates s' found"
-  write(6,'(A)') 'in file '//TRIM(outname)
+  write(6,'(/,A)') error_warn//'no "Excited states s" found in'
+  write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
@@ -246,8 +246,7 @@ subroutine read_adc_e_from_psi4_out(outname, adc3, nstate, e, fosc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_adc_e_from_psi4_out: no 'Excited s&
-                   &tate prop' found"
+  write(6,'(/,A)') error_warn//'no "Excited state prop" found'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -353,6 +352,78 @@ subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
 
  close(fid)
 end subroutine read_adc_e_from_mrcc_out
+
+! read ADC(2) excited state energies from a specified Turbomole output file
+subroutine read_adc_e_from_tm_out(outname, nstate, e, fosc)
+ implicit none
+ integer :: i, ntimes, fid
+ integer, intent(in) :: nstate
+ real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
+ character(len=43), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
+                                              &rom_m_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: x_triplet
+
+ e = 0d0; fosc = 0d0; x_triplet = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(10:20) == 'Final MP2 e') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"Final MP2 e" not found in file'
+  write(6,'(A)') TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ call get_dpv_after_flag(buf, ':', .true., e(0))
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(35:53)=='ADC(2) excitation e' .and. buf(68:70)=='%t1') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"ADC(2) excitation e" and "%t1" are'
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 3 ! skip 3 lines
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do i = 1, nstate, 1
+  read(fid,'(A)') buf
+  read(buf(25:),*) e(i)
+  e(i) = e(i) + e(0)
+ end do ! for i
+
+ ntimes = 0
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(8:31) == 'oscillator strength (len') then
+   ntimes = ntimes + 1
+   call get_dpv_after_flag(buf, ':', .true., fosc(ntimes))
+   if(ntimes == nstate) exit
+  end if
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"oscillator strength (len" are'
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  stop
+ end if
+end subroutine read_adc_e_from_tm_out
 
 subroutine read_adc_e_from_qchem_out(outname, nstate, e, fosc)
  implicit none

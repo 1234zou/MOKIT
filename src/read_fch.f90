@@ -1214,8 +1214,8 @@ subroutine calc_ncore(fchname, chem_core, ecp_core)
  logical :: ecp
 
  chem_core = 0; buf = ' ' ! initialization
-
  open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)') buf
   if(buf(1:14) == 'Number of atom') exit
