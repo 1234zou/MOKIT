@@ -1,5 +1,11 @@
 ! first written by jxzou at 20260325: modern and advanced DFT calculations
 
+! the hybrid functional part of DSD-PBEP86-D3(BJ):
+! #p PBEP86 IOP(3/76=1000006900,3/77=0310003100,3/78=0440004400)
+
+! the hybrid functional part of revDSD-PBEP86-D3(BJ):
+! #p PBEP86 IOP(3/76=1000006900,3/77=0310003100,3/78=0429604296)
+
 program main
  use mokit_version_info, only: version, date
  implicit none
@@ -9,7 +15,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,1X,A)') error_warn//'wrong command line argument!'
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')   " Example: autodft h2o.gjf >h2o.out 2>&1 &"
   write(6,'(A,/)') ' See help: autodft -h'
   stop
@@ -20,7 +26,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoDFT '//version//' :: MOKIT, release date: '//date
+  write(6,'(A)') 'AutoDFT '//TRIM(version)//' :: MOKIT, release date: '//TRIM(date)
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: autodft [gjfname] > [outname]'

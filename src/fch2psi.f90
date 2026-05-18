@@ -22,14 +22,14 @@ program main
  implicit none
  integer :: i
  character(len=4) :: str4
- character(len=15) :: dftname
+ character(len=30) :: dftname
  character(len=240) :: fchname
 
  i = iargc()
  if(.not. (i==1 .or. i==3)) then
   write(6,'(/,A)') ' ERROR in program fch2psi: wrong command line arguments!'
   write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2psi a.fch'
-  write(6,'(A,/)') " Example 2 (DFT)           : fch2psi a.fch -dft 'wB97M-D3BJ'"
+  write(6,'(A,/)') ' Example 2 (DFT)           : fch2psi a.fch -dft "wB97M-D3BJ"'
   stop
  end if
 
@@ -72,7 +72,7 @@ subroutine fch2psi(fchname, dftname)
  integer, allocatable :: shell_type(:), shl2atm(:)
  integer, allocatable :: p_mark(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
- character(len=15), intent(in) :: dftname
+ character(len=30), intent(in) :: dftname
  character(len=240) :: gms_inp, inpname, fileA, fileB
  character(len=240), intent(in) :: fchname
  logical :: sph, uhf
@@ -330,8 +330,8 @@ subroutine bas_gms2psi(inpname, dftname, sph)
  real(kind=8) :: rtmp(3)
  character(len=1), parameter :: am(0:6) = ['s','p','d','f','g','h','i']
  character(len=2) :: stype
- character(len=15) :: dftname1
- character(len=15), intent(in) :: dftname
+ character(len=30) :: dftname1
+ character(len=30), intent(in) :: dftname
  character(len=240) :: buf, inpname1, fileA, fileB
  character(len=240), intent(in) :: inpname
  logical :: uhf, ghf, X2C

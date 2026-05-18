@@ -876,7 +876,7 @@ end subroutine fch2openqp_wrap
 ! a wrapper of the utility fch2rest
 subroutine fch2rest_wrap(fchname, dft, func)
  implicit none
- character(len=15), intent(in) :: func
+ character(len=30), intent(in) :: func
  character(len=240), intent(in) :: fchname
  character(len=270) :: buf
  logical, intent(in) :: dft
@@ -915,7 +915,7 @@ end subroutine gbw2molden
 subroutine gbw2rest(gbwname, dft, func)
  implicit none
  integer :: i
- character(len=15), intent(in) :: func
+ character(len=30), intent(in) :: func
  character(len=240) :: molden, fchname
  character(len=240), intent(in) :: gbwname
  logical, intent(in) :: dft

@@ -7,18 +7,18 @@ BIN = ../bin
 LIB = ../mokit/lib
 
 # --- ifort + Intel MKL ----
-# make all CC=icc FC=ifort F90=ifort F77=ifort
+# make all
 #
 # --- ifx + Intel MKL ----
 # make all CC=icx FC=ifx F90=ifx F77=ifx
 
-CC ?= icc
-FC ?= ifort
-F90 ?= ifort
-F77 ?= ifort
+CC = icc
+FC = ifort
+F90 = ifort
+F77 = ifort
 FFLAGS = -O2 -fpp -fPIC -qopenmp
 MKL_FLAGS = -L$(MKLROOT)/lib/intel64 -lmkl_rt
-F2PY = f2py
+F2PY = CC=$(CC) FC=$(FC) F90=$(F90) F77=$(F77) f2py
 F2_FLAGS = --fcompiler=intelem --f90flags="-O2 -fpp -qopenmp" -I$(PWD) -liomp5
 
 include Makefile.main

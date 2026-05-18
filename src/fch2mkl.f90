@@ -20,27 +20,30 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: i, k
+ integer :: narg, k
  integer :: itype ! 0/1/2 for default/SF-TDDFT/DFT
+ integer :: dis_type ! 0/1/2/3 for none/D3/D3BJ/D4
  character(len=4) :: str4
- character(len=30) :: str30
+ character(len=26), parameter :: error_warn = 'ERROR in program fch2mkl: '
+ character(len=30) :: dftname
  character(len=240) :: fchname
 
- itype = 0; str4 = ' '; str30 = ' '; fchname = ' '
-
- i = iargc()
- if(i<1 .or. i>3) then
-  write(6,'(/,A)')' ERROR in program fch2mkl: wrong command line arguments!'
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
+  write(6,'(/,1X,A)')error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2mkl h2o.fch'
   write(6,'(A)')  ' Example 2 (SF-TDDFT)      : fch2mkl O2_T.fch -sf'
-  write(6,'(A)')  " Example 3 (R(O)KS/UKS)    : fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
-  write(6,'(A)')  "                             fch2mkl h2o.fch -dft 'HSE06 D3zero'"
-  write(6,'(A)')  "                             fch2mkl h2o.fch -dft 'wB97M-V'"
-  write(6,'(A)')  " Example 4 (DLPNO-DH)      : fch2mkl h2o.fch -dft 'DLPNO-B2PLYP D3BJ'"
-  write(6,'(A,/)')"                             fch2mkl h2o.fch -dft 'DLPNO-wB97X-2 D3'"
+  write(6,'(A)')  ' Example 3 (R(O)KS/UKS)    : fch2mkl h2o.fch -dft "B3LYP D3BJ"'
+  write(6,'(A)')  '                             fch2mkl h2o.fch -dft "HSE06 D3zero"'
+  write(6,'(A)')  '                             fch2mkl h2o.fch -dft "wB97M-V"'
+  write(6,'(A)')  ' Example 4 (double hybrid) : fch2mkl h2o.fch -dft "DSD-PBEP86-D3BJ"'
+  write(6,'(A)')  '                             fch2mkl h2o.fch -dft "revDSD-PBEP86-D3BJ"'
+  write(6,'(A)')  ' Example 5 (DLPNO-DH)      : fch2mkl h2o.fch -dft "DLPNO-B2PLYP D3BJ"'
+  write(6,'(A,/)')'                             fch2mkl h2o.fch -dft "DLPNO-wB97X-2 D3"'
   stop
  end if
 
+ itype = 0; dis_type = 0; str4 = ' '; dftname = ' '; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -51,66 +54,77 @@ program main
   fchname = fchname(1:k-4)//'.fch'
  end if
 
- if(i > 1) then
+ if(narg > 1) then
   call getarg(2, str4)
   select case(TRIM(str4))
   case('-sf')
    itype = 1
   case('-dft')
    itype = 2
-   if(i == 2) then
-    write(6,'(/,A)') 'ERROR in program fch2mkl: you should specify the DFT name.'
-    write(6,'(A)') "Example: fch2mkl h2o.fch -dft 'B3LYP D3BJ'"
+   if(narg == 2) then
+    write(6,'(/,A)') error_warn//' you should specify the DFT name.'
+    write(6,'(A)') 'Example: fch2mkl h2o.fch -dft "B3LYP D3BJ"'
     stop
    end if
-   call getarg(3, str30)
+   call getarg(3, dftname)
+   if(INDEX(dftname,'(')>0 .or. INDEX(dftname,')')>0) then
+    write(6,'(/,A)') error_warn//'"(" or ")" symbols are not allowed'
+    write(6,'(A)') 'in the command line arguments. If you want D3(BJ), you can &
+                   &just write D3BJ.'
+    stop
+   end if
   case default
-   write(6,'(/,A)') 'ERROR in program fch2mkl: the 2nd command line argument is&
-                    & wrong!'
+   write(6,'(/,A)') error_warn//'the 2nd command line argument is wrong!'
+   write(6,'(A)') 'str4="'//TRIM(str4)//'"'
    stop
   end select
  end if
 
- call fch2mkl(fchname, itype, str30)
+ if(itype == 2) then
+  dftname = ADJUSTL(dftname)
+  call upper(dftname)
+  call find_dis_type_from_dftname(dftname, dis_type)
+ end if
+ call fch2mkl(fchname, dftname, itype, dis_type)
 end program main
 
 ! convert .fch(k) file (Gaussian) to .mkl file (Molekel, ORCA)
-subroutine fch2mkl(fchname, itype, dftname)
+subroutine fch2mkl(fchname, dftname, itype, dis_type)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, am, fid1, fid2
  integer :: ndmark, nfmark, ngmark, nhmark, nimark
- integer, intent(in) :: itype
- integer, parameter :: ndh = 32
+ integer, intent(in) :: itype, dis_type
+ integer, parameter :: ndh = 33
  integer, parameter :: list(10) = [2,3,4,5,6,7,8,9,10,1]
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
  character(len=1) :: str = ' '
  character(len=1), parameter :: am_type(0:6) = ['S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
- character(len=16), parameter :: dhname(ndh) = ['B2PLYP          ', &
-  'MPW2PLYP        ','B2GP-PLYP       ','B2K-PLYP        ','B2T-PLYP        ',&
-  'PWPB95          ','PBE-QIDH        ','PBE0-DH         ','DSD-BLYP        ',&
-  'DSD-PBEP86      ','DSD-PBEB95      ','WB2PLYP         ','WB2GP-PLYP      ',&
-  'RSX-QIDH        ','RSX-0DH         ','WB88PP86        ','WPBEPP86        ',&
-  'WB97X-2         ','SCS/SOS-B2PLYP21','SCS-PBE-QIDH    ','SOS-PBE-QIDH    ',&
-  'SCS-B2GP-PLYP21 ','SOS-B2GP-PLYP21 ','SCS/SOS-WB2PLYP ','SCS-WB2GP-PLYP  ',&
-  'SOS-WB2GP-PLYP  ','SCS-RSX-QIDH    ','SOS-RSX-QIDH    ','SCS-WB88PP86    ',&
-  'SOS-WB88PP86    ','SCS-WPBEPP86    ','SOS-WPBEPP86    ']
+ character(len=18), parameter :: dhname(ndh) = ['B2PLYP            ', &
+  'MPW2PLYP          ','B2GP-PLYP         ','B2K-PLYP          ','B2T-PLYP          ',&
+  'PWPB95            ','PBE-QIDH          ','PBE0-DH           ','DSD-BLYP          ',&
+  'DSD-PBEP86        ','revDSD-PBEP86     ','DSD-PBEB95        ','WB2PLYP           ',&
+  'WB2GP-PLYP        ','RSX-QIDH          ','RSX-0DH           ','WB88PP86          ',&
+  'WPBEPP86          ','WB97X-2           ','SCS/SOS-B2PLYP21  ','SCS-PBE-QIDH      ',&
+  'SOS-PBE-QIDH      ','SCS-B2GP-PLYP21   ','SOS-B2GP-PLYP21   ','SCS/SOS-WB2PLYP   ',&
+  'SCS-WB2GP-PLYP    ','SOS-WB2GP-PLYP    ','SCS-RSX-QIDH      ','SOS-RSX-QIDH      ',&
+  'SCS-WB88PP86      ','SOS-WB88PP86      ','SCS-WPBEPP86      ','SOS-WPBEPP86      ']
  character(len=30) :: dftname1
  character(len=30), intent(in) :: dftname
+ character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2mkl: '
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
  logical :: uhf, ecp, composite, custom_dft, hse06, m052x, b972, mn15, mn15l, &
-  d3zero, d3bj
+  dsdpbep86d3bj, revdsdpbep86d3bj
 
  ecp = .false.; composite = .false.; custom_dft = .false.; hse06 = .false.
  m052x = .false.; b972 = .false.; mn15 = .false.; mn15l = .false.
- d3zero = .false.; d3bj = .false.
+ dsdpbep86d3bj = .false.; revdsdpbep86d3bj = .false.
 
  if(itype == 2) then
-  dftname1 = ADJUSTL(dftname)
-  call upper(dftname1)
+  dftname1 = dftname
   i = LEN_TRIM(dftname1)
   if(i > 3) then ! B97-3c, r2SCAN-3c, HF-3c, etc.
    if(dftname1(i-2:i) == '-3C') composite = .true.
@@ -118,23 +132,32 @@ subroutine fch2mkl(fchname, itype, dftname)
    if(dftname1(1:4) == 'MN15') mn15 = .true.
   end if
   if(i > 4) then
-   if(dftname1(i-3:i) == 'D3BJ') d3bj = .true.
    if(dftname1(1:5) == 'HSE06') hse06 = .true.
    if(dftname1(1:5) == 'M052X') m052x = .true.
    if(dftname1(1:5) == 'MN15L') then
     mn15l = .true.; mn15 = .false.
    end if
   end if
-  if(i > 6) then
-   if(dftname1(i-5:i) == 'D3ZERO') d3zero = .true.
+  if(dftname1(1:6) == 'B3LYP ') then
+   dftname1 = 'B3LYP/G '//TRIM(dftname1(7:))
+   write(6,'(/,A)') 'Remark: it seems that B3LYP is specified by the user. B3LY&
+                    &P/G will be'
+   write(6,'(A,/)') 'written into ORCA input file. This functional is equal to &
+                    &B3LYP in Gaussian.'
   end if
-  if(dftname1(1:5)=='B3LYP' .and. dftname1(6:7)/='/G') then
-   write(6,'(/,A)') 'Remark: it seems that B3LYP is used. Note that B3LYP in Ga&
-                    &ussian is equi-'
-   write(6,'(A)') 'valent to B3LYP/G in ORCA. If you want a close/closer energy&
-                  & result between'
-   write(6,'(A)') 'Gaussian/ORCA B3LYP, you need to specify B3LYP/G when using &
-                  &fch2mkl.'
+  if(dis_type == 2) then
+   select case(TRIM(dftname1))
+   case('DSD-PBEP86')
+    dftname1 = 'DSD-PBEP86/2013'
+    dsdpbep86d3bj = .true.
+    write(6,'(/,A,/)') 'Remark: DSD-PBEP86-D3(BJ) (J. Comput. Chem., 2013, 34, &
+                       &2327) is invoked.'
+   case('REVDSD-PBEP86')
+    dftname1 = 'revDSD-PBEP86/2021'
+    revdsdpbep86d3bj = .true.
+    write(6,'(/,A,/)') 'Remark: revDSD-PBEP86-D3(BJ) (J. Phys. Chem. A, 2019, 1&
+                       &23, 5129) is invoked.'
+   end select
   end if
  end if
 
@@ -152,29 +175,25 @@ subroutine fch2mkl(fchname, itype, dftname)
 
  ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: Cartesian functions detected i&
-                   &n file '//TRIM(fchname)//'.'
+  write(6,'(/,A)') error_warn//'Cartesian functions detected in file '//TRIM(fchname)
   write(6,'(A)') "ORCA supports only spherical harmonic functions. You need to &
                  &add '5D 7F' keywords"
   write(6,'(A)') 'in Gaussian.'
   stop
  else if( ANY(shell_type < -6) ) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: angular momentum too high! not&
-                   & supported for fch2mkl.'
+  write(6,'(/,A)') error_warn//'angular momentum too high! not supported for fch2mkl.'
   stop
  end if
 
  if(itype==1) then
   if(mult /= 3) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: SF-TDDFT in ORCA can only be &
-                    &based on a triplet'
+   write(6,'(/,A)') error_warn//'SF-TDDFT in ORCA can only be based on a triplet'
    write(6,'(A,I0)') 'UHF/UKS reference. The spin multiplicity in your provided&
                     & .fch(k) file is ', mult
    stop
   end if
   if(.not. uhf) then
-   write(6,'(/,A)') 'ERROR in subroutine fch2mkl: SF-TDDFT in ORCA can only be &
-                    &based on a triplet'
+   write(6,'(/,A)') error_warn//'SF-TDDFT in ORCA can only be based on a triplet'
    write(6,'(A,I0)') 'UHF/UKS reference. It seems that you provide an ROHF/ROKS&
                      & .fch(k) file.'
    stop
@@ -297,129 +316,145 @@ subroutine fch2mkl(fchname, itype, dftname)
     write(fid2,'(A)',advance='no') '! ROKS'
    end if
   end if
-  select case(itype)
-  case(1)
-   write(fid2,'(A)',advance='no') ' BHANDHLYP'
-  case(2)
-   if(hse06 .or. b972) then
-    if(d3bj) then
-     write(fid2,'(A)',advance='no') ' D3BJ'
-    else if(d3zero) then
-     write(fid2,'(A)',advance='no') ' D3ZERO'
-    end if
-   else if(m052x) then
-    if(d3bj) then
-     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: M052X cannot be combined wi&
-                      &th D3BJ.'
-     close(fid1)
-     close(fid2)
-     stop
-    else if(d3zero) then
-     write(fid2,'(A)',advance='no') ' D3ZERO'
-    end if
-   else if(mn15) then
-    if(d3zero) then
-     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: MN15 cannot be combined wi&
-                      &th D3zero.'
-     close(fid1)
-     close(fid2)
-     stop
-    else if(d3bj) then
-     write(fid2,'(A)',advance='no') ' D3BJ'
-    end if
-   else if(mn15l) then
-    if(d3bj) then
-     write(6,'(/,A)') 'ERROR in subroutine fch2mkl: MN15L cannot be combined wi&
-                      &th D3BJ.'
-     close(fid1)
-     close(fid2)
-     stop
-    else if(d3zero) then
-     write(fid2,'(A)',advance='no') ' D3zero'
-    end if
-   else
-    write(fid2,'(A)',advance='no') ' '//TRIM(dftname)
-   end if
 
+  select case(itype)
+  case(0) ! do nothing
+  case(1) ! SF-TDDFT
+   write(fid2,'(A)',advance='no') ' BHANDHLYP'
+  case(2) ! (KS-)DFT
+   write(fid2,'(A)',advance='no') ' '//TRIM(dftname1)
+   select case(dis_type)
+   case(0) ! do nothing
+   case(1) ! D3(0), D3zero
+    write(fid2,'(A)',advance='no') ' D3zero'
+   case(2) ! D3BJ
+    write(fid2,'(A)',advance='no') ' D3BJ'
+   case(3) ! D4
+    write(fid2,'(A)',advance='no') ' D4'
+   case default
+    write(6,'(/,A,I0)') error_warn//'invalid dis_type=', dis_type
+    close(fid1)
+    close(fid2)
+    stop
+   end select
+   ! add RIFIT auxiliary basis set for double hybrid functional
    do i = 1, ndh, 1
-    if(INDEX(TRIM(dftname1), TRIM(dhname(i))) > 0) then
+    if(TRIM(dftname1) == TRIM(dhname(i))) then
      write(fid2,'(A)',advance='no') ' def2-TZVPP/C'
      exit
     end if
    end do ! for i
+  case default
+   write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
+   close(fid1)
+   close(fid2)
+   stop
   end select
 
-  if(INDEX(TRIM(dftname1), 'DLPNO') > 0) then
-   write(fid2,'(A)',advance='no') ' TightPNO'
-  end if
+  if(dftname1(1:5) == 'DLPNO') write(fid2,'(A)',advance='no') ' TightPNO'
   if(composite) then
    write(fid2,'(A)') ' defgrid3 TightSCF noTRAH'
   else
    write(fid2,'(A)') ' def2/J RIJCOSX defgrid3 TightSCF noTRAH'
   end if
 
-  custom_dft = (hse06 .or. b972 .or. m052x .or. mn15 .or. mn15l)
+  custom_dft = (hse06 .or. b972 .or. m052x .or. mn15 .or. mn15l .or. &
+                revdsdpbep86d3bj)
   if(custom_dft) then
    write(fid2,'(A)') '%method'
    write(fid2,'(A)') ' method dft'
    if(hse06) then
     write(fid2,'(A)') ' functional hyb_gga_xc_hse06'
-    if(d3bj) then
-     write(fid2,'(A)') ' D3S6 1.0'
-     write(fid2,'(A)') ' D3A1 0.383'
-     write(fid2,'(A)') ' D3S8 2.31'
-     write(fid2,'(A)') ' D3A2 5.685'
-    else if(d3zero) then
+    select case(dis_type)
+    case(1)
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3RS6 1.129'
      write(fid2,'(A)') ' D3S8 0.109'
      write(fid2,'(A)') ' D3alpha6 14'
-    end if
+    case(2)
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3A1 0.383'
+     write(fid2,'(A)') ' D3S8 2.31'
+     write(fid2,'(A)') ' D3A2 5.685'
+    end select
    end if
    if(m052x) then
     write(fid2,'(A)') ' exchange hyb_mgga_x_m05_2x'
     write(fid2,'(A)') ' correlation mgga_c_m05_2x'
-    if(d3zero) then
+    select case(dis_type)
+    case(1)
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3RS6 1.417'
      write(fid2,'(A)') ' D3S8 0.0'
      write(fid2,'(A)') ' D3alpha6 14'
-    end if
+    case(2)
+     write(6,'(/,A)') error_warn//'M052X cannot be combined with D3BJ.'
+     close(fid1,status='delete')
+     close(fid2,status='delete')
+     stop
+    end select
    end if
    if(mn15) then
     write(fid2,'(A)') ' exchange hyb_mgga_x_mn15'
     write(fid2,'(A)') ' correlation mgga_c_mn15'
-    if(d3bj) then
+    select case(dis_type)
+    case(1)
+     write(6,'(/,A)') error_warn//'MN15 cannot be combined with D3zero.'
+     close(fid1,status='delete')
+     close(fid2,status='delete')
+     stop
+    case(2)
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3A1 2.0971'
      write(fid2,'(A)') ' D3S8 0.7862'
      write(fid2,'(A)') ' D3A2 7.5923'
-    end if
+    end select
    end if
    if(mn15l) then
     write(fid2,'(A)') ' exchange mgga_x_mn15_l'
     write(fid2,'(A)') ' correlation mgga_c_mn15_l'
-    if(d3zero) then
+    select case(dis_type)
+    case(1)
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3RS6 3.3388'
      write(fid2,'(A)') ' D3S8 0.0'
      write(fid2,'(A)') ' D3alpha6 14'
-    end if
+    case(2)
+     write(6,'(/,A)') error_warn//'MN15L cannot be combined with D3BJ.'
+     close(fid1,status='delete')
+     close(fid2,status='delete')
+     stop
+    end select
    end if
    if(b972) then
     write(fid2,'(A)') ' functional hyb_gga_xc_b97_2'
-    if(d3bj) then
-     write(fid2,'(A)') ' D3S6 1.0'
-     write(fid2,'(A)') ' D3A1 0.0'
-     write(fid2,'(A)') ' D3S8 0.9448'
-     write(fid2,'(A)') ' D3A2 5.4603'
-    else if(d3zero) then
+    select case(dis_type)
+    case(1)
      write(fid2,'(A)') ' D3S6 1.0'
      write(fid2,'(A)') ' D3RS6 1.7066'
      write(fid2,'(A)') ' D3S8 2.4661'
      write(fid2,'(A)') ' D3alpha6 14'
-    end if
+    case(2)
+     write(fid2,'(A)') ' D3S6 1.0'
+     write(fid2,'(A)') ' D3A1 0.0'
+     write(fid2,'(A)') ' D3S8 0.9448'
+     write(fid2,'(A)') ' D3A2 5.4603'
+    end select
    end if
+   if(revdsdpbep86d3bj) then
+    write(fid2,'(A)') ' ScalGGAC 0.4296'
+    write(fid2,'(A)') ' ScalLDAC 0.4296'
+    write(fid2,'(A)') ' D3S6 0.4377'
+    write(fid2,'(A)') ' D3A1 0.0'
+    write(fid2,'(A)') ' D3S8 0.0'
+    write(fid2,'(A)') ' D3A2 5.5'
+   end if
+   write(fid2,'(A)') 'end'
+  end if
+  if(revdsdpbep86d3bj) then
+   write(fid2,'(A)') '%mp2'
+   write(fid2,'(A)') ' PS 0.5785'
+   write(fid2,'(A)') ' PT 0.0799'
    write(fid2,'(A)') 'end'
   end if
  end if
@@ -430,8 +465,7 @@ subroutine fch2mkl(fchname, itype, dftname)
                    &ted since ORCA 6,'
   write(6,'(A)') 'please make sure that your ORCA version is appropriate.'
  case(-2) ! RESC
-  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: RESC keyword detected in file &
-                   &'//TRIM(fchname)//'.'
+  write(6,'(/,A)') error_warn//'RESC keyword detected in file '//TRIM(fchname)
   write(6,'(A)') 'But ORCA does not support RESC.'
   stop
  case(-1,2) ! none/DKH2
@@ -446,9 +480,8 @@ subroutine fch2mkl(fchname, itype, dftname)
   write(6,'(A)') 'But ORCA does not support DKHSO. DKH2 keyword will be printed&
                  & into ORCA input file.'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine fch2mkl: irel out of range!'
+  write(6,'(/,A,I0)') error_warn//'invalid irel=', irel
   write(6,'(A)') 'This type of Hamiltonian is not supported.'
-  write(6,'(A,I0)') 'irel=', irel
   stop
  end select
 

@@ -633,7 +633,7 @@ program main
 
  i = iargc()
  if(i /= 1) then
-  write(6,'(/,1X,A)') error_warn//'wrong command line argument!'
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')   " Example: autosr h2o.gjf >& h2o.out &"
   write(6,'(A,/)') ' See help: autosr -h'
   stop
@@ -644,7 +644,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoSR '//version//' :: MOKIT, release date: '//date
+  write(6,'(A)') 'AutoSR '//TRIM(version)//' :: MOKIT, release date: '//TRIM(date)
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') "Usage: autosr [gjfname] > [outname]"

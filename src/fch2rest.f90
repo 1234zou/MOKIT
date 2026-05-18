@@ -8,8 +8,8 @@ program main
  implicit none
  integer :: i, k, disp_type ! 0/1/2/3 for none/D3/D3BJ/D4
  character(len=4) :: str4
- character(len=15) :: dftname, dftname1
  character(len=27), parameter :: error_warn = 'ERROR in prorgam fch2rest: '
+ character(len=30) :: dftname, dftname1
  character(len=240) :: fchname
  logical :: is_hf, rotype, untype
 
@@ -17,14 +17,14 @@ program main
  if(.not. (i==1 .or. i==3)) then
   write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF)   : fch2rest h2o.fch'
-  write(6,'(A)')  " Example 2 (MP2)          : fch2rest h2o.fch -wft 'MP2'"
-  write(6,'(A)')  "                          : fch2rest h2o.fch -dft 'MP2'"
-  write(6,'(A)')  " Example 3 (DFT)          : fch2rest h2o.fch -dft 'B3LYP'"
-  write(6,'(A)')  " Example 4 (DFT-D3)       : fch2rest h2o.fch -dft 'B3LYP D3'"
-  write(6,'(A)')  "                            fch2rest h2o.fch -dft 'B3LYP D3BJ'"
-  write(6,'(A)')  " Example 5 (DFT-D4)       : fch2rest h2o.fch -dft 'B3LYP D4'"
-  write(6,'(A)')  " Example 6 (double hybrid): fch2rest h2o.fch -dft 'XYG3'"
-  write(6,'(A)')  "                            fch2rest h2o.fch -dft 'XYGJOS'"
+  write(6,'(A)')  ' Example 2 (MP2)          : fch2rest h2o.fch -wft "MP2"'
+  write(6,'(A)')  '                          : fch2rest h2o.fch -dft "MP2"'
+  write(6,'(A)')  ' Example 3 (DFT)          : fch2rest h2o.fch -dft "B3LYP"'
+  write(6,'(A)')  ' Example 4 (DFT-D3)       : fch2rest h2o.fch -dft "B3LYP D3"'
+  write(6,'(A)')  '                            fch2rest h2o.fch -dft "B3LYP D3BJ"'
+  write(6,'(A)')  ' Example 5 (DFT-D4)       : fch2rest h2o.fch -dft "B3LYP D4"'
+  write(6,'(A)')  ' Example 6 (double hybrid): fch2rest h2o.fch -dft "XYG3"'
+  write(6,'(A)')  '                            fch2rest h2o.fch -dft "XYGJOS"'
   write(6,'(A)')  ' Example 7 (find functional in .fch automatically):'
   write(6,'(A,/)')'                            fch2rest h2o.fch -dft auto'
   stop
@@ -42,8 +42,7 @@ program main
   case('-wft')
    call getarg(3, dftname)
    if(TRIM(dftname) /= 'MP2') then
-    write(6,'(/,A)') error_warn//'`MP2` can only be used after the `-wft` flag.'
-    write(6,'(A)') 'But got `'//dftname//'`'
+    write(6,'(/,A)') error_warn//'unrecognized dftname='//TRIM(dftname)
     stop
    end if
   case default
@@ -53,11 +52,8 @@ program main
   end select
 
   call getarg(3, dftname)
-  if(INDEX(dftname,'-')>0 .or. INDEX(dftname,',')>0) then
-   write(6,'(/,A)') error_warn//"'-'/',' symbols are not allowed in the 3rd"
-   write(6,'(A)') "argument. For example, XYGJ-OS should be written as 'XYGJOS'&
-                  &; B3LYP-D3BJ"
-   write(6,'(A)') "should be written as 'B3LYP D3BJ'."
+  if(INDEX(dftname,',') > 0) then
+   write(6,'(/,A)') error_warn//'the symbol "," is not allowed in the 3rd argument.'
    stop
   end if
   call lower(dftname)
@@ -70,6 +66,11 @@ program main
    call find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
   else ! dftname is not 'auto'
    k = LEN_TRIM(dftname)
+   if(dftname(k-2:k)=='-d3' .or. dftname(k-2:k)=='-d4') then
+    dftname(k-2:k-2) = ' '
+   else if(dftname(k-4:k)=='-d3bj') then
+    dftname(k-4:k-4) = ' '
+   end if
    i = INDEX(dftname(1:k), ' ')
    if(i > 0) then
     select case(dftname(i+1:k))
@@ -111,6 +112,8 @@ program main
   dftname = 'xDH-PBE0'
  case('RXDH7')
   dftname = 'R-xDH7'
+ case('XYGJ-OS')
+  dftname = 'XYGJOS'
  end select
 
  call fch2rest(fchname, dftname, disp_type)
@@ -121,7 +124,7 @@ subroutine fch2rest(fchname, dftname, disp_type)
  implicit none
  integer :: i, icart
  integer, intent(in) :: disp_type ! type of dispersion correction
- character(len=15), intent(in) :: dftname
+ character(len=30), intent(in) :: dftname
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname, dirname
  logical :: uhf, ghf, sph
@@ -173,7 +176,6 @@ subroutine fch2rest(fchname, dftname, disp_type)
 
  call gen_rest_bas_dir(dirname)
  call free_arrays_in_fch_content()
-
  call rest_fch2pchk(fchname, uhf)
 end subroutine fch2rest
 
@@ -229,8 +231,8 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  integer, intent(in) :: disp_type, charge, mult, natom
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=2), intent(in) :: elem(natom)
- character(len=15) :: dftname1
- character(len=15), intent(in) :: dftname
+ character(len=30) :: dftname1
+ character(len=30), intent(in) :: dftname
  character(len=240), intent(in) :: inpname
  character(len=240) :: basename
  logical :: mp_or_dh

@@ -35,10 +35,11 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: narg, k, npair, nopen0, itype
+ integer :: narg, k, npair, nopen0, itype, d3_type
  character(len=4) :: string
  character(len=8) :: arg2, arg4, arg6
  character(len=26), parameter :: error_warn = 'ERROR in program fch2inp: '
+ character(len=30) :: dftname, dftname1
  character(len=240) :: fchname
  logical :: fc ! whether to print the $MOFRZ section for frozen core MOs
  logical :: no_vec ! whether to print the $VEC section
@@ -47,15 +48,18 @@ program main
  if(narg<1 .or. narg>6) then
   write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2inp h2o.fch'
-  write(6,'(A)')  ' Example 2 (SF-CIS)        : fch2inp high_spin.fch -sfcis'
-  write(6,'(A)')  ' Example 3 (SF-TDDFT)      : fch2inp high_spin.fch -sf'
-  write(6,'(A)')  ' Example 4 (MRSF-CIS)      : fch2inp triplet.fch -mrsfcis'
-  write(6,'(A)')  ' Example 5 (MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
-  write(6,'(A)')  ' Example 6 (GVB)           : fch2inp h2o.fch -gvb [Npair]'
-  write(6,'(A)')  ' Example 7 (frozen core)   : fch2inp h2o.fch -gvb [Npair] -fc'
-  write(6,'(A)')  ' Example 8 (ROGVB)         : fch2inp h2o.fch -gvb [Npair] -open [Nopen]'
-  write(6,'(A)')  ' Example 9 (frozen core)   : fch2inp h2o.fch -gvb [Npair] -open [Nopen] -fc'
-  write(6,'(A,/)')' Example10 (no $VEC)       : fch2inp h2o.fch -novec'
+  write(6,'(A)')  ' Example 2 (DFT)           : fch2inp h2o.fch -dft "B3LYP"'
+  write(6,'(A)')  '                             fch2inp h2o.fch -dft "B3LYP D3"'
+  write(6,'(A)')  '                             fch2inp h2o.fch -dft "B3LYP D3BJ"'
+  write(6,'(A)')  ' Example 3 (SF-CIS,        : fch2inp high_spin.fch -sfcis'
+  write(6,'(A)')  '            SF-TDDFT,      : fch2inp high_spin.fch -sf'
+  write(6,'(A)')  '            MRSF-CIS,      : fch2inp triplet.fch -mrsfcis'
+  write(6,'(A)')  '            MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
+  write(6,'(A)')  ' Example 4 (GVB,           : fch2inp h2o.fch -gvb [Npair]'
+  write(6,'(A)')  '            frozen core,   : fch2inp h2o.fch -gvb [Npair] -fc'
+  write(6,'(A)')  '            ROGVB,         : fch2inp h2o.fch -gvb [Npair] -open [Nopen]'
+  write(6,'(A)')  '            frozen core)   : fch2inp h2o.fch -gvb [Npair] -open [Nopen] -fc'
+  write(6,'(A,/)')' Example 5 (no $VEC)       : fch2inp h2o.fch -novec'
   stop
  end if
 
@@ -70,12 +74,34 @@ program main
   fchname = fchname(1:k-3)//'fch'
  end if
 
- npair = 0; nopen0 = 0; itype = 0; fc = .false.; no_vec = .false.
- string = ' '; arg2 = ' '; arg4 = ' '; arg6 = ' '
+ npair = 0; nopen0 = 0; itype = 0; d3_type = 0; fc = .false.; no_vec = .false.
+ string = ' '; arg2 = ' '; arg4 = ' '; arg6 = ' '; dftname = ' '
 
+ ! all kinds of HF/DFT methods belong to itype=0 here
  if(narg > 1) then
   call getarg(2, arg2)
   select case(TRIM(arg2))
+  case('-dft')
+   if(narg /= 3) then
+    write(6,'(/,A)') error_warn//'-dft is not correctly used.'
+    write(6,'(A)') 'A correct example: fch2inp h2o.fch -dft "B3LYP D3BJ"'
+    stop
+   end if
+   call getarg(3, dftname)
+   call lower(dftname)
+   k = LEN_TRIM(dftname)
+   if(dftname(k-2:k) == '-d3') then
+    dftname(k-2:k-2) = ' '
+   else if(dftname(k-4:k) == '-d3bj') then
+    dftname(k-4:k-4) = ' '
+   end if
+   if(dftname(k-1:k) == 'd3') then
+    dftname(k-1:k) = '  '; d3_type = 1
+   else if(dftname(k-3:k) == 'd3bj') then
+    dftname(k-3:k) = '    '; d3_type = 2
+   end if
+   call convert_dft_name_gau2gms(dftname, dftname1)
+   dftname = dftname1
   case('-sfcis')
    itype = 1
   case('-sf')
@@ -86,27 +112,8 @@ program main
    itype = 4
   case('-gvb')
    itype = 5
-  case('-novec')
-   no_vec = .true.
-   if(narg > 2) then
-    write(6,'(/,A)') error_warn//'-novec is incompatible with other arguments!'
-    stop
-   end if
-  case default
-   write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
-   write(6,'(A)') 'It can only be one of -gvb/-sf/-mrsf/-novec'
-   stop
-  end select
-
-  if(narg > 2) then
-   if(TRIM(arg2) /= '-gvb') then
-    write(6,'(/,A)') error_warn//'when there are more than 2 arguments, the'
-    write(6,'(A)') '2nd argument can only be "-gvb". But got "'//arg2//'"'
-    stop
-   end if
    call getarg(3, string)
    read(string,*) npair
-
    if(narg == 4) then ! fch2inp h2o.fch -gvb [Npair] -fc
     call getarg(4, arg4)
     if(TRIM(arg4) == '-fc') then
@@ -136,23 +143,33 @@ program main
      end if
     end if
    end if
-  end if
+  case('-novec')
+   no_vec = .true.
+   if(narg > 2) then
+    write(6,'(/,A)') error_warn//'-novec is incompatible with other arguments!'
+    stop
+   end if
+  case default
+   write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
+   write(6,'(A)') 'It can only be one of -dft/-gvb/-sf/-mrsf/-novec'
+   stop
+  end select
  end if
 
- call fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
+ call fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
 end program main
 
-! Generate GAMESS .inp file from Gaussian .fch(k) file.
-subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
+! Generate the GAMESS .inp file from Gaussian .fch(k) file.
+subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nd, nf, ng, nh, ni, icart, fid
  integer :: ncore   ! the number of core MOs
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
- integer :: itype1  ! -3/-2/-1/0/1/2/3/4/5 for GHF/ROHF/RHF/UHF/SF-CIS/SF-TDDFT/
- !                                             MRSF-CIS/MRSF-TDDFT/GVB
- integer, intent(in) :: itype, npair, nopen0
+ integer :: itype1  ! -3/-2/-1/0/1/2/3/4/5 for
+                    ! GHF/ROHF/RHF/UHF/SF-CIS/SF-TDDFT/MRSF-CIS/MRSF-TDDFT/GVB
+ integer, intent(in) :: itype, d3_type, npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
  integer, allocatable :: order(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:), &
   i_mark(:)
@@ -161,11 +178,13 @@ subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
  character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2inp: '
+ character(len=30), intent(in) :: dftname
  character(len=240), intent(in) :: fchname
  character(len=240) :: inpname = ' '
  logical :: uhf, ghf, ecp, so_ecp, sph, X2C, DIIS
  logical, intent(in) :: no_vec, fc
 
+ ! if itype=0, we will classify itype1 into -3/-2/-1/0 later
  itype1 = itype; ecp = .false.; so_ecp = .false.; X2C = .false.; DIIS = .false.
 
  call find_specified_suffix(fchname, '.fch', i)
@@ -304,8 +323,9 @@ subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
  ! hydrogen atoms, DIIS is better than SOSCF
 
  ! create the GAMESS .inp file and print the keywords information
- call creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen0, nif, &
-                       nbf, na, nb, itype1, irel, fc, uhf, ecp, sph, X2C, DIIS)
+ call creat_gamess_inp_head(inpname, dftname, charge, mult, ncore, npair, &
+ nopen0, nif, nbf, na, nb, itype1, d3_type, irel, fc, uhf, ecp, sph, X2C, DIIS)
+
  open(newunit=fid,file=TRIM(inpname),status='old',position='append')
 
  ! for ghost atoms (0 charge, has basis function), make ielem(i) negative,
@@ -494,17 +514,24 @@ subroutine fch2inp(fchname, no_vec, fc, itype, npair, nopen0)
 end subroutine fch2inp
 
 ! create the GAMESS .inp file and print the keywords information
-subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
-               nif, nbf, na, nb, itype, irel, fcgvb, uhf, ecp, sph, X2C, DIIS)
+subroutine creat_gamess_inp_head(inpname, dftname, charge, mult, ncore, npair, &
+ nopen, nif, nbf, na, nb, itype, d3_type, irel, fcgvb, uhf, ecp, sph, X2C, DIIS)
  implicit none
  integer :: i, j, k, m, n, fid
  integer, intent(in) :: charge, mult, ncore, npair, nopen, nif, nbf, na, nb, &
-  itype, irel
+  itype, d3_type, irel
  character(len=2), allocatable :: ideg(:)
+ character(len=8) :: str_sr6, str_s8
+ character(len=30), intent(in) :: dftname
  character(len=43), parameter :: error_warn='ERROR in subroutine creat_gamess_i&
                                             &np_head: '
  character(len=240), intent(in) :: inpname
+ logical :: dft
  logical, intent(in) :: fcgvb, uhf, ecp, sph, X2C, DIIS
+
+ dft = .false.
+ k = LEN_TRIM(dftname)
+ if(k > 0) dft = .true. ! common KS-DFT, not (MR)SF-TDA
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A)',advance='no') ' $CONTRL SCFTYP='
@@ -552,6 +579,8 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
  if(sph) write(fid,'(A)',advance='no') ' ISPHER=1'
 
  select case(itype)
+ case(-3,-2,-1,0) ! HF/DFT
+  if(dft) write(fid,'(A)',advance='no') ' DFTTYP='//TRIM(dftname)
  case(1) ! SF-CIS
   write(fid,'(A)',advance='no') ' CITYP=SFCIS'
  case(2) ! SF-TDDFT
@@ -648,6 +677,18 @@ subroutine creat_gamess_inp_head(inpname, charge, mult, ncore, npair, nopen, &
 
  write(fid,'(A,I0,A)') ' $GUESS GUESS=MOREAD NORB=', nif, ' $END'
  select case(itype)
+ case(-3,-2,-1,0) ! HF/DFT
+  if(dft) then
+   write(fid,'(A)',advance='no') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590'
+   select case(d3_type)
+   case(1) ! D3(0), D3zero
+    call get_d3zero_param(dftname, str_sr6, str_s8)
+    write(fid,'(A)',advance='no') ' IDCVER=3 DCSR='//TRIM(str_sr6)//' DCS8='//TRIM(str_s8)
+   case(2) ! D3(BJ)
+    write(fid,'(A)',advance='no') ' IDCVER=4'
+   end select
+   write(fid,'(A)') ' $END'
+  end if
  case(1)
   write(fid,'(A)') ' $CIS NSTATE=5 $END'
  case(2,4)

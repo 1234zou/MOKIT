@@ -17,15 +17,15 @@ program main
  if(narg<1 .or. narg>2) then
   write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF): fch2mrcc water.fch'
-  write(6,'(A)')  ' Example 2 (ADC(2))    : fch2mrcc water.fch -adc2'
-  write(6,'(A)')  ' Example 3 (SOS-ADC(2)): fch2mrcc water.fch -sosadc2'
-  write(6,'(A)')  ' Example 4 (SCS-ADC(2)): fch2mrcc water.fch -scsadc2'
-  write(6,'(A)')  ' Example 5 (CC2)       : fch2mrcc water.fch -cc2'
-  write(6,'(A)')  ' Example 6 (SOS-CC2)   : fch2mrcc water.fch -soscc2'
-  write(6,'(A)')  ' Example 7 (SCS-CC2)   : fch2mrcc water.fch -scscc2'
-  write(6,'(A)')  ' Example 8 (LR-CC2)    : fch2mrcc water.fch -lrcc2'
-  write(6,'(A)')  ' Example 9 (SOS-LR-CC2): fch2mrcc water.fch -soslrcc2'
-  write(6,'(A,/)')' Example10 (SCS-LR-CC2): fch2mrcc water.fch -scslrcc2'
+  write(6,'(A)')  ' Example 2 (ADC(2),    : fch2mrcc water.fch -adc2'
+  write(6,'(A)')  '            SOS-ADC(2),: fch2mrcc water.fch -sosadc2'
+  write(6,'(A)')  '            SCS-ADC(2)): fch2mrcc water.fch -scsadc2'
+  write(6,'(A)')  ' Example 3 (CC2,       : fch2mrcc water.fch -cc2'
+  write(6,'(A)')  '            SOS-CC2,   : fch2mrcc water.fch -soscc2'
+  write(6,'(A)')  '            SCS-CC2)   : fch2mrcc water.fch -scscc2'
+  write(6,'(A)')  ' Example 4 (LR-CC2,    : fch2mrcc water.fch -lrcc2'
+  write(6,'(A)')  '            SOS-LR-CC2,: fch2mrcc water.fch -soslrcc2'
+  write(6,'(A,/)')'            SCS-LR-CC2): fch2mrcc water.fch -scslrcc2'
   stop
  end if
 

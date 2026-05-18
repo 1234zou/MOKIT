@@ -16,15 +16,15 @@ program main
  if(narg<1 .or. narg>2) then
   write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')  ' Example 1 (R(O)HF/UHF): fch2tm h2o.fch'
-  write(6,'(A)')  ' Example 2 (ADC(2))    : fch2tm h2o.fch -adc2'
-  write(6,'(A)')  ' Example 3 (SOS-ADC(2)): fch2tm h2o.fch -sosadc2'
-  write(6,'(A)')  ' Example 4 (SCS-ADC(2)): fch2tm h2o.fch -scsadc2'
-  write(6,'(A)')  ' Example 5 (CC2)       : fch2tm h2o.fch -cc2'
-  write(6,'(A)')  ' Example 6 (SOS-CC2)   : fch2tm h2o.fch -soscc2'
-  write(6,'(A)')  ' Example 7 (SCS-CC2)   : fch2tm h2o.fch -scscc2'
-  write(6,'(A)')  ' Example 8 (LR-CC2)    : fch2tm h2o.fch -lrcc2'
-  write(6,'(A)')  ' Example 9 (SOS-LR-CC2): fch2tm h2o.fch -soslrcc2'
-  write(6,'(A,/)')' Example10 (SCS-LR-CC2): fch2tm h2o.fch -scslrcc2'
+  write(6,'(A)')  ' Example 2 (ADC(2),    : fch2tm h2o.fch -adc2'
+  write(6,'(A)')  '            SOS-ADC(2),: fch2tm h2o.fch -sosadc2'
+  write(6,'(A)')  '            SCS-ADC(2)): fch2tm h2o.fch -scsadc2'
+  write(6,'(A)')  ' Example 3 (CC2,       : fch2tm h2o.fch -cc2'
+  write(6,'(A)')  '            SOS-CC2,   : fch2tm h2o.fch -soscc2'
+  write(6,'(A)')  '            SCS-CC2)   : fch2tm h2o.fch -scscc2'
+  write(6,'(A)')  ' Example 4 (LR-CC2,    : fch2tm h2o.fch -lrcc2'
+  write(6,'(A)')  '            SOS-LR-CC2,: fch2tm h2o.fch -soslrcc2'
+  write(6,'(A,/)')'            SCS-LR-CC2): fch2tm h2o.fch -scslrcc2'
   stop
  end if
 
@@ -250,8 +250,16 @@ subroutine fch2tm(fchname, job_type)
   end if
  end if
  if(job_type>0 .and. job_type<10) then
+  ! By default, core MOs are correlated for ADC(2)/CC2 in Turbomole (i.e. all-
+  ! electron calculations), so we need to find the number of core MOs and set
+  ! this parameter.
   call calc_ncore(fchname, chem_core, ecp_core)
   ncore = MAX(0, chem_core-ecp_core)
+  ! If ECP/PP is used, the subroutine calc_ncore will allocate and deallocate
+  ! the array `RNFroz`, but we will call free_arrays_in_fch_content() at the end
+  ! of the current subroutine. Here we need to re-allocate it although it is not
+  ! used below.
+  if(ecp) allocate(RNFroz(natom), source=0d0)
   write(fid,'(A)') '$rij'
   write(fid,'(A)') '$rik'
   write(fid,'(A)') '$ricore 100'

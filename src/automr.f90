@@ -11,13 +11,13 @@
 program main
  use mokit_version_info, only: version, date
  implicit none
- integer :: i
+ integer :: narg
  character(len=28), parameter :: error_warn = 'ERROR in subroutine automr: '
  character(len=240) :: fname
 
- i = iargc()
- if(i /= 1) then
-  write(6,'(/,1X,A)') error_warn//'wrong command line argument!'
+ narg = iargc()
+ if(narg /= 1) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
   write(6,'(A)')   " Example: automr h2o.gjf >h2o.out 2>&1 &"
   write(6,'(A,/)') ' See help: automr -h'
   stop
@@ -28,7 +28,7 @@ program main
 
  select case(TRIM(fname))
  case('-v', '-V', '--version')
-  write(6,'(A)') 'AutoMR '//version//' :: MOKIT, release date: '//date
+  write(6,'(A)') 'AutoMR '//TRIM(version)//' :: MOKIT, release date: '//TRIM(date)
   stop
  case('-h','-help','--help')
   write(6,'(/,A)') 'Usage: automr [gjfname] > [outname]'

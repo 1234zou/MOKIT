@@ -80,7 +80,7 @@ subroutine bas_fch2py(fchname, prt_dft, pbc, obj_only)
  use util_wrapper, only: fch2inp_wrap
  implicit none
  integer :: i, k, nbf, nif, SYSTEM, RENAME
- character(len=15) :: dftname
+ character(len=30) :: dftname
  character(len=240) :: inpname, inpname1, pyname
  character(len=240), intent(in) :: fchname
  character(len=300) :: command
@@ -173,9 +173,9 @@ subroutine prt_dft_key2pyscf_script(dftname, is_hf, rotype, untype, lin_dep, &
  implicit none
  integer :: i, fid, fid1, RENAME
  character(len=4) :: str4
- character(len=15) :: dftname1
+ character(len=30) :: dftname1
+ character(len=30), intent(in) :: dftname
  character(len=240) :: buf, pyname1, pchkname
- character(len=15), intent(in) :: dftname
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: is_hf, rotype, untype, lin_dep, pbc, sfx2c
  logical :: printed

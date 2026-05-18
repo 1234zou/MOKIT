@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.8rc3'
- character(len=11), parameter :: date = '2026-May-13'
+ character(len=9), parameter :: version = '1.2.8rc4'
+ character(len=11), parameter :: date = '2026-May-18'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -1649,13 +1649,13 @@ end subroutine read_mem_and_nproc_from_gjf
 
 ! read the method and basis set from a string
 ! Note: please call subroutine lower before calling this subroutine,
-!       in order to transform all letters to lower case
+!       in order to transform all letters to the lower case
 subroutine read_method_and_basis_from_buf(buf, method, basis, wfn_type)
  implicit none
  integer :: i, j
  integer, intent(out) :: wfn_type ! 0/1/2/3 for undetermined/RHF/ROHF/UHF
  character(len=1200), intent(in) :: buf
- character(len=11), intent(out) :: method
+ character(len=15), intent(out) :: method
  character(len=21), intent(out) :: basis
 
  j = INDEX(buf, '/')
@@ -1939,8 +1939,9 @@ subroutine read_lat_vec_from_molden(molden, lat_vec)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_molden: [CELL] sectio&
-                   &n not found in file "//TRIM(molden)
+  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_molden: [CELL] sectio&
+                   &n not found in'
+  write(6,'(A)') 'file '//TRIM(molden)
   close(fid)
   stop
  end if
@@ -2111,7 +2112,7 @@ subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)
  character(len=480) :: longbuf
  character(len=240), intent(in) :: fchname
 !f2py depend(in) :: fchname
- character(len=15), intent(out) :: dftname
+ character(len=30), intent(out) :: dftname
 !f2py depend(out) :: dftname
  logical, intent(out) :: is_hf, rotype, untype
 !f2py depend(out) :: is_hf, rotype, untype
@@ -2243,4 +2244,178 @@ subroutine find_irel_in_fch(fchname, irel)
   irel = -1             ! no relativity
  end if
 end subroutine find_irel_in_fch
+
+! Convert DFT name of Gaussian to that of GAMESS.
+! 1) D3/D3BJ are not supposed to be included in the input string `method`;
+! 2) it is assumed that `method` contains lower-caser letters, so make sure
+!    that call subroutine lower() first.
+subroutine convert_dft_name_gau2gms(method, dft_in_gms)
+ implicit none
+ integer :: k
+ character(len=30), intent(in) :: method
+ character(len=30), intent(out) :: dft_in_gms
+
+ dft_in_gms = ' '
+ k = LEN_TRIM(method)
+
+ select case(method(1:k))
+ case('blyp','b2plyp','b3p86','b3pw91','b98','bhhlyp','bmk','bp86','camb3lyp',&
+      'm05','m06','m11','mn15','pbe','pbe0','pbep86','revtpss','tpss','tpssh',&
+      'wb97','wb97x','x3lyp')
+  dft_in_gms = method
+ case('bhandhlyp')
+  dft_in_gms = 'BHHLYP'
+ case('b3lyp')
+  dft_in_gms = 'B3LYPV1R'
+  write(6,'(/,A)') 'Remark: B3LYP is specified by the user. DFTTYP=B3LYPV1R wil&
+                   &l be written.'
+  write(6,'(A,/)') 'This functional is equal to B3LYP in Gaussian.'
+ case('b971')
+  dft_in_gms = 'B97-1'
+ case('b972')
+  dft_in_gms = 'B97-2'
+ case('b97d')
+  dft_in_gms = 'B97-D'
+ case('m052x')
+  dft_in_gms = 'M05-2X'
+ case('m06hf')
+  dft_in_gms = 'M06-HF'
+ case('m062x')
+  dft_in_gms = 'M06-2X'
+ case('m06l')
+  dft_in_gms = 'M06-L'
+ case('m08hx')
+  dft_in_gms = 'M08-HX'
+ case('m08so')
+  dft_in_gms = 'M08-SO'
+ case('m11l')
+  dft_in_gms = 'M11-L'
+ case('mn12l')
+  dft_in_gms = 'MN12-L'
+ case('mn15l')
+  dft_in_gms = 'MN15-L'
+ case('wb97xd')
+  dft_in_gms = 'wB97X-D'
+ case('pbepbe')
+  dft_in_gms = 'PBE'
+ case('pbe1pbe')
+  dft_in_gms = 'PBE0'
+ case('cam-b3lyp')
+  dft_in_gms = 'CAMB3LYP'
+ case('tpsstpss')
+  dft_in_gms = 'TPSS'
+ case('hf','rhf','rohf','uhf','mp2','ccsd','ccsd(t)')
+  write(6,'(/,A)') 'Remark from subroutine convert_dft_name_gau2gms: wave funct&
+                   &ion methods detected.'
+  write(6,'(A)') 'DFTTYP=NONE will be set in .inp file.'
+  dft_in_gms = 'NONE'
+ case default
+  write(6,'(/,A)') 'Warning in subroutine convert_dft_name_gau2gms: functional &
+                   &name cannot be'
+  write(6,'(A)') 'recognized. DFTTYP=NONE will be set in .inp file. You can mod&
+                 &ify it by yourself.'
+  dft_in_gms = 'NONE'
+ end select
+end subroutine convert_dft_name_gau2gms
+
+! return D3(0) parameters (sR,6 and s8) according to the given density functional
+subroutine get_d3zero_param(dft_in_gms, str_sr6, str_s8)
+ implicit none
+ character(len=30) :: dftname
+ character(len=30), intent(in) :: dft_in_gms
+ character(len=8), intent(out) :: str_sr6, str_s8
+
+ dftname = dft_in_gms
+ call upper(dftname)
+ ! Some values of str_s8 are 1d-14, actually they are zero. But `DCS8=0.0` in
+ ! GAMESS input file does not work, so we have to use a tiny number.
+
+ select case(TRIM(dftname))
+ case('B3LYPV1R')
+  str_sr6 = '1.261'; str_s8 = '1.703'
+ case('B3PW91')
+  str_sr6 = '1.176'; str_s8 = '1.775'
+ case('BMK')
+  str_sr6 = '1.931'; str_s8 = '2.168'
+ case('BPBE')
+  str_sr6 = '1.087'; str_s8 = '2.033'
+ case('CAMB3LYP')
+  str_sr6 = '1.378'; str_s8 = '1.217'
+ case('M05')
+  str_sr6 = '1.373'; str_s8 = '0.595'
+ case('M05-2X')
+  str_sr6 = '1.417'; str_s8 = '1d-14'
+ case('M06')
+  str_sr6 = '1.325'; str_s8 = '1d-14'
+ case('M06-L')
+  str_sr6 = '1.581'; str_s8 = '1d-14'
+ case('M06-HF')
+  str_sr6 = '1.446'; str_s8 = '1d-14'
+ case('M06-2X')
+  str_sr6 = '1.619'; str_s8 = '1d-14'
+ case('M11-L')
+  str_sr6 = '2.3933'; str_s8 = '1.1129'
+ case('MN15-L')
+  str_sr6 = '3.3388'; str_s8 = '1d-14'
+ case('PBE0')
+  str_sr6 = '1.287'; str_s8 = '0.928'
+ case('REVTPSS')
+  str_sr6 = '1.3491'; str_s8 = '1.3666'
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine get_d3zero_param: unrecognized function&
+                   &al name: '//TRIM(dftname)
+  stop
+ end select
+end subroutine get_d3zero_param
+
+! Find the type of dispersion correction from a given string. It is assumed that
+! `dftname` contain upper-case letters, so please remember to call upper() before
+! calling this subroutine.
+subroutine find_dis_type_from_dftname(dftname, dis_type)
+ implicit none
+ integer :: i, k
+ integer, intent(out) :: dis_type ! 0/1/2/3 for none/D3/D3BJ/D4
+ character(len=30), intent(inout) :: dftname
+
+ dis_type = 0
+ k = LEN_TRIM(dftname)
+ if(k == 0) return
+
+ i = INDEX(dftname, '-D3')
+ if(i > 0) dftname(i:i) = ' '
+ i = INDEX(dftname, '-D4')
+ if(i > 0) dftname(i:i) = ' '
+
+ select case(dftname(k-1:k))
+ case('D3')
+  dis_type = 1
+  dftname(k-1:k) = '  '
+  return
+ case('D4')
+  dis_type = 3
+  dftname(k-1:k) = '  '
+  return
+ end select
+
+ if(k > 7) then
+  select case(dftname(k-6:k))
+  case(' D3ZERO')
+   dis_type = 1; dftname(k-6:k) = '      '
+  case(' D3(BJ)')
+   dis_type = 2; dftname(k-6:k) = '      '
+  end select
+ end if
+
+ if(k > 6) then
+  if(dftname(k-5:k) == ' D3(0)') then
+   dis_type = 1; dftname(k-5:k) = '      '
+  end if
+ end if
+
+ if(k > 5) then
+  if(dftname(k-4:k) == ' D3BJ') then
+   dis_type = 2; dftname(k-4:k) = '     '
+  end if
+ end if
+end subroutine find_dis_type_from_dftname
 

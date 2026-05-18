@@ -1193,7 +1193,7 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
 
  i = SYSTEM(TRIM(buf))
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine do_cas: Dalton job failed.'
+  write(6,'(/,A)') 'ERROR in subroutine submit_dalton_job: Dalton job failed.'
   write(6,'(A)') 'Please open files '//TRIM(proname)//'.out as well as '//&
                  TRIM(sout)
   write(6,'(A)') 'and check why.'

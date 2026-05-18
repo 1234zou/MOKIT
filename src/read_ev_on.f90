@@ -832,28 +832,3 @@ subroutine write_mo_and_on_into_json(json, nbf, nif, mo, occ)
  i = RENAME(TRIM(new_json), TRIM(json))
 end subroutine write_mo_and_on_into_json
 
-subroutine find_non_degenerate_orb_idx(nif, ev)
- implicit none
- integer :: i
- integer, intent(in) :: nif
-!f2py intent(in) :: nif
- real(kind=8), parameter :: diff = 0.06d0
- real(kind=8), intent(in) :: ev(nif)
-!f2py intent(in) :: ev
-!f2py depend(nif) :: ev
-
- if(ev(1) - ev(2) < diff) then
-  write(6,'(A)',advance='no') '1,'
- end if
-
- do i = 2, nif-1, 1
-  if(ev(i)-ev(i-1)>diff .and. ev(i+1)-ev(i)>diff) then
-   write(6,'(I0,A)',advance='no') i,','
-  end if
- end do ! for i
-
- if(ev(nif) - ev(nif-1) > diff) then
-  write(6,'(I0)',advance='no') nif
- end if
-end subroutine find_non_degenerate_orb_idx
-

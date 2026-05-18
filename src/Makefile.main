@@ -364,14 +364,6 @@ fch2wfn: $(OBJ_fch2wfn)
 fch247: $(OBJ_fch247)
 	$(F90) $(OBJ_fch247) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/fch247
 
-chk2py: $(OBJ_chk2py)
-	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS)
-	@mv chk2py*.so $(LIB)/
-
-fch2py: $(OBJ_fch2py)
-	$(F2PY) -c $(OBJ_fch2py) -m fch2py $(F2_FLAGS)
-	@mv fch2py*.so $(LIB)/
-
 find_mc_pair: $(OBJ_find_mc_pair)
 	$(F90) $(OBJ_find_mc_pair) $(FFLAGS) -o $(BIN)/find_mc_pair
 
@@ -398,10 +390,6 @@ obf: $(OBJ_obf)
 
 orb2fch: $(OBJ_orb2fch)
 	$(F90) $(OBJ_orb2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/orb2fch
-
-py2fch: $(OBJ_py2fch)
-	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS) $(MKL_FLAGS)
-	@mv py2fch*.so $(LIB)/
 
 rest2fch: $(OBJ_py2fch)
 	$(F90) -shared $(OBJ_py2fch) $(FFLAGS) $(MKL_FLAGS) -o librest2fch.so
@@ -461,8 +449,55 @@ mkl2qchem: $(OBJ_mkl2qchem)
 replace_xyz_in_inp: $(OBJ_replace_xyz_in_inp)
 	$(F90) $(OBJ_replace_xyz_in_inp) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/replace_xyz_in_inp
 
+solve_ON_matrix: $(OBJ_solve_ON_matrix)
+	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
+
 xml2fch: $(OBJ_xml2fch)
 	$(F90) $(OBJ_xml2fch) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/xml2fch
+
+assoc_rot: $(OBJ_assoc_rot)
+	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(MKL_FLAGS)
+	@mv assoc_rot*.so $(LIB)/
+
+auto_pair: $(OBJ_auto_pair)
+	$(F2PY) -c $(OBJ_auto_pair) -m auto_pair $(F2_FLAGS)
+	@mv auto_pair*.so $(LIB)/
+
+chk2py: $(OBJ_chk2py)
+	$(F2PY) -c $(OBJ_chk2py) -m chk2py $(F2_FLAGS) $(MKL_FLAGS)
+	@mv chk2py*.so $(LIB)/
+
+excited: $(OBJ_excited)
+	$(F2PY) -c $(OBJ_excited) -m excited $(F2_FLAGS) $(MKL_FLAGS)
+	@mv excited*.so $(LIB)/
+
+fch2py: $(OBJ_fch2py)
+	$(F2PY) -c $(OBJ_fch2py) -m fch2py $(F2_FLAGS) $(MKL_FLAGS)
+	@mv fch2py*.so $(LIB)/
+
+lo: $(OBJ_lo)
+	$(F2PY) -c $(OBJ_lo) -m lo $(F2_FLAGS) $(MKL_FLAGS)
+	@mv lo*.so $(LIB)/
+
+mirror_wfn: $(OBJ_mirror_wfn)
+	$(F2PY) -c $(OBJ_mirror_wfn) -m mirror_wfn $(F2_FLAGS) $(MKL_FLAGS)
+	@mv mirror_wfn*.so $(LIB)/
+
+mo_svd: $(OBJ_mo_svd)
+	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(MKL_FLAGS)
+	@mv mo_svd*.so $(LIB)/
+
+ortho: $(OBJ_ortho)
+	$(F2PY) -c $(OBJ_ortho) -m ortho $(F2_FLAGS) $(MKL_FLAGS)
+	@mv ortho*.so $(LIB)/
+
+pbc_helper: $(OBJ_pbc_helper)
+	$(F2PY) -c $(OBJ_pbc_helper) -m pbc_helper $(F2_FLAGS) $(MKL_FLAGS)
+	@mv pbc_helper*.so $(LIB)/
+
+py2fch: $(OBJ_py2fch)
+	$(F2PY) -c $(OBJ_py2fch) -m py2fch $(F2_FLAGS) $(MKL_FLAGS)
+	@mv py2fch*.so $(LIB)/
 
 pyuno: $(OBJ_pyuno)
 	$(F2PY) -c $(OBJ_pyuno) -m uno $(F2_FLAGS) $(MKL_FLAGS)
@@ -472,36 +507,9 @@ qchem: $(OBJ_qchem)
 	$(F2PY) -c $(OBJ_qchem) -m qchem $(F2_FLAGS) $(MKL_FLAGS)
 	@mv qchem*.so $(LIB)/
 
-ortho: $(OBJ_ortho)
-	$(F2PY) -c $(OBJ_ortho) -m ortho $(F2_FLAGS) $(MKL_FLAGS)
-	@mv ortho*.so $(LIB)/
-
-assoc_rot: $(OBJ_assoc_rot)
-	$(F2PY) -c $(OBJ_assoc_rot) -m assoc_rot $(F2_FLAGS) $(MKL_FLAGS)
-	@mv assoc_rot*.so $(LIB)/
-
-mirror_wfn: $(OBJ_mirror_wfn)
-	$(F2PY) -c $(OBJ_mirror_wfn) -m mirror_wfn $(F2_FLAGS) $(MKL_FLAGS)
-	@mv mirror_wfn*.so $(LIB)/
-
 wfn_analysis: $(OBJ_wfn_analysis)
 	$(F2PY) -c $(OBJ_wfn_analysis) -m wfn_analysis $(F2_FLAGS) $(MKL_FLAGS)
 	@mv wfn_analysis*.so $(LIB)/
-
-lo: $(OBJ_lo)
-	$(F2PY) -c $(OBJ_lo) -m lo $(F2_FLAGS) $(MKL_FLAGS)
-	@mv lo*.so $(LIB)/
-
-auto_pair: $(OBJ_auto_pair)
-	$(F2PY) -c $(OBJ_auto_pair) -m auto_pair $(F2_FLAGS)
-	@mv auto_pair*.so $(LIB)/
-
-mo_svd: $(OBJ_mo_svd)
-	$(F2PY) -c $(OBJ_mo_svd) -m mo_svd $(F2_FLAGS) $(MKL_FLAGS)
-	@mv mo_svd*.so $(LIB)/
-
-solve_ON_matrix: $(OBJ_solve_ON_matrix)
-	$(F90) $(OBJ_solve_ON_matrix) $(FFLAGS) $(MKL_FLAGS) -o $(BIN)/solve_ON_matrix
 
 rwgeom: $(OBJ_rwgeom)
 	$(F2PY) -c $(OBJ_rwgeom) -m rwgeom $(F2_FLAGS) $(MKL_FLAGS)
@@ -510,14 +518,6 @@ rwgeom: $(OBJ_rwgeom)
 rwwfn: $(OBJ_rwwfn)
 	$(F2PY) -c $(OBJ_rwwfn) -m rwwfn $(F2_FLAGS) $(MKL_FLAGS)
 	@mv rwwfn*.so $(LIB)/
-
-excited: $(OBJ_excited)
-	$(F2PY) -c $(OBJ_excited) -m excited $(F2_FLAGS) $(MKL_FLAGS)
-	@mv excited*.so $(LIB)/
-
-pbc_helper: $(OBJ_pbc_helper)
-	$(F2PY) -c $(OBJ_pbc_helper) -m pbc_helper $(F2_FLAGS) $(MKL_FLAGS)
-	@mv pbc_helper*.so $(LIB)/
 
 get_mokit_loc:
 	cp get_mokit_loc.py $(BIN)/

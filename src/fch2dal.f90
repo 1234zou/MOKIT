@@ -4,32 +4,48 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, icart, SYSTEM
+ integer :: i, k, narg, icart
+ character(len=4) :: str4
+ character(len=26), parameter :: error_warn = 'ERROR in program fch2dal: '
+ character(len=30) :: dftname
  character(len=240) :: fchname, inpname
+ character(len=260) :: buf
  logical :: sph
 
- i = iargc()
- if(i /= 1) then
-  write(6,'(/,A)') ' ERROR in program fch2dal: wrong command line arguments!'
-  write(6,'(A,/)') ' Example (R(O)HF, CAS): fch2dal a.fch'
+ narg = iargc()
+ if(.not. (narg==1 .or. narg==3)) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
+  write(6,'(A)')   ' Example 1 (R(O)HF, CAS): fch2dal h2o.fch'
+  write(6,'(A,/)') ' Example 2 (DFT):         fch2dal h2o.fch -dft "B3LYP"'
   stop
  end if
 
- fchname = ' '
+ str4 = ' '; dftname = ' '; fchname = ' '
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
+ if(narg == 3) then
+  call getarg(2, str4)
+  if(str4 == '-dft') then
+   call getarg(3, dftname)
+  else
+   write(6,'(/,A)') error_warn//'the 2nd argument can only be `-dft` currently.'
+   write(6,'(A)') 'But got `'//str4//'`'
+   stop
+  end if
+ end if
+
  ! if .chk file provided, convert into .fch file automatically
- i = LEN_TRIM(fchname)
- if(fchname(i-3:i) == '.chk') then
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
   call formchk(fchname)
-  fchname = fchname(1:i-3)//'fch'
+  fchname = fchname(1:k-3)//'fch'
  end if
 
  call check_nobasistransform_in_fch(fchname)
  call check_nosymm_in_fch(fchname)
 
- i = INDEX(fchname, '.fch', back=.true.)
+ call find_specified_suffix(fchname, '.fch', i)
  inpname = fchname(1:i-1)//'.inp'
 
  call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
@@ -37,29 +53,36 @@ program main
  call find_icart_in_fch(fchname, .false., icart)
  if(icart == 2) then
   sph = .false.
-  i = SYSTEM('bas_gms2dal '//TRIM(inpname))
+  buf = 'bas_gms2dal '//TRIM(inpname)
+  call run_command(TRIM(buf), .false., .false.)
  else
   sph = .true.
-  i = SYSTEM('bas_gms2dal '//TRIM(inpname)//' -sph')
- end if
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2dal: failed to call utility&
-                   & bas_gms2dal. Two'
-  write(6,'(A)')   'possible reasons:'
-  write(6,'(A)')   '(1) The file '//TRIM(fchname)//' may be incomplete.'
-  write(6,'(A)')   '(2) You forgot to compile the utility bas_gms2dal.'
-  write(6,'(A,/)') '(3) This is a bug of the utility bas_gms2dal.'
-  stop
+  buf = 'bas_gms2dal '//TRIM(inpname)//' -sph'
+  call run_command(TRIM(buf), .false., .false.)
  end if
 
  call delete_file(inpname)
- call fch2dal(fchname, sph)
+ call upper(dftname)
+ select case(TRIM(dftname))
+ case('B3LYP')
+  dftname = 'B3LYPg'
+  write(6,'(/,A)') 'Remark: B3LYP is specified by the user. B3LYPg will be writ&
+                   &ten into .dal'
+  write(6,'(A,/)') 'This functional is equal to B3LYP in Gaussian.'
+ case('CAM-B3LYP')
+  dftname = 'CAMB3LYP'
+ case('PBEPBE')
+  dftname = 'PBE'
+ case('PBE1PBE')
+  dftname = 'PBE0'
+ end select
+
+ call fch2dal(fchname, dftname, sph)
 end program main
 
 ! read the MOs in .fch(k) file and adjust its d,f,g,h functions order of Gaussian
 !  to that of Dalton
-subroutine fch2dal(fchname, sph)
+subroutine fch2dal(fchname, dftname, sph)
  implicit none
  integer :: i, j, k, length, fid, fid1, nbf, nif, RENAME
  integer :: n6dmark, n10fmark, n15gmark, n21hmark, n28imark
@@ -69,10 +92,11 @@ subroutine fch2dal(fchname, sph)
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:), norm(:)
  character(len=24) :: data_string
+ character(len=30), intent(in) :: dftname
  character(len=240) :: buf, dalfile, dalfile1
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: sph
- logical :: uhf
+ logical :: uhf, dft
 
  buf = ' '
  call check_uhf_in_fch(fchname, uhf)
@@ -82,6 +106,9 @@ subroutine fch2dal(fchname, sph)
                  &F instead.'
   stop
  end if
+
+ dft = .false.
+ if(LEN_TRIM(dftname) > 0) dft = .true.
 
  call read_nbf_and_nif_from_fch(fchname, nbf, nif)
  allocate(coeff(nbf,nif))
@@ -136,6 +163,17 @@ subroutine fch2dal(fchname, sph)
  open(newunit=fid,file=TRIM(dalfile),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(dalfile1),status='replace')
 
+ if(dft) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:3) == '.HF') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+  write(fid1,'(A,/,A)') '.DFT', TRIM(dftname)
+  write(fid1,'(A,/,A)') '*DFT INPUT', '.ULTRAF'
+ end if
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -182,7 +220,5 @@ subroutine fch2dal(fchname, sph)
 end subroutine fch2dal
 
 ! DFT ultrafine grid in Dalton is
-!*DFT INPUT
-!.ULTRAF
 ! which may be used in the future
 

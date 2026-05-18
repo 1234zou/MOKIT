@@ -248,7 +248,7 @@ module theory_level
  integer :: eda_type = 0  ! 0/1/2/3/4 for none/Morokuma-EDA/LMO-EDA/GKS-EDA/SAPT
  integer :: disp_type = 0 ! 0/1/2/3 for none/D3/D3BJ/D4
  integer, parameter :: cn_thres = 4 ! coordination number threshold in XO-PBC
- character(len=11) :: method = ' '
+ character(len=30) :: method = ' '
  character(len=21) :: basis = ' '
  character(len=21) :: auxbas = ' '
  character(len=60) :: scrf  = ' '
@@ -988,15 +988,17 @@ subroutine read_nfrag_from_buf(buf, nfrag)
  implicit none
  integer :: i, j, k
  integer, intent(out) :: nfrag
+ character(len=41), parameter :: error_warn = 'ERROR in subroutine read_nfrag_f&
+                                              &rom_buf: '
  character(len=1200), intent(in) :: buf
 
  i = INDEX(buf, 'guess')
  if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_nfrag_from_buf: keyword 'guess'&
-                   & not found in buf."
-  write(6,'(A)') 'buf = '//TRIM(buf)
-  write(6,'(/,A)') "You should write 'guess(fragment=N)' in route section&
-                     & to specify the number of fragments."
+  write(6,'(/,A)') error_warn//'keyword "guess" not found in buf.'
+  write(6,'(A)') 'buf = "'//TRIM(buf)//'"'
+  write(6,'(A)') 'You are supposed to write `guess(fragment=N)` in route sectio&
+                 &n in order to'
+  write(6,'(A)') 'specify the number of fragments.'
   stop
  end if
 
@@ -1010,19 +1012,18 @@ subroutine read_nfrag_from_buf(buf, nfrag)
  case('(')
   k = i+1 + index(buf(i+2:), ')')
  case default
-  write(6,'(A)') 'ERROR in subroutine read_nfrag_from_buf: syntax error.'
-  write(6,'(A)') 'buf = '//TRIM(buf)
+  write(6,'(A)') error_warn//'syntax error.'
+  write(6,'(A)') 'buf = "'//TRIM(buf)//'"'
   stop
  end select
  read(buf(j+1:k-1),*) nfrag
 
  if(nfrag == 1) then
-  write(6,'(A)') 'ERROR in subroutine read_nfrag_from_buf: nfrag = 1.'
+  write(6,'(A)') error_warn//'nfrag=1.'
   write(6,'(A)') 'Only one fragment. No need to use fragment-guess.'
   stop
  else if(nfrag < 1) then
-  write(6,'(A,I0)') 'ERROR in subroutine read_nfrag_from_buf: invalid&
-                    & nfrag = ', nfrag
+  write(6,'(A,I0)') error_warn//'invalid nfrag = ', nfrag
   stop
  end if
 end subroutine read_nfrag_from_buf
@@ -1034,7 +1035,7 @@ subroutine gen_gjf_from_type_frag(frag0, guess_read, stab_chk, basname)
   eda_type, disp_type
  implicit none
  integer :: i, k(3),fid
- character(len=11) :: method0, method1
+ character(len=30) :: method0, method1
  character(len=44), parameter :: error_warn='ERROR in subroutine gen_gjf_from_t&
                                             &ype_frag: '
  character(len=240), intent(in) :: basname
@@ -1547,7 +1548,8 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  integer :: i, j, m, fid1, fid2
  integer, intent(in) :: natom
  real(kind=8), intent(in) :: radii(natom)
- character(len=9) :: dft_in_gms
+ character(len=8) :: str_sr6, str_s8
+ character(len=30) :: dft_in_gms
  character(len=50), parameter :: error_warn='ERROR in subroutine copy_and_modif&
                                             &y_gms_eda_file: '
  character(len=240) :: buf1, buf2
@@ -1561,6 +1563,7 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
  buf2 = buf1(1:i+6)//'EDA'//TRIM(buf1(i+13:))
  write(fid2,'(A)') TRIM(buf2)
 
+ call lower(method)
  call convert_dft_name_gau2gms(method, dft_in_gms)
  read(fid1,'(A)') buf1
 
@@ -1600,40 +1603,11 @@ subroutine copy_and_modify_gms_eda_file(natom, radii, inpname1, inpname2)
 
  if(TRIM(dft_in_gms) /= 'NONE') then
   write(fid2,'(A)',advance='no') ' $DFT NRAD0=99 NLEB0=590 NRAD=99 NLEB=590'
-  if(disp_type == 1) then
-   write(fid2,'(A)',advance='no') ' IDCVER=3' ! GD3
-! Some dispersion parameters are not built-in in GAMESS, and some built-in
-! dispersion parameters were wrong. So I have to explicitly specify them.
-   select case(TRIM(dft_in_gms))
-   case('B3PW91')
-    write(fid2,'(A)',advance='no') ' DCSR=1.176 DCS8=1.775'
-   case('BMK')
-    write(fid2,'(A)',advance='no') ' DCSR=1.931 DCS8=2.168'
-   case('BPBE')
-    write(fid2,'(A)',advance='no') ' DCSR=1.087 DCS8=2.033'
-   case('CAMB3LYP')
-    write(fid2,'(A)',advance='no') ' DCSR=1.378 DCS8=1.217'
-   case('M05')
-    write(fid2,'(A)',advance='no') ' DCSR=1.373 DCS8=0.595'
-   case('M05-2X')
-    write(fid2,'(A)',advance='no') ' DCSR=1.417 DCS8=1d-9'
-   case('M06')
-    write(fid2,'(A)',advance='no') ' DCSR=1.325 DCS8=1d-9'
-   case('M06L')
-    write(fid2,'(A)',advance='no') ' DCSR=1.581 DCS8=1d-9'
-   case('M06-HF')
-    write(fid2,'(A)',advance='no') ' DCSR=1.446 DCS8=1d-9'
-   case('M06-2X')
-    write(fid2,'(A)',advance='no') ' DCSR=1.619 DCS8=1d-9'
-   case('M11L')
-    write(fid2,'(A)',advance='no') ' DCSR=2.3933 DCS8=1.1129'
-   case('MN15L')
-    write(fid2,'(A)',advance='no') ' DCSR=3.3388 DCS8=1d-9'
-   case('PBE0')
-    write(fid2,'(A)',advance='no') ' DCSR=1.287 DCS8=0.928'
-   case('revTPSS')
-    write(fid2,'(A)',advance='no') ' DCSR=1.3491 DCS8=1.3666'
-   end select
+  if(disp_type == 1) then ! GD3, D3(0), D3zero
+   ! Some dispersion parameters are not built-in in GAMESS, and some built-in
+   ! dispersion parameters were wrong. So I have to explicitly specify them.
+   call get_d3zero_param(dft_in_gms, str_sr6, str_s8)
+   write(fid2,'(A)',advance='no') ' IDCVER=3 DCSR='//TRIM(str_sr6)//' DCS8='//TRIM(str_s8)
   else if(disp_type == 2) then
    write(fid2,'(A)',advance='no') ' IDCVER=4' ! GD3BJ
   end if
@@ -2021,57 +1995,6 @@ subroutine determine_solvent_from_gau2gms(scrf, solvent)
   solvent = 'INPUT'
  end select
 end subroutine determine_solvent_from_gau2gms
-
-! convert DFT name of Gaussian to that of GAMESS
-subroutine convert_dft_name_gau2gms(method, dft_in_gms)
- implicit none
- character(len=11), intent(in) :: method
- character(len=9), intent(out) :: dft_in_gms
-
- dft_in_gms = ' '
-
- select case(TRIM(method))
- case('b3lyp','blyp','x3lyp','b3p86','b3pw91','wB97','wB97X','b98','m05','m06',&
-      'm11','bmk','bp86','tpssh','revtpss')
-  dft_in_gms = method
- case('m052x')
-  dft_in_gms = 'M05-2X'
- case('m06hf')
-  dft_in_gms = 'M06-HF'
- case('m062x')
-  dft_in_gms = 'M06-2X'
- case('m06l')
-  dft_in_gms = 'M06-L'
- case('m08hx')
-  dft_in_gms = 'M08-HX'
- case('m11l')
-  dft_in_gms = 'M11-L'
- case('wb97xd')
-  dft_in_gms = 'wB97X-D'
- case('b971')
-  dft_in_gms = 'B97-1'
- case('b972')
-  dft_in_gms = 'B97-2'
- case('b97d')
-  dft_in_gms = 'B97-D'
- case('pbepbe')
-  dft_in_gms = 'PBE'
- case('pbe1pbe')
-  dft_in_gms = 'PBE0'
- case('cam-b3lyp')
-  dft_in_gms = 'CAMB3LYP'
- case('tpsstpss')
-  dft_in_gms = 'TPSS'
- case('hf','rhf','rohf','uhf','mp2','ccsd','ccsd(t)')
-  dft_in_gms = 'NONE'
- case default
-  write(6,'(A)') 'Warning in subroutine convert_dft_name_gau2gms: functional na&
-                 &me cannot be'
-  write(6,'(A)') 'recognized. DFTTYP=NONE will be set in .inp file. You can mod&
-                 &ify it by yourself.'
-  dft_in_gms = 'NONE'
- end select
-end subroutine convert_dft_name_gau2gms
 
 ! delete ECP/PP of ghost atoms in a given .gjf file
 subroutine del_ecp_of_ghost_in_gjf(gjfname)
