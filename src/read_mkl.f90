@@ -1618,38 +1618,6 @@ subroutine prt_mo_and_e_in_mkl(fid, nbf, nif, mo, ev)
  end do ! for while
 end subroutine prt_mo_and_e_in_mkl
 
-! read the total charge and the spin mltiplicity from a given .mkl file
-subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
- implicit none
- integer :: i, fid
- integer, intent(out) :: charge, mult
-!f2py intent(out) :: charge, mult
- character(len=240) :: buf
- character(len=240), intent(in) :: mklname
-!f2py intent(in) :: mklname
-
- charge = 0; mult = 1
- call require_file_exist(mklname)
- open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:7) == '$CHAR_M') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no '$CHA&
-                   &R_M' found in"
-  write(6,'(A)') 'file '//TRIM(mklname)
-  close(fid)
-  stop
- end if
-
- read(fid,*) charge, mult
- close(fid)
-end subroutine read_charge_and_mult_from_mkl
-
 ! Convert an RHF .mkl file into a UHF one by copying alpha MOs to beta MOs.
 ! The input file will be updated. If brokensym is .True., the beta HOMO LUMO
 ! will be interchanged to make a broken symmetry guess.

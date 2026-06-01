@@ -32,6 +32,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  character(len=8) :: key
  character(len=8), parameter :: key1 = 'Alpha MO'
  character(len=7), parameter :: key2 = 'Beta MO'
+ character(len=28), parameter :: error_warn = 'ERROR in subroutine fch2py: '
  character(len=240) :: buffer
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
@@ -50,7 +51,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
   key = key1
   ghf = .true.
  case default
-  write(6,'(/,A)') 'ERROR in subroutine fch2py: wrong data type of ab.'
+  write(6,'(/,A)') error_warn//'wrong data type of ab.'
   write(6,'(A)') "This argument can only be 'a'/'b'/'r'/'i'. But your input"
   write(6,*) 'ab=', ab
   stop
@@ -58,7 +59,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
 
  inquire(file=TRIM(fchname),exist=alive)
  if(.not. alive) then
-  write(6,'(/,A)') "File '"//TRIM(fchname)//"' does not exist!"
+  write(6,'(/,A)') 'File "'//TRIM(fchname)//'" does not exist!'
   stop
  end if
 
@@ -73,8 +74,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  if(ghf) then
   if(ncoeff /= 2*nbf*nif) then
    close(fchid)
-   write(6,'(/,A)') 'ERROR in subroutine fch2py: ncoeff/=2*nbf*nif! Inconsisten&
-                    &t basis sets'
+   write(6,'(/,A)') error_warn//'ncoeff/=2*nbf*nif! Inconsistent basis sets'
    write(6,'(A)') 'in PySCF script and file '//TRIM(fchname)
    write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nbf=', nbf, ', nif=', nif
    stop
@@ -82,8 +82,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  else ! R(O)HF, UHF
   if(ncoeff /= nbf*nif) then
    close(fchid)
-   write(6,'(/,A)') 'ERROR in subroutine fch2py: ncoeff/=nbf*nif! Inconsistent &
-                    &basis sets in'
+   write(6,'(/,A)') error_warn//'ncoeff/=nbf*nif! Inconsistent basis sets in'
    write(6,'(A)') 'PySCF script and file '//TRIM(fchname)
    write(6,'(3(A,I0))') 'ncoeff=', ncoeff, ', nbf=', nbf, ', nif=', nif
    stop
@@ -122,7 +121,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
     k = j ! update k
    end do ! for i
   case default
-   write(6,'(/,A)') 'ERROR in subroutine fch2py: wrong parameter ab.'
+   write(6,'(/,A)') error_warn//'wrong parameter ab.'
    write(6,*) 'ab=', ab
    stop
   end select
@@ -139,9 +138,8 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch2py: missing the 'Shell types'&
-                   & section in .fch file!"
-  write(6,'(A)') TRIM(fchname)
+  write(6,'(/,A)') error_warn//'missing the "Shell types" section in'
+  write(6,'(A)') 'file '//TRIM(fchname)
   close(fchid)
   stop
  end if
@@ -160,9 +158,8 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine fch2py: missing the 'Shell to atom map'&
-                   & section in file"
-  write(6,'(A)') TRIM(fchname)
+  write(6,'(/,A)') error_warn//' missing the "Shell to atom map" section'
+  write(6,'(A)') 'in file '//TRIM(fchname)
   close(fchid)
   stop
  end if
@@ -261,7 +258,7 @@ subroutine fch2py(fchname, nbf, nif, ab, coeff2)
    h_mark(n21hmark) = nbf0 + 1
    nbf0 = nbf0 + 21
   case default
-   write(6,'(/,A)') 'ERROR in subroutine fch2py: shell_type(i) out of range.'
+   write(6,'(/,A)') error_warn//'shell_type(i) out of range.'
    write(6,'(A,3I4)') 'k, i, shell_type(i)=', k, i, shell_type(i)
    stop
   end select

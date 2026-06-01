@@ -6,7 +6,7 @@
 # likely due to the Bohr constant. You can find the nuclear repulsion energy
 # both in PySCF and ORCA output file, and make a comparison.
 
-def py2orca(mf, inpname):
+def py2orca(mf, inpname, xc=None):
     from mokit.lib.py2fch_direct import fchk
     from os import system, remove, rename
     proname = inpname[0:inpname.rindex('.inp')]
@@ -16,12 +16,15 @@ def py2orca(mf, inpname):
     inpname2 = proname+'.inp'
     mklname2 = proname+'.mkl'
     fchk(mf, fchname, overwrite_mol=True)
-    system('fch2mkl '+fchname)
+    if xc is None:
+        system('fch2mkl '+fchname)
+    else:
+        system('fch2mkl '+fchname+' -dft "'+xc+'"')
     remove(fchname)
     rename(inpname1, inpname2)
     rename(mklname1, mklname2)
     print('\n .mkl and .inp files are generated. Now do mkl->gbw...')
     i = system('orca_2mkl '+proname+' -gbw')
     if i != 0:
-        raise OSError('Failed to call utility orca_2mkl')
+        raise OSError('Failed to call utility orca_2mkl. You need to manually run orca_2mkl.')
 

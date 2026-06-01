@@ -183,10 +183,10 @@ subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, n
  nact0 = nact - nopen
  nocc = na + nact0
  idx = [ndb+1, nocc+1, nopen]
- write(fid,'(/,A6,I5)') 'ndb  =', ndb
- write(fid,'(A6,I5)')   'nact =', nact
- write(fid,'(A6,I5)')   'nact0=', nact0
- write(fid,'(A6,3I5)')  'idx  =', idx
+ write(fid,'(/,A,I5)') 'ndb  =', ndb
+ write(fid,'(A,I5)')   'nact =', nact
+ write(fid,'(A,I5)')   'nact0=', nact0
+ write(fid,'(A,3I5)')  'idx  =', idx
 
  ! generate NOON (Natural Orbital Occupation Number)
  forall(i = 1:na) noon(i) = 1d0 + sv_occ(i)

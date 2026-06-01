@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.8rc4'
- character(len=11), parameter :: date = '2026-May-18'
+ character(len=9), parameter :: version = '1.2.8rc5 '
+ character(len=11), parameter :: date = '2026-May-31'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -1915,155 +1915,6 @@ subroutine dp2str16(r, str, k)
  end if
 end subroutine dp2str16
 
-! read lattice vectors (3,3) from a specified .molden file
-subroutine read_lat_vec_from_molden(molden, lat_vec)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
- character(len=6) :: str6
- character(len=240) :: buf
- character(len=240), intent(in) :: molden
-!f2py intent(in) :: molden
-
- lat_vec = 0d0
- open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  buf = ADJUSTL(buf)
-  str6 = buf(1:6)
-  call upper(str6)
-  if(str6 == "[CELL]") exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_molden: [CELL] sectio&
-                   &n not found in'
-  write(6,'(A)') 'file '//TRIM(molden)
-  close(fid)
-  stop
- end if
-
- do i = 1, 3
-  read(fid,*) lat_vec(:,i)
- end do ! for i
- close(fid)
-end subroutine read_lat_vec_from_molden
-
-! read lattice vectors (3,3) from a specified .xyz file
-subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
- implicit none
- integer :: i, j, fid
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
- character(len=240) :: buf
- character(len=240), intent(in) :: xyzname
-!f2py intent(in) :: xyzname
-
- lat_vec = 0d0
- open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
- read(fid,'(A)') buf
- read(fid,'(A)') buf
- close(fid)
-
- i = INDEX(buf, """")
- j = INDEX(buf(i+1:), """")
- if(i==0 .or. j<=i) then
-  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_xyz: wrong lattice ve&
-                   &ctors found in file '//TRIM(xyzname)
-  stop
- end if
- read(buf(i+1:i+j-1),*) lat_vec
-end subroutine read_lat_vec_from_xyz
-
-! Read lattice vectors (3,3) from a specified CP2K input file. It is allowed
-! that inpname does not end with '.inp'. Only the &CELL section is required in
-! this file.
-subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
- implicit none
- integer :: i, j, fid
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
- character(len=1) :: str1
- character(len=3) :: str3
- character(len=5) :: str5
- character(len=240) :: buf
- character(len=240), intent(in) :: inpname
-!f2py intent(in) :: inpname
-
- lat_vec = 0d0; str3 = ' '; str5 = ' '
- open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  buf = ADJUSTL(buf)
-  str5 = buf(1:5)
-  call upper(str5)
-  if(str5 == "&CELL") exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_cp2k_inp: &CELL secti&
-                   &on not found in"
-  write(6,'(A)') 'file '//TRIM(inpname)
-  close(fid)
-  stop
- end if
-
- read(fid,'(A)') buf
- read(buf,*) str3
- str3 = ADJUSTL(str3)
-
- if(str3 == 'ABC') then
-  i = INDEX(buf, ']')
-  if(i == 0) then
-   j = INDEX(buf, 'ABC')
-   read(buf(j+3:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
-  else
-   read(buf(i+1:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
-  end if
- else if(str3(1:1) == 'A') then
-  BACKSPACE(fid)
-  do i = 1, 3
-   read(fid,*) str1, lat_vec(:,i)
-  end do ! for i
- end if
-
- close(fid)
-end subroutine read_lat_vec_from_cp2k_inp
-
-! Read lattice vectors (3,3) from a specified file, where the filetype would be
-! detected automatically.
-subroutine read_lat_vec_from_file(fname, lat_vec)
- implicit none
- integer :: i
- real(kind=8), intent(out) :: lat_vec(3,3)
-!f2py intent(out) :: lat_vec
- character(len=240), intent(in) :: fname
-!f2py intent(in) :: fname
- logical :: is_molden, is_xyz
-
- is_molden = .false.; is_xyz = .false.
-
- i = LEN_TRIM(fname)
- if(i > 7) then
-  if(fname(i-6:i) == '.molden') is_molden = .true.
- else if(i > 4) then
-  if(fname(i-3:i) == '.xyz') is_xyz = .true.
- end if
-
- if(is_molden) then
-  call read_lat_vec_from_molden(fname, lat_vec)
- else if(is_xyz) then
-  call read_lat_vec_from_xyz(fname, lat_vec)
- else
-  call read_lat_vec_from_cp2k_inp(fname, lat_vec)
- end if
-end subroutine read_lat_vec_from_file
-
 ! find the number of tags/lines after [MO] and before MO coefficients
 subroutine find_ntag_before_mo_in_molden(molden, ntag)
  implicit none
@@ -2187,10 +2038,10 @@ subroutine find_irel_in_fch(fchname, irel)
 ! -3: X2C, i.e. sf-x2c1e | -2: RESC
 ! -1: no relativity      |  0: DKH 0th-order
 !  2: DKH2               |  4: DKH4 with SO
- character(len=61) :: buf
+ character(len=100) :: buf
  character(len=240), intent(in) :: fchname
 !f2py intent(in) :: fchname
- character(len=610) :: longbuf
+ character(len=600) :: longbuf
  logical :: alive(7)
 
  irel = -1 ! default: no relativity
@@ -2221,8 +2072,8 @@ subroutine find_irel_in_fch(fchname, irel)
   if(buf(1:6) == 'Charge') exit
   longbuf = TRIM(longbuf)//TRIM(buf)
  end do ! for i
- close(fid)
 
+ close(fid)
  call upper(longbuf)
 
  alive = [(index(longbuf,'DKH0')>0), (index(longbuf,'DKHSO')>0), &
@@ -2418,4 +2269,44 @@ subroutine find_dis_type_from_dftname(dftname, dis_type)
   end if
  end if
 end subroutine find_dis_type_from_dftname
+
+! modify `hf_fch` in a PySCF input script
+subroutine modify_hf_fch_in_pyscf_inp(pyname, fchname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, pyname1
+ character(len=240), intent(in) :: pyname, fchname
+
+ call find_specified_suffix(pyname, '.py', i)
+ pyname1 = pyname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(pyname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:6) == 'hf_fch') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine modify_hf_fch_in_pyscf_inp: "hf_fch" no&
+                   &t found in'
+  write(6,'(A)') 'file '//TRIM(pyname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+ write(fid1,'(A)') 'hf_fch = "'//TRIM(fchname)//'"'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(pyname1), TRIM(pyname))
+end subroutine modify_hf_fch_in_pyscf_inp
 

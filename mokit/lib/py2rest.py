@@ -9,6 +9,6 @@ def py2rest(mf, inpname, xc=None):
     if xc is None:
         system('fch2rest '+fchname)
     else:
-        system('fch2rest '+fchname+" -dft '"+xc+"'")
+        system('fch2rest '+fchname+' -dft "'+xc+'"')
     remove(fchname)
 

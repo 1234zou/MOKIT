@@ -15,52 +15,42 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
         find_irel_in_fch,
         read_eigenvalues_from_fch,
         read_nbf_and_nif_from_fch,
-        read_na_and_nb_from_fch
+        read_na_and_nb_from_fch,
+        check_uhf_in_fch,
+        get_occ_from_na_nb,
+        read_charge_and_mult_from_fch
     )
 
     irel = find_irel_in_fch(fch_file)
     if irel not in (-1, -3):
-        raise ValueError('Only non-relativistic or sf-X2C is supported.')
+        raise ValueError('Unsupported type of relativistic Hamiltonian.'
+                         ' Only non-relativistic or sf-X2C supported.')
 
     mol = load_mol_from_fch(fch_file)
     print('N atoms =', mol.natm)
+    #mol.build(parse_arg=False)
+    # `build` is not needed since it is specifed in load_mol_from_fch
+
     mo_coeff = mo_fch2py(fch_file)
     nbf, nif = read_nbf_and_nif_from_fch(fch_file)
     print('nbf =', nbf)
     print('nif =', nif)
 
-    mol.build(parse_arg = False)
-    if isinstance(mo_coeff, tuple):
-        mo_coeff = np.asarray(mo_coeff)
-        mo_energy_a = read_eigenvalues_from_fch(fch_file, nif=nif, ab='a')
-        mo_energy_b = read_eigenvalues_from_fch(fch_file, nif=nif, ab='b')
-        mo_energy = np.asarray((mo_energy_a, mo_energy_b))
-    else:
-        mo_energy = read_eigenvalues_from_fch(fch_file, nif=nif, ab='a')
-
+    na, nb = read_na_and_nb_from_fch(fch_file)
+    if mol.nelectron != na+nb:
+        print('\nIt seems that ECP/PP is used. ECP/PP data is missing when '
+              'using .mkl/.molden. But this')
+        print('does not affect the calculation of TDA-/TDDFT-ris energy. In'
+              ' the future, we will switch')
+        print('to using ORCA json in order to solve this problem.')
     print('mo_coeff.shape', mo_coeff.shape)
-    print('mo_energy.shape', mo_energy.shape)
 
-    if mo_coeff.ndim == 2:
-        print('Restricted Kohn-Sham')
-
-        if (nbf > nif):
-            if functional == 'hf':
-                old_mf = scf.RHF(mol)
-            else:
-                old_mf = dft.RKS(mol)
-            mf = scf.remove_linear_dep_(old_mf, threshold=1e-6, lindep=1e-6)
-        elif (nbf == nif):
-            if functional == 'hf':
-                mf = scf.RHF(mol)
-            else:
-                mf = dft.RKS(mol)
-        else:
-            raise ValueError('nbf<nif. This is impossible.')
-        nocc = mol.nelectron // 2
-        mf.mo_occ = np.asarray([2] * nocc + [0] * (nif - nocc))
-
-    elif mo_coeff.ndim == 3:
+    uhf = check_uhf_in_fch(fch_file)
+    if uhf == 1:
+        mo_energy_a = read_eigenvalues_from_fch(fch_file, nif, 'a')
+        mo_energy_b = read_eigenvalues_from_fch(fch_file, nif, 'b')
+        mo_energy = np.stack((mo_energy_a, mo_energy_b))
+        print('mo_energy.shape', mo_energy.shape)
         print('Unrestricted Kohn-Sham')
         if (nbf > nif):
             if functional == 'hf':
@@ -75,11 +65,30 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
                 mf = dft.UKS(mol)
         else:
             raise ValueError('nbf<nif. This is impossible.')
-        nocc_a, nocc_b = read_na_and_nb_from_fch(fch_file)
-        mf.mo_occ = np.asarray([[1] * nocc_a + [0] * (nif - nocc_a),
-                                [1] * nocc_b + [0] * (nif - nocc_b)])
+        mf.mo_occ = np.asarray([[1] * na + [0] * (nif - na),
+                                [1] * nb + [0] * (nif - nb)])
     else:
-        raise ValueError('Unknown dimension of mo_coeff: {}'.format(mo_coeff.ndim))
+        charge, mult = read_charge_and_mult_from_fch(fch_file)
+        if mult != 1:
+            raise NotImplementedError('TDA-/TDDFT-ris based on ROHF/ROKS reference'
+                                      ' not supported currently.')
+        mo_energy = read_eigenvalues_from_fch(fch_file, nif, 'a')
+        print('mo_energy.shape', mo_energy.shape)
+        print('Restricted Kohn-Sham')
+        if (nbf > nif):
+            if functional == 'hf':
+                old_mf = scf.RHF(mol)
+            else:
+                old_mf = dft.RKS(mol)
+            mf = scf.remove_linear_dep_(old_mf, threshold=1e-6, lindep=1e-6)
+        elif (nbf == nif):
+            if functional == 'hf':
+                mf = scf.RHF(mol)
+            else:
+                mf = dft.RKS(mol)
+        else:
+            raise ValueError('nbf<nif in '+fch_file+'. Impossible!')
+        mf.mo_occ = get_occ_from_na_nb(nif, na, nb)
 
     mf.verbose = 4
     mf.mo_coeff = mo_coeff
@@ -91,6 +100,9 @@ def get_mf_from_fch(fch_file: str, functional: str = None):
         mf = mf.x2c1e()
     print('functional: ', functional)
     return mf
+
+# alias
+load_mf_from_fch = get_mf_from_fch
 
 
 def get_mf_from_gbw(gbwname, functional, sfx2c=False):
@@ -112,4 +124,7 @@ def get_mf_from_gbw(gbwname, functional, sfx2c=False):
     mf = get_mf_from_fch(fch_file, functional)
     os.remove(fch_file)
     return mf
+
+# alias
+load_mf_from_gbw = get_mf_from_gbw
 

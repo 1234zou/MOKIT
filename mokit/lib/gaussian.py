@@ -221,7 +221,7 @@ def mo_fch2py(fchname):
     elif ihf == 2:         # real UHF
         mo_a = fch2py(fchname, nbf, nif, 'a')
         mo_b = fch2py(fchname, nbf, nif, 'b')
-        mo = np.array((mo_a, mo_b))
+        mo = np.stack((mo_a, mo_b))
     elif ihf == 7:         # complex GHF
         mo = fch2py_cghf(fchname, 2*nbf, 2*nif)
     else:
@@ -338,10 +338,10 @@ def loc(fchname, idx, method='pm', alpha=True, center_xyz=None, ions_centers=Fal
             coor = np.zeros((3,k))
             coor[:,:natom] = coor0
             coor[:,natom:] = mo_center
-            pt.write_xyz(k, elem, coor, center_xyz, np.zeros((3,3)))
+            pt.write_xyz(center_xyz, k, elem, coor, False, np.zeros((3,3)))
         else:
             elem = np.full(nmo, 'X ', dtype='U2')
-            pt.write_xyz(nmo, elem, mo_center, center_xyz, np.zeros((3,3)))
+            pt.write_xyz(center_xyz, nmo, elem, mo_center, False, np.zeros((3,3)))
 
     mo[:,idx] = lmo.copy()
     noon = np.zeros(nif)
@@ -376,7 +376,8 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
     '''
     import time
     from pyscf.pbc.df.ft_ao import ft_aopair
-    from mokit.lib.rwwfn import read_lat_vec_from_file, calc_dis_mat_from_coor_pbc
+    from mokit.lib.rwwfn import calc_dis_mat_from_coor_pbc
+    from mokit.lib.rwgeom import read_lat_vec_from_file
     from mokit.lib.rwgeom import periodic_table as pt
     from mokit.lib.lo import gen_loc_ini_guess, berry, boys, pm
 
@@ -491,10 +492,10 @@ def pbc_loc(molden, box, method='berry', wannier_xyz=None, ions_centers=False,
         coor = np.zeros((3,k))
         coor[:,:natom] = coor0
         coor[:,natom:] = mo_center
-        pt.write_xyz(k, elem, coor, wannier_xyz, cell.a)
+        pt.write_xyz(wannier_xyz, k, elem, coor, False, cell.a)
     else:
         elem = np.full(nmo1, 'X ', dtype='U2')
-        pt.write_xyz(nmo1, elem, mo_center, wannier_xyz, cell.a)
+        pt.write_xyz(wannier_xyz, nmo1, elem, mo_center, False, cell.a)
 
     # update MOs and print them into .fch
     if mo_idx is None:

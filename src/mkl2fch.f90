@@ -62,8 +62,8 @@ program main
    case('-sfx2c') ! sfX2C1e scalar relativistic Hamiltonian
     irel = -3
    case default
-    write(6,'(/,A)') 'ERROR in subroutine mkl2fch: there exists wrong command l&
-                     &ine argument!'
+    write(6,'(/,A)') 'ERROR in program mkl2fch: there exists wrong command line&
+                     &argument!'
     stop
    end select
   end do ! for i
@@ -95,6 +95,7 @@ subroutine mkl2fch(mklname, fchname, no_type, jrel)
  integer, intent(in) :: no_type, jrel
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: noon(:), coeff(:,:), dm(:,:), dm_b(:,:)
+ character(len=29), parameter :: error_warn = 'ERROR in subroutine mkl2fch: '
  character(len=240), intent(in) :: mklname, fchname
 
  call check_uhf_in_fch(fchname, is_uhf) ! determine whether UHF
@@ -105,27 +106,23 @@ subroutine mkl2fch(mklname, fchname, no_type, jrel)
  end if
 
  if(no_type==2 .and. (.not.is_uhf)) then
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch: Natural Spin Orbitals requeste&
-                   &d. But this is'
+  write(6,'(/,A)') error_warn//'Natural Spin Orbitals requested. But this is'
   write(6,'(A)') 'not a UHF-type .fch file.'
   stop
  end if
 
- ! check if any Cartesian functions
  if( ANY(shell_type > 1) ) then
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch: Cartesian-type basis functions&
-                   & detected in file'
-  write(6,'(A)') TRIM(fchname)//'.'
-  write(6,'(A)') "ORCA supports spherical functions only. You need to add '5D 7&
-                 &F' keywords in"
-  write(6,'(A)') 'Gaussian input file.'
+  write(6,'(/,A)') error_warn//'Cartesian-type basis functions detected in file'
+  write(6,'(A)') TRIM(fchname)
+  write(6,'(A)') 'ORCA supports spherical harmonic functions only. You need to &
+                 &add `5D 7F` keywords'
+  write(6,'(A)') 'in Gaussian input file. Or set `mol.cart=False` in PySCF inpu&
+                 &t script.'
   stop
  else if( ANY(shell_type < -6) ) then
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch: angular momentum too high! not&
-                   & supported.'
+  write(6,'(/,A)') error_warn//'angular momentum too high! not supported.'
   stop
  end if
- ! check done
 
  ! read Alpha and/or Beta MOs from .fch(k) file
  call read_mo_from_mkl(mklname, nbf, nif, 'a', alpha_coeff)
@@ -203,8 +200,7 @@ subroutine mkl2fch(mklname, fchname, no_type, jrel)
   deallocate(dm_b)
   call write_dm_into_fch(fchname, .true., nbf, dm)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch: no_type out of range!'
-  write(6,'(A,I0)') 'no_type=', no_type
+  write(6,'(/,A,I0)') error_warn//'invalid no_type=', no_type
   stop
  end select
 
@@ -341,8 +337,8 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
   spin_dm = coeff - spin_dm
   deallocate(coeff)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch: no_type out of range!'
-  write(6,'(A,I0)') 'no_type=', no_type
+  write(6,'(/,A,I0)') 'ERROR in subroutine mkl2fch_direct: invalid no_type=', &
+                      no_type
   stop
  end select
 
@@ -359,6 +355,7 @@ subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
  real(kind=8), parameter :: diff = 1d-4
  real(kind=8), allocatable :: on_a(:), on_b(:)
  character(len=240), intent(in) :: mklname
+ logical :: alive(4)
  logical, intent(in) :: uhf
 
  if(uhf) then ! UHF
@@ -386,10 +383,12 @@ subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
  end if
 
  ne1 = na1 + nb1
-
- if((na==na1 .and. nb/=nb1) .or. (na/=na1 .and. nb==nb1) .or. na1>na .or. nb1>nb) then
-  write(6,'(/,A)') 'ERROR in subroutine check_na_nb_ecp_in_mkl: internal error.'
-  write(6,'(A,4I4)') 'na, nb, na1, nb1=', na, nb, na1, nb1 
+ alive = [(na==na1 .and. nb/=nb1), (na/=na1 .and. nb==nb1), (na1>na), (nb1>nb)]
+ if(ANY(alive .eqv. .true.)) then
+  write(6,'(/,A)') 'ERROR in subroutine check_na_nb_ecp_in_mkl: internal incons&
+                   &istency.'
+  write(6,'(A)') 'mklname='//TRIM(mklname)
+  write(6,'(A,4I5)') 'na, nb, na1, nb1=', na, nb, na1, nb1 
   stop
  end if
 

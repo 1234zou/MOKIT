@@ -558,23 +558,36 @@ end subroutine fch2qchem_wrap
 
 subroutine bas_fch2py_wrap(fchname, dft, pyname)
  implicit none
- integer :: i, RENAME
- character(len=240) :: pyname0
+ integer :: i
+ character(len=240) :: pyname0, new_fch
  character(len=240), intent(in) :: fchname
  character(len=240), intent(in), optional :: pyname
  character(len=256) :: buf
+ logical :: given_fname
  logical, intent(in) :: dft
 
- buf = 'bas_fch2py '//TRIM(fchname)
+ given_fname = .false.
+ call find_specified_suffix(fchname, '.fch', i)
+ pyname0 = fchname(1:i-1)//'.py'
+ if(PRESENT(pyname)) then
+  if(TRIM(pyname0) /= TRIM(pyname)) given_fname = .true.
+ end if
+
+ if(given_fname) then
+  call find_specified_suffix(pyname, '.py', i)
+  new_fch = pyname(1:i-1)//'.fch'
+  call sys_copy_file(TRIM(fchname), TRIM(new_fch), .false.)
+  buf = 'bas_fch2py '//TRIM(new_fch)
+ else
+  buf = 'bas_fch2py '//TRIM(fchname)
+ end if
+
  if(dft) buf = TRIM(buf)//' -dft'
  call run_command(TRIM(buf), .true., .false.)
 
- if(PRESENT(pyname)) then
-  call find_specified_suffix(fchname, '.fch', i)
-  pyname0 = fchname(1:i-1)//'.py'
-  if(TRIM(pyname0) /= TRIM(pyname)) then
-   i = RENAME(TRIM(pyname0), TRIM(pyname))
-  end if
+ if(given_fname) then
+  call delete_file(TRIM(new_fch))
+  call modify_hf_fch_in_pyscf_inp(pyname, fchname)
  end if
 end subroutine bas_fch2py_wrap
 

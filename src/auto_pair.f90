@@ -78,7 +78,7 @@ subroutine pair_by_tdm(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, coeff, &
   write(6,'(A,I4,A)') 'There are ', nopen   ,' singly occupied MOs.'
   write(6,'(A,I4,A)') 'There are ', nalpha  ,' alpha MOs.'
   write(6,'(A,I4,A)') 'There are ', nvir_lmo,' unoccupied LMOs.'
-  call pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, tdm_thres,&
+  call pair_by_tdm2(ncore, npair, nalpha, nvir_lmo, nbf, nif, tdm_thres, &
                     new_coeff, mo_dipole, npair_eff)
  else
   write(6,'(/,A,I0)') 'ERROR in subroutine pair_by_tdm: nalpha-nopen-ncore=',i
@@ -242,11 +242,11 @@ subroutine pair_by_tdm1(ncore, npair, nopen, nalpha, nbf, nif, tdm_thres,coeff,&
 end subroutine pair_by_tdm1
 
 ! for case where occpuied LMO < unoccpuied LMO
-subroutine pair_by_tdm2(ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif, &
-                        tdm_thres, coeff, mo_dipole, npair_eff)
+subroutine pair_by_tdm2(ncore, npair, nalpha, nvir_lmo, nbf, nif, tdm_thres, &
+                        coeff, mo_dipole, npair_eff)
  implicit none
  integer :: i, j, k, tmp_idx(1), tmp_idx2(2)
- integer, intent(in) :: ncore, npair, nopen, nalpha, nvir_lmo, nbf, nif
+ integer, intent(in) :: ncore, npair, nalpha, nvir_lmo, nbf, nif
  integer, intent(out) :: npair_eff
  integer, allocatable :: pair_idx(:), opt_pair_idx(:), idx(:,:)
  real(kind=8), intent(inout) :: coeff(nbf,nif)

@@ -325,29 +325,6 @@ subroutine submit_xtb_job(proname, charge, mult, gfn, nproc, job_type, del_tmp)
  end if
 end subroutine submit_xtb_job
 
-subroutine read_lat_vec_from_coord(coord, lat_vec)
- use phys_cons, only: Bohr_const
- implicit none
- integer :: fid
- real(kind=8), intent(out) :: lat_vec(3,3)
- character(len=240) :: buf
- character(len=240), intent(in) :: coord
-
- lat_vec = 0d0
- open(newunit=fid,file=TRIM(coord),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid)
-  BACKSPACE(fid)
-  read(fid,'(A)') buf
-  if(buf(1:8) == '$lattice') exit
- end do ! for while
-
- read(fid,*) lat_vec
- close(fid)
- lat_vec = lat_vec*Bohr_const
-end subroutine read_lat_vec_from_coord
-
 ! add the lattice vector into a given. xyz file
 subroutine add_lat_vec_into_xyz(xyzname, lat_vec)
  implicit none
@@ -356,7 +333,8 @@ subroutine add_lat_vec_into_xyz(xyzname, lat_vec)
  character(len=240) :: buf, xyzname1
  character(len=240), intent(in) :: xyzname
 
- xyzname1 = TRIM(xyzname)//'.t'
+ call find_specified_suffix(xyzname, '.xyz', i)
+ xyzname1 = xyzname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(xyzname1),status='replace')
 

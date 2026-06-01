@@ -10,12 +10,13 @@ program main
  implicit none
  integer :: i, j, idx1, idx2, nopen
  character(len=10) :: buf
+ character(len=35), parameter :: error_warn='ERROR in program extract_noon2fch: '
  character(len=240) :: outname, fchname
  logical :: gau_order
 
  i = iargc()
  if(i<2 .or. i>6) then
-  write(6,'(/,A)') ' ERROR in subroutine extract_noon2fch: wrong command line arguments.'
+  write(6,'(/,1X,A)')error_warn//'wrong command line arguments!'
   write(6,'(A)')   ' Syntax: extract_noon_2fch outname fchname idx1 idx2 nopen [-gau]'
   write(6,'(/,A)') ' Example 1(PySCF CASCI): extract_noon2fch a.out a.fch 19 24'
   write(6,'(A)')   ' Example 2 (GAMESS GVB): extract_noon2fch a.dat a.fch 19 24 0'
@@ -28,12 +29,9 @@ program main
   stop
  end if
 
- nopen = 0
- gau_order = .false. ! initialization
-
+ nopen = 0; gau_order = .false.; outname = ' '; fchname = ' '
  call getarg(1, outname)
  call require_file_exist(outname)
-
  call getarg(2, fchname)
  call require_file_exist(fchname)
 
@@ -58,14 +56,12 @@ program main
   call getarg(5, buf)
   read(buf,*,iostat=j) nopen
   if(j /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
-                    &rguments. Failed'
+   write(6,'(/,A)') error_warn//'wrong command line arguments. Failed'
    write(6,'(A)') 'to read integer nopen.'
    stop
   end if
   if(nopen < 0) then
-   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
-                    &rguments. nopen<0.'
+   write(6,'(/,A,I0)') error_warn//'invalid nopen=', nopen
    stop
   end if
  end if
@@ -75,8 +71,7 @@ program main
   if(INDEX(buf,'-gau') /= 0) then
    gau_order = .true.
   else
-   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong command line a&
-                    &rguments.'
+   write(6,'(/,A)') error_warn//'wrong command line arguments.'
    write(6,'(A)') 'The 5th argument='//TRIM(buf)
    stop
   end if
@@ -84,15 +79,14 @@ program main
 
  j = idx2 - idx1
  if(j < 1) then
-  write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.'
+  write(6,'(/,A)') error_warn//'wrong input indices.'
   write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
   stop
  end if
 
  if(INDEX(outname,'.dat',back=.true.)>0 .and. i/=3) then
   if(MOD(j+1-nopen,2) /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine extract_noon2fch: wrong input indices.&
-                   & In this case'
+   write(6,'(/,A)') error_warn//'wrong input indices. In this case'
    write(6,'(A)') 'idx2-idx1+1-nopen must be an even integer.'
    write(6,'(A,3I5)') 'idx1, idx2, nopen=', idx1, idx2, nopen
    stop

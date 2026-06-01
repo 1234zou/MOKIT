@@ -394,6 +394,44 @@ def average_nmr_shielding(nmr_out, atom_list, program='gaussian', paramagnetic=F
     return ave_val
 
 
+def dcd2xyz(dcdname, elem_file=None, elem=None):
+    '''
+    Convert .dcd file plus element symbols to a .xyz file. The .dcd file usually
+    contains lots of frames of geometries from MD/AIMD/MLMD. So the generated
+    .xyz file contains the same number of frames.
+    Usually .dcd file does not include element symbols, so we will either read
+    them from `elem_file` (.xyz/.gjf/.inp which include element symbols) or
+    directly take them from the array `elem`.
+    '''
+    import MDAnalysis as mda
+    from MDAnalysis.lib.mdamath import triclinic_vectors
+    from mokit.lib.rwgeom import read_elem_and_coor_from_file
+    from mokit.lib.rwgeom import periodic_table as pt
+
+    u = mda.Universe(dcdname)
+    nframe = u.trajectory.n_frames
+    natom = u.atoms.n_atoms
+
+    if elem_file is None:
+        if elem is None:
+            raise ValueError('element symbols are not provided.')
+    else:
+        elem, _ = read_elem_and_coor_from_file(elem_file, natom)
+
+    lat_vec = np.zeros((nframe, 3, 3))
+    coor = np.zeros((nframe, natom, 3))
+
+    for i, ts in enumerate(u.trajectory):
+        dims = ts.dimensions
+        lat_vec[i,:,:] = triclinic_vectors(dims)
+        coor[i,:,:] = u.atoms.positions
+
+    coor = coor.transpose(2,1,0)
+    lat_vec = lat_vec.transpose(1,2,0)
+    xyzname = dcdname[0:dcdname.rindex('.dcd')]+'.xyz'
+    pt.write_xyz_frames(xyzname, nframe, natom, elem, coor, lat_vec)
+
+
 def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):
     '''
     Generate occupied MOs of a new geometry using Grassmann interpolation. Currently

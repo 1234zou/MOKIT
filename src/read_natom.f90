@@ -596,6 +596,54 @@ subroutine read_natom_from_orca_prop_txt(txtname, natom)
  read(buf(i+1:),*) natom
 end subroutine read_natom_from_orca_prop_txt
 
+subroutine read_natom_from_cp2k_inp(inpname, natom)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(out) :: natom
+!f2py intent(out) :: natom
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine read_natom_f&
+                                              &rom_cp2k_inp: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  buf = ADJUSTL(buf)
+  k = LEN_TRIM(buf)
+  call upper(buf(1:k))
+  if(buf(1:6) == '&COORD') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'failed to locate "&COORD" in file'
+  write(6,'(A)') TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  buf = ADJUSTL(buf)
+  k = LEN_TRIM(buf)
+  call upper(buf(1:k))
+  if(buf(1:10) == '&END COORD') exit
+  natom = natom + 1
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'failed to locate "&COORD" in file'
+  write(6,'(A)') TRIM(inpname)
+  stop
+ end if
+end subroutine read_natom_from_cp2k_inp
+
 ! Read AtomTypes from a Dalton .mol file. For the fch2dal/mkl2dal generated .mol
 ! file, this number is equal to No. atoms.
 subroutine read_natmtyp_from_dalton_mol(molname, natmtyp)
@@ -625,95 +673,167 @@ subroutine read_natmtyp_from_dalton_mol(molname, natmtyp)
  read(buf(11:),*) natmtyp
 end subroutine read_natmtyp_from_dalton_mol
 
-! read elements and Cartesian coordinates from a Dalton .mol file
-subroutine read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
+! read lattice vectors (3,3) from a specified .molden file
+subroutine read_lat_vec_from_molden(molden, lat_vec)
  implicit none
  integer :: i, fid
- integer, intent(in) :: natom
- integer, intent(out) :: nline(natom) ! No. of lines of basis set data per atom
- real(kind=8), intent(out) :: coor(3,natom)
- character(len=2), intent(out) :: elem(natom)
+ real(kind=8), intent(out) :: lat_vec(3,3)
+ character(len=6) :: str6
  character(len=240) :: buf
- character(len=240), intent(in) :: molname
+ character(len=240), intent(in) :: molden
 
- elem = ' '; coor = 0d0; nline = 0
- open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+ lat_vec = 0d0
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:10) == 'AtomTypes=') exit
+  buf = ADJUSTL(buf)
+  str6 = buf(1:6)
+  call upper(str6)
+  if(str6 == "[CELL]") exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_elem_and_coor_from_dalton_mol: no &
-                   &'AtomTypes=' found"
-  write(6,'(A)') 'in file '//TRIM(molname)
+  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_molden: [CELL] sectio&
+                   &n not found'
+  write(6,'(A)') 'in file '//TRIM(molden)
   close(fid)
   stop
  end if
 
- read(buf(11:),*) i
- if(i /= natom) then
-  close(fid)
-  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_dalton_mol: No.&
-                   & atoms in .mol is'
-  write(6,'(A)') 'not equal to input natom.'
-  stop
- end if
- read(fid,'(A)') buf
-
- do i = 1, natom, 1
-  read(fid,*) elem(i), coor(:,i)
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(i == natom) then
-    if(LEN_TRIM(buf) == 0) exit
-   end if
-   if(buf(1:7) == 'Charge=') exit
-   nline(i) = nline(i) + 1
-  end do ! for while
+ do i = 1, 3
+  read(fid,*) lat_vec(:,i)
  end do ! for i
-
  close(fid)
-end subroutine read_elem_and_coor_from_dalton_mol
+end subroutine read_lat_vec_from_molden
 
-! read total charge and spin multiplicity from a given .gjf file
-subroutine read_charge_and_mult_from_gjf(gjfname, charge, mult)
+! read lattice vectors (3,3) from a specified .xyz file
+subroutine read_lat_vec_from_xyz(xyzname, lat_vec)
  implicit none
- integer :: i, nblank, fid
- integer, intent(out) :: charge, mult
-!f2py intent(out) :: charge, mult
+ integer :: i, j, fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
  character(len=240) :: buf
- character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
+ character(len=240), intent(in) :: xyzname
 
- charge = 0; mult = 1
- open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- nblank = 0
+ lat_vec = 0d0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ i = INDEX(buf, """")
+ j = INDEX(buf(i+1:), """")
+ if(i==0 .or. j<=i) then
+  write(6,'(/,A)') 'ERROR in subroutine read_lat_vec_from_xyz: wrong lattice ve&
+                   &ctors found in'
+  write(6,'(A)') 'file '//TRIM(xyzname)
+  stop
+ end if
+ read(buf(i+1:i+j-1),*) lat_vec
+end subroutine read_lat_vec_from_xyz
+
+! Read lattice vectors (3,3) from a specified CP2K input file. It is allowed
+! that inpname does not end with '.inp'. Only the &CELL section is required in
+! this file.
+subroutine read_lat_vec_from_cp2k_inp(inpname, lat_vec)
+ implicit none
+ integer :: i, j, fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
+ character(len=1) :: str1
+ character(len=3) :: str3
+ character(len=5) :: str5
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+
+ lat_vec = 0d0; str3 = ' '; str5 = ' '
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
-  if(nblank == 2) exit
+  buf = ADJUSTL(buf)
+  str5 = buf(1:5)
+  call upper(str5)
+  if(str5 == "&CELL") exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
-                   &tic file '//TRIM(gjfname)
-  stop
+  write(6,'(/,A)') "ERROR in subroutine read_lat_vec_from_cp2k_inp: `&CELL` sec&
+                   &tion not found"
+  write(6,'(A)') 'in file '//TRIM(inpname)
   close(fid)
- end if
-
- read(fid,*,iostat=i) charge, mult
- close(fid)
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
-                   &tic charge or'
-  write(6,'(A)') 'spin multiplicity in file '//TRIM(gjfname)
   stop
  end if
-end subroutine read_charge_and_mult_from_gjf
+
+ read(fid,'(A)') buf
+ read(buf,*) str3
+ str3 = ADJUSTL(str3)
+
+ if(str3 == 'ABC') then
+  i = INDEX(buf, ']')
+  if(i == 0) then
+   j = INDEX(buf, 'ABC')
+   read(buf(j+3:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
+  else
+   read(buf(i+1:),*) lat_vec(1,1), lat_vec(2,2), lat_vec(3,3)
+  end if
+ else if(str3(1:1) == 'A') then
+  BACKSPACE(fid)
+  do i = 1, 3
+   read(fid,*) str1, lat_vec(:,i)
+  end do ! for i
+ end if
+
+ close(fid)
+end subroutine read_lat_vec_from_cp2k_inp
+
+! read lattice vectors from xTB .coord file
+subroutine read_lat_vec_from_coord(coord, lat_vec)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: lat_vec(3,3)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: coord
+
+ lat_vec = 0d0
+ open(newunit=fid,file=TRIM(coord),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(1:8) == '$lattice') exit
+ end do ! for while
+
+ read(fid,*) lat_vec
+ close(fid)
+ lat_vec = lat_vec*Bohr_const
+end subroutine read_lat_vec_from_coord
+
+! Read lattice vectors (3,3) from a specified file, where the filetype would be
+! detected automatically.
+subroutine read_lat_vec_from_file(fname, lat_vec)
+ implicit none
+ integer :: i, k
+ real(kind=8), intent(out) :: lat_vec(3,3)
+!f2py intent(out) :: lat_vec
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
+
+ k = LEN_TRIM(fname)
+ call find_specified_suffix(fname(1:k), '.', i)
+
+ select case(fname(i:k))
+ case('.molden')
+  call read_lat_vec_from_molden(fname, lat_vec)
+ case('.xyz')
+  call read_lat_vec_from_xyz(fname, lat_vec)
+ case('.inp')
+  call read_lat_vec_from_cp2k_inp(fname, lat_vec)
+ case('.coord')
+  call read_lat_vec_from_coord(fname, lat_vec)
+ end select
+end subroutine read_lat_vec_from_file
 

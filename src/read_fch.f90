@@ -152,8 +152,9 @@ subroutine read_ne_from_fch(fchname, ne)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_ne_from_fch: no 'Number of elec' f&
-                   &ound in file "//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine read_ne_from_fch: no "Number of elec" f&
+                   &ound in file'
+  write(6,'(A)') TRIM(fchname)
   stop
  end if
 

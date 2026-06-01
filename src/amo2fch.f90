@@ -229,46 +229,6 @@ subroutine gen_fch_from_amo(amoname, fchname)
  call free_arrays_in_fch_content()
 end subroutine gen_fch_from_amo
 
-! read charge and spin multiplicity from a specified .amo file
-subroutine read_charge_and_mult_from_amo(amoname, charge, mult)
- implicit none
- integer :: i, fid
- integer, intent(out) :: charge, mult
- character(len=10) :: buf ! long buf is not needed here
- character(len=240), intent(in) :: amoname
-
- charge = 0; mult = 1
- open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(1:8) == '[Charge]') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_amo: charge n&
-                   &ot found in'
-  write(6,'(A)') 'file '//TRIM(amoname)
-  write(6,'(A)') 'Please make sure that your Amesp version >= May 23, 2024.'
-  close(fid)
-  stop
- end if
-
- read(fid,*) charge
- read(fid,'(A)') buf
- if(buf(1:6) /= '[Mult]') then
-  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_amo: [Mult] i&
-                   &s not below [Charge].'
-  write(6,'(A)') 'Problematic file: '//TRIM(amoname)
-  close(fid)
-  stop
- end if
-
- read(fid,*) mult
- close(fid)
-end subroutine read_charge_and_mult_from_amo
-
 ! read the number of Alpha/Beta electrons from a specified .amo file
 subroutine read_na_and_nb_from_amo(amoname, na, nb)
  implicit none

@@ -11,71 +11,76 @@
 program main
  use util_wrapper, only: formchk, fch2inp_wrap
  implicit none
- integer :: i, k, SYSTEM
- character(len=3) :: str
- character(len=240) :: fname, inpname
+ integer :: k, narg
+ character(len=4) :: str4
+ character(len=29), parameter :: error_warn = 'ERROR in program fch2inporb: '
+ character(len=30) :: dftname
+ character(len=240) :: fchname, gms_inp, molcas_inp
+ character(len=260) :: buf
  logical :: sph, prt_no
 
- i = iargc()
- if(i<1 .or. i>2) then
-  write(6,'(/,A)') ' ERROR in program fch2inporb: wrong command line arguments!'
-  write(6,'(A)')   ' Example 1 (R(O)HF/UHF/CAS): fch2inporb a.fch'
-  write(6,'(A,/)') ' Example 2 (CAS NO)        : fch2inporb a.fch -no'
+ narg = iargc()
+ if(narg<1 .or. narg>3) then
+  write(6,'(/,1X,A)') error_warn//'wrong command line arguments!'
+  write(6,'(A)')  ' Example 1 (R(O)HF/UHF/CAS): fch2inporb a.fch'
+  write(6,'(A)')  ' Example 2 (CAS NO)        : fch2inporb a.fch -no'
+  write(6,'(A,/)')' Example 3 (DFT)           : fch2inporb a.fch -dft "B3LYP"'
   stop
  end if
 
- fname = ' '
- call getarg(1, fname)
- call require_file_exist(fname)
+ prt_no = .false.; dftname = ' '; fchname = ' '; str4 = ' '
+ gms_inp = ' '; molcas_inp = ' '
+ call getarg(1, fchname)
+ call require_file_exist(fchname)
 
  ! if .chk file provided, convert into .fch file automatically
- k = LEN_TRIM(fname)
- if(fname(k-3:k) == '.chk') then
-  call formchk(fname)
-  fname = fname(1:k-3)//'fch'
+ k = LEN_TRIM(fchname)
+ if(fchname(k-3:k) == '.chk') then
+  call formchk(fchname)
+  fchname = fchname(1:k-3)//'fch'
  end if
 
- call check_nobasistransform_in_fch(fname)
- call check_nosymm_in_fch(fname)
+ call check_nobasistransform_in_fch(fchname)
+ call check_nosymm_in_fch(fchname)
 
- if(i == 2) then
-  str = ' '
-  call getarg(2, str)
-  if(str /= '-no') then
-   write(6,'(/,A)') " ERROR in subroutine fch2inporb: the 2nd argument is&
-                    & wrong! Only '-no' is accepted."
-   stop
-  else ! str = '-no'
+ call find_specified_suffix(fchname, '.fch', k)
+ gms_inp = fchname(1:k-1)//'.inp'
+ molcas_inp = fchname(1:k-1)//'.input'
+
+ select case(narg)
+ case(1) ! do nothing
+ case(2)
+  call getarg(2, str4)
+  if(TRIM(str4) == '-no') then
    prt_no = .true.
+  else
+   write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
+   write(6,'(A)') '`-no` is expected.'
+   stop
   end if
- else ! i = 1
-  prt_no = .false.
- end if
+ case(3)
+  call getarg(2, str4)
+  if(TRIM(str4) == '-dft') then
+   call getarg(3, dftname)
+  else
+   write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
+   write(6,'(A)') '`-dft` is expected.'
+   stop
+  end if
+ case default
+  write(6,'(/,A)') error_warn//'wrong command line arguments!'
+  stop
+ end select
 
  ! ->prt_no, <-sph
- call fch2inporb(fname, prt_no, sph)
- call fch2inp_wrap(fname, .false., 0, 0, .true., .false., .false.)
+ call fch2inporb(fchname, prt_no, sph)
+ call fch2inp_wrap(fchname, .false., 0, 0, .true., .false., .false.)
 
- k = INDEX(fname,'.fch', back=.true.)
- inpname = fname(1:k-1)//'.inp'
-
- if(sph) then
-  i = SYSTEM('bas_gms2molcas '//TRIM(inpname)//' -sph')
- else
-  i = SYSTEM('bas_gms2molcas '//TRIM(inpname))
- end if
-
- if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2inporb: failed to call utility bas_&
-                   &gms2molcas.'
-  write(6,'(A)')   'Three possible reasons:'
-  write(6,'(A)')   '(1) You forget to compile the utility bas_gms2molcas.'
-  write(6,'(A)')   '(2) This is a bug of the utility bas_gms2molcas.'
-  write(6,'(A,/)') '(3) The file '//TRIM(fname)//' may be problematic.'
-  stop
- end if
-
- call delete_file(inpname)
+ buf = 'bas_gms2molcas '//TRIM(gms_inp)
+ if(sph) buf = TRIM(buf)//' -sph'
+ call run_command(TRIM(buf), .false., .false.)
+ call delete_file(gms_inp)
+ if(LEN_TRIM(dftname) > 0) call add_dftname2molcas_inp(molcas_inp, dftname)
 end program main
 
 ! nbf: the number of basis functions
@@ -332,4 +337,76 @@ subroutine zeta_mv_forwd(i0, shell_type, length, nbf, nif, coeff2)
  coeff2 = coeff
  deallocate(coeff)
 end subroutine zeta_mv_forwd
+
+subroutine add_dftname2molcas_inp(inpname, dftname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=4) :: str4
+ character(len=7) :: str7
+ character(len=30), intent(in) :: dftname
+ character(len=44), parameter :: error_warn = 'ERROR in subroutine add_dftname2&
+                                              &molcas_inp: '
+ character(len=240) :: buf, inpname1
+ character(len=240), intent(in) :: inpname
+
+ call find_specified_suffix(inpname, '.input', i)
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(LEN_TRIM(buf) > 0) then
+   buf = ADJUSTL(buf)
+   str7 = buf(1:7)
+   call upper(str7)
+   if(str7 == "&SEWARD") exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"&SEWARD" cannot be located in'
+  write(6,'(A)') 'file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+
+ write(fid1,'(A)') 'Grid input'
+ write(fid1,'(A)') ' grid= ultrafine'
+ write(fid1,'(A)') 'End of grid input'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+  if(LEN_TRIM(buf) > 0) then
+   buf = ADJUSTL(buf)
+   str4 = buf(1:4)
+   call upper(str4)
+   if(str4 == "&SCF") exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"&SCF" cannot be located in'
+  write(6,'(A)') 'file '//TRIM(inpname)
+  close(fid)
+  close(fid1,status='delete')
+  stop
+ end if
+ write(fid1,'(A)') 'KSDFT= '//TRIM(dftname)
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid1)
+ close(fid,status='delete')
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine add_dftname2molcas_inp
 

@@ -1,6 +1,7 @@
-MOKIT 1.2.8rc4 (May 18, 2026)
+MOKIT 1.2.8rc5 (May 31, 2026)
 ------------------------
 Fixes
+* fix the number of occupied orbitals when ECP/PP is used in get_mf_from_fch
 * fix missing MKL_FLAGS for OBJ_chk2py/OBJ_fch2py in Makefile.main (introduced in 1.2.8rc3)
 * fix array deallocation of the array RNFroz in fch2tm when ECP/PP is used
 * delete existing HF .fch files before HF calculations when HF_prog=PySCF/ORCA
@@ -17,6 +18,8 @@ Features
 * add subroutine gbw2rest in mokit/src/util_wrapper.f90
 * add spin-pure GP interface to OpenMolcas
 Improvement
+* keep RHF/UHF .py scripts when HF_prog=PySCF
+* add `xc` option in py2gms, py2orca, py2dalton, py2psi, py2molcas
 * add DSD-PBEP86-D3BJ and revDSD-PBEP86-D3BJ support in `-dft` of fch2mkl
 * automatically add frozen-core option in fch2rest when MP2/DH is used
 * add GVB analytical gradient interfaces for GVB_prog=Gamess/Gaussian/QChem

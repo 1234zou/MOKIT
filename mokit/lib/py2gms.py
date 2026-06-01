@@ -1,6 +1,6 @@
 # Transfer MOs from PySCF -> GAMESS
 
-def py2gms(mf, inpname, npair=None, nopen=None, sf=False, mrsf=False):
+def py2gms(mf, inpname, npair=None, nopen=None, sf=False, mrsf=False, xc=None):
     from mokit.lib.py2fch_direct import fchk
     from os import system, remove
     fchname = inpname[0:inpname.rindex('.inp')]+'.fch'
@@ -11,7 +11,10 @@ def py2gms(mf, inpname, npair=None, nopen=None, sf=False, mrsf=False):
         elif mrsf:
             system('fch2inp '+fchname+' -mrsf')
         else:
-            system('fch2inp '+fchname)
+            if xc is None:
+                system('fch2inp '+fchname)
+            else:
+                system('fch2inp '+fchname+' -dft "'+xc+'"')
     else:
         if sf or mrsf:
             raise ValueError('npair cannot be used with sf=True or mrsf=True.')

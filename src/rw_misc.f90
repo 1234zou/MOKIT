@@ -93,6 +93,45 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  close(fid)
 end subroutine read_nbf_and_nif_from_orb
 
+! read total charge and spin multiplicity from a given .gjf file
+subroutine read_charge_and_mult_from_gjf(gjfname, charge, mult)
+ implicit none
+ integer :: i, nblank, fid
+ integer, intent(out) :: charge, mult
+!f2py intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ charge = 0; mult = 1
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ nblank = 0
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(LEN_TRIM(buf) == 0) nblank = nblank + 1
+  if(nblank == 2) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
+                   &tic file '//TRIM(gjfname)
+  stop
+  close(fid)
+ end if
+
+ read(fid,*,iostat=i) charge, mult
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_gjf: problema&
+                   &tic charge or'
+  write(6,'(A)') 'spin multiplicity in file '//TRIM(gjfname)
+  stop
+ end if
+end subroutine read_charge_and_mult_from_gjf
+
 ! read the total charge and the spin mltiplicity from a given .fch(k) file
 subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  implicit none
@@ -126,12 +165,119 @@ subroutine read_charge_and_mult_from_fch(fchname, charge, mult)
  close(fid)
 end subroutine read_charge_and_mult_from_fch
 
+! read charge and spin multiplicity from a specified .amo file
+subroutine read_charge_and_mult_from_amo(amoname, charge, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+ character(len=10) :: buf ! long buf is not needed here
+ character(len=240), intent(in) :: amoname
+
+ charge = 0; mult = 1
+ open(newunit=fid,file=TRIM(amoname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:8) == '[Charge]') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_amo: charge n&
+                   &ot found in'
+  write(6,'(A)') 'file '//TRIM(amoname)
+  write(6,'(A)') 'Please make sure that your Amesp version >= May 23, 2024.'
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) charge
+ read(fid,'(A)') buf
+ if(buf(1:6) /= '[Mult]') then
+  write(6,'(/,A)') 'ERROR in subroutine read_charge_and_mult_from_amo: [Mult] i&
+                   &s not below [Charge].'
+  write(6,'(A)') 'Problematic file: '//TRIM(amoname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) mult
+ close(fid)
+end subroutine read_charge_and_mult_from_amo
+
+! read the total charge and the spin mltiplicity from a given .mkl file
+subroutine read_charge_and_mult_from_mkl(mklname, charge, mult)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: charge, mult
+!f2py intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: mklname
+!f2py intent(in) :: mklname
+
+ charge = 0; mult = 1
+ call require_file_exist(mklname)
+ open(newunit=fid,file=TRIM(mklname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == '$CHAR_M') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_charge_and_mult_from_mkl: no '$CHA&
+                   &R_M' found in"
+  write(6,'(A)') 'file '//TRIM(mklname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) charge, mult
+ close(fid)
+end subroutine read_charge_and_mult_from_mkl
+
+! read the charge and spin multiplicity from a specified CP2K .inp file
+subroutine read_charge_and_mult_from_cp2k_inp(inpname, charge, mult)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(out) :: charge, mult
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+ logical :: found_charge, found_mult
+
+ charge = 0; mult = 1 ! default value
+ found_charge = .false.; found_mult = .false.
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  buf = ADJUSTL(buf)
+  k = LEN_TRIM(buf)
+  call upper(buf(1:k))
+  if(buf(1:6) == 'CHARGE') then
+   read(buf(7:),*) charge
+   found_charge = .true.
+  end if
+  if(buf(1:12) == 'MULTIPLICITY') then
+   read(buf(i+13:),*) mult
+   found_mult = .true.
+  end if
+  if(found_charge .and. found_mult) exit
+ end do ! for while
+
+ close(fid)
+end subroutine read_charge_and_mult_from_cp2k_inp
+
 ! read spin multiplicity from a specified ORCA input file
 subroutine read_mult_from_orca_inp(inpname, mult)
  implicit none
  integer :: i, j, itype, fid
  integer, intent(out) :: mult
 !f2py intent(out) :: mult
+ character(len=45), parameter :: error_warn = 'ERROR in subroutine read_mult_fr&
+                                              &om_orca_inp: '
  character(len=240) :: buf
  character(len=240), intent(in) :: inpname
 !f2py intent(in) :: inpname
@@ -150,8 +296,7 @@ subroutine read_mult_from_orca_inp(inpname, mult)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_mult_from_orca_inp: spin multiplic&
-                   &ity cannot be'
+  write(6,'(/,A)') error_warn//'spin multiplicity cannot be'
   write(6,'(A)') 'found in file '//TRIM(inpname)
   close(fid)
   stop
@@ -170,16 +315,14 @@ subroutine read_mult_from_orca_inp(inpname, mult)
   end do ! for i
   close(fid)
   if(i == 5) then
-   write(6,'(/,A,I0)') 'ERROR in subroutine read_mult_from_orca_inp: spin multi&
-                       &plicity cannot be'
+   write(6,'(/,A,I0)') error_warn//'the spin multiplicity cannot be'
    write(6,'(A)') 'found in file '//TRIM(inpname)
    stop
   end if
   i = INDEX(buf, '=')
   read(buf(i+1:),*) mult
  case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine read_mult_from_orca_inp: invalid ity&
-                      &pe=', itype
+  write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
   write(6,'(A)') 'inpname='//TRIM(inpname)
   close(fid)
   stop
@@ -207,8 +350,9 @@ subroutine read_mult_from_gms_gms(gmsname, mult)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_mult_from_gms_gms: 'SPIN MULT' not&
-                   & found in file "//TRIM(gmsname)
+  write(6,'(/,A)') 'ERROR in subroutine read_mult_from_gms_gms: "SPIN MULT" not&
+                   & found in file'
+  write(6,'(A)') TRIM(gmsname)
   stop
  end if
 
@@ -285,6 +429,8 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  integer :: i, fid, idx(3), nvir
  integer, intent(out) :: nbf, nif, ndb, npair, nopen
 !f2py intent(out) :: nbf, nif, ndb, npair, nopen
+ character(len=45), parameter :: error_warn = 'ERROR in subroutine read_npair_f&
+                                              &rom_uno_out: '
  character(len=240), intent(in) :: unofile
 !f2py intent(in) :: unofile
  character(len=240) :: buf
@@ -304,8 +450,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  if(nbf > nif) then
   lin_dep = .true.
  else if(nbf < nif) then
-  write(6,'(/,A)') 'ERROR in subroutine read_npair_from_uno_out: nbf<nif. This &
-                   &is impossible.'
+  write(6,'(/,A)') error_warn//'nbf<nif. This is impossible.'
   write(6,'(A)') 'Please check unofile: '//TRIM(unofile)
   close(fid)
   stop
@@ -325,7 +470,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'ndb' not found."
+  write(6,'(/,A)') error_warn//'"ndb" not found.'
   write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
   close(fid)
   stop
@@ -339,7 +484,7 @@ subroutine read_npair_from_uno_out(unofile,nbf,nif,ndb,npair,nopen,lin_dep)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_npair_from_uno_out: 'idx' not found."
+  write(6,'(/,A)') error_warn//'"idx" not found.'
   write(6,'(A)') 'Please open file '//TRIM(unofile)//' and check.'
   close(fid)
   stop
@@ -504,6 +649,8 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  real(kind=8), allocatable :: pnmr_shielding(:)
  character(len=2) :: elem
  character(len=11) :: iatom_elem
+ character(len=58), parameter :: error_warn = 'ERROR in subroutine average_pnmr&
+                                              &_shield_in_orca_pnmr_out: '
  character(len=240), intent(in) :: pnmr_out
 !f2py intent(in) :: pnmr_out
  character(len=240) :: buf
@@ -521,8 +668,7 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine average_pnmr_shield_in_orca_pnmr_out: '&
-                   &Paramagnetic shielding'"
+  write(6,'(/,A)') error_warn//'"Paramagnetic shielding"'
   write(6,'(A)') 'not located in file '//TRIM(pnmr_out)
   close(fid)
   stop
@@ -559,8 +705,7 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
   do i = 1, natom, 1
    if(.not. found(i)) exit
   end do ! for i
-  write(6,'(/,A)') 'ERROR in subroutine average_pnmr_shield_in_orca_pnmr_out: t&
-                   &he pNMR isotropic'
+  write(6,'(/,A)') error_warn//'the pNMR isotropic'
   write(6,'(A,I0,A)') 'shielding of atom label ',atom_list(i),' is not found in&
                       & file '//TRIM(pnmr_out)
   deallocate(found, pnmr_shielding)
@@ -592,6 +737,8 @@ subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
  real(kind=8) :: iso_shield
  real(kind=8), allocatable :: nmr_shielding(:)
  character(len=2) :: elem
+ character(len=52), parameter :: error_warn = 'ERROR in subroutine average_nmr_&
+                                              &shield_in_orca_out: '
  character(len=240), intent(in) :: outname
 !f2py intent(in) :: outname
  character(len=240) :: buf
@@ -609,8 +756,7 @@ subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine average_nmr_shield_in_orca_out: 'CHEMIC&
-                   &AL SHIELDING SUM'"
+  write(6,'(/,A)') error_warn//'"CHEMICAL SHIELDING SUM"'
   write(6,'(A)') 'not located in file '//TRIM(outname)
   close(fid)
   stop
@@ -642,8 +788,7 @@ subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
   do i = 1, natom, 1
    if(.not. found(i)) exit
   end do ! for i
-  write(6,'(/,A)') 'ERROR in subroutine average_nmr_shield_in_orca_out: the NMR&
-                   & isotropic sh-'
+  write(6,'(/,A)') error_warn//'the NMR isotropic sh-'
   write(6,'(A,I0,A)') 'ielding of atom label ',atom_list(i),' is not found in f&
                       &ile '//TRIM(outname)
   deallocate(found, nmr_shielding)
@@ -673,6 +818,8 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
  real(kind=8), intent(out) :: ave_val
 !f2py intent(out) :: ave_val
  real(kind=8), allocatable :: nmr_shielding(:)
+ character(len=51), parameter :: error_warn = 'ERROR in subroutine average_nmr_&
+                                              &shield_in_gau_log: '
  character(len=240), intent(in) :: logname
 !f2py intent(in) :: logname
  character(len=240) :: buf
@@ -690,8 +837,7 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine average_nmr_shield_in_gau_log: 'SCF GIA&
-                   &O Mag' not"
+  write(6,'(/,A)') error_warn//'"SCF GIAO Mag" not'
   write(6,'(A)') 'located in file '//TRIM(logname)
   close(fid)
   stop
@@ -723,8 +869,7 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
   do i = 1, natom, 1
    if(.not. found(i)) exit
   end do ! for i
-  write(6,'(/,A)') 'ERROR in subroutine average_nmr_shield_in_gau_log: the NMR &
-                   &isotropic sh-'
+  write(6,'(/,A)') error_warn//'the NMR isotropic sh-'
   write(6,'(A,I0,A)') 'ielding of atom label ',atom_list(i),' is not found in f&
                       &ile '//TRIM(logname)
   deallocate(found, nmr_shielding)
@@ -740,4 +885,248 @@ subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
 
  deallocate(nmr_shielding)
 end subroutine average_nmr_shield_in_gau_log
+
+! read the number of frames from xyz file
+subroutine read_nframe_from_xyz(xyzname, nframe)
+ implicit none
+ integer :: i, fid, natom
+ integer, intent(out) :: nframe
+!f2py intent(out) :: nframe
+ character(len=240) :: buf
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+
+ nframe = 0
+ open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,*,iostat=i) natom
+  if(i /= 0) exit
+  do i = 1, natom+1, 1
+   read(fid,'(A)') buf
+  end do ! for i
+  nframe = nframe + 1
+ end do ! for while
+
+ close(fid)
+end subroutine read_nframe_from_xyz
+
+! read the number of frames from pdb file
+subroutine read_nframe_from_pdb(pdbname, nframe)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nframe
+!f2py intent(out) :: nframe
+ character(len=240) :: buf
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+
+ nframe = 1 ! initialization
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'MODEL') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) return ! assume 1 frame
+
+ i = INDEX(buf, ' ')
+ read(buf(i+1:),*) nframe
+end subroutine read_nframe_from_pdb
+
+! read elements and Cartesian coordinates from a Dalton .mol file
+subroutine read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+ integer, intent(out) :: nline(natom) ! No. of lines of basis set data per atom
+ real(kind=8), intent(out) :: coor(3,natom)
+ character(len=2), intent(out) :: elem(natom)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: molname
+
+ elem = ' '; coor = 0d0; nline = 0
+ open(newunit=fid,file=TRIM(molname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'AtomTypes=') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_elem_and_coor_from_dalton_mol: no &
+                   &'AtomTypes=' found"
+  write(6,'(A)') 'in file '//TRIM(molname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(11:),*) i
+ if(i /= natom) then
+  close(fid)
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_dalton_mol: No.&
+                   & atoms in .mol is'
+  write(6,'(A)') 'not equal to input natom.'
+  stop
+ end if
+ read(fid,'(A)') buf
+
+ do i = 1, natom, 1
+  read(fid,*) elem(i), coor(:,i)
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(i == natom) then
+    if(LEN_TRIM(buf) == 0) exit
+   end if
+   if(buf(1:7) == 'Charge=') exit
+   nline(i) = nline(i) + 1
+  end do ! for while
+ end do ! for i
+
+ close(fid)
+end subroutine read_elem_and_coor_from_dalton_mol
+
+subroutine read_elem_and_coor_from_cp2k_inp(inpname, natom, elem, coor)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+
+ elem = '  '; coor = 0d0
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  buf = ADJUSTL(buf)
+  k = LEN_TRIM(buf)
+  call upper(buf(1:k))
+  if(buf(1:6) == '&COORD') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_cp2k_inp: faile&
+                   &d to locate `&COORD`'
+  write(6,'(A)') 'in file '//TRIM(inpname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, natom, 1
+  read(fid,*) elem(i), coor(:,i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_elem_and_coor_from_cp2k_inp
+
+! write/create a Gaussian .EOu file
+subroutine write_EOu(EOu, e, natom, grad)
+ implicit none
+ integer :: fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(in) :: e, grad(3*natom)
+ character(len=720), intent(in) :: EOu
+
+ open(newunit=fid,file=TRIM(EOu),status='replace')
+ write(fid,'(4D20.12)') e, 0d0,0d0,0d0
+ write(fid,'(3D20.12)') grad
+ close(fid)
+end subroutine write_EOu
+
+! write/create a .gjf file
+subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: charge, mult, natom
+!f2py intent(in) :: charge, mult, natom
+ real(kind=8), intent(in) :: coor(3,natom)
+!f2py intent(in) :: coor
+!f2py depend(natom) :: coor
+ character(len=240) :: chkname
+ character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ chkname = gjfname(1:i-1)//'.chk'
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
+ write(fid,'(A)') '%nprocshared=1'
+ write(fid,'(A)') '%mem=2GB'
+ write(fid,'(A)') '#p B3LYP/6-31G(d,p) em=GD3BJ nosymm int=nobasistransform'
+ write(fid,'(/,A,/)') 'Title'
+ write(fid,'(I0,1X,I0)') charge, mult
+
+ do i = 1, natom, 1
+  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
+ end do ! for i
+
+ write(fid,'(/)',advance='no')
+ close(fid)
+end subroutine write_gjf
+
+! write a frame of molecule into a given .pdb file
+subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
+                                coor, append)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: iframe, natom
+!f2py intent(in) :: iframe, natom
+ character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
+ character(len=3), intent(in) :: resname(natom)
+!f2py intent(in) :: resname
+!f2py depend(natom) :: resname
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+ real(kind=8), intent(in) :: cell(6), coor(3,natom)
+!f2py intent(in) :: cell, coor
+!f2py depend(natom) :: coor
+ logical, intent(in) :: append
+!f2py intent(in) :: append
+
+ if(append) then
+  open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
+ else
+  open(newunit=fid,file=TRIM(pdbname),status='replace')
+ end if
+
+ write(fid,'(A)') 'REMARK   1 File created by rwgeom of MOKIT'
+ if(ANY(cell > 1d-4)) then
+  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1',cell(1:3),cell(4:6),' P 1           1'
+ end if
+ if(iframe > 0) write(fid,'(A,1X,I8)') 'MODEL',iframe
+
+ do i = 1, natom, 1
+  if(LEN_TRIM(resname(i)) == 0) then
+   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A)') 'HETATM', i, elem(i), 0, &
+    coor(1:3,i),'  1.00  0.00'
+  else
+   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A)') 'ATOM', i, elem(i), &
+    resname(i), 0, coor(1:3,i), '  1.00  0.00'
+  end if
+ end do ! for i
+
+ write(fid,'(A)') 'END'
+ close(fid)
+end subroutine write_frame_into_pdb
 

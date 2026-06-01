@@ -21,8 +21,8 @@ program main
 
  i = iargc()
  if(i<1 .or. i>2) then
-  write(6,'(/,A,/)') 'Example1: bas_gms2molcas a.inp (generate an a.input file)'
-  write(6,'(A,/)') "Example2: bas_gms2molcas a.inp -sph (without 'Cartesian all')"
+  write(6,'(/,A)') 'Example 1: bas_gms2molcas a.inp (generate an a.input file)'
+  write(6,'(A,/)') 'Example 2: bas_gms2molcas a.inp -sph (without "Cartesian all")'
   stop
  end if
 

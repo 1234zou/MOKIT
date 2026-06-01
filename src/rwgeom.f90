@@ -130,8 +130,8 @@ subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
  close(fid)
 end subroutine read_elem_from_gjf
 
-! write/create a .xyz file
-subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
+! write/create a .xyz file with only one frame
+subroutine write_xyz(xyzname, natom, elem, coor, append, lat_vec)
  implicit none
  integer :: i, fid
  integer, intent(in) :: natom
@@ -140,18 +140,24 @@ subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
 !f2py intent(in) :: coor
 !f2py depend(natom) :: coor
  real(kind=8), intent(in), optional :: lat_vec(3,3)
-!f2py intent(in), optional :: lat_vec
+!f2py intent(in) :: lat_vec
  character(len=2), intent(in) :: elem(natom)
 !f2py intent(in) :: elem
 !f2py depend(natom) :: elem
  character(len=240), intent(in) :: xyzname
 !f2py intent(in) :: xyzname
+ logical, intent(in) :: append
+!f2py intent(in) :: append
 
- open(newunit=fid,file=TRIM(xyzname),status='replace')
+ if(append) then
+  open(newunit=fid,file=TRIM(xyzname),status='old',position='append')
+ else
+  open(newunit=fid,file=TRIM(xyzname),status='replace')
+ end if
  write(fid,'(I0)') natom
 
  if(PRESENT(lat_vec)) then
-  if(SUM(DABS(lat_vec)) < 1d-5) then
+  if(SUM(DABS(lat_vec)) < 1d-3) then
    write(fid,'(/)',advance='no')
   else
    write(fid,'(A,9F9.4,A)') "Lattice=""", lat_vec, """"
@@ -165,6 +171,44 @@ subroutine write_xyz(natom, elem, coor, xyzname, lat_vec)
  end do ! for i
  close(fid)
 end subroutine write_xyz
+
+! Write/create a .xyz file with multiple frames, assuming all frames share the
+! same number of atoms, and the same elements.
+subroutine write_xyz_frames(xyzname, nframe, natom, elem, coor, lat_vec)
+ implicit none
+ integer :: i
+ integer, intent(in) :: nframe, natom
+!f2py intent(in) :: nframe, natom
+ real(kind=8), intent(in) :: coor(3,natom,nframe)
+!f2py intent(in) :: coor
+!f2py depend(natom,nframe) :: coor
+ real(kind=8), intent(in), optional :: lat_vec(3,3,nframe)
+!f2py intent(in) :: lat_vec
+!f2py depend(nframe) :: lat_vec
+ character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+ logical :: pbc
+
+ pbc = .false.
+ if(PRESENT(lat_vec)) then
+  if(SUM(DABS(lat_vec)) > 1d-3) pbc = .true.
+ end if
+
+ if(pbc) then
+  call write_xyz(xyzname, natom, elem, coor(:,:,1), .false., lat_vec(:,:,1))
+  do i = 2, nframe, 1
+   call write_xyz(xyzname, natom, elem, coor(:,:,i), .true., lat_vec(:,:,i))
+  end do ! for i
+ else
+  call write_xyz(xyzname, natom, elem, coor(:,:,1), .false.)
+  do i = 2, nframe, 1
+   call write_xyz(xyzname, natom, elem, coor(:,:,i), .true.)
+  end do ! for i
+ end if
+end subroutine write_xyz_frames
 
 ! write/create an xTB .coord file
 ! Note: input array `coor` must be in Angstrom
@@ -232,10 +276,12 @@ subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
  case('.fch')
   allocate(nuc(natom))
   call read_elem_and_coor_from_fch(fname, natom, elem, nuc, coor, charge, mult)
+ case('.inp') ! currently only CP2K .inp
+  call read_elem_and_coor_from_cp2k_inp(fname, natom, elem, coor)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file: invalid f&
                    &ormat.'
-  write(6,'(A)') 'Currently only .xyz/.gjf/.fch are supported.'
+  write(6,'(A)') 'Currently only .xyz/.gjf/.fch/.inp are supported.'
   stop
  end select
 
@@ -730,31 +776,6 @@ subroutine read_nuc_and_coor_from_gau_log(outname, last, natom, nuc, coor)
  close(fid)
 end subroutine read_nuc_and_coor_from_gau_log
 
-! read the number of frames from xyz file
-subroutine read_nframe_from_xyz(xyzname, nframe)
- implicit none
- integer :: i, fid, natom
- integer, intent(out) :: nframe
-!f2py intent(out) :: nframe
- character(len=240) :: buf
- character(len=240), intent(in) :: xyzname
-!f2py intent(in) :: xyzname
-
- nframe = 0
- open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,*,iostat=i) natom
-  if(i /= 0) exit
-  do i = 1, natom+1, 1
-   read(fid,'(A)') buf
-  end do ! for i
-  nframe = nframe + 1
- end do ! for while
-
- close(fid)
-end subroutine read_nframe_from_xyz
-
 ! extract the final frame in a .xyz file (which contains multiple frames), and
 ! save it to new_xyz
 subroutine extract_final_frame_in_xyz(xyzname, new_xyz)
@@ -802,10 +823,16 @@ subroutine read_iframe_from_xyz(xyzname, ith, natom, elem, coor)
  implicit none
  integer :: i, k, fid, nframe
  integer, intent(in) :: ith, natom
- real(kind=8), dimension(3,natom), intent(out) :: coor
+!f2py intent(in) :: ith, natom
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
  character(len=240) :: buf
- character*2, dimension(natom), intent(out) :: elem
- character*240, intent(in) :: xyzname
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
 
  nframe = 0; coor = 0d0; elem = ' '
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
@@ -835,10 +862,16 @@ subroutine read_all_frames_from_xyz(xyzname, nframe, natom, elem, coor)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nframe, natom
- real(kind=8), dimension(3,natom,nframe), intent(out) :: coor
+!f2py intent(in) :: nframe, natom
+ real(kind=8), intent(out) :: coor(3,natom,nframe)
+!f2py intent(out) :: coor
+!f2py depend(natom,nframe) :: coor
+ character(len=2), intent(out) :: elem(natom,nframe)
+!f2py intent(out) :: elem
+!f2py depend(natom,nframe) :: elem
  character(len=240) :: buf
- character*2, dimension(natom,nframe), intent(out) :: elem
- character*240, intent(in) :: xyzname
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
 
  coor = 0d0; elem = ' '
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
@@ -853,32 +886,6 @@ subroutine read_all_frames_from_xyz(xyzname, nframe, natom, elem, coor)
  close(fid)
 end subroutine read_all_frames_from_xyz
 
-! read the number of frames from pdb file
-subroutine read_nframe_from_pdb(pdbname, nframe)
- implicit none
- integer :: i, fid
- integer, intent(out) :: nframe
- character(len=240) :: buf
- character*240, intent(in) :: pdbname
-
- nframe = 1 ! initialization
- open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(1:5) == 'MODEL') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) return ! assume 1 frame
-
- i = INDEX(buf, ' ')
- read(buf(i+1:),*) nframe
-end subroutine read_nframe_from_pdb
-
 ! read the i-th frame from a given .pdb file
 ! Return cell, elem, resname and coor.
 ! If the cell size is not recorded in the pdf file, the array cell will be 0.
@@ -887,13 +894,22 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  implicit none
  integer :: i, j, fid, iatom
  integer, intent(in) :: iframe, natom
- real(kind=8), dimension(6), intent(out) :: cell
- real(kind=8), dimension(3,natom), intent(out) :: coor
+!f2py intent(in) :: iframe, natom
+ real(kind=8), intent(out) :: cell(6)
+!f2py intent(out) :: cell
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
  character(len=6) :: str
  character(len=240) :: buf
- character*240, intent(in) :: pdbname
- character*2, dimension(natom), intent(out) :: elem
- character*3, dimension(natom), intent(out) :: resname
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbnam
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
+ character(len=3), intent(out) :: resname(natom)
+!f2py intent(out) :: resname
+!f2py depend(natom) :: resname
 
  elem = '  '    ! initialization
  resname = '   '
@@ -1101,20 +1117,6 @@ subroutine read_coor_from_engrad(engrad, natom, coor)
  coor = coor*Bohr_const
 end subroutine read_coor_from_engrad
 
-! write/create a Gaussian .EOu file
-subroutine write_EOu(EOu, e, natom, grad)
- implicit none
- integer :: fid
- integer, intent(in) :: natom
- real(kind=8), intent(in) :: e, grad(3*natom)
- character(len=720), intent(in) :: EOu
-
- open(newunit=fid,file=TRIM(EOu),status='replace')
- write(fid,'(4D20.12)') e, 0d0,0d0,0d0
- write(fid,'(3D20.12)') grad
- close(fid)
-end subroutine write_EOu
-
 subroutine split_pbc_xyz_into_gjf(xyzname)
  implicit none
  integer :: i, j, natom, nfile, fid
@@ -1246,82 +1248,9 @@ subroutine pbc_wrap_atoms_in_xyz(xyzname, lat_vec)
  call pbc_wrap_atoms(a, natom, coor)
  call find_specified_suffix(xyzname, '.xyz', i)
  xyzname1 = xyzname(1:i-1)//'_wrap.xyz'
- call write_xyz(natom, elem, coor, xyzname1, lat_vec)
+ call write_xyz(xyzname1, natom, elem, coor, .false., lat_vec)
  deallocate(elem, coor)
 end subroutine pbc_wrap_atoms_in_xyz
-
-! write/create a .gjf file
-subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
- implicit none
- integer :: i, fid
- integer, intent(in) :: charge, mult, natom
-!f2py intent(in) :: charge, mult, natom
- real(kind=8), intent(in) :: coor(3,natom)
-!f2py intent(in) :: coor
-!f2py depend(natom) :: coor
- character(len=240) :: chkname
- character(len=2), intent(in) :: elem(natom)
-!f2py intent(in) :: elem
-!f2py depend(natom) :: elem
- character(len=240), intent(in) :: gjfname
-!f2py intent(in) :: gjfname
-
- call find_specified_suffix(gjfname, '.gjf', i)
- chkname = gjfname(1:i-1)//'.chk'
-
- open(newunit=fid,file=TRIM(gjfname),status='replace')
- write(fid,'(A)') '%chk='//TRIM(chkname)
- write(fid,'(A)') '%nprocshared=1'
- write(fid,'(A)') '%mem=2GB'
- write(fid,'(A,//,A,//,I0,1X,I0)') '#p B3LYP/6-31G(d,p) em=GD3BJ nosymm', &
-                                   'Title', charge, mult
- do i = 1, natom, 1
-  write(fid,'(A2,3(1X,F18.8))') elem(i), coor(:,i)
- end do ! for i
-
- write(fid,'(/)',advance='no')
- close(fid)
-end subroutine write_gjf
-
-! write a frame of molecule into a given .pdb file
-subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
-                                coor, append)
- implicit none
- integer :: i, fid
- integer, intent(in) :: iframe, natom
- character*240, intent(in) :: pdbname
- character*2, dimension(natom), intent(in) :: elem
- character*3, dimension(natom), intent(in) :: resname
- real(kind=8), intent(in) :: cell(6), coor(3,natom)
- logical, intent(in) :: append
-!f2py intent(in) :: pdbname, iframe, natom, cell, elem, resname, coor, append
-!f2py depend(natom) :: elem, resname, coor
-
- if(append) then
-  open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
- else
-  open(newunit=fid,file=TRIM(pdbname),status='replace')
- end if
-
- write(fid,'(A)') 'REMARK   1 File created by rwgeom of MOKIT'
- if(ANY(cell > 1d-4)) then
-  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1',cell(1:3),cell(4:6),' P 1           1'
- end if
- if(iframe > 0) write(fid,'(A,1X,I8)') 'MODEL',iframe
-
- do i = 1, natom, 1
-  if(LEN_TRIM(resname(i)) == 0) then
-   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A)') 'HETATM', i, elem(i), 0, &
-    coor(1:3,i),'  1.00  0.00'
-  else
-   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A)') 'ATOM', i, elem(i), &
-    resname(i), 0, coor(1:3,i), '  1.00  0.00'
-  end if
- end do ! for i
-
- write(fid,'(A)') 'END'
- close(fid)
-end subroutine write_frame_into_pdb
 
 ! write/create a CP2K input (.inp) file
 subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
@@ -1714,7 +1643,7 @@ subroutine fch2xyz(fchname)
  call read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
  deallocate(nuc)
 
- call write_xyz(natom, elem, coor, xyzname)
+ call write_xyz(xyzname, natom, elem, coor, .false.)
  deallocate(elem, coor)
 end subroutine fch2xyz
 
@@ -1772,7 +1701,7 @@ subroutine gau_log2xyz(logname)
  call read_natom_from_gau_log(logname, natom)
  allocate(elem(natom), coor(3,natom))
  call read_elem_and_coor_from_gau_log(logname, .true., natom, elem, coor)
- call write_xyz(natom, elem, coor, xyzname)
+ call write_xyz(xyzname, natom, elem, coor, .false.)
  deallocate(elem, coor)
 end subroutine gau_log2xyz
 
@@ -1838,7 +1767,7 @@ subroutine gjf2other(gjfname, file_type)
   deallocate(nuc)
   select case(file_type)
   case(1)
-   call write_xyz(natom, elem, coor, outname, lat_vec)
+   call write_xyz(outname, natom, elem, coor, .false., lat_vec)
   case(2)
    call write_coord(natom, elem, coor, outname, lat_vec)
   end select
@@ -1849,7 +1778,7 @@ subroutine gjf2other(gjfname, file_type)
   deallocate(nuc)
   select case(file_type)
   case(1)
-   call write_xyz(natom, elem, coor, outname)
+   call write_xyz(outname, natom, elem, coor, .false.)
   case(2)
    call write_coord(natom, elem, coor, outname)
   end select
@@ -1893,6 +1822,49 @@ subroutine xyz2gjf(xyzname)
 
  deallocate(elem, coor)
 end subroutine xyz2gjf
+
+! Convert a CP2K .inp/.restart file to Gaussian .gjf
+subroutine cp2k_inp2gjf(inpname, gjfname)
+ implicit none
+ integer :: charge, mult, natom
+ real(kind=8) :: lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: inpname, gjfname
+
+ call read_charge_and_mult_from_cp2k_inp(inpname, charge, mult)
+ call read_natom_from_cp2k_inp(inpname, natom)
+ allocate(elem(natom+3), coor(3,natom+3))
+ call read_elem_and_coor_from_cp2k_inp(inpname, natom, elem(1:natom), &
+                                       coor(:,1:natom))
+ call read_lat_vec_from_cp2k_inp(inpname, lat_vec)
+ elem(natom+1:natom+3) = 'Tv'
+ coor(:,natom+1:natom+3) = lat_vec
+ call write_gjf(gjfname, charge, mult, natom+3, elem, coor)
+ deallocate(elem, coor)
+end subroutine cp2k_inp2gjf
+
+! Convert a .inp file to Gaussian .gjf. Currently only CP2K .inp/.restart
+! format is supported, i.e. only prog='cp2k' is allowed.
+subroutine inp2gjf(inpname, gjfname, prog)
+ implicit none
+ character(len=20) :: prog1
+ character(len=20), intent(in) :: prog
+!f2py intent(in) :: prog
+ character(len=240), intent(in) :: inpname, gjfname
+!f2py intent(in) :: inpname, gjfname
+
+ prog1 = prog
+ call lower(prog1)
+
+ select case(TRIM(prog1))
+ case('cp2k')
+  call cp2k_inp2gjf(inpname, gjfname)
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine inp2gjf: invalid program='//TRIM(prog1)
+  stop
+ end select
+end subroutine inp2gjf
 
 ! Merge basis set data of adjacent atoms in a Dalton .mol file generated by
 ! fch2dal, assuming the same basis set is used for all atoms of an elements.
@@ -2547,7 +2519,7 @@ subroutine split_complex2monomers(fname)
  if(nmol == 1) then
   deallocate(conn)
   xyzname = TRIM(proname)//'_1.xyz'
-  call write_xyz(natom, elem, coor, xyzname)
+  call write_xyz(xyzname, natom, elem, coor, .false.)
   deallocate(elem, coor)
   return
  end if
@@ -2596,7 +2568,7 @@ subroutine split_complex2monomers(fname)
    coor1(:,k) = coor(:,j)
   end do ! for j
 
-  call write_xyz(natom1, elem1, coor1, xyzname)
+  call write_xyz(xyzname, natom1, elem1, coor1, .false.)
   deallocate(elem1, coor1)
  end do ! for i
 

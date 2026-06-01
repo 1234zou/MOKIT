@@ -493,6 +493,12 @@ end function get21h_vector
 
 end module bas_rot
 
+program main
+ implicit none
+ integer :: i
+ i = 0
+end program main
+
 ! Get the wave function of a rotated molecule. The original coordinates are
 !  provided in fchname, while the new coordinates are provided in coor_file
 !  (which is a .xyz or .gjf file).
@@ -1036,7 +1042,7 @@ subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  end if
 
  deallocate(elem1, coor1)
- call write_xyz(natom, elem2, coor2, fname)
+ call write_xyz(fname, natom, elem2, coor2, .false.)
  deallocate(elem2, coor2)
 end subroutine rmsd_wrapper
 
@@ -1115,7 +1121,7 @@ subroutine rmsd_reorder(natom, elem1, elem2, coor1, coor2)
  implicit none
  integer :: i
  integer, intent(in) :: natom
- integer, allocatable :: nuc1(:), nuc2(:), idx1(:), idx2(:), idx3(:)
+ integer, allocatable :: nuc1(:), nuc2(:), idx1(:), idx2(:)
  real(kind=8) :: trans1(3), trans2(3), rot1(3,3), rot2(3,3)
  real(kind=8), intent(in) :: coor1(3,natom)
  real(kind=8), intent(inout) :: coor2(3,natom)
@@ -1123,7 +1129,6 @@ subroutine rmsd_reorder(natom, elem1, elem2, coor1, coor2)
  character(len=2), intent(in) :: elem1(natom)
  character(len=2), intent(inout) :: elem2(natom)
  character(len=2), allocatable :: elem(:)
- character(len=240) :: gjfname1, gjfname2
 
  write(6,'(/,A)') 'ERROR in subroutine rmsd_reorder: not implemented yet.'
  stop
@@ -1152,14 +1157,6 @@ subroutine rmsd_reorder(natom, elem1, elem2, coor1, coor2)
  call rot_to_principal_axis(natom, aw, coor, rot1)
  call rot_to_principal_axis(natom, aw, coor2, rot2)
  deallocate(aw)
-
-! allocate(idx3(natom))
-! call permute_atoms_of_same_elem(natom, nuc1, coor, coor2, idx3)
-
-! gjfname1 = '1.gjf'
-! gjfname2 = '2.gjf'
-! call write_gjf(gjfname1, 0, 1, natom, elem2, coor)
-! call write_gjf(gjfname2, 0, 1, natom, elem2, coor2)
 end subroutine rmsd_reorder
 
 ! move the geometry center (centeroid) of a set of coordinates to the origin
@@ -1200,7 +1197,6 @@ end subroutine move_coor_to_com
 ! Note: it is assumed that COM of this molecule has been moved to (0,0,0).
 subroutine rot_to_principal_axis(natom, aw, coor, rot)
  implicit none
- integer :: i
  integer, intent(in) :: natom
  real(kind=8) :: w(3)
  real(kind=8), intent(in) :: aw(natom) ! relative atomic weight
@@ -1251,7 +1247,7 @@ end subroutine get_inertia_tensor
 ! Note: the input nuc should have beend sorted in ascending order.
 subroutine permute_atoms_of_same_elem(natom, nuc, coor1, coor2, idx)
  implicit none
- integer :: i, j, k, k1, k2, nelem
+ integer :: i, k, k1, k2, nelem
  integer, intent(in) :: natom
  integer, intent(in) :: nuc(natom)
  integer, intent(out) :: idx(natom)
