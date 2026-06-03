@@ -108,8 +108,8 @@ load_mf_from_fch = get_mf_from_fch
 def get_mf_from_gbw(gbwname, functional, sfx2c=False):
     '''
     convert .gbw file to PySCF mf object
-    A wrapper of orca_2mkl, molden2fch, get_mf_from_fch. In the future, we may
-    use the .json format instead of .molden
+    A wrapper of orca_2mkl, mkl2fch, get_mf_from_fch. In the future, we may use
+    the .json format instead of .mkl/.molden
     '''
     import os
     from mokit.lib.qchem import util_wrapper
@@ -127,4 +127,49 @@ def get_mf_from_gbw(gbwname, functional, sfx2c=False):
 
 # alias
 load_mf_from_gbw = get_mf_from_gbw
+
+
+def get_mf_from_molden(molden, program=None, functional='hf', sfx2c=False, natorb=False):
+    '''
+    convert .molden file to PySCF mf object
+    A wrapper of molden2fch and get_mf_from_fch.
+    '''
+    import os
+    from mokit.lib.qchem import util_wrapper
+    from mokit.lib.rwwfn import add_x2c_into_fch
+
+    if program is None:
+        raise ValueError('program name must be specified.')
+
+    fch_file = molden[0:molden.rindex('.molden')]+'.fch'
+    util_wrapper.molden2fch_wrap(molden, fch_file, program, natorb)
+    irel = -3 if sfx2c else -1
+    if irel == -3:
+        add_x2c_into_fch(fch_file)
+    mf = get_mf_from_fch(fch_file, functional)
+    os.remove(fch_file)
+    return mf
+
+# alias
+load_mf_from_molden = get_mf_from_molden
+
+
+def get_mf_from_mkl(mklname, functional, sfx2c=False, natorb=False):
+    '''
+    convert ORCA .mkl file to PySCF mf object
+    A wrapper of mkl2fch and get_mf_from_fch.
+    '''
+    import os
+    from mokit.lib.qchem import util_wrapper
+
+    fch_file = mklname[0:mklname.rindex('.mkl')]+'.fch'
+    ino = 1 if natorb else 0
+    irel = -3 if sfx2c else -1
+    util_wrapper.mkl2fch_wrap(mklname, fch_file, ino, irel)
+    mf = get_mf_from_fch(fch_file, functional)
+    os.remove(fch_file)
+    return mf
+
+# alias
+load_mf_from_mkl = get_mf_from_mkl
 
