@@ -1130,3 +1130,32 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  close(fid)
 end subroutine write_frame_into_pdb
 
+! add `Sym= 1a` into a specified .molden file
+subroutine add_nosym2molden(molden)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, molden1
+ character(len=240), intent(in) :: molden
+!f2py intent(in) :: molden
+
+ call find_specified_suffix(molden, '.molden', i)
+ molden1 = molden(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(molden),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(molden1),status='replace')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'Ene=') then
+   write(fid1,'(A)') 'Sym= 1a'
+  else if(buf(2:5) == 'Ene=') then
+   write(fid1,'(1X,A)') 'Sym= 1a'
+  end if
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(molden1), TRIM(molden))
+end subroutine add_nosym2molden
+
