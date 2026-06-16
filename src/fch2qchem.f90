@@ -8,15 +8,17 @@
 program main
  use util_wrapper, only: formchk
  implicit none
- integer :: k, narg, job_type, npair
+  integer :: k, narg, job_type, npair, narg_fixed
+  ! narg = raw nargin; narg_fixed = filtered nargin, counting from 1
+  logical :: nocopy
  ! job_type = 0/1/2/3/4/5/6/7
  ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
- character(len=8) :: str
+ character(len=8) :: str, args(4)
  character(len=240) :: fchname
  character(len=58), parameter :: error_warn = ' ERROR in program fch2qchem: wro&
                                               &ng command line arguments!'
  narg = iargc()
- if(narg<1 .or. narg>3) then
+ if(narg<1 .or. narg>4) then
   write(6,'(/,A)') error_warn
   write(6,'(A)')  ' Example 1 (HF/DFT)    : fch2qchem h2o.fch'
   write(6,'(A)')  ' Example 2 (GVB)       : fch2qchem h2o.fch -gvb 2 (nopen is auto-detected)'
@@ -26,10 +28,12 @@ program main
   write(6,'(A)')  ' Example 6 (SA-SF-DFT) : fch2qchem high_spin.fch -sasf'
   write(6,'(A)')  ' Example 7 (ADC(2))    : fch2qchem high_spin.fch -adc2'
   write(6,'(A,/)')' Example 8 (SOS-ADC(2)): fch2qchem high_spin.fch -sosadc2'
-  stop
+  write(6,'(A)')  ' You can append a ''-nocopy'' argument to disable the automatic'
+  write(6,'(A,/)')' folder moving into $QCSCRATCH/, e.g. fch2qchem h2o.fch -nocopy'
+   stop
  end if
 
- str = ' '; fchname = ' '; npair = 0; job_type = 0
+ str = ' '; fchname = ' '; npair = 0; job_type = 0; nocopy = .false.
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -40,16 +44,32 @@ program main
   fchname = fchname(1:k-3)//'fch'
  end if
 
- if(narg > 1) then
-  call getarg(2, str)
-  select case(TRIM(str))
+ ! filter out -nocopy from arguments
+ narg_fixed = 0; nocopy = .false.
+ do k = 1, narg, 1
+  call getarg(k, str)
+  if(TRIM(str) == '-nocopy') then
+   nocopy = .true.
+  else
+   narg_fixed = narg_fixed + 1
+   if(narg_fixed > 4) then
+    write(6,'(/,A)') error_warn
+    stop
+   end if
+   args(narg_fixed) = str
+  end if
+ end do ! for k
+
+ if(narg_fixed > 1) then
+  str = args(2)
+ select case(TRIM(str))
   case('-gvb')
-   if(narg == 2) then
+   if(narg_fixed == 2) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') 'You forget to specify the number of GVB pairs.'
     stop
    end if
-   call getarg(3, str)
+   str = args(3)
    read(str,*) npair
    if(npair < 0) then
     write(6,'(/,A)') error_warn
@@ -58,42 +78,42 @@ program main
    end if
    job_type = 1
   case('-sfcis')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sfcis' is specified."
     stop
    end if
    job_type = 2
   case('-sasfcis')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sasfcis' is specified."
     stop
    end if
    job_type = 3
   case('-sf')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sf' is specified."
     stop
    end if
    job_type = 4
   case('-sasf')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sasf' is specified."
     stop
    end if
    job_type = 5
   case('-adc2')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-adc2' is specified."
     stop
    end if
    job_type = 6
   case('-sosadc2')
-   if(narg == 3) then
+   if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sosadc2' is specified."
     stop
@@ -108,14 +128,15 @@ program main
   end select
  end if
 
- call fch2qchem(fchname, job_type, npair)
+ call fch2qchem(fchname, job_type, npair, nocopy)
 end program main
 
-subroutine fch2qchem(fchname, job_type, npair)
+subroutine fch2qchem(fchname, job_type, npair, nocopy)
  use fch_content
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, icart, fid, purecart(4), SYSTEM
  integer, intent(in) :: job_type, npair
+ logical, intent(in) :: nocopy
  ! job_type = 0/1/2/3/4/5/6/7
  ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
  integer, allocatable :: idx(:)
@@ -394,7 +415,7 @@ subroutine fch2qchem(fchname, job_type, npair)
                    &t directory.'
   write(6,'(A)') 'You need to put the directory into $QCSCRATCH/ before running&
                  & qchem.'
- else
+ else if(.not. nocopy) then
   call remove_dir(TRIM(dirname)//'/'//TRIM(proname))
   i = SYSTEM('mv '//TRIM(proname)//' '//TRIM(dirname)//'/')
   if(i == 0) then
@@ -407,6 +428,6 @@ subroutine fch2qchem(fchname, job_type, npair)
    write(6,'(/,A)') 'Warning in subroutine fch2qchem: failed to move directory&
                     & into '//TRIM(dirname)//'/'
   end if
- end if
+  end if
 end subroutine fch2qchem
 

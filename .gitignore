@@ -39,3 +39,4 @@ tmp*
 /test/bas_fch2py/
 /test/ist7/
 /test/bgchg/
+.opencode/
