@@ -445,7 +445,7 @@ end subroutine merge_two_train_xyz
 
 ! Split a .xyz file (with PBC systems) into multiple CP2K input files.
 ! Note:
-! 1) The lattice parameters are supposed to be recorded in Lattice="" in the title
+! 1) The lattice vectors are supposed to be recorded in Lattice="" in the title
 !  line of each frame in the .xyz file.
 ! 2) The total charge and spin multiplicity are required by this subroutine. I
 !  hope users know what they are calculating and not just simply assign them as

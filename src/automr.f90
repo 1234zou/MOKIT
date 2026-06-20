@@ -53,7 +53,8 @@ program main
   write(6,'(A)')   '  MCPDFT_prog=PySCF/OpenMolcas/GAMESS'
   write(6,'(A)')   '  MRCISD_prog=OpenMolcas/Molpro/ORCA/Gaussian/GAMESS/PSI4/Dalton'
   write(6,'(A)')   '      CtrType=1/2/3 for uc-/ic-/FIC-MRCISD'
-  write(6,'(A,/)') '    MRCC_prog=ORCA'
+  write(6,'(A)')   '    MRCC_prog=ORCA'
+  write(6,'(A,/)') '   Polar_prog=ORCA/OpenMolcas/Gaussian'
   stop
  case('-t','--testprog')
   call check_mokit_root()
@@ -98,6 +99,7 @@ subroutine automr(fname)
 
  call do_cis()        ! CIS/TDHF
  call do_sa_cas()     ! SA-CASSCF
+ call do_polar()      ! calculate molecular properties
  call do_pes_scan()   ! PES scan
 
  call fdate(data_string)

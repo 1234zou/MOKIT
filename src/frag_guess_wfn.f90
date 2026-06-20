@@ -2685,9 +2685,9 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  use frag_info, only: frag, comb_elem_coor_in_frags
  use theory_level
  use fch_content, only: elem2nuc
- use util_wrapper, only: formchk, mkl2gbw, gbw2molden
+ use util_wrapper, only: formchk, fch2mkl_wrap, mkl2gbw, gbw2molden
  implicit none
- integer :: i, j, k, m, charge, mult, mem_per_proc, SYSTEM
+ integer :: i, j, k, m, charge, mult, mem_per_proc
  integer :: natom, natom1, natom2, natom4
  integer, intent(in) :: i1, i2
  integer, parameter :: nfrag = 4
@@ -2700,6 +2700,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  real(kind=8), allocatable :: coor(:,:), coor2(:,:), dis(:), high_e(:), ss(:)
  character(len=2), allocatable :: elem(:), elem2(:)
  character(len=4) :: str4
+ character(len=30) :: dftname
  character(len=240) :: buf, basname, proname, chkname, dirname, orca_path, &
   orca_2mkl_path
  character(len=240), intent(in) :: gjfname
@@ -2708,7 +2709,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
  type(frag) :: frags(nfrag)
 
  buf = ' '; basname = ' '; method = 'PBEPBE'; basis = 'def2SVP'; auxbas = 'W06'
- disp_type = 2 ! D3BJ
+ dftname = "PBE0 D3BJ"; disp_type = 2 ! D3BJ
 
  call get_exe_path('orca', orca_path)
  if(TRIM(orca_path) == 'NOT FOUND') then
@@ -2893,7 +2894,7 @@ subroutine calc_xo_pbc_ads_e(gjfname, i1, i2)
   ! ORCA PBE0/def2SVP RIJCOSX default
   do i = 1, 3
    if(k>1 .and. i==1) cycle
-   j = SYSTEM('fch2mkl '//TRIM(fchname(i))//" -dft 'PBE0 D3BJ'")
+   call fch2mkl_wrap(fchname(i), mklname(i), dftname, .true.)
    call mkl2gbw(mklname(i))
    call modify_mem_and_nproc_in_orca_inp(inpname(i), mem_per_proc, nproc)
    if(i > 1) call add_maxiter_and_stab_in_orca_inp(inpname(i))

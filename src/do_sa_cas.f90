@@ -450,26 +450,25 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
  use mr_keyword, only: mem, nproc, nevpt2, QD, FIC, DLPNO, F12, RI, RIJK_bas, &
   MixedSpin, nstate, hardwfn, crazywfn
  implicit none
- integer :: i, fid, fid1
+ integer :: i, nproc1, mem1, fid, fid1, RENAME
  character(len=240) :: buf, mklname, gbwname, inpname1
  character(len=240), intent(in) :: inpname, hf_fch
  logical, intent(in) :: nevpt2_btw
 
- call fch2mkl_wrap(hf_fch)
- call find_specified_suffix(hf_fch, '.fch', i)
- inpname1 = hf_fch(1:i-1)//'_o.inp'
- mklname = hf_fch(1:i-1)//'_o.mkl'
-
  call find_specified_suffix(inpname, '.inp', i)
  gbwname = inpname(1:i-1)//'.gbw'
+ mklname = inpname(1:i-1)//'.mkl'
+ inpname1 = inpname(1:i-1)//'.t'
+ call fch2mkl_wrap(hf_fch, mklname, REPEAT(' ',30), .true.)
  call mkl2gbw(mklname, gbwname)
  call delete_file(TRIM(mklname))
 
- open(newunit=fid,file=TRIM(inpname1),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(inpname),status='replace')
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
- write(fid1,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid1,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid1,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid1,'(A,I0)') '%maxcore ', mem1
  write(fid1,'(A)',advance='no') '! CASSCF'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid1,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
@@ -530,6 +529,7 @@ subroutine prt_sacas_orca_inp(inpname, hf_fch, nevpt2_btw)
 
  close(fid,status='delete')
  close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_sacas_orca_inp
 
 ! print SA-CASSCF input file of GAMESS
@@ -616,7 +616,7 @@ subroutine prt_sacas_molcas_inp(inpname, hf_fch)
 
  call check_exe_exist(molcas_path)
  call fch2inporb_wrap(hf_fch, .false., inpname)
- call prt_cas_molcas_inp(inpname, .true.)
+ call prt_cas_molcas_inp(inpname, .true., .false.)
 end subroutine prt_sacas_molcas_inp
 
 ! read SA-CASSCF energies from various output files

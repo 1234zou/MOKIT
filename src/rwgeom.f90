@@ -268,20 +268,22 @@ subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
 
  i = LEN_TRIM(fname)
  select case(fname(i-3:i))
- case('.xyz')
-  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
- case('.gjf')
-  allocate(nuc(natom))
-  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
  case('.fch')
   allocate(nuc(natom))
   call read_elem_and_coor_from_fch(fname, natom, elem, nuc, coor, charge, mult)
+ case('.gjf')
+  allocate(nuc(natom))
+  call read_elem_and_coor_from_gjf(fname, natom, elem, nuc, coor, charge, mult)
  case('.inp') ! currently only CP2K .inp
   call read_elem_and_coor_from_cp2k_inp(fname, natom, elem, coor)
+ case('.pdb')
+  call read_elem_and_coor_from_pdb(fname, natom,elem, coor)
+ case('.xyz')
+  call read_elem_and_coor_from_xyz(fname, natom, elem, coor)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file: invalid f&
                    &ormat.'
-  write(6,'(A)') 'Currently only .xyz/.gjf/.fch/.inp are supported.'
+  write(6,'(A)') 'Currently only .fch/.gjf/.inp/.pdb/.xyz are supported.'
   stop
  end select
 
@@ -903,7 +905,7 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
  character(len=6) :: str
  character(len=240) :: buf
  character(len=240), intent(in) :: pdbname
-!f2py intent(in) :: pdbnam
+!f2py intent(in) :: pdbname
  character(len=2), intent(out) :: elem(natom)
 !f2py intent(out) :: elem
 !f2py depend(natom) :: elem
@@ -911,8 +913,7 @@ subroutine read_iframe_from_pdb(pdbname, iframe, natom, cell, elem, resname, coo
 !f2py intent(out) :: resname
 !f2py depend(natom) :: resname
 
- elem = '  '    ! initialization
- resname = '   '
+ elem = '  '; resname = '   '
  cell = 0d0 ! a,b,c,alpha,beta,gama
  coor = 0d0
 
@@ -1229,8 +1230,8 @@ subroutine pbc_wrap_atoms_in_xyz(xyzname, lat_vec)
   end if
  else
   write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_xyz: currently only a&
-                   &lpha=beta=gamma=90'
-  write(6,'(A)') '(degree) type of cell is supported.'
+                   &lpha=beta=gamma='
+  write(6,'(A)') '90 (degree) type of cell is supported.'
   stop
  end if
 
@@ -1251,6 +1252,50 @@ subroutine pbc_wrap_atoms_in_xyz(xyzname, lat_vec)
  call write_xyz(xyzname1, natom, elem, coor, .false., lat_vec)
  deallocate(elem, coor)
 end subroutine pbc_wrap_atoms_in_xyz
+
+! Wrap/move atoms in a specified .gjf file into the reference cell by proper
+! translation. This subroutine can only be applied to alpha=beta=gamma=90(degree)
+! cell currently.
+subroutine pbc_wrap_atoms_in_gjf(gjfname)
+ implicit none
+ integer :: i, natom, charge, mult
+ integer, allocatable :: nuc(:)
+ real(kind=8) :: a(3), lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
+ logical :: diagonal
+ logical, external :: check_diagonal_mat
+
+ call read_natom_from_gjf_pbc(gjfname, natom)
+ allocate(elem(natom+3), nuc(natom), coor(3,natom+3))
+ call read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem(1:natom), nuc, &
+                                  coor(:,1:natom), lat_vec, charge, mult)
+ deallocate(nuc)
+
+ diagonal = check_diagonal_mat(3, lat_vec)
+ if(diagonal) then
+  forall(i=1:3) a(i) = lat_vec(i,i)
+  if(ANY(a < 1d-3)) then
+   write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_gjf: wrong cell para&
+                    &meters.'
+   write(6,'(3F20.8)') a
+   stop
+  end if
+ else
+  write(6,'(/,A)') 'ERROR in subroutine pbc_wrap_atoms_in_gjf: currently only a&
+                   &lpha=beta=gamma='
+  write(6,'(A)') '90 (degree) type of cell is supported.'
+  stop
+ end if
+
+ call pbc_wrap_atoms(a, natom, coor(:,1:natom))
+ coor(:,natom+1:natom+3) = lat_vec
+ elem(natom+1:natom+3) = 'Tv'
+ call write_gjf(gjfname, charge, mult, natom+3, elem, coor)
+ deallocate(elem, coor)
+end subroutine pbc_wrap_atoms_in_gjf
 
 ! write/create a CP2K input (.inp) file
 subroutine write_cp2k_inp(inpname, charge, mult, natom, elem, coor, lat_vec, &
@@ -1463,9 +1508,8 @@ subroutine report_mol_size(gjfname)
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
  logical :: pbc
- logical, external :: check_pbc_in_gjf
 
- pbc = check_pbc_in_gjf(gjfname)
+ call check_pbc_in_gjf(gjfname, pbc)
 
  if(pbc) then ! periodic
   call read_natom_from_gjf_pbc(gjfname, natom)
@@ -1721,29 +1765,39 @@ subroutine gjf2coord(gjfname)
  call gjf2other(gjfname, 2)
 end subroutine gjf2coord
 
-! convert .gjf into .inp of ORCA
-subroutine gjf2orca_inp(gjfname)
+subroutine gjf2pdb(gjfname)
  implicit none
  character(len=240), intent(in) :: gjfname
 !f2py intent(in) :: gjfname
 
  call gjf2other(gjfname, 3)
-end subroutine gjf2orca_inp
+end subroutine gjf2pdb
 
-! convert a .gjf file into a .xyz file
+! convert Gaussian .gjf into ORCA .inp
+!subroutine gjf2inp(gjfname, prog)
+! implicit none
+! character(len=20), intent(in) :: prog
+!!f2py intent(in) :: prog
+! character(len=240), intent(in) :: gjfname
+!!f2py intent(in) :: gjfname
+!
+! call gjf2other(gjfname, 3)
+!end subroutine gjf2inp
+
+! convert a .gjf file into a .xyz/.coord/.pdb file
 subroutine gjf2other(gjfname, file_type)
  use periodic_table, only: write_xyz, write_coord
  implicit none
  integer :: i, natom, charge, mult
  integer, allocatable :: nuc(:)
  integer, intent(in) :: file_type
- real(kind=8) :: lat_vec(3,3)
+ real(kind=8) :: cell(6), lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
+ character(len=3), allocatable :: resname(:)
  character(len=240) :: outname
  character(len=240), intent(in) :: gjfname
  logical :: pbc
- logical, external :: check_pbc_in_gjf
 
  call find_specified_suffix(gjfname, '.gjf', i)
  select case(file_type)
@@ -1751,13 +1805,15 @@ subroutine gjf2other(gjfname, file_type)
   outname = gjfname(1:i-1)//'.xyz'
  case(2)
   outname = gjfname(1:i-1)//'.coord'
+ case(3)
+  outname = gjfname(1:i-1)//'.pdb'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine gjf2other: invalid file_type.'
+  write(6,'(/,A,I0)') 'ERROR in subroutine gjf2other: invalid file_type=', &
+                       file_type
   write(6,'(A)') 'gjfname='//TRIM(gjfname)
-  write(6,'(A,I0)') 'file_type=', file_type
   stop
  end select
- pbc = check_pbc_in_gjf(gjfname)
+ call check_pbc_in_gjf(gjfname, pbc)
 
  if(pbc) then ! periodic
   call read_natom_from_gjf_pbc(gjfname, natom)
@@ -1770,6 +1826,12 @@ subroutine gjf2other(gjfname, file_type)
    call write_xyz(outname, natom, elem, coor, .false., lat_vec)
   case(2)
    call write_coord(natom, elem, coor, outname, lat_vec)
+  case(3)
+   call lat_vec2lat_para(lat_vec, cell)
+   allocate(resname(natom))
+   resname = '   '
+   call write_pdb(outname, natom, elem, resname, coor, cell)
+   deallocate(resname)
   end select
  else         ! non-periodic
   call read_natom_from_gjf(gjfname, natom)
@@ -1781,6 +1843,11 @@ subroutine gjf2other(gjfname, file_type)
    call write_xyz(outname, natom, elem, coor, .false.)
   case(2)
    call write_coord(natom, elem, coor, outname)
+  case(3)
+   allocate(resname(natom))
+   resname = '   '; cell = 0d0
+   call write_pdb(outname, natom, elem, resname, coor, cell)
+   deallocate(resname)
   end select
  end if
 
@@ -1798,14 +1865,13 @@ subroutine xyz2gjf(xyzname)
  character(len=240), intent(in) :: xyzname
 !f2py intent(in) :: xyzname
  logical :: pbc
- logical, external :: check_pbc_in_xyz
 
  call find_specified_suffix(xyzname, '.xyz', i)
  gjfname = xyzname(1:i-1)//'.gjf'
  charge = 0; mult = 1  ! initialization
 
  call read_natom_from_xyz(xyzname, natom)
- pbc = check_pbc_in_xyz(xyzname)
+ call check_pbc_in_xyz(xyzname, pbc)
 
  if(pbc) then
   call read_lat_vec_from_xyz(xyzname, lat_vec)
@@ -1823,14 +1889,135 @@ subroutine xyz2gjf(xyzname)
  deallocate(elem, coor)
 end subroutine xyz2gjf
 
-! Convert a CP2K .inp/.restart file to Gaussian .gjf
-subroutine cp2k_inp2gjf(inpname, gjfname)
+subroutine xyz2pdb(xyzname)
  implicit none
- integer :: charge, mult, natom
+ integer :: i, natom
+ real(kind=8) :: lat_vec(3,3), cell(6)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=3), allocatable :: resname(:)
+ character(len=240) :: pdbname
+ character(len=240), intent(in) :: xyzname
+!f2py intent(in) :: xyzname
+ logical :: pbc
+
+ call find_specified_suffix(xyzname, '.xyz', i)
+ pdbname = xyzname(1:i-1)//'.pdb'
+
+ cell = 0d0
+ call check_pbc_in_xyz(xyzname, pbc)
+ if(pbc) then
+  call read_lat_vec_from_xyz(xyzname, lat_vec)
+  call lat_vec2lat_para(lat_vec, cell)
+ end if
+
+ call read_natom_from_xyz(xyzname, natom)
+ allocate(elem(natom), resname(natom), coor(3,natom))
+ call read_elem_and_coor_from_xyz(xyzname, natom, elem, coor)
+
+ resname = '   '
+ call write_pdb(pdbname, natom, elem, resname, coor, cell)
+ deallocate(elem, resname, coor)
+end subroutine xyz2pdb
+
+subroutine pdb2xyz(pdbname)
+ use periodic_table, only: write_xyz
+ implicit none
+ integer :: i, nframe, natom
  real(kind=8) :: lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:)
  character(len=2), allocatable :: elem(:)
- character(len=240), intent(in) :: inpname, gjfname
+ character(len=240) :: xyzname
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+ logical :: pbc
+
+ call find_specified_suffix(pdbname, '.pdb', i)
+ xyzname = pdbname(1:i-1)//'.xyz'
+
+ call read_nframe_from_pdb(pdbname, nframe)
+ if(nframe > 1) then
+  write(6,'(/,A)') 'ERROR in subroutine pdb2xyz: pdb with multiple frames is no&
+                   &t supported currently.'
+  write(6,'(A)') 'pdbname='//TRIM(pdbname)
+  stop
+ end if
+
+ lat_vec = 0d0
+ call check_pbc_in_pdb(pdbname, pbc)
+ if(pbc) call read_lat_vec_from_pdb(pdbname, lat_vec)
+
+ call read_natom_from_pdb(pdbname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_pdb(pdbname, natom, elem, coor)
+ call write_xyz(xyzname, natom, elem, coor, .false., lat_vec)
+ deallocate(elem, coor)
+end subroutine pdb2xyz
+
+subroutine pdb2gjf(pdbname)
+ implicit none
+ integer :: i, nframe, natom, charge, mult
+ real(kind=8) :: lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: gjfname
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+ logical :: pbc
+
+ charge = 0; mult = 1
+ call find_specified_suffix(pdbname, '.pdb', i)
+ gjfname = pdbname(1:i-1)//'.gjf'
+
+ call read_nframe_from_pdb(pdbname, nframe)
+ if(nframe > 1) then
+  write(6,'(/,A)') 'ERROR in subroutine pdb2gjf: pdb with multiple frames is no&
+                   &t supported currently.'
+  write(6,'(A)') 'pdbname='//TRIM(pdbname)
+  stop
+ end if
+
+ lat_vec = 0d0
+ call check_pbc_in_pdb(pdbname, pbc)
+ if(pbc) call read_lat_vec_from_pdb(pdbname, lat_vec)
+ call read_natom_from_pdb(pdbname, natom)
+
+ if(pbc) then
+  allocate(elem(natom+3), coor(3,natom+3))
+  call read_elem_and_coor_from_pdb(pdbname, natom, elem(1:natom), coor(:,1:natom))
+  elem(natom+1:natom+3) = 'Tv'
+  coor(:,natom+1:natom+3) = lat_vec
+  call write_gjf(gjfname, charge, mult, natom+3, elem, coor)
+ else ! non-PBC
+  allocate(elem(natom), coor(3,natom))
+  call read_elem_and_coor_from_pdb(pdbname, natom, elem, coor)
+  call write_gjf(gjfname, charge, mult, natom, elem, coor)
+ end if
+
+ deallocate(elem, coor)
+end subroutine pdb2gjf
+
+! Convert a CP2K .inp/.restart file to Gaussian .gjf
+subroutine cp2k_inp2gjf(inpname)
+ implicit none
+ integer :: i, j, charge, mult, natom
+ real(kind=8) :: lat_vec(3,3)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2), allocatable :: elem(:)
+ character(len=240) :: gjfname
+ character(len=240), intent(in) :: inpname
+
+ i = LEN_TRIM(inpname)
+ j = INDEX(inpname(1:i), '.', back=.true.)
+ select case(inpname(j:i))
+ case('.inp','.restart')
+ case default
+  write(6,'(/,A)') 'ERROR in subroutine cp2k_inp2gjf: unrecognized suffix "'//&
+                   inpname(j:i)//'"'
+  write(6,'(A)') 'Currently only .gjf/.restart is supportd.'
+  stop
+ end select
+ gjfname = inpname(1:j-1)//'.gjf'
 
  call read_charge_and_mult_from_cp2k_inp(inpname, charge, mult)
  call read_natom_from_cp2k_inp(inpname, natom)
@@ -1846,20 +2033,20 @@ end subroutine cp2k_inp2gjf
 
 ! Convert a .inp file to Gaussian .gjf. Currently only CP2K .inp/.restart
 ! format is supported, i.e. only prog='cp2k' is allowed.
-subroutine inp2gjf(inpname, gjfname, prog)
+subroutine inp2gjf(inpname, prog)
  implicit none
  character(len=20) :: prog1
  character(len=20), intent(in) :: prog
 !f2py intent(in) :: prog
- character(len=240), intent(in) :: inpname, gjfname
-!f2py intent(in) :: inpname, gjfname
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
 
  prog1 = prog
  call lower(prog1)
 
  select case(TRIM(prog1))
  case('cp2k')
-  call cp2k_inp2gjf(inpname, gjfname)
+  call cp2k_inp2gjf(inpname)
  case default
   write(6,'(/,A)') 'ERROR in subroutine inp2gjf: invalid program='//TRIM(prog1)
   stop
@@ -2160,8 +2347,8 @@ subroutine gen_cluster_from_cell(gjfname, dis_thres)
   n = n + 1
   write(gjfname1,'(A,I0,A)') TRIM(proname)//'_', n, '.inp'
   open(newunit=fid,file=TRIM(gjfname1),status='replace')
-  write(fid,'(A)') '%pal nprocs 64 end'
-  write(fid,'(A)') '%maxcore 2968'
+  write(fid,'(A)') '%pal nprocs 32 end'
+  write(fid,'(A)') '%maxcore 5500'
   !write(fid,'(A)') '! wB97M-V TightSCF noTRAH defgrid3 RIJCOSX def2-TZVP def2/J&
   !                 & EnGrad'
   write(fid,'(A)') '! PBE TightSCF noTRAH defgrid3 def2-TZVP def2/J EnGrad'

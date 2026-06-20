@@ -8,15 +8,16 @@
 program main
  use util_wrapper, only: formchk
  implicit none
-  integer :: k, narg, job_type, npair, narg_fixed
-  ! narg = raw nargin; narg_fixed = filtered nargin, counting from 1
-  logical :: nocopy
+ integer :: k, narg, narg_fixed, job_type, npair
+ ! narg = raw nargin; narg_fixed = filtered nargin, counting from 1
  ! job_type = 0/1/2/3/4/5/6/7
  ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
  character(len=8) :: str, args(4)
  character(len=240) :: fchname
  character(len=58), parameter :: error_warn = ' ERROR in program fch2qchem: wro&
                                               &ng command line arguments!'
+ logical :: nocopy
+
  narg = iargc()
  if(narg<1 .or. narg>4) then
   write(6,'(/,A)') error_warn

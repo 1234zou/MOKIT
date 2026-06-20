@@ -95,7 +95,8 @@ end subroutine init_mol_comp_info
 end module mol_comp_info
 
 program geom_opt
- use mol_comp_info, only: init_mol_comp_info, gau_path
+ use mol_comp_info, only: init_mol_comp_info, gau_path, charge, mult, natom, &
+  elem, coor, numfreq
  use util_wrapper, only: gbw2mkl, mkl2fch_wrap
  implicit none
  integer :: i, fid
@@ -134,7 +135,7 @@ program geom_opt
  call init_mol_comp_info(gjfname)
  call gen_guess_only_gjf(gjfname, gjfname1)
  call gen_orca_inp_gbw(gjfname1)
- call gen_gau_opt_gjf(gjfname2)
+ call gen_gau_opt_gjf(gjfname2, charge, mult, natom, elem, coor, numfreq)
 
  ! Create an empty file. This file would be detected by the utility gau_external
  ! and it means that the 1st geometry need not be changed.
@@ -227,11 +228,12 @@ subroutine gen_orca_inp_gbw(gjfname)
  use mol_comp_info, only: mem, nproc, method, gau_path
  use util_wrapper, only: formchk, fch2mkl_wrap, mkl2gbw
  implicit none
- integer :: i, k, fid, fid1
- character(len=240) :: buf, proname, chkname, fchname, mklname, old_inp, &
-  inpname, logname
+ integer :: i, k, nproc1, mem1, fid, fid1, RENAME
+ character(len=240) :: buf, proname, chkname, fchname, mklname, inpname, &
+  inpname1, logname
  character(len=240), intent(in) :: gjfname
 
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
  call get_gau_path(gau_path)
  call submit_gau_job(gau_path, gjfname, .false.)
 
@@ -242,19 +244,19 @@ subroutine gen_orca_inp_gbw(gjfname)
  fchname = gjfname(1:i-1)//'.fch'
  logname = gjfname(1:i-1)//'.log'
  mklname = gjfname(1:i-1)//'.mkl'
- old_inp = gjfname(1:i-1)//'_o.inp'
  inpname = gjfname(1:i-1)//'.inp'
+ inpname1 = gjfname(1:i-1)//'.t'
  call formchk(chkname)
  call simplify_fch(fchname)
- call fch2mkl_wrap(fchname, mklname)
+ call fch2mkl_wrap(fchname, mklname, REPEAT(' ',30), .false.)
  call mkl2gbw(mklname)
  call delete_files(4, [chkname, gjfname, mklname, logname])
 
- open(newunit=fid,file=TRIM(old_inp),status='old',position='rewind')
- open(newunit=fid1,file=TRIM(inpname),status='replace')
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
- write(fid1,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid1,'(A,I0)') '%maxcore ', INT(DBLE(mem)/DBLE(nproc))
+ write(fid1,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid1,'(A,I0)') '%maxcore ', mem1
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -278,5 +280,6 @@ subroutine gen_orca_inp_gbw(gjfname)
 
  close(fid,status='delete')
  close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine gen_orca_inp_gbw
 

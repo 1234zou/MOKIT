@@ -77,8 +77,8 @@ OBJ_fch2wfn = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj re
               fch2wfn.obj
 OBJ_frag_guess_wfn = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \
                      read_fch.obj mr_keyword.obj read_mkl.obj rw_misc.obj rwwfn.obj read_natom.obj \
-                     read_grad.obj read_ev_on.obj rwgeom.obj read_gms_inp.obj do_hf.obj \
-                     call_qc_calc_int.obj ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
+                     read_energy.obj read_grad.obj read_ev_on.obj rwgeom.obj read_gms_inp.obj \
+                     do_hf.obj call_qc_calc_int.obj ortho.obj direct_sum_mo.obj frag_guess_wfn.obj
 OBJ_gvb_correct_pairs = file_op.obj string_manipulate.obj math_sub.obj rw_misc.obj rwwfn.obj \
                         read_ev_on.obj gvb_correct_pairs.obj
 OBJ_gvb_exclude_XH = file_op.obj string_manipulate.obj math_sub.obj util_wrapper.obj \

@@ -183,8 +183,8 @@ end subroutine qchem2pyscf
 subroutine qchem2orca(fchname, inpname)
  use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  implicit none
- integer :: i, RENAME
- character(len=240) :: std_fch, std_inp, mklname, gbwname
+ integer :: i
+ character(len=240) :: std_fch, mklname, gbwname
  character(len=240), intent(in) :: fchname, inpname
 !f2py intent(in) :: fchname, inpname
 
@@ -193,12 +193,10 @@ subroutine qchem2orca(fchname, inpname)
  gbwname = inpname(1:i-1)//'.gbw'
  call find_specified_suffix(fchname, '.', i)
  std_fch = fchname(1:i-1)//'_std.fch'
- std_inp = fchname(1:i-1)//'_std_o.inp'
 
  call standardize_fch(fchname)
- call fch2mkl_wrap(std_fch, mklname)
+ call fch2mkl_wrap(std_fch, mklname, REPEAT(' ',30), .false.)
  call delete_file(TRIM(std_fch))
- i = RENAME(TRIM(std_inp), TRIM(inpname))
  call mkl2gbw(mklname, gbwname)
 end subroutine qchem2orca
 

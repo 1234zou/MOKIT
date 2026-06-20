@@ -9,7 +9,7 @@ subroutine do_mrcisd()
  use mol, only: nacte, nacto, casci_e, casscf_e, davidson_e, mrcisd_e, ptchg_e,&
   nuc_pt_e
  use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, unfchk, mkl2gbw,&
-  fch2inp_wrap, fch2inporb_wrap
+  fch2mkl_wrap, fch2inp_wrap, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  real(kind=8) :: e
@@ -62,17 +62,11 @@ subroutine do_mrcisd()
 
  case('orca')
   call check_exe_exist(orca_path)
-  i = SYSTEM('fch2mkl '//TRIM(casnofch))
-  i = INDEX(casnofch, '.fch', back=.true.)
-  chkname = casnofch(1:i-1)//'_o.mkl'
-  string  = casnofch(1:i-1)//'_o.inp'
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCISD.mkl'
   inpname = casnofch(1:i)//'MRCISD.inp'
   outname = casnofch(1:i)//'MRCISD.out'
-  i = RENAME(TRIM(chkname), TRIM(mklname))
-  i = RENAME(TRIM(string), TRIM(inpname))
-  chkname = ' '
+  call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
   call prt_mrcisd_orca_inp(inpname)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
@@ -408,7 +402,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  use mr_keyword, only: mem, nproc, CtrType, DKH2, X2C, iroot, given_xmult, xmult,&
   hardwfn, crazywfn, orca_path
  implicit none
- integer :: i, iver, imult, fid1, fid2, RENAME
+ integer :: i, iver, imult, nproc1, mem1, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
  logical :: need_casci
@@ -418,6 +412,7 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  else
   imult = mult
  end if
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 4, nproc1, mem1)
 
  ! When there is only one determaninant in the reference wave function, uncontracted
  ! MRCISD requires a CASCI calculation
@@ -427,12 +422,11 @@ subroutine prt_mrcisd_orca_inp(inpname1)
  call find_orca_ver(orca_path, iver)
  call find_specified_suffix(inpname1, '.inp', i)
  inpname2 = inpname1(1:i-1)//'.t'
-
  open(newunit=fid1,file=TRIM(inpname1),status='old',position='rewind')
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
  write(fid2,'(A)') '! NoIter'
 
  if(need_casci) then

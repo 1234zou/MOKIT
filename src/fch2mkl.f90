@@ -116,10 +116,10 @@ subroutine fch2mkl(fchname, dftname, itype, dis_type)
  character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2mkl: '
  character(len=240) :: mklname, inpname
  character(len=240), intent(in) :: fchname
- logical :: uhf, ecp, composite, custom_dft, hse06, m052x, b972, mn15, mn15l, &
+ logical :: uhf, ecp, composite, prt_dftname, hse06, m052x, b972, mn15, mn15l, &
   dsdpbep86d3bj, revdsdpbep86d3bj
 
- ecp = .false.; composite = .false.; custom_dft = .false.; hse06 = .false.
+ ecp = .false.; composite = .false.; prt_dftname = .true.; hse06 = .false.
  m052x = .false.; b972 = .false.; mn15 = .false.; mn15l = .false.
  dsdpbep86d3bj = .false.; revdsdpbep86d3bj = .false.
 
@@ -161,6 +161,7 @@ subroutine fch2mkl(fchname, dftname, itype, dis_type)
   end if
  end if
 
+ prt_dftname = (.not. (hse06 .or. b972 .or. m052x .or. mn15 .or. mn15l))
  call find_specified_suffix(fchname, '.fch', i)
  mklname = fchname(1:i-1)//'_o.mkl'
  inpname = fchname(1:i-1)//'_o.inp'
@@ -322,7 +323,7 @@ subroutine fch2mkl(fchname, dftname, itype, dis_type)
   case(1) ! SF-TDDFT
    write(fid2,'(A)',advance='no') ' BHANDHLYP'
   case(2) ! (KS-)DFT
-   write(fid2,'(A)',advance='no') ' '//TRIM(dftname1)
+   if(prt_dftname) write(fid2,'(A)',advance='no') ' '//TRIM(dftname1)
    select case(dis_type)
    case(0) ! do nothing
    case(1) ! D3(0), D3zero
@@ -348,6 +349,7 @@ subroutine fch2mkl(fchname, dftname, itype, dis_type)
    write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
    close(fid1)
    close(fid2)
+   write(6,'(A)') 'fchname='//TRIM(fchname)
    stop
   end select
 
@@ -358,9 +360,7 @@ subroutine fch2mkl(fchname, dftname, itype, dis_type)
    write(fid2,'(A)') ' def2/J RIJCOSX defgrid3 TightSCF noTRAH'
   end if
 
-  custom_dft = (hse06 .or. b972 .or. m052x .or. mn15 .or. mn15l .or. &
-                revdsdpbep86d3bj)
-  if(custom_dft) then
+  if((.not.prt_dftname) .or. revdsdpbep86d3bj) then
    write(fid2,'(A)') '%method'
    write(fid2,'(A)') ' method dft'
    if(hse06) then

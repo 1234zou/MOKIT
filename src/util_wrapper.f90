@@ -409,23 +409,29 @@ subroutine mkl2fch_wrap(mklname, fchname, ino, irel)
  call run_command(TRIM(buf), .true., .false.)
 end subroutine mkl2fch_wrap
 
-subroutine fch2mkl_wrap(fchname, mklname)
+subroutine fch2mkl_wrap(fchname, mklname, dftname, prt)
  implicit none
  integer :: i, RENAME
- character(len=240) :: mklname0
- character(len=240), intent(in) :: fchname
- character(len=240), intent(in), optional :: mklname
+ character(len=30), intent(in) :: dftname
+ character(len=240) :: inpname0, mklname0, inpname
+ character(len=240), intent(in) :: fchname, mklname
  character(len=248) :: buf
+ logical, intent(in) :: prt
 
  buf = 'fch2mkl '//TRIM(fchname)
- call run_command(TRIM(buf), .true., .false.)
+ i = LEN_TRIM(dftname)
+ if(i > 0) buf = TRIM(buf)//' -dft "'//dftname(1:i)//'"'
+ call run_command(TRIM(buf), .false., prt)
 
- if(PRESENT(mklname)) then
-  call find_specified_suffix(fchname, '.fch', i)
-  mklname0 = fchname(1:i-1)//'_o.mkl'
-  if(TRIM(mklname0) /= TRIM(mklname)) then
-   i = RENAME(TRIM(mklname0), TRIM(mklname))
-  end if
+ call find_specified_suffix(fchname, '.fch', i)
+ mklname0 = fchname(1:i-1)//'_o.mkl'
+
+ if(TRIM(mklname0) /= TRIM(mklname)) then
+  inpname0 = fchname(1:i-1)//'_o.inp'
+  call find_specified_suffix(mklname, '.mkl', i)
+  inpname = mklname(1:i-1)//'.inp'
+  i = RENAME(TRIM(mklname0), TRIM(mklname))
+  i = RENAME(TRIM(inpname0), TRIM(inpname))
  end if
 end subroutine fch2mkl_wrap
 
@@ -437,20 +443,13 @@ subroutine chk2gbw(chkname)
 
  call find_specified_suffix(chkname, '.chk', i)
  fchname = chkname(1:i-1)//'.fch'
- inpname = chkname(1:i-1)//'_o.inp'
- mklname = chkname(1:i-1)//'_o.mkl'
+ inpname = chkname(1:i-1)//'.inp'
+ mklname = chkname(1:i-1)//'.mkl'
  gbwname = chkname(1:i-1)//'.gbw'
  call formchk(chkname)
-
- call fch2mkl_wrap(fchname)
- open(newunit=i,file=TRIM(fchname),status='old')
- close(unit=i,status='delete')
- open(newunit=i,file=TRIM(inpname),status='old')
- close(unit=i,status='delete')
-
+ call fch2mkl_wrap(fchname, mklname, REPEAT(' ',30), .false.)
  call mkl2gbw(mklname, gbwname)
- open(newunit=i,file=TRIM(mklname),status='old')
- close(unit=i,status='delete')
+ call delete_files(3, [fchname, inpname, mklname])
 end subroutine chk2gbw
 
 ! wrapper of fch_u2r

@@ -10,7 +10,7 @@ subroutine do_mrpt2()
  use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
   davidson_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, mkl2gbw, &
-  fch2bdf_wrap, fch2inp_wrap, unfchk, fch2inporb_wrap
+  fch2bdf_wrap, fch2inp_wrap, fch2mkl_wrap, unfchk, fch2inporb_wrap
  implicit none
  integer :: i, SYSTEM, RENAME
  character(len=24) :: data_string
@@ -159,17 +159,11 @@ subroutine do_mrpt2()
 
   case('orca')
    call check_exe_exist(orca_path)
-   i = SYSTEM('fch2mkl '//TRIM(casnofch))
-   i = INDEX(casnofch, '.fch', back=.true.)
-   inporb = casnofch(1:i-1)//'_o.mkl'
-   string = casnofch(1:i-1)//'_o.inp'
    i = INDEX(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'NEVPT2.mkl'
    inpname = casnofch(1:i)//'NEVPT2.inp'
    outname = casnofch(1:i)//'NEVPT2.out'
-   i = RENAME(TRIM(inporb), TRIM(mklname))
-   i = RENAME(TRIM(string), TRIM(inpname))
-
+   call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
    call prt_nevpt2_orca_inp(inpname)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
@@ -238,18 +232,11 @@ subroutine do_mrpt2()
 
   case('orca')
    call check_exe_exist(orca_path)
-
-   i = SYSTEM('fch2mkl '//TRIM(casnofch))
-   i = INDEX(casnofch, '.fch', back=.true.)
-   inporb = casnofch(1:i-1)//'_o.mkl'
-   string = casnofch(1:i-1)//'_o.inp'
    i = INDEX(casnofch, '_NO', back=.true.)
    mklname = casnofch(1:i)//'CASPT2.mkl'
    inpname = casnofch(1:i)//'CASPT2.inp'
    outname = casnofch(1:i)//'CASPT2.out'
-   i = RENAME(TRIM(inporb), TRIM(mklname))
-   i = RENAME(TRIM(string), TRIM(inpname))
-
+   call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
    call prt_caspt2_orca_inp(inpname)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
@@ -562,11 +549,12 @@ subroutine prt_nevpt2_orca_inp(inpname)
  use mr_keyword, only: mem, nproc, orca_path, xmult, iroot, RI, RIJK_bas, RIC_bas,&
   F12, F12_cabs, FIC, DLPNO, hardwfn, crazywfn
  implicit none
- integer :: i, iver, fid1, fid2, RENAME
+ integer :: i, iver, nproc1, mem1, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical :: pt_setting
 
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
@@ -574,8 +562,8 @@ subroutine prt_nevpt2_orca_inp(inpname)
 
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
@@ -636,10 +624,11 @@ subroutine prt_caspt2_orca_inp(inpname)
  use mr_keyword, only: mem, nproc, orca_path, xmult, iroot, caspt2k, RI, RIJK_bas,&
   RIC_bas, hardwfn, crazywfn
  implicit none
- integer :: i, iver, fid1, fid2, RENAME
+ integer :: i, iver, nproc1, mem1, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
 
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
@@ -647,8 +636,8 @@ subroutine prt_caspt2_orca_inp(inpname)
 
  read(fid1,'(A)') buf   ! skip nproc
  read(fid1,'(A)') buf   ! skip memory
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'

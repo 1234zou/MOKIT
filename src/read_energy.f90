@@ -1,5 +1,91 @@
 ! read some kind of energy from a specified file
 
+! read HF electronic energy from a Gaussian .log/.out file
+subroutine read_hf_e_and_ss_from_gau_log(logname, first, e, ss)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: e, ss ! HF energy and spin square
+ character(len=240) :: buf
+ character(len=240), intent(in) :: logname
+ logical, intent(in) :: first ! read from the first/last `SCF Done`
+
+ e = 0d0; ss = 0d0
+
+ if(first) then
+  open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(2:10) == 'SCF Done:') exit
+  end do ! for while
+ else
+  open(newunit=fid,file=TRIM(logname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(2:18) == 'Entering Gaussian') then
+    i = -1; exit
+   end if
+   if(buf(2:10) == 'SCF Done:') then
+    i = 0; exit
+   end if
+  end do ! for while
+ end if
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_hf_e_and_ss_from_gau_log: "SCF Don&
+                   &e" not found'
+  write(6,'(A)') 'in file '//TRIM(logname)
+  close(fid)
+  stop
+ end if
+ call get_dpv_after_flag(buf, '=', .true., e)
+
+ ! We do not read <S**2> below 'SCF Done' because when the spin is very high
+ !  the format here would become <S**2>=******* due to Fortran features.
+ ! Instead, we search the 'S**2 before annihilation' below 'SCF Done'
+ do i = 1, 7
+  read(fid,'(A)') buf
+  if(buf(2:14) == 'S**2 before a') then
+   read(buf(26:),*) ss
+   exit
+  end if
+ end do ! for i
+
+ close(fid)
+end subroutine read_hf_e_and_ss_from_gau_log
+
+! read SCF electronic energy from a CP2K output file
+subroutine read_scf_e_from_cp2k_out(outname, scf_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: scf_e ! in Hartree
+!f2py intent(out) :: scf_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+
+ scf_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'ENERGY| Tota') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_scf_e_from_cp2k_out: failed to loc&
+                   &ate 'ENERGY| Tota'"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ call get_dpv_after_flag(buf, ']', .false., scf_e)
+end subroutine read_scf_e_from_cp2k_out
+
 ! read IP-/EA-ADC energies from a specified PySCF output file
 subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
  implicit none
@@ -430,7 +516,7 @@ subroutine read_adc_e_from_qchem_out(outname, nstate, e, fosc)
  integer :: i, j, k, fid
  integer, intent(in) :: nstate
  real(kind=8), intent(out) :: e(0:nstate), fosc(nstate)
- character(len=46), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
+ character(len=47), parameter :: error_warn = 'ERROR in subroutine read_adc_e_f&
                                               &rom_qchem_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
@@ -469,7 +555,7 @@ subroutine read_adc_e_from_qchem_out(outname, nstate, e, fosc)
      determined = .true.
      x_triplet = .true.
     case default
-     write(6,'(/,A)') error_warn//' state spin cannot be recognized.'
+     write(6,'(/,A)') error_warn//'state spin cannot be recognized.'
      write(6,'(A)') 'buf='//TRIM(buf)
      stop
     end select
@@ -622,33 +708,48 @@ subroutine read_gvb_energy_from_output(gvb_prog, outname, gvb_e)
  end select
 end subroutine read_gvb_energy_from_output
 
-! read CASCI/CASSCF energy from a Gaussian .log file
-subroutine read_cas_energy_from_gau_log(outname, e, scf)
+! Read CASCI/CASSCF energy from a Gaussian .log file. In an geometry optimization
+! or numerical differentiation job, there might be multiple frames.
+! first=.True. : try to locate CASCI/CASSCF energies of the 1st frame
+!      =.False.: try to locate CASCI/CASSCF energies of the last frame
+subroutine read_cas_energy_from_gau_log(logname, scf, first, e)
  implicit none
  integer :: i, fid
  real(kind=8), intent(out) :: e(2)
+ character(len=50), parameter :: error_warn = 'ERROR in subroutine read_cas_ene&
+                                              &rgy_from_gau_log: '
  character(len=240) :: buf
- character(len=240), intent(in) :: outname
- logical, intent(in) :: scf
+ character(len=240), intent(in) :: logname
+ logical, intent(in) :: scf, first
 
- open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ if(first) then
+  open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(13:22)=='EIGENVALUE' .or. buf(20:29)=='EIGENVALUE' .or. &
+      buf(23:32)=='Eigenvalue') exit
+  end do ! for while
+ else
+  open(newunit=fid,file=TRIM(logname),status='old',position='append')
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(2:18) == 'Entering Gaussian') then
+    i = -1; exit
+   end if
+   if(buf(13:22)=='EIGENVALUE' .or. buf(20:29)=='EIGENVALUE' .or. &
+      buf(23:32)=='Eigenvalue') then
+    i = 0; exit
+   end if
+  end do ! for while
+ end if
 
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(13:22)=='EIGENVALUE' .or. buf(20:29)=='EIGENVALUE' .or. &
-     buf(23:32)=='Eigenvalue') exit
- end do ! for while
-
- close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gau_log: no 'EIGEN&
-                   &VALUE' or 'Eigenvalue'"
-  write(6,'(A)') 'found in file '//TRIM(outname)
+  write(6,'(/,A)') error_warn//'"EIGENVALUE"/"Eigenvalue" not'
+  write(6,'(A)') 'located in file '//TRIM(logname)
+  close(fid)
   stop
  end if
 
@@ -656,20 +757,28 @@ subroutine read_cas_energy_from_gau_log(outname, e, scf)
  if(i == 0) i = INDEX(buf, 'LUE')
 
  if(scf) then
-  read(buf(i+3:),*) e(2) ! CASSCF
- else
-  read(buf(i+3:),*) e(1) ! CASCI
- end if
-
- if(scf) then ! read CASCI energy
-  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+  read(buf(i+3:),*) e(2) ! CASSCF energy
   do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
    read(fid,'(A)') buf
-   if(buf(2:8) == 'ITN=  1') exit
+   if(buf(2:18) == 'Entering Gaussian') then
+    i = -1; exit
+   end if
+   if(buf(2:8) == 'ITN=  1') then
+    i = 0; exit
+   end if
   end do ! for while
   close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') error_warn//'"ITN=  1" not located in file'
+   write(6,'(A)') TRIM(logname)
+   stop
+  end if
   i = INDEX(buf, 'E=')
-  read(buf(i+2:),*) e(1)
+  read(buf(i+2:),*) e(1) ! CASCI energy in CASSCF job
+ else
+  read(buf(i+3:),*) e(1) ! CASCI energy in CASCI job
  end if
 end subroutine read_cas_energy_from_gau_log
 
@@ -1340,7 +1449,7 @@ subroutine read_cas_energy_from_output(cas_prog, outname, spin, scf, dmrg, &
 
  select case(TRIM(cas_prog))
  case('gaussian')
-  call read_cas_energy_from_gau_log(outname, e, scf)
+  call read_cas_energy_from_gau_log(outname, scf, .false., e)
  case('gamess')
   call read_cas_energy_from_gms_gms(outname, e, scf, spin)
   e(1) = e(1) + ptchg_e + nuc_pt_e
@@ -2367,34 +2476,4 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
   stop
  end select
 end subroutine read_mrcc_energy_from_output
-
-! read SCF electronic energy from a CP2K output file
-subroutine read_scf_e_from_cp2k_out(outname, scf_e)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: scf_e ! in Hartree
-!f2py intent(out) :: scf_e
- character(len=240) :: buf
- character(len=240), intent(in) :: outname
-!f2py intent(in) :: outname
-
- scf_e = 0d0
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:13) == 'ENERGY| Tota') exit
- end do ! for while
-
- close(fid)
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_scf_e_from_cp2k_out: failed to loc&
-                   &ate 'ENERGY| Tota'"
-  write(6,'(A)') 'in file '//TRIM(outname)
-  stop
- end if
-
- call get_dpv_after_flag(buf, ']', .false., scf_e)
-end subroutine read_scf_e_from_cp2k_out
 

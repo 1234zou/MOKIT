@@ -66,16 +66,11 @@ subroutine do_mrpt3()
   select case(TRIM(nevpt_prog))
   case('orca')
    call check_exe_exist(orca_path)
-   call fch2mkl_wrap(casnofch)
-   call find_specified_suffix(casnofch, '.fch', i)
-   inporb = casnofch(1:i-1)//'_o.mkl'
-   string = casnofch(1:i-1)//'_o.inp'
    call find_specified_suffix(casnofch, '_NO', i)
    mklname = casnofch(1:i)//'NEVPT3.mkl'
    inpname = casnofch(1:i)//'NEVPT3.inp'
    outname = casnofch(1:i)//'NEVPT3.out'
-   i = RENAME(TRIM(inporb), TRIM(mklname))
-   i = RENAME(TRIM(string), TRIM(inpname))
+   call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
    call prt_nevpt34_orca_inp(inpname, .false.)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
@@ -157,11 +152,12 @@ subroutine prt_nevpt34_orca_inp(inpname, nevpt4)
  use mr_keyword, only: mem, nproc, xmult, iroot, RI, RIJK_bas, RIC_bas, F12, &
   F12_cabs, DLPNO, hardwfn, crazywfn
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, nproc1, mem1, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: nevpt4
 
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 4, nproc1, mem1)
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid1,file=TRIM(inpname),status='old',position='rewind')
@@ -169,8 +165,8 @@ subroutine prt_nevpt34_orca_inp(inpname, nevpt4)
 
  read(fid1,'(A)') buf   ! assuming nproc and skip
  read(fid1,'(A)') buf   ! assuming memory and skip
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
 
  read(fid1,'(A)') buf   ! skip '!' line
  if(nevpt4) then
@@ -215,9 +211,9 @@ subroutine do_mrpt4()
   nuc_pt_e
  use util_wrapper, only: fch2mkl_wrap, add_bgcharge2inp_wrap, mkl2gbw
  implicit none
- integer :: i, RENAME
+ integer :: i
  character(len=24) :: data_string
- character(len=240) :: string, outname, inpname, inporb, mklname
+ character(len=240) :: string, outname, inpname, mklname
  real(kind=8) :: ref_e, corr_e(3)
 
  if(eist == 1) return ! excited state calculation
@@ -245,16 +241,11 @@ subroutine do_mrpt4()
  write(6,'(2(A,I0),A)') 'FIC-NEVPT4(SD) (', nacte, 'e,', nacto, &
                         'o) using program '//TRIM(nevpt_prog)
  call check_exe_exist(orca_path)
- call fch2mkl_wrap(casnofch)
- call find_specified_suffix(casnofch, '.fch', i)
- inporb = casnofch(1:i-1)//'_o.mkl'
- string = casnofch(1:i-1)//'_o.inp'
  call find_specified_suffix(casnofch, '_NO', i)
  mklname = casnofch(1:i)//'NEVPT4.mkl'
  inpname = casnofch(1:i)//'NEVPT4.inp'
  outname = casnofch(1:i)//'NEVPT4.out'
- i = RENAME(TRIM(inporb), TRIM(mklname))
- i = RENAME(TRIM(string), TRIM(inpname))
+ call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
  call prt_nevpt34_orca_inp(inpname, .true.)
  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
  ! if bgchg = .True., .inp and .mkl file will be updated

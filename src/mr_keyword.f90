@@ -65,6 +65,7 @@ module mol
  real(kind=8) :: mrcc_e    = 0d0 ! FIC-MRCC/MkMRCC/BWMRCC/BCCC energy
  real(kind=8) :: ptchg_e   = 0d0 ! Coulomb energy of background point charges
  real(kind=8) :: nuc_pt_e  = 0d0 ! nuclear-point_charge interaction energy
+ real(kind=8) :: polarizability(3,3)  ! the polarizability matrix
  real(kind=8), allocatable :: coor(:,:)     ! Cartesian coordinates
  real(kind=8), allocatable :: grad(:)       ! Cartesian gradient, 3*natom
  real(kind=8), allocatable :: bgcharge(:,:) ! background point charges
@@ -210,6 +211,8 @@ module mr_keyword
  logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: caspt2_force = .false.! whether to calculate CASPT2 force
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
+ logical :: polar = .false.       ! whether to calculate molecular polarizability
+
  logical :: block_mpi = .false.   ! OpenMP or MPI calling the Block program
  logical :: FIC = .false.         ! False/True for FIC-/SC-NEVPT2
  logical :: RI = .false.          ! whether to RI approximation in CASSCF, NEVPT2
@@ -256,6 +259,7 @@ module mr_keyword
  character(len=10) :: mcpdft_prog  = 'pyscf' ! PySCF/OpenMolcas/GAMESS
  character(len=10) :: mrcc_prog    = 'orca'
  character(len=10) :: cis_prog     = 'gaussian'
+ character(len=10) :: polar_prog   = 'orca' ! polarizability program
 
  character(len=240) :: mokit_root = ' '
  character(len=240) :: gau_path = ' '
@@ -781,6 +785,8 @@ end subroutine check_gms_path
     mcpdft_prog = longbuf(j+1:i-1)
    case('mrcc_prog')
     mrcc_prog = longbuf(j+1:i-1)
+   case('polar_prog')
+    polar_prog = longbuf(j+1:i-1)
    case('gvb_conv')
     GVB_conv = longbuf(j+1:i-1)
     c_gvb_conv = .true.
@@ -804,6 +810,8 @@ end subroutine check_gms_path
     end if
    case('force')
     force = .true.
+   case('polar')
+    polar = .true.
    case('charge')
     bgchg = .true.
    case('inherit')
@@ -887,7 +895,7 @@ end subroutine check_gms_path
                    &t{NEVPT_prog=ORCA}.'
     stop
    case default
-    write(6,'(/,A)') error_warn//"keyword '"//longbuf(1:j-1)//"' not recognized."
+    write(6,'(/,A)') error_warn//'unrecognized keyword "'//longbuf(1:j-1)//'"'
     stop
    end select
 

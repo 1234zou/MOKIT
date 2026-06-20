@@ -877,7 +877,7 @@ subroutine gen_hf_orca_inp(inpname, uhf)
 
  open(newunit=fid,file=TRIM(inpname),status='replace')
  write(fid,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid,'(A,I0)') '%maxcore ', FLOOR(0.99d3*DBLE(mem)/DBLE(nproc))
 
  if(uhf) then
   write(fid,'(A)',advance='no') '! UHF '
@@ -950,13 +950,13 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
  use util_wrapper, only: formchk, bas_fch2py_wrap, fch2psi_wrap, fch2mkl_wrap,&
   mkl2gbw, gbw2mkl, mkl2fch_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, irel, hf_type, RENAME
+ integer :: i, irel, hf_type
  real(kind=8), intent(out) :: e, ssquare
  character(len=20) :: prog_name
  character(len=39), parameter :: error_warn = 'ERROR in subroutine do_scf_and_r&
                                               &ead_e: '
  character(len=240) :: proname, chkname, fchname, outname, mklname, gbwname, &
-  prpname1, prpname2, prpname3, inpname1, denf1, denf2
+  prpname1, prpname2, prpname3, denf1, denf2
  character(len=240), intent(in) :: gau_path, hf_prog_path, inpname
  ! gau_path is always the path of Gaussian
  ! when Gaussian is used to compute SCF, gau_path = hf_prog_path
@@ -992,7 +992,6 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   prpname1 = TRIM(proname)//'.prop'
   prpname2 = TRIM(proname)//'_property.txt'
   prpname3 = TRIM(proname)//'.property.txt'
-  inpname1 = TRIM(proname)//'_o.inp'
   denf1    = TRIM(proname)//'.densities'
   denf2    = TRIM(proname)//'.densitiesinfo'
   call read_hf_type_from_orca_inp(inpname, hf_type)
@@ -1040,7 +1039,7 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
    end if
   end if
 
-  call read_hf_e_and_ss_from_gau_log(outname, e, ssquare)
+  call read_hf_e_and_ss_from_gau_log(outname, .false., e, ssquare)
 !  call delete_file(gjfname)
   return
  end if
@@ -1071,16 +1070,14 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   gbwname  = TRIM(proname)//'.gbw'
   prpname1 = TRIM(proname)//'.prop'
   prpname2 = TRIM(proname)//'_property.txt'
-  inpname1 = TRIM(proname)//'_o.inp'
-  call fch2mkl_wrap(fchname, mklname)
-  i = RENAME(TRIM(inpname1), TRIM(inpname))
-
+  call fch2mkl_wrap(fchname, mklname, REPEAT(' ',30), .false.)
   call read_hf_type_from_orca_inp(inpname, hf_type)
   !call prt_hf_orca_inp(inpname, hf_type)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call mkl2gbw(mklname)
   ! mkl2gbw should be called after add_bgcharge_to_inp, since add_bgcharge_to_inp
   ! will modify both .inp and .mkl file
+  stop
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
   call read_scf_e_and_ss_from_orca_out(outname, hf_type, e, ssquare)
   call gbw2mkl(gbwname)
@@ -1093,55 +1090,6 @@ subroutine do_scf_and_read_e(gau_path, hf_prog_path, inpname, noiter, e, ssquare
   stop
  end select
 end subroutine do_scf_and_read_e
-
-! read HF electronic energy from a Gaussian .log/.out file
-subroutine read_hf_e_and_ss_from_gau_log(logname, e, ss)
- implicit none
- integer :: i, fid
- real(kind=8), intent(out) :: e, ss ! HF energy and spin square
- character(len=240) :: buf
- character(len=240), intent(in) :: logname
-
- e = 0d0; ss = 0d0
- open(newunit=fid,file=TRIM(logname),status='old',position='append')
-
- do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  read(fid,'(A)') buf
-  if(buf(2:18) == 'Entering Gaussian') then
-   i = -1
-   exit
-  end if
-  if(INDEX(buf,'SCF Done') > 0) exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_hf_e_and_ss_from_gau_log: 'SCF Don&
-                   &e' not found"
-  write(6,'(A)') 'in file '//TRIM(logname)
-  close(fid)
-  stop
- end if
-
- i = INDEX(buf, '=')
- read(buf(i+1:),*) e
-
- ! We do not read <S**2> below 'SCF Done' because when the spin is very high,
- !  the format here would become <S**2>=******* due to Fortran features.
- ! Instead, we search the 'S**2 before annihilation' below 'SCF Done'
- do i = 1, 7
-  read(fid,'(A)') buf
-  if(buf(2:14) == 'S**2 before a') then
-   read(buf(26:),*) ss
-   exit
-  end if
- end do ! for i
-
- close(fid)
-end subroutine read_hf_e_and_ss_from_gau_log
 
 ! read HF electronic energy from a PySCF .out file
 subroutine read_hf_e_and_ss_from_pyscf_out(outname, wfn_type, e, ss)

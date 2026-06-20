@@ -5,15 +5,15 @@ subroutine do_mrcc()
  use mr_keyword, only: bgchg, mrcc, CIonly, mrcc_type, mrcc_prog, casnofch, &
   orca_path, chgname, eist
  use mol, only: nacte, nacto, nevpt2_e, mrcc_e
- use util_wrapper, only: mkl2gbw
+ use util_wrapper, only: fch2mkl_wrap, mkl2gbw
  implicit none
- integer :: i, SYSTEM, RENAME
+ integer :: i, SYSTEM
  real(kind=8) :: ref_e, corr_e(2)
  character(len=12), parameter :: method(8) = ['FIC-MRCCSD  ','Mk-MRCCSD   ',&
   'Mk-MRCCSD(T)','BW-MRCCSD   ','BW-MRCCSD(T)','BCCC2b      ','BCCC3b      ',&
   'BCCC4b      ']
  character(len=24) :: data_string
- character(len=240) :: string, chkname, inpname, mklname, outname
+ character(len=240) :: inpname, mklname, outname
 
  if(eist == 1) return ! excited state calculation
  if(.not. mrcc) return
@@ -36,23 +36,18 @@ subroutine do_mrcc()
  case('orca')
   write(6,'(A)') 'Note: 1) this is actually an approximate FIC-MRCCSD method &
                  &since the'
-  write(6,'(A)') '         H_bar operator is truncated after the quadratic terms.'
+  write(6,'(A)') '         \bar{H} operator is truncated after the quadratic te&
+                 &rms.'
   write(6,'(A)') '      2) this calculation will output the FIC-NEVPT2 energy&
                  & as a byproduct.'
   write(6,'(A)') '      3) FIC-MRCC is supported since ORCA 5.0. Do not use&
                   & any older version.'
   call check_exe_exist(orca_path)
-  i = SYSTEM('fch2mkl '//TRIM(casnofch))
-  i = INDEX(casnofch, '.fch', back=.true.)
-  chkname = casnofch(1:i-1)//'_o.mkl'
-  string  = casnofch(1:i-1)//'_o.inp'
   i = INDEX(casnofch, '_NO', back=.true.)
   mklname = casnofch(1:i)//'MRCC.mkl'
   inpname = casnofch(1:i)//'MRCC.inp'
   outname = casnofch(1:i)//'MRCC.out'
-  i = RENAME(TRIM(chkname), TRIM(mklname))
-  i = RENAME(TRIM(string), TRIM(inpname))
-  chkname = ' '
+  call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
   call prt_mrcc_orca_inp(inpname)
   if(bgchg) i = SYSTEM('add_bgcharge_to_inp '//TRIM(chgname)//' '//TRIM(inpname))
   ! if bgchg = .True., .inp and .mkl file will be updated
@@ -120,17 +115,18 @@ subroutine prt_mrcc_orca_inp(inpname1)
  use mol, only: ndb, nacto, nacte, mult
  use mr_keyword, only: mem, nproc, DKH2, mrcc_type, RI, orca_path
  implicit none
- integer :: i, iver, fid1, fid2, RENAME
+ integer :: i, iver, nproc1, mem1, fid1, fid2, RENAME
  character(len=240), intent(in) :: inpname1
  character(len=240) :: buf, inpname2
 
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 6, nproc1, mem1)
  call find_orca_ver(orca_path, iver)
  call find_specified_suffix(inpname1, '.inp', i)
  inpname2 = inpname1(1:i-1)//'.t'
  open(newunit=fid2,file=TRIM(inpname2),status='replace')
 
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0,A)') '%maxcore ', CEILING(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
  if(mrcc_type == 1) then
   write(fid2,'(A)') '! NoIter'
  else

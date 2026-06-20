@@ -915,18 +915,17 @@ subroutine modify_uno_out(uno_out, ndb, npair, nopen)
 end subroutine modify_uno_out
 
 ! Note: the parameter mem must be provided in unit MB.
-subroutine gen_gau_opt_gjf(gjfname, mem, charge, mult, natom, elem, coor, &
-                           numfreq)
+subroutine gen_gau_opt_gjf(gjfname, charge, mult, natom, elem, coor, numfreq)
  implicit none
  integer :: i, fid
- integer,intent(in) :: mem, charge, mult, natom
+ integer,intent(in) :: charge, mult, natom
  real(kind=8), intent(in) :: coor(3,natom)
  character(len=2), intent(in) :: elem(natom)
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: numfreq
 
  open(newunit=fid,file=TRIM(gjfname),status='replace')
- write(fid,'(A,I0,A)') '%mem=', min(mem,6000), 'MB'
+ write(fid,'(A,I0,A)') '%mem=2GB'
  write(fid,'(A)') '%nprocshared=1'
  write(fid,'(A)',advance='no') '# opt(nomicro,maxcycles=300)'
  if(numfreq) write(fid,'(A)',advance='no') ' freq=numer'
@@ -1044,23 +1043,25 @@ subroutine split_iatom_elem(iatom_elem, iatom, elem)
  integer :: i, j, k
  integer, intent(out) :: iatom
  character(len=2), intent(out) :: elem
+ character(len=11) :: buf
  character(len=11), intent(in) :: iatom_elem
 
- iatom = 0; elem = '  '; k = LEN_TRIM(iatom_elem)
+ iatom = 0; elem = '  '
+ buf = ADJUSTL(iatom_elem); k = LEN_TRIM(buf)
 
  do i = 1, k, 1
-  j = IACHAR(iatom_elem(i:i))
+  j = IACHAR(buf(i:i))
   if(j<48 .or. j>57) exit
  end do ! for i
 
  if(i == k+1) then
   write(6,'(/,A)') 'ERROR in subroutine split_iatom_elem: no element is found i&
-                   &n '//TRIM(iatom_elem)
+                   &n "'//TRIM(iatom_elem)//'"'
   stop
  end if
 
- read(iatom_elem(1:i-1),*) iatom
- read(iatom_elem(i:k),*) elem
+ read(buf(1:i-1),*) iatom
+ read(buf(i:k),*) elem
 end subroutine split_iatom_elem
 
 ! replace '.o' to '.obj' in a string `buf`

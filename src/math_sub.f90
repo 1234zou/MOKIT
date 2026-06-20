@@ -24,6 +24,43 @@ function cmplx_v3_dot_real(z1, z2) result(s)
      REAL(z1(3))*REAL(z2(3)) + AIMAG(z1(3))*AIMAG(z2(3))
 end function cmplx_v3_dot_real
 
+subroutine lat_vec2lat_para(lat_vec, cell)
+ implicit none
+ real(kind=8) :: n1, n2, n3, n4, n5, n6
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), intent(in) :: lat_vec(3,3)
+ real(kind=8), intent(out) :: cell(6)
+
+ n1 = DSQRT(DOT_PRODUCT(lat_vec(:,1),lat_vec(:,1)))
+ n2 = DSQRT(DOT_PRODUCT(lat_vec(:,2),lat_vec(:,2)))
+ n3 = DSQRT(DOT_PRODUCT(lat_vec(:,3),lat_vec(:,3)))
+ n4 = DOT_PRODUCT(lat_vec(:,2),lat_vec(:,3))/(n2*n3)
+ n5 = DOT_PRODUCT(lat_vec(:,3),lat_vec(:,1))/(n3*n1)
+ n6 = DOT_PRODUCT(lat_vec(:,1),lat_vec(:,2))/(n1*n2)
+ n4 = 180d0*DACOS(MAX(-1d0, MIN(n4,1d0)))/PI
+ n5 = 180d0*DACOS(MAX(-1d0, MIN(n5,1d0)))/PI
+ n6 = 180d0*DACOS(MAX(-1d0, MIN(n6,1d0)))/PI
+ cell = [n1, n2, n3, n4, n5, n6]
+end subroutine lat_vec2lat_para
+
+subroutine lat_para2lat_vec(cell, lat_vec)
+ implicit none
+ real(kind=8) :: alph, beta, gamm, cx, cy ,cz
+ real(kind=8), parameter :: PI = 4d0*DATAN(1d0)
+ real(kind=8), intent(in) :: cell(6)
+ real(kind=8), intent(out) :: lat_vec(3,3)
+
+ lat_vec = 0d0
+ alph = cell(4)*PI/180d0; beta = cell(5)*PI/180d0; gamm = cell(6)*PI/180d0
+ lat_vec(1,1) = cell(1)
+ lat_vec(1,2) = cell(2)*DCOS(gamm)
+ lat_vec(2,2) = cell(2)*DSIN(gamm)
+ cx = cell(3)*DCOS(beta)
+ cy = cell(3)*(DCOS(alph) - DCOS(beta)*DCOS(gamm))/DSIN(gamm)
+ cz = DSQRT(cell(3)*cell(3) - cx*cx - cy*cy)
+ lat_vec(:,3) = [cx, cy ,cz]
+end subroutine lat_para2lat_vec
+
 ! Rotate two MOs using cos(alpha) and sin(alpha).
 ! The ifort directive "!dir$ ivdep" cannot be recognized by gfortran. So here we
 !  use OpenMP SIMD, which is universal for various Fortran compilers.

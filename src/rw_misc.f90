@@ -632,10 +632,123 @@ subroutine read_target_root_from_pyscf_out(outname, target_root, found)
  close(fid)
 end subroutine read_target_root_from_pyscf_out
 
-! find pNMR isotropic shieldings of target atoms in ORCA pNMR output, and
-! calculate the average value
-subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
-                                                ave_val)
+! Read NMR isotropic shieldings from a specified Gaussian output file. This is
+! orbital contribution of NMR chemical shieldings for a molecule. While for a
+! non-singlet molecule, there is also paramagnetic shielding to be taken into
+! account. The paramagnetic shielding is not considered here and cannot be read
+! from Gaussian output. For a singlet molecule, there is no paramagnetic shielding
+! contribution.
+! Note: it is assmued that isotropic shieldings of all atoms can be found in
+!  the output file, and all isotropic shieldings will be read by this subroutine.
+!  This is because Gaussian does not support calculating isotropic shieldings of
+!  a partial molecule or some target atoms.
+subroutine read_nmr_iso_shield_from_gau_log(logname, natom, iso_shield)
+ implicit none
+ integer :: i, j, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: iso_shield(natom)
+!f2py intent(out) :: iso_shield
+!f2py depend(natom) :: iso_shield
+ character(len=54), parameter :: error_warn = 'ERROR in subroutine read_nmr_iso&
+                                              &_shield_from_gau_log: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: logname
+!f2py intent(in) :: logname
+
+ iso_shield = 0d0
+ call require_file_exist(logname)
+ open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:13) == 'SCF GIAO Mag') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"SCF GIAO Mag" not located'
+  write(6,'(A)') 'in file '//TRIM(logname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, natom, 1
+  read(fid,'(A)') buf
+  if(buf(2:11)=='g value of' .or. buf(2:11)=='End of Min') exit
+  call get_dpv_after_flag(buf, '=', .true., iso_shield(i))
+  do j = 1, 4
+   read(fid,'(A)') buf
+  end do ! for j
+ end do ! for while
+
+ close(fid)
+end subroutine read_nmr_iso_shield_from_gau_log
+
+! Read NMR isotropic shieldings from a specified ORCA output file. This is orbital
+! contribution of NMR chemical shieldings for a molecule. While for a non-singlet
+! molecule, there is also paramagnetic shielding to be taken into account. The
+! paramagnetic shielding is not considered here but can be calculated and read
+! from ORCA pNMR output. For a singlet molecule, there is no paramagnetic shielding
+! contribution.
+! Note: it is assmued that isotropic shieldings of all atoms can be found in
+!  the output file, and all isotropic shieldings will be read by this subroutine.
+!  This is because ORCA does not support calculating isotropic shieldings of
+!  a partial molecule or some target atoms.
+subroutine read_nmr_iso_shield_from_orca_out(outname, natom, iso_shield)
+ implicit none
+ integer :: i, iatom, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: iso_shield(natom)
+!f2py intent(out) :: iso_shield
+!f2py depend(natom) :: iso_shield
+ character(len=2) :: elem
+ character(len=55), parameter :: error_warn = 'ERROR in subroutine read_nmr_iso&
+                                              &_shield_from_orca_out: '
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+ character(len=240) :: buf
+
+ iso_shield = 0d0
+ call require_file_exist(outname)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:22) == 'CHEMICAL SHIELDING SUM') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'"CHEMICAL SHIELDING SUM" not'
+  write(6,'(A)') 'located in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 5 ! skip 5 lines
+  read(fid,'(A)') buf
+ end do ! for i
+
+ do i = 1, natom, 1
+  read(fid,*) iatom, elem, iso_shield(i)
+ end do ! for while
+
+ close(fid)
+end subroutine read_nmr_iso_shield_from_orca_out
+
+! Read paramagnetic shieldings of target atoms from an ORCA pNMR output.
+! Warning:
+! 1) Here `natom` is not the number of atoms of the target molecule (natom0), it
+!    is the size of the integer array atom_list, so we have natom <= natom0.
+! 2) If the simga_para of all atoms has been calculated and you want to read the
+!    simga_para of all atoms, you can set `atom_list` to 1~natom.
+! 3) If you want to read the simga_para of all atoms and allow the return of
+!    zero simga_para for some atoms, please use the subroutine
+!    read_para_shield_from_orca_pnmr_out2 below.
+subroutine read_para_shield_from_orca_pnmr_out(pnmr_out, natom, atom_list, &
+                                               para_shield)
  implicit none
  integer :: i, iatom, fid
  integer, intent(in) :: natom
@@ -643,22 +756,21 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  integer, intent(in) :: atom_list(natom)
 !f2py intent(in) :: atom_list
 !f2py depend(natom) :: atom_list
- real(kind=8), intent(out) :: ave_val ! in ppm
-!f2py intent(out) :: ave_val
- real(kind=8) :: iso_shield
- real(kind=8), allocatable :: pnmr_shielding(:)
+ real(kind=8) :: r
+ real(kind=8), intent(out) :: para_shield(natom)
+!f2py intent(out) :: para_shield
+!f2py depend(natom) :: para_shield
  character(len=2) :: elem
  character(len=11) :: iatom_elem
- character(len=58), parameter :: error_warn = 'ERROR in subroutine average_pnmr&
-                                              &_shield_in_orca_pnmr_out: '
+ character(len=57), parameter :: error_warn = 'ERROR in subroutine read_para_sh&
+                                              &ield_from_orca_pnmr_out: '
+ character(len=240) :: buf
  character(len=240), intent(in) :: pnmr_out
 !f2py intent(in) :: pnmr_out
- character(len=240) :: buf
  logical, allocatable :: found(:) ! size natom
 
- ave_val = 0d0
- buf = pnmr_out ! buf has length declared as 240
- call require_file_exist(buf)
+ para_shield = 0d0
+ call require_file_exist(pnmr_out)
  open(newunit=fid,file=TRIM(pnmr_out),status='old',position='rewind')
 
  do while(.true.)
@@ -668,23 +780,22 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"Paramagnetic shielding"'
-  write(6,'(A)') 'not located in file '//TRIM(pnmr_out)
+  write(6,'(/,A)') error_warn//'"Paramagnetic shielding" not'
+  write(6,'(A)') 'located in file '//TRIM(pnmr_out)
   close(fid)
   stop
  end if
 
- do i = 1, 5
+ do i = 1, 5 ! slip 5 lines
   read(fid,'(A)') buf
  end do
-
- allocate(found(natom), pnmr_shielding(natom))
- found = .false.; pnmr_shielding = 0d0
+ allocate(found(natom))
+ found = .false.
 
  do while(.true.)
   read(fid,'(A)') buf
   read(fid,'(A)') buf
-  read(buf,*) iatom_elem, iso_shield
+  read(buf,*) iatom_elem, r
   call split_iatom_elem(iatom_elem, iatom, elem)
   iatom = iatom + 1
   do i = 1, natom, 1
@@ -692,7 +803,7 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
   end do ! for i
   if(i < natom+1) then
    found(i) = .true.
-   pnmr_shielding(i) = iso_shield
+   para_shield(i) = r
   end if
   if(ALL(found .eqv. .true.)) exit
   read(fid,'(A)') buf
@@ -705,186 +816,76 @@ subroutine average_pnmr_shield_in_orca_pnmr_out(pnmr_out, natom, atom_list, &
   do i = 1, natom, 1
    if(.not. found(i)) exit
   end do ! for i
-  write(6,'(/,A)') error_warn//'the pNMR isotropic'
-  write(6,'(A,I0,A)') 'shielding of atom label ',atom_list(i),' is not found in&
-                      & file '//TRIM(pnmr_out)
-  deallocate(found, pnmr_shielding)
+  write(6,'(/,A)') error_warn//'the paramagnetic shielding'
+  write(6,'(A,I0,A)') 'of atom label ',atom_list(i),' is not found in file '//&
+                      TRIM(pnmr_out)
+  deallocate(found)
   stop
  end if
 
  deallocate(found)
- if(natom == 1) then
-  ave_val = pnmr_shielding(1)
- else
-  ave_val = SUM(pnmr_shielding)/DBLE(natom)
- end if
+end subroutine read_para_shield_from_orca_pnmr_out
 
- deallocate(pnmr_shielding)
-end subroutine average_pnmr_shield_in_orca_pnmr_out
-
-! find NMR isotropic shieldings of target atoms in ORCA NMR output, and
-! calculate the average value
-subroutine average_nmr_shield_in_orca_out(outname, natom, atom_list, ave_val)
+! Read paramagnetic shieldings of all atoms from an ORCA pNMR output.
+! Warning:
+! 1) Here `natom` is the number of atoms of the target molecule.
+! 2) If the simga_para of the i-th atom was not calculated, the corresponding
+!    para_shield(i) will be set to zero. So the user who uses this subroutine
+!    must be aware of what has been calculated and what to read.
+! 3) If you only want to read nonzero simga_para of some specified atoms, please
+!    use the subroutine read_para_shield_from_orca_pnmr_out above.
+subroutine read_para_shield_from_orca_pnmr_out2(pnmr_out, natom, para_shield)
  implicit none
- integer :: i, iatom, fid
+ integer :: i, fid
  integer, intent(in) :: natom
 !f2py intent(in) :: natom
- integer, intent(in) :: atom_list(natom)
-!f2py intent(in) :: atom_list
-!f2py depend(natom) :: atom_list
- real(kind=8), intent(out) :: ave_val
-!f2py intent(out) :: ave_val
- real(kind=8) :: iso_shield
- real(kind=8), allocatable :: nmr_shielding(:)
+ real(kind=8) :: r
+ real(kind=8), intent(out) :: para_shield(natom)
+!f2py intent(out) :: para_shield
+!f2py depend(natom) :: para_shield
  character(len=2) :: elem
- character(len=52), parameter :: error_warn = 'ERROR in subroutine average_nmr_&
-                                              &shield_in_orca_out: '
- character(len=240), intent(in) :: outname
-!f2py intent(in) :: outname
+ character(len=11) :: iatom_elem
+ character(len=58), parameter :: error_warn = 'ERROR in subroutine read_para_sh&
+                                              &ield_from_orca_pnmr_out2: '
  character(len=240) :: buf
- logical, allocatable :: found(:) ! size natom
+ character(len=240), intent(in) :: pnmr_out
+!f2py intent(in) :: pnmr_out
 
- ave_val = 0d0
- buf = outname ! buf has length declared as 240
- call require_file_exist(buf)
- open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ para_shield = 0d0
+ call require_file_exist(pnmr_out)
+ open(newunit=fid,file=TRIM(pnmr_out),status='old',position='rewind')
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:22) == 'CHEMICAL SHIELDING SUM') exit
+  if(buf(1:22) == 'Paramagnetic shielding') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"CHEMICAL SHIELDING SUM"'
-  write(6,'(A)') 'not located in file '//TRIM(outname)
+  write(6,'(/,A)') error_warn//'"Paramagnetic shielding" not'
+  write(6,'(A)') 'located in file '//TRIM(pnmr_out)
   close(fid)
   stop
  end if
 
- allocate(found(natom), nmr_shielding(natom))
- found = .false.; nmr_shielding = 0d0
- do i = 1, 5
+ do i = 1, 5 ! slip 5 lines
   read(fid,'(A)') buf
- end do ! for i
+ end do
 
  do while(.true.)
   read(fid,'(A)') buf
-  if(LEN_TRIM(buf) == 0) exit
-  read(buf,*) iatom, elem, iso_shield
-  iatom = iatom + 1
-  do i = 1, natom, 1
-   if(atom_list(i) == iatom) exit
-  end do ! for i
-  if(i < natom+1) then
-   found(i) = .true.
-   nmr_shielding(i) = iso_shield
-  end if
-  if(ALL(found .eqv. .true.)) exit
+  read(fid,'(A)') buf
+  read(buf,*) iatom_elem, r
+  call split_iatom_elem(iatom_elem, i, elem)
+  ! ORCA counts from 0, so we need to plus 1
+  para_shield(i+1) = r
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  if(buf(1:5) == '-----') exit
  end do ! for while
 
  close(fid)
- if(ANY(found .eqv. .false.)) then
-  do i = 1, natom, 1
-   if(.not. found(i)) exit
-  end do ! for i
-  write(6,'(/,A)') error_warn//'the NMR isotropic sh-'
-  write(6,'(A,I0,A)') 'ielding of atom label ',atom_list(i),' is not found in f&
-                      &ile '//TRIM(outname)
-  deallocate(found, nmr_shielding)
-  stop
- end if
-
- deallocate(found)
- if(natom == 1) then
-  ave_val = nmr_shielding(1)
- else
-  ave_val = SUM(nmr_shielding)/DBLE(natom)
- end if
-
- deallocate(nmr_shielding)
-end subroutine average_nmr_shield_in_orca_out
-
-! find NMR isotropic shieldings of target atoms in Gaussian NMR output, and
-! calculate the average value
-subroutine average_nmr_shield_in_gau_log(logname, natom, atom_list, ave_val)
- implicit none
- integer :: i, j, iatom, fid
- integer, intent(in) :: natom
-!f2py intent(in) :: natom
- integer, intent(in) :: atom_list(natom)
-!f2py intent(in) :: atom_list
-!f2py depend(natom) :: atom_list
- real(kind=8), intent(out) :: ave_val
-!f2py intent(out) :: ave_val
- real(kind=8), allocatable :: nmr_shielding(:)
- character(len=51), parameter :: error_warn = 'ERROR in subroutine average_nmr_&
-                                              &shield_in_gau_log: '
- character(len=240), intent(in) :: logname
-!f2py intent(in) :: logname
- character(len=240) :: buf
- logical, allocatable :: found(:) ! size natom
-
- ave_val = 0d0
- buf = logname ! buf has length declared as 240
- call require_file_exist(buf)
- open(newunit=fid,file=TRIM(logname),status='old',position='rewind')
-
- do while(.true.)
-  read(fid,'(A)',iostat=i) buf
-  if(i /= 0) exit
-  if(buf(2:13) == 'SCF GIAO Mag') exit
- end do ! for while
-
- if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"SCF GIAO Mag" not'
-  write(6,'(A)') 'located in file '//TRIM(logname)
-  close(fid)
-  stop
- end if
-
- allocate(found(natom), nmr_shielding(natom))
- found = .false.; nmr_shielding = 0d0
-
- do while(.true.)
-  read(fid,'(A)') buf
-  if(buf(2:11)=='g value of' .or. buf(2:11)=='End of Min') exit
-  read(buf,*) iatom
-  do i = 1, natom, 1
-   if(atom_list(i) == iatom) exit
-  end do ! for i
-  if(i < natom+1) then
-   found(i) = .true.
-   j = INDEX(buf, '=')
-   read(buf(j+1:),*) nmr_shielding(i)
-  end if
-  if(ALL(found .eqv. .true.)) exit
-  do i = 1, 4
-   read(fid,'(A)') buf
-  end do ! for i
- end do ! for while
-
- close(fid)
- if(ANY(found .eqv. .false.)) then
-  do i = 1, natom, 1
-   if(.not. found(i)) exit
-  end do ! for i
-  write(6,'(/,A)') error_warn//'the NMR isotropic sh-'
-  write(6,'(A,I0,A)') 'ielding of atom label ',atom_list(i),' is not found in f&
-                      &ile '//TRIM(logname)
-  deallocate(found, nmr_shielding)
-  stop
- end if
-
- deallocate(found)
- if(natom == 1) then
-  ave_val = nmr_shielding(1)
- else
-  ave_val = SUM(nmr_shielding)/DBLE(natom)
- end if
-
- deallocate(nmr_shielding)
-end subroutine average_nmr_shield_in_gau_log
+end subroutine read_para_shield_from_orca_pnmr_out2
 
 ! read the number of frames from xyz file
 subroutine read_nframe_from_xyz(xyzname, nframe)
@@ -923,21 +924,93 @@ subroutine read_nframe_from_pdb(pdbname, nframe)
 
  nframe = 1 ! initialization
  open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
+
  do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(1:5) == 'MODEL') exit
+  if(buf(1:5) == 'MODEL') then
+   i = INDEX(buf, ' ')
+   read(buf(i+1:),*) nframe
+   exit
+  end if
+  if(buf(1:6) == 'REMARK') exit
  end do ! for while
 
  close(fid)
- if(i /= 0) return ! assume 1 frame
-
- i = INDEX(buf, ' ')
- read(buf(i+1:),*) nframe
 end subroutine read_nframe_from_pdb
+
+! read elements and Cartesian coordinates from a specified .pdb file
+subroutine read_elem_and_coor_from_pdb(pdbname, natom, elem, coor)
+ implicit none
+ integer :: i, j, k, m, iatom, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(out) :: coor(3,natom)
+!f2py intent(out) :: coor
+!f2py depend(natom) :: coor
+ character(len=2), intent(out) :: elem(natom)
+!f2py intent(out) :: elem
+!f2py depend(natom) :: elem
+ character(len=5) :: str5
+ character(len=240) :: buf
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+ do i = 1, 3
+  read(fid,'(A)') buf
+  if(buf(1:3)=='TER' .or. buf(1:4)=='ATOM' .or. buf(1:5)=='HELIX' .or. &
+     buf(1:5)=='SHEET' .or. buf(1:6)=='HETATM' .or. buf(1:6)=='SSBOND') exit
+ end do ! for i
+ BACKSPACE(fid)
+
+ ! Note: it is possible that there is more than one `TER`
+ iatom = 0 ! the number of atoms read
+
+ if(buf(77:78) == '  ') then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:3) == 'TER') cycle
+   iatom = iatom + 1
+   read(buf(31:38),*) coor(1,iatom)
+   read(buf(39:46),*) coor(2,iatom)
+   read(buf(47:54),*) coor(3,iatom)
+   str5 = ADJUSTL(buf(12:16))
+   do j = 1, 5
+    m = IACHAR(str5(j:j))
+    if(m>=65 .and. m<=90) exit
+   end do ! for j
+   do k = j+1, 5, 1
+    m = IACHAR(str5(k:k))
+    if(m==32 .or. (m>=49 .and. m<=57)) exit
+   end do ! for k
+   elem(iatom) = str5(j:k-1)
+   if(iatom == natom) exit
+  end do ! for while
+ else
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:3) == 'TER') cycle
+   iatom = iatom + 1
+   read(buf(31:38),*) coor(1,iatom)
+   read(buf(39:46),*) coor(2,iatom)
+   read(buf(47:54),*) coor(3,iatom)
+   elem(iatom) = ADJUSTL(buf(77:78))
+   if(iatom == natom) exit
+  end do ! for while
+ end if
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_pdb: failed to &
+                   &read file'
+  write(6,'(A)') TRIM(pdbname)
+  stop
+ end if
+end subroutine read_elem_and_coor_from_pdb
 
 ! read elements and Cartesian coordinates from a Dalton .mol file
 subroutine read_elem_and_coor_from_dalton_mol(molname, natom, elem, coor, nline)
@@ -1083,6 +1156,54 @@ subroutine write_gjf(gjfname, charge, mult, natom, elem, coor)
  close(fid)
 end subroutine write_gjf
 
+! write a molecule or a cell into a given .pdb file
+subroutine write_pdb(pdbname, natom, elem, resname, coor, cell)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), parameter :: zero = 1d-2
+ real(kind=8), intent(in) :: coor(3,natom), cell(6)
+!f2py intent(in) :: coor, cell
+!f2py depend(natom) :: coor
+ character(len=2), intent(in) :: elem(natom)
+!f2py intent(in) :: elem
+!f2py depend(natom) :: elem
+ character(len=2), allocatable :: elem1(:)
+ character(len=3), intent(in) :: resname(natom)
+!f2py intent(in) :: resname
+!f2py depend(natom) :: resname
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+
+ allocate(elem1(natom))
+ do i = 1, natom, 1
+  elem1(i) = ADJUSTR(elem(i))
+ end do ! for i
+
+ open(newunit=fid,file=TRIM(pdbname),status='replace')
+ write(fid,'(A)') 'REMARK   1 File created by rwgeom of MOKIT'
+
+ if(ANY(cell > zero)) then
+  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1', cell(1:3), cell(4:6), &
+                                           ' P 1           1'
+ end if
+
+ do i = 1, natom, 1
+  if(LEN_TRIM(resname(i)) == 0) then
+   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A,10X,A2)') 'HETATM', i, elem1(i), &
+    0, coor(:,i), '  1.00  0.00', elem1(i)
+  else
+   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A,10X,A2)') 'ATOM',i,elem1(i),&
+    resname(i), 0, coor(:,i), '  1.00  0.00', elem1(i)
+  end if
+ end do ! for i
+
+ write(fid,'(A)') 'END'
+ close(fid)
+ deallocate(elem1)
+end subroutine write_pdb
+
 ! write a frame of molecule into a given .pdb file
 subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
                                 coor, append)
@@ -1090,6 +1211,10 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  integer :: i, fid
  integer, intent(in) :: iframe, natom
 !f2py intent(in) :: iframe, natom
+ real(kind=8), parameter :: zero = 1d-2
+ real(kind=8), intent(in) :: cell(6), coor(3,natom)
+!f2py intent(in) :: cell, coor
+!f2py depend(natom) :: coor
  character(len=2), intent(in) :: elem(natom)
 !f2py intent(in) :: elem
 !f2py depend(natom) :: elem
@@ -1098,11 +1223,14 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
 !f2py depend(natom) :: resname
  character(len=240), intent(in) :: pdbname
 !f2py intent(in) :: pdbname
- real(kind=8), intent(in) :: cell(6), coor(3,natom)
-!f2py intent(in) :: cell, coor
-!f2py depend(natom) :: coor
+ character(len=2), allocatable :: elem1(:)
  logical, intent(in) :: append
 !f2py intent(in) :: append
+
+ allocate(elem1(natom))
+ do i = 1, natom, 1
+  elem1(i) = ADJUSTR(elem(i))
+ end do ! for i
 
  if(append) then
   open(newunit=fid,file=TRIM(pdbname),status='old',position='append')
@@ -1111,23 +1239,25 @@ subroutine write_frame_into_pdb(pdbname, iframe, natom, cell, elem, resname, &
  end if
 
  write(fid,'(A)') 'REMARK   1 File created by rwgeom of MOKIT'
- if(ANY(cell > 1d-4)) then
-  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1',cell(1:3),cell(4:6),' P 1           1'
+ if(ANY(cell > zero)) then
+  write(fid,'(A,3(1X,F8.3),3(1X,F6.2),A)') 'CRYST1', cell(1:3), cell(4:6), &
+                                           ' P 1           1'
  end if
  if(iframe > 0) write(fid,'(A,1X,I8)') 'MODEL',iframe
 
  do i = 1, natom, 1
   if(LEN_TRIM(resname(i)) == 0) then
-   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A)') 'HETATM', i, elem(i), 0, &
-    coor(1:3,i),'  1.00  0.00'
+   write(fid,'(A6,I5,2X,A2,10X,I1,4X,3F8.3,A,10X,A2)') 'HETATM', i, elem1(i), &
+    0, coor(:,i),'  1.00  0.00', elem1(i)
   else
-   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A)') 'ATOM', i, elem(i), &
-    resname(i), 0, coor(1:3,i), '  1.00  0.00'
+   write(fid,'(A4,I7,2X,A2,2X,A3,5X,I1,4X,3F8.3,A,10X,A2)') 'ATOM',i,elem1(i),&
+    resname(i), 0, coor(:,i), '  1.00  0.00', elem1(i)
   end if
  end do ! for i
 
  write(fid,'(A)') 'END'
  close(fid)
+ deallocate(elem1)
 end subroutine write_frame_into_pdb
 
 ! add `Sym= 1a` into a specified .molden file
@@ -1158,4 +1288,105 @@ subroutine add_nosym2molden(molden)
  close(fid1)
  i = RENAME(TRIM(molden1), TRIM(molden))
 end subroutine add_nosym2molden
+
+! read scrf model (PCM/IEFPCM/CPCM/SMD) and solvent from a specified .gjf file
+subroutine read_scrf_model_and_solvent_from_gjf(gjfname, model, solvent)
+ implicit none
+ integer :: i, j, k, fid
+ character(len=6), intent(out) :: model
+ character(len=30), intent(out) :: solvent
+ character(len=58), parameter :: error_warn = 'ERROR in subroutine read_scrf_mo&
+                                              &del_and_solvent_from_gjf: '
+ character(len=240) :: buf, buf1
+ character(len=240), intent(in) :: gjfname
+
+ model = ' '; solvent = ' '; buf = ' '; buf1 = ' '
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:1) == '#') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') error_warn//'"#" symbol not located in file'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  stop
+ end if
+ BACKSPACE(fid)
+
+ do while(.true.)
+  j = 0; k = 0
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  j = LEN_TRIM(buf)
+  if(j == 0) exit
+  buf1 = buf(1:j)
+  call lower(buf1(1:j))
+  k = INDEX(buf1(1:j), 'scrf')
+  if(k > 0) exit
+ end do ! for while
+
+ close(fid)
+ if(i/=0 .or. k==0) return
+ ! now k > 0
+
+ select case(buf1(k+4:k+4))
+ case(' ')
+  model = 'iefpcm'; solvent = 'water'
+ case('(')
+  j = INDEX(buf1(k+5:), ')')
+  if(j == 0) then
+   write(6,'(/,A)') error_warn//'it seems that `scrf(` has'
+   write(6,'(A)') 'no correponding `)` symbol. gjfname='//TRIM(gjfname)
+   stop
+  end if
+  buf = buf1(k+5:k+j+3); buf1 = buf
+  ! if we use `buf1 = buf1(k+5:k+j+3)` directly, there would be a warning
+  ! from the Fortran compiler
+  k = LEN_TRIM(buf1)
+  i = INDEX(buf1(1:k), ',')
+  if(i == 0) then
+   j = INDEX(buf1(1:k), '=')
+   if(j == 0) then
+    select case(buf1(1:k))
+    case('pcm','iefpcm','cpcm','smd')
+    case default
+     write(6,'(/,A)') error_warn//'illegal string "'//buf1(1:k)//'"'
+     write(6,'(A)') 'gjfname='//TRIM(gjfname)
+     stop
+    end select
+    model = buf1(1:k); solvent = 'water'
+   else ! j > 0
+    if(buf1(1:j-1) == 'solvent') then
+     model = 'iefpcm'; solvent = buf1(j+1:k)
+    else
+     write(6,'(/,A)') error_warn//'illegal string "'//buf1(1:k)//'"'
+     write(6,'(A)') 'gjfname='//TRIM(gjfname)
+     stop
+    end if
+   end if
+  else ! i > 0
+   j = INDEX(buf1(1:k), '=')
+   if(j == 0) then
+    write(6,'(/,A)') error_warn//'illegal string "'//buf1(1:k)//'"'
+    write(6,'(A)') 'gjfname='//TRIM(gjfname)
+    stop
+   else ! j > 0
+    if(i > j) then
+     model = buf1(i+1:k); solvent = buf1(j+1:i-1)
+    else ! i < j
+     model = buf1(1:i-1); solvent = buf1(j+1:k)
+    end if
+   end if
+  end if
+ case default
+  write(6,'(/,A)') error_warn//'illegal string "'//buf1(1:j)//'"'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  write(6,'(A)') 'Correct example: scrf(smd)'
+  stop
+ end select
+end subroutine read_scrf_model_and_solvent_from_gjf
 

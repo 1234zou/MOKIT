@@ -24,10 +24,10 @@ subroutine do_cas(scf)
   casscf_e, nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
   fch2inp_wrap, dat2fch_wrap, fch2mkl_wrap, gbw2molden, molden2fch_wrap, &
-  xml2fch_wrap, fch2bdf_wrap, fch2psi_wrap, fch2dal_wrap, fch2inporb_wrap, &
-  orb2fch_wrap, add_bgcharge2inp_wrap
+  fch2com_wrap, xml2fch_wrap, fch2bdf_wrap, fch2psi_wrap, fch2dal_wrap, &
+  fch2inporb_wrap, orb2fch_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, n_pocc, nvir, nfile, SYSTEM, RENAME
+ integer :: i, n_pocc, nvir, nfile, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)       ! e(1) is CASCI energy, e(2) is CASSCF energy
  real(kind=8), allocatable :: noon(:)
@@ -318,11 +318,10 @@ subroutine do_cas(scf)
 
  case('gaussian')
   call check_exe_exist(gau_path)
-
   inpname = TRIM(proname)//'.gjf'
   outname = TRIM(proname)//'.log'
   mklname = TRIM(proname)//'.chk'
-  call prt_cas_gjf(inpname, nacto, nacte, scf, cas_force)
+  call prt_cas_gjf(inpname, nacto, nacte, scf, cas_force, .false.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call unfchk(fchname, mklname)
   call submit_gau_job(gau_path, inpname, .true.)
@@ -376,7 +375,7 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.out'
   call fch2inporb_wrap(fchname, .false., inpname)
   write(orbname,'(A,I0)') TRIM(proname)//'.RasOrb.', iroot+1
-  call prt_cas_molcas_inp(inpname, scf)
+  call prt_cas_molcas_inp(inpname, scf, .false.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   if(cas_force) then
    buf = 'echo -e "&ALASKA\n" >> '//TRIM(inpname)
@@ -392,19 +391,17 @@ subroutine do_cas(scf)
  case('orca')
   call check_exe_exist(orca_path)
   call find_specified_suffix(fchname, '.fch', i)
-  pyname  = fchname(1:i-1)//'_o.inp'
   inpname = TRIM(proname)//'.inp'
   mklname = TRIM(proname)//'.mkl'
   outname = TRIM(proname)//'.out'
   gradname = TRIM(proname)//'.engrad'
-  call fch2mkl_wrap(fchname, mklname)
-  i = RENAME(TRIM(pyname), TRIM(inpname))
+  call fch2mkl_wrap(fchname, mklname, REPEAT(' ',30), .true.)
 
-  call prt_cas_orca_inp(inpname, scf)
+  call prt_cas_orca_inp(inpname, scf, .false.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
-  call delete_file(mklname)
+  call delete_file(TRIM(mklname))
   if(cas_force) call add_force_key2orca_inp(inpname)
 
   call submit_orca_job(orca_path, inpname, .true., .false., .false.)
@@ -433,22 +430,17 @@ subroutine do_cas(scf)
 
  case('molpro')
   call check_exe_exist(molpro_path)
-
-  i = SYSTEM('fch2com '//TRIM(fchname)) ! generate .com and .txt
-  i = INDEX(fchname, '.fch', back=.true.)
-  mklname = fchname(1:i-1)//'.com'
   pyname = fchname
-  call convert2molpro_fname(pyname, '.a')
   inpname = TRIM(proname)//'.com'
-  orbname = TRIM(proname)//'.fch'
-  call convert2molpro_fname(orbname, '.a')
   outname = TRIM(proname)//'.out'
   xmlname = TRIM(proname)//'.xml'
-  i = RENAME(TRIM(mklname), TRIM(inpname))
+  orbname = TRIM(proname)//'.fch'
+  call fch2com_wrap(fchname, inpname)
+  call convert2molpro_fname(pyname, '.a')
+  call convert2molpro_fname(orbname, '.a')
   i = RENAME(TRIM(pyname), TRIM(orbname))
   call prt_cas_molpro_inp(inpname, scf, cas_force)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
-
   call submit_molpro_job(inpname, mem, nproc)
   call copy_file(fchname, casnofch, .false.) ! make a copy to save NOs
   call xml2fch_wrap(xmlname, casnofch, .true.)
@@ -726,15 +718,15 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  i = RENAME(TRIM(pyname1), TRIM(pyname))
 end subroutine prt_cas_pyscf_script
 
-! print a CASCI or CASSCF gjf file
-subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
+! print a CASCI/CASSCF .gjf
+subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force, polar)
  use mr_keyword, only: mem, nproc, dkh2_or_x2c, iroot
  implicit none
  integer :: i, fid
  integer, intent(in) :: nacto, nacte
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
- logical, intent(in) :: scf, force
+ logical, intent(in) :: scf, force, polar
 
  call find_specified_suffix(gjfname, '.gjf', i)
  i = INDEX(gjfname, '.gjf', back=.true.)
@@ -754,24 +746,31 @@ subroutine prt_cas_gjf(gjfname, nacto, nacte, scf, force)
   write(fid,'(A)',advance='no') ' int=nobasistransform'
  end if
  if(force) write(fid,'(A)',advance='no') ' force'
+ if(polar) write(fid,'(A)',advance='no') ' polar(numerical,step=10)'
+ !TODO: it seems that Gaussian does not recognize `step=` as electric field
+ ! setting.
 
  if(scf) then ! CASSCF
-  write(fid,'(A)') ' scf(maxcycle=300)'
+  write(fid,'(A)') ' scf(maxcycle=300,NoVarAcc)'
  else         ! CASCI
   write(fid,'(A)') ' scf(maxcycle=-2)'
-  ! to obtain CASCI NOs, we need to use -2, since -1 only calculates CASCI energy
+  ! To obtain CASCI NOs we need -2, since -1 only calculates the CASCI energy
  end if
 
- write(fid,'(/,A)') '--Link1--'
- write(fid,'(A)') '%chk='//TRIM(chkname)
- write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
- write(fid,'(A,I0)') '%nprocshared=',nproc
- write(fid,'(A)',advance='no') '#p chkbasis nosymm guess(read,only,save,&
-                               &NaturalOrbitals) geom=allcheck'
- if(dkh2_or_x2c) then
-  write(fid,'(A,/)') ' int(nobasistransform,DKH2) iop(3/93=1)'
+ if(polar) then
+  write(fid,'(/)')
  else
-  write(fid,'(A,/)') ' int=nobasistransform'
+  write(fid,'(/,A)') '--Link1--'
+  write(fid,'(A)') '%chk='//TRIM(chkname)
+  write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
+  write(fid,'(A,I0)') '%nprocshared=',nproc
+  write(fid,'(A)',advance='no') '#p chkbasis nosymm guess(read,only,save,&
+                                &NaturalOrbitals) geom=allcheck'
+  if(dkh2_or_x2c) then
+   write(fid,'(A,/)') ' int(nobasistransform,DKH2) iop(3/93=1)'
+  else
+   write(fid,'(A,/)') ' int=nobasistransform'
+  end if
  end if
 
  close(fid)
@@ -848,17 +847,18 @@ end subroutine prt_cas_gms_inp
 
 ! print CASCI/CASSCF and RI (if required) keywords in to a given (Open)Molcas
 ! input file
-subroutine prt_cas_molcas_inp(inpname, scf)
+subroutine prt_cas_molcas_inp(inpname, scf, polar)
  use mr_keyword, only: dmrgci, dmrgscf, RI
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: scf
+ logical, intent(in) :: scf, polar
  logical :: dmrg
 
  ! Since MOKIT v1.2.7rc4, we use RICD rather than RIJK in OpenMolcas, if RI is
  ! required.
+ ! TODO: check whether we need to use a larger RICD auxbasis
  if(RI) call add_RI_kywd_into_molcas_inp(inpname, .true.)
  dmrg = (dmrgci .or. dmrgscf)
 
@@ -875,8 +875,8 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine prt_cas_molcas_inp: '&SCF'  or '&RASSCF&
-                   &' not found in"
+  write(6,'(/,A)') 'ERROR in subroutine prt_cas_molcas_inp: "&SCF"/"&RASSCF" no&
+                   &t found in'
   write(6,'(A)') 'file '//TRIM(inpname)
   close(fid1)
   close(fid2,status='delete')
@@ -891,15 +891,17 @@ subroutine prt_cas_molcas_inp(inpname, scf)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
 end subroutine prt_cas_molcas_inp
 
-! print CASCI/CASSCF keywords in to a given ORCA .inp file
-subroutine prt_cas_orca_inp(inpname, scf)
+! Print CASCI/CASSCF keywords in to a given ORCA .inp file. We will import
+! `RIJK_bas` and `RIC_bas` from the module mr_keyword, but not import `RI`
+! from that module. In such case, we have better control of `RI`.
+subroutine prt_cas_orca_inp(inpname, scf, polar)
  use mol, only: nacte, nacto, mult
  use mr_keyword, only: mem, nproc, RI, RIJK_bas, hardwfn, crazywfn, iroot, xmult
  implicit none
- integer :: i, fid1, fid2, RENAME
+ integer :: i, k, mem1, nproc1, fid1, fid2, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
- logical, intent(in) :: scf
+ logical, intent(in) :: scf, polar
 
  if(iroot > 19) then
   write(6,'(/,A)') 'ERROR in subroutine prt_cas_orca_inp: please contact the MO&
@@ -908,6 +910,7 @@ subroutine prt_cas_orca_inp(inpname, scf)
   write(6,'(A,I0)') 'iroot=', iroot
   stop
  end if
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
 
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
@@ -916,13 +919,15 @@ subroutine prt_cas_orca_inp(inpname, scf)
 
  read(fid1,'(A)') buf   ! skip %pal
  read(fid1,'(A)') buf   ! skip %maxcore
- write(fid2,'(A,I0,A)') '%pal nprocs ', nproc, ' end'
- write(fid2,'(A,I0)') '%maxcore ', FLOOR(1d3*DBLE(mem)/DBLE(nproc))
+ write(fid2,'(A,I0,A)') '%pal nprocs ', nproc1, ' end'
+ write(fid2,'(A,I0)') '%maxcore ', mem1
 
  read(fid1,'(A)') buf   ! skip '!' line
  write(fid2,'(A)',advance='no') '!'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
+ if(polar) write(fid2,'(A)',advance='no') ' aug-cc-pVTZ/C'
+ ! TODO: automatically determine RIC_bas in this case
 
  if(scf) then
   write(fid2,'(A)') ' VeryTightSCF'
@@ -966,8 +971,15 @@ subroutine prt_cas_orca_inp(inpname, scf)
  do while(.true.)
   read(fid1,'(A)',iostat=i) buf
   if(i /= 0) exit
-  write(fid2,'(A)') TRIM(buf)
+  k = LEN_TRIM(buf)
+  if(k > 0) write(fid2,'(A)') buf(1:k)
+  ! there is no need to write any blank line in ORCA input
  end do ! for while
+
+ if(polar) then
+  write(fid2,'(A,/,A,/,A)') '%casresp',' MaxIter 200','end'
+  write(fid2,'(A,/,A,/,A)') '%elprop',' polar true','end'
+ end if
 
  close(fid1,status='delete')
  close(fid2)

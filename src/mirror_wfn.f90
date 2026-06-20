@@ -986,7 +986,7 @@ subroutine get_bas_begin_idx_from_shltyp(ncontr, shell_type, shell2atom_map, &
  end do ! for i
 end subroutine get_bas_begin_idx_from_shltyp
 
-! Calculate the RMSD value of two molecules (in .xyz/.gjf/.fch files).
+! Calculate the RMSD value of two molecules in .xyz/.gjf/.fch/.pdb files.
 ! This subroutine assumes that the atomic labels are in one-to-one correspondence
 ! in two files.
 subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
@@ -1029,7 +1029,6 @@ subroutine rmsd_wrapper(fname1, fname2, reorder, rmsd_v)
  if(relabel) then ! reordering atomic labels requested
   call rmsd_reorder(natom, elem1, elem2, coor1, coor2)
  else             ! keep atomic labels unchanged
-
   if(.not. ALL(elem1 == elem2)) then
    write(6,'(/,A)') 'ERROR in subroutine rmsd_wrapper: elements in two files are&
                     & not identical.'

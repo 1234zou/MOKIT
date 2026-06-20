@@ -1,4 +1,4 @@
-MOKIT 1.2.8rc5 (Jun 3, 2026)
+MOKIT 1.2.8rc6 (Jun 20, 2026)
 ------------------------
 Fixes
 * fix the number of occupied orbitals when ECP/PP is used in get_mf_from_fch
@@ -9,6 +9,8 @@ Fixes
 * fix command line argument bug in subroutine gvb_exclude_XH_A_wrap (introduced in 1.2.7rc20)
 * fix DF-MP2 frozen core setting when MP2_prog=PySCF
 Features
+* add `Polar_prog` and corresponding ORCA/OpenMolcas/Gaussian interfaces
+* add interconversion subroutines between .xyz/.gjf/.pdb
 * support `-dft` in fch2inp and fch2dal
 * support EE-/SCS-/SOS- ADC(2) interface in autosr to the Turbomole program
 * support LR-CC2 command line arguments for fch2mrcc
@@ -18,6 +20,8 @@ Features
 * add subroutine gbw2rest in mokit/src/util_wrapper.f90
 * add spin-pure GP interface to OpenMolcas
 Improvement
+* add `-nocopy` for fch2qchem
+* update subroutine fch2mkl_wrap
 * keep RHF/UHF .py scripts when HF_prog=PySCF
 * add `xc` option in py2gms, py2orca, py2dalton, py2psi, py2molcas
 * add DSD-PBEP86-D3BJ and revDSD-PBEP86-D3BJ support in `-dft` of fch2mkl

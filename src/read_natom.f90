@@ -86,17 +86,17 @@ subroutine read_natom_from_gjf(gjfname, natom)
 end subroutine read_natom_from_gjf
 
 ! check whether the system is periodic in a given .gjf file
-function check_pbc_in_gjf(gjfname) result(pbc)
+subroutine check_pbc_in_gjf(gjfname, pbc)
  implicit none
  integer :: i, fid, nblank
  character(len=240) :: buf0, buf
  character(len=240), intent(in) :: gjfname
- logical :: pbc
+!f2py intent(in) :: gjfname
+ logical, intent(out) :: pbc
+!f2py intent(out) :: pbc
 
- pbc = .false. ! initialization
+ nblank = 0; buf = ' '; pbc = .false.
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- nblank = 0
- buf0 = ' '
 
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
@@ -108,25 +108,28 @@ function check_pbc_in_gjf(gjfname) result(pbc)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in function check_pbc_in_gjf: problematic file '//&
+  write(6,'(/,A)') 'ERROR in subroutine check_pbc_in_gjf: problematic file '//&
                    TRIM(gjfname)
   stop
  end if
 
+ buf0 = ADJUSTL(buf0)
  call upper(buf0(1:1))
  call lower(buf0(2:2))
  if(buf0(1:2) == 'Tv') pbc = .true.
-end function check_pbc_in_gjf
+end subroutine check_pbc_in_gjf
 
 ! check whether the system is periodic in a given .xyz file
-function check_pbc_in_xyz(xyzname) result(pbc)
+subroutine check_pbc_in_xyz(xyzname, pbc)
  implicit none
  integer :: fid
  character(len=240) :: buf
  character(len=240), intent(in) :: xyzname
- logical :: pbc
+!f2py intent(in) :: xyzname
+ logical, intent(out) :: pbc
+!f2py intent(out) :: pbc
 
- pbc = .false. ! initialization
+ pbc = .false.
  open(newunit=fid,file=TRIM(xyzname),status='old',position='rewind')
  read(fid,'(A)') buf
  read(fid,'(A)') buf
@@ -138,7 +141,25 @@ function check_pbc_in_xyz(xyzname) result(pbc)
   call lower(buf(2:7))
   if(buf(1:7) == 'Lattice') pbc = .true.
  end if
-end function check_pbc_in_xyz
+end subroutine check_pbc_in_xyz
+
+! check whether the system is periodic in a specified .pdb file
+subroutine check_pbc_in_pdb(pdbname, pbc)
+ implicit none
+ integer :: fid
+ character(len=240) :: buf
+ character(len=240), intent(in) :: pdbname
+!f2py intent(in) :: pdbname
+ logical, intent(out) :: pbc
+!f2py intent(out) :: pbc
+
+ pbc = .false.
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+ if(buf(1:6) == 'CRYST1') pbc = .true.
+end subroutine check_pbc_in_pdb
 
 ! read the number of atoms from a given .fch file
 subroutine read_natom_from_fch(fchname, natom)
@@ -198,6 +219,7 @@ subroutine read_natom_from_pdb(pdbname, natom)
 
  natom = 0
  open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -206,7 +228,8 @@ subroutine read_natom_from_pdb(pdbname, natom)
 
  if(i /= 0) then
   write(6,'(/,A)') 'ERROR in subroutine read_natom_from_pdb: failed to read nat&
-                   &om from file '//TRIM(pdbname)
+                   &om from file'
+  write(6,'(A)') TRIM(pdbname)
   close(fid)
   stop
  end if
@@ -547,7 +570,7 @@ end subroutine read_natom_from_molden
 
 subroutine read_natom_from_gau_log(outname, natom)
  implicit none
- integer :: fid
+ integer :: i, fid
  integer, intent(out) :: natom
 !f2py intent(out) :: natom
  character(len=240) :: buf
@@ -558,13 +581,51 @@ subroutine read_natom_from_gau_log(outname, natom)
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
-  read(fid,'(A)') buf
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
   if(buf(2:8) == 'NAtoms=') exit
  end do ! for while
 
  close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_natom_from_gau_log: "NAtoms=" not &
+                   &located in file'
+  write(6,'(A)') TRIM(outname)
+  stop
+ end if
+
  read(buf(9:),*) natom
 end subroutine read_natom_from_gau_log
+
+subroutine read_natom_from_orca_out(outname, natom)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: natom
+!f2py intent(out) :: natom
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+
+ natom = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:15) == 'Number of atoms') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_natom_from_orca_out: "Number of at&
+                   &oms" not located in'
+  write(6,'(A)') 'file '//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, '.', back=.true.)
+ read(buf(i+1:),*) natom
+end subroutine read_natom_from_orca_out
 
 subroutine read_natom_from_orca_prop_txt(txtname, natom)
  implicit none
@@ -812,6 +873,41 @@ subroutine read_lat_vec_from_coord(coord, lat_vec)
  lat_vec = lat_vec*Bohr_const
 end subroutine read_lat_vec_from_coord
 
+! read lattice parameters (a,b,c,alpha,beta,gamma) from a specified .pdb file
+subroutine read_lat_para_from_pdb(pdbname, cell)
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: cell(6)
+ character(len=240) :: buf
+ character(len=240), intent(in) :: pdbname
+
+ cell = 0d0
+ open(newunit=fid,file=TRIM(pdbname),status='old',position='rewind')
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ close(fid)
+
+ if(buf(1:6) /= 'CRYST1') then
+  write(6,'(/,A)') 'ERROR in subroutine read_lat_para_from_pdb: "CRYST1" is not&
+                   & found in the second'
+  write(6,'(A)') 'line in file '//TRIM(pdbname)
+  stop
+ end if
+
+ read(buf(7:),*) cell(1:6)
+end subroutine read_lat_para_from_pdb
+
+! read lattice vectors from a specified .pdb file
+subroutine read_lat_vec_from_pdb(pdbname, lat_vec)
+ implicit none
+ real(kind=8) :: cell(6)
+ real(kind=8), intent(out) :: lat_vec(3,3)
+ character(len=240), intent(in) :: pdbname
+
+ call read_lat_para_from_pdb(pdbname, cell)
+ call lat_para2lat_vec(cell, lat_vec)
+end subroutine read_lat_vec_from_pdb
+
 ! Read lattice vectors (3,3) from a specified file, where the filetype would be
 ! detected automatically.
 subroutine read_lat_vec_from_file(fname, lat_vec)
@@ -826,14 +922,16 @@ subroutine read_lat_vec_from_file(fname, lat_vec)
  call find_specified_suffix(fname(1:k), '.', i)
 
  select case(fname(i:k))
- case('.molden')
-  call read_lat_vec_from_molden(fname, lat_vec)
- case('.xyz')
-  call read_lat_vec_from_xyz(fname, lat_vec)
- case('.inp')
-  call read_lat_vec_from_cp2k_inp(fname, lat_vec)
  case('.coord')
   call read_lat_vec_from_coord(fname, lat_vec)
+ case('.inp')
+  call read_lat_vec_from_cp2k_inp(fname, lat_vec)
+ case('.molden')
+  call read_lat_vec_from_molden(fname, lat_vec)
+ case('.pdb')
+  call read_lat_vec_from_pdb(fname, lat_vec)
+ case('.xyz')
+  call read_lat_vec_from_xyz(fname, lat_vec)
  end select
 end subroutine read_lat_vec_from_file
 

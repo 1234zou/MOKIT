@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.8rc5 '
- character(len=11), parameter :: date = '2026-Jun-3'
+ character(len=9), parameter :: version = '1.2.8rc6 '
+ character(len=11), parameter :: date = '2026-Jun-20'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -700,7 +700,7 @@ subroutine modify_memory_in_qchem_inp(inpname, mem)
 end subroutine modify_memory_in_qchem_inp
 
 ! Modify memory and the number of MPI processes in a given ORCA .inp file. Note
-! that the mem must be given in MB and for each core.
+! that the mem must be given in MB per core.
 subroutine modify_mem_and_nproc_in_orca_inp(inpname, mem, nproc)
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -1368,6 +1368,19 @@ subroutine find_specified_suffix(fname, suffix, i)
  end if
 end subroutine find_specified_suffix
 
+! change the suffix in a specified filename
+subroutine change_suffix_in_fname(fname, old_suffix, new_suffix)
+ implicit none
+ integer :: i
+ character(len=*), intent(in) :: old_suffix, new_suffix
+ character(len=240) :: buf
+ character(len=240), intent(out) :: fname
+
+ call find_specified_suffix(fname, TRIM(old_suffix), i)
+ buf = fname(1:i-1)//TRIM(new_suffix)
+ fname = buf
+end subroutine change_suffix_in_fname
+
 subroutine strip_ip_ea_eom(method)
  implicit none
  character(len=15), intent(inout) :: method
@@ -1601,8 +1614,12 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
  implicit none
  integer :: i, j, k, fid
  integer, intent(out) :: mem, np
+!f2py intent(out) :: mem, np
+ character(len=49), parameter :: error_warn = 'ERROR in subroutine read_mem_and&
+                                              &_nproc_from_gjf: '
  character(len=240) :: buf
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
 
  ! default settings
  mem = 1000 ! 1000 MB
@@ -1628,10 +1645,8 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
    case('mw')
     mem = 8*mem
    case default
-    write(6,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: memory&
-                    & unit cannot be recognized.'
-    write(6,'(A)') "Only 'GB', 'MB', 'GW', and 'MW' are accepted."
-    write(6,'(A)') 'unit = '//TRIM(buf(j-1:j))
+    write(6,'(/,A)') error_warn//'unrecognized memory unit.'
+    write(6,'(A)') 'Only GB/MB/GW/MW are accepted. But got "'//buf(j-1:j)//'"'
     stop
    end select
   else if(buf(1:6) == '%nproc') then
@@ -1641,11 +1656,34 @@ subroutine read_mem_and_nproc_from_gjf(gjfname, mem, np)
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') 'ERROR in subroutine read_mem_and_nproc_from_gjf: incomplete&
-                   & file '//TRIM(gjfname)
+  write(6,'(/,A)') error_warn//'wrong syntax of %mem or %nproc'
+  write(6,'(A)') 'in file '//TRIM(gjfname)
   stop
  end if
 end subroutine read_mem_and_nproc_from_gjf
+
+! Reduce the number of CPU cores and enlarge memory. Usually used for MPI-type
+! job like ORCA/Molpro.
+! Note: `mem_gb_in` is the total memory in unit GB, but `mem_mb_per_core` is the
+!  memory per core in unit MB.
+subroutine reduce_nproc_and_enlarge_mem(nproc_in, mem_gb_in, ntimes, nproc_out,&
+                                        mem_mb_per_core)
+ implicit none
+ integer, intent(in) :: nproc_in, mem_gb_in, ntimes
+!f2py intent(in) :: nproc_in, mem_gb_in, ntimes
+ integer, intent(out) :: nproc_out, mem_mb_per_core
+!f2py intent(out) :: nproc_out, mem_mb_per_core
+
+ if(ntimes < 1) then
+  write(6,'(/,A)') 'ERROR in subroutine reduce_nproc_and_enlarge_mem: ntimes>=1&
+                   & is required.'
+  write(6,'(A,I0)') 'But got ntimes=', ntimes
+  stop
+ else ! ntimes >= 1
+  nproc_out = MAX(1, nproc_in/ntimes)
+  mem_mb_per_core = FLOOR(DBLE(mem_gb_in)*0.98d3/DBLE(nproc_out))
+ end if
+end subroutine reduce_nproc_and_enlarge_mem
 
 ! read the method and basis set from a string
 ! Note: please call subroutine lower before calling this subroutine,
@@ -1892,9 +1930,9 @@ subroutine get_dpv_after_flag(buf, flag, first, r)
  end if
 
  if(i == 0) then
-  write(6,'(/,A)') "ERROR in subroutine get_dpv_after_flag: no keyword '"//&
-                   flag//"' found in"
-  write(6,'(A)') "the string '"//TRIM(buf)//"'."
+  write(6,'(/,A)') 'ERROR in subroutine get_dpv_after_flag: no keyword "'//&
+                   flag//'" found in'
+  write(6,'(A)') 'the string "'//TRIM(buf)//'".'
   stop
  end if
 

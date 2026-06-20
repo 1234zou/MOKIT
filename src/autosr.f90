@@ -841,12 +841,10 @@ subroutine do_mp2()
   end if
  case('orca')
   inpname = hf_fch(1:i-1)//'_MP2.inp'
-  old_inp = hf_fch(1:i-1)//'_o.inp'
   chkname = hf_fch(1:i-1)//'_MP2.engrad'
   mklname = hf_fch(1:i-1)//'_MP2.mkl'
   no_chk = hf_fch(1:i-1)//'_MP2.mp2nat'
-  call fch2mkl_wrap(hf_fch, mklname)
-  i = RENAME(TRIM(old_inp), TRIM(inpname))
+  call fch2mkl_wrap(hf_fch, mklname, REPEAT(' ',30), .true.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
@@ -1078,13 +1076,11 @@ subroutine do_cc()
   call read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, e)
  case('orca')
   inpname = hf_fch(1:i-1)//'_CC.inp'
-  old_inp = hf_fch(1:i-1)//'_o.inp'
   mklname = hf_fch(1:i-1)//'_CC.mkl'
   gbwname = hf_fch(1:i-1)//'_CC.gbw'
   no_chk = hf_fch(1:i-1)//'_CC.mdci.nat'
   gradname = hf_fch(1:i-1)//'_CC.engrad'
-  call fch2mkl_wrap(hf_fch, mklname)
-  i = RENAME(TRIM(old_inp), TRIM(inpname))
+  call fch2mkl_wrap(hf_fch, mklname, REPEAT(' ',30), .true.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
@@ -1224,11 +1220,11 @@ subroutine do_adc()
   mkl2gbw, fch2psi_wrap, fch2mrcc_wrap, fch2qchem_wrap, fch2tm_wrap
  use phys_cons, only: au2ev
  implicit none
- integer :: i, job_type, RENAME
+ integer :: i, job_type
  real(kind=8), allocatable :: e_ev(:)
  real(kind=8), external :: mult2ssquare
  character(len=24) :: data_string = ' '
- character(len=240) :: inpname, outname, old_inp, mklname
+ character(len=240) :: inpname, outname, mklname
  logical :: ee, x_triplet
 
  if(adc_n == 0) return
@@ -1253,7 +1249,7 @@ subroutine do_adc()
  ci_ssquare(0) = mult2ssquare(mult)
  if(ip .or. ea) ci_ssquare(1:nstate) = 0.75d0
  if(given_xmult) ci_ssquare(1:nstate) = mult2ssquare(xmult)
- i = INDEX(hf_fch, '.fch', back=.true.)
+ call find_specified_suffix(hf_fch, '.fch', i)
 
  select case(TRIM(adc_prog))
  case('pyscf') ! IP-/EA-ADC, no EE-ADC
@@ -1272,11 +1268,9 @@ subroutine do_adc()
   end if
  case('orca') ! IP-/EE-/EA-ADC
   inpname = hf_fch(1:i-1)//'_ADC.inp'
-  old_inp = hf_fch(1:i-1)//'_o.inp'
   mklname = hf_fch(1:i-1)//'_ADC.mkl'
   outname = hf_fch(1:i-1)//'_ADC.out'
-  call fch2mkl_wrap(hf_fch, mklname)
-  i = RENAME(TRIM(old_inp), TRIM(inpname))
+  call fch2mkl_wrap(hf_fch, mklname, REPEAT(' ',30), .true.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
@@ -1372,10 +1366,9 @@ subroutine do_eomcc()
 
  if(.not. eom) return
  write(6,'(//,A)') 'Enter subroutine do_eomcc...'
- i = INDEX(hf_fch, '.fch', back=.true.)
-
  if(nstate == 0) nstate = 3
  allocate(ex_elec_e(0:nstate), ci_ssquare(0:nstate), fosc(nstate))
+ call find_specified_suffix(hf_fch, '.fch', i)
 
  select case(TRIM(eom_prog))
  case('pyscf')
@@ -1410,11 +1403,9 @@ subroutine do_eomcc()
                                  fosc)
  case('orca')
   inpname = hf_fch(1:i-1)//'_EOMCC.inp'
-  old_inp = hf_fch(1:i-1)//'_o.inp'
   mklname = hf_fch(1:i-1)//'_EOMCC.mkl'
   outname = hf_fch(1:i-1)//'_EOMCC.out'
-  call fch2mkl_wrap(hf_fch, mklname)
-  i = RENAME(TRIM(old_inp), TRIM(inpname))
+  call fch2mkl_wrap(hf_fch, mklname, REPEAT(' ',30), .true.)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
   call mkl2gbw(mklname)
@@ -1552,7 +1543,7 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   ccsdt, gen_no, relaxed_dm, ip, ea, nstate, chem_core, force
  use mol, only: mult
  implicit none
- integer :: i, fid, fid1, RENAME
+ integer :: i, nproc1, mem1, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
@@ -1579,9 +1570,9 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   stop
  end if
 
- write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
- i = FLOOR(0.9d0*DBLE(mem*1000)/DBLE(nproc))
- write(fid1,'(A,I0)') '%maxcore ', i ! MB
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
+ write(fid1,'(A,I0,A)') '%pal nprocs ',nproc1,' end'
+ write(fid1,'(A,I0)') '%maxcore ', mem1 ! MB
 
  if(mo_rhf) then
   if(mult > 1) then
@@ -1629,7 +1620,7 @@ subroutine prt_posthf_orca_inp(inpname, excited)
    write(fid1,'(A)',advance='no') 'MP2'
   end if
  else
-  if(RI) then
+  if(RI .and. (.not. excited)) then
    write(fid1,'(A)',advance='no') ' RI-'
   else
    write(fid1,'(A)',advance='no') ' '
@@ -2710,11 +2701,11 @@ end subroutine prt_adc_pyscf_inp
 
 ! Print ORCA IP-/EE-/EA- ADC(2) input
 subroutine prt_adc_orca_inp(inpname)
- use sr_keyword, only: mem, nproc, RI, RIJK_bas, RIC_bas, mo_rhf, ip, ea, nstate,&
-  chem_core, force
+ use sr_keyword, only: mem, nproc, DKH2, X2C, RI, RIJK_bas, RIC_bas, mo_rhf, &
+  ip, ea, nstate, chem_core, force
  use mol, only: mult
  implicit none
- integer :: i, fid, fid1, RENAME
+ integer :: i, nproc1, mem1, fid, fid1, RENAME
  character(len=240), intent(in) :: inpname
  character(len=240) :: buf, inpname1
  logical :: std_def2j
@@ -2736,9 +2727,9 @@ subroutine prt_adc_orca_inp(inpname)
   if(buf(1:6) == '%coord') exit
  end do ! for while
 
- write(fid1,'(A,I0,A)') '%pal nprocs ',nproc,' end'
- i = FLOOR(0.9d0*DBLE(mem*1000)/DBLE(nproc))
- write(fid1,'(A,I0)') '%maxcore ', i ! MB
+ call reduce_nproc_and_enlarge_mem(nproc, mem, 2, nproc1, mem1)
+ write(fid1,'(A,I0,A)') '%pal nprocs ',nproc1,' end'
+ write(fid1,'(A,I0)') '%maxcore ', mem1 ! MB
 
  if(mo_rhf) then
   if(mult > 1) then
@@ -2756,8 +2747,14 @@ subroutine prt_adc_orca_inp(inpname)
   if(RIJK_bas(1:i) == 'autoaux') then
    write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 AutoAux'
   else if(RIJK_bas(i-2:i) == '/JK') then
-   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//RIJK_bas(1:i-1)//' '//&
-                                  TRIM(RIC_bas)
+   write(fid1,'(A)',advance='no') ' RIJCOSX defgrid3 '//TRIM(RIC_bas)
+   if(DKH2) then
+    write(fid1,'(A)',advance='no') ' SARC/J'
+   else if(X2C) then
+    write(fid1,'(A)',advance='no') ' x2c/J'
+   else
+    write(fid1,'(A)',advance='no') ' def2/J'
+   end if
   else
    std_def2j = .false.
   end if
@@ -2819,7 +2816,7 @@ subroutine read_mp2_e_from_gau_log(outname, ref_e, tot_e)
  character(len=240), intent(in) :: outname
 
  ref_e = 0d0; tot_e = 0d0
- call read_hf_e_and_ss_from_gau_log(outname, ref_e, ss)
+ call read_hf_e_and_ss_from_gau_log(outname, .false., ref_e, ss)
 
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  do while(.true.)
@@ -3174,7 +3171,7 @@ subroutine read_cc_e_from_gau_log(outname, t1diag, ref_e, tot_e)
  character(len=240), intent(in) :: outname
 
  t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
- call read_hf_e_and_ss_from_gau_log(outname, ref_e, ss)
+ call read_hf_e_and_ss_from_gau_log(outname, .false., ref_e, ss)
 
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
  do while(.true.)

@@ -38,8 +38,8 @@ program main
   if(str == '-sph') then
    spherical = .true.
   else
-   write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: wrong command line arg&
-                    &uments!'
+   write(6,'(/,A)') 'ERROR in program bas_gms2molcas: wrong command line argume&
+                    &nts!'
    write(6,'(A)') "The 2nd argument can only be '-sph'. But got '"//str//"'"
    stop
   end if
@@ -59,6 +59,8 @@ subroutine bas_gms2molcas(fort7, spherical)
  ! input is the (Open)Molcas .input file
  character(len=1) :: stype
  character(len=21) :: str1, str2
+ character(len=36), parameter :: error_warn = 'ERROR in subroutine bas_gms2molc&
+                                              &as: '
  logical, intent(in) :: spherical
  logical :: uhf, ghf, X2C
 
@@ -139,9 +141,8 @@ subroutine bas_gms2molcas(fort7, spherical)
  deallocate(nuc, elem, ntimes, coor, all_ecp, ghost)
 
  if(rc /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine bas_gms2molcas: it seems the '$DATA' ha&
-                   &s no corresponding '$END'."
-  write(6,'(A)') 'Incomplete file '//TRIM(fort7)
+  write(6,'(/,A)') error_warn//'it seems the `$DATA` has no corresponding'
+  write(6,'(A)') '`$END`. Please open file '//TRIM(fort7)//' and check.'
   close(fid2,status='delete')
   stop
  end if
@@ -160,14 +161,14 @@ subroutine bas_gms2molcas(fort7, spherical)
  select case(rel)
  case(-2) ! nothing
  case(-1) ! RESC
-  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: RESC keywords detected.'
+  write(6,'(/,A)') error_warn//'RESC keywords detected.'
   write(6,'(A)') 'But RESC is not supported in (Open)Molcas.'
   stop
  case(0,1,2,4)  ! DKH0/1/2/4
   if(.not. X2C) write(fid2,'(A,I2.2,A)') 'Relativistic= R',rel,'O'
   !if(.not. X2C) write(fid2,'(A,I2.2,A)') 'R',rel,'O'
  case default
-  write(6,'(/,A)') 'ERROR in subroutine bas_gms2molcas: rel out of range!'
+  write(6,'(/,A)') error_warn//'rel out of range!'
   write(6,'(A,I0)') 'rel=', rel
   close(fid2,status='delete')
   stop

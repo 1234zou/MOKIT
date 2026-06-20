@@ -370,25 +370,32 @@ def average_nmr_shielding(nmr_out, atom_list, program='gaussian', paramagnetic=F
     find (paramagnetic) NMR isotropic shieldings of target atoms in the given
     output file and calculate the average value
     '''
-    from mokit.lib.rwwfn import average_nmr_shield_in_gau_log, \
-     average_nmr_shield_in_orca_out, average_pnmr_shield_in_orca_pnmr_out
+    from mokit.lib.rwgeom import read_natom_from_gau_log, read_natom_from_orca_out
+    from mokit.lib.rwwfn import read_nmr_iso_shield_from_gau_log, \
+        read_para_shield_from_orca_pnmr_out, read_nmr_iso_shield_from_orca_out
 
     natom = len(atom_list)
-    if start_from_one is False:
-        new_list = [i + 1 for i in atom_list]
+    if start_from_one:
+        new_list = [i-1 for i in atom_list]
     else:
-        new_list = atom_list
+        new_list = atom_list.copy()
 
     if program == 'gaussian':
         if paramagnetic:
             raise ValueError('pNMR calculation is not supported in Gaussian.')
         else:
-            ave_val = average_nmr_shield_in_gau_log(nmr_out, natom, new_list)
+            natom0 = read_natom_from_gau_log(nmr_out)
+            iso_shield = read_nmr_iso_shield_from_gau_log(nmr_out, natom0)
+            ave_val = np.mean(iso_shield[new_list])
     elif program == 'orca':
         if paramagnetic:
-            ave_val = average_pnmr_shield_in_orca_pnmr_out(nmr_out, natom, new_list)
+            new_list = [i+1 for i in new_list]
+            para_shield = read_para_shield_from_orca_pnmr_out(nmr_out, natom, new_list)
+            ave_val = np.mean(para_shield)
         else:
-            ave_val = average_nmr_shield_in_orca_out(nmr_out, natom, new_list)
+            natom0 = read_natom_from_orca_out(nmr_out)
+            iso_shield = read_nmr_iso_shield_from_orca_out(nmr_out, natom0)
+            ave_val = np.mean(iso_shield[new_list])
     else:
         raise ValueError('program not supported.')
     return ave_val
