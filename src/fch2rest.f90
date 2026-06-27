@@ -257,7 +257,7 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  write(fid,'(2X,A)') 'basis_path = "./'//TRIM(basename)//'-basis"'
  write(fid,'(2X,A)') 'auxbas_path = "def2-universal-JKFIT"'
  write(fid,'(2X,A)') '#auxbas_path = "def2-SV(P)-JKFIT"'
- write(fid,'(2X,A)') 'chkfile = "'//TRIM(basename)//'.pchk"'
+ write(fid,'(2X,A)') 'guessfile = "'//TRIM(basename)//'.pchk"'
  write(fid,'(2X,A,I0)') 'charge = ', charge
  write(fid,'(2X,A,I0)') 'spin = ', mult
 
@@ -335,8 +335,7 @@ subroutine rest_fch2pchk(fchname, uhf)
  write(outname,'(A,I0,A)') fchname(1:i-1)//'_', k, '.out'
 
  open(newunit=fid,file=TRIM(pyname),status='replace')
- write(fid,'(A)') 'from pyscf.scf.chkfile import dump_scf'
- write(fid,'(A)') 'from mokit.lib.gaussian import load_mol_from_fch'
+ write(fid,'(A)') 'from mokit.lib.dump_chk import dump_scf_no_mol'
  write(fid,'(A)') 'from mokit.lib.rwwfn import ('
  write(fid,'(4X,A)') 'read_nbf_and_nif_from_fch,'
  write(fid,'(4X,A)') 'read_na_and_nb_from_fch,'
@@ -352,7 +351,6 @@ subroutine rest_fch2pchk(fchname, uhf)
 
  write(fid,'(/,A)') "fchname = '"//TRIM(fchname)//"'"
  write(fid,'(A)') "chkfile = '"//TRIM(pchk)//"'"
- write(fid,'(A)') 'mol = load_mol_from_fch(fchname)'
  write(fid,'(A)') 'nbf, nif = read_nbf_and_nif_from_fch(fchname)'
  write(fid,'(A)') 'na, nb = read_na_and_nb_from_fch(fchname)'
  write(fid,'(A)') 'e_tot = 0e0'
@@ -369,7 +367,7 @@ subroutine rest_fch2pchk(fchname, uhf)
   write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
   write(fid,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
  end if
- write(fid,'(A)') 'dump_scf(mol,chkfile,e_tot,mo_ene,mo_coeff,mo_occ,False)'
+ write(fid,'(A)') 'dump_scf_no_mol(chkfile,e_tot,mo_ene,mo_coeff,mo_occ)'
  close(fid)
 
  call submit_pyscf_job(pyname, .false.)
