@@ -926,7 +926,7 @@ subroutine prt_cas_orca_inp(inpname, scf, polar)
  write(fid2,'(A)',advance='no') '!'
  ! RIJK in CASSCF must be combined with CONVentional
  if(RI) write(fid2,'(A)',advance='no') ' RIJK conv '//TRIM(RIJK_bas)
- if(polar) write(fid2,'(A)',advance='no') ' aug-cc-pVTZ/C'
+ if(polar) write(fid2,'(A)',advance='no') ' def2-TZVPPD/C'
  ! TODO: automatically determine RIC_bas in this case
 
  if(scf) then

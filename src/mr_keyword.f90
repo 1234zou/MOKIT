@@ -2023,9 +2023,10 @@ subroutine auxbas_convert(inbas, outbas, itype)
  character(len=21) :: inbas1
  character(len=21), intent(in) :: inbas
  character(len=21), intent(out) :: outbas
+ character(len=36), parameter :: error_warn = 'ERROR in subroutine auxbas_conve&
+                                              &rt: '
 
- outbas = ' '
- inbas1 = inbas
+ outbas = ' '; inbas1 = inbas
  call lower(inbas1)
 
  select case(inbas1)
@@ -2041,8 +2042,8 @@ subroutine auxbas_convert(inbas, outbas, itype)
   case(2) ! Molpro
    outbas = TRIM(inbas)//'fit'
   case default
-   write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
-   write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
+   write(6,'(A)') 'inbas='//TRIM(inbas)
    stop
   end select
  case('def2/jk')
@@ -2055,12 +2056,12 @@ subroutine auxbas_convert(inbas, outbas, itype)
    ! But so far there is a tiny bug for definition of def2-universal-JKFIT in
    ! Molpro, thus we have to use 'qzvpp/jkfit'. And these two are identical in fact.
   case default
-   write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: invalid itype.'
-   write(6,'(A,I0)') 'inbas='//TRIM(inbas)//', itype=', itype
+   write(6,'(/,A,I0)') error_warn//'invalid itype=', itype
+   write(6,'(A)') 'inbas='//TRIM(inbas)
    stop
   end select
  case default
-  write(6,'(/,A)') 'ERROR in subroutine auxbas_convert: inbas out of range.'
+  write(6,'(/,A)') error_warn//'inbas out of range.'
   write(6,'(A)') 'inbas1='//TRIM(inbas1)
   stop
  end select

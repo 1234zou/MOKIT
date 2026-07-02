@@ -176,7 +176,7 @@ subroutine fch2rest(fchname, dftname, disp_type)
 
  call gen_rest_bas_dir(dirname)
  call free_arrays_in_fch_content()
- call rest_fch2pchk(fchname, uhf)
+ call rest_fch2pchk(fchname, mult, uhf)
 end subroutine fch2rest
 
 ! Auto-detect the basis set directory of the REST program, and use it later for
@@ -321,9 +321,10 @@ subroutine write_rest_in_and_basis(inpname, dftname, disp_type, charge, mult, &
  close(fid)
 end subroutine write_rest_in_and_basis
 
-subroutine rest_fch2pchk(fchname, uhf)
+subroutine rest_fch2pchk(fchname, mult, uhf)
  implicit none
  integer :: i, k, fid
+ integer, intent(in) :: mult
  character(len=240) :: pchk, pyname, outname
  character(len=240), intent(in) :: fchname
  logical, intent(in) :: uhf
@@ -340,10 +341,10 @@ subroutine rest_fch2pchk(fchname, uhf)
  write(fid,'(4X,A)') 'read_nbf_and_nif_from_fch,'
  write(fid,'(4X,A)') 'read_na_and_nb_from_fch,'
  write(fid,'(4X,A)') 'read_eigenvalues_from_fch,'
- if(uhf) then
-  write(fid,'(4X,A)') 'get_occ_from_na_nb2'
- else
+ if((.not.uhf) .and. mult==1) then
   write(fid,'(4X,A)') 'get_occ_from_na_nb'
+ else
+  write(fid,'(4X,A)') 'get_occ_from_na_nb2'
  end if
  write(fid,'(A)') ')'
  write(fid,'(A)') 'from mokit.lib.fch2py import fch2py'
@@ -365,7 +366,11 @@ subroutine rest_fch2pchk(fchname, uhf)
  else
   write(fid,'(A)') "mo_ene = read_eigenvalues_from_fch(fchname, nif, 'a')"
   write(fid,'(A)') "mo_coeff = fch2py(fchname, nbf, nif, 'a')"
-  write(fid,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
+  if(mult == 1) then
+   write(fid,'(A)') 'mo_occ = get_occ_from_na_nb(nif, na, nb)'
+  else
+   write(fid,'(A)') 'mo_occ = get_occ_from_na_nb2(nif, na, nb)'
+  end if
  end if
  write(fid,'(A)') 'dump_scf_no_mol(chkfile,e_tot,mo_ene,mo_coeff,mo_occ)'
  close(fid)

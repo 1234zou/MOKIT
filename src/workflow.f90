@@ -3,6 +3,7 @@
 ! 1) support specification of DFT in two steps
 ! 2) support specification of temperature in pNMR
 ! 3) check whether Gaussian g-tensor is correct and can be used alternatively
+! 4) check whether `def2/J` is sufficient for RIJK
 
 module mol_and_calc_info
  implicit none
@@ -11,9 +12,18 @@ module mol_and_calc_info
  integer :: charge = 0   ! the net charge of the molecule
  integer :: mult = 1     ! spin multiplicity
  integer :: natom = 0    ! the number of atoms
- integer :: dis_type = 2 ! dispersion correction, 0/1/2 for none/D3(0)/D3(BJ)
- integer :: nmr_bas_choice = 0 ! pcSseg-1 by default
- ! 0/1/2 for pcSseg-1/pcSseg-2/def2TZVP for all atoms
+ integer :: dis_type = 0 ! dispersion correction, 0/1/2 for none/D3(0)/D3(BJ)
+ ! By default, we will use D3BJ for singlet, none for non-singlet.
+ ! If the user specified this parameter, override default settings.
+
+ integer :: orb_shld_bas = 0 ! pcSseg-1 by default
+ ! 0/1/2/3 for pcSseg-1/pcSseg-2/def2TZVP/def2TZVPP for all atoms
+
+ integer :: para_shld_bas = 0 ! pcH-1 by default
+ ! 0/1 for pcH-1/pcH-2 for elements H and C
+ ! For elements beyond pcH-n, use def2-TZVP.
+ ! TODO: we need more detailed strategy for this two basis sets.
+
  integer, allocatable :: nuc(:), def2_bas_typ(:)
  real(kind=8) :: pnmr_temperature = 298d0 ! 298 K
  real(kind=8), allocatable :: coor(:,:), sigma_orb(:), sigma_para(:)
@@ -25,7 +35,8 @@ module mol_and_calc_info
  character(len=30) :: method
 
  ! method for the NMR chemical shielding tensor
- character(len=4), parameter :: method_nmr_def = 'B972'
+ character(len=14), parameter :: method_nmr_def = 'revTPSSrevTPSS'
+ character(len=4), parameter :: para_shld_meth = 'B972'
  character(len=30) :: method_nmr
 
  character(len=6) :: imp_sol_model = 'iefpcm' ! implicit solvent model
@@ -33,6 +44,7 @@ module mol_and_calc_info
  character(len=240) :: mokit_root = ' '
  character(len=240) :: gau_path = ' '
  character(len=240) :: orca_path = ' '
+ character(len=240) :: cur_dir = ' ' ! current directory
 
  logical :: uhf = .false. ! .True.: UHF/UKS; .False.: RHF/RKS
  logical :: skip_opt_freq = .false.
@@ -68,7 +80,8 @@ subroutine find_def2_bas_typ(natom, nuc, def2_bas_typ)
 end subroutine find_def2_bas_typ
 
 ! print gen/genecp def2SVP and def2TZVP basis sets into a specified .gjf
-subroutine prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ)
+subroutine prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ, blank_line, &
+                                skip_atom)
  use fch_content, only: nuc2elem
  use mol_and_calc_info, only: elem
  implicit none
@@ -76,6 +89,7 @@ subroutine prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ)
  integer, intent(in) :: fid, natom
  integer, intent(in) :: nuc(natom), def2_bas_typ(natom)
  logical :: prt, alive
+ logical, intent(in) :: blank_line, skip_atom(natom)
 
  if(.not. allocated(elem)) then
   allocate(elem(natom))
@@ -84,56 +98,53 @@ subroutine prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ)
   end do ! for i
  end if
 
- ! assuming that we just printed the Cartesian coordinates, so we need one
- ! blank line
- write(fid,'(/)',advance='no')
+ if(blank_line) write(fid,'(/)',advance='no')
 
- if(ANY(def2_bas_typ < 2)) then
-  k = 0
-  do i = 1, natom, 1
-   prt = .false.
-   if(i == 1) then
-    if(def2_bas_typ(1) < 2) prt = .true.
+ k = 0
+ do i = 1, natom, 1
+  if(skip_atom(i)) cycle
+  prt = .false.
+  if(i == 1) then
+   if(def2_bas_typ(1) < 2) prt = .true.
+  else
+   if(ALL(nuc(1:i-1)/=nuc(i)) .and. def2_bas_typ(i)<2) prt = .true.
+  end if
+  if(prt) then
+   k = k + 1
+   if(k == 1) then
+    write(fid,'(A)',advance='no') TRIM(elem(i))
    else
-    if(ALL(nuc(1:i-1)/=nuc(i)) .and. def2_bas_typ(i)<2) prt = .true.
+    write(fid,'(A)',advance='no') ' '//TRIM(elem(i))
    end if
-   if(prt) then
-    k = k + 1
-    if(k == 1) then
-     write(fid,'(A)',advance='no') TRIM(elem(i))
-    else
-     write(fid,'(A)',advance='no') ' '//TRIM(elem(i))
-    end if
-   end if
-  end do ! for i
-  write(fid,'(A,/,A,/,A)') ' 0', 'def2SVP', '****'
- end if
+  end if
+ end do ! for i
+ if(k > 0) write(fid,'(A,/,A,/,A)') ' 0', 'def2SVP', '****'
 
- if(ANY(def2_bas_typ > 1)) then
-  k = 0
-  do i = 1, natom, 1
-   prt = .false.
-   if(i == 1) then
-    if(def2_bas_typ(1) > 1) prt = .true.
+ k = 0
+ do i = 1, natom, 1
+  if(skip_atom(i)) cycle
+  prt = .false.
+  if(i == 1) then
+   if(def2_bas_typ(1) > 1) prt = .true.
+  else
+   if(ALL(nuc(1:i-1)/=nuc(i)) .and. def2_bas_typ(i)>1) prt = .true.
+  end if
+  if(prt) then
+   k = k + 1
+   if(k == 1) then
+    write(fid,'(A)',advance='no') TRIM(elem(i))
    else
-    if(ALL(nuc(1:i-1)/=nuc(i)) .and. def2_bas_typ(i)>1) prt = .true.
+    write(fid,'(A)',advance='no') ' '//TRIM(elem(i))
    end if
-   if(prt) then
-    k = k + 1
-    if(k == 1) then
-     write(fid,'(A)',advance='no') TRIM(elem(i))
-    else
-     write(fid,'(A)',advance='no') ' '//TRIM(elem(i))
-    end if
-   end if
-  end do ! for i
-  write(fid,'(A,/,A,/,A)') ' 0', 'def2TZVP', '****'
- end if
+  end if
+ end do ! for i
+ if(k > 0) write(fid,'(A,/,A,/,A)') ' 0', 'def2TZVP', '****'
 
  if(ANY(nuc > 36)) then
   write(fid,'(/)',advance='no')
   k = 0
   do i = 1, natom, 1
+   if(skip_atom(i)) cycle
    prt = .false.
    alive = (def2_bas_typ(i)==1 .or. def2_bas_typ(i)==3)
    if(i == 1) then
@@ -150,7 +161,7 @@ subroutine prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ)
     end if
    end if
   end do ! for i
-  write(fid,'(/,A)') 'def2'
+  if(k > 0) write(fid,'(/,A)') 'def2'
  end if
 
  write(fid,'(/)')
@@ -167,6 +178,7 @@ subroutine write_sp_gjf(gjfname)
  character(len=34), parameter :: error_warn='ERROR in subroutine write_sp_gjf: '
  character(len=240) :: chkname
  character(len=240), intent(in) :: gjfname
+ logical, allocatable :: skip_atom(:)
 
  if(.not. (allocated(nuc) .or. allocated(elem))) then
   write(6,'(/,A)') error_warn//'neither of `nuc` and `elem` array is allocated.'
@@ -238,18 +250,21 @@ subroutine write_sp_gjf(gjfname)
  call find_def2_bas_typ(natom, nuc, def2_bas_typ)
  ! TODO: also check the connectivity of each atom. For hypervalent atoms, change
  ! to def2-TZVP automatically.
- call prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ)
-
+ allocate(skip_atom(natom))
+ skip_atom = .false.
+ call prt_gen_def2_bas2gjf(fid, natom, nuc, def2_bas_typ, .true., skip_atom)
+ deallocate(skip_atom)
  close(fid)
 end subroutine write_sp_gjf
 
 ! write/create a .gjf file for the single-point calculation using method_nmr
 subroutine write_nmr_gjf1(gjfname, old_chk)
  use mol_and_calc_info, only: mem, nproc, uhf, method_nmr, imp_sol_model, &
-  solvent, mokit_root, natom, elem, nuc, nmr_bas_choice, def2_bas_typ
+  solvent, mokit_root, natom, elem, nuc, orb_shld_bas, def2_bas_typ
  implicit none
  integer :: i, k, fid
  character(len=6) :: str6
+ character(len=9) :: str9
  character(len=36), parameter :: error_warn = 'ERROR in subroutine write_nmr_gj&
                                               &f1: '
  character(len=240) :: chkname
@@ -296,14 +311,14 @@ subroutine write_nmr_gjf1(gjfname, old_chk)
  end if
 
  write(fid,'(A,/)') ' nosymm int=nobasistransform scf(xqc,maxcycle=500,NoVarAcc&
-                     &) guess=read geom=allcheck stable=opt'
+                     &) guess=read geom=allcheck NMR'
 
- select case(nmr_bas_choice)
+ select case(orb_shld_bas)
  case(0) ! pcSseg-1 for all atoms
   write(fid,'(A)') '@'//TRIM(mokit_root)//'/mokit/basis/pcSseg-1/N'
  case(1) ! pcSseg-2 for all atoms
   write(fid,'(A)') '@'//TRIM(mokit_root)//'/mokit/basis/pcSseg-2/N'
- case(2) ! def2-TZVP for all atoms
+ case(2,3) ! def2-TZVP/def2-TZVPP for all atoms
   k = 0
   do i = 1, natom, 1
    prt = .false.
@@ -321,7 +336,9 @@ subroutine write_nmr_gjf1(gjfname, old_chk)
     end if
    end if
   end do ! for i
-  write(fid,'(A,/,A,/,A)') ' 0', 'def2TZVP', '****'
+  str9 = 'def2TZVP'
+  if(orb_shld_bas == 3) str9 = 'def2TZVPP'
+  write(fid,'(A,/,A,/,A)') ' 0', TRIM(str9), '****'
 
   if(ANY(nuc > 36)) then
    write(fid,'(/)',advance='no')
@@ -346,7 +363,7 @@ subroutine write_nmr_gjf1(gjfname, old_chk)
    write(fid,'(/,A)') 'def2'
   end if
  case default
-  write(6,'(/,A,I0)') error_warn//'invalid nmr_bas_choice=', nmr_bas_choice
+  write(6,'(/,A,I0)') error_warn//'invalid orb_shld_bas=', orb_shld_bas
   write(6,'(A)') 'Currently only 0/1/2 is allowed.'
   write(6,'(A)') 'gjfname='//TRIM(gjfname)
   stop
@@ -398,6 +415,113 @@ subroutine write_nmr_gjf2(gjfname, old_chk)
                     &allcheck NMR'
  close(fid)
 end subroutine write_nmr_gjf2
+
+subroutine write_nmr_gjf3(gjfname, old_chk)
+ use mol_and_calc_info, only: mem, nproc, uhf, imp_sol_model, solvent, &
+  mokit_root, cur_dir, natom, nuc, def2_bas_typ
+ implicit none
+ integer :: i, k, fid, fid1
+ character(len=6) :: str6
+ character(len=36), parameter :: error_warn = 'ERROR in subroutine write_nmr_gj&
+                                              &f3: '
+ character(len=240) :: buf, chkname, basname
+ character(len=240), intent(in) :: gjfname, old_chk
+ character(len=480) :: bas_full_path
+ logical :: find_h, find_c
+ logical, allocatable :: skip_atom(:)
+
+ if(.not. allocated(def2_bas_typ)) then
+  write(6,'(/,A)') error_warn//'the integer array def2_bas_typ'
+  write(6,'(A)') 'is not allocated. Please initialize it before using this subr&
+                 &outine.'
+  write(6,'(A)') 'gjfname='//TRIM(gjfname)
+  stop
+ end if
+ str6 = 'gen   '
+ if(ANY(def2_bas_typ==1) .or. ANY(def2_bas_typ==3)) str6 = 'genecp'
+ 
+ call get_a_random_int(k)
+ write(basname,'(A,I0)') gjfname(1:1)//'_', k
+ bas_full_path = TRIM(cur_dir)//'/'//TRIM(basname)
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ chkname = gjfname(1:i-1)//'.chk'
+ if(TRIM(old_chk) /= TRIM(chkname)) then
+  call sys_copy_file(TRIM(old_chk), TRIM(chkname), .false.)
+ end if
+
+ call find_specified_suffix(gjfname, '.gjf', i)
+ chkname = gjfname(1:i-1)//'.chk'
+
+ open(newunit=fid,file=TRIM(gjfname),status='replace')
+ write(fid,'(A)') '%chk='//TRIM(chkname)
+ write(fid,'(A,I0,A)') '%mem=', mem, 'GB'
+ write(fid,'(A,I0)') '%nprocshared=', nproc
+ write(fid,'(A)',advance='no') '#p '
+ if(uhf) write(fid,'(A)',advance='no') 'U'
+ write(fid,'(A)',advance='no') 'B972/'//TRIM(str6)
+ ! DFT-D3 does not affect the NMR chemical shielding tensor, so here we will not
+ ! print em=GD3/GD3BJ
+
+ if(LEN_TRIM(solvent) > 0) then
+  i = LEN_TRIM(imp_sol_model)
+  if(i==0 .or. (i==6 .and. imp_sol_model(1:6)=='iefpcm')) then
+   write(fid,'(A)',advance='no') ' scrf(solvent='//TRIM(solvent)//')'
+  else
+   write(fid,'(A)',advance='no') ' scrf('//TRIM(imp_sol_model)//',solvent='//&
+                                 TRIM(solvent)//')'
+  end if
+ end if
+
+ write(fid,'(A,/)') ' nosymm int=nobasistransform scf(xqc,maxcycle=500,NoVarAcc&
+                    &) guess=read geom=allcheck'
+ write(fid,'(A,//)') '@'//TRIM(bas_full_path)//'/N'
+ close(fid)
+
+ open(newunit=fid,file=TRIM(mokit_root)//'/mokit/basis/pcH-2',status='old', &
+      position='rewind')
+ open(newunit=fid1,file=TRIM(basname),status='replace')
+
+ find_h = .false.; find_c = .false.
+ if(.not. ANY(nuc==1)) find_h = .true.
+ if(.not. ANY(nuc==6)) find_c = .true.
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  select case(buf(1:3))
+  case('-H ')
+   if(.not. find_h) then
+    write(fid1,'(A)') TRIM(buf(2:))
+    do while(.true.)
+     read(fid,'(A)') buf
+     write(fid1,'(A)') TRIM(buf)
+     if(buf(1:4) == '****') exit
+    end do ! for while
+    find_h = .true.
+   end if
+  case('-C ')
+   if(.not. find_c) then
+    write(fid1,'(A)') TRIM(buf(2:))
+    do while(.true.)
+     read(fid,'(A)') buf
+     write(fid1,'(A)') TRIM(buf)
+     if(buf(1:4) == '****') exit
+    end do ! for while
+    find_c = .true.
+   end if
+  end select
+  if(find_h .and. find_c) exit
+ end do ! for while
+
+ close(fid)
+ allocate(skip_atom(natom))
+ skip_atom = .false.
+ where(nuc==1 .or. nuc==6) skip_atom = .true.
+ call prt_gen_def2_bas2gjf(fid1, natom, nuc, def2_bas_typ, .false., skip_atom)
+ deallocate(skip_atom)
+
+ close(fid1)
+end subroutine write_nmr_gjf3
 
 ! write/create a .gjf file for routine calculations
 subroutine write_routine_gjf(gjfname, old_chk, calc_type, hessian_type)
@@ -714,7 +838,7 @@ end subroutine modify_orca_pnmr_inp
 
 ! read NMR workflow parameters from the Title Card line of a specified .gjf
 subroutine read_nmr_wf_para_from_gjf(gjfname, prt)
- use mol_and_calc_info, only: mult, nmr_bas_choice, method_def1, method_def2, &
+ use mol_and_calc_info, only: mult, orb_shld_bas, method_def1, method_def2, &
   method_nmr_def, method, method_nmr
  implicit none
  integer :: i, j, fid
@@ -724,7 +848,7 @@ subroutine read_nmr_wf_para_from_gjf(gjfname, prt)
  character(len=240), intent(in) :: gjfname
  logical, intent(in) :: prt
 
- nmr_bas_choice = 0
+ orb_shld_bas = 0
  if(mult == 1) then
   method = method_def1
  else
@@ -754,7 +878,7 @@ subroutine read_nmr_wf_para_from_gjf(gjfname, prt)
  if(i==0 .and. j==0) then
   if(prt) then
    write(6,'(/,A,I0)') 'method='//TRIM(method)//', method_nmr='//&
-             TRIM(method_nmr)//', nmr_bas_choice=', nmr_bas_choice
+             TRIM(method_nmr)//', orb_shld_bas=', orb_shld_bas
   end if
   return
  end if
@@ -765,17 +889,17 @@ subroutine read_nmr_wf_para_from_gjf(gjfname, prt)
   stop
  end if
 
- if(buf(i+1:i+15) == 'nmr_bas_choice=') then
-  read(buf(i+16:j-1),*) nmr_bas_choice
-  select case(nmr_bas_choice)
+ if(buf(i+1:i+13) == 'orb_shld_bas=') then
+  read(buf(i+14:j-1),*) orb_shld_bas
+  select case(orb_shld_bas)
   case(0,1,2)
   case default
-   write(6,'(/,A,I0)') error_warn//'invalid nmr_bas_choice=', nmr_bas_choice
+   write(6,'(/,A,I0)') error_warn//'invalid orb_shld_bas=', orb_shld_bas
    write(6,'(A)') 'gjfname='//TRIM(gjfname)
    stop
   end select
  else
-  write(6,'(/,A)') error_warn//'currently only `nmr_bas_choice`'
+  write(6,'(/,A)') error_warn//'currently only `orb_shld_bas`'
   write(6,'(A)') 'is supported in {}.'
   write(6,'(A)') 'gjfname='//TRIM(gjfname)
   stop
@@ -783,7 +907,7 @@ subroutine read_nmr_wf_para_from_gjf(gjfname, prt)
 
  if(prt) then
   write(6,'(/,A,I0)') 'method='//TRIM(method)//', method_nmr='//&
-            TRIM(method_nmr)//', nmr_bas_choice=', nmr_bas_choice
+            TRIM(method_nmr)//', orb_shld_bas=', orb_shld_bas
  end if
 end subroutine read_nmr_wf_para_from_gjf
 
@@ -802,16 +926,17 @@ end subroutine read_nmr_wf_para_from_gjf
 subroutine nmr_workflow(gjfname)
  use mol_and_calc_info, only: mem, nproc, natom, charge, mult, nuc, elem, coor,&
   dis_type, def2_bas_typ, uhf, imp_sol_model, solvent, mokit_root, gau_path, &
-  orca_path, method_nmr, calc_pnmr, sigma_orb, sigma_para, pnmr_temperature
+  orca_path, cur_dir, para_shld_meth, calc_pnmr, sigma_orb, sigma_para, pnmr_temperature
  use util_wrapper, only: formchk, fch2mkl_wrap, mkl2gbw
  implicit none
  integer :: i, k, istep
- integer, parameter :: max_nstep = 12 ! 12 steps
+ integer, parameter :: max_nstep = 13 ! 13 steps
  integer, parameter :: max_nstep2 = 4 ! 4 steps
  integer(kind=4) :: hostnm
  real(kind=8) :: scf_e, ssquare, r(3)
  character(len=8) :: hostname
  character(len=24) :: data_string
+ character(len=30) :: dftname
  character(len=34), parameter :: error_warn='ERROR in subroutine nmr_workflow: '
  character(len=240), external :: get_mokit_root 
  character(len=240) :: proname, fchname, mklname, pnmr_out, qro_name, uno_name,&
@@ -833,9 +958,11 @@ subroutine nmr_workflow(gjfname)
  mokit_root = get_mokit_root()
  call get_gau_path(gau_path)
  call get_exe_path('orca', orca_path)
+ call get_current_dir(cur_dir)
  write(6,'(A)') 'MOKIT_ROOT= '//TRIM(mokit_root)
  write(6,'(A)') 'gau_path  = '//TRIM(gau_path)
  write(6,'(A)') 'orca_path = '//TRIM(orca_path)
+ write(6,'(A)') 'Work directory: '//TRIM(cur_dir)
  call check_exe_exist(gau_path)
  call check_exe_exist(orca_path)
  allocate(inpname(max_nstep), chkname(max_nstep), outname(max_nstep))
@@ -934,19 +1061,20 @@ subroutine nmr_workflow(gjfname)
  istep = istep + 1
  write(6,'(/,A,I0,A)') 'Step ',istep,':'
  write(6,'(A)') 'Use the NMR theory level to perform a single-point calculation&
-                & and check wave'
- write(6,'(A)') 'function stability.'
+                & and calculate'
+ write(6,'(A)') 'NMR sigma_orb'
  call write_nmr_gjf1(inpname(istep), chkname(istep-1))
  call submit_gau_job(gau_path, inpname(istep), .true.)
  call formchk(chkname(istep))
 
- istep = istep + 1
- write(6,'(/,A,I0,A)') 'Step ',istep,':'
- write(6,'(A)') 'Calculate the NMR shielding tensor sigma_orb, i.e. orbital con&
-                &tribution.'
- call write_nmr_gjf2(inpname(istep), chkname(istep-1))
- call submit_gau_job(gau_path, inpname(istep), .true.)
- call formchk(chkname(istep))
+ !istep = istep + 1
+ !write(6,'(/,A,I0,A)') 'Step ',istep,':'
+ !write(6,'(A)') 'Calculate the NMR shielding tensor sigma_orb, i.e. orbital con&
+ !               &tribution.'
+ !call write_nmr_gjf2(inpname(istep), chkname(istep-1))
+ !call submit_gau_job(gau_path, inpname(istep), .true.)
+ !call formchk(chkname(istep))
+
  allocate(sigma_orb(natom), source=0d0)
  call read_nmr_iso_shield_from_gau_log(outname(istep), natom, sigma_orb)
 
@@ -959,6 +1087,17 @@ subroutine nmr_workflow(gjfname)
  else               ! For non-singlet, we need to calculate sigma_para
   istep = istep + 1
   write(6,'(/,A,I0,A)') 'Step ',istep,':'
+  write(6,'(A)') 'Change basis sets of {H,C} to pcH-2 and perform a single-poin&
+                 &t calculation'
+  call write_nmr_gjf3(inpname(istep), chkname(istep-1))
+  !TODO: maybe we can generate the SCF initial guess only, and skip the SCF
+  ! iterations. Put the SCF of B972 to subsequent ORCA since we have RIJCOSX
+  ! technique there.
+  call submit_gau_job(gau_path, inpname(istep), .true.)
+  call formchk(chkname(istep))
+
+  istep = istep + 1
+  write(6,'(/,A,I0,A)') 'Step ',istep,':'
   if(LEN_TRIM(imp_sol_model) > 0) then
    write(6,'(A)') 'Remark: `scrf` is specified in Gaussian. No matter which imp&
                   &licit solvent'
@@ -968,7 +1107,8 @@ subroutine nmr_workflow(gjfname)
   fchname = chkname(istep-1)(1:i-1)//'.fch'
   mklname = chkname(istep-1)(1:i-1)//'.mkl'
   call increase_int_after_s_in_filename(mklname)
-  call fch2mkl_wrap(fchname, mklname, method_nmr, .false.)
+  dftname = para_shld_meth
+  call fch2mkl_wrap(fchname, mklname, dftname, .false.)
   call mkl2gbw(mklname)
   call change_suffix_in_fname(inpname(istep), '.gjf', '.inp')
 #ifndef _WIN32

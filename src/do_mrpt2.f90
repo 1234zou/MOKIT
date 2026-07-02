@@ -1,6 +1,26 @@
 ! written by jxzou at 20210111: moved from subroutine do_mrpt2 in automr.f90
 ! updated by jxzou at 20210224: add CASPT2 interface with ORCA
 
+! Warning: fully occupied active space like (14e,7o) is allowed in NEVPT2, and
+!  the NEVPT2 energy is not equal to MP2 energy. Moreover, the NEVPT2 energy will
+!  vary with which seven doubly occupied MOs are put into this active space. And
+!  the energy also varies for (2e,1o), (4e,2o), etc. This is because the NEVPT
+!  zero-th order Hamiltonian is the Dyall Hamiltonian which includes two-body
+!  interactions. This might cause a problem: if the user tries to perform an NEVPT2
+!  calculation using a set of converged RHF/CASSCF MOs, and seven doubly occupied
+!  MOs (which are not HOMO-6 ~ HOMO) have been put in the active space, the CAS-
+!  SCF orbital optimization will destroy these seven doubly occupied MOs, and
+!  further leads to a different NEVPT2 energy subsequently. But the CASSCF energy
+!  is almost unchaged in such case (because CASSCF is invariant to orbital rota-
+!  tions within the doubly occupied subspace). So the user can hardly figure out
+!  what happened.
+! The CASCI NOs generation might also destroy the prepared doubly occupied MOs.
+! NEVPT2 with empty active space (0,0) might degrade to MP2 but I have not yet
+!  found a program to perform such calculations.
+! This problem does not exist for CASPT2. Because CASPT2 will degrade to MP2 when
+!  an active space like (14e,7o) is applied for a singlet molecule. And the MP2
+!  energy is invariant to orbital rotations within the doubly occupied subspace.
+
 subroutine do_mrpt2()
  use mr_keyword, only: casci, casscf, dmrgci, dmrgscf, CIonly, caspt2, caspt2k,&
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt_prog, caspt_prog, bgchg, &

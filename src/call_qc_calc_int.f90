@@ -617,6 +617,41 @@ subroutine get_psi4_path(psi4_path)
  call get_exe_path('psi4', psi4_path)
 end subroutine get_psi4_path
 
+subroutine get_current_dir(dirname)
+ implicit none
+ integer :: i, fid
+ character(len=30) :: fname
+ character(len=240), intent(out) :: dirname
+
+ dirname = ' '
+ call get_a_random_int(i)
+
+#ifdef _WIN32
+ write(fname,'(A,I0)') 'mokit.cd.', i
+ i = SYSTEM('cd >'//TRIM(fname)//' 2>&1')
+#else
+ write(fname,'(A,I0)') 'mokit.pwd.', i
+ i = SYSTEM('pwd >'//TRIM(fname)//' 2>&1')
+#endif
+
+ if(i /= 0) then
+  call delete_file(TRIM(fname))
+  return
+ end if
+
+ open(newunit=fid,file=TRIM(fname),status='old',position='rewind')
+ read(fid,'(A)',iostat=i) dirname
+
+ if(i == 0) then
+  close(fid,status='delete')
+ else
+  write(6,'(/,A)') 'ERROR in subroutine get_current_dir: rare case. Failed to r&
+                   &ead file '//TRIM(fname)
+  write(6,'(A)') 'dirname='//TRIM(dirname)
+  close(fid)
+ end if
+end subroutine get_current_dir
+
 ! compute the number of electrons by tracing the matrix product of density
 ! matrix and AO overlap
 subroutine trace_dm_ao_ovlp(nbf, dm, ao_ovlp, ne)

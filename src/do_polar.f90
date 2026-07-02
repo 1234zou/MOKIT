@@ -6,6 +6,11 @@
 ! In the future, we might rename this to subroutine do_prop. But currently
 ! we only have the property `polarizability`, so we use do_polar.
 
+!TODO: automatically set RIC auxbasis
+!TODO: support cc-pVnZ-PP and their corresponding RIC auxbasis
+!TODO: signal errors when CASCI is required in do_cas
+!TODO: support CCSD polar
+
 subroutine do_polar()
  use mr_keyword, only: mem, nproc, polar, molcas_omp, bgchg, chgname, gau_path,&
   orca_path, molcas_path, casnofch, polar_prog

@@ -1,4 +1,4 @@
-MOKIT 1.2.8rc6 (Jun 20, 2026)
+MOKIT 1.2.8rc7 (Jul 2, 2026)
 ------------------------
 Fixes
 * fix the number of occupied orbitals when ECP/PP is used in get_mf_from_fch
@@ -20,6 +20,7 @@ Features
 * add subroutine gbw2rest in mokit/src/util_wrapper.f90
 * add spin-pure GP interface to OpenMolcas
 Improvement
+* remove compulsory dependency on PySCF in fch2rest
 * add `-nocopy` for fch2qchem
 * update subroutine fch2mkl_wrap
 * keep RHF/UHF .py scripts when HF_prog=PySCF
