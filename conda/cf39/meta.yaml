@@ -11,7 +11,7 @@ source:
   path: ../..
 
 build:
-  number: 1
+  number: 5
   string: "np{{ CONDA_NPY }}py{{ CONDA_PY }}_h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}"
 
 requirements:
@@ -19,7 +19,8 @@ requirements:
     - make
     - {{ compiler('fortran') }}
     - python 
-    - setuptools <81
+    - setuptools <81 # [py<312]
+    - setuptools # [py>=312]
     - numpy 
     - openblas 
     - libgfortran5
@@ -46,3 +47,7 @@ about:
   description:     "MOKIT offers various utilities and modules to transfer MOs among various quantum chemistry software packages.\nBesides, the automr program in MOKIT can set up and run common multi-reference calculations in a black-box way."
   dev_url:         "{{ urls['Repository'] }}"
   doc_url:         "{{ urls['Documentation'] }}"
+
+test:
+  imports:
+    - mokit.lib
