@@ -187,8 +187,9 @@ subroutine uno(outname, nbf, nif, na, nb, mo_a, mo_b, ao_ovlp, uno_thres, idx, n
  deallocate(sv_occ)
 
  ! We hope the doubly occupied MOs uno_coeff(:,1:ndb) resemble the RHF-like
- ! doubly occupied MOs mo_a(:,1:ndb) both in MO order and shape. So a simple
- ! copy usually does not work, we use SVD to find the resembled MOs.
+ ! doubly occupied MOs mo_a(:,1:ndb) both in MO order and shape. A simple
+ ! copy of occ_a(:,1:ndb) usually does not work, here we use SVD to find the
+ ! resembled MOs.
  !uno_coeff(:,1:ndb) = occ_a(:,1:ndb)
  call orb_resemble_ref1(nbf, ndb, occ_a(:,1:ndb), nbf, ndb, mo_a(:,1:ndb), &
                         ao_ovlp, uno_coeff(:,1:ndb))

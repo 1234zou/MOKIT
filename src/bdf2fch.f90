@@ -42,9 +42,9 @@ program main
  if(i == 4) then
   call getarg(4, str)
   if(str /= '-no') then
-   write(6,'(/,A)') "ERROR in subroutine bdf2fch: the 4th argument is wrong! O&
-                    &nly '-no' is accepted."
-   write(6,'(A)') "But you specify '"//str//"'."
+   write(6,'(/,A)') 'ERROR in subroutine bdf2fch: the 4th argument is wrong! O&
+                    &nly `-no` can be'
+   write(6,'(A)') 'accepted. But you specify `'//str//'`'
    stop
   end if
   prt_no = .true.
@@ -105,11 +105,12 @@ subroutine bdf2fch(orbname, fchname, new_fch, prt_no)
  call read_shltyp_and_shl2atm_from_fch(fchname, k, shell_type, shell2atom_map)
 
  if(ANY(shell_type>1)) then
-  write(6,'(A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
-                 & detected. Cannot deal with'
-  write(6,'(A)') 'that. BDF supports only spherical harmonic basis functions.'
-  write(6,'(A)') "You should add keywords '5D 7F' in Gaussian input file&
-                 & to obtain a new .fch(k) file."
+  write(6,'(/,A)') 'ERROR in subroutine bdf2fch: Cartesian-type basis functions&
+                   & detected. Cannot deal'
+  write(6,'(A)') 'with that. BDF supports only spherical harmonic basis functio&
+                 &ns. You should add'
+  write(6,'(A)') 'keywords `5D 7F` in Gaussian input file to obtain a new .fch(&
+                 &k) file.'
   stop
  end if
 

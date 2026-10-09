@@ -54,7 +54,7 @@ program main
   write(6,'(A)')  ' Example 3 (SF-CIS,        : fch2inp high_spin.fch -sfcis'
   write(6,'(A)')  '            SF-TDDFT,      : fch2inp high_spin.fch -sf'
   write(6,'(A)')  '            MRSF-CIS,      : fch2inp triplet.fch -mrsfcis'
-  write(6,'(A)')  '            MRSF-TDDFT)    : fch2inp triplet.fch -mrsf'
+  write(6,'(A)')  '            MRSF-TDA)      : fch2inp triplet.fch -mrsf'
   write(6,'(A)')  ' Example 4 (GVB,           : fch2inp h2o.fch -gvb [Npair]'
   write(6,'(A)')  '            frozen core,   : fch2inp h2o.fch -gvb [Npair] -fc'
   write(6,'(A)')  '            ROGVB,         : fch2inp h2o.fch -gvb [Npair] -open [Nopen]'
@@ -120,14 +120,14 @@ program main
      fc = .true.
     else
      write(6,'(/,A)') error_warn//'when there are only 4 arguments specified,'
-     write(6,'(A)') 'the 4th argument can only be "-fc". But got "'//arg4//'"'
+     write(6,'(A)') 'the 4th argument can only be `-fc`. But got `'//arg4//'`'
      stop
     end if
    else if(narg > 4) then
     call getarg(4, arg4)
     if(TRIM(arg4) /= '-open') then
      write(6,'(/,A)') error_warn//'when there are more than 4 arguments specified,'
-     write(6,'(A)') 'the 4th argument can only be "-open". But got "'//arg4//'"'
+     write(6,'(A)') 'the 4th argument can only be `-open`. But got `'//arg4//'`'
      stop
     end if
     call getarg(5, string)
@@ -138,7 +138,7 @@ program main
       fc = .true.
      else
       write(6,'(/,A)') error_warn//'when there are 6 arguments specified, the 6-th'
-      write(6,'(A)') 'argument can only be "-fc". But got "'//arg6//'"'
+      write(6,'(A)') 'argument can only be `-fc`. But got `'//arg6//'`'
       stop
      end if
     end if
@@ -151,7 +151,7 @@ program main
    end if
   case default
    write(6,'(/,A)') error_warn//'the 2nd argument is wrong!'
-   write(6,'(A)') 'It can only be one of -dft/-gvb/-sf/-mrsf/-novec'
+   write(6,'(A)') 'It can only be one of `-dft/-gvb/-sf/-mrsf/-novec`'
    stop
   end select
  end if
@@ -168,7 +168,7 @@ subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  integer :: nif1    ! new nif, where nif is number of MOs
  integer :: nbf1    ! new nbf, where nbf is number of basis functions
  integer :: itype1  ! -3/-2/-1/0/1/2/3/4/5 for
-                    ! GHF/ROHF/RHF/UHF/SF-CIS/SF-TDDFT/MRSF-CIS/MRSF-TDDFT/GVB
+                    ! GHF/ROHF/RHF/UHF/SF-CIS/SF-TDDFT/MRSF-CIS/MRSF-TDA/GVB
  integer, intent(in) :: itype, d3_type, npair, nopen0
  ! here nopen0 used since nopen already used in module fch_content
  integer, allocatable :: order(:), d_mark(:), f_mark(:), g_mark(:), h_mark(:), &
@@ -177,6 +177,7 @@ subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  character(len=1), parameter :: am_type(-1:6) = ['L','S','P','D','F','G','H','I']
  character(len=1), parameter :: am_type1(0:6) = ['s','p','d','f','g','h','i']
  real(kind=8), allocatable :: temp_coeff(:,:), open_coeff(:,:)
+ character(len=33), parameter :: pure_warn = 'Warning from subroutine fch2inp: '
  character(len=29), parameter :: error_warn = 'ERROR in subroutine fch2inp: '
  character(len=30), intent(in) :: dftname
  character(len=240), intent(in) :: fchname
@@ -200,16 +201,15 @@ subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  select case(irel)
  case(-3) ! X2C, i.e. sf-x2c1e
   X2C = .true.
-  write(6,'(/,A)') 'Warning in subroutine fch2inp: X2C detected. But GAMESS doe&
-                   &s not support'
+  write(6,'(/,A)') pure_warn//'X2C detected. But GAMESS does not support'
   write(6,'(A)') 'X2C. DKH2 keywords will be printed into GAMESS .inp file.'
  case(-2,-1,2) ! RESC/none/DKH2
  case(0)  ! DKH0
-  write(6,'(/,A)') 'Warning in subroutine fch2inp: DKH0 detected.'
+  write(6,'(/,A)') pure_warn//'DKH0 detected.'
   write(6,'(A)') 'But GAMESS does not support this DKH 0-th order correction.'
   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
  case(4) ! DKH4
-  write(6,'(/,A)') 'Warning in subroutine fch2inp: DKHSO detected.'
+  write(6,'(/,A)') pure_warn//'DKHSO detected.'
   write(6,'(A)') 'But GAMESS does not support this DKH 4-th order correction.'
   write(6,'(A)') 'DKH2 keywords will be printed into GAMESS .inp file.'
  case default
@@ -221,8 +221,7 @@ subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  call check_ghf_in_fch(fchname, ghf) ! determine whether GHF
  if(ghf) then
   itype1 = -3
-  write(6,'(/,A)') 'Warning in subroutine fch2inp: GHF detected in file '//&
-                    TRIM(fchname)
+  write(6,'(/,A)') pure_warn//'GHF detected in file '//TRIM(fchname)
   write(6,'(A)') 'GAMESS does not support GHF currently. But fch2inp will be&
                  & continued.'
   write(6,'(A)') 'Orbitals in the generated .inp file are meanningless.'
@@ -241,7 +240,7 @@ subroutine fch2inp(fchname, dftname, no_vec, fc, itype, d3_type, npair, nopen0)
  end if
 
  if((itype==3 .or. itype==4) .and. mult/=3) then
-  write(6,'(/,A)') error_warn//'MRSF-CIS/MRSF-TDDFT in GAMESS can only be based'
+  write(6,'(/,A)') error_warn//'MRSF-CIS/MRSF-TDA in GAMESS can only be based'
   write(6,'(A,I0)') 'on a triplet ROHF reference! The spin multiplicity in your&
                     & .fch(k) file is ', mult
   write(6,'(A)') 'fchname='//TRIM(fchname)
@@ -587,7 +586,7 @@ subroutine creat_gamess_inp_head(inpname, dftname, charge, mult, ncore, npair, &
   write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=SPNFLP'
  case(3) ! MRSF-CIS
   write(fid,'(A)',advance='no') ' DFTTYP=NONE TDDFT=MRSF'
- case(4) ! MRSF-TDDFT
+ case(4) ! MRSF-TDA
   write(fid,'(A)',advance='no') ' DFTTYP=BHHLYP TDDFT=MRSF'
  end select
 

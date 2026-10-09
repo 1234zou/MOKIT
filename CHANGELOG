@@ -1,22 +1,27 @@
-MOKIT 1.2.9rc1 (Aug 23, 2026)
+MOKIT 1.2.9rc2 (Oct 9, 2026)
 ------------------------
 Fixes
-* print AO dipole integral matrices in fch247 by calling PySCF
+* print AO dipole integral matrices in fch247 by calling Gaussian/PySCF
 * fix the CASCI-based PC-NEVPT2 and SDSPT2 interfaces to BDF
+* fix the number of electrons in mkl2fch when `-no` is unspecified but NOs are provided
+* support REST >= 2026.1.1 in fch2rest (by @jeanwsr)
 Features
+* add CASCI/CASSCF interfaces to MRCC
 * add PC-NEVPT2 and DMRG-PC-NEVPT2 interface to PySCF+Block2
 * add DMRG-PDFT interface to PySCF
 * add DLPNO-MP2 interface to PSI4
 * support `-dft` in fch2amo
 Improvement
+* update maximum nopen from 10 to 49 in modify_GMS1.sh
+* save CASCI coefficients when CASCI_prog/CASSCF_prog=PySCF
 * improved order of doubly occupied MOs in uno generation
-* add casci_wrapper and casscf_wrapper in mokit/lib/auto.py
 * invoke CSF-based CASCI solver for non-pure state when CASCI_prog=PySCF
 * invoke CSF-based CASCI solver for non-pure state when CASSCF_prog=PySCF
 * check relativistic Hamiltonian in fch2rest
 * check mf.converged in hf_stable_opt_internal
 * add an SOSCF loop function (loop_soscf) in stability.py
 Re-factor and removal
+* add casci_wrapper and casscf_wrapper in mokit/lib/auto.py
 
 MOKIT 1.2.8 (Aug 18, 2026)
 ------------------------
@@ -296,8 +301,8 @@ MOKIT 1.2.5 (Apr 27, 2023)
 * fix uninitialized value bug in dal2fch
 * move PDF manual to [online manual](https://jeanwsr.gitlab.io/mokit-doc-mdbook)
 * add MacOS homebrew configuration/distribution (by ansatzX)
-* move basis and lib to mokit/basis and mokit/lib, respectively (by jeanwsr)
-* add conda configuration/distribution (by jeanwsr)
+* move basis and lib to mokit/basis and mokit/lib, respectively (by @jeanwsr)
+* add conda configuration/distribution (by @jeanwsr)
 * add setup.py and requirements.txt
 * add fpm.toml (fpm support)
 * add LMO-EDA interface in frag_guess_wfn
@@ -314,8 +319,8 @@ MOKIT 1.2.4 (Oct 25, 2022)
 ------------------------
 * add py2bdf, py2dalton, py2gms, py2molcas, py2molpro, py2orca and py2psi
 * add py2qchem for transferring MOs from PySCF to Q-Chem
-* add GitLab-CI (by jeanwsr)
-* split Makefile into multiple conditions (by jeanwsr)
+* add GitLab-CI (by @jeanwsr)
+* split Makefile into multiple conditions (by @jeanwsr)
 * add compiler options for gfortran+OpenBLAS
 * add keyword FcGVB to freeze all doubly occupied orbitals in GVB
 * add the keyword Npair for non-GVB calculations
@@ -327,7 +332,7 @@ MOKIT 1.2.4 (Oct 25, 2022)
 * fix bug about X2C Hamiltonian keyword
 * add GVB-BCCC2b/3b interface
 * add State-Specific CASSCF interface
-* add py2fch_direct (by jeanwsr)
+* add py2fch_direct (by @jeanwsr)
 * update bas_fch2py, fch2py and py2fch for complex GHF
 * add utility fch2qchem
 

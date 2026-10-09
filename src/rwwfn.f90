@@ -1473,7 +1473,7 @@ subroutine read_ao_ovlp_from_47(file47, nbf, S)
   stop
  end if
 
- read(fid,'(2X,5E15.7)') ((S(j,i),j=1,i),i=1,nbf)
+ read(fid,*) ((S(j,i),j=1,i),i=1,nbf)
  close(fid)
  call symmetrize_dmat(nbf, S)
 end subroutine read_ao_ovlp_from_47

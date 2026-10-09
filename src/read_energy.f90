@@ -1,5 +1,15 @@
 ! read some kind of energy from a specified file
 
+subroutine prt_pyscf_forge_recommend()
+ implicit none
+ write(6,'(/,A)') 'If the pyscf-forge package is not installed, it is recommend&
+                  &ed to install it.'
+ write(6,'(A)') 'If the pyscf-forge package is already installed and used by MO&
+                &KIT, it is'
+ write(6,'(A)') 'recommended to specify `HardWFN` or `CrazyWFN` in mokit{} and &
+                &re-try.'
+end subroutine prt_pyscf_forge_recommend
+
 ! read HF electronic energy from a Gaussian .log/.out file
 subroutine read_hf_e_and_ss_from_gau_log(logname, first, e, ss)
  implicit none
@@ -867,81 +877,113 @@ subroutine read_cas_energy_from_gau_log(logname, scf, first, e)
  end if
 end subroutine read_cas_energy_from_gau_log
 
-! read CASCI/CASSCF energy from a PySCF output file
-subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
+! read (DMRG-)CASCI energy from a PySCF output file
+! DO NOT use this subroutine to read (DMRG-)CASSCF energy.
+subroutine read_casci_e_from_pyscf_out(outname, target_mult, dmrg, e)
  implicit none
- integer :: i, j, k, fid
- integer, intent(in) :: spin ! na - nb
- real(kind=8) :: s_square, expect
+ integer :: i, fid
+ integer, intent(in) :: target_mult ! target spin multiplicity
+ real(kind=8) :: ssquare, expected
  real(kind=8), intent(out) :: e(2)
- real(kind=8), parameter :: max_diff = 1d-3
+ real(kind=8), parameter :: ss_diff_thres = 1d-3
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- character(len=48), parameter :: err_str = 'ERROR in subroutine read_cas_energy&
-                                           &_from_pyout: '
- logical, intent(in) :: scf, dmrg
+ character(len=49), parameter :: err_str = 'ERROR in subroutine read_casci_e_fr&
+                                           &om_pyscf_out: '
+ logical, intent(in) :: dmrg
  logical :: state_specific
 
- e = 0d0; i = 0; j = 0; k = 0; state_specific = .false.
- s_square = 0d0; expect = 0d0
- expect = 0.5d0*DBLE(spin)
- expect = expect*(expect + 1d0)
+ e = 0d0; ssquare = 0d0; state_specific = .false.
+ expected = 0.25d0*DBLE(target_mult*target_mult - 1)
 
- if(scf) then ! (DMRG-)CASSCF
+ if(dmrg) then ! DMRG-CASCI
+  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ else          ! CASCI
   open(newunit=fid,file=TRIM(outname),status='old',position='append')
   do while(.true.)
-   BACKSPACE(fid,iostat=k)
-   if(k /= 0) exit
-   BACKSPACE(fid,iostat=k)
-   if(k /= 0) exit
-   read(fid,'(A)',iostat=k) buf
-   if(k /= 0) exit
-   if(buf(1:23) == '1-step CASSCF converged') then
-    i = 1; exit
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(1:15) == 'CASCI converged') exit
+   if(buf(1:19) == 'CASCI not converged') then
+    write(6,'(/,A)') err_str//'it seems that CASCI is not'
+    write(6,'(A)') 'converged. Please check file '//TRIM(outname)
+    call prt_pyscf_forge_recommend()
+    close(fid)
+    stop
    end if
-   if(buf(1:27) == '1-step CASSCF not converged') then
-    j = 1; exit
-   end if
-   if(buf(1:3) == 'SSS') state_specific = .true.
   end do ! for while
-
- else ! (DMRG-)CASCI
-
-  if(dmrg) then
-   open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
-  else
-   open(newunit=fid,file=TRIM(outname),status='old',position='append')
-   do while(.true.)
-    BACKSPACE(fid,iostat=k)
-    if(k /= 0) exit
-    BACKSPACE(fid,iostat=k)
-    if(k /= 0) exit
-    read(fid,'(A)',iostat=k) buf
-    if(k /= 0) exit
-    if(buf(1:15) == 'CASCI converged') then
-     i = 1; exit
-    end if
-    if(buf(1:19) == 'CASCI not converged') then
-     j = 1; exit
-    end if
-   end do ! for while
-  end if
  end if
 
- if(k /= 0) then
-  write(6,'(/,A)') TRIM(err_str)//'the file'
-  write(6,'(A)') TRIM(outname)//' seems problematic.'
-  close(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == 'CASCI E') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') err_str//'`CASCI E` keyword not located'
+  write(6,'(A)') 'after `CASCI converged`.'
   stop
- else ! k = 0
-  if(j/=0 .and. (.not.state_specific)) then
-   write(6,'(/,A)') TRIM(err_str)//'CASCI or CASSCF not converged.'
-   close(fid)
-   stop
-  end if
  end if
+ call get_dpv_after_flag(buf, '=', .true., e(1))
 
- ! read CASCI/CASSCF energy in CASCI/CASSCF job
+ i = INDEX(buf, 'S^2 =', back=.true.)
+ if(i == 0) then
+  write(6,'(/,A)') err_str//'`S^2 =` not located in the desired'
+  write(6,'(A)') 'line. buf=`'//TRIM(buf)//'`'
+  write(6,'(A)') 'Probably your PySCF version is so old that `S^2 =` is not pri&
+                 &nted.'
+  stop
+ end if
+ read(buf(i+5:),*) ssquare
+
+ if(DABS(expected - ssquare) > ss_diff_thres) then
+  write(6,'(/,A)') err_str//'it seems that CASCI is converged'
+  write(6,'(A)') 'to a wrong spin state.'
+  call prt_pyscf_forge_recommend()
+  stop
+ end if
+end subroutine read_casci_e_from_pyscf_out
+
+! read (DMRG-)CASSCF energy from a PySCF output file
+! DO NOT use this subroutine to read (DMRG-)CASCI energy.
+subroutine read_casscf_e_from_pyscf_out(outname, target_mult, dmrg, e)
+ implicit none
+ integer :: i, j, k, fid
+ integer, intent(in) :: target_mult ! target spin multiplicity
+ real(kind=8) :: ssquare, expected
+ real(kind=8), intent(out) :: e(2)
+ real(kind=8), parameter :: ss_diff_thres = 1d-3
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ character(len=50), parameter :: err_str = 'ERROR in subroutine read_casscf_e_f&
+                                           &rom_pyscf_out: '
+ logical, intent(in) :: dmrg
+ logical :: state_specific
+
+ e = 0d0; i = 0; j = 0; k = 0; ssquare = 0d0; state_specific = .false.
+ expected = 0.25d0*DBLE(target_mult*target_mult - 1)
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=k)
+  if(k /= 0) exit
+  BACKSPACE(fid,iostat=k)
+  if(k /= 0) exit
+  read(fid,'(A)',iostat=k) buf
+  if(k /= 0) exit
+  if(buf(1:23) == '1-step CASSCF converged') then
+   i = 1; exit
+  end if
+  if(buf(1:27) == '1-step CASSCF not converged') then
+   j = 1; exit
+  end if
+  if(buf(1:3) == 'SSS') state_specific = .true.
+ end do ! for while
+
+ ! read CASSCF energy in a CASSCF job
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
@@ -949,35 +991,30 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') TRIM(err_str)//"'CASCI E' keyword not found in"
+  write(6,'(/,A)') err_str//"'CASCI E' keyword not found in"
   write(6,'(A)') 'file '//TRIM(outname)
   close(fid)
   stop
  end if
-
- if(scf) then
-  call get_dpv_after_flag(buf, '=', .true., e(2))
- else
-  call get_dpv_after_flag(buf, '=', .true., e(1))
- end if
+ call get_dpv_after_flag(buf, '=', .true., e(2))
 
  i = INDEX(buf, 'S^2 =', back=.true.)
  if(i == 0) then
-  write(6,'(/,A)') TRIM(err_str)//"'S^2 =' not found in the desired line."
-  write(6,'(A)') "buf='"//TRIM(buf)//"'"
-  write(6,'(A)') "Probably your PySCF version is so old that 'S^2 =' is not pri&
-                 &nted."
+  write(6,'(/,A)') err_str//'`S^2 =` not located in the desired line.'
+  write(6,'(A)') 'buf=`'//TRIM(buf)//'`'
+  write(6,'(A)') 'Probably your PySCF version is so old that `S^2 =` is not pri&
+                 &nted.'
   close(fid)
   stop
  end if
- read(buf(i+5:),*) s_square
+ read(buf(i+5:),*) ssquare
 
- if(DABS(expect - s_square) > max_diff) then
+ if(DABS(expected - ssquare) > ss_diff_thres) then
   write(6,'(/,A)') REPEAT('-',79)
   write(6,'(A)') 'Warning from subroutine read_cas_energy_from_pyout: <S**2> de&
                  &viates too much'
-  write(6,'(2(A,F11.5))') 'from the expectation value. Expectation=', expect, &
-                          ', S_square=', s_square
+  write(6,'(A,F8.3,A,F11.5)') 'from the expectation value. Expected <S^2>=', &
+                              expected, ', Calc. <S^2>=', ssquare
   write(6,'(A)') 'If this is a ground state calculation, it is probably because&
                  & this CASSCF is'
   write(6,'(A)') 'converged to a wrong spin state. You may try to add the keywo&
@@ -991,58 +1028,55 @@ subroutine read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
  end if
 
  ! Note: in a CASSCF job, there is also a CASCI energy, read it.
- if(scf) then
-  rewind(fid)
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:9) == 'CASCI E =') exit
+ end do ! for while
 
-  do while(.true.)
-   read(fid,'(A)') buf
-   if(buf(1:9) == 'CASCI E =') exit
-  end do ! for while
+ close(fid)
+ read(buf(10:),*) e(1)
+ call get_dpv_after_flag(buf, '=', .false., ssquare)
 
-  close(fid)
-  read(buf(10:),*) e(1)
-  call get_dpv_after_flag(buf, '=', .false., s_square)
-
-  if(DABS(expect - s_square) > max_diff) then
-   write(6,'(/,A)') REPEAT('-',79)
-   write(6,'(A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th s&
-                  &tep in this CASSCF'
-   write(6,'(A)') 'job, i.e. the CASCI <S**2> deviates too much from the expect&
-                  &ation value.'
-   write(6,'(2(A,F11.5))') 'Expectation=', expect, ', S_square=', s_square
-   write(6,'(A)') 'If this is a ground state calculation, it is probably becaus&
-                  &e this CASCI is'
-   write(6,'(A)') 'unconverged, or converged to a wrong spin state. If this CAS&
-                  &CI energy is'
-   write(6,'(A)') 'useless to you, or if the following CASSCF happens to be con&
-                  &verged to the'
-   write(6,'(A)') 'desired spin, you can ignore this warning. Otherwise, you ma&
-                  &y try to add'
-   write(6,'(A)') 'the keyword CrazyWFN in mokit{} in .gjf file.'
-   write(6,'(A)') 'If this is an excited state calculation where the spin of th&
-                  &e target excited'
-   write(6,'(A)') 'state is different from that of the ground state, you can ig&
-                  &nore this warning.'
-   write(6,'(A)') REPEAT('-',79)
-  end if
- else
-  close(fid)
+ if(DABS(expected - ssquare) > ss_diff_thres) then
+  write(6,'(/,A)') REPEAT('-',79)
+  write(6,'(A)') 'Warning in subroutine read_cas_energy_from_pyout: the 0-th s&
+                 &tep in this CASSCF'
+  write(6,'(A)') 'job, i.e. the CASCI <S**2> deviates too much from the expect&
+                 &ation value.'
+  write(6,'(A,F8.3,A,F11.5)') 'Expected <S^2>=',expected,', Calc. <S^2>=',ssquare
+  write(6,'(A)') 'If this is a ground state calculation, it is probably becaus&
+                 &e this CASCI is'
+  write(6,'(A)') 'unconverged, or converged to a wrong spin state. If this CAS&
+                 &CI energy is'
+  write(6,'(A)') 'useless to you, or if the following CASSCF happens to be con&
+                 &verged to the'
+  write(6,'(A)') 'desired spin, you can ignore this warning. Otherwise, you ma&
+                 &y try to add'
+  write(6,'(A)') 'the keyword CrazyWFN in mokit{} in .gjf file.'
+  write(6,'(A)') 'If this is an excited state calculation where the spin of th&
+                 &e target excited'
+  write(6,'(A)') 'state is different from that of the ground state, you can ig&
+                 &nore this warning.'
+  write(6,'(A)') REPEAT('-',79)
  end if
-end subroutine read_cas_energy_from_pyout
+end subroutine read_casscf_e_from_pyscf_out
 
 ! read CASCI/CASSCF energy from the GAMESS output file
-subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
+subroutine read_cas_energy_from_gms_gms(outname, target_mult, scf, e)
  implicit none
  integer :: i, fid
- integer, intent(in) :: spin
- real(kind=8) :: s_square, expect
+ integer, intent(in) :: target_mult
+ real(kind=8), parameter :: ss_diff_thres = 1d-3
+ real(kind=8) :: ssquare, expected
  real(kind=8), intent(out) :: e(2)
+ character(len=41), parameter :: error_warn = 'subroutine read_cas_energy_from_&
+                                              &gms_gms: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: scf
 
- expect = DBLE(spin)/2d0
- expect = expect*(expect + 1d0)
+ expected = 0.25d0*DBLE(target_mult*target_mult - 1)
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  if(scf) then  ! CASSCF job
@@ -1053,9 +1087,8 @@ subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gms_gms: no 'THE &
-                    &DENSITIES ARE STATE'"
-   write(6,'(A)') 'found in file '//TRIM(outname)
+   write(6,'(/,A)') error_warn//'no `THE DENSITIES ARE STATE` found'
+   write(6,'(A)') 'in file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -1064,14 +1097,14 @@ subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
   i = INDEX(buf,'ENERGY=')
   read(buf(i+7:),*) e(1)   ! CASCI energy in the CASSCF job
   i = INDEX(buf,'=',back=.true.)
-  read(buf(i+1:),*) s_square
-  s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: in this &
-                    &CASSCF job, the 0-th'
+  read(buf(i+1:),*) ssquare
+  ssquare = ssquare*(ssquare+1d0)
+  if(DABS(expected - ssquare) > ss_diff_thres) then
+   write(6,'(/,A)') error_warn//'in this CASSCF job, the 0-th'
    write(6,'(A)') 'step, i.e., the CASCI <S**2> deviates too much from the expe&
                   &ctation value.'
-   write(6,'(2(A,F10.6))') 'expectation = ', expect, ', s_square=', s_square
+   write(6,'(A,F8.3,A,F11.5)') 'Expected <S^2>=', expected, ', Calc. <S^2>=', &
+                               ssquare
    stop
   end if
 
@@ -1081,14 +1114,13 @@ subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
   end do ! for while
   i = INDEX(buf,'ENERGY=')
   read(buf(i+7:),*) e(2)   ! CASSCF energy
-  i = INDEX(buf,'S=')
-  read(buf(i+2:),*) s_square
-  s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: CASSCF <&
-                    &S**2> deviates too'
-   write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
-                           expect, ', s_square=', s_square
+  i = INDEX(buf, 'S=')
+  read(buf(i+2:),*) ssquare
+  ssquare = ssquare*(ssquare+1d0)
+  if(DABS(expected - ssquare) > ss_diff_thres) then
+   write(6,'(/,A)') error_warn//'CASSCF <S**2> deviates too'
+   write(6,'(A,F8.3,A,F11.5)') 'much from the expectation value. Expected <S^2>&
+                               &= ', expected, ', Calc. <S^2>=', ssquare
    stop
   end if
 
@@ -1100,20 +1132,18 @@ subroutine read_cas_energy_from_gms_gms(outname, e, scf, spin)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') "ERROR in subroutine read_cas_energy_from_gms_gms: no 'DENS&
-                    &ITY MATRIX' found"
+   write(6,'(/,A)') error_warn//'no `DENSITY MATRIX WILL` found'
    write(6,'(A)') 'in file '//TRIM(outname)
    stop
   end if
  
   i = INDEX(buf,'=', back=.true.)
-  read(buf(i+1:),*) s_square
-  s_square = s_square*(s_square+1d0)
-  if( DABS(expect - s_square) > 1D-2) then
-   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_gms_gms: CASCI <S&
-                    &**2> deviates too'
-   write(6,'(2(A,F10.6))') 'much from the expectation value. expectation = ', &
-                           expect, ', s_square=', s_square
+  read(buf(i+1:),*) ssquare
+  ssquare = ssquare*(ssquare+1d0)
+  if(DABS(expected - ssquare) > ss_diff_thres) then
+   write(6,'(/,A)') error_warn//'CASCI <S^2> deviates too'
+   write(6,'(A,F8.3,A,F11.5)') 'much from the expectation value. Expected <S^2>&
+                               &= ', expected, ', Calc. <S^2>=', ssquare
    stop
   end if
 
@@ -1515,31 +1545,78 @@ subroutine read_cas_energy_from_dalton_out(outname, e, scf)
  close(fid)
 end subroutine read_cas_energy_from_dalton_out
 
-! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
-subroutine read_cas_energy_from_output(cas_prog, outname, spin, scf, dmrg, &
-                                       ptchg_e, nuc_pt_e, e)
+! read CASCI/CASSCF energy from a given MRCC output file
+subroutine read_cas_energy_from_mrcc_out(outname, scf, e)
  implicit none
- integer, intent(in) :: spin
-!f2py intent(in) :: spin
- real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
-!f2py intent(in) :: ptchg_e, nuc_pt_e
+ integer :: i, fid
  real(kind=8), intent(out) :: e(2)
-!f2py intent(out) :: e
- character(len=10), intent(in) :: cas_prog
-!f2py intent(in) :: cas_prog
+ character(len=51), parameter :: error_warn = 'ERROR in subroutine read_cas_ene&
+                                              &rgy_from_mrcc_out: '
+ character(len=240) :: buf
  character(len=240), intent(in) :: outname
-!f2py intent(in) :: outname
+ logical, intent(in) :: scf
+
+ e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(6:29) == 'MCSCF ENERGY IN STEP   1') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'`MCSCF ENERGY IN STEP   1`'
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(buf(33:),*) e(1) ! CASCI energy
+ if(.not. scf) then
+  close(fid)
+  return
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(5:23) == 'FINAL MCSCF ENERGY:') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') error_warn//'`FINAL MCSCF ENERGY:` not'
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  stop
+ end if
+
+ call get_dpv_after_flag(buf, ':', .false., e(2))
+end subroutine read_cas_energy_from_mrcc_out
+
+! read CASCI/CASSCF energy from a Gaussian/PySCF/GAMESS/OpenMolcas/ORCA output file
+subroutine read_cas_energy_from_output(cas_prog, outname, target_mult, scf, &
+                                       dmrg, ptchg_e, nuc_pt_e, e)
+ implicit none
+ integer, intent(in) :: target_mult
+ real(kind=8), intent(in) :: ptchg_e, nuc_pt_e
+ real(kind=8), intent(out) :: e(2)
+ character(len=10), intent(in) :: cas_prog
+ character(len=240), intent(in) :: outname
  logical, intent(in) :: scf, dmrg
-!f2py intent(in) :: scf, dmrg
 
  select case(TRIM(cas_prog))
  case('gaussian')
   call read_cas_energy_from_gau_log(outname, scf, .false., e)
  case('gamess')
-  call read_cas_energy_from_gms_gms(outname, e, scf, spin)
+  call read_cas_energy_from_gms_gms(outname, target_mult, scf, e)
   e(1) = e(1) + ptchg_e + nuc_pt_e
  case('pyscf')
-  call read_cas_energy_from_pyout(outname, e, scf, spin, dmrg)
+  if(scf) then
+   call read_casscf_e_from_pyscf_out(outname, target_mult, dmrg, e)
+  else
+   call read_casci_e_from_pyscf_out(outname, target_mult, dmrg, e)
+  end if
   e = e + ptchg_e
  case('openmolcas')
   call read_cas_energy_from_molcas_out(outname, e, scf)
@@ -1558,10 +1635,13 @@ subroutine read_cas_energy_from_output(cas_prog, outname, spin, scf, dmrg, &
  case('dalton')
   call read_cas_energy_from_dalton_out(outname, e, scf)
   e = e + ptchg_e
+ case('mrcc')
+  call read_cas_energy_from_mrcc_out(outname, scf, e)
+  e = e + ptchg_e
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_cas_energy_from_output: CAS_prog c&
-                   &annot be identified.'
-  write(6,'(A)') 'CAS_prog='//TRIM(cas_prog)
+                   &annot be'
+  write(6,'(A)') 'identified. CAS_prog='//TRIM(cas_prog)
   stop
  end select
 end subroutine read_cas_energy_from_output
@@ -1609,18 +1689,22 @@ subroutine read_mrpt_energy_from_gau_log(outname, ref_e, corr_e)
 end subroutine read_mrpt_energy_from_gau_log
 
 ! read NEVPT2 energy from PySCF output file
-subroutine read_mrpt_energy_from_pyscf_out(outname, target_root, ssquare, ref_e,&
-                                           corr_e)
+subroutine read_mrpt_energy_from_pyscf_out(outname, target_mult, target_root, &
+                                           ref_e, corr_e)
  implicit none
  integer :: i, k, fid
- integer, intent(in) :: target_root ! 0 for the ground state, >0 for excited state
+ integer, intent(in) :: target_mult, target_root
+ ! target_mult: target spin multiplicity
+ ! target_root: 0 for the ground state, >0 for excited state
+ real(kind=8) :: ssquare0, ssquare
+ real(kind=8), parameter :: ss_diff_thres = 1d-3
+ real(kind=8), intent(out) :: ref_e, corr_e
  character(len=53), parameter :: error_warn = 'ERROR in subroutine read_mrpt_en&
                                               &ergy_from_pyscf_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- real(kind=8), intent(out) :: ssquare, ref_e, corr_e
- ! ssquare: CASCI <S^2>
 
+ ssquare0 = 0.25d0*DBLE(target_mult*target_mult - 1)
  ssquare = 0d0; ref_e = 0d0; corr_e = 0d0
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
@@ -1676,16 +1760,39 @@ subroutine read_mrpt_energy_from_pyscf_out(outname, target_root, ssquare, ref_e,
   end do ! for while
  end if
 
- close(fid)
  if(i /= 0) then
   write(6,'(/,A)') error_warn//'no CASCI energy found in file'
   write(6,'(A)') TRIM(outname)
   write(6,'(A,I0)') 'target_root=', target_root
+  close(fid)
   stop
  end if
 
  call get_dpv_after_flag(buf, '=', .true., ref_e)
  call get_dpv_after_flag(buf, '=', .false., ssquare)
+
+ if(DABS(ssquare0 - ssquare) > ss_diff_thres) then
+  write(6,'(/,A,F8.3,A,F10.3)') 'Expected <S^2>=',ssquare0,', Calc. <S^2>=', &
+                                ssquare
+  write(6,'(A)') error_warn//'it seems that CASCI is'
+  write(6,'(A)') 'converged to a different spin state. Please check file'
+  write(6,'(A)') TRIM(outname)
+  call prt_pyscf_forge_recommend()
+  close(fid)
+  stop
+ end if
+
+ BACKSPACE(fid)
+ BACKSPACE(fid)
+ read(fid,'(A)') buf
+ close(fid)
+
+ if(buf(1:14) == 'CASCI not conv') then
+  write(6,'(/,A)') error_warn//'CASCI Davidson iteration is'
+  write(6,'(A)') 'not converged in file '//TRIM(outname)
+  call prt_pyscf_forge_recommend()
+  stop
+ end if
 end subroutine read_mrpt_energy_from_pyscf_out
 
 ! read CASTP2 energy from OpenMolcas output file

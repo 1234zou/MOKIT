@@ -224,6 +224,8 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  integer, intent(in) :: no_type, jrel
  integer, allocatable :: d_mark(:), f_mark(:), g_mark(:), h_mark(:), i_mark(:)
  real(kind=8), allocatable :: coeff(:,:)
+ character(len=36), parameter :: error_warn = 'ERROR in subroutine mkl2fch_dire&
+                                              &ct: '
  character(len=240), intent(in) :: mklname, fchname
  logical :: has_sp
 
@@ -233,8 +235,7 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  deallocate(nuc)
 
  if((.not.is_uhf) .and. no_type==2) then
-  write(6,'(/,A)') 'ERROR in subroutine mkl2fch_direct: this is an R(O)HF-type &
-                   &.mkl file.'
+  write(6,'(/,A)') error_warn//'this is an R(O)HF-type .mkl file.'
   write(6,'(A)') 'But you request beta orbitals. Filename='//TRIM(mklname)
   stop
  end if
@@ -323,6 +324,17 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
  case(1) ! natural orbitals
   deallocate(ev_a)
   call read_on_from_mkl(mklname, nif, 'a', eigen_e_a)
+  i = IDNINT(SUM(eigen_e_a))
+  if(i < ne) then ! usually this is because ECP/PP was used by the user
+   ne = i
+   na = (i + nopen)/2
+   nb = (i - nopen)/2
+  else if(i > ne) then
+   write(6,'(/,A)') error_warn//'unexpected case.'
+   write(6,'(2(A,I0))') 'i=', i, ', ne=', ne
+   write(6,'(A)') 'mklname='//TRIM(mklname)
+   stop
+  end if
   call calc_dm_using_mo_and_on(nbf, nif, alpha_coeff, eigen_e_a, tot_dm)
  case(2) ! natural spin orbitals
   deallocate(ev_a, ev_b)
@@ -337,8 +349,7 @@ subroutine mkl2fch_direct(mklname, fchname, no_type, jrel)
   spin_dm = coeff - spin_dm
   deallocate(coeff)
  case default
-  write(6,'(/,A,I0)') 'ERROR in subroutine mkl2fch_direct: invalid no_type=', &
-                      no_type
+  write(6,'(/,A,I0)') error_warn//'invalid no_type=',no_type
   stop
  end select
 
@@ -349,14 +360,15 @@ end subroutine mkl2fch_direct
 ! check na, nb with those calculated from $OCC_ALPHA(and $OCC_BETA) in .mkl file
 subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
  implicit none
- integer :: i, ne1, na1, nb1
+ integer :: nopen, ne1, na1, nb1
  integer, intent(in) :: nif
  integer, intent(inout) :: ne, na, nb
- real(kind=8), parameter :: diff = 1d-4
  real(kind=8), allocatable :: on_a(:), on_b(:)
  character(len=240), intent(in) :: mklname
  logical :: alive(4)
  logical, intent(in) :: uhf
+
+ nopen = na - nb ! na and nb have input values, so we can calculate nopen
 
  if(uhf) then ! UHF
   allocate(on_a(nif), on_b(nif))
@@ -365,24 +377,16 @@ subroutine check_na_nb_ecp_in_mkl(mklname, uhf, nif, ne, na, nb)
   na1 = IDNINT(SUM(on_a))
   nb1 = IDNINT(SUM(on_b))
   deallocate(on_a, on_b)
+  ne1 = na1 + nb1
  else         ! R(O)HF
   allocate(on_a(nif))
   call read_on_from_mkl(mklname, nif, 'a', on_a)
-  na1 = 0; nb1 = 0
-  do i = 1, nif, 1
-   if(DABS(on_a(i) - 2d0) < diff) then
-    na1 = na1 + 1
-    nb1 = nb1 + 1
-   else if(DABS(on_a(i) - 1d0) < diff) then
-    na1 = na1 + 1
-   else if(on_a(i) < diff) then
-    exit
-   end if
-  end do ! for i
+  ne1 = IDNINT(SUM(on_a))
   deallocate(on_a)
+  na1 = (ne1+nopen)/2
+  nb1 = (ne1-nopen)/2
  end if
 
- ne1 = na1 + nb1
  alive = [(na==na1 .and. nb/=nb1), (na/=na1 .and. nb==nb1), (na1>na), (nb1>nb)]
  if(ANY(alive .eqv. .true.)) then
   write(6,'(/,A)') 'ERROR in subroutine check_na_nb_ecp_in_mkl: internal incons&

@@ -17,17 +17,17 @@ subroutine do_cas(scf)
   hf_fch, datname, nacte_wish, nacto_wish, gvb, casnofch, casci_prog, &
   casscf_prog, dmrgci_prog, dmrgscf_prog, gau_path, molcas_omp, molcas_path, &
   orca_path, molpro_path, bdf_path, psi4_path, check_gms_path, gms_path, &
-  gms_scr_path, gms_dat_path, polar_prog, dalton_mpi, bgchg, chgname, casci_force,&
-  casscf_force, casscf_polar, prt_strategy, RI, nmr, ICSS, on_thres, iroot, &
-  xmult, new_mult, dyn_corr
+  gms_scr_path, gms_dat_path, mrcc_path, polar_prog, dalton_mpi, bgchg, &
+  chgname, casci_force, casscf_force, casscf_polar, prt_strategy, RI, nmr, &
+  ICSS, on_thres, iroot, xmult, new_mult, dyn_corr
  use mol, only: charge, mult, nbf, nif, npair, nopen, npair0, ndb, casci_e, &
   casscf_e, nacta, nactb, nacto, nacte, gvb_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, formchk, unfchk, gbw2mkl, mkl2gbw, &
   fch2inp_wrap, dat2fch_wrap, fch2mkl_wrap, gbw2molden, molden2fch_wrap, &
   fch2com_wrap, xml2fch_wrap, fch2bdf_wrap, fch2psi_wrap, fch2dal_wrap, &
-  fch2inporb_wrap, orb2fch_wrap, add_bgcharge2inp_wrap
+  fch2mrcc_wrap, fch2inporb_wrap, orb2fch_wrap, add_bgcharge2inp_wrap
  implicit none
- integer :: i, n_pocc, nvir, nfile, RENAME
+ integer :: i, n_pocc, nvir, nfile, target_mult, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)       ! e(1) is CASCI energy, e(2) is CASSCF energy
  real(kind=8), allocatable :: noon(:)
@@ -435,7 +435,6 @@ subroutine do_cas(scf)
   call molden2fch_wrap(mklname, orbname, 'orca', .True.)
   call copy_ev_and_mo_between_fch(orbname, casnofch, '-aa')
   call delete_files(2, [mklname, orbname])
-  call update_density_using_no_and_on(casnofch)
 
  case('molpro')
   call check_exe_exist(molpro_path)
@@ -516,6 +515,19 @@ subroutine do_cas(scf)
   end if
   call delete_file('DALTON.MOPUN')
 
+ case('mrcc')
+  call check_exe_exist(mrcc_path)
+  inpname = 'MINP'
+  outname = TRIM(proname)//'.out'
+  mklname = TRIM(proname)//'_NO.molden'
+  call fch2mrcc_wrap(fchname, 0, .true.)
+  call prt_cas_mrcc_inp(scf)
+  if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
+  call submit_mrcc_job(outname, nproc, .true.)
+  i = RENAME('MOLDEN', TRIM(mklname))
+  call molden2fch_wrap(mklname, casnofch, 'mrcc', .true.)
+  call delete_file(TRIM(mklname))
+
  case default
   write(6,'(/,A)') error_warn//'allowed programs are Gaussian, GAMESS, PySCF,'
   write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got CAS_&
@@ -524,10 +536,9 @@ subroutine do_cas(scf)
  end select
 
  ! generate CASCI/CASSCF density from NOs and NOONs
- ! Note: density in .fch of Gaussian CASSCF job is wrong (Gaussian bug), I have
- !  to re-generate density
  select case(TRIM(cas_prog))
- case('pyscf','orca') ! do nothing, density is already correct
+ case('pyscf') ! do nothing, density is already correct
+ case('mrcc') ! do nothing, not supported currently
  case default
   call update_density_using_no_and_on(casnofch)
  end select
@@ -539,8 +550,10 @@ subroutine do_cas(scf)
   i = RENAME(TRIM(inpname), TRIM(pyname)) ! rename it back
  end if
 
+ target_mult = mult
+ if(iroot>0 .and. mult/=xmult) target_mult = xmult
  ! read energy, check convergence and check spin
- call read_cas_energy_from_output(cas_prog, outname, nacta-nactb, scf, &
+ call read_cas_energy_from_output(cas_prog, outname, target_mult, scf, &
                               (dmrgci.or.dmrgscf), ptchg_e, nuc_pt_e, e)
 
  if(gvb .and. 2*npair+nopen==nacto .and. iroot==0 .and. e(1)-gvb_e>2D-6) then
@@ -608,7 +621,7 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
- character(len=240) :: buf, pyname1, cmofch
+ character(len=240) :: buf, pyname1, ci_vec, cmofch
  character(len=240), intent(in) :: pyname
  logical, intent(in) :: scf
  logical :: dmrg
@@ -640,6 +653,7 @@ subroutine prt_cas_pyscf_script(pyname, scf)
   write(fid2,'(A)') 'from pyscf import mcscf, dmrgscf'
  else
   write(fid2,'(A)') 'from pyscf import mcscf'
+  write(fid2,'(A)') 'import numpy as np'
   if(scf) then
    write(fid2,'(A)') 'from mokit.lib.auto import casscf_wrapper'
   else
@@ -708,8 +722,14 @@ subroutine prt_cas_pyscf_script(pyname, scf)
  end if
 
  call find_specified_suffix(casnofch, '_NO', i)
- cmofch = casnofch(1:i-1)//'_CMO.fch'
- if(dmrg) write(fid2,'(/,A)') "cmofch = '"//TRIM(cmofch)//"'"
+ if(dmrg) then
+  cmofch = casnofch(1:i-1)//'_CMO.fch'
+  write(fid2,'(/,A)') 'cmofch = "'//TRIM(cmofch)//'"'
+ else
+  ci_vec = casnofch(1:i-1)//'_CI.npy'
+  write(fid2,'(/,A)') '# backup CASCI coefficients'
+  write(fid2,'(A)') 'ci_vec = "'//TRIM(ci_vec)//'"'
+ end if
 
  if(dmrgci) then
   write(fid2,'(/,A)') '# backup original MOs to cmofch file'
@@ -720,6 +740,8 @@ subroutine prt_cas_pyscf_script(pyname, scf)
   write(fid2,'(A)') "py2fch(cmofch,nbf,nif,mc.mo_coeff,'a',mc.mo_energy,False,F&
                     &alse)"
   call prt_dmrg_casci_kywrd_py(fid2, .true.)
+ else ! not DMRG
+  write(fid2,'(A)') 'np.save(ci_vec, mc.ci)'
  end if
 
  write(fid2,'(/,A)') '# save NOs into .fch file'
@@ -1748,6 +1770,62 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
   write(fid,'(I0)') nstate+1
  end if
 end subroutine prt_molcas_cas_para
+
+! print CASCI/CASSCF keywords into a given MRCC input file
+subroutine prt_cas_mrcc_inp(scf)
+ use mol, only: ndb, nacto
+ use mr_keyword, only: mem
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=4), parameter :: inpname='MINP'
+ character(len=6), parameter :: inpname1='MINP.t'
+ character(len=240) :: buf
+ logical, intent(in) :: scf
+
+ open(newunit=fid,file=inpname,status='old',position='rewind')
+ open(newunit=fid1,file=inpname1,status='replace')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'mem=') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ write(fid1,'(A,I0,A)') 'mem=',mem,'GB'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:5) == 'calc=') exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+ write(fid1,'(A,I0)') 'calc=MCSCF'
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  write(fid1,'(A)') TRIM(buf)
+  if(buf(1:9) == 'scfiguess') exit
+ end do ! for while
+
+ write(fid1,'(A)') 'mcscfiguess=mo'
+ if(scf) then
+  write(fid1,'(A)') 'scfmaxit=100'
+ else
+  write(fid1,'(A)') 'scfmaxit=1'
+ end if
+ write(fid1,'(A,I0)') 'docc=', ndb
+ write(fid1,'(A,I0)') 'mact=', nacto
+ write(fid1,'(A)') 'verbosity=3'
+ write(fid1,'(A)') 'molden=on'
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(inpname1, inpname)
+end subroutine prt_cas_mrcc_inp
 
 ! print ground state CASSCF keywords into a PySCF .py file
 subroutine prt_gs_casscf_kywrd_py(fid)

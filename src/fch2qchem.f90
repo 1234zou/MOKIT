@@ -10,8 +10,8 @@ program main
  implicit none
  integer :: k, narg, narg_fixed, job_type, npair
  ! narg = raw nargin; narg_fixed = filtered nargin, counting from 1
- ! job_type = 0/1/2/3/4/5/6/7
- ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
+ ! job_type = 0/1/2/3/4/5/6/7/8 for
+ ! HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/MRSF-TDA/ADC(2)/SOS-ADC(2)
  character(len=8) :: str, args(4)
  character(len=240) :: fchname
  character(len=58), parameter :: error_warn = ' ERROR in program fch2qchem: wro&
@@ -27,8 +27,9 @@ program main
   write(6,'(A)')  ' Example 4 (SA-SF-CIS) : fch2qchem high_spin.fch -sasfcis'
   write(6,'(A)')  ' Example 5 (SF-TDDFT)  : fch2qchem high_spin.fch -sf'
   write(6,'(A)')  ' Example 6 (SA-SF-DFT) : fch2qchem high_spin.fch -sasf'
-  write(6,'(A)')  ' Example 7 (ADC(2))    : fch2qchem high_spin.fch -adc2'
-  write(6,'(A,/)')' Example 8 (SOS-ADC(2)): fch2qchem high_spin.fch -sosadc2'
+  write(6,'(A)')  ' Example 7 (MRSF-TDA)  : fch2qchem high_spin.fch -mrsf'
+  write(6,'(A)')  ' Example 8 (ADC(2))    : fch2qchem high_spin.fch -adc2'
+  write(6,'(A,/)')' Example 9 (SOS-ADC(2)): fch2qchem high_spin.fch -sosadc2'
   write(6,'(A)')  ' You can append a ''-nocopy'' argument to disable the automatic'
   write(6,'(A,/)')' folder moving into $QCSCRATCH/, e.g. fch2qchem h2o.fch -nocopy'
    stop
@@ -106,20 +107,27 @@ program main
     stop
    end if
    job_type = 5
+  case('-mrsf')
+   if(narg_fixed == 3) then
+    write(6,'(/,A)') error_warn
+    write(6,'(A)') "Only two arguments are allowed when '-mrsf' is specified."
+    stop
+   end if
+   job_type = 6
   case('-adc2')
    if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-adc2' is specified."
     stop
    end if
-   job_type = 6
+   job_type = 7
   case('-sosadc2')
    if(narg_fixed == 3) then
     write(6,'(/,A)') error_warn
     write(6,'(A)') "Only two arguments are allowed when '-sosadc2' is specified."
     stop
    end if
-   job_type = 7
+   job_type = 8
   case default
    write(6,'(/,A)') error_warn
    write(6,'(A)') 'The 2nd argument can only be one of -gvb/-sasfcis/-sfcis/-sf&
@@ -137,9 +145,6 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
  implicit none
  integer :: i, j, k, m, n, n1, n2, nif1, icart, fid, purecart(4), SYSTEM
  integer, intent(in) :: job_type, npair
- logical, intent(in) :: nocopy
- ! job_type = 0/1/2/3/4/5/6/7
- ! for HF/GVB/SF-CIS/SA-SF-CIS/SF-TDDFT/SA-SF-DFT/ADC(2)/SOS-ADC(2)
  integer, allocatable :: idx(:)
  character(len=1) :: str = ' '
  character(len=2) :: str2 = '  '
@@ -149,6 +154,7 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
  character(len=240), intent(in) :: fchname
  real(kind=8), allocatable :: coeff0(:,:), coeff(:,:)
  logical :: uhf, sph, has_sp, ecp, so_ecp
+ logical, intent(in) :: nocopy
 
  if(npair>0 .and. job_type/=1) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: npair>0 is only allowed for &
@@ -169,10 +175,11 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
  uhf = .false.; has_sp = .false.; ecp = .false.; so_ecp = .false.
 
  call check_uhf_in_fch(fchname, uhf) ! determine whether UHF
- if((job_type==3 .or. job_type==5) .and. uhf) then
-  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-DFT must be based on a&
-                   &n ROHF/ROKS reference.'
-  write(6,'(A)') 'It seems that you provide a UHF/UKS .fch(k) file.'
+ if((job_type==3 .or. job_type==5 .or. job_type==6) .and. uhf) then
+  write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SA-SF-/MRSF- methods must be&
+                   & based on an ROHF'
+  write(6,'(A)') '/ROKS reference. It seems that you provide a UHF/UKS .fch(k) &
+                 &file.'
   stop
  end if
  if(job_type==4 .and. (.not.uhf)) then
@@ -183,7 +190,7 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
  end if
 
  call read_fch(fchname, uhf)
- if(job_type>1 .and. job_type<6 .and. mult<3) then
+ if(job_type>1 .and. job_type<7 .and. mult<3) then
   write(6,'(/,A)') 'ERROR in subroutine fch2qchem: SF-type methods must be base&
                    &d on a high-spin'
   write(6,'(A)') 'reference wave function, where the spin multiplicity should b&
@@ -213,9 +220,9 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
  write(fid,'(A,/)') '$end'
 
  write(fid,'(A)') '$rem'
- if(job_type == 6) then
+ if(job_type == 7) then
   write(fid,'(A)') 'method adc(2)'
- else if(job_type == 7) then
+ else if(job_type == 8) then
   write(fid,'(A)') 'method sos-adc(2)'
  else
   write(fid,'(A)') 'method hf'
@@ -254,19 +261,20 @@ subroutine fch2qchem(fchname, job_type, npair, nocopy)
   write(fid,'(A)') 'eom_corr cis'
   write(fid,'(A)') 'ccman2 false'
   write(fid,'(A)') 'sf_states 5'
- end if
- if(job_type==6 .or. job_type==7) then
+ else if(job_type==7 .or. job_type==8) then
   write(fid,'(A)') 'aux_basis RIMP2-cc-pVTZ'
   write(fid,'(A)') 'ee_states = 3'
   write(fid,'(A)') 'n_frozen_core = fc'
   write(fid,'(A)') 'adc_davidson_maxiter 120'
  end if
 
- if(job_type>2 .and. job_type<6) then
+ if(job_type>2 .and. job_type<7) then
   if(job_type /= 3) write(fid,'(A)') 'exchange bhhlyp'
   write(fid,'(A)') 'cis_n_roots 5'
   if(job_type == 4) then
-   write(fid,'(A)') 'spin_flip true'
+   write(fid,'(A)') 'spin_flip 1'
+  else if(job_type == 6) then
+   write(fid,'(A)') 'spin_flip 2'
   else
    write(fid,'(A)') 'sasf_rpa true'
   end if

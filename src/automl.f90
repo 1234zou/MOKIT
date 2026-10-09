@@ -278,7 +278,7 @@ subroutine submit_xtb_job(proname, charge, mult, gfn, nproc, job_type, del_tmp)
  if(gfn == -1) then
   write(fid,'(A)',advance='no') ' --gfnff'
  else
-  write(fid,'(A,I0)',advance='no') ' --gfn ', gfn
+  write(fid,'(A,I0,A)',advance='no') ' --gfn ', gfn, ' --iterations 1000'
  end if
  write(fid,'(3(A,I0),A)') ' -c ',charge,' -u ',mult-1,' >'//TRIM(outname)//" 2>&1"
  close(fid)

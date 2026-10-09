@@ -53,7 +53,7 @@ contains
 
 subroutine read_sr_program_path()
  use mokit_version_info, only: version, date
- use mr_keyword, only: mokit_root, gau_path, molpro_path
+ use mr_keyword, only: mokit_root, gau_path, molpro_path, mrcc_path
  implicit none
  integer :: i
  integer(kind=4) :: hostnm
@@ -85,16 +85,18 @@ subroutine read_sr_program_path()
  call get_psi4_path(psi4_path)
  call get_exe_path('dalton', dalton_path)
  if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
+ call get_exe_path('dmrcc', mrcc_path)
  call getenv('GMS', gms_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
 
+ write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
  write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
  write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
- write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
- write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
+ write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
+ write(6,'(A)') 'mrcc_path   = '//TRIM(mrcc_path)
+ write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
  write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
- write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
 end subroutine read_sr_program_path
 
 ! Parse keywords of single reference calculations
@@ -1318,7 +1320,7 @@ subroutine do_adc()
   outname = hf_fch(1:i-1)//'_ADC.out'
   call fch2mrcc_wrap(hf_fch, job_type, .true.)
   call modify_mem_ncore_nstate_in_mrcc_inp(mem, chem_core, nstate, x_triplet)
-  call submit_mrcc_job(outname, nproc)
+  call submit_mrcc_job(outname, nproc, .true.)
   call read_adc_e_from_mrcc_out(outname, nstate, ex_elec_e, fosc)
  case('turbomole') ! ADC(2), and SOS-/SCS- variants
   inpname = 'control'

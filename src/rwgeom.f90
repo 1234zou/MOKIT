@@ -211,9 +211,8 @@ subroutine write_xyz_frames(xyzname, nframe, natom, elem, coor, lat_vec)
 end subroutine write_xyz_frames
 
 ! write/create an xTB .coord file
-! Note: input array `coor` must be in Angstrom
-subroutine write_coord(natom, elem, coor, fname, lat_vec)
- use phys_cons, only: Bohr_const
+! Note: input array `coor` and `lat_vec` must be in Angstrom
+subroutine write_xtb_coord(natom, elem, coor, fname, lat_vec)
  implicit none
  integer :: i, nd, fid
  integer, intent(in) :: natom
@@ -230,24 +229,24 @@ subroutine write_coord(natom, elem, coor, fname, lat_vec)
 !f2py intent(in) :: fname
 
  open(newunit=fid,file=TRIM(fname),status='replace')
- write(fid,'(A)') '$coord'
+ write(fid,'(A)') '$coord angs'
 
  do i = 1, natom, 1
-  write(fid,'(3(1X,F18.8),3X,A2)') coor(:,i)/Bohr_const, elem(i)
+  write(fid,'(3(1X,F18.8),3X,A2)') coor(:,i), elem(i)
  end do ! for i
 
  if(PRESENT(lat_vec)) then
   nd = SIZE(lat_vec, 2)
   write(fid,'(A,I0)') '$periodic ', nd
-  write(fid,'(A)') '$lattice bohr'
+  write(fid,'(A)') '$lattice angs'
   do i = 1, nd, 1
-   write(fid,'(3F15.5)') lat_vec(:,i)/Bohr_const
+   write(fid,'(3F15.5)') lat_vec(:,i)
   end do ! for i
   write(fid,'(A)') '$end'
  end if
 
  close(fid)
-end subroutine write_coord
+end subroutine write_xtb_coord
 
 end module periodic_table
 
@@ -1786,7 +1785,7 @@ end subroutine gjf2pdb
 
 ! convert a .gjf file into a .xyz/.coord/.pdb file
 subroutine gjf2other(gjfname, file_type)
- use periodic_table, only: write_xyz, write_coord
+ use periodic_table, only: write_xyz, write_xtb_coord
  implicit none
  integer :: i, natom, charge, mult
  integer, allocatable :: nuc(:)
@@ -1825,7 +1824,7 @@ subroutine gjf2other(gjfname, file_type)
   case(1)
    call write_xyz(outname, natom, elem, coor, .false., lat_vec)
   case(2)
-   call write_coord(natom, elem, coor, outname, lat_vec)
+   call write_xtb_coord(natom, elem, coor, outname, lat_vec)
   case(3)
    call lat_vec2lat_para(lat_vec, cell)
    allocate(resname(natom))
@@ -1842,7 +1841,7 @@ subroutine gjf2other(gjfname, file_type)
   case(1)
    call write_xyz(outname, natom, elem, coor, .false.)
   case(2)
-   call write_coord(natom, elem, coor, outname)
+   call write_xtb_coord(natom, elem, coor, outname)
   case(3)
    allocate(resname(natom))
    resname = '   '; cell = 0d0

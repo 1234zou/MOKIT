@@ -44,6 +44,8 @@ module mol
  logical :: beyond_xe = .false. ! whether there is any element > Xe
  ! Used in ist=3. H~Xe is the range of STO-6G in Gaussian.
 
+ ! the threshold of difference between exptected and calculated <S^2>
+ real(kind=8), parameter :: ss_diff_thres = 1d-3
  real(kind=8) :: rhf_e     = 0d0 ! RHF (electronic) energy
  real(kind=8) :: uhf_e     = 0d0 ! UHF energy
  real(kind=8) :: uhf_ssquare=0d0 ! UHF <S^2>
@@ -201,7 +203,7 @@ module mr_keyword
  logical :: c_fcgvb = .false. ! whether the user has changed default FcGVB
  logical :: c_gvb_conv = .false. ! whether the user has changed default GVB_conv
  logical :: HFonly  = .false. ! stop after the HF calculations
- logical :: CIonly  = .false.     ! whether to optimize orbitals before caspt2/nevpt2/mrcisd
+ logical :: CIonly  = .false.     ! whether to optimize orbitals before mrpt/mrci
  logical :: dyn_corr= .false.     ! dynamic correlation, post-GVB or post-CAS
  logical :: force = .false.       ! whether this is a force calculation
  logical :: gvb_force = .false.   ! whether to calculate GVB force
@@ -274,6 +276,7 @@ module mr_keyword
  character(len=240) :: gms_dat_path = ' '
  character(len=240) :: molcas_path = ' '
  character(len=240) :: molpro_path = ' '
+ character(len=240) :: mrcc_path = ' '
  character(len=240) :: orca_path = ' '
  character(len=240) :: psi4_path = ' '
  character(len=240) :: dalton_path = ' '
@@ -557,7 +560,7 @@ end subroutine check_gms_path
    end do ! for while
   end if
 
-  if(npair_wish>-1) write(6,'(A,I0)') 'User specified GVB npair = ',npair_wish
+  if(npair_wish>-1) write(6,'(A,I0)') 'User-specified GVB npair = ',npair_wish
   if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
                             & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
@@ -652,8 +655,8 @@ end subroutine check_gms_path
   if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
    write(6,'(/,A)') error_warn//"more than one keyword of 'caspt_prog',"
    write(6,'(A)') "'nevpt_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are&
-                  & detected. Only"
-   write(6,'(A)') 'one can be specified in a job.'
+                  & detected."
+   write(6,'(A)') 'Only one can be specified in a job.'
    stop
   end if
 
@@ -668,32 +671,6 @@ end subroutine check_gms_path
   if(alive1(3) .and. alive1(4)) then
    write(6,'(/,A)') error_warn//'both DMRGCI_prog and DMRGSCF_prog are'
    write(6,'(A)') 'detected. Only one can be specified in a job.'
-   stop
-  end if
-
-  if(casscf .and. (alive1(1).or.alive1(3))) then
-   write(6,'(/,A)') error_warn//'CASSCF activated, but you specify the'
-   write(6,'(A)') 'CASCI_prog or DMRGCI_prog. You should specify CASSCF_prog or&
-                  & DMRGSCF_prog.'
-   stop
-  end if
-
-  if(casci .and. (alive1(2).or.alive1(4))) then
-   write(6,'(/,A)') error_warn//'CASCI activated, but you specify the'
-   write(6,'(A)') 'CASSCF_prog or DMRGSCF_prog. You should specify CASCI_prog o&
-                  &r DMRGCI_prog.'
-   stop
-  end if
-
-  if(dmrgscf .and. alive1(3)) then
-   write(6,'(/,A)') error_warn//'DMRG-CASSCF activated, but you specify the DMR&
-                   &GCI_prog.'
-   stop
-  end if
-
-  if(dmrgci .and. alive1(4)) then
-   write(6,'(/,A)') error_warn//'DMRG-CASCI activated, but you specify the DMRG&
-                   &SCF_prog.'
    stop
   end if
 
@@ -1310,7 +1287,7 @@ subroutine check_kywd_compatible()
  end if
 
  if(CIonly .and. (.not.dyn_corr)) then
-  write(6,'(/,A)') error_warn//"keyword 'CIonly' can only be used in"
+  write(6,'(/,A)') error_warn//'keyword `CIonly` can only be used in'
   write(6,'(A)') 'MC-PDFT/CASPT2/CASPT3/NEVPT2/NEVPT3/NEVPT4SD/MRCISD/MRCC comp&
                  &utations. But'
   write(6,'(A)') 'none of them is specified.'
@@ -1359,20 +1336,20 @@ subroutine check_kywd_compatible()
 
  select case(TRIM(casci_prog))
  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4', &
-      'dalton')
+      'dalton','mrcc')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'User specified CASCI program cannot be identified: '//&
+  write(6,'(A)') 'User-specified CASCI program cannot be identified: '//&
                  TRIM(casci_prog)
   stop
  end select
 
  select case(TRIM(casscf_prog))
  case('gaussian','gamess','openmolcas','pyscf','orca','molpro','bdf','psi4', &
-      'dalton')
+      'dalton','mrcc')
  case default
   write(6,'(/,A)') error_warn
-  write(6,'(A)') 'User specified CASSCF program cannot be identified: '//&
+  write(6,'(A)') 'User-specified CASSCF program cannot be identified: '//&
                  TRIM(casscf_prog)
   stop
  end select
@@ -1704,8 +1681,9 @@ end module mr_keyword
 ! read paths of various programs from environment variables
 subroutine read_program_path()
  use mokit_version_info, only: version, date
- use mr_keyword, only: mokit_root, gau_path, molcas_path, molpro_path, &
-  orca_path, psi4_path, dalton_path, gms_path, bdf_path, molcas_omp, dalton_mpi
+ use mr_keyword, only: mokit_root, bdf_path, dalton_path, gau_path, gms_path, &
+  molcas_path, molpro_path, mrcc_path, orca_path, psi4_path, molcas_omp, &
+  dalton_mpi
  implicit none
  integer :: i
  integer(kind=4) :: hostnm
@@ -1737,19 +1715,21 @@ subroutine read_program_path()
  call get_psi4_path(psi4_path)
  call get_exe_path('dalton', dalton_path)
  if(TRIM(dalton_path) /= 'NOT FOUND') call check_dalton_is_mpi(dalton_mpi)
+ call get_exe_path('dmrcc', mrcc_path)
  call getenv('GMS', gms_path)
  call getenv('BDFHOME', bdf_path)
  if(LEN_TRIM(gms_path) == 0) gms_path = 'NOT FOUND'
  if(LEN_TRIM(bdf_path) == 0) bdf_path = 'NOT FOUND'
 
+ write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
+ write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
  write(6,'(A)') 'gau_path    = '//TRIM(gau_path)
  write(6,'(A)') 'gms_path    = '//TRIM(gms_path)
- write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
- write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
  write(6,'(A)') 'molcas_path = '//TRIM(molcas_path)
+ write(6,'(A)') 'molpro_path = '//TRIM(molpro_path)
+ write(6,'(A)') 'mrcc_path   = '//TRIM(mrcc_path)
+ write(6,'(A)') 'orca_path   = '//TRIM(orca_path)
  write(6,'(A)') 'psi4_path   = '//TRIM(psi4_path)
- write(6,'(A)') 'dalton_path = '//TRIM(dalton_path)
- write(6,'(A)') 'bdf_path    = '//TRIM(bdf_path)
 end subroutine read_program_path
 
 ! read mem, nproc and Route Section from an opened .gjf file

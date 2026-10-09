@@ -49,17 +49,24 @@ do
  sed -i 's/\<FGVB(25)/FGVB(999)/g'         $fname.src
  sed -i 's/\<ALPHA(325)/ALPHA(499500)/g'   $fname.src
  sed -i 's/\<BETA(325)/BETA(499500)/g'     $fname.src
-
  sed -i 's/\<TKIN(25)/TKIN(999)/g'         $fname.src
  sed -i 's/\<TPLUSV(25)/TPLUSV(999)/g'     $fname.src
  sed -i 's/\<CILOW(12)/CILOW(499)/g'       $fname.src
  sed -i 's/\<KCORB(2,12)/KCORB(2,499)/g'   $fname.src
  sed -i 's/\<CIHAM(91)/CIHAM(125250)/g'    $fname.src
+ sed -i 's/\<NO(10)/NO(49)/g'              $fname.src
 done
+
 sed -i 's/9148 FORMAT(1X,I2/9148 FORMAT(I3/g' gvb.src
 sed -i "s/CICOEF(',I2,')=',F12.8,',',F12.8/CICOEF(',I3,')=',E21.14,',',E21.14/" gvb.src
-sed -i 's/NHAMX\ =\ 25/NHAMX\ =\ 999/g'    scflib.src
-sed -i 's/NPAIRX\ =\ 12/NPAIRX\ =\ 499/g'  scflib.src
+
+# change some upper limits in scflib.src
+sed -i 's/NHAMX\ =\ 25/NHAMX\ =\ 999/g'   scflib.src
+sed -i 's/NSETMX\ =\ 10/NSETMX\ =\ 49/g'  scflib.src
+sed -i 's/NPAIRX\ =\ 12/NPAIRX\ =\ 499/g' scflib.src
+sed -i 's|DATA KQNAM/1,1,1,   1,3,1,101,   253,253,3253,3253,|DATA KQNAM/1,1,1, 1,3,1,491, 9993,9993,4995003,4995003,|' scflib.src
+
+# change maximum number of SCF iterations
 sed -i 's/200) T/500) T/g' inputa.src
 
 # For MP2 NOONs, not for GVB

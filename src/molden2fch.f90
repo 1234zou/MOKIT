@@ -534,7 +534,17 @@ subroutine molden2fch(molden, iprog, natorb)
  allocate(coeff(nbf,nif1), eigen_e_a(nif), occ_a(nif))
  call read_mo_from_molden(molden, nbf, nif, 'a', all_coeff, coeff(:,1:nif), &
                           eigen_e_a, occ_a)
- if(natorb) eigen_e_a = occ_a
+ if(natorb) then
+  ! MRCC has -2 occupation numbers for doubly occupied orbitals. We need to
+  ! change them to +2
+  if(iprog == 8) then
+   do i = 1, nif, 1
+    if(occ_a(i) > 0.1d0) exit
+    if(DABS(occ_a(i)+2d0) < 1d-3) occ_a(i) = -occ_a(i)
+   end do ! for i
+  end if
+  eigen_e_a = occ_a
+ end if
 
  ! occupation numbers in CFOUR-v2.1 RHF molden need to be *2
  if(iprog==2 .and. (.not.is_uhf) .and. (.not.natorb)) occ_a = 2d0*occ_a

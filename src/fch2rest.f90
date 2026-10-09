@@ -12,7 +12,7 @@ program main
  character(len=27), parameter :: error_warn = 'ERROR in prorgam fch2rest: '
  character(len=30) :: dftname, dftname1
  character(len=240) :: fchname
- logical :: new_format
+ logical :: new_format ! .true. means REST >= 2026.1.1
 
  i = iargc()
  if(i < 1) then
@@ -34,7 +34,6 @@ program main
  end if
 
  fchname = ' '; dftname = ' '; disp_type = 0; new_format = .true.
-
  call getarg(1, fchname)
  call require_file_exist(fchname)
 
@@ -292,6 +291,7 @@ subroutine fch2rest(fchname, dftname, disp_type, new_format)
  else ! legacy REST reads the basis set from local JSON files
   call gen_rest_bas_dir(dirname)
  end if
+
  call free_arrays_in_fch_content()
  call rest_fch2pchk(fchname, mult, uhf, charge, new_format)
 end subroutine fch2rest

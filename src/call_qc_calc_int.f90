@@ -388,6 +388,31 @@ subroutine get_ao_ovlp_using_fch(fchname, nbf, ovlp)
  end if
 end subroutine get_ao_ovlp_using_fch
 
+! Compute AO-basis dipole integral matrices using the given .fch file.
+! Currently one of Gaussian/PySCF must be installed.
+subroutine get_ao_dip_using_fch(fchname, nbf, ao_dip)
+ use phys_cons, only: Bohr_const
+ implicit none
+ integer, intent(in) :: nbf
+!f2py intent(in) :: nbf
+ real(kind=8), intent(out) :: ao_dip(nbf,nbf,3)
+!f2py intent(out) :: ao_dip
+!f2py depend(nbf) :: ao_dip
+ character(len=240) :: gau_path, file47
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+
+ call get_gau_path(gau_path)
+ if(TRIM(gau_path) == 'NOT FOUND') then ! call PySCF
+  call get_gau_ao_dip_from_pyscf(fchname, nbf, ao_dip)
+  ao_dip = ao_dip*Bohr_const
+ else                                   ! call Gaussian
+  call call_gaussian_gen47_from_fch(fchname, file47)
+  call read_ao_dip_from_47(file47, nbf, ao_dip)
+  call delete_file(TRIM(file47))
+ end if
+end subroutine get_ao_dip_using_fch
+
 ! call Gaussian program to generate .47 file from a given .fch(k) file
 subroutine call_gaussian_gen47_from_fch(fchname, file47)
  use util_wrapper, only: unfchk
@@ -1244,13 +1269,18 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
  end if
 end subroutine submit_dalton_job
 
-subroutine submit_mrcc_job(outname, nproc)
+subroutine submit_mrcc_job(outname, nproc, del_fort)
  implicit none
- integer :: i, fid
+ integer :: i, nfile, fid
+ integer, parameter :: nfile0 = 22
  integer, intent(in) :: nproc
+ character(len=7), parameter :: fort_files(9) = ['fort.10','fort.14','fort.16',&
+  'fort.17','fort.24','fort.55','fort.56','fort.57','fort.78']
  character(len=240) :: shname
  character(len=240), intent(in) :: outname
+ character(len=240), allocatable :: fnames(:)
  character(len=500) :: buf
+ logical, intent(in) :: del_fort
 
  call find_specified_suffix(outname, '.out', i)
  shname = outname(1:i-1)//'.sh'
@@ -1264,9 +1294,16 @@ subroutine submit_mrcc_job(outname, nproc)
  buf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
  call run_command(TRIM(buf), .false., .true.)
 
- call delete_file(TRIM(shname))
- call delete_file('56')
- call delete_file('DAO')
+ nfile = nfile0
+ if(del_fort) nfile = nfile + 9
+ allocate(fnames(nfile))
+ fnames(1:nfile0) = [shname,'56','COORD.xyz','DAO','EXIT','FOCK','iface', &
+  'KEYWD','mrcc_job.dat','MOLDEN.CAN','MOLDEN.perm','OCCUP','OEINT','PRINT',&
+  'SCFDENSITIES','SCHOL','SROOT','SYMTRA','TEDAT','TEINT','trust_region_data',&
+  'VARS']
+
+ if(del_fort) fnames(nfile0+1:nfile) = fort_files
+ call delete_files(nfile, fnames)
 end subroutine submit_mrcc_job
 
 ! submit a Turbomole job

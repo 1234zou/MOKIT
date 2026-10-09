@@ -26,9 +26,9 @@ subroutine do_mrpt2()
   nevpt2, mrmp2, ovbmp2, sdspt2, casnofch, nevpt_prog, caspt_prog, bgchg, &
   chgname, mem, nproc, check_gms_path, gms_path, gms_scr_path, gms_dat_path, &
   molcas_omp, molcas_path, molpro_path, orca_path, bdf_path, gau_path, FIC, &
-  eist, target_root, caspt2_force
- use mol, only: nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, ovbmp2_e, &
-  davidson_e, ptchg_e, nuc_pt_e, natom, grad
+  eist, iroot, target_root, xmult, caspt2_force
+ use mol, only: mult, nacte, nacto, caspt2_e, nevpt2_e, mrmp2_e, sdspt2_e, &
+  ovbmp2_e, davidson_e, ptchg_e, nuc_pt_e, natom, grad
  use util_wrapper, only: bas_fch2py_wrap, add_bgcharge2inp_wrap, mkl2gbw, &
   fch2bdf_wrap, fch2inp_wrap, fch2mkl_wrap, unfchk, fch2inporb_wrap
  implicit none
@@ -37,7 +37,7 @@ subroutine do_mrpt2()
  character(len=30), parameter :: error_warn = 'ERROR in subroutine do_mrpt2: '
  character(len=240) :: string, pyname, outname, inpname, inporb
  character(len=240) :: mklname, cmofch
- real(kind=8) :: ref_e, ssquare, corr_e
+ real(kind=8) :: ref_e, corr_e
  logical :: alive(5)
 
  if(eist == 1) return ! excited state calculation
@@ -331,8 +331,9 @@ subroutine do_mrpt2()
   case('pyscf')
    call read_target_root_from_pyscf_out(outname, i, alive(1))
    if(alive(1)) target_root = i
-   call read_mrpt_energy_from_pyscf_out(outname, target_root, ssquare, ref_e, &
-                                        corr_e)
+   i = mult
+   if(iroot>0 .and. mult/=xmult) i = xmult
+   call read_mrpt_energy_from_pyscf_out(outname, i, target_root, ref_e, corr_e)
    ref_e = ref_e + ptchg_e
   case('molpro')
    if(FIC) then
@@ -730,12 +731,13 @@ subroutine prt_nevpt2_script_into_py(pyname)
  implicit none
  integer :: i, fid1, fid2, RENAME
  character(len=21) :: RIJK_bas1
- character(len=240) :: buf, pyname1
+ character(len=240) :: buf, ci_vec, pyname1
  character(len=240), intent(in) :: pyname
  logical :: dmrg
 
  dmrg = (dmrgci .or. dmrgscf)
- call find_specified_suffix(pyname, '.py', i)
+ call find_specified_suffix(pyname, '_NEVPT2.py', i)
+ ci_vec = pyname(1:i-1)//'_CI.npy'
  pyname1 = pyname(1:i-1)//'.t'
 
  open(newunit=fid1,file=TRIM(pyname),status='old',position='rewind')
@@ -756,6 +758,8 @@ subroutine prt_nevpt2_script_into_py(pyname)
   if(.not. FIC) buf = TRIM(buf)//', mrpt'
   write(fid2,'(A)') TRIM(buf)
   write(fid2,'(A)') 'from mokit.lib.auto import casci_wrapper'
+  write(fid2,'(A)') 'from os import path'
+  write(fid2,'(A)') 'import numpy as np'
  end if
  if(FIC) write(fid2,'(A)') 'from pyblock2.icmr.icnevpt2_full import WickICNEVPT2'
 
@@ -819,7 +823,12 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A)') 'mc.verbose = 5'
   write(fid2,'(A)') 'mc.kernel()'
   call prt_dmrg_nevpt2_setting(fid2, iroot, nstate, maxM, FIC)
- else          ! CASCI/CASSCF based NEVPT2
+ else          ! CASCI/CASSCF based NEVPT2, not DMRG-based
+  write(fid2,'(A)') 'ci_vec = "'//TRIM(ci_vec)//'"'
+  write(fid2,'(A)') 'if path.exists(ci_vec):'
+  write(fid2,'(4X,A)') 'ci0 = np.load(ci_vec)'
+  write(fid2,'(A)') 'else:'
+  write(fid2,'(4X,A)') 'ci0 = None'
   write(fid2,'(3(A,I0),A)',advance='no')'mc = casci_wrapper(mf,', nacto, ',(',&
                                         nacta, ',', nactb, ')'
   if(iroot > 0) then
@@ -829,7 +838,7 @@ subroutine prt_nevpt2_script_into_py(pyname)
   write(fid2,'(A)',advance='no') ', natorb=False'
   if(hardwfn) write(fid2,'(A)',advance='no') ', HardWFN=True'
   if(crazywfn) write(fid2,'(A)',advance='no') ', CrazyWFN=True'
-  write(fid2,'(A)') ')'
+  write(fid2,'(A)') ', ci0=ci0)'
   if(iroot > 0) then
    write(fid2,'(A)') 'ci0 = mc.ci'
    write(fid2,'(3(A,I0),A)',advance='no')'mc = casci_wrapper(mf,', nacto, ',(',&
