@@ -65,19 +65,32 @@ conda_build_cf:
   extends: .setup_cf
   only:
     refs:
-      - cf
       - master
-      - distu-fix
-      - ci-debug-2026
     changes:
       - "mokit/__init__.py"
-      - "conda/cf*/meta.yaml"
+      - "conda/cf39/*"
   script:
     - conda config --set channel_priority strict
     - conda info
     - conda list
-    - conda build --output-folder ./output_cf -c conda-forge conda/cf39
-    #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39 -m conda/cf39/config39.yaml
+    - cd output_cf/linux-64
+    - anaconda upload mokit*.conda --skip-existing
+    - anaconda label --copy main cf
+
+conda_build_cf_batch2:
+  extends: .setup_cf
+  only:
+    refs:
+      - master
+    changes:
+      - "mokit/__init__.py"
+      - "conda/cf39/*"
+  script:
+    - conda config --set channel_priority strict
+    - conda info
+    - conda list
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39 -m conda/cf39/config312.yaml
     - cd output_cf/linux-64
     - anaconda upload mokit*.conda --skip-existing
     - anaconda label --copy main cf
@@ -92,12 +105,34 @@ conda_build_cf_test:
       - conda-format
       - py312-conda
       - entrypo-conda
+      - conda-npy25
     changes:
       - "mokit/__init__.py"
-      - "conda/cf*/meta.yaml"
+      - "conda/cf39/*"
   script:
     - conda config --set channel_priority strict
-    - conda build --output-folder ./output_cf -c conda-forge conda/cf39
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39 -m conda/cf39/config39.yaml
+    #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
+    - cd output_cf/linux-64
+    - anaconda upload mokit*.conda --skip-existing --label testcf
+
+conda_build_cf_test_batch2:
+  extends: .setup_cf
+  only:
+    refs:
+      - cf-debug
+      - ci-update-2025
+      - conda-fix-glibc
+      - conda-format
+      - py312-conda
+      - entrypo-conda
+      - conda-npy25
+    changes:
+      - "mokit/__init__.py"
+      - "conda/cf39/*"
+  script:
+    - conda config --set channel_priority strict
+    - conda build --output-folder ./output_cf -c conda-forge conda/cf39 -m conda/cf39/config312.yaml
     #- conda build --output-folder ./output_cf -c conda-forge conda/cf310p
     - cd output_cf/linux-64
     - anaconda upload mokit*.conda --skip-existing --label testcf

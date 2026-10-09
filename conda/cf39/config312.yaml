@@ -1,0 +1,13 @@
+zip_keys:
+  - python
+  - numpy
+python:
+  - 3.12
+  - 3.13
+numpy:
+  - 2.5
+  - 2.5
+openblas:
+  - "0.3.33 *openmp*"
+c_stdlib_version:
+  - "2.17"
