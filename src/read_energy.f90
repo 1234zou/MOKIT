@@ -2681,3 +2681,1129 @@ subroutine read_mrcc_energy_from_output(mrcc_prog, mrcc_type, outname, ref_e, &
  end select
 end subroutine read_mrcc_energy_from_output
 
+subroutine read_cc_e_from_gau_log(outname, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8) :: ss
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ call read_hf_e_and_ss_from_gau_log(outname, .false., ref_e, ss)
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:17) == 'Wavefunction amp') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'Wavefunction &
+                   &amp' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) tot_e ! CCD/CCSD total energy
+
+ read(fid,'(A)') buf
+ if(buf(2:8) == 'T1 Diag') then
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) t1diag
+ end if
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:14) == 'Discarding MO') exit
+  if(buf(2:8)=='CCSD(T)' .or. buf(2:9)=='QCISD(T)') then
+   i = INDEX(buf, '=')
+   read(buf(i+1:),*) tot_e ! CCSD(T)/QCISD(T) total energy
+   exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine read_cc_e_from_gau_log
+
+subroutine read_cc_e_from_molpro_out(outname, read_t1diag, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: read_t1diag
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:9) == 'Checking') then
+   i = -1
+   exit
+  end if
+  if(INDEX(buf,'HF-SCF') > 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'Total Ener' n&
+                   &ot found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ read(fid,*) tot_e, ref_e
+
+ if(read_t1diag) then
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(2:9) == 'Checking') then
+    i = -1
+    exit
+   end if
+   if(INDEX(buf,'T1 diag') > 0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_orca_out: 'T1 diag' not&
+                   & found in file "//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  i = INDEX(buf, 'T1 diagnostic:')
+  read(buf(i+14:),*) t1diag
+ end if
+
+ close(fid)
+end subroutine read_cc_e_from_molpro_out
+
+subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8) :: ccsd_t_corr
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: set_tot_e, set_ccsd_t_corr
+
+ set_tot_e = .false.; set_ccsd_t_corr = .false.
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0; ccsd_t_corr = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ write(fid,'(/)',advance='no')
+ i = 0
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(1:12) == 'SCF not conv') then
+   i = -1; exit
+  end if
+
+  select case(buf(1:11))
+  case('E(RCCSDT) =','E(UCCSDT) =')
+   if(.not. set_tot_e) then
+    read(buf(12:),*) tot_e
+    set_tot_e = .true.
+   end if
+  end select
+
+  select case(buf(1:10))
+  case('RCCSD(T) c','UCCSD(T) c')
+   if(.not. set_ccsd_t_corr) then
+    call get_dpv_after_flag(buf, '=', .true., ccsd_t_corr)
+    set_ccsd_t_corr = .true.
+   end if
+  case('E(RCCSD) =','E(UCCSD) =')
+   if(.not. set_tot_e) then
+    read(buf(11:),*) tot_e
+    set_tot_e = .true.
+   end if
+  end select
+
+  select case(buf(1:9))
+  case('CCSD(T) c')
+   if(.not. set_ccsd_t_corr) then
+    call get_dpv_after_flag(buf, '=', .true., ccsd_t_corr)
+    set_ccsd_t_corr = .true.
+   end if
+  case('E(CCSD) =')
+   if(.not. set_tot_e) then
+    read(buf(10:),*) tot_e
+    set_tot_e = .true.
+   end if
+  case('T1_diag =')
+   read(buf(10:),*) t1diag
+  case('converged')
+   exit
+  end select
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_cc_e_from_pyscf_out: failed to rea&
+                   &d HF and CC'
+  write(6,'(A)') 'energies from file '//TRIM(outname)
+  stop
+ end if
+
+ call get_dpv_after_flag(buf, '=', .true., ref_e)
+ tot_e = tot_e + ccsd_t_corr
+end subroutine read_cc_e_from_pyscf_out
+
+! Read CCSD(T) energy from a PSI4 output file. Usually used for the job:
+!  grad, wfn = gradient('ccsd(t)', return_wfn=True)
+subroutine read_ccsd_t_e_from_psi4_grad_out(outname, RI, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, fid, ntimes
+ real(kind=8) :: r1, r2
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: RI
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ ! read SCF energy
+ ntimes = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(5:18) == 'Total Energy =') then
+   ntimes = ntimes + 1
+   if(ntimes == 2) exit
+  end if
+ end do ! for while
+ read(buf(19:),*) ref_e
+
+ if(RI) then
+  ! read T1diag
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(INDEX(buf,'T1 diagnostic') > 0) exit
+  end do ! for while
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no '&
+                    &T1 diagnostic' found"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+  read(fid,'(A)') buf
+  i = INDEX(buf, ':')
+  read(buf(i+1:),*) t1diag
+
+  ! read CCSD(T) energy
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(INDEX(buf,'DF-CCSD(T) Tot') > 0) exit
+  end do ! for while
+  close(fid)
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no '&
+                    &DF-CCSD(T) Tot'"
+   write(6,'(A)') 'found in file '//TRIM(outname)
+   stop
+  end if
+  i = INDEX(buf, ':', back=.true.)
+
+ else ! no RI
+  ! read T1diag
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(51:56) == 'T1Diag') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no 'T&
+                    &1Diag' found in"
+   write(6,'(A)') 'file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  read(fid,'(A)') ! skip 1 line
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(LEN_TRIM(buf) == 0) exit
+   read(buf,*) i, r1, r2, t1diag
+  end do ! for while
+
+  ! read CCSD(T) energy
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(9:23) == 'CCSD(T) total e') exit
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_ccsd_t_e_from_psi4_grad_out: no 'C&
+                    &CSD(T) total e'"
+   write(6,'(A)') 'found in file '//TRIM(outname)
+   stop
+  end if
+  i = INDEX(buf, '=', back=.true.)
+ end if
+
+ read(buf(i+1:),*) tot_e
+end subroutine read_ccsd_t_e_from_psi4_grad_out
+
+subroutine read_cc_e_from_psi4_out(outname, RI, ccd, ccsd, ccsd_t, t1diag, ref_e,&
+                                   tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=14), parameter :: key0(5) = ['DF-CCD Total E','* CCSD total e',&
+                           'DF-CCSD Total ','* CCSD(T) tota','DF-CCSD(T) Tot']
+ character(len=14) :: key
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: RI, ccd, ccsd, ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+
+ if(ccd) then
+  key = key0(1)
+ else if(ccsd) then
+  if(RI) then
+   key = key0(3)
+  else
+   key = key0(2)
+  end if
+ else if(ccsd_t) then
+  if(RI) then
+   key = key0(5)
+  else
+   key = key0(4)
+  end if
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ if(.not. ccd) then
+  do while(.true.)
+   BACKSPACE(fid, iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid, iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(1:6) == 'memory') then
+    i = -1; exit
+   end if
+   if(INDEX(buf,'T1 DIAG')>0 .or. INDEX(buf,'T1 diag')>0) exit
+  end do ! for while
+  i = INDEX(buf, '=>')
+  if(i == 0) i = INDEX(buf, ':')
+  read(buf(i+2:),*) t1diag
+ end if
+
+ rewind(fid)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf, key) > 0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_psi4_out: key '"//key//&
+                   "'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ if(i == 0) i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e
+
+ do while(.true.)
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(1:6) == 'memory') then
+   i = -1; exit
+  end if
+  if(INDEX(buf,'SCF E')>0 .or. INDEX(buf,'SCF e')>0) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_psi4_out: 'SCF E' or 'SC&
+                   &F e' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ close(fid)
+ i = INDEX(buf, '=')
+ if(i == 0) i = INDEX(buf, ':')
+ read(buf(i+1:),*) ref_e
+end subroutine read_cc_e_from_psi4_out
+
+subroutine read_scf_e_from_gms_out(outname, scf_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: scf_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ scf_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:7) == ' FINAL ') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_scf_e_from_gms_out: ' FINAL ' not &
+                   &found in file "//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, 'IS')
+ buf = ADJUSTL(buf(i+2:))
+ read(buf,*) scf_e
+end subroutine read_scf_e_from_gms_out
+
+! read CC energy from GAMESS output
+subroutine read_cc_e_from_gms_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
+                                  tot_e)
+ implicit none
+ integer :: i, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=10), parameter :: key0(3) = ['CCD ENERGY','CCSD    EN','CCSD(T) EN']
+ character(len=10) :: key
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccd, ccsd, ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ if(ccd) then
+  key = key0(1)
+ else if(ccsd) then
+  key = key0(2)
+ else if(ccsd_t) then
+  key = key0(3)
+ end if
+
+ call read_scf_e_from_gms_out(outname, ref_e)
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ if(.not. ccd) then
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:8) == 'T1 DIAG') exit
+  end do ! for while
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) t1diag
+ end if
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(INDEX(buf, key) > 0) exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_gms_out: key '"//key//"'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e
+end subroutine read_cc_e_from_gms_out
+
+subroutine read_cc_e_from_qchem_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, na, nb, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=10) :: key
+ character(len=10), parameter :: key0(3) = ['CCD total ','CCSD total','CCSD(T) to']
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccd, ccsd, ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0;  tot_e = 0d0
+ if(ccd) then
+  key = key0(1)
+ else if(ccsd) then
+  key = key0(2)
+ else if(ccsd_t) then
+  key = key0(3)
+ end if
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+ do while(.true.)
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid, iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(2:8) == 'SCF ene') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_qchem_out: 'SCF ene' not&
+                   & found in file "//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) ref_e ! SCF energy
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:11) == key) exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_qchem_out: key '"//key//"'"
+  write(6,'(A)') 'not found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, '=')
+ read(buf(i+1:),*) tot_e
+
+ if(.not. ccd) then ! read T1diag
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) t1diag
+  if(t1diag < 5d-3) then
+   write(6,'(A)') REPEAT('-',79)
+   write(6,'(A)') 'Warning from subroutine read_cc_e_from_qchem_out: T1^2 in Q-&
+                  &Chem output file'
+   write(6,'(A)') 'has too few digits. This does not affect the electronic ener&
+                  &gy at all, but will'
+   write(6,'(A)') 'lead to inaccurate T1diag value. If you care about T1diag, y&
+                  &ou should use'
+   write(6,'(A)') 'another CC_prog.'
+   write(6,'(A)') REPEAT('-',79)
+  end if
+  do while(.true.)
+   BACKSPACE(fid)
+   BACKSPACE(fid)
+   read(fid,'(A)') buf
+   if(buf(2:10) == 'Alpha orb') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(20:),*) i, na
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(2:9) == 'Beta orb') exit
+  end do ! for while
+  read(fid,'(A)') buf
+  read(fid,'(A)') buf
+  read(buf(20:),*) i, nb
+  t1diag = DSQRT(t1diag/DBLE(2*(na+nb)))
+ end if
+
+ close(fid)
+end subroutine read_cc_e_from_qchem_out
+
+! read the number of doubly occupied orbitals (frozen core orbitals not
+!  included) from CFOUR output file
+subroutine read_nocc_from_cfour_out(outname, nocc)
+ implicit none
+ integer :: i, na, nf, fid
+ integer, intent(out) :: nocc
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: frozen
+
+ nocc = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(11:26) == 'Alpha population') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_cfour_out: keyword 'Alph&
+                   &a population' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) na ! number of alpha spin orbitals
+
+ frozen = .true.
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(3:15) == 'The following') exit
+  if(buf(3:12) == 'Summary of') then
+   frozen = .false.
+   exit
+  end if
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_cfour_out: keyword 'The &
+                   &following' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ if(frozen) then
+  read(buf(16:),*) nf ! number of frozen core orbitals
+ else
+  nf = 0
+ end if
+ close(fid)
+
+ nocc = na - nf
+end subroutine read_nocc_from_cfour_out
+
+! read T1 diagnostic value from a CFOUR T1 binary file
+subroutine read_t1diag_from_cfour_t1(nocc, t1diag)
+ implicit none
+ integer :: i, nvir, fid
+ integer(kind=4) :: ibuf(13)
+ integer, intent(in) :: nocc
+! nocc: the number of doubly occupied orbitals (frozen core not included)
+ real(kind=8), intent(out) :: t1diag
+ real(kind=8), allocatable :: t1(:)
+ logical :: alive
+
+ t1diag = 0d0
+ inquire(file='T1',exist=alive)
+ if(.not. alive) then
+  write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_cfour_t1: file T1 does&
+                   & not exist.'
+  stop
+ end if
+
+ ! determine nvir from the file size of T1
+ call STAT('T1', ibuf)
+ nvir = ibuf(8)/(8*nocc)
+
+ allocate(t1(nocc*nvir), source=0d0)
+ open(newunit=fid,file='T1',status='old',access='stream')
+ read(fid,iostat=i) t1
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_cfour_t1: failed to re&
+                   &ad t1 amplitudes'
+  write(6,'(A)') 'from CFOUR T1 file.'
+  write(6,'(A,2I6)') 'nocc, nvir=', nocc, nvir
+  deallocate(t1)
+  stop
+ else
+  t1diag = DSQRT(DOT_PRODUCT(t1,t1)/DBLE(nocc*2))
+  deallocate(t1)
+ end if
+end subroutine read_t1diag_from_cfour_t1
+
+subroutine read_cc_e_from_cfour_out(outname, ccd, ccsd, ccsd_t, t1diag, ref_e, &
+                                    tot_e)
+ implicit none
+ integer :: i, k, nocc, fid
+ real(kind=8) :: rtmp
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccd, ccsd, ccsd_t
+ logical :: uhf
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(13:18) == 'E(SCF)') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: key 'E(SCF)' &
+                   &not found in"
+  write(6,'(A)') 'file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+ call get_dpv_after_flag(buf, '=', .true., ref_e) ! HF energy
+
+ if(ccd) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:11) == 'Total CCD e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   end if
+   if(buf(2:15) == 'A miracle come') then
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    BACKSPACE(fid)
+    read(fid,*) k, rtmp, tot_e
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: failed to lo&
+                    &cate CCD energy"
+   write(6,'(A)') 'in file '//TRIM(outname)
+   stop
+  end if
+ else if(ccsd) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:12)=='Total CCSD e' .or. buf(3:14)=='Total CCSD e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: 'Total CCSD &
+                    &e' is not found"
+   write(6,'(A)') "in file "//TRIM(outname)
+   stop
+  end if
+ else if(ccsd_t) then
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   if(buf(1:15) == 'Total CCSD(T) e') then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    exit
+   else if(buf(3:13) == 'CCSD(T) ene') then
+    call get_dpv_after_flag(buf, 'y', .true., tot_e)
+    exit
+   end if
+  end do ! for while
+  close(fid)
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_cfour_out: neither 'Tot&
+                    &al CCSD(T) e' nor"
+   write(6,'(A)') "'CCSD(T) ene' is found in file "//TRIM(outname)
+   stop
+  end if
+ end if
+
+ call check_uhf_in_cfour_out(outname, uhf)
+ if(uhf .and. (ccsd .or. ccsd_t)) then
+  write(6,'(A)') REPEAT('-',79)
+  write(6,'(A)') 'T1 diagnostic is currently not supported for UHF-based CC usi&
+                 &ng CFOUR. T1_diag'
+  write(6,'(A)') 'will be set to 0 below.'
+  write(6,'(A)') REPEAT('-',79)
+ end if
+
+ if(.not. (uhf .or. ccd)) then
+  call read_nocc_from_cfour_out(outname, nocc)
+  call read_t1diag_from_cfour_t1(nocc, t1diag)
+ end if
+end subroutine read_cc_e_from_cfour_out
+
+subroutine read_cc_e_from_molcas_out(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: ricd, cholesky
+ logical, intent(in) :: ccsd_t
+
+ ricd = .false.; cholesky = .false.   ! initialization
+
+ ! determine RICD/CHOLESKY/noRI
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:4) == 'RICD') then
+   ricd = .true.
+   exit
+  end if
+  if(buf(1:8) == 'CHOLESKY') then
+   cholesky = .true.
+   exit
+  end if
+  if(buf(1:4) == '()()') exit
+ end do ! for while
+ close(fid)
+
+ if(ricd .or. cholesky) then
+  call read_cc_e_from_molcas_out1(outname, ccsd_t, t1diag, ref_e, tot_e)
+ else
+  call read_cc_e_from_molcas_out2(outname, ccsd_t, t1diag, ref_e, tot_e)
+ end if
+end subroutine read_cc_e_from_molcas_out
+
+! find the number of occupied orbtials from a (Open)Molcas output file (frozen
+! core orbitals not included)
+subroutine read_nocc_from_molcas_out(outname, nocc)
+ implicit none
+ integer :: i, fid
+ integer, intent(out) :: nocc
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ nocc = 0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:37)=='No. of occupied orbitals with a' .or. buf(2:9)=='Occupied') exit
+ end do ! for while
+
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_nocc_from_molcas_out: nocc cannot &
+                   &be found in file"
+  write(6,'(A)') TRIM(outname)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ if(i > 0) then
+  read(buf(i+1:),*) nocc
+ else
+  read(buf(47:),*) nocc
+ end if
+end subroutine read_nocc_from_molcas_out
+
+! read T1 diagnostic value from an (Open)Molcas .RstFil unformatted file
+subroutine read_t1diag_from_rstfil(proname, nocc, t1diag)
+ implicit none
+ integer :: i, nvir, fid
+ integer(kind=4) :: ibuf(13)
+ integer, intent(in) :: nocc
+! nocc: the number of doubly occupied orbitals (frozen core not included)
+ real(kind=8), intent(out) :: t1diag
+ real(kind=8), allocatable :: t1(:)
+ character(len=840) :: fullpath
+ character(len=240), intent(in) :: proname
+
+ t1diag = 0d0
+ call getenv('MOLCAS_WORKDIR', fullpath)
+ fullpath = TRIM(fullpath)//'/'//TRIM(proname)//'/'//TRIM(proname)//'.RstFil'
+
+ ! Determine nvir from the file size of .RstFil. Here 40 means E1 CCSD energy,
+ !  E2 CCSD energy and the number of CCSD iterations, so it is excluded.
+ call STAT(TRIM(fullpath), ibuf)
+ nvir = (ibuf(8)-40)/(8*nocc)
+
+ allocate(t1(nocc*nvir), source=0d0)
+ open(newunit=fid,file=TRIM(fullpath),status='old',form='unformatted')
+ read(fid,iostat=i) t1
+ close(fid)
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_t1diag_from_rstfil: failed to read&
+                   & t1 amplitudes'
+  write(6,'(A)') 'from Molcas .RstFil file.'
+  write(6,'(A)') 'File prefix='//TRIM(proname)
+  write(6,'(A,2I6)') 'nocc, nvir=', nocc, nvir
+  deallocate(t1)
+  stop
+ else
+  t1diag = DSQRT(DOT_PRODUCT(t1,t1)/DBLE(nocc*2))
+  deallocate(t1)
+ end if
+end subroutine read_t1diag_from_rstfil
+
+! read CCSD/CCSD(T) energies from a (Open)Molcas output file (for RICD)
+subroutine read_cc_e_from_molcas_out1(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, j, nocc, fid
+ real(kind=8) :: r(2), corr_e
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf, proname
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ call read_nocc_from_molcas_out(outname, nocc)
+ call find_specified_suffix(outname, '.out', i)
+ proname = outname(1:i-1)
+ call read_t1diag_from_rstfil(proname, nocc, t1diag)
+
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ if(ccsd_t) then
+  do while(.true.)
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   BACKSPACE(fid,iostat=i)
+   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(4:15) == 'CCSD(T) corr') exit
+  end do ! for while
+
+  if(i /= 0) then
+   write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'CC&
+                    &SD(T) corr' not"
+   write(6,'(A)') 'found in file '//TRIM(outname)
+   close(fid)
+   stop
+  end if
+
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) corr_e ! CCSD(T) corr e
+ end if
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(3:16) == 'Final CCSD ene') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'Fi&
+                   &nal CCSD energy' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ do i = 1, 2   ! read CCSD correlation e
+  read(fid,'(A)') buf
+  j = INDEX(buf, ':')
+  read(buf(j+1:),*) r(i)
+ end do ! for i
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:17) == 'Total SCF e') exit
+ end do ! for while
+
+ close(fid)
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out1: keyword 'To&
+                   &tal SCF e' not found"
+  write(6,'(A)') 'in file '//TRIM(outname)
+  stop
+ end if
+
+ read(buf(23:),*) ref_e ! SCF e
+
+ if(ccsd_t) then ! CCSD(T)
+  tot_e = ref_e + corr_e
+ else            ! CCSD
+  tot_e = ref_e + r(1) + r(2)
+ end if
+end subroutine read_cc_e_from_molcas_out1
+
+! read CCSD/CCSD(T) energies from a (Open)Molcas output file (no RI)
+subroutine read_cc_e_from_molcas_out2(outname, ccsd_t, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: i, nocc, fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical, intent(in) :: ccsd_t
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ call read_nocc_from_molcas_out(outname, nocc)
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  BACKSPACE(fid,iostat=i)
+  if(i /= 0) exit
+  read(fid,'(A)') buf
+  if(buf(7:18) == 'Total energy') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out2: keyword 'To&
+                   &tal energy' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ ! read CCSD energy
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) tot_e
+
+ ! read SCF energy
+ read(fid,'(A)') buf
+ read(fid,'(A)') buf
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) ref_e
+
+ ! read t1 diag
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(2:15) == 'Euclidian norm') exit
+ end do ! for while
+
+ if(i /= 0) then
+  write(6,'(/,A)') "ERROR in subroutine read_cc_e_from_molcas_out2: keyword 'Eu&
+                   &clidian norm' not"
+  write(6,'(A)') 'found in file '//TRIM(outname)
+  close(fid)
+  stop
+ end if
+
+ i = INDEX(buf, ':')
+ read(buf(i+1:),*) t1diag
+
+ t1diag = DSQRT(t1diag*t1diag/DBLE(2*nocc))
+
+ if(ccsd_t) then ! read CCSD(T) energy
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(8:16) == 'CCSD + T3') exit
+  end do ! for while
+  i = INDEX(buf, '=')
+  read(buf(i+1:),*) tot_e
+ end if
+
+ close(fid)
+end subroutine read_cc_e_from_molcas_out2
+
+subroutine read_mp2_e_from_mrcc_out(outname, ref_e, mp2_e)
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: ref_e, mp2_e
+ character(len=46), parameter :: error_warn = 'ERROR in subroutine read_mp2_e_f&
+                                              &rom_mrcc_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: set_ref_e, set_mp2_e
+
+ set_ref_e = .false.; set_mp2_e = .false.; ref_e = 0d0; mp2_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+
+  if(buf(2:12)=='Total MP2 e' .or. buf(2:9)=='DF-MP2 e') then
+   if(.not. set_mp2_e) then
+    call get_dpv_after_flag(buf, ':', .true., mp2_e)
+    set_mp2_e = .true.
+   end if
+  else if(buf(5:24) == 'FINAL HARTREE-FOCK E') then
+   if(.not. set_ref_e) then
+    call get_dpv_after_flag(buf, ':', .true., ref_e)
+    set_ref_e = .true.
+    exit
+   end if
+  else if(buf(2:15) == 'Executing minp') then
+   close(fid)
+   write(6,'(/,A)') error_warn//'failed to read HF and MP2'
+   write(6,'(A)') 'energies from file '//TRIM(outname)
+   stop
+  end if
+ end do ! for while
+
+ close(fid)
+ if(.not. (set_ref_e .and. set_mp2_e)) then
+  write(6,'(/,A)') error_warn//'some of HF and MP2 energies'
+  write(6,'(A)') 'is not found in file '//TRIM(outname)
+  stop
+ end if
+end subroutine read_mp2_e_from_mrcc_out
+
+subroutine read_cc_e_from_mrcc_out(outname, t1diag, ref_e, tot_e)
+ implicit none
+ integer :: fid
+ real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=45), parameter :: error_warn = 'ERROR in subroutine read_cc_e_fr&
+                                              &om_mrcc_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+ logical :: set_ref_e, set_tot_e
+
+ t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ set_ref_e = .false.; set_tot_e = .false.
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+
+  if(buf(2:14) == 'Total CCSDT e') then
+   if(.not. set_tot_e) then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    set_tot_e = .true.
+   end if
+  else if(buf(2:16) == 'Total CCSD(T) e') then
+   if(.not. set_tot_e) then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    set_tot_e = .true.
+   end if
+  else if(buf(2:13) == 'Total CCSD e') then
+   if(.not. set_tot_e) then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    set_tot_e = .true.
+   end if
+  else if(buf(2:8) == 'T1 diag') then
+   call get_dpv_after_flag(buf, ':', .true., t1diag)
+  else if(buf(5:24) == 'FINAL HARTREE-FOCK E') then
+   if(.not. set_ref_e) then
+    call get_dpv_after_flag(buf, ':', .true., ref_e)
+    set_ref_e = .true.
+    exit
+   end if
+  else if(buf(2:15) == 'Executing minp') then
+   close(fid)
+   write(6,'(/,A)') error_warn//'failed to read HF and CC'
+   write(6,'(A)') 'energies from file '//TRIM(outname)
+   stop
+  end if
+ end do ! for while
+
+ close(fid)
+ if(.not. (set_ref_e .and. set_tot_e)) then
+  write(6,'(/,A)') error_warn//'some of HF and CC energies'
+  write(6,'(A)') 'is not found in file '//TRIM(outname)
+  stop
+ end if
+end subroutine read_cc_e_from_mrcc_out
+

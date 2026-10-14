@@ -1269,18 +1269,16 @@ subroutine submit_dalton_job(proname, mem, nproc, mpi, sirius, noarch, del_sout)
  end if
 end subroutine submit_dalton_job
 
-subroutine submit_mrcc_job(outname, nproc, del_fort)
+subroutine submit_mrcc_job(outname, nproc)
  implicit none
- integer :: i, nfile, fid
- integer, parameter :: nfile0 = 22
+ integer :: i, fid
+ integer, parameter :: nfile=52, min_n=10, max_n=903
  integer, intent(in) :: nproc
- character(len=7), parameter :: fort_files(9) = ['fort.10','fort.14','fort.16',&
-  'fort.17','fort.24','fort.55','fort.56','fort.57','fort.78']
+ character(len=8) :: fort
  character(len=240) :: shname
  character(len=240), intent(in) :: outname
  character(len=240), allocatable :: fnames(:)
  character(len=500) :: buf
- logical, intent(in) :: del_fort
 
  call find_specified_suffix(outname, '.out', i)
  shname = outname(1:i-1)//'.sh'
@@ -1294,16 +1292,25 @@ subroutine submit_mrcc_job(outname, nproc, del_fort)
  buf = '/bin/bash '//TRIM(shname)//' >'//TRIM(outname)//' 2>&1'
  call run_command(TRIM(buf), .false., .true.)
 
- nfile = nfile0
- if(del_fort) nfile = nfile + 9
  allocate(fnames(nfile))
- fnames(1:nfile0) = [shname,'56','COORD.xyz','DAO','EXIT','FOCK','iface', &
-  'KEYWD','mrcc_job.dat','MOLDEN.CAN','MOLDEN.perm','OCCUP','OEINT','PRINT',&
-  'SCFDENSITIES','SCHOL','SROOT','SYMTRA','TEDAT','TEINT','trust_region_data',&
-  'VARS']
-
- if(del_fort) fnames(nfile0+1:nfile) = fort_files
+ fnames = [shname,'55','56','CISEEX','COORD.xyz','DAO','DFINT_AB','DFINT_AI',&
+  'DFINT_IJ','DFINV','DFINVLOC','EXIT','FOCK','GAMMA','GRAD','KEYWD','MOMENT',&
+  'MOLDEN.CAN','MOLDEN.perm','OCCUP','OEINT','PRINT','SCFDENSITIES','SCHOL', &
+  'SROOT','SYMTRA','TCINT','TEDAT','TEINT','VARS','abcd.a','abcd.s','abci', &
+  'abij','aibj','aijk','ijkl','abcdaa1','abcdaa2','abcdab','abcdbb1','abcdbb2',&
+  'iabjab','iabjba','iface','ccsd.rst','gaofile','mrcc_job.dat','pt.rst', &
+  'teint_info','teint_sorted','trust_region_data']
  call delete_files(nfile, fnames)
+ deallocate(fnames)
+
+ do i = min_n, max_n, 1
+  write(fort,'(A,I0)') 'fort.', i
+  if(i < 100) then
+   call delete_file(fort(1:7))
+  else
+   call delete_file(fort)
+  end if
+ end do ! for i
 end subroutine submit_mrcc_job
 
 ! submit a Turbomole job

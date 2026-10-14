@@ -1,11 +1,15 @@
-MOKIT 1.2.9rc2 (Oct 9, 2026)
+MOKIT 1.2.9rc3 (Oct 14, 2026)
 ------------------------
 Fixes
+* CASCI/CASSCF correct density stored in _NO.fch when MRCC program is used
 * print AO dipole integral matrices in fch247 by calling Gaussian/PySCF
 * fix the CASCI-based PC-NEVPT2 and SDSPT2 interfaces to BDF
 * fix the number of electrons in mkl2fch when `-no` is unspecified but NOs are provided
 * support REST >= 2026.1.1 in fch2rest (by @jeanwsr)
 Features
+* add CCSD/CCSDT analytical gradient interfaces to MRCC
+* add (RI-)CCSD/CCSD(T)/CCSDT energy interfaces to MRCC
+* add RCCSDT/UCCSDT energy interface to PySCF >= 2.14.0
 * add CASCI/CASSCF interfaces to MRCC
 * add PC-NEVPT2 and DMRG-PC-NEVPT2 interface to PySCF+Block2
 * add DMRG-PDFT interface to PySCF
@@ -32,7 +36,7 @@ Fixes
 * delete existing HF .fch files before HF calculations when HF_prog=PySCF/ORCA
 * fix Cartesian-type basis function (6D,10F,15G) support in fch2tm
 * fix command line argument bug in subroutine gvb_exclude_XH_A_wrap (introduced in 1.2.7rc20)
-* fix DF-MP2 frozen core setting when MP2_prog=PySCF
+* fix RI-MP2 frozen core setting when MP2_prog=PySCF
 Features
 * add `Polar_prog` and corresponding Dalton/ORCA/OpenMolcas/Gaussian interfaces
 * add interconversion subroutines between .xyz/.gjf/.pdb

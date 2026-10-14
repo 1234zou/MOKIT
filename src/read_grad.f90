@@ -49,6 +49,8 @@ subroutine read_grad_from_output(prog_name, outname, natom, grad)
   call read_grad_from_qchem131(outname, natom, grad, .true.)
  case('openmolcas')
   call read_grad_from_molcas_out(outname, natom, grad)
+ case('mrcc')
+  call read_grad_from_mrcc_out(outname, natom, grad)
  case default
   write(6,'(/,A)') 'ERROR in subroutine read_grad_from_output: program cannot b&
                    &e identified.'
@@ -515,6 +517,39 @@ subroutine read_grad_from_dalton_out(outname, natom, grad)
 
  close(fid)
 end subroutine read_grad_from_dalton_out
+
+subroutine read_grad_from_mrcc_out(outname, natom, grad)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: natom
+ real(kind=8), intent(out) :: grad(3*natom)
+ character(len=2) :: elem
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ grad = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(2:15) == 'Executing minp') then
+   close(fid)
+   write(6,'(/,A)') 'ERROR in subroutine read_grad_from_mrcc_out: failed to rea&
+                    &d Cartesian'
+   write(6,'(A)') 'gradients from file '//TRIM(outname)
+   stop
+  end if
+  if(buf(2:24) == 'Cartesian gradient in o') exit
+ end do ! for while
+
+ do i = 1, natom, 1
+  read(fid,*) k, elem, grad(3*i-2:3*i)
+ end do ! for i
+
+ close(fid)
+end subroutine read_grad_from_mrcc_out
 
 ! read electronic energy, atomic forces and stress tensor from a CP2K output file
 ! Note: forces are negative gradients.

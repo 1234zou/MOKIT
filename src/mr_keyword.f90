@@ -1111,12 +1111,12 @@ subroutine check_kywd_compatible()
   end if
   if(RI) then
    select case(TRIM(cas_prog))
-   case('pyscf','orca','openmolcas','molpro','psi4')
+   case('pyscf','orca','openmolcas','molpro','mrcc','psi4')
    case default
     write(6,'(/,A)') error_warn//'CASCI/CASSCF with RI-JK is not supported'
     write(6,'(A)') 'for CASCI_prog or CASSCF_prog='//TRIM(cas_prog)
     write(6,'(A)') 'You should specify CASCI_prog or CASSCF_prog=PySCF/&
-                   &ORCA/OpenMolcas/Molpro/PSI4.'
+                   &ORCA/OpenMolcas/Molpro/MRCC/PSI4.'
     stop
    end select
   end if

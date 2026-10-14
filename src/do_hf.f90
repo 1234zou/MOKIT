@@ -796,9 +796,11 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   write(fid,'(A)') 'mf.kernel()'
  end if
 
+ write(fid,'(/,A)') '# check mf.converged and do stable=opt'
+ write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
+ write(fid,'(A)') 'mf.analyze()'
+
  if(uhf) then ! UHF
-  write(fid,'(/,A)') '# check mf.converged and do stable=opt'
-  write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save UHF MOs into .fch file'
   if(mult > 1) then
    write(fid,'(A)') "uhf_fch = '"//TRIM(fchname)//"'"
@@ -810,8 +812,6 @@ subroutine gen_hf_pyscf_inp(pyname, uhf)
   end if
   write(fid,'(A)') 'fchk(mf, uhf_fch, density=True)'
  else         ! R(O)HF
-  write(fid,'(/,A)') '# check mf.converged and do stable=opt'
-  write(fid,'(A)') 'mf = hf_stable_opt_internal(mf)'
   write(fid,'(/,A)') '# save R(O)HF MOs into .fch file'
   write(fid,'(A)') "rhf_fch = '"//TRIM(fchname)//"'"
   write(fid,'(A)') 'try:'

@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.9rc2 '
- character(len=11), parameter :: date = '2026-Oct-9'
+ character(len=9), parameter :: version = '1.2.9rc3 '
+ character(len=11), parameter :: date = '2026-Oct-14'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -1269,8 +1269,7 @@ subroutine add_force_key2py_script(mem, pyname, ccsd_t)
   write(fid,'(/,A)') 'from pyscf.grad import ccsd_t as ccsd_t_grad'
   write(fid,'(A)') 'mcg = ccsd_t_grad.Gradients(mc)'
  else
-  write(fid,'(/,A)') 'from pyscf import grad'
-  write(fid,'(A)') 'mcg = mc.Gradients()'
+  write(fid,'(/,A)') 'mcg = mc.Gradients()'
  end if
 
  write(fid,'(A,I0,A)') 'mcg.max_memory = ',mem*1000,' # MB'
@@ -2054,6 +2053,49 @@ subroutine find_ntag_before_mo_in_molden(molden, ntag)
   stop
  end if
 end subroutine find_ntag_before_mo_in_molden
+
+! read occupation numbers of active MOs from a given MRCC output file
+subroutine read_active_occ_from_mrcc_out(outname, nacto, act_occ)
+ implicit none
+ integer :: i, fid
+ integer, intent(in) :: nacto
+!f2py intent(in) :: nacto
+ real(kind=8), intent(out) :: act_occ(nacto)
+!f2py intent(out) :: act_occ
+!f2py depend(nacto) :: act_occ
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+!f2py intent(in) :: outname
+
+ act_occ = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='append')
+
+ do while(.true.)
+  BACKSPACE(fid)
+  BACKSPACE(fid)
+  read(fid,'(A)') buf
+  if(buf(2:10) == 'Final occ') exit
+  if(buf(2:15) == 'Executing minp') then
+   close(fid)
+   write(6,'(/,A)') 'ERROR in subroutine read_active_occ_from_mrcc_out: failed &
+                    &to read occ-'
+   write(6,'(A)') 'upation numbers of active MOs from file '//TRIM(outname)
+   stop
+  end if
+ end do ! for while
+
+ i = 0
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(2:13) == 'Occupation n') then
+   i = i + 1
+   call get_dpv_after_flag(buf, ':', .true., act_occ(i))
+   if(i == nacto) exit
+  end if
+ end do ! for while
+
+ close(fid)
+end subroutine read_active_occ_from_mrcc_out
 
 ! find/read the DFT name in a Gaussian .fch file
 subroutine find_dftname_in_fch(fchname, dftname, is_hf, rotype, untype)

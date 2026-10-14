@@ -30,7 +30,7 @@ subroutine do_cas(scf)
  integer :: i, n_pocc, nvir, nfile, target_mult, RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2)       ! e(1) is CASCI energy, e(2) is CASSCF energy
- real(kind=8), allocatable :: noon(:)
+ real(kind=8), allocatable :: noon(:), act_occ(:)
  character(len=10) :: cas_prog = ' '
  character(len=24) :: data_string = ' '
  character(len=28), parameter :: error_warn = 'ERROR in subroutine do_cas: '
@@ -508,7 +508,7 @@ subroutine do_cas(scf)
 
   ! Now transfer NOONs when force=.T.
   if(cas_force) then
-   allocate(noon(nif), source=0d0)
+   allocate(noon(nif))
    call read_on_from_dalton_out(outname, n_pocc, noon(1:n_pocc))
    call write_eigenvalues_to_fch(casnofch, nif, 'a', noon, .true.)
    deallocate(noon)
@@ -521,12 +521,21 @@ subroutine do_cas(scf)
   outname = TRIM(proname)//'.out'
   mklname = TRIM(proname)//'_NO.molden'
   call fch2mrcc_wrap(fchname, 0, .true.)
-  call prt_cas_mrcc_inp(scf)
+  call prt_cas_mrcc_inp(mem, scf)
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
-  call submit_mrcc_job(outname, nproc, .true.)
+  call submit_mrcc_job(outname, nproc)
   i = RENAME('MOLDEN', TRIM(mklname))
   call molden2fch_wrap(mklname, casnofch, 'mrcc', .true.)
   call delete_file(TRIM(mklname))
+  allocate(noon(nif), act_occ(nacto))
+  call read_eigenvalues_from_fch(casnofch, nif, 'a', noon)
+  ! occupation numbers of active MOs in MOLDEN file are not very accurate,
+  ! we copy more accurate numbers from MRCC output file and write into .fch
+  call read_active_occ_from_mrcc_out(outname, nacto, act_occ)
+  noon(ndb+1:n_pocc) = act_occ
+  deallocate(act_occ)
+  call write_eigenvalues_to_fch(casnofch, nif, 'a', noon, .true.)
+  deallocate(noon)
 
  case default
   write(6,'(/,A)') error_warn//'allowed programs are Gaussian, GAMESS, PySCF,'
@@ -538,7 +547,6 @@ subroutine do_cas(scf)
  ! generate CASCI/CASSCF density from NOs and NOONs
  select case(TRIM(cas_prog))
  case('pyscf') ! do nothing, density is already correct
- case('mrcc') ! do nothing, not supported currently
  case default
   call update_density_using_no_and_on(casnofch)
  end select
@@ -1772,11 +1780,12 @@ subroutine prt_molcas_cas_para(fid, dmrg, nevpt, chemps2, CIonly, inpname)
 end subroutine prt_molcas_cas_para
 
 ! print CASCI/CASSCF keywords into a given MRCC input file
-subroutine prt_cas_mrcc_inp(scf)
+subroutine prt_cas_mrcc_inp(mem, scf)
  use mol, only: ndb, nacto
- use mr_keyword, only: mem
+ use mr_keyword, only: RI
  implicit none
  integer :: i, fid, fid1, RENAME
+ integer, intent(in) :: mem ! in GB
  character(len=4), parameter :: inpname='MINP'
  character(len=6), parameter :: inpname1='MINP.t'
  character(len=240) :: buf
@@ -1798,6 +1807,8 @@ subroutine prt_cas_mrcc_inp(scf)
   write(fid1,'(A)') TRIM(buf)
  end do ! for while
  write(fid1,'(A,I0)') 'calc=MCSCF'
+
+ if(RI) write(fid1,'(A)') 'dfbasis_scf=def2-QZVPP-RI-JK'
 
  do while(.true.)
   read(fid,'(A)') buf
