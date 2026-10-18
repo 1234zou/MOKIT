@@ -1,4 +1,4 @@
-MOKIT 1.2.9rc3 (Oct 14, 2026)
+MOKIT 1.2.9rc3 (Oct 18, 2026)
 ------------------------
 Fixes
 * CASCI/CASSCF correct density stored in _NO.fch when MRCC program is used
@@ -8,14 +8,16 @@ Fixes
 * support REST >= 2026.1.1 in fch2rest (by @jeanwsr)
 Features
 * add CCSD/CCSDT analytical gradient interfaces to MRCC
-* add (RI-)CCSD/CCSD(T)/CCSDT energy interfaces to MRCC
-* add RCCSDT/UCCSDT energy interface to PySCF >= 2.14.0
+* add (RI-)CCSD/CCSD(T)/CCSDT/CCSDT(Q)/CCSDTQ energy interfaces to MRCC
 * add CASCI/CASSCF interfaces to MRCC
+* add CCSDT/CCSDT(Q)/CCSDTQ energy interface to PySCF >= 2.14.0
 * add PC-NEVPT2 and DMRG-PC-NEVPT2 interface to PySCF+Block2
 * add DMRG-PDFT interface to PySCF
 * add DLPNO-MP2 interface to PSI4
 * support `-dft` in fch2amo
 Improvement
+* Support frozen core in ADC interfaces to PySCF
+* Print UADC excited state <S^2> when ADC_prog=PySCF
 * update maximum nopen from 10 to 49 in modify_GMS1.sh
 * save CASCI coefficients when CASCI_prog/CASSCF_prog=PySCF
 * improved order of doubly occupied MOs in uno generation

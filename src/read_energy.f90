@@ -182,18 +182,20 @@ subroutine read_scf_e_from_cp2k_out(outname, scf_e)
 end subroutine read_scf_e_from_cp2k_out
 
 ! read IP-/EA-ADC energies from a specified PySCF output file
-subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
+subroutine read_adc_e_from_pyscf_out(outname, nstate, e, ssquare, fosc)
  implicit none
- integer :: i, fid
+ integer :: i, k, fid
  integer, intent(in) :: nstate
  real(kind=8) :: scf_e
- real(kind=8), intent(out) :: e(0:nstate)
+ real(kind=8), intent(out) :: e(0:nstate), ssquare(nstate), fosc(nstate)
  character(len=6) :: str6
  character(len=17), parameter :: adc_str = 'ADC calculation s'
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
 
- e = 0d0
+ e = 0d0; ssquare = 0d0; fosc = 0d0
+ !TODO: The ground state <S^2> belongs to UMP2, maybe we can compute it in the
+ ! future
  open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
 
  do while(.true.)
@@ -220,6 +222,18 @@ subroutine read_adc_e_from_pyscf_out(outname, nstate, e)
   read(fid,'(A)') buf
   call get_dpv_after_flag(buf, '=', .true., e(i))
   e(i) = e(i) + e(0)
+  k = INDEX(buf, 'Osc. strength =')
+  if(k == 0) then
+   write(6,'(/,A)') 'ERROR in read_adc_e_from_pyscf_out: `Osc. strength =` not &
+                    &located in file'
+   write(6,'(A)') TRIM(outname)
+   write(6,'(A)') 'Please check whether your PySCF version is >= 2.12.0'
+   close(fid)
+   stop
+  end if
+  read(buf(k+15:),*) fosc(i)
+  k = INDEX(buf, 'S^2 =')
+  if(k > 0) read(buf(k+5:),*) ssquare(i)
  end do ! for i
 
  close(fid)
@@ -477,11 +491,12 @@ subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(2:27) == 'Final result of the ADC(2)') exit
+  if(buf(2:27)=='Final result of the ADC(2)' .or. &
+     buf(2:28)=='Final results of the ADC(2)') exit
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"Final result of the ADC(2)" not found'
+  write(6,'(/,A)') error_warn//'`Final results of the ADC(2)` not found'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -519,7 +534,7 @@ subroutine read_adc_e_from_mrcc_out(outname, nstate, e, fosc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"dipole moment in length" not found'
+  write(6,'(/,A)') error_warn//'`dipole moment in length` not found'
   write(6,'(A)') 'in file '//TRIM(outname)
   close(fid)
   stop
@@ -2791,14 +2806,16 @@ end subroutine read_cc_e_from_molpro_out
 subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
  implicit none
  integer :: i, fid
- real(kind=8) :: ccsd_t_corr
+ real(kind=8) :: ccsd_t_corr, ccsdt_q_corr
  real(kind=8), intent(out) :: t1diag, ref_e, tot_e
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
- logical :: set_tot_e, set_ccsd_t_corr
+ logical :: ccsd_t, set_tot_e, set_ccsd_t_corr, set_ccsdt_q_corr
 
- set_tot_e = .false.; set_ccsd_t_corr = .false.
- t1diag = 0d0; ref_e = 0d0; tot_e = 0d0; ccsd_t_corr = 0d0
+ ccsd_t = .false.; set_tot_e = .false.; set_ccsd_t_corr = .false.
+ set_ccsdt_q_corr = .false.; t1diag = 0d0; ref_e = 0d0; tot_e = 0d0
+ ccsd_t_corr = 0d0; ccsdt_q_corr = 0d0
+
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
  write(fid,'(/)',advance='no')
  i = 0
@@ -2810,6 +2827,22 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
   if(buf(1:12) == 'SCF not conv') then
    i = -1; exit
   end if
+
+  select case(buf(1:12))
+  case('E(RCCSDTQ) =','E(UCCSDTQ) =')
+   if(.not. set_tot_e) then
+    read(buf(13:),*) tot_e
+    set_tot_e = .true.
+   end if
+  end select
+
+  select case(buf(41:56))
+  case('(Q) correction =')
+   if(.not. set_ccsdt_q_corr) then
+    read(buf(57:),*) ccsdt_q_corr
+    set_ccsdt_q_corr = .true.
+   end if
+  end select
 
   select case(buf(1:11))
   case('E(RCCSDT) =','E(UCCSDT) =')
@@ -2823,7 +2856,7 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
   case('RCCSD(T) c','UCCSD(T) c')
    if(.not. set_ccsd_t_corr) then
     call get_dpv_after_flag(buf, '=', .true., ccsd_t_corr)
-    set_ccsd_t_corr = .true.
+    ccsd_t = .true.; set_ccsd_t_corr = .true.
    end if
   case('E(RCCSD) =','E(UCCSD) =')
    if(.not. set_tot_e) then
@@ -2836,7 +2869,7 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
   case('CCSD(T) c')
    if(.not. set_ccsd_t_corr) then
     call get_dpv_after_flag(buf, '=', .true., ccsd_t_corr)
-    set_ccsd_t_corr = .true.
+    ccsd_t = .true.; set_ccsd_t_corr = .true.
    end if
   case('E(CCSD) =')
    if(.not. set_tot_e) then
@@ -2859,7 +2892,11 @@ subroutine read_cc_e_from_pyscf_out(outname, t1diag, ref_e, tot_e)
  end if
 
  call get_dpv_after_flag(buf, '=', .true., ref_e)
- tot_e = tot_e + ccsd_t_corr
+ if(ccsd_t) then
+  tot_e = tot_e + ccsd_t_corr
+ else
+  tot_e = tot_e + ccsdt_q_corr
+ end if
 end subroutine read_cc_e_from_pyscf_out
 
 ! Read CCSD(T) energy from a PSI4 output file. Usually used for the job:
@@ -3768,7 +3805,17 @@ subroutine read_cc_e_from_mrcc_out(outname, t1diag, ref_e, tot_e)
   BACKSPACE(fid)
   read(fid,'(A)') buf
 
-  if(buf(2:14) == 'Total CCSDT e') then
+  if(buf(2:15) == 'Total CCSDTQ e') then
+   if(.not. set_tot_e) then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    set_tot_e = .true.
+   end if
+  else if(buf(2:17) == 'Total CCSDT(Q) e') then
+   if(.not. set_tot_e) then
+    call get_dpv_after_flag(buf, ':', .true., tot_e)
+    set_tot_e = .true.
+   end if
+  else if(buf(2:14) == 'Total CCSDT e') then
    if(.not. set_tot_e) then
     call get_dpv_after_flag(buf, ':', .true., tot_e)
     set_tot_e = .true.

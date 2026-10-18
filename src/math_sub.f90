@@ -2203,38 +2203,52 @@ end subroutine solve_x_from_ao_ovlp
 
 ! solve AO-based overlap matrix (S) from condition (C^T)SC=I
 ! Note: this subroutine only applies to nbf=nif, i.e. no linear dependence
-subroutine solve_ovlp_from_ctsc(nbf, C, S)
+subroutine solve_ovlp_from_ctsc(nbf, mo, ao_ovlp)
  implicit none
  integer :: i
  integer, intent(in) :: nbf
- real(kind=8), intent(in) :: C(nbf,nbf)
- real(kind=8), intent(out) :: S(nbf,nbf)
+!f2py intent(in) :: nbf
+ real(kind=8), intent(in) :: mo(nbf,nbf)
+!f2py intent(in) :: mo
+!f2py depend(nbf) :: mo
+ real(kind=8), intent(out) :: ao_ovlp(nbf,nbf)
+!f2py intent(out) :: ao_ovlp
+!f2py depend(nbf) :: ao_ovlp
  real(kind=8), allocatable :: SC(:,:)
 
- S = 0d0   ! this initialization is important
- forall(i = 1:nbf) S(i,i) = 1d0 ! unit matrix I
+ ao_ovlp = 0d0    ! this initialization is important
+ do i = 1, nbf, 1 ! unit matrix
+  ao_ovlp(i,i) = 1d0
+ end do ! for i
 
  allocate(SC(nbf,nbf))
- call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, S, SC)
+ call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(mo), nbf, ao_ovlp, SC)
  ! SC = X -> (C^T)S = X^T
- call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(C), nbf, TRANSPOSE(SC), S)
+ call solve_multi_lin_eqs(nbf, nbf, TRANSPOSE(mo), nbf, TRANSPOSE(SC), ao_ovlp)
+
+ deallocate(SC)
 end subroutine solve_ovlp_from_ctsc
 
 ! solve AO-based overlap matrix (S) by calculating (C(C^T))^(-1)
 ! This subroutine has the same result as subroutine solve_ovlp_from_ctsc.
-subroutine solve_ovlp_from_cct(nbf, C, S)
+subroutine solve_ovlp_from_cct(nbf, mo, ao_ovlp)
  implicit none
  integer, intent(in) :: nbf
- real(kind=8), intent(in) :: C(nbf,nbf)
- real(kind=8), intent(out) :: S(nbf,nbf)
+!f2py intent(in) :: nbf
+ real(kind=8), intent(in) :: mo(nbf,nbf)
+!f2py intent(in) :: mo
+!f2py depend(nbf) :: mo
+ real(kind=8), intent(out) :: ao_ovlp(nbf,nbf)
+!f2py intent(out) :: ao_ovlp
+!f2py depend(nbf) :: ao_ovlp
  real(kind=8), allocatable :: cct(:,:)
 
  ! calculate C(C^T)
  allocate(cct(nbf,nbf))
- call calc_cct(nbf, nbf, C, cct)
+ call calc_cct(nbf, nbf, mo, cct)
 
  ! calculate (C(C^T))^(-1)
- call inverse(nbf, cct, S)
+ call inverse(nbf, cct, ao_ovlp)
  deallocate(cct)
 end subroutine solve_ovlp_from_cct
 

@@ -285,7 +285,7 @@ module mr_keyword
  character(len=15) :: method = ' ' ! model chemistry, theoretical method
  character(len=21) :: basis = ' '  ! basis set (gen and genecp supported)
  character(len=21) :: RIJK_bas = 'NONE' ! cc-pVTZ/JK, def2/JK, etc for CASSCF
- character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVP/C, etc for NEVPT2
+ character(len=21) :: RIC_bas  = 'NONE' ! cc-pVTZ/C, def2-TZVPP/C, etc for NEVPT2
  character(len=21) :: F12_cabs = 'NONE' ! F12 cabs
 contains
 
@@ -1863,7 +1863,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
    else if(basis(1:9) == 'def2tzvpp') then
     RIC_bas = 'def2-TZVPP/C'
    else
-    RIC_bas = 'def2-TZVP/C'
+    RIC_bas = 'def2-TZVPP/C'
    end if
   end if
 
@@ -1985,7 +1985,7 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
                  &ll continue.'
   write(6,'(A)') REPEAT('-',79)
   RIJK_bas = 'def2/JK'
-  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = 'def2-TZVP/C'
+  if(dyn .and. TRIM(RIC_bas)=='NONE') RIC_bas = 'def2-TZVPP/C'
 
  case default
   if(TRIM(RIJK_bas) == 'NONE') then
@@ -2000,9 +2000,9 @@ subroutine determine_auxbas(basis, RIJK_bas, dyn, RIC_bas, F12, F12_cabs)
    write(6,'(/,A)') REPEAT('-',79)
    write(6,'(A)') 'Warning from subroutine determine_auxbas: RIC auxbas cannot &
                   &be determined'
-   write(6,'(A)') 'from the orbital basis set. RIC_bas=def2-TZVP/C will be used.'
+   write(6,'(A)') 'from the orbital basis set. RIC_bas=def2-TZVPP/C will be used.'
    write(6,'(A)') REPEAT('-',79)
-   RIC_bas = 'def2-TZVP/C'
+   RIC_bas = 'def2-TZVPP/C'
   end if
  end select
 

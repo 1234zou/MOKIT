@@ -77,8 +77,10 @@ subroutine read_nbf_and_nif_from_orb(orbname, nbf, nif)
  implicit none
  integer :: fid
  integer, intent(out) :: nbf, nif
+!f2py intent(out) :: nbf, nif
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
+!f2py intent(in) :: orbname
 
  open(newunit=fid,file=TRIM(orbname),status='old',position='rewind')
  do while(.true.)

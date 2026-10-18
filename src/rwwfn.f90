@@ -256,10 +256,15 @@ subroutine read_mo_from_orb(orbname, nbf, nif, ab, mo)
  implicit none
  integer :: i, j, fid
  integer, intent(in) :: nbf, nif
+!f2py intent(in) :: nbf, nif
  real(kind=8), intent(out) :: mo(nbf,nif)
+!f2py intent(out) :: mo
+!f2py depend(nbf,nif) :: mo
  character(len=1), intent(in) :: ab
+!f2py intent(in) :: ab
  character(len=240) :: buf
  character(len=240), intent(in) :: orbname
+!f2py intent(in) :: orbname
  character(len=4) :: key
  character(len=4), parameter :: key1 = '#ORB', key2 = '#UOR'
 

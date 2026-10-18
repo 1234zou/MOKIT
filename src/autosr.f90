@@ -22,6 +22,8 @@ module sr_keyword
  real(kind=8) :: ccsd_e = 0d0   ! CCSD total energy
  real(kind=8) :: ccsd_t_e = 0d0 ! CCSD(T) total energy
  real(kind=8) :: ccsdt_e = 0d0  ! CCSDT total energy
+ real(kind=8) :: ccsdt_q_e = 0d0! CCSDT(Q) total energy
+ real(kind=8) :: ccsdtq_e = 0d0 ! CCSDTQ total energy
  real(kind=8) :: t1diag = 0d0   ! CCSD T1 diagnostic
  real(kind=8), allocatable :: ex_elec_e(:)
  character(len=10) :: mp2_prog = 'orca'
@@ -35,6 +37,8 @@ module sr_keyword
  logical :: ccsd = .false.
  logical :: ccsd_t = .false.
  logical :: ccsdt = .false.
+ logical :: ccsdt_q = .false.
+ logical :: ccsdtq = .false.
  logical :: cc_enabled = .false. ! (ccd .or. ccsd .or. ...)
  logical :: qcisd = .false.
  logical :: qcisd_t = .false.
@@ -141,11 +145,11 @@ subroutine parse_sr_keyword()
   select case(TRIM(method))
   case('mp2','mp3','mp4(dq)','mp4(sdq)','mp4','mp5','rimp2','ri-mp2','oomp2', &
        'oo-mp2','qcisd','qcisd(t)','ccd','ccsd','ccsd(t)','ccsd(t)-f12', &
-       'ccsd(t)-f12a','ccsd(t)-f12b','ccsdt','dlpno-ccsd','dlpno-ccsd(t)', &
-       'dlpno-ccsd(t0)','dlpno-ccsd(t1)','adc(2)','ip-adc(2)','ea-adc(2)', &
-       'adc(3)','ip-adc(3)','ea-adc(3)','sos-adc(2)','scs-adc(2)','cc2','cc3',&
-       'eomccsd','eom-ccsd','eom-ip-ccsd','ip-eom-ccsd','eom-ea-ccsd', &
-       'ea-eom-ccsd')
+       'ccsd(t)-f12a','ccsd(t)-f12b','ccsdt','ccsdt(q)','ccsdtq','dlpno-ccsd',&
+       'dlpno-ccsd(t)','dlpno-ccsd(t0)','dlpno-ccsd(t1)','adc(2)','ip-adc(2)',&
+       'ea-adc(2)','adc(3)','ip-adc(3)','ea-adc(3)','sos-adc(2)','scs-adc(2)',&
+       'cc2','cc3','eomccsd','eom-ccsd','eom-ip-ccsd','ip-eom-ccsd', &
+       'eom-ea-ccsd','ea-eom-ccsd')
   case default
    write(6,'(/,A)') error_warn//'unsupported method '//TRIM(method)
    close(fid)
@@ -181,14 +185,18 @@ subroutine parse_sr_keyword()
   ccsd_t = .true.; dlpno = .true.
  case('dlpno-ccsd(t1)')
   ccsd_t = .true.; dlpno = .true.; iterative_pt = .true.
- case('ccsdt') ! full triples
+ case('ccsdt') ! CCSDT, i.e. full triples
   ccsdt = .true.
+ case('ccsdt(q)') ! CCSDT(Q)
+  ccsdt_q = .true.
+ case('ccsdtq') ! CCSDTQ
+  ccsdtq = .true.
  case('qcisd') ! QCISD
   qcisd = .true.
  case('qcisd(t)') ! QCISD(T)
   qcisd_t = .true.
- case('adc2')
-  write(6,'(/,A)') error_warn//'please write ADC(2), not ADC2.'
+ case('adc2','adc3')
+  write(6,'(/,A)') error_warn//'please write ADC(2)/ADC(3).'
   stop
  case('adc(2)')
   adc_n = 2
@@ -200,11 +208,11 @@ subroutine parse_sr_keyword()
   adc_n = 2; sos = .true.
  case('scs-adc(2)')
   adc_n = 2; scs = .true.
- case('adc(3)','adc3')
+ case('adc(3)')
   adc_n = 3
- case('ip-adc(3)','ip-adc3')
+ case('ip-adc(3)')
   adc_n = 3; ip = .true.
- case('ea-adc(3)','ea-adc3')
+ case('ea-adc(3)')
   adc_n = 3; ea = .true.
  case('cc2')
   cc_n = 2
@@ -405,7 +413,9 @@ subroutine check_sr_kywd_compatible()
  implicit none
  character(len=46), parameter :: error_warn = 'ERROR in subroutine check_sr_kyw&
                                               &d_compatible: '
- cc_enabled = (ccd .or. ccsd .or. ccsd_t .or. ccsdt .or. qcisd .or. qcisd_t)
+
+ cc_enabled = (ccd .or. ccsd .or. ccsd_t .or. ccsdt .or. ccsdt_q .or. ccsdtq &
+               .or. qcisd .or. qcisd_t)
 
  if(dlpno) then
   if(cc_enabled) then
@@ -679,9 +689,11 @@ subroutine prt_sr_strategy()
  write(6,'(/,A)') 'Internal variables:'
  write(6,'(5(A,L1,3X))') 'MP2     = ',  mp2, 'QCISD   = ',qcisd, &
    'QCISD(T)= ',qcisd_t, 'CCD     = ',  ccd, 'CCSD    = ', ccsd, &
-   'CCSD(T) = ', ccsd_t, 'CCSDT   = ',ccsdt, 'EOM     = ',  eom, &
-   'RI      = ',     RI, 'F12     = ',  F12, 'DLPNO   = ',dlpno, &
-   'IP      = ',     ip, 'EA      = ',   ea, '(T1)    = ',iterative_pt
+   'CCSD(T) = ', ccsd_t, 'CCSDT   = ',ccsdt, 'CCSDT(Q)= ',ccsdt_q,&
+   'CCSDTQ  = ', ccsdtq, 'EOM     = ',  eom, 'RI      = ',   RI, &
+   'F12     = ',    F12, 'DLPNO   = ',dlpno, 'IP      = ',   ip, &
+   'EA      = ',     ea, 'SOS     = ',  sos, 'SCS     = ',  scs, &
+   'Gen_NO  = ', gen_no, 'RelaxedDM=',relaxed_dm,'(T1)    = ',iterative_pt
  write(6,'(A)') 'RIJK_bas='//TRIM(RIJK_bas)//'  RIC_bas='//TRIM(RIC_bas)//&
                 ' F12_cabs='//TRIM(F12_cabs)
 end subroutine prt_sr_strategy
@@ -825,7 +837,8 @@ subroutine do_mp2()
  character(len=240) :: proname, old_inp, inpname, chkname, mklname, outname, &
   datname, molname, no_chk, gradname, qcscratch
  character(len=500) :: longbuf
- logical, parameter :: alive(5) = [.true.,.false.,.false.,.false.,.false.]
+ logical, parameter :: alive(7) = [.true.,.false.,.false.,.false.,.false., &
+                                   .false.,.false.]
 
  if(.not. mp2) return
  write(6,'(//,A)') 'Enter subroutine do_mp2...'
@@ -1042,11 +1055,11 @@ end subroutine do_mp2
 
 subroutine do_cc()
  use sr_keyword, only: mem, nproc, qcisd, qcisd_t, ccd, ccsd, ccsd_t, ccsdt, &
-  cc_enabled, bgchg, mo_rhf, hf_fch, chgname, cc_prog, method, ref_e, ccd_e, &
-  ccsd_e, ccsd_t_e, ccsdt_e, corr_e, ptchg_e, nuc_pt_e, t1diag, chem_core, &
-  ecp_core, customized_core, core_wish, RI, gau_path, orca_path, psi4_path, &
-  dalton_mpi, check_gms_path, gms_path, gms_scr_path, gms_dat_path, gen_no, &
-  relaxed_dm, no_fch, force, molcas_omp
+  ccsdt_q, ccsdtq, cc_enabled, bgchg, mo_rhf, hf_fch, chgname, cc_prog, method,&
+  ref_e, ccd_e, ccsd_e, ccsd_t_e, ccsdt_e, ccsdt_q_e, ccsdtq_e, corr_e, &
+  ptchg_e, nuc_pt_e, t1diag, chem_core, ecp_core, customized_core, core_wish, &
+  RI, gau_path, orca_path, psi4_path, dalton_mpi, check_gms_path, gms_path, &
+  gms_scr_path, gms_dat_path, gen_no, relaxed_dm, no_fch, force, molcas_omp
  use util_wrapper, only: formchk, unfchk, fch2mkl_wrap, mkl2gbw, fch2com_wrap, &
   xml2fch_wrap, bas_fch2py_wrap, add_bgcharge2inp_wrap, fch2psi_wrap, fch2inp_wrap,&
   fch2qchem_wrap, fch2cfour_wrap, fch2dal_wrap, fch2inporb_wrap, fch2mrcc_wrap
@@ -1060,12 +1073,13 @@ subroutine do_cc()
  character(len=240) :: proname, chkname, old_inp, inpname, molname, mklname, &
   outname, gbwname, gradname, no_chk, qcscratch
  character(len=500) :: longbuf
- logical :: qci
+ logical :: qci, alive(7)
 
  if(.not. cc_enabled) return
  write(6,'(//,A)') 'Enter subroutine do_cc...'
  write(6,'(A)') 'CC using program '//TRIM(cc_prog)
  qci = (qcisd .or. qcisd_t)
+ alive = [.false., ccd, ccsd, ccsd_t, ccsdt, ccsdt_q, ccsdtq]
  call prt_fc_info(chem_core, ecp_core, customized_core, core_wish)
 
  if(force .and. chem_core>0) then
@@ -1086,6 +1100,12 @@ subroutine do_cc()
  if(force .and. mo_rhf .and. ccsdt .and. TRIM(cc_prog)=='orca') then
   write(6,'(/,A)') error_warn//'RHF-CCSDT analytical gradients are not supported'
   write(6,'(A)') 'by ORCA currently. You can use CC_prog=MRCC'
+  stop
+ end if
+
+ if(mo_rhf .and. ccsdtq .and. TRIM(cc_prog)=='orca') then
+  write(6,'(/,A)') error_warn//'RHF-CCSDTQ are not supported by ORCA currently.'
+  write(6,'(A)') 'You can use CC_prog=MRCC or PySCF.'
   stop
  end if
 
@@ -1263,8 +1283,7 @@ subroutine do_cc()
   inpname = 'MINP'
   outname = hf_fch(1:i-1)//'_CC.out'
   call fch2mrcc_wrap(hf_fch, 0, .true.)
-  call prt_mrcc_posthf_inp(mem, chem_core, gen_no, force, RI, &
-                           [.false.,ccd,ccsd,ccsd_t,ccsdt])
+  call prt_mrcc_posthf_inp(mem, chem_core, gen_no, force, RI, alive)
   call submit_mrcc_job(outname, nproc)
   call read_cc_e_from_mrcc_out(outname, t1diag, ref_e, e)
 
@@ -1281,16 +1300,21 @@ subroutine do_cc()
   ccsd_t_e = e
  else if(ccsdt) then
   ccsdt_e = e
+ else if(ccsdt_q) then
+  ccsdt_q_e = e
+ else if(ccsdtq) then
+  ccsdtq_e = e
  end if
 
  corr_e = e - ref_e
  write(6,'(/,A,F18.8,A)')'E(ref)  = ', ref_e, ' a.u.'
  write(6,'(A,F18.8,A)')  'E(corr) = ', corr_e, ' a.u.'
  write(6,'(A,F18.8,A)')  'E('//TRIM(method0)//') = ', e, ' a.u.'
- if(.not. (ccd .or. ccsdt)) then
+ if(.not. (ccd .or. ccsdt .or. ccsdt_q .or. ccsdtq)) then
   write(6,'(A,F10.5,A)') 'CCSD T1 diagnostic = ', t1diag
- else if(ccsdt .and. TRIM(cc_prog)=='pyscf') then
-  write(6,'(A)') 'CCSD amplitudes are used as initial guess of CCSDT, so we have'
+ else if((ccsdt.or.ccsdt_q.or.ccsdtq) .and. TRIM(cc_prog)=='pyscf') then
+  write(6,'(A)') 'CCSD amplitudes are used as initial guess of higher order CC,&
+                 & so we have'
   write(6,'(A,F10.5,A)') 'CCSD T1 diagnostic = ', t1diag
  end if
 
@@ -1357,13 +1381,9 @@ subroutine do_adc()
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   call prt_pyscf_adc_inp(inpname)
   call submit_pyscf_job(inpname, .true.)
-  call read_adc_e_from_pyscf_out(outname, nstate, ex_elec_e)
-  if(.not. (ip.or.ea)) then
-   write(6,'(A)') REPEAT('-',79)
-   write(6,'(A)') 'EE-ADC oscillator strength in PySCF is not implemented yet. &
-                  &Set to 0.0 below.'
-   write(6,'(A)') REPEAT('-',79)
-  end if
+  !TODO: calculate UADC(2) <S^2>, i.e. ci_ssquare(0)
+  call read_adc_e_from_pyscf_out(outname, nstate, ex_elec_e, ci_ssquare(1:nstate),&
+                                 fosc)
  case('orca') ! IP-/EE-/EA-ADC
   inpname = hf_fch(1:i-1)//'_ADC.inp'
   mklname = hf_fch(1:i-1)//'_ADC.mkl'
@@ -1638,16 +1658,19 @@ end subroutine prt_posthf_gau_inp
 subroutine prt_posthf_orca_inp(inpname, excited)
  use sr_keyword, only: mem, nproc, DKH2, X2C, RI, dlpno, F12, RIJK_bas, RIC_bas,&
   F12_cabs, mo_rhf, lin_dep, mp2, qcisd, qcisd_t, ccd, ccsd, ccsd_t, ccsdt, &
-  iterative_pt, gen_no, relaxed_dm, ip, ea, nstate, chem_core, force
+  ccsdtq, iterative_pt, gen_no, relaxed_dm, ip, ea, nstate, chem_core, force
  use mol, only: mult
  implicit none
  integer :: i, nproc1, mem1, fid, fid1, RENAME
  character(len=240) :: buf, inpname1
  character(len=240), intent(in) :: inpname
  logical, intent(in) :: excited
- logical :: std_def2j
+ logical :: std_def2j, higher_than_pt
+ ! higher_than_pt: higher than CCSD(T), i.e. CCSDT, CCSDT(Q), CCSDTQ
 
  std_def2j = .true.
+ higher_than_pt = (ccsdt .or. ccsdtq)
+
  call find_specified_suffix(inpname, '.inp', i)
  inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
@@ -1719,7 +1742,7 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   end if
  else
   if(RI .and. (.not. excited)) then
-   write(fid1,'(A)',advance='no') ' RI-'
+   if(.not. higher_than_pt) write(fid1,'(A)',advance='no') ' RI-'
   else
    write(fid1,'(A)',advance='no') ' '
   end if
@@ -1794,6 +1817,9 @@ subroutine prt_posthf_orca_inp(inpname, excited)
   else if(ccsdt) then
    write(fid1,'(A)') '%autoci'
    write(fid1,'(A)') ' CItype CCSDT'
+  else if(ccsdtq) then
+   write(fid1,'(A)') '%autoci'
+   write(fid1,'(A)') ' CItype CCSDTQ'
   else
    write(fid1,'(A)') '%mdci'
   end if
@@ -2047,9 +2073,9 @@ subroutine prt_pyscf_mp2_inp(pyname)
 end subroutine prt_pyscf_mp2_inp
 
 subroutine prt_pyscf_cc_inp(pyname, excited)
- use sr_keyword, only: mem, nproc, cc_enabled, ccd, ccsd_t, ccsdt, chem_core, &
-  force, gen_no, hardwfn, crazywfn, mo_rhf, hf_fch, RI, RIJK_bas, RIC_bas, ip,&
-  ea, nstate, given_xmult, xmult
+ use sr_keyword, only: mem, nproc, cc_enabled, ccd, ccsd_t, ccsdt, ccsdt_q, &
+  ccsdtq, chem_core, force, gen_no, hardwfn, crazywfn, mo_rhf, hf_fch, RI, &
+  RIJK_bas, RIC_bas, ip, ea, nstate, given_xmult, xmult
  implicit none
  integer :: i, k, fid, fid1, RENAME
  character(len=21) :: RIJK_bas1, RIC_bas1
@@ -2196,7 +2222,11 @@ subroutine prt_pyscf_cc_inp(pyname, excited)
  write(fid1,'(A)') 't2a_npy = "'//TRIM(t2a_npy)//'"'
  write(fid1,'(A)') 'alive1 = os.path.exists(t1a_npy)'
  write(fid1,'(A)') 'alive2 = os.path.exists(t2a_npy)'
- if(.not. mo_rhf) then
+ if(mo_rhf) then
+  write(fid1,'(A)') 'nocc = np.count_nonzero(mf.mo_occ > 0)'
+  write(fid1,'(A)') 'nvir = nif - nocc'
+  write(fid1,'(A)') 'nocc = nocc - mc.frozen'
+ else
   write(fid1,'(A)') 't1b_npy = "'//TRIM(t1b_npy)//'"'
   write(fid1,'(A)') 't2b_npy = "'//TRIM(t2b_npy)//'"'
   write(fid1,'(A)') 't2c_npy = "'//TRIM(t2c_npy)//'"'
@@ -2204,49 +2234,46 @@ subroutine prt_pyscf_cc_inp(pyname, excited)
   write(fid1,'(A)') 'nocc_b = np.count_nonzero(mf.mo_occ[1] > 0)'
  end if
  write(fid1,'(A)') 'if alive1 and alive2:'
- write(fid1,'(A)') '  print(''\nReading existing MOs and amplitudes from .npy ...'')'
- write(fid1,'(A)') '  old_mo = np.load(mo_npy)'
+ write(fid1,'(4X,A)') 'print(''\nReading existing MOs and amplitudes from .npy ...'')'
+ write(fid1,'(4X,A)') 'old_mo = np.load(mo_npy)'
  if(mo_rhf) then
-  write(fid1,'(A)') '  nocc = np.count_nonzero(mf.mo_occ > 0)'
-  write(fid1,'(A)') '  nvir = nif - nocc'
-  write(fid1,'(A)') '  nocc = nocc - mc.frozen'
-  write(fid1,'(A)') '  t1 = np.load(t1a_npy)'
-  write(fid1,'(A)') '  t2 = np.load(t2a_npy)'
-  write(fid1,'(A)') '  new_t1, new_t2 = update_amp_from_mo(nbf,nif,nocc,nvir,o&
-                    &ld_mo,mc.mo_coeff,t1,t2)'
+  write(fid1,'(4X,A)') 't1 = np.load(t1a_npy)'
+  write(fid1,'(4X,A)') 't2 = np.load(t2a_npy)'
+  write(fid1,'(4X,A)') 'new_t1, new_t2 = update_amp_from_mo(nbf,nif,nocc,nvir,o&
+                       &ld_mo,mc.mo_coeff,t1,t2)'
  else
-  write(fid1,'(A)') '  nvir_a = nif - nocc_a'
-  write(fid1,'(A)') '  nvir_b = nif - nocc_b'
-  write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
-  write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
-  write(fid1,'(A)') '  t1a = np.load(t1a_npy)'
-  write(fid1,'(A)') '  t1b = np.load(t1b_npy)'
-  write(fid1,'(A)') '  t2a = np.load(t2a_npy)'
-  write(fid1,'(A)') '  t2b = np.load(t2b_npy)'
-  write(fid1,'(A)') '  t2c = np.load(t2c_npy)'
-  write(fid1,'(A)') '  new_t1a, new_t2a = update_amp_from_mo(nbf,nif,nocc_a,nv&
-                    &ir_a,old_mo[0],mc.mo_coeff[0],t1a,t2a)'
-  write(fid1,'(A)') '  new_t1b, new_t2c = update_amp_from_mo(nbf,nif,nocc_b,nv&
-                    &ir_b,old_mo[1],mc.mo_coeff[1],t1b,t2c)'
-  write(fid1,'(A)') '  new_t2b = update_t2ab_from_uhf_mo(nbf,nif,nocc_a,nocc_b&
-                    &,nvir_a,nvir_b,old_mo,mc.mo_coeff,t2b)'
-  write(fid1,'(A)') '  new_t1 = (new_t1a, new_t1b)'
-  write(fid1,'(A)') '  new_t2 = (new_t2a, new_t2b, new_t2c)'
+  write(fid1,'(4X,A)') 'nvir_a = nif - nocc_a'
+  write(fid1,'(4X,A)') 'nvir_b = nif - nocc_b'
+  write(fid1,'(4X,A)') 'nocc_a = nocc_a - mc.frozen'
+  write(fid1,'(4X,A)') 'nocc_b = nocc_b - mc.frozen'
+  write(fid1,'(4X,A)') 't1a = np.load(t1a_npy)'
+  write(fid1,'(4X,A)') 't1b = np.load(t1b_npy)'
+  write(fid1,'(4X,A)') 't2a = np.load(t2a_npy)'
+  write(fid1,'(4X,A)') 't2b = np.load(t2b_npy)'
+  write(fid1,'(4X,A)') 't2c = np.load(t2c_npy)'
+  write(fid1,'(4X,A)') 'new_t1a, new_t2a = update_amp_from_mo(nbf,nif,nocc_a,nv&
+                       &ir_a,old_mo[0],mc.mo_coeff[0],t1a,t2a)'
+  write(fid1,'(4X,A)') 'new_t1b, new_t2c = update_amp_from_mo(nbf,nif,nocc_b,nv&
+                       &ir_b,old_mo[1],mc.mo_coeff[1],t1b,t2c)'
+  write(fid1,'(4X,A)') 'new_t2b = update_t2ab_from_uhf_mo(nbf,nif,nocc_a,nocc_b&
+                       &,nvir_a,nvir_b,old_mo,mc.mo_coeff,t2b)'
+  write(fid1,'(4X,A)') 'new_t1 = (new_t1a, new_t1b)'
+  write(fid1,'(4X,A)') 'new_t2 = (new_t2a, new_t2b, new_t2c)'
  end if
- write(fid1,'(A)') '  mc.kernel(t1=new_t1, t2=new_t2)'
+ write(fid1,'(4X,A)') 'mc.kernel(t1=new_t1, t2=new_t2)'
  write(fid1,'(A)') 'else:'
  if(mo_rhf) then
-  write(fid1,'(A)') '  t1, t2, from_stc = get_t1_t2_from_stc_ri_ccsd(mf, nco&
-                    &re=mc.frozen)'
-  write(fid1,'(A)') '  if from_stc:'
-  write(fid1,'(A)') '    mc.diis_space = 4'
-  write(fid1,'(A)') '  mc.kernel(t1=t1, t2=t2)'
+  write(fid1,'(4X,A)') 't1, t2, from_stc = get_t1_t2_from_stc_ri_ccsd(mf, ncore&
+                       &=mc.frozen)'
+  write(fid1,'(4X,A)') 'if from_stc:'
+  write(fid1,'(8X,A)') 'mc.diis_space = 4'
+  write(fid1,'(4X,A)') 'mc.kernel(t1=t1, t2=t2)'
  else
-  write(fid1,'(A)') '  mc.kernel()'
+  write(fid1,'(4X,A)') 'mc.kernel()'
  end if
  if(.not. mo_rhf) then
-  write(fid1,'(A)') '  nocc_a = nocc_a - mc.frozen'
-  write(fid1,'(A)') '  nocc_b = nocc_b - mc.frozen'
+  write(fid1,'(4X,A)') 'nocc_a = nocc_a - mc.frozen'
+  write(fid1,'(4X,A)') 'nocc_b = nocc_b - mc.frozen'
  end if
  write(fid1,'(A)') 'np.save(mo_npy, mc.mo_coeff)'
  if(mo_rhf) then
@@ -2272,20 +2299,42 @@ subroutine prt_pyscf_cc_inp(pyname, excited)
  end if
 
  if(ccsd_t) write(fid1,'(/,A)') 'mc.ccsd_t()'
- if(ccsdt) then
+
+ ! For CCSDT, we use CCSD t1,t2 amplitudes as initial guess amplitudes
+ if(ccsdt .or. ccsdt_q .or. ccsdtq) then
   if(.not. mo_rhf) then
+   ! UHF-based CCSDT t2 amplitude shapes are different from CCSD t2 amplitude
+   ! shapes. Swap axes of t2ab.
    write(fid1,'(/,A)') '# swap axes of t2ab'
    write(fid1,'(A)') 'mc.t2 = mc.t2[:1] + (np.ascontiguousarray(np.swapaxes(mc.&
                      &t2[1], 1, 2)),) + mc.t2[2:]'
   end if
-  write(fid1,'(/,A,I0,A)') 'mt = cc.CCSDT(mf, frozen=', chem_core, &
-                           ', compact_tamps=True)'
-  write(fid1,'(A)') 'mt.conv_tol = 1e-7'
-  write(fid1,'(A)') 'mt.conv_tol_normt = 1e-5'
-  write(fid1,'(A)') 'mt.verbose = 4'
-  write(fid1,'(A)') "mt.set_einsum_backend('pyscf')"
-  write(fid1,'(A)') 'mt.incore_complete = True'
-  write(fid1,'(A)') 'mt.kernel(tamps=[mc.t1,mc.t2])'
+  write(fid1,'(/,A)') 'tamps_init = [mc.t1, mc.t2]'
+  write(fid1,'(A,I0,A)') 'mc = cc.CCSDT(mf, frozen=', chem_core, &
+                         ', compact_tamps=True)'
+  write(fid1,'(A)') 'mc.conv_tol = 1e-7'
+  write(fid1,'(A)') 'mc.conv_tol_normt = 1e-5'
+  write(fid1,'(A)') 'mc.verbose = 4'
+  write(fid1,'(A)') "mc.set_einsum_backend('pyscf')"
+  write(fid1,'(A)') 'mc.incore_complete = True'
+  write(fid1,'(A)') 'mc.kernel(tamps=tamps_init)'
+ end if
+
+ if(ccsdt_q) write(fid1,'(/,A)') 'mc.ccsdt_q()'
+
+ ! For CCSDTQ, we use CCSDT t1,t2,t3 amplitudes as initial guess amplitudes
+ if(ccsdtq) then
+  write(fid1,'(/,A)') 't3_tri = mc.t3'
+  write(fid1,'(A)') 't3 = mc.tamps_tri2full(t3_tri)'
+  write(fid1,'(A)') 'tamps_init = [mc.t1, mc.t2, t3]'
+  write(fid1,'(A,I0,A)') 'mc = cc.CCSDTQ(mf, frozen=', chem_core, &
+                         ', compact_tamps=True)'
+  write(fid1,'(A)') 'mc.conv_tol = 1e-7'
+  write(fid1,'(A)') 'mc.conv_tol_normt = 1e-5'
+  write(fid1,'(A)') 'mc.verbose = 4'
+  write(fid1,'(A)') "mc.set_einsum_backend('pyscf')"
+  write(fid1,'(A)') 'mc.incore_complete = True'
+  write(fid1,'(A)') 'mc.kernel(tamps=tamps_init)'
  end if
 
  if(excited) then
@@ -2310,8 +2359,6 @@ subroutine prt_pyscf_cc_inp(pyname, excited)
    write(fid1,'(A)') 'conv, l1, l2 = ccsd_t_lambda.kernel(mc, eris, mc.t1, mc.t2)'
    write(fid1,'(A)') 'dm1 = ccsd_t_rdm.make_rdm1(mc, mc.t1, mc.t2, l1, l2, eri&
                      &s=eris, ao_repr=True)'
-  else if(ccsdt) then
-   write(fid1,'(A)') 'dm1 = mt.make_rdm1(ao_repr=True)'
   else
    write(fid1,'(A)') 'dm1 = mc.make_rdm1(ao_repr=True)'
   end if
@@ -2500,7 +2547,8 @@ subroutine prt_posthf_gms_inp(inpname, excited)
   method = 'CCTYP=CCSD(T)'
  end if
 
- inpname1 = TRIM(inpname)//'.t'
+ call find_specified_suffix(inpname, '.inp', i)
+ inpname1 = inpname(1:i-1)//'.t'
  open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(inpname1),status='replace')
 
@@ -2819,8 +2867,8 @@ subroutine prt_mrcc_posthf_inp(mem, ncore, gen_no, force, RI, alive)
  character(len=20) :: new_inp
  character(len=4), parameter :: input = 'MINP'
  character(len=240) :: buf
- logical, intent(in) :: gen_no, force, RI, alive(5)
- ! alive = [mp2, ccd, ccsd, ccsd_t, ccsdt]
+ logical, intent(in) :: gen_no, force, RI, alive(7)
+ ! alive = [mp2, ccd, ccsd, ccsd_t, ccsdt, ccsdt_q, ccsdtq]
 
  call get_a_random_int(i)
  write(new_inp,'(A,I0)') 'MINP_', i
@@ -2856,6 +2904,10 @@ subroutine prt_mrcc_posthf_inp(mem, ncore, gen_no, force, RI, alive)
   write(fid1,'(A)') 'CCSD(T)'
  else if(alive(5)) then
   write(fid1,'(A)') 'CCSDT'
+ else if(alive(6)) then
+  write(fid1,'(A)') 'CCSDT(Q)'
+ else if(alive(7)) then
+  write(fid1,'(A)') 'CCSDTQ'
  end if
 
  if(RI) then
@@ -2879,7 +2931,7 @@ end subroutine prt_mrcc_posthf_inp
 
 ! Print PySCF ADC input. Note: EE-ADC is supported since PySCF 2.10.0
 subroutine prt_pyscf_adc_inp(pyname)
- use sr_keyword, only: mem, nproc, RI, RIJK_bas, adc_n, ip, ea, nstate, &
+ use sr_keyword, only: mem, nproc, mo_rhf, RI, RIJK_bas, adc_n, ip, ea, nstate,&
   chem_core, force
  implicit none
  integer :: i, fid, fid1, RENAME
@@ -2887,15 +2939,8 @@ subroutine prt_pyscf_adc_inp(pyname)
  character(len=240), intent(in) :: pyname
  character(len=240) :: buf, pyname1
 
- if(chem_core > 0) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_pyscf_adc_inp: frozen core ADC is n&
-                   &ot supported'
-  write(6,'(A)') 'in PySCF currently. Please specify FC=0 in mokit{}.'
-  stop
- end if
  call find_specified_suffix(pyname, '.py', i)
  pyname1 = pyname(1:i-1)//'.t'
-
  open(newunit=fid,file=TRIM(pyname),status='old',position='rewind')
  open(newunit=fid1,file=TRIM(pyname1),status='replace')
 
@@ -2957,7 +3002,12 @@ subroutine prt_pyscf_adc_inp(pyname)
  write(fid1,'(A)') TRIM(buf(2:))
  close(fid,status='delete')
 
- write(fid1,'(/,A)') 'mc = adc.ADC(mf)'
+ if(mo_rhf) then
+  write(fid1,'(/,A,I0,A)') 'mc = adc.ADC(mf, frozen=',chem_core,')'
+ else
+  write(fid1,'(/,2(A,I0),A)') 'mc = adc.ADC(mf, frozen=[',chem_core,',', &
+                              chem_core,'])'
+ end if
  write(fid1,'(A)') 'mc.verbose = 5'
  if(adc_n == 3) write(fid1,'(A)') "mc.method = 'adc(3)'"
  if(ip) then
@@ -2966,6 +3016,7 @@ subroutine prt_pyscf_adc_inp(pyname)
   write(fid1,'(A)') "mc.method_type = 'ea'"
  else
   write(fid1,'(A)') "mc.method_type = 'ee'"
+  if(.not. mo_rhf) write(fid1,'(A)') 'mc.compute_spin_square = True'
  end if
  write(fid1,'(A,I0,A)') 'mc.kernel(nroots=',nstate,')'
 

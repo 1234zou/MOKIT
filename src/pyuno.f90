@@ -408,6 +408,7 @@ subroutine svd_of_two_set_mo(nbf, nif, prt, ao_ovlp, old_mo1, old_mo2, new_mo1,&
 !f2py depend(nbf,nif) :: new_mo1, new_mo2
  real(kind=8), allocatable :: mo_ovlp(:,:), ev(:)
  logical, intent(in) :: prt
+!f2py intent(in) :: prt
 
  allocate(mo_ovlp(nif,nif))
  call calc_CTSCp(nbf, nif, old_mo1, ao_ovlp, old_mo2, mo_ovlp)
