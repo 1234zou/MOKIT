@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.9rc3 '
- character(len=11), parameter :: date = '2026-Oct-18'
+ character(len=9), parameter :: version = '1.2.9rc4 '
+ character(len=11), parameter :: date = '2026-Oct-30'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -2478,4 +2478,40 @@ subroutine find_nfile_in_filelist(filelist, nfile)
 
  close(fid)
 end subroutine find_nfile_in_filelist
+
+! Read six integers (RASCI/RASSCF active space information) from `buf`.
+! ifort-compiled code cannot directly read syntax like `6,2,2;1,4,1`, we need
+! to separate it into two parts. gfortran-compiled code can directly read.
+subroutine read_ras_int_from_buf(method, nacte_wish, ras_nhole_wish, &
+         ras_npart_wish, ras1_nacto_wish, nacto_wish, ras3_nacto_wish)
+ implicit none
+ integer :: i, j, k
+ integer, intent(out) :: nacte_wish, ras_nhole_wish, ras_npart_wish, &
+  ras1_nacto_wish, nacto_wish, ras3_nacto_wish
+ character(len=*), intent(in) :: method
+
+ nacte_wish = 0; ras_nhole_wish = 0; ras_npart_wish = 0
+ ras1_nacto_wish = 0; nacto_wish = 0; ras3_nacto_wish = 0
+ i = 0; k = LEN_TRIM(method); j = INDEX(method(1:k), ';')
+
+ if(j == 0) then ! j = 0
+  i = -1
+ else            ! j > 0
+  read(method(1:j-1),*,iostat=i) nacte_wish, ras_nhole_wish, ras_npart_wish
+  if(i == 0) then
+   read(method(j+1:k),*,iostat=i) ras1_nacto_wish, nacto_wish, ras3_nacto_wish
+  end if
+ end if
+
+ if(i /= 0) then
+  write(6,'(/,A)') 'ERROR in subroutine read_ras_int_from_buf: invalid RASCI/RA&
+                   &SSCF syntax.'
+  write(6,'(A)') 'We adopt the notation (n,l,m;i,j,k) from J. Chem. Theory Co&
+                 &mput. 2011, 7, 153.'
+  write(6,'(A)') 'e.g. RASCI(6,2,2;1,4,1). Please check.'
+  stop
+ end if
+
+ nacte_wish = nacte_wish - 2*ras1_nacto_wish ! active electrons in RAS2
+end subroutine read_ras_int_from_buf
 

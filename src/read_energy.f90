@@ -1279,7 +1279,7 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   end do ! for while
  
   if(i /= 0) then
-   write(6,'(/,A)') error_warn//'"Final CASSCF energy" not found in'
+   write(6,'(/,A)') error_warn//'`Final CASSCF energy` not found in'
    write(6,'(A)') 'file '//TRIM(outname)
    close(fid)
    stop
@@ -1292,16 +1292,15 @@ subroutine read_cas_energy_from_orca_out(outname, e, scf)
   do while(.true.)
    BACKSPACE(fid)
    BACKSPACE(fid)
-   read(fid,'(A)',iostat=i) buf
-   if(i /= 0) exit
+   read(fid,'(A)') buf
+   if(buf(36:48) == 'O   R   C   A') then
+    write(6,'(/,A)') error_warn//'failed to locate `STATE` in file'
+    write(6,'(A)') TRIM(outname)
+    close(fid)
+    stop
+   end if
    if(buf(1:5) == 'STATE') exit
   end do ! for while
- 
-  if(i /= 0) then
-   write(6,'(/,A)') error_warn//'"^STATE" not found in file '//TRIM(outname)
-   close(fid)
-   stop
-  end if
 
   call get_dpv_after_flag(buf, '=', .true., e(1))
  end if
@@ -3853,4 +3852,51 @@ subroutine read_cc_e_from_mrcc_out(outname, t1diag, ref_e, tot_e)
   stop
  end if
 end subroutine read_cc_e_from_mrcc_out
+
+! read RASCI electronic energies from a given ORCA output file
+subroutine read_rasci_e_from_orca_out(outname, nstate, rasci_e)
+ implicit none
+ integer :: i, k, fid
+ integer, intent(in) :: nstate
+ real(kind=8), intent(out) :: rasci_e(0:nstate)
+ character(len=48), parameter :: error_warn = 'ERROR in subroutine read_rasci_e&
+                                              &_from_orca_out: '
+ character(len=240) :: buf
+ character(len=240), intent(in) :: outname
+
+ rasci_e = 0d0
+ open(newunit=fid,file=TRIM(outname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:10) == 'CI-RESULTS') exit
+ end do ! for while
+
+ if(i /= 0) then
+  close(fid)
+  write(6,'(/,A)') error_warn//'failed to find `CI-RESULTS` in file'
+  write(6,'(A)') TRIM(outname)
+  stop
+ end if
+
+ k = -1
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:4) == 'ROOT') then
+   k = k + 1
+   call get_dpv_after_flag(buf, '=', .true., rasci_e(k))
+   if(k == nstate) exit
+  end if
+ end do ! for while
+
+ close(fid)
+ if(i/=0 .or. (i==0 .and. k/=nstate)) then
+  write(6,'(/,A)') error_warn//'failed to read electronic energies'
+  write(6,'(A)') 'of all roots from file '//TRIM(outname)
+  write(6,'(2(A,I0))') 'nstate=', nstate, ', k=', k
+  stop
+ end if
+end subroutine read_rasci_e_from_orca_out
 

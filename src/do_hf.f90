@@ -1190,15 +1190,12 @@ subroutine read_hf_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)') buf
   if(buf(1:15) == 'Total Energy   ') exit
   if(buf(2:12) == 'With contri') then
-   i = -1
-   exit
+   i = -1; exit
   end if
  end do ! for while
 
@@ -1229,15 +1226,12 @@ subroutine read_dft_e_and_ss_from_orca_out(outname, hf_type, e, ss)
  open(newunit=fid,file=TRIM(outname),status='old',position='append')
 
  do while(.true.)
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
-  BACKSPACE(fid,iostat=i)
-  if(i /= 0) exit
+  BACKSPACE(fid)
+  BACKSPACE(fid)
   read(fid,'(A)') buf
-  if(buf(1:15) == 'FINAL SINGLE PO') exit
+  if(buf(1:14) == 'FINAL SINGLE P') exit
   if(buf(2:12) == 'With contri') then
-   i = -1
-   exit
+   i = -1; exit
   end if
  end do ! for while
 

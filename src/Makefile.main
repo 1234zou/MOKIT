@@ -6,10 +6,11 @@ OBJ_automl = file_op.o string_manipulate.o math_sub.o read_fch.o read_natom.o \
              rw_misc.o read_grad.o rwgeom.o automl.o
 OBJ_automr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rwwfn.o read_fch.o read_natom.o read_grad.o rwgeom.o read_gms_inp.o \
-             read_ev_on.o read_mkl.o read_energy.o rw_misc.o do_hf.o do_gvb.o do_cas.o \
-             do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o do_mrcc.o do_polar.o \
-             call_qc_calc_int.o do_pes_scan.o do_cis.o do_sa_cas.o do_suhf.o \
-             excited.o assoc_rot.o ortho.o wfn_analysis.o lo.o automr.o
+             read_ev_on.o read_mkl.o read_energy.o rw_misc.o do_hf.o do_gvb.o \
+             do_cas.o do_ras.o do_mrpt2.o do_mrpt3.o do_mcpdft.o do_mrci.o \
+             do_mrcc.o do_polar.o call_qc_calc_int.o do_pes_scan.o do_cis.o \
+             do_sa_cas.o do_suhf.o excited.o assoc_rot.o ortho.o wfn_analysis.o \
+             lo.o automr.o
 OBJ_autosr = file_op.o string_manipulate.o mr_keyword.o util_wrapper.o math_sub.o \
              rw_misc.o read_fch.o read_mkl.o rwwfn.o read_natom.o read_energy.o \
              read_grad.o rwgeom.o do_hf.o call_qc_calc_int.o read_gms_inp.o \
@@ -537,8 +538,8 @@ exe: add_bgcharge_to_inp addH2singlet automr autosr amo2fch bas_fch2py bas_gau2m
      mkl2psi mkl2mrcc mkl2openqp mkl2py mkl2qchem molden2fch orb2fch replace_xyz_in_inp \
      xml2fch solve_ON_matrix
 
-pymodules: auto_pair chk2py fch2py py2fch pyuno qchem ortho assoc_rot \
-           lo mirror_wfn mo_svd wfn_analysis workflow rwgeom rwwfn excited
+pymodules: auto_pair chk2py excited fch2py py2fch pyuno qchem ortho assoc_rot \
+           lo mirror_wfn mo_svd pbc_helper rwgeom rwwfn wfn_analysis workflow
 
 all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair amo2fch bas_fch2py \
      bas_gau2molcas bas_gms2dal bas_gms2molcas bas_gms2molpro bas_gms2py bdf2fch \
@@ -549,8 +550,8 @@ all: add_bgcharge_to_inp addH2singlet automr autosr auto_pair amo2fch bas_fch2py
      gvb_exclude_XH gvb_sort_pairs mkl2amo mkl2bdf mkl2cfour mkl2com mkl2dal mkl2fch \
      mkl2inp mkl2inporb mkl2gjf mkl2psi mkl2mrcc mkl2openqp mkl2py mkl2qchem molden2fch \
      orb2fch replace_xyz_in_inp rest2fch xml2fch py2fch pyuno qchem ortho assoc_rot \
-     lo mirror_wfn mo_svd wfn_analysis workflow solve_ON_matrix rwgeom rwwfn \
-     excited get_mokit_loc
+     lo mirror_wfn mo_svd pbc_helper wfn_analysis workflow solve_ON_matrix rwgeom \
+     rwwfn excited get_mokit_loc
 
 clean:
 	rm -f *.o *.mod

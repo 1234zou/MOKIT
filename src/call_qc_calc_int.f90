@@ -879,7 +879,7 @@ end subroutine submit_gau_job
 subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
  implicit none
  integer :: i, SYSTEM
- character(len=240) :: outname, gesname, denf1, denf2, propf1, propf2
+ character(len=240) :: outname, gesname, denf1, denf2, propf1, propf2, eras_tmp
  character(len=480) :: buf
  character(len=240), intent(in) :: orca_path, inpname
  logical, intent(in) :: prt, del_den, del_prop
@@ -891,6 +891,7 @@ subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
  denf2 = inpname(1:i-1)//'.densitiesinfo'
  propf1 = inpname(1:i-1)//'_property.txt'
  propf2 = inpname(1:i-1)//'.property.txt'
+ eras_tmp = inpname(1:i-1)//'.eras.tmp'
 
  write(buf,'(A)') TRIM(inpname)//' >'//TRIM(outname)//" 2>&1"
  if(prt) write(6,'(A)') '$orca '//TRIM(buf)
@@ -902,7 +903,7 @@ subroutine submit_orca_job(orca_path, inpname, prt, del_den, del_prop)
   stop
  end if
 
- call delete_file(TRIM(gesname))
+ call delete_files(2, [gesname,eras_tmp])
  if(del_den) call delete_files(2, [denf1,denf2])
  if(del_prop) call delete_files(2, [propf2,propf2])
 end subroutine submit_orca_job

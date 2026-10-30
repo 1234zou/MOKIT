@@ -2,7 +2,7 @@
 ! Currently only implement: scanning various thresholds/cutoffs for a target CP2K calculation
 
 ! The order for checking:
-! 1) EPD_DEFAULT, EPS_SCF
+! 1) EPS_SCF, EPD_DEFAULT
 ! 2) CUTOFF, REL_CUTOFF
 ! 3) NGRIDS
 ! 4) USE_FINER_GRID
@@ -14,8 +14,112 @@
 !
 ! inpname = ''
 ! call getarg(1, inpname)
-! call scan_cp2k_conv_param(inpname, 'EPS_DEFAULT', 1e-6, 64, conv_param)
+! call scan_cp2k_conv_param(inpname, 'EPS_DEFAULT', 1e-7, 64, conv_param)
 !end program main
+
+! scan convergence parameters in a specified CP2K input file (.inp)
+! (EPS_DEFAULT, EPS_SCF, CUTOFF, REL_CUTOFF, NGRIDS, USE_FINER_GRID)
+subroutine scan_cp2k_conv_param(inpname, param_str, e_diff, nproc, conv_param)
+ implicit none
+ integer :: i, k, icase
+ integer, parameter :: param0(6) = [5,10,400,40,3,0]
+ integer, parameter :: stepsize(6) = [1,1,200,20,1,1]
+ integer, parameter :: max_nstep(6) = [7,5,15,4,4,2]
+ integer, intent(in) :: nproc
+!f2py intent(in) :: nproc
+ integer, intent(out) :: conv_param
+!f2py intent(out) :: conv_param
+ real(kind=8) :: e0, e1
+ real(kind=8), intent(in) :: e_diff
+!f2py intent(in) :: e_diff
+ character(len=42), parameter :: error_warn='ERROR in subroutine scan_cp2k_conv&
+                                            &_param: '
+ character(len=240) :: old_inp, new_inp, outname, wfn_file
+ character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
+ character(len=*), intent(in) :: param_str
+!f2py intent(in) :: param_str
+ logical :: converged, extended_fft_len
+
+ converged = .false.; e0 = 0d0; old_inp = inpname
+ call find_specified_suffix(inpname, '.in', i)
+ wfn_file = inpname(1:i-1)//'-RESTART.wfn'
+
+ icase = 0
+ select case(TRIM(param_str))
+ case('EPS_SCF')
+  icase = 1
+ case('EPS_DEFAULT')
+  icase = 2
+ case('CUTOFF')
+  icase = 3
+ case('REL_CUTOFF')
+  icase = 4
+ case('NGRIDS')
+  icase = 5
+ case('FINER_GRID','USE_FINER_GRID')
+  icase = 6
+ case default
+  write(6,'(/,A)') error_warn//' invalid param_str=`'//TRIM(param_str)//'`'
+  write(6,'(A)') 'Currently supported keywords: `EPS_DEFAULT`, `EPS_SCF`, `CUTO&
+                 &FF`, `REL_CUTOFF`'
+  write(6,'(A)') '`NGRIDS`, `USE_FINER_GRID`.'
+  stop
+ end select
+
+ do i = 1, max_nstep(icase), 1
+  call increase_int_in_cp2k_inpname(old_inp, new_inp)
+  call find_specified_suffix(new_inp, '.in', k)
+  outname = new_inp(1:k-1)//'.out'
+  call sys_copy_file(TRIM(old_inp), TRIM(new_inp), .false.)
+  if(i == 1) call set_wfn_restart_file_in_cp2k_inp(new_inp, wfn_file)
+  conv_param = param0(icase) + (i-1)*stepsize(icase)
+  select case(icase)
+  case(1)
+   call set_eps_scf_in_cp2k_inp(new_inp, conv_param)
+  case(2)
+   call set_eps_default_in_cp2k_inp(new_inp, conv_param)
+  case(3)
+   call set_mgrid_cutoff_in_cp2k_inp(new_inp, conv_param)
+  case(4)
+   call set_mgrid_rel_cutoff_in_cp2k_inp(new_inp, conv_param)
+  case(5)
+   call set_mgrid_ngrids_in_cp2k_inp(new_inp, conv_param)
+  case(6)
+   extended_fft_len = .false.
+   if(conv_param == 1) extended_fft_len = .true.
+   !call set_extended_fft_lengths(new_inp, extended_fft_len)
+   call set_finer_grid_in_cp2k_inp(new_inp, extended_fft_len)
+  end select
+  call submit_cp2k_job(new_inp, nproc)
+  call read_scf_e_from_cp2k_out(outname, e1)
+  if(i>1 .and. DABS(e0-e1)<e_diff) then
+   converged = .true.
+   exit
+  end if
+  old_inp = new_inp
+  e0 = e1
+ end do ! for i
+
+ if(.not. converged) then
+  write(6,'(/,A)') error_warn//'scanning `'//TRIM(param_str)//'`'
+  write(6,'(A)') 'does not lead to a converged result. Please check files '&
+               //TRIM(inpname)
+  write(6,'(A)') 'and '//TRIM(outname)
+  stop
+ end if
+
+ conv_param = param0(icase) + (i-1)*stepsize(icase)
+
+ select case(icase)
+ case(1,2)
+  write(6,'(A,I0)') 'Recommended '//TRIM(param_str)//' 1e-', conv_param
+ case(3,4,5)
+  write(6,'(A,I0)') 'Recommended '//TRIM(param_str)//' ', conv_param
+ case(6)
+  write(6,'(A,L1)') 'Recommended USE_FINER_GRID ', (conv_param==1)
+ end select
+end subroutine scan_cp2k_conv_param
 
 ! set/activate WFN_RESTART_FILE_NAME and SCF_GUESS in &FORCE_EVAL/&DFT
 subroutine set_wfn_restart_file_in_cp2k_inp(inpname, wfn_file)
@@ -249,9 +353,9 @@ subroutine set_eps_scf_in_cp2k_inp(inpname, int_eps)
  character(len=240), intent(in) :: inpname
 !f2py intent(in) :: inpname
 
- if(int_eps<5 .or. int_eps>9) then
+ if(int_eps<5 .or. int_eps>12) then
   write(6,'(/,A,I0)') error_warn//'invalid int_eps=', int_eps
-  write(6,'(A)') 'The allowed range is [5,9], which means [1e-5,1e-9].'
+  write(6,'(A)') 'The allowed range is [5,12], which means [1e-5,1e-12].'
   stop
  end if
 
@@ -295,7 +399,7 @@ subroutine set_eps_scf_in_cp2k_inp(inpname, int_eps)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"EPS_SCF" cannot be found in'
+  write(6,'(/,A)') error_warn//'`EPS_SCF` cannot be found in'
   write(6,'(A)') 'file '//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
@@ -589,7 +693,7 @@ subroutine set_finer_grid_in_cp2k_inp(inpname, finer)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"&XC" cannot be found in'
+  write(6,'(/,A)') error_warn//'`&XC` cannot be found in'
   write(6,'(A)') 'file '//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
@@ -614,7 +718,7 @@ subroutine set_finer_grid_in_cp2k_inp(inpname, finer)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') error_warn//'"&END XC" cannot be found in'
+  write(6,'(/,A)') error_warn//'`&END XC` cannot be found in'
   write(6,'(A)') 'file '//TRIM(inpname)
   close(fid)
   close(fid1,status='delete')
@@ -736,105 +840,49 @@ subroutine increase_int_in_cp2k_inpname(inpname, new_inp)
  end if
 end subroutine increase_int_in_cp2k_inpname
 
-! scan convergence parameters in a specified CP2K input file (.inp)
-! (EPS_DEFAULT, EPS_SCF, CUTOFF, REL_CUTOFF, NGRIDS, USE_FINER_GRID)
-subroutine scan_cp2k_conv_param(inpname, param_str, e_diff, nproc, conv_param)
+! set `EXTENDED_FFT_LENGTHS` as T/F in a given CP2K input file
+subroutine set_extended_fft_lengths(inpname, turn_on)
  implicit none
- integer :: i, k, icase
- integer, parameter :: param0(6) = [10,5,400,40,4,0]
- integer, parameter :: stepsize(6) = [1,1,200,20,1,1]
- integer, parameter :: max_nstep(6) = [4,4,15,4,3,2]
- integer, intent(in) :: nproc
-!f2py intent(in) :: nproc
- integer, intent(out) :: conv_param
-!f2py intent(out) :: conv_param
- real(kind=8) :: e0, e1
- real(kind=8), intent(in) :: e_diff
-!f2py intent(in) :: e_diff
- character(len=42), parameter :: error_warn='ERROR in subroutine scan_cp2k_conv&
-                                            &_param: '
- character(len=240) :: old_inp, new_inp, outname, wfn_file
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, buf1, inpname1
  character(len=240), intent(in) :: inpname
 !f2py intent(in) :: inpname
- character(len=*), intent(in) :: param_str
-!f2py intent(in) :: param_str
- logical :: converged
+ logical :: found
+ logical, intent(in) :: turn_on
+!f2py intent(in) :: turn_on
 
- converged = .false.; e0 = 0d0; old_inp = inpname
  call find_specified_suffix(inpname, '.in', i)
- wfn_file = inpname(1:i-1)//'-RESTART.wfn'
+ inpname1 = inpname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(inpname),status='old',position='rewind')
+ open(newunit=fid1,file=TRIM(inpname1),status='replace')
+ found = .false.
 
- icase = 0
- select case(TRIM(param_str))
- case('EPS_DEFAULT')
-  icase = 1
- case('EPS_SCF')
-  icase = 2
- case('CUTOFF')
-  icase = 3
- case('REL_CUTOFF')
-  icase = 4
- case('NGRIDS')
-  icase = 5
- case('FINER_GRID','USE_FINER_GRID')
-  icase = 6
- case default
-  write(6,'(/,A)') error_warn//' invalid param_str="'//TRIM(param_str)//'"'
-  write(6,'(A)') 'Currently supported keywords: "EPS_DEFAULT", "EPS_SCF", "CUTO&
-                 &FF", "REL_CUTOFF"'
-  write(6,'(A)') '"NGRIDS", "USE_FINER_GRID".'
-  stop
- end select
-
- do i = 1, max_nstep(icase), 1
-  call increase_int_in_cp2k_inpname(old_inp, new_inp)
-  call find_specified_suffix(new_inp, '.in', k)
-  outname = new_inp(1:k-1)//'.out'
-  call sys_copy_file(TRIM(old_inp), TRIM(new_inp), .false.)
-  if(i == 1) call set_wfn_restart_file_in_cp2k_inp(new_inp, wfn_file)
-  conv_param = param0(icase) + (i-1)*stepsize(icase)
-  select case(icase)
-  case(1)
-   call set_eps_default_in_cp2k_inp(new_inp, conv_param)
-  case(2)
-   call set_eps_scf_in_cp2k_inp(new_inp, conv_param)
-  case(3)
-   call set_mgrid_cutoff_in_cp2k_inp(new_inp, conv_param)
-  case(4)
-   call set_mgrid_rel_cutoff_in_cp2k_inp(new_inp, conv_param)
-  case(5)
-   call set_mgrid_ngrids_in_cp2k_inp(new_inp, conv_param)
-  case(6)
-   call set_finer_grid_in_cp2k_inp(new_inp, (conv_param==1))
-  end select
-  call submit_cp2k_job(new_inp, nproc)
-  call read_scf_e_from_cp2k_out(outname, e1)
-  if(i>1 .and. DABS(e0-e1)<e_diff) then
-   converged = .true.
+ do while(.true.)
+  read(fid,'(A)') buf
+  buf1 = ADJUSTL(buf)
+  if(buf1(1:21) == 'EXTENDED_FFT_LENGTHS') then
+   found = .true.; exit
+  else if(buf1(1:11) == '&END GLOBAL') then
    exit
   end if
-  old_inp = new_inp
-  e0 = e1
- end do ! for i
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
 
- if(.not. converged) then
-  write(6,'(/,A)') error_warn//'scanning "'//TRIM(param_str)//'"'
-  write(6,'(A)') 'does not lead to a converged result. Please check files '&
-               //TRIM(inpname)
-  write(6,'(A)') 'and '//TRIM(outname)
-  stop
+ if(turn_on) then
+  write(fid1,'(1X,A)') 'EXTENDED_FFT_LENGTHS T'
+ else
+  write(fid1,'(1X,A)') 'EXTENDED_FFT_LENGTHS F'
  end if
+ if(.not. found) write(fid1,'(A)') '&END GLOBAL'
 
- ! use the previous convergence parameter
- conv_param = param0(icase) + (i-2)*stepsize(icase)
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
 
- select case(icase)
- case(1,2)
-  write(6,'(A,I0)') 'Recommended '//TRIM(param_str)//' 1e-', conv_param
- case(3,4,5)
-  write(6,'(A,I0)') 'Recommended '//TRIM(param_str)//' ', conv_param
- case(6)
-  write(6,'(A,L1)') 'Recommended USE_FINER_GRID ', (conv_param==1)
- end select
-end subroutine scan_cp2k_conv_param
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(inpname1), TRIM(inpname))
+end subroutine set_extended_fft_lengths
 

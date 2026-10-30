@@ -2005,6 +2005,7 @@ subroutine cp2k_inp2gjf(inpname)
  character(len=2), allocatable :: elem(:)
  character(len=240) :: gjfname
  character(len=240), intent(in) :: inpname
+!f2py intent(in) :: inpname
 
  i = LEN_TRIM(inpname)
  j = INDEX(inpname(1:i), '.', back=.true.)
@@ -2142,6 +2143,7 @@ subroutine enlarge_cell_in_gjf(gjfname, nd)
  character(len=2), allocatable :: elem(:), elem1(:)
  character(len=240) :: gjfname1
  character(len=240), intent(in) :: gjfname
+!f2py intent(in) :: gjfname
  real(kind=8) :: lat_vec(3,3)
  real(kind=8), allocatable :: coor(:,:), coor1(:,:)
 !f2py intent(in) :: gjfname, nd

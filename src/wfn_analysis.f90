@@ -994,6 +994,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
  real(kind=8) :: t0, t1, y0, y1, upe(3)
  real(kind=8), intent(out) :: unpaired_e
 !f2py intent(out) :: unpaired_e
+ real(kind=8), parameter :: on_thres = 1d-6
  real(kind=8), allocatable :: noon(:,:), coeff(:,:), dm(:,:)
  logical, intent(in) :: gen_dm
 !f2py intent(in) :: gen_dm
@@ -1050,7 +1051,7 @@ subroutine calc_unpaired_from_fch(fchname, wfn_type, gen_dm, unpaired_e)
   do i = 1, nbf, 1
    do j = 1, i, 1
     do k = 1, nif, 1
-     if(noon(k,5)<1d-5 .or. (2d0-noon(k,5)<1d-5)) cycle
+     if(noon(k,5)<on_thres .or. (2d0-noon(k,5)<on_thres)) cycle
      dm(j,i) = dm(j,i) + noon(k,5)*coeff(j,k)*coeff(i,k)
     end do ! for k
    end do ! for j

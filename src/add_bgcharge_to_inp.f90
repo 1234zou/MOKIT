@@ -374,8 +374,9 @@ subroutine add_bgcharge_to_orca_inp(inpname, n, charge)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(A)') "ERROR in subroutine add_bgcharge_to_orca_inp: section&
-                  & '$CHARGES' in file '"//TRIM(mklname)//"' is incomplete."
+  write(6,'(/,A)') 'ERROR in subroutine add_bgcharge_to_orca_inp: section `$CHA&
+                   &RGES` in file'
+  write(6,'(A)') TRIM(mklname)//' is problematic.'
   close(fid1)
   close(fid2,status='delete')
   stop

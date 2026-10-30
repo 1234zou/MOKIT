@@ -76,7 +76,7 @@ subroutine do_polar()
    inpname = TRIM(proname)//'pol.inp'
    mklname = TRIM(proname)//'pol.mkl'
    call fch2mkl_wrap(casnofch, mklname, REPEAT(' ',30), .true.)
-   call prt_cas_orca_inp(inpname, .true., .true.)
+   call prt_orca_cas_inp(inpname, .true., .true.)
    if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
    ! if bgchg = .True., .inp and .mkl file will be updated
    call mkl2gbw(mklname)

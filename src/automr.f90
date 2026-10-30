@@ -48,6 +48,8 @@ program main
   write(6,'(A)')   '     GVB_prog=GAMESS/Gaussian/QChem'
   write(6,'(A)')   '  CASSCF_prog=PySCF/OpenMolcas/ORCA/Molpro/MRCC/GAMESS/BDF/PSI4/Dalton/Gaussian'
   write(6,'(A)')   '   CASCI_prog=PySCF/OpenMolcas/ORCA/Molpro/MRCC/GAMESS/BDF/PSI4/Dalton/Gaussian'
+  write(6,'(A)')   '  RASSCF_prog=OpenMolcas/Dalton/Gaussian/Molpro'
+  write(6,'(A)')   '   RASCI_prog=OpenMolcas/Dalton/Gaussian/Molpro/ORCA'
   write(6,'(A)')   '   NEVPT_prog=PySCF/ORCA/Molpro/BDF/OpenMolcas'
   write(6,'(A)')   '   CASPT_prog=ORCA/Molpro/OpenMolcas'
   write(6,'(A)')   '  MCPDFT_prog=PySCF/OpenMolcas/GAMESS'
@@ -89,6 +91,8 @@ subroutine automr(fname)
  call do_gp()         ! (spin-pure) GP
  call do_cas(.false.) ! CASCI/DMRG-CASCI
  call do_cas(.true.)  ! CASSCF/DMRG-CASSCF, including SS-CASSCF
+ call do_ras(.false.) ! RASCI
+ call do_ras(.true.)  ! RASSCF
  call do_mrpt2()      ! CASPT2/NEVPT2/SDSPT2/MRMP2
  call do_mrpt3()      ! CASPT3/NEVPT3
  call do_mrpt4()      ! FIC-NEVPT4(SD)

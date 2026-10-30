@@ -2106,7 +2106,9 @@ subroutine calc_dm_using_mo_and_on(nbf, nif, mo, noon, dm)
 
 !$omp parallel do schedule(dynamic) default(private) shared(nbf,nif,noon,mo,dm)
  do u = 1, nbf, 1
-  forall(k = 1:nif) r(k) = noon(k)*mo(u,k)
+  do k = 1, nif, 1
+   r(k) = noon(k)*mo(u,k)
+  end do ! for k
   do v = 1, u, 1
    dm(v,u) = ddot(nif, r, 1, mo(v,:), 1)
   end do ! for v
@@ -2589,7 +2591,7 @@ subroutine calc_gross_pop(natom, nbf, nif, bfirst, ao_ovlp, mo, popm, gross)
  case default
   write(6,'(/,A)') 'ERROR in subroutine calc_gross_pop: wrong population method&
                    & provided.'
-  write(6,'(A)') "Only 'mulliken' or 'lowdin' supported. But input popm="//popm
+  write(6,'(A)') "Only 'mulliken'/'lowdin' supported. But input popm="//popm
   stop
  end select
 

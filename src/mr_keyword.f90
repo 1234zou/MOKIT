@@ -23,6 +23,10 @@ module mol
  ! nacte = nacta + nactb
  ! nacta = npair0 + nopen
  ! nactb = npair0
+ integer :: ras1_nacto = 0 ! the number of orbitals in RAS1
+ integer :: ras3_nacto = 0 ! the number of orbitals in RAS3
+ integer :: ras_nhole = 0 ! maximum number of holes allowed in RAS1
+ integer :: ras_npart = 0 ! maximum number of electrons to enter in RAS3
  integer :: natom = 0      ! number of atoms
  integer :: nbgchg = 0     ! number of background point charges
  integer :: nfrag = 0      ! number of fragments
@@ -53,6 +57,8 @@ module mol
  real(kind=8) :: gp_e      = 0d0 ! GP energy
  real(kind=8) :: casci_e   = 0d0 ! CASCI/DMRG-CASCI energy
  real(kind=8) :: casscf_e  = 0d0 ! CASSCF/DMRG-CASSCF energy
+ real(kind=8) :: rasci_e   = 0d0 ! RASCI energy
+ real(kind=8) :: rasscf_e  = 0d0 ! RASSCF energy
  real(kind=8) :: caspt2_e  = 0d0 ! CASPT2/DMRG-CASPT2 energy
  real(kind=8) :: caspt3_e  = 0d0 ! CASPT3 energy
  real(kind=8) :: nevpt2_e  = 0d0 ! CASSCF-NEVPT2/DMRG-NEVPT2 energy
@@ -89,6 +95,10 @@ module mr_keyword
  integer :: npair_wish =-1 ! number of GVB pairs specified by user
  integer :: nacto_wish = 0 ! number of active orbitals specified by user
  integer :: nacte_wish = 0 ! number of active electrons specified by user
+ integer :: ras1_nacto_wish = 0 ! the number of orbitals in RAS1 specified by user
+ integer :: ras3_nacto_wish = 0 ! the number of orbitals in RAS3 specified by user
+ integer :: ras_nhole_wish = 0 ! maximum number of holes allowed in RAS1 specified by user
+ integer :: ras_npart_wish = 0 ! maximum number of electrons to enter in RAS3 specified by user
  integer :: ist = 0        ! the i-th strategy
  ! 0: if RHF wfn is stable, use strategy 3; otherwise use strategy 1
  ! 1: UHF -> UNO -> associated rotation -> GVB -> CASCI/CASSCF -> ...
@@ -184,6 +194,8 @@ module mr_keyword
  logical :: suhf    = .false.
  logical :: casci   = .false.
  logical :: casscf  = .false.
+ logical :: rasci   = .false.
+ logical :: rasscf  = .false.
  logical :: dmrgci  = .false.
  logical :: dmrgscf = .false.
  logical :: caspt2  = .false.
@@ -210,6 +222,8 @@ module mr_keyword
  logical :: gp_force = .false.    ! whether to calculate GP force
  logical :: casci_force = .false. ! whether to calculate CASCI force
  logical :: casscf_force = .false.! whether to calculate CASSCF force
+ logical :: rasci_force = .false. ! whether to calculate RASCI force
+ logical :: rasscf_force = .false.! whether to calculate RASSCF force
  logical :: mcpdft_force = .false.! whether to calculate MC-PDFT force
  logical :: caspt2_force = .false.! whether to calculate CASPT2 force
  logical :: nevpt2_force = .false.! whether to calculate NEVPT2 force
@@ -259,6 +273,8 @@ module mr_keyword
  character(len=10) :: casscf_prog  = 'pyscf'
  character(len=10) :: dmrgci_prog  = 'pyscf'
  character(len=10) :: dmrgscf_prog = 'pyscf'
+ character(len=10) :: rasci_prog   = 'openmolcas'
+ character(len=10) :: rasscf_prog  = 'openmolcas'
  character(len=10) :: caspt_prog   = 'orca'  ! CASPT2/CASPT3
  character(len=10) :: nevpt_prog   = 'pyscf' ! NEVPT2/NEVPT3/NEVPT4(SD)
  character(len=10) :: mrmp2_prog   = 'gamess'
@@ -323,10 +339,11 @@ end subroutine replace_env_in_path
 subroutine check_gms_path()
  implicit none
  integer :: i, fid
+ character(len=36),parameter::error_warn='ERROR in subroutine check_gms_path: '
  character(len=240) :: buf
 
  if(TRIM(gms_path) == 'NOT FOUND') then
-  write(6,'(/,A)') 'ERROR in subroutine check_gms_path: gms_path is NOT FOUND'
+  write(6,'(/,A)') error_warn//'gms_path is NOT FOUND'
   stop
  end if
 
@@ -340,8 +357,8 @@ subroutine check_gms_path()
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine check_gms_path: 'set SCR' not found in &
-                   &file "//TRIM(gms_path)
+  write(6,'(/,A)') error_warn//'`set SCR` not found in file'
+  write(6,'(A)') TRIM(gms_path)
   close(fid)
   stop
  end if
@@ -356,13 +373,11 @@ subroutine check_gms_path()
    i = INDEX(buf, '=')
    gms_dat_path = buf(i+1:)
   else
-   write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path&
-                    & '"//TRIM(buf)//"'"
+   write(6,'(/,A)') error_warn//'`=` not found in path '//TRIM(buf)//'`'
    stop
   end if
  else
-  write(6,'(/,A)') "ERROR in subroutine check_gms_path: '=' not found in path&
-                   & '"//TRIM(buf)//"'"
+  write(6,'(/,A)') error_warn//'`=` not found in path '//TRIM(buf)//'`'
   close(fid)
   stop
  end if
@@ -378,566 +393,593 @@ subroutine check_gms_path()
  write(6,'(A)') 'gms_dat_path = '//TRIM(gms_dat_path)
 end subroutine check_gms_path
 
- subroutine parse_keyword()
-  implicit none
-  integer :: i, j, k, ifail, fid
-  character(len=24) :: method0 = ' '
-  character(len=240) :: buf = ' '
-  character(len=1000) :: longbuf = ' '
-  character(len=35), parameter :: error_warn='ERROR in subroutine parse_keyword: '
-  logical :: alive(2), alive1(5)
+subroutine parse_keyword()
+ implicit none
+ integer :: i, j, k, ifail, fid
+ character(len=24) :: method0 = ' '
+ character(len=240) :: buf = ' '
+ character(len=1000) :: longbuf = ' '
+ character(len=35), parameter :: error_warn='ERROR in subroutine parse_keyword: '
+ logical :: alive(2), alive1(5)
+
+ open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
+ call read_mem_nproc_route(fid, mem, nproc, buf)
+
+ i = INDEX(buf,'/')
+ if(i == 0) then
+  write(6,'(/,A)') error_warn//"no '/' symbol detected in keyword line."
+  write(6,'(A)') "The method and basis set must be specified via '/' symbol, e&
+                 &.g. CASSCF/cc-pVDZ."
+  close(fid)
+  stop
+ end if
+
+ if(DBLE(mem) < DBLE(nproc)*0.8d0) then
+  write(6,'(/,A)') error_warn//'please specify larger memory. Multi-'
+  write(6,'(A)') 'reference calculations usually requires large memory.'
+  close(fid)
+  stop
+ end if
+ if(INDEX(buf,'scan') > 0) rigid_scan = .true.
+
+ j = INDEX(buf(1:i-1),' ', back=.true.)
+ if(j == 0) then
+  write(6,'(/,A)') error_warn//'syntax error detected in the'
+  write(6,'(A)') "current line '"//TRIM(buf)//"'"
+  close(fid)
+  stop
+ end if
+ method0 = buf(j+1:i-1)
+
+ i = INDEX(method0, '('); j = INDEX(method0, ','); k = INDEX(method0, ')')
+ alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
+ if(.not. (alive(1) .or. alive(2)) ) then
+  write(6,'(/,A)') error_warn//'incomplete method specified.'
+  write(6,'(A)') 'method = '//TRIM(method0)
+  close(fid)
+  stop
+ end if
+
+ if(i /= 0) then
+  method = method0(1:i-1)
+
+  select case(TRIM(method))
+  case('casci','dmrgci','casscf','dmrgscf','mcpdft','mc-pdft','mrcisd', &
+       'mrcisdt','sdspt2','mrmp2','ovbmp2','caspt2','caspt2k','caspt2-k', &
+       'caspt3','nevpt2','nevpt3','nevpt4sd','ficmrccsd','fic-mrccsd', &
+       'mkmrccsd','bwmrccsd')
+   read(method0(i+1:j-1),*) nacte_wish
+   read(method0(j+1:k-1),*) nacto_wish
+   if(nacte_wish<1 .or. nacto_wish<1) then
+    write(6,'(/,A)') error_warn//'wrong number of active electrons/orbitals'
+    write(6,'(2(A,I0))') 'specified. nacte/nacto=',nacte_wish,'/',nacto_wish
+    close(fid)
+    stop
+   end if
+  case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
+   if(j /= 0) then
+    write(6,'(/,A)') error_warn//'GVB active space should be specified'
+    write(6,'(A)') 'like GVB(3), where 3 is the number of pairs. Did you speci&
+                   &fy (6,6) like CAS?'
+    close(fid)
+    stop
+   end if
+   read(method0(i+1:k-1),*) npair_wish
+   if(npair_wish < 0) then
+    write(6,'(/,A)') error_warn//'wrong number of pairs specified.'
+    write(6,'(A,I0)') 'npair_wish=', npair_wish
+    close(fid)
+    stop
+   end if
+  case('rasci','rasscf') ! e.g. RASCI(6,2,2;1,4,1)
+   call read_ras_int_from_buf(method0(i+1:k-1), nacte_wish, ras_nhole_wish, &
+                ras_npart_wish, ras1_nacto_wish, nacto_wish, ras3_nacto_wish)
+  case default
+   write(6,'(/,A)') error_warn//'unsupported method `'//TRIM(method)//'`'
+   close(fid)
+   stop
+  end select
+ else ! i = 0
+  method = TRIM(method0)
+ end if
+
+ select case(TRIM(method))
+ case('gvb','gp','mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2',&
+      'caspt2','caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd', &
+      'casscf','dmrgscf','casci','dmrgci','rasci','rasscf','ficmrccsd', &
+      'fic-mrccsd','mkmrccsd','bwmrccsd','bccc2b','bccc3b')
+  uno = .true.; gvb = .true.
+ case default
+  write(6,'(/,A)') error_warn//'specified method `'//TRIM(method)//'` is unsup&
+                  &ported.'
+  write(6,'(/,A)') 'All supported methods are GVB, GP, CASCI, CASSCF, RASCI, R&
+                   &ASSCF, DMRGCI,'
+  write(6,'(A)') 'DMRGSCF, NEVPT2, NEVPT3, NEVPT4SD, CASPT2, CASPT2K, CASPT3, &
+                 &MRMP2, OVBMP2,'
+  write(6,'(A)') 'MRCISD, MRCISDT, MCPDFT, FICMRCCSD, MkMRCCSD, BWMRCCSD.'
+  close(fid)
+  stop
+ end select
+
+ select case(TRIM(method))
+ case('mcpdft','mc-pdft')
+  mcpdft = .true.; casscf = .true.
+ case('mrcisd')
+  mrcisd = .true.; casscf = .true.
+ case('mrcisdt')
+  mrcisdt= .true.; casscf = .true.
+ case('sdspt2')
+  sdspt2 = .true.; casscf = .true.
+ case('mrmp2')
+  mrmp2 = .true.; casscf = .true.
+ case('ovbmp2')
+  ovbmp2 = .true.; casscf = .true.
+ case('caspt2')
+  caspt2 = .true.; casscf = .true.
+ case('caspt2k','caspt2-k')
+  caspt2 = .true.; casscf = .true.
+  caspt2k = .true.; caspt_prog = 'orca'
+ case('caspt3')
+  caspt3 = .true.; casscf = .true.
+ case('nevpt2')
+  nevpt2 = .true.; casscf = .true.
+ case('nevpt3')
+  nevpt3 = .true.; casscf = .true.
+ case('nevpt4sd')
+  nevpt4 = .true.; casscf = .true.; nevpt_prog = 'orca'
+ case('casscf')
+  casscf = .true.
+ case('dmrgscf')
+  dmrgscf = .true.
+ case('casci')
+  casci = .true.
+ case('dmrgci')
+  dmrgci = .true.
+ case('rasci')
+  rasci = .true.; casci = .false.
+ case('rasscf')
+  rasscf = .true.; casscf = .false.
+ ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
+ case('ficmrccsd','fic-mrccsd','mkmrccsd','bwmrccsd')
+  mrcc = .true.; casscf = .true.
+  select case(TRIM(method))
+  case('ficmrccsd','fic-mrccsd')
+   mrcc_type = 1
+  case('mkmrccsd')
+   mrcc_type = 2
+  case('bwmrccsd')
+   mrcc_type = 4
+  !case('mkmrccsd(t)')
+  ! mrcc_type = 3; mrcc_prog = 'nwchem'
+  !case('bwmrccsd(t)')
+  ! mrcc_type = 5; mrcc_prog = 'nwchem'
+  end select
+ case('bccc2b')
+  mrcc = .true.; mrcc_type = 6
+ case('bccc3b')
+  mrcc = .true.; mrcc_type = 7
+ case('gp')
+  gp = .true.
+ case('gvb')
+ end select
+
+ i = INDEX(buf,'/')
+ j = i - 1 + index(buf(i+1:),' ')
+ if(j == 0) j = LEN_TRIM(buf)
+ basis = buf(i+1:j)
+ write(6,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
+ write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
+
+ if(basis(1:5) == 'def2-') then
+  write(6,'(/,A)') error_warn//"'def2-' prefix detected in input file."
+  write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not de&
+                 &f2-TZVP.'
+  close(fid)
+  stop
+ end if
+
+ if(basis(1:3) == 'gen') then
+  close(fid)
+  if(.not. check_readfch(gjfname)) then
+   call record_gen_basis_in_gjf(gjfname, basname, .true.)
+  end if
 
   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
-  call read_mem_nproc_route(fid, mem, nproc, buf)
-
-  i = INDEX(buf,'/')
-  if(i == 0) then
-   write(6,'(/,A)') error_warn//"no '/' symbol detected in keyword line."
-   write(6,'(A)') "The method and basis set must be specified via '/' symbol, e&
-                  &.g. CASSCF/cc-pVDZ."
-   close(fid)
-   stop
-  end if
-
-  if(DBLE(mem) < DBLE(nproc)*0.8d0) then
-   write(6,'(/,A)') error_warn//'please specify larger memory. Multi-'
-   write(6,'(A)') 'reference calculations usually requires large memory.'
-   stop
-  end if
-  if(INDEX(buf,'scan') > 0) rigid_scan = .true.
-
-  j = INDEX(buf(1:i-1),' ', back=.true.)
-  if(j == 0) then
-   write(6,'(/,A)') error_warn//'syntax error detected in the'
-   write(6,'(A)') "current line '"//TRIM(buf)//"'"
-   stop
-  end if
-  method0 = buf(j+1:i-1)
-
-  i = INDEX(method0, '('); j = INDEX(method0, ','); k = INDEX(method0, ')')
-  alive = [(i/=0 .and. k/=0), (i==0 .and. k==0)]
-  if(.not. (alive(1) .or. alive(2)) ) then
-   write(6,'(/,A)') error_warn//'incomplete method specified.'
-   write(6,'(A)') 'method = '//TRIM(method0)
-   stop
-  end if
-
-  if(i /= 0) then
-   method = method0(1:i-1)
-
-   select case(TRIM(method))
-   case('mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2','caspt2',&
-        'caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd','casscf', &
-        'dmrgscf','casci','dmrgci','ficmrccsd','fic-mrccsd','mkmrccsd', &
-        'bwmrccsd')
-    read(method0(i+1:j-1),*) nacte_wish
-    read(method0(j+1:k-1),*) nacto_wish
-    if(nacte_wish<1 .or. nacto_wish<1) then
-     write(6,'(/,A)') error_warn//'wrong number of active electrons/orbitals'
-     write(6,'(2(A,I0))') 'specified. nacte/nacto=',nacte_wish,'/',nacto_wish
-     stop
-    end if
-   case('gvb','bccc2b','bccc3b') ! e.g. GVB(6), BCCC2b(6) (it means GVB(6)-BCCC2b)
-    if(j /= 0) then
-     write(6,'(/,A)') error_warn//'GVB active space should be specified'
-     write(6,'(A)') 'like GVB(3), where 3 is the number of pairs. Did you speci&
-                    &fy (6,6) like CAS?'
-     stop
-    end if
-    read(method0(i+1:k-1),*) npair_wish
-    if(npair_wish < 0) then
-     write(6,'(/,A)') error_warn//'wrong number of pairs specified.'
-     write(6,'(A,I0)') 'npair_wish=', npair_wish
-     stop
-    end if
-   case default
-    write(6,'(/,A)') error_warn//'unsupported method '//TRIM(method)
-    stop
-   end select
-  else ! i = 0
-   method = TRIM(method0)
-  end if
-
-  select case(TRIM(method))
-  case('gp','mcpdft','mc-pdft','mrcisd','mrcisdt','sdspt2','mrmp2','ovbmp2', &
-       'caspt2','caspt2k','caspt2-k','caspt3','nevpt2','nevpt3','nevpt4sd', &
-       'casscf','dmrgscf','casci','dmrgci','gvb','ficmrccsd','fic-mrccsd', &
-       'mkmrccsd','bwmrccsd','bccc2b','bccc3b')
-   uno = .true.; gvb = .true.
-  case default
-   write(6,'(/,A)') error_warn//"specified method '"//TRIM(method)//"'"
-   write(6,'(A)') 'is not supported.'
-   write(6,'(/,A)') 'All supported methods are GVB, CASCI, CASSCF, DMRGCI, DMRG&
-                    &SCF, NEVPT2,'
-   write(6,'(A)') 'NEVPT3, NEVPT4SD, CASPT2, CASPT2K, CASPT3, MRMP2, OVBMP2, MR&
-                  &CISD, MRCISDT,'
-   write(6,'(A)') 'MCPDFT, FICMRCCSD, MkMRCCSD, BWMRCCSD, BCCC2b, BCCC3b.'
-   stop
-  end select
-
-  select case(TRIM(method))
-  case('mcpdft','mc-pdft')
-   mcpdft = .true.; casscf = .true.
-  case('mrcisd')
-   mrcisd = .true.; casscf = .true.
-  case('mrcisdt')
-   mrcisdt= .true.; casscf = .true.
-  case('sdspt2')
-   sdspt2 = .true.; casscf = .true.
-  case('mrmp2')
-   mrmp2 = .true.; casscf = .true.
-  case('ovbmp2')
-   ovbmp2 = .true.; casscf = .true.
-  case('caspt2')
-   caspt2 = .true.; casscf = .true.
-  case('caspt2k','caspt2-k')
-   caspt2 = .true.; casscf = .true.
-   caspt2k = .true.; caspt_prog = 'orca'
-  case('caspt3')
-   caspt3 = .true.; casscf = .true.
-  case('nevpt2')
-   nevpt2 = .true.; casscf = .true.
-  case('nevpt3')
-   nevpt3 = .true.; casscf = .true.
-  case('nevpt4sd')
-   nevpt4 = .true.; casscf = .true.; nevpt_prog = 'orca'
-  case('casscf')
-   casscf = .true.
-  case('dmrgscf')
-   dmrgscf = .true.
-  case('casci')
-   casci = .true.
-  case('dmrgci')
-   dmrgci = .true.
-  ! 1~8 for FIC-MRCC/MkMRCCSD/MkMRCCSD(T)/BWMRCCSD/BWMRCCSD(T)/BCCC2b,3b,4b
-  case('ficmrccsd','fic-mrccsd','mkmrccsd','bwmrccsd')
-   mrcc = .true.; casscf = .true.
-   select case(TRIM(method))
-   case('ficmrccsd','fic-mrccsd')
-    mrcc_type = 1
-   case('mkmrccsd')
-    mrcc_type = 2
-   case('bwmrccsd')
-    mrcc_type = 4
-   !case('mkmrccsd(t)')
-   ! mrcc_type = 3; mrcc_prog = 'nwchem'
-   !case('bwmrccsd(t)')
-   ! mrcc_type = 5; mrcc_prog = 'nwchem'
-   end select
-  case('bccc2b')
-   mrcc = .true.; mrcc_type = 6
-  case('bccc3b')
-   mrcc = .true.; mrcc_type = 7
-  case('gp')
-   gp = .true.
-  case('gvb')
-  end select
-
-  i = INDEX(buf,'/')
-  j = i - 1 + index(buf(i+1:),' ')
-  if(j == 0) j = LEN_TRIM(buf)
-  basis = buf(i+1:j)
-  write(6,'(/,2(A,I4))',advance='no') 'memory =', mem, 'GB, nproc =', nproc
-  write(6,'(A)') ', method/basis = '//TRIM(method)//'/'//TRIM(basis)
-
-  if(basis(1:5) == 'def2-') then
-   write(6,'(/,A)') error_warn//"'def2-' prefix detected in input file."
-   write(6,'(A)') 'Basis set in Gaussian syntax should be like def2TZVP, not de&
-                  &f2-TZVP.'
-   stop
-  end if
-
-  if(basis(1:3) == 'gen') then
-   close(fid)
-   if(.not. check_readfch(gjfname)) then
-    call record_gen_basis_in_gjf(gjfname, basname, .true.)
-   end if
-
-   open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
-   do while(.true.)
-    read(fid,'(A)') buf
-    if(buf(1:1) == '#') exit
-   end do ! for while
-  end if
-
-  if(npair_wish>-1) write(6,'(A,I0)') 'User-specified GVB npair = ',npair_wish
-  if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
-                            & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
-
-  i = INDEX(buf, 'guess=')
-  if(i > 0) then
-   write(6,'(/,A)') error_warn//"'guess=' syntax not supported in automr."
-   write(6,'(A)') "You can use 'guess()' syntax instead."
-   stop
-  end if
-
-  i = INDEX(buf, 'guess(')
-  if(i > 0) then
-   frag_guess = .true.
-   j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
-   if(j*k == 0)then
-    write(6,'(/,A)') error_warn//"'guess(fragment=N)' syntax is wrong in"
-    write(6,'(A)') 'file '//TRIM(gjfname)
-    close(fid)
-    stop
-   end if
-   read(buf(j+i+6:k+i+4),*) nfrag
-  end if
-
-  read(fid,'(A)') buf ! skip a blank line
-  read(fid,'(A)') buf ! Title Card, the 1st line of keywords
-  call lower_outside_sq(buf)
-
-  if(buf(1:6) /= 'mokit{') then
-   write(6,'(/,A)') error_warn//"'mokit{' not detected in file "//TRIM(gjfname)
-   write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position of t&
-                  &he Title Card line."
-   stop
-  end if
-
-  j = INDEX(buf,'}')
-  if(j==7 .or. (j>7 .and. LEN_TRIM(buf(7:j-1))==0)) then ! mokit{}
-   close(fid)
-   return
-  else if(j == 0) then ! keywords written in more than 1 line
-   j = LEN_TRIM(buf) + 1
-  else ! j > 0
-   j = LEN_TRIM(buf)
-  end if
-
-  longbuf(1:j-7) = buf(7:j-1) ! some keywords specified
-  k = j - 6 ! the beginning index for next keyword in longbuf
-
-  if(index(buf,'}') == 0) then ! keywords are written in at least two lines
-   do while(.true.)
-    read(fid,'(A)',iostat=ifail) buf
-    if(ifail /= 0) exit
-
-    call lower_outside_sq(buf)
-    i = LEN_TRIM(buf)
-    if(index(buf,'}') > 0) i = i - 1
-    longbuf(k:k+i-1) = buf(1:i)
-    k = k + i
-
-    if(index(buf,'}') > 0) exit
-   end do ! for while
-
-   if(ifail /= 0) then
-    write(6,'(/,A)') error_warn//'end-of-file detected.'
-    write(6,'(A)') 'The provided .gjf file may be incomplete.'
-    close(fid)
-    stop
-   end if
-  end if
-
-  close(fid)
-  ! now all keywords are stored in longbuf
-
-  write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
-  write(6,'(A)') TRIM(longbuf)
-  if(INDEX(longbuf,"""") > 0) then
-   write(6,'(/,A)') error_warn//"double quotes "" are not allowed in mokit{}."
-   write(6,'(A)') "Please use single quotes ''."
-   stop
-  end if
-
-  alive1(1:3) = [(INDEX(longbuf,'hf_prog')>0), (INDEX(longbuf,'readuhf')>0), &
-                 (INDEX(longbuf,'readno')>0)]
-  if(alive1(1) .and. (alive1(2) .or. alive1(3))) then
-   write(6,'(/,A)') error_warn//"'HF_prog' is useless when 'readuhf'"
-   write(6,'(A)') "or 'readno' is specified."
-   stop
-  end if
-
-  alive1(1:5)=[(INDEX(longbuf,'caspt_prog')>0),(INDEX(longbuf,'nevpt_prog')>0),&
-               (INDEX(longbuf,'mrcisd_prog')>0),(INDEX(longbuf,'mrmp2_prog')>0),&
-               (INDEX(longbuf,'mcpdft_prog')>0)]
-  if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
-   write(6,'(/,A)') error_warn//"more than one keyword of 'caspt_prog',"
-   write(6,'(A)') "'nevpt_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are&
-                  & detected."
-   write(6,'(A)') 'Only one can be specified in a job.'
-   stop
-  end if
-
-  alive1(1:4)=[(INDEX(longbuf,'casci_prog')>0),(INDEX(longbuf,'casscf_prog')>0),&
-               (INDEX(longbuf,'dmrgci_prog')>0),(INDEX(longbuf,'dmrgscf_prog')>0)]
-  if(alive1(1) .and. alive1(2)) then
-   write(6,'(/,A)') error_warn//'both CASCI_prog and CASSCF_prog are detected.'
-   write(6,'(A)') 'Only one can be specified in a job.'
-   stop
-  end if
-
-  if(alive1(3) .and. alive1(4)) then
-   write(6,'(/,A)') error_warn//'both DMRGCI_prog and DMRGSCF_prog are'
-   write(6,'(A)') 'detected. Only one can be specified in a job.'
-   stop
-  end if
-
   do while(.true.)
-   i = INDEX(longbuf,',')
-   if(i == 0) i = LEN_TRIM(longbuf) + 1
+   read(fid,'(A)') buf
+   if(buf(1:1) == '#') exit
+  end do ! for while
+ end if
 
-   j = INDEX(longbuf(1:i-1),'=')
-   if(j == 0) j = i   ! in case this keyword has no value assigned
+ if(npair_wish>-1) write(6,'(A,I0)') 'User-specified GVB npair = ',npair_wish
+ if(nacte_wish>0 .and. nacto_wish>0) write(6,'(2(A,I0))') 'User specified&
+                           & CAS nacte/nacto = ',nacte_wish,'/',nacto_wish
 
-   select case(longbuf(1:j-1))
-   case('readrhf')
-    mo_rhf = .true.
-    readrhf = .true.
-    read(longbuf(j+1:i-1),*) hf_fch
-   case('readuhf')
-    readuhf = .true.
-    read(longbuf(j+1:i-1),*) hf_fch
-   case('readno')
-    mo_rhf = .true.
-    readno = .true.
-    read(longbuf(j+1:i-1),*) hf_fch
-   case('cart')      ! use Cartesian functions
-    cart = .true.
-   case('dkh2')
-    DKH2 = .true.
-   case('x2c')
-    X2C = .true.
-   case('localm')    ! localization method
-    read(longbuf(j+1:i-1),*) localm
-    localm = ADJUSTL(localm)
-   case('loc_asrot')
-    loc_asrot = .true.
-   case('ist')       ! the i-th strategy
-    read(longbuf(j+1:i-1),*) ist
-   case('ctrtype')   ! unconctracted-/ic-/FIC- MRCI
-    read(longbuf(j+1:i-1),*) CtrType
-   case('cionly')    ! do CASPT2/NEVPT2 after CASCI, skip CASSCF
-    CIonly = .true.
-    casscf = .false.; casci = .true.
-    dmrgscf = .false.; dmrgci = .false.
-   case('maxm')
-    read(longbuf(j+1:i-1),*) maxM
-   case('block_mpi')
-    block_mpi = .true.
-   case('hardwfn')
-    hardwfn = .true.
-   case('crazywfn')
-    crazywfn = .true.
-   case('hf_prog')
-    hf_prog = longbuf(j+1:i-1)
-   case('gvb_prog')
-    gvb_prog = longbuf(j+1:i-1)
-   case('casci_prog')
-    casci_prog = longbuf(j+1:i-1)
-   case('casscf_prog')
-    casscf_prog = longbuf(j+1:i-1)
-   case('dmrgci_prog')
-    dmrgci_prog = longbuf(j+1:i-1)
-   case('dmrgscf_prog')
-    dmrgscf_prog = longbuf(j+1:i-1)
-   case('caspt_prog')
-    caspt_prog = longbuf(j+1:i-1)
-   case('caspt2_prog')
-    write(6,'(/,A)') error_warn//'`CASPT2_prog` is deprecated. Please use'
-    write(6,'(A)') '`CASPT_prog` instead.'
-    stop
-   case('nevpt2_prog')
-    if(.not. nevpt2) then
-     write(6,'(/,A)') error_warn//'NEVPT2_prog is specified, but NEVPT2'
-     write(6,'(A)') 'method is not specified. If you do not want to perform NEV&
-                    &PT2 calculation,'
-     write(6,'(A)') 'please do not specify NEVPT2_prog. If you want to perform &
-                    &NEVPT3 or NEV-'
-     write(6,'(A)') "PT4(SD) calculation, you can either specify NEVPT_prog='OR&
-                    &CA' or not specify"
-     write(6,'(A)') 'NEVPT_prog (since ORCA is the default program in this case&
-                    &).'
-     stop
-    end if
-    write(6,'(/,A)') 'Warning: `NEVPT2_prog` is deprecated. Please use `NEVPT_p&
-                     &rog` instead.'
-    nevpt_prog = longbuf(j+1:i-1)
-    if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
-   case('nevpt_prog')
-    nevpt_prog = longbuf(j+1:i-1)
-    if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
-   case('mrmp2_prog')
-    mrmp2_prog = longbuf(j+1:i-1)
-   case('mrcisd_prog')
-    mrcisd_prog = longbuf(j+1:i-1)
-   case('mrcisdt_prog')
-    mrcisdt_prog = longbuf(j+1:i-1)
-   case('mcpdft_prog')
-    mcpdft_prog = longbuf(j+1:i-1)
-   case('mrcc_prog')
-    mrcc_prog = longbuf(j+1:i-1)
-   case('polar_prog')
-    polar_prog = longbuf(j+1:i-1)
-   case('gvb_conv')
-    GVB_conv = longbuf(j+1:i-1)
-    c_gvb_conv = .true.
-   case('skipuno')
-    read(longbuf(j+1:i-1),*) nskip_uno
-   case('skip_uno')
-    read(longbuf(j+1:i-1),*) nskip_uno
-    write(6,'(/,A)') 'Warning: `Skip_UNO` would be deprecated in the near futur&
-                     &e. Use `SkipUNO` instead.'
-   case('root')
-    read(longbuf(j+1:i-1),*) iroot
-    ss_opt = .true. ! State-specific orbital optimization
-   case('xmult')
-    read(longbuf(j+1:i-1),*) xmult
-    given_xmult = .true.
-    if(xmult < 1) then
-     write(6,'(/,A)') error_warn//'XMult must be >=1'
-     stop
-    end if
-   case('newmult')
-    read(longbuf(j+1:i-1),*) new_mult
-    if(new_mult < 1) then
-     write(6,'(/,A)') error_warn//'NewMult must be >=1'
-     stop
-    end if
-   case('force')
-    force = .true.
-   case('polar')
-    polar = .true.
-   case('charge')
-    bgchg = .true.
-   case('inherit')
-    inherit = .true.
-   case('ri')
-    RI = .true.
-   case('rijk_bas')
-    RIJK_bas = longbuf(j+1:i-1)
-   case('ric_bas')
-    RIC_bas = longbuf(j+1:i-1)
-   case('f12')
-    F12 = .true.; RI = .true.
-   case('f12_cabs')
-    F12_cabs = longbuf(j+1:i-1)
-   case('dlpno')
-    DLPNO = .true.; RI = .true.; FIC = .true.
-   case('fic')
-    FIC = .true.
-   case('otpdf')
-    read(longbuf(j+1:i-1),*) otpdf
-   case('on_thres')
-    read(longbuf(j+1:i-1),*) on_thres
-   case('uno_thres')
-    read(longbuf(j+1:i-1),*) uno_thres
-   case('icss_r')
-    read(longbuf(j+1:i-1),*) icss_r
-   case('icss_intv')
-    read(longbuf(j+1:i-1),*) icss_intv
-   case('npair') ! numbers of pairs for non-GVB calculations
-    if(npair_wish > -1) then
-     write(6,'(/,A)') error_warn//'it seems that npair is specified by'
-     write(6,'(A)') 'more than once. Please check your input file.'
-     stop
-    end if
-    read(longbuf(j+1:i-1),*) npair_wish
-   case('nmr')
-    nmr = .true.
-   case('icss')
-    icss = .true.; nmr = .true.
-   case('excludexh')
-    excludeXH = .true.
-   case('onlyxh')
-    excludeXH = .true.; onlyXH = .true.
-   case('mixed_spin')
-    write(6,'(/,A)') error_warn//'Mixed_Spin is deprecated. Please use'
-    write(6,'(A)') 'MixedSpin instead.'
-    stop
-   case('mixedspin')
-    MixedSpin = .true.
-   case('nstates')
-    read(longbuf(j+1:i-1),*) nstate ! SA-CASSCF (ground state not included)
-    gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
-    eist = 1
-   case('sa_nto')
-    sa_nto = .true.
-   case('tdhf')
-    tdhf = .true.
-   case('qd')
-    QD = .true.
-   case('fcgvb')
-    fcgvb = .true.; c_fcgvb = .true.
-   case('nofcgvb')
-    fcgvb = .false.
-   case('hfonly')
-    HFonly = .true.
-   case('nodmrgno')
-    write(6,'(/,A)') error_warn//'noDMRGNO is deprecated. MOKIT now'
-    write(6,'(A)') 'utilizes a more efficient workflow which can obtain DMRG NO&
-                   &s (usually delocalized)'
-    write(6,'(A)') 'and obtain DMRG energy using input orbitals (usually locali&
-                   &zed). So there is'
-    write(6,'(A)') 'no need to specify noDMRGNO.'
-    stop
-   case('locpair')
-    LocPair = .true.
-   case('locdocc')
-    LocDocc = .true.
-   case('nevpt3_prog')
-    write(6,'(/,A)') error_warn//'NEVPT3_prog cannot be used since MOKIT'
-    write(6,'(A)') '1.2.7rc10. Please use NEVPT_prog instead. For example, moki&
-                   &t{NEVPT_prog=ORCA}.'
-    stop
-   case default
-    write(6,'(/,A)') error_warn//'unrecognized keyword "'//longbuf(1:j-1)//'"'
-    stop
-   end select
+ i = INDEX(buf, 'guess=')
+ if(i > 0) then
+  write(6,'(/,A)') error_warn//"'guess=' syntax not supported in automr."
+  write(6,'(A)') "You can use 'guess()' syntax instead."
+  close(fid)
+  stop
+ end if
 
-   ! delete the keyword which has been specified
-   longbuf(1:i) = ' '
-   longbuf = ADJUSTL(longbuf)
-   if(LEN_TRIM(longbuf) == 0) exit
+ i = INDEX(buf, 'guess(')
+ if(i > 0) then
+  frag_guess = .true.
+  j = INDEX(buf(i+6:),'='); k = INDEX(buf(i+6:),')')
+  if(j*k == 0)then
+   write(6,'(/,A)') error_warn//"'guess(fragment=N)' syntax is wrong in"
+   write(6,'(A)') 'file '//TRIM(gjfname)
+   close(fid)
+   stop
+  end if
+  read(buf(j+i+6:k+i+4),*) nfrag
+ end if
+
+ read(fid,'(A)') buf ! skip a blank line
+ read(fid,'(A)') buf ! Title Card, the 1st line of keywords
+ call lower_outside_sq(buf)
+
+ if(buf(1:6) /= 'mokit{') then
+  write(6,'(/,A)') error_warn//"'mokit{' not detected in file "//TRIM(gjfname)
+  write(6,'(A)') "Syntax error. You must put 'mokit{' in leading position of t&
+                 &he Title Card line."
+  close(fid)
+  stop
+ end if
+
+ j = INDEX(buf,'}')
+ if(j==7 .or. (j>7 .and. LEN_TRIM(buf(7:j-1))==0)) then ! mokit{}
+  close(fid)
+  return
+ else if(j == 0) then ! keywords written in more than 1 line
+  j = LEN_TRIM(buf) + 1
+ else ! j > 0
+  j = LEN_TRIM(buf)
+ end if
+
+ longbuf(1:j-7) = buf(7:j-1) ! some keywords specified
+ k = j - 6 ! the beginning index for next keyword in longbuf
+
+ if(index(buf,'}') == 0) then ! keywords are written in at least two lines
+  do while(.true.)
+   read(fid,'(A)',iostat=ifail) buf
+   if(ifail /= 0) exit
+
+   call lower_outside_sq(buf)
+   i = LEN_TRIM(buf)
+   if(index(buf,'}') > 0) i = i - 1
+   longbuf(k:k+i-1) = buf(1:i)
+   k = k + i
+
+   if(index(buf,'}') > 0) exit
   end do ! for while
 
-  dkh2_or_x2c = (DKH2 .or. X2C)
-  if(nstate > 999) then
-   write(6,'(/,A)') error_warn//'too large nstates.'
-   write(6,'(A)') 'The parameter Nstates must be <=999.'
+  if(ifail /= 0) then
+   write(6,'(/,A)') error_warn//'end-of-file detected.'
+   write(6,'(A)') 'The provided .gjf file may be incomplete.'
+   close(fid)
    stop
   end if
+ end if
 
-  if(readrhf .or. readuhf .or. readno) then
-   if(frag_guess) then
-    write(6,'(/,A)') error_warn//'frag_guess can only be used when none'
-    write(6,'(A)') 'of readrhf/readuhf/readno is used.'
+ close(fid)
+ ! now all keywords are stored in longbuf
+
+ write(6,'(/,A)') 'Keywords in MOKIT{} are merged and shown as follows:'
+ write(6,'(A)') TRIM(longbuf)
+ if(INDEX(longbuf,"""") > 0) then
+  write(6,'(/,A)') error_warn//"double quotes "" are not allowed in mokit{}."
+  write(6,'(A)') "Please use single quotes ''."
+  stop
+ end if
+
+ alive1(1:3) = [(INDEX(longbuf,'hf_prog')>0), (INDEX(longbuf,'readuhf')>0), &
+                (INDEX(longbuf,'readno')>0)]
+ if(alive1(1) .and. (alive1(2) .or. alive1(3))) then
+  write(6,'(/,A)') error_warn//"'HF_prog' is useless when 'readuhf'"
+  write(6,'(A)') "or 'readno' is specified."
+  stop
+ end if
+
+ alive1(1:5)=[(INDEX(longbuf,'caspt_prog')>0),(INDEX(longbuf,'nevpt_prog')>0),&
+              (INDEX(longbuf,'mrcisd_prog')>0),(INDEX(longbuf,'mrmp2_prog')>0),&
+              (INDEX(longbuf,'mcpdft_prog')>0)]
+ if(COUNT(alive1(1:5) .eqv. .true.) > 1) then
+  write(6,'(/,A)') error_warn//"more than one keyword of 'caspt_prog',"
+  write(6,'(A)') "'nevpt_prog', 'mrmp2_prog', 'mrcisd_prog', 'mcpdft_prog' are&
+                 & detected."
+  write(6,'(A)') 'Only one can be specified in a job.'
+  stop
+ end if
+
+ alive1(1:4)=[(INDEX(longbuf,'casci_prog')>0),(INDEX(longbuf,'casscf_prog')>0),&
+              (INDEX(longbuf,'dmrgci_prog')>0),(INDEX(longbuf,'dmrgscf_prog')>0)]
+ if(alive1(1) .and. alive1(2)) then
+  write(6,'(/,A)') error_warn//'both CASCI_prog and CASSCF_prog are detected.'
+  write(6,'(A)') 'Only one can be specified in a job.'
+  stop
+ end if
+
+ if(alive1(3) .and. alive1(4)) then
+  write(6,'(/,A)') error_warn//'both DMRGCI_prog and DMRGSCF_prog are'
+  write(6,'(A)') 'detected. Only one can be specified in a job.'
+  stop
+ end if
+
+ do while(.true.)
+  i = INDEX(longbuf,',')
+  if(i == 0) i = LEN_TRIM(longbuf) + 1
+
+  j = INDEX(longbuf(1:i-1),'=')
+  if(j == 0) j = i   ! in case this keyword has no value assigned
+
+  select case(longbuf(1:j-1))
+  case('readrhf')
+   mo_rhf = .true.
+   readrhf = .true.
+   read(longbuf(j+1:i-1),*) hf_fch
+  case('readuhf')
+   readuhf = .true.
+   read(longbuf(j+1:i-1),*) hf_fch
+  case('readno')
+   mo_rhf = .true.
+   readno = .true.
+   read(longbuf(j+1:i-1),*) hf_fch
+  case('cart')      ! use Cartesian functions
+   cart = .true.
+  case('dkh2')
+   DKH2 = .true.
+  case('x2c')
+   X2C = .true.
+  case('localm')    ! localization method
+   read(longbuf(j+1:i-1),*) localm
+   localm = ADJUSTL(localm)
+  case('loc_asrot')
+   loc_asrot = .true.
+  case('ist')       ! the i-th strategy
+   read(longbuf(j+1:i-1),*) ist
+  case('ctrtype')   ! unconctracted-/ic-/FIC- MRCI
+   read(longbuf(j+1:i-1),*) CtrType
+  case('cionly')    ! do CASPT2/NEVPT2 after CASCI, skip CASSCF
+   CIonly = .true.
+   casscf = .false.; casci = .true.
+   dmrgscf = .false.; dmrgci = .false.
+  case('maxm')
+   read(longbuf(j+1:i-1),*) maxM
+  case('block_mpi')
+   block_mpi = .true.
+  case('hardwfn')
+   hardwfn = .true.
+  case('crazywfn')
+   crazywfn = .true.
+  case('hf_prog')
+   hf_prog = longbuf(j+1:i-1)
+  case('gvb_prog')
+   gvb_prog = longbuf(j+1:i-1)
+  case('casci_prog')
+   casci_prog = longbuf(j+1:i-1)
+  case('casscf_prog')
+   casscf_prog = longbuf(j+1:i-1)
+  case('dmrgci_prog')
+   dmrgci_prog = longbuf(j+1:i-1)
+  case('dmrgscf_prog')
+   dmrgscf_prog = longbuf(j+1:i-1)
+  case('rasci_prog')
+   rasci_prog = longbuf(j+1:i-1)
+  case('rasscf_prog')
+   rasscf_prog = longbuf(j+1:i-1)
+   if(longbuf(j+1:i-1) == 'orca') then
+    write(6,'(/,A)') error_warn//'ORCA supports RASCI but not RASSCF.'
+    write(6,'(A)') 'Please consider use another RASSCF_prog.'
     stop
    end if
-   skiphf = .true.
-   call check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
-  end if
-
-  select case(ist)
-  case(0) ! to be determined after RHF and UHF completed
-  case(1)
-   uno = .true.; gvb = .true.
-  case(2)
-   uno = .true.; gvb = .false.
-  case(3)
-   vir_proj = .true.; gvb = .true.
-  case(4)
-   vir_proj = .true.; gvb = .false.
-  case(5)
-   gvb = .false.
-  case(6) ! GVB/STO-6G GVB -> GVB/target basis set
-   gvb = .true.; skiphf = .true.
-  case(7) ! SUHF
-   suhf = .true.; gvb = .false.
+  case('caspt_prog')
+   caspt_prog = longbuf(j+1:i-1)
+  case('caspt2_prog')
+   write(6,'(/,A)') error_warn//'`CASPT2_prog` is deprecated. Please use'
+   write(6,'(A)') '`CASPT_prog` instead.'
+   stop
+  case('nevpt2_prog')
+   if(.not. nevpt2) then
+    write(6,'(/,A)') error_warn//'NEVPT2_prog is specified, but NEVPT2'
+    write(6,'(A)') 'method is not specified. If you do not want to perform NEV&
+                   &PT2 calculation,'
+    write(6,'(A)') 'please do not specify NEVPT2_prog. If you want to perform &
+                   &NEVPT3 or NEV-'
+    write(6,'(A)') "PT4(SD) calculation, you can either specify NEVPT_prog='OR&
+                   &CA' or not specify"
+    write(6,'(A)') 'NEVPT_prog (since ORCA is the default program in this case&
+                   &).'
+    stop
+   end if
+   write(6,'(/,A)') 'Warning: `NEVPT2_prog` is deprecated. Please use `NEVPT_p&
+                    &rog` instead.'
+   nevpt_prog = longbuf(j+1:i-1)
+   if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
+  case('nevpt_prog')
+   nevpt_prog = longbuf(j+1:i-1)
+   if(TRIM(nevpt_prog) == 'bdf') FIC = .true.
+  case('mrmp2_prog')
+   mrmp2_prog = longbuf(j+1:i-1)
+  case('mrcisd_prog')
+   mrcisd_prog = longbuf(j+1:i-1)
+  case('mrcisdt_prog')
+   mrcisdt_prog = longbuf(j+1:i-1)
+  case('mcpdft_prog')
+   mcpdft_prog = longbuf(j+1:i-1)
+  case('mrcc_prog')
+   mrcc_prog = longbuf(j+1:i-1)
+  case('polar_prog')
+   polar_prog = longbuf(j+1:i-1)
+  case('gvb_conv')
+   GVB_conv = longbuf(j+1:i-1)
+   c_gvb_conv = .true.
+  case('skipuno')
+   read(longbuf(j+1:i-1),*) nskip_uno
+  case('skip_uno')
+   read(longbuf(j+1:i-1),*) nskip_uno
+   write(6,'(/,A)') 'Warning: `Skip_UNO` would be deprecated in the near futur&
+                    &e. Use `SkipUNO` instead.'
+  case('root')
+   read(longbuf(j+1:i-1),*) iroot
+   ss_opt = .true. ! State-specific orbital optimization
+  case('xmult')
+   read(longbuf(j+1:i-1),*) xmult
+   given_xmult = .true.
+   if(xmult < 1) then
+    write(6,'(/,A)') error_warn//'XMult must be >=1'
+    stop
+   end if
+  case('newmult')
+   read(longbuf(j+1:i-1),*) new_mult
+   if(new_mult < 1) then
+    write(6,'(/,A)') error_warn//'NewMult must be >=1'
+    stop
+   end if
+  case('force')
+   force = .true.
+  case('polar')
+   polar = .true.
+  case('charge')
+   bgchg = .true.
+  case('inherit')
+   inherit = .true.
+  case('ri')
+   RI = .true.
+  case('rijk_bas')
+   RIJK_bas = longbuf(j+1:i-1)
+  case('ric_bas')
+   RIC_bas = longbuf(j+1:i-1)
+  case('f12')
+   F12 = .true.; RI = .true.
+  case('f12_cabs')
+   F12_cabs = longbuf(j+1:i-1)
+  case('dlpno')
+   DLPNO = .true.; RI = .true.; FIC = .true.
+  case('fic')
+   FIC = .true.
+  case('otpdf')
+   read(longbuf(j+1:i-1),*) otpdf
+  case('on_thres')
+   read(longbuf(j+1:i-1),*) on_thres
+  case('uno_thres')
+   read(longbuf(j+1:i-1),*) uno_thres
+  case('icss_r')
+   read(longbuf(j+1:i-1),*) icss_r
+  case('icss_intv')
+   read(longbuf(j+1:i-1),*) icss_intv
+  case('npair') ! numbers of pairs for non-GVB calculations
+   if(npair_wish > -1) then
+    write(6,'(/,A)') error_warn//'it seems that npair is specified by'
+    write(6,'(A)') 'more than once. Please check your input file.'
+    stop
+   end if
+   read(longbuf(j+1:i-1),*) npair_wish
+  case('nmr')
+   nmr = .true.
+  case('icss')
+   icss = .true.; nmr = .true.
+  case('excludexh')
+   excludeXH = .true.
+  case('onlyxh')
+   excludeXH = .true.; onlyXH = .true.
+  case('mixed_spin')
+   write(6,'(/,A)') error_warn//'Mixed_Spin is deprecated. Please use'
+   write(6,'(A)') 'MixedSpin instead.'
+   stop
+  case('mixedspin')
+   MixedSpin = .true.
+  case('nstates')
+   read(longbuf(j+1:i-1),*) nstate ! SA-CASSCF (ground state not included)
+   gvb = .false.; casscf = .false.; sa_cas = .true.; excited = .true.
+   eist = 1
+  case('sa_nto')
+   sa_nto = .true.
+  case('tdhf')
+   tdhf = .true.
+  case('qd')
+   QD = .true.
+  case('fcgvb')
+   fcgvb = .true.; c_fcgvb = .true.
+  case('nofcgvb')
+   fcgvb = .false.
+  case('hfonly')
+   HFonly = .true.
+  case('nodmrgno')
+   write(6,'(/,A)') error_warn//'noDMRGNO is deprecated. MOKIT now'
+   write(6,'(A)') 'utilizes a more efficient workflow which can obtain DMRG NO&
+                  &s (usually delocalized)'
+   write(6,'(A)') 'and obtain DMRG energy using input orbitals (usually locali&
+                  &zed). So there is'
+   write(6,'(A)') 'no need to specify noDMRGNO.'
+   stop
+  case('locpair')
+   LocPair = .true.
+  case('locdocc')
+   LocDocc = .true.
+  case('nevpt3_prog')
+   write(6,'(/,A)') error_warn//'NEVPT3_prog cannot be used since MOKIT'
+   write(6,'(A)') '1.2.7rc10. Please use NEVPT_prog instead. For example, moki&
+                  &t{NEVPT_prog=ORCA}.'
+   stop
   case default
-   write(6,'(/,A)') error_warn//"the parameter 'ist' is out of range."
-   write(6,'(A)') 'Only 1~7 are allowed. See MOKIT manual $4.4.4 for details of&
-                  & ist.'
+   write(6,'(/,A)') error_warn//'unrecognized keyword "'//longbuf(1:j-1)//'"'
    stop
   end select
 
-  if(.not. mcpdft) otpdf = 'NONE'
-  dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. sdspt2 .or. mrcisd .or. mrcisdt&
-              .or. mcpdft .or. caspt3 .or. nevpt3 .or. nevpt4)
-  if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
-  call prt_strategy()
- end subroutine parse_keyword
+  ! delete the keyword which has been specified
+  longbuf(1:i) = ' '
+  longbuf = ADJUSTL(longbuf)
+  if(LEN_TRIM(longbuf) == 0) exit
+ end do ! for while
+
+ dkh2_or_x2c = (DKH2 .or. X2C)
+ if(nstate > 999) then
+  write(6,'(/,A)') error_warn//'too large nstates.'
+  write(6,'(A)') 'The parameter Nstates must be <=999.'
+  stop
+ end if
+
+ if(readrhf .or. readuhf .or. readno) then
+  if(frag_guess) then
+   write(6,'(/,A)') error_warn//'frag_guess can only be used when none'
+   write(6,'(A)') 'of readrhf/readuhf/readno is used.'
+   stop
+  end if
+  skiphf = .true.
+  call check_sanity_of_provided_fch(DKH2, X2C, hf_fch)
+ end if
+
+ select case(ist)
+ case(0) ! to be determined after RHF and UHF completed
+ case(1)
+  uno = .true.; gvb = .true.
+ case(2)
+  uno = .true.; gvb = .false.
+ case(3)
+  vir_proj = .true.; gvb = .true.
+ case(4)
+  vir_proj = .true.; gvb = .false.
+ case(5)
+  gvb = .false.
+ case(6) ! GVB/STO-6G GVB -> GVB/target basis set
+  gvb = .true.; skiphf = .true.
+ case(7) ! SUHF
+  suhf = .true.; gvb = .false.
+ case default
+  write(6,'(/,A)') error_warn//"the parameter 'ist' is out of range."
+  write(6,'(A)') 'Only 1~7 are allowed. See MOKIT manual $4.4.4 for details of&
+                 & ist.'
+  stop
+ end select
+
+ if(.not. mcpdft) otpdf = 'NONE'
+ dyn_corr = (caspt2 .or. nevpt2 .or. mrmp2 .or. sdspt2 .or. mrcisd .or. mrcisdt&
+             .or. mcpdft .or. caspt3 .or. nevpt3 .or. nevpt4)
+ if(RI) call determine_auxbas(basis,RIJK_bas, dyn_corr,RIC_bas, F12,F12_cabs)
+ call prt_strategy()
+end subroutine parse_keyword
 
 subroutine prt_strategy()
  implicit none
@@ -1531,6 +1573,8 @@ subroutine check_kywd_compatible()
     if(gvb .and. (.not.gp) .and. (.not.casci)) gvb_force = .true.
     if(gp) gp_force = .true.
     if(casci) casci_force = .true.
+    if(rasci) rasci_force = .true.
+    if(rasscf) rasscf_force = .true.
    end if
   end if
  end if

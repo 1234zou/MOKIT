@@ -155,7 +155,9 @@ subroutine orthonormalize_orb(sym_ortho, prt_warn, nbf, nmo, ao_ovlp, old_mo, &
   end if
  end if
 
- forall(i = 1:nif) ev(i) = 1d0/DSQRT(ev(i))
+ do i = 1, nif, 1
+  ev(i) = 1d0/DSQRT(ev(i))
+ end do ! for i
  allocate(X(nmo,nmo), source=0d0) ! X = U((s')^(-1/2))
  forall(i=1:nmo, j=1:nif) X(i,j) = Sp(i,j)*ev(j)
  deallocate(ev)

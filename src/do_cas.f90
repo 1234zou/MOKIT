@@ -120,7 +120,8 @@ subroutine do_cas(scf)
   else ! ist /= 5
    if(2*npair+nopen < nacte_wish) then
     write(6,'(/,A)') error_warn//'too large space specified. Cannot be fulfilled.'
-    write(6,'(2(A,I0))') '2*npair+nopen=',2*npair+nopen,', nacte_wish=',nacte_wish
+    write(6,'(2(A,I0))') '2*npair+nopen=', 2*npair+nopen, ', nacte_wish=', &
+                         nacte_wish
     stop
    else ! 2*npair+nopen >= nacte_wish
     write(6,'(A)') 'OK, fulfilled.'
@@ -245,64 +246,18 @@ subroutine do_cas(scf)
   stop
  end if
 
- select case(ist)
- case(1,3,6)
-  call find_specified_suffix(datname, '.dat', i)
-  fchname = datname(1:i-1)//'.fch'
- case(2) ! UHF -> UNO -> CASCI/CASSCF
+ call determine_cas_ras_proname(ist, npair, .false., scf, datname, hf_fch, &
+                                fchname, proname)
+ casnofch = TRIM(proname)//'_NO.fch'
+
+ if(ist == 2) then ! UHF -> UNO -> CASCI/CASSCF
   call find_specified_suffix(hf_fch, '.fch', i)
-  fchname = hf_fch(1:i-1)//'_uno.fch'
   pyname = hf_fch(1:i-1)//'_uno.py'
   inpname = hf_fch(1:i-1)//'_uno.py2'
   i = RENAME(TRIM(pyname), TRIM(inpname))
   ! bas_fch2py will generate file '_uno.py', so we need to rename it to another
   ! filename
- case(4)
-  call find_specified_suffix(hf_fch, '.fch', i)
-  fchname = hf_fch(1:i-1)//'_proj_loc_pair.fch'
- case(5)
-  fchname = hf_fch
- case(7) ! SUNO -> CASCI/CASSCF
-  call find_specified_suffix(hf_fch, '.fch', i)
-  fchname = hf_fch(1:i-1)//'_suno.fch'
- end select
-
- proname = ' '
- call find_specified_suffix(hf_fch, '.fch', i)
-
- select case(ist)
- case(1,3,6)
-  if(scf) then
-   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASSCF'
-  else
-   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb', npair, '_CASCI'
-  end if
- case(2)
-  if(scf) then
-   proname = hf_fch(1:i-1)//'_uno2CASSCF'
-  else
-   proname = hf_fch(1:i-1)//'_uno2CASCI'
-  end if
- case(4)
-  if(scf) then
-   proname = hf_fch(1:i-1)//'_proj_loc_pair2CASSCF'
-  else
-   proname = hf_fch(1:i-1)//'_proj_loc_pair2CASCI'
-  end if
- case(5)
-  if(scf) then
-   proname = hf_fch(1:i-1)//'_CASSCF'
-  else
-   proname = hf_fch(1:i-1)//'_CASCI'
-  end if
- case(7)
-  if(scf) then
-   proname = hf_fch(1:i-1)//'_suno2CASSCF'
-  else
-   proname = hf_fch(1:i-1)//'_suno2CASCI'
-  end if
- end select
- casnofch = TRIM(proname)//'_NO.fch'
+ end if
 
  select case(TRIM(cas_prog))
  case('pyscf')
@@ -400,12 +355,12 @@ subroutine do_cas(scf)
   ! subroutine do_polar, we will make a copy of the ORCA CASSCF output file and
   ! reuse it in that subroutine.
   if(casscf_polar .and. TRIM(polar_prog)=='orca') then
-   call prt_cas_orca_inp(inpname, scf, .true.)
+   call prt_orca_cas_inp(inpname, scf, .true.)
    write(6,'(A)') 'CASSCF_prog=Polar_prog=ORCA detected. Merge CASSCF energy and&
                   & polarizability'
    write(6,'(A)') 'into one job.'
   else
-   call prt_cas_orca_inp(inpname, scf, .false.)
+   call prt_orca_cas_inp(inpname, scf, .false.)
   end if
   if(bgchg) call add_bgcharge2inp_wrap(chgname, inpname)
   ! if bgchg = .True., .inp and .mkl file will be updated
@@ -539,17 +494,13 @@ subroutine do_cas(scf)
 
  case default
   write(6,'(/,A)') error_warn//'allowed programs are Gaussian, GAMESS, PySCF,'
-  write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4 and Dalton. But got CAS_&
-                 &prog='//TRIM(cas_prog)
+  write(6,'(A)') 'OpenMolcas, ORCA, Molpro, BDF, PSI4, Dalton and MRCC. But got&
+                 & CAS_prog='//TRIM(cas_prog)
   stop
  end select
 
  ! generate CASCI/CASSCF density from NOs and NOONs
- select case(TRIM(cas_prog))
- case('pyscf') ! do nothing, density is already correct
- case default
-  call update_density_using_no_and_on(casnofch)
- end select
+ if(TRIM(cas_prog) /= 'pyscf') call update_density_using_no_and_on(casnofch)
 
  if(ist == 2) then
   i = INDEX(hf_fch, '.fch', back=.true.)
@@ -620,6 +571,74 @@ subroutine do_cas(scf)
  call fdate(data_string)
  write(6,'(A)') 'Leave subroutine do_cas at '//TRIM(data_string)
 end subroutine do_cas
+
+! determine the proname of an AutoMR CAS/RAS job
+subroutine determine_cas_ras_proname(ist, npair, ras, scf, datname, hf_fch, &
+                                     fchname, proname)
+ implicit none
+ integer :: i, k
+ integer, intent(in) :: ist, npair
+ character(len=6) :: suffix
+ character(len=240), intent(in) :: datname, hf_fch
+ character(len=240), intent(out) :: fchname, proname
+ logical, intent(in) :: ras, scf
+
+ if(ras) then
+  if(scf) then
+   suffix = 'RASSCF'
+  else
+   suffix = 'RASCI '
+  end if
+ else
+  if(scf) then
+   suffix = 'CASSCF'
+  else
+   suffix = 'CASCI '
+  end if
+ end if
+
+ fchname = ' '; proname = ' '
+ call find_specified_suffix(hf_fch, '.fch', i)
+
+ select case(ist)
+ case(1,3,6)
+  call find_specified_suffix(datname, '.dat', k)
+  fchname = datname(1:k-1)//'.fch'
+  if(scf) then
+   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb',npair,'_'//suffix
+  else
+   write(proname,'(A,I0,A)') hf_fch(1:i-1)//'_gvb',npair,'_'//suffix(1:5)
+  end if
+ case(2) ! UHF -> UNO -> CASCI/CASSCF
+  fchname = hf_fch(1:i-1)//'_uno.fch'
+  if(scf) then
+   proname = hf_fch(1:i-1)//'_uno2'//suffix
+  else
+   proname = hf_fch(1:i-1)//'_uno2'//suffix(1:5)
+  end if
+ case(4)
+  fchname = hf_fch(1:i-1)//'_proj_loc_pair.fch'
+  if(scf) then
+   proname = hf_fch(1:i-1)//'_proj_loc_pair2'//suffix
+  else
+   proname = hf_fch(1:i-1)//'_proj_loc_pair2'//suffix(1:5)
+  end if
+ case(5)
+  fchname = hf_fch
+  if(scf) then
+   proname = hf_fch(1:i-1)//'_'//suffix
+  else
+   proname = hf_fch(1:i-1)//'_'//suffix(1:5)
+  end if
+ case(7) ! SUNO -> CASCI/CASSCF
+  fchname = hf_fch(1:i-1)//'_suno.fch'
+  if(scf) then
+   proname = hf_fch(1:i-1)//'_suno2'//suffix
+  else
+   proname = hf_fch(1:i-1)//'_suno2'//suffix(1:5)
+  end if
+ end select
+end subroutine determine_cas_ras_proname
 
 ! print CASCI/DMRG-CASCI or CASSCF/DMRG-CASSCF script into a given .py file
 subroutine prt_cas_pyscf_script(pyname, scf)
@@ -938,7 +957,7 @@ end subroutine prt_cas_molcas_inp
 ! Print CASCI/CASSCF keywords in to a given ORCA .inp file. We will import
 ! `RIJK_bas` and `RIC_bas` from the module mr_keyword, but not import `RI`
 ! from that module. In such case, we have better control of `RI`.
-subroutine prt_cas_orca_inp(inpname, scf, polar)
+subroutine prt_orca_cas_inp(inpname, scf, polar)
  use mol, only: nacte, nacto, mult
  use mr_keyword, only: mem, nproc, RI, RIJK_bas, hardwfn, crazywfn, iroot, xmult
  implicit none
@@ -948,7 +967,7 @@ subroutine prt_cas_orca_inp(inpname, scf, polar)
  logical, intent(in) :: scf, polar
 
  if(iroot > 19) then
-  write(6,'(/,A)') 'ERROR in subroutine prt_cas_orca_inp: please contact the MO&
+  write(6,'(/,A)') 'ERROR in subroutine prt_orca_cas_inp: please contact the MO&
                    &KIT developers'
   write(6,'(A)') 'to modify the printing format.'
   write(6,'(A,I0)') 'iroot=', iroot
@@ -1034,7 +1053,7 @@ subroutine prt_cas_orca_inp(inpname, scf, polar)
  close(fid1,status='delete')
  close(fid2)
  i = RENAME(TRIM(inpname1), TRIM(inpname))
-end subroutine prt_cas_orca_inp
+end subroutine prt_orca_cas_inp
 
 ! print CASCI/CASSCF keywords into a given Molpro input file
 subroutine prt_cas_molpro_inp(inpname, scf, force)

@@ -3517,6 +3517,8 @@ subroutine read_posthf_e_from_orca_out(outname, read_t1diag, qci, t1diag, ref_e,
  integer :: i, hf_type, fid
  real(kind=8) :: ss
  real(kind=8), intent(out) :: t1diag, ref_e, tot_e
+ character(len=49), parameter :: error_warn = 'ERROR in subroutine read_posthf_&
+                                              &e_from_orca_out: '
  character(len=240) :: buf
  character(len=240), intent(in) :: outname
  logical, intent(in) :: read_t1diag, qci
@@ -3550,8 +3552,7 @@ subroutine read_posthf_e_from_orca_out(outname, read_t1diag, qci, t1diag, ref_e,
   end if
 
   if(i /= 0) then
-   write(6,'(/,A)') 'ERROR in subroutine read_posthf_e_from_orca_out: failed t&
-                    &o read QCISD/CCSD'
+   write(6,'(/,A)') error_warn//'failed to read QCISD/CCSD'
    write(6,'(A)') 'keys from file '//TRIM(outname)
    close(fid)
    stop
@@ -3562,9 +3563,8 @@ subroutine read_posthf_e_from_orca_out(outname, read_t1diag, qci, t1diag, ref_e,
    if(buf(1:7) == 'T1 diag') exit
   end do ! for i
   if(buf(1:7) /= 'T1 diag') then
-   write(6,'(/,A)') 'ERROR in subroutine read_posthf_e_from_orca_out: failed t&
-                    &o read T1 diag-'
-   write(6,'(A)') 'nostic from file '//TRIM(outname)
+   write(6,'(/,A)') error_warn//'failed to read T1 diagnostic'
+   write(6,'(A)') 'from file '//TRIM(outname)
    close(fid)
    stop
   end if
@@ -3575,13 +3575,12 @@ subroutine read_posthf_e_from_orca_out(outname, read_t1diag, qci, t1diag, ref_e,
  do while(.true.)
   read(fid,'(A)',iostat=i) buf
   if(i /= 0) exit
-  if(buf(1:10) == 'FINAL SING') exit
+  if(buf(1:14) == 'FINAL SINGLE P') exit
  end do ! for while
 
  close(fid)
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_posthf_e_from_orca_out: 'FINAL SIN&
-                   &G' not found in"
+  write(6,'(/,A)') error_warn//'`FINAL SINGLE P` not found in'
   write(6,'(A)') 'file '//TRIM(outname)
   stop
  end if
