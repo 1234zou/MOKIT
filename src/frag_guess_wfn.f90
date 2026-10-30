@@ -823,8 +823,8 @@ subroutine frag_guess_wfn(gjfname)
 
  ! do SCF computations one by one
  do i = 1, nfrag, 1
-  !call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
-  !                       frags(i)%e, frags(i)%ssquare)
+  call do_scf_and_read_e(gau_path, hf_prog_path, frags(i)%fname, frags(i)%noiter,&
+                         frags(i)%e, frags(i)%ssquare)
   if(i < nfrag) then
    write(6,'(A,I3,A,F18.9,A,F7.2)') 'i=', i, ', frags(i)%e = ', frags(i)%e,&
                                     ', frags(i)%ssquare=', frags(i)%ssquare
@@ -881,13 +881,9 @@ subroutine frag_guess_wfn(gjfname)
  case(4) ! For SAPT, add SCF density of two fragments to obtain approximate
          ! total SCF density
   call sum_frag_dm_in_fch(2, frags(1:2)%fname, frags(1:2)%pos, frags(3)%fname)
-  write(6,'(A)') 'debug point1'
   k = 1
   if(frags(3)%wfn_type == 3) k = 0
-  write(6,'(A)') 'debug point2'
   call gen_no_using_dm_in_fch(fchname, k)
-  write(6,'(A)') 'debug point3'
-  stop
   call unfchk(fchname, chkname)
   frags(3)%noiter = .false.
   call modify_guess_only_in_gjf(frags(3)%fname)
