@@ -1,4 +1,4 @@
-MOKIT 1.2.9rc4 (Oct 30, 2026)
+MOKIT 1.2.9rc4 (Nov 1, 2026)
 ------------------------
 Fixes
 * CASCI/CASSCF correct density stored in _NO.fch when MRCC program is used

@@ -2,18 +2,19 @@
 
 ! perform the RASCI/RASSCF calculation
 subroutine do_ras(scf)
- use mol, only: mult, nif, ndb, nopen, nacte, nacto, npair, ras1_nacto, &
-  ras3_nacto, ras_nhole, ras_npart, ptchg_e, nuc_pt_e, rasci_e, rasscf_e
- use mr_keyword, only: mem, nproc, ist, iroot, nstate, RI, DKH2, X2C, rasci, &
-  rasscf, nacte_wish, nacto_wish, ras1_nacto_wish, ras3_nacto_wish, ras_nhole_wish,&
-  ras_npart_wish, rasci_force, rasscf_force, molcas_omp, dalton_mpi, bgchg, &
-  chgname, rasci_prog, rasscf_prog, molcas_path, orca_path, molpro_path, gau_path,&
-  hf_fch, datname, casnofch
+ use mol, only: charge, mult, nbf, nif, ndb, nopen, nacta, nactb, nacte, nacto,&
+  npair, ras1_nacto, ras3_nacto, ras_nhole, ras_npart, ptchg_e, nuc_pt_e, &
+  rasci_e, rasscf_e
+ use mr_keyword, only: mem, nproc, ist, iroot, nstate, new_mult, RI, DKH2, X2C,&
+  rasci, rasscf, nacte_wish, nacto_wish, ras1_nacto_wish, ras3_nacto_wish, &
+  ras_nhole_wish, ras_npart_wish, rasci_force, rasscf_force, molcas_omp, &
+  dalton_mpi, bgchg, chgname, rasci_prog, rasscf_prog, molcas_path, orca_path, &
+  molpro_path, gau_path, hf_fch, datname, casnofch
  use util_wrapper, only: add_bgcharge2inp_wrap, fch2inporb_wrap, orb2fch_wrap,&
   fch2dal_wrap, fch2mkl_wrap, mkl2gbw, gbw2molden, molden2fch_wrap, fch2com_wrap,&
   xml2fch_wrap, formchk, unfchk
  implicit none
- integer :: i, nvir, n_pocc, nacte1, nacto1, int_tmp(6), RENAME
+ integer :: i, na, nb, nvir, n_pocc, nacte1, nacto1, int_tmp(6), RENAME
  real(kind=8) :: unpaired_e ! unpaired electrons
  real(kind=8) :: e(2) ! e(1) is RASCI energy, e(2) is RASSCF energy
  real(kind=8), allocatable :: noon(:), ras_on(:)
@@ -23,7 +24,7 @@ subroutine do_ras(scf)
  character(len=240) :: chkname, fchname, proname, inpname, outname, orbname, &
   mklname, molden, xmlname, gradname
  character(len=300) :: buf
- logical :: ras_force
+ logical :: uhf, ras_force
  logical, intent(in) :: scf
 
  if(scf) then
@@ -52,6 +53,50 @@ subroutine do_ras(scf)
  end if
  ras_force = (rasci_force .or. rasscf_force)
 
+ if(ist == 5) then
+  call check_uhf_in_fch(hf_fch, uhf)
+  if(uhf) then
+   write(6,'(/,A)') error_warn//'R(O)HF-type .fch(k) file is expected when'
+   write(6,'(A)') 'using the `readno` keyword. But you provide a UHF-type file.&
+                  & Please check'
+   write(6,'(A)') TRIM(hf_fch)
+   stop
+  end if
+
+  ! if the user wants to perform RASCI/RASSCF calculations using a new spin
+  ! multiplicity, we copy a new .fch file and update mult as well as hf_fch
+  if(new_mult>0 .and. new_mult/=mult) then
+   if(MOD(IABS(new_mult-mult),2) /= 0) then
+    write(6,'(/,A)') error_warn//'inconsistency found between mult and NewMult.'
+    write(6,'(2(A,I0))') 'mult=', mult, ', NewMult=', new_mult
+    stop
+   end if
+   write(6,'(A)') REPEAT('-', 79)
+   write(6,'(A)') 'Remark: a new spin multiplicity is specified by the user. Up&
+                  &dating...'
+   call find_specified_suffix(hf_fch, '.fch', i)
+   fchname = hf_fch(1:i-1)//'_M.fch'
+   call sys_copy_file(TRIM(hf_fch), TRIM(fchname), .false.)
+   call modify_charge_and_mult_in_fch(fchname, charge, new_mult)
+   mult = new_mult
+   hf_fch = fchname
+   write(6,'(A)') 'Done. New filenames will be augmented with `_M`.'
+   write(6,'(A)') REPEAT('-', 79)
+  end if
+
+  write(6,'(A)') 'Radical index for input NOs:'
+  call calc_unpaired_from_fch(hf_fch, 3, .false., unpaired_e)
+ else ! ist /= 5
+  if(new_mult > 0) then
+   write(6,'(/,A)') error_warn//'NewMult is supposed to be used along with ist=5.'
+   write(6,'(A,I0)') 'But current ist=', ist
+   stop
+  end if
+ end if
+
+ call read_nbf_and_nif_from_fch(hf_fch, nbf, nif)
+ call read_na_and_nb_from_fch(hf_fch, na, nb)
+ nopen = na - nb
  call determine_cas_ras_proname(ist, npair, .true., scf, datname, hf_fch, &
                                 fchname, proname)
 
@@ -71,13 +116,15 @@ subroutine do_ras(scf)
   ras_npart = ras_npart_wish
   ras1_nacto = ras1_nacto_wish
   ras3_nacto = ras3_nacto_wish
-  ndb = (2*(ndb+npair) + nopen - nacte - 2*ras1_nacto)/2
+  ndb = (na + nb - nacte - 2*ras1_nacto)/2
  end if
 
  nacte1 = 2*ras1_nacto + nacte
  nacto1 = ras1_nacto + nacto + ras3_nacto
  n_pocc = ndb + nacto1
  nvir = nif - n_pocc
+ nacta = (nacte + nopen)/2
+ nactb = nacte - nacta
 
  if(scf) then
   write(6,'(A)',advance='no') 'RASSCF('
