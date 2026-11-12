@@ -81,10 +81,12 @@ subroutine read_elem_from_gjf(gjfname, natom, elem, ghost)
 !f2py intent(out) :: ghost
 !f2py depend(natom) :: ghost
 
- forall(i = 1:natom) elem(i) = '  '
- ghost = .false.
+ do i = 1, natom, 1
+  elem(i) = '  '
+ end do ! for i
+
+ ghost = .false.; nblank = 0
  open(newunit=fid,file=TRIM(gjfname),status='old',position='rewind')
- nblank = 0
 
  do while(.true.)
   read(fid,'(A)') buf
@@ -250,6 +252,8 @@ end subroutine write_xtb_coord
 
 end module periodic_table
 
+! Read element symbols and Cartesian coordinates from a given file. The file
+! format is determined automatically.
 subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
  implicit none
  integer :: i, charge, mult
@@ -283,11 +287,91 @@ subroutine read_elem_and_coor_from_file(fname, natom, elem, coor)
   write(6,'(/,A)') 'ERROR in subroutine read_elem_and_coor_from_file: invalid f&
                    &ormat.'
   write(6,'(A)') 'Currently only .fch/.gjf/.inp/.pdb/.xyz are supported.'
+  write(6,'(A)') 'fname='//TRIM(fname)
   stop
  end select
 
  if(allocated(nuc)) deallocate(nuc)
 end subroutine read_elem_and_coor_from_file
+
+! Get molecular formula from a given file. The file format is determined
+! automatically.
+subroutine get_molecular_formula(fname, formula)
+ use fch_content, only: elem2nuc
+ implicit none
+ integer :: i, j, k1, k2, natom, n_unique
+ integer, allocatable :: ntimes(:)
+ real(kind=8), allocatable :: coor(:,:)
+ character(len=2) :: str2
+ character(len=2), allocatable :: elem(:), unique_elem(:)
+ character(len=7) :: str7
+ character(len=240), intent(in) :: fname
+!f2py intent(in) :: fname
+ character(len=240), intent(out) :: formula
+!f2py intent(out) :: formula
+ logical :: changed
+
+ formula = ' '
+ call read_natom_from_file(fname, natom)
+ allocate(elem(natom), coor(3,natom))
+ call read_elem_and_coor_from_file(fname, natom, elem, coor)
+ deallocate(coor)
+
+ ! If the file is a PBC .gjf file, drop lattice vector `Tv`
+ do i = natom, 1, -1
+  if(elem(i) /= 'Tv') exit
+ end do ! for i
+ if(i < natom) natom = i
+
+ n_unique = 1
+ do i = 2, natom, 1
+  if(ALL(elem(1:i-1) /= elem(i))) n_unique = n_unique + 1
+ end do ! for i
+
+ allocate(unique_elem(n_unique), ntimes(n_unique))
+ unique_elem(1) = elem(1)
+ ntimes(1) = 1
+
+ n_unique = 1
+ do i = 2, natom, 1
+  if(ALL(elem(1:i-1) /= elem(i))) then
+   n_unique = n_unique + 1
+   unique_elem(n_unique) = elem(i)
+  end if
+ end do ! for i
+
+ do i = 1, n_unique, 1
+  ntimes(i) = COUNT(elem == unique_elem(i))
+ end do ! for i
+ deallocate(elem)
+
+ do while(.true.)
+  changed = .false.
+  do i = 1, n_unique-1, 1
+   k1 = elem2nuc(unique_elem(i))
+   do j = i+1, n_unique, 1
+    k2 = elem2nuc(unique_elem(j))
+    if(k1 > k2) then
+     str2=unique_elem(j); unique_elem(j)=unique_elem(i); unique_elem(i)=str2
+     k1 = ntimes(j); ntimes(j) = ntimes(i); ntimes(i) = k1
+     k1 = k2
+     changed = .true.
+    end if
+   end do ! for j
+  end do ! for i
+  if(.not. changed) exit
+ end do ! for while
+
+ k1 = 0
+ do i = 1, n_unique, 1
+  write(str7,'(A,I0)') TRIM(unique_elem(i)), ntimes(i)
+  k2 = LEN_TRIM(str7)
+  formula(k1+1:k1+k2+1) = str7(1:k2)//' '
+  k1 = k1 + k2 + 1
+ end do ! for i
+
+ deallocate(unique_elem, ntimes)
+end subroutine get_molecular_formula
 
 subroutine read_elem_and_coor_from_gjf_pbc(gjfname, natom, elem, nuc, coor, &
                                            lat_vec, charge, mult)
@@ -1710,7 +1794,9 @@ subroutine fch2hess(fchname)
  call read_elem_and_coor_from_fch(fchname, natom, elem, nuc, coor, charge, mult)
 
  allocate(ram1(natom))
- forall(k = 1:natom) ram1(k) = ram(nuc(k))
+ do k = 1, natom, 1
+  ram1(k) = ram(nuc(k))
+ end do ! for k
  deallocate(nuc)
 
  k = 3*natom

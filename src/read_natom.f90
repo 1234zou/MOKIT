@@ -29,9 +29,9 @@ subroutine read_natom_from_file(fname, natom)
  case('.EIn')
   call read_natom_from_EIn(fname, natom)
  case default
-  write(6,'(/,A)') 'ERROR in subroutine read_natom_from_file: file format not s&
-                   &upported.'
-  write(6,'(A)') "Suffix='"//fname(i-3:i)//"'"
+  write(6,'(/,A)') 'ERROR in subroutine read_natom_from_file: file format `'//&
+                    fname(i-3:i)//'` not supported.'
+  write(6,'(A)') 'fname='//TRIM(fname)
   stop
  end select
 end subroutine read_natom_from_file

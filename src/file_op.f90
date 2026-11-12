@@ -121,7 +121,7 @@ subroutine require_gjf_suffix(gjfname)
  end if
 
  if(gjfname(k-3:k) /= '.gjf') then
-  write(6,'(/,A)') error_warn//'".gjf" suffix is required.'
+  write(6,'(/,A)') error_warn//'`.gjf` suffix is required.'
   write(6,'(A)') 'Input gjfname='//gjfname(1:k)
   stop
  end if

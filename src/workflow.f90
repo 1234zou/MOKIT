@@ -981,7 +981,7 @@ subroutine nmr_workflow(gjfname)
 
  call read_mem_and_nproc_from_gjf(gjfname, mem, nproc)
  ! Note: the return `mem` is in unit MB, here we convert it to unit GB
- mem = NINT(DBLE(mem)/1d3)
+ mem = IDNINT(DBLE(mem)/1d3)
  write(6,'(/,2(A,I0))') 'mem=', mem, 'GB, nproc=', nproc
 
  call read_natom_from_gjf(gjfname, natom)

@@ -1,6 +1,7 @@
-MOKIT 1.2.9rc4 (Nov 1, 2026)
+MOKIT 1.2.9rc5 (Nov 12, 2026)
 ------------------------
 Fixes
+* fix SUM(noon) for integer addition and subtraction in do_ras.f90
 * CASCI/CASSCF correct density stored in _NO.fch when MRCC program is used
 * print AO dipole integral matrices in fch247 by calling Gaussian/PySCF
 * fix the CASCI-based PC-NEVPT2 and SDSPT2 interfaces to BDF
@@ -18,6 +19,7 @@ Features
 * add DLPNO-MP2 interface to PSI4
 * support `-dft` in fch2amo
 Improvement
+* add read_cfc_from_fch/prt_cfc2fch in mokit/lib/util.py
 * Support frozen core in ADC interfaces to PySCF
 * Print UADC excited state <S^2> when ADC_prog=PySCF
 * update maximum nopen from 10 to 49 in modify_GMS1.sh

@@ -108,7 +108,7 @@ subroutine do_ras(scf)
   call read_eigenvalues_from_fch(fchname, nif, 'a', noon)
   call determine_ras_active_space_from_noon(nif, noon, ndb, ras1_nacto, nacto, &
                                             ras3_nacto)
-  nacte = SUM(noon) - 2d0*(ndb+ras1_nacto)
+  nacte = IDNINT(SUM(noon)) - 2*(ndb+ras1_nacto)
  else
   nacte = nacte_wish ! active electrons in RAS2
   nacto = nacto_wish ! active orbitals in RAS2

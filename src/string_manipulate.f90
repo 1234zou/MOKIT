@@ -13,8 +13,8 @@ end module phys_cons
 
 module mokit_version_info
  implicit none
- character(len=9), parameter :: version = '1.2.9rc4 '
- character(len=11), parameter :: date = '2026-Nov-1 '
+ character(len=9), parameter :: version = '1.2.9rc5 '
+ character(len=11), parameter :: date = '2026-Nov-12'
 end module mokit_version_info
 
 ! transform a string into upper case
@@ -2514,4 +2514,53 @@ subroutine read_ras_int_from_buf(method, nacte_wish, ras_nhole_wish, &
 
  nacte_wish = nacte_wish - 2*ras1_nacto_wish ! active electrons in RAS2
 end subroutine read_ras_int_from_buf
+
+! Check whether there exists `data_xxx` block at the head of a .cif file. If
+! there is no such one, add one.
+subroutine check_data_head_in_cif(cifname)
+ implicit none
+ integer :: i, fid, fid1, RENAME
+ character(len=240) :: buf, cifname1
+ character(len=240), intent(in) :: cifname
+!f2py intent(in) :: cifname
+
+ call find_specified_suffix(cifname, '.cif', i)
+ cifname1 = cifname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(cifname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)') buf
+  if(buf(1:1) /= '#') exit
+ end do ! for while
+
+ if(buf(1:5) == 'data_') then
+  close(fid)
+  return
+ else
+  rewind(fid)
+  open(newunit=fid1,file=TRIM(cifname1),status='replace')
+
+  do while(.true.)
+   read(fid,'(A)') buf
+   if(buf(1:1) /= '#') exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  write(fid1,'(A)') 'data_xxx'
+  write(fid1,'(A)') TRIM(buf)
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  close(fid1)
+  close(fid,status='delete')
+  i = RENAME(TRIM(cifname1), TRIM(cifname))
+
+  write(6,'(/,A)') 'Warning: '//TRIM(cifname)//' does not include `data_` block'
+  write(6,'(A,/)') 'head. It has been added automatically.'
+ end if
+end subroutine check_data_head_in_cif
 

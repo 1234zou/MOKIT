@@ -399,6 +399,29 @@ def average_nmr_shielding(nmr_out, atom_list, program='gaussian', paramagnetic=F
     return ave_val
 
 
+# a wrapper for the subroutine read_cart_force_const_from_fch
+def read_cfc_from_fch(fchname):
+    from mokit.lib.rwgeom import read_natom_from_fch, read_cart_force_const_from_fch
+    natom = read_natom_from_fch(fchname)
+    cfc = read_cart_force_const_from_fch(fchname, natom)
+    return cfc
+
+
+# a wrapper for the subroutine write_cart_force_const_into_fch
+def prt_cfc2fch(fchname, cfc):
+    from mokit.lib.rwgeom import write_cart_force_const_into_fch
+    match cfc.ndim:
+        case 2:
+            natom = cfc.shape[0] // 3
+            h = cfc
+        case 4:
+            natom = cfc.shape[0]
+            h = cfc.transpose(0,2,1,3).reshape(3*natom, 3*natom)
+        case _:
+            raise ValueError('Input Hessian dimension cannot be recognized.')
+    write_cart_force_const_into_fch(fchname, natom, h)
+
+
 def dcd2xyz(dcdname, elem_file=None, elem=None):
     '''
     Convert .dcd file plus element symbols to a .xyz file. The .dcd file usually
@@ -435,6 +458,55 @@ def dcd2xyz(dcdname, elem_file=None, elem=None):
     lat_vec = lat_vec.transpose(1,2,0)
     xyzname = dcdname[0:dcdname.rindex('.dcd')]+'.xyz'
     pt.write_xyz_frames(xyzname, nframe, natom, elem, coor, lat_vec)
+
+
+def cif2xyz(cifname, prog="ase"):
+    from mokit.lib.rwwfn import check_data_head_in_cif
+    check_data_head_in_cif(cifname)
+    match prog:
+        case "ase":
+            xyzname = cif2xyz_ase(cifname)
+        case "gemmi":
+            xyzname = cif2xyz_gemmi(cifname)
+        case "pymatgen":
+            xyzname = cif2xyz_pymatgen(cifname)
+        case _:
+            raise ValueError('prog="'+prog+'" not supported.')
+    return xyzname
+
+
+def cif2xyz_gemmi(cifname):
+    from gemmi import read_small_structure
+    st = read_small_structure(cifname)
+    st.setup_cell_images()
+    sites = st.get_all_unit_cell_sites()
+    lat = " ".join(f"{v:.8f}" for row in st.cell.orth.mat.tolist() for v in row)
+
+    xyzname = cifname.replace(".cif", ".xyz")
+    with open(xyzname, "w") as f:
+        f.write(f"{len(sites)}\n")
+        f.write(f'Lattice="{lat}" Properties=species:S:1:pos:R:3 pbc="T T T"\n')
+        for s in sites:
+            p = s.orth(st.cell)
+            f.write(f"{s.element.name} {p.x:.8f} {p.y:.8f} {p.z:.8f}\n")
+    return xyzname
+
+
+def cif2xyz_pymatgen(cifname):
+    from pymatgen.io.cif import CifParser
+    xyzname = cifname.replace(".cif", ".xyz")
+    structure = CifParser(cifname).parse_structures(primitive=False)[0]
+    structure.to(filename=xyzname, fmt="xyz")
+    return xyzname
+
+
+def cif2xyz_ase(cifname):
+    from ase.io import read, write
+    #xyzname = cifname[0:cifname.rindex('.cif')]+'.xyz'
+    xyzname = cifname.replace(".cif", ".xyz")
+    atoms = read(cifname)
+    write(xyzname, atoms, format="extxyz")
+    return xyzname
 
 
 def mo_g_int(fnames, x, na=None, nb=None, trace_PS=False):

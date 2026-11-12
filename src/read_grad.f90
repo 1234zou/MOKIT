@@ -668,9 +668,9 @@ subroutine read_cart_force_const_from_fch(fchname, natom, cfc)
  end do ! for while
 
  if(i /= 0) then
-  write(6,'(/,A)') "ERROR in subroutine read_cart_force_const_from_fch: failed &
-                   &to locate 'Cartesian"
-  write(6,'(A)') " Force Const' in file "//TRIM(fchname)
+  write(6,'(/,A)') 'ERROR in subroutine read_cart_force_const_from_fch: failed &
+                   &to locate'
+  write(6,'(A)') '`Cartesian Force Const` in file '//TRIM(fchname)
   close(fid)
   stop
  end if
@@ -680,6 +680,134 @@ subroutine read_cart_force_const_from_fch(fchname, natom, cfc)
  close(fid)
  call symmetrize_dmat(k, cfc)
 end subroutine read_cart_force_const_from_fch
+
+! write/print Cartesian Force Constants from a .fch(k) file
+subroutine write_cart_force_const_into_fch(fchname, natom, cfc)
+ implicit none
+ integer :: i, j, k, len_fc, fid, fid1, RENAME
+ integer, intent(in) :: natom
+!f2py intent(in) :: natom
+ real(kind=8), intent(in) :: cfc(3*natom,3*natom)
+!f2py intent(in) :: cfc
+!f2py depend(natom) :: cfc
+ character(len=53), parameter :: error_warn = 'ERROR in subroutine write_cart_f&
+                                              &orce_const_into_fch: '
+ character(len=240) :: buf, new_fch
+ character(len=240), intent(in) :: fchname
+!f2py intent(in) :: fchname
+ logical :: found, normal_end
+
+ call find_specified_suffix(fchname, '.fch', i)
+ new_fch = fchname(1:i-1)//'.t'
+ open(newunit=fid,file=TRIM(fchname),status='old',position='rewind')
+
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  if(buf(1:21) == 'Cartesian Force Const') exit
+ end do ! for while
+
+ if(i /= 0) then
+  found = .false.
+  write(6,'(/,A)') 'Warning: `Cartesian Force Const` not found in file '//&
+                   TRIM(fchname)
+  write(6,'(A)') 'This section will be added.'
+ else
+  found = .true.
+  write(6,'(/,A)') 'Remark: `Cartesian Force Const` found in file '//TRIM(fchname)
+  write(6,'(A)') 'This section will be updated.'
+ end if
+
+ k = 3*natom; len_fc = k*(k+1)/2
+ rewind(fid)
+ open(newunit=fid1,file=TRIM(new_fch),status='replace')
+
+ if(found) then ! `Cartesian Force Const` found
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:21) == 'Cartesian Force Const') exit
+  end do ! for while
+
+  write(fid1,'(5(1X,ES15.8))') ((cfc(j,i),j=1,i),i=1,k)
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) then
+    normal_end = .false.; exit
+   end if
+   if(INDEX(buf,'=') > 0) then
+    normal_end = .true.; exit
+   end if
+  end do ! for while
+  if(normal_end) write(fid1,'(A)') TRIM(buf)
+
+ else           ! `Cartesian Force Const` not found
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) exit
+   write(fid1,'(A)') TRIM(buf)
+   if(buf(1:11) == 'Cartesian G') exit
+  end do ! for while
+
+  if(i /= 0) then
+   rewind(fid)
+   rewind(fid1)
+   do while(.true.)
+    read(fid,'(A)',iostat=i) buf
+    if(i /= 0) exit
+    write(fid1,'(A)') TRIM(buf)
+    if(buf(1:11) == 'Link Distan') exit
+   end do ! for while
+  end if
+
+  if(i /= 0) then
+   rewind(fid)
+   rewind(fid1)
+   do while(.true.)
+    read(fid,'(A)',iostat=i) buf
+    if(i /= 0) exit
+    write(fid1,'(A)') TRIM(buf)
+    if(buf(1:11) == 'Total SCF D') exit
+   end do ! for while
+  end if
+
+  if(i /= 0) then
+   write(6,'(/,A)') error_warn//'none of `Cartesian G`/`Link Distan`/'
+   write(6,'(A)') '`Total SCF D` is found in file '//TRIM(fchname)
+   close(fid)
+   close(fid1,status='delete')
+   stop
+  end if
+
+  do while(.true.)
+   read(fid,'(A)',iostat=i) buf
+   if(i /= 0) then
+    normal_end = .false.; exit
+   end if
+   if(INDEX(buf,'=') > 0) then
+    normal_end = .true.; exit
+   end if
+   write(fid1,'(A)') TRIM(buf)
+  end do ! for while
+
+  write(fid1,'(A,I12)') 'Cartesian Force Constants                  R   N=',len_fc
+  write(fid1,'(5(1X,ES15.8))') ((cfc(j,i),j=1,i),i=1,k)
+  if(normal_end) write(fid1,'(A)') TRIM(buf)
+ end if
+
+ ! copy remaining content in old .fch(k) file
+ do while(.true.)
+  read(fid,'(A)',iostat=i) buf
+  if(i /= 0) exit
+  write(fid1,'(A)') TRIM(buf)
+ end do ! for while
+
+ close(fid,status='delete')
+ close(fid1)
+ i = RENAME(TRIM(new_fch), TRIM(fchname))
+end subroutine write_cart_force_const_into_fch
 
 ! Write/create an ORCA .hess file which only contains Cartesian Force Constants
 ! and Cartesian coordinates. Such a .hess file can be used as the initial Hessian
