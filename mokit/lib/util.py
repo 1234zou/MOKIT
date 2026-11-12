@@ -410,15 +410,14 @@ def read_cfc_from_fch(fchname):
 # a wrapper for the subroutine write_cart_force_const_into_fch
 def prt_cfc2fch(fchname, cfc):
     from mokit.lib.rwgeom import write_cart_force_const_into_fch
-    match cfc.ndim:
-        case 2:
-            natom = cfc.shape[0] // 3
-            h = cfc
-        case 4:
-            natom = cfc.shape[0]
-            h = cfc.transpose(0,2,1,3).reshape(3*natom, 3*natom)
-        case _:
-            raise ValueError('Input Hessian dimension cannot be recognized.')
+    if cfc.ndim == 2:
+        natom = cfc.shape[0] // 3
+        h = cfc
+    elif cfc.ndim == 4:
+        natom = cfc.shape[0]
+        h = cfc.transpose(0,2,1,3).reshape(3*natom, 3*natom)
+    else:
+        raise ValueError('Input Hessian dimension cannot be recognized.')
     write_cart_force_const_into_fch(fchname, natom, h)
 
 
@@ -463,15 +462,14 @@ def dcd2xyz(dcdname, elem_file=None, elem=None):
 def cif2xyz(cifname, prog="ase"):
     from mokit.lib.rwwfn import check_data_head_in_cif
     check_data_head_in_cif(cifname)
-    match prog:
-        case "ase":
-            xyzname = cif2xyz_ase(cifname)
-        case "gemmi":
-            xyzname = cif2xyz_gemmi(cifname)
-        case "pymatgen":
-            xyzname = cif2xyz_pymatgen(cifname)
-        case _:
-            raise ValueError('prog="'+prog+'" not supported.')
+    if prog == "ase":
+        xyzname = cif2xyz_ase(cifname)
+    elif prog == "gemmi":
+        xyzname = cif2xyz_gemmi(cifname)
+    elif prog == "pymatgen":
+        xyzname = cif2xyz_pymatgen(cifname)
+    else:
+        raise ValueError('prog="'+prog+'" not supported.')
     return xyzname
 
 
